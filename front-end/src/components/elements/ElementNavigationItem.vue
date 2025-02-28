@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router';
+import { inject } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
 
-defineProps<{
+const props = defineProps<{
   to: string;
 }>();
+
 </script>
 
 <template>

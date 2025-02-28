@@ -2,8 +2,8 @@
 
 <template>
     <div class="setting-container">
-        <div class="setting-header"></div>
-        <div class="setting-body"></div>
+        <div class="setting-header"><slot name="setting-title"></slot></div>
+        <div class="setting-body"><slot name="setting-content"></slot></div>
     </div>
 </template>
 
@@ -12,11 +12,10 @@
         width: 100%;
         height: 100%;
 
-        border-radius: 10px;
-
         display: flex;
         flex-direction: column;
         
+        border-radius: 10px;
         background-color: white;
         box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
     }
@@ -26,6 +25,10 @@
         background-color: var(--mm-black);
         border-top-left-radius: 10px;
         border-top-right-radius: 10px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        padding: 20px;
     }
 
     .setting-body {
@@ -33,5 +36,17 @@
         background-color: white;
         border-bottom-left-radius: 10px;
         border-bottom-right-radius: 10px;
+        padding: 20px;
+    }
+
+    ::v-deep(.column-titles) {
+        width: 100%;
+
+        text-align: center;
+        font-size: 12px;
+
+        border-radius: 8px;
+        background-color: white;
+        box-shadow: 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
     }
 </style>

@@ -4,16 +4,40 @@ import { RouterLink, RouterView } from 'vue-router'
 import ElementBanner from './components/elements/ElementBanner.vue'
 import ElementNavigation from './components/elements/ElementNavigation.vue';
 
-import { useElementSize } from '@vueuse/core';
-import { onMounted, ref, useTemplateRef, watch } from 'vue';
+import { onMounted, ref, provide, computed, watch } from 'vue';
+import { useRoute } from "vue-router";
 
 const navOpen = ref(false);
+const route = useRoute();
+const isLogin = computed(() => route.path === "/login");
+
+const user: any = ref(null);
+const setUser = (user_data: any) => {
+  user.value = user_data;
+};
+
+provide("user", user);
+provide("setUser", setUser);
+
+onMounted(() => {
+  const storedUser = localStorage.getItem("user");
+  if (storedUser) {
+    user.value = JSON.parse(storedUser);
+  }
+});
+
+watch(isLogin, (newValue) => {
+  if (newValue) {
+    navOpen.value = false;
+  }
+});
+
 </script>
 
 <template>
   <div class="app-container">
     <header>
-      <ElementBanner @menuOpen="navOpen = true"/>
+      <ElementBanner @menuOpen="navOpen = true" :isLogin="isLogin"/>
     </header>
 
     <RouterView class="router-view"/>

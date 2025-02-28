@@ -1,0 +1,5 @@
+.env
+markets.json
+users.json
+
+flask_session/*

@@ -1,10 +1,14 @@
 <script setup lang="ts">
     import IconMenu from '../icons/IconMenu.vue';
+
+    defineProps({
+        isLogin: Boolean
+    })
 </script>
 
 <template>
     <div class="banner">
-        <button class="menu-button" @click="$emit('menuOpen')">
+        <button class="menu-button" @click="$emit('menuOpen')" v-show="!isLogin">
             <IconMenu class="menu-icon" />
         </button>
         <img alt="MM logo" class="mm-logo" src="@/assets/mm-logo.png"/>

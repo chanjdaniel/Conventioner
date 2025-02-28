@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { inject } from 'vue';
 import ElementNavigationItem from './ElementNavigationItem.vue';
 import IconSettings from '../icons/IconSettings.vue';
 import IconVendors from '../icons/IconVendors.vue';
@@ -6,6 +7,11 @@ import IconTables from '../icons/IconTables.vue';
 import IconTools from '../icons/IconTools.vue';
 import IconLog from '../icons/IconLog.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
+import IconSignOutSquare from '../icons/IconSignOutSquare.vue';
+import ElementSignoutButton from './ElementSignoutButton.vue';
+
+const user: any = inject("user");
+
 </script>
 
 <template>
@@ -13,6 +19,8 @@ import IconCloseRound from '../icons/IconCloseRound.vue';
         <button class="close-button" @click="$emit('menuClose')">
             <IconCloseRound class="close-icon" />
         </button>
+
+        <h2 class="user-email">{{ user?.email }} </h2>
 
         <div class="nav">
             <ElementNavigationItem to="welcome">
@@ -56,16 +64,27 @@ import IconCloseRound from '../icons/IconCloseRound.vue';
                 <h3>View Change Log</h3>
             </ElementNavigationItem>
 
+            <ElementSignoutButton>
+                <template #icon>
+                    <IconSignOutSquare class="nav-icon" />
+                </template>
+                <h3>Sign Out</h3>
+            </ElementSignoutButton>
+
         </div>
     </div>
 </template>
 
 <style scoped>
-h3 {
+.user-email {
+    margin-top: 20px;
+    font-size: 18px;
+}
 
+h3 {
 font-family: 'Merge One';
 font-style: normal;
-font-size: 16px;
+font-size: 18px;
 
 /* color: #ffffff; */
 color: var(--mm-black);
