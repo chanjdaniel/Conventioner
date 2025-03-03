@@ -5,13 +5,10 @@ import ElementBanner from './components/elements/ElementBanner.vue'
 import ElementNavigation from './components/elements/ElementNavigation.vue';
 
 import { onMounted, ref, provide, computed, watch } from 'vue';
-import { useRoute, useRouter } from "vue-router";
-
-const hostname = import.meta.env.VITE_FLASK_HOST
+import { useRoute } from "vue-router";
 
 const navOpen = ref(false);
 const route = useRoute();
-const router = useRouter();
 const isLogin = computed(() => route.path === "/login");
 
 const user: any = ref(null);
@@ -22,28 +19,10 @@ const setUser = (user_data: any) => {
 provide("user", user);
 provide("setUser", setUser);
 
-onMounted(async () => {
-  try {
-    const response = await fetch(`${hostname}/check-session`, {
-      method: "GET",
-      credentials: "include",
-    });
-
-    const data = await response.json();
-    console.log(data);
-
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      user.value = JSON.parse(storedUser);
-    } else {
-      user.value = null;
-    }
-
-  } catch (error) {
-    console.error("Check session failed", error);
-    localStorage.removeItem("user");
-    setUser(null);
-    router.push("/login");
+onMounted(() => {
+  const storedUser = localStorage.getItem("user");
+  if (storedUser) {
+    user.value = JSON.parse(storedUser);
   }
 });
 

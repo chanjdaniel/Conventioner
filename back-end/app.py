@@ -113,9 +113,7 @@ def logout():
 @app.route('/check-session', methods=['GET'])
 @login_required
 def check_session():
-    
-    user_data = {"email": current_user.email, "organization": current_user.organization}
-    return jsonify({"message": "Login successful", "user_data": user_data}), 200
+    return jsonify({"email": current_user.email}), 200
 
 def cleanup_sessions():
     now = time.time()
