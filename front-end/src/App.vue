@@ -7,6 +7,8 @@ import ElementNavigation from './components/elements/ElementNavigation.vue';
 import { onMounted, ref, provide, computed, watch } from 'vue';
 import { useRoute } from "vue-router";
 
+const hostname = import.meta.env.VITE_FLASK_HOST;
+
 const navOpen = ref(false);
 const route = useRoute();
 const isLogin = computed(() => route.path === "/login");
@@ -19,7 +21,21 @@ const setUser = (user_data: any) => {
 provide("user", user);
 provide("setUser", setUser);
 
-onMounted(() => {
+onMounted(async () => {
+  try {
+    const response = await fetch(`${hostname}/check-session`, {
+      method: "GET",
+      credentials: "include",
+    });
+
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      user.value = JSON.parse(storedUser);
+    }
+  } catch (error) {
+
+  }
+
   const storedUser = localStorage.getItem("user");
   if (storedUser) {
     user.value = JSON.parse(storedUser);
@@ -120,5 +136,8 @@ header {
 .router-view {
   width: 100vw;
   height: 95vh;
+
+  min-width: 1000px;
+  min-height: 1000px;
 }
 </style>

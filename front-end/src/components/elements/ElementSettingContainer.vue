@@ -28,7 +28,7 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        padding: 20px;
+        padding: 15px;
     }
 
     .setting-body {
@@ -36,11 +36,16 @@
         background-color: white;
         border-bottom-left-radius: 10px;
         border-bottom-right-radius: 10px;
-        padding: 20px;
+        padding-top: 15px;
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-bottom: 20px;
     }
 
-    ::v-deep(.column-titles) {
-        width: 100%;
+    ::v-deep(.row-container) {
+        margin-left: 8px;
+        margin-right: 8px;
+        width: calc(100% - 8px);
 
         text-align: center;
         font-size: 12px;

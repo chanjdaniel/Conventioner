@@ -13,12 +13,12 @@ defineProps<{
 
 const emit = defineEmits(['file-uploaded']);
 
-const filesData = shallowRef<{ name: string, size: number, type: string, lastModified: number, data: any }[]>([])
+const fileData = shallowRef<{ name: string, size: number, type: string, lastModified: number, data: any }>()
 const dropZoneRef = useTemplateRef<HTMLElement>('dropZoneRef')
 
 const { isOverDropZone } = useDropZone(dropZoneRef, { dataTypes: ['text/csv'], onDrop: onDrop })
 
-const { files, open, reset, onCancel, onChange } = useFileDialog({
+const { files, open, onChange } = useFileDialog({
   accept: 'text/csv',
   directory: false,
 })
@@ -32,29 +32,27 @@ interface FileData {
 }
 
 function onDrop(files: File[] | null) {
-  handleUpload(files);
+  const file = files ? files[0] : null;
+  handleUpload(file);
 }
 
 onChange((files: FileList | null) => {
-  const fileArray: File[] | null = files ? Array.from(files) : null;
-  handleUpload(fileArray);
+  const file = files ? files[0] : null;
+  handleUpload(file);
 });
 
-async function handleUpload(files: File[] | null) {
-  if (files) {
+async function handleUpload(file: File | null) {
+  if (file) {
+    fileData.value = await (async (file): Promise<FileData> => ({
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      lastModified: file.lastModified,
+      data: await readCSVFile(file),
+    }))(file);
 
-    filesData.value = await Promise.all(
-      files.map(async (file): Promise<FileData> => ({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        lastModified: file.lastModified,
-        data: await readCSVFile(file),
-      }))
-    );
-
-    emit('file-uploaded', filesData.value);
-  } 
+    emit('file-uploaded', fileData.value);
+  }
 }
 
 const readCSVFile = (file: File) => {
@@ -84,14 +82,6 @@ const readCSVFile = (file: File) => {
                 <span class="file-text"> or drag it here </span>
             </h3>
         </div>
-        <div class="flex flex-wrap justify-center items-center">
-            <div v-for="(file, index) in filesData" :key="index" class="w-200px bg-black-200/10 ma-2 pa-6">
-              <p>Name: {{ file.name }}</p>
-              <p>Size: {{ file.size }}</p>
-              <p>Type: {{ file.type }}</p>
-              <p>Last modified: {{ file.lastModified }}</p>
-            </div>
-        </div>
     </div>
 </template>
 
@@ -99,7 +89,6 @@ const readCSVFile = (file: File) => {
     .file-container {
         width: 50%;
         height: 50%;
-        /* opacity: 0%; */
         display: flex;
         flex-direction: column;
         justify-content: center;

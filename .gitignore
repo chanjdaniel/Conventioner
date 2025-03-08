@@ -4,5 +4,6 @@ users.json
 
 /node_modules
 /back-end/flask_session
+/back-end/data/
 /back-end/__pycache__
 .DS_Store

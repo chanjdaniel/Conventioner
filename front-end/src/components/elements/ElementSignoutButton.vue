@@ -18,13 +18,16 @@ const logout = async () => {
     const data = await response.json();
     console.log(data);
 
-    localStorage.removeItem("user");
+    localStorage.clear();
     setUser(null);
-
     router.push("/login");
 
   } catch (error) {
     console.error("Logout failed:", error);
+
+    localStorage.clear();
+    setUser(null);
+    router.push("/login");
   }
 };
 </script>

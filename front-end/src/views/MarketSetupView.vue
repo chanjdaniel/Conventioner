@@ -1,9 +1,57 @@
 <script setup lang="ts">
+  import { onMounted, ref, reactive, toRefs, watch } from 'vue';
+
   import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
   import ElementSetupColumns from '@/components/elements/ElementSetupColumns.vue';
   import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
   import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
   import ElementMarketSetup from '@/components/elements/ElementMarketSetup.vue';
+
+  export interface SetupObject {
+    colNames: string[],
+    priority: string[],
+    marketDates: string[],
+    sections: {[key: string]: number},
+  }
+
+
+  const setupObject = reactive<SetupObject>({
+    colNames: [],
+    priority: [],
+    marketDates: [],
+    sections: {},
+  });
+
+  onMounted(() => {
+    const setupObjectJSON: string | null = localStorage.getItem("setupObject");
+    if (setupObjectJSON) {
+      Object.assign(setupObject, JSON.parse(setupObjectJSON));
+
+    } else {
+      const inputDataJSON = localStorage.getItem("upload") || "{}";
+      const inputData = JSON.parse(inputDataJSON);
+
+      const colNames = Array.isArray(inputData?.data?.meta?.fields) ? inputData.data.meta.fields : [];
+
+      const newSetupObject: SetupObject = {
+        colNames: colNames,
+        priority: [],
+        marketDates: [],
+        sections: {}
+      };
+
+      Object.assign(setupObject, newSetupObject);
+    }
+  });
+
+  const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
+    setupObject.colNames = newSetupObject.colNames;
+    setupObject.priority = newSetupObject.priority;
+    setupObject.marketDates = newSetupObject.marketDates;
+    setupObject.sections = newSetupObject.sections;
+    localStorage.setItem("setupObject", JSON.stringify(setupObject));
+    // console.log("SetupObject updated: ", setupObject);
+  };
 </script>
 
 <template>
@@ -17,7 +65,7 @@
                 <h2>Setup Columns</h2>
               </template>
               <template #setting-content>
-                <ElementSetupColumns />
+                <ElementSetupColumns :setupObject="setupObject" @update:setupObject="handleUpdateSetupObject"/>
               </template>
             </ElementSettingContainer>
             <ElementSettingContainer>
@@ -25,7 +73,7 @@
                 <h2>Assignment Priority</h2>
               </template>
               <template #setting-content>
-                <ElementAssignmentPriority />
+                <ElementAssignmentPriority :setupObject="setupObject" @update:setupObject="handleUpdateSetupObject"/>
               </template>
             </ElementSettingContainer>
             <ElementSettingContainer>
@@ -33,7 +81,7 @@
                 <h2>Market Dates</h2>
               </template>
               <template #setting-content>
-                <ElementMarketDates />
+                <ElementMarketDates :setupObject="setupObject" @update:setupObject="handleUpdateSetupObject"/>
               </template>
             </ElementSettingContainer>
             <ElementSettingContainer>
@@ -41,7 +89,7 @@
                 <h2>Market Setup</h2>
               </template>
               <template #setting-content>
-                <ElementMarketSetup />
+                <ElementMarketSetup :setupObject="setupObject" @update:setupObject="handleUpdateSetupObject"/>
               </template>
             </ElementSettingContainer>
           </div>
