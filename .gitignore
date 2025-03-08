@@ -3,3 +3,4 @@ markets.json
 users.json
 
 /back-end/flask_session
+/back-end/__pycache__
