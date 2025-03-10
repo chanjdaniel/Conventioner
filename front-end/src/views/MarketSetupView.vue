@@ -1,19 +1,26 @@
 <script setup lang="ts">
-  import { onMounted, ref, reactive, toRefs, watch } from 'vue';
+  import { onMounted, reactive, nextTick} from 'vue';
 
   import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
   import ElementSetupColumns from '@/components/elements/ElementSetupColumns.vue';
   import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
   import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
   import ElementMarketSetup from '@/components/elements/ElementMarketSetup.vue';
+  import { DataType } from '@/assets/types/DataType';
+
+  export interface PriorityObject {
+    id: number,
+    colName: string,
+    dataType: DataType,
+    sortingOrder: string | string[],
+  }
 
   export interface SetupObject {
     colNames: string[],
-    priority: string[],
+    priority: PriorityObject[],
     marketDates: string[],
     sections: {[key: string]: number},
   }
-
 
   const setupObject = reactive<SetupObject>({
     colNames: [],
@@ -23,7 +30,10 @@
   });
 
   onMounted(() => {
+    // create setup object
+
     const setupObjectJSON: string | null = localStorage.getItem("setupObject");
+    // console.log(setupObjectJSON);
     if (setupObjectJSON) {
       Object.assign(setupObject, JSON.parse(setupObjectJSON));
 
@@ -41,16 +51,18 @@
       };
 
       Object.assign(setupObject, newSetupObject);
+      localStorage.setItem("setupObject", JSON.stringify(setupObject));
     }
   });
 
   const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
-    setupObject.colNames = newSetupObject.colNames;
-    setupObject.priority = newSetupObject.priority;
-    setupObject.marketDates = newSetupObject.marketDates;
-    setupObject.sections = newSetupObject.sections;
-    localStorage.setItem("setupObject", JSON.stringify(setupObject));
-    // console.log("SetupObject updated: ", setupObject);
+    nextTick(() => {
+      setupObject.colNames = newSetupObject.colNames;
+      setupObject.priority = newSetupObject.priority;
+      setupObject.marketDates = newSetupObject.marketDates;
+      setupObject.sections = newSetupObject.sections;
+      localStorage.setItem("setupObject", JSON.stringify(setupObject));
+    });
   };
 </script>
 

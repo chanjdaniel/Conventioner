@@ -5,12 +5,13 @@ import ElementBanner from './components/elements/ElementBanner.vue'
 import ElementNavigation from './components/elements/ElementNavigation.vue';
 
 import { onMounted, ref, provide, computed, watch } from 'vue';
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
 const navOpen = ref(false);
 const route = useRoute();
+const router = useRouter();
 const isLogin = computed(() => route.path === "/login");
 
 const user: any = ref(null);
@@ -28,17 +29,18 @@ onMounted(async () => {
       credentials: "include",
     });
 
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      user.value = JSON.parse(storedUser);
+    if (response.ok) {
+      const userJSON = localStorage.getItem("user");
+      user.value = userJSON ? JSON.parse(userJSON) : null;
+
+    } else {
+      localStorage.clear();
+      router.push("/login");
     }
+
   } catch (error) {
-
-  }
-
-  const storedUser = localStorage.getItem("user");
-  if (storedUser) {
-    user.value = JSON.parse(storedUser);
+    localStorage.clear();
+    router.push("/login");
   }
 });
 

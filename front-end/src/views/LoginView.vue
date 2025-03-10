@@ -14,7 +14,6 @@ const showPassword = ref(false);
 const setUser: any = inject("setUser");
 
 const submitLogin = async () => {
-  console.log(hostname);
   const response = await fetch(`${hostname}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -1,45 +1,32 @@
 <script setup lang="ts">
-    import { ref, onMounted, defineEmits, defineProps, toRef } from 'vue';
-    import { nextTick } from 'vue';
-    import IconEdit from '../icons/IconEdit.vue';
-    import { type SetupObject } from '@/views/MarketSetupView.vue';
+import { ref, onMounted, defineEmits, defineProps, toRef, nextTick, onUnmounted } from 'vue';
+import IconEdit from '../icons/IconEdit.vue';
+import { type SetupObject } from '@/views/MarketSetupView.vue';
 
-    // handle reactivity for setupObject
+const props = defineProps<{ setupObject: SetupObject }>();
+const emit = defineEmits(["update:setupObject"]);
 
-    const props = defineProps<{ setupObject: SetupObject }>();
-    const emit = defineEmits(["update:setupObject"]);
-    const localSetupObject = ref(props.setupObject);
-    const inputColNames = toRef(localSetupObject.value, "colNames");
+const setupObject = toRef(props, "setupObject");
+const inputColNames = toRef(setupObject.value, "colNames");
 
-    const updateSetupObject= () => {
-        emit("update:setupObject", localSetupObject.value);
-    };
+const updateSetupObject = () => {
+    emit("update:setupObject", setupObject.value);
+};
 
-    // dynamically resize row
+const container = ref<HTMLElement | null>(null);
+const columnTitles = ref<HTMLElement | null>(null);
+const rows = ref<HTMLElement | null>(null);
+const textareas = ref<(HTMLTextAreaElement | null)[]>([]);
 
-    const container = ref<HTMLElement | null>(null);
-    const columnTitles = ref<HTMLElement | null>(null);
-    const rows = ref<HTMLElement | null>(null);
-    const rowsMaxHeight = ref<string | null>(null);
+const rowsMaxHeight = ref<string | null>(null);
 
-    const setHeight = () => {
-        if (container.value && columnTitles.value && rows.value) {
-            const containerHeight = container.value.clientHeight;
-            const columnTitlesHeight = columnTitles.value.clientHeight;
-            rowsMaxHeight.value = `${containerHeight - columnTitlesHeight - 15}px`;
-        }
-    };
+const setHeight = () => {
+    if (container.value && columnTitles.value && rows.value) {
+        rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
+    }
+};
 
-    onMounted(() => {
-        setHeight();
-        window.addEventListener('resize', setHeight);
-    });
-
-    // resize text area
-
-    const textareas = ref<(HTMLTextAreaElement | null)[]>([]);
-
-    const autoResize = (index: number) => {
+const autoResize = (index: number) => {
       nextTick(() => {
         const textarea = textareas.value[index];
         if (textarea) {
@@ -49,20 +36,50 @@
       });
     };
 
-    onMounted(() => {
-        nextTick(() => {
-            inputColNames.value.forEach((_, index) => autoResize(index));
-        });
-    });
+const resizeObserver = new ResizeObserver(setHeight);
+const colValues = ref<string[][]>([]);
+// const dataTypes = ["String", "Number", "Boolean", "Enum"];
 
+onMounted(() => {
+    setHeight();
+    resizeObserver.observe(document.body);
+    
+    nextTick(() => {
+        // get colValues
+        const uploadObjectJSON = localStorage.getItem("upload") || "{}";
+        const uploadObject = JSON.parse(uploadObjectJSON);
+        const uploadColNames = uploadObject.data.meta.fields;
+        const uploadRows = uploadObject.data.data;
+
+        let colValuesList: string[][] = [];
+        for (let i = 0; i < inputColNames.value.length; i++) {
+            // resize textareas
+            autoResize(i);
+
+            let columnValues: string[] = [];
+            for (let j = 0; j < uploadRows.length; j++) {
+                const uploadColName = uploadColNames[i];
+                const uploadRow = uploadObject.data.data[j];
+                columnValues.push(uploadRow[uploadColName]);
+            }
+            colValuesList.push([...new Set(columnValues)]);
+        }
+
+        colValues.value = colValuesList;
+    });
+});
+
+onUnmounted(() => {
+    resizeObserver.disconnect();
+});
 </script>
 
 <template>
     <div class="container" ref="container">
         <div class="column-titles row-container" ref="columnTitles">
-            <h3>Column</h3>
-            <h3>Data type</h3>
-            <h3>Data values</h3>
+            <h3>Column names</h3>
+            <!-- <h3>Data type</h3> -->
+            <h3>Inspect data values</h3>
         </div>
         <div class="rows" ref="rows">
             <div class="row-container setup-row" v-for="(item, index) in inputColNames" :key="index">
@@ -78,14 +95,22 @@
                         </textarea>
                     </h4>
                     <div class="edit-icon-wrapper"><IconEdit class="edit-icon" /></div></div>
-                <div class="row-item enum-item"><h4 class="setup-row-datatype">temp</h4></div>
-                <div class="row-item enum-item"><h4>temp</h4></div>
+                <div class="row-item enum-item">
+                    <select class="datatype-dropdown">
+                        <option disabled value="">Values</option>
+                        <option class="display-list" v-for="value in colValues[index]" :key="value" :value="value">{{ value }}</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
+
+    option {
+        text-align: left;
+    }
 
     h4 {
         width: 100%;
@@ -125,7 +150,7 @@
 
     .column-titles {
         display: grid;
-        grid-template-columns: 40% 30% 30%;
+        grid-template-columns: 50% auto;
     }
 
     .rows {
@@ -146,7 +171,7 @@
 
     .setup-row {
         display: grid;
-        grid-template-columns: 40% 30% 30%;
+        grid-template-columns: 50% auto;
         padding-top: 5px;
         padding-bottom: 5px;
     }
@@ -185,5 +210,21 @@
         display: flex;
         flex-direction: column;
         align-items: top;    
+    }
+
+    .datatype-dropdown {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        font-size: 12px;
+        padding-right: 5px;
+    }
+
+    .display-list {
+        pointer-events: none;
     }
 </style>
