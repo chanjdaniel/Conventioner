@@ -4,6 +4,7 @@ import draggable from 'vuedraggable';
 import { type SetupObject, type PriorityObject } from '@/views/MarketSetupView.vue';
 import IconAddRound from '../icons/IconAddRound.vue';
 import IconClickDrag from '../icons/IconClickDrag.vue';
+import IconClickDragSmall from '../icons/IconClickDragSmall.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
 import { DataType } from '@/assets/types/DataType';
 
@@ -12,6 +13,7 @@ const emit = defineEmits(["update:setupObject"]);
 
 const setupObject = toRef(props, "setupObject");
 const priorityObjects = toRef(setupObject.value, "priority");
+const watchers = new Map<number, () => void>();
 
 watch(
     () => setupObject.value.priority,
@@ -31,12 +33,12 @@ const setHeight = () => {
     }
 };
 
-const dataTypes = ["String", "Number", "Enum"];
+const dataTypes: DataType[] = [DataType.String, DataType.Number, DataType.Enum];
 const dataTypeSorting: Record<DataType, string[]> = {
-  [DataType.String]: ["A-Z", "Z-A"],
-  [DataType.Number]: ["Ascending", "Descending"],
-  [DataType.Enum]: [],
-  [DataType.Default]: [],
+    [DataType.String]: ["A-Z", "Z-A"],
+    [DataType.Number]: ["Ascending", "Descending"],
+    [DataType.Enum]: [],
+    [DataType.Default]: [],
 };
 const colDefault = "Select a column";
 const dataTypeDefault: DataType = DataType.Default;
@@ -44,11 +46,43 @@ const sortingDefault = "Select a sorting order";
 
 const hover = ref();
 
+const watchPriorityObject = ((id: number) => {
+    const getObjectIndex = (id: number) => {
+        return priorityObjects.value.findIndex(obj => obj.id == id);
+    };
+    const objectIndex = getObjectIndex(id);
+
+    const watcher = watch(
+        () => priorityObjects.value[objectIndex],
+        (newObj) => {
+
+            if (!newObj) {
+                removeWatcher(id);
+                return;
+            }
+
+            if (!dataTypeSorting[newObj.dataType].includes(newObj.sortingOrder) && newObj.sortingOrder !== "") {
+                priorityObjects.value[objectIndex].sortingOrder = "";
+                console.log("deleted");
+            }
+
+            console.log("watched");
+        },
+        { deep: true }
+    );
+
+    watchers.set(id, watcher);
+});
+
+const removeWatcher = (objId: number) => {
+    if (watchers.has(objId)) {
+        watchers.get(objId)!();
+        watchers.delete(objId);
+    }
+}
+
 onMounted(() => {
     setHeight();
-    nextTick(() => {
-
-    })
 });
 
 const addPriorityRow = () => {
@@ -59,6 +93,7 @@ const addPriorityRow = () => {
         sortingOrder: "",
     }
     priorityObjects.value.push(newPriorityObject);
+    watchPriorityObject(newPriorityObject.id);
 };
 
 const removePriorityRow = (index: number) => {
@@ -71,6 +106,14 @@ const dragOptions = computed(() => ({
     ghostClass: "sortable-chosen",
     chosenClass: "sortable-ghost",
     dragClass: "sortable-ghost",
+}))
+
+const sortingDragOptions = computed(() => ({
+    group: "sorting",
+    disabled: false,
+    ghostClass: "sortable-chosen",
+    chosenClass: "sorting-ghost",
+    dragClass: "sorting-ghost",
 }))
 
 </script>
@@ -89,15 +132,15 @@ const dragOptions = computed(() => ({
             <draggable class="priority-rows" v-model="priorityObjects" item-key="id" :options="{
                 handle: '.drag-item',
                 filter: '.click-item',
-                forceFallback: true,
-                fallbackOnBody: true
+                forceFallback: false,
+                fallbackOnBody: false
             }" v-bind="dragOptions">
                 <template #item="{ element, index }">
                     <div class="priority-row row-container" :key="element.id" @mouseenter="hover = index"
                         @mouseleave="hover = null">
                         <div class="row-item drag-item">
                             <IconClickDrag class="click-drag" />
-                            <h4>{{ index + 1 }}</h4>
+                            <h3>{{ index + 1 }}</h3>
                         </div>
                         <div class="row-item click-item">
                             <select class="dropdown" v-model="priorityObjects[index].colName">
@@ -117,24 +160,47 @@ const dragOptions = computed(() => ({
                             </select>
                         </div>
                         <div class="row-item click-item">
-                            <select v-if="priorityObjects[index].dataType===DataType.Enum" class="dropdown" style="text-align: center;" v-model="priorityObjects[index].dataType">
-                                <option disabled value="">{{ dataTypeDefault }}</option>
-                                <option class="display-list" v-for="value in dataTypes" :key="value" :value="value">
-                                    {{ value }}
-                                </option>
-                            </select>
-                            <div v-if="priorityObjects[index].dataType===DataType.Default">
+                            <draggable class="sorting-rows sorting-order-container"
+                                v-if="priorityObjects[index].dataType === DataType.Enum"
+                                v-model="setupObject.enumPriorityOrder[setupObject.colNames.indexOf(priorityObjects[index].colName)]"
+                                item-key="element"
+                                :options="{
+                                    handle: '.drag-item',
+                                    filter: '.click-item',
+                                    forceFallback: true,
+                                    fallbackOnBody: true
+                                }" v-bind="sortingDragOptions">
+                                <template #item="{ element, index }">
+                                    <div class="sorting-order-row">
+                                        <div class="sorting-index-drag">
+                                            <IconClickDragSmall class="sorting-click-drag" />
+                                            <h3>{{ index + 1 }}</h3>
+                                        </div>
+                                        <h4 class="row-container sorting-text">
+                                            {{ element }}
+                                        </h4>
+                                        <div class="sorting-index-drag" style="visibility: hidden;">
+                                            <IconClickDragSmall class="sorting-click-drag" />
+                                            <h3>{{ index + 1 }}</h3>
+                                        </div>
+                                    </div>
+                                </template>
+                            </draggable>
+                            <div v-else-if="priorityObjects[index].dataType === DataType.Default">
                             </div>
-                            <select v-else class="dropdown" style="text-align: center;" v-model="priorityObjects[index].sortingOrder">
+                            <select v-else class="dropdown" style="text-align: center;"
+                                v-model="priorityObjects[index].sortingOrder">
                                 <option disabled value="">{{ sortingDefault }}</option>
-                                <option class="display-list" v-for="value in dataTypeSorting[priorityObjects[index].dataType]" :key="value" :value="value">
+                                <option class="display-list"
+                                    v-for="value in dataTypeSorting[priorityObjects[index].dataType]" :key="value"
+                                    :value="value">
                                     {{ value }}
                                 </option>
                             </select>
                         </div>
                         <div class="row-item">
                             <IconCloseRound v-if="hover === index" class="icon-close-round"
-                                @click="removePriorityRow(index)" />
+                                @click="() => { removePriorityRow(index) }" />
                         </div>
                     </div>
                 </template>
@@ -148,6 +214,22 @@ const dragOptions = computed(() => ({
 </template>
 
 <style scoped>
+h4 {
+    height: auto;
+    text-align: center;
+    text-justify: center;
+    min-height: 30px;
+    max-height: 200px;
+    max-width: 400px;
+    overflow-y: scroll;
+    scrollbar-width: none;
+}
+
+h3 {
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
 .container {
     width: 100%;
     height: 100%;
@@ -172,18 +254,20 @@ const dragOptions = computed(() => ({
     padding-top: 5px;
     padding-bottom: 5px;
     min-height: 48px;
-    transition: transform 0.3s ease-in-out !important;
     overflow: visible;
 }
 
 .sortable-ghost {
     box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-    transition: transform 0.3s ease-in-out !important;
+    opacity: 0.5;
+}
+
+.sorting-ghost {
+    opacity: 0.5;
 }
 
 .sortable-chosen {
     visibility: hidden;
-    transition: transform 0.3s ease-in-out !important;
 }
 
 .row-item {
@@ -210,7 +294,14 @@ const dragOptions = computed(() => ({
     align-items: center;
     gap: 8px;
     overflow: visible;
-    transition: all 0.2s ease-in-out !important;
+}
+
+.sorting-rows {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0px;
+    overflow: visible;
 }
 
 .rows {
@@ -226,6 +317,7 @@ const dragOptions = computed(() => ({
     padding-bottom: 8px;
 
     overflow: auto;
+    scrollbar-width: none;
 }
 
 .icon-add-round {
@@ -285,5 +377,51 @@ const dragOptions = computed(() => ({
 .icon-close-round {
     opacity: 1;
     cursor: pointer;
+}
+
+.sorting-order-container {
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+    gap: 0px;
+}
+
+.sorting-order-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    width: 100%;
+    cursor: grab;
+    padding: 4px;
+}
+
+.sorting-index-drag {
+    width: auto;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.sorting-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 5px;
+    margin-right: 5px;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+.sorting-click-drag {
+    width: 16px;
+    height: 30px;
 }
 </style>

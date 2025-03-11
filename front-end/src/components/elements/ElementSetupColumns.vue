@@ -8,6 +8,7 @@ const emit = defineEmits(["update:setupObject"]);
 
 const setupObject = toRef(props, "setupObject");
 const inputColNames = toRef(setupObject.value, "colNames");
+const colValues = toRef(setupObject.value, "colValues");
 
 const updateSetupObject = () => {
     emit("update:setupObject", setupObject.value);
@@ -37,36 +38,10 @@ const autoResize = (index: number) => {
     };
 
 const resizeObserver = new ResizeObserver(setHeight);
-const colValues = ref<string[][]>([]);
-// const dataTypes = ["String", "Number", "Boolean", "Enum"];
 
 onMounted(() => {
     setHeight();
     resizeObserver.observe(document.body);
-    
-    nextTick(() => {
-        // get colValues
-        const uploadObjectJSON = localStorage.getItem("upload") || "{}";
-        const uploadObject = JSON.parse(uploadObjectJSON);
-        const uploadColNames = uploadObject.data.meta.fields;
-        const uploadRows = uploadObject.data.data;
-
-        let colValuesList: string[][] = [];
-        for (let i = 0; i < inputColNames.value.length; i++) {
-            // resize textareas
-            autoResize(i);
-
-            let columnValues: string[] = [];
-            for (let j = 0; j < uploadRows.length; j++) {
-                const uploadColName = uploadColNames[i];
-                const uploadRow = uploadObject.data.data[j];
-                columnValues.push(uploadRow[uploadColName]);
-            }
-            colValuesList.push([...new Set(columnValues)]);
-        }
-
-        colValues.value = colValuesList;
-    });
 });
 
 onUnmounted(() => {
@@ -91,7 +66,8 @@ onUnmounted(() => {
                             v-model="inputColNames[index]"
                             :ref="(el) => { textareas[index] = el as HTMLTextAreaElement | null; }"
                             @blur="updateSetupObject()"
-                            @input="autoResize(index)">
+                            @input="autoResize(index)"
+                            @click="autoResize(index)">
                         </textarea>
                     </h4>
                     <div class="edit-icon-wrapper"><IconEdit class="edit-icon" /></div></div>

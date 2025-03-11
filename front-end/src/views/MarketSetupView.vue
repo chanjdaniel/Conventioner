@@ -12,18 +12,22 @@
     id: number,
     colName: string,
     dataType: DataType,
-    sortingOrder: string | string[],
+    sortingOrder: string,
   }
 
   export interface SetupObject {
     colNames: string[],
+    colValues: string[][],
     priority: PriorityObject[],
+    enumPriorityOrder: string[][],
     marketDates: string[],
     sections: {[key: string]: number},
   }
 
   const setupObject = reactive<SetupObject>({
     colNames: [],
+    colValues: [],
+    enumPriorityOrder: [],
     priority: [],
     marketDates: [],
     sections: {},
@@ -42,9 +46,30 @@
       const inputData = JSON.parse(inputDataJSON);
 
       const colNames = Array.isArray(inputData?.data?.meta?.fields) ? inputData.data.meta.fields : [];
+      const uploadObjectJSON = localStorage.getItem("upload") || "{}";
+      const uploadObject = JSON.parse(uploadObjectJSON);
+      const uploadColNames = uploadObject.data.meta.fields;
+      const uploadRows = uploadObject.data.data;
+      let colValuesList: string[][] = [];
+      let enumValuesList: string[][] = []
+      for (let i = 0; i < colNames.length; i++) {
+
+          let columnValues: string[] = [];
+          let enumvalues: string[] = ["<All other>"];
+          for (let j = 0; j < uploadRows.length; j++) {
+              const uploadColName = uploadColNames[i];
+              const uploadRow = uploadObject.data.data[j];
+              columnValues.push(uploadRow[uploadColName]);
+              enumvalues.push(uploadRow[uploadColName]);
+          }
+          colValuesList.push([...new Set(columnValues)]);
+          enumValuesList.push([...new Set(enumvalues)]);
+      }
 
       const newSetupObject: SetupObject = {
         colNames: colNames,
+        colValues: colValuesList,
+        enumPriorityOrder: enumValuesList,
         priority: [],
         marketDates: [],
         sections: {}
@@ -58,10 +83,13 @@
   const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
     nextTick(() => {
       setupObject.colNames = newSetupObject.colNames;
+      setupObject.colValues = newSetupObject.colValues;
+      setupObject.enumPriorityOrder = newSetupObject.enumPriorityOrder;
       setupObject.priority = newSetupObject.priority;
       setupObject.marketDates = newSetupObject.marketDates;
       setupObject.sections = newSetupObject.sections;
       localStorage.setItem("setupObject", JSON.stringify(setupObject));
+      // console.log(JSON.parse(JSON.stringify(setupObject)));
     });
   };
 </script>
