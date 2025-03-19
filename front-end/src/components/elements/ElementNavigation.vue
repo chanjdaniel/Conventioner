@@ -23,12 +23,6 @@ const user: any = inject("user");
         <h2 class="user-email">{{ user?.email }} </h2>
 
         <div class="nav">
-            <ElementNavigationItem to="welcome">
-                <template #icon>
-                    <IconSettings class="nav-icon" />
-                </template>
-                <h3>Manage Tables</h3>
-            </ElementNavigationItem>
 
             <ElementNavigationItem to="vendors">
                 <template #icon>
@@ -48,6 +42,13 @@ const user: any = inject("user");
                     <span>View </span>
                     <span class="tables-1">Tables</span>
                 </h3>
+            </ElementNavigationItem>
+
+            <ElementNavigationItem to="welcome">
+                <template #icon>
+                    <IconSettings class="nav-icon" />
+                </template>
+                <h3>Manage Tables</h3>
             </ElementNavigationItem>
 
             <ElementNavigationItem to="vendors">

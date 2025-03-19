@@ -13,7 +13,7 @@ const emit = defineEmits(["update:setupObject"]);
 
 const setupObject = toRef(props, "setupObject");
 const priorityObjects = toRef(setupObject.value, "priority");
-const watchers = new Map<number, () => void>();
+const enumPriorityOrder = toRef(setupObject.value, "enumPriorityOrder");
 
 watch(
     () => setupObject.value.priority,
@@ -23,29 +23,15 @@ watch(
     { deep: true }
 );
 
-const rowsMaxHeight = ref<string | null>(null);
-const container = ref<HTMLElement | null>(null);
-const rows = ref<HTMLElement | null>(null);
-const columnTitles = ref<HTMLElement | null>(null);
-const setHeight = () => {
-    if (container.value && columnTitles.value && rows.value) {
-        rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
-    }
-};
+watch(
+    () => setupObject.value.enumPriorityOrder,
+    () => {
+        emit("update:setupObject", setupObject.value);
+    },
+    { deep: true }
+);
 
-const dataTypes: DataType[] = [DataType.String, DataType.Number, DataType.Enum];
-const dataTypeSorting: Record<DataType, string[]> = {
-    [DataType.String]: ["A-Z", "Z-A"],
-    [DataType.Number]: ["Ascending", "Descending"],
-    [DataType.Enum]: [],
-    [DataType.Default]: [],
-};
-const colDefault = "Select a column";
-const dataTypeDefault: DataType = DataType.Default;
-const sortingDefault = "Select a sorting order";
-
-const hover = ref();
-
+const watchers = new Map<number, () => void>();
 const watchPriorityObject = ((id: number) => {
     const getObjectIndex = (id: number) => {
         return priorityObjects.value.findIndex(obj => obj.id == id);
@@ -81,6 +67,28 @@ const removeWatcher = (objId: number) => {
     }
 }
 
+const rowsMaxHeight = ref<string | null>(null);
+const container = ref<HTMLElement | null>(null);
+const rows = ref<HTMLElement | null>(null);
+const columnTitles = ref<HTMLElement | null>(null);
+const setHeight = () => {
+    if (container.value && columnTitles.value && rows.value) {
+        rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
+    }
+}
+
+const dataTypes: DataType[] = [DataType.String, DataType.Number, DataType.Enum];
+const dataTypeSorting: Record<DataType, string[]> = {
+    [DataType.String]: ["A-Z", "Z-A"],
+    [DataType.Number]: ["Ascending", "Descending"],
+    [DataType.Enum]: [],
+    [DataType.Default]: [],
+}
+const colDefault = "Select a column";
+const dataTypeDefault: DataType = DataType.Default;
+const sortingDefault = "Select a sorting order";
+const enumDefault = "Select a value";
+
 onMounted(() => {
     setHeight();
 });
@@ -94,11 +102,26 @@ const addPriorityRow = () => {
     }
     priorityObjects.value.push(newPriorityObject);
     watchPriorityObject(newPriorityObject.id);
-};
+}
+
+function sortingItemIndex(index: number) {
+    return setupObject.value.colNames.indexOf(priorityObjects.value[index].colName);
+}
 
 const removePriorityRow = (index: number) => {
     priorityObjects.value.splice(index, 1);
 }
+
+const addEnumSortingItem = (index: number) => {
+    enumPriorityOrder.value[index].push(enumDefault);
+}
+
+const removeEnumSortingItem = (parentIndex: number, childIndex: number) => {
+    enumPriorityOrder.value[sortingItemIndex(parentIndex)].splice(childIndex, 1);
+}
+
+const hoverParentIndex = ref(null);
+const hoverChildIndex = ref(null);
 
 const dragOptions = computed(() => ({
     group: "rows",
@@ -106,15 +129,7 @@ const dragOptions = computed(() => ({
     ghostClass: "sortable-chosen",
     chosenClass: "sortable-ghost",
     dragClass: "sortable-ghost",
-}))
-
-const sortingDragOptions = computed(() => ({
-    group: "sorting",
-    disabled: false,
-    ghostClass: "sortable-chosen",
-    chosenClass: "sorting-ghost",
-    dragClass: "sorting-ghost",
-}))
+}));
 
 </script>
 
@@ -135,15 +150,15 @@ const sortingDragOptions = computed(() => ({
                 forceFallback: false,
                 fallbackOnBody: false
             }" v-bind="dragOptions">
-                <template #item="{ element, index }">
-                    <div class="priority-row row-container" :key="element.id" @mouseenter="hover = index"
-                        @mouseleave="hover = null">
+                <template #item="{ element, index: parentIndex }">
+                    <div class="priority-row row-container" :key="element.id"
+                        @mouseover="hoverParentIndex = parentIndex" @mouseleave="hoverParentIndex = null">
                         <div class="row-item drag-item">
                             <IconClickDrag class="click-drag" />
-                            <h3>{{ index + 1 }}</h3>
+                            <h3>{{ parentIndex + 1 }}</h3>
                         </div>
                         <div class="row-item click-item">
-                            <select class="dropdown" v-model="priorityObjects[index].colName">
+                            <select class="dropdown" v-model="priorityObjects[parentIndex].colName">
                                 <option disabled value="">{{ colDefault }}</option>
                                 <option class="display-list" v-for="value in setupObject.colNames" :key="value"
                                     :value="value">
@@ -152,55 +167,77 @@ const sortingDragOptions = computed(() => ({
                             </select>
                         </div>
                         <div class="row-item click-item">
-                            <select class="dropdown" v-model="priorityObjects[index].dataType">
+                            <select class="dropdown" v-model="priorityObjects[parentIndex].dataType">
                                 <option disabled value="">{{ dataTypeDefault }}</option>
                                 <option class="display-list" v-for="value in dataTypes" :key="value" :value="value">
                                     {{ value }}
                                 </option>
                             </select>
                         </div>
-                        <div class="row-item click-item">
-                            <draggable class="sorting-rows sorting-order-container"
-                                v-if="priorityObjects[index].dataType === DataType.Enum"
-                                v-model="setupObject.enumPriorityOrder[setupObject.colNames.indexOf(priorityObjects[index].colName)]"
-                                item-key="element"
-                                :options="{
-                                    handle: '.drag-item',
-                                    filter: '.click-item',
-                                    forceFallback: true,
-                                    fallbackOnBody: true
-                                }" v-bind="sortingDragOptions">
-                                <template #item="{ element, index }">
-                                    <div class="sorting-order-row">
-                                        <div class="sorting-index-drag">
-                                            <IconClickDragSmall class="sorting-click-drag" />
-                                            <h3>{{ index + 1 }}</h3>
+                        <div class="row-item">
+                            <div class="sorting-order-container"
+                                v-if="priorityObjects[parentIndex].dataType === DataType.Enum">
+                                <draggable class="sorting-rows"
+                                    v-if="priorityObjects[parentIndex].dataType === DataType.Enum"
+                                    v-model="enumPriorityOrder[setupObject.colNames.indexOf(priorityObjects[parentIndex].colName)]"
+                                    item-key="element" :options="{
+                                        handle: '.drag-item',
+                                        filter: '.click-item',
+                                        forceFallback: true,
+                                        fallbackOnBody: true
+                                    }" :group="`sorting-${parentIndex}`" :disabled="false"
+                                    :ghostClass="'sortable-chosen'" :chosenClass="'sorting-ghost'"
+                                    :dragClass="'sorting-ghost'">
+                                    <template #item="{ element, index: childIndex }">
+                                        <div class="sorting-order-row" @mouseover="hoverChildIndex = childIndex"
+                                            @mouseleave="hoverChildIndex = null">
+                                            <div class="sorting-index-drag">
+                                                <IconClickDragSmall class="sorting-click-drag" />
+                                                <h3>{{ childIndex + 1 }}</h3>
+                                            </div>
+                                            <h4 class="row-container sorting-text">
+                                                <select class="dropdown"
+                                                    v-model="enumPriorityOrder[sortingItemIndex(parentIndex)][childIndex]">
+                                                    <option disabled value="">{{ enumDefault }}</option>
+                                                    <option value="<All others>">&lt;All others&gt;</option>
+                                                    <option class="display-list"
+                                                        v-for="value in setupObject.colValues[sortingItemIndex(parentIndex)]"
+                                                        :key="value" :value="value">
+                                                        {{ value }}
+                                                    </option>
+                                                </select>
+                                            </h4>
+                                            <div
+                                                style="width: 40px; display: flex; flex-direction: row; align-items: center; justify-content: center;">
+                                                <IconCloseRound
+                                                    :class="{ 'hidden-icon': hoverChildIndex !== childIndex || hoverParentIndex !== parentIndex }"
+                                                    class="icon-close-round" style="width: 15px;"
+                                                    @click="removeEnumSortingItem(parentIndex, childIndex)" />
+                                            </div>
                                         </div>
-                                        <h4 class="row-container sorting-text">
-                                            {{ element }}
-                                        </h4>
-                                        <div class="sorting-index-drag" style="visibility: hidden;">
-                                            <IconClickDragSmall class="sorting-click-drag" />
-                                            <h3>{{ index + 1 }}</h3>
-                                        </div>
-                                    </div>
-                                </template>
-                            </draggable>
-                            <div v-else-if="priorityObjects[index].dataType === DataType.Default">
+                                    </template>
+                                </draggable>
+                                <IconAddRound
+                                    :class="{ 'hidden-icon': hoverParentIndex !== parentIndex ||  priorityObjects[parentIndex].colName === colDefault}"
+                                    @click="addEnumSortingItem(sortingItemIndex(parentIndex))"
+                                    style="cursor: pointer;" />
+                            </div>
+                            <div v-else-if="priorityObjects[parentIndex].dataType === DataType.Default">
                             </div>
                             <select v-else class="dropdown" style="text-align: center;"
-                                v-model="priorityObjects[index].sortingOrder">
+                                v-model="priorityObjects[parentIndex].sortingOrder">
                                 <option disabled value="">{{ sortingDefault }}</option>
                                 <option class="display-list"
-                                    v-for="value in dataTypeSorting[priorityObjects[index].dataType]" :key="value"
+                                    v-for="value in dataTypeSorting[priorityObjects[parentIndex].dataType]" :key="value"
                                     :value="value">
                                     {{ value }}
                                 </option>
                             </select>
                         </div>
-                        <div class="row-item">
-                            <IconCloseRound v-if="hover === index" class="icon-close-round"
-                                @click="() => { removePriorityRow(index) }" />
+                        <div
+                            style="padding: none; display: flex; flex-direction: row; align-items: center; justify-content: center;">
+                            <IconCloseRound :class="{ 'hidden-icon': hoverParentIndex !== parentIndex }"
+                                class="icon-close-round" @click="() => { removePriorityRow(parentIndex) }" />
                         </div>
                     </div>
                 </template>
@@ -245,7 +282,7 @@ h3 {
 
 .column-titles {
     display: grid;
-    grid-template-columns: 10% 30% 15% 45%;
+    grid-template-columns: 10% 30% 15% 40% 5%;
 }
 
 .priority-row {
@@ -274,7 +311,7 @@ h3 {
     display: flex;
     flex-direction: row;
 
-    padding-left: 10px;
+    padding-left: 5px;
     padding-right: 5px;
     justify-content: space-between;
     align-items: center;
@@ -334,7 +371,7 @@ h3 {
     border: none;
     outline: none;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 14px;
     padding-right: 5px;
 }
 
@@ -369,13 +406,6 @@ h3 {
 .icon-close-round {
     width: 20px;
     height: 20px;
-    opacity: 0;
-    transition: opacity 0.15s ease-in-out;
-}
-
-.priority-row:hover,
-.icon-close-round {
-    opacity: 1;
     cursor: pointer;
 }
 
@@ -385,9 +415,6 @@ h3 {
     overflow-y: auto;
     overflow-x: hidden;
     padding-top: 10px;
-    padding-bottom: 10px;
-    padding-left: 10px;
-    padding-right: 10px;
     gap: 0px;
 }
 
@@ -403,11 +430,11 @@ h3 {
 }
 
 .sorting-index-drag {
-    width: auto;
+    min-width: 40px;
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: center;
+    justify-content: left;
 }
 
 .sorting-text {
@@ -423,5 +450,9 @@ h3 {
 .sorting-click-drag {
     width: 16px;
     height: 30px;
+}
+
+.hidden-icon {
+    visibility: hidden;
 }
 </style>

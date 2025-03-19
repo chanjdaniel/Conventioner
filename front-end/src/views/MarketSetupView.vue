@@ -15,13 +15,23 @@
     sortingOrder: string,
   }
 
+  export interface MarketDateObject {
+    date: string,
+    colName: string,
+  }
+
+  export interface SectionObject {
+    name: string,
+    count: number,
+  }
+
   export interface SetupObject {
     colNames: string[],
     colValues: string[][],
-    priority: PriorityObject[],
     enumPriorityOrder: string[][],
-    marketDates: string[],
-    sections: {[key: string]: number},
+    priority: PriorityObject[],
+    marketDates: MarketDateObject[],
+    sections: SectionObject[],
   }
 
   const setupObject = reactive<SetupObject>({
@@ -30,7 +40,7 @@
     enumPriorityOrder: [],
     priority: [],
     marketDates: [],
-    sections: {},
+    sections: [],
   });
 
   onMounted(() => {
@@ -51,28 +61,26 @@
       const uploadColNames = uploadObject.data.meta.fields;
       const uploadRows = uploadObject.data.data;
       let colValuesList: string[][] = [];
-      let enumValuesList: string[][] = []
+      let enumPriorityOrder: string[][] = [];
       for (let i = 0; i < colNames.length; i++) {
 
           let columnValues: string[] = [];
-          let enumvalues: string[] = ["<All other>"];
           for (let j = 0; j < uploadRows.length; j++) {
               const uploadColName = uploadColNames[i];
               const uploadRow = uploadObject.data.data[j];
               columnValues.push(uploadRow[uploadColName]);
-              enumvalues.push(uploadRow[uploadColName]);
           }
           colValuesList.push([...new Set(columnValues)]);
-          enumValuesList.push([...new Set(enumvalues)]);
+          enumPriorityOrder.push([]);
       }
 
       const newSetupObject: SetupObject = {
         colNames: colNames,
         colValues: colValuesList,
-        enumPriorityOrder: enumValuesList,
+        enumPriorityOrder: enumPriorityOrder,
         priority: [],
         marketDates: [],
-        sections: {}
+        sections: [],
       };
 
       Object.assign(setupObject, newSetupObject);
@@ -126,7 +134,7 @@
             </ElementSettingContainer>
             <ElementSettingContainer>
               <template #setting-title>
-                <h2>Market Setup</h2>
+                <h2>Section Setup</h2>
               </template>
               <template #setting-content>
                 <ElementMarketSetup :setupObject="setupObject" @update:setupObject="handleUpdateSetupObject"/>
@@ -222,4 +230,5 @@
 
     color: #FFFFFF;
   }
+
 </style>
