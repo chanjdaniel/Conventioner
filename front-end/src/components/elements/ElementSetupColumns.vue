@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, defineEmits, defineProps, toRef, nextTick, onUnmounted } from 'vue';
 import IconEdit from '../icons/IconEdit.vue';
-import { type SetupObject } from '@/views/MarketSetupView.vue';
+import { type SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
@@ -24,28 +24,34 @@ const rowsMaxHeight = ref<string | null>(null);
 const setHeight = () => {
     if (container.value && columnTitles.value && rows.value) {
         rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
+        console.log(`${container.value.clientHeight}`);
     }
 };
 
 const autoResize = (index: number) => {
     nextTick(() => {
         const textarea = textareas.value[index];
-        if (textarea && textarea.style.height !== textarea.scrollHeight + 'px') {
+        if (textarea) {
             textarea.style.height = 'auto';
-            textarea.style.height = textarea.scrollHeight + 'px';
+            if (textarea.style.height !== textarea.scrollHeight + 'px') {
+                textarea.style.height = textarea.scrollHeight + 'px';
+            }
         }
     });
 };
 
-const resizeObserver = new ResizeObserver(setHeight);
-
 onMounted(() => {
     setHeight();
-    resizeObserver.observe(document.body);
+    nextTick(() => {
+        for (let i = 0; i < inputColNames.value.length; i++) {
+            autoResize(i);
+        }
+        window.addEventListener('resize', setHeight)
+    })
 });
 
 onUnmounted(() => {
-    resizeObserver.disconnect();
+    window.removeEventListener('resize', setHeight)
 });
 </script>
 
@@ -62,7 +68,7 @@ onUnmounted(() => {
                     <h4 class="setup-row-colname">
                         <textarea class="colname-input" rows="1" v-model="inputColNames[index]"
                             :ref="(el) => { textareas[index] = el as HTMLTextAreaElement | null; }"
-                            @blur="updateSetupObject()" @input="autoResize(index)" @click="autoResize(index)">
+                            @blur="updateSetupObject()" @input="autoResize(index)">
                         </textarea>
                     </h4>
                     <div class="edit-icon-wrapper">

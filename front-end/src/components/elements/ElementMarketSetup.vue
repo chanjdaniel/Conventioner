@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, toRef, onMounted, onUnmounted, watch } from 'vue';
-import { type SetupObject, type SectionObject } from '@/views/MarketSetupView.vue';
+import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { type SetupObject, type SectionObject } from '@/assets/types/datatypes'
 import IconAddRound from '../icons/IconAddRound.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
 
@@ -22,6 +22,7 @@ const rows = ref<HTMLElement | null>(null);
 const rowsMaxHeight = ref<string | null>(null);
 
 const setHeight = () => {
+    console.log(rowsMaxHeight.value);
     if (container.value && columnTitles.value && tableCount.value && rows.value) {
         const maxHeight = container.value.clientHeight - columnTitles.value.clientHeight - tableCount.value.clientHeight - 25;
         rowsMaxHeight.value = `${maxHeight}px`;
@@ -32,7 +33,9 @@ const resizeObserver = new ResizeObserver(setHeight);
 
 onMounted(() => {
     setHeight();
-    resizeObserver.observe(document.body);
+    nextTick(() => {
+        resizeObserver.observe(document.body);
+    })
 });
 
 onUnmounted(() => {

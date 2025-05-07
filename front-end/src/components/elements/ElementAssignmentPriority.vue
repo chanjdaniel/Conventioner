@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref, toRef, nextTick, computed, watch } from 'vue';
 import draggable from 'vuedraggable';
-import { type SetupObject, type PriorityObject } from '@/views/MarketSetupView.vue';
+import { type SetupObject, type PriorityObject } from '@/assets/types/datatypes';
 import IconAddRound from '../icons/IconAddRound.vue';
 import IconClickDrag from '../icons/IconClickDrag.vue';
 import IconClickDragSmall from '../icons/IconClickDragSmall.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
-import { DataType } from '@/assets/types/DataType';
+import { DataType } from '@/assets/types/datatypes';
 
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
@@ -96,7 +96,7 @@ onMounted(() => {
 const addPriorityRow = () => {
     const newPriorityObject: PriorityObject = {
         id: priorityObjects.value.length + 1,
-        colName: colDefault,
+        colNameIdx: -1,
         dataType: dataTypeDefault,
         sortingOrder: "",
     }
@@ -105,7 +105,7 @@ const addPriorityRow = () => {
 }
 
 function sortingItemIndex(index: number) {
-    return setupObject.value.colNames.indexOf(priorityObjects.value[index].colName);
+    return priorityObjects.value[index].colNameIdx;
 }
 
 const removePriorityRow = (index: number) => {
@@ -158,10 +158,10 @@ const dragOptions = computed(() => ({
                             <h3>{{ parentIndex + 1 }}</h3>
                         </div>
                         <div class="row-item click-item">
-                            <select class="dropdown" v-model="priorityObjects[parentIndex].colName">
+                            <select class="dropdown" v-model="priorityObjects[parentIndex].colNameIdx">
                                 <option disabled value="">{{ colDefault }}</option>
-                                <option class="display-list" v-for="value in setupObject.colNames" :key="value"
-                                    :value="value">
+                                <option class="display-list" v-for="(value, index) in setupObject.colNames" :key="index"
+                                    :value="index">
                                     {{ value }}
                                 </option>
                             </select>
@@ -179,7 +179,7 @@ const dragOptions = computed(() => ({
                                 v-if="priorityObjects[parentIndex].dataType === DataType.Enum">
                                 <draggable class="sorting-rows"
                                     v-if="priorityObjects[parentIndex].dataType === DataType.Enum"
-                                    v-model="enumPriorityOrder[setupObject.colNames.indexOf(priorityObjects[parentIndex].colName)]"
+                                    v-model="enumPriorityOrder[priorityObjects[parentIndex].colNameIdx]"
                                     item-key="element" :options="{
                                         handle: '.drag-item',
                                         filter: '.click-item',
@@ -218,7 +218,7 @@ const dragOptions = computed(() => ({
                                     </template>
                                 </draggable>
                                 <IconAddRound
-                                    :class="{ 'hidden-icon': hoverParentIndex !== parentIndex ||  priorityObjects[parentIndex].colName === colDefault}"
+                                    :class="{ 'hidden-icon': hoverParentIndex !== parentIndex ||  priorityObjects[parentIndex].colNameIdx === -1}"
                                     @click="addEnumSortingItem(sortingItemIndex(parentIndex))"
                                     style="cursor: pointer;" />
                             </div>

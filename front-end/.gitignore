@@ -28,4 +28,6 @@ cypress/screenshots/
 *.sln
 *.sw?
 
+*__pycache__*
+
 *.tsbuildinfo

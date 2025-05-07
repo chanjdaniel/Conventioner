@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, defineEmits, defineProps, toRef, nextTick, onUnmounted, watch } from 'vue';
-import { type SetupObject, type MarketDateObject } from '@/views/MarketSetupView.vue';
+import { type SetupObject, type MarketDateObject } from '@/assets/types/datatypes';
 import IconAddRound from '../icons/IconAddRound.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
 
@@ -59,7 +59,7 @@ const removeRow = (index: number | null) => {
 const addRow = () => {
     const newMarketDate: MarketDateObject = {
         date: "",
-        colName: colDefault,
+        colNameIdx: -1,
     };
     marketDates.value.push(newMarketDate);
 }
@@ -86,21 +86,19 @@ const getFormattedDate = (dateString: string) => {
             <div class="row-container setup-row" v-for="(item, index) in marketDates" :key="index"
                 @mouseover="hoverIndex = index" @mouseleave="hoverIndex = null">
                 <div class="row-item text-item">
-                    <h4 style="position: absolute; width: 100%; text-align: center;">
+                    <h4 class=date-display>
                         {{ getFormattedDate(marketDates[index].date) }}
                     </h4>
-                    <h4 class="setup-row-colname">
-                        <input type="date" class="colname-input" v-model="marketDates[index].date"
-                            style="text-align: center; color: transparent; text-indent: -9999px; position: absolute; left: 0; top: 0; width: 100%; background-color: transparent; padding-right: 5px;"
-                            onclick="this.showPicker()">
-                        </input>
-                    </h4>
+                    <input type="date" class="colname-input date-input" v-model="marketDates[index].date"
+                        onclick="this.showPicker()">
+                    </input>
+
                 </div>
                 <div class="row-item enum-item">
-                    <select class="datatype-dropdown" v-model="marketDates[index].colName">
+                    <select class="datatype-dropdown" v-model="marketDates[index].colNameIdx">
                         <optgroup class="datatype-dropdown">
                             <option disabled value="">Values</option>
-                            <option class="display-list" v-for="value in colNames" :value="value">
+                            <option class="display-list" v-for="(value, index) in colNames" :key="index" :value="index">
                                 {{ value }}</option>
                         </optgroup>
                     </select>
@@ -140,12 +138,35 @@ h4 {
     outline: none;
 }
 
+.date-input {
+    text-align: center;
+    text-justify: center;
+    color: transparent;
+    text-indent: -9999px;
+    position: absolute;
+    left: 0;
+    width: 100%;
+    background-color: transparent;
+    padding-right: 5px;
+    font-size: 16px;
+}
+
+.date-display {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    text-justify: center;
+    padding: 5px;
+    font-size: 18px;
+}
+
 .edit-icon {
     color: grey;
     min-width: 24px;
-    ;
     min-height: 24px;
-
     margin-left: 5px;
 }
 
@@ -229,12 +250,17 @@ h4 {
     width: 100%;
     height: 100%;
     display: flex;
+    flex-direction: row;
     align-items: center;
+    justify-content: center;
+    text-align: center;
+    text-justify: center;
     border: none;
     outline: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     padding-right: 5px;
+    text-align-last: center;
 }
 
 .display-list {

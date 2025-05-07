@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// npm run dev
 import { RouterLink, RouterView } from 'vue-router'
 // @ts-ignore
 import ElementBanner from './components/elements/ElementBanner.vue'
