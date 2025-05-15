@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { type SetupObject, type SectionObject } from '@/assets/types/datatypes'
-import IconAddRound from '../icons/IconAddRound.vue';
-import IconCloseRound from '../icons/IconCloseRound.vue';
+import IconAddRound from '@/components/icons/IconAddRound.vue';
+import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
@@ -22,11 +22,12 @@ const rows = ref<HTMLElement | null>(null);
 const rowsMaxHeight = ref<string | null>(null);
 
 const setHeight = () => {
-    console.log(rowsMaxHeight.value);
-    if (container.value && columnTitles.value && tableCount.value && rows.value) {
-        const maxHeight = container.value.clientHeight - columnTitles.value.clientHeight - tableCount.value.clientHeight - 25;
-        rowsMaxHeight.value = `${maxHeight}px`;
-    }
+    rowsMaxHeight.value = "0px";
+    nextTick(() => {
+        if (container.value && columnTitles.value && rows.value) {
+            rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 30}px`;
+        }
+    });
 };
 
 const resizeObserver = new ResizeObserver(setHeight);
@@ -58,12 +59,14 @@ const addRow = () => {
         count: 0,
     }
     sections.value.push(newSection);
+    setHeight();
 }
 
 const removeRow = (index: number | null) => {
     if (index != null) {
         sections.value.splice(index, 1);
     }
+    setHeight();
 }
 
 const countTables = () => {
@@ -79,19 +82,31 @@ const countTables = () => {
     <div class="container" ref="container">
         <div class="column-titles row-container" ref="columnTitles">
             <h3>Section Name</h3>
-            <h3>Number of Tables</h3>
+            <h3>Location</h3>
+            <h3>Tier</h3>
+            <h3>Count</h3>
         </div>
         <div class="rows" ref="rows">
             <div class="row-container row" v-for="(item, index) in sections" :key="index"
                 @mouseover="hoverIndex = index" @mouseleave="hoverIndex = null">
                 <div class="row-item">
                     <div class="input-container">
-                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px;" />
+                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
                     </div>
                 </div>
                 <div class="row-item">
                     <div class="input-container">
-                        <input type="number" v-model="sections[index].count" style="all: unset; font-size: 14px"/>
+                        <input type="number" v-model="sections[index].count" style="all: unset; font-size: 14px; width: 100%; -moz-appearance: textfield;"/>
+                    </div>
+                </div>
+                <div class="row-item">
+                    <div class="input-container">
+                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
+                    </div>
+                </div>
+                <div class="row-item">
+                    <div class="input-container">
+                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
                     </div>
                 </div>
                 <div
@@ -104,13 +119,14 @@ const countTables = () => {
                 <IconAddRound class="icon-add-round" @click="addRow" />
             </div>
         </div>
-        <div ref="tableCount" style="position: absolute; left: 5px; bottom: 0px">
-            <h3>Total tables: {{ countTables() }}</h3>
+        <div ref="tableCount" style="position: absolute; left: 5px; bottom: -10px">
+            <h3 style="font-size: 14px;">Total tables: {{ countTables() }}</h3>
         </div>
     </div>
 </template>
 
 <style scoped>
+
 .container {
     width: 100%;
     height: 100%;
@@ -125,7 +141,7 @@ const countTables = () => {
 
 .column-titles {
     display: grid;
-    grid-template-columns: 47.5% 47.5% 5%;
+    grid-template-columns: 23.75% 23.75% 23.75% 23.75% 5%;
     margin-bottom: 15px;
 }
 
@@ -147,7 +163,7 @@ const countTables = () => {
 
 .row {
     display: grid;
-    grid-template-columns: 47.5% 47.5% 5%;
+    grid-template-columns: 23.75% 23.75% 23.75% 23.75% 5%;
     padding-top: 5px;
     padding-bottom: 5px;
 }
@@ -170,7 +186,7 @@ const countTables = () => {
 }
 
 .input-container {
-    width: 50%;
+    width: 80%;
     height: 100%;
     box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
     border-radius: 8px;
@@ -197,8 +213,10 @@ input[type=number] {
 }
 
 .icon-close-round {
-    width: 20px;
-    height: 20px;
+    max-width: 20px;
+    max-height: 20px;
+    width: 80%;
+    height: 80%;
     cursor: pointer;
 }
 </style>

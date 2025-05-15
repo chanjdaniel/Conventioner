@@ -22,9 +22,12 @@ const rows = ref<HTMLElement | null>(null);
 const rowsMaxHeight = ref<string | null>(null);
 
 const setHeight = () => {
-    if (container.value && columnTitles.value && rows.value) {
-        rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
-    }
+    rowsMaxHeight.value = "0px";
+    nextTick(() => {
+        if (container.value && columnTitles.value && rows.value) {
+            rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
+        }
+    });
 };
 
 const resizeObserver = new ResizeObserver(setHeight);
@@ -54,6 +57,7 @@ const removeRow = (index: number | null) => {
     if (index != null) {
         marketDates.value.splice(index, 1);
     }
+    setHeight();
 }
 
 const addRow = () => {
@@ -62,6 +66,7 @@ const addRow = () => {
         colNameIdx: -1,
     };
     marketDates.value.push(newMarketDate);
+    setHeight();
 }
 
 const getFormattedDate = (dateString: string) => {
@@ -90,8 +95,7 @@ const getFormattedDate = (dateString: string) => {
                         {{ getFormattedDate(marketDates[index].date) }}
                     </h4>
                     <input type="date" class="colname-input date-input" v-model="marketDates[index].date"
-                        onclick="this.showPicker()">
-                    </input>
+                        onclick="this.showPicker()" />
 
                 </div>
                 <div class="row-item enum-item">
@@ -99,7 +103,8 @@ const getFormattedDate = (dateString: string) => {
                         <optgroup class="datatype-dropdown">
                             <option disabled value="">Values</option>
                             <option class="display-list" v-for="(value, index) in colNames" :key="index" :value="index">
-                                {{ value }}</option>
+                                    {{ value }}
+                            </option>
                         </optgroup>
                     </select>
                 </div>
@@ -121,6 +126,13 @@ option {
     text-align: left;
 }
 
+select {
+    max-width: 100%;
+    white-space: normal;
+    /* For Firefox: */
+    text-overflow: ellipsis;
+}
+
 h4 {
     width: 100%;
     display: flex;
@@ -134,7 +146,7 @@ h4 {
     width: 100%;
     border: none;
     resize: none;
-    font: unset;
+    /* font: unset; */
     outline: none;
 }
 
@@ -261,6 +273,7 @@ h4 {
     font-size: 16px;
     padding-right: 5px;
     text-align-last: center;
+    background-color: white;
 }
 
 .display-list {
@@ -281,5 +294,13 @@ h4 {
     width: 20px;
     height: 20px;
     cursor: pointer;
+}
+
+.date-input,
+.datatype-dropdown,
+.datatype-dropdown option {
+    font-family: inherit;
+    font-size: 16px;
+    color: #333;
 }
 </style>

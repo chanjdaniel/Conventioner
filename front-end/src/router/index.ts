@@ -1,7 +1,7 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import InitView from '../views/InitView.vue'
-import HomeView from '@/views/HomeView.vue'
-import LoginView from '@/views/LoginView.vue'
+import { createRouter, createWebHistory } from 'vue-router';
+import InitView from '@/views/InitView.vue';
+import HomeView from '@/views/HomeView.vue';
+import LoginView from '@/views/LoginView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,18 +19,23 @@ const router = createRouter({
     {
       path: '/vendors',
       name: 'vendors',
-      component: () => import('../views/VendorsView.vue'),
+      component: () => import('@/views/VendorsView.vue'),
     },
     {
       path: '/market-setup',
       name: 'market-setup',
-      component: () => import('../views/MarketSetupView.vue'),
+      component: () => import('@/views/MarketSetupView.vue'),
     },
     {
       path: '/welcome',
       name: 'welcome',
-      component: () => import('../views/HomeView.vue'),
+      component: () => import('@/views/HomeView.vue'),
     },
+    {
+      path: '/generate-assignment',
+      name: 'generate-assignment',
+      component: () => import('@/views/GenerateAssignmentView.vue'),
+    },    
   ],
 })
 

@@ -14,6 +14,7 @@ const emit = defineEmits(["update:setupObject"]);
 const setupObject = toRef(props, "setupObject");
 const priorityObjects = toRef(setupObject.value, "priority");
 const enumPriorityOrder = toRef(setupObject.value, "enumPriorityOrder");
+console.log(enumPriorityOrder);
 
 watch(
     () => setupObject.value.priority,
@@ -71,11 +72,14 @@ const rowsMaxHeight = ref<string | null>(null);
 const container = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
-const setHeight = () => {
-    if (container.value && columnTitles.value && rows.value) {
-        rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
-    }
-}
+    const setHeight = () => {
+    rowsMaxHeight.value = "0px";
+    nextTick(() => {
+        if (container.value && columnTitles.value && rows.value) {
+            rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
+        }
+    });
+};
 
 const dataTypes: DataType[] = [DataType.String, DataType.Number, DataType.Enum];
 const dataTypeSorting: Record<DataType, string[]> = {
@@ -145,7 +149,7 @@ const dragOptions = computed(() => ({
         <div class="rows" ref="rows">
 
             <draggable class="priority-rows" v-model="priorityObjects" item-key="id" :options="{
-                handle: '.drag-item',
+                handle: '.sorting-index-drag',
                 filter: '.click-item',
                 forceFallback: false,
                 fallbackOnBody: false
@@ -181,7 +185,7 @@ const dragOptions = computed(() => ({
                                     v-if="priorityObjects[parentIndex].dataType === DataType.Enum"
                                     v-model="enumPriorityOrder[priorityObjects[parentIndex].colNameIdx]"
                                     item-key="element" :options="{
-                                        handle: '.drag-item',
+                                        handle: '.sorting-index-drag',
                                         filter: '.click-item',
                                         forceFallback: true,
                                         fallbackOnBody: true
@@ -191,7 +195,7 @@ const dragOptions = computed(() => ({
                                     <template #item="{ element, index: childIndex }">
                                         <div class="sorting-order-row" @mouseover="hoverChildIndex = childIndex"
                                             @mouseleave="hoverChildIndex = null">
-                                            <div class="sorting-index-drag">
+                                            <div class="sorting-index-drag" @mousedown.stop>
                                                 <IconClickDragSmall class="sorting-click-drag" />
                                                 <h3>{{ childIndex + 1 }}</h3>
                                             </div>
@@ -296,11 +300,11 @@ h3 {
 
 .sortable-ghost {
     box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-    opacity: 0.5;
+    opacity: 0.7;
 }
 
 .sorting-ghost {
-    opacity: 0.5;
+    opacity: 0.8;
 }
 
 .sortable-chosen {
@@ -326,6 +330,7 @@ h3 {
 }
 
 .priority-rows {
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -373,6 +378,7 @@ h3 {
     cursor: pointer;
     font-size: 14px;
     padding-right: 5px;
+    background-color: white;
 }
 
 .click-item {

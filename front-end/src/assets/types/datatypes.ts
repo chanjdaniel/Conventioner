@@ -25,6 +25,7 @@ export interface SectionObject {
 export interface SetupObject {
     colNames: string[],
     colValues: string[][],
+    colInclude: boolean[],
     enumPriorityOrder: string[][],
     priority: PriorityObject[],
     marketDates: MarketDateObject[],

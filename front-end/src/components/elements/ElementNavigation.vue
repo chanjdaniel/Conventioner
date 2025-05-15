@@ -98,8 +98,8 @@ color: var(--mm-black);
     align-items: center;
     padding: 10px;
 
-    width: 12%;
-    height: 100%;
+    width: 10vw;
+    height: 100vh;
 
     min-width: 250px;
     max-width: 300px;
@@ -137,7 +137,7 @@ display: flex;
 flex-direction: column;
 position: relative;
 top: 30px;
-width: 100%;
+align-self: stretch;
 gap: 10px;
 }
 

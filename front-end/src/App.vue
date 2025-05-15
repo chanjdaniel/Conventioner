@@ -83,6 +83,7 @@ watch(isLogin, (newValue) => {
 .app-container {
   width: 100vw;
   height: 100vh;
+  min-width: 1000px;
   background-color: white;
   padding: 0px;
   margin: 0px;
@@ -98,7 +99,7 @@ header {
   /* position: fixed;
   top: 0;
   left: 0; */
-  width: 100%;
+  width: 100vw;
   line-height: 1.5;
   max-height: 100vh;
 }
@@ -123,8 +124,8 @@ header {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0, 0, 0, 0.5);
   opacity: 100%;
   transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
@@ -137,10 +138,7 @@ header {
 }
 
 .router-view {
-  width: 100vw;
-  height: 95vh;
-
+  flex: 1;
   min-width: 1000px;
-  min-height: 1000px;
 }
 </style>

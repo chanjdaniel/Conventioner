@@ -1,4 +1,5 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+</script>
 
 <template>
     <div class="setting-container">
@@ -21,7 +22,7 @@
     }
 
     .setting-header {
-        height: 50px;
+        height: 35px;
         background-color: var(--mm-black);
         border-top-left-radius: 10px;
         border-top-right-radius: 10px;
