@@ -6,6 +6,7 @@ import ElementSettingContainer from '@/components/elements/ElementSettingContain
 import ElementSetupColumns from '@/components/elements/ElementSetupColumns.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
+import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import { type SetupObject } from '@/assets/types/datatypes';
@@ -22,11 +23,56 @@ const setupObject = reactive<SetupObject>({
     enumPriorityOrder: [],
     priority: [],
     marketDates: [],
+    tiers: [],
+    locations: [],
     sections: [],
 });
 
 const pageIdx = ref(0);
 const maxPageIdx = 2;
+
+const saveMarket = async () => {
+    const response = await fetch(`${hostname}/save-market`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+            market: {
+                name: "spring2025",
+                owner: "testemail@test.com",
+                editors: ["testemail@test.com"],
+                viewers: ["testemail@test.com"],
+                setupObject: setupObject,
+                modificationList: [],
+                assignmentObject: null
+            },
+        }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        console.log(data);
+    }
+};
+
+const loadMarket = async () => {
+    const response = await fetch(`${hostname}/save-market`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+            name: "spring2025",
+        }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        console.log(data);
+    } else {
+        localStorage.setItem("market", JSON.stringify(data.market));
+        router.push("/market-setup");
+    }
+};
 
 onMounted(() => {
     // create setup object
@@ -67,6 +113,8 @@ onMounted(() => {
             enumPriorityOrder: enumPriorityOrder,
             priority: [],
             marketDates: [],
+            tiers: [],
+            locations: [],
             sections: [],
         };
 
@@ -89,13 +137,16 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
 const handleNext = () => {
     pageIdx.value = pageIdx.value === maxPageIdx ? maxPageIdx : pageIdx.value + 1;
     localStorage.setItem("setupPageIdx", JSON.stringify(pageIdx.value));
+    saveMarket();
 }
 const handleBack = () => {
     pageIdx.value = pageIdx.value === 0 ? 0 : pageIdx.value - 1;
     localStorage.setItem("setupPageIdx", JSON.stringify(pageIdx.value));
+    saveMarket();
 }
 const handleDone = () => {
     router.push("/generate-assignment");
+    saveMarket();
 }
 
 </script>
@@ -155,33 +206,35 @@ const handleDone = () => {
                     </template>
 
                     <template v-else-if="pageIdx === 1">
-                        <ElementSettingContainer>
-                            <template #setting-title>
-                                <h2>Tier Setup</h2>
-                            </template>
-                            <template #setting-content>
-                                <ElementLocationSetup :setupObject="setupObject"
-                                    @update:setupObject="handleUpdateSetupObject" />
-                            </template>
-                        </ElementSettingContainer>
-                        <ElementSettingContainer>
-                            <template #setting-title>
-                                <h2>Location Setup</h2>
-                            </template>
-                            <template #setting-content>
-                                <ElementLocationSetup :setupObject="setupObject"
-                                    @update:setupObject="handleUpdateSetupObject" />
-                            </template>
-                        </ElementSettingContainer>
-                        <ElementSettingContainer>
-                            <template #setting-title>
-                                <h2>Section Setup</h2>
-                            </template>
-                            <template #setting-content>
-                                <ElementSectionSetup :setupObject="setupObject"
-                                    @update:setupObject="handleUpdateSetupObject" />
-                            </template>
-                        </ElementSettingContainer>
+                        <div class="triple-column-body">
+                            <ElementSettingContainer>
+                                <template #setting-title>
+                                    <h2>Tier Setup</h2>
+                                </template>
+                                <template #setting-content>
+                                    <ElementTierSetup :setupObject="setupObject"
+                                        @update:setupObject="handleUpdateSetupObject" />
+                                </template>
+                            </ElementSettingContainer>
+                            <ElementSettingContainer>
+                                <template #setting-title>
+                                    <h2>Location Setup</h2>
+                                </template>
+                                <template #setting-content>
+                                    <ElementLocationSetup :setupObject="setupObject"
+                                        @update:setupObject="handleUpdateSetupObject" />
+                                </template>
+                            </ElementSettingContainer>
+                            <ElementSettingContainer>
+                                <template #setting-title>
+                                    <h2>Section Setup</h2>
+                                </template>
+                                <template #setting-content>
+                                    <ElementSectionSetup :setupObject="setupObject"
+                                        @update:setupObject="handleUpdateSetupObject" />
+                                </template>
+                            </ElementSettingContainer>
+                        </div>
                     </template>
 
                     <template v-else>
@@ -281,7 +334,7 @@ const handleDone = () => {
     align-self: stretch;
     flex-grow: 1;
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 2fr;
     gap: 30px;
     min-height: 0;
     flex: 1;

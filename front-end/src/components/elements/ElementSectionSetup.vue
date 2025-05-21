@@ -4,6 +4,8 @@ import { type SetupObject, type SectionObject } from '@/assets/types/datatypes'
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 
+const hostname = import.meta.env.VITE_FLASK_HOST;
+
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
 
@@ -13,10 +15,13 @@ const updateSetupObject = () => {
 
 const setupObject = toRef(props, "setupObject");
 const sections = toRef(setupObject.value, "sections");
+const locations = toRef(setupObject.value, "locations");
+const tiers = toRef(setupObject.value, "tiers");
+const tableCount = ref(0);
 
 const container = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
-const tableCount = ref<HTMLElement | null>(null);
+const tableCountRef = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
 
 const rowsMaxHeight = ref<string | null>(null);
@@ -34,6 +39,7 @@ const resizeObserver = new ResizeObserver(setHeight);
 
 onMounted(() => {
     setHeight();
+    countTables();
     nextTick(() => {
         resizeObserver.observe(document.body);
     })
@@ -56,9 +62,13 @@ const hoverIndex = ref<number | null>(null);
 const addRow = () => {
     const newSection: SectionObject = {
         name: "",
-        count: 0,
+        location: null,
+        tier: null,
+        count: "0",
     }
     sections.value.push(newSection);
+    updateSetupObject();
+    countTables();
     setHeight();
 }
 
@@ -66,15 +76,18 @@ const removeRow = (index: number | null) => {
     if (index != null) {
         sections.value.splice(index, 1);
     }
+    updateSetupObject();
+    countTables();
     setHeight();
 }
 
 const countTables = () => {
     let sum = 0;
     for (let i = 0; i < sections.value.length; i++) {
-        sum += sections.value[i].count;
+        const count = parseFloat(sections.value[i].count);
+        sum += isNaN(count) ? 0 : count;
     }
-    return sum;
+    tableCount.value = sum;
 }
 </script>
 
@@ -87,26 +100,35 @@ const countTables = () => {
             <h3>Count</h3>
         </div>
         <div class="rows" ref="rows">
-            <div class="row-container row" v-for="(item, index) in sections" :key="index"
-                @mouseover="hoverIndex = index" @mouseleave="hoverIndex = null">
+            <div class="row-container row" v-for="(item, index) in sections" :key="index" @mouseover="hoverIndex = index"
+                @mouseleave="hoverIndex = null">
                 <div class="row-item">
                     <div class="input-container">
-                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
+                        <input type="text" v-model="sections[index].name" @blur="updateSetupObject"
+                            style="all: unset; font-size: 14px; width: 100%;" />
                     </div>
                 </div>
                 <div class="row-item">
-                    <div class="input-container">
-                        <input type="number" v-model="sections[index].count" style="all: unset; font-size: 14px; width: 100%; -moz-appearance: textfield;"/>
-                    </div>
+                    <select class="dropdown" v-model="sections[index].location" @blur="updateSetupObject">
+                        <option disabled value="">{{ null }}</option>
+                        <option class="display-list" v-for="value in setupObject.locations" :key="value.name"
+                            :value="value">
+                            {{ value.name }}
+                        </option>
+                    </select>
+                </div>
+                <div class="row-item">
+                    <select class="dropdown" v-model="sections[index].tier" @blur="updateSetupObject">
+                        <option disabled value="">{{ null }}</option>
+                        <option class="display-list" v-for="value in setupObject.tiers" :key="value.id" :value="value">
+                            {{ value.name }}
+                        </option>
+                    </select>
                 </div>
                 <div class="row-item">
                     <div class="input-container">
-                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
-                    </div>
-                </div>
-                <div class="row-item">
-                    <div class="input-container">
-                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
+                        <input type="number" v-model="sections[index].count" @blur="() => { updateSetupObject(); countTables() }"
+                            style="all: unset; font-size: 14px; width: 100%; -moz-appearance: textfield;" />
                     </div>
                 </div>
                 <div
@@ -119,14 +141,13 @@ const countTables = () => {
                 <IconAddRound class="icon-add-round" @click="addRow" />
             </div>
         </div>
-        <div ref="tableCount" style="position: absolute; left: 5px; bottom: -10px">
-            <h3 style="font-size: 14px;">Total tables: {{ countTables() }}</h3>
+        <div ref="tableCountRef" style="position: absolute; left: 5px; bottom: -10px">
+            <h3 style="font-size: 14px;">Total tables: {{ tableCount }}</h3>
         </div>
     </div>
 </template>
 
 <style scoped>
-
 .container {
     width: 100%;
     height: 100%;
@@ -218,5 +239,18 @@ input[type=number] {
     width: 80%;
     height: 80%;
     cursor: pointer;
+}
+
+.dropdown {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding-right: 5px;
+    background-color: white;
 }
 </style>

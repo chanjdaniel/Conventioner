@@ -14,7 +14,6 @@ const emit = defineEmits(["update:setupObject"]);
 const setupObject = toRef(props, "setupObject");
 const priorityObjects = toRef(setupObject.value, "priority");
 const enumPriorityOrder = toRef(setupObject.value, "enumPriorityOrder");
-console.log(enumPriorityOrder);
 
 watch(
     () => setupObject.value.priority,
@@ -50,10 +49,8 @@ const watchPriorityObject = ((id: number) => {
 
             if (!dataTypeSorting[newObj.dataType].includes(newObj.sortingOrder) && newObj.sortingOrder !== "") {
                 priorityObjects.value[objectIndex].sortingOrder = "";
-                console.log("deleted");
             }
 
-            console.log("watched");
         },
         { deep: true }
     );

@@ -72,11 +72,11 @@ def login(bcrypt, login_user, request):
         user_data = { "email": user_email, "organizations": user_organizations, "markets": user_markets }
         return jsonify({"message": "Login successful", "user_data": user_data}), 200
 
-    return jsonify({"message": "Invalid credentials"}), 401
+    return jsonify({"msg": "Invalid credentials"}), 401
 
 def logout(logout_user):
     logout_user()
-    return jsonify({"message": "Logged out"}), 200
+    return jsonify({"msg": "Logged out"}), 200
 
 def check_session(current_user):
     return jsonify({"email": current_user.email}), 200
