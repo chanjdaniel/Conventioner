@@ -79,12 +79,8 @@ const submitLogin = async () => {
     }
 
     .login-window {
-        max-width: 600px;
-        max-height: 750px;
-        min-width: 400px;
-        min-height: 600px;
-        height: 80%;
-        width: 25%;
+        width: 600px;
+        height: 750px;
 
         background-color: white;
         border-radius: 10px;

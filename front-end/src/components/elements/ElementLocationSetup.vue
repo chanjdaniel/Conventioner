@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import { type SetupObject, type LocationObject } from '@/assets/types/datatypes'
+import { type SetupObject, type SectionObject } from '@/assets/types/datatypes'
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 
@@ -12,7 +12,7 @@ const updateSetupObject = () => {
 };
 
 const setupObject = toRef(props, "setupObject");
-const locations = toRef(setupObject.value, "locations");
+const sections = toRef(setupObject.value, "sections");
 
 const container = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
@@ -54,35 +54,55 @@ watch(
 const hoverIndex = ref<number | null>(null);
 
 const addRow = () => {
-    const newLocation: LocationObject = {
+    const newSection: SectionObject = {
         name: "",
+        count: 0,
     }
-    locations.value.push(newLocation);
-    updateSetupObject();
+    sections.value.push(newSection);
     setHeight();
 }
 
 const removeRow = (index: number | null) => {
     if (index != null) {
-        locations.value.splice(index, 1);
+        sections.value.splice(index, 1);
     }
-    updateSetupObject();
     setHeight();
 }
 
+const countTables = () => {
+    let sum = 0;
+    for (let i = 0; i < sections.value.length; i++) {
+        sum += sections.value[i].count;
+    }
+    return sum;
+}
 </script>
 
 <template>
     <div class="container" ref="container">
         <div class="column-titles row-container" ref="columnTitles">
-            <h3>Location name</h3>
+            <h3>Rank</h3>
+            <h3>Tier</h3>
+            <h3>Locations</h3>
         </div>
         <div class="rows" ref="rows">
-            <div class="row-container row" v-for="(item, index) in locations" :key="index" @mouseover="hoverIndex = index"
+            <div class="row-container row" v-for="(item, index) in sections" :key="index" @mouseover="hoverIndex = index"
                 @mouseleave="hoverIndex = null">
                 <div class="row-item">
                     <div class="input-container">
-                        <input type="text" v-model="locations[index].name" @blur="updateSetupObject"
+                        <input type="text" v-model="sections[index].name"
+                            style="all: unset; font-size: 14px; width: 100%;" />
+                    </div>
+                </div>
+                <div class="row-item">
+                    <div class="input-container">
+                        <input type="number" v-model="sections[index].count"
+                            style="all: unset; font-size: 14px; width: 100%; -moz-appearance: textfield;" />
+                    </div>
+                </div>
+                <div class="row-item">
+                    <div class="input-container">
+                        <input type="text" v-model="sections[index].name"
                             style="all: unset; font-size: 14px; width: 100%;" />
                     </div>
                 </div>
@@ -114,7 +134,7 @@ const removeRow = (index: number | null) => {
 
 .column-titles {
     display: grid;
-    grid-template-columns: auto 5%;
+    grid-template-columns: 10% 35% 50% 5%;
     margin-bottom: 15px;
 }
 
@@ -136,7 +156,7 @@ const removeRow = (index: number | null) => {
 
 .row {
     display: grid;
-    grid-template-columns: auto 5%;
+    grid-template-columns: 10% 35% 50% 5%;
     padding-top: 5px;
     padding-bottom: 5px;
 }
@@ -191,18 +211,5 @@ input[type=number] {
     width: 80%;
     height: 80%;
     cursor: pointer;
-}
-
-.dropdown {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    border: none;
-    outline: none;
-    cursor: pointer;
-    font-size: 14px;
-    padding-right: 5px;
-    background-color: white;
 }
 </style>

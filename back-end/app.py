@@ -43,8 +43,8 @@ def load_user(email):
 
 # curl -k -X POST https://127.0.0.1:5000/register-user \
 #      -H "Content-Type: application/json" \
-#      -d '{"email": "testemail@test.com", "password": "testpassword1234", "organization": "ORGANIZATION"}'
-@app.route("/register-user", methods=['POST'])
+#      -d '{"email": "USERNAME", "password": "PASSWORD", "organization": "ORGANIZATION"}'
+@app.route("/register-user", methods=["POST"])
 def register_user():
     return UsersApi.register_user(bcrypt, request)
 
@@ -70,18 +70,6 @@ def check_session():
 #     data = request.json
 #     setupObject = data.setupObject
 #     upload = data.upload
-
-# marktes
-
-@app.route('/load-market', methods=['GET'])
-@login_required
-def load_market():
-    return MarketsApi.load_market_request(current_user, request)
-
-@app.route('/save-market', methods=['POST'])
-@login_required
-def save_market():
-    return MarketsApi.save_market_request(current_user, request)
 
 # misc
 
