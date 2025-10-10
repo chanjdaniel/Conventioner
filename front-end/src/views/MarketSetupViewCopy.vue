@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<!-- <script setup lang="ts">
 import { onMounted, reactive, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -228,4 +228,4 @@ h2 {
 
   color: #FFFFFF;
 }
-</style>
+</style> -->

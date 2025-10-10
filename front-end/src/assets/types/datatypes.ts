@@ -44,3 +44,22 @@ export interface SetupObject {
     locations: LocationObject[],
     sections: SectionObject[],
 }
+
+export interface ModificationObject {
+
+}
+
+export interface AssignmentObject {
+
+}
+
+export interface Market {
+    name: string,
+    owner: string,
+    creationDate: string,
+    editors: string[],
+    viewers: string[],
+    setupObject: SetupObject
+    modificationList: ModificationObject[],
+    assignmentObject: AssignmentObject | null,
+}

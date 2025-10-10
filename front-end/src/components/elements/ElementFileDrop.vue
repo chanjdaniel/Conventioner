@@ -71,62 +71,59 @@ const readCSVFile = (file: File) => {
 </script>
 
 <template>
-    <div
-        class="file-container"
-        :style="{ opacity: isOpen ? '100%' : '0%' }"
-        ref="dropZoneRef">
-        <div class="file-drop-icons">
-            <IconImport />
-            <h3>
-                <span><button class="file-button" type="button" @click="open()">Choose a file</button></span>
-                <span class="file-text"> or drag it here </span>
-            </h3>
-        </div>
+  <div class="file-container" :style="{ opacity: isOpen ? '100%' : '0%' }" ref="dropZoneRef">
+    <div class="file-drop-icons">
+      <IconImport />
+      <h3>
+        <span><button class="file-button" type="button" @click="open()">Choose a file</button></span>
+        <span class="file-text"> or drag it here </span>
+      </h3>
     </div>
+  </div>
 </template>
 
 <style scoped>
-    .file-container {
-        width: 50%;
-        height: 50%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        background: var(--mm-beige);
-        z-index: 1;
+.file-container {
+  width: 50%;
+  height: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: var(--mm-beige);
+  z-index: 1;
 
-        border-radius: 10px;
-        border-style: dashed;
-        border-width: 1px;
-    }
+  border-radius: 10px;
+  border-style: dashed;
+  border-width: 1px;
+}
 
-    .file-drop-icons {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+.file-drop-icons {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 
-        width: 100%;
+  width: 100%;
 
-        gap: 10px;
-    }
+  gap: 10px;
+}
 
-    .file-button {
-    width: 120px;
-    height: 25px;
+.file-button {
+  width: 120px;
+  height: 25px;
 
-    background: var(--mm-green);
-    border-radius: 5px;
-    border: none;
+  background: var(--mm-green);
+  border-radius: 5px;
+  border: none;
 
-    font-family: 'Merge One';
-    font-style: normal;
-    font-weight: 400;
-    font-size: 15px;
-    line-height: 15px;
-    text-align: center;
+  font-family: 'Merge One';
+  font-style: normal;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 15px;
+  text-align: center;
 
-    color: #FFFFFF;
-    }
+  color: #FFFFFF;
+}
 </style>
