@@ -19,7 +19,7 @@ const handleFileUploaded = (files: any) => {
 };
 
 const handleSubmit = () => {
-    //     name: string,
+    // name: string,
     // owner: string,
     // creationDate: string,
     // editors: string[],
@@ -33,14 +33,14 @@ const handleSubmit = () => {
         editors: [],
     }
     localStorage.removeItem("upload");
-    localStorage.setItem("upload", JSON.stringify(files));
+    localStorage.setItem("upload", JSON.stringify(uploadedFiles.value));
     router.push('/market-setup');
 }
 </script>
 
 <template>
     <div class="container" :style="{ visibility: newOpen ? 'visible' : 'hidden' }">
-        <div class="background" @click="$emit('nedddddddddddddddddddddddddddddddddddddddddddddddddddddddwClose')" :style="{ opacity: newOpen ? '100%' : '0%' }">
+        <div class="background" @click="$emit('newClose')" :style="{ opacity: newOpen ? '100%' : '0%' }">
         </div>
         <template v-if="!next">
             <ElementFileDrop :isOpen="newOpen" @file-uploaded="handleFileUploaded"></ElementFileDrop>
