@@ -13,6 +13,8 @@ const updateSetupObject = () => {
 
 const setupObject = toRef(props, "setupObject");
 const sections = toRef(setupObject.value, "sections");
+const locations = toRef(setupObject.value, "locations");
+const tiers = toRef(setupObject.value, "tiers");
 
 const container = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
@@ -53,9 +55,17 @@ watch(
 
 const hoverIndex = ref<number | null>(null);
 
+const handleCountInput = (index: number, value: number) => {
+    if (value < 0 || isNaN(value)) { // if value is less than zero or is not a number, set to zero
+        sections.value[index].count = 0;
+    }
+};
+
 const addRow = () => {
     const newSection: SectionObject = {
         name: "",
+        location: null,
+        tier: null,
         count: 0,
     }
     sections.value.push(newSection);
@@ -94,19 +104,32 @@ const countTables = () => {
                         <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
                     </div>
                 </div>
-                <div class="row-item">
-                    <div class="input-container">
-                        <input type="number" v-model="sections[index].count" style="all: unset; font-size: 14px; width: 100%; -moz-appearance: textfield;"/>
-                    </div>
+                <div class="row-item enum-item">
+                    <select class="dropdown" v-model="sections[index].location">
+                        <option disabled value="">{{ "Select a location" }}</option>
+                        <option class="display-list" v-for="(value, index) in locations" :key="index"
+                            :value="value">
+                            {{ value.name }}
+                        </option>
+                    </select>
+                </div>
+                <div class="row-item enum-item">
+                    <select class="dropdown" v-model="sections[index].tier">
+                        <option disabled value="">{{ "Select a tier" }}</option>
+                        <option class="display-list" v-for="(value, index) in tiers" :key="index"
+                            :value="value">
+                            {{ value.name }}
+                        </option>
+                    </select>
                 </div>
                 <div class="row-item">
                     <div class="input-container">
-                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
-                    </div>
-                </div>
-                <div class="row-item">
-                    <div class="input-container">
-                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
+                        <input
+                        type="number"
+                        v-model="sections[index].count"
+                        @input="handleCountInput(index, Number(($event.target as HTMLInputElement)?.value || NaN))"
+                        style="font-size: 14px; width: 100%;"
+                        class="number-input" />
                     </div>
                 </div>
                 <div
@@ -218,5 +241,38 @@ input[type=number] {
     width: 80%;
     height: 80%;
     cursor: pointer;
+}
+
+.enum-item {
+    cursor: pointer;
+}
+
+.dropdown {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding-right: 5px;
+    background-color: white;
+}
+
+.number-input {
+    all: unset;
+    font-size: 14px;
+    width: 100%;
+}
+
+.number-input::-webkit-outer-spin-button,
+.number-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.number-input[type=number] {
+    -moz-appearance: textfield;
 }
 </style>

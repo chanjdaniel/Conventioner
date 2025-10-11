@@ -81,11 +81,13 @@ const columnTitles = ref<HTMLElement | null>(null);
     });
 };
 
-const dataTypes: DataType[] = [DataType.String, DataType.Number, DataType.Enum];
+const dataTypes: DataType[] = [DataType.String, DataType.Number, DataType.Enum, DataType.Contains, DataType.NotContains];
 const dataTypeSorting: Record<DataType, string[]> = {
     [DataType.String]: ["A-Z", "Z-A"],
     [DataType.Number]: ["Ascending", "Descending"],
     [DataType.Enum]: [],
+    [DataType.Contains]: [],
+    [DataType.NotContains]: [],
     [DataType.Default]: [],
 }
 const colDefault = "Select a column";
@@ -133,6 +135,9 @@ const dragOptions = computed(() => ({
     ghostClass: "sortable-chosen",
     chosenClass: "sortable-ghost",
     dragClass: "sortable-ghost",
+    handle: '.drag-item',
+    forceFallback: false,
+    fallbackOnBody: false,
 }));
 
 </script>
@@ -148,12 +153,7 @@ const dragOptions = computed(() => ({
         </div>
         <div class="rows" ref="rows">
 
-            <draggable class="priority-rows" v-model="priorityObjects" item-key="id" :options="{
-                handle: '.sorting-index-drag',
-                filter: '.click-item',
-                forceFallback: false,
-                fallbackOnBody: false
-            }" v-bind="dragOptions">
+            <draggable class="priority-rows" v-model="priorityObjects" item-key="id" v-bind="dragOptions">
                 <template #item="{ element, index: parentIndex }">
                     <div class="priority-row row-container" :key="element.id"
                         @mouseover="hoverParentIndex = parentIndex" @mouseleave="hoverParentIndex = null">
@@ -228,6 +228,11 @@ const dragOptions = computed(() => ({
                             </div>
                             <div v-else-if="priorityObjects[parentIndex].dataType === DataType.Default">
                             </div>
+                            <div v-else-if="priorityObjects[parentIndex].dataType === DataType.Contains || priorityObjects[parentIndex].dataType === DataType.NotContains" style="width: 100%; display: flex; align-items: center; justify-content: center;">
+                                    <div class="input-container row-item">
+                                        <input type="text" v-model="priorityObjects[parentIndex].sortingOrder" style="all: unset; font-size: 14px; width: 100%; align-items: center; justify-content: center;" />
+                                    </div>
+                            </div>
                             <select v-else class="dropdown" style="text-align: center;"
                                 v-model="priorityObjects[parentIndex].sortingOrder">
                                 <option disabled value="">{{ sortingDefault }}</option>
@@ -282,6 +287,13 @@ h3 {
     padding-left: 5px;
     padding-right: 5px;
     gap: 15px;
+}
+
+.input-container {
+    width: 80%;
+    height: 100%;
+    box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
 }
 
 .column-titles {

@@ -6,6 +6,8 @@ import ElementSettingContainer from '@/components/elements/ElementSettingContain
 import ElementSetupColumns from '@/components/elements/ElementSetupColumns.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
+import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue';
+import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import { type SetupObject } from '@/assets/types/datatypes';
@@ -22,7 +24,13 @@ const setupObject = reactive<SetupObject>({
     enumPriorityOrder: [],
     priority: [],
     marketDates: [],
+    tiers: [],
+    locations: [],
     sections: [],
+    assignmentOptions: {
+        MAX_ASSIGNMENTS_PER_VENDOR: null,
+        MAX_HALF_TABLE_PROPORTION_PER_SECTION: null,
+    },
 });
 
 const pageIdx = ref(0);
@@ -67,7 +75,13 @@ onMounted(() => {
             enumPriorityOrder: enumPriorityOrder,
             priority: [],
             marketDates: [],
+            tiers: [],
+            locations: [],
             sections: [],
+            assignmentOptions: {
+                MAX_ASSIGNMENTS_PER_VENDOR: null,
+                MAX_HALF_TABLE_PROPORTION_PER_SECTION: null,
+            },
         };
 
         Object.assign(setupObject, newSetupObject);
@@ -131,8 +145,40 @@ const handleDone = () => {
                         </div>
                     </template>
 
+                    <template v-else-if="pageIdx === 1">
+                        <div class="triple-column-body">
+                            <ElementSettingContainer>
+                                <template #setting-title>
+                                    <h2>Tier Setup</h2>
+                                </template>
+                                <template #setting-content>
+                                    <ElementTierSetup :setupObject="setupObject"
+                                        @update:setupObject="handleUpdateSetupObject" />
+                                </template>
+                            </ElementSettingContainer>
+                            <ElementSettingContainer>
+                                <template #setting-title>
+                                    <h2>Location Setup</h2>
+                                </template>
+                                <template #setting-content>
+                                    <ElementLocationSetup :setupObject="setupObject"
+                                        @update:setupObject="handleUpdateSetupObject" />
+                                </template>
+                            </ElementSettingContainer>
+                            <ElementSettingContainer>
+                                <template #setting-title>
+                                    <h2>Section Setup</h2>
+                                </template>
+                                <template #setting-content>
+                                    <ElementSectionSetup :setupObject="setupObject"
+                                        @update:setupObject="handleUpdateSetupObject" />
+                                </template>
+                            </ElementSettingContainer>
+                        </div>
+                    </template>
+
                     <template v-else-if="pageIdx === 2">
-                        <div class="double-column-body">
+                        <div class="double-column-body-asymmetric">
                             <ElementSettingContainer>
                                 <template #setting-title>
                                     <h2>Assignment Priority</h2>
@@ -147,41 +193,11 @@ const handleDone = () => {
                                     <h2>Assignment Options</h2>
                                 </template>
                                 <template #setting-content>
-                                    <ElementAssignmentPriority :setupObject="setupObject"
+                                    <ElementAssignmentOptions :setupObject="setupObject"
                                         @update:setupObject="handleUpdateSetupObject" />
                                 </template>
                             </ElementSettingContainer>
                         </div>
-                    </template>
-
-                    <template v-else-if="pageIdx === 1">
-                        <ElementSettingContainer>
-                            <template #setting-title>
-                                <h2>Tier Setup</h2>
-                            </template>
-                            <template #setting-content>
-                                <ElementLocationSetup :setupObject="setupObject"
-                                    @update:setupObject="handleUpdateSetupObject" />
-                            </template>
-                        </ElementSettingContainer>
-                        <ElementSettingContainer>
-                            <template #setting-title>
-                                <h2>Location Setup</h2>
-                            </template>
-                            <template #setting-content>
-                                <ElementLocationSetup :setupObject="setupObject"
-                                    @update:setupObject="handleUpdateSetupObject" />
-                            </template>
-                        </ElementSettingContainer>
-                        <ElementSettingContainer>
-                            <template #setting-title>
-                                <h2>Section Setup</h2>
-                            </template>
-                            <template #setting-content>
-                                <ElementSectionSetup :setupObject="setupObject"
-                                    @update:setupObject="handleUpdateSetupObject" />
-                            </template>
-                        </ElementSettingContainer>
                     </template>
 
                     <template v-else>
@@ -277,11 +293,21 @@ const handleDone = () => {
     flex: 1;
 }
 
+.double-column-body-asymmetric {
+    align-self: stretch;
+    flex-grow: 1;
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 30px;
+    min-height: 0;
+    flex: 1;
+}
+
 .triple-column-body {
     align-self: stretch;
     flex-grow: 1;
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 2fr;
     gap: 30px;
     min-height: 0;
     flex: 1;

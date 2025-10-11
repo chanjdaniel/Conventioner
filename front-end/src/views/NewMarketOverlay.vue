@@ -53,7 +53,7 @@ const handleSubmit = () => {
                 <div style="width: 100%; height: 30px; display: grid; grid-template-columns: 1fr 3fr 1fr;">
                     <div></div>
                     <div class="text-input-container">
-                        <input type="text" v-model="marketName"
+                        <input type="text" v-model="marketName" @keydown.enter="handleSubmit"
                             style="all: unset; font-size: 14px; width: 100%; text-align: center;" />
                     </div>
                     <div style="padding-left: 10px">

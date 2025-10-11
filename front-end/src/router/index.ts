@@ -6,6 +6,11 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '/',
+      name: 'root',
+      redirect: '/init',
+    },
+    {
       path: '/login',
       name: 'login',
       component: LoginView,
@@ -36,15 +41,31 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const publicPages = ["/login"];
   const user = JSON.parse(localStorage.getItem("user") || "null");
-  publicPages.includes(to.path)
 
-  if (!user && !publicPages.includes(to.path)) {
-    next("/login");
-  } else if (user && to.path === "/login") {
-    next("/init");
-  } else {
+  if (publicPages.includes(to.path)) {
     next();
+    return;
   }
+  
+  if (!user) {
+    next("/login");
+    return;
+  }
+
+  if (user && to.path === "/login") {
+    next("/init");
+    return;
+  }
+
+  next();
+
+  // if (!user && !publicPages.includes(to.path)) {
+  //   next("/login");
+  // } else if (user && to.path === "/login") {
+  //   next("/init");
+  // } else {
+  //   next();
+  // }
 });
 
 export default router
