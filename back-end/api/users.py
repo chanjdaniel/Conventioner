@@ -1,35 +1,30 @@
 from flask import request, jsonify
 from flask_login import UserMixin
-import json
+from pymongo import MongoClient
+from datatypes import User
 
-USER_AUTH_PATH = "./data/users.json"
+client = MongoClient("mongodb://admin:secret@localhost:27017/admin")
+
+db = client["market_maker"]
+users_collection = db["users"]
 
 # users
-class User(UserMixin):
-    def __init__(self, user):
-        self.email = user["email"]
-        self.organizations = user["organizations"]
-        self.markets = user["markets"]
+class AuthUser(UserMixin):
+    def __init__(self, user: User):
+        self.email = user.email
+        self.organizations = user.organizations
+        self.markets = user.markets
 
     def get_id(self):
         return self.email
 
-def load_users():
-    try:
-        with open(USER_AUTH_PATH, "r") as file:
-            return json.load(file)
-    except FileNotFoundError:
-        return {}
-    
-def save_users(users):
-    with open(USER_AUTH_PATH, "w") as file:
-        json.dump(users, file, indent=4)
-
 def load_user(email):
-    users = load_users()
-    for user in users.values():
-        if str(user["email"]) == str(email):
-            return User(user)
+    """Load user from MongoDB using email as the key"""
+    user_doc = users_collection.find_one({"email": email})
+    if user_doc:
+        # Remove MongoDB's _id field before creating User object
+        user_doc.pop('_id', None)
+        return AuthUser(User(**user_doc))
     return None
 
 # curl -k -X POST https://127.0.0.1:5000/register-user \
@@ -39,37 +34,50 @@ def register_user(bcrypt, request):
     data = request.json
     email = data.get("email")
     password = data.get("password")
-    organizations = data.get("organizations")
-    markets = data.get("markets")
-
-    users = load_users()
+    organizations = data.get("organizations", [])
+    markets = data.get("markets", [])
 
     if not email or not password:
-        return jsonify({"msg": "Email, password, and organization required"}), 400
+        return jsonify({"msg": "Email and password required"}), 400
 
-    if email in users:
+    # Check if user already exists in MongoDB
+    existing_user = users_collection.find_one({"email": email})
+    if existing_user:
         return jsonify({"msg": "User already exists"}), 400
 
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    users[email] = { "email": email, "password": hashed_password, "organizations": organizations, "markets": markets }
-    save_users(users)
-
-    return jsonify({"msg": "User registered successfully"}), 201
+    user_doc = {
+        "email": email,
+        "password": hashed_password,
+        "organizations": organizations,
+        "markets": markets
+    }
+    
+    # Insert user into MongoDB
+    result = users_collection.insert_one(user_doc)
+    
+    if result.inserted_id:
+        return jsonify({"msg": "User registered successfully"}), 201
+    else:
+        return jsonify({"msg": "Failed to register user"}), 500
 
 def login(bcrypt, login_user, request):
     data = request.json
     email, password = data.get('email'), data.get('password')
 
-    users = load_users()
-    user = users.get(email)
-    if email in users and bcrypt.check_password_hash(users[email]["password"], password):
-        user_email = user["email"]
-        user_organizations = user["organizations"]
-        user_markets = user["markets"]
-        user_obj = User(user)
-        login_user(user_obj, remember=True)
+    # Find user in MongoDB
+    user_doc = users_collection.find_one({"email": email})
+    if user_doc and bcrypt.check_password_hash(user_doc["password"], password):
+        # Remove MongoDB's _id field before creating User object
+        user_doc.pop('_id', None)
+        auth_user = AuthUser(User(**user_doc))
+        login_user(auth_user, remember=True)
 
-        user_data = { "email": user_email, "organizations": user_organizations, "markets": user_markets }
+        user_data = {
+            "email": auth_user.email,
+            "organizations": auth_user.organizations,
+            "markets": auth_user.markets
+        }
         return jsonify({"message": "Login successful", "user_data": user_data}), 200
 
     return jsonify({"message": "Invalid credentials"}), 401

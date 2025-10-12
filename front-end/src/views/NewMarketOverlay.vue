@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import ElementFileDrop from '@/components/elements/ElementFileDrop.vue';
-import { ref } from 'vue';
+import { ref, inject } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes.ts'
+
+const user: any = inject('user');
 
 defineProps<{
     newOpen: boolean;
@@ -10,30 +12,70 @@ defineProps<{
 
 const router = useRouter();
 const uploadedFiles = ref([]);
+const uploadedSourceData = ref([]);
 const next = ref(false);
 const marketName = ref("");
+const currentUser = ref(user.value.email);
 
 const handleFileUploaded = (files: any) => {
     uploadedFiles.value = files;
     next.value = true;
 };
 
-const handleSubmit = () => {
-    // name: string,
-    // owner: string,
-    // creationDate: string,
-    // editors: string[],
-    // viewers: string[],
-    // setupObject: SetupObject
-    // modificationList: ModificationObject[],
-    // assignmentObject: AssignmentObject | null,
+const handleSourceDataUploaded = (sourceData: any) => {
+    uploadedSourceData.value = sourceData;
+};
+
+const handleSubmit = async () => {
     let newMarket: Market = {
         name: marketName.value,
-        creationDate: "",
-        editors: [],
+        owner: currentUser.value,
+        creationDate: new Date().toISOString(),
+        editors: [currentUser.value],
+        viewers: [],
+        setupObject: {
+            colNames: [],
+            colValues: [],
+            colInclude: [],
+            enumPriorityOrder: [],
+            priority: [],
+            marketDates: [],
+            tiers: [],
+            locations: [],
+            sections: [],
+            assignmentOptions: {
+                MAX_ASSIGNMENTS_PER_VENDOR: null,
+                MAX_HALF_TABLE_PROPORTION_PER_SECTION: null,
+            },
+        },
+        modificationList: [],
+        assignmentObject: {},
     }
+    
+    const formData = new FormData();
+    if (uploadedSourceData.value.length > 0) {
+        formData.append('file', uploadedSourceData.value[0]);
+    }
+
+    console.log(formData);
+    console.log(uploadedFiles.value);
+
+    fetch(`${import.meta.env.VITE_FLASK_HOST}/source-data/${marketName.value}`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+    });
+
+    fetch(`${import.meta.env.VITE_FLASK_HOST}/markets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(newMarket),
+        });
+
     localStorage.removeItem("upload");
     localStorage.setItem("upload", JSON.stringify(uploadedFiles.value));
+
     router.push('/market-setup');
 }
 </script>
@@ -43,7 +85,7 @@ const handleSubmit = () => {
         <div class="background" @click="$emit('newClose')" :style="{ opacity: newOpen ? '100%' : '0%' }">
         </div>
         <template v-if="!next">
-            <ElementFileDrop :isOpen="newOpen" @file-uploaded="handleFileUploaded"></ElementFileDrop>
+            <ElementFileDrop :isOpen="newOpen" @file-uploaded="handleFileUploaded" @source-data-uploaded="handleSourceDataUploaded"></ElementFileDrop>
         </template>
         <template v-else>
             <div class="window">

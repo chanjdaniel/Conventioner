@@ -1,0 +1,8 @@
+- add validation for duplicates: market
+- think about how to handle intentional duplicates; PUT vs POST
+- add save on next and on done
+- finally integrate assignment logic
+- create simple display and attendance form
+- create discord tool
+- actually do assignment
+- output assignment to csv and download

@@ -11,7 +11,7 @@ defineProps<{
   isOpen: boolean;
 }>();
 
-const emit = defineEmits(['file-uploaded']);
+const emit = defineEmits(['file-uploaded', 'source-data-uploaded']);
 
 const fileData = shallowRef<{ name: string, size: number, type: string, lastModified: number, data: any }>()
 const dropZoneRef = useTemplateRef<HTMLElement>('dropZoneRef')
@@ -52,6 +52,7 @@ async function handleUpload(file: File | null) {
     }))(file);
 
     emit('file-uploaded', fileData.value);
+    emit('source-data-uploaded', [file]);
   }
 }
 

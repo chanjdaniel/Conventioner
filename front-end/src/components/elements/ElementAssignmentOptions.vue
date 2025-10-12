@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { type SetupObject, type SectionObject } from '@/assets/types/datatypes'
-import { type LocationObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
@@ -24,6 +23,34 @@ watch(
     { deep: true }
 );
 
+const handleDaysInput = (value: number) => {
+    if (value < 0 || isNaN(value)) { // if value is less than zero or is not a number, set to zero
+        assignmentOptions.value.MAX_ASSIGNMENTS_PER_VENDOR = 0;
+        return;
+    }
+
+    let MAX_DAYS = setupObject.value.marketDates.length;
+    if (value > MAX_DAYS) {
+        assignmentOptions.value.MAX_ASSIGNMENTS_PER_VENDOR = MAX_DAYS;
+    } else {
+        assignmentOptions.value.MAX_ASSIGNMENTS_PER_VENDOR = Number(value.toString());
+    }
+};
+
+const handleProportionInput = (value: number) => {
+    if (value < 0 || isNaN(value)) { // if value is less than zero or is not a number, set to zero
+        assignmentOptions.value.MAX_HALF_TABLE_PROPORTION_PER_SECTION = 0;
+        return;
+    }
+
+    let MAX_PROPORTION = 1;
+    if (value > MAX_PROPORTION) {
+        assignmentOptions.value.MAX_HALF_TABLE_PROPORTION_PER_SECTION = MAX_PROPORTION;
+    } else {
+        assignmentOptions.value.MAX_HALF_TABLE_PROPORTION_PER_SECTION = Number(value.toString());
+    }
+};
+
 </script>
 
 <template>
@@ -31,16 +58,24 @@ watch(
         <div class="rows" ref="rows">
             <div class="row-container row">
                 <div class="row-item">
+                    <h3>Max assignments per vendor</h3>
+                </div>
+                <div class="row-item">
                     <div class="input-container">
                         <input type="text" v-model="assignmentOptions.MAX_ASSIGNMENTS_PER_VENDOR"
+                            @input="handleDaysInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
                             style="all: unset; font-size: 14px; width: 100%;" />
                     </div>
                 </div>
             </div>
             <div class="row-container row">
                 <div class="row-item">
+                    <h3>Max half table proportion per section</h3>
+                </div>
+                <div class="row-item">
                     <div class="input-container">
                         <input type="text" v-model="assignmentOptions.MAX_HALF_TABLE_PROPORTION_PER_SECTION"
+                            @blur="handleProportionInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
                             style="all: unset; font-size: 14px; width: 100%;" />
                     </div>
                 </div>
@@ -79,7 +114,7 @@ watch(
 
 .row {
     display: grid;
-    grid-template-columns: 95% 5%;
+    grid-template-columns: 40% 60%;
     padding-top: 5px;
     padding-bottom: 5px;
 }
@@ -90,7 +125,7 @@ watch(
     position: relative;
 
     padding-left: 10px;
-    padding-right: 5px;
+    padding-right: 10px;
     justify-content: center;
     align-items: center;
 
