@@ -18,7 +18,7 @@ class AuthUser(UserMixin):
     def get_id(self):
         return self.email
 
-def load_user(email):
+def get_user(email):
     """Load user from MongoDB using email as the key"""
     user_doc = users_collection.find_one({"email": email})
     if user_doc:

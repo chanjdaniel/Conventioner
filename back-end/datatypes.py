@@ -74,7 +74,7 @@ class Market(BaseModel):
     creationDate: str
     editors: List[str]
     viewers: List[str]
-    setupObject: SetupObject
+    setupObject: SetupObject | None = None
     modificationList: List[ModificationObject]
     assignmentObject: AssignmentObject
 

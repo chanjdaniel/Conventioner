@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import ElementFileDrop from '@/components/elements/ElementFileDrop.vue';
-import { ref, inject } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes.ts'
-
-const user: any = inject('user');
+import { api } from '@/utils/api';
 
 defineProps<{
     newOpen: boolean;
@@ -15,7 +14,6 @@ const uploadedFiles = ref([]);
 const uploadedSourceData = ref([]);
 const next = ref(false);
 const marketName = ref("");
-const currentUser = ref(user.value.email);
 
 const handleFileUploaded = (files: any) => {
     uploadedFiles.value = files;
@@ -27,27 +25,14 @@ const handleSourceDataUploaded = (sourceData: any) => {
 };
 
 const handleSubmit = async () => {
+    const userEmail = JSON.parse(localStorage.getItem("user") || "null");
     let newMarket: Market = {
         name: marketName.value,
-        owner: currentUser.value,
+        owner: userEmail,
         creationDate: new Date().toISOString(),
-        editors: [currentUser.value],
+        editors: [userEmail],
         viewers: [],
-        setupObject: {
-            colNames: [],
-            colValues: [],
-            colInclude: [],
-            enumPriorityOrder: [],
-            priority: [],
-            marketDates: [],
-            tiers: [],
-            locations: [],
-            sections: [],
-            assignmentOptions: {
-                MAX_ASSIGNMENTS_PER_VENDOR: null,
-                MAX_HALF_TABLE_PROPORTION_PER_SECTION: null,
-            },
-        },
+        setupObject: null,
         modificationList: [],
         assignmentObject: {},
     }
@@ -57,24 +42,14 @@ const handleSubmit = async () => {
         formData.append('file', uploadedSourceData.value[0]);
     }
 
-    console.log(formData);
-    console.log(uploadedFiles.value);
-
-    fetch(`${import.meta.env.VITE_FLASK_HOST}/source-data/${marketName.value}`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-    });
-
-    fetch(`${import.meta.env.VITE_FLASK_HOST}/markets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(newMarket),
-        });
+    await api.post(`/source-data/${marketName.value}`, formData);
+    await api.post("/markets", newMarket);
 
     localStorage.removeItem("upload");
     localStorage.setItem("upload", JSON.stringify(uploadedFiles.value));
+
+    localStorage.removeItem("market");
+    localStorage.setItem("market", JSON.stringify(newMarket));
 
     router.push('/market-setup');
 }

@@ -11,7 +11,6 @@ import IconSignOutSquare from '../icons/IconSignOutSquare.vue';
 import ElementSignoutButton from './ElementSignoutButton.vue';
 
 const user: any = inject("user");
-
 </script>
 
 <template>
@@ -20,7 +19,7 @@ const user: any = inject("user");
             <IconCloseRound class="close-icon" />
         </button>
 
-        <h2 class="user-email">{{ user?.email }} </h2>
+        <h2 class="user-email">{{ user }} </h2>
 
         <div class="nav">
 
@@ -44,7 +43,7 @@ const user: any = inject("user");
                 </h3>
             </ElementNavigationItem>
 
-            <ElementNavigationItem to="welcome">
+            <ElementNavigationItem to="/init">
                 <template #icon>
                     <IconSettings class="nav-icon" />
                 </template>

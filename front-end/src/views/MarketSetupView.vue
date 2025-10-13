@@ -10,13 +10,13 @@ import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOpt
 import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
-import { type SetupObject } from '@/assets/types/datatypes';
+import { type SetupObject, type Market } from '@/assets/types/datatypes';
 
-const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
 
 const settingsBodyHeight = ref(null);
 
+const market = ref<Market | null>(null);
 const setupObject = reactive<SetupObject>({
     colNames: [],
     colValues: [],
@@ -39,10 +39,9 @@ const maxPageIdx = 2;
 onMounted(() => {
     // create setup object
 
-    const setupObjectJSON: string | null = localStorage.getItem("setupObject");
-    // console.log(setupObjectJSON);
-    if (setupObjectJSON) {
-        Object.assign(setupObject, JSON.parse(setupObjectJSON));
+    market.value = JSON.parse(localStorage.getItem("market") || "null");
+    if (market.value && market.value.setupObject) {
+        Object.assign(setupObject, market.value.setupObject);
 
     } else {
         const inputDataJSON = localStorage.getItem("upload") || "{}";
@@ -85,18 +84,24 @@ onMounted(() => {
         };
 
         Object.assign(setupObject, newSetupObject);
-        localStorage.setItem("setupObject", JSON.stringify(setupObject));
+        market.value!.setupObject = newSetupObject;
+        localStorage.setItem("market", JSON.stringify(market));
     }
 
     // retrieve view state
     const setupPageIdx = JSON.parse(localStorage.getItem("setupPageIdx") || "null");
     pageIdx.value = setupPageIdx === null ? 0 : setupPageIdx;
+
+    console.log(setupObject);
 });
 
 const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
     nextTick(() => {
+        if (market.value) {
         Object.assign(setupObject, newSetupObject);
-        localStorage.setItem("setupObject", JSON.stringify(setupObject));
+            market.value.setupObject = newSetupObject;
+            localStorage.setItem("market", JSON.stringify(market));
+        }
     });
 };
 

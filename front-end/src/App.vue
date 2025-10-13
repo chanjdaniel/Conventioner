@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // npm run dev
+import axios from 'axios';
 import { RouterLink, RouterView } from 'vue-router'
 // @ts-ignore
 import ElementBanner from './components/elements/ElementBanner.vue'
@@ -25,14 +26,14 @@ provide("setUser", setUser);
 
 onMounted(async () => {
   try {
-    const response = await fetch(`${hostname}/check-session`, {
-      method: "GET",
-      credentials: "include",
+    const response = await axios.get(`${hostname}/check-session`, {
+      withCredentials: true,
     });
 
-    if (response.ok) {
-      const userJSON = localStorage.getItem("user");
-      user.value = userJSON ? JSON.parse(userJSON) : null;
+    if (response.status === 200) {
+      const user_email = response.data.email;
+      localStorage.setItem("user", JSON.stringify(user_email));
+      setUser(user_email);
 
     } else {
       localStorage.clear();

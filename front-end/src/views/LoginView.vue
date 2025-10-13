@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import axios from 'axios';
 import { ref, inject } from "vue";
 import { useRouter } from 'vue-router';
 
@@ -14,23 +15,26 @@ const showPassword = ref(false);
 const setUser: any = inject("setUser");
 
 const submitLogin = async () => {
-  const response = await fetch(`${hostname}/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      email: email.value,
-      password: password.value,
-    }),
-  });
+    const response = await axios.post(
+        `${hostname}/login`,
+        {
+            email: email.value,
+            password: password.value,
+        },
+        {
+            withCredentials: true,
+            headers: {
+            "Content-Type": "application/json",
+            },
+        }
+    );
 
-  const data = await response.json();
-  if (!response.ok) {
-    errorMessage.value = data.message;
-    console.log(data);
+  if (response.status !== 200) {
+    errorMessage.value = response.data.message;
   } else {
-    localStorage.setItem("user", JSON.stringify(data.user_data));
-    setUser(data.user_data);
+    const user_email = response.data.user_data.email;
+    localStorage.setItem("user", JSON.stringify(user_email));
+    setUser(user_email);
     router.push("/init");
   }
 

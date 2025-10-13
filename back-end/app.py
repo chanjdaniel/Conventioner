@@ -41,12 +41,12 @@ CORS(app, supports_credentials=True)
 # users
 
 @login_manager.user_loader
-def load_user(email: str) -> Any:
-    return UsersApi.load_user(email)
+def get_user(email: str) -> Any:
+    return UsersApi.get_user(email)
 
 # curl -k -X POST https://127.0.0.1:5000/register-user \
-#      -H "Content-Type: application/json" \
-#      -d '{"email": "USERNAME", "password": "PASSWORD", "organization": "ORGANIZATION"}'
+#   -H "Content-Type: application/json" \
+#   -d '{"email": "testemail@test.com", "password": "testpassword", "organizations": [], "markets": []}'
 @app.route("/register-user", methods=["POST"])
 def register_user() -> Response:
     return UsersApi.register_user(bcrypt, request)
@@ -149,6 +149,26 @@ def get_market(market_id: str) -> Response:
             return jsonify({"market": market}), 200
         else:
             return jsonify({"error": "Market not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/markets', methods=['GET'])
+@login_required
+def get_markets_by_owner_email() -> Response:
+    """Get all markets by owner."""
+    try:
+        owner_email = request.headers.get('X-Owner-Email')
+        if not owner_email:
+            return jsonify({"error": "Owner email not provided in headers"}), 400
+        owner = UsersApi.get_user(owner_email)
+        if owner:
+            markets = MarketsApi.get_markets_by_owner_email(owner_email)
+            # Convert ObjectIds to strings for JSON serialization
+            for market in markets:
+                market['_id'] = str(market['_id'])
+            return jsonify({"markets": markets}), 200
+        else:
+            return jsonify({"error": "Owner not found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

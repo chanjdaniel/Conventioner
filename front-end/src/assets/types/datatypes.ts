@@ -69,7 +69,7 @@ export interface Market {
     creationDate: string,
     editors: string[],
     viewers: string[],
-    setupObject: SetupObject
+    setupObject: SetupObject | null,
     modificationList: ModificationObject[],
     assignmentObject: AssignmentObject,
 }

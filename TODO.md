@@ -1,4 +1,5 @@
-- add validation for duplicates: market
+X add validation for duplicates: market
+- figure out localStorage and saving and reloading for market in setup view
 - think about how to handle intentional duplicates; PUT vs POST
 - add save on next and on done
 - finally integrate assignment logic
