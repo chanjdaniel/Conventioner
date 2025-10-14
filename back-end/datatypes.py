@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict, Any
 from pydantic import BaseModel
 
 
@@ -64,8 +64,29 @@ class ModificationObject(BaseModel):
     pass  # Empty for now, can be extended later
 
 
+class VendorAssignmentResult(BaseModel):
+    email: str
+    date: str
+    tableCode: str
+    tableChoice: str  # "Full table" or "Half table - Left" or "Half table - Right"
+    section: str
+    tier: str
+    location: str
+
+class AssignmentStatistics(BaseModel):
+    totalVendors: int
+    totalTables: int
+    assignmentsPerDate: Dict[str, int]
+    assignmentsPerTier: Dict[str, int]
+    assignmentsPerSection: Dict[str, int]
+    assignmentsPerTableChoice: Optional[Dict[str, int]] = None
+
 class AssignmentObject(BaseModel):
-    pass  # Empty for now, can be extended later
+    vendorAssignments: List[VendorAssignmentResult] = []
+    assignmentDate: str = ""  # When the assignment was performed
+    totalVendorsAssigned: int = 0
+    totalTablesAssigned: int = 0
+    assignmentStatistics: Optional[AssignmentStatistics] = None
 
 
 class Market(BaseModel):

@@ -142,7 +142,16 @@ def delete_source_data(market_name: str) -> Response:
 def get_market(market_id: str) -> Response:
     """Get a market by its ID."""
     try:
-        market = MarketsApi.get_market(market_id)
+        owner_email = request.headers.get('X-Owner-Email')
+        if not owner_email:
+            return jsonify({"error": "Owner email not provided in headers"}), 400
+
+        # Check that owner exists
+        owner = UsersApi.get_user(owner_email)
+        if not owner:
+            return jsonify({"error": "Owner not found"}), 404
+
+        market = MarketsApi.get_market(owner_email, market_id)
         if market:
             # Convert ObjectId to string for JSON serialization
             market['_id'] = str(market['_id'])
@@ -183,9 +192,18 @@ def create_market() -> Response:
         
         # Validate the market data using Pydantic
         market = Market(**data)
+
+        owner_email = request.headers.get('X-Owner-Email')
+        if not owner_email:
+            return jsonify({"error": "Owner email not provided in headers"}), 400
+
+        # Check that owner exists
+        owner = UsersApi.get_user(owner_email)
+        if not owner:
+            return jsonify({"error": "Owner not found"}), 404
         
         # Create the market
-        result = MarketsApi.create_market(market)
+        result = MarketsApi.create_market(owner_email, market)
         
         return jsonify({
             "message": "Market created successfully",
@@ -194,30 +212,60 @@ def create_market() -> Response:
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-@app.route('/markets/<market_id>', methods=['PUT'])
+@app.route('/markets/<market_name>', methods=['PUT'])
 @login_required
-def update_market(market_id: str) -> Response:
+def update_market(market_name: str) -> Response:
     """Update an existing market."""
     try:
         data = request.json
         if not data:
             return jsonify({"error": "No data provided"}), 400
-        
-        # Validate the market data using Pydantic
-        market = Market(**data)
-        
-        # Update the market
-        result = MarketsApi.update_market(market_id, market)
-        
+
+        # Validate the incoming market data using Pydantic
+        try:
+            market = Market(**data)
+        except Exception as validation_error:
+            print(f"Market validation error: {validation_error}")
+            print(f"Validation error type: {type(validation_error)}")
+            if hasattr(validation_error, 'errors'):
+                print(f"Validation errors: {validation_error.errors()}")
+            raise validation_error
+
+        owner_email = request.headers.get('X-Owner-Email')
+        if not owner_email:
+            return jsonify({"error": "Owner email not provided in headers"}), 400
+
+        # Check that owner exists
+        owner = UsersApi.get_user(owner_email)
+        if not owner:
+            return jsonify({"error": "Owner not found"}), 404
+
+        # Perform the update
+        result = MarketsApi.update_market(owner_email, market_name, market)
+
+        # Handle no matching market
         if result.matched_count == 0:
             return jsonify({"error": "Market not found"}), 404
-        
+
         return jsonify({
             "message": "Market updated successfully",
             "modified_count": result.modified_count
         }), 200
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+@app.route('/markets/<market_name>/assignment', methods=['GET'])
+@login_required
+def get_assigned_market(market_name: str) -> Response:
+    """Get an assigned market."""
+    owner_email = request.headers.get('X-Owner-Email')
+    if not owner_email:
+        return jsonify({"error": "Owner email not provided in headers"}), 400
+
+    result, status_code = MarketsApi.get_assigned_market(owner_email, market_name)
+    return jsonify(result), status_code
+
 
 # misc
 
