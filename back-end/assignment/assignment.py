@@ -145,11 +145,11 @@ class MarketAssignment:
         scores = []
         
         # Sort priority items by their id (lower id = higher priority)
-        sorted_priorities = sorted(self.setup.priority, key=lambda p: p.id)
+        sorted_priorities = sorted(self.setup_object.priority, key=lambda p: p.id)
         
         for priority_item in sorted_priorities:
             col_name_idx = priority_item.colNameIdx
-            enum_order = self.setup.enumPriorityOrder[col_name_idx]
+            enum_order = self.setup_object.enumPriorityOrder[col_name_idx]
             
             # Skip if enum order is empty
             if not enum_order:
@@ -268,7 +268,7 @@ class MarketAssignment:
     def is_max_half_tables(self, market_date: MarketDateObject, section_object: SectionObject):
         date = market_date.date
         section = section_object.name
-        return self.half_tables[date][section] / self.total_tables[section] >= MAX_HALF_TABLES_PER_SECTION // TODO: FIX THIS
+        return self.half_tables[date][section] / section_object.count >= MAX_HALF_TABLES_PER_SECTION
 
     def assign_table(self, market_date: MarketDateObject, vendor_list, table):
         date = market_date.date
@@ -296,8 +296,8 @@ class MarketAssignment:
 
     def assign(self):
         # loop market dates
-        for market_date, date_assignment in self.date_assignments.items():
-            date = market_date.date
+        for _, date_assignment in self.date_assignments.items():
+            market_date = date_assignment.market_date
 
             # sort vendors
             self.sort_vendors()
@@ -317,11 +317,11 @@ class MarketAssignment:
 
 def assign_market(market: Market) -> Market:
     """Assign vendors to tables for a market."""
-    if not market.setupObject:
+    if not market.setup_object:
         raise ValueError("Market must have setup data to perform assignment")
     
     # Create market assignment instance
-    market_assignment = MarketAssignment(market.setupObject)
+    market_assignment = MarketAssignment(market.setup_object)
     
     # Run the assignment algorithm
     market_assignment.assign()
