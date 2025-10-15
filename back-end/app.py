@@ -12,10 +12,17 @@ from flask_bcrypt import Bcrypt
 from flask_cors import CORS
 from datetime import timedelta
 from datatypes import Market
+from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
+from assignment.csv_output import convert_market_data_to_csv
 import json
 import os
 import glob
 import time
+import traceback
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 SESSION_FOLDER = "flask_session"
 SESSION_MAX_AGE = 7200
@@ -191,6 +198,7 @@ def create_market() -> Response:
             return jsonify({"error": "No data provided"}), 400
         
         # Validate the market data using Pydantic
+        data = convert_keys_to_snake_case(data)
         market = Market(**data)
 
         owner_email = request.headers.get('X-Owner-Email')
@@ -223,6 +231,7 @@ def update_market(market_name: str) -> Response:
 
         # Validate the incoming market data using Pydantic
         try:
+            data = convert_keys_to_snake_case(data)
             market = Market(**data)
         except Exception as validation_error:
             print(f"Market validation error: {validation_error}")
@@ -259,12 +268,44 @@ def update_market(market_name: str) -> Response:
 @login_required
 def get_assigned_market(market_name: str) -> Response:
     """Get an assigned market."""
-    owner_email = request.headers.get('X-Owner-Email')
-    if not owner_email:
-        return jsonify({"error": "Owner email not provided in headers"}), 400
+    try:
+        owner_email = request.headers.get('X-Owner-Email')
+        if not owner_email:
+            return jsonify({"error": "Owner email not provided in headers"}), 400
 
-    result, status_code = MarketsApi.get_assigned_market(owner_email, market_name)
-    return jsonify(result), status_code
+        result, status_code = MarketsApi.get_assigned_market(owner_email, market_name)
+        
+        # Only generate CSV if the request was successful
+        if status_code == 200:
+            try:
+                # Create CSV file in a dedicated directory
+                csv_dir = "csv_exports"
+                os.makedirs(csv_dir, exist_ok=True)
+                csv_filename = os.path.join(csv_dir, f"{market_name}_assigned.csv")
+                
+                # Convert the assigned market data to CSV
+                convert_market_data_to_csv(result, csv_filename)
+                logger.info(f"CSV exported successfully: {csv_filename}")
+                
+            except Exception as csv_error:
+                # Log CSV generation error but don't fail the API call
+                logger.error(f"Failed to generate CSV for {market_name}: {str(csv_error)}")
+                logger.error(f"CSV generation traceback: {traceback.format_exc()}")
+        
+        return jsonify(result), status_code
+    
+    except Exception as e:
+        # Log the full error with traceback
+        logger.error(f"Error in get_assigned_market for {market_name}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # Return more detailed error information
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_name}/assignment",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 500
 
 
 # misc

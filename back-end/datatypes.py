@@ -14,14 +14,15 @@ class DataType(str, Enum):
 
 class PriorityObject(BaseModel):
     id: int
-    colNameIdx: int
-    dataType: DataType
-    sortingOrder: str
+    col_name_idx: int
+    data_type: DataType
+    sorting_order: str
 
 
 class MarketDateObject(BaseModel):
     date: str
-    colNameIdx: int
+    col_name_idx: int
+    col_name: Optional[str] = None
 
 
 class TierObject(BaseModel):
@@ -41,23 +42,23 @@ class SectionObject(BaseModel):
 
 
 class AssignmentOptionObject(BaseModel):
-    maxAssignmentsPerVendor: Optional[int] = None
-    maxHalfTableProportionPerSection: Optional[int] = None
+    max_assignments_per_vendor: Optional[int] = None
+    max_half_table_proportion_per_section: Optional[int] = None
     # use_totally_random_assignment: bool
     # use_maximum_capacity_assignment: bool
 
 
 class SetupObject(BaseModel):
-    colNames: List[str]
-    colValues: List[List[str]]
-    colInclude: List[bool]
-    enumPriorityOrder: List[List[str]]
+    col_names: List[str]
+    col_values: List[List[str]]
+    col_include: List[bool]
+    enum_priority_order: List[List[str]]
     priority: List[PriorityObject]
-    marketDates: List[MarketDateObject]
+    market_dates: List[MarketDateObject]
     tiers: List[TierObject]
     locations: List[LocationObject]
     sections: List[SectionObject]
-    assignmentOptions: AssignmentOptionObject
+    assignment_options: AssignmentOptionObject
 
 
 class ModificationObject(BaseModel):
@@ -67,42 +68,46 @@ class ModificationObject(BaseModel):
 class VendorAssignmentResult(BaseModel):
     email: str
     date: str
-    tableCode: str
-    tableChoice: str  # "Full table" or "Half table - Left" or "Half table - Right"
+    table_code: str
+    table_choice: str  # "Full table" or "Half table - Left" or "Half table - Right"
     section: str
     tier: str
     location: str
 
+
 class AssignmentStatistics(BaseModel):
-    totalVendors: int
-    totalTables: int
-    assignmentsPerDate: Dict[str, int]
-    assignmentsPerTier: Dict[str, int]
-    assignmentsPerSection: Dict[str, int]
-    assignmentsPerTableChoice: Optional[Dict[str, int]] = None
+    total_vendors: int
+    total_tables: int
+    assignments_per_date: Dict[str, int]
+    assignments_per_tier: Dict[str, int]
+    assignments_per_section: Dict[str, int]
+    assignments_per_table_choice: Optional[Dict[str, int]] = None
+
 
 class AssignmentObject(BaseModel):
-    vendorAssignments: List[VendorAssignmentResult] = []
-    assignmentDate: str = ""  # When the assignment was performed
-    totalVendorsAssigned: int = 0
-    totalTablesAssigned: int = 0
-    assignmentStatistics: Optional[AssignmentStatistics] = None
+    vendor_assignments: List[VendorAssignmentResult] = []
+    assignment_date: str = ""  # When the assignment was performed
+    total_vendors_assigned: int = 0
+    total_tables_assigned: int = 0
+    assignment_statistics: Optional[AssignmentStatistics] = None
 
 
 class Market(BaseModel):
     name: str
     owner: str
-    creationDate: str
+    creation_date: str
     editors: List[str]
     viewers: List[str]
-    setupObject: SetupObject | None = None
-    modificationList: List[ModificationObject]
-    assignmentObject: AssignmentObject
+    setup_object: Optional[SetupObject] = None
+    modification_list: List[ModificationObject]
+    assignment_object: AssignmentObject
+
 
 class Organization(BaseModel):
     name: str
     users: List[str]
     markets: List[str]
+
 
 class User(BaseModel):
     email: str

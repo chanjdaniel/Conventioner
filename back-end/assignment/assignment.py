@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 from datatypes import (
     Market, SetupObject, MarketDateObject, TierObject, SectionObject, 
     AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityObject, DataType,
@@ -8,12 +8,21 @@ from datatypes import (
 import random
 import math
 from datetime import datetime
+import traceback
+import logging
+
+from assignment.validator import Validator
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # temporary constants
 FULL_TABLE_ONLY = "Full table"
 HALF_TABLE_ONLY = "Half table"
 EITHER_TABLE = "Either"
 NO_CLUB_MEMBERSHIP = "I am NOT a part of any of these clubs"
+MAX_VENDING_DAYS = 4
+MAX_HALF_TABLES_PER_SECTION = 0.3
 
 def toAttrString(str):
     str = str.lower()
@@ -43,16 +52,28 @@ class Vendor:
         # set attributes using row of vendor dataframe
         for key, value in entry.items():
             setattr(self, toAttrString(key), value)
+        
+        self.date_flexibility = self._calculate_date_flexibility(market_dates)
+
+    def _calculate_date_flexibility(self, market_dates: List[MarketDateObject]) -> int:
+        flexibility = 0
+        for market_date in market_dates:
+            date_attr = toAttrString(market_date.col_name)
+            if hasattr(self, date_attr):
+                date_value = getattr(self, date_attr, '')
+                if date_value and date_value != '':
+                    flexibility += len(str(date_value).split(','))
+        return flexibility
 
     def __repr__(self):
         return f"{vars(self)}"
 
-    def assign(self, date, vendor_assignment):
-        self.assignment[date] = vendor_assignment
+    def assign(self, market_date: MarketDateObject, vendor_assignment):
+        self.assignment[market_date.date] = vendor_assignment
         self.num_assignments += 1
 
-    def is_date_assigned(self, date):
-        return self.assignment[date] != None
+    def is_date_assigned(self, market_date: MarketDateObject):
+        return self.assignment[market_date.date] != None
 
     def is_max_assigned(self):
         return self.num_assignments >= MAX_VENDING_DAYS
@@ -99,24 +120,31 @@ class DateAssignment:
 
 
 class MarketAssignment:
-    def __init__(self, setup_object: SetupObject):
+    def __init__(self, setup_object: SetupObject, source_data: Dict[str, Any]):
         self.setup_object = setup_object
+        self.source_data = source_data
         self.table_sharing = []
         self.date_assignments = {}
         self.half_tables = {}
 
+        # initialize market date column names
+        for market_date in setup_object.market_dates:
+            if not market_date.col_name:
+                market_date_col_name = setup_object.col_names[market_date.col_name_idx]
+                market_date.col_name = market_date_col_name
+
         # initialize date assignments from market dates
-        for market_date in setup_object.marketDates:
+        for market_date in setup_object.market_dates:
             self.date_assignments[market_date.date] = DateAssignment(market_date, setup_object.sections)
 
         # initialize vendors from vendor data frame
         vendor_rows = self._get_vendor_rows()
         self.vendors = []
         for row_entry in vendor_rows:
-            self.vendors.append(Vendor(row_entry, setup_object.marketDates))
+            self.vendors.append(Vendor(row_entry, setup_object.market_dates))
 
         # initialize half tables dict
-        for market_date in setup_object.marketDates:
+        for market_date in setup_object.market_dates:
             date = market_date.date
             self.half_tables[date] = {}
             for section in setup_object.sections:
@@ -126,19 +154,34 @@ class MarketAssignment:
         return f"{vars(self)}"
 
     def _get_column_values(self, col_name: str) -> List[str]:
-        for idx, column in enumerate(self.setup_object.colNames):
+        for idx, column in enumerate(self.setup_object.col_names):
             if toAttrString(column) == toAttrString(col_name):
-                return self.setup_object.colValues[idx]
+                return self.source_data["data"][idx]
         raise ValueError(f"Column {col_name} not found in setup object")
 
     def _get_vendor_rows(self) -> List[Dict[str, str]]:
         vendor_rows = []
-        for i in range(len(self.setup_object.colValues[0])):
+        # Get the header row (first row in data)
+        headers = self.source_data["data"][0]
+        
+        # Iterate through data rows (skip header row)
+        for i in range(1, len(self.source_data["data"])):  # Start from 1 to skip header
             row = {}
-            for j in range(len(self.setup_object.colNames)):
-                row[self.setup_object.colNames[j]] = self.setup_object.colValues[j][i]
+            for j in range(len(headers)):
+                col_name = self.setup_object.col_names[j]
+                if j < len(self.source_data["data"][i]):  # Check bounds
+                    row[col_name] = self.source_data["data"][i][j]
+                else:
+                    row[col_name] = ""  # Default value for missing columns
             vendor_rows.append(row)
         return vendor_rows
+
+    def _get_vendor_column_value(self, vendor: Vendor, col_name_idx: int) -> str:
+        if col_name_idx >= len(self.source_data["headers"]):
+            raise ValueError(f"Column index {col_name_idx} out of range for col_names: {self.setup_object.col_names}")
+        col_name = self.source_data["headers"][col_name_idx]
+        attr_name = toAttrString(col_name)
+        return getattr(vendor, attr_name, "")
 
     def _calculate_priority_score(self, vendor: Vendor) -> List[int]:
         """Calculate priority scores for a vendor based on priority configuration."""
@@ -148,8 +191,8 @@ class MarketAssignment:
         sorted_priorities = sorted(self.setup_object.priority, key=lambda p: p.id)
         
         for priority_item in sorted_priorities:
-            col_name_idx = priority_item.colNameIdx
-            enum_order = self.setup_object.enumPriorityOrder[col_name_idx]
+            col_name_idx = priority_item.col_name_idx
+            enum_order = self.setup_object.enum_priority_order[col_name_idx]
             
             # Skip if enum order is empty
             if not enum_order:
@@ -188,8 +231,12 @@ class MarketAssignment:
         self.vendors.sort(key=sort_key)
 
     def is_valid_vendor(self, vendor, market_date: MarketDateObject, table):
-        date = market_date.date
-        return vendor != None and table.tier in getattr(vendor, date) and not vendor.is_max_assigned() and not vendor.is_date_assigned(date)
+        return (
+            vendor is not None
+            and table.tier.name in getattr(vendor, toAttrString(market_date.col_name), '')
+            and not vendor.is_max_assigned()
+            and not vendor.is_date_assigned(market_date)
+        )
 
     def get_vendor_by_email(self, email):
         for vendor in self.vendors:
@@ -283,13 +330,13 @@ class MarketAssignment:
                 vendor.assign(market_date, VendorAssignment("Half table", table))
 
             
-            self.half_tables[date][table.table_code[0]] = self.half_tables[date].get(table.table_code[0], 0) + 1
+            self.half_tables[date][table.section.name] = self.half_tables[date].get(table.section.name, 0) + 1
         
         table.assign(vendor_list)
 
     def manually_assign(self, market_date: MarketDateObject, vendor, table_code):
         date = market_date.date
-        table = self.get_table_by_code(date, table_code)
+        table = self.get_table_by_code(market_date, table_code)
         vendor_list = [vendor, vendor]
         vendor.assign(market_date, VendorAssignment("Full table", table))
         table.assign(vendor_list)
@@ -315,15 +362,18 @@ class MarketAssignment:
         self.sort_vendors()
 
 
-def assign_market(market: Market) -> Market:
+def assign_market(market: Market, source_data: Dict[str, Any]) -> Market:
     """Assign vendors to tables for a market."""
     if not market.setup_object:
         raise ValueError("Market must have setup data to perform assignment")
     
     # Create market assignment instance
-    market_assignment = MarketAssignment(market.setup_object)
-    
+    market_assignment = MarketAssignment(market.setup_object, source_data)
     # Run the assignment algorithm
     market_assignment.assign()
-    market.assignmentObject = market_assignment
+
+    validator = Validator(market_assignment)
+    validator.validate()
+
+    market.assignment_object = market_assignment
     return market

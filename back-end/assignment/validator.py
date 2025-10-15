@@ -1,5 +1,19 @@
+# temporary constants
+FULL_TABLE_ONLY = "Full table"
+HALF_TABLE_ONLY = "Half table"
+EITHER_TABLE = "Either"
+NO_CLUB_MEMBERSHIP = "I am NOT a part of any of these clubs"
+MAX_VENDING_DAYS = 4
+MAX_HALF_TABLES_PER_SECTION = 0.3
+
+def toAttrString(str):
+    str = str.lower()
+    str = str.replace(' ', '_')
+    return str
+
 class Validator:
     def __init__(self, market_assignment):
+        self.market_dates = market_assignment.setup_object.market_dates
         self.market_assignment = market_assignment
         self.vendors = market_assignment.vendors
         self.tables = []
@@ -14,16 +28,17 @@ class Validator:
 
     def validate_vendor_assignments(self):
         for vendor in self.vendors:
-            for date in MARKET_DATES:
+            for market_date in self.market_dates:
+                date = market_date.date
                 vendor_assignment = vendor.assignment[date]
                 
                 if vendor_assignment == None:
                     continue
                     
-                vendor_tier_choices = getattr(vendor, vendor_assignment.table.date)
+                vendor_tier_choices = getattr(vendor, toAttrString(vendor_assignment.table.date.col_name))
                 if len(vendor_tier_choices) == 0:
                     print(f"Invalid date:\n{date}\n{vendor}")
-                if vendor_assignment.table.tier not in vendor_tier_choices:
+                if vendor_assignment.table.tier.name not in vendor_tier_choices:
                     print(f"Invalid table choice:\n{vendor_assignment.table_choice}\n{vendor_tier_choices}\n{vendor}")
 
     def validate_tables(self):
@@ -66,7 +81,8 @@ class Validator:
 
     def get_table_assignment_counts(self):
         return_dict = {}
-        for date in MARKET_DATES:
+        for market_date in self.market_dates:
+            date = market_date.date
             table_choice_dict = {}
             for vendor in self.vendors:
                 if vendor.assignment[date] == None:
@@ -87,7 +103,8 @@ class Validator:
 
     def get_table_availability_counts(self):
         return_dict = {}
-        for date in MARKET_DATES:
+        for market_date in self.market_dates:
+            date = market_date.date
             tables_dict = {}
             for table in self.market_assignment.date_assignments[date].tables:
                 tables_dict[table.availability()] = tables_dict.get(table.availability(), 0) + 1
@@ -99,11 +116,12 @@ class Validator:
     def get_theoretical_max(self):
         return_dict = {}
         
-        for date in MARKET_DATES:
+        for market_date in self.market_dates:
+            date = market_date.date
             for vendor in self.vendors:
 
                 # continue if date not requested
-                if len(getattr(vendor, date)) == 0:
+                if len(getattr(vendor, toAttrString(date))) == 0:
                     continue
 
                 increment = 1
