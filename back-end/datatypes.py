@@ -11,6 +11,14 @@ class DataType(str, Enum):
     CONTAINS = "Contains"
     NOT_CONTAINS = "Does not contain"
 
+class VendorAssignmentResult(BaseModel):
+    email: str
+    date: str
+    table_code: str
+    table_choice: str  # "Full table" or "Half table - Left" or "Half table - Right"
+    section: str
+    tier: str
+    location: str
 
 class PriorityObject(BaseModel):
     id: int
@@ -63,16 +71,6 @@ class SetupObject(BaseModel):
 
 class ModificationObject(BaseModel):
     pass  # Empty for now, can be extended later
-
-
-class VendorAssignmentResult(BaseModel):
-    email: str
-    date: str
-    table_code: str
-    table_choice: str  # "Full table" or "Half table - Left" or "Half table - Right"
-    section: str
-    tier: str
-    location: str
 
 
 class AssignmentStatistics(BaseModel):

@@ -35,10 +35,10 @@ class Validator:
                 if vendor_assignment == None:
                     continue
                     
-                vendor_tier_choices = getattr(vendor, toAttrString(vendor_assignment.table.date.col_name))
+                vendor_tier_choices = getattr(vendor, toAttrString(market_date.col_name))
                 if len(vendor_tier_choices) == 0:
                     print(f"Invalid date:\n{date}\n{vendor}")
-                if vendor_assignment.table.tier.name not in vendor_tier_choices:
+                if vendor_assignment.tier not in vendor_tier_choices:
                     print(f"Invalid table choice:\n{vendor_assignment.table_choice}\n{vendor_tier_choices}\n{vendor}")
 
     def validate_tables(self):
@@ -121,7 +121,7 @@ class Validator:
             for vendor in self.vendors:
 
                 # continue if date not requested
-                if len(getattr(vendor, toAttrString(date))) == 0:
+                if len(getattr(vendor, toAttrString(market_date.col_name))) == 0:
                     continue
 
                 increment = 1

@@ -275,23 +275,6 @@ def get_assigned_market(market_name: str) -> Response:
 
         result, status_code = MarketsApi.get_assigned_market(owner_email, market_name)
         
-        # Only generate CSV if the request was successful
-        if status_code == 200:
-            try:
-                # Create CSV file in a dedicated directory
-                csv_dir = "csv_exports"
-                os.makedirs(csv_dir, exist_ok=True)
-                csv_filename = os.path.join(csv_dir, f"{market_name}_assigned.csv")
-                
-                # Convert the assigned market data to CSV
-                convert_market_data_to_csv(result, csv_filename)
-                logger.info(f"CSV exported successfully: {csv_filename}")
-                
-            except Exception as csv_error:
-                # Log CSV generation error but don't fail the API call
-                logger.error(f"Failed to generate CSV for {market_name}: {str(csv_error)}")
-                logger.error(f"CSV generation traceback: {traceback.format_exc()}")
-        
         return jsonify(result), status_code
     
     except Exception as e:

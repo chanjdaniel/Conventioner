@@ -8,6 +8,8 @@ from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_c
 import api.source_data as SourceDataApi
 import traceback
 import logging
+import os
+from assignment.csv_output import convert_market_data_to_csv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -90,11 +92,49 @@ def get_assigned_market(owner_email: str, market_name: str) -> tuple[Dict[str, A
             market = Market(**market_dict)
             assigned_market = assign_market(market, source_data)
             assigned_market_dict = assigned_market.model_dump()
+
+            # generate CSV if the request was successful
+            try:
+                # Create CSV file in a dedicated directory
+                csv_dir = "csv_exports"
+                os.makedirs(csv_dir, exist_ok=True)
+                csv_filename = os.path.join(csv_dir, f"{market_name}_assigned.csv")
+                
+                # Use absolute path to ensure file is created in the correct location
+                csv_filename = os.path.abspath(csv_filename)
+                
+                logger.info(f"Attempting to generate CSV: {csv_filename}")
+                logger.info(f"Current working directory: {os.getcwd()}")
+                logger.info(f"CSV directory exists: {os.path.exists(csv_dir)}")
+                logger.info(f"CSV directory absolute path: {os.path.abspath(csv_dir)}")
+                logger.info(f"Source data available: {source_data is not None}")
+                logger.info(f"Market data keys: {list(assigned_market_dict.keys())}")
+                
+                # Convert the assigned market data to CSV
+                result_filename = convert_market_data_to_csv(assigned_market_dict, source_data, csv_filename)
+                logger.info(f"CSV exported successfully: {result_filename}")
+                logger.info(f"CSV file exists: {os.path.exists(result_filename)}")
+                logger.info(f"CSV file absolute path: {os.path.abspath(result_filename)}")
+                
+                # List all files in csv_exports directory
+                try:
+                    csv_files = os.listdir(csv_dir)
+                    logger.info(f"Files in csv_exports directory: {csv_files}")
+                except Exception as e:
+                    logger.error(f"Error listing csv_exports directory: {e}")
+                
+            except Exception as csv_error:
+                # Log CSV generation error but don't fail the API call
+                logger.error(f"Failed to generate CSV for {market_name}: {str(csv_error)}")
+                logger.error(f"CSV generation traceback: {traceback.format_exc()}")
+
             assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)
             return assigned_market_dict, 200
+
         except Exception as validation_error:
             logger.error(f"Market validation error: {validation_error}")
             logger.error(f"Validation error type: {type(validation_error)}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")  # Add this line
             if hasattr(validation_error, 'errors'):
                 logger.error(f"Validation errors: {validation_error.errors()}")
             

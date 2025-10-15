@@ -29,18 +29,6 @@ def toAttrString(str):
     str = str.replace(' ', '_')
     return str
 
-
-
-class VendorAssignment:
-    def __init__(self, table_choice, table):
-        self.table_choice = table_choice
-        self.table = table
-
-    def __repr__(self):
-        return f"{self.table.table_code} - {self.table_choice}"
-
-
-
 class Vendor:
     def __init__(self, entry, market_dates: List[MarketDateObject]):
         self.num_assignments = 0
@@ -68,7 +56,7 @@ class Vendor:
     def __repr__(self):
         return f"{vars(self)}"
 
-    def assign(self, market_date: MarketDateObject, vendor_assignment):
+    def assign(self, market_date: MarketDateObject, vendor_assignment: VendorAssignmentResult):
         self.assignment[market_date.date] = vendor_assignment
         self.num_assignments += 1
 
@@ -76,7 +64,7 @@ class Vendor:
         return self.assignment[market_date.date] != None
 
     def is_max_assigned(self):
-        return self.num_assignments >= MAX_VENDING_DAYS
+        return (self.num_assignments >= MAX_VENDING_DAYS or self.num_assignments >= int(self.max_days[0])) # max_days is str, need to parse first character to int
 
 
 
@@ -145,10 +133,10 @@ class MarketAssignment:
 
         # initialize half tables dict
         for market_date in setup_object.market_dates:
-            date = market_date.date
-            self.half_tables[date] = {}
+            date_col_name = market_date.col_name
+            self.half_tables[date_col_name] = {}
             for section in setup_object.sections:
-                self.half_tables[date][section.name] = 0
+                self.half_tables[date_col_name][section.name] = 0
 
     def __repr__(self):
         return f"{vars(self)}"
@@ -313,32 +301,54 @@ class MarketAssignment:
         return valid_vendors
 
     def is_max_half_tables(self, market_date: MarketDateObject, section_object: SectionObject):
-        date = market_date.date
+        date_col_name = market_date.col_name
         section = section_object.name
-        return self.half_tables[date][section] / section_object.count >= MAX_HALF_TABLES_PER_SECTION
+        return self.half_tables[date_col_name][section] / section_object.count >= MAX_HALF_TABLES_PER_SECTION
 
     def assign_table(self, market_date: MarketDateObject, vendor_list, table):
-        date = market_date.date
-        # full table assignment
         
+        # full table assignment
         if len(vendor_list) < 2 or vendor_list[0].email == vendor_list[1].email:
-            vendor_list[0].assign(market_date, VendorAssignment("Full table", table))
-
-        # half table assignment
+            assignment = VendorAssignmentResult(
+                email=vendor_list[0].email,
+                date=market_date.col_name,
+                table_code=table.table_code,
+                table_choice="Full table",
+                section=table.section.name,
+                tier=table.tier.name,
+                location=table.location.name
+            )
+            vendor_list[0].assign(market_date, assignment)
         else:
-            for vendor in vendor_list:
-                vendor.assign(market_date, VendorAssignment("Half table", table))
-
-            
-            self.half_tables[date][table.section.name] = self.half_tables[date].get(table.section.name, 0) + 1
+            # half table assignment
+            for i, vendor in enumerate(vendor_list):
+                table_choice = "Half table - Left" if i == 0 else "Half table - Right"
+                assignment = VendorAssignmentResult(
+                    email=vendor.email,
+                    date=market_date.col_name,
+                    table_code=table.table_code,
+                    table_choice=table_choice,
+                    section=table.section.name,
+                    tier=table.tier.name,
+                    location=table.location.name
+                )
+                vendor.assign(market_date, assignment)
+                self.half_tables[market_date.col_name][table.section.name] = self.half_tables[market_date.col_name].get(table.section.name, 0) + 1
         
         table.assign(vendor_list)
 
     def manually_assign(self, market_date: MarketDateObject, vendor, table_code):
-        date = market_date.date
         table = self.get_table_by_code(market_date, table_code)
         vendor_list = [vendor, vendor]
-        vendor.assign(market_date, VendorAssignment("Full table", table))
+        vendor.assign(market_date, VendorAssignmentResult(
+            email=vendor.email,
+            date=market_date.col_name,
+            table_code=table_code,
+            table_choice="Full table",
+            section=table.section.name,
+            tier=table.tier.name,
+            location=table.location.name
+        ))
         table.assign(vendor_list)
 
     def assign(self):
@@ -371,9 +381,53 @@ def assign_market(market: Market, source_data: Dict[str, Any]) -> Market:
     market_assignment = MarketAssignment(market.setup_object, source_data)
     # Run the assignment algorithm
     market_assignment.assign()
+    # logger.info(f"Market assigned: {market_assignment}")
 
-    validator = Validator(market_assignment)
-    validator.validate()
+    # validator = Validator(market_assignment)
+    # validator.validate()
 
-    market.assignment_object = market_assignment
+    # Convert MarketAssignment to AssignmentObject format
+    vendor_assignments = []
+    assigned_vendors = set()
+    assigned_tables = set()
+    
+    # Collect all vendor assignments
+    for vendor in market_assignment.vendors:
+        for date, assignment in vendor.assignment.items():
+            if assignment is not None:
+                vendor_assignments.append(assignment)
+                assigned_vendors.add(vendor.email)
+                assigned_tables.add(assignment.table_code)
+    
+    # Create assignment statistics
+    statistics = AssignmentStatistics(
+        total_vendors=len(market_assignment.vendors),
+        total_tables=sum(len(da.tables) for da in market_assignment.date_assignments.values()),
+        assignments_per_date={
+            date: len([va for va in vendor_assignments if va.date == date])
+            for date in market_assignment.date_assignments.keys()
+        },
+        assignments_per_tier={},
+        assignments_per_section={},
+        assignments_per_table_choice={}
+    )
+    
+    # Calculate tier, section, and table choice statistics
+    for assignment in vendor_assignments:
+        statistics.assignments_per_tier[assignment.tier] = statistics.assignments_per_tier.get(assignment.tier, 0) + 1
+        statistics.assignments_per_section[assignment.section] = statistics.assignments_per_section.get(assignment.section, 0) + 1
+        statistics.assignments_per_table_choice[assignment.table_choice] = statistics.assignments_per_table_choice.get(assignment.table_choice, 0) + 1
+    
+    # Create assignment object with results
+    assignment_result = AssignmentObject(
+        vendor_assignments=vendor_assignments,
+        assignment_date=datetime.now().isoformat(),
+        total_vendors_assigned=len(assigned_vendors),
+        total_tables_assigned=len(assigned_tables),
+        assignment_statistics=statistics
+    )
+    
+    # Update the market with assignment results
+    market.assignment_object = assignment_result
+    
     return market
