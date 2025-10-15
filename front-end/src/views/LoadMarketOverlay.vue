@@ -38,12 +38,18 @@ onMounted(async () => {
                 locations: market.setupObject?.locations || [],
                 sections: market.setupObject?.sections || [],
                 assignmentOptions: {
-                    MAX_ASSIGNMENTS_PER_VENDOR: market.setupObject?.assignmentOptions?.maxAssignmentsPerVendor || null,
-                    MAX_HALF_TABLE_PROPORTION_PER_SECTION: market.setupObject?.assignmentOptions?.maxHalfTableProportionPerSection || null,
+                    maxAssignmentsPerVendor: market.setupObject?.assignmentOptions?.maxAssignmentsPerVendor || null,
+                    maxHalfTableProportionPerSection: market.setupObject?.assignmentOptions?.maxHalfTableProportionPerSection || null,
                 },
             },
             modificationList: market.modificationList || [],
-            assignmentObject: market.assignmentObject || {},
+            assignmentObject: market.assignmentObject || {
+                vendorAssignments: [],
+                assignmentDate: "",
+                totalVendorsAssigned: 0,
+                totalTablesAssigned: 0,
+                assignmentStatistics: null,
+            },
         };
         markets.value.push(newMarket);
     }

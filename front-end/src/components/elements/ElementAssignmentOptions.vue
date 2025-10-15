@@ -24,30 +24,30 @@ watch(
 );
 
 const handleDaysInput = (value: number) => {
-    if (value < 0 || isNaN(value)) { // if value is less than zero or is not a number, set to zero
-        assignmentOptions.value.MAX_ASSIGNMENTS_PER_VENDOR = 0;
+    if (value < 0 || isNaN(value)) { // if value is less than zero or is not a number, set to null
+        assignmentOptions.value.maxAssignmentsPerVendor = null;
         return;
     }
 
     let MAX_DAYS = setupObject.value.marketDates.length;
     if (value > MAX_DAYS) {
-        assignmentOptions.value.MAX_ASSIGNMENTS_PER_VENDOR = MAX_DAYS;
+        assignmentOptions.value.maxAssignmentsPerVendor = MAX_DAYS;
     } else {
-        assignmentOptions.value.MAX_ASSIGNMENTS_PER_VENDOR = Number(value.toString());
+        assignmentOptions.value.maxAssignmentsPerVendor = Math.floor(value); // Ensure integer
     }
 };
 
 const handleProportionInput = (value: number) => {
-    if (value < 0 || isNaN(value)) { // if value is less than zero or is not a number, set to zero
-        assignmentOptions.value.MAX_HALF_TABLE_PROPORTION_PER_SECTION = 0;
+    if (value < 0 || isNaN(value)) { // if value is less than zero or is not a number, set to null
+        assignmentOptions.value.maxHalfTableProportionPerSection = null;
         return;
     }
 
-    let MAX_PROPORTION = 1;
+    let MAX_PROPORTION = 100; // Backend expects percentage as integer (0-100)
     if (value > MAX_PROPORTION) {
-        assignmentOptions.value.MAX_HALF_TABLE_PROPORTION_PER_SECTION = MAX_PROPORTION;
+        assignmentOptions.value.maxHalfTableProportionPerSection = MAX_PROPORTION;
     } else {
-        assignmentOptions.value.MAX_HALF_TABLE_PROPORTION_PER_SECTION = Number(value.toString());
+        assignmentOptions.value.maxHalfTableProportionPerSection = Math.floor(value); // Ensure integer percentage
     }
 };
 
@@ -62,7 +62,7 @@ const handleProportionInput = (value: number) => {
                 </div>
                 <div class="row-item">
                     <div class="input-container">
-                        <input type="text" v-model="assignmentOptions.MAX_ASSIGNMENTS_PER_VENDOR"
+                        <input type="text" v-model="assignmentOptions.maxAssignmentsPerVendor"
                             @input="handleDaysInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
                             style="all: unset; font-size: 14px; width: 100%;" />
                     </div>
@@ -70,11 +70,11 @@ const handleProportionInput = (value: number) => {
             </div>
             <div class="row-container row">
                 <div class="row-item">
-                    <h3>Max half table proportion per section</h3>
+                    <h3>Max half table proportion per section (%)</h3>
                 </div>
                 <div class="row-item">
                     <div class="input-container">
-                        <input type="text" v-model="assignmentOptions.MAX_HALF_TABLE_PROPORTION_PER_SECTION"
+                        <input type="text" v-model="assignmentOptions.maxHalfTableProportionPerSection"
                             @blur="handleProportionInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
                             style="all: unset; font-size: 14px; width: 100%;" />
                     </div>

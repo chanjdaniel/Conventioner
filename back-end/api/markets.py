@@ -40,11 +40,6 @@ def get_assigned_market(owner_email: str, market_name: str) -> tuple[Dict[str, A
         market_dict = markets_collection.find_one({"name": market_name, "owner": owner_email})
         if not market_dict:
             return {"error": "Market not found"}, 404
-
-        # Fix missing required fields for Market validation
-        if "creationDate" not in market_dict:
-            from datetime import datetime
-            market_dict["creationDate"] = datetime.now().isoformat()
         
         # Fix missing assignmentOptions in setupObject
         if "setupObject" in market_dict and market_dict["setupObject"]:

@@ -11,6 +11,7 @@ import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import { type SetupObject, type Market } from '@/assets/types/datatypes';
+import { api } from '@/utils/api';
 
 const router = useRouter();
 
@@ -28,8 +29,8 @@ const setupObject = reactive<SetupObject>({
     locations: [],
     sections: [],
     assignmentOptions: {
-        MAX_ASSIGNMENTS_PER_VENDOR: null,
-        MAX_HALF_TABLE_PROPORTION_PER_SECTION: null,
+        maxAssignmentsPerVendor: null,
+        maxHalfTableProportionPerSection: null,
     },
 });
 
@@ -78,42 +79,63 @@ onMounted(() => {
             locations: [],
             sections: [],
             assignmentOptions: {
-                MAX_ASSIGNMENTS_PER_VENDOR: null,
-                MAX_HALF_TABLE_PROPORTION_PER_SECTION: null,
+                maxAssignmentsPerVendor: null,
+                maxHalfTableProportionPerSection: null,
             },
         };
 
         Object.assign(setupObject, newSetupObject);
         market.value!.setupObject = newSetupObject;
-        localStorage.setItem("market", JSON.stringify(market));
+        localStorage.setItem("market", JSON.stringify(market.value));
     }
 
     // retrieve view state
     const setupPageIdx = JSON.parse(localStorage.getItem("setupPageIdx") || "null");
     pageIdx.value = setupPageIdx === null ? 0 : setupPageIdx;
-
-    console.log(setupObject);
 });
+
+const updateMarket = async () => {
+    localStorage.setItem("market", JSON.stringify(market.value));
+    await api.put('/markets/' + market.value!.name, market.value, {
+        headers: {
+            'X-Owner-Email': market.value!.owner
+        }
+    });
+}
 
 const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
     nextTick(() => {
         if (market.value) {
-        Object.assign(setupObject, newSetupObject);
+            Object.assign(setupObject, newSetupObject);
             market.value.setupObject = newSetupObject;
-            localStorage.setItem("market", JSON.stringify(market));
+            localStorage.setItem("market", JSON.stringify(market.value));
         }
     });
 };
 
-const handleNext = () => {
+const handleNext = async () => {
     pageIdx.value = pageIdx.value === maxPageIdx ? maxPageIdx : pageIdx.value + 1;
     localStorage.setItem("setupPageIdx", JSON.stringify(pageIdx.value));
+    await updateMarket();
 }
-const handleBack = () => {
+const handleBack = async () => {
     pageIdx.value = pageIdx.value === 0 ? 0 : pageIdx.value - 1;
     localStorage.setItem("setupPageIdx", JSON.stringify(pageIdx.value));
+    await updateMarket();
 }
-const handleDone = () => {
+const handleDone = async () => {
+    await updateMarket();
+
+    const response = await api.get('markets/' + market.value!.name + '/assignment', {
+        headers: {
+            'X-Owner-Email': market.value!.owner
+        }
+    })
+
+    const assignedMarket: Market = response.data;
+    market.value = assignedMarket;
+    await updateMarket();
+
     router.push("/generate-assignment");
 }
 

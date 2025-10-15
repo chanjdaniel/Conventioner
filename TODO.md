@@ -7,3 +7,4 @@ X add validation for duplicates: market
 - create discord tool
 - actually do assignment
 - output assignment to csv and download
+- add owner_email + market_name ket to source_data

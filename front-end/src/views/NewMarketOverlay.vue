@@ -34,7 +34,13 @@ const handleSubmit = async () => {
         viewers: [],
         setupObject: null,
         modificationList: [],
-        assignmentObject: {},
+        assignmentObject: {
+            vendorAssignments: [],
+            assignmentDate: "",
+            totalVendorsAssigned: 0,
+            totalTablesAssigned: 0,
+            assignmentStatistics: null,
+        },
     }
     
     const formData = new FormData();
@@ -43,7 +49,11 @@ const handleSubmit = async () => {
     }
 
     await api.post(`/source-data/${marketName.value}`, formData);
-    await api.post("/markets", newMarket);
+    await api.post('/markets', newMarket, {
+        headers: {
+            'X-Owner-Email': userEmail
+        }
+    });
 
     localStorage.removeItem("upload");
     localStorage.setItem("upload", JSON.stringify(uploadedFiles.value));

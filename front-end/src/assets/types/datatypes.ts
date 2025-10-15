@@ -36,8 +36,8 @@ export interface SectionObject {
 }
 
 export interface AssignmentOptionObject {
-    MAX_ASSIGNMENTS_PER_VENDOR: number | null,
-    MAX_HALF_TABLE_PROPORTION_PER_SECTION: number | null,
+    maxAssignmentsPerVendor: number | null,
+    maxHalfTableProportionPerSection: number | null,
     // USE_TOTALLY_RANDOM_ASSIGNMENT: boolean,
     // USE_MAXIMUM_CAPACITY_ASSIGNMENT: boolean,
 }
@@ -59,8 +59,31 @@ export interface ModificationObject {
 
 }
 
-export interface AssignmentObject {
+export interface VendorAssignmentResult {
+    email: string,
+    date: string,
+    tableCode: string,
+    tableChoice: string, // "Full table" or "Half table - Left" or "Half table - Right"
+    section: string,
+    tier: string,
+    location: string,
+}
 
+export interface AssignmentStatistics {
+    totalVendors: number,
+    totalTables: number,
+    assignmentsPerDate: Record<string, number>,
+    assignmentsPerTier: Record<string, number>,
+    assignmentsPerSection: Record<string, number>,
+    assignmentsPerTableChoice?: Record<string, number>,
+}
+
+export interface AssignmentObject {
+    vendorAssignments: VendorAssignmentResult[],
+    assignmentDate: string, // When the assignment was performed
+    totalVendorsAssigned: number,
+    totalTablesAssigned: number,
+    assignmentStatistics: AssignmentStatistics | null,
 }
 
 export interface Market {
