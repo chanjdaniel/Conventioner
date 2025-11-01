@@ -64,14 +64,13 @@ def get_assigned_market(owner_email: str, market_name: str) -> tuple[Dict[str, A
                 }
         
         # Fix None assignment_object
-        if "assignment_object" not in market_dict or market_dict["assignment_object"] is None:
-            market_dict["assignment_object"] = {
-                "vendor_assignments": [],
-                "assignment_date": "",
-                "total_vendors_assigned": 0,
-                "total_tables_assigned": 0,
-                "assignment_statistics": None
-            }
+        # temp reset
+        # if "assignment_object" not in market_dict or market_dict["assignment_object"] is None:
+        market_dict["assignment_object"] = {
+            "vendor_assignments": [],
+            "assignment_date": "",
+            "assignment_statistics": None
+        }
 
         # get market source data
         source_data = None

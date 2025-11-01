@@ -76,17 +76,20 @@ class ModificationObject(BaseModel):
 class AssignmentStatistics(BaseModel):
     total_vendors: int
     total_tables: int
+    total_assigned_vendors: int
+    total_assigned_tables: int
+    unassigned_vendors: List[str]
+    unassigned_tables: Dict[str, List[str]]
     assignments_per_date: Dict[str, int]
     assignments_per_tier: Dict[str, int]
     assignments_per_section: Dict[str, int]
     assignments_per_table_choice: Optional[Dict[str, int]] = None
+    satisfaction_score: float
 
 
 class AssignmentObject(BaseModel):
     vendor_assignments: List[VendorAssignmentResult] = []
     assignment_date: str = ""  # When the assignment was performed
-    total_vendors_assigned: int = 0
-    total_tables_assigned: int = 0
     assignment_statistics: Optional[AssignmentStatistics] = None
 
 

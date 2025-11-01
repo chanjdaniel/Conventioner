@@ -123,7 +123,7 @@ const handleBack = async () => {
     localStorage.setItem("setupPageIdx", JSON.stringify(pageIdx.value));
     await updateMarket();
 }
-const handleDone = async () => {
+const handleAssign = async () => {
     await updateMarket();
 
     const response = await api.get('markets/' + market.value!.name + '/assignment', {
@@ -237,7 +237,7 @@ const handleDone = async () => {
                     <button v-if="pageIdx !== 0" class="done-button" @click="handleBack">Back</button>
                 </div>
                 <div>
-                    <button v-if="pageIdx === maxPageIdx" class="done-button" @click="handleDone">Assign</button>
+                    <button v-if="pageIdx === maxPageIdx" class="done-button" @click="handleAssign">Assign</button>
                     <button v-else class="done-button" @click="handleNext">Next</button>
                 </div>
             </div>

@@ -351,6 +351,49 @@ class MarketAssignment:
         ))
         table.assign(vendor_list)
 
+    # TODO: finish this
+    def get_assignment_statistics(self) -> AssignmentStatistics:
+        vendor_assignments = []
+        assigned_vendors = set()
+        assigned_tables = set()
+        
+        # Collect all vendor assignments
+        for vendor in self.vendors:
+            for date, assignment in vendor.assignment.items():
+                if assignment is not None:
+                    vendor_assignments.append(assignment)
+                    assigned_vendors.add(vendor.email)
+                    assigned_tables.add(assignment.table_code)
+
+        statistics = AssignmentStatistics(
+            total_vendors=len(self.vendors),
+            total_tables=sum(len(da.tables) for da in self.date_assignments.values()),
+            total_assigned_vendors=len(assigned_vendors),
+            total_assigned_tables=len(assigned_tables),
+            unassigned_vendors=[],
+            unassigned_tables={},
+            assignments_per_date={},
+            assignments_per_tier={},
+            assignments_per_section={},
+            assignments_per_table_choice={},
+            satisfaction_score=0
+        )
+
+        for assignment in vendor_assignments:
+            statistics.assignments_per_tier[assignment.tier] = statistics.assignments_per_tier.get(assignment.tier, 0) + 1
+            statistics.assignments_per_section[assignment.section] = statistics.assignments_per_section.get(assignment.section, 0) + 1
+            statistics.assignments_per_table_choice[assignment.table_choice] = statistics.assignments_per_table_choice.get(assignment.table_choice, 0) + 1
+            statistics.assignments_per_date[assignment.date] = statistics.assignments_per_date.get(assignment.date, 0) + 1
+            if assignment is None:
+                statistics.unassigned_vendors.append(vendor)
+
+        for date_assignment in market_assignment.date_assignments.values():
+            for table in date_assignment.tables:
+                if table.assignment is None:
+                    statistics.unassigned_tables[date_assignment.market_date.date] = statistics.unassigned_tables.get(date_assignment.market_date.date, []).append(table.table_code)
+
+        return statistics
+
     def assign(self):
         # loop market dates
         for _, date_assignment in self.date_assignments.items():
@@ -396,35 +439,12 @@ def assign_market(market: Market, source_data: Dict[str, Any]) -> Market:
         for date, assignment in vendor.assignment.items():
             if assignment is not None:
                 vendor_assignments.append(assignment)
-                assigned_vendors.add(vendor.email)
-                assigned_tables.add(assignment.table_code)
-    
-    # Create assignment statistics
-    statistics = AssignmentStatistics(
-        total_vendors=len(market_assignment.vendors),
-        total_tables=sum(len(da.tables) for da in market_assignment.date_assignments.values()),
-        assignments_per_date={
-            date: len([va for va in vendor_assignments if va.date == date])
-            for date in market_assignment.date_assignments.keys()
-        },
-        assignments_per_tier={},
-        assignments_per_section={},
-        assignments_per_table_choice={}
-    )
-    
-    # Calculate tier, section, and table choice statistics
-    for assignment in vendor_assignments:
-        statistics.assignments_per_tier[assignment.tier] = statistics.assignments_per_tier.get(assignment.tier, 0) + 1
-        statistics.assignments_per_section[assignment.section] = statistics.assignments_per_section.get(assignment.section, 0) + 1
-        statistics.assignments_per_table_choice[assignment.table_choice] = statistics.assignments_per_table_choice.get(assignment.table_choice, 0) + 1
     
     # Create assignment object with results
     assignment_result = AssignmentObject(
         vendor_assignments=vendor_assignments,
         assignment_date=datetime.now().isoformat(),
-        total_vendors_assigned=len(assigned_vendors),
-        total_tables_assigned=len(assigned_tables),
-        assignment_statistics=statistics
+        assignment_statistics=market_assignment.get_assignment_statistics()
     )
     
     # Update the market with assignment results
