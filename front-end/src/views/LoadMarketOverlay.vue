@@ -60,6 +60,15 @@ const handleLoadMarket = async (market: Market) => {
     localStorage.setItem("market", JSON.stringify(market));
     router.push('/market-setup');
 }
+
+const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+}
 </script>
 
 <template>
@@ -67,13 +76,30 @@ const handleLoadMarket = async (market: Market) => {
         <div class="background" @click="$emit('loadClose')" :style="{ opacity: loadOpen ? '100%' : '0%' }">
         </div>
         <div class="window">
-            <h2>Load Market</h2>
+            <div class="header">
+                <h2>Load Market</h2>
+                <p v-if="markets.length === 0" class="empty-state">No markets found</p>
+            </div>
             <div class="markets-container">
                 <div v-for="market in markets" :key="market.name" class="market-card">
-                    <h3>{{ market.name }}</h3>
-                    <p><strong>Owner:</strong> {{ market.owner }}</p>
-                    <p><strong>Created:</strong> {{ new Date(market.creationDate).toLocaleDateString() }}</p>
-                    <button @click="handleLoadMarket(market)" class="load-button">Load</button>
+                    <div class="card-header">
+                        <h3>{{ market.name }}</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="info-group">
+                            <div class="info-row">
+                                <span class="info-label">Owner:</span>
+                                <span class="info-value">{{ market.owner }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Created:</span>
+                                <span class="info-value">{{ formatDate(market.creationDate) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button @click="handleLoadMarket(market)" class="load-button">Load Market</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -81,10 +107,6 @@ const handleLoadMarket = async (market: Market) => {
 </template>
 
 <style scoped>
-h3 {
-    display: inline;
-}
-
 .container {
     position: fixed;
     top: 0;
@@ -110,74 +132,157 @@ h3 {
 }
 
 .window {
-    width: 60%;
-    height: 80%;
-    gap: 20px;
+    width: 70%;
+    max-width: 900px;
+    height: 85%;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
     background: white;
-    border-radius: 8px;
+    border-radius: 12px;
     z-index: 1;
-    padding: 20px;
-    overflow-y: auto;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.header {
+    padding: 32px 40px 24px;
+    border-bottom: 1px solid var(--mm-grey);
+}
+
+.header h2 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--mm-black);
+    font-family: 'Outfit Regular', sans-serif;
+}
+
+.empty-state {
+    margin-top: 12px;
+    color: #666;
+    font-size: 14px;
 }
 
 .markets-container {
-    width: 100%;
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 40px 32px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    align-items: center;
+    gap: 20px;
 }
 
 .market-card {
     width: 100%;
-    max-width: 400px;
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background: #f9f9f9;
+    padding: 16px 24px;
+    border: 1.5px solid var(--mm-grey);
+    border-radius: 10px;
+    background: white;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 24px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.market-card:hover {
+    border-color: var(--mm-green);
+    box-shadow: 0 4px 12px rgba(73, 176, 150, 0.15);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    flex-shrink: 0;
+    min-width: 200px;
+}
+
+.card-header h3 {
+    margin: 0;
+    color: var(--mm-black);
+    font-size: 18px;
+    font-weight: 600;
+    font-family: 'Outfit Regular', sans-serif;
+}
+
+.card-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.info-group {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.market-card h3 {
-    margin: 0;
-    color: #333;
-    font-size: 18px;
+.info-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
 }
 
-.market-card p {
-    margin: 0;
+.info-label {
+    font-weight: 500;
     color: #666;
+    font-size: 13px;
+    min-width: 70px;
+}
+
+.info-value {
+    color: var(--mm-black);
     font-size: 14px;
+}
+
+.card-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .load-button {
-    margin-top: 10px;
-    padding: 8px 16px;
-    background: #007bff;
+    padding: 8px 20px;
+    background: var(--mm-green);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
-    align-self: flex-start;
+    font-weight: 500;
+    font-family: 'Outfit Regular', sans-serif;
+    box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
+    white-space: nowrap;
 }
 
 .load-button:hover {
-    background: #0056b3;
+    background: #3a9a82;
+    box-shadow: 0 4px 8px rgba(73, 176, 150, 0.3);
+    transform: translateY(-1px);
 }
 
-.text-input-container {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: row;
-    box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-    border-radius: 8px;
+.load-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
+}
+
+/* Scrollbar styling */
+.markets-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.markets-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.markets-container::-webkit-scrollbar-thumb {
+    background: var(--mm-grey);
+    border-radius: 4px;
+}
+
+.markets-container::-webkit-scrollbar-thumb:hover {
+    background: #999;
 }
 </style>

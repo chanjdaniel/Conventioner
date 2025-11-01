@@ -237,7 +237,7 @@ const handleDone = async () => {
                     <button v-if="pageIdx !== 0" class="done-button" @click="handleBack">Back</button>
                 </div>
                 <div>
-                    <button v-if="pageIdx === maxPageIdx" class="done-button" @click="handleDone">Done</button>
+                    <button v-if="pageIdx === maxPageIdx" class="done-button" @click="handleDone">Assign</button>
                     <button v-else class="done-button" @click="handleNext">Next</button>
                 </div>
             </div>

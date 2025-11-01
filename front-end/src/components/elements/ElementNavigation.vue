@@ -4,6 +4,7 @@ import ElementNavigationItem from './ElementNavigationItem.vue';
 import IconSettings from '../icons/IconSettings.vue';
 import IconVendors from '../icons/IconVendors.vue';
 import IconTables from '../icons/IconTables.vue';
+import IconMarkets from '../icons/IconMarkets.vue';
 import IconTools from '../icons/IconTools.vue';
 import IconLog from '../icons/IconLog.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
@@ -23,7 +24,7 @@ const user: any = inject("user");
 
         <div class="nav">
 
-            <ElementNavigationItem to="vendors">
+            <ElementNavigationItem to="vendors" @menuClose="$emit('menuClose')">
                 <template #icon>
                     <IconVendors class="nav-icon" />
                 </template>
@@ -33,7 +34,7 @@ const user: any = inject("user");
                 </h3>
             </ElementNavigationItem>
 
-            <ElementNavigationItem to="vendors">
+            <ElementNavigationItem to="vendors" @menuClose="$emit('menuClose')">
                 <template #icon>
                     <IconTables class="nav-icon" />
                 </template>
@@ -43,21 +44,28 @@ const user: any = inject("user");
                 </h3>
             </ElementNavigationItem>
 
-            <ElementNavigationItem to="/init">
+            <ElementNavigationItem to="/init" @menuClose="$emit('menuClose')">
+                <template #icon>
+                    <IconMarkets class="nav-icon" />
+                </template>
+                <h3>Manage Markets</h3>
+            </ElementNavigationItem>
+
+            <ElementNavigationItem to="/init" @menuClose="$emit('menuClose')">
                 <template #icon>
                     <IconSettings class="nav-icon" />
                 </template>
                 <h3>Manage Tables</h3>
             </ElementNavigationItem>
 
-            <ElementNavigationItem to="vendors">
+            <ElementNavigationItem to="vendors" @menuClose="$emit('menuClose')">
                 <template #icon>
                     <IconTools class="nav-icon" />
                 </template>
                 <h3>Discord Tools</h3>
             </ElementNavigationItem>
 
-            <ElementNavigationItem to="vendors">
+            <ElementNavigationItem to="vendors" @menuClose="$emit('menuClose')">
                 <template #icon>
                     <IconLog class="nav-icon" />
                 </template>

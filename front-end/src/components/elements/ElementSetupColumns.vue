@@ -224,6 +224,19 @@ h4 {
     overflow-x: hidden;
 }
 
+.rows {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.rows::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, and Opera */
+}
+
+.your-rows::-webkit-scrollbar {
+  display: none;
+}
+
 .setup-row {
     display: grid;
     grid-template-columns: 50% auto 5%;

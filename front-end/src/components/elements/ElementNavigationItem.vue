@@ -9,7 +9,7 @@ const props = defineProps<{
 </script>
 
 <template>
-  <RouterLink :to="to">
+  <RouterLink :to="to" @click="$emit('menuClose')">
     <div class="item">
       <slot name="icon"></slot>
       <slot></slot>

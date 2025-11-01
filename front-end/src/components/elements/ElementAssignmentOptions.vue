@@ -137,6 +137,10 @@ const handleProportionInput = (value: number) => {
 }
 
 .input-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
     width: 80%;
     height: 100%;
     box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);

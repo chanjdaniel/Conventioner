@@ -172,7 +172,7 @@ h4 {
     text-align: center;
     text-justify: center;
     padding: 5px;
-    font-size: 18px;
+    font-size: 16px;
 }
 
 .edit-icon {

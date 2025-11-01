@@ -15,30 +15,42 @@ const showPassword = ref(false);
 const setUser: any = inject("setUser");
 
 const submitLogin = async () => {
-    const response = await axios.post(
-        `${hostname}/login`,
-        {
-            email: email.value,
-            password: password.value,
-        },
-        {
-            withCredentials: true,
-            headers: {
-            "Content-Type": "application/json",
+    errorMessage.value = ""; // Clear previous error
+    
+    try {
+        const response = await axios.post(
+            `${hostname}/login`,
+            {
+                email: email.value,
+                password: password.value,
             },
+            {
+                withCredentials: true,
+                headers: {
+                "Content-Type": "application/json",
+                },
+            }
+        );
+
+        if (response.status === 200) {
+            const user_email = response.data.user_data.email;
+            localStorage.setItem("user", JSON.stringify(user_email));
+            setUser(user_email);
+            router.push("/init");
         }
-    );
-
-  if (response.status !== 200) {
-    errorMessage.value = response.data.message;
-  } else {
-    const user_email = response.data.user_data.email;
-    localStorage.setItem("user", JSON.stringify(user_email));
-    setUser(user_email);
-    router.push("/init");
-  }
-
-
+    } catch (error: any) {
+        // Handle axios errors (including 401 responses)
+        if (error.response) {
+            // Server responded with error status
+            errorMessage.value = error.response.data?.message || "Invalid credentials";
+        } else if (error.request) {
+            // Request was made but no response received
+            errorMessage.value = "Unable to connect to server. Please try again.";
+        } else {
+            // Something else happened
+            errorMessage.value = "An error occurred. Please try again.";
+        }
+    }
 };
 
 </script>
@@ -48,7 +60,9 @@ const submitLogin = async () => {
         <div class="login-window">
             <h1>Sign in</h1>
             <form id="login-form" class="login-form" @submit.prevent="submitLogin">
-                <input id="email" type="text" v-model="email" placeholder="Email" class="login-input" required />
+                <div class="login-input">
+                    <input id="email" type="text" v-model="email" placeholder="Email" class="email-input" required />
+                </div>
                  <div class="login-input">
                     <input
                     id="password"
@@ -110,6 +124,7 @@ const submitLogin = async () => {
         font-size: 20px;
         display: flex;
         flex-direction: row;
+        background-color: transparent;
     }
 
     .login-input:focus-within {
@@ -124,6 +139,14 @@ const submitLogin = async () => {
         color: grey;
 
         font-size: 14px;
+    }
+
+    .email-input {
+        width: auto;
+        border: none;
+        font-size: 20px;
+        flex-grow: 1;
+        outline: none;
     }
 
     .password-input {

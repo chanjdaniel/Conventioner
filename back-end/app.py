@@ -1,4 +1,4 @@
-# flask run --cert=adhoc
+# flask run --cert=adhoc > error.log 2>&1
 import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi

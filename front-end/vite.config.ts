@@ -24,6 +24,14 @@ export default defineConfig({
     hmr: true,
     watch: {
       usePolling: true
-  }
+    },
+    proxy: {
+      '/api': {
+        target: 'https://127.0.0.1:5000',
+        changeOrigin: true,
+        secure: false, // Ignore SSL certificate errors (needed for adhoc cert)
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   }
 });

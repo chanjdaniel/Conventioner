@@ -14,6 +14,7 @@ const uploadedFiles = ref([]);
 const uploadedSourceData = ref([]);
 const next = ref(false);
 const marketName = ref("");
+const errorMessage = ref("");
 
 const handleFileUploaded = (files: any) => {
     uploadedFiles.value = files;
@@ -25,43 +26,64 @@ const handleSourceDataUploaded = (sourceData: any) => {
 };
 
 const handleSubmit = async () => {
-    const userEmail = JSON.parse(localStorage.getItem("user") || "null");
-    let newMarket: Market = {
-        name: marketName.value,
-        owner: userEmail,
-        creationDate: new Date().toISOString(),
-        editors: [userEmail],
-        viewers: [],
-        setupObject: null,
-        modificationList: [],
-        assignmentObject: {
-            vendorAssignments: [],
-            assignmentDate: "",
-            totalVendorsAssigned: 0,
-            totalTablesAssigned: 0,
-            assignmentStatistics: null,
-        },
-    }
+    errorMessage.value = ""; // Clear previous error
     
-    const formData = new FormData();
-    if (uploadedSourceData.value.length > 0) {
-        formData.append('file', uploadedSourceData.value[0]);
+    if (!marketName.value.trim()) {
+        errorMessage.value = "Market name is required";
+        return;
     }
 
-    await api.post(`/source-data/${marketName.value}`, formData);
-    await api.post('/markets', newMarket, {
-        headers: {
-            'X-Owner-Email': userEmail
+    try {
+        const userEmail = JSON.parse(localStorage.getItem("user") || "null");
+        let newMarket: Market = {
+            name: marketName.value,
+            owner: userEmail,
+            creationDate: new Date().toISOString(),
+            editors: [userEmail],
+            viewers: [],
+            setupObject: null,
+            modificationList: [],
+            assignmentObject: {
+                vendorAssignments: [],
+                assignmentDate: "",
+                totalVendorsAssigned: 0,
+                totalTablesAssigned: 0,
+                assignmentStatistics: null,
+            },
         }
-    });
+        
+        const formData = new FormData();
+        if (uploadedSourceData.value.length > 0) {
+            formData.append('file', uploadedSourceData.value[0]);
+        }
 
-    localStorage.removeItem("upload");
-    localStorage.setItem("upload", JSON.stringify(uploadedFiles.value));
+        await api.post(`/source-data/${marketName.value}`, formData);
+        
+        await api.post('/markets', newMarket, {
+            headers: {
+                'X-Owner-Email': userEmail
+            }
+        });
 
-    localStorage.removeItem("market");
-    localStorage.setItem("market", JSON.stringify(newMarket));
+        localStorage.removeItem("upload");
+        localStorage.setItem("upload", JSON.stringify(uploadedFiles.value));
 
-    router.push('/market-setup');
+        localStorage.removeItem("market");
+        localStorage.setItem("market", JSON.stringify(newMarket));
+
+        router.push('/market-setup');
+    } catch (error: any) {
+        if (error.response?.status === 400 && error.response?.data?.error) {
+            const errorText = error.response.data.error.toLowerCase();
+            if (errorText.includes('already exists') || errorText.includes('market already')) {
+                errorMessage.value = "A market with this name already exists";
+            } else {
+                errorMessage.value = error.response.data.error;
+            }
+        } else {
+            errorMessage.value = "An error occurred. Please try again.";
+        }
+    }
 }
 </script>
 
@@ -77,16 +99,19 @@ const handleSubmit = async () => {
                 <h2>
                     Enter market name
                 </h2>
-                <div style="width: 100%; height: 30px; display: grid; grid-template-columns: 1fr 3fr 1fr;">
-                    <div></div>
-                    <div class="text-input-container">
-                        <input type="text" v-model="marketName" @keydown.enter="handleSubmit"
-                            style="all: unset; font-size: 14px; width: 100%; text-align: center;" />
+                <div class="input-wrapper">
+                    <div style="width: 100%; height: 30px; display: grid; grid-template-columns: 1fr 3fr 1fr;">
+                        <div></div>
+                        <div class="text-input-container">
+                            <input type="text" v-model="marketName" @keydown.enter="handleSubmit" @input="errorMessage = ''"
+                                style="all: unset; font-size: 14px; width: 100%; text-align: center;" />
+                        </div>
+                        <div style="padding-left: 10px">
+                            <button @click="handleSubmit"
+                                style="all: unset; height: 100%; width: 100%; cursor: pointer; opacity: 75%;">Submit</button>
+                        </div>
                     </div>
-                    <div style="padding-left: 10px">
-                        <button @click="handleSubmit"
-                            style="all: unset; height: 100%; width: 100%; cursor: pointer; opacity: 75%;">Submit</button>
-                    </div>
+                    <p v-show="errorMessage" class="error-message">{{ errorMessage }}</p>
                 </div>
             </div>
         </template>>
@@ -124,7 +149,8 @@ h3 {
 
 .window {
     width: 25%;
-    height: 20%;
+    min-height: 140px;
+    padding: 25px;
     gap: 10px;
     display: flex;
     flex-direction: column;
@@ -135,6 +161,14 @@ h3 {
     z-index: 1;
 }
 
+.input-wrapper {
+    width: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 .text-input-container {
     width: 100%;
     height: 100%;
@@ -142,5 +176,17 @@ h3 {
     flex-direction: row;
     box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
     border-radius: 8px;
+}
+
+.error-message {
+    position: absolute;
+    top: 35px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #d32f2f;
+    font-size: 13px;
+    text-align: center;
+    white-space: nowrap;
+    pointer-events: none;
 }
 </style>
