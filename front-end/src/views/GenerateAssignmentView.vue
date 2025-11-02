@@ -63,78 +63,128 @@ const handleDone = () => {
                     <h1>Generated Assignment</h1>
                 </div>
                 <div class="generate-assignment-body">
-                    <div v-if="assignmentStatistics" class="statistics-container">
-                        <!-- Total Summary Cards -->
-                        <div class="stat-card summary-card">
-                            <h3>Total Summary</h3>
-                            <div class="stat-row">
-                                <div class="stat-item">
-                                    <span class="stat-label">Total Vendors</span>
-                                    <span class="stat-value">{{ assignmentStatistics.totalVendors }}</span>
+                    <div v-if="assignmentStatistics" class="statistics-wrapper">
+                        <div class="statistics-container">
+                            <!-- Total Summary Cards -->
+                            <div class="stat-card summary-card">
+                                <h3>Total Summary</h3>
+                                <div class="stat-grid">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Total Assignments</span>
+                                        <span class="stat-value">{{ assignmentStatistics.totalAssignments }}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Assigned Tables</span>
+                                        <span class="stat-value">{{ assignmentStatistics.totalAssignedTables }} / {{ assignmentStatistics.totalTables }}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Assigned Vendors</span>
+                                        <span class="stat-value">{{ assignmentStatistics.totalAssignedVendors }} / {{ assignmentStatistics.totalVendors }}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Satisfaction Score</span>
+                                        <span class="stat-value">{{ (assignmentStatistics.satisfactionScore * 100).toFixed(1) }}%</span>
+                                    </div>
                                 </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Total Tables</span>
-                                    <span class="stat-value">{{ assignmentStatistics.totalTables }}</span>
+                            </div>
+
+                            <!-- Assignments Per Date -->
+                            <div class="stat-card">
+                                <h3>Per Date</h3>
+                                <div class="stat-list">
+                                    <div 
+                                        v-for="(count, date) in assignmentStatistics.assignmentsPerDate" 
+                                        :key="date" 
+                                        class="stat-list-item"
+                                    >
+                                        <span class="stat-list-label">{{ date }}</span>
+                                        <span class="stat-list-value">{{ count }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Assignments Per Section -->
+                            <div class="stat-card">
+                                <h3>Per Section</h3>
+                                <div class="stat-list">
+                                    <div 
+                                        v-for="(count, section) in assignmentStatistics.assignmentsPerSection" 
+                                        :key="section" 
+                                        class="stat-list-item"
+                                    >
+                                        <span class="stat-list-label">Section {{ section }}</span>
+                                        <span class="stat-list-value">{{ count }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Assignments Per Tier -->
+                            <div class="stat-card">
+                                <h3>Per Tier</h3>
+                                <div class="stat-list">
+                                    <div 
+                                        v-for="(count, tier) in assignmentStatistics.assignmentsPerTier" 
+                                        :key="tier" 
+                                        class="stat-list-item"
+                                    >
+                                        <span class="stat-list-label">{{ tier }}</span>
+                                        <span class="stat-list-value">{{ count }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Assignments Per Table Choice -->
+                            <div v-if="assignmentStatistics.assignmentsPerTableChoice" class="stat-card">
+                                <h3>Per Table Choice</h3>
+                                <div class="stat-list">
+                                    <div 
+                                        v-for="(count, choice) in processedTableChoices" 
+                                        :key="choice" 
+                                        class="stat-list-item"
+                                    >
+                                        <span class="stat-list-label">{{ choice }}</span>
+                                        <span class="stat-list-value">{{ count }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Assignments Per Date -->
-                        <div class="stat-card">
-                            <h3>Per Date</h3>
-                            <div class="stat-list">
-                                <div 
-                                    v-for="(count, date) in assignmentStatistics.assignmentsPerDate" 
-                                    :key="date" 
-                                    class="stat-list-item"
-                                >
-                                    <span class="stat-list-label">{{ date }}</span>
-                                    <span class="stat-list-value">{{ count }}</span>
+                        <!-- Unassigned Lists (Right Side) -->
+                        <div class="unassigned-container">
+                            <!-- Unassigned Vendors -->
+                            <div v-if="assignmentStatistics.unassignedVendors && assignmentStatistics.unassignedVendors.length > 0" class="stat-card unassigned-card">
+                                <h3>Unassigned Vendors ({{ assignmentStatistics.unassignedVendors.length }})</h3>
+                                <div class="unassigned-list">
+                                    <div 
+                                        v-for="(vendor, index) in assignmentStatistics.unassignedVendors" 
+                                        :key="index" 
+                                        class="unassigned-item"
+                                    >
+                                        <span class="unassigned-text">{{ typeof vendor === 'string' ? vendor : (vendor.email || vendor.name || JSON.stringify(vendor)) }}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Assignments Per Section -->
-                        <div class="stat-card">
-                            <h3>Per Section</h3>
-                            <div class="stat-list">
-                                <div 
-                                    v-for="(count, section) in assignmentStatistics.assignmentsPerSection" 
-                                    :key="section" 
-                                    class="stat-list-item"
-                                >
-                                    <span class="stat-list-label">Section {{ section }}</span>
-                                    <span class="stat-list-value">{{ count }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Assignments Per Tier -->
-                        <div class="stat-card">
-                            <h3>Per Tier</h3>
-                            <div class="stat-list">
-                                <div 
-                                    v-for="(count, tier) in assignmentStatistics.assignmentsPerTier" 
-                                    :key="tier" 
-                                    class="stat-list-item"
-                                >
-                                    <span class="stat-list-label">{{ tier }}</span>
-                                    <span class="stat-list-value">{{ count }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Assignments Per Table Choice -->
-                        <div v-if="assignmentStatistics.assignmentsPerTableChoice" class="stat-card">
-                            <h3>Per Table Choice</h3>
-                            <div class="stat-list">
-                                <div 
-                                    v-for="(count, choice) in processedTableChoices" 
-                                    :key="choice" 
-                                    class="stat-list-item"
-                                >
-                                    <span class="stat-list-label">{{ choice }}</span>
-                                    <span class="stat-list-value">{{ count }}</span>
+                            <!-- Unassigned Tables -->
+                            <div v-if="assignmentStatistics.unassignedTables && Object.keys(assignmentStatistics.unassignedTables).length > 0" class="stat-card unassigned-card">
+                                <h3>Unassigned Tables</h3>
+                                <div class="unassigned-list">
+                                    <div 
+                                        v-for="(tables, date) in assignmentStatistics.unassignedTables" 
+                                        :key="date" 
+                                        class="unassigned-date-group"
+                                    >
+                                        <div class="unassigned-date-header">{{ date }}</div>
+                                        <div class="unassigned-tables-list">
+                                            <div 
+                                                v-for="(table, tableIndex) in (Array.isArray(tables) ? tables : Object.values(tables))" 
+                                                :key="tableIndex" 
+                                                class="unassigned-item"
+                                            >
+                                                <span class="unassigned-text">{{ typeof table === 'string' ? table : (table.table_code || table.code || JSON.stringify(table)) }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -205,11 +255,28 @@ const handleDone = () => {
     overflow-y: auto;
 }
 
+.statistics-wrapper {
+    display: flex;
+    flex-direction: row;
+    gap: 25px;
+    width: 100%;
+    align-items: flex-start;
+}
+
 .statistics-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 25px;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+}
+
+.unassigned-container {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    width: 350px;
+    flex-shrink: 0;
 }
 
 .stat-card {
@@ -247,6 +314,13 @@ const handleDone = () => {
     flex-direction: row;
     gap: 30px;
     justify-content: space-around;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 25px;
+    width: 100%;
 }
 
 .stat-item {
@@ -309,6 +383,54 @@ const handleDone = () => {
     border-radius: 20px;
     min-width: 50px;
     text-align: center;
+}
+
+.unassigned-card {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.unassigned-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.unassigned-item {
+    padding: 8px 12px;
+    background-color: white;
+    border-radius: 4px;
+    border-left: 3px solid var(--mm-yellow);
+    font-family: 'Outfit Regular';
+    font-size: 14px;
+}
+
+.unassigned-text {
+    color: var(--mm-black);
+    word-break: break-word;
+}
+
+.unassigned-date-group {
+    margin-bottom: 15px;
+}
+
+.unassigned-date-header {
+    font-family: 'Merge One';
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--mm-black);
+    margin-bottom: 8px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid var(--mm-grey);
+}
+
+.unassigned-tables-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 10px;
 }
 
 .no-data-message {

@@ -76,6 +76,7 @@ class ModificationObject(BaseModel):
 class AssignmentStatistics(BaseModel):
     total_vendors: int
     total_tables: int
+    total_assignments: int
     total_assigned_vendors: int
     total_assigned_tables: int
     unassigned_vendors: List[str]

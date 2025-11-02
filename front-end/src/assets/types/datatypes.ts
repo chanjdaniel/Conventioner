@@ -72,10 +72,16 @@ export interface VendorAssignmentResult {
 export interface AssignmentStatistics {
     totalVendors: number,
     totalTables: number,
+    totalAssignments: number,
+    totalAssignedVendors: number,
+    totalAssignedTables: number,
     assignmentsPerDate: Record<string, number>,
     assignmentsPerTier: Record<string, number>,
     assignmentsPerSection: Record<string, number>,
     assignmentsPerTableChoice?: Record<string, number>,
+    unassignedVendors: any[],
+    unassignedTables: Record<string, any>,
+    satisfactionScore: number,
 }
 
 export interface AssignmentObject {

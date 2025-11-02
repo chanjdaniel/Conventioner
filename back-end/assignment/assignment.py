@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+from collections import defaultdict
 from datatypes import (
     Market, SetupObject, MarketDateObject, TierObject, SectionObject, 
     AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityObject, DataType,
@@ -351,46 +352,94 @@ class MarketAssignment:
         ))
         table.assign(vendor_list)
 
-    # TODO: finish this
     def get_assignment_statistics(self) -> AssignmentStatistics:
+        """Calculate and return comprehensive assignment statistics."""
         vendor_assignments = []
         assigned_vendors = set()
-        assigned_tables = set()
+        unassigned_vendors = []
         
-        # Collect all vendor assignments
+        # Collect all vendor assignments and track assigned/unassigned vendors
         for vendor in self.vendors:
-            for date, assignment in vendor.assignment.items():
-                if assignment is not None:
-                    vendor_assignments.append(assignment)
-                    assigned_vendors.add(vendor.email)
-                    assigned_tables.add(assignment.table_code)
+            if vendor.num_assignments == 0:
+                unassigned_vendors.append(vendor.email)
+            else:
+                assigned_vendors.add(vendor.email)
+                for assignment in vendor.assignment.values():
+                    if assignment is not None:
+                        vendor_assignments.append(assignment)
 
-        statistics = AssignmentStatistics(
-            total_vendors=len(self.vendors),
-            total_tables=sum(len(da.tables) for da in self.date_assignments.values()),
-            total_assigned_vendors=len(assigned_vendors),
-            total_assigned_tables=len(assigned_tables),
-            unassigned_vendors=[],
-            unassigned_tables={},
-            assignments_per_date={},
-            assignments_per_tier={},
-            assignments_per_section={},
-            assignments_per_table_choice={},
-            satisfaction_score=0
+        # Calculate total tables and count assigned tables
+        total_tables = sum(len(da.tables) for da in self.date_assignments.values())
+        assigned_tables_count = 0
+        unassigned_tables = defaultdict(list)
+        
+        for date_assignment in self.date_assignments.values():
+            date = date_assignment.market_date.date
+            for table in date_assignment.tables:
+                if table.assignment:
+                    assigned_tables_count += 1
+                else:
+                    unassigned_tables[date].append(table.table_code)
+
+        # Count assignments by category using defaultdict for cleaner code
+        assignments_per_tier = defaultdict(int)
+        assignments_per_section = defaultdict(int)
+        assignments_per_table_choice = defaultdict(int)
+        assignments_per_date = defaultdict(int)
+        
+        for assignment in vendor_assignments:
+            assignments_per_tier[assignment.tier] += 1
+            assignments_per_section[assignment.section] += 1
+            assignments_per_table_choice[assignment.table_choice] += 1
+            assignments_per_date[assignment.date] += 1
+
+        # Calculate satisfaction score (average ratio of actual to potential assignments)
+        satisfaction_score_sum = 0.0
+        total_vendors = len(self.vendors)
+        
+        for vendor in self.vendors:
+            # Count how many dates the vendor requested
+            num_requested_assignments = sum(
+                1 for market_date in self.setup_object.market_dates
+                if getattr(vendor, toAttrString(market_date.col_name), '') != ""
+            )
+            
+            # Potential assignments is the minimum of: max days allowed, vendor's max_days, and dates requested
+            try:
+                vendor_max_days = int(vendor.max_days[0])
+            except (ValueError, IndexError, AttributeError):
+                vendor_max_days = MAX_VENDING_DAYS
+            
+            num_potential_assignments = min(
+                MAX_VENDING_DAYS, 
+                vendor_max_days, 
+                num_requested_assignments
+            )
+            
+            # Avoid division by zero
+            if num_potential_assignments > 0:
+                satisfaction_score_sum += vendor.num_assignments / num_potential_assignments
+        
+        # Calculate average satisfaction score, handling empty vendor list
+        satisfaction_score = (
+            satisfaction_score_sum / total_vendors 
+            if total_vendors > 0 else 0.0
         )
 
-        for assignment in vendor_assignments:
-            statistics.assignments_per_tier[assignment.tier] = statistics.assignments_per_tier.get(assignment.tier, 0) + 1
-            statistics.assignments_per_section[assignment.section] = statistics.assignments_per_section.get(assignment.section, 0) + 1
-            statistics.assignments_per_table_choice[assignment.table_choice] = statistics.assignments_per_table_choice.get(assignment.table_choice, 0) + 1
-            statistics.assignments_per_date[assignment.date] = statistics.assignments_per_date.get(assignment.date, 0) + 1
-            if assignment is None:
-                statistics.unassigned_vendors.append(vendor)
-
-        for date_assignment in market_assignment.date_assignments.values():
-            for table in date_assignment.tables:
-                if table.assignment is None:
-                    statistics.unassigned_tables[date_assignment.market_date.date] = statistics.unassigned_tables.get(date_assignment.market_date.date, []).append(table.table_code)
+        statistics = AssignmentStatistics(
+            total_vendors=total_vendors,
+            total_tables=total_tables,
+            total_assignments=sum(vendor.num_assignments for vendor in self.vendors),
+            total_assigned_vendors=len(assigned_vendors),
+            total_assigned_tables=assigned_tables_count,
+            unassigned_vendors=unassigned_vendors,
+            unassigned_tables=dict(unassigned_tables),  # Convert defaultdict to regular dict
+            assignments_per_tier=dict(assignments_per_tier),
+            assignments_per_section=dict(assignments_per_section),
+            assignments_per_table_choice=dict(assignments_per_table_choice),
+            assignments_per_date=dict(assignments_per_date),
+            satisfaction_score=satisfaction_score
+        )
 
         return statistics
 
