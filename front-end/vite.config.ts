@@ -27,7 +27,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'https://127.0.0.1:5000',
+        target: process.env.VITE_BACKEND_URL || 'https://127.0.0.1:5000',
         changeOrigin: true,
         secure: false, // Ignore SSL certificate errors (needed for adhoc cert)
         rewrite: (path) => path.replace(/^\/api/, ''),
