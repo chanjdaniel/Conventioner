@@ -1,11 +1,9 @@
 from flask import request, jsonify
 from flask_login import UserMixin
-from pymongo import MongoClient
 from datatypes import User
+from db_config import get_database
 
-client = MongoClient("mongodb://admin:secret@localhost:27017/admin")
-
-db = client["market_maker"]
+db = get_database()
 users_collection = db["users"]
 
 # users

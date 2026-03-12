@@ -1,5 +1,4 @@
 from typing import Optional, Dict, Any, List
-from pymongo import MongoClient
 from pymongo.results import InsertOneResult, UpdateResult
 from bson import ObjectId
 from datatypes import Market
@@ -10,13 +9,12 @@ import traceback
 import logging
 import os
 from assignment.csv_output import convert_market_data_to_csv
+from db_config import get_database
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-client = MongoClient("mongodb://admin:secret@localhost:27017/admin")
-
-db = client["market_maker"]
+db = get_database()
 markets_collection = db["markets"]
 
 def get_market(owner_email: str, market_name: str) -> Optional[Dict[str, Any]]:

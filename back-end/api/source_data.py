@@ -1,5 +1,4 @@
 from flask import request, jsonify, send_file
-from pymongo import MongoClient
 from pymongo.results import InsertOneResult, DeleteResult
 from bson import ObjectId
 import csv
@@ -7,10 +6,9 @@ import io
 import os
 from datetime import datetime
 from typing import Optional, Dict, Any, List
+from db_config import get_database
 
-client = MongoClient("mongodb://admin:secret@localhost:27017/admin")
-
-db = client["market_maker"]
+db = get_database()
 source_data_collection = db["source_data"]
 
 def upload_source_data(market_name: str, csv_file) -> Dict[str, Any]:
