@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: makersmarket_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: secret
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - makersmarket_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./back-end
+      dockerfile: Dockerfile
+    container_name: makersmarket_backend
+    restart: unless-stopped
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - USE_HTTPS=true
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_USER=admin
+      - MONGODB_PASSWORD=secret
+      - MONGODB_DB=market_maker
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./back-end:/app
+      - backend_sessions:/app/flask_session
+      - backend_csv:/app/csv_exports
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - makersmarket_network
+    command: flask run --host=0.0.0.0 --port=5000 --cert=adhoc
+
+  frontend:
+    build:
+      context: ./front-end
+      dockerfile: Dockerfile
+    container_name: makersmarket_frontend
+    restart: unless-stopped
+    environment:
+      - VITE_FLASK_HOST=/api
+      - VITE_BACKEND_URL=https://backend:5000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./front-end:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - makersmarket_network
+
+networks:
+  makersmarket_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  backend_sessions:
+    driver: local
+  backend_csv:
+    driver: local
