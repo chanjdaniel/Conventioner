@@ -29,7 +29,12 @@ SESSION_MAX_AGE = 7200
 
 app = Flask(__name__)
 
-app.config["SESSION_TYPE"] = "filesystem"
+# Session configuration: Use 'null' for Vercel serverless (stores in cookies only)
+# For production with persistent sessions, consider MongoDB-backed sessions
+# Set SESSION_TYPE env var to override: 'null' for Vercel, 'filesystem' for local dev
+session_type = os.getenv("SESSION_TYPE", "filesystem" if os.getenv("FLASK_ENV") != "production" else "null")
+
+app.config["SESSION_TYPE"] = session_type
 app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = SESSION_MAX_AGE
 app.config["SESSION_COOKIE_NAME"] = "session"
@@ -37,14 +42,28 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 # Only require secure cookies in production or when using HTTPS
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production" or os.getenv("USE_HTTPS", "true").lower() == "true"
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
-app.config['SECRET_KEY'] = 'TEMP_KEY'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'TEMP_KEY_CHANGE_IN_PRODUCTION')
+
+# Only create session folder for filesystem sessions
+if session_type == "filesystem":
+    os.makedirs(SESSION_FOLDER, exist_ok=True)
+    app.config["SESSION_FILE_DIR"] = SESSION_FOLDER
 
 Session(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.session_protection = "strong"
-CORS(app, supports_credentials=True)
+# Configure CORS based on environment
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+if os.getenv("FLASK_ENV") == "production":
+    # In production, only allow the configured frontend URL
+    CORS(app, 
+         origins=[frontend_url],
+         supports_credentials=True)
+else:
+    # In development, allow all origins for easier local development
+    CORS(app, supports_credentials=True)
 
 # users
 
@@ -623,13 +642,17 @@ def get_assigned_market(market_name: str) -> Response:
 # misc
 
 def cleanup_sessions() -> None:
-    """Clean up expired session files."""
-    now = time.time()
-    for session_file in glob.glob(os.path.join(SESSION_FOLDER, "*")):
-        if os.stat(session_file).st_mtime < now - SESSION_MAX_AGE:
-            os.remove(session_file)
+    """Clean up expired session files. Only runs for filesystem sessions."""
+    if app.config["SESSION_TYPE"] == "filesystem":
+        now = time.time()
+        for session_file in glob.glob(os.path.join(SESSION_FOLDER, "*")):
+            if os.stat(session_file).st_mtime < now - SESSION_MAX_AGE:
+                os.remove(session_file)
 
 cleanup_sessions()
+
+# Vercel automatically detects Flask apps, but we can export the app instance
+# The app instance will be used by Vercel's Python runtime
 
 if __name__ == '__main__':
     app.run(debug=True)

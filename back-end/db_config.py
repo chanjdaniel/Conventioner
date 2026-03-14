@@ -2,7 +2,17 @@ import os
 from pymongo import MongoClient
 
 def get_mongodb_client():
-    """Get MongoDB client using environment variables or defaults."""
+    """Get MongoDB client using environment variables or defaults.
+    
+    Supports both MongoDB Atlas connection strings (MONGODB_URI) and 
+    traditional connection parameters (MONGODB_HOST, etc.).
+    """
+    # Check for MongoDB Atlas connection string first (preferred for Vercel)
+    mongodb_uri = os.getenv('MONGODB_URI')
+    if mongodb_uri:
+        return MongoClient(mongodb_uri)
+    
+    # Fall back to individual connection parameters
     mongodb_host = os.getenv('MONGODB_HOST', 'localhost')
     mongodb_port = os.getenv('MONGODB_PORT', '27017')
     mongodb_user = os.getenv('MONGODB_USER', 'admin')
