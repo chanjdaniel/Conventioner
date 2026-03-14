@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import InitView from '@/views/InitView.vue';
 import LoginView from '@/views/LoginView.vue';
+import EmailVerificationView from '@/views/EmailVerificationView.vue';
+import PasswordResetRequestView from '@/views/PasswordResetRequestView.vue';
+import PasswordResetView from '@/views/PasswordResetView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -14,6 +17,26 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+    },
+    {
+      path: '/register',
+      name: 'register',
+      redirect: '/login',
+    },
+    {
+      path: '/verify-email',
+      name: 'verify-email',
+      component: EmailVerificationView,
+    },
+    {
+      path: '/reset-password-request',
+      name: 'reset-password-request',
+      component: PasswordResetRequestView,
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: PasswordResetView,
     },
     {
       path: '/init',
@@ -39,7 +62,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  const publicPages = ["/login"];
+  const publicPages = ["/login", "/register", "/verify-email", "/reset-password-request", "/reset-password"];
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   if (publicPages.includes(to.path)) {
