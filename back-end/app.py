@@ -10,8 +10,8 @@ from flask_session import Session
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
-from datetime import timedelta
-from datatypes import Market
+from datetime import timedelta, datetime
+from datatypes import Market, MarketRole
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from assignment.csv_output import convert_market_data_to_csv
 import json
@@ -54,7 +54,7 @@ def get_user(email: str) -> Any:
 
 # curl -k -X POST https://127.0.0.1:5000/register-user \
 #   -H "Content-Type: application/json" \
-#   -d '{"email": "testemail@test.com", "password": "testpassword", "organizations": [], "markets": []}'
+#   -d '{"email": "testemail@test.com", "password": "testpassword", "organizations": []}'
 @app.route("/register-user", methods=["POST"])
 def register_user() -> Response:
     return UsersApi.register_user(bcrypt, request)
@@ -73,14 +73,337 @@ def logout() -> Response:
 def check_session() -> Response:
     return UsersApi.check_session(current_user)
 
+@app.route('/register', methods=['POST'])
+def register() -> Response:
+    return UsersApi.register_user_with_captcha(bcrypt, request)
+
+@app.route('/verify-email', methods=['POST'])
+def verify_email() -> Response:
+    return UsersApi.verify_email(request)
+
+@app.route('/resend-verification', methods=['POST'])
+def resend_verification() -> Response:
+    return UsersApi.resend_verification_email(request)
+
+@app.route('/request-password-reset', methods=['POST'])
+def request_password_reset() -> Response:
+    return UsersApi.request_password_reset(request)
+
+@app.route('/reset-password', methods=['POST'])
+def reset_password() -> Response:
+    return UsersApi.reset_password(bcrypt, request)
+
+@app.route('/request-otp', methods=['POST'])
+def request_otp() -> Response:
+    return UsersApi.request_otp(request)
+
+@app.route('/login-otp', methods=['POST'])
+def login_otp() -> Response:
+    return UsersApi.login_with_otp(login_user, request)
+
 # organizations
 
-# @app.route('/assignment', methods=['POST'])
-# @login_required
-# def assignment():
-#     data = request.json
-#     setupObject = data.setupObject
-#     upload = data.upload
+@app.route('/organizations', methods=['GET'])
+@login_required
+def get_organizations() -> Response:
+    """Get all organizations for the current user."""
+    try:
+        user_email = request.headers.get('X-Owner-Email')
+        if not user_email:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        organizations = OrgsApi.get_organizations_for_user(user_email)
+        return jsonify({"organizations": organizations}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/organizations', methods=['POST'])
+@login_required
+def create_organization() -> Response:
+    """Create a new organization."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        name = data.get('name')
+        if not name:
+            return jsonify({"error": "Organization name required"}), 400
+        
+        owner_email = request.headers.get('X-Owner-Email')
+        if not owner_email:
+            return jsonify({"error": "Owner email not provided in headers"}), 400
+        
+        result = OrgsApi.create_organization(owner_email, name)
+        return jsonify({
+            "message": "Organization created successfully",
+            "organization_id": str(result.inserted_id)
+        }), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/organizations/<name>', methods=['GET'])
+@login_required
+def get_organization(name: str) -> Response:
+    """Get an organization by name."""
+    try:
+        org = OrgsApi.get_organization(name)
+        if org:
+            return jsonify({"organization": org}), 200
+        else:
+            return jsonify({"error": "Organization not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/organizations/<name>', methods=['PUT'])
+@login_required
+def update_organization(name: str) -> Response:
+    """Update an organization. Only owner can update."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        result = OrgsApi.update_organization(name, requesting_user, data)
+        return jsonify({
+            "message": "Organization updated successfully",
+            "modified_count": result.modified_count
+        }), 200
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/organizations/<name>', methods=['DELETE'])
+@login_required
+def delete_organization(name: str) -> Response:
+    """Delete an organization. Only owner can delete."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        result = OrgsApi.delete_organization(name, requesting_user)
+        if result.deleted_count > 0:
+            return jsonify({"message": "Organization deleted successfully"}), 200
+        else:
+            return jsonify({"error": "Organization not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/organizations/<name>/admins', methods=['POST'])
+@login_required
+def add_org_admin(name: str) -> Response:
+    """Add an admin to an organization. Only owner can add admins."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        user_email = data.get('user_email')
+        if not user_email:
+            return jsonify({"error": "user_email required"}), 400
+        
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        success = OrgsApi.add_org_admin(name, user_email, requesting_user)
+        if success:
+            return jsonify({"message": "Admin added successfully"}), 200
+        else:
+            return jsonify({"error": "Failed to add admin"}), 400
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/organizations/<name>/members', methods=['POST'])
+@login_required
+def add_org_member(name: str) -> Response:
+    """Add a member to an organization. Owner or admin can add members."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        user_email = data.get('user_email')
+        if not user_email:
+            return jsonify({"error": "user_email required"}), 400
+        
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        success = OrgsApi.add_org_member(name, user_email, requesting_user)
+        if success:
+            return jsonify({"message": "Member added successfully"}), 200
+        else:
+            return jsonify({"error": "Failed to add member"}), 400
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/organizations/<name>/users/<user_email>', methods=['DELETE'])
+@login_required
+def remove_org_user(name: str, user_email: str) -> Response:
+    """Remove a user from an organization."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        success = OrgsApi.remove_org_user(name, user_email, requesting_user)
+        if success:
+            return jsonify({"message": "User removed successfully"}), 200
+        else:
+            return jsonify({"error": "Failed to remove user"}), 400
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/organizations/<name>/transfer', methods=['POST'])
+@login_required
+def transfer_org_ownership(name: str) -> Response:
+    """Transfer organization ownership."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        new_owner_email = data.get('new_owner_email')
+        if not new_owner_email:
+            return jsonify({"error": "new_owner_email required"}), 400
+        
+        current_owner = request.headers.get('X-Owner-Email')
+        if not current_owner:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        success = OrgsApi.transfer_org_ownership(name, current_owner, new_owner_email)
+        if success:
+            return jsonify({"message": "Ownership transferred successfully"}), 200
+        else:
+            return jsonify({"error": "Failed to transfer ownership"}), 400
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Market role management
+
+@app.route('/markets/<market_name>/roles', methods=['POST'])
+@login_required
+def add_market_role(market_name: str) -> Response:
+    """Add a user role to a market."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        user_email = data.get('user_email')
+        role_str = data.get('role')
+        if not user_email or not role_str:
+            return jsonify({"error": "user_email and role required"}), 400
+        
+        try:
+            role = MarketRole(role_str.lower())
+        except ValueError:
+            return jsonify({"error": f"Invalid role: {role_str}"}), 400
+        
+        owner_email = request.headers.get('X-Owner-Email')
+        if not owner_email:
+            return jsonify({"error": "Owner email not provided in headers"}), 400
+        
+        requesting_user = request.headers.get('X-User-Email', owner_email)
+        
+        success = MarketsApi.add_market_role(market_name, user_email, role, requesting_user)
+        if success:
+            return jsonify({"message": "Role added successfully"}), 200
+        else:
+            return jsonify({"error": "Failed to add role"}), 400
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/markets/<market_name>/roles/<user_email>', methods=['DELETE'])
+@login_required
+def remove_market_role(market_name: str, user_email: str) -> Response:
+    """Remove a user role from a market."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        success = MarketsApi.remove_market_role(market_name, user_email, requesting_user)
+        if success:
+            return jsonify({"message": "Role removed successfully"}), 200
+        else:
+            return jsonify({"error": "Failed to remove role"}), 400
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/markets/<market_name>/roles/<user_email>', methods=['PUT'])
+@login_required
+def update_market_role(market_name: str, user_email: str) -> Response:
+    """Update a user's role in a market."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        role_str = data.get('role')
+        if not role_str:
+            return jsonify({"error": "role required"}), 400
+        
+        try:
+            role = MarketRole(role_str.lower())
+        except ValueError:
+            return jsonify({"error": f"Invalid role: {role_str}"}), 400
+        
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        success = MarketsApi.update_market_role(market_name, user_email, role, requesting_user)
+        if success:
+            return jsonify({"message": "Role updated successfully"}), 200
+        else:
+            return jsonify({"error": "Failed to update role"}), 400
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # source data
 
@@ -148,44 +471,41 @@ def delete_source_data(market_name: str) -> Response:
 @app.route('/markets/<market_id>', methods=['GET'])
 @login_required
 def get_market(market_id: str) -> Response:
-    """Get a market by its ID."""
+    """Get a market by its ID. Uses permission checks."""
     try:
-        owner_email = request.headers.get('X-Owner-Email')
-        if not owner_email:
-            return jsonify({"error": "Owner email not provided in headers"}), 400
+        user_email = request.headers.get('X-Owner-Email')  # Reusing header name for user email
+        if not user_email:
+            return jsonify({"error": "User email not provided in headers"}), 400
 
-        # Check that owner exists
-        owner = UsersApi.get_user(owner_email)
-        if not owner:
-            return jsonify({"error": "Owner not found"}), 404
+        # Check that user exists
+        user = UsersApi.get_user(user_email)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
-        market = MarketsApi.get_market(owner_email, market_id)
+        # Try to find market by name (market_id is actually the name)
+        market = MarketsApi.get_market_for_user(user_email, market_id)
         if market:
-            # Convert ObjectId to string for JSON serialization
-            market['_id'] = str(market['_id'])
             return jsonify({"market": market}), 200
         else:
-            return jsonify({"error": "Market not found"}), 404
+            return jsonify({"error": "Market not found or access denied"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/markets', methods=['GET'])
 @login_required
 def get_markets_by_owner_email() -> Response:
-    """Get all markets by owner."""
+    """Get all markets for user (via explicit role or organization)."""
     try:
-        owner_email = request.headers.get('X-Owner-Email')
-        if not owner_email:
-            return jsonify({"error": "Owner email not provided in headers"}), 400
-        owner = UsersApi.get_user(owner_email)
-        if owner:
-            markets = MarketsApi.get_markets_by_owner_email(owner_email)
-            # Convert ObjectIds to strings for JSON serialization
-            for market in markets:
-                market['_id'] = str(market['_id'])
-            return jsonify({"markets": markets}), 200
-        else:
-            return jsonify({"error": "Owner not found"}), 404
+        user_email = request.headers.get('X-Owner-Email')  # Reusing header name for user email
+        if not user_email:
+            return jsonify({"error": "User email not provided in headers"}), 400
+        
+        user = UsersApi.get_user(user_email)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        markets = MarketsApi.get_markets_for_user(user_email)
+        return jsonify({"markets": markets}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -211,8 +531,14 @@ def create_market() -> Response:
         if not owner:
             return jsonify({"error": "Owner not found"}), 404
         
+        # Validate that market has exactly one owner in roles
+        roles = market.roles if hasattr(market, 'roles') else {}
+        owner_count = sum(1 for role in roles.values() if role == MarketRole.OWNER)
+        if owner_count != 1:
+            return jsonify({"error": "Market must have exactly one owner in roles dict"}), 400
+        
         # Create the market
-        result = MarketsApi.create_market(owner_email, market)
+        result = MarketsApi.create_market(market)
         
         return jsonify({
             "message": "Market created successfully",
@@ -241,17 +567,17 @@ def update_market(market_name: str) -> Response:
                 print(f"Validation errors: {validation_error.errors()}")
             raise validation_error
 
-        owner_email = request.headers.get('X-Owner-Email')
-        if not owner_email:
-            return jsonify({"error": "Owner email not provided in headers"}), 400
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
 
-        # Check that owner exists
-        owner = UsersApi.get_user(owner_email)
-        if not owner:
-            return jsonify({"error": "Owner not found"}), 404
-
-        # Perform the update
-        result = MarketsApi.update_market(owner_email, market_name, market)
+        # Check that user exists
+        user = UsersApi.get_user(requesting_user)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Perform the update (with permission check)
+        result = MarketsApi.update_market(market_name, market, requesting_user)
 
         # Handle no matching market
         if result.matched_count == 0:
@@ -262,19 +588,21 @@ def update_market(market_name: str) -> Response:
             "modified_count": result.modified_count
         }), 200
 
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
 @app.route('/markets/<market_name>/assignment', methods=['GET'])
 @login_required
 def get_assigned_market(market_name: str) -> Response:
-    """Get an assigned market."""
+    """Get an assigned market. Requires VIEW permission."""
     try:
-        owner_email = request.headers.get('X-Owner-Email')
-        if not owner_email:
-            return jsonify({"error": "Owner email not provided in headers"}), 400
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
 
-        result, status_code = MarketsApi.get_assigned_market(owner_email, market_name)
+        result, status_code = MarketsApi.get_assigned_market(market_name, requesting_user)
         
         return jsonify(result), status_code
     
