@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "buildCommand": "cd front-end && npm run build",
+  "outputDirectory": "front-end/dist",
+  "installCommand": "cd front-end && npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://your-backend-url.com/:path*"
+    }
+  ],
+  "env": {
+    "VITE_FLASK_HOST": "/api",
+    "VITE_RECAPTCHA_SITE_KEY": "@recaptcha_site_key"
+  }
+}

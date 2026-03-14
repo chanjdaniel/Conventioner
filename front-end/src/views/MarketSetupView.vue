@@ -96,9 +96,10 @@ onMounted(() => {
 
 const updateMarket = async () => {
     localStorage.setItem("market", JSON.stringify(market.value));
+    const userEmail = JSON.parse(localStorage.getItem("user") || "null");
     await api.put('/markets/' + market.value!.name, market.value, {
         headers: {
-            'X-Owner-Email': market.value!.owner
+            'X-Owner-Email': userEmail
         }
     });
 }
@@ -126,9 +127,10 @@ const handleBack = async () => {
 const handleAssign = async () => {
     await updateMarket();
 
+    const userEmail = JSON.parse(localStorage.getItem("user") || "null");
     const response = await api.get('markets/' + market.value!.name + '/assignment', {
         headers: {
-            'X-Owner-Email': market.value!.owner
+            'X-Owner-Email': userEmail
         }
     })
 

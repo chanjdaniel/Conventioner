@@ -2,7 +2,7 @@
 import ElementFileDrop from '@/components/elements/ElementFileDrop.vue';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { type Market } from '@/assets/types/datatypes.ts'
+import { type Market, MarketRole } from '@/assets/types/datatypes.ts'
 import { api } from '@/utils/api';
 
 defineProps<{
@@ -37,10 +37,10 @@ const handleSubmit = async () => {
         const userEmail = JSON.parse(localStorage.getItem("user") || "null");
         let newMarket: Market = {
             name: marketName.value,
-            owner: userEmail,
             creationDate: new Date().toISOString(),
-            editors: [userEmail],
-            viewers: [],
+            roles: {
+                [userEmail]: MarketRole.Owner
+            },
             setupObject: null,
             modificationList: [],
             assignmentObject: {
