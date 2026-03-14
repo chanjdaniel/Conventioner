@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { type Market } from '@/assets/types/datatypes.ts'
+import { type Market, MarketRole } from '@/assets/types/datatypes.ts'
 import { api } from '@/utils/api';
+import { getRoleDisplayName } from '@/utils/permissions';
 
 defineProps<{
     loadOpen: boolean;
@@ -23,10 +24,11 @@ onMounted(async () => {
     for (const market of response.data.markets) {
         let newMarket: Market = {
             name: market.name,
-            owner: market.owner,
             creationDate: market.creationDate,
-            editors: market.editors || [],
-            viewers: market.viewers || [],
+            roles: market.roles || {},
+            organization: market.organization,
+            theme: market.theme,
+            userRole: market.userRole ? (market.userRole as MarketRole) : undefined,
             setupObject: {
                 colNames: market.setupObject?.colNames || [],
                 colValues: market.setupObject?.colValues || [],
@@ -88,12 +90,18 @@ const formatDate = (dateString: string) => {
                     <div class="card-content">
                         <div class="info-group">
                             <div class="info-row">
-                                <span class="info-label">Owner:</span>
-                                <span class="info-value">{{ market.owner }}</span>
-                            </div>
-                            <div class="info-row">
                                 <span class="info-label">Created:</span>
                                 <span class="info-value">{{ formatDate(market.creationDate) }}</span>
+                            </div>
+                            <div v-if="market.organization" class="info-row">
+                                <span class="info-label">Organization:</span>
+                                <span class="info-value">{{ market.organization }}</span>
+                            </div>
+                            <div v-if="market.userRole" class="info-row">
+                                <span class="info-label">Your Role:</span>
+                                <span class="info-value role-badge" :class="`role-${market.userRole.toLowerCase()}`">
+                                    {{ getRoleDisplayName(market.userRole) }}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -234,6 +242,34 @@ const formatDate = (dateString: string) => {
 .info-value {
     color: var(--mm-black);
     font-size: 14px;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.role-owner {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.role-admin {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.role-editor {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.role-viewer {
+    background: #fff3e0;
+    color: #f57c00;
 }
 
 .card-footer {
