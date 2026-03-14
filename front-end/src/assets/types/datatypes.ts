@@ -7,6 +7,25 @@ export enum DataType {
     NotContains = "Does not contain",
 }
 
+export enum MarketRole {
+    Owner = "owner",
+    Admin = "admin",
+    Editor = "editor",
+    Viewer = "viewer",
+}
+
+export enum OrganizationRole {
+    Owner = "owner",
+    Admin = "admin",
+    Member = "member",
+}
+
+export interface ThemeObject {
+    primaryColor: string,
+    secondaryColor: string,
+    logoUrl?: string,
+}
+
 export interface PriorityObject {
     id: number,
     colNameIdx: number,
@@ -94,11 +113,21 @@ export interface AssignmentObject {
 
 export interface Market {
     name: string,
-    owner: string,
     creationDate: string,
-    editors: string[],
-    viewers: string[],
+    roles: Record<string, MarketRole>,  // Map of user_email -> role
+    organization?: string,  // Organization name
+    theme?: ThemeObject,  // Market-specific theme
     setupObject: SetupObject | null,
     modificationList: ModificationObject[],
     assignmentObject: AssignmentObject,
+    userRole?: MarketRole,  // User's effective role (added by API)
+}
+
+export interface Organization {
+    name: string,
+    owner: string,  // Exactly 1 owner email
+    admins: string[],  // 0+ admin emails
+    members: string[],  // 0+ member emails
+    markets: string[],  // List of market names
+    theme?: ThemeObject,  // Organization theming
 }

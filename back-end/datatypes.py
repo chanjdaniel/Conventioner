@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import List, Optional, Union, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class DataType(str, Enum):
@@ -10,6 +10,25 @@ class DataType(str, Enum):
     ENUM = "Enum"
     CONTAINS = "Contains"
     NOT_CONTAINS = "Does not contain"
+
+
+class MarketRole(str, Enum):
+    OWNER = "owner"
+    ADMIN = "admin"
+    EDITOR = "editor"
+    VIEWER = "viewer"
+
+
+class OrganizationRole(str, Enum):
+    OWNER = "owner"
+    ADMIN = "admin"
+    MEMBER = "member"
+
+
+class ThemeObject(BaseModel):
+    primary_color: str
+    secondary_color: str
+    logo_url: Optional[str] = None
 
 class VendorAssignmentResult(BaseModel):
     email: str
@@ -96,23 +115,52 @@ class AssignmentObject(BaseModel):
 
 class Market(BaseModel):
     name: str
-    owner: str
     creation_date: str
-    editors: List[str]
-    viewers: List[str]
+    roles: Dict[str, MarketRole]  # Map of user_email -> role (must have exactly one OWNER)
+    organization: Optional[str] = None  # Organization name
+    theme: Optional[ThemeObject] = None  # Market-specific theme
     setup_object: Optional[SetupObject] = None
     modification_list: List[ModificationObject]
     assignment_object: AssignmentObject
+    
+    @model_validator(mode='after')
+    def validate_single_owner(self):
+        """Ensure exactly one owner in roles dict."""
+        owner_count = sum(1 for role in self.roles.values() if role == MarketRole.OWNER)
+        if owner_count == 0:
+            raise ValueError("Market must have exactly one owner")
+        elif owner_count > 1:
+            raise ValueError("Market must have exactly one owner")
+        return self
 
 
 class Organization(BaseModel):
     name: str
-    users: List[str]
-    markets: List[str]
+    owner: str  # Exactly 1 owner email
+    admins: List[str] = []  # 0+ admin emails
+    members: List[str] = []  # 0+ member emails
+    markets: List[str]  # List of market names
+    theme: Optional[ThemeObject] = None  # Organization theming
+    
+    @model_validator(mode='after')
+    def validate_owner_not_in_other_roles(self):
+        """Ensure owner is not in admins or members lists."""
+        if self.owner in self.admins:
+            raise ValueError("Owner cannot be in admins list")
+        if self.owner in self.members:
+            raise ValueError("Owner cannot be in members list")
+        return self
 
 
 class User(BaseModel):
     email: str
     password: str
     organizations: List[str]
-    markets: List[str]
+    email_verified: bool = False
+    verification_token: Optional[str] = None
+    verification_token_expires: Optional[str] = None
+    password_reset_token: Optional[str] = None
+    password_reset_token_expires: Optional[str] = None
+    otp: Optional[str] = None
+    otp_expires: Optional[str] = None
+    otp_attempts: int = 0
