@@ -2,9 +2,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Create a non-root user
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
+# Create a non-root user (using 1001 to avoid conflicts with base image)
+RUN addgroup -g 1001 appuser && \
+    adduser -D -u 1001 -G appuser appuser
 
 # Copy package files
 COPY --chown=appuser:appuser package*.json ./

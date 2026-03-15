@@ -3,18 +3,27 @@ Email service integration using Resend for sending verification emails, password
 """
 
 import os
-from typing import Optional
-from resend import Resend
+import logging
+import resend
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Initialize Resend client
 resend_api_key = os.getenv("RESEND_API_KEY")
-resend = None
+resend_initialized = False
 if resend_api_key:
-    resend = Resend(api_key=resend_api_key)
+    resend.api_key = resend_api_key
+    resend_initialized = True
+    logger.info("Resend API initialized successfully")
+else:
+    logger.warning("RESEND_API_KEY not set - email sending will be disabled")
 
 # Get frontend URL from environment
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")  # Default Resend email
+
+logger.info(f"Email configuration: FROM_EMAIL={FROM_EMAIL}, FRONTEND_URL={FRONTEND_URL}")
 
 
 def send_verification_email(email: str, token: str) -> bool:
@@ -63,21 +72,41 @@ def send_verification_email(email: str, token: str) -> bool:
     If you didn't create an account, please ignore this email.
     """
     
-    if not resend:
-        print("Warning: RESEND_API_KEY not set, skipping email send")
+    if not resend_initialized:
+        logger.error("Cannot send verification email: RESEND_API_KEY not set")
         return False
     
     try:
-        resend.emails.send({
+        response = resend.Emails.send({
             "from": FROM_EMAIL,
             "to": [email],
             "subject": "Verify Your Email Address",
             "html": html_content,
             "text": text_content,
         })
-        return True
+        
+        if response and hasattr(response, 'id'):
+            logger.info(f"Verification email sent successfully to {email}, Resend ID: {response.id}")
+            return True
+        else:
+            logger.error(f"Verification email send returned unexpected response: {response}")
+            return False
+            
     except Exception as e:
-        print(f"Error sending verification email: {e}")
+        error_type = type(e).__name__
+        error_msg = str(e)
+        logger.error(f"Error sending verification email to {email}: {error_type} - {error_msg}")
+        
+        # Log additional details if available
+        if hasattr(e, 'response'):
+            logger.error(f"API response: {e.response}")
+        if hasattr(e, 'status_code'):
+            logger.error(f"HTTP status code: {e.status_code}")
+        if hasattr(e, 'message'):
+            logger.error(f"Error message: {e.message}")
+            
+        # Log full exception traceback for debugging
+        logger.debug(f"Full exception details:", exc_info=True)
         return False
 
 
@@ -127,21 +156,41 @@ def send_password_reset_email(email: str, token: str) -> bool:
     If you didn't request a password reset, please ignore this email.
     """
     
-    if not resend:
-        print("Warning: RESEND_API_KEY not set, skipping email send")
+    if not resend_initialized:
+        logger.error("Cannot send password reset email: RESEND_API_KEY not set")
         return False
     
     try:
-        resend.emails.send({
+        response = resend.Emails.send({
             "from": FROM_EMAIL,
             "to": [email],
             "subject": "Reset Your Password",
             "html": html_content,
             "text": text_content,
         })
-        return True
+        
+        if response and hasattr(response, 'id'):
+            logger.info(f"Password reset email sent successfully to {email}, Resend ID: {response.id}")
+            return True
+        else:
+            logger.error(f"Password reset email send returned unexpected response: {response}")
+            return False
+            
     except Exception as e:
-        print(f"Error sending password reset email: {e}")
+        error_type = type(e).__name__
+        error_msg = str(e)
+        logger.error(f"Error sending password reset email to {email}: {error_type} - {error_msg}")
+        
+        # Log additional details if available
+        if hasattr(e, 'response'):
+            logger.error(f"API response: {e.response}")
+        if hasattr(e, 'status_code'):
+            logger.error(f"HTTP status code: {e.status_code}")
+        if hasattr(e, 'message'):
+            logger.error(f"Error message: {e.message}")
+            
+        # Log full exception traceback for debugging
+        logger.debug(f"Full exception details:", exc_info=True)
         return False
 
 
@@ -187,19 +236,39 @@ def send_otp_email(email: str, otp: str) -> bool:
     If you didn't request this code, please ignore this email.
     """
     
-    if not resend:
-        print("Warning: RESEND_API_KEY not set, skipping email send")
+    if not resend_initialized:
+        logger.error("Cannot send OTP email: RESEND_API_KEY not set")
         return False
     
     try:
-        resend.emails.send({
+        response = resend.Emails.send({
             "from": FROM_EMAIL,
             "to": [email],
             "subject": "Your Login Code",
             "html": html_content,
             "text": text_content,
         })
-        return True
+        
+        if response and hasattr(response, 'id'):
+            logger.info(f"OTP email sent successfully to {email}, Resend ID: {response.id}")
+            return True
+        else:
+            logger.error(f"OTP email send returned unexpected response: {response}")
+            return False
+            
     except Exception as e:
-        print(f"Error sending OTP email: {e}")
+        error_type = type(e).__name__
+        error_msg = str(e)
+        logger.error(f"Error sending OTP email to {email}: {error_type} - {error_msg}")
+        
+        # Log additional details if available
+        if hasattr(e, 'response'):
+            logger.error(f"API response: {e.response}")
+        if hasattr(e, 'status_code'):
+            logger.error(f"HTTP status code: {e.status_code}")
+        if hasattr(e, 'message'):
+            logger.error(f"Error message: {e.message}")
+            
+        # Log full exception traceback for debugging
+        logger.debug(f"Full exception details:", exc_info=True)
         return False

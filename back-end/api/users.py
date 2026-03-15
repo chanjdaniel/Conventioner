@@ -157,11 +157,12 @@ def register_user_with_captcha(bcrypt, request):
         # Send verification email
         email_sent = send_verification_email(email, verification_token)
         if not email_sent:
-            # User created but email failed - still return success but warn
+            # Email failed - rollback user creation to prevent orphaned unverified accounts
+            users_collection.delete_one({"_id": result.inserted_id})
             return jsonify({
-                "msg": "User registered successfully, but verification email failed to send. Please contact support.",
-                "warning": True
-            }), 201
+                "msg": "Registration failed: Unable to send verification email. Please check your email configuration or contact support.",
+                "error": "email_send_failed"
+            }), 500
         
         return jsonify({
             "msg": "User registered successfully. Please check your email to verify your account."
@@ -464,3 +465,60 @@ def login_with_otp(login_user, request):
         "organizations": auth_user.organizations
     }
     return jsonify({"message": "Login successful", "user_data": user_data}), 200
+
+
+def delete_user(request, requesting_user_email: str = None):
+    """Delete a user account.
+    
+    Args:
+        request: Flask request object
+        requesting_user_email: Email of the user making the request (None for unauthenticated)
+        
+    Returns:
+        JSON response with deletion status
+    """
+    data = request.json or {}
+    email_to_delete = data.get("email")
+    
+    if not email_to_delete:
+        return jsonify({"msg": "Email address required"}), 400
+    
+    # Find the user to delete
+    user_to_delete = users_collection.find_one({"email": email_to_delete})
+    
+    if not user_to_delete:
+        return jsonify({"msg": "User not found"}), 404
+    
+    # Security: Users can only delete their own account, or unverified accounts can be deleted by anyone
+    # (This allows cleanup of orphaned unverified accounts)
+    is_own_account = requesting_user_email and email_to_delete == requesting_user_email
+    is_unverified = not user_to_delete.get("email_verified", False)
+    
+    if not is_own_account and not is_unverified:
+        return jsonify({"msg": "You can only delete your own account or unverified accounts"}), 403
+    
+    # Delete the user
+    result = users_collection.delete_one({"email": email_to_delete})
+    
+    if result.deleted_count > 0:
+        # Also remove user from any organizations they belonged to
+        from api.organizations import organizations_collection
+        organizations_collection.update_many(
+            {},
+            {"$pull": {"members": email_to_delete, "admins": email_to_delete}}
+        )
+        
+        # Note: We don't transfer ownership here - that should be done manually
+        # Check if user was owner of any organizations
+        owned_orgs = list(organizations_collection.find({"owner": email_to_delete}))
+        if owned_orgs:
+            org_names = [org.get("name") for org in owned_orgs]
+            return jsonify({
+                "msg": f"User deleted. Warning: User was owner of organizations: {', '.join(org_names)}. Please transfer ownership manually.",
+                "warning": True,
+                "owned_organizations": org_names
+            }), 200
+        
+        return jsonify({"msg": "User deleted successfully"}), 200
+    else:
+        return jsonify({"msg": "Failed to delete user"}), 500

@@ -120,6 +120,19 @@ def request_otp() -> Response:
 def login_otp() -> Response:
     return UsersApi.login_with_otp(login_user, request)
 
+@app.route('/delete-user', methods=['POST'])
+def delete_user() -> Response:
+    """Delete a user account. Requires login for verified accounts."""
+    # Get requesting user email from headers (set by login_required decorator)
+    requesting_user_email = request.headers.get('X-Owner-Email') or (current_user.email if current_user.is_authenticated else None)
+    
+    if not requesting_user_email:
+        # Allow deletion of unverified accounts without login (for cleanup)
+        # But require email in request body
+        return UsersApi.delete_user(request, None)
+    
+    return UsersApi.delete_user(request, requesting_user_email)
+
 # organizations
 
 @app.route('/organizations', methods=['GET'])
