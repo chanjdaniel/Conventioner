@@ -44,6 +44,11 @@ const router = createRouter({
       component: InitView,
     },
     {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('@/views/DashboardView.vue'),
+    },
+    {
       path: '/vendors',
       name: 'vendors',
       component: () => import('@/views/VendorsView.vue'),
@@ -76,7 +81,7 @@ router.beforeEach((to, from, next) => {
   }
 
   if (user && to.path === "/login") {
-    next("/init");
+    next("/dashboard");
     return;
   }
 

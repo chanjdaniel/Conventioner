@@ -56,7 +56,7 @@ const submitLogin = async () => {
             const user_email = response.data.user_data.email;
             localStorage.setItem("user", JSON.stringify(user_email));
             setUser(user_email);
-            router.push("/init");
+            router.push("/dashboard");
         }
     } catch (error: any) {
         // Handle axios errors (including 401 responses)
@@ -195,7 +195,7 @@ const submitOTPLogin = async () => {
             const user_email = response.data.user_data.email;
             localStorage.setItem("user", JSON.stringify(user_email));
             setUser(user_email);
-            router.push("/init");
+            router.push("/dashboard");
         }
     } catch (error: any) {
         if (error.response) {
