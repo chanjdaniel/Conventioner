@@ -2,15 +2,19 @@
 import { ref, onMounted } from 'vue';
 import { type Organization } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
+import ManageOrgOverlay from './ManageOrgOverlay.vue';
 
 const organizations = ref<Organization[]>([]);
 const loading = ref(true);
 const errorMessage = ref('');
 const newOpen = ref(false);
+const manageOpen = ref(false);
+const manageOrg = ref<Organization | null>(null);
 const newOrgName = ref('');
 const newOrgError = ref('');
 
 function parseOrgFromApi(org: any): Organization {
+    const userRole = org.userRole ?? org.user_role;
     return {
         id: org.id,
         name: org.name,
@@ -22,6 +26,7 @@ function parseOrgFromApi(org: any): Organization {
         adminEmails: org.adminEmails ?? org.admin_emails,
         memberEmails: org.memberEmails ?? org.member_emails,
         theme: org.theme,
+        userRole: userRole ?? undefined,
     };
 }
 
@@ -67,6 +72,22 @@ function handleNewClose() {
     newOrgName.value = '';
     newOrgError.value = '';
 }
+
+function handleManage(org: Organization) {
+    manageOrg.value = org;
+    manageOpen.value = true;
+}
+
+function handleManageClose() {
+    manageOpen.value = false;
+    manageOrg.value = null;
+    fetchOrganizations();
+}
+
+function canManage(org: Organization): boolean {
+    const role = org.userRole;
+    return role === 'owner' || role === 'admin';
+}
 </script>
 
 <template>
@@ -95,11 +116,26 @@ function handleNewClose() {
                                 <span class="info-label">Owner:</span>
                                 <span class="info-value">{{ org.ownerEmail }}</span>
                             </div>
+                            <div v-if="org.userRole" class="info-row">
+                                <span class="info-label">Your role:</span>
+                                <span class="info-value role-badge" :class="`role-${org.userRole}`">
+                                    {{ org.userRole }}
+                                </span>
+                            </div>
                         </div>
+                    </div>
+                    <div class="card-footer">
+                        <button v-if="canManage(org)" @click="handleManage(org)" class="manage-button">Manage</button>
                     </div>
                 </div>
             </div>
         </div>
+
+        <ManageOrgOverlay
+            :manageOpen="manageOpen"
+            :org="manageOrg"
+            @manageClose="handleManageClose"
+        />
 
         <div v-if="newOpen" class="overlay">
             <div class="overlay-background" @click="handleNewClose" />
@@ -248,6 +284,53 @@ function handleNewClose() {
 .info-value {
     color: var(--mm-black);
     font-size: 14px;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.role-owner {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.role-admin {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.role-member {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.card-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.manage-button {
+    padding: 8px 20px;
+    background: var(--mm-black);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Outfit Regular', sans-serif;
+    white-space: nowrap;
+}
+
+.manage-button:hover {
+    opacity: 0.9;
 }
 
 .overlay {
