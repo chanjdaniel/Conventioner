@@ -1,9 +1,16 @@
 <script setup lang="ts">
+    import { useRouter } from 'vue-router';
     import IconMenu from '../icons/IconMenu.vue';
 
     defineProps({
         isLogin: Boolean
     })
+
+    const router = useRouter();
+
+    function goToDashboard() {
+        router.push({ name: 'dashboard' });
+    }
 </script>
 
 <template>
@@ -11,7 +18,9 @@
         <button class="menu-button" @click="$emit('menuOpen')" v-show="!isLogin">
             <IconMenu class="menu-icon" />
         </button>
-        <img alt="MM logo" class="mm-logo" src="@/assets/icons/mm-logo.png"/>
+        <button class="logo-button" @click="goToDashboard" type="button">
+            <img alt="Conventioner logo" class="conventioner-logo" src="@/assets/icons/conventioner-logo.svg"/>
+        </button>
     </div>
 </template>
 
@@ -20,7 +29,7 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     position: relative;
 
     /* width: 100vw;
@@ -42,8 +51,6 @@
 
 .menu-button {
     /* MenuFrame */
-    position: absolute;
-    left: 0px;
 
     height: 100%;
     aspect-ratio: 1;
@@ -71,8 +78,23 @@
     aspect-ratio: 1;
 }
 
-.mm-logo {
+.logo-button {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0;
+    margin-left: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease-in-out;
+}
+
+.logo-button:hover {
+    opacity: 0.8;
+}
+
+.conventioner-logo {
     height: 65%;
-    aspect-ratio: 244 / 34;
 }
 </style>
