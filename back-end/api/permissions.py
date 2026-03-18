@@ -4,6 +4,7 @@ Permission resolution and access control functions.
 from typing import Optional, List
 from datatypes import Market, MarketRole, Organization
 from db_config import get_database
+import api.users as UsersApi
 
 db = get_database()
 organizations_collection = db["organizations"]
@@ -15,35 +16,37 @@ def get_user_market_role(user_email: str, market: Market, organization: Optional
     Returns None if user has no access.
     
     Resolution order:
-    1. Check explicit market role (in market.roles dict)
+    1. Check explicit market role (in market.roles dict, keys are user ids)
     2. If no explicit role, check organization membership (returns VIEWER if user in org)
     3. Return None if no access
     """
-    # 1. Check explicit market role
-    if user_email in market.roles:
-        return market.roles[user_email]
+    user = UsersApi.get_user(user_email)
+    if not user:
+        return None
+    user_id = user.id
     
-    # 2. Check organization-based access
-    if market.organization:
-        # If organization not provided, try to fetch it
+    # 1. Check explicit market role (roles dict keys are user ids)
+    if user_id in market.roles:
+        return market.roles[user_id]
+    
+    # 2. Check organization-based access (organization_id, owner/admins/members are ids)
+    if market.organization_id:
         if organization is None:
-            org_dict = organizations_collection.find_one({"name": market.organization})
+            org_dict = organizations_collection.find_one({"id": market.organization_id})
             if org_dict:
-                # Remove MongoDB _id before creating Organization object
                 org_dict.pop('_id', None)
                 try:
                     organization = Organization(**org_dict)
                 except Exception:
                     organization = None
         
-        if organization and organization.name == market.organization:
-            # Check if user is in organization
-            if (user_email == organization.owner or 
-                user_email in organization.admins or 
-                user_email in organization.members):
-                return MarketRole.VIEWER  # Organization members get View permission
+        if organization and organization.id == market.organization_id:
+            if (user_id == organization.owner or
+                    user_id in organization.admins or
+                    user_id in organization.members):
+                return MarketRole.VIEWER
     
-    return None  # No access
+    return None
 
 
 def user_has_permission(user_email: str, market: Market, required_role: MarketRole, organization: Optional[Organization] = None) -> bool:
@@ -95,12 +98,15 @@ def get_user_organizations(user_email: str) -> List[Organization]:
     """
     Get all organizations where user is owner, admin, or member.
     """
-    # Query organizations where user is in owner/admins/members
+    user = UsersApi.get_user(user_email)
+    if not user:
+        return []
+    user_id = user.id
     org_dicts = organizations_collection.find({
         "$or": [
-            {"owner": user_email},
-            {"admins": user_email},
-            {"members": user_email}
+            {"owner": user_id},
+            {"admins": user_id},
+            {"members": user_id}
         ]
     })
     

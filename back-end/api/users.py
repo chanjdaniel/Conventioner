@@ -1,3 +1,5 @@
+import uuid
+from typing import Optional
 from flask import request, jsonify
 from flask_login import UserMixin
 from datatypes import User
@@ -16,6 +18,7 @@ users_collection = db["users"]
 # users
 class AuthUser(UserMixin):
     def __init__(self, user: User):
+        self.id = user.id
         self.email = user.email
         self.organizations = user.organizations
 
@@ -50,6 +53,7 @@ def register_user(bcrypt, request):
 
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
     user_doc = {
+        "id": str(uuid.uuid4()),
         "email": email,
         "password": hashed_password,
         "organizations": organizations
@@ -80,6 +84,7 @@ def login(bcrypt, login_user, request):
         login_user(auth_user, remember=True)
 
         user_data = {
+            "id": auth_user.id,
             "email": auth_user.email,
             "organizations": auth_user.organizations
         }
@@ -137,6 +142,7 @@ def register_user_with_captcha(bcrypt, request):
     
     # Create user document
     user_doc = {
+        "id": str(uuid.uuid4()),
         "email": email,
         "password": hashed_password,
         "organizations": organizations,
@@ -461,10 +467,29 @@ def login_with_otp(login_user, request):
     login_user(auth_user, remember=True)
 
     user_data = {
+        "id": auth_user.id,
         "email": auth_user.email,
         "organizations": auth_user.organizations
     }
     return jsonify({"message": "Login successful", "user_data": user_data}), 200
+
+
+def get_user_by_id(user_id: str):
+    """Load user from MongoDB using id."""
+    user_doc = users_collection.find_one({"id": user_id})
+    if user_doc:
+        user_doc.pop('_id', None)
+        return AuthUser(User(**user_doc))
+    return None
+
+
+def get_user_raw(email: str) -> Optional[dict]:
+    """Get raw user dict by email (for internal use)."""
+    user_doc = users_collection.find_one({"email": email})
+    if user_doc:
+        user_doc.pop('_id', None)
+        return user_doc
+    return None
 
 
 def delete_user(request, requesting_user_email: str = None):
@@ -501,16 +526,18 @@ def delete_user(request, requesting_user_email: str = None):
     result = users_collection.delete_one({"email": email_to_delete})
     
     if result.deleted_count > 0:
-        # Also remove user from any organizations they belonged to
+        # Also remove user from any organizations they belonged to (owner/admins/members are now user ids)
         from api.organizations import organizations_collection
-        organizations_collection.update_many(
-            {},
-            {"$pull": {"members": email_to_delete, "admins": email_to_delete}}
-        )
+        user_id_to_delete = user_to_delete.get("id")
+        if user_id_to_delete:
+            organizations_collection.update_many(
+                {},
+                {"$pull": {"members": user_id_to_delete, "admins": user_id_to_delete}}
+            )
         
         # Note: We don't transfer ownership here - that should be done manually
-        # Check if user was owner of any organizations
-        owned_orgs = list(organizations_collection.find({"owner": email_to_delete}))
+        # Check if user was owner of any organizations (owner is now user id)
+        owned_orgs = list(organizations_collection.find({"owner": user_id_to_delete})) if user_id_to_delete else []
         if owned_orgs:
             org_names = [org.get("name") for org in owned_orgs]
             return jsonify({
