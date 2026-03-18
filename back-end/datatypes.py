@@ -1,6 +1,7 @@
+import uuid
 from enum import Enum
 from typing import List, Optional, Union, Dict, Any
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class DataType(str, Enum):
@@ -114,10 +115,11 @@ class AssignmentObject(BaseModel):
 
 
 class Market(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # UUID, immutable primary key
     name: str
     creation_date: str
-    roles: Dict[str, MarketRole]  # Map of user_email -> role (must have exactly one OWNER)
-    organization: Optional[str] = None  # Organization name
+    roles: Dict[str, MarketRole]  # Map of user_id -> role (must have exactly one OWNER)
+    organization_id: Optional[str] = None  # Organization id (uuid)
     theme: Optional[ThemeObject] = None  # Market-specific theme
     setup_object: Optional[SetupObject] = None
     modification_list: List[ModificationObject]
@@ -135,11 +137,12 @@ class Market(BaseModel):
 
 
 class Organization(BaseModel):
+    id: str  # UUID, immutable primary key
     name: str
-    owner: str  # Exactly 1 owner email
-    admins: List[str] = []  # 0+ admin emails
-    members: List[str] = []  # 0+ member emails
-    markets: List[str]  # List of market names
+    owner: str  # User id (uuid)
+    admins: List[str] = []  # 0+ admin user ids
+    members: List[str] = []  # 0+ member user ids
+    markets: List[str]  # List of market ids
     theme: Optional[ThemeObject] = None  # Organization theming
     
     @model_validator(mode='after')
@@ -153,9 +156,10 @@ class Organization(BaseModel):
 
 
 class User(BaseModel):
+    id: str  # UUID, immutable primary key
     email: str
     password: str
-    organizations: List[str]
+    organizations: List[str]  # Organization ids (uuids)
     email_verified: bool = False
     verification_token: Optional[str] = None
     verification_token_expires: Optional[str] = None

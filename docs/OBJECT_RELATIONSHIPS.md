@@ -17,17 +17,18 @@ This document provides a comprehensive audit of all types, objects, and their re
 ## Core Domain Objects
 
 ### User
-**Location:** `back-end/datatypes.py:155-158`
+**Location:** `back-end/datatypes.py`
 
 Represents a user account in the system.
 
 **Fields:**
-- `email: str` - Unique identifier (primary key)
+- `id: str` - UUID, immutable primary key
+- `email: str` - Unique identifier for login/auth
 - `password: str` - Hashed password for authentication
-- `organizations: List[str]` - List of organization names the user belongs to
+- `organizations: List[str]` - List of organization ids the user belongs to
 
 **Relationships:**
-- **Many-to-Many with Organization**: Users can belong to multiple organizations (via `organizations` list). User's role in organization is stored in the Organization object (owner/admins/members).
+- **Many-to-Many with Organization**: Users can belong to multiple organizations (via `organizations` list of org ids). User's role in organization is stored in the Organization object (owner/admins/members as user ids).
 - **Many-to-Many with Market**: Users can have access to multiple markets via explicit roles in `Market.roles` dict or through organization membership.
 - **Stored in**: MongoDB `users` collection
 
@@ -41,16 +42,17 @@ Represents a user account in the system.
 ---
 
 ### Organization
-**Location:** `back-end/datatypes.py:137-152`
+**Location:** `back-end/datatypes.py`
 
 Represents an organization that can contain multiple users and markets with hierarchical role-based access control.
 
 **Fields:**
-- `name: str` - Unique organization identifier
-- `owner: str` - Email of the organization owner (exactly 1, references User.email)
-- `admins: List[str]` - List of admin user emails (0+)
-- `members: List[str]` - List of member user emails (0+)
-- `markets: List[str]` - List of market names owned by this organization
+- `id: str` - UUID, immutable primary key
+- `name: str` - Mutable display name
+- `owner: str` - User id of the organization owner (exactly 1, references User.id)
+- `admins: List[str]` - List of admin user ids (0+)
+- `members: List[str]` - List of member user ids (0+)
+- `markets: List[str]` - List of market ids owned by this organization
 - `theme: Optional[ThemeObject]` - Organization theming (applied to all organization markets)
 
 **Relationships:**
@@ -74,23 +76,24 @@ Represents an organization that can contain multiple users and markets with hier
 ---
 
 ### Market
-**Location:** `back-end/datatypes.py:116-134`
+**Location:** `back-end/datatypes.py`
 
 The central entity representing a market event with configuration, assignments, and role-based access control.
 
 **Fields:**
-- `name: str` - Unique market identifier (primary key)
+- `id: str` - UUID, immutable primary key
+- `name: str` - Mutable display name
 - `creation_date: str` - ISO format date string when market was created
-- `roles: Dict[str, MarketRole]` - Map of user_email -> role (must contain exactly one OWNER)
-- `organization: Optional[str]` - Organization name if market belongs to an organization (None if standalone)
+- `roles: Dict[str, MarketRole]` - Map of user_id -> role (must contain exactly one OWNER)
+- `organization_id: Optional[str]` - Organization id if market belongs to an organization (None if standalone)
 - `theme: Optional[ThemeObject]` - Market-specific theme (used if no organization, otherwise organization theme takes precedence)
 - `setup_object: Optional[SetupObject]` - Market configuration and setup data
 - `modification_list: List[ModificationObject]` - List of modifications (currently empty structure)
 - `assignment_object: AssignmentObject` - Contains vendor assignment results and statistics
 
 **Relationships:**
-- **Many-to-Many with User**: Markets have multiple users with different roles (via `roles` dict)
-- **Many-to-One with Organization**: Markets can belong to one organization (via `organization` field, optional)
+- **Many-to-Many with User**: Markets have multiple users with different roles (via `roles` dict, keys are user ids)
+- **Many-to-One with Organization**: Markets can belong to one organization (via `organization_id` field, optional)
 - **One-to-One with SetupObject**: Each market has one setup configuration (optional)
 - **One-to-One with AssignmentObject**: Each market has one assignment result object
 - **One-to-One with SourceData**: Each market can have one source data CSV (stored separately in MongoDB)
@@ -114,7 +117,7 @@ The central entity representing a market event with configuration, assignments, 
 - Permission resolution via `api/permissions.py`
 
 **Theming:**
-- If `organization` is set → uses `Organization.theme`
+- If `organization_id` is set → uses `Organization.theme`
 - Else → uses `Market.theme` (default theme)
 
 ---
@@ -416,34 +419,35 @@ The system uses MongoDB with the following collections:
 
 #### `users` Collection
 - **Document Structure**: Matches `User` datatype
-- **Primary Key**: `email` field
+- **Primary Key**: `id` field (UUID)
+- **Unique Index**: `email` for login/auth
 - **Operations**: Create, read, update via `api/users.py`
-- **Authentication**: Used by Flask-Login for session management
+- **Authentication**: Used by Flask-Login for session management (lookup by email)
 
 #### `markets` Collection
 - **Document Structure**: Matches `Market` datatype (with camelCase keys in database)
-- **Primary Key**: `name` field (unique identifier)
-- **Operations**: Create, read, update via `api/markets.py`
+- **Primary Key**: `id` field (UUID)
+- **Operations**: Create, read, update, delete via `api/markets.py`
 - **Key Conversion**: Uses snake_case ↔ camelCase conversion utilities
-- **Indexing**: Markets are queried by name and by roles dictionary keys
+- **Indexing**: Markets are queried by id; roles dict keys are user ids
 
 #### `organizations` Collection
 - **Document Structure**: Matches `Organization` datatype (with camelCase keys in database)
-- **Primary Key**: `name` field (unique identifier)
+- **Primary Key**: `id` field (UUID)
 - **Operations**: Create, read, update, delete via `api/organizations.py`
 - **Key Conversion**: Uses snake_case ↔ camelCase conversion utilities
 
 #### `source_data` Collection
 - **Document Structure**: 
-  - `market_name: str` - References Market.name
+  - `market_id: str` - References Market.id (UUID)
   - `csv_content: str` - Raw CSV file content
   - `headers: List[str]` - Column headers
   - `row_count: int` - Number of data rows
   - `upload_date: datetime` - Upload timestamp
   - `filename: str` - Original filename
-- **Primary Key**: `market_name`
+- **Primary Key**: `market_id`
 - **Operations**: Upload, read, delete via `api/source_data.py`
-- **Relationship**: One-to-One with Market (via `market_name`)
+- **Relationship**: One-to-One with Market (via `market_id`)
 
 ---
 
@@ -454,12 +458,12 @@ The system uses MongoDB with the following collections:
 
 The permission system determines user access to markets through a two-tier resolution process:
 
-1. **Explicit Market Role**: Check `Market.roles[user_email]`
+1. **Explicit Market Role**: Check `Market.roles[user_id]` (roles keys are user ids)
    - If user has explicit role → return that role
    - Roles: Owner, Admin, Editor, Viewer
 
 2. **Organization Membership**: If no explicit role, check organization membership
-   - If market belongs to organization AND user is in organization (owner/admin/member) → return Viewer
+   - If market belongs to organization (via `organization_id`) AND user is in organization (owner/admin/member) → return Viewer
    - Organization members get View permission on all organization markets
 
 3. **No Access**: If neither condition met → return None (no access)
@@ -501,16 +505,16 @@ The permission system determines user access to markets through a two-tier resol
 ```
 
 **Relationship Details:**
-- **User ↔ Organization**: Many-to-many via `User.organizations` list and `Organization.owner/admins/members` lists
-- **User ↔ Market**: Many-to-many via `Market.roles` dict (explicit) or organization membership (implicit Viewer)
-- **Organization ↔ Market**: One-to-many via `Organization.markets` list and `Market.organization` field
+- **User ↔ Organization**: Many-to-many via `User.organizations` (org ids) and `Organization.owner/admins/members` (user ids)
+- **User ↔ Market**: Many-to-many via `Market.roles` dict (user id keys) or organization membership (implicit Viewer)
+- **Organization ↔ Market**: One-to-many via `Organization.markets` (market ids) and `Market.organization_id`
 
 ### Market Composition Hierarchy
 
 ```
 Market
-├── roles: Dict[str, MarketRole] (many-to-many with User)
-├── organization: Optional[str] (many-to-one with Organization)
+├── roles: Dict[str, MarketRole] (many-to-many with User, keys are user ids)
+├── organization_id: Optional[str] (many-to-one with Organization)
 ├── theme: Optional[ThemeObject]
 ├── SetupObject (1:1, optional)
 │   ├── PriorityObject[] (1:many)
@@ -532,7 +536,7 @@ Market
 ```
 User
     │
-    ├─→ Explicit Role (Market.roles[user_email])
+    ├─→ Explicit Role (Market.roles[user_id])
     │   │
     │   ├─→ Owner: Full control, manage all roles
     │   ├─→ Admin: Edit, manage Editor/Viewer roles
@@ -549,10 +553,11 @@ User
 
 ```
 Organization
-├── owner: str (exactly 1)
-├── admins: List[str] (0+)
-├── members: List[str] (0+)
-├── markets: List[str] (markets owned by org)
+├── id: str (UUID, primary key)
+├── owner: str (user id, exactly 1)
+├── admins: List[str] (user ids, 0+)
+├── members: List[str] (user ids, 0+)
+├── markets: List[str] (market ids, owned by org)
 └── theme: Optional[ThemeObject]
 ```
 
@@ -581,16 +586,16 @@ SourceData (CSV)
 
 1. **User** creates a new **Market** via API
 2. **Market** must have `roles` dict with exactly one OWNER role
-3. **Market** is stored in MongoDB `markets` collection (identified by `name`)
+3. **Market** is stored in MongoDB `markets` collection (identified by `id` UUID)
 4. If market belongs to organization, it's added to `Organization.markets` list
-5. **SourceData** CSV is uploaded separately and stored in `source_data` collection
+5. **SourceData** CSV is uploaded separately and stored in `source_data` collection (via `market_id`)
 6. **SetupObject** is configured within the Market
 7. **AssignmentObject** is initialized empty
 
 ### Assignment Generation Flow
 
-1. **Market** is retrieved from database by name
-2. **SourceData** is retrieved from `source_data` collection using `market_name`
+1. **Market** is retrieved from database by id
+2. **SourceData** is retrieved from `source_data` collection using `market_id`
 3. **MarketAssignment** class is instantiated with `Market.setup_object` and `source_data`
 4. Assignment algorithm processes vendors and generates assignments
 5. **AssignmentObject** is populated with:
@@ -645,10 +650,11 @@ SourceData (CSV)
 - Permission resolution combines explicit roles and organization membership
 - Role hierarchy enforced: Owner > Admin > Editor > Viewer
 
-### 2. Reference-Based Relationships
-- Most relationships use string references (emails, names) rather than foreign keys
-- Enables flexibility but requires manual referential integrity management
-- Market identification uses `name` as unique identifier (no compound keys)
+### 2. Reference-Based Relationships (UUID Primary Keys)
+- All entities use UUIDs as immutable primary keys (`id` field)
+- Cross-entity references use ids: `User.organizations` (org ids), `Organization.owner/admins/members` (user ids), `Organization.markets` (market ids), `Market.organization_id`, `Market.roles` (user id keys)
+- Auth continues to use email for login; backend resolves user by email and uses `user.id` for permissions
+- SourceData references `market_id` instead of `market_name`
 
 ### 3. Embedded vs Referenced Documents
 - **Embedded**: SetupObject, AssignmentObject, roles dict are embedded within Market documents
@@ -658,7 +664,7 @@ SourceData (CSV)
 - `SetupObject` is optional (market can exist without configuration)
 - `AssignmentStatistics` is optional (assignment may not have statistics yet)
 - `SectionObject.location` and `tier` are optional (sections can exist independently)
-- `Market.organization` is optional (markets can be standalone)
+- `Market.organization_id` is optional (markets can be standalone)
 - `Market.theme` and `Organization.theme` are optional
 
 ### 5. Permission Resolution
@@ -668,20 +674,20 @@ SourceData (CSV)
 
 ### 6. Theming Resolution
 - Organization theme takes precedence over market theme
-- If `Market.organization` is set → use `Organization.theme`
+- If `Market.organization_id` is set → use `Organization.theme`
 - Else → use `Market.theme` (or default if neither exists)
 
 ---
 
 ## Notes and Future Considerations
 
-1. **Market Identification**: Markets are identified by `name` field only. Ensure market names are unique globally or consider adding unique IDs.
+1. **UUID Primary Keys**: All entities (User, Organization, Market) use UUIDs as immutable primary keys. Names and emails are mutable display fields. Renaming does not require cascading updates.
 
 2. **ModificationObject**: Currently empty. Consider implementing change tracking/history for markets.
 
-3. **SourceData Relationship**: SourceData is stored separately but has a one-to-one relationship with Market. Consider embedding or formalizing the relationship.
+3. **SourceData Relationship**: SourceData is stored separately but has a one-to-one relationship with Market via `market_id`.
 
-4. **Referential Integrity**: String-based references (emails, names) don't enforce referential integrity. Validation is performed at API layer.
+4. **Referential Integrity**: UUID-based references are used for cross-entity links. Validation is performed at API layer.
 
 5. **AssignmentOptions**: Commented fields suggest future assignment algorithm variations.
 
