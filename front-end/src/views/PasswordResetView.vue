@@ -197,6 +197,7 @@ const submitReset = async () => {
     color: grey;
     font-size: 14px;
     cursor: pointer;
+    outline: none;
 }
 
 .error-message {

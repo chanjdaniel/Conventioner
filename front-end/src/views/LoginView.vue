@@ -420,6 +420,7 @@ const submitOTPLogin = async () => {
         color: grey;
         font-size: 14px;
         cursor: pointer;
+        outline: none;
     }
 
     .email-input {
