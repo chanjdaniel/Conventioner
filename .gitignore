@@ -12,5 +12,6 @@ users.json
 /back-end/logs
 /back-end/tests/test_data
 .DS_Store
+/.cursor
 
 *__pycache__*
