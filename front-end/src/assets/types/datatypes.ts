@@ -126,6 +126,8 @@ export interface Market {
     userRole?: MarketRole,  // User's effective role (added by API)
 }
 
+export type OrganizationRoleType = 'owner' | 'admin' | 'member';
+
 export interface Organization {
     id: string,
     name: string,
@@ -137,6 +139,7 @@ export interface Organization {
     adminEmails?: string[],  // Resolved display (from API)
     memberEmails?: string[],  // Resolved display (from API)
     theme?: ThemeObject,  // Organization theming
+    userRole?: OrganizationRoleType,  // Current user's role (from API, for Manage button)
 }
 
 export interface User {
