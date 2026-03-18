@@ -51,6 +51,26 @@ export function canManageRoles(userRole: MarketRole, targetRole: MarketRole): bo
 }
 
 /**
+ * Check if current user can change the target user's role.
+ */
+export function canChangeRole(currentUserRole: MarketRole, targetRole: MarketRole): boolean {
+    return canManageRoles(currentUserRole, targetRole);
+}
+
+/**
+ * Get roles that the target can be changed to (based on current user's permissions).
+ */
+export function getRolesForChange(targetRole: MarketRole, currentUserRole: MarketRole): MarketRole[] {
+    if (currentUserRole === MarketRole.Owner) {
+        return [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer];
+    }
+    if (currentUserRole === MarketRole.Admin) {
+        return [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer];
+    }
+    return [];
+}
+
+/**
  * Get role display name.
  */
 export function getRoleDisplayName(role: MarketRole): string {

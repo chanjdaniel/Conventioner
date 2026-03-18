@@ -11,7 +11,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'root',
-      redirect: '/init',
+      redirect: '/dashboard',
     },
     {
       path: '/login',
@@ -47,6 +47,16 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
+    },
+    {
+      path: '/markets',
+      name: 'markets',
+      component: () => import('@/views/MarketsView.vue'),
+    },
+    {
+      path: '/organizations',
+      name: 'organizations',
+      component: () => import('@/views/OrganizationsView.vue'),
     },
     {
       path: '/vendors',

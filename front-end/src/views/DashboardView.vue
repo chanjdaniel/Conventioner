@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
 const handleLoadLastMarket = () => {
-  console.log('Load Last Market clicked');
+  router.push('/market-setup');
 };
 
 const handleMarkets = () => {
-  console.log('Markets clicked');
+  router.push('/markets');
 };
 
 const handleOrganizations = () => {
-  console.log('Organizations clicked');
+  router.push('/organizations');
 };
 
 const handleSettings = () => {

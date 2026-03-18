@@ -44,11 +44,11 @@ const user: any = inject("user");
                 </h3>
             </ElementNavigationItem>
 
-            <ElementNavigationItem to="/init" @menuClose="$emit('menuClose')">
+            <ElementNavigationItem to="/markets" @menuClose="$emit('menuClose')">
                 <template #icon>
                     <IconMarkets class="nav-icon" />
                 </template>
-                <h3>Manage Markets</h3>
+                <h3>Manage markets</h3>
             </ElementNavigationItem>
 
             <ElementNavigationItem to="/init" @menuClose="$emit('menuClose')">
