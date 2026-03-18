@@ -65,7 +65,12 @@ class Vendor:
         return self.assignment[market_date.date] != None
 
     def is_max_assigned(self):
-        return (self.num_assignments >= MAX_VENDING_DAYS or self.num_assignments >= int(self.max_days[0])) # max_days is str, need to parse first character to int
+        try:
+            max_days_val = getattr(self, 'max_days', None)
+            vendor_max_days = int(max_days_val[0]) if max_days_val else MAX_VENDING_DAYS
+        except (ValueError, IndexError, TypeError, AttributeError):
+            vendor_max_days = MAX_VENDING_DAYS
+        return self.num_assignments >= MAX_VENDING_DAYS or self.num_assignments >= vendor_max_days
 
 
 
@@ -240,8 +245,9 @@ class MarketAssignment:
 
     # given a vendor, return with the vendor associated with table_share_email, else return None
     def get_table_share_vendor(self, vendor):
+        table_share_email = getattr(vendor, 'table_share_email', None) or ""
         for table_share_vendor in self.vendors:
-            if vendor.table_share_email == table_share_vendor.email:
+            if table_share_email == table_share_vendor.email:
                 return table_share_vendor
         return None
 
@@ -264,7 +270,8 @@ class MarketAssignment:
             return None
 
         # check for valid table sharing partner
-        if next_vendor.table_share_email != "" and next_vendor.table_choice != FULL_TABLE_ONLY:
+        table_share_email = getattr(next_vendor, 'table_share_email', None) or ""
+        if table_share_email != "" and next_vendor.table_choice != FULL_TABLE_ONLY:
             table_share_vendor = self.get_table_share_vendor(next_vendor)
             if self.is_valid_vendor(table_share_vendor, market_date, table):
                 self.table_sharing.append(next_vendor)
