@@ -112,10 +112,13 @@ export interface AssignmentObject {
 }
 
 export interface Market {
+    id: string,
     name: string,
     creationDate: string,
-    roles: Record<string, MarketRole>,  // Map of user_email -> role
-    organization?: string,  // Organization name
+    roles: Record<string, MarketRole>,  // Map of user_id -> role
+    roleEmails?: Record<string, string>,  // Map of user_id -> email (for display)
+    organizationId?: string | null,
+    organizationName?: string | null,  // Resolved display name from API
     theme?: ThemeObject,  // Market-specific theme
     setupObject: SetupObject | null,
     modificationList: ModificationObject[],
@@ -124,10 +127,20 @@ export interface Market {
 }
 
 export interface Organization {
+    id: string,
     name: string,
-    owner: string,  // Exactly 1 owner email
-    admins: string[],  // 0+ admin emails
-    members: string[],  // 0+ member emails
-    markets: string[],  // List of market names
+    owner: string,  // User id (uuid)
+    admins: string[],  // 0+ admin user ids
+    members: string[],  // 0+ member user ids
+    markets: string[],  // List of market ids
+    ownerEmail?: string,  // Resolved display (from API)
+    adminEmails?: string[],  // Resolved display (from API)
+    memberEmails?: string[],  // Resolved display (from API)
     theme?: ThemeObject,  // Organization theming
+}
+
+export interface User {
+    id: string,
+    email: string,
+    organizations?: string[],  // Organization ids
 }

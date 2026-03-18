@@ -23,10 +23,13 @@ onMounted(async () => {
 
     for (const market of response.data.markets) {
         let newMarket: Market = {
+            id: market.id,
             name: market.name,
             creationDate: market.creationDate,
             roles: market.roles || {},
-            organization: market.organization,
+            roleEmails: market.roleEmails ?? market.role_emails,
+            organizationId: market.organizationId ?? market.organization_id,
+            organizationName: market.organizationName ?? market.organization_name ?? market.organization,
             theme: market.theme,
             userRole: market.userRole ? (market.userRole as MarketRole) : undefined,
             setupObject: {
@@ -83,7 +86,7 @@ const formatDate = (dateString: string) => {
                 <p v-if="markets.length === 0" class="empty-state">No markets found</p>
             </div>
             <div class="markets-container">
-                <div v-for="market in markets" :key="market.name" class="market-card">
+                <div v-for="market in markets" :key="market.id" class="market-card">
                     <div class="card-header">
                         <h3>{{ market.name }}</h3>
                     </div>
@@ -93,12 +96,12 @@ const formatDate = (dateString: string) => {
                                 <span class="info-label">Created:</span>
                                 <span class="info-value">{{ formatDate(market.creationDate) }}</span>
                             </div>
-                            <div v-if="market.organization" class="info-row">
+                            <div v-if="market.organizationName" class="info-row">
                                 <span class="info-label">Organization:</span>
-                                <span class="info-value">{{ market.organization }}</span>
+                                <span class="info-value">{{ market.organizationName }}</span>
                             </div>
                             <div v-if="market.userRole" class="info-row">
-                                <span class="info-label">Your Role:</span>
+                                <span class="info-label">Your role:</span>
                                 <span class="info-value role-badge" :class="`role-${market.userRole.toLowerCase()}`">
                                     {{ getRoleDisplayName(market.userRole) }}
                                 </span>

@@ -35,7 +35,7 @@ const handleSubmit = async () => {
 
     try {
         const userEmail = JSON.parse(localStorage.getItem("user") || "null");
-        let newMarket: Market = {
+        let newMarket: Omit<Market, 'id'> & { id?: string } = {
             name: marketName.value,
             creationDate: new Date().toISOString(),
             roles: {
@@ -52,24 +52,27 @@ const handleSubmit = async () => {
             },
         }
         
-        const formData = new FormData();
-        if (uploadedSourceData.value.length > 0) {
-            formData.append('file', uploadedSourceData.value[0]);
-        }
-
-        await api.post(`/source-data/${marketName.value}`, formData);
-        
-        await api.post('/markets', newMarket, {
+        const createResponse = await api.post('/markets', newMarket, {
             headers: {
                 'X-Owner-Email': userEmail
             }
         });
+        const marketId = createResponse.data.market_id;
+
+        const formData = new FormData();
+        if (uploadedSourceData.value.length > 0) {
+            formData.append('file', uploadedSourceData.value[0]);
+            await api.post(`/source-data/${marketId}`, formData, {
+                headers: { 'X-Owner-Email': userEmail },
+            });
+        }
 
         localStorage.removeItem("upload");
         localStorage.setItem("upload", JSON.stringify(uploadedFiles.value));
 
+        const marketWithId: Market = { ...newMarket, id: marketId };
         localStorage.removeItem("market");
-        localStorage.setItem("market", JSON.stringify(newMarket));
+        localStorage.setItem("market", JSON.stringify(marketWithId));
 
         router.push('/market-setup');
     } catch (error: any) {
