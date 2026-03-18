@@ -75,6 +75,38 @@ def get_organizations_for_user(user_email: str) -> List[Dict[str, Any]]:
     result = []
     for org in orgs:
         org['_id'] = str(org['_id'])
+        # Resolve owner id to email for display (post-UUID migration)
+        owner_id = org.get("owner")
+        if owner_id:
+            owner_user = UsersApi.get_user_by_id(owner_id)
+            if owner_user:
+                org["ownerEmail"] = owner_user.email
+                org["owner_email"] = owner_user.email
+        # Resolve admin and member ids to emails for display
+        admin_emails = []
+        for aid in org.get("admins", []):
+            u = UsersApi.get_user_by_id(aid)
+            if u:
+                admin_emails.append(u.email)
+        org["adminEmails"] = admin_emails
+        org["admin_emails"] = admin_emails
+        member_emails = []
+        for mid in org.get("members", []):
+            u = UsersApi.get_user_by_id(mid)
+            if u:
+                member_emails.append(u.email)
+        org["memberEmails"] = member_emails
+        org["member_emails"] = member_emails
+        # Add user's role so frontend can show Manage button for owner/admin
+        if org.get("owner") == user_id:
+            org["userRole"] = "owner"
+            org["user_role"] = "owner"
+        elif user_id in org.get("admins", []):
+            org["userRole"] = "admin"
+            org["user_role"] = "admin"
+        else:
+            org["userRole"] = "member"
+            org["user_role"] = "member"
         result.append(org)
     
     return result
