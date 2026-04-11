@@ -21,8 +21,9 @@ function assignmentHeaderLabel(marketDate: MarketDateObject): string {
     if (Number.isNaN(d.getTime())) {
         return 'Assignment';
     }
+    /* Match Figma-style labels e.g. "Nov. 14 assignment" */
     const short = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `${short} assignment`;
+    return `${short.replace(',', '')} assignment`;
 }
 
 function normalizeVendorAssignment(raw: Record<string, unknown>): VendorAssignmentResult {
@@ -253,16 +254,18 @@ const gridTemplate = computed(() => {
         <div
             class="vendors-modal-root"
             :class="{ 'vendors-modal-root--open': open }"
-            aria-hidden="true"
+            :aria-hidden="!open"
         >
             <div class="vendors-modal-background" @click="handleBackdropClick" />
             <div class="vendors-modal-window" role="dialog" aria-modal="true" aria-labelledby="vendors-modal-title" @click.stop>
                 <div class="vendors-modal-header">
-                    <button type="button" class="vendors-modal-close" aria-label="Close" @click="emit('close')">
-                        <IconCloseRound class="vendors-modal-close-icon" />
-                    </button>
+                    <div class="vendors-modal-header-side vendors-modal-header-side--left">
+                        <button type="button" class="vendors-modal-close" aria-label="Close" @click="emit('close')">
+                            <IconCloseRound class="vendors-modal-close-icon" />
+                        </button>
+                    </div>
                     <h2 id="vendors-modal-title" class="vendors-modal-title">Vendors</h2>
-                    <div class="vendors-modal-search-wrap">
+                    <div class="vendors-modal-header-side vendors-modal-header-side--right">
                         <label class="vendors-modal-search-label">
                             <span class="vendors-modal-search-sr">Search</span>
                             <input
@@ -297,7 +300,8 @@ const gridTemplate = computed(() => {
                 <div class="vendors-modal-body">
                     <p v-if="loadError" class="vendors-modal-error">{{ loadError }}</p>
                     <template v-else-if="columnHeaders.length > 0">
-                        <div class="vendors-modal-table-wrap">
+                        <div class="vendors-modal-table-outer">
+                            <div class="vendors-modal-table-wrap">
                             <div class="vendors-modal-header-row" :style="gridTemplate">
                                 <div
                                     v-for="(h, i) in columnHeaders"
@@ -323,6 +327,7 @@ const gridTemplate = computed(() => {
                                     </div>
                                 </div>
                             </div>
+                        </div>
                         </div>
                     </template>
                     <p v-else class="vendors-modal-empty">No columns configured for vendors.</p>
@@ -362,30 +367,45 @@ const gridTemplate = computed(() => {
 .vendors-modal-window {
     position: relative;
     z-index: 1;
-    width: min(96vw, 1100px);
-    max-height: min(85vh, 800px);
+    width: min(94vw, 1120px);
+    max-height: min(88vh, 820px);
     display: flex;
     flex-direction: column;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.28);
     overflow: hidden;
-    border: 1px solid var(--mm-grey, #ccc);
+    border: 1px solid rgba(39, 35, 35, 0.18);
 }
 
+/* Figma frame 29:1178: balanced header so "Vendors" stays visually centered */
 .vendors-modal-header {
-    position: relative;
     flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    padding: 10px 16px 12px;
+    background-color: var(--mm-black);
+    color: #fff;
+}
+
+.vendors-modal-header-side {
     display: flex;
     align-items: center;
-    min-height: 52px;
-    padding: 0 12px 0 8px;
-    background-color: var(--mm-black);
-    color: white;
+    min-width: 0;
+}
+
+.vendors-modal-header-side--left {
+    justify-content: flex-start;
+}
+
+.vendors-modal-header-side--right {
+    justify-content: flex-end;
 }
 
 .vendors-modal-close {
-    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -396,13 +416,12 @@ const gridTemplate = computed(() => {
     border: none;
     border-radius: 8px;
     background: transparent;
-    color: white;
+    color: #fff;
     cursor: pointer;
-    z-index: 2;
 }
 
 .vendors-modal-close:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .vendors-modal-close-icon {
@@ -411,21 +430,13 @@ const gridTemplate = computed(() => {
 }
 
 .vendors-modal-title {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
     margin: 0;
-    font-family: 'Merge One', sans-serif;
+    font-family: 'Merge One', 'Outfit', sans-serif;
     font-size: 22px;
     font-weight: 400;
-    color: white;
-    pointer-events: none;
-    z-index: 1;
-}
-
-.vendors-modal-search-wrap {
-    margin-left: auto;
-    z-index: 2;
+    letter-spacing: 0.02em;
+    color: #fff;
+    text-align: center;
 }
 
 .vendors-modal-search-label {
@@ -446,20 +457,21 @@ const gridTemplate = computed(() => {
 }
 
 .vendors-modal-search {
-    width: 200px;
-    max-width: 36vw;
-    padding: 8px 36px 8px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    width: min(220px, 38vw);
+    padding: 9px 38px 9px 16px;
+    border: none;
     border-radius: 999px;
-    background: white;
+    background: #fff;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 14px;
     color: var(--mm-black);
     cursor: default;
     outline: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .vendors-modal-search::placeholder {
-    color: #888;
+    color: rgba(39, 35, 35, 0.45);
 }
 
 .vendors-modal-search-icon {
@@ -467,15 +479,15 @@ const gridTemplate = computed(() => {
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #555;
+    color: rgba(39, 35, 35, 0.45);
     pointer-events: none;
 }
 
 .vendors-modal-body {
     flex: 1;
     min-height: 0;
-    padding: 16px 18px 20px;
-    background: white;
+    padding: 20px 22px 24px;
+    background: #fff;
     overflow: auto;
 }
 
@@ -486,42 +498,54 @@ const gridTemplate = computed(() => {
     font-size: 15px;
 }
 
+/* Outer list container: thin border like Figma vendor list panel */
+.vendors-modal-table-outer {
+    border: 1px solid rgba(39, 35, 35, 0.14);
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px 14px 16px;
+    overflow-x: auto;
+}
+
 .vendors-modal-table-wrap {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     min-width: min-content;
 }
 
 .vendors-modal-header-row {
     display: grid;
     gap: 0;
-    border: 1px solid #d8d8d8;
-    border-radius: 8px;
-    background: #fafafa;
+    border: 1px solid rgba(39, 35, 35, 0.12);
+    border-radius: 10px;
+    background: #fff;
     overflow: hidden;
 }
 
 .vendors-modal-rows {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .vendors-modal-data-row {
     display: grid;
     gap: 0;
-    border: 1px solid #d8d8d8;
-    border-radius: 10px;
-    background: white;
+    border: 1px solid rgba(39, 35, 35, 0.12);
+    border-radius: 12px;
+    background: #fff;
     overflow: hidden;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
 }
 
 .vendors-modal-cell {
-    padding: 10px 12px;
+    padding: 12px 14px;
+    font-family: Inter, system-ui, sans-serif;
     font-size: 14px;
+    line-height: 1.45;
     color: var(--mm-black);
-    border-right: 1px solid #e5e5e5;
+    border-right: 1px solid rgba(39, 35, 35, 0.1);
     min-width: 0;
     overflow-wrap: anywhere;
 }
@@ -533,6 +557,8 @@ const gridTemplate = computed(() => {
 .vendors-modal-cell--header {
     font-weight: 600;
     font-size: 13px;
-    color: #333;
+    letter-spacing: 0.01em;
+    color: rgba(39, 35, 35, 0.88);
+    background: #fafaf9;
 }
 </style>
