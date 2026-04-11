@@ -69,8 +69,8 @@ const router = createRouter({
       component: () => import('@/views/MarketSetupView.vue'),
     },
     {
-      path: '/generate-assignment',
-      name: 'generate-assignment',
+      path: '/assignment-results',
+      name: 'assignment-results',
       component: () => import('@/views/GenerateAssignmentView.vue'),
     },
     {

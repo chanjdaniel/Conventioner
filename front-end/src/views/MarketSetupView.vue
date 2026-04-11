@@ -190,7 +190,7 @@ const handleAssign = async () => {
     market.value = assignedMarket;
     await updateMarket();
 
-    router.push("/generate-assignment");
+    router.push("/assignment-results");
 }
 
 </script>

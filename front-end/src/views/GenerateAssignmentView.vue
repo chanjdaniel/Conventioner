@@ -3,6 +3,7 @@ import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { type AssignmentStatistics, type Market } from '@/assets/types/datatypes';
+import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
 import IconTables from '@/components/icons/IconTables.vue';
@@ -150,16 +151,16 @@ const handleDone = async () => {
         <div class="generate-assignment-window">
             <div class="generate-assignment-container">
                 <div class="generate-assignment-header">
-                    <h1>Generated Assignment</h1>
+                    <h1>Assignment Results</h1>
                 </div>
                 <div class="generate-assignment-body">
                     <div v-if="assignmentStatistics" class="statistics-layout">
                         <div class="statistics-header-row">
                             <div class="stat-card summary-card">
-                                <h3>Total Summary</h3>
+                                <h3>Summary</h3>
                                 <div class="stat-grid">
                                     <div class="stat-item">
-                                        <span class="stat-label">Total Assignments</span>
+                                        <span class="stat-label">Assignments</span>
                                         <span class="stat-value">{{ assignmentStatistics.totalAssignments }}</span>
                                     </div>
                                     <div class="stat-item">
@@ -210,42 +211,36 @@ const handleDone = async () => {
                             <div class="stat-card body-grid-date">
                                 <h3>Per Date</h3>
                                 <div class="stat-list">
-                                    <div
+                                    <AssignmentStatListItem
                                         v-for="(count, date) in assignmentStatistics.assignmentsPerDate"
                                         :key="date"
-                                        class="stat-list-item"
-                                    >
-                                        <span class="stat-list-label">{{ date }}</span>
-                                        <span class="stat-list-value">{{ count }}</span>
-                                    </div>
+                                        :label="date"
+                                        :value="count"
+                                    />
                                 </div>
                             </div>
 
                             <div class="stat-card body-grid-section">
                                 <h3>Per Section</h3>
                                 <div class="stat-list">
-                                    <div
+                                    <AssignmentStatListItem
                                         v-for="(count, section) in assignmentStatistics.assignmentsPerSection"
                                         :key="section"
-                                        class="stat-list-item"
-                                    >
-                                        <span class="stat-list-label">Section {{ section }}</span>
-                                        <span class="stat-list-value">{{ count }}</span>
-                                    </div>
+                                        :label="`Section ${section}`"
+                                        :value="count"
+                                    />
                                 </div>
                             </div>
 
                             <div class="stat-card body-grid-tier">
                                 <h3>Per Tier</h3>
                                 <div class="stat-list">
-                                    <div
+                                    <AssignmentStatListItem
                                         v-for="(count, tier) in assignmentStatistics.assignmentsPerTier"
                                         :key="tier"
-                                        class="stat-list-item"
-                                    >
-                                        <span class="stat-list-label">{{ tier }}</span>
-                                        <span class="stat-list-value">{{ count }}</span>
-                                    </div>
+                                        :label="tier"
+                                        :value="count"
+                                    />
                                 </div>
                             </div>
 
@@ -255,14 +250,12 @@ const handleDone = async () => {
                             >
                                 <h3>Per Table Choice</h3>
                                 <div class="stat-list">
-                                    <div
+                                    <AssignmentStatListItem
                                         v-for="(count, choice) in processedTableChoices"
                                         :key="choice"
-                                        class="stat-list-item"
-                                    >
-                                        <span class="stat-list-label">{{ choice }}</span>
-                                        <span class="stat-list-value">{{ count }}</span>
-                                    </div>
+                                        :label="choice"
+                                        :value="count"
+                                    />
                                 </div>
                             </div>
 
@@ -380,11 +373,12 @@ const handleDone = async () => {
 .generate-assignment-body {
     align-self: stretch;
     flex-grow: 1;
-    padding: 30px;
+    /* Extra top/side inset so centered box-shadows (e.g. quick-nav) are not clipped by overflow */
+    padding: 36px 36px 30px 36px;
     min-height: 0;
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: visible;
     display: flex;
     flex-direction: column;
 }
@@ -396,6 +390,8 @@ const handleDone = async () => {
     flex: 1;
     min-height: 0;
     width: 100%;
+    /* Inset so stat-card / quick-nav box-shadows stay inside the overflow clip (large spread needs ≥~16px) */
+    padding: 18px;
     overflow: hidden;
 }
 
@@ -474,7 +470,10 @@ const handleDone = async () => {
 
 .statistics-body-grid {
     min-height: 0;
-    overflow: hidden;
+    /* Do not add horizontal padding here — it misaligns grid cards vs `.statistics-header-row`.
+       Shadow clearance comes from `.statistics-layout` padding; avoid `overflow:hidden` here
+       or it clips card shadows at the grid box without matching the header inset. */
+    overflow: visible;
 }
 
 .statistics-body-grid--with-unassigned {
@@ -504,6 +503,8 @@ const handleDone = async () => {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* Inset so `.assignment-stat-list-item` box-shadows are not clipped by the scrollport */
+    padding: 8px 10px;
 }
 
 .statistics-body-grid--four-cards .body-grid-date {
@@ -561,11 +562,12 @@ const handleDone = async () => {
     grid-row: 1 / span 2;
 }
 
+/* Match `.settings-container` / quick-nav: white panel + soft outer shadow */
 .stat-card {
-    background-color: var(--mm-beige);
+    background-color: white;
     border-radius: 10px;
     padding: 20px;
-    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -573,9 +575,6 @@ const handleDone = async () => {
 
 .stat-card.assignment-quick-nav {
     min-height: 0;
-    background-color: white;
-    /* Match `.settings-container` on Market Setup (Assignment Options card) */
-    box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
     justify-content: flex-start;
     padding: 36px 20px;
     gap: 0;
@@ -660,36 +659,7 @@ const handleDone = async () => {
 .stat-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-}
-
-.stat-list-item {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 15px;
-    background-color: white;
-    border-radius: 6px;
-    border-left: 4px solid var(--mm-green);
-}
-
-.stat-list-label {
-    font-family: 'Outfit Regular';
-    font-size: 15px;
-    color: var(--mm-black);
-}
-
-.stat-list-value {
-    font-family: 'Merge One';
-    font-size: 20px;
-    font-weight: bold;
-    color: var(--mm-green);
-    background-color: var(--mm-beige);
-    padding: 5px 15px;
-    border-radius: 20px;
-    min-width: 50px;
-    text-align: center;
+    gap: 8px;
 }
 
 .unassigned-card {
@@ -710,15 +680,21 @@ const handleDone = async () => {
     gap: 8px;
     max-height: 400px;
     overflow-y: auto;
+    /* Match `.stat-list`: inset so row box-shadows are not clipped by the scrollport */
+    padding: 8px 10px;
 }
 
 .unassigned-item {
-    padding: 8px 12px;
+    padding: 6px 12px;
     background-color: white;
-    border-radius: 4px;
-    border-left: 3px solid var(--mm-yellow);
+    border-radius: 6px;
+    border-left: 4px solid var(--mm-yellow);
     font-family: 'Outfit Regular';
-    font-size: 14px;
+    font-size: 15px;
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.07),
+        0 2px 4px rgba(0, 0, 0, 0.07),
+        0 6px 14px rgba(0, 0, 0, 0.08);
 }
 
 .unassigned-text {
