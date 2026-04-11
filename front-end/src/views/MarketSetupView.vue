@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, nextTick, ref } from 'vue';
+import { computed, onMounted, reactive, nextTick, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
@@ -31,11 +31,56 @@ const setupObject = reactive<SetupObject>({
     assignmentOptions: {
         maxAssignmentsPerVendor: null,
         maxHalfTableProportionPerSection: null,
+        emailColNameIdx: null,
+        tableChoiceColNameIdx: null,
+        tableShareEmailColNameIdx: null,
+        maxDaysColNameIdx: null,
     },
 });
 
 const pageIdx = ref(0);
 const maxPageIdx = 2;
+
+function parseFiniteInt(v: unknown): number | null {
+    if (v === null || v === undefined || v === '') return null;
+    const n = typeof v === 'string' ? parseInt(v, 10) : Number(v);
+    return Number.isFinite(n) ? Math.floor(n) : null;
+}
+
+function parseFiniteNumber(v: unknown): number | null {
+    if (v === null || v === undefined || v === '') return null;
+    const n = typeof v === 'string' ? parseFloat(v) : Number(v);
+    return Number.isFinite(n) ? n : null;
+}
+
+/** True when required Assignment Options are set (Assign enabled). Max days column mapping is optional. */
+const assignmentOptionsComplete = computed(() => {
+    const ao = setupObject.assignmentOptions;
+    const numCols = setupObject.colNames.length;
+    const numMarketDates = setupObject.marketDates.length;
+
+    const maxPer = parseFiniteInt(ao.maxAssignmentsPerVendor);
+    if (maxPer === null || maxPer < 1) return false;
+    if (numMarketDates > 0 && maxPer > numMarketDates) return false;
+
+    const halfProp = parseFiniteNumber(ao.maxHalfTableProportionPerSection);
+    if (halfProp === null || halfProp < 0 || halfProp > 100) return false;
+
+    const idxValid = (idx: number | null | undefined) =>
+        idx !== null &&
+        idx !== undefined &&
+        Number.isInteger(idx) &&
+        idx >= 0 &&
+        numCols > 0 &&
+        idx < numCols;
+
+    if (!idxValid(ao.emailColNameIdx)) return false;
+    if (!idxValid(ao.tableChoiceColNameIdx)) return false;
+    if (!idxValid(ao.tableShareEmailColNameIdx)) return false;
+    // maxDaysColNameIdx optional: null = backend applies no per-vendor max-days cap from CSV
+
+    return true;
+});
 
 onMounted(() => {
     // create setup object
@@ -81,6 +126,10 @@ onMounted(() => {
             assignmentOptions: {
                 maxAssignmentsPerVendor: null,
                 maxHalfTableProportionPerSection: null,
+                emailColNameIdx: null,
+                tableChoiceColNameIdx: null,
+                tableShareEmailColNameIdx: null,
+                maxDaysColNameIdx: null,
             },
         };
 
@@ -125,6 +174,9 @@ const handleBack = async () => {
     await updateMarket();
 }
 const handleAssign = async () => {
+    if (!assignmentOptionsComplete.value) {
+        return;
+    }
     await updateMarket();
 
     const userEmail = JSON.parse(localStorage.getItem("user") || "null");
@@ -239,7 +291,16 @@ const handleAssign = async () => {
                     <button v-if="pageIdx !== 0" class="done-button" @click="handleBack">Back</button>
                 </div>
                 <div>
-                    <button v-if="pageIdx === maxPageIdx" class="done-button" @click="handleAssign">Assign</button>
+                    <button
+                        v-if="pageIdx === maxPageIdx"
+                        type="button"
+                        class="done-button"
+                        :disabled="!assignmentOptionsComplete"
+                        :title="assignmentOptionsComplete ? '' : 'Complete required assignment options (max assignments, proportion, and column mappings; Max days is optional)'"
+                        @click="handleAssign"
+                    >
+                        Assign
+                    </button>
                     <button v-else class="done-button" @click="handleNext">Next</button>
                 </div>
             </div>
@@ -373,5 +434,10 @@ h2 {
     text-align: center;
 
     color: #FFFFFF;
+}
+
+.done-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 </style>

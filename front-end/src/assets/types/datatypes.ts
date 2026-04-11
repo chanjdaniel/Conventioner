@@ -57,6 +57,12 @@ export interface SectionObject {
 export interface AssignmentOptionObject {
     maxAssignmentsPerVendor: number | null,
     maxHalfTableProportionPerSection: number | null,
+    /** Required: index into colNames (blank/null invalid for assignment). */
+    emailColNameIdx: number | null,
+    tableChoiceColNameIdx: number | null,
+    tableShareEmailColNameIdx: number | null,
+    /** Optional: null = no per-vendor max-days cap from CSV (only global limits apply). */
+    maxDaysColNameIdx: number | null,
     // USE_TOTALLY_RANDOM_ASSIGNMENT: boolean,
     // USE_MAXIMUM_CAPACITY_ASSIGNMENT: boolean,
 }
@@ -115,6 +121,8 @@ export interface Market {
     id: string,
     name: string,
     creationDate: string,
+    /** False after user completes setup (Generated Assignment Done). Omitted in old data = treat as draft. */
+    isDraft?: boolean,
     roles: Record<string, MarketRole>,  // Map of user_id -> role
     roleEmails?: Record<string, string>,  // Map of user_id -> email (for display)
     organizationId?: string | null,

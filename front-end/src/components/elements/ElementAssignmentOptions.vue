@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import { type SetupObject, type SectionObject } from '@/assets/types/datatypes'
+import { computed, onMounted, ref, toRef, watch } from 'vue';
+import { type SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
 
-const updateSetupObject = () => {
-    emit("update:setupObject", setupObject.value);
-};
-
 const setupObject = toRef(props, "setupObject");
 const assignmentOptions = toRef(setupObject.value, "assignmentOptions");
+const colNames = computed(() => setupObject.value.colNames ?? []);
+
+onMounted(() => {
+    const ao = assignmentOptions.value;
+    if (ao.emailColNameIdx === undefined) ao.emailColNameIdx = null;
+    if (ao.tableChoiceColNameIdx === undefined) ao.tableChoiceColNameIdx = null;
+    if (ao.tableShareEmailColNameIdx === undefined) ao.tableShareEmailColNameIdx = null;
+    if (ao.maxDaysColNameIdx === undefined) ao.maxDaysColNameIdx = null;
+});
 
 const container = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
@@ -22,6 +27,26 @@ watch(
     },
     { deep: true }
 );
+
+/** Select value: "" = null (unset); required fields must pick a column for assignment to run */
+function colIdxToSelectValue(idx: number | null | undefined): string {
+    if (idx === null || idx === undefined || idx < 0) {
+        return "";
+    }
+    return String(idx);
+}
+
+function setColIdx(
+    key: "emailColNameIdx" | "tableChoiceColNameIdx" | "tableShareEmailColNameIdx" | "maxDaysColNameIdx",
+    raw: string
+) {
+    if (raw === "") {
+        assignmentOptions.value[key] = null;
+    } else {
+        const n = parseInt(raw, 10);
+        assignmentOptions.value[key] = Number.isNaN(n) ? null : n;
+    }
+}
 
 const handleDaysInput = (value: number) => {
     if (value < 0 || isNaN(value)) { // if value is less than zero or is not a number, set to null
@@ -56,6 +81,99 @@ const handleProportionInput = (value: number) => {
 <template>
     <div class="container" ref="container">
         <div class="rows" ref="rows">
+            <div class="mapping-heading">
+                <h3 class="mapping-title">Column mapping</h3>
+            </div>
+
+            <div class="row-container row">
+                <div class="row-item">
+                    <h3>Vendor email</h3>
+                </div>
+                <div class="row-item enum-item">
+                    <select
+                        class="datatype-dropdown"
+                        :value="colIdxToSelectValue(assignmentOptions.emailColNameIdx)"
+                        @change="setColIdx('emailColNameIdx', ($event.target as HTMLSelectElement).value)"
+                    >
+                        <option value=""></option>
+                        <option
+                            v-for="(name, index) in colNames"
+                            :key="'email-' + index"
+                            :value="String(index)"
+                        >
+                            {{ name }}
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <div class="row-container row">
+                <div class="row-item">
+                    <h3>Table choice</h3>
+                </div>
+                <div class="row-item enum-item">
+                    <select
+                        class="datatype-dropdown"
+                        :value="colIdxToSelectValue(assignmentOptions.tableChoiceColNameIdx)"
+                        @change="setColIdx('tableChoiceColNameIdx', ($event.target as HTMLSelectElement).value)"
+                    >
+                        <option value=""></option>
+                        <option
+                            v-for="(name, index) in colNames"
+                            :key="'tc-' + index"
+                            :value="String(index)"
+                        >
+                            {{ name }}
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <div class="row-container row">
+                <div class="row-item">
+                    <h3>Table share email</h3>
+                </div>
+                <div class="row-item enum-item">
+                    <select
+                        class="datatype-dropdown"
+                        :value="colIdxToSelectValue(assignmentOptions.tableShareEmailColNameIdx)"
+                        @change="setColIdx('tableShareEmailColNameIdx', ($event.target as HTMLSelectElement).value)"
+                    >
+                        <option value=""></option>
+                        <option
+                            v-for="(name, index) in colNames"
+                            :key="'tse-' + index"
+                            :value="String(index)"
+                        >
+                            {{ name }}
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <div class="row-container row">
+                <div class="row-item">
+                    <h3>Max days <span class="optional-label">(optional)</span></h3>
+                </div>
+                <div class="row-item enum-item">
+                    <select
+                        class="datatype-dropdown"
+                        :value="colIdxToSelectValue(assignmentOptions.maxDaysColNameIdx)"
+                        @change="setColIdx('maxDaysColNameIdx', ($event.target as HTMLSelectElement).value)"
+                    >
+                        <option value=""></option>
+                        <option
+                            v-for="(name, index) in colNames"
+                            :key="'md-' + index"
+                            :value="String(index)"
+                        >
+                            {{ name }}
+                        </option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mapping-heading additional-options-heading">
+                <h3 class="mapping-title">Additional options</h3>
+            </div>
+
             <div class="row-container row">
                 <div class="row-item">
                     <h3>Max assignments per vendor</h3>
@@ -85,6 +203,17 @@ const handleProportionInput = (value: number) => {
 </template>
 
 <style scoped>
+/* Match ElementMarketDates.vue select behavior: left-aligned text, ellipsis for overflow */
+option {
+    text-align: left;
+}
+
+select.datatype-dropdown {
+    max-width: 100%;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
 .container {
     width: 100%;
     height: 100%;
@@ -94,7 +223,8 @@ const handleProportionInput = (value: number) => {
     flex-direction: column;
     align-items: center;
 
-    /* gap: 15px; */
+    /* Offset parent .setting-body padding-top so "Column mapping" sits closer to the card top */
+    margin-top: -8px;
 }
 
 .rows {
@@ -105,11 +235,34 @@ const handleProportionInput = (value: number) => {
     align-items: center;
 
     gap: 8px;
-    padding-top: 4px;
+    padding-top: 0;
     padding-bottom: 8px;
 
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+.mapping-heading {
+    width: 100%;
+    padding: 0 10px 4px;
+    text-align: left;
+}
+
+.mapping-title {
+    margin: 0;
+    font-size: 16px;
+    color: var(--mm-black, #222);
+}
+
+.optional-label {
+    font-weight: normal;
+    font-size: 0.85em;
+    opacity: 0.85;
+}
+
+.additional-options-heading {
+    margin-top: 12px;
+    padding-top: 6px;
 }
 
 .row {
@@ -134,6 +287,53 @@ const handleProportionInput = (value: number) => {
 
 .row-item:last-of-type {
     border: none;
+}
+
+.enum-item {
+    cursor: pointer;
+}
+
+/* Native select arrows ignore padding; use appearance:none + background chevron for consistent inset */
+.datatype-dropdown {
+    width: 100%;
+    height: 100%;
+    min-height: 32px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    text-align-last: left;
+    direction: ltr;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding-left: 8px;
+    /* Text stops before icon; chevron sits inset from the right edge */
+    padding-right: 1.5rem;
+    box-sizing: border-box;
+    box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: white;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23333333' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.375rem center;
+    background-size: 1.125rem 1.125rem;
+}
+
+.datatype-dropdown::-ms-expand {
+    display: none;
+}
+
+.datatype-dropdown,
+.datatype-dropdown option {
+    font-family: inherit;
+    font-size: 16px;
+    color: #333;
 }
 
 .input-container {

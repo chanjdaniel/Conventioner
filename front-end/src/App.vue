@@ -140,6 +140,7 @@ header {
 
 .router-view {
   flex: 1;
+  min-height: 0;
   min-width: 1000px;
 }
 </style>

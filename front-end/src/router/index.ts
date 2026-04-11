@@ -72,7 +72,12 @@ const router = createRouter({
       path: '/generate-assignment',
       name: 'generate-assignment',
       component: () => import('@/views/GenerateAssignmentView.vue'),
-    },    
+    },
+    {
+      path: '/:marketSlug',
+      name: 'market-home',
+      component: () => import('@/views/MarketHomeView.vue'),
+    },
   ],
 })
 

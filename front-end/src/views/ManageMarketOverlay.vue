@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import { type Market, MarketRole } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
+import { parseMarketFromApi } from '@/utils/market';
 import { getRoleDisplayName, canManageRoles, canChangeRole, getRolesForChange } from '@/utils/permissions';
 
 const props = defineProps<{
@@ -70,54 +71,6 @@ async function fetchMarket(showLoading = true) {
     } finally {
         if (showLoading) loading.value = false;
     }
-}
-
-function parseMarketFromApi(market: any): Market {
-    const userRoleRaw = market.userRole ?? market.user_role;
-    const creationDate = market.creationDate ?? market.creation_date;
-    const rolesRaw = market.roles || {};
-    const roles: Record<string, MarketRole> = {};
-    for (const [userId, role] of Object.entries(rolesRaw)) {
-        const r = String(role).toLowerCase();
-        if (r === 'owner' || r === 'admin' || r === 'editor' || r === 'viewer') {
-            roles[userId] = r as MarketRole;
-        }
-    }
-    const roleEmails = market.roleEmails ?? market.role_emails ?? {};
-    return {
-        id: market.id,
-        name: market.name,
-        creationDate: creationDate,
-        roles,
-        roleEmails,
-        organizationId: market.organizationId ?? market.organization_id ?? undefined,
-        organizationName: market.organizationName ?? market.organization_name ?? market.organization,
-        theme: market.theme,
-        userRole: userRoleRaw ? (userRoleRaw as MarketRole) : undefined,
-        setupObject: {
-            colNames: market.setupObject?.colNames || [],
-            colValues: market.setupObject?.colValues || [],
-            colInclude: market.setupObject?.colInclude || [],
-            enumPriorityOrder: market.setupObject?.enumPriorityOrder || [],
-            priority: market.setupObject?.priority || [],
-            marketDates: market.setupObject?.marketDates || [],
-            tiers: market.setupObject?.tiers || [],
-            locations: market.setupObject?.locations || [],
-            sections: market.setupObject?.sections || [],
-            assignmentOptions: {
-                maxAssignmentsPerVendor: market.setupObject?.assignmentOptions?.maxAssignmentsPerVendor ?? null,
-                maxHalfTableProportionPerSection: market.setupObject?.assignmentOptions?.maxHalfTableProportionPerSection ?? null,
-            },
-        },
-        modificationList: market.modificationList || [],
-        assignmentObject: market.assignmentObject || {
-            vendorAssignments: [],
-            assignmentDate: '',
-            totalVendorsAssigned: 0,
-            totalTablesAssigned: 0,
-            assignmentStatistics: null,
-        },
-    };
 }
 
 function getUserList(): Array<{ userId: string; email: string; role: MarketRole }> {

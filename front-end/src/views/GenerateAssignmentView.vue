@@ -2,12 +2,51 @@
 import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { type AssignmentStatistics } from '@/assets/types/datatypes';
+import { type AssignmentStatistics, type Market } from '@/assets/types/datatypes';
+import VendorsModal from '@/components/VendorsModal.vue';
+import IconSettings from '@/components/icons/IconSettings.vue';
+import IconTables from '@/components/icons/IconTables.vue';
+import IconVendors from '@/components/icons/IconVendors.vue';
+import { api } from '@/utils/api';
+import { parseMarketFromApi } from '@/utils/market';
+import { marketNameToKebabSlug } from '@/utils/marketSlug';
 
-const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
 
 const assignmentStatistics = ref<AssignmentStatistics | null>(null);
+const market = ref<Market | null>(null);
+const showVendorsModal = ref(false);
+
+/** API / localStorage may use camelCase or snake_case; statistics lists must match backend field names. */
+const unassignedVendorList = computed((): unknown[] => {
+    const s = assignmentStatistics.value as Record<string, unknown> | null;
+    if (!s) return [];
+    const list = s.unassignedVendors ?? s.unassigned_vendors;
+    return Array.isArray(list) ? list : [];
+});
+
+const hasUnassignedVendors = computed(() => unassignedVendorList.value.length > 0);
+
+const hasUnassignedTables = computed(() => {
+    const t = assignmentStatistics.value?.unassignedTables;
+    return !!t && Object.keys(t).length > 0;
+});
+
+const showUnassignedColumn = computed(() => hasUnassignedVendors.value || hasUnassignedTables.value);
+
+const NO_EMAIL_HINT =
+    '(no email — check Assignment Options column mapping matches the column names in Manage Columns)';
+
+function displayUnassignedEntry(vendor: unknown): string {
+    if (vendor == null) return '(unknown)';
+    if (typeof vendor === 'string') {
+        return vendor.trim() || NO_EMAIL_HINT;
+    }
+    const o = vendor as { email?: string; name?: string };
+    const t = o.email || o.name;
+    if (t && String(t).trim()) return String(t);
+    return NO_EMAIL_HINT;
+}
 
 const processedTableChoices = computed(() => {
     if (!assignmentStatistics.value?.assignmentsPerTableChoice) {
@@ -40,22 +79,73 @@ const processedTableChoices = computed(() => {
 });
 
 onMounted(() => {
-    const market = JSON.parse(localStorage.getItem("market") || "null");
-    if (market && market["assignmentObject"] && market["assignmentObject"]["assignmentStatistics"]) {
-        assignmentStatistics.value = market["assignmentObject"]["assignmentStatistics"];
+    const raw = localStorage.getItem('market');
+    if (!raw) return;
+    try {
+        const parsed = JSON.parse(raw) as unknown;
+        market.value = parseMarketFromApi(parsed);
+        const stats = market.value.assignmentObject?.assignmentStatistics;
+        if (stats) {
+            assignmentStatistics.value = stats;
+        }
+    } catch {
+        market.value = null;
     }
 });
+
+const openVendorsModal = () => {
+    showVendorsModal.value = true;
+};
+
+const closeVendorsModal = () => {
+    showVendorsModal.value = false;
+};
 
 const handleBack = () => {
     router.push("/market-setup");
 }
-const handleDone = () => {
-    router.push("");
+
+const doneError = ref('');
+
+const handleDone = async () => {
+    doneError.value = '';
+    const raw = localStorage.getItem('market');
+    if (!raw) {
+        doneError.value = 'No market loaded.';
+        return;
+    }
+    let market: Market;
+    try {
+        market = JSON.parse(raw) as Market;
+    } catch {
+        doneError.value = 'Invalid market data.';
+        return;
+    }
+    market = { ...market, isDraft: false };
+    const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
+    try {
+        await api.put(`/markets/${encodeURIComponent(market.id)}`, market, {
+            headers: { 'X-Owner-Email': userEmail },
+        });
+        localStorage.setItem('market', JSON.stringify(market));
+        const slug = marketNameToKebabSlug(market.name);
+        if (slug) {
+            router.push(`/${slug}`);
+        } else {
+            router.push('/market-setup');
+        }
+    } catch (err: unknown) {
+        const msg = err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+            : undefined;
+        doneError.value = msg || 'Failed to save market.';
+    }
 }
 
 </script>
 
 <template>
+    <VendorsModal :open="showVendorsModal" :market="market" @close="closeVendorsModal" />
     <div class="generate-assignment-view">
         <div class="generate-assignment-window">
             <div class="generate-assignment-container">
@@ -63,9 +153,8 @@ const handleDone = () => {
                     <h1>Generated Assignment</h1>
                 </div>
                 <div class="generate-assignment-body">
-                    <div v-if="assignmentStatistics" class="statistics-wrapper">
-                        <div class="statistics-container">
-                            <!-- Total Summary Cards -->
+                    <div v-if="assignmentStatistics" class="statistics-layout">
+                        <div class="statistics-header-row">
                             <div class="stat-card summary-card">
                                 <h3>Total Summary</h3>
                                 <div class="stat-grid">
@@ -87,14 +176,43 @@ const handleDone = () => {
                                     </div>
                                 </div>
                             </div>
+                            <nav
+                                class="stat-card assignment-quick-nav"
+                                aria-label="Assignment shortcuts"
+                            >
+                                <div class="assignment-quick-nav-list">
+                                    <button type="button" class="assignment-quick-nav-row" @click="openVendorsModal">
+                                        <IconVendors class="assignment-quick-nav-icon" />
+                                        <span class="assignment-quick-nav-label">
+                                            <span>View </span>
+                                            <span>Vendors</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="assignment-quick-nav-row">
+                                        <IconTables class="assignment-quick-nav-icon" />
+                                        <span class="assignment-quick-nav-label">
+                                            <span>View </span>
+                                            <span>Tables</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="assignment-quick-nav-row">
+                                        <IconSettings class="assignment-quick-nav-icon" />
+                                        <span class="assignment-quick-nav-label">Manage assignments</span>
+                                    </button>
+                                </div>
+                            </nav>
+                        </div>
 
-                            <!-- Assignments Per Date -->
-                            <div class="stat-card">
+                        <div
+                            class="statistics-body-grid"
+                            :class="showUnassignedColumn ? 'statistics-body-grid--with-unassigned' : 'statistics-body-grid--four-cards'"
+                        >
+                            <div class="stat-card body-grid-date">
                                 <h3>Per Date</h3>
                                 <div class="stat-list">
-                                    <div 
-                                        v-for="(count, date) in assignmentStatistics.assignmentsPerDate" 
-                                        :key="date" 
+                                    <div
+                                        v-for="(count, date) in assignmentStatistics.assignmentsPerDate"
+                                        :key="date"
                                         class="stat-list-item"
                                     >
                                         <span class="stat-list-label">{{ date }}</span>
@@ -103,13 +221,12 @@ const handleDone = () => {
                                 </div>
                             </div>
 
-                            <!-- Assignments Per Section -->
-                            <div class="stat-card">
+                            <div class="stat-card body-grid-section">
                                 <h3>Per Section</h3>
                                 <div class="stat-list">
-                                    <div 
-                                        v-for="(count, section) in assignmentStatistics.assignmentsPerSection" 
-                                        :key="section" 
+                                    <div
+                                        v-for="(count, section) in assignmentStatistics.assignmentsPerSection"
+                                        :key="section"
                                         class="stat-list-item"
                                     >
                                         <span class="stat-list-label">Section {{ section }}</span>
@@ -118,13 +235,12 @@ const handleDone = () => {
                                 </div>
                             </div>
 
-                            <!-- Assignments Per Tier -->
-                            <div class="stat-card">
+                            <div class="stat-card body-grid-tier">
                                 <h3>Per Tier</h3>
                                 <div class="stat-list">
-                                    <div 
-                                        v-for="(count, tier) in assignmentStatistics.assignmentsPerTier" 
-                                        :key="tier" 
+                                    <div
+                                        v-for="(count, tier) in assignmentStatistics.assignmentsPerTier"
+                                        :key="tier"
                                         class="stat-list-item"
                                     >
                                         <span class="stat-list-label">{{ tier }}</span>
@@ -133,13 +249,15 @@ const handleDone = () => {
                                 </div>
                             </div>
 
-                            <!-- Assignments Per Table Choice -->
-                            <div v-if="assignmentStatistics.assignmentsPerTableChoice" class="stat-card">
+                            <div
+                                v-if="assignmentStatistics.assignmentsPerTableChoice"
+                                class="stat-card body-grid-table-choice"
+                            >
                                 <h3>Per Table Choice</h3>
                                 <div class="stat-list">
-                                    <div 
-                                        v-for="(count, choice) in processedTableChoices" 
-                                        :key="choice" 
+                                    <div
+                                        v-for="(count, choice) in processedTableChoices"
+                                        :key="choice"
                                         class="stat-list-item"
                                     >
                                         <span class="stat-list-label">{{ choice }}</span>
@@ -147,46 +265,51 @@ const handleDone = () => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Unassigned Lists (Right Side) -->
-                        <div class="unassigned-container">
-                            <!-- Unassigned Vendors -->
-                            <div v-if="assignmentStatistics.unassignedVendors && assignmentStatistics.unassignedVendors.length > 0" class="stat-card unassigned-card">
-                                <h3>Unassigned Vendors ({{ assignmentStatistics.unassignedVendors.length }})</h3>
-                                <div class="unassigned-list">
-                                    <div 
-                                        v-for="(vendor, index) in assignmentStatistics.unassignedVendors" 
-                                        :key="index" 
-                                        class="unassigned-item"
-                                    >
-                                        <span class="unassigned-text">{{ typeof vendor === 'string' ? vendor : (vendor.email || vendor.name || JSON.stringify(vendor)) }}</span>
+                            <template v-if="showUnassignedColumn">
+                                <div
+                                    v-if="hasUnassignedVendors"
+                                    class="stat-card unassigned-card body-grid-unassigned-vendors"
+                                    :class="{ 'body-grid-span-two-rows': !hasUnassignedTables }"
+                                >
+                                    <h3>Unassigned Vendors ({{ unassignedVendorList.length }})</h3>
+                                    <div class="unassigned-list">
+                                        <div
+                                            v-for="(vendor, index) in unassignedVendorList"
+                                            :key="index"
+                                            class="unassigned-item"
+                                        >
+                                            <span class="unassigned-text">{{ displayUnassignedEntry(vendor) }}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- Unassigned Tables -->
-                            <div v-if="assignmentStatistics.unassignedTables && Object.keys(assignmentStatistics.unassignedTables).length > 0" class="stat-card unassigned-card">
-                                <h3>Unassigned Tables</h3>
-                                <div class="unassigned-list">
-                                    <div 
-                                        v-for="(tables, date) in assignmentStatistics.unassignedTables" 
-                                        :key="date" 
-                                        class="unassigned-date-group"
-                                    >
-                                        <div class="unassigned-date-header">{{ date }}</div>
-                                        <div class="unassigned-tables-list">
-                                            <div 
-                                                v-for="(table, tableIndex) in (Array.isArray(tables) ? tables : Object.values(tables))" 
-                                                :key="tableIndex" 
-                                                class="unassigned-item"
-                                            >
-                                                <span class="unassigned-text">{{ typeof table === 'string' ? table : (table.table_code || table.code || JSON.stringify(table)) }}</span>
+                                <div
+                                    v-if="hasUnassignedTables"
+                                    class="stat-card unassigned-card body-grid-unassigned-tables"
+                                    :class="{ 'body-grid-span-two-rows': !hasUnassignedVendors }"
+                                >
+                                    <h3>Unassigned Tables</h3>
+                                    <div class="unassigned-list">
+                                        <div
+                                            v-for="(tables, date) in assignmentStatistics.unassignedTables"
+                                            :key="date"
+                                            class="unassigned-date-group"
+                                        >
+                                            <div class="unassigned-date-header">{{ date }}</div>
+                                            <div class="unassigned-tables-list">
+                                                <div
+                                                    v-for="(table, tableIndex) in (Array.isArray(tables) ? tables : Object.values(tables))"
+                                                    :key="tableIndex"
+                                                    class="unassigned-item"
+                                                >
+                                                    <span class="unassigned-text">{{ typeof table === 'string' ? table : (table.table_code || table.code || JSON.stringify(table)) }}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </template>
                         </div>
                     </div>
                     <div v-else class="no-data-message">
@@ -194,6 +317,7 @@ const handleDone = () => {
                     </div>
                 </div>
             </div>
+            <p v-if="doneError" class="done-error">{{ doneError }}</p>
             <div style="width: 100%; display: flex; flex-direction: row; justify-content: space-between;">
                 <div>
                     <button class="done-button" @click="handleBack">Back</button>
@@ -211,6 +335,7 @@ const handleDone = () => {
     width: 100%;
     min-width: 1000px;
     flex: 1;
+    min-height: 0;
 
     display: flex;
     flex-direction: column;
@@ -218,9 +343,13 @@ const handleDone = () => {
     align-items: center;
 }
 
+/* Match `.market-setup-body` on Market Setup (Assignment Priority / Assignment options): 80% × 80% centered card.
+   Do not set overflow:hidden here — it clips the white card's box-shadow (same shadow as `.settings-container`). */
 .generate-assignment-window {
     width: 80%;
     height: 80%;
+    max-height: 80%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -230,10 +359,12 @@ const handleDone = () => {
 .generate-assignment-container {
     align-self: stretch;
     flex: 1;
+    min-height: 0;
     background-color: white;
     box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .generate-assignment-header {
@@ -253,30 +384,181 @@ const handleDone = () => {
     min-height: 0;
     flex: 1;
     overflow-y: auto;
-}
-
-.statistics-wrapper {
+    overflow-x: hidden;
     display: flex;
-    flex-direction: row;
-    gap: 25px;
-    width: 100%;
-    align-items: flex-start;
+    flex-direction: column;
 }
 
-.statistics-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 25px;
-    flex: 1;
-    min-width: 0;
-}
-
-.unassigned-container {
+.statistics-layout {
     display: flex;
     flex-direction: column;
     gap: 25px;
-    width: 350px;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    overflow: hidden;
+}
+
+.statistics-header-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+    width: 100%;
+    align-items: stretch;
     flex-shrink: 0;
+}
+
+.assignment-quick-nav-list {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    align-self: stretch;
+    width: 100%;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+}
+
+.assignment-quick-nav-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    min-height: 36px;
+    border: none;
+    border-right: 1.75px solid #2723237c;
+    border-radius: 0;
+    background-color: transparent;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.assignment-quick-nav-row:first-child {
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+.assignment-quick-nav-row:last-child {
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border-right: none;
+}
+
+.assignment-quick-nav-row:hover {
+    background-color: var(--hover-grey);
+    box-shadow: 0px -1.5px 5px 1.5px var(--hover-grey);
+}
+
+.assignment-quick-nav-icon {
+    height: 24px;
+    aspect-ratio: 1;
+    margin: 6px;
+    color: var(--mm-black);
+    flex-shrink: 0;
+}
+
+.assignment-quick-nav-label {
+    font-family: 'Merge One';
+    font-style: normal;
+    font-size: 18px;
+    color: var(--mm-black);
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.statistics-body-grid {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.statistics-body-grid--with-unassigned {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 25px;
+    flex: 1;
+    align-items: stretch;
+}
+
+.statistics-body-grid--four-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 25px;
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+}
+
+.statistics-body-grid > .stat-card {
+    min-height: 0;
+}
+
+.statistics-body-grid > .stat-card .stat-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.statistics-body-grid--four-cards .body-grid-date {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.statistics-body-grid--four-cards .body-grid-section {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.statistics-body-grid--four-cards .body-grid-tier {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.statistics-body-grid--four-cards .body-grid-table-choice {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.statistics-body-grid--with-unassigned .body-grid-date {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.statistics-body-grid--with-unassigned .body-grid-section {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.statistics-body-grid--with-unassigned .body-grid-tier {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.statistics-body-grid--with-unassigned .body-grid-table-choice {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.statistics-body-grid--with-unassigned .body-grid-unassigned-vendors {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.statistics-body-grid--with-unassigned .body-grid-unassigned-tables {
+    grid-column: 3;
+    grid-row: 2;
+}
+
+.statistics-body-grid--with-unassigned .body-grid-unassigned-vendors.body-grid-span-two-rows,
+.statistics-body-grid--with-unassigned .body-grid-unassigned-tables.body-grid-span-two-rows {
+    grid-row: 1 / span 2;
 }
 
 .stat-card {
@@ -289,8 +571,17 @@ const handleDone = () => {
     gap: 15px;
 }
 
+.stat-card.assignment-quick-nav {
+    min-height: 0;
+    background-color: white;
+    /* Match `.settings-container` on Market Setup (Assignment Options card) */
+    box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
+    justify-content: flex-start;
+    padding: 36px 20px;
+    gap: 0;
+}
+
 .summary-card {
-    grid-column: 1 / -1;
     background: linear-gradient(135deg, var(--mm-green) 0%, #3a9d82 100%);
 }
 
@@ -298,6 +589,28 @@ const handleDone = () => {
 .summary-card .stat-label,
 .summary-card .stat-value {
     color: white;
+}
+
+.summary-card .stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.summary-card .stat-item {
+    min-width: 0;
+}
+
+.summary-card .stat-label {
+    font-size: 13px;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.summary-card .stat-value {
+    font-size: clamp(18px, 2.2vw, 24px);
+    line-height: 1.15;
+    text-align: center;
+    overflow-wrap: anywhere;
 }
 
 .stat-card h3 {
@@ -359,12 +672,6 @@ const handleDone = () => {
     background-color: white;
     border-radius: 6px;
     border-left: 4px solid var(--mm-green);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.stat-list-item:hover {
-    transform: translateX(5px);
-    box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .stat-list-label {
@@ -386,7 +693,14 @@ const handleDone = () => {
 }
 
 .unassigned-card {
-    max-height: 500px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.statistics-body-grid .unassigned-card .unassigned-list {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
 }
 
@@ -437,7 +751,8 @@ const handleDone = () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     font-family: 'Outfit Regular';
     font-size: 18px;
     color: var(--mm-grey);
@@ -455,6 +770,12 @@ h2 {
     text-align: left;
     font-size: 26px;
     color: white;
+}
+
+.done-error {
+    margin: 8px 0 0;
+    color: #c62828;
+    font-size: 14px;
 }
 
 .done-button {

@@ -38,6 +38,7 @@ const handleSubmit = async () => {
         let newMarket: Omit<Market, 'id'> & { id?: string } = {
             name: marketName.value,
             creationDate: new Date().toISOString(),
+            isDraft: true,
             roles: {
                 [userEmail]: MarketRole.Owner
             },

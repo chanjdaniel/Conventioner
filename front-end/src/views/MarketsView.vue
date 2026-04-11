@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market, MarketRole } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
+import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market';
 import { getRoleDisplayName } from '@/utils/permissions';
 import NewMarketOverlay from './NewMarketOverlay.vue';
 import ManageMarketOverlay from './ManageMarketOverlay.vue';
@@ -14,45 +15,6 @@ const errorMessage = ref('');
 const newOpen = ref(false);
 const manageOpen = ref(false);
 const manageMarket = ref<Market | null>(null);
-
-function parseMarketFromApi(market: any): Market {
-    const userRoleRaw = market.userRole ?? market.user_role;
-    const creationDate = market.creationDate ?? market.creation_date;
-    return {
-        id: market.id,
-        name: market.name,
-        creationDate: creationDate,
-        roles: market.roles || {},
-        roleEmails: market.roleEmails ?? market.role_emails,
-        organizationId: market.organizationId ?? market.organization_id,
-        organizationName: market.organizationName ?? market.organization_name ?? market.organization,
-        theme: market.theme,
-        userRole: userRoleRaw ? (userRoleRaw as MarketRole) : undefined,
-        setupObject: {
-            colNames: market.setupObject?.colNames || [],
-            colValues: market.setupObject?.colValues || [],
-            colInclude: market.setupObject?.colInclude || [],
-            enumPriorityOrder: market.setupObject?.enumPriorityOrder || [],
-            priority: market.setupObject?.priority || [],
-            marketDates: market.setupObject?.marketDates || [],
-            tiers: market.setupObject?.tiers || [],
-            locations: market.setupObject?.locations || [],
-            sections: market.setupObject?.sections || [],
-            assignmentOptions: {
-                maxAssignmentsPerVendor: market.setupObject?.assignmentOptions?.maxAssignmentsPerVendor || null,
-                maxHalfTableProportionPerSection: market.setupObject?.assignmentOptions?.maxHalfTableProportionPerSection || null,
-            },
-        },
-        modificationList: market.modificationList || [],
-        assignmentObject: market.assignmentObject || {
-            vendorAssignments: [],
-            assignmentDate: "",
-            totalVendorsAssigned: 0,
-            totalTablesAssigned: 0,
-            assignmentStatistics: null,
-        },
-    };
-}
 
 async function fetchMarkets() {
     loading.value = true;
@@ -80,7 +42,7 @@ onMounted(() => {
 function handleOpen(market: Market) {
     localStorage.removeItem("market");
     localStorage.setItem("market", JSON.stringify(market));
-    router.push('/market-setup');
+    router.push(pathAfterLoadingMarket(market));
 }
 
 function handleManage(market: Market) {

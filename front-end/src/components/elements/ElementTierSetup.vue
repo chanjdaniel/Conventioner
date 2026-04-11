@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref, toRef, nextTick, computed, watch } from 'vue';
 import draggable from 'vuedraggable';
-import { type SetupObject, type PriorityObject } from '@/assets/types/datatypes';
+import { type SetupObject } from '@/assets/types/datatypes';
 import IconAddRound from '../icons/IconAddRound.vue';
 import IconClickDrag from '../icons/IconClickDrag.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
 import { type TierObject } from '@/assets/types/datatypes';
+import { buildDefaultTierObjects, collectDefaultTierNames } from '@/utils/tierDefaults';
 
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
@@ -67,6 +68,15 @@ const columnTitles = ref<HTMLElement | null>(null);
 
 onMounted(() => {
     setHeight();
+
+    const tiers = setupObject.value.tiers;
+    if (tiers.length > 0) return;
+
+    const names = collectDefaultTierNames(setupObject.value);
+    if (names.length === 0) return;
+
+    const defaults = buildDefaultTierObjects(names);
+    tiers.splice(0, tiers.length, ...defaults);
 });
 
 const addTierRow = () => {

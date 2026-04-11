@@ -2,6 +2,7 @@
 import { inject, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes';
+import { pathAfterLoadingMarket } from '@/utils/market';
 import { getRoleDisplayName } from '@/utils/permissions';
 
 const setUser: (user: unknown) => void = inject('setUser')!;
@@ -42,7 +43,7 @@ const handleLoadLastMarket = () => {
   if (!lastMarket.value) return;
   localStorage.removeItem('market');
   localStorage.setItem('market', JSON.stringify(lastMarket.value));
-  router.push('/market-setup');
+  router.push(pathAfterLoadingMarket(lastMarket.value));
 };
 
 const handleMarkets = () => {
