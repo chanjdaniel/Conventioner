@@ -267,7 +267,11 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
             if "assignment_options" not in market_dict["setup_object"]:
                 market_dict["setup_object"]["assignment_options"] = {
                     "max_assignments_per_vendor": None,
-                    "max_half_table_proportion_per_section": None
+                    "max_half_table_proportion_per_section": None,
+                    "email_col_name_idx": None,
+                    "table_choice_col_name_idx": None,
+                    "table_share_email_col_name_idx": None,
+                    "max_days_col_name_idx": None,
                 }
         
         # Fix None assignment_object

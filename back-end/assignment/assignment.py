@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from collections import defaultdict
 from datatypes import (
     Market, SetupObject, MarketDateObject, TierObject, SectionObject, 
@@ -113,8 +113,32 @@ class DateAssignment:
 
 
 
+def _validate_assignment_column_mappings(setup_object: SetupObject) -> None:
+    """Require email, table choice, and table share columns; max days is optional (null = no per-vendor cap)."""
+    ao = setup_object.assignment_options
+    n = len(setup_object.col_names)
+
+    def require_idx(field: str, idx: Optional[int]) -> None:
+        if idx is None:
+            raise ValueError(
+                f"setup_object.assignment_options.{field} must be set to a column index (no legacy default names)"
+            )
+        i = int(idx)
+        if i < 0 or i >= n:
+            raise ValueError(
+                f"setup_object.assignment_options.{field} must be a valid column index (0..{n - 1})"
+            )
+
+    require_idx("email_col_name_idx", ao.email_col_name_idx)
+    require_idx("table_choice_col_name_idx", ao.table_choice_col_name_idx)
+    require_idx("table_share_email_col_name_idx", ao.table_share_email_col_name_idx)
+    if ao.max_days_col_name_idx is not None:
+        require_idx("max_days_col_name_idx", ao.max_days_col_name_idx)
+
+
 class MarketAssignment:
     def __init__(self, setup_object: SetupObject, source_data: Dict[str, Any]):
+        _validate_assignment_column_mappings(setup_object)
         self.setup_object = setup_object
         self.source_data = source_data
         self.table_sharing = []
@@ -147,6 +171,61 @@ class MarketAssignment:
     def __repr__(self):
         return f"{vars(self)}"
 
+    def _mapped_col_idx(self, idx: Optional[int]) -> Optional[int]:
+        if idx is None:
+            return None
+        n = len(self.setup_object.col_names)
+        if idx < 0 or idx >= n:
+            return None
+        return idx
+
+    def _vendor_field_at(self, vendor: Vendor, col_name_idx: int) -> str:
+        mid = self._mapped_col_idx(col_name_idx)
+        if mid is None:
+            raise ValueError("column index is required")
+        return str(self._get_vendor_column_value(vendor, mid) or "")
+
+    def _vendor_table_share_email_str(self, vendor: Vendor) -> str:
+        ao = self.setup_object.assignment_options
+        return self._vendor_field_at(vendor, ao.table_share_email_col_name_idx)
+
+    def vendor_email(self, vendor: Vendor) -> str:
+        ao = self.setup_object.assignment_options
+        return self._vendor_field_at(vendor, ao.email_col_name_idx)
+
+    def vendor_table_choice(self, vendor: Vendor) -> str:
+        ao = self.setup_object.assignment_options
+        return self._vendor_field_at(vendor, ao.table_choice_col_name_idx)
+
+    def _max_days_raw(self, vendor: Vendor):
+        """Cell value for max-days column, or None if unmapped / blank cell (no per-vendor cap from CSV)."""
+        ao = self.setup_object.assignment_options
+        mid = self._mapped_col_idx(ao.max_days_col_name_idx)
+        if mid is None:
+            return None
+        v = self._get_vendor_column_value(vendor, mid)
+        return v if v != "" else None
+
+    def _parse_vendor_max_days_int(self, max_days_val) -> Optional[int]:
+        if max_days_val is None or max_days_val == "":
+            return None
+        try:
+            return int(max_days_val[0]) if max_days_val else None
+        except (ValueError, IndexError, TypeError):
+            return None
+
+    def is_vendor_max_assigned(self, vendor: Vendor) -> bool:
+        if vendor.num_assignments >= MAX_VENDING_DAYS:
+            return True
+        ao = self.setup_object.assignment_options
+        if ao.max_days_col_name_idx is None:
+            return False
+        max_days_val = self._max_days_raw(vendor)
+        vendor_max_days = self._parse_vendor_max_days_int(max_days_val)
+        if vendor_max_days is None:
+            return False
+        return vendor.num_assignments >= vendor_max_days
+
     def _get_column_values(self, col_name: str) -> List[str]:
         for idx, column in enumerate(self.setup_object.col_names):
             if toAttrString(column) == toAttrString(col_name):
@@ -171,9 +250,13 @@ class MarketAssignment:
         return vendor_rows
 
     def _get_vendor_column_value(self, vendor: Vendor, col_name_idx: int) -> str:
-        if col_name_idx >= len(self.source_data["headers"]):
-            raise ValueError(f"Column index {col_name_idx} out of range for col_names: {self.setup_object.col_names}")
-        col_name = self.source_data["headers"][col_name_idx]
+        # Must use setup_object.col_names — vendor rows are keyed by those names in _get_vendor_rows,
+        # not by source_data["headers"]. If they differ, using headers here yields empty strings everywhere.
+        if col_name_idx >= len(self.setup_object.col_names):
+            raise ValueError(
+                f"Column index {col_name_idx} out of range for col_names: {self.setup_object.col_names}"
+            )
+        col_name = self.setup_object.col_names[col_name_idx]
         attr_name = toAttrString(col_name)
         return getattr(vendor, attr_name, "")
 
@@ -228,13 +311,13 @@ class MarketAssignment:
         return (
             vendor is not None
             and table.tier.name in getattr(vendor, toAttrString(market_date.col_name), '')
-            and not vendor.is_max_assigned()
+            and not self.is_vendor_max_assigned(vendor)
             and not vendor.is_date_assigned(market_date)
         )
 
     def get_vendor_by_email(self, email):
         for vendor in self.vendors:
-            if vendor.email == email:
+            if self.vendor_email(vendor) == email:
                 return vendor
 
     def get_table_by_code(self, market_date: MarketDateObject, table_code):
@@ -245,9 +328,9 @@ class MarketAssignment:
 
     # given a vendor, return with the vendor associated with table_share_email, else return None
     def get_table_share_vendor(self, vendor):
-        table_share_email = getattr(vendor, 'table_share_email', None) or ""
+        table_share_email = self._vendor_table_share_email_str(vendor)
         for table_share_vendor in self.vendors:
-            if table_share_email == table_share_vendor.email:
+            if table_share_email == self.vendor_email(table_share_vendor):
                 return table_share_vendor
         return None
 
@@ -270,8 +353,8 @@ class MarketAssignment:
             return None
 
         # check for valid table sharing partner
-        table_share_email = getattr(next_vendor, 'table_share_email', None) or ""
-        if table_share_email != "" and next_vendor.table_choice != FULL_TABLE_ONLY:
+        table_share_email = self._vendor_table_share_email_str(next_vendor)
+        if table_share_email != "" and self.vendor_table_choice(next_vendor) != FULL_TABLE_ONLY:
             table_share_vendor = self.get_table_share_vendor(next_vendor)
             if self.is_valid_vendor(table_share_vendor, market_date, table):
                 self.table_sharing.append(next_vendor)
@@ -279,11 +362,11 @@ class MarketAssignment:
                 return [next_vendor, table_share_vendor]
 
         # check if vendor selected full table only
-        if next_vendor.table_choice == FULL_TABLE_ONLY:
+        if self.vendor_table_choice(next_vendor) == FULL_TABLE_ONLY:
             return [next_vendor, next_vendor]
 
         # check if vendor selected either and if there are max half tables for the section
-        if next_vendor.table_choice == EITHER_TABLE:
+        if self.vendor_table_choice(next_vendor) == EITHER_TABLE:
             if self.is_max_half_tables(market_date, table.section):
                 return [next_vendor, next_vendor]
 
@@ -299,11 +382,11 @@ class MarketAssignment:
                 continue
 
             # check not equal to next_vendor
-            if vendor.email == next_vendor.email:
+            if self.vendor_email(vendor) == self.vendor_email(next_vendor):
                 continue
 
             # append if vendor selected half table
-            if vendor.table_choice != FULL_TABLE_ONLY:
+            if self.vendor_table_choice(vendor) != FULL_TABLE_ONLY:
                 valid_vendors.append(vendor)
                 
         return valid_vendors
@@ -316,9 +399,9 @@ class MarketAssignment:
     def assign_table(self, market_date: MarketDateObject, vendor_list, table):
         
         # full table assignment
-        if len(vendor_list) < 2 or vendor_list[0].email == vendor_list[1].email:
+        if len(vendor_list) < 2 or self.vendor_email(vendor_list[0]) == self.vendor_email(vendor_list[1]):
             assignment = VendorAssignmentResult(
-                email=vendor_list[0].email,
+                email=self.vendor_email(vendor_list[0]),
                 date=market_date.col_name,
                 table_code=table.table_code,
                 table_choice="Full table",
@@ -332,7 +415,7 @@ class MarketAssignment:
             for i, vendor in enumerate(vendor_list):
                 table_choice = "Half table - Left" if i == 0 else "Half table - Right"
                 assignment = VendorAssignmentResult(
-                    email=vendor.email,
+                    email=self.vendor_email(vendor),
                     date=market_date.col_name,
                     table_code=table.table_code,
                     table_choice=table_choice,
@@ -349,7 +432,7 @@ class MarketAssignment:
         table = self.get_table_by_code(market_date, table_code)
         vendor_list = [vendor, vendor]
         vendor.assign(market_date, VendorAssignmentResult(
-            email=vendor.email,
+            email=self.vendor_email(vendor),
             date=market_date.col_name,
             table_code=table_code,
             table_choice="Full table",
@@ -368,9 +451,9 @@ class MarketAssignment:
         # Collect all vendor assignments and track assigned/unassigned vendors
         for vendor in self.vendors:
             if vendor.num_assignments == 0:
-                unassigned_vendors.append(vendor.email)
+                unassigned_vendors.append(self.vendor_email(vendor))
             else:
-                assigned_vendors.add(vendor.email)
+                assigned_vendors.add(self.vendor_email(vendor))
                 for assignment in vendor.assignment.values():
                     if assignment is not None:
                         vendor_assignments.append(assignment)
@@ -411,17 +494,14 @@ class MarketAssignment:
                 if getattr(vendor, toAttrString(market_date.col_name), '') != ""
             )
             
-            # Potential assignments is the minimum of: max days allowed, vendor's max_days, and dates requested
-            try:
-                vendor_max_days = int(vendor.max_days[0])
-            except (ValueError, IndexError, AttributeError):
-                vendor_max_days = MAX_VENDING_DAYS
-            
-            num_potential_assignments = min(
-                MAX_VENDING_DAYS, 
-                vendor_max_days, 
-                num_requested_assignments
-            )
+            # Potential assignments: cap by global max, dates requested, and optional per-vendor max-days column
+            ao = self.setup_object.assignment_options
+            caps: List[float] = [MAX_VENDING_DAYS, num_requested_assignments]
+            if ao.max_days_col_name_idx is not None:
+                vd = self._parse_vendor_max_days_int(self._max_days_raw(vendor))
+                if vd is not None:
+                    caps.append(vd)
+            num_potential_assignments = min(caps)
             
             # Avoid division by zero
             if num_potential_assignments > 0:

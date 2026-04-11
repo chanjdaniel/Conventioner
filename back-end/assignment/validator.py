@@ -1,3 +1,5 @@
+import math
+
 # temporary constants
 FULL_TABLE_ONLY = "Full table"
 HALF_TABLE_ONLY = "Half table"
@@ -61,8 +63,10 @@ class Validator:
     def get_unassigned_vendor_table_choices(self):
         result_dict = {}
         unassigned_vendors = self.get_unassigned_vendors()
+        ma = self.market_assignment
         for vendor in unassigned_vendors:
-            result_dict[vendor.table_choice] = result_dict.get(vendor.table_choice, 0) + 1
+            tc = ma.vendor_table_choice(vendor)
+            result_dict[tc] = result_dict.get(tc, 0) + 1
         return result_dict
         
     def get_assigned_vendors(self):
@@ -95,8 +99,9 @@ class Validator:
 
     def get_table_choice_counts(self):
         table_choice_dict = {}
+        ma = self.market_assignment
         for vendor in self.vendors:
-            table_choice = vendor.table_choice
+            table_choice = ma.vendor_table_choice(vendor)
             table_choice_dict[table_choice] = table_choice_dict.get(table_choice, 0) + 1
         table_choice_dict = dict(sorted(table_choice_dict.items()))
         return table_choice_dict
@@ -125,7 +130,7 @@ class Validator:
                     continue
 
                 increment = 1
-                if vendor.table_choice == FULL_TABLE_ONLY:
+                if self.market_assignment.vendor_table_choice(vendor) == FULL_TABLE_ONLY:
                     increment = 2
                 return_dict[date] = return_dict.get(date, 0) + increment
 

@@ -38,9 +38,16 @@ def get_vendor_data(market_dict: Dict[str, Any], source_data: Dict[str, Any]):
             vendor_data[col_names[i]] = source_data_transposed[i]
     
     vendor_assignments = market_dict["assignment_object"]["vendor_assignments"]
+    ao = (market_dict.get("setup_object") or {}).get("assignment_options") or {}
+    idx = ao.get("email_col_name_idx")
+    if idx is None or not isinstance(idx, int) or idx < 0 or idx >= len(col_names):
+        raise ValueError(
+            "setup_object.assignment_options.email_col_name_idx is required and must be a valid column index for CSV export"
+        )
+    email_col_key = col_names[idx]
     for market_date in market_dict["setup_object"]["market_dates"]:
         vendor_data[market_date["date"]] = []
-        for vendor_email in vendor_data["Email"]:
+        for vendor_email in vendor_data[email_col_key]:
             vendor_assignment = next((va for va in vendor_assignments if (va["date"] == market_date["col_name"] and va["email"] == vendor_email)), None)
             if vendor_assignment:
                 assignment_string = vendor_assignment["table_code"] + " - " + vendor_assignment["table_choice"]

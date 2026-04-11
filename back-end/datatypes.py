@@ -72,6 +72,12 @@ class SectionObject(BaseModel):
 class AssignmentOptionObject(BaseModel):
     max_assignments_per_vendor: Optional[int] = None
     max_half_table_proportion_per_section: Optional[int] = None
+    # For assignment: email / table_choice / table_share must be set (column index). No legacy names.
+    email_col_name_idx: Optional[int] = None
+    table_choice_col_name_idx: Optional[int] = None
+    table_share_email_col_name_idx: Optional[int] = None
+    # None = no per-vendor max-days limit from CSV (only global caps). Mapped empty cell = same.
+    max_days_col_name_idx: Optional[int] = None
     # use_totally_random_assignment: bool
     # use_maximum_capacity_assignment: bool
 
@@ -124,7 +130,8 @@ class Market(BaseModel):
     setup_object: Optional[SetupObject] = None
     modification_list: List[ModificationObject]
     assignment_object: AssignmentObject
-    
+    is_draft: bool = True  # False after user completes setup (Generated Assignment Done)
+
     @model_validator(mode='after')
     def validate_single_owner(self):
         """Ensure exactly one owner in roles dict."""

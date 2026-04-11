@@ -90,6 +90,7 @@ The central entity representing a market event with configuration, assignments, 
 - `setup_object: Optional[SetupObject]` - Market configuration and setup data
 - `modification_list: List[ModificationObject]` - List of modifications (currently empty structure)
 - `assignment_object: AssignmentObject` - Contains vendor assignment results and statistics
+- `is_draft: bool` - Stored as `isDraft` in MongoDB (camelCase). Default **true**: market setup is not finished. Set to **false** when the user completes the Generated Assignment flow (Done). While `true`, opening the market from the dashboard or Markets sends the user to market setup; when `false`, the SPA routes to `/{kebab-case-slug}` derived from the market **name** (e.g. `my-summer-market`).
 
 **Relationships:**
 - **Many-to-Many with User**: Markets have multiple users with different roles (via `roles` dict, keys are user ids)
@@ -425,7 +426,7 @@ The system uses MongoDB with the following collections:
 - **Authentication**: Used by Flask-Login for session management (lookup by email)
 
 #### `markets` Collection
-- **Document Structure**: Matches `Market` datatype (with camelCase keys in database)
+- **Document Structure**: Matches `Market` datatype (with camelCase keys in database), including `isDraft` for draft vs. completed setup
 - **Primary Key**: `id` field (UUID)
 - **Operations**: Create, read, update, delete via `api/markets.py`
 - **Key Conversion**: Uses snake_case ↔ camelCase conversion utilities
