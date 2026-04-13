@@ -1,0 +1,144 @@
+[
+  {
+    "id": "market-123",
+    "name": "Spring Makers Fair",
+    "creationDate": "2026-04-10",
+    "isDraft": true,
+    "roles": {
+      "user-1": "owner"
+    },
+    "organizationId": "org-1",
+    "setupObject": null,
+    "modificationList": [],
+    "assignmentObject": {
+      "vendorAssignments": [],
+      "assignmentDate": "",
+      "assignmentStatistics": null
+    }
+  },
+  {
+    "id": "market-456",
+    "name": "Summer Night Market",
+    "creationDate": "2026-04-12",
+    "roles": {
+      "user-2": "admin",
+      "user-3": "editor"
+    },
+    "setupObject": {
+      "colNames": [
+        "email",
+        "table_choice"
+      ],
+      "colValues": [
+        [
+          "vendor@example.com",
+          "Full Table"
+        ]
+      ],
+      "colInclude": [
+        true,
+        true
+      ],
+      "enumPriorityOrder": [
+        [
+          "Gold",
+          "Silver",
+          "Bronze"
+        ]
+      ],
+      "priority": [
+        {
+          "id": 1,
+          "colNameIdx": 2,
+          "dataType": "String",
+          "sortingOrder": "A-Z"
+        }
+      ],
+      "marketDates": [
+        {
+          "date": "2026-05-01",
+          "colNameIdx": 18,
+          "colName": "March 17th"
+        }
+      ],
+      "tiers": [
+        {
+          "id": 1,
+          "name": "Gold"
+        }
+      ],
+      "locations": [
+        {
+          "name": "good location"
+        }
+      ],
+      "sections": [
+        {
+          "name": "good",
+          "location": {
+            "name": "good location"
+          },
+          "tier": {
+            "id": 1,
+            "name": "Gold"
+          },
+          "count": 50
+        }
+      ],
+      "assignmentOptions": {
+        "maxAssignmentsPerVendor": null,
+        "maxHalfTableProportionPerSection": null,
+        "emailColNameIdx": 0,
+        "tableChoiceColNameIdx": 1,
+        "tableShareEmailColNameIdx": null,
+        "maxDaysColNameIdx": null
+      }
+    },
+    "modificationList": [
+      {}
+    ],
+    "assignmentObject": {
+      "vendorAssignments": [
+        {
+          "email": "vendor@example.com",
+          "date": "2026-05-01",
+          "tableCode": "A12",
+          "tableChoice": "Full Table",
+          "section": "Main",
+          "tier": "Standard",
+          "location": "Hall A"
+        }
+      ],
+      "assignmentDate": "2026-04-13",
+      "assignmentStatistics": {
+        "totalVendors": 1,
+        "totalTables": 1,
+        "totalAssignments": 1,
+        "totalAssignedVendors": 1,
+        "totalAssignedTables": 1,
+        "assignmentsPerDate": {
+          "2026-05-01": 1
+        },
+        "assignmentsPerTier": {
+          "Standard": 1
+        },
+        "assignmentsPerSection": {
+          "Main": 1
+        },
+        "unassignedVendors": [
+          "vendor@example.com"
+        ],
+        "unassignedTables": {
+          "2026-05-01": [
+            {
+              "tableCode": "bad20",
+              "tableChoice": "Full Table"
+            }
+          ]
+        },
+        "satisfactionScore": 1
+      }
+    },
+    "userRole": "admin"
+  }
+]

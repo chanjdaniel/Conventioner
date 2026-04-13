@@ -1,7 +1,7 @@
 import uuid
 from enum import Enum
 from typing import List, Optional, Union, Dict, Any
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 
 class DataType(str, Enum):
@@ -35,7 +35,7 @@ class VendorAssignmentResult(BaseModel):
     email: str
     date: str
     table_code: str
-    table_choice: str  # "Full table" or "Half table - Left" or "Half table - Right"
+    table_choice: str  # "Full Table" or "Half Table (Left)" or "Half Table (Right)"
     section: str
     tier: str
     location: str
@@ -99,6 +99,11 @@ class ModificationObject(BaseModel):
     pass  # Empty for now, can be extended later
 
 
+class UnassignedTableEntry(BaseModel):
+    table_code: str
+    table_choice: str
+
+
 class AssignmentStatistics(BaseModel):
     total_vendors: int
     total_tables: int
@@ -106,12 +111,53 @@ class AssignmentStatistics(BaseModel):
     total_assigned_vendors: int
     total_assigned_tables: int
     unassigned_vendors: List[str]
-    unassigned_tables: Dict[str, List[str]]
+    unassigned_tables: Dict[str, List[UnassignedTableEntry]]
     assignments_per_date: Dict[str, int]
     assignments_per_tier: Dict[str, int]
     assignments_per_section: Dict[str, int]
     assignments_per_table_choice: Optional[Dict[str, int]] = None
     satisfaction_score: float
+
+    @field_validator("unassigned_tables", mode="before")
+    @classmethod
+    def normalize_unassigned_tables(cls, value):
+        """Back-compat: allow old shape Dict[str, List[str]] from persisted markets."""
+        if not isinstance(value, dict):
+            return value
+
+        normalized: Dict[str, List[Dict[str, str]]] = {}
+        for date, entries in value.items():
+            if not isinstance(entries, list):
+                normalized[date] = []
+                continue
+
+            normalized_entries: List[Dict[str, str]] = []
+            for entry in entries:
+                if isinstance(entry, str):
+                    normalized_entries.append({
+                        "table_code": entry,
+                        "table_choice": "Unknown",
+                    })
+                    continue
+                if isinstance(entry, dict):
+                    table_code = str(
+                        entry.get("table_code")
+                        or entry.get("tableCode")
+                        or entry.get("code")
+                        or ""
+                    ).strip() or "(unknown table)"
+                    table_choice = str(
+                        entry.get("table_choice")
+                        or entry.get("tableChoice")
+                        or "Unknown"
+                    ).strip() or "Unknown"
+                    normalized_entries.append({
+                        "table_code": table_code,
+                        "table_choice": table_choice,
+                    })
+            normalized[date] = normalized_entries
+
+        return normalized
 
 
 class AssignmentObject(BaseModel):
@@ -175,3 +221,111 @@ class User(BaseModel):
     otp: Optional[str] = None
     otp_expires: Optional[str] = None
     otp_attempts: int = 0
+
+
+def to_camel(string: str) -> str:
+    parts = string.split("_")
+    return parts[0] + "".join(word.capitalize() for word in parts[1:])
+
+
+class ContractModel(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+
+class AssignmentOptionContract(ContractModel):
+    email_col_name_idx: int
+    max_assignments_per_vendor: None
+    max_days_col_name_idx: None
+    max_half_table_proportion_per_section: None
+    table_choice_col_name_idx: int
+    table_share_email_col_name_idx: None
+
+
+class VendorAssignmentResultContract(ContractModel):
+    date: str
+    email: str
+    location: str
+    section: str
+    table_choice: str
+    table_code: str
+    tier: str
+
+
+class PriorityContract(ContractModel):
+    col_name_idx: int
+    data_type: DataType
+    id: int
+    sorting_order: str
+
+
+class MarketDateContract(ContractModel):
+    col_name: str
+    col_name_idx: int
+    date: str
+
+
+class TierContract(ContractModel):
+    id: int
+    name: str
+
+
+class LocationContract(ContractModel):
+    name: str
+
+
+class SectionContract(ContractModel):
+    count: int
+    location: LocationContract
+    name: str
+    tier: TierContract
+
+
+class UnassignedTableEntryContract(ContractModel):
+    table_choice: str
+    table_code: str
+
+
+class SetupObjectContract(ContractModel):
+    assignment_options: AssignmentOptionContract
+    col_include: List[bool]
+    col_names: List[str]
+    col_values: List[List[str]]
+    enum_priority_order: List[List[str]]
+    locations: List[LocationContract]
+    market_dates: List[MarketDateContract]
+    priority: List[PriorityContract]
+    sections: List[SectionContract]
+    tiers: List[TierContract]
+
+
+class AssignmentStatisticsContract(ContractModel):
+    assignments_per_date: Dict[str, int]
+    assignments_per_section: Dict[str, int]
+    assignments_per_tier: Dict[str, int]
+    satisfaction_score: float
+    total_assigned_tables: int
+    total_assigned_vendors: int
+    total_assignments: int
+    total_tables: int
+    total_vendors: int
+    unassigned_tables: Dict[str, List[UnassignedTableEntryContract]]
+    unassigned_vendors: List[str]
+
+
+class AssignmentObjectContract(ContractModel):
+    assignment_date: str
+    assignment_statistics: Optional[AssignmentStatisticsContract]
+    vendor_assignments: List[VendorAssignmentResultContract]
+
+
+class MarketSchemaContract(ContractModel):
+    assignment_object: AssignmentObjectContract
+    creation_date: str
+    id: str
+    is_draft: Optional[bool] = None
+    modification_list: List[ModificationObject]
+    name: str
+    organization_id: Optional[str] = None
+    roles: Dict[str, str]
+    setup_object: Optional[SetupObjectContract]
+    user_role: Optional[str] = None

@@ -18,9 +18,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # temporary constants
-FULL_TABLE_ONLY = "Full table"
-HALF_TABLE_ONLY = "Half table"
-EITHER_TABLE = "Either"
+FULL_TABLE_ONLY_CHOICES = {"full table", "full table only"}
+HALF_TABLE_ONLY_CHOICES = {"half table", "half table only"}
+EITHER_TABLE_CHOICES = {"either"}
+FULL_TABLE_LABEL = "Full Table"
+HALF_TABLE_LEFT_LABEL = "Half Table (Left)"
+HALF_TABLE_RIGHT_LABEL = "Half Table (Right)"
 NO_CLUB_MEMBERSHIP = "I am NOT a part of any of these clubs"
 MAX_VENDING_DAYS = 4
 MAX_HALF_TABLES_PER_SECTION = 0.3
@@ -91,6 +94,65 @@ class Table:
 
     def is_full(self):
         return len(self.assignment) == 2
+
+    def available_table_choice(self):
+        """Return a display label for the remaining availability at this table."""
+        def _extract_assignment_field(row, key: str) -> str:
+            def _snake_to_camel(s: str) -> str:
+                parts = s.split("_")
+                return parts[0] + "".join(p.capitalize() for p in parts[1:])
+
+            if row is None:
+                return ""
+            if isinstance(row, dict):
+                value = row.get(key) or row.get(_snake_to_camel(key)) or row.get(key.replace("_", ""))
+                return str(value or "")
+            value = (
+                getattr(row, key, None)
+                or getattr(row, _snake_to_camel(key), None)
+                or getattr(row, key.replace("_", ""), None)
+            )
+            return str(value or "")
+
+        def _normalize_half_side_label(choice: str) -> str:
+            normalized = choice.strip().lower()
+            if not normalized:
+                return ""
+
+            normalized = normalized.replace("-", " ")
+            normalized = normalized.replace("(", " ").replace(")", " ")
+            normalized = " ".join(normalized.split())
+
+            # Accept common variants like:
+            # "half table left", "half table (left)", "half table - left"
+            if "half table" in normalized and "left" in normalized:
+                return HALF_TABLE_LEFT_LABEL
+            if "half table" in normalized and "right" in normalized:
+                return HALF_TABLE_RIGHT_LABEL
+            return ""
+
+        if len(self.assignment) == 0:
+            return FULL_TABLE_LABEL
+        if len(self.assignment) == 1:
+            assigned_vendor = self.assignment[0]
+            choice = ""
+
+            # Read the actual assigned side for this table/date from vendor assignments.
+            # `Table.assignment` stores vendor objects (not assignment result objects).
+            vendor_assignments = getattr(assigned_vendor, "assignment", None)
+            if isinstance(vendor_assignments, dict):
+                assigned_row = vendor_assignments.get(self.date.date)
+                assigned_row_table_code = _extract_assignment_field(assigned_row, "table_code")
+                if assigned_row is not None and assigned_row_table_code == self.table_code:
+                    choice = _extract_assignment_field(assigned_row, "table_choice")
+
+            normalized_choice = _normalize_half_side_label(choice)
+            if normalized_choice == HALF_TABLE_LEFT_LABEL:
+                return HALF_TABLE_RIGHT_LABEL
+            if normalized_choice == HALF_TABLE_RIGHT_LABEL:
+                return HALF_TABLE_LEFT_LABEL
+            return "Half Table"
+        return "Unavailable"
 
     def assign(self, vendors):
         self.assignment = vendors
@@ -196,6 +258,15 @@ class MarketAssignment:
     def vendor_table_choice(self, vendor: Vendor) -> str:
         ao = self.setup_object.assignment_options
         return self._vendor_field_at(vendor, ao.table_choice_col_name_idx)
+
+    def _normalized_table_choice(self, vendor: Vendor) -> str:
+        return self.vendor_table_choice(vendor).strip().lower()
+
+    def _is_full_table_only(self, vendor: Vendor) -> bool:
+        return self._normalized_table_choice(vendor) in FULL_TABLE_ONLY_CHOICES
+
+    def _is_either_table_choice(self, vendor: Vendor) -> bool:
+        return self._normalized_table_choice(vendor) in EITHER_TABLE_CHOICES
 
     def _max_days_raw(self, vendor: Vendor):
         """Cell value for max-days column, or None if unmapped / blank cell (no per-vendor cap from CSV)."""
@@ -354,7 +425,7 @@ class MarketAssignment:
 
         # check for valid table sharing partner
         table_share_email = self._vendor_table_share_email_str(next_vendor)
-        if table_share_email != "" and self.vendor_table_choice(next_vendor) != FULL_TABLE_ONLY:
+        if table_share_email != "" and not self._is_full_table_only(next_vendor):
             table_share_vendor = self.get_table_share_vendor(next_vendor)
             if self.is_valid_vendor(table_share_vendor, market_date, table):
                 self.table_sharing.append(next_vendor)
@@ -362,11 +433,11 @@ class MarketAssignment:
                 return [next_vendor, table_share_vendor]
 
         # check if vendor selected full table only
-        if self.vendor_table_choice(next_vendor) == FULL_TABLE_ONLY:
+        if self._is_full_table_only(next_vendor):
             return [next_vendor, next_vendor]
 
         # check if vendor selected either and if there are max half tables for the section
-        if self.vendor_table_choice(next_vendor) == EITHER_TABLE:
+        if self._is_either_table_choice(next_vendor):
             if self.is_max_half_tables(market_date, table.section):
                 return [next_vendor, next_vendor]
 
@@ -386,7 +457,7 @@ class MarketAssignment:
                 continue
 
             # append if vendor selected half table
-            if self.vendor_table_choice(vendor) != FULL_TABLE_ONLY:
+            if not self._is_full_table_only(vendor):
                 valid_vendors.append(vendor)
                 
         return valid_vendors
@@ -404,7 +475,7 @@ class MarketAssignment:
                 email=self.vendor_email(vendor_list[0]),
                 date=market_date.col_name,
                 table_code=table.table_code,
-                table_choice="Full table",
+                table_choice=FULL_TABLE_LABEL,
                 section=table.section.name,
                 tier=table.tier.name,
                 location=table.location.name
@@ -413,7 +484,7 @@ class MarketAssignment:
         else:
             # half table assignment
             for i, vendor in enumerate(vendor_list):
-                table_choice = "Half table - Left" if i == 0 else "Half table - Right"
+                table_choice = HALF_TABLE_LEFT_LABEL if i == 0 else HALF_TABLE_RIGHT_LABEL
                 assignment = VendorAssignmentResult(
                     email=self.vendor_email(vendor),
                     date=market_date.col_name,
@@ -435,7 +506,7 @@ class MarketAssignment:
             email=self.vendor_email(vendor),
             date=market_date.col_name,
             table_code=table_code,
-            table_choice="Full table",
+            table_choice=FULL_TABLE_LABEL,
             section=table.section.name,
             tier=table.tier.name,
             location=table.location.name
@@ -468,8 +539,11 @@ class MarketAssignment:
             for table in date_assignment.tables:
                 if table.assignment:
                     assigned_tables_count += 1
-                else:
-                    unassigned_tables[date].append(table.table_code)
+                if not table.is_full():
+                    unassigned_tables[date].append({
+                        "table_code": table.table_code,
+                        "table_choice": table.available_table_choice(),
+                    })
 
         # Count assignments by category using defaultdict for cleaner code
         assignments_per_tier = defaultdict(int)

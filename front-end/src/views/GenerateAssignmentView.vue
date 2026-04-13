@@ -2,7 +2,7 @@
 import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { type AssignmentStatistics, type Market } from '@/assets/types/datatypes';
+import { type AssignmentStatistics, type Market, type UnassignedTableEntry } from '@/assets/types/datatypes';
 import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -28,10 +28,92 @@ const unassignedVendorList = computed((): unknown[] => {
 
 const hasUnassignedVendors = computed(() => unassignedVendorList.value.length > 0);
 
-const hasUnassignedTables = computed(() => {
-    const t = assignmentStatistics.value?.unassignedTables;
-    return !!t && Object.keys(t).length > 0;
+type LegacyUnassignedTable = string | {
+    table_code?: string;
+    tableCode?: string;
+    code?: string;
+    table_choice?: string;
+    tableChoice?: string;
+};
+
+interface UnassignedTableDisplayRow {
+    tableCode: string;
+    tableChoice: string;
+    dateRaw: string;
+    dateDisplay: string;
+}
+
+interface UnassignedTableDateGroup {
+    dateRaw: string;
+    dateDisplay: string;
+    rows: UnassignedTableDisplayRow[];
+}
+
+function formatDisplayDate(date: string): string {
+    const d = new Date(`${date}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return date;
+    return d.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
+function toComparableDate(date: string): number {
+    const t = new Date(`${date}T00:00:00`).getTime();
+    return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
+}
+
+function normalizeUnassignedTableEntry(raw: LegacyUnassignedTable | UnassignedTableEntry): {
+    tableCode: string;
+    tableChoice: string;
+} {
+    if (typeof raw === 'string') {
+        return {
+            tableCode: raw,
+            tableChoice: 'Unknown',
+        };
+    }
+    const entry = raw as Record<string, unknown>;
+    return {
+        tableCode: String(entry.table_code ?? entry.tableCode ?? entry.code ?? '').trim() || '(unknown table)',
+        tableChoice: String(entry.table_choice ?? entry.tableChoice ?? 'Unknown').trim() || 'Unknown',
+    };
+}
+
+const unassignedTableGroups = computed((): UnassignedTableDateGroup[] => {
+    const unassignedTables = assignmentStatistics.value?.unassignedTables;
+    if (!unassignedTables) return [];
+
+    const sortedDates = Object.keys(unassignedTables).sort((a, b) => {
+        const t1 = toComparableDate(a);
+        const t2 = toComparableDate(b);
+        if (t1 === t2) return a.localeCompare(b);
+        return t1 - t2;
+    });
+
+    return sortedDates
+        .map((dateRaw) => {
+            const dateDisplay = formatDisplayDate(dateRaw);
+            const rowsRaw = unassignedTables[dateRaw];
+            const rowsArray = Array.isArray(rowsRaw)
+                ? rowsRaw
+                : Object.values(rowsRaw as Record<string, LegacyUnassignedTable>);
+            const rows = rowsArray.map((raw) => {
+                const normalized = normalizeUnassignedTableEntry(raw as LegacyUnassignedTable | UnassignedTableEntry);
+                return {
+                    tableCode: normalized.tableCode,
+                    tableChoice: normalized.tableChoice,
+                    dateRaw,
+                    dateDisplay,
+                };
+            });
+            return { dateRaw, dateDisplay, rows };
+        })
+        .filter((group) => group.rows.length > 0);
 });
+
+const hasUnassignedTables = computed(() => unassignedTableGroups.value.length > 0);
 
 const showUnassignedColumn = computed(() => hasUnassignedVendors.value || hasUnassignedTables.value);
 
@@ -285,18 +367,19 @@ const handleDone = async () => {
                                     <h3>Unassigned Tables</h3>
                                     <div class="unassigned-list">
                                         <div
-                                            v-for="(tables, date) in assignmentStatistics.unassignedTables"
-                                            :key="date"
+                                            v-for="group in unassignedTableGroups"
+                                            :key="group.dateRaw"
                                             class="unassigned-date-group"
                                         >
-                                            <div class="unassigned-date-header">{{ date }}</div>
+                                            <div class="unassigned-date-header">{{ group.dateDisplay }}</div>
                                             <div class="unassigned-tables-list">
                                                 <div
-                                                    v-for="(table, tableIndex) in (Array.isArray(tables) ? tables : Object.values(tables))"
-                                                    :key="tableIndex"
-                                                    class="unassigned-item"
+                                                    v-for="(row, tableIndex) in group.rows"
+                                                    :key="`${group.dateRaw}-${row.tableCode}-${tableIndex}`"
+                                                    class="unassigned-item unassigned-item--table"
                                                 >
-                                                    <span class="unassigned-text">{{ typeof table === 'string' ? table : (table.table_code || table.code || JSON.stringify(table)) }}</span>
+                                                    <span class="unassigned-text unassigned-table-label">{{ row.tableCode }} - {{ row.tableChoice }}</span>
+                                                    <span class="unassigned-table-date">{{ row.dateDisplay }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -697,9 +780,31 @@ const handleDone = async () => {
         0 6px 14px rgba(0, 0, 0, 0.08);
 }
 
+.unassigned-item--table {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 .unassigned-text {
     color: var(--mm-black);
     word-break: break-word;
+}
+
+.unassigned-table-label {
+    flex: 1;
+    min-width: 0;
+}
+
+.unassigned-table-date {
+    flex-shrink: 0;
+    font-family: 'Outfit Regular';
+    font-size: 12px;
+    color: #7f8791;
+    text-align: right;
+    white-space: nowrap;
+    line-height: 1.3;
 }
 
 .unassigned-date-group {

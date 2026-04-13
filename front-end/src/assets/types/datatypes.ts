@@ -105,8 +105,13 @@ export interface AssignmentStatistics {
     assignmentsPerSection: Record<string, number>,
     assignmentsPerTableChoice?: Record<string, number>,
     unassignedVendors: any[],
-    unassignedTables: Record<string, any>,
+    unassignedTables: Record<string, UnassignedTableEntry[]>,
     satisfactionScore: number,
+}
+
+export interface UnassignedTableEntry {
+    table_code: string,
+    table_choice: string,
 }
 
 export interface AssignmentObject {
