@@ -31,10 +31,6 @@ def test_record_fields_are_derived_from_dict_types_without_forcing():
     )
 
     assert "roles: Record<string, string>;" in declaration
-    assert "assignmentsPerDate: Record<string, number>;" in declaration
-    assert "assignmentsPerSection: Record<string, number>;" in declaration
-    assert "assignmentsPerTier: Record<string, number>;" in declaration
-    assert "unassignedTables: Record<string, {" in declaration
     assert not hasattr(schema_gen, "FORCED_RECORD_FIELDS")
 
 
@@ -80,3 +76,37 @@ def test_record_detection_does_not_rely_on_special_key_patterns():
     }
     rendered = schema_gen.render_from_json_schema(schema, {}, 0)
     assert "normalMap: Record<string, string>;" in rendered
+
+
+def test_assignment_options_contract_fields_are_not_rendered_as_literal_nulls():
+    root_type = schema_gen.build_root_type_from_model("datatypes:MarketSchemaContract")
+    declaration = schema_gen.generate_declaration_from_model(
+        root_type=root_type,
+        root_name="MarketSchema",
+        command_hint="python back-end/generate_market_schema.py --input ../docs/market-schema-input.example.json --output ../docs/schema.d.ts",
+    )
+
+    assert "assignmentOptions: {" in declaration
+    assert "emailColNameIdx?: number;" in declaration
+    assert "tableChoiceColNameIdx?: number;" in declaration
+    assert "tableShareEmailColNameIdx?: number;" in declaration
+    assert "maxAssignmentsPerVendor?: number;" in declaration
+    assert "maxDaysColNameIdx?: number;" in declaration
+    assert "maxHalfTableProportionPerSection?: number;" in declaration
+
+    assignment_options_block = declaration.split("assignmentOptions: {", 1)[1].split("};", 1)[0]
+    assert ": null;" not in assignment_options_block
+
+
+def test_market_schema_contract_omits_persisted_assignment_statistics():
+    root_type = schema_gen.build_root_type_from_model("datatypes:MarketSchemaContract")
+    declaration = schema_gen.generate_declaration_from_model(
+        root_type=root_type,
+        root_name="MarketSchema",
+        command_hint="python back-end/generate_market_schema.py --input ../docs/market-schema-input.example.json --output ../docs/schema.d.ts",
+    )
+
+    assignment_object_block = declaration.split("assignmentObject: {", 1)[1].split("};", 1)[0]
+    assert "assignmentDate: string;" in assignment_object_block
+    assert "vendorAssignments: {" in assignment_object_block
+    assert "assignmentStatistics" not in assignment_object_block

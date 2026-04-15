@@ -40,6 +40,16 @@ class VendorAssignmentResult(BaseModel):
     tier: str
     location: str
 
+
+class MarketTableRow(BaseModel):
+    date: str
+    assignment: List[str]
+    location: str
+    section: str
+    table_choice: str
+    table_code: str
+    tier: str
+
 class PriorityObject(BaseModel):
     id: int
     col_name_idx: int
@@ -232,18 +242,23 @@ class ContractModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
-class AssignmentOptionContract(ContractModel):
-    email_col_name_idx: int
-    max_assignments_per_vendor: None
-    max_days_col_name_idx: None
-    max_half_table_proportion_per_section: None
-    table_choice_col_name_idx: int
-    table_share_email_col_name_idx: None
+class AssignmentOptionContract(AssignmentOptionObject, ContractModel):
+    """Camel-cased contract view of assignment options from backend datatypes."""
 
 
 class VendorAssignmentResultContract(ContractModel):
     date: str
     email: str
+    location: str
+    section: str
+    table_choice: str
+    table_code: str
+    tier: str
+
+
+class MarketTableRowContract(ContractModel):
+    assignment: List[str]
+    date: str
     location: str
     section: str
     table_choice: str
@@ -314,7 +329,6 @@ class AssignmentStatisticsContract(ContractModel):
 
 class AssignmentObjectContract(ContractModel):
     assignment_date: str
-    assignment_statistics: Optional[AssignmentStatisticsContract]
     vendor_assignments: List[VendorAssignmentResultContract]
 
 

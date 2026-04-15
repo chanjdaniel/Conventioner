@@ -167,10 +167,19 @@ onMounted(() => {
     try {
         const parsed = JSON.parse(raw) as unknown;
         market.value = parseMarketFromApi(parsed);
-        const stats = market.value.assignmentObject?.assignmentStatistics;
-        if (stats) {
-            assignmentStatistics.value = stats;
-        }
+        assignmentStatistics.value = null;
+        const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
+        if (!market.value?.id || !userEmail) return;
+
+        api.get(`/markets/${encodeURIComponent(market.value.id)}/assignment-statistics`, {
+            headers: {
+                'X-Owner-Email': userEmail,
+            },
+        }).then((response) => {
+            assignmentStatistics.value = response.data as AssignmentStatistics;
+        }).catch(() => {
+            assignmentStatistics.value = null;
+        });
     } catch {
         market.value = null;
     }

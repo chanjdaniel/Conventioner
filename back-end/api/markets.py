@@ -2,7 +2,7 @@ import uuid
 from typing import Optional, Dict, Any, List
 from pymongo.results import InsertOneResult, UpdateResult, DeleteResult
 from bson import ObjectId
-from datatypes import Market, MarketRole
+from datatypes import Market, MarketRole, MarketTableRow, UnassignedTableEntry
 from assignment.assignment import assign_market
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
 import api.source_data as SourceDataApi
@@ -20,6 +20,124 @@ logger = logging.getLogger(__name__)
 
 db = get_database()
 markets_collection = db["markets"]
+
+
+def _strip_persisted_assignment_statistics(market_dict: Dict[str, Any]) -> None:
+    """Keep assignment statistics derived at read-time only, never persisted."""
+    assignment_object = market_dict.get("assignment_object")
+    if isinstance(assignment_object, dict):
+        assignment_object.pop("assignment_statistics", None)
+
+
+def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
+    """Derive one row per table/date with assignment slots."""
+    setup_object = assigned_market.setup_object
+    if setup_object is None:
+        return []
+
+    # Map assignment date values (often col_name) back to configured market date.
+    date_aliases: Dict[str, str] = {}
+    for market_date in setup_object.market_dates:
+        date_aliases[market_date.date] = market_date.date
+        if market_date.col_name:
+            date_aliases[market_date.col_name] = market_date.date
+
+    rows_by_key: Dict[tuple[str, str], Dict[str, Any]] = {}
+
+    for market_date in setup_object.market_dates:
+        for section in setup_object.sections:
+            for idx in range(section.count):
+                table_code = f"{section.name}{idx + 1}"
+                rows_by_key[(market_date.date, table_code)] = {
+                    "date": market_date.date,
+                    "assignment_slots": [None, None],
+                    "location": section.location.name if section.location else "",
+                    "section": section.name,
+                    "table_choice": "Full Table",
+                    "table_code": table_code,
+                    "tier": section.tier.name if section.tier else "",
+                }
+
+    for assignment in assigned_market.assignment_object.vendor_assignments:
+        date_value = date_aliases.get(assignment.date, assignment.date)
+        key = (date_value, assignment.table_code)
+
+        if key not in rows_by_key:
+            rows_by_key[key] = {
+                "date": date_value,
+                "assignment_slots": [None, None],
+                "location": assignment.location,
+                "section": assignment.section,
+                "table_choice": "Full Table",
+                "table_code": assignment.table_code,
+                "tier": assignment.tier,
+            }
+
+        row = rows_by_key[key]
+        choice_normalized = assignment.table_choice.strip().lower()
+        if "full table" in choice_normalized:
+            row["assignment_slots"] = [assignment.email, assignment.email]
+        elif "half table" in choice_normalized and "left" in choice_normalized:
+            row["assignment_slots"][0] = assignment.email
+        elif "half table" in choice_normalized and "right" in choice_normalized:
+            row["assignment_slots"][1] = assignment.email
+        else:
+            if row["assignment_slots"][0] is None:
+                row["assignment_slots"][0] = assignment.email
+            elif row["assignment_slots"][1] is None:
+                row["assignment_slots"][1] = assignment.email
+
+    rows: List[MarketTableRow] = []
+    for row in rows_by_key.values():
+        left_slot, right_slot = row["assignment_slots"]
+        assignment: List[str]
+        table_choice = "Full Table"
+
+        if left_slot is None and right_slot is None:
+            assignment = []
+        elif left_slot and right_slot:
+            if left_slot == right_slot:
+                assignment = [left_slot, right_slot]
+                table_choice = "Full Table"
+            else:
+                assignment = [left_slot, right_slot]
+                table_choice = "Half Table"
+        else:
+            # Defensive fallback for partially represented rows.
+            only_email = left_slot or right_slot
+            assignment = [only_email] if only_email else []
+            table_choice = "Half Table"
+
+        rows.append(MarketTableRow(
+            date=row["date"],
+            assignment=assignment,
+            location=row["location"],
+            section=row["section"],
+            table_choice=table_choice,
+            table_code=row["table_code"],
+            tier=row["tier"],
+        ))
+
+    return sorted(rows, key=lambda row: (row.date, row.location, row.section, row.table_code))
+
+
+def derive_unassigned_tables_from_rows(rows: List[MarketTableRow]) -> Dict[str, List[UnassignedTableEntry]]:
+    """Build assignment statistics unassigned tables from normalized market table rows."""
+    unassigned_tables: Dict[str, List[UnassignedTableEntry]] = {}
+
+    for row in rows:
+        # Consider table rows with no vendor or only one-side occupancy as unassigned capacity.
+        if len(row.assignment) > 1:
+            continue
+
+        if row.date not in unassigned_tables:
+            unassigned_tables[row.date] = []
+        unassigned_tables[row.date].append(UnassignedTableEntry(
+            table_code=row.table_code,
+            table_choice=row.table_choice,
+        ))
+
+    return unassigned_tables
 
 def get_market(market_id: str) -> Optional[Dict[str, Any]]:
     """Get a market by id. (Deprecated - use get_market_for_user instead)"""
@@ -154,6 +272,7 @@ def _convert_roles_keys_to_user_ids(roles: Dict[str, str]) -> Dict[str, str]:
 def create_market(market: Market, owner_email: str) -> tuple:
     """Create a new market."""
     market_dict = market.model_dump()
+    _strip_persisted_assignment_statistics(market_dict)
     roles = market_dict.get('roles', {})
     roles = _convert_roles_keys_to_user_ids(roles)
     market_dict["roles"] = roles
@@ -211,6 +330,7 @@ def update_market(market_id: str, market: Market, requesting_user: str) -> Updat
         raise PermissionError("User does not have permission to edit this market")
     
     market_dict = market.model_dump()
+    _strip_persisted_assignment_statistics(market_dict)
     market_dict["roles"] = _convert_roles_keys_to_user_ids(market_dict.get("roles", {}))
     market_dict = convert_keys_to_camel_case(market_dict)
     
@@ -374,6 +494,115 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
             "error_type": type(e).__name__,
             "market_id": market_id,
             "function": "get_assigned_market"
+        }, 500
+
+
+def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
+    """Derive and return assignment statistics for a market."""
+    try:
+        market_dict = markets_collection.find_one({"id": market_id})
+        if not market_dict:
+            return {"error": "Market not found"}, 404
+
+        market_dict_snake = convert_keys_to_snake_case(market_dict.copy())
+        try:
+            market = Market(**market_dict_snake)
+        except Exception:
+            return {"error": "Invalid market data"}, 400
+
+        if requesting_user:
+            organization = None
+            if market.organization_id:
+                org_dict = OrgsApi.get_organization(market.organization_id)
+                if org_dict:
+                    org_dict.pop('_id', None)
+                    try:
+                        from datatypes import Organization
+                        organization = Organization(**org_dict)
+                    except Exception:
+                        pass
+
+            if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, organization):
+                return {"error": "User does not have permission to view this market"}, 403
+
+        source_data_result = SourceDataApi.get_source_data(market_id)
+        if source_data_result is None:
+            return {"error": "Source data not found"}, 404
+        source_data, source_status = source_data_result
+        if source_status != 200:
+            return source_data, source_status
+
+        # Keep persisted schema free of assignment statistics, then derive fresh.
+        market.assignment_object.assignment_statistics = None
+        assigned_market = assign_market(market, source_data)
+        stats = assigned_market.assignment_object.assignment_statistics
+        if stats is None:
+            return {"error": "Unable to derive assignment statistics"}, 500
+
+        rows = derive_market_table_rows(assigned_market)
+        stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
+
+        return convert_keys_to_camel_case(stats.model_dump()), 200
+    except Exception as e:
+        logger.error(f"Unexpected error in get_assignment_statistics: {str(e)}")
+        logger.error(f"Error type: {type(e)}")
+        return {
+            "error": "Internal server error",
+            "message": str(e),
+            "error_type": type(e).__name__,
+            "market_id": market_id,
+            "function": "get_assignment_statistics"
+        }, 500
+
+
+def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> tuple[List[Dict[str, Any]] | Dict[str, Any], int]:
+    """Derive and return table rows for a market."""
+    try:
+        market_dict = markets_collection.find_one({"id": market_id})
+        if not market_dict:
+            return {"error": "Market not found"}, 404
+
+        market_dict_snake = convert_keys_to_snake_case(market_dict.copy())
+        try:
+            market = Market(**market_dict_snake)
+        except Exception:
+            return {"error": "Invalid market data"}, 400
+
+        if requesting_user:
+            organization = None
+            if market.organization_id:
+                org_dict = OrgsApi.get_organization(market.organization_id)
+                if org_dict:
+                    org_dict.pop('_id', None)
+                    try:
+                        from datatypes import Organization
+                        organization = Organization(**org_dict)
+                    except Exception:
+                        pass
+
+            if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, organization):
+                return {"error": "User does not have permission to view this market"}, 403
+
+        source_data_result = SourceDataApi.get_source_data(market_id)
+        if source_data_result is None:
+            return {"error": "Source data not found"}, 404
+        source_data, source_status = source_data_result
+        if source_status != 200:
+            return source_data, source_status
+
+        market.assignment_object.assignment_statistics = None
+        assigned_market = assign_market(market, source_data)
+        rows = derive_market_table_rows(assigned_market)
+        return [convert_keys_to_camel_case(row.model_dump()) for row in rows], 200
+    except Exception as e:
+        logger.error(f"Unexpected error in get_market_tables: {str(e)}")
+        logger.error(f"Error type: {type(e)}")
+        return {
+            "error": "Internal server error",
+            "message": str(e),
+            "error_type": type(e).__name__,
+            "market_id": market_id,
+            "function": "get_market_tables"
         }, 500
 
 

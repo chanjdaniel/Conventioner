@@ -6,22 +6,6 @@
 export interface MarketSchema {
   assignmentObject: {
     assignmentDate: string;
-    assignmentStatistics: null | {
-      assignmentsPerDate: Record<string, number>;
-      assignmentsPerSection: Record<string, number>;
-      assignmentsPerTier: Record<string, number>;
-      satisfactionScore: number;
-      totalAssignedTables: number;
-      totalAssignedVendors: number;
-      totalAssignments: number;
-      totalTables: number;
-      totalVendors: number;
-      unassignedTables: Record<string, {
-        tableChoice: string;
-        tableCode: string;
-      }[]>;
-      unassignedVendors: string[];
-    };
     vendorAssignments: {
       date: string;
       email: string;
@@ -42,12 +26,12 @@ export interface MarketSchema {
   roles: Record<string, string>;
   setupObject: null | {
     assignmentOptions: {
-      emailColNameIdx: number;
-      maxAssignmentsPerVendor: null;
-      maxDaysColNameIdx: null;
-      maxHalfTableProportionPerSection: null;
-      tableChoiceColNameIdx: number;
-      tableShareEmailColNameIdx: null;
+      emailColNameIdx?: number;
+      maxAssignmentsPerVendor?: number;
+      maxDaysColNameIdx?: number;
+      maxHalfTableProportionPerSection?: number;
+      tableChoiceColNameIdx?: number;
+      tableShareEmailColNameIdx?: number;
     };
     colInclude: boolean[];
     colNames: string[];

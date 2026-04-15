@@ -673,6 +673,51 @@ def get_assigned_market(market_id: str) -> Response:
         }), 500
 
 
+@app.route('/markets/<market_id>/assignment-statistics', methods=['GET'])
+@login_required
+def get_assignment_statistics(market_id: str) -> Response:
+    """Get assignment statistics derived on-demand. Requires VIEW permission."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        result, status_code = MarketsApi.get_assignment_statistics(market_id, requesting_user)
+        return jsonify(result), status_code
+
+    except Exception as e:
+        logger.error(f"Error in get_assignment_statistics for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_id}/assignment-statistics",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 500
+
+
+@app.route('/markets/<market_id>/tables', methods=['GET'])
+@login_required
+def get_market_tables(market_id: str) -> Response:
+    """Get table-level assignments derived on-demand. Requires VIEW permission."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        result, status_code = MarketsApi.get_market_tables(market_id, requesting_user)
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in get_market_tables for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_id}/tables",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 500
+
+
 # misc
 
 def cleanup_sessions() -> None:
