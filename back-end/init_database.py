@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to initialize the market_maker database and create collections.
+Script to initialize the conventioner database and create collections.
 This ensures the database and collections exist even if mongo-init.js didn't run.
 
 Usage:
@@ -11,7 +11,7 @@ from db_config import get_database
 
 def init_database():
     """Initialize the database and create collections if they don't exist."""
-    db = get_database('market_maker')
+    db = get_database('conventioner')
     
     collections_to_create = ['users', 'markets', 'source_data', 'organizations']
     created_collections = []
@@ -28,7 +28,7 @@ def init_database():
     
     # Verify collections exist
     existing_collections = db.list_collection_names()
-    print(f"\n📊 Database 'market_maker' contains {len(existing_collections)} collection(s):")
+    print(f"\n📊 Database 'conventioner' contains {len(existing_collections)} collection(s):")
     for coll in existing_collections:
         count = db[coll].count_documents({})
         print(f"   - {coll}: {count} document(s)")

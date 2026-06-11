@@ -1,6 +1,6 @@
 # Object Relationships Overview
 
-This document provides a comprehensive audit of all types, objects, and their relationships within the MakersMarketManagement system.
+This document provides a comprehensive audit of all types, objects, and their relationships within the Conventioner system.
 
 ## Table of Contents
 1. [Core Domain Objects](#core-domain-objects)

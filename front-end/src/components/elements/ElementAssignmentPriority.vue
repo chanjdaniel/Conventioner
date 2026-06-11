@@ -49,10 +49,7 @@ const watchPriorityObject = ((id: number) => {
 
             if (!dataTypeSorting[newObj.dataType].includes(newObj.sortingOrder) && newObj.sortingOrder !== "") {
                 priorityObjects.value[objectIndex].sortingOrder = "";
-                console.log("deleted");
             }
-
-            console.log("watched");
         },
         { deep: true }
     );

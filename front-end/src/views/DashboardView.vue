@@ -55,7 +55,7 @@ const handleOrganizations = () => {
 };
 
 const handleSettings = () => {
-  console.log('Settings clicked');
+  // TODO: implement settings view (currently unwired)
 };
 
 const handleSignOut = async () => {

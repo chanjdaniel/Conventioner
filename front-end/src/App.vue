@@ -1,8 +1,7 @@
 <script setup lang="ts">
 // npm run dev
 import axios from 'axios';
-import { RouterLink, RouterView } from 'vue-router'
-// @ts-ignore
+import { RouterView } from 'vue-router'
 import ElementBanner from './components/elements/ElementBanner.vue'
 import ElementNavigation from './components/elements/ElementNavigation.vue';
 

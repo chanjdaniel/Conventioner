@@ -6,7 +6,6 @@ from datatypes import (
     LocationObject
 )
 
-import random
 import math
 from datetime import datetime
 import traceback

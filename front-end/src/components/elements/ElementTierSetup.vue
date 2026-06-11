@@ -37,8 +37,6 @@ const watchTierObject = ((id: number) => {
                 removeWatcher(id);
                 return;
             }
-
-            console.log("watched");
         },
         { deep: true }
     );

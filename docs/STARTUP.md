@@ -1,6 +1,6 @@
-# MakersMarketManagement - Development Startup Guide
+# Conventioner - Development Startup Guide
 
-This guide will help you set up and run the MakersMarketManagement application for development.
+This guide will help you set up and run the Conventioner application for development.
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ If you prefer to run services locally without Docker:
 ## Project Structure
 
 ```
-MakersMarketManagement/
+Conventioner/
 ├── back-end/          # Flask backend API
 │   ├── Dockerfile     # Backend Docker image
 │   ├── requirements.txt
@@ -62,7 +62,7 @@ MakersMarketManagement/
 The application requires MongoDB to be running. The backend connects to:
 
 - **Host**: `localhost:27017` (or `mongodb` in Docker)
-- **Database**: `market_maker`
+- **Database**: `conventioner`
 - **Authentication**: `admin:secret` (default development credentials)
 
 ### Option A: Local MongoDB Installation

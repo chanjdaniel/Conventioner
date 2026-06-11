@@ -7,16 +7,11 @@ const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
 
 const logout = async () => {
-  console.log(hostname);
-
   try {
-    const response = await fetch(`${hostname}/logout`, {
+    await fetch(`${hostname}/logout`, {
       method: "POST",
       credentials: "include",
     });
-
-    const data = await response.json();
-    console.log(data);
 
     localStorage.clear();
     setUser(null);

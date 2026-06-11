@@ -3,7 +3,7 @@ version: '3.8'
 services:
   mongodb:
     image: mongo:7
-    container_name: makersmarket_mongodb
+    container_name: conventioner_mongodb
     restart: unless-stopped
     command: ["mongod", "--quiet", "--logpath", "/var/log/mongodb/mongod.log"]
     environment:
@@ -15,7 +15,7 @@ services:
       - mongodb_data:/data/db
       - ./back-end/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
-      - makersmarket_network
+      - conventioner_network
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 10s
@@ -26,7 +26,7 @@ services:
     build:
       context: ./back-end
       dockerfile: Dockerfile
-    container_name: makersmarket_backend
+    container_name: conventioner_backend
     restart: unless-stopped
     environment:
       - FLASK_APP=app.py
@@ -36,7 +36,7 @@ services:
       - MONGODB_PORT=27017
       - MONGODB_USER=admin
       - MONGODB_PASSWORD=secret
-      - MONGODB_DB=market_maker
+      - MONGODB_DB=conventioner
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - FROM_EMAIL=${FROM_EMAIL:-onboarding@resend.dev}
@@ -51,14 +51,14 @@ services:
       mongodb:
         condition: service_healthy
     networks:
-      - makersmarket_network
+      - conventioner_network
     command: flask run --host=0.0.0.0 --port=5000 --cert=adhoc
 
   frontend:
     build:
       context: ./front-end
       dockerfile: Dockerfile
-    container_name: makersmarket_frontend
+    container_name: conventioner_frontend
     restart: unless-stopped
     environment:
       - VITE_FLASK_HOST=/api
@@ -72,11 +72,11 @@ services:
     depends_on:
       - backend
     networks:
-      - makersmarket_network
+      - conventioner_network
 
   mongo-express:
     image: mongo-express:latest
-    container_name: makersmarket_mongo_express
+    container_name: conventioner_mongo_express
     restart: unless-stopped
     ports:
       - "8081:8081"
@@ -92,10 +92,10 @@ services:
       mongodb:
         condition: service_healthy
     networks:
-      - makersmarket_network
+      - conventioner_network
 
 networks:
-  makersmarket_network:
+  conventioner_network:
     driver: bridge
 
 volumes:

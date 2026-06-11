@@ -1,10 +1,11 @@
 X add validation for duplicates: market
-- figure out localStorage and saving and reloading for market in setup view
-- think about how to handle intentional duplicates; PUT vs POST
-- add save on next and on done
-- finally integrate assignment logic
+
+- finish setting up figma mcp
+- vendor view
+- table view
+- click cards to view that thing
+- validate stats display
+
 - create simple display and attendance form
 - create discord tool
-- actually do assignment
 - output assignment to csv and download
-- add owner_email + market_name ket to source_data

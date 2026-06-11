@@ -23,7 +23,7 @@ def get_mongodb_client():
     connection_string = f"mongodb://{mongodb_user}:{mongodb_password}@{mongodb_host}:{mongodb_port}/{mongodb_auth_db}"
     return MongoClient(connection_string)
 
-def get_database(db_name='market_maker'):
+def get_database(db_name='conventioner'):
     """Get database instance."""
     client = get_mongodb_client()
     return client[db_name]

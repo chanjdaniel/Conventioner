@@ -18,7 +18,7 @@ Set these in your Vercel project settings:
 FLASK_ENV=production
 SECRET_KEY=your-strong-secret-key-here
 SESSION_TYPE=null
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/market_maker?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/conventioner?retryWrites=true&w=majority
 # Note: MONGODB_URI is automatically set if you use MongoDB Atlas integration from Vercel Marketplace
 FRONTEND_URL=https://your-frontend-domain.vercel.app
 USE_HTTPS=true
@@ -30,7 +30,7 @@ MONGODB_HOST=your-mongodb-host
 MONGODB_PORT=27017
 MONGODB_USER=your-username
 MONGODB_PASSWORD=your-password
-MONGODB_DB=market_maker
+MONGODB_DB=conventioner
 MONGODB_AUTH_DB=admin
 ```
 
@@ -65,7 +65,7 @@ RECAPTCHA_SECRET_KEY=your-recaptcha-secret-key
 - Configure network access (allow 0.0.0.0/0 for development or Vercel IPs)
 - Create database user
 - Get connection string and manually add `MONGODB_URI` to Vercel environment variables
-- Connection string format: `mongodb+srv://username:password@cluster.mongodb.net/market_maker?retryWrites=true&w=majority`
+- Connection string format: `mongodb+srv://username:password@cluster.mongodb.net/conventioner?retryWrites=true&w=majority`
 
 ### Deployment Steps
 
@@ -80,7 +80,7 @@ RECAPTCHA_SECRET_KEY=your-recaptcha-secret-key
    - Search for "MongoDB Atlas" in the Marketplace
    - Select your project and choose a cluster type (Free tier available)
    - The `MONGODB_URI` environment variable will be automatically added to your project
-   - **Note**: If you need to specify the database name, you may need to update the URI to include `/market_maker` at the end
+   - **Note**: If you need to specify the database name, you may need to update the URI to include `/conventioner` at the end
 
 3. **Configure Project Settings in Vercel UI**
    - **Framework Preset**: Select `Other` (Vercel will auto-detect Flask)

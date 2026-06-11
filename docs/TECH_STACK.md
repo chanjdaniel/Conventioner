@@ -1,6 +1,6 @@
 # Technology Stack
 
-This document outlines the complete technology stack used in the MakersMarketManagement application.
+This document outlines the complete technology stack used in the Conventioner application.
 
 ## Backend
 
@@ -27,7 +27,7 @@ This document outlines the complete technology stack used in the MakersMarketMan
   - Primary data storage
   - Collections: `users`, `markets`, `organizations`, `source_data`
   - Connection via PyMongo 4.6.1
-  - Database name: `market_maker`
+  - Database name: `conventioner`
 
 ### Data Validation
 - **Pydantic 2.5.3** - Data validation and settings management
@@ -208,7 +208,7 @@ This document outlines the complete technology stack used in the MakersMarketMan
 - `MONGODB_PORT` - MongoDB port (default: `27017`)
 - `MONGODB_USER` - MongoDB username (default: `admin`)
 - `MONGODB_PASSWORD` - MongoDB password (default: `secret`)
-- `MONGODB_DB` - Database name (default: `market_maker`)
+- `MONGODB_DB` - Database name (default: `conventioner`)
 - `FLASK_ENV` - Flask environment (`development` or `production`)
 - `USE_HTTPS` - Enable HTTPS (default: `true`)
 - `SECRET_KEY` - Flask secret key for sessions
@@ -221,7 +221,7 @@ This document outlines the complete technology stack used in the MakersMarketMan
 ## Project Structure
 
 ```
-MakersMarketManagement/
+Conventioner/
 ├── back-end/
 │   ├── api/              # API endpoint modules
 │   │   ├── users.py      # User authentication endpoints
