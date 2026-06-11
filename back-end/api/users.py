@@ -10,7 +10,7 @@ from utils.tokens import (
 )
 from utils.email import send_verification_email, send_password_reset_email, send_otp_email
 from utils.captcha import verify_recaptcha
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 db = get_database()
 users_collection = db["users"]
@@ -277,7 +277,9 @@ def request_password_reset(request):
     if last_reset_time:
         try:
             last_reset = datetime.fromisoformat(last_reset_time.replace('Z', '+00:00'))
-            time_since_last = datetime.utcnow() - last_reset
+            if last_reset.tzinfo is None:
+                last_reset = last_reset.replace(tzinfo=timezone.utc)
+            time_since_last = datetime.now(timezone.utc) - last_reset
             if time_since_last < timedelta(hours=1):
                 # Check how many requests in the last hour
                 # Simple check: if token exists and is recent, rate limit
@@ -374,7 +376,9 @@ def request_otp(request):
     if last_otp_time:
         try:
             last_otp = datetime.fromisoformat(last_otp_time.replace('Z', '+00:00'))
-            time_since_last = datetime.utcnow() - last_otp
+            if last_otp.tzinfo is None:
+                last_otp = last_otp.replace(tzinfo=timezone.utc)
+            time_since_last = datetime.now(timezone.utc) - last_otp
             if time_since_last < timedelta(hours=1):
                 # Count requests in last hour (simple check)
                 return jsonify({"msg": "Please wait before requesting another OTP"}), 429

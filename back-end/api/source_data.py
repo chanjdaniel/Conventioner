@@ -4,7 +4,7 @@ from bson import ObjectId
 import csv
 import io
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from db_config import get_database
 
@@ -29,7 +29,7 @@ def upload_source_data(market_id: str, csv_file) -> Dict[str, Any]:
             "csv_content": csv_content,
             "headers": rows[0] if rows else [],
             "row_count": len(rows) - 1,
-            "upload_date": datetime.utcnow(),
+            "upload_date": datetime.now(timezone.utc),
             "filename": csv_file.filename
         }
         

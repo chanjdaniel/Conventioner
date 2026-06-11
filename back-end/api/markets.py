@@ -11,9 +11,8 @@ import api.organizations as OrgsApi
 import api.users as UsersApi
 import traceback
 import logging
-import os
 import requests
-from assignment.csv_output import convert_market_data_to_csv, market_csv_to_string
+from assignment.csv_output import market_csv_to_string
 from db_config import get_database
 
 logging.basicConfig(level=logging.INFO)
@@ -381,8 +380,7 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
                 return {"error": "User does not have permission to view this market"}, 403
         
         market_dict = convert_keys_to_snake_case(market_dict)
-        print("market_dict keys:", market_dict.keys())
-        
+
         # Fix missing assignment_options in setup_object
         if "setup_object" in market_dict and market_dict["setup_object"]:
             if "assignment_options" not in market_dict["setup_object"]:
@@ -422,40 +420,6 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
             market = Market(**market_dict)
             assigned_market = assign_market(market, source_data)
             assigned_market_dict = assigned_market.model_dump()
-
-            # generate CSV if the request was successful
-            try:
-                # Create CSV file in a dedicated directory
-                csv_dir = "csv_exports"
-                os.makedirs(csv_dir, exist_ok=True)
-                csv_filename = os.path.join(csv_dir, f"{market_dict.get('name', market_id)}_assigned.csv")
-                
-                # Use absolute path to ensure file is created in the correct location
-                csv_filename = os.path.abspath(csv_filename)
-                
-                logger.info(f"Attempting to generate CSV: {csv_filename}")
-                logger.info(f"Current working directory: {os.getcwd()}")
-                logger.info(f"CSV directory exists: {os.path.exists(csv_dir)}")
-                logger.info(f"CSV directory absolute path: {os.path.abspath(csv_dir)}")
-                logger.info(f"Source data available: {source_data is not None}")
-                logger.info(f"Market data keys: {list(assigned_market_dict.keys())}")
-                
-                # Convert the assigned market data to CSV
-                result_filename = convert_market_data_to_csv(assigned_market_dict, source_data, csv_filename)
-                logger.info(f"CSV exported successfully: {result_filename}")
-                logger.info(f"CSV file exists: {os.path.exists(result_filename)}")
-                logger.info(f"CSV file absolute path: {os.path.abspath(result_filename)}")
-                
-                # List all files in csv_exports directory
-                try:
-                    csv_files = os.listdir(csv_dir)
-                    logger.info(f"Files in csv_exports directory: {csv_files}")
-                except Exception as e:
-                    logger.error(f"Error listing csv_exports directory: {e}")
-                
-            except Exception as csv_error:
-                logger.error(f"Failed to generate CSV for {market_id}: {str(csv_error)}")
-                logger.error(f"CSV generation traceback: {traceback.format_exc()}")
 
             assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)
             if market_dict.get('organization_id'):

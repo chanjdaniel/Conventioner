@@ -11,10 +11,9 @@ from flask_session import Session
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from datatypes import Market, MarketRole
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
-from assignment.csv_output import convert_market_data_to_csv
 import json
 import os
 import glob
@@ -670,7 +669,7 @@ def get_assigned_market(market_id: str) -> Response:
             "error": "Internal server error",
             "message": str(e),
             "endpoint": f"/markets/{market_id}/assignment",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }), 500
 
 
@@ -693,7 +692,7 @@ def get_assignment_statistics(market_id: str) -> Response:
             "error": "Internal server error",
             "message": str(e),
             "endpoint": f"/markets/{market_id}/assignment-statistics",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }), 500
 
 
@@ -721,7 +720,7 @@ def get_assignment_csv(market_id: str) -> Response:
             "error": "Internal server error",
             "message": str(e),
             "endpoint": f"/markets/{market_id}/assignment-csv",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }), 500
 
 
@@ -743,7 +742,7 @@ def post_assignment_to_discord(market_id: str) -> Response:
             "error": "Internal server error",
             "message": str(e),
             "endpoint": f"/markets/{market_id}/discord/notify-assignment",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }), 500
 
 
@@ -765,7 +764,7 @@ def get_market_tables(market_id: str) -> Response:
             "error": "Internal server error",
             "message": str(e),
             "endpoint": f"/markets/{market_id}/tables",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }), 500
 
 

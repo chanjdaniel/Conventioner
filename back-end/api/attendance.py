@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from assignment.assignment import assign_market
@@ -86,7 +86,7 @@ def record_attendance(market_id: str, vendor_email: str, date: str) -> Tuple[Dic
     if not has_match:
         return {"error": "No assignment found for this vendor on this date"}, 404
 
-    checked_in_at = datetime.utcnow().isoformat()
+    checked_in_at = datetime.now(timezone.utc).isoformat()
     attendance_collection.update_one(
         {
             "market_id": market_id,
