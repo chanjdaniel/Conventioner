@@ -202,6 +202,28 @@ const goToAttendance = () => {
     router.push(`/markets/${encodeURIComponent(market.value.id)}/attendance`);
 }
 
+const tablesBase = computed((): string | null => {
+    const id = market.value?.id;
+    if (!id) return null;
+    return `/markets/${encodeURIComponent(id)}/tables`;
+});
+
+const goToTables = () => {
+    if (!tablesBase.value) return;
+    router.push(tablesBase.value);
+}
+
+function tablesLinkForFilter(name: 'date' | 'section' | 'tier' | 'choice', value: string): string | undefined {
+    if (!tablesBase.value) return undefined;
+    const v = value.trim();
+    if (!v) return undefined;
+    return `${tablesBase.value}?${name}=${encodeURIComponent(v)}`;
+}
+
+function tableChoiceToFilterValue(label: string): string {
+    return label.toLowerCase().includes('half') ? 'half' : 'full';
+}
+
 const doneError = ref('');
 const downloadError = ref('');
 const isDownloading = ref(false);
@@ -399,7 +421,7 @@ const handleDone = async () => {
                                             <span>Vendors</span>
                                         </span>
                                     </button>
-                                    <button type="button" class="assignment-quick-nav-row">
+                                    <button type="button" class="assignment-quick-nav-row" @click="goToTables">
                                         <IconTables class="assignment-quick-nav-icon" />
                                         <span class="assignment-quick-nav-label">
                                             <span>View </span>
@@ -427,8 +449,9 @@ const handleDone = async () => {
                                     <AssignmentStatListItem
                                         v-for="(count, date) in assignmentStatistics.assignmentsPerDate"
                                         :key="date"
-                                        :label="date"
+                                        :label="String(date)"
                                         :value="count"
+                                        :to="tablesLinkForFilter('date', String(date))"
                                     />
                                 </div>
                             </div>
@@ -441,6 +464,7 @@ const handleDone = async () => {
                                         :key="section"
                                         :label="`Section ${section}`"
                                         :value="count"
+                                        :to="tablesLinkForFilter('section', String(section))"
                                     />
                                 </div>
                             </div>
@@ -451,8 +475,9 @@ const handleDone = async () => {
                                     <AssignmentStatListItem
                                         v-for="(count, tier) in assignmentStatistics.assignmentsPerTier"
                                         :key="tier"
-                                        :label="tier"
+                                        :label="String(tier)"
                                         :value="count"
+                                        :to="tablesLinkForFilter('tier', String(tier))"
                                     />
                                 </div>
                             </div>
@@ -466,8 +491,9 @@ const handleDone = async () => {
                                     <AssignmentStatListItem
                                         v-for="(count, choice) in processedTableChoices"
                                         :key="choice"
-                                        :label="choice"
+                                        :label="String(choice)"
                                         :value="count"
+                                        :to="tablesLinkForFilter('choice', tableChoiceToFilterValue(String(choice)))"
                                     />
                                 </div>
                             </div>

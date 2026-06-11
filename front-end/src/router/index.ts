@@ -79,6 +79,11 @@ const router = createRouter({
       component: () => import('@/views/AttendanceStatusView.vue'),
     },
     {
+      path: '/markets/:marketId/tables',
+      name: 'tables-view',
+      component: () => import('@/views/TablesView.vue'),
+    },
+    {
       path: '/:marketSlug/check-in',
       name: 'attendance-checkin',
       component: () => import('@/views/AttendanceCheckinView.vue'),
