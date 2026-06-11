@@ -54,10 +54,6 @@ const handleOrganizations = () => {
   router.push('/organizations');
 };
 
-const handleSettings = () => {
-  // TODO: implement settings view (currently unwired)
-};
-
 const handleSignOut = async () => {
   try {
     await fetch(`${hostname}/logout`, {
@@ -125,9 +121,6 @@ const handleSignOut = async () => {
     </div>
 
     <div class="secondary-buttons">
-      <button class="button button-small" @click="handleSettings">
-        <h4>Settings</h4>
-      </button>
       <button class="button button-small" @click="handleSignOut">
         <h4>Sign out</h4>
       </button>
