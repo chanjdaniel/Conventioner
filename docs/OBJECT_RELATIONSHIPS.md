@@ -703,3 +703,28 @@ SourceData (CSV)
 ## Summary
 
 The system follows a hierarchical structure centered around the **Market** entity, which contains configuration (**SetupObject**) and results (**AssignmentObject**). **Users** control access through role-based permissions stored in `Market.roles` dictionary, with support for organization-based access. **Organizations** provide a way to group markets and users with hierarchical roles. The design emphasizes flexibility through optional fields, role-based access control, and reference-based relationships, enabling markets to exist in various states of configuration and completion while maintaining fine-grained access control.
+
+---
+
+## VendorAttendance
+
+Public attendance check-in record. One document per (market_id, vendor_email, date) triple. Stored in the `attendance` MongoDB collection separately from Market documents (not embedded).
+
+### Fields
+
+- `market_id: str` — UUID of the Market this attendance belongs to.
+- `vendor_email: str` — Normalized (lowercased, trimmed) vendor email.
+- `date: str` — Market date the vendor checked in for (canonical `MarketDateObject.date`, not `col_name`).
+- `checked_in_at: str` — ISO 8601 UTC timestamp of the most recent check-in.
+
+### Relationships
+
+- `(market_id) → Market.id` — references one Market.
+- `(vendor_email, date)` is validated against `Market.assignment_object.vendor_assignments` at write time (404 if no matching assignment exists for that vendor on that date).
+- Upsert key: `(market_id, vendor_email, date)` — idempotent re-check-in refreshes `checked_in_at`.
+
+### Access
+
+- Public read of a single vendor's own assignments + check-in status via `GET /public/markets/<slug>/vendors/<email>/assignments`.
+- Public write via `POST /public/markets/<slug>/attendance/checkin`.
+- Owner-only listing of all attendance records for a market via `GET /markets/<market_id>/attendance` (requires `VIEWER` permission).

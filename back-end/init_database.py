@@ -13,7 +13,7 @@ def init_database():
     """Initialize the database and create collections if they don't exist."""
     db = get_database('conventioner')
     
-    collections_to_create = ['users', 'markets', 'source_data', 'organizations']
+    collections_to_create = ['users', 'markets', 'source_data', 'organizations', 'attendance']
     created_collections = []
     
     for collection_name in collections_to_create:

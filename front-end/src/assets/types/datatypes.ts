@@ -137,6 +137,8 @@ export interface Market {
     modificationList: ModificationObject[],
     assignmentObject: AssignmentObject,
     userRole?: MarketRole,  // User's effective role (added by API)
+    /** Per-market Discord webhook URL; omitted/blank disables Discord notifications. */
+    discordWebhookUrl?: string | null,
 }
 
 export type OrganizationRoleType = 'owner' | 'admin' | 'member';
@@ -153,6 +155,13 @@ export interface Organization {
     memberEmails?: string[],  // Resolved display (from API)
     theme?: ThemeObject,  // Organization theming
     userRole?: OrganizationRoleType,  // Current user's role (from API, for Manage button)
+}
+
+export interface VendorAttendance {
+    marketId: string,
+    vendorEmail: string,
+    date: string,
+    checkedInAt: string,
 }
 
 export interface User {

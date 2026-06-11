@@ -197,7 +197,126 @@ const handleBack = () => {
     router.push("/market-setup");
 }
 
+const goToAttendance = () => {
+    if (!market.value?.id) return;
+    router.push(`/markets/${encodeURIComponent(market.value.id)}/attendance`);
+}
+
 const doneError = ref('');
+const downloadError = ref('');
+const isDownloading = ref(false);
+const discordError = ref('');
+const discordToast = ref('');
+const isPostingDiscord = ref(false);
+
+const hasDiscordWebhook = computed(() => {
+    const url = market.value?.discordWebhookUrl;
+    return typeof url === 'string' && url.trim().length > 0;
+});
+
+function filenameFromContentDisposition(header: string | undefined, fallback: string): string {
+    if (!header) return fallback;
+    const match = header.match(/filename="?([^";]+)"?/i);
+    return match && match[1] ? match[1] : fallback;
+}
+
+const handleDownloadCsv = async () => {
+    downloadError.value = '';
+    if (!market.value?.id) {
+        downloadError.value = 'No market loaded.';
+        return;
+    }
+    const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
+    if (!userEmail) {
+        downloadError.value = 'You must be signed in to download the CSV.';
+        return;
+    }
+    isDownloading.value = true;
+    try {
+        const response = await api.get(
+            `/markets/${encodeURIComponent(market.value.id)}/assignment-csv`,
+            {
+                headers: { 'X-Owner-Email': userEmail },
+                responseType: 'blob',
+            },
+        );
+        const fallback = `${market.value.name || 'market'}_assigned.csv`;
+        const filename = filenameFromContentDisposition(
+            (response.headers as Record<string, string | undefined>)['content-disposition'],
+            fallback,
+        );
+        const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+        let message = 'Failed to download CSV.';
+        const response = err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: unknown } }).response
+            : undefined;
+        const data = response?.data;
+        if (data instanceof Blob) {
+            try {
+                const text = await data.text();
+                const parsed = JSON.parse(text) as { error?: string };
+                if (parsed.error) message = parsed.error;
+            } catch {
+                // keep default message
+            }
+        } else if (data && typeof data === 'object' && 'error' in data) {
+            const errVal = (data as { error?: unknown }).error;
+            if (typeof errVal === 'string' && errVal) message = errVal;
+        }
+        downloadError.value = message;
+    } finally {
+        isDownloading.value = false;
+    }
+};
+
+const handleSendToDiscord = async () => {
+    discordError.value = '';
+    discordToast.value = '';
+    if (!market.value?.id) {
+        discordError.value = 'No market loaded.';
+        return;
+    }
+    if (!hasDiscordWebhook.value) {
+        discordError.value = 'No Discord webhook configured for this market.';
+        return;
+    }
+    const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
+    if (!userEmail) {
+        discordError.value = 'You must be signed in to send to Discord.';
+        return;
+    }
+    isPostingDiscord.value = true;
+    try {
+        await api.post(
+            `/markets/${encodeURIComponent(market.value.id)}/discord/notify-assignment`,
+            {},
+            { headers: { 'X-Owner-Email': userEmail } },
+        );
+        discordToast.value = 'Posted to Discord';
+        setTimeout(() => {
+            discordToast.value = '';
+        }, 3000);
+    } catch (err: unknown) {
+        let message = 'Failed to post to Discord.';
+        const response = err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: { error?: string } } }).response
+            : undefined;
+        const errVal = response?.data?.error;
+        if (typeof errVal === 'string' && errVal) message = errVal;
+        discordError.value = message;
+    } finally {
+        isPostingDiscord.value = false;
+    }
+};
 
 const handleDone = async () => {
     doneError.value = '';
@@ -287,9 +406,12 @@ const handleDone = async () => {
                                             <span>Tables</span>
                                         </span>
                                     </button>
-                                    <button type="button" class="assignment-quick-nav-row">
+                                    <button type="button" class="assignment-quick-nav-row" @click="goToAttendance">
                                         <IconSettings class="assignment-quick-nav-icon" />
-                                        <span class="assignment-quick-nav-label">Manage assignments</span>
+                                        <span class="assignment-quick-nav-label">
+                                            <span>View </span>
+                                            <span>Attendance</span>
+                                        </span>
                                     </button>
                                 </div>
                             </nav>
@@ -403,9 +525,31 @@ const handleDone = async () => {
                 </div>
             </div>
             <p v-if="doneError" class="done-error">{{ doneError }}</p>
-            <div style="width: 100%; display: flex; flex-direction: row; justify-content: space-between;">
+            <p v-if="downloadError" class="done-error">{{ downloadError }}</p>
+            <p v-if="discordError" class="done-error">{{ discordError }}</p>
+            <p v-if="discordToast" class="discord-toast">{{ discordToast }}</p>
+            <div class="assignment-actions-row">
                 <div>
                     <button class="done-button" @click="handleBack">Back</button>
+                </div>
+                <div>
+                    <button
+                        class="done-button download-button"
+                        :disabled="isDownloading || !assignmentStatistics"
+                        @click="handleDownloadCsv"
+                    >
+                        {{ isDownloading ? 'Downloading…' : 'Download CSV' }}
+                    </button>
+                </div>
+                <div>
+                    <button
+                        class="done-button discord-button"
+                        :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
+                        :title="hasDiscordWebhook ? '' : 'Configure a Discord webhook URL in Market Setup to enable.'"
+                        @click="handleSendToDiscord"
+                    >
+                        {{ isPostingDiscord ? 'Sending…' : 'Send to Discord' }}
+                    </button>
                 </div>
                 <div>
                     <button class="done-button" @click="handleDone">Done</button>
@@ -868,6 +1012,15 @@ h2 {
     font-size: 14px;
 }
 
+.assignment-actions-row {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
 .done-button {
     margin-top: 15px;
     width: 100px;
@@ -885,5 +1038,38 @@ h2 {
     text-align: center;
 
     color: #FFFFFF;
+    cursor: pointer;
+    transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+
+.done-button:hover:not(:disabled) {
+    opacity: 0.9;
+}
+
+.done-button:disabled {
+    background: var(--mm-grey, #b0b0b0);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.download-button {
+    width: 180px;
+    font-size: 18px;
+}
+
+.discord-button {
+    width: 200px;
+    font-size: 18px;
+    background: #5865F2;
+}
+
+.discord-button:hover:not(:disabled) {
+    opacity: 0.9;
+}
+
+.discord-toast {
+    margin: 8px 0 0;
+    color: #2e7d32;
+    font-size: 14px;
 }
 </style>

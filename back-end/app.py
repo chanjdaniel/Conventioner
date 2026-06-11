@@ -3,6 +3,7 @@ import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.source_data as SourceDataApi
+import api.attendance as AttendanceApi
 
 from typing import Any, Dict
 from flask import Flask, request, jsonify, Response
@@ -696,6 +697,56 @@ def get_assignment_statistics(market_id: str) -> Response:
         }), 500
 
 
+@app.route('/markets/<market_id>/assignment-csv', methods=['GET'])
+@login_required
+def get_assignment_csv(market_id: str) -> Response:
+    """Download assignment results as a CSV file. Requires VIEW permission."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        result, status_code = MarketsApi.get_assignment_csv(market_id, requesting_user)
+        if status_code == 200:
+            from flask import make_response
+            response = make_response(result["csv_content"])
+            response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+            response.headers['Content-Disposition'] = f'attachment; filename="{result["filename"]}"'
+            return response
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in get_assignment_csv for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_id}/assignment-csv",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 500
+
+
+@app.route('/markets/<market_id>/discord/notify-assignment', methods=['POST'])
+@login_required
+def post_assignment_to_discord(market_id: str) -> Response:
+    """Send the assignment summary to the market's configured Discord webhook. Owner only."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        result, status_code = MarketsApi.post_assignment_to_discord(market_id, requesting_user)
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in post_assignment_to_discord for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_id}/discord/notify-assignment",
+            "timestamp": datetime.utcnow().isoformat()
+        }), 500
+
+
 @app.route('/markets/<market_id>/tables', methods=['GET'])
 @login_required
 def get_market_tables(market_id: str) -> Response:
@@ -716,6 +767,87 @@ def get_market_tables(market_id: str) -> Response:
             "endpoint": f"/markets/{market_id}/tables",
             "timestamp": datetime.utcnow().isoformat()
         }), 500
+
+
+# attendance
+
+@app.route('/public/markets/<market_slug>/vendors/<path:vendor_email>/assignments', methods=['GET'])
+def public_get_vendor_assignments(market_slug: str, vendor_email: str) -> Response:
+    """Public vendor assignment lookup by slug + email."""
+    try:
+        result, status_code = AttendanceApi.get_vendor_assignment_summary(market_slug, vendor_email)
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in public_get_vendor_assignments {market_slug} {vendor_email}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/public/markets/<market_slug>/attendance/checkin', methods=['POST'])
+def public_attendance_checkin(market_slug: str) -> Response:
+    """Public attendance check-in by slug + vendor email + date."""
+    try:
+        data = request.json or {}
+        vendor_email = data.get('vendorEmail') or data.get('vendor_email') or ''
+        date = data.get('date') or ''
+
+        market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
+        if not market_doc:
+            return jsonify({"error": "Market not found"}), 404
+
+        result, status_code = AttendanceApi.record_attendance(
+            market_doc.get("id", ""), vendor_email, date,
+        )
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in public_attendance_checkin {market_slug}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/attendance', methods=['GET'])
+@login_required
+def get_market_attendance(market_id: str) -> Response:
+    """Owner-facing attendance status for a market. Requires VIEWER permission."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        from datatypes import MarketRole as _MR
+        import api.permissions as _Permissions
+        import api.organizations as _Orgs
+
+        market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
+        if not market_doc:
+            return jsonify({"error": "Market not found"}), 404
+
+        market_snake = convert_keys_to_snake_case(market_doc.copy())
+        try:
+            market_obj = Market(**market_snake)
+        except Exception:
+            return jsonify({"error": "Invalid market data"}), 400
+
+        organization = None
+        if market_obj.organization_id:
+            org_dict = _Orgs.get_organization(market_obj.organization_id)
+            if org_dict:
+                org_dict.pop('_id', None)
+                try:
+                    from datatypes import Organization
+                    organization = Organization(**org_dict)
+                except Exception:
+                    pass
+
+        if not _Permissions.user_has_permission(requesting_user, market_obj, _MR.VIEWER, organization):
+            return jsonify({"error": "User does not have permission to view this market"}), 403
+
+        result, status_code = AttendanceApi.get_attendance_for_market(market_id)
+        return jsonify({"attendance": result}), status_code
+    except Exception as e:
+        logger.error(f"Error in get_market_attendance {market_id}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
 
 
 # misc

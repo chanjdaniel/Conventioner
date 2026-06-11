@@ -153,6 +153,14 @@ const updateMarket = async () => {
     });
 }
 
+const handleDiscordWebhookInput = (event: Event) => {
+    if (!market.value) return;
+    const value = (event.target as HTMLInputElement).value;
+    const trimmed = value.trim();
+    market.value.discordWebhookUrl = trimmed === '' ? null : value;
+    localStorage.setItem('market', JSON.stringify(market.value));
+};
+
 const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
     nextTick(() => {
         if (market.value) {
@@ -285,6 +293,18 @@ const handleAssign = async () => {
                         <h1>Something went wrong!</h1>
                     </template>
                 </div>
+            </div>
+            <div class="discord-webhook-row">
+                <label class="discord-webhook-label" for="discord-webhook-url">Discord webhook URL</label>
+                <input
+                    id="discord-webhook-url"
+                    type="url"
+                    class="discord-webhook-input"
+                    placeholder="https://discord.com/api/webhooks/..."
+                    :value="market?.discordWebhookUrl ?? ''"
+                    @input="handleDiscordWebhookInput"
+                    @change="updateMarket"
+                />
             </div>
             <div style="width: 100%; display: flex; flex-direction: row; justify-content: space-between;">
                 <div>
@@ -439,5 +459,32 @@ h2 {
 .done-button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+}
+
+.discord-webhook-row {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.discord-webhook-label {
+    font-family: 'Outfit Regular';
+    font-size: 14px;
+    color: var(--mm-black);
+    white-space: nowrap;
+}
+
+.discord-webhook-input {
+    flex: 1;
+    height: 32px;
+    padding: 4px 10px;
+    font-family: 'Outfit Regular';
+    font-size: 14px;
+    border: 1px solid var(--mm-grey, #b0b0b0);
+    border-radius: 5px;
+    background-color: white;
 }
 </style>

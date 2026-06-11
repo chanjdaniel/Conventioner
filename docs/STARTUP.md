@@ -226,6 +226,17 @@ curl -k -X POST https://127.0.0.1:5000/register-user \
 5. **Generate Assignment**: Click "Assign" to run the assignment algorithm
 6. **View Results**: Review the assignment statistics and vendor assignments
 
+### Discord Webhook Setup
+
+The market owner can post the assignment summary to a Discord channel via a per-market webhook URL.
+
+1. In Discord, open the target server and go to **Server Settings → Integrations → Webhooks**.
+2. Click **New Webhook**, choose the destination channel, optionally rename the webhook, then click **Copy Webhook URL**.
+3. In Conventioner, open the market in **Market Setup** and paste the URL into the **Discord webhook URL** field. The URL is saved with the market on the next save action.
+4. After running an assignment, open **Assignment Results** and click **Send to Discord**. The summary (assignments, vendors, tables, satisfaction, top sections, unassigned counts) is posted to the configured channel.
+
+The webhook URL is stored per-market and treated as a secret; it is never logged. Leaving the field blank disables the **Send to Discord** button.
+
 ## Troubleshooting
 
 ### Docker Issues
@@ -402,6 +413,17 @@ Use the schema utility to regenerate the backend/frontend contract declaration d
   ```
 2. The generated contract will be written to:
   - `docs/schema.d.ts`
+
+### Discord Webhook Setup (per market)
+
+The Conventioner UI lets a market owner post the assignment summary to a Discord channel. No bot or token is required — Conventioner uses incoming webhooks.
+
+1. In Discord, open the target server → **Server Settings → Integrations → Webhooks → New Webhook**.
+2. Pick the channel that should receive the assignment summary, click **Copy Webhook URL**.
+3. In Conventioner, open the market → **Market Setup → Discord webhook URL** field → paste the URL → save.
+4. From **Assignment Results**, click **Send to Discord** to post the summary. The webhook URL is stored per market and is not part of the global `.env`.
+
+Webhook URLs are sensitive — anyone with the URL can post to the channel. Treat them like a password and rotate via Discord if leaked.
 
 ## Next Steps
 

@@ -12,7 +12,8 @@ import api.users as UsersApi
 import traceback
 import logging
 import os
-from assignment.csv_output import convert_market_data_to_csv
+import requests
+from assignment.csv_output import convert_market_data_to_csv, market_csv_to_string
 from db_config import get_database
 
 logging.basicConfig(level=logging.INFO)
@@ -555,6 +556,79 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         }, 500
 
 
+def _market_csv_filename(market_name: Optional[str], market_id: str) -> str:
+    """Build a deterministic, filesystem-safe CSV filename for assignment downloads."""
+    name = (market_name or market_id or "market").strip() or "market"
+    safe = "".join(c if c.isalnum() or c in (" ", "-", "_") else " " for c in name)
+    safe = "_".join(safe.split())
+    return f"{safe}_assigned.csv"
+
+
+def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
+    """Derive assignment CSV in-memory for download. Requires VIEW permission.
+
+    Returns either ({"csv_content": str, "filename": str}, 200) on success or
+    an error dict with the appropriate HTTP status code.
+    """
+    try:
+        market_dict = markets_collection.find_one({"id": market_id})
+        if not market_dict:
+            return {"error": "Market not found"}, 404
+
+        market_dict_snake = convert_keys_to_snake_case(market_dict.copy())
+        try:
+            market = Market(**market_dict_snake)
+        except Exception:
+            return {"error": "Invalid market data"}, 400
+
+        if requesting_user:
+            organization = None
+            if market.organization_id:
+                org_dict = OrgsApi.get_organization(market.organization_id)
+                if org_dict:
+                    org_dict.pop('_id', None)
+                    try:
+                        from datatypes import Organization
+                        organization = Organization(**org_dict)
+                    except Exception:
+                        pass
+
+            if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, organization):
+                return {"error": "User does not have permission to view this market"}, 403
+
+        if market.setup_object is None:
+            return {"error": "Market has no setup configured"}, 400
+
+        source_data_result = SourceDataApi.get_source_data(market_id)
+        if source_data_result is None:
+            return {"error": "Source data not found"}, 404
+        source_data, source_status = source_data_result
+        if source_status != 200:
+            return source_data, source_status
+
+        market.assignment_object.assignment_statistics = None
+        assigned_market = assign_market(market, source_data)
+        assigned_market_dict = assigned_market.model_dump()
+
+        try:
+            csv_content = market_csv_to_string(assigned_market_dict, source_data)
+        except ValueError as e:
+            return {"error": str(e)}, 400
+
+        filename = _market_csv_filename(market_dict.get("name"), market_id)
+        return {"csv_content": csv_content, "filename": filename, "market_id": market_id}, 200
+    except Exception as e:
+        logger.error(f"Unexpected error in get_assignment_csv: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return {
+            "error": "Internal server error",
+            "message": str(e),
+            "error_type": type(e).__name__,
+            "market_id": market_id,
+            "function": "get_assignment_csv",
+        }, 500
+
+
 def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> tuple[List[Dict[str, Any]] | Dict[str, Any], int]:
     """Derive and return table rows for a market."""
     try:
@@ -603,6 +677,128 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             "error_type": type(e).__name__,
             "market_id": market_id,
             "function": "get_market_tables"
+        }, 500
+
+
+def _top_n_by_count(counts: Optional[Dict[str, int]], n: int) -> List[tuple]:
+    """Return the top-N (label, count) pairs by descending count for Discord summary fields."""
+    if not counts:
+        return []
+    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:n]
+
+
+def _build_discord_payload(market: Market, assigned_market: Market) -> Dict[str, Any]:
+    """Build the Discord webhook JSON payload summarizing the assignment for one market."""
+    stats = assigned_market.assignment_object.assignment_statistics
+
+    total_assignments = stats.total_assignments if stats else 0
+    total_vendors = stats.total_vendors if stats else 0
+    total_tables = stats.total_tables if stats else 0
+    satisfaction_pct = round((stats.satisfaction_score or 0.0) * 100, 1) if stats else 0.0
+    unassigned_vendor_count = len(stats.unassigned_vendors) if stats else 0
+    unassigned_table_count = (
+        sum(len(entries) for entries in (stats.unassigned_tables or {}).values()) if stats else 0
+    )
+
+    fields: List[Dict[str, Any]] = [
+        {"name": "Assignments", "value": str(total_assignments), "inline": True},
+        {"name": "Vendors", "value": str(total_vendors), "inline": True},
+        {"name": "Tables", "value": str(total_tables), "inline": True},
+        {"name": "Satisfaction", "value": f"{satisfaction_pct}%", "inline": True},
+        {"name": "Unassigned Vendors", "value": str(unassigned_vendor_count), "inline": True},
+        {"name": "Unassigned Tables", "value": str(unassigned_table_count), "inline": True},
+    ]
+
+    top_sections = _top_n_by_count(stats.assignments_per_section if stats else None, 3)
+    if top_sections:
+        formatted = "\n".join(f"{name}: {count}" for name, count in top_sections)
+        fields.append({"name": "Top Sections", "value": formatted, "inline": False})
+
+    summary_line = (
+        f"{market.name}: {total_assignments} assignments across "
+        f"{total_vendors} vendors and {total_tables} tables "
+        f"({satisfaction_pct}% satisfaction)."
+    )
+
+    return {
+        "content": summary_line,
+        "embeds": [
+            {
+                "title": market.name,
+                "description": "Assignment summary",
+                "fields": fields,
+            }
+        ],
+    }
+
+
+def post_assignment_to_discord(market_id: str, requesting_user: str) -> tuple[Dict[str, Any], int]:
+    """Post a formatted assignment summary to the market's configured Discord webhook.
+
+    The webhook URL is treated as a secret and never logged. Only the market owner
+    may invoke this endpoint; lesser roles receive 403.
+    """
+    try:
+        market_dict = markets_collection.find_one({"id": market_id})
+        if not market_dict:
+            return {"error": "Market not found"}, 404
+
+        market_dict_snake = convert_keys_to_snake_case(market_dict.copy())
+        try:
+            market = Market(**market_dict_snake)
+        except Exception:
+            return {"error": "Invalid market data"}, 400
+
+        organization = None
+        if market.organization_id:
+            org_dict = OrgsApi.get_organization(market.organization_id)
+            if org_dict:
+                org_dict.pop('_id', None)
+                try:
+                    from datatypes import Organization
+                    organization = Organization(**org_dict)
+                except Exception:
+                    pass
+
+        if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.OWNER, organization):
+            return {"error": "User does not have permission to post to Discord for this market"}, 403
+
+        webhook_url = (market.discord_webhook_url or "").strip()
+        if not webhook_url:
+            return {"error": "No Discord webhook configured for this market"}, 400
+
+        if market.setup_object is None:
+            return {"error": "Market has no setup configured"}, 400
+
+        source_data_result = SourceDataApi.get_source_data(market_id)
+        if source_data_result is None:
+            return {"error": "Source data not found"}, 404
+        source_data, source_status = source_data_result
+        if source_status != 200:
+            return source_data, source_status
+
+        market.assignment_object.assignment_statistics = None
+        assigned_market = assign_market(market, source_data)
+
+        payload = _build_discord_payload(market, assigned_market)
+
+        try:
+            response = requests.post(webhook_url, json=payload, timeout=5)
+        except requests.RequestException as e:
+            return {"error": f"Failed to reach Discord: {e}"}, 502
+
+        if 200 <= response.status_code < 300:
+            return {"message": "Posted to Discord", "status": "ok"}, 200
+        return {"error": f"Discord webhook returned {response.status_code}"}, 502
+    except Exception as e:
+        logger.error(f"Unexpected error in post_assignment_to_discord: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return {
+            "error": "Internal server error",
+            "message": str(e),
+            "error_type": type(e).__name__,
+            "market_id": market_id,
+            "function": "post_assignment_to_discord",
         }, 500
 
 

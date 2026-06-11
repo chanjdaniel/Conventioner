@@ -187,6 +187,7 @@ class Market(BaseModel):
     modification_list: List[ModificationObject]
     assignment_object: AssignmentObject
     is_draft: bool = True  # False after user completes setup (Generated Assignment Done)
+    discord_webhook_url: Optional[str] = None  # Per-market Discord webhook target for assignment notifications
 
     @model_validator(mode='after')
     def validate_single_owner(self):
@@ -332,6 +333,20 @@ class AssignmentObjectContract(ContractModel):
     vendor_assignments: List[VendorAssignmentResultContract]
 
 
+class VendorAttendance(BaseModel):
+    market_id: str
+    vendor_email: str
+    date: str
+    checked_in_at: str
+
+
+class VendorAttendanceContract(ContractModel):
+    market_id: str
+    vendor_email: str
+    date: str
+    checked_in_at: str
+
+
 class MarketSchemaContract(ContractModel):
     assignment_object: AssignmentObjectContract
     creation_date: str
@@ -343,3 +358,4 @@ class MarketSchemaContract(ContractModel):
     roles: Dict[str, str]
     setup_object: Optional[SetupObjectContract]
     user_role: Optional[str] = None
+    discord_webhook_url: Optional[str] = None

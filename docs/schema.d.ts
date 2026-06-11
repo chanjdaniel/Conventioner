@@ -17,6 +17,7 @@ export interface MarketSchema {
     }[];
   };
   creationDate: string;
+  discordWebhookUrl?: string;
   id: string;
   isDraft?: boolean;
   modificationList: {

@@ -74,6 +74,16 @@ const router = createRouter({
       component: () => import('@/views/GenerateAssignmentView.vue'),
     },
     {
+      path: '/markets/:marketId/attendance',
+      name: 'attendance-status',
+      component: () => import('@/views/AttendanceStatusView.vue'),
+    },
+    {
+      path: '/:marketSlug/check-in',
+      name: 'attendance-checkin',
+      component: () => import('@/views/AttendanceCheckinView.vue'),
+    },
+    {
       path: '/:marketSlug',
       name: 'market-home',
       component: () => import('@/views/MarketHomeView.vue'),
@@ -86,6 +96,11 @@ router.beforeEach((to, from, next) => {
   const user = JSON.parse(localStorage.getItem("user") || "null");
 
   if (publicPages.includes(to.path)) {
+    next();
+    return;
+  }
+
+  if (to.path.endsWith('/check-in')) {
     next();
     return;
   }
