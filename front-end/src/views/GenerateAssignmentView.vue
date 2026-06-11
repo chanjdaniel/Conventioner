@@ -224,6 +224,12 @@ function tableChoiceToFilterValue(label: string): string {
     return label.toLowerCase().includes('half') ? 'half' : 'full';
 }
 
+function formatDateLabel(dateKey: string): string {
+    const parsed = new Date(`${dateKey}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return dateKey;
+    return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 const doneError = ref('');
 const downloadError = ref('');
 const isDownloading = ref(false);
@@ -449,7 +455,7 @@ const handleDone = async () => {
                                     <AssignmentStatListItem
                                         v-for="(count, date) in assignmentStatistics.assignmentsPerDate"
                                         :key="date"
-                                        :label="String(date)"
+                                        :label="formatDateLabel(String(date))"
                                         :value="count"
                                         :to="tablesLinkForFilter('date', String(date))"
                                     />

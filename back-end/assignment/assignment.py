@@ -549,12 +549,19 @@ class MarketAssignment:
         assignments_per_section = defaultdict(int)
         assignments_per_table_choice = defaultdict(int)
         assignments_per_date = defaultdict(int)
-        
+
+        col_name_to_date = {}
+        for market_date in self.setup_object.market_dates:
+            col_name_to_date[market_date.date] = market_date.date
+            if market_date.col_name:
+                col_name_to_date[market_date.col_name] = market_date.date
+
         for assignment in vendor_assignments:
             assignments_per_tier[assignment.tier] += 1
             assignments_per_section[assignment.section] += 1
             assignments_per_table_choice[assignment.table_choice] += 1
-            assignments_per_date[assignment.date] += 1
+            canonical_date = col_name_to_date.get(assignment.date, assignment.date)
+            assignments_per_date[canonical_date] += 1
 
         # Calculate satisfaction score (average ratio of actual to potential assignments)
         satisfaction_score_sum = 0.0

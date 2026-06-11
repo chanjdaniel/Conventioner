@@ -4,7 +4,7 @@ X finish setting up figma mcp
 X vendor view
 X table view
 X click cards to view that thing
-- validate stats display
+X validate stats display
 
 X create simple display and attendance form
 X create discord tool
