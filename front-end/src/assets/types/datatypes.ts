@@ -78,6 +78,7 @@ export interface SetupObject {
     locations: LocationObject[],
     sections: SectionObject[],
     assignmentOptions: AssignmentOptionObject,
+    floorplans?: FloorplanObject[],
 }
 
 export interface ModificationObject {
@@ -168,4 +169,80 @@ export interface User {
     id: string,
     email: string,
     organizations?: string[],  // Organization ids
+}
+
+export interface TableTypeObject {
+    id: string,
+    name: string,
+    widthMm: number,
+    heightMm: number,
+    maxCapacity: number,
+    color?: string,
+}
+
+export interface WallSegment {
+    id: string,
+    start: [number, number],
+    end: [number, number],
+    thicknessMm: number,
+    isExterior: boolean,
+}
+
+export interface ObstacleZone {
+    id: string,
+    polygon: Array<[number, number]>,
+    type: 'pillar' | 'stage' | 'no_table_zone' | 'custom',
+}
+
+export interface PlacedTableObject {
+    id: string,
+    tableTypeId: string,
+    x: number,
+    y: number,
+    rotation: number,
+    widthMm: number,
+    heightMm: number,
+    tableCode?: string,
+}
+
+export interface FloorplanSectionObject {
+    id: string,
+    name: string,
+    locationName: string,
+    tableIds: string[],
+    tierId?: string,
+}
+
+export interface AisleConfigObject {
+    wallBufferMm: number,
+    tableSpacingMm: number,
+    walkwayWidthMm: number,
+}
+
+export interface FloorplanObject {
+    id: string,
+    imageGridfsId?: string,
+    scalePxPerUnit?: number,
+    scaleUnit: string,
+    referenceLineStart?: [number, number],
+    referenceLineEnd?: [number, number],
+    referenceLineLengthMm?: number,
+    tableTypes: TableTypeObject[],
+    walls: WallSegment[],
+    obstacles: ObstacleZone[],
+    placedTables: PlacedTableObject[],
+    sections: FloorplanSectionObject[],
+    imageWidth?: number,
+    imageHeight?: number,
+}
+
+export interface FloorplanTemplate {
+    id: string,
+    name: string,
+    ownerUserId?: string,
+    organizationId?: string,
+    tableTypes: TableTypeObject[],
+    aisles: AisleConfigObject,
+    createdAt: string,
+    updatedAt: string,
 }

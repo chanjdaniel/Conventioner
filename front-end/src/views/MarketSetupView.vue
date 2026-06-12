@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, nextTick, ref } from 'vue';
+import { computed, onMounted, reactive, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
@@ -10,12 +10,14 @@ import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOpt
 import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
+import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 import { type SetupObject, type Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 
 const router = useRouter();
 
 const settingsBodyHeight = ref(null);
+const showPathChoice = ref(false);
 
 const market = ref<Market | null>(null);
 const setupObject = reactive<SetupObject>({
@@ -201,10 +203,33 @@ const handleAssign = async () => {
     router.push("/assignment-results");
 }
 
+function handlePathChoice(path: 'manual' | 'floorplan') {
+  showPathChoice.value = false
+  if (path === 'floorplan') {
+    router.push({
+      path: '/floorplan-editor',
+      query: { marketId: market.value?.id },
+    })
+  }
+  // For 'manual': just hide overlay, existing text-based UI is already underneath
+}
+
+// Show path choice overlay when entering sections page with empty sections
+watch(pageIdx, (newIdx) => {
+  if (
+    newIdx === 1 &&
+    setupObject.sections.length === 0 &&
+    (!setupObject.floorplans || setupObject.floorplans.length === 0)
+  ) {
+    showPathChoice.value = true
+  }
+})
+
 </script>
 
 <template>
     <div class="market-setup-view">
+        <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
         <div class="market-setup-body">
             <div class="settings-container">
                 <div class="settings-header">

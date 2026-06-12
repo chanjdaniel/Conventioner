@@ -1,7 +1,8 @@
 import uuid
 from enum import Enum
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Union, Dict, Any, Tuple
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
+from datetime import datetime
 
 
 class DataType(str, Enum):
@@ -103,6 +104,7 @@ class SetupObject(BaseModel):
     locations: List[LocationObject]
     sections: List[SectionObject]
     assignment_options: AssignmentOptionObject
+    floorplans: Optional[List["FloorplanObject"]] = None
 
 
 class ModificationObject(BaseModel):
@@ -312,6 +314,7 @@ class SetupObjectContract(ContractModel):
     priority: List[PriorityContract]
     sections: List[SectionContract]
     tiers: List[TierContract]
+    floorplans: Optional[List["FloorplanObjectContract"]] = None
 
 
 class AssignmentStatisticsContract(ContractModel):
@@ -345,6 +348,114 @@ class VendorAttendanceContract(ContractModel):
     vendor_email: str
     date: str
     checked_in_at: str
+
+
+class TableTypeObject(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    width_mm: float
+    height_mm: float
+    max_capacity: int  # 1 or 2
+    color: Optional[str] = None
+
+
+class WallSegment(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    start: Tuple[float, float]
+    end: Tuple[float, float]
+    thickness_mm: float
+    is_exterior: bool = True
+
+
+class ObstacleZone(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    polygon: List[Tuple[float, float]]
+    type: str  # "pillar", "stage", "no_table_zone", "custom"
+
+
+class PlacedTableObject(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    table_type_id: str
+    x: float
+    y: float
+    rotation: float = 0.0  # 0 or 90
+    width_mm: float
+    height_mm: float
+    table_code: Optional[str] = None
+
+
+class FloorplanSectionObject(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    location_name: str
+    table_ids: List[str] = []
+    tier_id: Optional[str] = None
+
+
+class AisleConfigObject(BaseModel):
+    wall_buffer_mm: float = 1500.0
+    table_spacing_mm: float = 1200.0
+    walkway_width_mm: float = 2000.0
+
+
+class FloorplanObject(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    image_gridfs_id: Optional[str] = None
+    scale_px_per_unit: Optional[float] = None
+    scale_unit: str = "mm"
+    reference_line_start: Optional[Tuple[float, float]] = None
+    reference_line_end: Optional[Tuple[float, float]] = None
+    reference_line_length_mm: Optional[float] = None
+    table_types: List[TableTypeObject] = []
+    walls: List[WallSegment] = []
+    obstacles: List[ObstacleZone] = []
+    placed_tables: List[PlacedTableObject] = []
+    sections: List[FloorplanSectionObject] = []
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
+
+
+class FloorplanTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    owner_user_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    table_types: List[TableTypeObject] = []
+    aisles: AisleConfigObject = Field(default_factory=AisleConfigObject)
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+
+class TableTypeContract(TableTypeObject, ContractModel):
+    pass
+
+
+class WallSegmentContract(WallSegment, ContractModel):
+    pass
+
+
+class ObstacleZoneContract(ObstacleZone, ContractModel):
+    pass
+
+
+class PlacedTableContract(PlacedTableObject, ContractModel):
+    pass
+
+
+class FloorplanSectionContract(FloorplanSectionObject, ContractModel):
+    pass
+
+
+class AisleConfigContract(AisleConfigObject, ContractModel):
+    pass
+
+
+class FloorplanObjectContract(FloorplanObject, ContractModel):
+    pass
+
+
+class FloorplanTemplateContract(FloorplanTemplate, ContractModel):
+    pass
 
 
 class MarketSchemaContract(ContractModel):

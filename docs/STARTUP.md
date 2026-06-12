@@ -374,6 +374,15 @@ The `docker-compose.yml` defines three services:
 - `VITE_FLASK_HOST`: API base path (default: `/api`)
 - `VITE_BACKEND_URL`: Backend URL for Vite proxy (default: `https://backend:5000`)
 
+### Vision AI Setup (Optional)
+
+The floorplan feature includes AI-powered auto-detection of table placements. This is **optional** — the floorplan editor works without these keys, but the automatic table detection feature will be disabled.
+
+1. **Gemini API Key**: Visit [aistudio.google.com/apikey](https://aistudio.google.com/apikey), sign in with your Google account, and click **Create API Key**. Copy the key and set `GEMINI_API_KEY` in your `.env`.
+2. **OpenAI API Key**: Visit [platform.openai.com/api-keys](https://platform.openai.com/api-keys), sign in, and click **Create new secret key**. Copy the key and set `OPENAI_API_KEY` in your `.env`.
+
+Both keys are configured in `.env` and forwarded to the backend via `docker-compose.yml`. If neither key is set, the AI auto-detection button is hidden in the UI and the floorplan editor behaves as a manual layout tool.
+
 ### Backend Structure
 
 - **API Routes**: Defined in `back-end/app.py`

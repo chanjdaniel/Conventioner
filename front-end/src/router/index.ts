@@ -69,6 +69,11 @@ const router = createRouter({
       component: () => import('@/views/MarketSetupView.vue'),
     },
     {
+      path: '/floorplan-editor',
+      name: 'floorplan-editor',
+      component: () => import('@/views/FloorplanEditorView.vue'),
+    },
+    {
       path: '/assignment-results',
       name: 'assignment-results',
       component: () => import('@/views/GenerateAssignmentView.vue'),

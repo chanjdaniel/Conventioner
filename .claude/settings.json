@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/danielc/**)",
+      "Bash(command -v omo)",
+      "Bash(python3 -c ' *)"
+    ],
+    "additionalDirectories": [
+      "/home/danielc/.config/opencode"
+    ]
+  }
+}

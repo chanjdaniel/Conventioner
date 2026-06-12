@@ -4,6 +4,13 @@ import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.source_data as SourceDataApi
 import api.attendance as AttendanceApi
+from api.floorplans import floorplans_bp
+from api.floorplans_placement import floorplans_placement_bp
+from api.floorplans_templates import floorplans_templates_bp
+from api.floorplans_analysis import floorplans_analysis_bp
+from api.floorplans_calibrate import floorplans_calibrate_bp
+from api.floorplans_export import floorplans_export_bp
+from api.floorplans_save import floorplans_save_bp
 
 from typing import Any, Dict
 from flask import Flask, request, jsonify, Response
@@ -43,6 +50,7 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production" or os.getenv("USE_HTTPS", "true").lower() == "true"
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'TEMP_KEY_CHANGE_IN_PRODUCTION')
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload limit
 
 # Only create session folder for filesystem sessions
 if session_type == "filesystem":
@@ -64,6 +72,14 @@ if os.getenv("FLASK_ENV") == "production":
 else:
     # In development, allow all origins for easier local development
     CORS(app, supports_credentials=True)
+
+app.register_blueprint(floorplans_bp, url_prefix="/floorplans")
+app.register_blueprint(floorplans_placement_bp, url_prefix="/floorplans")
+app.register_blueprint(floorplans_templates_bp, url_prefix="/floorplans")
+app.register_blueprint(floorplans_analysis_bp, url_prefix="/floorplans")
+app.register_blueprint(floorplans_calibrate_bp, url_prefix="/floorplans")
+app.register_blueprint(floorplans_export_bp, url_prefix="/floorplans")
+app.register_blueprint(floorplans_save_bp, url_prefix="/floorplans")
 
 # users
 
