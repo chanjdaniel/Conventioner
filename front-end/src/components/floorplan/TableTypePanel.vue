@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useFloorplanStore } from '@/stores/floorplan'
 import type { TableTypeObject } from '@/assets/types/datatypes'
 import InputText from 'primevue/inputtext'
@@ -36,30 +36,40 @@ function nextAvailableColor(): string {
   return available ?? PALETTE[store.tableTypes.length % PALETTE.length]
 }
 
+// ── Unit conversion ──────────────────────────────────────────────────
+const UNIT_TO_MM: Record<string, number> = {
+  mm: 1,
+  cm: 10,
+  in: 25.4,
+  ft: 304.8,
+}
+
+const UNIT_OPTIONS = [
+  { value: 'mm', label: 'mm' },
+  { value: 'cm', label: 'cm' },
+  { value: 'in', label: 'in' },
+  { value: 'ft', label: 'ft' },
+]
+
 // ── Inline add form ────────────────────────────────────────────────
 const showForm = ref(false)
 
-interface TypeForm {
-  name: string
-  widthMm: number | null
-  heightMm: number | null
-  maxCapacity: 1 | 2
-}
-
-const form = reactive<TypeForm>({
+const form = reactive<{ name: string; maxCapacity: 1 | 2 }>({
   name: '',
-  widthMm: null,
-  heightMm: null,
   maxCapacity: 1,
 })
+const formWidthMm = ref<number | null>(null)
+const formHeightMm = ref<number | null>(null)
 
+const selectedUnit = ref('mm')
 const formError = ref('')
 
 function resetForm() {
   form.name = ''
-  form.widthMm = null
-  form.heightMm = null
+  formWidthMm.value = null
+  formHeightMm.value = null
   form.maxCapacity = 1
+  selectedUnit.value = 'mm'
   formError.value = ''
 }
 
@@ -80,20 +90,24 @@ function saveType() {
     formError.value = 'Name is required.'
     return
   }
-  if (form.widthMm === null || form.widthMm <= 0) {
+  if (formWidthMm.value === null || formWidthMm.value <= 0) {
     formError.value = 'Width must be a positive number.'
     return
   }
-  if (form.heightMm === null || form.heightMm <= 0) {
+  if (formHeightMm.value === null || formHeightMm.value <= 0) {
     formError.value = 'Height must be a positive number.'
     return
   }
 
+  const factor = UNIT_TO_MM[selectedUnit.value]
+  const widthMm = formWidthMm.value * factor
+  const heightMm = formHeightMm.value * factor
+
   const tt: TableTypeObject = {
     id: crypto.randomUUID(),
     name: form.name.trim(),
-    widthMm: form.widthMm,
-    heightMm: form.heightMm,
+    widthMm,
+    heightMm,
     maxCapacity: form.maxCapacity,
     color: nextAvailableColor(),
   }
@@ -107,20 +121,22 @@ function saveType() {
 const editVisible = ref(false)
 const editingId = ref<string | null>(null)
 
-const editForm = reactive<TypeForm>({
+const editForm = reactive<{ name: string; maxCapacity: 1 | 2 }>({
   name: '',
-  widthMm: null,
-  heightMm: null,
   maxCapacity: 1,
 })
+const editWidthMm = ref<number | null>(null)
+const editHeightMm = ref<number | null>(null)
 
+const editUnit = ref('mm')
 const editError = ref('')
 
 function editType(tt: TableTypeObject) {
   editingId.value = tt.id
+  editUnit.value = 'mm'
   editForm.name = tt.name
-  editForm.widthMm = tt.widthMm
-  editForm.heightMm = tt.heightMm
+  editWidthMm.value = tt.widthMm
+  editHeightMm.value = tt.heightMm
   editForm.maxCapacity = tt.maxCapacity as 1 | 2
   editError.value = ''
   editVisible.value = true
@@ -133,22 +149,24 @@ function saveEdit() {
     editError.value = 'Name is required.'
     return
   }
-  if (editForm.widthMm === null || editForm.widthMm <= 0) {
+  if (editWidthMm.value === null || editWidthMm.value <= 0) {
     editError.value = 'Width must be a positive number.'
     return
   }
-  if (editForm.heightMm === null || editForm.heightMm <= 0) {
+  if (editHeightMm.value === null || editHeightMm.value <= 0) {
     editError.value = 'Height must be a positive number.'
     return
   }
+
+  const factor = UNIT_TO_MM[editUnit.value]
 
   const idx = store.tableTypes.findIndex((t) => t.id === editingId.value)
   if (idx >= 0) {
     store.tableTypes[idx] = {
       ...store.tableTypes[idx],
       name: editForm.name.trim(),
-      widthMm: editForm.widthMm,
-      heightMm: editForm.heightMm,
+      widthMm: editWidthMm.value * factor,
+      heightMm: editHeightMm.value * factor,
       maxCapacity: editForm.maxCapacity,
     }
     store.markDirty()
@@ -165,6 +183,19 @@ function cancelEdit() {
   editError.value = ''
 }
 
+// When the user changes units in the edit dialog, convert the displayed values
+watch(editUnit, (newUnit, oldUnit) => {
+  if (!editingId.value) return
+  const oldFactor = UNIT_TO_MM[oldUnit] ?? 1
+  const newFactor = UNIT_TO_MM[newUnit] ?? 1
+  if (editWidthMm.value !== null) {
+    editWidthMm.value = (editWidthMm.value * oldFactor) / newFactor
+  }
+  if (editHeightMm.value !== null) {
+    editHeightMm.value = (editHeightMm.value * oldFactor) / newFactor
+  }
+})
+
 // ── Delete ─────────────────────────────────────────────────────────
 function deleteType(tt: TableTypeObject) {
   store.removeTableType(tt.id)
@@ -174,7 +205,10 @@ function deleteType(tt: TableTypeObject) {
 // ── Computed ───────────────────────────────────────────────────────
 const typeCount = computed(() => store.tableTypes.length)
 
-const selectOptions = computed(() => [1, 2])
+const selectOptions = [
+  { label: '1', value: 1 },
+  { label: '2', value: 2 },
+]
 </script>
 
 <template>
@@ -255,10 +289,10 @@ const selectOptions = computed(() => [1, 2])
 
         <div class="tt-field-row">
           <div class="tt-field tt-field--half">
-            <label class="tt-label" for="tt-width">Width (mm)</label>
+            <label class="tt-label" for="tt-width">Width ({{ selectedUnit }})</label>
             <InputNumber
               id="tt-width"
-              v-model="form.widthMm"
+              v-model="formWidthMm"
               class="tt-input"
               placeholder="Width"
               :min="1"
@@ -267,10 +301,10 @@ const selectOptions = computed(() => [1, 2])
             />
           </div>
           <div class="tt-field tt-field--half">
-            <label class="tt-label" for="tt-height">Height (mm)</label>
+            <label class="tt-label" for="tt-height">Height ({{ selectedUnit }})</label>
             <InputNumber
               id="tt-height"
-              v-model="form.heightMm"
+              v-model="formHeightMm"
               class="tt-input"
               placeholder="Height"
               :min="1"
@@ -281,11 +315,29 @@ const selectOptions = computed(() => [1, 2])
         </div>
 
         <div class="tt-field">
+          <label class="tt-label" for="tt-unit">Unit</label>
+          <select
+            id="tt-unit"
+            v-model="selectedUnit"
+            class="tt-input"
+          >
+            <option
+              v-for="u in UNIT_OPTIONS"
+              :key="u.value"
+              :value="u.value"
+            >
+              {{ u.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="tt-field">
           <label class="tt-label">Max Capacity</label>
           <SelectButton
             v-model="form.maxCapacity"
             :options="selectOptions"
-            option-label="value"
+            option-label="label"
+            option-value="value"
             class="tt-select-btn"
           />
         </div>
@@ -301,7 +353,7 @@ const selectOptions = computed(() => [1, 2])
           </button>
           <button
             class="tt-btn tt-btn--primary"
-            :disabled="!form.name.trim() || !form.widthMm || !form.heightMm"
+            :disabled="!form.name.trim() || !formWidthMm || !formHeightMm"
             @click="saveType"
           >
             Save
@@ -334,10 +386,10 @@ const selectOptions = computed(() => [1, 2])
 
         <div class="tt-field-row">
           <div class="tt-field tt-field--half">
-            <label class="tt-label" for="tt-edit-width">Width (mm)</label>
+            <label class="tt-label" for="tt-edit-width">Width ({{ editUnit }})</label>
             <InputNumber
               id="tt-edit-width"
-              v-model="editForm.widthMm"
+              v-model="editWidthMm"
               class="tt-input"
               placeholder="Width"
               :min="1"
@@ -346,10 +398,10 @@ const selectOptions = computed(() => [1, 2])
             />
           </div>
           <div class="tt-field tt-field--half">
-            <label class="tt-label" for="tt-edit-height">Height (mm)</label>
+            <label class="tt-label" for="tt-edit-height">Height ({{ editUnit }})</label>
             <InputNumber
               id="tt-edit-height"
-              v-model="editForm.heightMm"
+              v-model="editHeightMm"
               class="tt-input"
               placeholder="Height"
               :min="1"
@@ -360,11 +412,29 @@ const selectOptions = computed(() => [1, 2])
         </div>
 
         <div class="tt-field">
+          <label class="tt-label" for="tt-edit-unit">Unit</label>
+          <select
+            id="tt-edit-unit"
+            v-model="editUnit"
+            class="tt-input"
+          >
+            <option
+              v-for="u in UNIT_OPTIONS"
+              :key="u.value"
+              :value="u.value"
+            >
+              {{ u.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="tt-field">
           <label class="tt-label">Max Capacity</label>
           <SelectButton
             v-model="editForm.maxCapacity"
             :options="selectOptions"
-            option-label="value"
+            option-label="label"
+            option-value="value"
             class="tt-select-btn"
           />
         </div>
@@ -382,7 +452,7 @@ const selectOptions = computed(() => [1, 2])
           </button>
           <button
             class="tt-btn tt-btn--primary"
-            :disabled="!editForm.name.trim() || !editForm.widthMm || !editForm.heightMm"
+            :disabled="!editForm.name.trim() || !editWidthMm || !editHeightMm"
             @click="saveEdit"
           >
             Update

@@ -3,7 +3,10 @@
     "allow": [
       "Read(//home/danielc/**)",
       "Bash(command -v omo)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(npm outdated *)",
+      "Bash(npm update *)",
+      "Bash(npm list *)"
     ],
     "additionalDirectories": [
       "/home/danielc/.config/opencode"

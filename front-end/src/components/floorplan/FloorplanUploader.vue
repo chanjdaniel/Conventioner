@@ -87,11 +87,13 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
   },
 })
 
-const { open: openFileDialog } = useFileDialog({
+const { open: openFileDialog, onChange } = useFileDialog({
   accept: 'image/png,image/jpeg,image/webp,application/pdf',
-  onChange(files: FileList | null) {
-    if (files?.length) handleFile(files[0])
-  },
+  multiple: false,
+})
+
+onChange((files: FileList | null) => {
+  if (files?.length) handleFile(files[0])
 })
 
 watch(selectedPage, (idx) => {
