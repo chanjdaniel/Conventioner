@@ -2,7 +2,7 @@
 import { inject } from 'vue';
 import { useRouter } from 'vue-router';
 
-const setUser: any = inject("setUser");
+const setUser = inject<(user: unknown) => void>("setUser", () => {});
 const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
 

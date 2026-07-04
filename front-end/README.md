@@ -37,3 +37,17 @@ npm run build
 ```sh
 npm run lint
 ```
+
+### Run Unit Tests with [Vitest](https://vitest.dev/)
+
+```sh
+npm run test:unit
+```
+
+### Run End-to-End Tests with [Playwright](https://playwright.dev/)
+
+Requires the Docker stack running with a seeded test user (see [../docs/TESTING.md](../docs/TESTING.md)).
+
+```sh
+npm run test:e2e
+```

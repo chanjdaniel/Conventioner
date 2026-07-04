@@ -15,8 +15,8 @@ const route = useRoute();
 const router = useRouter();
 const isLogin = computed(() => route.path === "/login");
 
-const user: any = ref(null);
-const setUser = (user_data: any) => {
+const user = ref<string | null>(null);
+const setUser = (user_data: string | null) => {
   user.value = user_data;
 };
 
@@ -39,7 +39,7 @@ onMounted(async () => {
       router.push("/login");
     }
 
-  } catch (error) {
+  } catch {
     localStorage.clear();
     router.push("/login");
   }

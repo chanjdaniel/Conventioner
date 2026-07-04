@@ -117,7 +117,7 @@ const overlayStageConfig = computed(() => ({
 //  Section table overlay rects (Konva)
 // ══════════════════════════════════════════════════════════════════
 const sectionOverlays = computed(() => {
-  const overlays: any[] = []
+  const overlays: Array<{ id: string; x: number; y: number; width: number; height: number; rotation: number; fill: string; stroke: string; strokeWidth: number; strokeScaleEnabled: boolean; listening: boolean; name: string }> = []
   for (const section of store.sections) {
     const colors = sectionColorMap.value.get(section.id)
     if (!colors) continue
@@ -202,6 +202,7 @@ function handleLassoMove(e: MouseEvent) {
 }
 
 function handleLassoEnd(_e: MouseEvent) {
+  void _e
   if (!isDrawing.value) return
   isDrawing.value = false
 

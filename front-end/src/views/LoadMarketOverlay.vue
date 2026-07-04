@@ -12,15 +12,9 @@ defineProps<{
 
 const router = useRouter();
 const markets = ref<Market[]>([]);
-const next = ref(false);
 
 onMounted(async () => {
-    const userEmail = JSON.parse(localStorage.getItem("user") || "null");
-    const response = await api.get('/markets', {
-        headers: {
-            'X-Owner-Email': userEmail
-        }
-    });
+    const response = await api.get('/markets');
 
     for (const market of response.data.markets) {
         markets.value.push(parseMarketFromApi(market));

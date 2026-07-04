@@ -193,6 +193,9 @@ The frontend will start on: **[http://localhost:5173](http://localhost:5173)** (
 
 ## Step 6: Testing the Application
 
+> **Automated test suites and a one-command seed fixture are documented in [TESTING.md](./TESTING.md).**
+> For a ready-to-use test environment (Docker stack + test user + seeded market + sample CSV), run `./scripts/seed_fixture.sh` from the repository root.
+
 ### Create a Test User
 
 You can register a user via the UI or using curl:

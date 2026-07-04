@@ -1,24 +1,19 @@
 # treehouse config for Conventioner — pooled, pre-warmed worktrees for agents.
+# See scripts/README-treehouse.md for the full workflow.
 #
-# HOW AGENTS GET A WORKTREE:
-#   Do NOT call `treehouse get` directly for automation — treehouse v2.0.0 does
-#   not run the post_create hook, so a raw worktree would be missing .env,
-#   node_modules, and the back-end venv. Instead use the wrapper, which leases
-#   and pre-warms in one step:
-#       path=$(scripts/th-lease.sh <agent-label>)
-#       cd "$path" && <work>
-#       scripts/th-return.sh "$path"
+# QUICK START (agents):
+#   path=$(scripts/th-lease.sh <agent-label>)   # isolated, pre-warmed worktree
+#   cd "$path" && <work>                          # .env + node_modules ready
+#   scripts/th-compose.sh up -d                   # (optional) isolated back-end stack
+#   scripts/th-return.sh "$path"                  # release; tears down the stack
+#
+# NOTE: do NOT call `treehouse get` directly for automation — treehouse v2.0.0
+# does not run post_create hooks, so a raw worktree is missing .env/node_modules.
+# The th-lease.sh wrapper leases AND pre-warms in one step.
 
-# Pool size. Each worktree carries its own node_modules + Python venv
-# (hundreds of MB), so keep this modest. Raise for more parallel agents.
+# Pool size. Each worktree carries its own node_modules (hundreds of MB), so keep
+# this modest. Raise for more parallel agents.
 max_trees = 4
 
 # Empty => worktrees live under $HOME/.treehouse/.
 root = ""
-
-[hooks]
-# pre_destroy IS wired in v2.0.0 (runs on `treehouse destroy`). Best-effort
-# teardown of any docker-compose stack the worktree started.
-pre_destroy = ["/home/danielc/Documents/projects/personal/Conventioner/scripts/treehouse-teardown.sh"]
-# NOTE: post_create is intentionally omitted — v2.0.0 parses it but never
-# invokes it. Pre-warming is done by scripts/th-lease.sh instead.

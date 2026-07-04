@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { useFloorplanStore } from '@/stores/floorplan'
 import type { TableTypeObject } from '@/assets/types/datatypes'
 import InputText from 'primevue/inputtext'
@@ -203,7 +203,6 @@ function deleteType(tt: TableTypeObject) {
 }
 
 // ── Computed ───────────────────────────────────────────────────────
-const typeCount = computed(() => store.tableTypes.length)
 
 const selectOptions = [
   { label: '1', value: 1 },

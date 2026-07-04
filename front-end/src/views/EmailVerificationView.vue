@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import axios from 'axios';
+import type { AxiosError } from 'axios';
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
@@ -38,7 +39,8 @@ onMounted(async () => {
                 router.push('/login');
             }, 3000);
         }
-    } catch (error: any) {
+    } catch (_e: unknown) {
+        const error = _e as AxiosError<{ msg?: string }>;
         if (error.response) {
             errorMessage.value = error.response.data?.msg || 'Verification failed';
         } else if (error.request) {
@@ -74,7 +76,8 @@ const resendVerification = async () => {
         if (response.status === 200) {
             message.value = response.data.msg || 'Verification email sent!';
         }
-    } catch (error: any) {
+    } catch (_e: unknown) {
+        const error = _e as AxiosError<{ msg?: string }>;
         if (error.response) {
             errorMessage.value = error.response.data?.msg || 'Failed to resend verification email';
         } else {

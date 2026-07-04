@@ -13,14 +13,18 @@
 #
 set -euo pipefail
 
-REPO="/home/danielc/Documents/projects/personal/Conventioner"
+# Repo root = parent of this script's dir, so this works from any clone location.
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOLDER="${1:-${TREEHOUSE_LEASE_HOLDER:-agent}}"
 
 # Lease a worktree (path -> stdout, banners -> stderr).
 path="$(cd "$REPO" && treehouse get --lease --lease-holder "$HOLDER")"
 
-# Pre-warm it (idempotent; fast on pool hits). Progress -> stderr.
-TREEHOUSE_DIR="$path" "$REPO/scripts/treehouse-setup.sh" 1>&2
+# Pre-warm it (idempotent; fast on pool hits). Progress -> stderr. A pre-warm
+# hiccup must not lose the lease path — warn but still return it.
+if ! TREEHOUSE_DIR="$path" "$REPO/scripts/treehouse-setup.sh" 1>&2; then
+  echo "[treehouse] WARNING: pre-warm reported an error; worktree is leased at $path" >&2
+fi
 
 # Only the path on stdout.
 echo "$path"

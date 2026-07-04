@@ -1,0 +1,6 @@
+email,vendor_name,table_choice,buddy_email,day_1
+alice@example.com,Alice,Full table,,Gold
+bob@example.com,Bob,Full table,,Gold
+carol@example.com,Carol,Half Table,,Silver
+dave@example.com,Dave,Half Table,carol@example.com,Silver
+eve@example.com,Eve,Full table,,Gold

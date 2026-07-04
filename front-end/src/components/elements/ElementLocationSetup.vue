@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import { type SetupObject, type SectionObject } from '@/assets/types/datatypes'
+import { type SetupObject } from '@/assets/types/datatypes'
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { type LocationObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
-
-const updateSetupObject = () => {
-    emit("update:setupObject", setupObject.value);
-};
 
 const setupObject = toRef(props, "setupObject");
 const locationObjects = toRef(setupObject.value, "locations");

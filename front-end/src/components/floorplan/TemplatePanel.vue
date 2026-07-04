@@ -65,7 +65,8 @@ async function saveTemplate() {
     showFeedback(`Template &ldquo;${templateName.value.trim()}&rdquo; saved.`, 'success')
     templateName.value = ''
     saveDialog.value = false
-  } catch (e: any) {
+  } catch (_e: unknown) {
+    const e = _e as { response?: { data?: { error?: string } }; message?: string }
     saveError.value = e.response?.data?.error || 'Failed to save template.'
   } finally {
     saving.value = false
@@ -82,7 +83,8 @@ async function fetchTemplates() {
     if (uid) params.userId = uid
     const { data } = await api.get('/floorplans/templates', { params })
     templates.value = data.templates ?? data ?? []
-  } catch (e: any) {
+  } catch (_e: unknown) {
+    const e = _e as { response?: { data?: { error?: string } }; message?: string }
     loadError.value = e.response?.data?.error || 'Failed to load templates.'
     templates.value = []
   } finally {

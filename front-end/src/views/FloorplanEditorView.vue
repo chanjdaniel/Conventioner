@@ -9,6 +9,7 @@ const route = useRoute()
 const marketId = computed(() => route.query.marketId as string | undefined)
 
 function handleSaved(_payload: { market_id: string }) {
+  void _payload;
   router.push('/market-setup')
 }
 </script>

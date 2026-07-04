@@ -72,12 +72,14 @@ function onCalibrated(_payload: {
   lengthMm: number
   unit: string
 }) {
+  void _payload
   // ScaleCalibration already calls store.setScale() internally
   // Auto-advance to the next step
   step.value++
 }
 
 function onPlaced(_count: number) {
+  void _count
   // AutoPlaceButton already calls store.setPlacedTables() internally
 }
 

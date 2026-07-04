@@ -11,11 +11,12 @@ Example:
 """
 
 import sys
+from datetime import datetime, timezone
 from flask_bcrypt import Bcrypt
 from db_config import get_database
 
 def create_test_user(email: str, password: str, organizations=None, markets=None):
-    """Create a test user in the database."""
+    """Create a test user in the database ready for immediate login."""
     if organizations is None:
         organizations = []
     if markets is None:
@@ -34,22 +35,32 @@ def create_test_user(email: str, password: str, organizations=None, markets=None
     bcrypt = Bcrypt()
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
     
-    # Create user document
+    # Create user document with all required fields for the Pydantic User model
+    # and email_verified=True so the user can log in immediately without
+    # going through the email verification flow.
     user_doc = {
         "email": email,
         "password": hashed_password,
         "organizations": organizations,
-        "markets": markets
+        "markets": markets,
+        "email_verified": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     
     # Insert into database
     result = users_collection.insert_one(user_doc)
     
     if result.inserted_id:
+        # Set the 'id' field to match the MongoDB _id (required by Pydantic User model)
+        user_id = str(result.inserted_id)
+        users_collection.update_one(
+            {"_id": result.inserted_id},
+            {"$set": {"id": user_id}},
+        )
         print(f"✅ Successfully created test user:")
         print(f"   Email: {email}")
         print(f"   Password: {password}")
-        print(f"   User ID: {result.inserted_id}")
+        print(f"   User ID: {user_id}")
         return True
     else:
         print("❌ Failed to create user")

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import Konva from 'konva'
 import { useFloorplanStore } from '@/stores/floorplan'
 import { api } from '@/utils/api'
 import { useUndoRedo } from '@/components/floorplan/useUndoRedo'
 import type { PlacedTableObject, WallSegment } from '@/assets/types/datatypes'
+import type Konva from 'konva'
 
 // ── Props ──────────────────────────────────────────────────────────
 const props = withDefaults(
@@ -29,7 +29,7 @@ const bgImage = ref<HTMLImageElement | null>(null)
 const showGrid = ref(true)
 const containerWidth = ref(0)
 const containerHeight = ref(0)
-const snapGuides = ref<any[]>([])
+const snapGuides = ref<Array<{ key: string; points: number[]; stroke: string; strokeWidth: number; dash: number[]; listening: boolean }>>([])
 const errorMsg = ref('')
 
 // ── Resize observer ────────────────────────────────────────────────
@@ -102,7 +102,8 @@ async function loadBackgroundImage(gridfsId: string) {
       imageWidth: img.width,
       imageHeight: img.height,
     })
-  } catch (err: any) {
+  } catch (_e: unknown) {
+    const err = _e as { name?: string; code?: string; response?: { data?: { error?: string } }; message?: string }
     console.error('Failed to load floorplan image:', err)
     errorMsg.value = 'Failed to load floorplan image. Please try refreshing the page.'
   }
@@ -120,7 +121,7 @@ const bgImageConfig = computed(() => {
 })
 
 // ── Zoom ───────────────────────────────────────────────────────────
-function handleZoom(e: any) {
+function handleZoom(e: Konva.KonvaEventObject<WheelEvent>) {
   e.evt.preventDefault()
   const scaleBy = 1.1
   const stage = stageRef.value?.getNode()
@@ -207,7 +208,7 @@ function toggleGrid() {
 }
 
 // ── Stage mouse handlers ───────────────────────────────────────────
-function handleStageMouseDown(e: any) {
+function handleStageMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
   // Click on empty space → clear selection
   if (e.target === e.target.getStage()) {
     store.clearSelection()
@@ -217,11 +218,11 @@ function handleStageMouseDown(e: any) {
   }
 }
 
-function handleStageMouseMove(_e: any) {
+function handleStageMouseMove() {
   // No-op: panning handled by stage.draggable
 }
 
-function handleStageMouseUp(_e: any) {
+function handleStageMouseUp() {
   // Clear snap guides on mouse up
   snapGuides.value = []
 }
@@ -250,7 +251,8 @@ function tableRectConfig(table: PlacedTableObject) {
 }
 
 // ── Table drag handlers ────────────────────────────────────────────
-function onTableDragStart(table: PlacedTableObject) {
+function onTableDragStart(_table: PlacedTableObject) {
+  void _table
   const stage = stageRef.value?.getNode()
   if (!stage) return
   pushSnapshot()
@@ -279,7 +281,7 @@ function onTableDragEnd(table: PlacedTableObject) {
 }
 
 // ── Table click (selection) ────────────────────────────────────────
-function onTableClick(table: PlacedTableObject, e: any) {
+function onTableClick(table: PlacedTableObject, e: Konva.KonvaEventObject<MouseEvent>) {
   if (!props.editMode) return
 
   const multi = e.evt?.ctrlKey || e.evt?.metaKey
@@ -319,7 +321,12 @@ const transformerConfig = computed(() => ({
 }))
 
 // ── Snap-to-edge/corner ────────────────────────────────────────────
-function checkSnaps(node: any): boolean {
+function checkSnaps(node: {
+  id(): string;
+  getClientRect(): { x: number; y: number; width: number; height: number };
+  x: { (): number; (val: number): void };
+  y: { (): number; (val: number): void };
+}): boolean {
   snapGuides.value = []
   const tolerance = 10
 
@@ -327,7 +334,7 @@ function checkSnaps(node: any): boolean {
   if (!stage) return false
 
   const nodeRect = node.getClientRect()
-  const tables = stage.find('.table').filter((n: any) => n.id() !== node.id())
+  const tables = stage.find('.table').filter((n: Konva.Node) => n.id() !== node.id())
 
   let snapped = false
 
@@ -466,7 +473,7 @@ const gridLines = computed(() => {
 
   const w = (containerWidth.value || 1200) * 3
   const h = (containerHeight.value || 800) * 3
-  const lines: any[] = []
+  const lines: Array<{ key: string; points: number[]; stroke: string; strokeWidth: number; listening: boolean }> = []
 
   const offsetX = ((store.stageConfig.x % gridSize) + gridSize) % gridSize
   const offsetY = ((store.stageConfig.y % gridSize) + gridSize) % gridSize
@@ -549,7 +556,7 @@ watch(
           :config="tableRectConfig(table)"
           @dragstart="onTableDragStart(table)"
           @dragend="onTableDragEnd(table)"
-          @click="(e: any) => onTableClick(table, e)"
+          @click="onTableClick(table, $event)"
         />
         <v-transformer
           ref="transformerRef"

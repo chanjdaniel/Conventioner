@@ -62,7 +62,6 @@ async function loadAttendance(): Promise<void> {
     try {
         const resp = await api.get<{ attendance: VendorAttendance[] }>(
             `/markets/${encodeURIComponent(marketId.value)}/attendance`,
-            { headers: { 'X-Owner-Email': userEmail } },
         );
         attendance.value = resp.data.attendance || [];
     } catch (err: unknown) {

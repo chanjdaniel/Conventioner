@@ -171,11 +171,7 @@ onMounted(() => {
         const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
         if (!market.value?.id || !userEmail) return;
 
-        api.get(`/markets/${encodeURIComponent(market.value.id)}/assignment-statistics`, {
-            headers: {
-                'X-Owner-Email': userEmail,
-            },
-        }).then((response) => {
+        api.get(`/markets/${encodeURIComponent(market.value.id)}/assignment-statistics`).then((response) => {
             assignmentStatistics.value = response.data as AssignmentStatistics;
         }).catch(() => {
             assignmentStatistics.value = null;
@@ -264,7 +260,6 @@ const handleDownloadCsv = async () => {
         const response = await api.get(
             `/markets/${encodeURIComponent(market.value.id)}/assignment-csv`,
             {
-                headers: { 'X-Owner-Email': userEmail },
                 responseType: 'blob',
             },
         );
@@ -327,7 +322,6 @@ const handleSendToDiscord = async () => {
         await api.post(
             `/markets/${encodeURIComponent(market.value.id)}/discord/notify-assignment`,
             {},
-            { headers: { 'X-Owner-Email': userEmail } },
         );
         discordToast.value = 'Posted to Discord';
         setTimeout(() => {
@@ -361,11 +355,8 @@ const handleDone = async () => {
         return;
     }
     market = { ...market, isDraft: false };
-    const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
     try {
-        await api.put(`/markets/${encodeURIComponent(market.id)}`, market, {
-            headers: { 'X-Owner-Email': userEmail },
-        });
+        await api.put(`/markets/${encodeURIComponent(market.id)}`, market);
         localStorage.setItem('market', JSON.stringify(market));
         const slug = marketNameToKebabSlug(market.name);
         if (slug) {

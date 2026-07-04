@@ -63,12 +63,8 @@ async function loadSourceData() {
         return;
     }
 
-    const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
-
     try {
-        const res = await api.get(`/source-data/${encodeURIComponent(market.id)}`, {
-            headers: { 'X-Owner-Email': userEmail },
-        });
+        const res = await api.get(`/source-data/${encodeURIComponent(market.id)}`);
         const rows = res.data?.data;
         if (Array.isArray(rows) && rows.length > 0) {
             dataRows.value = rows.map((row: unknown) =>

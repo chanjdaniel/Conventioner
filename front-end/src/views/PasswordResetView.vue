@@ -67,7 +67,8 @@ const submitReset = async () => {
                 router.push('/login');
             }, 2000);
         }
-    } catch (error: any) {
+    } catch (_e: unknown) {
+        const error = _e as { response?: { data?: { msg?: string; message?: string }; status?: number }; request?: unknown; message?: string };
         if (error.response) {
             errorMessage.value = error.response.data?.msg || 'Failed to reset password';
         } else if (error.request) {

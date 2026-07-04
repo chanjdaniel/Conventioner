@@ -213,7 +213,6 @@ async function loadTables(): Promise<void> {
     try {
         const resp = await api.get<MarketTableRow[]>(
             `/markets/${encodeURIComponent(marketId.value)}/tables`,
-            { headers: { 'X-Owner-Email': userEmail } },
         );
         allRows.value = Array.isArray(resp.data) ? resp.data : [];
     } catch (err: unknown) {

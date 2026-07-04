@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, type Ref, onMounted, defineEmits, defineProps, toRef, nextTick, onUnmounted, watch } from 'vue';
+import { ref, onMounted, defineEmits, defineProps, toRef, nextTick, onUnmounted } from 'vue';
 import IconEdit from '@/components/icons/IconEdit.vue';
 import { type SetupObject } from '@/assets/types/datatypes';
 import IconInfo from '@/components/icons/IconInfo.vue';

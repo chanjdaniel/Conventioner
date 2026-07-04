@@ -8,7 +8,7 @@ import { useFloorplanStore } from '@/stores/floorplan'
  *
  * @param stageRef - A Vue ref pointing to a `<v-stage>` element (vue-konva).
  */
-export function useUndoRedo(stageRef: Ref<any>) {
+export function useUndoRedo(stageRef: Ref<{ getNode(): Konva.Stage | null }>) {
   const store = useFloorplanStore()
 
   // ── Snapshot ────────────────────────────────────────────────────────

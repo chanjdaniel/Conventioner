@@ -32,7 +32,7 @@ const otpErrorMessage = ref("");
 const otpRequested = ref(false);
 const otpSuccessMessage = ref("");
 
-const setUser: any = inject("setUser");
+const setUser = inject<(user: unknown) => void>("setUser", () => {});
 
 const submitLogin = async () => {
     errorMessage.value = ""; // Clear previous error
@@ -58,7 +58,8 @@ const submitLogin = async () => {
             setUser(user_email);
             router.push("/dashboard");
         }
-    } catch (error: any) {
+    } catch (_e: unknown) {
+        const error = _e as { response?: { data?: { msg?: string; message?: string }; status?: number }; request?: unknown; message?: string };
         // Handle axios errors (including 401 responses)
         if (error.response) {
             // Server responded with error status
@@ -119,7 +120,8 @@ const submitRegister = async () => {
             registerPassword.value = "";
             registerPasswordConfirm.value = "";
         }
-    } catch (error: any) {
+    } catch (_e: unknown) {
+        const error = _e as { response?: { data?: { msg?: string; message?: string }; status?: number }; request?: unknown; message?: string };
         if (error.response) {
             registerErrorMessage.value = error.response.data?.msg || "Registration failed";
         } else if (error.request) {
@@ -157,7 +159,8 @@ const requestOTP = async () => {
             otpRequested.value = true;
             otpSuccessMessage.value = response.data.msg || "OTP sent to your email";
         }
-    } catch (error: any) {
+    } catch (_e: unknown) {
+        const error = _e as { response?: { data?: { msg?: string; message?: string }; status?: number }; request?: unknown; message?: string };
         if (error.response) {
             otpErrorMessage.value = error.response.data?.msg || "Failed to send OTP";
         } else if (error.request) {
@@ -197,7 +200,8 @@ const submitOTPLogin = async () => {
             setUser(user_email);
             router.push("/dashboard");
         }
-    } catch (error: any) {
+    } catch (_e: unknown) {
+        const error = _e as { response?: { data?: { msg?: string; message?: string }; status?: number }; request?: unknown; message?: string };
         if (error.response) {
             otpErrorMessage.value = error.response.data?.msg || "Invalid OTP";
         } else if (error.request) {

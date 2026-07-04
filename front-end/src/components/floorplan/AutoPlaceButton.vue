@@ -111,7 +111,8 @@ async function triggerAutoPlace() {
     const placed = mapResponseToPlacedTables(data.placed_tables ?? [])
     store.setPlacedTables(placed)
     emit('placed', placed.length)
-  } catch (err: any) {
+  } catch (_e: unknown) {
+    const err = _e as { name?: string; code?: string; response?: { data?: { error?: string } }; message?: string }
     if (err?.name === 'AbortError' || err?.code === 'ECONNABORTED') {
       errorMessage.value = 'Placement timed out. Please try again with fewer tables.'
     } else if (err?.response?.data?.error) {

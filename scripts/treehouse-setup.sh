@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 #
 # Pre-warm a Conventioner worktree so an agent can start immediately.
-# Idempotent: a reused, already-warm worktree is detected and left untouched,
-# so this stays fast on pool hits. A fresh checkout has no git-ignored files,
-# so we recreate: .env files, node_modules (root + front-end), and the
-# back-end/env Python venv.
+# Idempotent: an already-warm worktree is detected and left untouched, so this
+# stays fast on pool hits.
+#
+# A fresh git checkout has no git-ignored files, so we recreate:
+#   - .env files (copied from the primary checkout)
+#   - node_modules (root + front-end)  -> front-end / JS tooling works locally
+#
+# Back-end Python is intentionally NOT set up as a local venv: the project runs
+# the back-end via Docker (python:3.11-slim, see docker-compose.yml), and this
+# machine only has Python 3.13/3.14, on which the pinned deps won't build.
+# Set TREEHOUSE_BUILD_VENV=1 to attempt a local venv anyway (best-effort).
 #
 # Usage: TREEHOUSE_DIR=<worktree-path> scripts/treehouse-setup.sh
-# (Called by scripts/th-lease.sh. NOTE: treehouse v2.0.0 does not invoke
-#  post_create hooks, so we drive this from the lease wrapper, not from
-#  treehouse.toml.)
-#
 set -euo pipefail
 
 WORKTREE="${TREEHOUSE_DIR:-$PWD}"
@@ -37,12 +40,18 @@ if [ ! -d "$WORKTREE/front-end/node_modules" ]; then
   npm install --prefix "$WORKTREE/front-end" --no-audit --no-fund --silent
 fi
 
-# 3. Python venv for the back-end (skip if already present)
-if [ ! -x "$WORKTREE/back-end/env/bin/python" ]; then
-  echo "[treehouse]   python venv + pip install (back-end)"
-  python3 -m venv "$WORKTREE/back-end/env"
-  "$WORKTREE/back-end/env/bin/pip" install -q --upgrade pip
-  "$WORKTREE/back-end/env/bin/pip" install -q -r "$WORKTREE/back-end/requirements.txt"
+# 3. Back-end Python venv — OFF by default (see header). Best-effort when opted
+#    in; a failure warns but never aborts the pre-warm.
+if [ "${TREEHOUSE_BUILD_VENV:-0}" = "1" ] && [ ! -x "$WORKTREE/back-end/env/bin/python" ]; then
+  echo "[treehouse]   python venv + pip install (back-end, best-effort)"
+  if python3 -m venv "$WORKTREE/back-end/env" \
+     && "$WORKTREE/back-end/env/bin/pip" install -q --upgrade pip \
+     && "$WORKTREE/back-end/env/bin/pip" install -q -r "$WORKTREE/back-end/requirements.txt"; then
+    echo "[treehouse]   venv ready"
+  else
+    echo "[treehouse]   WARNING: venv build failed — removing partial env; use Docker for the back-end" >&2
+    rm -rf "$WORKTREE/back-end/env"
+  fi
 fi
 
 echo "[treehouse] ready: $WORKTREE"

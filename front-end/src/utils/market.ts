@@ -15,6 +15,7 @@ export function pathAfterLoadingMarket(market: Market): string {
 /**
  * Normalize a market payload from the API (camelCase or snake_case) into a `Market`.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseMarketFromApi(market: any): Market {
     const userRoleRaw = market.userRole ?? market.user_role;
     const creationDate = market.creationDate ?? market.creation_date;

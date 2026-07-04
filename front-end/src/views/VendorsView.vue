@@ -109,18 +109,16 @@ async function loadVendors(): Promise<void> {
         return;
     }
 
-    const headers = { 'X-Owner-Email': userEmail };
     const marketId = encodeURIComponent(loaded.id);
     isLoading.value = true;
 
     try {
         const [sourceResp, statsResp, tablesResp] = await Promise.all([
-            api.get<SourceDataResponse>(`/source-data/${marketId}`, { headers }),
+            api.get<SourceDataResponse>(`/source-data/${marketId}`),
             api.get<AssignmentStatisticsResponse>(
                 `/markets/${marketId}/assignment-statistics`,
-                { headers },
             ),
-            api.get<MarketTableRowResponse[]>(`/markets/${marketId}/tables`, { headers }),
+            api.get<MarketTableRowResponse[]>(`/markets/${marketId}/tables`),
         ]);
 
         const rawRows = Array.isArray(sourceResp.data?.data) ? sourceResp.data.data : [];

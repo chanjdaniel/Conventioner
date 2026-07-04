@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import Konva from 'konva'
 import { useFloorplanStore } from '@/stores/floorplan'
 import type { WallSegment, ObstacleZone } from '@/assets/types/datatypes'
+import type Konva from 'konva'
 
 // ── Props ──────────────────────────────────────────────────────────
 const props = withDefaults(
@@ -114,7 +114,7 @@ const stageConfig = computed(() => ({
 }))
 
 // ── Zoom ───────────────────────────────────────────────────────────
-function handleZoom(e: any) {
+function handleZoom(e: Konva.KonvaEventObject<WheelEvent>) {
   e.evt.preventDefault()
   const stage = stageRef.value?.getNode()
   if (!stage) return
@@ -168,7 +168,6 @@ function vertexConfig(
     hoveredVertex.value?.vertex === vertex
   const isSelected = selectedWallId.value === wall.id
 
-  const baseColor = isSelected ? 'var(--mm-yellow)' : 'var(--mm-green)'
   const fill = isHovered
     ? 'var(--mm-yellow)'
     : isSelected
@@ -289,7 +288,7 @@ function obstacleVertexConfigs(obs: ObstacleZone) {
 }
 
 // ── Stage event handlers ───────────────────────────────────────────
-function handleStageMouseDown(e: any) {
+function handleStageMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
   if (!props.enabled) return
 
   // Check if click is on empty stage area
@@ -297,7 +296,9 @@ function handleStageMouseDown(e: any) {
 
   if (toolMode.value === 'add-wall') {
     if (!clickedOnStage) return
-    const pos = e.target.getStage().getPointerPosition()
+    const stage = e.target.getStage()
+    if (!stage) return
+    const pos = stage.getPointerPosition()
     if (!pos) return
 
     if (!newWallStart.value) {
@@ -317,7 +318,9 @@ function handleStageMouseDown(e: any) {
 
   if (toolMode.value === 'add-obstacle') {
     if (!clickedOnStage) return
-    const pos = e.target.getStage().getPointerPosition()
+    const stage = e.target.getStage()
+    if (!stage) return
+    const pos = stage.getPointerPosition()
     if (!pos) return
     const mm = stagePointerToFloor(pos)
     newObstaclePoints.value = [...newObstaclePoints.value, mm]
@@ -332,7 +335,7 @@ function handleStageMouseDown(e: any) {
   }
 }
 
-function handleStageMouseMove(e: any) {
+function handleStageMouseMove() {
   if (!props.enabled) return
   const stage = stageRef.value?.getNode()
   if (!stage) return
@@ -341,7 +344,7 @@ function handleStageMouseMove(e: any) {
   cursorPixel.value = { x: pos.x, y: pos.y }
 }
 
-function handleStageDblClick(e: any) {
+function handleStageDblClick(e: Konva.KonvaEventObject<MouseEvent>) {
   if (!props.enabled) return
   if (toolMode.value === 'add-obstacle' && newObstaclePoints.value.length >= 3) {
     e.evt.preventDefault()
@@ -364,7 +367,7 @@ function onObstacleClick(obs: ObstacleZone) {
 }
 
 // ── Vertex drag handlers ───────────────────────────────────────────
-function onVertexDragStart(wall: WallSegment, vertex: 'start' | 'end', e: any) {
+function onVertexDragStart(wall: WallSegment, vertex: 'start' | 'end', e: Konva.KonvaEventObject<MouseEvent>) {
   if (!props.enabled) return
   // Store initial coords in case we need them
   const node = e.target
@@ -374,11 +377,14 @@ function onVertexDragStart(wall: WallSegment, vertex: 'start' | 'end', e: any) {
   })
 }
 
-function onVertexDragMove(wall: WallSegment, vertex: 'start' | 'end', _e: any) {
+function onVertexDragMove(_wall: WallSegment, _vertex: 'start' | 'end', _e: unknown) {
+  void _wall
+  void _vertex
+  void _e
   // Real-time preview: nothing extra needed, Konva handles visual
 }
 
-function onVertexDragEnd(wall: WallSegment, vertex: 'start' | 'end', e: any) {
+function onVertexDragEnd(wall: WallSegment, vertex: 'start' | 'end', e: Konva.KonvaEventObject<MouseEvent>) {
   if (!props.enabled) return
   const node = e.target
   const newPx = { x: node.x(), y: node.y() }
@@ -393,7 +399,7 @@ function onVertexDragEnd(wall: WallSegment, vertex: 'start' | 'end', e: any) {
 }
 
 // ── Obstacle vertex drag ───────────────────────────────────────────
-function onObstacleVertexDragEnd(obs: ObstacleZone, vertexIndex: number, e: any) {
+function onObstacleVertexDragEnd(obs: ObstacleZone, vertexIndex: number, e: Konva.KonvaEventObject<MouseEvent>) {
   if (!props.enabled) return
   const node = e.target
   const [newXmm, newYmm] = stagePointerToFloor({ x: node.x(), y: node.y() })
@@ -536,9 +542,9 @@ watch(
               ),
               id: `${wall.id}-start`,
             }"
-            @dragstart="(e: any) => onVertexDragStart(wall, 'start', e)"
-            @dragmove="(e: any) => onVertexDragMove(wall, 'start', e)"
-            @dragend="(e: any) => onVertexDragEnd(wall, 'start', e)"
+            @dragstart="onVertexDragStart(wall, 'start', $event)"
+            @dragmove="onVertexDragMove(wall, 'start', $event)"
+            @dragend="onVertexDragEnd(wall, 'start', $event)"
             @mouseenter="() => onVertexMouseEnter(wall, 'start')"
             @mouseleave="() => onVertexMouseLeave()"
           />
@@ -552,9 +558,9 @@ watch(
               ),
               id: `${wall.id}-end`,
             }"
-            @dragstart="(e: any) => onVertexDragStart(wall, 'end', e)"
-            @dragmove="(e: any) => onVertexDragMove(wall, 'end', e)"
-            @dragend="(e: any) => onVertexDragEnd(wall, 'end', e)"
+            @dragstart="onVertexDragStart(wall, 'end', $event)"
+            @dragmove="onVertexDragMove(wall, 'end', $event)"
+            @dragend="onVertexDragEnd(wall, 'end', $event)"
             @mouseenter="() => onVertexMouseEnter(wall, 'end')"
             @mouseleave="() => onVertexMouseLeave()"
           />
@@ -595,7 +601,7 @@ watch(
             v-for="(vc, vi) in obstacleVertexConfigs(obs)"
             :key="vc.key"
             :config="vc"
-            @dragend="(e: any) => onObstacleVertexDragEnd(obs, vi, e)"
+            @dragend="onObstacleVertexDragEnd(obs, vi, $event)"
           />
         </template>
 

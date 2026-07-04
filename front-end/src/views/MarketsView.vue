@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market, MarketRole } from '@/assets/types/datatypes';
-import { api } from '@/utils/api';
+import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market';
 import { getRoleDisplayName } from '@/utils/permissions';
 import NewMarketOverlay from './NewMarketOverlay.vue';
@@ -20,15 +20,10 @@ async function fetchMarkets() {
     loading.value = true;
     errorMessage.value = '';
     try {
-        const userEmail = JSON.parse(localStorage.getItem("user") || "null");
-        const response = await api.get('/markets', {
-            headers: {
-                'X-Owner-Email': userEmail
-            }
-        });
+        const response = await api.get('/markets');
         markets.value = (response.data.markets || []).map(parseMarketFromApi);
-    } catch (err: any) {
-        errorMessage.value = err.response?.data?.error || 'Failed to load markets';
+    } catch (err) {
+        errorMessage.value = getApiErrorMessage(err, 'Failed to load markets');
         markets.value = [];
     } finally {
         loading.value = false;

@@ -6,6 +6,9 @@ import { useFloorplanStore } from '@/stores/floorplan'
 
 // ── Types ────────────────────────────────────────────────────────────
 
+interface StageRef { getNode(): Konva.Stage | null }
+interface TransformerRef { getNode(): Konva.Transformer | null }
+
 export interface SnapGuide {
   key: string
   points: number[]
@@ -205,8 +208,8 @@ function calculateSnap(
  * @param store        - The floorplan Pinia store instance.
  */
 export function useTableInteraction(
-  stageRef: Ref<any>,
-  transformerRef: Ref<any>,
+  stageRef: Ref<StageRef>,
+  transformerRef: Ref<TransformerRef>,
   store: ReturnType<typeof useFloorplanStore>,
 ) {
   // ── Reactive state ─────────────────────────────────────────────────
@@ -229,7 +232,7 @@ export function useTableInteraction(
     stage: Konva.Stage,
     excludeId: string,
   ): Array<{ rect: RectBounds; id: string }> {
-    const tables: Konva.Rect[] = stage.find('.table') as any
+    const tables: Konva.Rect[] = stage.find('.table') as Konva.Rect[]
     return tables
       .filter((n) => n.id() !== excludeId)
       .map((n) => ({ rect: n.getClientRect(), id: n.id() }))
@@ -270,9 +273,6 @@ export function useTableInteraction(
 
       const node = stage.findOne(`#${table.id}`)
       if (!node) return pos
-
-      const scaleX = stage.scaleX()
-      const scaleY = stage.scaleY()
 
       // Save original layer position so we can restore it after the
       // temporary probe below.
@@ -325,6 +325,7 @@ export function useTableInteraction(
 
   /** Push a JSON snapshot for undo before the drag starts. */
   function onTableDragStart(_table: PlacedTableObject) {
+    void _table
     const stage = getStage()
     if (stage) store.pushHistory(stage.toJSON())
     snapGuides.value = []
@@ -366,7 +367,7 @@ export function useTableInteraction(
    * | Ctrl / ⌘     | Toggle this table in the selection                |
    * | Shift        | Add this table to the selection (never remove)    |
    */
-  function onTableClick(table: PlacedTableObject, e: any) {
+  function onTableClick(table: PlacedTableObject, e: { evt?: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean } }) {
     const stage = getStage()
     if (!stage) return
 
@@ -391,7 +392,7 @@ export function useTableInteraction(
   // ── Stage click (clear selection) ──────────────────────────────────
 
   /** Clicking on empty canvas space clears the selection. */
-  function onStageMouseDown(e: any) {
+  function onStageMouseDown(e: { target: { getStage(): unknown } }) {
     if (e.target === e.target.getStage()) {
       store.clearSelection()
       const tr = getTransformer()

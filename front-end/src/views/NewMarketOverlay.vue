@@ -3,6 +3,7 @@ import ElementFileDrop from '@/components/elements/ElementFileDrop.vue';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market, MarketRole } from '@/assets/types/datatypes.ts'
+import axios from 'axios';
 import { api } from '@/utils/api';
 
 defineProps<{
@@ -10,18 +11,18 @@ defineProps<{
 }>();
 
 const router = useRouter();
-const uploadedFiles = ref([]);
-const uploadedSourceData = ref([]);
+const uploadedFiles = ref<unknown>([]);
+const uploadedSourceData = ref<File[]>([]);
 const next = ref(false);
 const marketName = ref("");
 const errorMessage = ref("");
 
-const handleFileUploaded = (files: any) => {
+const handleFileUploaded = (files: unknown) => {
     uploadedFiles.value = files;
     next.value = true;
 };
 
-const handleSourceDataUploaded = (sourceData: any) => {
+const handleSourceDataUploaded = (sourceData: File[]) => {
     uploadedSourceData.value = sourceData;
 };
 
@@ -35,7 +36,7 @@ const handleSubmit = async () => {
 
     try {
         const userEmail = JSON.parse(localStorage.getItem("user") || "null");
-        let newMarket: Omit<Market, 'id'> & { id?: string } = {
+        const newMarket: Omit<Market, 'id'> & { id?: string } = {
             name: marketName.value,
             creationDate: new Date().toISOString(),
             isDraft: true,
@@ -53,19 +54,13 @@ const handleSubmit = async () => {
             },
         }
         
-        const createResponse = await api.post('/markets', newMarket, {
-            headers: {
-                'X-Owner-Email': userEmail
-            }
-        });
+        const createResponse = await api.post('/markets', newMarket);
         const marketId = createResponse.data.market_id;
 
         const formData = new FormData();
         if (uploadedSourceData.value.length > 0) {
             formData.append('file', uploadedSourceData.value[0]);
-            await api.post(`/source-data/${marketId}`, formData, {
-                headers: { 'X-Owner-Email': userEmail },
-            });
+            await api.post(`/source-data/${marketId}`, formData);
         }
 
         localStorage.removeItem("upload");
@@ -76,8 +71,8 @@ const handleSubmit = async () => {
         localStorage.setItem("market", JSON.stringify(marketWithId));
 
         router.push('/market-setup');
-    } catch (error: any) {
-        if (error.response?.status === 400 && error.response?.data?.error) {
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 400 && error.response?.data?.error) {
             const errorText = error.response.data.error.toLowerCase();
             if (errorText.includes('already exists') || errorText.includes('market already')) {
                 errorMessage.value = "A market with this name already exists";

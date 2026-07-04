@@ -8,10 +8,6 @@ import { getFormattedDate } from '@/utils/utils';
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
 
-const updateSetupObject = () => {
-    emit("update:setupObject", setupObject.value);
-};
-
 const setupObject = toRef(props, "setupObject");
 const marketDates = toRef(setupObject.value, "marketDates");
 const colNames = toRef(setupObject.value, "colNames");
@@ -51,8 +47,6 @@ watch(
 );
 
 const hoverIndex = ref<number | null>(null);
-
-const colDefault = "Select a column";
 
 const removeRow = (index: number | null) => {
     if (index != null) {

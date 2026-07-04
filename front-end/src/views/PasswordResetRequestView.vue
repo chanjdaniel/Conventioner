@@ -38,7 +38,8 @@ const submitRequest = async () => {
             successMessage.value = response.data.msg || 'If an account exists, a password reset email has been sent.';
             email.value = '';
         }
-    } catch (error: any) {
+    } catch (_e: unknown) {
+        const error = _e as { response?: { data?: { msg?: string; message?: string }; status?: number }; request?: unknown; message?: string };
         if (error.response) {
             if (error.response.status === 429) {
                 errorMessage.value = error.response.data?.msg || 'Please wait before requesting another password reset';

@@ -7,9 +7,7 @@ import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(["update:setupObject"]);
 
-const updateSetupObject = () => {
-    emit("update:setupObject", setupObject.value);
-};
+
 
 const setupObject = toRef(props, "setupObject");
 const sections = toRef(setupObject.value, "sections");

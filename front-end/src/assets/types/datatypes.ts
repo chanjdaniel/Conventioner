@@ -81,9 +81,8 @@ export interface SetupObject {
     floorplans?: FloorplanObject[],
 }
 
-export interface ModificationObject {
-
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ModificationObject {}
 
 export interface VendorAssignmentResult {
     email: string,
@@ -105,7 +104,7 @@ export interface AssignmentStatistics {
     assignmentsPerTier: Record<string, number>,
     assignmentsPerSection: Record<string, number>,
     assignmentsPerTableChoice?: Record<string, number>,
-    unassignedVendors: any[],
+    unassignedVendors: Record<string, unknown>[],
     unassignedTables: Record<string, UnassignedTableEntry[]>,
     satisfactionScore: number,
 }

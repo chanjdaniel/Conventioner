@@ -63,6 +63,12 @@ This document outlines the complete technology stack used in the Conventioner ap
   - Session lifetime: 2 hours (7200 seconds)
   - Secure cookie configuration for production
 
+### Testing
+- **pytest 8+** - Python test framework
+  - Runs the back-end test suite (`python -m pytest tests/`)
+  - Configured via `back-end/pytest.ini`
+  - Tests use in-memory fakes, so no database connection is required
+
 ## Frontend
 
 ### Core Framework
@@ -125,6 +131,15 @@ This document outlines the complete technology stack used in the Conventioner ap
 - **Vue TSC 2.2.0** - TypeScript type checker for Vue
   - Type checking for Vue components
 
+### Testing Tools
+- **Vitest 4** - Unit test runner
+  - Runs component and utility unit tests (`npm run test:unit`)
+  - Uses the `happy-dom` environment (configured in `vitest.config.ts`)
+- **@vue/test-utils 2** - Vue component testing utilities
+- **Playwright 1.61** - End-to-end browser testing
+  - Drives Chromium against the running Docker stack (`npm run test:e2e`)
+  - Configured in `playwright.config.ts`
+
 ## Infrastructure & DevOps
 
 ### Containerization
@@ -152,6 +167,11 @@ This document outlines the complete technology stack used in the Conventioner ap
 4. **Mongo Express** (optional) - MongoDB admin UI
    - Port: 8081
    - Database management interface
+
+### Continuous Integration
+- **GitHub Actions** - CI pipeline (`.github/workflows/test.yml`)
+  - Runs on pushes and pull requests to `main` or `dev`
+  - Jobs: back-end pytest, front-end type-check + lint + unit tests, Docker build verification
 
 ## Authentication Flow
 

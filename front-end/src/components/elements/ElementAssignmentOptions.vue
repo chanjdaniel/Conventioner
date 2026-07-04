@@ -54,7 +54,7 @@ const handleDaysInput = (value: number) => {
         return;
     }
 
-    let MAX_DAYS = setupObject.value.marketDates.length;
+    const MAX_DAYS = setupObject.value.marketDates.length;
     if (value > MAX_DAYS) {
         assignmentOptions.value.maxAssignmentsPerVendor = MAX_DAYS;
     } else {
@@ -68,7 +68,7 @@ const handleProportionInput = (value: number) => {
         return;
     }
 
-    let MAX_PROPORTION = 100; // Backend expects percentage as integer (0-100)
+    const MAX_PROPORTION = 100; // Backend expects percentage as integer (0-100)
     if (value > MAX_PROPORTION) {
         assignmentOptions.value.maxHalfTableProportionPerSection = MAX_PROPORTION;
     } else {

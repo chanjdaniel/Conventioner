@@ -5,7 +5,7 @@ import IconImport from '@/components/icons/IconImport.vue';
 
 import { useDropZone } from '@vueuse/core'
 import { useFileDialog } from '@vueuse/core'
-import { shallowRef, useTemplateRef, ref, defineEmits } from 'vue';
+import { shallowRef, useTemplateRef, defineEmits } from 'vue';
 
 defineProps<{
   isOpen: boolean;
@@ -13,12 +13,12 @@ defineProps<{
 
 const emit = defineEmits(['file-uploaded', 'source-data-uploaded']);
 
-const fileData = shallowRef<{ name: string, size: number, type: string, lastModified: number, data: any }>()
+const fileData = shallowRef<{ name: string, size: number, type: string, lastModified: number, data: unknown }>()
 const dropZoneRef = useTemplateRef<HTMLElement>('dropZoneRef')
 
-const { isOverDropZone } = useDropZone(dropZoneRef, { dataTypes: ['text/csv'], onDrop: onDrop })
+const {} = useDropZone(dropZoneRef, { dataTypes: ['text/csv'], onDrop: onDrop })
 
-const { files, open, onChange } = useFileDialog({
+const { open, onChange } = useFileDialog({
   accept: 'text/csv',
   directory: false,
 })
@@ -28,7 +28,7 @@ interface FileData {
   size: number;
   type: string;
   lastModified: number;
-  data: any;
+  data: unknown;
 }
 
 function onDrop(files: File[] | null) {

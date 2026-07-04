@@ -188,7 +188,7 @@ const dragOptions = computed(() => ({
                                     }" :group="`sorting-${parentIndex}`" :disabled="false"
                                     :ghostClass="'sortable-chosen'" :chosenClass="'sorting-ghost'"
                                     :dragClass="'sorting-ghost'">
-                                    <template #item="{ element, index: childIndex }">
+                                    <template #item="{ index: childIndex }">
                                         <div class="sorting-order-row" @mouseover="hoverChildIndex = childIndex"
                                             @mouseleave="hoverChildIndex = null">
                                             <div class="sorting-index-drag" @mousedown.stop>

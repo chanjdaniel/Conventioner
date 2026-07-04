@@ -11,7 +11,7 @@ import IconCloseRound from '../icons/IconCloseRound.vue';
 import IconSignOutSquare from '../icons/IconSignOutSquare.vue';
 import ElementSignoutButton from './ElementSignoutButton.vue';
 
-const user: any = inject("user");
+const user = inject<string | null>("user");
 </script>
 
 <template>
