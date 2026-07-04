@@ -17,3 +17,7 @@ users.json
 .omo/
 
 *__pycache__*
+
+# Logs
+*.log
+tmux-*.log
