@@ -27,3 +27,21 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Back-end: Python 3.11 / Flask + MongoDB (in `back-end/`).
 - Testing: Vitest (unit) + Playwright (e2e) for front-end; pytest for back-end.
 - CI: `.github/workflows/test.yml` runs on `dev` and `main` for both PRs and pushes.
+
+## E2E Testing Patterns
+
+- **data-testid convention**: `viewname-element` (e.g. `login-email-input`, `markets-create-button`).
+  No product behavior changes - purely additive test infrastructure.
+- **Page Object Model**: Located under `front-end/e2e/pages/`.
+  Each page object wraps Playwright `getByTestId()` selectors and exposes action methods.
+  New pages should follow the existing `LoginPage`, `MarketSetupPage`, `AssignmentResultsPage` patterns.
+- **Fixtures**: `front-end/e2e/fixtures.ts` provides `TEST_USER`, `authenticatedPage`,
+  and re-exports page objects for convenience.
+- **API-level seeding**: `front-end/e2e/helpers/seeds.ts` exports `seedMarketWithVendors()`
+  which creates markets and uploads vendor CSV via the back-end API.
+  Requires a verified test user (created by `scripts/seed_fixture.sh`).
+- **Test user creation**: The back-end `/register-user` endpoint does NOT set `email_verified`,
+  so users created through it cannot log in.
+  Test users must be created via `back-end/create_test_user.py` which sets `email_verified=True`.
+- **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
+  Playwright config auto-detects worktree port via `detectFrontendPort()`.

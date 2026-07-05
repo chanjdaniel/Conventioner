@@ -321,6 +321,7 @@ function goToDashboard(): void {
                             placeholder="Filter by email…"
                             autocomplete="off"
                             class="filter-input"
+                            data-testid="vendors-search-input"
                         />
                         <div class="summary-line">
                             <span class="summary-strong">{{ assignedVendorCount }}</span>
@@ -356,6 +357,7 @@ function goToDashboard(): void {
                                 type="button"
                                 class="vendor-row-button"
                                 @click="selectVendor(vendor.rowIndex)"
+                                data-testid="vendors-list-item"
                             >
                                 <span class="vendor-email">{{ vendor.displayEmail }}</span>
                                 <span class="vendor-meta">
@@ -376,7 +378,7 @@ function goToDashboard(): void {
             </div>
 
             <div class="vendors-actions">
-                <button type="button" class="primary-button" @click="handleBack">Back</button>
+                <button type="button" class="primary-button" @click="handleBack" data-testid="vendors-back-button">Back</button>
             </div>
         </div>
 
@@ -405,6 +407,7 @@ function goToDashboard(): void {
                         class="detail-close"
                         aria-label="Close vendor detail"
                         @click="closeDetail"
+                        data-testid="vendors-detail-close"
                     >
                         &times;
                     </button>

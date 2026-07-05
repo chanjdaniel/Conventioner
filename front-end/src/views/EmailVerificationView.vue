@@ -102,9 +102,9 @@ const resendVerification = async () => {
             </div>
 
             <div v-else-if="errorMessage" class="error">
-                <p class="error-message">{{ errorMessage }}</p>
-                <button @click="resendVerification" class="resend-button">Resend Verification Email</button>
-                <button @click="router.push('/login')" class="link-button">Go to Login</button>
+                <p class="error-message" data-testid="email-verification-error-message">{{ errorMessage }}</p>
+                <button @click="resendVerification" class="resend-button" data-testid="email-verification-resend-button">Resend Verification Email</button>
+                <button @click="router.push('/login')" class="link-button" data-testid="email-verification-login-button">Go to Login</button>
             </div>
         </div>
     </div>

@@ -82,6 +82,7 @@ const handleSignOut = async () => {
         tabindex="0"
         @click="handleLoadLastMarket"
         @keydown.enter="handleLoadLastMarket"
+        data-testid="dashboard-last-market-card"
       >
         <div class="card-header">
           <h3>{{ lastMarket.name }}</h3>
@@ -111,17 +112,17 @@ const handleSignOut = async () => {
       </div>
 
       <div class="button-row">
-        <button class="button button-half" @click="handleMarkets">
+        <button class="button button-half" @click="handleMarkets" data-testid="dashboard-markets-button">
           <h3>Markets</h3>
         </button>
-        <button class="button button-half" @click="handleOrganizations">
+        <button class="button button-half" @click="handleOrganizations" data-testid="dashboard-organizations-button">
           <h3>Organizations</h3>
         </button>
       </div>
     </div>
 
     <div class="secondary-buttons">
-      <button class="button button-small" @click="handleSignOut">
+      <button class="button button-small" @click="handleSignOut" data-testid="dashboard-sign-out-button">
         <h4>Sign out</h4>
       </button>
     </div>

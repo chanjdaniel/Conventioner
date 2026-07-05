@@ -223,6 +223,7 @@ const submitOTPLogin = async () => {
                     class="mode-tab" 
                     :class="{ active: mode === 'login' }"
                     @click="mode = 'login'; errorMessage = ''; registerErrorMessage = ''; otpErrorMessage = ''"
+                    data-testid="login-tab-login"
                 >
                     Login
                 </button>
@@ -230,6 +231,7 @@ const submitOTPLogin = async () => {
                     class="mode-tab" 
                     :class="{ active: mode === 'register' }"
                     @click="mode = 'register'; errorMessage = ''; registerErrorMessage = ''; otpErrorMessage = ''"
+                    data-testid="login-tab-register"
                 >
                     Register
                 </button>
@@ -237,6 +239,7 @@ const submitOTPLogin = async () => {
                     class="mode-tab" 
                     :class="{ active: mode === 'otp' }"
                     @click="mode = 'otp'; errorMessage = ''; registerErrorMessage = ''; otpErrorMessage = ''; otpRequested = false"
+                    data-testid="login-tab-otp"
                 >
                     Use OTP
                 </button>
@@ -245,9 +248,9 @@ const submitOTPLogin = async () => {
             <!-- Login Form -->
             <div v-if="mode === 'login'" class="form-container">
                 <h1>Sign in</h1>
-                <form id="login-form" class="login-form" @submit.prevent="submitLogin">
+                <form id="login-form" class="login-form" @submit.prevent="submitLogin" data-testid="login-form">
                     <div class="login-input">
-                        <input id="email" type="email" v-model="email" placeholder="Email" class="email-input" required />
+                        <input id="email" type="email" v-model="email" placeholder="Email" class="email-input" required data-testid="login-email-input" />
                     </div>
                     <div class="login-input">
                         <input
@@ -256,15 +259,16 @@ const submitOTPLogin = async () => {
                             v-model="password"
                             placeholder="Password"
                             class="password-input"
-                            required />
-                        <button type="button" id="toggle-password" class="show-button" @click="showPassword = !showPassword">
+                            required
+                            data-testid="login-password-input" />
+                        <button type="button" id="toggle-password" class="show-button" @click="showPassword = !showPassword" data-testid="login-toggle-password">
                             {{ showPassword ? "Hide" : "Show" }}
                         </button>
                     </div>
-                    <h3 class="error-message" v-show="errorMessage">{{ errorMessage }}</h3>
-                    <button type="submit" class="submit-button">Login</button>
+                    <h3 class="error-message" v-show="errorMessage" data-testid="login-error-message">{{ errorMessage }}</h3>
+                    <button type="submit" class="submit-button" data-testid="login-submit-button">Login</button>
                     <div class="form-links">
-                        <a href="#" @click.prevent="router.push('/reset-password-request')" class="link">Forgot password?</a>
+                        <a href="#" @click.prevent="router.push('/reset-password-request')" class="link" data-testid="login-forgot-password-link">Forgot password?</a>
                     </div>
                 </form>
             </div>
@@ -272,9 +276,9 @@ const submitOTPLogin = async () => {
             <!-- Registration Form -->
             <div v-if="mode === 'register'" class="form-container">
                 <h1>Create account</h1>
-                <form id="register-form" class="login-form" @submit.prevent="submitRegister">
+                <form id="register-form" class="login-form" @submit.prevent="submitRegister" data-testid="login-register-form">
                     <div class="login-input">
-                        <input id="register-email" type="email" v-model="registerEmail" placeholder="Email" class="email-input" required />
+                        <input id="register-email" type="email" v-model="registerEmail" placeholder="Email" class="email-input" required data-testid="login-register-email-input" />
                     </div>
                     <div class="login-input">
                         <input
@@ -283,8 +287,9 @@ const submitOTPLogin = async () => {
                             v-model="registerPassword"
                             placeholder="Password (min 8 characters)"
                             class="password-input"
-                            required />
-                        <button type="button" class="show-button" @click="showRegisterPassword = !showRegisterPassword">
+                            required
+                            data-testid="login-register-password-input" />
+                        <button type="button" class="show-button" @click="showRegisterPassword = !showRegisterPassword" data-testid="login-register-toggle-password">
                             {{ showRegisterPassword ? "Hide" : "Show" }}
                         </button>
                     </div>
@@ -295,20 +300,21 @@ const submitOTPLogin = async () => {
                             v-model="registerPasswordConfirm"
                             placeholder="Confirm password"
                             class="password-input"
-                            required />
+                            required
+                            data-testid="login-register-password-confirm-input" />
                     </div>
-                    <h3 class="error-message" v-show="registerErrorMessage">{{ registerErrorMessage }}</h3>
-                    <h3 class="success-message" v-show="registerSuccessMessage">{{ registerSuccessMessage }}</h3>
-                    <button type="submit" class="submit-button">Register</button>
+                    <h3 class="error-message" v-show="registerErrorMessage" data-testid="login-register-error-message">{{ registerErrorMessage }}</h3>
+                    <h3 class="success-message" v-show="registerSuccessMessage" data-testid="login-register-success-message">{{ registerSuccessMessage }}</h3>
+                    <button type="submit" class="submit-button" data-testid="login-register-submit-button">Register</button>
                 </form>
             </div>
 
             <!-- OTP Login Form -->
             <div v-if="mode === 'otp'" class="form-container">
                 <h1>Login with OTP</h1>
-                <form id="otp-form" class="login-form" @submit.prevent="otpRequested ? submitOTPLogin() : requestOTP()">
+                <form id="otp-form" class="login-form" @submit.prevent="otpRequested ? submitOTPLogin() : requestOTP()" data-testid="login-otp-form">
                     <div class="login-input">
-                        <input id="otp-email" type="email" v-model="otpEmail" placeholder="Email" class="email-input" required :disabled="otpRequested" />
+                        <input id="otp-email" type="email" v-model="otpEmail" placeholder="Email" class="email-input" required :disabled="otpRequested" data-testid="login-otp-email-input" />
                     </div>
                     <div v-if="otpRequested" class="login-input">
                         <input
@@ -320,15 +326,16 @@ const submitOTPLogin = async () => {
                             required
                             maxlength="6"
                             pattern="[0-9]{6}"
+                            data-testid="login-otp-code-input"
                         />
                     </div>
-                    <h3 class="error-message" v-show="otpErrorMessage">{{ otpErrorMessage }}</h3>
-                    <h3 class="success-message" v-show="otpSuccessMessage">{{ otpSuccessMessage }}</h3>
-                    <button type="submit" class="submit-button">
+                    <h3 class="error-message" v-show="otpErrorMessage" data-testid="login-otp-error-message">{{ otpErrorMessage }}</h3>
+                    <h3 class="success-message" v-show="otpSuccessMessage" data-testid="login-otp-success-message">{{ otpSuccessMessage }}</h3>
+                    <button type="submit" class="submit-button" data-testid="login-otp-submit-button">
                         {{ otpRequested ? 'Login' : 'Send Code' }}
                     </button>
                     <div v-if="otpRequested" class="form-links">
-                        <a href="#" @click.prevent="otpRequested = false; otpCode = ''; otpSuccessMessage = ''" class="link">Use different email</a>
+                        <a href="#" @click.prevent="otpRequested = false; otpCode = ''; otpSuccessMessage = ''" class="link" data-testid="login-otp-different-email-link">Use different email</a>
                     </div>
                 </form>
             </div>

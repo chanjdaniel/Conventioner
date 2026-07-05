@@ -39,7 +39,7 @@ const formatDate = (dateString: string) => {
 
 <template>
     <div class="container" :style="{ visibility: loadOpen ? 'visible' : 'hidden' }">
-        <div class="background" @click="$emit('loadClose')" :style="{ opacity: loadOpen ? '100%' : '0%' }">
+        <div class="background" @click="$emit('loadClose')" :style="{ opacity: loadOpen ? '100%' : '0%' }" data-testid="load-market-overlay-background">
         </div>
         <div class="window">
             <div class="header">
@@ -70,7 +70,7 @@ const formatDate = (dateString: string) => {
                         </div>
                     </div>
                     <div class="card-footer">
-                        <button @click="handleLoadMarket(market)" class="load-button">Load Market</button>
+                        <button @click="handleLoadMarket(market)" class="load-button" data-testid="load-market-card-button">Load Market</button>
                     </div>
                 </div>
             </div>

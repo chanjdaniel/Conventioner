@@ -131,7 +131,7 @@ function handleClose() {
 
 <template>
     <div class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
-        <div class="background" @click="handleClose" :style="{ opacity: manageOpen ? '100%' : '0%' }" />
+        <div class="background" @click="handleClose" :style="{ opacity: manageOpen ? '100%' : '0%' }" data-testid="manage-org-overlay-background" />
         <div v-if="manageOpen && org" class="window">
             <div class="header">
                 <h2>Manage organization</h2>
@@ -162,13 +162,14 @@ function handleClose() {
                                 class="remove-button"
                                 @click="handleRemoveUser(orgData.admins![idx])"
                                 title="Remove admin"
+                                data-testid="manage-org-remove-user-button"
                             >
                                 Remove
                             </button>
                         </div>
                         <p v-if="!(orgData.adminEmails?.length) && !showAddAdminForm" class="empty-state">No admins</p>
                     </div>
-                    <button v-if="isOwner()" class="add-user-button" @click="showAddAdminForm = !showAddAdminForm">
+                    <button v-if="isOwner()" class="add-user-button" @click="showAddAdminForm = !showAddAdminForm" data-testid="manage-org-add-admin-button">
                         {{ showAddAdminForm ? 'Cancel' : 'Add admin' }}
                     </button>
                     <div v-if="showAddAdminForm" class="add-user-form">
@@ -178,8 +179,9 @@ function handleClose() {
                                 type="email"
                                 placeholder="User email"
                                 class="form-input"
+                                data-testid="manage-org-add-admin-input"
                             />
-                            <button class="submit-button" @click="handleAddAdmin">Add</button>
+                            <button class="submit-button" @click="handleAddAdmin" data-testid="manage-org-add-admin-submit">Add</button>
                         </div>
                         <p v-if="addAdminError" class="form-error">{{ addAdminError }}</p>
                     </div>
@@ -200,13 +202,14 @@ function handleClose() {
                                 class="remove-button"
                                 @click="handleRemoveUser(orgData.members![idx])"
                                 title="Remove member"
+                                data-testid="manage-org-remove-member-button"
                             >
                                 Remove
                             </button>
                         </div>
                         <p v-if="!(orgData.memberEmails?.length) && !showAddMemberForm" class="empty-state">No members</p>
                     </div>
-                    <button class="add-user-button" @click="showAddMemberForm = !showAddMemberForm">
+                    <button class="add-user-button" @click="showAddMemberForm = !showAddMemberForm" data-testid="manage-org-add-member-button">
                         {{ showAddMemberForm ? 'Cancel' : 'Add member' }}
                     </button>
                     <div v-if="showAddMemberForm" class="add-user-form">
@@ -216,8 +219,9 @@ function handleClose() {
                                 type="email"
                                 placeholder="User email"
                                 class="form-input"
+                                data-testid="manage-org-add-member-input"
                             />
-                            <button class="submit-button" @click="handleAddMember">Add</button>
+                            <button class="submit-button" @click="handleAddMember" data-testid="manage-org-add-member-submit">Add</button>
                         </div>
                         <p v-if="addMemberError" class="form-error">{{ addMemberError }}</p>
                     </div>
@@ -226,8 +230,8 @@ function handleClose() {
                 <section v-if="canManage()" class="section">
                     <h3>Rename organization</h3>
                     <div class="rename-row">
-                        <input v-model="renameValue" class="form-input rename-input" />
-                        <button class="save-button" @click="handleRename">Save</button>
+                        <input v-model="renameValue" class="form-input rename-input" data-testid="manage-org-rename-input" />
+                        <button class="save-button" @click="handleRename" data-testid="manage-org-rename-save-button">Save</button>
                     </div>
                     <p v-if="renameError" class="form-error">{{ renameError }}</p>
                 </section>
@@ -235,17 +239,17 @@ function handleClose() {
                 <section v-if="isOwner()" class="section danger-section">
                     <h3>Delete organization</h3>
                     <div v-if="!deleteConfirming">
-                        <button class="delete-button" @click="deleteConfirming = true">
+                        <button class="delete-button" @click="deleteConfirming = true" data-testid="manage-org-delete-button">
                             Delete organization
                         </button>
                     </div>
                     <div v-else class="delete-confirm">
                         <p class="confirm-text">Are you sure? This cannot be undone.</p>
                         <div class="confirm-buttons">
-                            <button class="confirm-delete-button" @click="handleDeleteConfirm">
+                            <button class="confirm-delete-button" @click="handleDeleteConfirm" data-testid="manage-org-delete-confirm-button">
                                 Confirm
                             </button>
-                            <button class="cancel-button" @click="handleDeleteCancel">Cancel</button>
+                            <button class="cancel-button" @click="handleDeleteCancel" data-testid="manage-org-delete-cancel-button">Cancel</button>
                         </div>
                         <p v-if="deleteError" class="form-error">{{ deleteError }}</p>
                     </div>

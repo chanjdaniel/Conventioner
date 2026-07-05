@@ -139,6 +139,8 @@ This document outlines the complete technology stack used in the Conventioner ap
 - **Playwright 1.61** - End-to-end browser testing
   - Drives Chromium against the running Docker stack (`npm run test:e2e`)
   - Configured in `playwright.config.ts`
+  - Page Object Model + fixtures under `front-end/e2e/`; selectors use
+    `data-testid` attributes (see `docs/TESTING.md`)
 
 ## Infrastructure & DevOps
 

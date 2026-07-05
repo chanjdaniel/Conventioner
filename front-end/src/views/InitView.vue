@@ -12,7 +12,7 @@
 
 <template>
     <div class="init-view">
-      <ElementInitButton @click="newOpen = true">
+      <ElementInitButton @click="newOpen = true" data-testid="init-setup-new-market-button">
         <h3>
           <span>Set Up </span>
           <span class="text-new">New </span>
@@ -23,7 +23,7 @@
         </template>
       </ElementInitButton>
 
-      <ElementInitButton @click="loadOpen = true">
+      <ElementInitButton @click="loadOpen = true" data-testid="init-load-existing-market-button">
         <h3>
           <span>Load </span>
           <span class="text-existing">Existing </span>

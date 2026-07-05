@@ -1,13 +1,14 @@
-import { test, expect, TEST_USER } from './fixtures';
+import { test, expect, TEST_USER, LoginPage } from './fixtures';
 
 test.describe('Conventioner smoke test', () => {
   test('login and access dashboard', async ({ page }) => {
-    await page.goto('/login');
-    await expect(page.locator('#login-form')).toBeVisible();
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await expect(loginPage.loginForm).toBeVisible();
 
-    await page.fill('#email', TEST_USER.email);
-    await page.fill('input[type="password"]', TEST_USER.password);
-    await page.click('button.submit-button:has-text("Login")');
+    await loginPage.fillEmail(TEST_USER.email);
+    await loginPage.fillPassword(TEST_USER.password);
+    await loginPage.clickSubmit();
 
     await page.waitForURL('**/dashboard', { timeout: 10000 });
     await expect(page).toHaveURL(/dashboard/);
@@ -18,8 +19,6 @@ test.describe('Conventioner smoke test', () => {
     await page.goto('/markets');
     await expect(page.locator('.markets-view')).toBeVisible({ timeout: 10000 });
 
-    await expect(page.locator('.market-card').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('market-card').first()).toBeVisible({ timeout: 10000 });
   });
-
-
 });

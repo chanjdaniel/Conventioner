@@ -111,7 +111,7 @@ onMounted(loadAttendance);
                 </div>
             </div>
             <div class="actions-row">
-                <button type="button" class="primary-button" @click="goBack">Back</button>
+                <button type="button" class="primary-button" @click="goBack" data-testid="attendance-status-back-button">Back</button>
             </div>
         </div>
     </div>

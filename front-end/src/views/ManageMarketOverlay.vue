@@ -218,7 +218,7 @@ function handleClose() {
 
 <template>
     <div class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
-        <div class="background" @click="handleClose" :style="{ opacity: manageOpen ? '100%' : '0%' }" />
+        <div class="background" @click="handleClose" :style="{ opacity: manageOpen ? '100%' : '0%' }" data-testid="manage-market-overlay-background" />
         <div v-if="manageOpen && market" class="window">
             <div class="header">
                 <h2>Manage market</h2>
@@ -251,6 +251,7 @@ function handleClose() {
                                 <select
                                     :value="role"
                                     class="role-select"
+                                    data-testid="manage-market-role-select"
                                     @change="handleRoleChange(userId, ($event.target as HTMLSelectElement).value as MarketRole)"
                                 >
                                     <option :value="role">{{ getRoleDisplayName(role) }}</option>
@@ -269,13 +270,14 @@ function handleClose() {
                                 class="remove-button"
                                 @click="handleRemoveUser(userId)"
                                 title="Remove user"
+                                data-testid="manage-market-remove-user-button"
                             >
                                 Remove
                             </button>
                         </div>
                         <p v-if="getUserList().length === 0" class="empty-state">No users with explicit access</p>
                     </div>
-                    <button class="add-user-button" @click="showAddUserForm = !showAddUserForm">
+                    <button class="add-user-button" @click="showAddUserForm = !showAddUserForm" data-testid="manage-market-add-user-button">
                         {{ showAddUserForm ? 'Cancel' : 'Add user' }}
                     </button>
                     <div v-if="showAddUserForm" class="add-user-form">
@@ -285,13 +287,14 @@ function handleClose() {
                                 type="email"
                                 placeholder="User email"
                                 class="form-input"
+                                data-testid="manage-market-add-user-input"
                             />
-                            <select v-model="newUserRole" class="form-select">
+                            <select v-model="newUserRole" class="form-select" data-testid="manage-market-add-user-select">
                                 <option v-for="r in addableRoles" :key="r" :value="r">
                                     {{ getRoleDisplayName(r) }}
                                 </option>
                             </select>
-                            <button class="submit-button" @click="handleAddUser">Add</button>
+                            <button class="submit-button" @click="handleAddUser" data-testid="manage-market-add-user-submit">Add</button>
                         </div>
                         <p v-if="addUserError" class="form-error">{{ addUserError }}</p>
                     </div>
@@ -312,6 +315,7 @@ function handleClose() {
                                 class="remove-button"
                                 @click="handleRemoveOrg()"
                                 title="Remove organization"
+                                data-testid="manage-market-remove-org-button"
                             >
                                 Remove
                             </button>
@@ -321,6 +325,7 @@ function handleClose() {
                     <button
                         class="add-user-button"
                         @click="showAddOrgForm = !showAddOrgForm; if (showAddOrgForm) fetchUserOrgs()"
+                        data-testid="manage-market-add-org-button"
                     >
                         {{ showAddOrgForm ? 'Cancel' : 'Add organization' }}
                     </button>
@@ -330,6 +335,7 @@ function handleClose() {
                                 v-model="newOrgName"
                                 class="form-select"
                                 :disabled="getAvailableOrgsForAdd().length === 0"
+                                data-testid="manage-market-add-org-select"
                             >
                                 <option value="">Select organization</option>
                                 <option
@@ -344,6 +350,7 @@ function handleClose() {
                                 class="submit-button"
                                 @click="handleAddOrg"
                                 :disabled="!newOrgName.trim()"
+                                data-testid="manage-market-add-org-submit"
                             >
                                 Add
                             </button>
@@ -357,8 +364,8 @@ function handleClose() {
                 <section class="section">
                     <h3>Rename market</h3>
                     <div class="rename-row">
-                        <input v-model="renameValue" class="form-input rename-input" />
-                        <button class="save-button" @click="handleRename">Save</button>
+                        <input v-model="renameValue" class="form-input rename-input" data-testid="manage-market-rename-input" />
+                        <button class="save-button" @click="handleRename" data-testid="manage-market-rename-save-button">Save</button>
                     </div>
                     <p v-if="renameError" class="form-error">{{ renameError }}</p>
                 </section>
@@ -366,17 +373,17 @@ function handleClose() {
                 <section class="section danger-section">
                     <h3>Delete market</h3>
                     <div v-if="!deleteConfirming">
-                        <button class="delete-button" @click="deleteConfirming = true">
+                        <button class="delete-button" @click="deleteConfirming = true" data-testid="manage-market-delete-button">
                             Delete market
                         </button>
                     </div>
                     <div v-else class="delete-confirm">
                         <p class="confirm-text">Are you sure? This cannot be undone.</p>
                         <div class="confirm-buttons">
-                            <button class="confirm-delete-button" @click="handleDeleteConfirm">
+                            <button class="confirm-delete-button" @click="handleDeleteConfirm" data-testid="manage-market-delete-confirm-button">
                                 Confirm
                             </button>
-                            <button class="cancel-button" @click="handleDeleteCancel">Cancel</button>
+                            <button class="cancel-button" @click="handleDeleteCancel" data-testid="manage-market-delete-cancel-button">Cancel</button>
                         </div>
                         <p v-if="deleteError" class="form-error">{{ deleteError }}</p>
                     </div>

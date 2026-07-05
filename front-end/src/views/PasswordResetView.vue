@@ -88,7 +88,7 @@ const submitReset = async () => {
             <h1>Reset Password</h1>
             <p class="description">Enter your new password below.</p>
             
-            <form @submit.prevent="submitReset" class="reset-form">
+            <form @submit.prevent="submitReset" class="reset-form" data-testid="password-reset-form">
                 <div class="input-group">
                     <input
                         :type="showPassword ? 'text' : 'password'"
@@ -97,8 +97,9 @@ const submitReset = async () => {
                         class="password-input"
                         required
                         :disabled="isLoading"
+                        data-testid="password-reset-new-password-input"
                     />
-                    <button type="button" class="show-button" @click="showPassword = !showPassword">
+                    <button type="button" class="show-button" @click="showPassword = !showPassword" data-testid="password-reset-toggle-password">
                         {{ showPassword ? 'Hide' : 'Show' }}
                     </button>
                 </div>
@@ -111,18 +112,19 @@ const submitReset = async () => {
                         class="password-input"
                         required
                         :disabled="isLoading"
+                        data-testid="password-reset-confirm-password-input"
                     />
                 </div>
                 
-                <h3 class="error-message" v-show="errorMessage">{{ errorMessage }}</h3>
-                <h3 class="success-message" v-show="successMessage">{{ successMessage }}</h3>
+                <h3 class="error-message" v-show="errorMessage" data-testid="password-reset-error-message">{{ errorMessage }}</h3>
+                <h3 class="success-message" v-show="successMessage" data-testid="password-reset-success-message">{{ successMessage }}</h3>
                 
-                <button type="submit" class="submit-button" :disabled="isLoading">
+                <button type="submit" class="submit-button" :disabled="isLoading" data-testid="password-reset-submit-button">
                     {{ isLoading ? 'Resetting...' : 'Reset Password' }}
                 </button>
                 
                 <div class="form-links">
-                    <a href="#" @click.prevent="router.push('/login')" class="link">Back to Login</a>
+                    <a href="#" @click.prevent="router.push('/login')" class="link" data-testid="password-reset-back-link">Back to Login</a>
                 </div>
             </form>
         </div>

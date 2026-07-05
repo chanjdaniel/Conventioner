@@ -74,7 +74,7 @@ function handleNewClose() {
     <div class="markets-view">
         <div class="header">
             <h1>Markets</h1>
-            <button class="new-market-button" @click="newOpen = true">New market</button>
+            <button class="new-market-button" @click="newOpen = true" data-testid="markets-create-button">New market</button>
         </div>
 
         <div class="markets-block">
@@ -82,7 +82,7 @@ function handleNewClose() {
             <p v-else-if="errorMessage" class="error-state">{{ errorMessage }}</p>
             <p v-else-if="markets.length === 0" class="empty-state">No markets found</p>
             <div v-else class="markets-container">
-                <div v-for="market in markets" :key="market.id" class="market-card">
+                <div v-for="market in markets" :key="market.id" class="market-card" data-testid="market-card">
                     <div class="card-header">
                         <h3>{{ market.name }}</h3>
                     </div>
@@ -105,8 +105,8 @@ function handleNewClose() {
                         </div>
                     </div>
                     <div class="card-footer">
-                        <button @click="handleOpen(market)" class="open-button">Open</button>
-                        <button v-if="canManage(market.userRole)" @click="handleManage(market)" class="manage-button">Manage</button>
+                        <button @click="handleOpen(market)" class="open-button" data-testid="market-card-open-button">Open</button>
+                        <button v-if="canManage(market.userRole)" @click="handleManage(market)" class="manage-button" data-testid="market-card-manage-button">Manage</button>
                     </div>
                 </div>
             </div>

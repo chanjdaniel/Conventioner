@@ -318,11 +318,12 @@ watch(pageIdx, (newIdx) => {
                     :value="market?.discordWebhookUrl ?? ''"
                     @input="handleDiscordWebhookInput"
                     @change="updateMarket"
+                    data-testid="market-setup-discord-webhook-input"
                 />
             </div>
             <div style="width: 100%; display: flex; flex-direction: row; justify-content: space-between;">
                 <div>
-                    <button v-if="pageIdx !== 0" class="done-button" @click="handleBack">Back</button>
+                    <button v-if="pageIdx !== 0" class="done-button" @click="handleBack" data-testid="market-setup-back-button">Back</button>
                 </div>
                 <div>
                     <button
@@ -332,10 +333,11 @@ watch(pageIdx, (newIdx) => {
                         :disabled="!assignmentOptionsComplete"
                         :title="assignmentOptionsComplete ? '' : 'Complete required assignment options (max assignments, proportion, and column mappings; Max days is optional)'"
                         @click="handleAssign"
+                        data-testid="market-setup-assign-button"
                     >
                         Assign
                     </button>
-                    <button v-else class="done-button" @click="handleNext">Next</button>
+                    <button v-else class="done-button" @click="handleNext" data-testid="market-setup-next-button">Next</button>
                 </div>
             </div>
         </div>

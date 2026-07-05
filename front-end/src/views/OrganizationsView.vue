@@ -110,7 +110,7 @@ function canManage(org: Organization): boolean {
     <div class="organizations-view">
         <div class="header">
             <h1>Organizations</h1>
-            <button class="new-button" @click="newOpen = true">New organization</button>
+            <button class="new-button" @click="newOpen = true" data-testid="organizations-create-button">New organization</button>
         </div>
 
         <div class="content-block">
@@ -141,7 +141,7 @@ function canManage(org: Organization): boolean {
                         </div>
                     </div>
                     <div class="card-footer">
-                        <button v-if="canManage(org)" @click="handleManage(org)" class="manage-button">Manage</button>
+                        <button v-if="canManage(org)" @click="handleManage(org)" class="manage-button" data-testid="organizations-manage-button">Manage</button>
                     </div>
                 </div>
             </div>
@@ -154,7 +154,7 @@ function canManage(org: Organization): boolean {
         />
 
         <div v-if="newOpen" class="overlay">
-            <div class="overlay-background" @click="handleNewClose" />
+            <div class="overlay-background" @click="handleNewClose" data-testid="organizations-overlay-background" />
             <div class="overlay-window">
                 <h2>New organization</h2>
                 <div class="form-row">
@@ -164,8 +164,9 @@ function canManage(org: Organization): boolean {
                         placeholder="Organization name"
                         class="form-input"
                         @keydown.enter="handleCreateOrg"
+                        data-testid="organizations-create-name-input"
                     />
-                    <button class="submit-button" @click="handleCreateOrg">Create</button>
+                    <button class="submit-button" @click="handleCreateOrg" data-testid="organizations-create-submit-button">Create</button>
                 </div>
                 <p v-if="newOrgError" class="form-error">{{ newOrgError }}</p>
             </div>

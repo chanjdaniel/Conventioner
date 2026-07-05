@@ -63,7 +63,7 @@ const submitRequest = async () => {
             <h1>Reset Password</h1>
             <p class="description">Enter your email address and we'll send you a link to reset your password.</p>
             
-            <form @submit.prevent="submitRequest" class="reset-form">
+            <form @submit.prevent="submitRequest" class="reset-form" data-testid="password-reset-request-form">
                 <div class="input-group">
                     <input
                         type="email"
@@ -72,18 +72,19 @@ const submitRequest = async () => {
                         class="email-input"
                         required
                         :disabled="isLoading"
+                        data-testid="password-reset-request-email-input"
                     />
                 </div>
                 
-                <h3 class="error-message" v-show="errorMessage">{{ errorMessage }}</h3>
-                <h3 class="success-message" v-show="successMessage">{{ successMessage }}</h3>
+                <h3 class="error-message" v-show="errorMessage" data-testid="password-reset-request-error-message">{{ errorMessage }}</h3>
+                <h3 class="success-message" v-show="successMessage" data-testid="password-reset-request-success-message">{{ successMessage }}</h3>
                 
-                <button type="submit" class="submit-button" :disabled="isLoading">
+                <button type="submit" class="submit-button" :disabled="isLoading" data-testid="password-reset-request-submit-button">
                     {{ isLoading ? 'Sending...' : 'Send Reset Link' }}
                 </button>
                 
                 <div class="form-links">
-                    <a href="#" @click.prevent="router.push('/login')" class="link">Back to Login</a>
+                    <a href="#" @click.prevent="router.push('/login')" class="link" data-testid="password-reset-request-back-link">Back to Login</a>
                 </div>
             </form>
         </div>

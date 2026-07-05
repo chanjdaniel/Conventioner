@@ -258,6 +258,7 @@ onMounted(loadTables);
                                 type="button"
                                 class="filter-chip"
                                 @click="clearFilter('date')"
+                                data-testid="tables-filter-chip-date"
                             >
                                 Date: {{ dateFilter }}
                                 <span class="filter-chip-close" aria-hidden="true">×</span>
@@ -268,6 +269,7 @@ onMounted(loadTables);
                                 type="button"
                                 class="filter-chip"
                                 @click="clearFilter('section')"
+                                data-testid="tables-filter-chip-section"
                             >
                                 Section: {{ sectionFilter }}
                                 <span class="filter-chip-close" aria-hidden="true">×</span>
@@ -278,6 +280,7 @@ onMounted(loadTables);
                                 type="button"
                                 class="filter-chip"
                                 @click="clearFilter('tier')"
+                                data-testid="tables-filter-chip-tier"
                             >
                                 Tier: {{ tierFilter }}
                                 <span class="filter-chip-close" aria-hidden="true">×</span>
@@ -288,12 +291,13 @@ onMounted(loadTables);
                                 type="button"
                                 class="filter-chip"
                                 @click="clearFilter('choice')"
+                                data-testid="tables-filter-chip-choice"
                             >
                                 {{ choiceFilterLabel(choiceFilter) }}
                                 <span class="filter-chip-close" aria-hidden="true">×</span>
                                 <span class="visually-hidden">Remove choice filter</span>
                             </button>
-                            <button type="button" class="filter-chip filter-chip--clear-all" @click="clearAllFilters">
+                            <button type="button" class="filter-chip filter-chip--clear-all" @click="clearAllFilters" data-testid="tables-filter-chip-clear-all">
                                 Clear all
                             </button>
                         </div>
@@ -393,7 +397,7 @@ onMounted(loadTables);
             </div>
 
             <div class="actions-row">
-                <button type="button" class="primary-button" @click="goBack">Back</button>
+                <button type="button" class="primary-button" @click="goBack" data-testid="tables-back-button">Back</button>
             </div>
         </div>
     </div>

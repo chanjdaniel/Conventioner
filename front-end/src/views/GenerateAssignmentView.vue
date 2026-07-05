@@ -411,21 +411,21 @@ const handleDone = async () => {
                                 aria-label="Assignment shortcuts"
                             >
                                 <div class="assignment-quick-nav-list">
-                                    <button type="button" class="assignment-quick-nav-row" @click="openVendorsModal">
+                                    <button type="button" class="assignment-quick-nav-row" @click="openVendorsModal" data-testid="assignment-results-view-vendors-button">
                                         <IconVendors class="assignment-quick-nav-icon" />
                                         <span class="assignment-quick-nav-label">
                                             <span>View </span>
                                             <span>Vendors</span>
                                         </span>
                                     </button>
-                                    <button type="button" class="assignment-quick-nav-row" @click="goToTables">
+                                    <button type="button" class="assignment-quick-nav-row" @click="goToTables" data-testid="assignment-results-view-tables-button">
                                         <IconTables class="assignment-quick-nav-icon" />
                                         <span class="assignment-quick-nav-label">
                                             <span>View </span>
                                             <span>Tables</span>
                                         </span>
                                     </button>
-                                    <button type="button" class="assignment-quick-nav-row" @click="goToAttendance">
+                                    <button type="button" class="assignment-quick-nav-row" @click="goToAttendance" data-testid="assignment-results-view-attendance-button">
                                         <IconSettings class="assignment-quick-nav-icon" />
                                         <span class="assignment-quick-nav-label">
                                             <span>View </span>
@@ -553,13 +553,14 @@ const handleDone = async () => {
             <p v-if="discordToast" class="discord-toast">{{ discordToast }}</p>
             <div class="assignment-actions-row">
                 <div>
-                    <button class="done-button" @click="handleBack">Back</button>
+                    <button class="done-button" @click="handleBack" data-testid="assignment-results-back-button">Back</button>
                 </div>
                 <div>
                     <button
                         class="done-button download-button"
                         :disabled="isDownloading || !assignmentStatistics"
                         @click="handleDownloadCsv"
+                        data-testid="assignment-results-download-csv-button"
                     >
                         {{ isDownloading ? 'Downloading…' : 'Download CSV' }}
                     </button>
@@ -570,12 +571,13 @@ const handleDone = async () => {
                         :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
                         :title="hasDiscordWebhook ? '' : 'Configure a Discord webhook URL in Market Setup to enable.'"
                         @click="handleSendToDiscord"
+                        data-testid="assignment-results-send-discord-button"
                     >
                         {{ isPostingDiscord ? 'Sending…' : 'Send to Discord' }}
                     </button>
                 </div>
                 <div>
-                    <button class="done-button" @click="handleDone">Done</button>
+                    <button class="done-button" @click="handleDone" data-testid="assignment-results-done-button">Done</button>
                 </div>
             </div>
         </div>

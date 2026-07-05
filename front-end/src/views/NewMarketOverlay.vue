@@ -88,7 +88,7 @@ const handleSubmit = async () => {
 
 <template>
     <div class="container" :style="{ visibility: newOpen ? 'visible' : 'hidden' }">
-        <div class="background" @click="$emit('newClose')" :style="{ opacity: newOpen ? '100%' : '0%' }">
+        <div class="background" @click="$emit('newClose')" :style="{ opacity: newOpen ? '100%' : '0%' }" data-testid="new-market-overlay-background">
         </div>
         <template v-if="!next">
             <ElementFileDrop :isOpen="newOpen" @file-uploaded="handleFileUploaded" @source-data-uploaded="handleSourceDataUploaded"></ElementFileDrop>
@@ -103,11 +103,11 @@ const handleSubmit = async () => {
                         <div></div>
                         <div class="text-input-container">
                             <input type="text" v-model="marketName" @keydown.enter="handleSubmit" @input="errorMessage = ''"
-                                style="all: unset; font-size: 14px; width: 100%; text-align: center;" />
+                                style="all: unset; font-size: 14px; width: 100%; text-align: center;" data-testid="new-market-name-input" />
                         </div>
                         <div style="padding-left: 10px">
                             <button @click="handleSubmit"
-                                style="all: unset; height: 100%; width: 100%; cursor: pointer; opacity: 75%;">Submit</button>
+                                style="all: unset; height: 100%; width: 100%; cursor: pointer; opacity: 75%;" data-testid="new-market-submit-button">Submit</button>
                         </div>
                     </div>
                     <p v-show="errorMessage" class="error-message">{{ errorMessage }}</p>

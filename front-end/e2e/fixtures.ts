@@ -1,4 +1,5 @@
 import { test as base, type Page } from '@playwright/test';
+import { LoginPage } from './pages/LoginPage';
 
 export const TEST_USER = {
   email: 'e2e@example.com',
@@ -6,10 +7,11 @@ export const TEST_USER = {
 };
 
 async function login(page: Page, email: string, password: string) {
-  await page.goto('/login');
-  await page.fill('#email', email);
-  await page.fill('input[type="password"]', password);
-  await page.click('button.submit-button:has-text("Login")');
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.fillEmail(email);
+  await loginPage.fillPassword(password);
+  await loginPage.clickSubmit();
   await page.waitForURL('**/dashboard', { timeout: 10000 });
 }
 
@@ -21,3 +23,4 @@ export const test = base.extend<{ authenticatedPage: Page }>({
 });
 
 export { expect } from '@playwright/test';
+export { LoginPage } from './pages/LoginPage';

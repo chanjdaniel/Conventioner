@@ -113,8 +113,9 @@ async function checkIn(date: string): Promise<void> {
                             type="email"
                             placeholder="you@example.com"
                             autocomplete="email"
+                            data-testid="attendance-checkin-email-input"
                         />
-                        <button type="submit" class="primary-button" :disabled="isLoading">
+                        <button type="submit" class="primary-button" :disabled="isLoading" data-testid="attendance-checkin-lookup-button">
                             {{ isLoading ? 'Looking up…' : 'Look up' }}
                         </button>
                     </div>
@@ -142,10 +143,11 @@ async function checkIn(date: string): Promise<void> {
                                 class="primary-button"
                                 :disabled="checkingInDate === row.date"
                                 @click="checkIn(row.date)"
+                                data-testid="attendance-checkin-checkin-button"
                             >
                                 {{ checkingInDate === row.date ? 'Checking in…' : 'Check in' }}
                             </button>
-                            <span v-else class="checked-in-pill">
+                            <span v-else class="checked-in-pill" data-testid="attendance-checkin-confirmation-pill">
                                 Checked in &#10003; at {{ formatTimestamp(row.checkedInAt) }}
                             </span>
                         </div>
