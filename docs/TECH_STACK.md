@@ -172,6 +172,10 @@ This document outlines the complete technology stack used in the Conventioner ap
 - **GitHub Actions** - CI pipeline (`.github/workflows/test.yml`)
   - Runs on pushes and pull requests to `main` or `dev`
   - Jobs: back-end pytest, front-end type-check + lint + unit tests, Docker build verification
+- **GitHub Actions** - Release automation (`.github/workflows/release-please.yml`)
+  - Runs [release-please](https://github.com/googleapis/release-please) on pushes to `main`
+  - Opens/updates a Release PR (version bump + CHANGELOG) that, when merged, tags a release
+  - See [RELEASING.md](./RELEASING.md) for the branch model and release cycle
 
 ## Authentication Flow
 
