@@ -99,11 +99,13 @@ const countTables = () => {
                 @mouseover="hoverIndex = index" @mouseleave="hoverIndex = null">
                 <div class="row-item">
                     <div class="input-container">
-                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;" />
+                        <input type="text" v-model="sections[index].name" style="all: unset; font-size: 14px; width: 100%;"
+                            :data-testid="'setup-section-name-input-' + index" />
                     </div>
                 </div>
                 <div class="row-item enum-item">
-                    <select class="dropdown" v-model="sections[index].location">
+                    <select class="dropdown" v-model="sections[index].location"
+                        :data-testid="'setup-section-location-select-' + index">
                         <option disabled value="">{{ "Select a location" }}</option>
                         <option class="display-list" v-for="(value, index) in locations" :key="index"
                             :value="value">
@@ -112,7 +114,8 @@ const countTables = () => {
                     </select>
                 </div>
                 <div class="row-item enum-item">
-                    <select class="dropdown" v-model="sections[index].tier">
+                    <select class="dropdown" v-model="sections[index].tier"
+                        :data-testid="'setup-section-tier-select-' + index">
                         <option disabled value="">{{ "Select a tier" }}</option>
                         <option class="display-list" v-for="(value, index) in tiers" :key="index"
                             :value="value">
@@ -127,7 +130,8 @@ const countTables = () => {
                         v-model="sections[index].count"
                         @input="handleCountInput(index, Number(($event.target as HTMLInputElement)?.value || NaN))"
                         style="font-size: 14px; width: 100%;"
-                        class="number-input" />
+                        class="number-input"
+                        :data-testid="'setup-section-count-input-' + index" />
                     </div>
                 </div>
                 <div
@@ -137,7 +141,7 @@ const countTables = () => {
                 </div>
             </div>
             <div class="add-container">
-                <IconAddRound class="icon-add-round" @click="addRow" />
+                <IconAddRound class="icon-add-round" @click="addRow" data-testid="setup-section-add-button" />
             </div>
         </div>
         <div ref="tableCount" style="position: absolute; left: 5px; bottom: -10px">

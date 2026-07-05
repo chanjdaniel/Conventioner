@@ -24,3 +24,6 @@ export const test = base.extend<{ authenticatedPage: Page }>({
 
 export { expect } from '@playwright/test';
 export { LoginPage } from './pages/LoginPage';
+export { MarketSetupPage } from './pages/MarketSetupPage';
+export { AssignmentResultsPage } from './pages/AssignmentResultsPage';
+export { NewMarketPage } from './pages/NewMarketPage';

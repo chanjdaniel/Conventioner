@@ -34,7 +34,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   No product behavior changes - purely additive test infrastructure.
 - **Page Object Model**: Located under `front-end/e2e/pages/`.
   Each page object wraps Playwright `getByTestId()` selectors and exposes action methods.
-  New pages should follow the existing `LoginPage`, `MarketSetupPage`, `AssignmentResultsPage` patterns.
+  New pages should follow the existing `LoginPage`, `NewMarketPage`, `MarketSetupPage`, `AssignmentResultsPage` patterns.
 - **Fixtures**: `front-end/e2e/fixtures.ts` provides `TEST_USER`, `authenticatedPage`,
   and re-exports page objects for convenience.
 - **API-level seeding**: `front-end/e2e/helpers/seeds.ts` exports `seedMarketWithVendors()`

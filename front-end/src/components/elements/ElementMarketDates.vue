@@ -79,11 +79,13 @@ const addRow = () => {
                         {{ getFormattedDate(marketDates[index].date) }}
                     </h4>
                     <input type="date" class="colname-input date-input" v-model="marketDates[index].date"
-                        onclick="this.showPicker()" />
+                        onclick="this.showPicker()"
+                        :data-testid="'setup-dates-date-input-' + index" />
 
                 </div>
                 <div class="row-item enum-item">
-                    <select class="datatype-dropdown" v-model="marketDates[index].colNameIdx">
+                    <select class="datatype-dropdown" v-model="marketDates[index].colNameIdx"
+                        :data-testid="'setup-dates-column-select-' + index">
                         <optgroup class="datatype-dropdown">
                             <option disabled value="">Values</option>
                             <option class="display-list" v-for="(value, index) in colNames" :key="index" :value="index">
@@ -99,7 +101,7 @@ const addRow = () => {
                 </div>
             </div>
             <div class="add-container">
-                <IconAddRound class="icon-add-round" @click="addRow" />
+                <IconAddRound class="icon-add-round" @click="addRow" data-testid="setup-dates-add-button" />
             </div>
         </div>
     </div>

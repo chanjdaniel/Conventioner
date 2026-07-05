@@ -55,7 +55,10 @@ npm run test:e2e
 ```
 
 E2E tests use Playwright driving Chromium against the running Docker stack.
-The smoke test covers login, dashboard, and markets navigation.
+The smoke test covers login, dashboard, and markets navigation, and the market
+pipeline test (`market-pipeline.spec.ts`) exercises the full product flow:
+creating a market with a CSV upload, walking the 3-page setup wizard, triggering
+assignment generation, and verifying the assignment results view.
 
 Configuration: `front-end/playwright.config.ts` (auto-detects the worktree
 frontend port via `detectFrontendPort()`).
@@ -70,9 +73,10 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
 - **data-testid convention**: selectors follow `viewname-element`
   (e.g. `login-email-input`, `markets-create-button`). Views are instrumented
   with `data-testid` attributes so tests never depend on CSS classes or text.
-- **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `MarketSetupPage`, and
-  `AssignmentResultsPage` each wrap `getByTestId()` selectors and expose action
-  methods. New page objects should follow these patterns.
+- **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `NewMarketPage`,
+  `MarketSetupPage`, and `AssignmentResultsPage` each wrap `getByTestId()`
+  selectors and expose action methods. New page objects should follow these
+  patterns.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
   `authenticatedPage` fixture (logs in before the test), and re-exports page
   objects for convenience.

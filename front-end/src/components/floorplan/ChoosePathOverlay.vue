@@ -12,7 +12,7 @@ defineEmits<{
 
       <div class="cards-row">
         <!-- ─── Manual Setup Card ─── -->
-        <div class="path-card" @click="$emit('select', 'manual')">
+        <div class="path-card" @click="$emit('select', 'manual')" data-testid="choose-path-manual">
           <div class="card-icon-wrapper">
             <i class="pi pi-list card-icon" />
           </div>

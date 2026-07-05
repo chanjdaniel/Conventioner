@@ -77,7 +77,8 @@ const removeRow = (index: number | null) => {
                 <div class="row-item">
                     <div class="input-container">
                         <input type="text" v-model="locationObjects[index].name"
-                            style="all: unset; font-size: 14px; width: 100%;" />
+                            style="all: unset; font-size: 14px; width: 100%;"
+                            :data-testid="'setup-location-name-input-' + index" />
                     </div>
                 </div>
                 <div
@@ -87,7 +88,7 @@ const removeRow = (index: number | null) => {
                 </div>
             </div>
             <div class="add-container">
-                <IconAddRound class="icon-add-round" @click="addRow" />
+                <IconAddRound class="icon-add-round" @click="addRow" data-testid="setup-location-add-button" />
             </div>
         </div>
     </div>

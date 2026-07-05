@@ -94,6 +94,7 @@ const handleProportionInput = (value: number) => {
                         class="datatype-dropdown"
                         :value="colIdxToSelectValue(assignmentOptions.emailColNameIdx)"
                         @change="setColIdx('emailColNameIdx', ($event.target as HTMLSelectElement).value)"
+                        data-testid="setup-options-email-select"
                     >
                         <option value=""></option>
                         <option
@@ -115,6 +116,7 @@ const handleProportionInput = (value: number) => {
                         class="datatype-dropdown"
                         :value="colIdxToSelectValue(assignmentOptions.tableChoiceColNameIdx)"
                         @change="setColIdx('tableChoiceColNameIdx', ($event.target as HTMLSelectElement).value)"
+                        data-testid="setup-options-table-choice-select"
                     >
                         <option value=""></option>
                         <option
@@ -136,6 +138,7 @@ const handleProportionInput = (value: number) => {
                         class="datatype-dropdown"
                         :value="colIdxToSelectValue(assignmentOptions.tableShareEmailColNameIdx)"
                         @change="setColIdx('tableShareEmailColNameIdx', ($event.target as HTMLSelectElement).value)"
+                        data-testid="setup-options-table-share-email-select"
                     >
                         <option value=""></option>
                         <option
@@ -182,7 +185,8 @@ const handleProportionInput = (value: number) => {
                     <div class="input-container">
                         <input type="text" v-model="assignmentOptions.maxAssignmentsPerVendor"
                             @input="handleDaysInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
-                            style="all: unset; font-size: 14px; width: 100%;" />
+                            style="all: unset; font-size: 14px; width: 100%;"
+                            data-testid="setup-options-max-assignments-input" />
                     </div>
                 </div>
             </div>
@@ -194,7 +198,8 @@ const handleProportionInput = (value: number) => {
                     <div class="input-container">
                         <input type="text" v-model="assignmentOptions.maxHalfTableProportionPerSection"
                             @blur="handleProportionInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
-                            style="all: unset; font-size: 14px; width: 100%;" />
+                            style="all: unset; font-size: 14px; width: 100%;"
+                            data-testid="setup-options-max-proportion-input" />
                     </div>
                 </div>
             </div>

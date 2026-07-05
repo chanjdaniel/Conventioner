@@ -110,7 +110,7 @@ onMounted(() => {
                 const uploadRow = uploadObject.data.data[j];
                 columnValues.push(uploadRow[uploadColName]);
             }
-            colValuesList.push([...new Set(columnValues)]);
+            colValuesList.push([...new Set(columnValues.filter(v => v != null))]);
             enumPriorityOrder.push([]);
         }
 

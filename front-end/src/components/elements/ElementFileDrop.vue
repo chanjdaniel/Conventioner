@@ -76,7 +76,7 @@ const readCSVFile = (file: File) => {
     <div class="file-drop-icons">
       <IconImport />
       <h3>
-        <span><button class="file-button" type="button" @click="open()">Choose a file</button></span>
+        <span><button class="file-button" type="button" @click="open()" data-testid="file-drop-choose-button">Choose a file</button></span>
         <span class="file-text"> or drag it here </span>
       </h3>
     </div>
