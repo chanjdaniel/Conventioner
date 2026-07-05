@@ -22,6 +22,10 @@ export class AssignmentResultsPage {
   // Summary stats
   readonly summaryStats: Locator;
 
+  // Discord feedback messages
+  readonly discordError: Locator;
+  readonly discordToast: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
@@ -35,6 +39,9 @@ export class AssignmentResultsPage {
     this.viewAttendanceButton = page.getByTestId('assignment-results-view-attendance-button');
 
     this.summaryStats = page.locator('.summary-card');
+
+    this.discordError = page.getByTestId('assignment-results-discord-error');
+    this.discordToast = page.getByTestId('assignment-results-discord-toast');
   }
 
   async goto(): Promise<void> {

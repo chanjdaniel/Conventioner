@@ -76,7 +76,11 @@ function loadRecaptchaScript(): Promise<void> {
  */
 export async function executeRecaptcha(action: string): Promise<string> {
   if (!RECAPTCHA_SITE_KEY) {
-    throw new Error('RECAPTCHA_SITE_KEY is not configured');
+    // In test/dev builds the site key is intentionally empty (production always
+    // injects it via docker-compose env). Return a placeholder token so callers
+    // can still reach the backend, which applies its own DISABLE_CAPTCHA bypass.
+    console.warn('RECAPTCHA_SITE_KEY is not configured; using placeholder token');
+    return 'e2e-test-captcha-token';
   }
 
   try {

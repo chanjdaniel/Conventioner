@@ -65,7 +65,10 @@ browsing with filtering (`tables.spec.ts`). The tier-2 suite (`tier2.spec.ts`)
 covers organization CRUD (create, add admin/member, remove member, rename,
 delete), market role management (add user with role, change role, remove user),
 assignment CSV export (download and verify columns), and publishing a market
-(verify the check-in URL is reachable).
+(verify the check-in URL is reachable). Tier-3 authentication and robustness
+journeys (`auth.spec.ts`) cover new-user registration, the full password reset
+flow (including reading the real reset token from MongoDB), posting an assignment
+to Discord, and login/OTP error states.
 
 Configuration: `front-end/playwright.config.ts` (auto-detects the worktree
 frontend port via `detectFrontendPort()`).
@@ -82,9 +85,9 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
   with `data-testid` attributes so tests never depend on CSS classes or text.
 - **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `NewMarketPage`,
   `MarketSetupPage`, `AssignmentResultsPage`, `CheckinPage`, `VendorsPage`,
-  `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, and `ManageMarketPage`
-  each wrap `getByTestId()` selectors and expose action methods. New page objects
-  should follow these patterns.
+  `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, `ManageMarketPage`,
+  and `PasswordResetPage` each wrap `getByTestId()` selectors and expose action
+  methods. New page objects should follow these patterns.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
   `BACKEND_URL` constant (defaults to `https://localhost:5000`, override via the
   `BACKEND_URL` env var), the `authenticatedPage` fixture (logs in before the
@@ -106,7 +109,7 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     assignment engine via the API, returning the seed plus the market's URL
     `slug`.
 
-### Bypassing CAPTCHA in tests
+### Bypassing CAPTCHA and email in tests
 
 The registration flow is protected by reCAPTCHA v3. For local development and E2E
 runs, set `DISABLE_CAPTCHA=true` (or `1`) so `verify_recaptcha` skips verification
@@ -114,7 +117,18 @@ and returns a passing result. The bypass is honored only when `FLASK_ENV` is not
 `production`, defaults OFF, and never applies in production. The CI e2e job sets
 `DISABLE_CAPTCHA=true`, and `docker-compose.yml` forwards the variable to the
 back-end so `./scripts/seed_fixture.sh` and Playwright can register users without a
-real CAPTCHA token.
+real CAPTCHA token. On the front-end, `executeRecaptcha()` returns a placeholder
+token when `VITE_RECAPTCHA_SITE_KEY` is unset (as in test/dev builds), so the flow
+still reaches the back-end where the `DISABLE_CAPTCHA` bypass applies.
+
+Similarly, set `DISABLE_EMAIL=true` (or `1`) so the Resend-backed
+`send_verification_email`, `send_password_reset_email`, and `send_otp_email`
+helpers skip the actual send and report success. This is also honored only when
+`FLASK_ENV` is not `production`, defaults OFF, and is forwarded by
+`docker-compose.yml`; the CI e2e job sets it too. The password-reset E2E test does
+not read the reset link from an email - it reads the token directly from MongoDB
+(via `docker exec` into the container named by `E2E_MONGO_CONTAINER`, default
+`conventioner_mongodb`).
 
 ## CI Pipeline
 
@@ -123,8 +137,9 @@ Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
 - Front-end: npm ci + type-check + lint + unit tests
 - Docker build verification
 - E2E: build and start the Docker stack, seed fixtures, install Playwright
-  (Chromium), run the Playwright suite with `DISABLE_CAPTCHA=true`, and upload the
-  Playwright report + test results as artifacts on failure
+  (Chromium), run the Playwright suite with `DISABLE_CAPTCHA=true` and
+  `DISABLE_EMAIL=true`, and upload the Playwright report + test results as
+  artifacts on failure
 
 ## Testing Gotchas
 

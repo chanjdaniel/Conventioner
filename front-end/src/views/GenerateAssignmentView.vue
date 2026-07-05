@@ -549,8 +549,8 @@ const handleDone = async () => {
             </div>
             <p v-if="doneError" class="done-error">{{ doneError }}</p>
             <p v-if="downloadError" class="done-error">{{ downloadError }}</p>
-            <p v-if="discordError" class="done-error">{{ discordError }}</p>
-            <p v-if="discordToast" class="discord-toast">{{ discordToast }}</p>
+            <p v-if="discordError" class="done-error" data-testid="assignment-results-discord-error">{{ discordError }}</p>
+            <p v-if="discordToast" class="discord-toast" data-testid="assignment-results-discord-toast">{{ discordToast }}</p>
             <div class="assignment-actions-row">
                 <div>
                     <button class="done-button" @click="handleBack" data-testid="assignment-results-back-button">Back</button>

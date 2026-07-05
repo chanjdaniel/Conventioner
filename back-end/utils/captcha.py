@@ -23,12 +23,12 @@ def verify_recaptcha(token: str, ip_address: Optional[str] = None) -> Tuple[bool
         - success: True if verification passed and score >= MIN_SCORE
         - score: reCAPTCHA score (0.0 to 1.0)
     """
-    # Explicit test-mode bypass: DISABLE_CAPTCHA skips verification entirely.
-    # Only honored in non-production environments. Defaults OFF - production
-    # stays protected by CAPTCHA regardless of this flag.
-    if os.getenv("FLASK_ENV", "") != "production" and os.getenv("DISABLE_CAPTCHA", "").lower() in ("true", "1"):
-        print("Warning: DISABLE_CAPTCHA is enabled - captcha verification skipped")
-        return True, 1.0
+    # Explicit test-mode bypass: DISABLE_CAPTCHA env var skips verification.
+    # Only honored in non-production environments.
+    if os.getenv("FLASK_ENV", "") != "production":
+        if os.getenv("DISABLE_CAPTCHA", "").lower() in ("true", "1"):
+            print("Warning: DISABLE_CAPTCHA is enabled - captcha verification skipped")
+            return True, 1.0
 
     if not RECAPTCHA_SECRET_KEY:
         # In development, allow bypass if secret key not set

@@ -79,5 +79,9 @@ export function parseMarketFromApi(market: any): Market {
             totalTablesAssigned: 0,
             assignmentStatistics: null,
         },
+        discordWebhookUrl:
+            market.discordWebhookUrl ??
+            market.discord_webhook_url ??
+            undefined,
     };
 }

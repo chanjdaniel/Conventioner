@@ -26,6 +26,17 @@ FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")  # Default Resend 
 logger.info(f"Email configuration: FROM_EMAIL={FROM_EMAIL}, FRONTEND_URL={FRONTEND_URL}")
 
 
+def _email_disabled() -> bool:
+    """Return True when email sending is explicitly disabled for testing.
+
+    Only honored in non-production environments. Activated by the
+    DISABLE_EMAIL env var.
+    """
+    if os.getenv("FLASK_ENV", "") == "production":
+        return False
+    return os.getenv("DISABLE_EMAIL", "").lower() in ("true", "1")
+
+
 def send_verification_email(email: str, token: str) -> bool:
     """Send email verification link to user.
     
@@ -72,6 +83,10 @@ def send_verification_email(email: str, token: str) -> bool:
     If you didn't create an account, please ignore this email.
     """
     
+    if _email_disabled():
+        logger.info("DISABLE_EMAIL is enabled - skipping verification email")
+        return True
+
     if not resend_initialized:
         logger.error("Cannot send verification email: RESEND_API_KEY not set")
         return False
@@ -156,6 +171,10 @@ def send_password_reset_email(email: str, token: str) -> bool:
     If you didn't request a password reset, please ignore this email.
     """
     
+    if _email_disabled():
+        logger.info("DISABLE_EMAIL is enabled - skipping password reset email")
+        return True
+
     if not resend_initialized:
         logger.error("Cannot send password reset email: RESEND_API_KEY not set")
         return False
@@ -236,6 +255,10 @@ def send_otp_email(email: str, otp: str) -> bool:
     If you didn't request this code, please ignore this email.
     """
     
+    if _email_disabled():
+        logger.info("DISABLE_EMAIL is enabled - skipping OTP email")
+        return True
+
     if not resend_initialized:
         logger.error("Cannot send OTP email: RESEND_API_KEY not set")
         return False

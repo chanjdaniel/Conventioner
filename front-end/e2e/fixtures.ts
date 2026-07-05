@@ -35,3 +35,4 @@ export { TablesPage } from './pages/TablesPage';
 export { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 export { OrganizationsPage } from './pages/OrganizationsPage';
 export { ManageMarketPage } from './pages/ManageMarketPage';
+export { PasswordResetPage } from './pages/PasswordResetPage';
