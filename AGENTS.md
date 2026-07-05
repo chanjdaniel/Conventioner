@@ -34,11 +34,15 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   No product behavior changes - purely additive test infrastructure.
 - **Page Object Model**: Located under `front-end/e2e/pages/`.
   Each page object wraps Playwright `getByTestId()` selectors and exposes action methods.
-  New pages should follow the existing `LoginPage`, `NewMarketPage`, `MarketSetupPage`, `AssignmentResultsPage` patterns.
+  New pages should follow the existing `LoginPage`, `NewMarketPage`, `MarketSetupPage`,
+  `AssignmentResultsPage`, `OrganizationsPage`, `ManageMarketPage` patterns.
 - **Fixtures**: `front-end/e2e/fixtures.ts` provides `TEST_USER`, `authenticatedPage`,
-  and re-exports page objects for convenience.
+  re-exports page objects for convenience, and exposes `BACKEND_URL`
+  (via `detectBackendPort()`) for direct API calls.
 - **API-level seeding**: `front-end/e2e/helpers/seeds.ts` exports `seedMarketWithVendors()`
   which creates markets and uploads vendor CSV via the back-end API.
+  `front-end/e2e/helpers/seedAssignedMarket.ts` exports `seedAssignedMarket()`, which
+  also configures the market `setupObject` and triggers assignment via the API.
   Requires a verified test user (created by `scripts/seed_fixture.sh`).
 - **Test user creation**: The back-end `/register-user` endpoint does NOT set `email_verified`,
   so users created through it cannot log in.

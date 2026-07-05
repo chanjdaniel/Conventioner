@@ -110,7 +110,7 @@ async function handleAddUser() {
     addUserError.value = '';
     try {
         await api.post(
-            `/markets/${encodeURIComponent(marketData.value.name)}/roles`,
+            `/markets/${encodeURIComponent(marketData.value.id)}/roles`,
             { user_email: newUserEmail.value.trim(), role: newUserRole.value },
         );
         showAddUserForm.value = false;

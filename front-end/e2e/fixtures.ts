@@ -33,3 +33,5 @@ export { CheckinPage } from './pages/CheckinPage';
 export { VendorsPage } from './pages/VendorsPage';
 export { TablesPage } from './pages/TablesPage';
 export { AttendanceStatusPage } from './pages/AttendanceStatusPage';
+export { OrganizationsPage } from './pages/OrganizationsPage';
+export { ManageMarketPage } from './pages/ManageMarketPage';

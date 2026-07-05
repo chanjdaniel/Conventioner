@@ -61,7 +61,11 @@ creating a market with a CSV upload, walking the 3-page setup wizard, triggering
 assignment generation, and verifying the assignment results view. Coverage also
 includes tier-1 market operations journeys: public vendor check-in
 (`checkin.spec.ts`), vendor browsing with search (`vendors.spec.ts`), and table
-browsing with filtering (`tables.spec.ts`).
+browsing with filtering (`tables.spec.ts`). The tier-2 suite (`tier2.spec.ts`)
+covers organization CRUD (create, add admin/member, remove member, rename,
+delete), market role management (add user with role, change role, remove user),
+assignment CSV export (download and verify columns), and publishing a market
+(verify the check-in URL is reachable).
 
 Configuration: `front-end/playwright.config.ts` (auto-detects the worktree
 frontend port via `detectFrontendPort()`).
@@ -78,8 +82,9 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
   with `data-testid` attributes so tests never depend on CSS classes or text.
 - **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `NewMarketPage`,
   `MarketSetupPage`, `AssignmentResultsPage`, `CheckinPage`, `VendorsPage`,
-  `TablesPage`, and `AttendanceStatusPage` each wrap `getByTestId()` selectors
-  and expose action methods. New page objects should follow these patterns.
+  `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, and `ManageMarketPage`
+  each wrap `getByTestId()` selectors and expose action methods. New page objects
+  should follow these patterns.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
   `BACKEND_URL` constant (defaults to `https://localhost:5000`, override via the
   `BACKEND_URL` env var), the `authenticatedPage` fixture (logs in before the
@@ -96,6 +101,10 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     and vendor/table views have persisted assignments. Returns a `marketSlug`
     for navigating to the public check-in URL. See `AGENTS.md` for the
     `enum_priority_order` sizing requirement and other sharp edges.
+  - `seedAssignedMarket()` (`front-end/e2e/helpers/seedAssignedMarket.ts`)
+    additionally configures the market's `setupObject` and triggers the
+    assignment engine via the API, returning the seed plus the market's URL
+    `slug`.
 
 ### Bypassing CAPTCHA in tests
 
