@@ -321,6 +321,8 @@ onMounted(loadTables);
                             v-for="dateGroup in groupedRows"
                             :key="dateGroup.date"
                             class="date-group"
+                            :data-date="dateGroup.date"
+                            data-testid="tables-date-group"
                         >
                             <h2 class="date-heading">
                                 <span>{{ dateGroup.displayDate }}</span>
@@ -347,6 +349,8 @@ onMounted(loadTables);
                                             'table-row--empty': rowStatus(row).label === 'empty',
                                             'table-row--partial': rowStatus(row).label === 'partial',
                                         }"
+                                        :data-table-code="row.tableCode"
+                                        data-testid="tables-table-row"
                                     >
                                         <div class="table-row-head">
                                             <span class="table-code">{{ row.tableCode }}</span>

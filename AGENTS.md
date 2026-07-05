@@ -45,3 +45,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   Test users must be created via `back-end/create_test_user.py` which sets `email_verified=True`.
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `detectFrontendPort()`.
+
+## E2E Seed Helpers for Published Markets
+
+- `seedPublishedMarketWithAssignments()` in `front-end/e2e/helpers/seeds.ts` creates a fully
+  published market with vendor assignments ready for check-in, vendor browsing, and table filtering tests.
+- The back-end assignment algorithm (`assign_market`) requires `enum_priority_order` to have one
+  entry (empty list) per column in `col_names`. Omitting this causes an `IndexError`.
+- After publishing (`isDraft: false`) with a configured `setup_object`, you must fetch the
+  computed assignment via `GET /markets/{id}/assignment` and store it back via PUT.
+  The stored `assignmentObject.vendorAssignments` is what `record_attendance` reads at check-in time.

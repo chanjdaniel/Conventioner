@@ -433,6 +433,8 @@ function goToDashboard(): void {
                             v-for="date in marketDates"
                             :key="date.date"
                             class="assignment-item"
+                            :data-date="date.date"
+                            data-testid="vendors-detail-assignment-item"
                         >
                             <div class="assignment-date">{{ formatDateLabel(date.date) }}</div>
                             <div class="assignment-detail">

@@ -58,7 +58,10 @@ E2E tests use Playwright driving Chromium against the running Docker stack.
 The smoke test covers login, dashboard, and markets navigation, and the market
 pipeline test (`market-pipeline.spec.ts`) exercises the full product flow:
 creating a market with a CSV upload, walking the 3-page setup wizard, triggering
-assignment generation, and verifying the assignment results view.
+assignment generation, and verifying the assignment results view. Coverage also
+includes tier-1 market operations journeys: public vendor check-in
+(`checkin.spec.ts`), vendor browsing with search (`vendors.spec.ts`), and table
+browsing with filtering (`tables.spec.ts`).
 
 Configuration: `front-end/playwright.config.ts` (auto-detects the worktree
 frontend port via `detectFrontendPort()`).
@@ -74,16 +77,25 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
   (e.g. `login-email-input`, `markets-create-button`). Views are instrumented
   with `data-testid` attributes so tests never depend on CSS classes or text.
 - **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `NewMarketPage`,
-  `MarketSetupPage`, and `AssignmentResultsPage` each wrap `getByTestId()`
-  selectors and expose action methods. New page objects should follow these
-  patterns.
+  `MarketSetupPage`, `AssignmentResultsPage`, `CheckinPage`, `VendorsPage`,
+  `TablesPage`, and `AttendanceStatusPage` each wrap `getByTestId()` selectors
+  and expose action methods. New page objects should follow these patterns.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
-  `authenticatedPage` fixture (logs in before the test), and re-exports page
-  objects for convenience.
-- **API-level seeding** (`front-end/e2e/helpers/seeds.ts`): `seedMarketWithVendors()`
-  logs in, creates a market, and uploads a vendor CSV via the back-end API using
-  Playwright's `APIRequestContext` (cookies flow automatically). Requires a
+  `BACKEND_URL` constant (defaults to `https://localhost:5000`, override via the
+  `BACKEND_URL` env var), the `authenticatedPage` fixture (logs in before the
+  test), and re-exports page objects for convenience.
+- **API-level seeding** (`front-end/e2e/helpers/seeds.ts`): all helpers use
+  Playwright's `APIRequestContext` (cookies flow automatically) and require a
   verified test user created by `scripts/seed_fixture.sh`.
+  - `seedMarketWithVendors()` logs in, creates a market, and uploads a vendor
+    CSV via the back-end API.
+  - `seedPublishedMarketWithAssignments()` additionally configures the market's
+    `setup_object` (column mapping, dates, sections, tiers, locations), publishes
+    it (`isDraft: false`), then fetches the computed assignment via
+    `GET /markets/{id}/assignment` and stores it back via PUT so the check-in API
+    and vendor/table views have persisted assignments. Returns a `marketSlug`
+    for navigating to the public check-in URL. See `AGENTS.md` for the
+    `enum_priority_order` sizing requirement and other sharp edges.
 
 ### Bypassing CAPTCHA in tests
 
@@ -108,7 +120,9 @@ Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
 ## Testing Gotchas
 
 - **Backend uses HTTPS with self-signed cert**: When calling the API directly,
-  use `curl -k` to skip certificate validation.
+  use `curl -k` to skip certificate validation. Playwright accepts the cert via
+  `ignoreHTTPSErrors: true` in `playwright.config.ts`, so browser navigation and
+  the `APIRequestContext`-based seed helpers work against the self-signed backend.
 - **X-Owner-Email header**: Set automatically by the axios interceptor in
   `front-end/src/utils/api.ts`. New API calls using the shared `api` instance
   do not need to set it manually.

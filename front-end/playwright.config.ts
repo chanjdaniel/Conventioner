@@ -29,6 +29,7 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'on',
     video: 'on',
+    ignoreHTTPSErrors: true,
   },
   projects: [
     {

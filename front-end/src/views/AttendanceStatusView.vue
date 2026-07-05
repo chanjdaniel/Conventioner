@@ -103,8 +103,13 @@ onMounted(loadAttendance);
                         </thead>
                         <tbody>
                             <tr v-for="vendor in vendors" :key="vendor">
-                                <td class="vendor-cell">{{ vendor }}</td>
-                                <td v-for="d in dates" :key="d">{{ cellFor(vendor, d) }}</td>
+                                <td class="vendor-cell" data-testid="attendance-status-vendor-cell">{{ vendor }}</td>
+                                <td
+                                    v-for="d in dates"
+                                    :key="d"
+                                    :data-date="d"
+                                    data-testid="attendance-status-date-cell"
+                                >{{ cellFor(vendor, d) }}</td>
                             </tr>
                         </tbody>
                     </table>

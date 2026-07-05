@@ -6,6 +6,8 @@ export const TEST_USER = {
   password: 'e2epassword123',
 };
 
+export const BACKEND_URL = process.env.BACKEND_URL || 'https://localhost:5000';
+
 async function login(page: Page, email: string, password: string) {
   const loginPage = new LoginPage(page);
   await loginPage.goto();
@@ -27,3 +29,7 @@ export { LoginPage } from './pages/LoginPage';
 export { MarketSetupPage } from './pages/MarketSetupPage';
 export { AssignmentResultsPage } from './pages/AssignmentResultsPage';
 export { NewMarketPage } from './pages/NewMarketPage';
+export { CheckinPage } from './pages/CheckinPage';
+export { VendorsPage } from './pages/VendorsPage';
+export { TablesPage } from './pages/TablesPage';
+export { AttendanceStatusPage } from './pages/AttendanceStatusPage';
