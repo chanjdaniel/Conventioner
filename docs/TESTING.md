@@ -25,8 +25,8 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-57 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
-column mapping, schema generation, and role validation.
+63 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
+column mapping, schema generation, role validation, and CAPTCHA verification/bypass.
 
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
 (tests use in-memory fakes).
@@ -81,12 +81,25 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
   Playwright's `APIRequestContext` (cookies flow automatically). Requires a
   verified test user created by `scripts/seed_fixture.sh`.
 
+### Bypassing CAPTCHA in tests
+
+The registration flow is protected by reCAPTCHA v3. For local development and E2E
+runs, set `DISABLE_CAPTCHA=true` (or `1`) so `verify_recaptcha` skips verification
+and returns a passing result. The bypass is honored only when `FLASK_ENV` is not
+`production`, defaults OFF, and never applies in production. The CI e2e job sets
+`DISABLE_CAPTCHA=true`, and `docker-compose.yml` forwards the variable to the
+back-end so `./scripts/seed_fixture.sh` and Playwright can register users without a
+real CAPTCHA token.
+
 ## CI Pipeline
 
 Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
 - Back-end: install dependencies + pytest
 - Front-end: npm ci + type-check + lint + unit tests
 - Docker build verification
+- E2E: build and start the Docker stack, seed fixtures, install Playwright
+  (Chromium), run the Playwright suite with `DISABLE_CAPTCHA=true`, and upload the
+  Playwright report + test results as artifacts on failure
 
 ## Testing Gotchas
 

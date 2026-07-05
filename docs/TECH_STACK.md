@@ -49,6 +49,7 @@ This document outlines the complete technology stack used in the Conventioner ap
   - Score-based verification (minimum 0.5)
   - Used on registration endpoint
   - Secret key configured via `RECAPTCHA_SECRET_KEY` environment variable
+  - Test-only bypass via `DISABLE_CAPTCHA` (non-production only; see Environment Variables)
 
 ### Utilities
 - **Cryptography 41.0.0+** - Cryptographic functions
@@ -173,7 +174,7 @@ This document outlines the complete technology stack used in the Conventioner ap
 ### Continuous Integration
 - **GitHub Actions** - CI pipeline (`.github/workflows/test.yml`)
   - Runs on pushes and pull requests to `main` or `dev`
-  - Jobs: back-end pytest, front-end type-check + lint + unit tests, Docker build verification
+  - Jobs: back-end pytest, front-end type-check + lint + unit tests, Docker build verification, and E2E (Playwright against the Docker stack with `DISABLE_CAPTCHA=true`, uploading artifacts on failure)
 - **GitHub Actions** - Release automation (`.github/workflows/release-please.yml`)
   - Runs [release-please](https://github.com/googleapis/release-please) on pushes to `main`
   - Opens/updates a Release PR (version bump + CHANGELOG) that, when merged, tags a release
@@ -230,6 +231,7 @@ This document outlines the complete technology stack used in the Conventioner ap
 - `FRONTEND_URL` - Frontend URL for email links (e.g., `http://localhost:5173`)
 - `FROM_EMAIL` - Email address to send from (default: `onboarding@resend.dev`)
 - `RECAPTCHA_SECRET_KEY` - Google reCAPTCHA v3 secret key
+- `DISABLE_CAPTCHA` - Test-only flag to skip reCAPTCHA verification (default OFF; set `true`/`1`). Honored only when `FLASK_ENV` is not `production`
 - `MONGODB_HOST` - MongoDB hostname (default: `mongodb` in Docker, `localhost` locally)
 - `MONGODB_PORT` - MongoDB port (default: `27017`)
 - `MONGODB_USER` - MongoDB username (default: `admin`)

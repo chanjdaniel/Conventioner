@@ -58,3 +58,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose build
+
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      DISABLE_CAPTCHA: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: front-end/package-lock.json
+      # Install front-end deps on the host BEFORE `docker compose up`. Otherwise
+      # Docker (as root) creates the anonymous-volume mountpoint `front-end/node_modules`
+      # on the host bind mount root-owned, and the later `npm ci` fails with EACCES.
+      - name: Install front-end dependencies
+        working-directory: front-end
+        run: npm ci
+      - name: Install Playwright browsers
+        working-directory: front-end
+        run: npx playwright install chromium --with-deps
+      - run: docker compose build
+      - run: docker compose up -d
+      - run: ./scripts/seed_fixture.sh
+      - name: Run Playwright tests
+        working-directory: front-end
+        run: npx playwright test
+      - name: Docker compose logs
+        if: always()
+        run: docker compose logs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-artifacts
+          path: |
+            front-end/playwright-report/
+            front-end/test-results/
+          retention-days: 7
