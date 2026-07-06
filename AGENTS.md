@@ -50,6 +50,38 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `detectFrontendPort()`.
 
+### Floorplan Workflow E2E
+
+- **Deterministic - no AI mocking needed.** Despite the "Floorplan AI" name,
+  the front-end wizard makes no LLM/vision calls. Table auto-placement
+  (`POST /floorplans/place-tables`, `back-end/services/placement_service.py`)
+  is a pure geometry solver (Shapely + `pyckingsolver`). The
+  Gemini/GPT vision endpoint (`POST /floorplans/analyze`,
+  `back-end/api/floorplans_analysis.py`) exists but is not wired into the
+  front-end workflow (walls are drawn by hand). Consequence: the flow can be
+  exercised end-to-end for real in CI with no API keys and no stubbing.
+- **Konva canvas interactions and coverage gap.** The wizard's three canvas
+  steps have different testability:
+  - Calibration line drawing IS drivable with real Playwright `page.mouse`
+    drags on the Konva stage (see `FloorplanWorkflowPage.drawCalibrationLine()`).
+  - Section-grouping (Konva "lasso" selection) and the `FloorplanEditor` step
+    are NOT reliably drivable via simulated mouse events.
+    `floorplan.spec.ts` drives Pinia store state directly via `page.evaluate`
+    for those steps (`snapshotPlacedTables()`, `restorePlacedTables()`,
+    `groupAllTablesIntoSection()`).
+  - **Coverage gap**: section grouping and editor canvas interactions are
+    validated at the state level, not as real user gestures. Anyone extending
+    floorplan coverage should account for this.
+- **Artifacts** (PR #18 pattern to follow):
+  - Page object: `front-end/e2e/pages/FloorplanWorkflowPage.ts`
+  - Spec: `front-end/e2e/floorplan.spec.ts`
+  - Fixture: `front-end/e2e/fixtures/test-floorplan.png` (800×600 PNG)
+- **Save-path null-tolerance**: `POST /floorplans/save-to-market`
+  (`back-end/api/floorplans_save.py`) handles a null `setupObject` on the
+  market doc (the manual-setup path leaves it null). The fix uses
+  `isinstance(existing_setup, dict)` to branch between updating the existing
+  object and seeding a fresh one.
+
 ## E2E Seed Helpers for Published Markets
 
 - `seedPublishedMarketWithAssignments()` in `front-end/e2e/helpers/seeds.ts` creates a fully
