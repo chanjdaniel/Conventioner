@@ -67,8 +67,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   - Section-grouping (Konva "lasso" selection) and the `FloorplanEditor` step
     are NOT reliably drivable via simulated mouse events.
     `floorplan.spec.ts` drives Pinia store state directly via `page.evaluate`
-    for those steps (`snapshotPlacedTables()`, `restorePlacedTables()`,
-    `groupAllTablesIntoSection()`).
+    for those steps (`groupAllTablesIntoSection()`), and uses
+    `snapshotPlacedTables()` to assert table state persists across wizard steps.
   - **Coverage gap**: section grouping and editor canvas interactions are
     validated at the state level, not as real user gestures. Anyone extending
     floorplan coverage should account for this.
@@ -81,6 +81,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   market doc (the manual-setup path leaves it null). The fix uses
   `isinstance(existing_setup, dict)` to branch between updating the existing
   object and seeding a fresh one.
+- **Editor-mount table preservation**: `FloorplanEditor.vue`'s
+  `loadBackgroundImage()` only calls `store.initFloorplan()` when no floorplan
+  exists yet, spreading the existing store data (`placedTables`, `tableTypes`,
+  `sections`, `walls`, `obstacles`, scale) into the init so forward wizard
+  progression keeps auto-placed tables; when a floorplan already exists it just
+  refreshes the background image fields. This replaced an earlier
+  snapshot/restore workaround in the e2e page object.
 
 ## E2E Seed Helpers for Published Markets
 

@@ -106,11 +106,23 @@ async function loadBackgroundImage(gridfsId: string) {
       i.src = url
     })
     bgImage.value = img
-    store.initFloorplan({
-      imageGridfsId: gridfsId,
-      imageWidth: img.width,
-      imageHeight: img.height,
-    })
+    if (!store.floorplan) {
+      store.initFloorplan({
+        imageGridfsId: gridfsId,
+        imageWidth: img.width,
+        imageHeight: img.height,
+        ...(store.placedTables.length > 0 ? { placedTables: store.placedTables } : {}),
+        ...(store.tableTypes.length > 0 ? { tableTypes: store.tableTypes } : {}),
+        ...(store.sections.length > 0 ? { sections: store.sections } : {}),
+        ...(store.walls.length > 0 ? { walls: store.walls } : {}),
+        ...(store.obstacles.length > 0 ? { obstacles: store.obstacles } : {}),
+        ...(store.scalePxPerMm !== 1 ? { scalePxPerUnit: store.scalePxPerMm } : {}),
+      })
+    } else {
+      store.floorplan.imageGridfsId = gridfsId
+      store.floorplan.imageWidth = img.width
+      store.floorplan.imageHeight = img.height
+    }
   } catch (_e: unknown) {
     const err = _e as {
       name?: string

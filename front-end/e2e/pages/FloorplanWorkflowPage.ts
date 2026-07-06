@@ -289,8 +289,8 @@ export class FloorplanWorkflowPage {
 
   /**
    * Capture the current placed tables from the store and return them
-   * as a JSON-serializable snapshot. Used to restore state after
-   * initFloorplan() resets the store when step 3 mounts.
+   * as a JSON-serializable snapshot. Used by the e2e spec to assert
+   * table persistence across wizard steps.
    */
   async snapshotPlacedTables(): Promise<PlacedTable[]> {
     return this.page.evaluate(() => {
@@ -303,48 +303,6 @@ export class FloorplanWorkflowPage {
       if (!store) return []
       return JSON.parse(JSON.stringify(store.placedTables))
     })
-  }
-
-  /**
-   * Restore placed tables (and optionally tableTypes/scale) from a snapshot.
-   * Used to recover state after the step-3 FloorplanEditor reset.
-   */
-  async restorePlacedTables(tables: PlacedTable[]): Promise<void> {
-    await this.page.evaluate((snapshot) => {
-      const appEl = document.querySelector('#app')
-      const vueApp = (appEl as unknown as { __vue_app__?: VueAppLike })?.__vue_app__
-      if (!vueApp) return
-      const pinia = vueApp.config.globalProperties.$pinia
-      if (!pinia) return
-      const store = pinia._s.get('floorplan')
-      if (!store) return
-      store.placedTables = snapshot
-    }, tables)
-    await this.page.waitForTimeout(200)
-  }
-
-  async restoreTableTypes(): Promise<void> {
-    await this.page.evaluate(() => {
-      const appEl = document.querySelector('#app')
-      const vueApp = (appEl as unknown as { __vue_app__?: VueAppLike })?.__vue_app__
-      if (!vueApp) return
-      const pinia = vueApp.config.globalProperties.$pinia
-      if (!pinia) return
-      const store = pinia._s.get('floorplan')
-      if (!store) return
-      if (store.tableTypes.length > 0) return
-      store.tableTypes = [
-        {
-          id: crypto.randomUUID(),
-          name: '6ft Table',
-          widthMm: 1800,
-          heightMm: 900,
-          maxCapacity: 2,
-          color: '#4A90D9',
-        },
-      ]
-    })
-    await this.page.waitForTimeout(200)
   }
 
   // ─── Step 3: Section Grouping ──────────────────────────────────
@@ -417,14 +375,11 @@ export class FloorplanWorkflowPage {
     await this.tableTypeAddBtn.waitFor({ state: 'visible', timeout: 5000 })
     await this.addTableType(tableTypeName, tableWidth, tableHeight)
     await this.autoPlaceTables()
-    const placedSnapshot = await this.snapshotPlacedTables()
     await this.waitForNextEnabled()
     await this.clickNext()
 
-    // Step 3: Restore state after FloorplanEditor.initFloorplan() reset
+    // Step 3: Edit Layout / Section Grouping
     await this.sectionGroupToggle.waitFor({ state: 'visible', timeout: 10000 })
-    await this.restorePlacedTables(placedSnapshot)
-    await this.restoreTableTypes()
     await this.groupAllTablesIntoSection(sectionName, sectionLocation)
     await this.waitForNextEnabled()
     await this.clickNext()

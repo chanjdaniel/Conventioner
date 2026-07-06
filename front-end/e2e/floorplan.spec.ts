@@ -38,6 +38,11 @@ test.describe('Floorplan workflow E2E', () => {
     await expect(page).toHaveURL(/\/market-setup/)
     await setupPage.waitForWizard()
 
+    // Verify placed tables survived the step-2 to step-3 transition.
+    // If the initFloorplan bug resets placedTables, this fails.
+    const survivingTables = await floorplanPage.snapshotPlacedTables()
+    expect(survivingTables.length).toBeGreaterThan(0)
+
     const sectionsContainer = page.locator('.triple-column-body')
     await sectionsContainer.waitFor({ state: 'visible', timeout: 5000 })
     const sectionRows = page.locator('.triple-column-body .priority-row')

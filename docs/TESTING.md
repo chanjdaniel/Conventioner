@@ -162,7 +162,8 @@ Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
 - **Driving the Konva floorplan canvas**: `FloorplanWorkflowPage` calibrates the
   scale by issuing `page.mouse` drags over the Konva stage, but the lasso-based
   section grouping cannot be driven reliably through the canvas, so the page
-  object manipulates the Pinia store directly via `page.evaluate`. Because
-  `FloorplanEditor.initFloorplan()` clears `placedTables` when the table-placement
-  step mounts, the page object also snapshots and restores the store around that
-  transition.
+  object manipulates the Pinia store directly via `page.evaluate`. The
+  `FloorplanEditor` no longer resets the store on mount (it preserves the
+  existing `placedTables`, `tableTypes`, `sections`, `walls`, and `obstacles`),
+  so the spec uses `snapshotPlacedTables()` to assert tables survive the
+  step-2-to-step-3 transition rather than snapshotting and restoring around it.
