@@ -35,13 +35,15 @@ defineEmits<{
             </li>
           </ul>
 
-          <button class="card-action" type="button">
-            Get Started
-          </button>
+          <button class="card-action" type="button">Get Started</button>
         </div>
 
         <!-- ─── Floorplan AI Card ─── -->
-        <div class="path-card card-floorplan" @click="$emit('select', 'floorplan')">
+        <div
+          class="path-card card-floorplan"
+          @click="$emit('select', 'floorplan')"
+          data-testid="choose-path-floorplan"
+        >
           <span class="beta-badge">BETA</span>
 
           <div class="card-icon-wrapper">
@@ -70,9 +72,7 @@ defineEmits<{
             </li>
           </ul>
 
-          <button class="card-action card-action--accent" type="button">
-            Try Beta
-          </button>
+          <button class="card-action card-action--accent" type="button">Try Beta</button>
         </div>
       </div>
     </div>
@@ -94,8 +94,12 @@ defineEmits<{
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ── Panel ────────────────────────────────────────────────────── */
@@ -115,8 +119,14 @@ defineEmits<{
 }
 
 @keyframes slide-up {
-  from { transform: translateY(24px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .overlay-heading {

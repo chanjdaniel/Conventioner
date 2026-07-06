@@ -12,18 +12,18 @@ const store = useFloorplanStore()
 //  Section colour palette — distinct from table-type colours
 // ══════════════════════════════════════════════════════════════════
 const SECTION_PALETTE = [
-  { fill: 'rgba(65, 105, 225, 0.28)', stroke: '#4169E1' },   // royal blue
-  { fill: 'rgba(220, 20, 60, 0.28)', stroke: '#DC143C' },     // crimson
-  { fill: 'rgba(255, 140, 0, 0.28)', stroke: '#FF8C00' },     // dark orange
-  { fill: 'rgba(138, 43, 226, 0.28)', stroke: '#8A2BE2' },    // blue violet
-  { fill: 'rgba(0, 139, 139, 0.28)', stroke: '#008B8B' },     // dark cyan
-  { fill: 'rgba(218, 112, 214, 0.28)', stroke: '#DA70D6' },   // orchid
-  { fill: 'rgba(46, 139, 87, 0.28)', stroke: '#2E8B57' },     // sea green
-  { fill: 'rgba(210, 105, 30, 0.28)', stroke: '#D2691E' },    // chocolate
-  { fill: 'rgba(70, 130, 180, 0.28)', stroke: '#4682B4' },    // steel blue
-  { fill: 'rgba(205, 92, 92, 0.28)', stroke: '#CD5C5C' },     // indian red
-  { fill: 'rgba(147, 112, 219, 0.28)', stroke: '#9370DB' },   // medium purple
-  { fill: 'rgba(60, 179, 113, 0.28)', stroke: '#3CB371' },    // medium sea green
+  { fill: 'rgba(65, 105, 225, 0.28)', stroke: '#4169E1' }, // royal blue
+  { fill: 'rgba(220, 20, 60, 0.28)', stroke: '#DC143C' }, // crimson
+  { fill: 'rgba(255, 140, 0, 0.28)', stroke: '#FF8C00' }, // dark orange
+  { fill: 'rgba(138, 43, 226, 0.28)', stroke: '#8A2BE2' }, // blue violet
+  { fill: 'rgba(0, 139, 139, 0.28)', stroke: '#008B8B' }, // dark cyan
+  { fill: 'rgba(218, 112, 214, 0.28)', stroke: '#DA70D6' }, // orchid
+  { fill: 'rgba(46, 139, 87, 0.28)', stroke: '#2E8B57' }, // sea green
+  { fill: 'rgba(210, 105, 30, 0.28)', stroke: '#D2691E' }, // chocolate
+  { fill: 'rgba(70, 130, 180, 0.28)', stroke: '#4682B4' }, // steel blue
+  { fill: 'rgba(205, 92, 92, 0.28)', stroke: '#CD5C5C' }, // indian red
+  { fill: 'rgba(147, 112, 219, 0.28)', stroke: '#9370DB' }, // medium purple
+  { fill: 'rgba(60, 179, 113, 0.28)', stroke: '#3CB371' }, // medium sea green
 ]
 
 function sectionColors(index: number) {
@@ -117,7 +117,20 @@ const overlayStageConfig = computed(() => ({
 //  Section table overlay rects (Konva)
 // ══════════════════════════════════════════════════════════════════
 const sectionOverlays = computed(() => {
-  const overlays: Array<{ id: string; x: number; y: number; width: number; height: number; rotation: number; fill: string; stroke: string; strokeWidth: number; strokeScaleEnabled: boolean; listening: boolean; name: string }> = []
+  const overlays: Array<{
+    id: string
+    x: number
+    y: number
+    width: number
+    height: number
+    rotation: number
+    fill: string
+    stroke: string
+    strokeWidth: number
+    strokeScaleEnabled: boolean
+    listening: boolean
+    name: string
+  }> = []
   for (const section of store.sections) {
     const colors = sectionColorMap.value.get(section.id)
     if (!colors) continue
@@ -213,7 +226,7 @@ function handleLassoEnd(_e: MouseEvent) {
   const sMaxY = Math.max(lassoStart.value.y, lassoEnd.value.y)
 
   // Minimum drag distance to count as a lasso (5px)
-  const dragDist = (sMaxX - sMinX) + (sMaxY - sMinY)
+  const dragDist = sMaxX - sMinX + (sMaxY - sMinY)
   if (dragDist < 5) {
     lassoedTableIds.value = []
     return
@@ -227,12 +240,7 @@ function handleLassoEnd(_e: MouseEvent) {
   const ids: string[] = []
   for (const table of store.placedTables) {
     const center = tableWorldCenter(table)
-    if (
-      center.x >= wMin.x &&
-      center.x <= wMax.x &&
-      center.y >= wMin.y &&
-      center.y <= wMax.y
-    ) {
+    if (center.x >= wMin.x && center.x <= wMax.x && center.y >= wMin.y && center.y <= wMax.y) {
       ids.push(table.id)
     }
   }
@@ -384,11 +392,7 @@ onUnmounted(() => {
       <v-stage :config="overlayStageConfig">
         <v-layer>
           <!-- Section table colour overlays -->
-          <v-rect
-            v-for="ov in sectionOverlays"
-            :key="ov.id"
-            :config="ov"
-          />
+          <v-rect v-for="ov in sectionOverlays" :key="ov.id" :config="ov" />
           <!-- Lasso rectangle -->
           <v-rect v-if="lassoWorldRect" :config="lassoWorldRect" />
         </v-layer>
@@ -412,6 +416,7 @@ onUnmounted(() => {
         @click="toggleGroupMode"
         :title="groupMode ? 'Exit group mode' : 'Group tables into sections'"
         :aria-pressed="groupMode"
+        data-testid="floorplan-section-group-toggle"
       >
         {{ groupMode ? 'Done Grouping' : 'Group Sections' }}
       </button>
@@ -438,20 +443,14 @@ onUnmounted(() => {
         <h3 class="sg-panel-title">Sections</h3>
 
         <ul v-if="store.sections.length > 0" class="sg-list">
-          <li
-            v-for="item in sectionListItems"
-            :key="item.id"
-            class="sg-list-item"
-          >
-            <span
-              class="sg-color-swatch"
-              :style="{ backgroundColor: item.colors.stroke }"
-            />
+          <li v-for="item in sectionListItems" :key="item.id" class="sg-list-item">
+            <span class="sg-color-swatch" :style="{ backgroundColor: item.colors.stroke }" />
             <div class="sg-item-info">
               <span class="sg-item-name">{{ item.name }}</span>
               <span class="sg-item-meta">
-                {{ item.locationName || '/' }} &middot;
-                {{ item.tableCount }} table{{ item.tableCount !== 1 ? 's' : '' }}
+                {{ item.locationName || '/' }} &middot; {{ item.tableCount }} table{{
+                  item.tableCount !== 1 ? 's' : ''
+                }}
               </span>
             </div>
             <button
@@ -482,8 +481,10 @@ onUnmounted(() => {
           <div class="sg-dialog" @click.stop>
             <h2 class="sg-dialog-title">Create Section</h2>
             <p class="sg-dialog-sub">
-              Assign {{ lassoedTableIds.length }} selected
-              table{{ lassoedTableIds.length !== 1 ? 's' : '' }} to a section.
+              Assign {{ lassoedTableIds.length }} selected table{{
+                lassoedTableIds.length !== 1 ? 's' : ''
+              }}
+              to a section.
             </p>
 
             <label class="sg-field">
@@ -494,6 +495,7 @@ onUnmounted(() => {
                 type="text"
                 placeholder="e.g. A"
                 autofocus
+                data-testid="floorplan-section-dialog-name-input"
                 @keyup.enter="confirmSection"
               />
             </label>
@@ -505,6 +507,7 @@ onUnmounted(() => {
                 class="sg-field-input"
                 type="text"
                 placeholder="e.g. Main Hall"
+                data-testid="floorplan-section-dialog-location-input"
                 @keyup.enter="confirmSection"
               />
             </label>
@@ -524,16 +527,24 @@ onUnmounted(() => {
               Table codes:&nbsp;
               <code>{{ dialogSectionName.trim().replace(/[\s-]+/g, '') }}1</code>
               &ndash;
-              <code>{{ dialogSectionName.trim().replace(/[\s-]+/g, '') }}{{ lassoedTableIds.length }}</code>
+              <code
+                >{{ dialogSectionName.trim().replace(/[\s-]+/g, '')
+                }}{{ lassoedTableIds.length }}</code
+              >
             </p>
 
             <div class="sg-dialog-actions">
-              <button class="sg-btn sg-btn--cancel" @click="cancelSection">
+              <button
+                class="sg-btn sg-btn--cancel"
+                data-testid="floorplan-section-dialog-cancel-btn"
+                @click="cancelSection"
+              >
                 Cancel
               </button>
               <button
                 class="sg-btn sg-btn--confirm"
                 :disabled="!dialogSectionName.trim()"
+                data-testid="floorplan-section-dialog-assign-btn"
                 @click="confirmSection"
               >
                 Assign Section

@@ -49,9 +49,7 @@ function buildRequestBody() {
   // Derive counts from existing placed tables, or default to 1 per type
   const counts: Record<string, number> = {}
   for (const tt of store.tableTypes) {
-    const existingCount = store.placedTables.filter(
-      (pt) => pt.tableTypeId === tt.id,
-    ).length
+    const existingCount = store.placedTables.filter((pt) => pt.tableTypeId === tt.id).length
     counts[tt.id] = existingCount > 0 ? existingCount : 1
   }
 
@@ -112,7 +110,12 @@ async function triggerAutoPlace() {
     store.setPlacedTables(placed)
     emit('placed', placed.length)
   } catch (_e: unknown) {
-    const err = _e as { name?: string; code?: string; response?: { data?: { error?: string } }; message?: string }
+    const err = _e as {
+      name?: string
+      code?: string
+      response?: { data?: { error?: string } }
+      message?: string
+    }
     if (err?.name === 'AbortError' || err?.code === 'ECONNABORTED') {
       errorMessage.value = 'Placement timed out. Please try again with fewer tables.'
     } else if (err?.response?.data?.error) {
@@ -133,6 +136,7 @@ async function triggerAutoPlace() {
     <button
       class="auto-place-btn"
       :disabled="isDisabled"
+      data-testid="floorplan-auto-place-btn"
       :title="
         store.tableTypes.length === 0
           ? 'Define at least one table type first'
@@ -167,7 +171,11 @@ async function triggerAutoPlace() {
     </button>
 
     <!-- Error display -->
-    <div v-if="errorMessage && !isLoading" class="placement-error">
+    <div
+      v-if="errorMessage && !isLoading"
+      class="placement-error"
+      data-testid="floorplan-auto-place-error"
+    >
       {{ errorMessage }}
     </div>
   </div>

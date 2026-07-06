@@ -96,7 +96,12 @@ function onSaved(payload: { market_id: string }) {
 <template>
   <div class="floorplan-workflow">
     <!-- ── Progress indicator ──────────────────────────────────── -->
-    <div class="workflow-progress" role="progressbar" aria-valuenow="step" :aria-valuetext="`Step ${step + 1} of 5`">
+    <div
+      class="workflow-progress"
+      role="progressbar"
+      aria-valuenow="step"
+      :aria-valuetext="`Step ${step + 1} of 5`"
+    >
       <span :class="{ active: step === 0, done: step > 0 }">1. Upload</span>
       <span :class="{ active: step === 1, done: step > 1 }">2. Calibrate</span>
       <span :class="{ active: step === 2, done: step > 2 }">3. Place Tables</span>
@@ -111,10 +116,7 @@ function onSaved(payload: { market_id: string }) {
 
     <!-- ── Step 1: Calibrate ──────────────────────────────────── -->
     <div v-if="step === 1" class="step-body">
-      <ScaleCalibration
-        :gridfs-id="safeGridfsId"
-        @calibrated="onCalibrated"
-      />
+      <ScaleCalibration :gridfs-id="safeGridfsId" @calibrated="onCalibrated" />
     </div>
 
     <!-- ── Step 2: Define Tables + Auto-Place ─────────────────── -->
@@ -132,11 +134,7 @@ function onSaved(payload: { market_id: string }) {
         </label>
       </div>
       <div class="step-edit-canvas-area">
-        <FloorplanEditor
-          ref="editorRef"
-          :edit-mode="true"
-          :initial-floorplan-id="safeGridfsId"
-        />
+        <FloorplanEditor ref="editorRef" :edit-mode="true" :initial-floorplan-id="safeGridfsId" />
         <SectionGrouping @sections-updated="onSectionsUpdated" />
       </div>
       <WallEditor :enabled="wallEditMode" />
@@ -154,6 +152,7 @@ function onSaved(payload: { market_id: string }) {
       <button
         v-if="step > 0"
         class="nav-btn nav-btn--back"
+        data-testid="floorplan-workflow-back-btn"
         @click="step--"
       >
         ← Back
@@ -162,6 +161,7 @@ function onSaved(payload: { market_id: string }) {
         v-if="step < 4"
         class="nav-btn nav-btn--next"
         :disabled="!canProceed"
+        data-testid="floorplan-workflow-next-btn"
         @click="step++"
       >
         Next →

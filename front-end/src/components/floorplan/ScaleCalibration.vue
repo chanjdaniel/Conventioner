@@ -10,12 +10,14 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  calibrated: [payload: {
-    pxPerMm: number
-    pixelDistance: number
-    lengthMm: number
-    unit: string
-  }]
+  calibrated: [
+    payload: {
+      pxPerMm: number
+      pixelDistance: number
+      lengthMm: number
+      unit: string
+    },
+  ]
   cancel: []
 }>()
 
@@ -100,9 +102,7 @@ async function loadImage() {
     bgImage.value = img
     phase.value = 'idle'
   } catch (err: any) {
-    const msg = err?.response?.data?.error
-      || err?.message
-      || 'Failed to load floorplan image'
+    const msg = err?.response?.data?.error || err?.message || 'Failed to load floorplan image'
     errorMsg.value = msg
     phase.value = 'error'
   }
@@ -137,10 +137,7 @@ const stageConfig = computed(() => ({
 }))
 
 // ── Coordinate conversion ───────────────────────────────────────────
-function toOriginalCoords(
-  stageX: number,
-  stageY: number,
-): { x: number; y: number } {
+function toOriginalCoords(stageX: number, stageY: number): { x: number; y: number } {
   const cfg = bgImageConfig.value
   if (!cfg.x && cfg.x !== 0) return { x: stageX, y: stageY }
   const scale = imageScale.value || 1
@@ -154,10 +151,10 @@ function isOnImage(stageX: number, stageY: number): boolean {
   const cfg = bgImageConfig.value
   if (!cfg.x && cfg.x !== 0) return true
   return (
-    stageX >= (cfg.x as number)
-    && stageX <= (cfg.x as number) + (cfg.width as number)
-    && stageY >= (cfg.y as number)
-    && stageY <= (cfg.y as number) + (cfg.height as number)
+    stageX >= (cfg.x as number) &&
+    stageX <= (cfg.x as number) + (cfg.width as number) &&
+    stageY >= (cfg.y as number) &&
+    stageY <= (cfg.y as number) + (cfg.height as number)
   )
 }
 
@@ -231,12 +228,7 @@ function resetCalibration() {
 const calibrationLine = computed(() => {
   if (!startPoint.value || !endPoint.value) return null
   return {
-    points: [
-      startPoint.value.x,
-      startPoint.value.y,
-      endPoint.value.x,
-      endPoint.value.y,
-    ],
+    points: [startPoint.value.x, startPoint.value.y, endPoint.value.x, endPoint.value.y],
     stroke: '#e74c3c',
     strokeWidth: 2,
     dash: [8, 4],
@@ -370,11 +362,10 @@ async function confirmCalibration() {
     })
   } catch (err: any) {
     // Store locally even if API call fails
-    const msg = err?.response?.data?.error
-      || err?.message
-      || 'Calibration API call failed'
+    const msg = err?.response?.data?.error || err?.message || 'Calibration API call failed'
     console.error('Calibration API call failed:', err)
-    calibrationWarning.value = 'Saved locally but sync to server failed. You may need to recalibrate later.'
+    calibrationWarning.value =
+      'Saved locally but sync to server failed. You may need to recalibrate later.'
   }
 
   // Store in Pinia
@@ -442,18 +433,14 @@ onUnmounted(() => {
     <!-- ── Error state ────────────────────────────────────────────── -->
     <div v-else-if="phase === 'error'" class="cal-state error-state">
       <p class="cal-error-text">{{ errorMsg }}</p>
-      <button class="cal-btn cal-btn--primary" @click="loadImage">
-        Retry
-      </button>
-      <button class="cal-btn cal-btn--secondary" @click="emit('cancel')">
-        Cancel
-      </button>
+      <button class="cal-btn cal-btn--primary" @click="loadImage">Retry</button>
+      <button class="cal-btn cal-btn--secondary" @click="emit('cancel')">Cancel</button>
     </div>
 
     <!-- ── Main calibration UI ────────────────────────────────────── -->
     <template v-else>
       <!-- Konva stage -->
-      <div class="cal-stage-wrapper">
+      <div class="cal-stage-wrapper" data-testid="scale-calibration-stage">
         <v-stage
           ref="stageRef"
           :config="stageConfig"
@@ -464,34 +451,19 @@ onUnmounted(() => {
         >
           <v-layer>
             <!-- Floorplan image -->
-            <v-image
-              v-if="bgImage && (bgImageConfig as any).image"
-              :config="bgImageConfig"
-            />
+            <v-image v-if="bgImage && (bgImageConfig as any).image" :config="bgImageConfig" />
 
             <!-- Drawn calibration line -->
-            <v-line
-              v-if="calibrationLine"
-              :config="calibrationLine"
-            />
+            <v-line v-if="calibrationLine" :config="calibrationLine" />
 
             <!-- Start point marker -->
-            <v-circle
-              v-if="startMarker"
-              :config="startMarker"
-            />
+            <v-circle v-if="startMarker" :config="startMarker" />
 
             <!-- End point marker -->
-            <v-circle
-              v-if="endMarker"
-              :config="endMarker"
-            />
+            <v-circle v-if="endMarker" :config="endMarker" />
 
             <!-- Pixel distance label -->
-            <v-text
-              v-if="pixelDistanceLabel"
-              :config="pixelDistanceLabel"
-            />
+            <v-text v-if="pixelDistanceLabel" :config="pixelDistanceLabel" />
           </v-layer>
         </v-stage>
 
@@ -505,14 +477,10 @@ onUnmounted(() => {
       <div v-if="phase === 'input'" class="cal-dialog-overlay">
         <div class="cal-dialog">
           <h3 class="cal-dialog-title">Enter Reference Length</h3>
-          <p class="cal-dialog-desc">
-            How long is the red line in the real world?
-          </p>
+          <p class="cal-dialog-desc">How long is the red line in the real world?</p>
 
           <div class="cal-input-group">
-            <label class="cal-input-label" for="cal-length-input">
-              Length
-            </label>
+            <label class="cal-input-label" for="cal-length-input"> Length </label>
             <input
               id="cal-length-input"
               v-model.number="realLength"
@@ -522,17 +490,14 @@ onUnmounted(() => {
               class="cal-input"
               placeholder="e.g. 3.5"
               autofocus
+              data-testid="scale-calibration-length-input"
               @keydown.enter.prevent="confirmCalibration"
             />
           </div>
 
           <fieldset class="cal-unit-group">
             <legend class="cal-unit-legend">Unit</legend>
-            <label
-              v-for="opt in unitOptions"
-              :key="opt.value"
-              class="cal-unit-option"
-            >
+            <label v-for="opt in unitOptions" :key="opt.value" class="cal-unit-option">
               <input
                 type="radio"
                 v-model="selectedUnit"
@@ -548,6 +513,7 @@ onUnmounted(() => {
           <div class="cal-dialog-actions">
             <button
               class="cal-btn cal-btn--secondary"
+              data-testid="scale-calibration-btn-redraw"
               @click="resetCalibration"
               :disabled="isSubmitting"
             >
@@ -555,6 +521,7 @@ onUnmounted(() => {
             </button>
             <button
               class="cal-btn cal-btn--primary"
+              data-testid="scale-calibration-btn-calibrate"
               @click="confirmCalibration"
               :disabled="isSubmitting"
             >
@@ -577,16 +544,13 @@ onUnmounted(() => {
             <div class="cal-result-item">
               <span class="cal-result-label">Reference line</span>
               <span class="cal-result-value">
-                {{ Math.round(originalPixelDistance) }} px
-                &asymp;
+                {{ Math.round(originalPixelDistance) }} px &asymp;
                 {{ calibratedLengthMm.toFixed(1) }} mm
               </span>
             </div>
             <div class="cal-result-item">
               <span class="cal-result-label">Scale</span>
-              <span class="cal-result-value">
-                1 px = {{ computedPxPerMm.toFixed(4) }} mm
-              </span>
+              <span class="cal-result-value"> 1 px = {{ computedPxPerMm.toFixed(4) }} mm </span>
             </div>
             <div class="cal-result-item">
               <span class="cal-result-label">Inverse</span>
@@ -596,22 +560,21 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <p
-            v-if="calibrationWarning"
-            class="cal-input-error cal-warning"
-          >
+          <p v-if="calibrationWarning" class="cal-input-error cal-warning">
             {{ calibrationWarning }}
           </p>
 
           <div class="cal-dialog-actions">
             <button
               class="cal-btn cal-btn--secondary"
+              data-testid="scale-calibration-btn-redraw"
               @click="resetCalibration"
             >
               Redraw
             </button>
             <button
               class="cal-btn cal-btn--primary"
+              data-testid="scale-calibration-btn-done"
               @click="acceptCalibration"
             >
               Done
@@ -676,7 +639,9 @@ onUnmounted(() => {
 }
 
 @keyframes cal-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Stage wrapper ─────────────────────────────────────────────── */

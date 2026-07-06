@@ -114,13 +114,18 @@ onUnmounted(() => {
       ref="dropZoneRef"
       class="drop-zone"
       :class="{ 'is-active': isOverDropZone, 'has-file': uploadedFile }"
+      data-testid="floorplan-upload-dropzone"
     >
       <!-- Empty state: prompt to upload -->
       <div v-if="!uploadedFile" class="drop-zone-content">
         <i class="pi pi-cloud-upload drop-zone-icon" />
         <p class="drop-zone-text">Drag &amp; drop a floorplan image or PDF here</p>
         <p class="drop-zone-subtitle">or</p>
-        <button class="browse-button" @click="() => openFileDialog()">
+        <button
+          class="browse-button"
+          data-testid="floorplan-upload-browse-btn"
+          @click="() => openFileDialog()"
+        >
           Browse Files
         </button>
         <p class="drop-zone-formats">PNG, JPG, WebP, PDF</p>
@@ -128,25 +133,11 @@ onUnmounted(() => {
 
       <!-- Uploaded state: preview -->
       <div v-else class="preview">
-        <img
-          v-if="previewUrl"
-          :src="previewUrl"
-          alt="Floorplan preview"
-          class="preview-image"
-        />
+        <img v-if="previewUrl" :src="previewUrl" alt="Floorplan preview" class="preview-image" />
         <div v-if="pages.length > 1" class="page-selector">
           <span class="page-selector-label">Page:</span>
-          <label
-            v-for="(page, i) in pages"
-            :key="page.gridfs_id"
-            class="page-option"
-          >
-            <input
-              type="radio"
-              v-model="selectedPage"
-              :value="i"
-              class="page-radio"
-            />
+          <label v-for="(page, i) in pages" :key="page.gridfs_id" class="page-option">
+            <input type="radio" v-model="selectedPage" :value="i" class="page-radio" />
             <span class="page-number">{{ i + 1 }}</span>
           </label>
         </div>
@@ -154,13 +145,13 @@ onUnmounted(() => {
     </div>
 
     <!-- Upload progress -->
-    <div v-if="uploading" class="upload-progress">
+    <div v-if="uploading" class="upload-progress" data-testid="floorplan-upload-progress">
       <span class="progress-spinner" />
       <span>Uploading&hellip;</span>
     </div>
 
     <!-- Error display -->
-    <div v-if="error" class="upload-error">{{ error }}</div>
+    <div v-if="error" class="upload-error" data-testid="floorplan-upload-error">{{ error }}</div>
   </div>
 </template>
 

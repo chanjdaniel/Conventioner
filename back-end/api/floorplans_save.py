@@ -138,18 +138,31 @@ def save_floorplan_to_market():
             sections_data.append(section)
 
         # ── 4. Update Market.setupObject atomically ────────────────────────
-        markets_collection.update_one(
-            {"id": market_id},
-            {
-                "$set": {
-                    "setupObject.sections": sections_data,
-                    "setupObject.locations": list(locations_data.values()),
-                },
-                "$push": {
-                    "setupObject.floorplans": floorplan,
-                },
-            },
-        )
+        existing_setup = market_doc.get("setupObject")
+
+        if isinstance(existing_setup, dict):
+            set_ops = {
+                "setupObject.sections": sections_data,
+                "setupObject.locations": list(locations_data.values()),
+            }
+            push_ops = {}
+            existing_floorplans = existing_setup.get("floorplans")
+            if existing_floorplans is not None:
+                push_ops = {"setupObject.floorplans": floorplan}
+            else:
+                set_ops["setupObject.floorplans"] = [floorplan]
+
+            update = {"$set": set_ops}
+            if push_ops:
+                update["$push"] = push_ops
+        else:
+            update = {"$set": {"setupObject": {
+                "sections": sections_data,
+                "locations": list(locations_data.values()),
+                "floorplans": [floorplan],
+            }}}
+
+        markets_collection.update_one({"id": market_id}, update)
 
         # ── 5. Return success ──────────────────────────────────────────────
         return jsonify({

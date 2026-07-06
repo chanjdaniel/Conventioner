@@ -29,7 +29,16 @@ const bgImage = ref<HTMLImageElement | null>(null)
 const showGrid = ref(true)
 const containerWidth = ref(0)
 const containerHeight = ref(0)
-const snapGuides = ref<Array<{ key: string; points: number[]; stroke: string; strokeWidth: number; dash: number[]; listening: boolean }>>([])
+const snapGuides = ref<
+  Array<{
+    key: string
+    points: number[]
+    stroke: string
+    strokeWidth: number
+    dash: number[]
+    listening: boolean
+  }>
+>([])
 const errorMsg = ref('')
 
 // ── Resize observer ────────────────────────────────────────────────
@@ -103,7 +112,12 @@ async function loadBackgroundImage(gridfsId: string) {
       imageHeight: img.height,
     })
   } catch (_e: unknown) {
-    const err = _e as { name?: string; code?: string; response?: { data?: { error?: string } }; message?: string }
+    const err = _e as {
+      name?: string
+      code?: string
+      response?: { data?: { error?: string } }
+      message?: string
+    }
     console.error('Failed to load floorplan image:', err)
     errorMsg.value = 'Failed to load floorplan image. Please try refreshing the page.'
   }
@@ -305,12 +319,7 @@ function onTableClick(table: PlacedTableObject, e: Konva.KonvaEventObject<MouseE
 // ── Transformer config ─────────────────────────────────────────────
 const transformerConfig = computed(() => ({
   keepRatio: true,
-  enabledAnchors: [
-    'top-left',
-    'top-right',
-    'bottom-left',
-    'bottom-right',
-  ] as string[],
+  enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as string[],
   borderStroke: '#00ff00',
   borderStrokeWidth: 1.5,
   anchorSize: 8,
@@ -322,10 +331,10 @@ const transformerConfig = computed(() => ({
 
 // ── Snap-to-edge/corner ────────────────────────────────────────────
 function checkSnaps(node: {
-  id(): string;
-  getClientRect(): { x: number; y: number; width: number; height: number };
-  x: { (): number; (val: number): void };
-  y: { (): number; (val: number): void };
+  id(): string
+  getClientRect(): { x: number; y: number; width: number; height: number }
+  x: { (): number; (val: number): void }
+  y: { (): number; (val: number): void }
 }): boolean {
   snapGuides.value = []
   const tolerance = 10
@@ -357,10 +366,7 @@ function checkSnaps(node: {
     }
 
     // Right edge alignment
-    if (
-      Math.abs(nodeRect.x + nodeRect.width - (otherRect.x + otherRect.width)) <
-      tolerance
-    ) {
+    if (Math.abs(nodeRect.x + nodeRect.width - (otherRect.x + otherRect.width)) < tolerance) {
       const targetX = otherRect.x + otherRect.width
       node.x(node.x() + (targetX - (nodeRect.x + nodeRect.width)))
       snapGuides.value.push({
@@ -408,10 +414,7 @@ function checkSnaps(node: {
     }
 
     // Bottom edge alignment
-    if (
-      Math.abs(nodeRect.y + nodeRect.height - (otherRect.y + otherRect.height)) <
-      tolerance
-    ) {
+    if (Math.abs(nodeRect.y + nodeRect.height - (otherRect.y + otherRect.height)) < tolerance) {
       const targetY = otherRect.y + otherRect.height
       node.y(node.y() + (targetY - (nodeRect.y + nodeRect.height)))
       snapGuides.value.push({
@@ -473,7 +476,13 @@ const gridLines = computed(() => {
 
   const w = (containerWidth.value || 1200) * 3
   const h = (containerHeight.value || 800) * 3
-  const lines: Array<{ key: string; points: number[]; stroke: string; strokeWidth: number; listening: boolean }> = []
+  const lines: Array<{
+    key: string
+    points: number[]
+    stroke: string
+    strokeWidth: number
+    listening: boolean
+  }> = []
 
   const offsetX = ((store.stageConfig.x % gridSize) + gridSize) % gridSize
   const offsetY = ((store.stageConfig.y % gridSize) + gridSize) % gridSize
@@ -515,9 +524,9 @@ watch(
 </script>
 
 <template>
-  <div class="floorplan-editor" ref="containerRef">
+  <div class="floorplan-editor" ref="containerRef" data-testid="floorplan-editor-stage">
     <Transition name="fade">
-      <div v-if="errorMsg" class="editor-error-banner">
+      <div v-if="errorMsg" class="editor-error-banner" data-testid="floorplan-editor-error">
         {{ errorMsg }}
       </div>
     </Transition>
@@ -532,20 +541,12 @@ watch(
       <!-- Layer 1: Background image + gridlines -->
       <v-layer ref="bgLayerRef">
         <v-image v-if="bgImage" :config="bgImageConfig" />
-        <v-line
-          v-for="line in gridLines"
-          :key="line.key"
-          :config="line"
-        />
+        <v-line v-for="line in gridLines" :key="line.key" :config="line" />
       </v-layer>
 
       <!-- Layer 2: Walls -->
       <v-layer ref="wallLayerRef">
-        <v-line
-          v-for="wall in store.walls"
-          :key="wall.id"
-          :config="wallLineConfig(wall)"
-        />
+        <v-line v-for="wall in store.walls" :key="wall.id" :config="wallLineConfig(wall)" />
       </v-layer>
 
       <!-- Layer 3: Tables (interactive) -->
@@ -558,19 +559,12 @@ watch(
           @dragend="onTableDragEnd(table)"
           @click="onTableClick(table, $event)"
         />
-        <v-transformer
-          ref="transformerRef"
-          :config="transformerConfig"
-        />
+        <v-transformer ref="transformerRef" :config="transformerConfig" />
       </v-layer>
 
       <!-- Layer 4: Guides (snap indicators) -->
       <v-layer ref="guideLayerRef">
-        <v-line
-          v-for="guide in snapGuides"
-          :key="guide.key"
-          :config="guide"
-        />
+        <v-line v-for="guide in snapGuides" :key="guide.key" :config="guide" />
       </v-layer>
     </v-stage>
 
@@ -578,6 +572,7 @@ watch(
     <div class="editor-toolbar">
       <button
         class="toolbar-btn"
+        data-testid="floorplan-editor-zoom-in"
         @click="zoomIn"
         title="Zoom in"
         aria-label="Zoom in"
@@ -586,6 +581,7 @@ watch(
       </button>
       <button
         class="toolbar-btn"
+        data-testid="floorplan-editor-zoom-out"
         @click="zoomOut"
         title="Zoom out"
         aria-label="Zoom out"
@@ -594,6 +590,7 @@ watch(
       </button>
       <button
         class="toolbar-btn"
+        data-testid="floorplan-editor-fit"
         @click="fitToScreen"
         title="Fit to screen"
         aria-label="Fit to screen"
@@ -603,6 +600,7 @@ watch(
       <button
         class="toolbar-btn"
         :class="{ 'is-active': showGrid }"
+        data-testid="floorplan-editor-grid"
         @click="toggleGrid"
         title="Toggle grid"
         aria-label="Toggle grid"

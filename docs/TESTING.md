@@ -68,7 +68,11 @@ assignment CSV export (download and verify columns), and publishing a market
 (verify the check-in URL is reachable). Tier-3 authentication and robustness
 journeys (`auth.spec.ts`) cover new-user registration, the full password reset
 flow (including reading the real reset token from MongoDB), posting an assignment
-to Discord, and login/OTP error states.
+to Discord, and login/OTP error states. The floorplan suite
+(`floorplan.spec.ts`) drives the create-from-floorplan setup path end to end:
+it walks the Floorplan AI 5-step wizard (upload, scale calibration, table
+placement, section grouping, save) and verifies the resulting sections land
+back in the setup wizard.
 
 Configuration: `front-end/playwright.config.ts` (auto-detects the worktree
 frontend port via `detectFrontendPort()`).
@@ -86,8 +90,9 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
 - **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `NewMarketPage`,
   `MarketSetupPage`, `AssignmentResultsPage`, `CheckinPage`, `VendorsPage`,
   `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, `ManageMarketPage`,
-  and `PasswordResetPage` each wrap `getByTestId()` selectors and expose action
-  methods. New page objects should follow these patterns.
+  `PasswordResetPage`, and `FloorplanWorkflowPage` each wrap `getByTestId()`
+  selectors and expose action methods. New page objects should follow these
+  patterns.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
   `BACKEND_URL` constant (defaults to `https://localhost:5000`, override via the
   `BACKEND_URL` env var), the `authenticatedPage` fixture (logs in before the
@@ -154,3 +159,10 @@ Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
   via `back-end/create_test_user.py` so they can log in immediately.
 - **Playwright browsers**: If `npx playwright install chromium` fails inside the
   Alpine Docker container, install Playwright and browsers on the host instead.
+- **Driving the Konva floorplan canvas**: `FloorplanWorkflowPage` calibrates the
+  scale by issuing `page.mouse` drags over the Konva stage, but the lasso-based
+  section grouping cannot be driven reliably through the canvas, so the page
+  object manipulates the Pinia store directly via `page.evaluate`. Because
+  `FloorplanEditor.initFloorplan()` clears `placedTables` when the table-placement
+  step mounts, the page object also snapshots and restores the store around that
+  transition.

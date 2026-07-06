@@ -184,6 +184,7 @@ async function handleSave() {
       class="save-button"
       :class="{ 'is-disabled': !canSave }"
       :disabled="!canSave"
+      data-testid="floorplan-save-open-btn"
       :title="disabledReason || 'Save floorplan to market'"
       @click="openDialog"
     >
@@ -208,6 +209,7 @@ async function handleSave() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="save-dialog-title"
+          data-testid="floorplan-save-dialog"
           @click.stop
         >
           <!-- Header -->
@@ -230,8 +232,16 @@ async function handleSave() {
           <!-- Body -->
           <div class="save-dialog-body">
             <!-- Success / Error messages -->
-            <p v-if="successMessage" class="save-dialog-success">{{ successMessage }}</p>
-            <p v-if="error" class="save-dialog-error">{{ error }}</p>
+            <p
+              v-if="successMessage"
+              class="save-dialog-success"
+              data-testid="floorplan-save-success"
+            >
+              {{ successMessage }}
+            </p>
+            <p v-if="error" class="save-dialog-error" data-testid="floorplan-save-error">
+              {{ error }}
+            </p>
 
             <!-- Summary stats -->
             <div class="save-summary-stats">
@@ -270,11 +280,7 @@ async function handleSave() {
                 <span class="save-section-subtitle">— click to edit names &amp; locations</span>
               </h3>
               <div class="save-sections-grid">
-                <div
-                  v-for="section in sectionSummary"
-                  :key="section.id"
-                  class="save-section-card"
-                >
+                <div v-for="section in sectionSummary" :key="section.id" class="save-section-card">
                   <div class="save-section-card-field">
                     <label class="save-section-card-label" :for="`sec-name-${section.id}`">
                       Section Name
@@ -286,8 +292,7 @@ async function handleSave() {
                       :value="section.name"
                       :disabled="saving"
                       @input="
-                        (e) =>
-                          updateSectionName(section.id, (e.target as HTMLInputElement).value)
+                        (e) => updateSectionName(section.id, (e.target as HTMLInputElement).value)
                       "
                     />
                   </div>
@@ -329,6 +334,7 @@ async function handleSave() {
               type="button"
               class="save-dialog-btn save-dialog-btn--cancel"
               :disabled="saving"
+              data-testid="floorplan-save-cancel-btn"
               @click="closeDialog"
             >
               Cancel
@@ -337,6 +343,7 @@ async function handleSave() {
               type="button"
               class="save-dialog-btn save-dialog-btn--primary"
               :disabled="saving"
+              data-testid="floorplan-save-confirm-btn"
               @click="handleSave"
             >
               <span v-if="saving" class="save-spinner" />

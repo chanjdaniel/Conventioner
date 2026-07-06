@@ -217,16 +217,8 @@ const selectOptions = [
     <!-- ── Type list ────────────────────────────────────────────── -->
     <div class="tt-type-list">
       <TransitionGroup name="tt-list">
-        <div
-          v-for="tt in store.tableTypes"
-          :key="tt.id"
-          class="tt-type-card"
-        >
-          <span
-            class="tt-color-swatch"
-            :style="{ background: tt.color }"
-            aria-hidden="true"
-          />
+        <div v-for="tt in store.tableTypes" :key="tt.id" class="tt-type-card">
+          <span class="tt-color-swatch" :style="{ background: tt.color }" aria-hidden="true" />
           <div class="tt-type-info">
             <strong class="tt-type-name">{{ tt.name }}</strong>
             <span class="tt-type-dims">
@@ -254,18 +246,14 @@ const selectOptions = [
         </div>
       </TransitionGroup>
 
-      <p
-        v-if="store.tableTypes.length === 0"
-        class="tt-empty"
-      >
-        No table types defined yet.
-      </p>
+      <p v-if="store.tableTypes.length === 0" class="tt-empty">No table types defined yet.</p>
     </div>
 
     <!-- ── Add button ─────────────────────────────────────────────-->
     <button
       v-if="!showForm"
       class="tt-add-btn"
+      data-testid="floorplan-table-type-add-btn"
       @click="openForm"
     >
       + Add Table Type
@@ -281,6 +269,7 @@ const selectOptions = [
             v-model="form.name"
             class="tt-input"
             placeholder="e.g. 6ft Rectangle"
+            data-testid="floorplan-table-type-name-input"
             :class="{ 'tt-input--error': !!formError }"
             @keydown.enter="saveType"
           />
@@ -294,6 +283,7 @@ const selectOptions = [
               v-model="formWidthMm"
               class="tt-input"
               placeholder="Width"
+              data-testid="floorplan-table-type-width-input"
               :min="1"
               :max="10000"
               :class="{ 'tt-input--error': !!formError }"
@@ -306,6 +296,7 @@ const selectOptions = [
               v-model="formHeightMm"
               class="tt-input"
               placeholder="Height"
+              data-testid="floorplan-table-type-height-input"
               :min="1"
               :max="10000"
               :class="{ 'tt-input--error': !!formError }"
@@ -315,16 +306,8 @@ const selectOptions = [
 
         <div class="tt-field">
           <label class="tt-label" for="tt-unit">Unit</label>
-          <select
-            id="tt-unit"
-            v-model="selectedUnit"
-            class="tt-input"
-          >
-            <option
-              v-for="u in UNIT_OPTIONS"
-              :key="u.value"
-              :value="u.value"
-            >
+          <select id="tt-unit" v-model="selectedUnit" class="tt-input">
+            <option v-for="u in UNIT_OPTIONS" :key="u.value" :value="u.value">
               {{ u.label }}
             </option>
           </select>
@@ -346,6 +329,7 @@ const selectOptions = [
         <div class="tt-form-actions">
           <button
             class="tt-btn tt-btn--secondary"
+            data-testid="floorplan-table-type-cancel-btn"
             @click="cancelForm"
           >
             Cancel
@@ -353,6 +337,7 @@ const selectOptions = [
           <button
             class="tt-btn tt-btn--primary"
             :disabled="!form.name.trim() || !formWidthMm || !formHeightMm"
+            data-testid="floorplan-table-type-save-btn"
             @click="saveType"
           >
             Save
@@ -412,16 +397,8 @@ const selectOptions = [
 
         <div class="tt-field">
           <label class="tt-label" for="tt-edit-unit">Unit</label>
-          <select
-            id="tt-edit-unit"
-            v-model="editUnit"
-            class="tt-input"
-          >
-            <option
-              v-for="u in UNIT_OPTIONS"
-              :key="u.value"
-              :value="u.value"
-            >
+          <select id="tt-edit-unit" v-model="editUnit" class="tt-input">
+            <option v-for="u in UNIT_OPTIONS" :key="u.value" :value="u.value">
               {{ u.label }}
             </option>
           </select>
@@ -443,12 +420,7 @@ const selectOptions = [
 
       <template #footer>
         <div class="tt-dialog-actions">
-          <button
-            class="tt-btn tt-btn--secondary"
-            @click="cancelEdit"
-          >
-            Cancel
-          </button>
+          <button class="tt-btn tt-btn--secondary" @click="cancelEdit">Cancel</button>
           <button
             class="tt-btn tt-btn--primary"
             :disabled="!editForm.name.trim() || !editWidthMm || !editHeightMm"
