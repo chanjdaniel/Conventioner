@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, nextTick, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
@@ -11,14 +11,46 @@ import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
-import { type SetupObject, type Market } from '@/assets/types/datatypes';
-import { api } from '@/utils/api';
+import { type SetupObject, type Market, type ApplicationForm } from '@/assets/types/datatypes';
+import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
+import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
+import FormBuilder from '@/components/application/FormBuilder.vue';
+import FormPreview from '@/components/application/FormPreview.vue';
 
 const router = useRouter();
 
 const showPathChoice = ref(false);
+const activeTab = ref<'form' | 'setup'>('setup');
 
 const market = ref<Market | null>(null);
+const applicationForm = ref<ApplicationForm | null>(null);
+/**
+ * Per-field "the organizer typed this key themselves" flags, positionally aligned with the
+ * form's fields. It lives beside the form, whose lifetime it shares, rather than inside the
+ * FormBuilder that tabbing away unmounts. It records intent, which a stored key cannot: an
+ * auto-derived key and a hand-typed one are indistinguishable once written. Only a direct edit
+ * of a key input and the stored-form seed in {@link adoptStoredApplicationForm} ever write it.
+ */
+const keyTouched = ref<boolean[]>([]);
+const formSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
+const formErrorMessage = ref<string | null>(null);
+const formLockReason = ref<string | null>(null);
+const formLoadStatus = ref<'loading' | 'loaded' | 'error'>('loading');
+const formLoadError = ref<string | null>(null);
+const formLocked = computed(() => formLockReason.value !== null);
+/**
+ * Only edit a form we know to be editable. Until the server answers - the load is still in
+ * flight, or it failed - the lock state is unknown, and assuming "editable" there invites the
+ * organizer to rework a locked form and lose it to a 409.
+ */
+const formEditable = computed(() => formLoadStatus.value === 'loaded' && !formLocked.value);
+/**
+ * No answer from the server and nothing cached tells us nothing about the market's form - not
+ * even whether it has one - so there is nothing we can honestly render but the load state.
+ */
+const formStateUnknown = computed(
+    () => formLoadStatus.value !== 'loaded' && applicationForm.value === null,
+);
 const setupObject = reactive<SetupObject>({
     colNames: [],
     colValues: [],
@@ -142,7 +174,111 @@ onMounted(() => {
     // retrieve view state
     const setupPageIdx = JSON.parse(localStorage.getItem("setupPageIdx") || "null");
     pageIdx.value = setupPageIdx === null ? 0 : setupPageIdx;
+
+    // Paint the cached form immediately, then reconcile with the server, which also
+    // tells us whether the form is still editable.
+    adoptStoredApplicationForm(market.value?.applicationForm ?? null);
+    loadApplicationForm();
 });
+
+/**
+ * The market document is the single source of truth for the form; keep it in step. The key flags
+ * are the organizer's intent, so they are left exactly as they are: a save hands back the same
+ * fields it was given, and saving does not make an auto-derived key a hand-typed one.
+ */
+function adoptApplicationForm(form: ApplicationForm | null) {
+    applicationForm.value = form;
+    if (market.value) {
+        market.value.applicationForm = form ?? undefined;
+        localStorage.setItem("market", JSON.stringify(market.value));
+    }
+}
+
+/**
+ * Adopt a form read back from storage, dropping whatever the organizer had in flight. Its keys
+ * are already stored as those fields' answer keys, so re-labelling one must never rewrite it:
+ * seed every flag as the organizer's own. The one place the flags come from field data.
+ */
+function adoptStoredApplicationForm(form: ApplicationForm | null) {
+    adoptApplicationForm(form);
+    keyTouched.value = (form?.fields ?? []).map(() => true);
+}
+
+async function loadApplicationForm() {
+    if (!market.value?.id) {
+        formLoadStatus.value = 'error';
+        formLoadError.value = 'No market is loaded, so its application form is unknown.';
+        return;
+    }
+    formLoadStatus.value = 'loading';
+    formLoadError.value = null;
+    try {
+        const response = await api.get(`/markets/${market.value.id}/application-form`);
+        adoptStoredApplicationForm(response.data?.application_form ?? null);
+        formLockReason.value = response.data?.lock_reason ?? null;
+        formLoadStatus.value = 'loaded';
+    } catch (err: unknown) {
+        formLoadStatus.value = 'error';
+        formLoadError.value = getApiErrorMessage(
+            err,
+            'Could not load the application form. Retry before editing it.',
+        );
+    }
+}
+
+/** Guidance for a form the organizer has not finished starting; not a mistake to flag in red. */
+const formIncompleteHint = computed(() => applicationFormHint(applicationForm.value));
+
+const formValidationError = computed(() => applicationFormError(applicationForm.value));
+
+const canSaveForm = computed(
+    () =>
+        formEditable.value &&
+        formIncompleteHint.value === null &&
+        formValidationError.value === null &&
+        formSaveStatus.value !== 'saving',
+);
+
+const savedStatusTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+
+function clearSavedStatusTimer() {
+    if (savedStatusTimer.value !== null) {
+        clearTimeout(savedStatusTimer.value);
+        savedStatusTimer.value = null;
+    }
+}
+
+onUnmounted(clearSavedStatusTimer);
+
+async function saveApplicationForm() {
+    if (!market.value?.id || !canSaveForm.value) return;
+    clearSavedStatusTimer();
+    formSaveStatus.value = 'saving';
+    formErrorMessage.value = null;
+    try {
+        const response = await api.put(
+            `/markets/${market.value.id}/application-form`,
+            applicationForm.value,
+        );
+        formSaveStatus.value = 'saved';
+        if (response.data?.application_form) {
+            adoptApplicationForm(response.data.application_form);
+        }
+        savedStatusTimer.value = setTimeout(() => {
+            savedStatusTimer.value = null;
+            if (formSaveStatus.value === 'saved') formSaveStatus.value = 'idle';
+        }, 2000);
+    } catch (err: unknown) {
+        formSaveStatus.value = 'error';
+        formErrorMessage.value = getApiErrorMessage(err, 'Failed to save form');
+        // A 409 means the server locked the form under us; stop presenting the rejected edits as
+        // editable, and put back the form applicants will actually see.
+        if (getApiErrorStatus(err) === 409) {
+            formLockReason.value = formErrorMessage.value;
+            await loadApplicationForm();
+        }
+    }
+}
 
 const updateMarket = async () => {
     localStorage.setItem("market", JSON.stringify(market.value));
@@ -223,8 +359,130 @@ watch(pageIdx, (newIdx) => {
             <div class="settings-container">
                 <div class="settings-header">
                     <h1>Settings</h1>
+                    <div class="tab-bar">
+                        <button
+                            :class="['tab-button', { active: activeTab === 'form' }]"
+                            @click="activeTab = 'form'"
+                            data-testid="market-setup-form-tab"
+                        >
+                            Application Form
+                        </button>
+                        <button
+                            :class="['tab-button', { active: activeTab === 'setup' }]"
+                            @click="activeTab = 'setup'"
+                            data-testid="market-setup-setup-tab"
+                        >
+                            Market Setup
+                        </button>
+                    </div>
                 </div>
-                <div class="settings-body">
+
+                <!-- Application Form Tab -->
+                <div v-if="activeTab === 'form'" class="settings-body">
+                    <div class="double-column-body">
+                        <ElementSettingContainer>
+                            <template #setting-title>
+                                <h2>Form Builder</h2>
+                            </template>
+                            <template #setting-content>
+                                <div class="form-builder-container">
+                                    <div
+                                        v-if="formLocked"
+                                        class="form-lock-banner"
+                                        data-testid="form-builder-lock-banner"
+                                    >
+                                        {{ formLockReason }}
+                                    </div>
+                                    <div
+                                        v-else-if="formLoadStatus === 'error'"
+                                        class="form-load-error-banner"
+                                        data-testid="form-builder-load-error"
+                                    >
+                                        <span>{{ formLoadError }}</span>
+                                        <button
+                                            class="retry-button"
+                                            @click="loadApplicationForm()"
+                                            data-testid="form-builder-retry-button"
+                                        >
+                                            Retry
+                                        </button>
+                                    </div>
+                                    <div
+                                        v-else-if="formLoadStatus === 'loading'"
+                                        class="form-loading-banner"
+                                        data-testid="form-builder-loading"
+                                    >
+                                        Loading the application form...
+                                    </div>
+                                    <FormBuilder
+                                        v-if="!formStateUnknown"
+                                        :applicationForm="applicationForm"
+                                        :keyTouched="keyTouched"
+                                        :readonly="!formEditable"
+                                        @update:applicationForm="(form: ApplicationForm) => applicationForm = form"
+                                        @update:keyTouched="(touched: boolean[]) => keyTouched = touched"
+                                    />
+                                    <div v-if="formEditable" class="form-save-row">
+                                        <button
+                                            class="done-button"
+                                            :disabled="!canSaveForm"
+                                            @click="saveApplicationForm()"
+                                            data-testid="form-builder-save-button"
+                                        >
+                                            {{ formSaveStatus === 'saving' ? 'Saving...' : 'Save Form' }}
+                                        </button>
+                                        <span
+                                            v-if="formValidationError"
+                                            class="save-status error"
+                                            data-testid="form-builder-validation-error"
+                                        >
+                                            {{ formValidationError }}
+                                        </span>
+                                        <span
+                                            v-else-if="formIncompleteHint"
+                                            class="save-status hint"
+                                            data-testid="form-builder-save-hint"
+                                        >
+                                            {{ formIncompleteHint }}
+                                        </span>
+                                        <span
+                                            v-else-if="formSaveStatus === 'saved'"
+                                            class="save-status success"
+                                            data-testid="form-builder-save-success"
+                                        >
+                                            Saved
+                                        </span>
+                                        <span
+                                            v-else-if="formSaveStatus === 'error'"
+                                            class="save-status error"
+                                            data-testid="form-builder-save-error"
+                                        >
+                                            {{ formErrorMessage }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </template>
+                        </ElementSettingContainer>
+                        <ElementSettingContainer>
+                            <template #setting-title>
+                                <h2>Preview</h2>
+                            </template>
+                            <template #setting-content>
+                                <FormPreview v-if="!formStateUnknown" :applicationForm="applicationForm" />
+                                <p
+                                    v-else
+                                    class="preview-unavailable"
+                                    data-testid="form-preview-unavailable"
+                                >
+                                    Preview unavailable until the application form loads.
+                                </p>
+                            </template>
+                        </ElementSettingContainer>
+                    </div>
+                </div>
+
+                <!-- Market Setup Tab (existing wizard) -->
+                <div v-if="activeTab === 'setup'" class="settings-body">
                     <template v-if="pageIdx === 0">
                         <div class="double-column-body">
                             <ElementSettingContainer>
@@ -308,7 +566,7 @@ watch(pageIdx, (newIdx) => {
                     </template>
                 </div>
             </div>
-            <div class="discord-webhook-row">
+            <div v-if="activeTab === 'setup'" class="discord-webhook-row">
                 <label class="discord-webhook-label" for="discord-webhook-url">Discord webhook URL</label>
                 <input
                     id="discord-webhook-url"
@@ -321,7 +579,7 @@ watch(pageIdx, (newIdx) => {
                     data-testid="market-setup-discord-webhook-input"
                 />
             </div>
-            <div style="width: 100%; display: flex; flex-direction: row; justify-content: space-between;">
+            <div v-if="activeTab === 'setup'" style="width: 100%; display: flex; flex-direction: row; justify-content: space-between;">
                 <div>
                     <button v-if="pageIdx !== 0" class="done-button" @click="handleBack" data-testid="market-setup-back-button">Back</button>
                 </div>
@@ -349,25 +607,31 @@ watch(pageIdx, (newIdx) => {
     width: 100%;
     min-width: 1000px;
     flex: 1;
+    min-height: 0;
 
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* `safe` centres only while the content fits. Plain `center` splits any overflow
+       evenly above and below, and content above the scroll origin cannot be reached at
+       any scroll position - it would strand the organizer with no way back to the tabs. */
+    justify-content: safe center;
     align-items: center;
 }
 
 .market-setup-body {
     width: 80%;
     height: 80%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: safe center;
     align-items: center;
 }
 
 .settings-container {
     align-self: stretch;
     flex: 1;
+    min-height: 0;
     background-color: white;
     box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
     display: flex;
@@ -386,7 +650,35 @@ watch(pageIdx, (newIdx) => {
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.tab-bar {
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+}
+
+.tab-button {
+    padding: 6px 16px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-family: 'Outfit Regular';
+    font-size: 14px;
+    color: #999;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-button:hover {
+    color: #ddd;
+}
+
+.tab-button.active {
+    color: white;
+    border-bottom-color: var(--mm-green);
 }
 
 .settings-body {
@@ -399,11 +691,15 @@ watch(pageIdx, (newIdx) => {
     flex: 1;
 }
 
+/* Each of these lays its cards out in a single row. The row must be `minmax(0, 1fr)`:
+   an auto row grows to its tallest card's content, which the cards then resolve their
+   `height: 100%` against, so the whole settings panel outgrows the viewport. */
 .single-column-body {
     align-self: stretch;
     flex-grow: 1;
     display: grid;
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
     gap: 30px;
     min-height: 0;
     flex: 1;
@@ -414,6 +710,7 @@ watch(pageIdx, (newIdx) => {
     flex-grow: 1;
     display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-template-rows: minmax(0, 1fr);
     gap: 30px;
     min-height: 0;
     flex: 1;
@@ -424,6 +721,7 @@ watch(pageIdx, (newIdx) => {
     flex-grow: 1;
     display: grid;
     grid-template-columns: 3fr 2fr;
+    grid-template-rows: minmax(0, 1fr);
     gap: 30px;
     min-height: 0;
     flex: 1;
@@ -434,6 +732,7 @@ watch(pageIdx, (newIdx) => {
     flex-grow: 1;
     display: grid;
     grid-template-columns: 1fr 1fr 2fr;
+    grid-template-rows: minmax(0, 1fr);
     gap: 30px;
     min-height: 0;
     flex: 1;
@@ -455,18 +754,26 @@ h2 {
 
 .done-button {
     margin-top: 15px;
-    width: 100px;
-    height: 35px;
+    /* Sized to fit the label, with the original 100x35 box as the floor so the
+       single-word buttons ("Back", "Next", "Assign") keep their footprint. */
+    min-width: 100px;
+    min-height: 35px;
+    padding: 0 14px;
 
     background: var(--mm-green);
     border-radius: 5px;
     border: none;
 
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+
     font-family: 'Merge One';
     font-style: normal;
     font-weight: 400;
     font-size: 20px;
-    line-height: 15px;
+    line-height: 1.2;
     text-align: center;
 
     color: #FFFFFF;
@@ -502,5 +809,103 @@ h2 {
     border: 1px solid var(--mm-grey, #b0b0b0);
     border-radius: 5px;
     background-color: white;
+}
+
+.form-builder-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.form-save-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--mm-grey, #eee);
+}
+
+.form-lock-banner {
+    font-family: 'Outfit Regular';
+    font-size: 13px;
+    line-height: 1.4;
+    color: #7a5200;
+    background: #fff6e0;
+    border: 1px solid #f0d089;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.form-loading-banner {
+    font-family: 'Outfit Regular';
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--mm-grey, #666);
+    background: #f4f4f4;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.form-load-error-banner {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-family: 'Outfit Regular';
+    font-size: 13px;
+    line-height: 1.4;
+    color: #8a1f1f;
+    background: #fdeaea;
+    border: 1px solid #f0a9a9;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.retry-button {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid #8a1f1f;
+    color: #8a1f1f;
+    border-radius: 4px;
+    padding: 3px 12px;
+    cursor: pointer;
+    font-family: 'Outfit Regular';
+    font-size: 12px;
+}
+
+.retry-button:hover {
+    background: #8a1f1f;
+    color: white;
+}
+
+.save-status {
+    font-family: 'Outfit Regular';
+    font-size: 13px;
+}
+
+.save-status.success {
+    color: var(--mm-green);
+}
+
+.save-status.error {
+    color: var(--mm-red, #cc0000);
+}
+
+.save-status.hint {
+    color: var(--mm-grey, #666);
+}
+
+.preview-unavailable {
+    font-family: 'Outfit Regular';
+    font-size: 14px;
+    color: var(--mm-grey, #999);
+    text-align: center;
+    padding: 40px;
 }
 </style>

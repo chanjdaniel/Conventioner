@@ -655,10 +655,80 @@ def update_market(market_id: str) -> Response:
             "modified_count": result.modified_count
         }), 200
 
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
     except PermissionError as e:
         return jsonify({"error": str(e)}), 403
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+
+@app.route('/markets/<market_id>/application-form', methods=['PUT'])
+@login_required
+def save_application_form(market_id: str) -> Response:
+    """Save or update the application form for a market.
+
+    The only writer of the application form; a market PUT preserves the stored one.
+    Only allowed in ``draft`` phase.  Once any application exists for the market
+    the form is locked (D9) and further edits are refused.
+    """
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        user = UsersApi.get_user(requesting_user)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        data = convert_keys_to_snake_case(data)
+        result = MarketsApi.save_application_form(market_id, data, requesting_user)
+
+        return jsonify({
+            "message": "Application form saved successfully",
+            "application_form": result,
+        }), 200
+
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except MarketsApi.ApplicationFormLockedError as e:
+        return jsonify({"error": str(e)}), 409
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/markets/<market_id>/application-form', methods=['GET'])
+@login_required
+def get_application_form(market_id: str) -> Response:
+    """Retrieve the application form for a market."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        user = UsersApi.get_user(requesting_user)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        return jsonify(MarketsApi.get_application_form(market_id, requesting_user)), 200
+
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/markets/<market_id>', methods=['DELETE'])
 @login_required

@@ -93,7 +93,7 @@ The central entity representing a market event with configuration, assignments, 
 - `assignment_object: AssignmentObject` - Contains vendor assignment results and statistics
 - `is_draft: bool` - Stored as `isDraft` in MongoDB (camelCase). Default **true**: market setup is not finished. Set to **false** when the user completes the Generated Assignment flow (Done). While `true`, opening the market from the dashboard or Markets sends the user to market setup; when `false`, the SPA routes to `/{kebab-case-slug}` derived from the market **name** (e.g. `my-summer-market`).
 - `phase: MarketPhase` - Market lifecycle phase. Default **`DRAFT`**. Coexists with `is_draft` and is intended to replace it gradually; both are written today and existing code still reads `is_draft`. See [MarketPhase](#marketphase-enum).
-- `application_form: Optional[ApplicationForm]` - Application form definition for application-based markets (None for CSV-based markets)
+- `application_form: Optional[ApplicationForm]` - Application form definition for application-based markets (None for CSV-based markets). Server-owned on update: only `PUT /markets/<market_id>/application-form` writes it (see [ApplicationForm](#applicationform))
 - `review_config: Optional[Dict[str, Any]]` - Free-form review configuration (reviewer pool, etc.); no fixed schema yet
 - `discord_guild_id: Optional[str]` - Per-market Discord guild reference (integration seam; not yet consumed)
 - `discord_webhook_url: Optional[str]` - Per-market Discord webhook target for assignment notifications (omitted/blank disables Discord notifications)
@@ -105,12 +105,13 @@ The central entity representing a market event with configuration, assignments, 
 - **One-to-One with AssignmentObject**: Each market has one assignment result object
 - **One-to-One with SourceData**: Each market can have one source data CSV (stored separately in MongoDB)
 - **One-to-One with ApplicationForm**: Each market can have one application form (embedded, optional)
-- **One-to-Many with Application**: Applications reference the market via `Application.market_id` (model only; not yet persisted, see [Application Objects](#application-objects))
+- **One-to-Many with Application**: Applications reference the market via `Application.market_id`. The `applications` collection exists and the market write path counts it (the D9 form lock), but nothing writes application documents yet - see [Application Objects](#application-objects)
 - **Stored in**: MongoDB `markets` collection
 
 **Server-Owned Fields:**
 - `phase` is lifecycle state owned by the server, never by a client update body. `create_market()` always persists `phase: "draft"`, and `update_market()` re-applies the stored phase over whatever the payload contained.
-- `application_form`, `review_config`, and `discord_guild_id` are carried over on update whenever the payload omits them, so a client that round-trips a market it fetched cannot accidentally null them out. Passing an explicit `null` still clears the field.
+- `application_form` is written on an existing market only by `PUT /markets/<market_id>/application-form`. `update_market()` always re-applies the stored form over whatever the market payload contained, so a stale client copy cannot revert a saved form and no market PUT can bypass the D9 lock. `POST /markets` may still carry a form on the create body, and it goes through the same validation and normalization as the dedicated endpoint.
+- `review_config` and `discord_guild_id` are carried over on update whenever the payload omits them, so a client that round-trips a market it fetched cannot accidentally null them out. Passing an explicit `null` still clears the field.
 
 **Role System:**
 - **Owner** (exactly 1): Can manage all roles (Admin/Editor/Viewer), Edit, View
@@ -371,9 +372,9 @@ Statistical summary of an assignment operation.
 
 These models back the application-based market flow (vendors apply through a form instead of being imported from a CSV).
 
-**Status:** the models and their camelCase contracts exist today, and `ApplicationForm` is reachable through `Market.application_form`.
-`Application` itself is a model only: there is no `applications` collection and no endpoints that read or write one yet.
-Both land in a later phase.
+**Status:** `ApplicationForm` is fully live: organizers build it in the market-setup Application Form tab and it is read and written through the endpoints below.
+`Application` is a model plus an empty collection: `applications` exists (with a `market_id` index) and the market write path counts it to enforce the D9 form lock, but no endpoint writes an application document yet.
+Applicant submission lands in a later phase.
 
 ### ApplicationForm
 **Location:** `back-end/datatypes.py`
@@ -381,8 +382,24 @@ Both land in a later phase.
 The application form definition for a market.
 
 **Fields:**
-- `fields: List[FormField]` - Ordered list of form fields
-- `published_at: Optional[str]` - ISO timestamp set when the form is published. Locks the form once applications exist.
+- `fields: List[FormField]` - Ordered list of form fields. Must contain at least one field.
+- `published_at: Optional[str]` - ISO timestamp for when the form is published. Server-owned: a save always carries over the value on the stored form and discards any value in the payload, so a client cannot forge this lock-bearing state. No write path sets it yet, so it is `None` in practice; publishing lands with the applicant flow.
+
+**Endpoints:**
+- `GET /markets/<market_id>/application-form` - Requires `VIEWER`. Returns `{ application_form, editable, lock_reason }`, where `application_form` is camelCase (or `null` when no form has been saved) and `editable` / `lock_reason` describe the lock so the builder can render read-only before an organizer invests work in a form they cannot save.
+- `PUT /markets/<market_id>/application-form` - Requires `EDITOR`. The only writer of `Market.application_form` on an existing market. Takes the form (camelCase) as the body and returns `{ message, application_form }` with the form exactly as persisted. `404` unknown market, `403` insufficient permission, `400` validation failure, `409` locked.
+
+**Editability (the D9 lock):**
+
+`application_form_lock_reason()` (`back-end/api/markets.py`) is the single source of truth for whether a market's form may be edited, and every write path consults it. A form is locked when either:
+- the market is not in `draft` phase, or
+- at least one `Application` exists for the market (counted by `market_id` via `back-end/api/applications.py`).
+
+The second rule is permanent: once an applicant has submitted, the form can never be modified again, so no applicant can have answered a question that later moved.
+
+**Validation and Normalization:**
+
+Every writer (`POST /markets` with a form on the body, and the `PUT` above) runs the form through one validator, which returns it exactly as it will be persisted, so a stored form can never differ from the form that was checked. It rejects a form with no fields, and per field enforces the [FormField](#formfield) rules below. It also renormalizes `order` to the field's array position, so the builder and the applicant's form can never disagree about display order.
 
 **Relationships:**
 - **One-to-One with Market**: Embedded in `Market.application_form` (optional; None for CSV-based markets)
@@ -398,11 +415,19 @@ A single field in an application form.
 **Fields:**
 - `key: str` - Machine name (e.g., `business_name`); the key used in `Application.form_data`
 - `label: str` - Human-readable label (e.g., "Business Name")
-- `type: str` - Field type: `text`, `number`, `select`, `multi_select`, `checkbox`, `date`, `email`, or `file`
+- `type: str` - Field type. The model types this as a free `str`, but the API accepts only `text`, `number`, `select`, `multi_select`, `checkbox`, `date`, or `email` (`VALID_FORM_FIELD_TYPES` in `back-end/api/markets.py`). A `file` type is named in the model comment but is not yet accepted by any write path.
 - `required: bool` - Whether the field must be filled. Default **false**.
 - `options: List[str]` - Choices for `select` / `multi_select` fields. Default `[]`.
 - `help_text: Optional[str]` - Optional helper text shown under the field
-- `order: int` - Display order. Default **0**.
+- `order: int` - Display order. Default **0**. Server-owned: renormalized on every write to the field's position in `ApplicationForm.fields`.
+
+**Validation (enforced on every write of `Market.application_form`):**
+- `key` must be non-blank, unique within the form, and match `^[a-z0-9_]+$`. Field keys become document keys inside `Application.form_data`, where a dot or a leading `$` cannot be addressed by Mongo update operators, so the charset is held to the slug form the builder auto-generates from the label.
+- `label` must be non-blank.
+- `type` must be one of the accepted types above.
+- `select` / `multi_select` fields must have at least one option, and options are trimmed and must be non-blank and unique - they are the persisted answer values in `Application.form_data`, so a duplicate would be an ambiguous answer. Options are cleared to `[]` on every other field type.
+
+The front-end mirrors these rules in `front-end/src/utils/applicationForm.ts` (`applicationFormError()`), so the builder blocks Save before the request is sent; the back-end remains the authority.
 
 **Relationships:**
 - **Many-to-One with ApplicationForm**: Multiple FormFields belong to one ApplicationForm
@@ -603,6 +628,15 @@ The system uses MongoDB with the following collections:
 - **Operations**: Upload, read, delete via `api/source_data.py`
 - **Relationship**: One-to-One with Market (via `market_id`)
 
+#### `applications` Collection
+- **Document Structure**: Matches the `Application` datatype, stored **snake_case** - unlike `markets` and `organizations`, application documents are *not* camelCased on write. The market foreign key is `market_id`, not `marketId`.
+- **Primary Key**: `id` field (UUID)
+- **Index**: `market_id`, which the D9 form lock counts on every market write
+- **Owner module**: `back-end/api/applications.py` is the single owner of this collection; every reader and writer goes through it so the storage contract lives in one place. A writer that stored the market reference under any other key would silently disable the form lock.
+- **Operations**: Today only `count_applications_for_market()` (drives the D9 lock). Applicant submission lands in a later phase, so the collection is empty in normal use.
+- **Creation**: `mongo-init.js` creates it and its index on a fresh Mongo volume; `back-end/migrations/create_applications_collection.py` does the same for an already-deployed database (idempotent, supports `--dry-run`).
+- **Relationship**: Many-to-One with Market (via `market_id`)
+
 ---
 
 ## Permission System
@@ -681,14 +715,14 @@ Market
 │   │   ├── LocationObject (many:1, optional)
 │   │   └── TierObject (many:1, optional)
 │   └── AssignmentOptionObject (1:1)
-├── ApplicationForm (1:1, optional)
+├── ApplicationForm (1:1, optional, server-owned: written only via PUT /markets/<id>/application-form)
 │   └── FormField[] (1:many)
 ├── ModificationObject[] (1:many, currently unused)
 └── AssignmentObject (1:1)
     ├── VendorAssignmentResult[] (1:many)
     └── AssignmentStatistics (1:1, optional)
 
-Application (many:1 with Market, via market_id; model only, not yet persisted)
+Application (many:1 with Market, via market_id; applications collection exists, nothing writes it yet)
 ├── status: ApplicationStatus
 ├── application_type: ApplicationType
 └── main_application_id: Optional[str] (many:1 with Application, waitlist prefill)
@@ -821,8 +855,8 @@ SourceData (CSV)
 - SourceData references `market_id` instead of `market_name`
 
 ### 3. Embedded vs Referenced Documents
-- **Embedded**: SetupObject, AssignmentObject, roles dict are embedded within Market documents
-- **Referenced**: SourceData, Organization are stored separately and referenced by name
+- **Embedded**: SetupObject, AssignmentObject, ApplicationForm, roles dict are embedded within Market documents
+- **Referenced**: SourceData, Organization are stored separately and referenced by name; Application is stored in its own `applications` collection and references the market by `market_id`
 
 ### 4. Optional vs Required Fields
 - `SetupObject` is optional (market can exist without configuration)

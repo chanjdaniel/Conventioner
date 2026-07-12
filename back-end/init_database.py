@@ -8,14 +8,18 @@ Usage:
 """
 
 from db_config import get_database
+from api.applications import APPLICATIONS_COLLECTION, MARKET_ID_FIELD
 
 def init_database():
     """Initialize the database and create collections if they don't exist."""
     db = get_database('conventioner')
-    
-    collections_to_create = ['users', 'markets', 'source_data', 'organizations', 'attendance']
+
+    collections_to_create = [
+        'users', 'markets', 'source_data', 'organizations', 'attendance',
+        APPLICATIONS_COLLECTION,
+    ]
     created_collections = []
-    
+
     for collection_name in collections_to_create:
         # Check if collection exists
         if collection_name not in db.list_collection_names():
@@ -25,7 +29,11 @@ def init_database():
             created_collections.append(collection_name)
         else:
             print(f"ℹ️  Collection already exists: {collection_name}")
-    
+
+    # The D9 application-form lock counts applications by market, so that lookup is indexed.
+    db[APPLICATIONS_COLLECTION].create_index([(MARKET_ID_FIELD, 1)])
+    print(f"✅ Ensured index on {APPLICATIONS_COLLECTION}.{MARKET_ID_FIELD}")
+
     # Verify collections exist
     existing_collections = db.list_collection_names()
     print(f"\n📊 Database 'conventioner' contains {len(existing_collections)} collection(s):")

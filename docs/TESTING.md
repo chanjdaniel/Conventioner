@@ -33,11 +33,15 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-108 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
+167 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
 column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
 Conventioner data model (market phases, application form/status models, and backward
-compatibility with existing market documents), the `phase` backfill migration, and the
-server-owned market fields preserved across updates.
+compatibility with existing market documents), the `phase` backfill migration, the
+`applications` collection migration, the server-owned market fields preserved across
+updates, and the application form endpoints (`test_application_form.py`: permission
+checks, field/key/option validation, `order` renormalization, server-owned
+`published_at`, and the D9 lock refusing edits on every write path once an application
+exists or the market leaves `draft`).
 
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
 (tests use in-memory fakes). Shared module stubs live in `back-end/tests/conftest.py`.
@@ -52,7 +56,16 @@ npm run test:unit
 Tests cover the API client interceptor (automatic `X-Owner-Email` header injection) and
 `parseMarketFromApi()` (`market.test.ts`), which round-trips the market `phase`,
 application form, review config, and Discord guild id, and leaves them undefined when the
-API omits them. Add more component tests in `front-end/src/__tests__/`.
+API omits them. The application form builder is covered by three suites:
+`applicationForm.test.ts` (the shared validator: which forms Save blocks with a hint - a
+field the organizer has not started filling in - versus a validation error such as a bad,
+blank, or duplicate key or option), `formBuilder.test.ts` (the `FormBuilder` component:
+auto-deriving a field key from the label until the organizer hand-edits the key,
+renumbering `order` contiguously as fields are added and removed, and hiding every editing
+affordance when read-only), and `marketSetupForm.test.ts` (the `MarketSetupView` wiring:
+the builder stays read-only until the server reports the lock state, never offers to edit
+a locked form even for a frame, and keeps auto-derived keys auto-derived across a save).
+Add more component tests in `front-end/src/__tests__/`.
 
 Configuration: `front-end/vitest.config.ts` with `happy-dom` environment.
 
@@ -87,7 +100,13 @@ organization: it asserts the new-market overlay's org dropdown lists exactly the
 organizations from `GET /organizations`, that submission stays disabled until one is
 picked, that the created market is stamped with the chosen `organizationId`, and that
 a user belonging to no organization gets a disabled dropdown plus a link to
-`/organizations`. The floorplan suite
+`/organizations`. The application-form suite (`application-form.spec.ts`) drives the
+market-setup Application Form tab: an organizer builds a form (keys auto-slugged from the
+labels), watches the live preview, saves it, and reloads to confirm it persisted; a second
+test seeds an application straight into Mongo and asserts the D9 lock then renders the
+builder read-only with its lock banner, that `PUT /markets/{id}/application-form` refuses
+with 409, and that a market PUT carrying a rewritten form cannot smuggle one past it
+either. The floorplan suite
 (`floorplan.spec.ts`) drives the create-from-floorplan setup path end to end:
 it walks the Floorplan AI 5-step wizard (upload, scale calibration, table
 placement, section grouping, save) and verifies the resulting sections land
@@ -110,9 +129,9 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
 - **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `NewMarketPage`,
   `MarketSetupPage`, `AssignmentResultsPage`, `CheckinPage`, `VendorsPage`,
   `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, `ManageMarketPage`,
-  `PasswordResetPage`, and `FloorplanWorkflowPage` each wrap `getByTestId()`
-  selectors and expose action methods. New page objects should follow these
-  patterns.
+  `PasswordResetPage`, `ApplicationFormPage`, and `FloorplanWorkflowPage` each wrap
+  `getByTestId()` selectors and expose action methods. New page objects should follow
+  these patterns.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
   `BACKEND_URL` constant (defaults to `https://localhost:5000`, override via the
   `BACKEND_URL` env var), the `authenticatedPage` fixture (logs in before the
@@ -143,6 +162,12 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     additionally configures the market's `setupObject` and triggers the
     assignment engine via the API, returning the seed plus the market's URL
     `slug`.
+  - `seedApplication()` (`front-end/e2e/helpers/seedApplication.ts`) is the one
+    exception to API-level seeding: it inserts an application document straight into
+    Mongo via `mongosh` (`E2E_MONGO_CONTAINER` overrides the container name, as in
+    `auth.spec.ts`). There is no applicant-facing submit endpoint yet, so writing the
+    document the way that endpoint eventually will - snake_case, keyed by `market_id` -
+    is the only way to reach the D9-locked state.
 
 ### Bypassing CAPTCHA and email in tests
 

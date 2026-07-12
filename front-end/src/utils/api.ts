@@ -30,3 +30,8 @@ export function getApiErrorMessage(err: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/** The HTTP status of a caught request error, or null when it never reached the server. */
+export function getApiErrorStatus(err: unknown): number | null {
+  return axios.isAxiosError(err) ? (err.response?.status ?? null) : null;
+}

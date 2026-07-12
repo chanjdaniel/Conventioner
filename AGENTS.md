@@ -128,6 +128,26 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Do NOT delete `is_draft` from the `Market` model. Existing code reads it. The new
   `phase` field is added alongside it; code migrates to `phase` checks gradually.
 
+## Application Form Lock (Conventioner sharp edge)
+
+- **Applications are stored snake_case**, unlike markets and organizations, which are
+  camelCased on write. The market foreign key is `market_id`, NOT `marketId`.
+  `back-end/api/applications.py` is the single owner of the collection and every reader and
+  writer must go through it. A writer that stored the market reference under any other key
+  would silently disable the D9 lock below - the count would just return 0.
+- **The D9 lock has one source of truth**: `application_form_lock_reason()` in
+  `back-end/api/markets.py`. A market's application form is editable only in `draft` phase
+  and only while no application exists for it; once an applicant has submitted, the form is
+  frozen for good.
+- **`Market.application_form` is server-owned on update.** `PUT /markets/<id>/application-form`
+  is its only writer on an existing market; `update_market()` re-applies the stored form over
+  whatever a market PUT body carried. Do not "fix" that by letting a market PUT write the form
+  - it is what makes the lock unbypassable. `POST /markets` may carry a form, and it runs
+  through the same validator.
+- E2E reaches the locked state with `seedApplication()`
+  (`front-end/e2e/helpers/seedApplication.ts`), which writes the document straight into Mongo
+  via `mongosh`, because no applicant-facing submit endpoint exists yet.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.

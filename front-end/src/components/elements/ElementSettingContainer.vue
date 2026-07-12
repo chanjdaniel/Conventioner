@@ -34,6 +34,10 @@
 
     .setting-body {
         flex-grow: 1;
+        /* Without min-height: 0 this flex item cannot shrink below its content, so tall
+           content grows the card past its parent instead of scrolling inside it. */
+        min-height: 0;
+        overflow-y: auto;
         background-color: white;
         border-bottom-left-radius: 10px;
         border-bottom-right-radius: 10px;
