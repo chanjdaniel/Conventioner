@@ -1,30 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import {
-    type Organization,
-    type OrganizationRoleType,
-    type ThemeObject,
-} from '@/assets/types/datatypes';
+import { type Organization } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
+import { fetchOrganizations } from '@/utils/organizations';
 import ManageOrgOverlay from './ManageOrgOverlay.vue';
-
-type RawOrganization = {
-    id: string;
-    name: string;
-    owner: string;
-    admins?: string[];
-    members?: string[];
-    markets?: string[];
-    ownerEmail?: string;
-    owner_email?: string;
-    adminEmails?: string[];
-    admin_emails?: string[];
-    memberEmails?: string[];
-    member_emails?: string[];
-    theme?: ThemeObject;
-    userRole?: OrganizationRoleType;
-    user_role?: OrganizationRoleType;
-};
 
 const organizations = ref<Organization[]>([]);
 const loading = ref(true);
@@ -35,29 +14,11 @@ const manageOrg = ref<Organization | null>(null);
 const newOrgName = ref('');
 const newOrgError = ref('');
 
-function parseOrgFromApi(org: RawOrganization): Organization {
-    const userRole = org.userRole ?? org.user_role;
-    return {
-        id: org.id,
-        name: org.name,
-        owner: org.owner,
-        admins: org.admins || [],
-        members: org.members || [],
-        markets: org.markets || [],
-        ownerEmail: org.ownerEmail ?? org.owner_email,
-        adminEmails: org.adminEmails ?? org.admin_emails,
-        memberEmails: org.memberEmails ?? org.member_emails,
-        theme: org.theme,
-        userRole: userRole ?? undefined,
-    };
-}
-
-async function fetchOrganizations() {
+async function loadOrganizations() {
     loading.value = true;
     errorMessage.value = '';
     try {
-        const response = await api.get('/organizations');
-        organizations.value = (response.data.organizations || []).map(parseOrgFromApi);
+        organizations.value = await fetchOrganizations();
     } catch (err) {
         errorMessage.value = getApiErrorMessage(err, 'Failed to load organizations');
         organizations.value = [];
@@ -67,7 +28,7 @@ async function fetchOrganizations() {
 }
 
 onMounted(() => {
-    fetchOrganizations();
+    loadOrganizations();
 });
 
 async function handleCreateOrg() {
@@ -77,7 +38,7 @@ async function handleCreateOrg() {
         await api.post('/organizations', { name: newOrgName.value.trim() });
         newOpen.value = false;
         newOrgName.value = '';
-        await fetchOrganizations();
+        await loadOrganizations();
     } catch (err) {
         newOrgError.value = getApiErrorMessage(err, 'Failed to create organization');
     }
@@ -97,7 +58,7 @@ function handleManage(org: Organization) {
 function handleManageClose() {
     manageOpen.value = false;
     manageOrg.value = null;
-    fetchOrganizations();
+    loadOrganizations();
 }
 
 function canManage(org: Organization): boolean {

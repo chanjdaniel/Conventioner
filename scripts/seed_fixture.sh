@@ -7,6 +7,10 @@ FIXTURES_DIR="$SCRIPT_DIR/fixtures"
 COOKIE_JAR="$(mktemp /tmp/conventioner_seed.XXXXXX)"
 TEST_EMAIL="${TEST_EMAIL:-e2e@example.com}"
 TEST_PASSWORD="${TEST_PASSWORD:-e2epassword123}"
+# Verified user deliberately left without any organization, so e2e can exercise
+# the zero-org state of the market-creation org picker.
+NO_ORG_EMAIL="${NO_ORG_EMAIL:-e2e-noorg@example.com}"
+NO_ORG_PASSWORD="${NO_ORG_PASSWORD:-e2enoorg123}"
 CSV_FILE="${FIXTURES_DIR}/vendors.csv"
 
 # ── Detect worktree vs primary checkout ──
@@ -35,7 +39,7 @@ echo "=== Conventioner Seed Fixture ==="
 echo ""
 
 # ── 1. Ensure Docker stack is running ──
-echo "[1/5] Ensuring Docker stack is up..."
+echo "[1/6] Ensuring Docker stack is up..."
 cd "$PROJECT_DIR"
 if ! "${DOCKER_CMD[@]}" ps --format '{{.Service}}' 2>/dev/null | grep -q 'backend'; then
   echo "  Bringing up Docker stack..."
@@ -54,13 +58,14 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-# ── 2. Create test user ──
-echo "[2/5] Creating test user ($TEST_EMAIL)..."
+# ── 2. Create test users ──
+echo "[2/6] Creating test users ($TEST_EMAIL, $NO_ORG_EMAIL)..."
 "${DOCKER_CMD[@]}" exec -T backend python /app/reset_database.py 2>&1 | sed 's/^/  /'
 "${DOCKER_CMD[@]}" exec -T backend python /app/create_test_user.py "$TEST_EMAIL" "$TEST_PASSWORD" 2>&1 | sed 's/^/  /'
+"${DOCKER_CMD[@]}" exec -T backend python /app/create_test_user.py "$NO_ORG_EMAIL" "$NO_ORG_PASSWORD" 2>&1 | sed 's/^/  /'
 
 # ── 3. Login and get session ──
-echo "[3/5] Logging in..."
+echo "[3/6] Logging in..."
 LOGIN_RESPONSE=$(curl -k -s -c "$COOKIE_JAR" \
   -X POST "$BACKEND_URL/login" \
   -H "Content-Type: application/json" \
@@ -74,8 +79,37 @@ if [ -z "$USER_ID" ]; then
 fi
 echo "  User ID: $USER_ID"
 
+# ── 3b. Create test organization ──
+echo "[3b/6] Setting up test organization..."
+ORG_CHECK=$(curl -k -s -b "$COOKIE_JAR" \
+  -X GET "$BACKEND_URL/organizations" \
+  -H "X-Owner-Email: $TEST_EMAIL")
+ORG_COUNT=$(echo "$ORG_CHECK" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('organizations', [])))" 2>/dev/null || echo "0")
+if [ "$ORG_COUNT" -eq 0 ]; then
+  ORG_RESPONSE=$(curl -k -s -b "$COOKIE_JAR" \
+    -X POST "$BACKEND_URL/organizations" \
+    -H "Content-Type: application/json" \
+    -H "X-Owner-Email: $TEST_EMAIL" \
+    -d "{\"name\": \"Seed Test Org\"}")
+  echo "  $ORG_RESPONSE"
+  ORG_ID=$(echo "$ORG_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['organization_id'])" 2>/dev/null || echo "")
+  if [ -z "$ORG_ID" ]; then
+    echo "  ERROR: Could not create test organization"
+    exit 1
+  fi
+  echo "  Organization ID: $ORG_ID"
+else
+  echo "  User already has $ORG_COUNT organization(s), skipping creation."
+  ORG_ID=$(echo "$ORG_CHECK" | python3 -c "import sys,json; print(json.load(sys.stdin)['organizations'][0]['id'])" 2>/dev/null || echo "")
+  if [ -z "$ORG_ID" ]; then
+    echo "  ERROR: Could not extract existing organization ID"
+    exit 1
+  fi
+  echo "  Organization ID: $ORG_ID"
+fi
+
 # ── 4. Create a market ──
-echo "[4/5] Creating market..."
+echo "[4/6] Creating market..."
 MARKET_NAME="Seed Market $(date +%H%M%S)"
 CREATE_RESPONSE=$(curl -k -s -b "$COOKIE_JAR" \
   -X POST "$BACKEND_URL/markets" \
@@ -84,6 +118,7 @@ CREATE_RESPONSE=$(curl -k -s -b "$COOKIE_JAR" \
   -d "{
     \"name\": \"$MARKET_NAME\",
     \"creationDate\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+    \"organizationId\": \"$ORG_ID\",
     \"roles\": {\"$USER_ID\": \"owner\"},
     \"modificationList\": [],
     \"assignmentObject\": {}
@@ -98,7 +133,7 @@ fi
 echo "  Market ID: $MARKET_ID"
 
 # ── 5. Upload CSV fixture ──
-echo "[5/5] Uploading CSV fixture..."
+echo "[5/6] Uploading CSV fixture..."
 UPLOAD_RESPONSE=$(curl -k -s -b "$COOKIE_JAR" \
   -X POST "$BACKEND_URL/source-data/$MARKET_ID" \
   -H "X-Owner-Email: $TEST_EMAIL" \
@@ -112,6 +147,7 @@ echo "Frontend:  $FRONTEND_URL"
 echo "Backend:   $BACKEND_URL"
 echo "Email:     $TEST_EMAIL"
 echo "Password:  $TEST_PASSWORD"
+echo "No-org:    $NO_ORG_EMAIL / $NO_ORG_PASSWORD (verified, belongs to no organization)"
 echo "Market ID: $MARKET_ID"
 echo ""
 echo "Next: open $FRONTEND_URL/login and log in to configure the market."

@@ -7,6 +7,7 @@ export interface SeedResult {
   marketId: string;
   userId: string;
   marketName: string;
+  orgId: string;
 }
 
 /**
@@ -32,6 +33,81 @@ function marketNameToSlug(name: string): string {
 }
 
 /**
+ * Log in via the API so the request context carries a Flask session cookie.
+ * Returns the user UUID.
+ */
+export async function loginViaApi(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  password: string,
+): Promise<string> {
+  const loginRes = await request.post(`${baseURL}/login`, {
+    data: { email, password },
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!loginRes.ok()) {
+    throw new Error(`Login failed: ${loginRes.status()} ${await loginRes.text()}`);
+  }
+  const loginBody = await loginRes.json() as {
+    user_data: { id: string; email: string };
+  };
+  return loginBody.user_data.id;
+}
+
+/**
+ * Helper: ensure the test user has at least one organization.
+ * Assumes the request context already carries a Flask session cookie
+ * (the /organizations endpoints are login-protected).
+ * Creates an organization named 'E2E Test Org' if none exist.
+ * Returns the organization ID.
+ */
+export async function ensureTestOrgAuthenticated(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+): Promise<string> {
+  const orgsRes = await request.get(`${baseURL}/organizations`, {
+    headers: { 'X-Owner-Email': email },
+  });
+  if (!orgsRes.ok()) {
+    throw new Error(`Organization list failed: ${orgsRes.status()} ${await orgsRes.text()}`);
+  }
+  const body = await orgsRes.json() as { organizations: { id: string }[] };
+  if (body.organizations && body.organizations.length > 0) {
+    return body.organizations[0].id;
+  }
+
+  const createRes = await request.post(`${baseURL}/organizations`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Owner-Email': email,
+    },
+    data: { name: 'E2E Test Org' },
+  });
+  if (!createRes.ok()) {
+    throw new Error(`Test org creation failed: ${createRes.status()} ${await createRes.text()}`);
+  }
+  const createBody = await createRes.json() as { organization_id: string };
+  return createBody.organization_id;
+}
+
+/**
+ * Helper: log in and ensure the test user has at least one organization.
+ * Use this from call sites whose request context has never authenticated.
+ * Returns the organization ID.
+ */
+export async function ensureTestOrg(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  password: string,
+): Promise<string> {
+  await loginViaApi(request, baseURL, email, password);
+  return ensureTestOrgAuthenticated(request, baseURL, email);
+}
+
+/**
  * Create a test market with vendor data via the back-end API.
  *
  * Uses Playwright's APIRequestContext so cookies flow automatically
@@ -53,17 +129,9 @@ export async function seedMarketWithVendors(
   password: string,
 ): Promise<SeedResult> {
   // Step 1: Login to get a session cookie and the user UUID
-  const loginRes = await request.post(`${baseURL}/login`, {
-    data: { email, password },
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!loginRes.ok()) {
-    throw new Error(`Login failed: ${loginRes.status()} ${await loginRes.text()}`);
-  }
-  const loginBody = await loginRes.json() as {
-    user_data: { id: string; email: string };
-  };
-  const userId = loginBody.user_data.id;
+  const userId = await loginViaApi(request, baseURL, email, password);
+
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
   // Step 2: Create a market (user must own it)
   const marketName = `E2E Market ${Date.now()}`;
@@ -75,6 +143,7 @@ export async function seedMarketWithVendors(
     data: {
       name: marketName,
       creationDate: new Date().toISOString(),
+      organizationId: orgId,
       roles: { [userId]: 'owner' },
       modificationList: [],
       assignmentObject: {},
@@ -108,7 +177,7 @@ export async function seedMarketWithVendors(
     throw new Error(`CSV upload failed: ${uploadRes.status()} ${await uploadRes.text()}`);
   }
 
-  return { marketId, userId, marketName };
+  return { marketId, userId, marketName, orgId };
 }
 
 /**
@@ -132,17 +201,9 @@ export async function seedPublishedMarketWithAssignments(
   password: string,
 ): Promise<PublishedSeedResult> {
   // Step 1: Login
-  const loginRes = await request.post(`${baseURL}/login`, {
-    data: { email, password },
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!loginRes.ok()) {
-    throw new Error(`Login failed: ${loginRes.status()} ${await loginRes.text()}`);
-  }
-  const loginBody = await loginRes.json() as {
-    user_data: { id: string; email: string };
-  };
-  const userId = loginBody.user_data.id;
+  const userId = await loginViaApi(request, baseURL, email, password);
+
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
   // Step 2: Create a market
   const marketName = `E2E Published ${Date.now()}`;
@@ -154,6 +215,7 @@ export async function seedPublishedMarketWithAssignments(
     data: {
       name: marketName,
       creationDate: new Date().toISOString(),
+      organizationId: orgId,
       roles: { [userId]: 'owner' },
       modificationList: [],
       assignmentObject: {},
@@ -276,5 +338,5 @@ export async function seedPublishedMarketWithAssignments(
     throw new Error(`Assignment store failed: ${storeRes.status()} ${await storeRes.text()}`);
   }
 
-  return { marketId, userId, marketName, marketSlug };
+  return { marketId, userId, marketName, orgId, marketSlug };
 }

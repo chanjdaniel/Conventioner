@@ -61,6 +61,7 @@ export async function seedAssignedMarket(
       id: seed.marketId,
       name: seed.marketName,
       creationDate: new Date().toISOString(),
+      organizationId: seed.orgId,
       roles: { [seed.userId]: 'owner' },
       modificationList: [],
       assignmentObject: {},

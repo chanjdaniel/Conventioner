@@ -138,6 +138,8 @@ class Organization(BaseModel):
 ### 3. Market-Organization Relationship
 **Requirement:** Market can belong to 0 or 1 organization.
 
+> **Superseded:** markets now belong to exactly 1 organization. `POST /markets` requires an `organizationId` naming an organization the caller belongs to, and the new-market form blocks submission until one is picked. The shipped field is `organization_id` (an id, not a name), and it is still typed `Optional[str]` only so org-less markets created before this rule stay readable. See [OBJECT_RELATIONSHIPS.md](./OBJECT_RELATIONSHIPS.md) for the current model.
+
 **New Field:**
 ```python
 class Market(BaseModel):

@@ -8,13 +8,21 @@ The fastest way to get a working test environment:
 ./scripts/seed_fixture.sh
 ```
 
-This brings up the Docker stack, creates a test user, creates a market, and uploads a sample CSV.
+This brings up the Docker stack, creates the test users, creates an organization
+(`Seed Test Org`, reused if the user already has one), creates a market in it, and
+uploads a sample CSV.
 The output prints the credentials and market ID.
+
+Two verified users are created: the main test user, and a second user that
+deliberately belongs to no organization (`e2e-noorg@example.com`) so the e2e suite can
+exercise the zero-organization state of the market-creation org picker.
 
 Override credentials:
 
 ```bash
-TEST_EMAIL=myuser@example.com TEST_PASSWORD=mypass ./scripts/seed_fixture.sh
+TEST_EMAIL=myuser@example.com TEST_PASSWORD=mypass \
+  NO_ORG_EMAIL=mynoorguser@example.com NO_ORG_PASSWORD=mynoorgpass \
+  ./scripts/seed_fixture.sh
 ```
 
 ## Back-End Tests
@@ -73,7 +81,13 @@ assignment CSV export (download and verify columns), and publishing a market
 (verify the check-in URL is reachable). Tier-3 authentication and robustness
 journeys (`auth.spec.ts`) cover new-user registration, the full password reset
 flow (including reading the real reset token from MongoDB), posting an assignment
-to Discord, and login/OTP error states. The floorplan suite
+to Discord, and login/OTP error states. The organization-required suite
+(`new-market-org.spec.ts`) covers the rule that every market must be created in an
+organization: it asserts the new-market overlay's org dropdown lists exactly the
+organizations from `GET /organizations`, that submission stays disabled until one is
+picked, that the created market is stamped with the chosen `organizationId`, and that
+a user belonging to no organization gets a disabled dropdown plus a link to
+`/organizations`. The floorplan suite
 (`floorplan.spec.ts`) drives the create-from-floorplan setup path end to end:
 it walks the Floorplan AI 5-step wizard (upload, scale calibration, table
 placement, section grouping, save) and verifies the resulting sections land
@@ -82,8 +96,9 @@ back in the setup wizard.
 Configuration: `front-end/playwright.config.ts` (auto-detects the worktree
 frontend port via `detectFrontendPort()`).
 
-**Prerequisite**: Docker stack running with seeded test user.
-Email: `e2e@example.com` (default, change via `TEST_EMAIL` env var when seeding).
+**Prerequisite**: Docker stack running with seeded test users.
+Email: `e2e@example.com` (default, change via `TEST_EMAIL` env var when seeding),
+plus the organization-less user `e2e-noorg@example.com` (change via `NO_ORG_EMAIL`).
 
 ### E2E Foundation
 
@@ -105,8 +120,18 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
 - **API-level seeding** (`front-end/e2e/helpers/seeds.ts`): all helpers use
   Playwright's `APIRequestContext` (cookies flow automatically) and require a
   verified test user created by `scripts/seed_fixture.sh`.
-  - `seedMarketWithVendors()` logs in, creates a market, and uploads a vendor
-    CSV via the back-end API.
+  - `loginViaApi()` logs in so the request context carries a Flask session cookie
+    and returns the user UUID.
+  - `ensureTestOrgAuthenticated()` returns the test user's first organization,
+    creating `E2E Test Org` if they have none. Use it when the request context has
+    already logged in; `ensureTestOrg()` wraps it with a login for contexts that have
+    not. Every market-creating helper and spec needs one of these, because
+    `POST /markets` rejects a payload without a valid `organizationId`. Specs that
+    create a market through the UI call it in `beforeAll` so the org dropdown is not
+    empty.
+  - `seedMarketWithVendors()` logs in, ensures an organization, creates a market in
+    it, and uploads a vendor CSV via the back-end API. The organization id is
+    returned as `orgId` on the seed result.
   - `seedPublishedMarketWithAssignments()` additionally configures the market's
     `setup_object` (column mapping, dates, sections, tiers, locations), publishes
     it (`isDraft: false`), then fetches the computed assignment via

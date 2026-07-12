@@ -560,7 +560,13 @@ def get_markets_by_owner_email() -> Response:
 @app.route('/markets', methods=['POST'])
 @login_required
 def create_market() -> Response:
-    """Create a new market."""
+    """Create a new market.
+
+    Every market belongs to an organization: the payload must carry an
+    `organizationId` that names an existing organization the requesting user
+    owns or belongs to (as admin or member). A missing, unknown, or
+    non-member organization is rejected with 400.
+    """
     try:
         data = request.json
         if not data:
@@ -584,6 +590,19 @@ def create_market() -> Response:
         owner_count = sum(1 for role in roles.values() if role == MarketRole.OWNER)
         if owner_count != 1:
             return jsonify({"error": "Market must have exactly one owner in roles dict"}), 400
+        
+        org_id = data.get('organization_id')
+        if not org_id:
+            return jsonify({"error": "organization_id is required"}), 400
+        
+        org = OrgsApi.get_organization(org_id)
+        if not org:
+            return jsonify({"error": "Organization not found"}), 400
+        
+        if (owner.id != org.get('owner')
+                and owner.id not in org.get('admins', [])
+                and owner.id not in org.get('members', [])):
+            return jsonify({"error": "User is not a member of this organization"}), 400
         
         # Create the market
         result, market_id = MarketsApi.create_market(market, owner_email)

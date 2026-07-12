@@ -1,5 +1,6 @@
 import { test, expect, TEST_USER, OrganizationsPage, ManageMarketPage, BACKEND_URL } from './fixtures';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { ensureTestOrgAuthenticated } from './helpers/seeds';
 
 const SECOND_USER = {
   email: 'e2e-second@example.com',
@@ -94,12 +95,15 @@ test.describe('Tier 2 - Market role management', () => {
     const loginBody = await loginRes.json() as { user_data: { id: string } };
     const userId = loginBody.user_data.id;
 
+    const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
+
     marketName = `E2E Market Roles ${Date.now()}`;
     const marketRes = await request.post(`${BACKEND_URL}/markets`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: {
         name: marketName,
         creationDate: new Date().toISOString(),
+        organizationId: orgId,
         roles: { [userId]: 'owner' },
         modificationList: [],
         assignmentObject: {},

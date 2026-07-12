@@ -1,11 +1,16 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { test, expect, MarketSetupPage, AssignmentResultsPage, NewMarketPage } from './fixtures';
+import { test, expect, MarketSetupPage, AssignmentResultsPage, NewMarketPage, BACKEND_URL, TEST_USER } from './fixtures';
+import { ensureTestOrg } from './helpers/seeds';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CSV_PATH = path.resolve(__dirname, 'fixtures', 'test-vendors.csv');
 
 test.describe('Market pipeline E2E', () => {
+  test.beforeAll(async ({ request }) => {
+    await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  });
+
   /**
    * Full end-to-end pipeline: create market with CSV upload, walk the 3-page
    * setup wizard, trigger assignment generation, and verify the results view.
@@ -28,6 +33,7 @@ test.describe('Market pipeline E2E', () => {
 
     // After CSV parsing, the name input appears
     await newMarketPage.waitForNameInput();
+    await newMarketPage.selectFirstOrg();
     await newMarketPage.fillMarketName(marketName);
 
     // Submit to create the market

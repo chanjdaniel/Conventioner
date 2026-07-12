@@ -44,9 +44,21 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `front-end/e2e/helpers/seedAssignedMarket.ts` exports `seedAssignedMarket()`, which
   also configures the market `setupObject` and triggers assignment via the API.
   Requires a verified test user (created by `scripts/seed_fixture.sh`).
+- **Markets require an organization**: `POST /markets` rejects a payload with no
+  `organizationId`, an unknown organization, or an organization the caller is not a
+  member of (400 each).
+  Anything that creates a market must therefore attach one: `seeds.ts` exports
+  `ensureTestOrgAuthenticated()` (already-logged-in request context) and
+  `ensureTestOrg()` (logs in first), both of which reuse the user's first organization
+  or create `E2E Test Org`, and the seed helpers return it as `orgId`.
+  Specs that create a market through the UI must call `ensureTestOrg()` in `beforeAll`,
+  otherwise the overlay's org dropdown is empty and submit stays disabled.
 - **Test user creation**: The back-end `/register-user` endpoint does NOT set `email_verified`,
   so users created through it cannot log in.
   Test users must be created via `back-end/create_test_user.py` which sets `email_verified=True`.
+  `scripts/seed_fixture.sh` creates two verified users: `TEST_EMAIL` (owns `Seed Test Org`)
+  and `NO_ORG_EMAIL` (`e2e-noorg@example.com`), which is deliberately left in no organization
+  so `new-market-org.spec.ts` can exercise the zero-org fallback.
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `detectFrontendPort()`.
 

@@ -1,12 +1,17 @@
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { test, expect, MarketSetupPage, NewMarketPage, FloorplanWorkflowPage } from './fixtures'
+import { test, expect, MarketSetupPage, NewMarketPage, FloorplanWorkflowPage, BACKEND_URL, TEST_USER } from './fixtures'
+import { ensureTestOrg } from './helpers/seeds'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const FLOORPLAN_PATH = path.resolve(__dirname, 'fixtures', 'test-floorplan.png')
 const CSV_PATH = path.resolve(__dirname, 'fixtures', 'test-vendors.csv')
 
 test.describe('Floorplan workflow E2E', () => {
+  test.beforeAll(async ({ request }) => {
+    await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password)
+  })
+
   test('create market from floorplan, complete wizard, and verify save', async ({
     authenticatedPage: page,
   }) => {
@@ -18,6 +23,7 @@ test.describe('Floorplan workflow E2E', () => {
     await newMarketPage.waitForOverlay()
     await newMarketPage.uploadCsv(CSV_PATH)
     await newMarketPage.waitForNameInput()
+    await newMarketPage.selectFirstOrg()
     await newMarketPage.fillMarketName(marketName)
     await newMarketPage.clickSubmit()
     await newMarketPage.waitForSetupRedirect()

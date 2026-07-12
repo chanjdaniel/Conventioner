@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ElementFileDrop from '@/components/elements/ElementFileDrop.vue';
-import { ref } from 'vue';
+import ElementOrgSelect from '@/components/elements/ElementOrgSelect.vue';
+import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market, MarketRole } from '@/assets/types/datatypes.ts'
 import axios from 'axios';
@@ -15,7 +16,12 @@ const uploadedFiles = ref<unknown>([]);
 const uploadedSourceData = ref<File[]>([]);
 const next = ref(false);
 const marketName = ref("");
+const selectedOrgId = ref("");
 const errorMessage = ref("");
+
+watch(selectedOrgId, () => {
+    errorMessage.value = "";
+});
 
 const handleFileUploaded = (files: unknown) => {
     uploadedFiles.value = files;
@@ -29,6 +35,11 @@ const handleSourceDataUploaded = (sourceData: File[]) => {
 const handleSubmit = async () => {
     errorMessage.value = ""; // Clear previous error
     
+    if (!selectedOrgId.value) {
+        errorMessage.value = "Organization is required";
+        return;
+    }
+    
     if (!marketName.value.trim()) {
         errorMessage.value = "Market name is required";
         return;
@@ -40,6 +51,7 @@ const handleSubmit = async () => {
             name: marketName.value,
             creationDate: new Date().toISOString(),
             isDraft: true,
+            organizationId: selectedOrgId.value,
             roles: {
                 [userEmail]: MarketRole.Owner
             },
@@ -96,24 +108,29 @@ const handleSubmit = async () => {
         <template v-else>
             <div class="window">
                 <h2>
-                    Enter market name
+                    Create new market
                 </h2>
+                <div class="org-select-container">
+                    <label class="org-select-label">Organization</label>
+                    <ElementOrgSelect v-model="selectedOrgId" />
+                </div>
                 <div class="input-wrapper">
                     <div style="width: 100%; height: 30px; display: grid; grid-template-columns: 1fr 3fr 1fr;">
                         <div></div>
                         <div class="text-input-container">
                             <input type="text" v-model="marketName" @keydown.enter="handleSubmit" @input="errorMessage = ''"
-                                style="all: unset; font-size: 14px; width: 100%; text-align: center;" data-testid="new-market-name-input" />
+                                style="all: unset; font-size: 14px; width: 100%; text-align: center;" placeholder="Market name" data-testid="new-market-name-input" />
                         </div>
                         <div style="padding-left: 10px">
-                            <button @click="handleSubmit"
-                                style="all: unset; height: 100%; width: 100%; cursor: pointer; opacity: 75%;" data-testid="new-market-submit-button">Submit</button>
+                            <button @click="handleSubmit" :disabled="!selectedOrgId"
+                                style="all: unset; height: 100%; width: 100%; cursor: pointer;"
+                                :style="{ opacity: selectedOrgId ? '75%' : '30%', cursor: selectedOrgId ? 'pointer' : 'not-allowed' }" data-testid="new-market-submit-button">Submit</button>
                         </div>
                     </div>
                     <p v-show="errorMessage" class="error-message">{{ errorMessage }}</p>
                 </div>
             </div>
-        </template>>
+        </template>
     </div>
 </template>
 
@@ -158,6 +175,22 @@ h3 {
     background: white;
     border-radius: 8px;
     z-index: 1;
+}
+
+.org-select-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.org-select-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .input-wrapper {
