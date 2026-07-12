@@ -1,8 +1,9 @@
 import uuid
 from typing import Optional, Dict, Any, List
 from pymongo.results import InsertOneResult, UpdateResult, DeleteResult
+from pydantic import BaseModel
 from bson import ObjectId
-from datatypes import Market, MarketRole, MarketTableRow, UnassignedTableEntry
+from datatypes import Market, MarketPhase, MarketRole, MarketTableRow, UnassignedTableEntry
 from assignment.assignment import assign_market
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
 import api.source_data as SourceDataApi
@@ -27,6 +28,29 @@ def _strip_persisted_assignment_statistics(market_dict: Dict[str, Any]) -> None:
     assignment_object = market_dict.get("assignment_object")
     if isinstance(assignment_object, dict):
         assignment_object.pop("assignment_statistics", None)
+
+
+def _preserve_server_owned_fields(
+    market_dict: Dict[str, Any], market: Market, existing_market: Market
+) -> None:
+    """Keep market state the update payload does not own.
+
+    `phase` is lifecycle state advanced by the server, never by an update body. The Conventioner
+    fields are carried over whenever the payload omits them, so a client that round-trips a market
+    it fetched cannot null them out; an explicit null still clears them.
+    """
+    market_dict["phase"] = existing_market.phase.value
+    for field in ("application_form", "review_config", "discord_guild_id"):
+        if field in market.model_fields_set:
+            continue
+        existing_value = getattr(existing_market, field)
+        if existing_value is None:
+            continue
+        market_dict[field] = (
+            existing_value.model_dump()
+            if isinstance(existing_value, BaseModel)
+            else existing_value
+        )
 
 
 def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
@@ -273,6 +297,7 @@ def create_market(market: Market, owner_email: str) -> tuple:
     """Create a new market."""
     market_dict = market.model_dump()
     _strip_persisted_assignment_statistics(market_dict)
+    market_dict["phase"] = MarketPhase.DRAFT.value
     roles = market_dict.get('roles', {})
     roles = _convert_roles_keys_to_user_ids(roles)
     market_dict["roles"] = roles
@@ -331,6 +356,7 @@ def update_market(market_id: str, market: Market, requesting_user: str) -> Updat
     
     market_dict = market.model_dump()
     _strip_persisted_assignment_statistics(market_dict)
+    _preserve_server_owned_fields(market_dict, market, existing_market)
     market_dict["roles"] = _convert_roles_keys_to_user_ids(market_dict.get("roles", {}))
     market_dict = convert_keys_to_camel_case(market_dict)
     

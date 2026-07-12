@@ -6,11 +6,12 @@ This document provides a comprehensive audit of all types, objects, and their re
 1. [Core Domain Objects](#core-domain-objects)
 2. [Market Configuration Objects](#market-configuration-objects)
 3. [Assignment Objects](#assignment-objects)
-4. [Supporting Types](#supporting-types)
-5. [Database Collections](#database-collections)
-6. [Relationship Diagrams](#relationship-diagrams)
-7. [Data Flow](#data-flow)
-8. [Permission System](#permission-system)
+4. [Application Objects](#application-objects)
+5. [Supporting Types](#supporting-types)
+6. [Database Collections](#database-collections)
+7. [Relationship Diagrams](#relationship-diagrams)
+8. [Data Flow](#data-flow)
+9. [Permission System](#permission-system)
 
 ---
 
@@ -91,6 +92,11 @@ The central entity representing a market event with configuration, assignments, 
 - `modification_list: List[ModificationObject]` - List of modifications (currently empty structure)
 - `assignment_object: AssignmentObject` - Contains vendor assignment results and statistics
 - `is_draft: bool` - Stored as `isDraft` in MongoDB (camelCase). Default **true**: market setup is not finished. Set to **false** when the user completes the Generated Assignment flow (Done). While `true`, opening the market from the dashboard or Markets sends the user to market setup; when `false`, the SPA routes to `/{kebab-case-slug}` derived from the market **name** (e.g. `my-summer-market`).
+- `phase: MarketPhase` - Market lifecycle phase. Default **`DRAFT`**. Coexists with `is_draft` and is intended to replace it gradually; both are written today and existing code still reads `is_draft`. See [MarketPhase](#marketphase-enum).
+- `application_form: Optional[ApplicationForm]` - Application form definition for application-based markets (None for CSV-based markets)
+- `review_config: Optional[Dict[str, Any]]` - Free-form review configuration (reviewer pool, etc.); no fixed schema yet
+- `discord_guild_id: Optional[str]` - Per-market Discord guild reference (integration seam; not yet consumed)
+- `discord_webhook_url: Optional[str]` - Per-market Discord webhook target for assignment notifications (omitted/blank disables Discord notifications)
 
 **Relationships:**
 - **Many-to-Many with User**: Markets have multiple users with different roles (via `roles` dict, keys are user ids)
@@ -98,7 +104,13 @@ The central entity representing a market event with configuration, assignments, 
 - **One-to-One with SetupObject**: Each market has one setup configuration (optional)
 - **One-to-One with AssignmentObject**: Each market has one assignment result object
 - **One-to-One with SourceData**: Each market can have one source data CSV (stored separately in MongoDB)
+- **One-to-One with ApplicationForm**: Each market can have one application form (embedded, optional)
+- **One-to-Many with Application**: Applications reference the market via `Application.market_id` (model only; not yet persisted, see [Application Objects](#application-objects))
 - **Stored in**: MongoDB `markets` collection
+
+**Server-Owned Fields:**
+- `phase` is lifecycle state owned by the server, never by a client update body. `create_market()` always persists `phase: "draft"`, and `update_market()` re-applies the stored phase over whatever the payload contained.
+- `application_form`, `review_config`, and `discord_guild_id` are carried over on update whenever the payload omits them, so a client that round-trips a market it fetched cannot accidentally null them out. Passing an explicit `null` still clears the field.
 
 **Role System:**
 - **Owner** (exactly 1): Can manage all roles (Admin/Editor/Viewer), Edit, View
@@ -131,16 +143,25 @@ The central entity representing a market event with configuration, assignments, 
 Contains all configuration data needed to set up and run a market assignment.
 
 **Fields:**
-- `col_names: List[str]` - Column names from the uploaded CSV source data
-- `col_values: List[List[str]]` - Unique values for each column (used for filtering/prioritization)
-- `col_include: List[bool]` - Flags indicating which columns to include in assignment logic
-- `enum_priority_order: List[List[str]]` - Priority ordering for enum-type columns
+- `col_names: List[str]` - Column names from the uploaded CSV source data. Defaults to `[]`.
+- `col_values: List[List[str]]` - Unique values for each column (used for filtering/prioritization). Defaults to `[]`.
+- `col_include: List[bool]` - Flags indicating which columns to include in assignment logic. Defaults to `[]`.
+- `enum_priority_order: List[List[str]]` - Priority ordering for enum-type columns. Defaults to `[]`.
 - `priority: List[PriorityObject]` - List of priority rules for vendor assignment
 - `market_dates: List[MarketDateObject]` - List of market dates and their associated columns
 - `tiers: List[TierObject]` - List of tier levels (e.g., premium, standard)
 - `locations: List[LocationObject]` - List of physical locations
 - `sections: List[SectionObject]` - List of sections within locations
 - `assignment_options: AssignmentOptionObject` - Configuration options for assignment algorithm
+- `floorplans: Optional[List[FloorplanObject]]` - Saved floorplans for the market (optional)
+
+**CSV-Derived Fields Are Optional:**
+
+The four `col_*` fields above describe an uploaded CSV, so an application-based market has nothing to put in them.
+They default to empty lists rather than being required, and the same applies to `PriorityObject.col_name_idx` and `MarketDateObject.col_name_idx` (both `Optional[int]`, default `None`).
+
+Because the models no longer enforce them, the assignment algorithm validates them instead.
+`_validate_assignment_column_mappings()` (`back-end/assignment/assignment.py`) rejects a setup object that reaches the solver with an empty `col_names`, an unset or out-of-range index on `assignment_options` (email / table choice / table share; max days is optional), a `market_dates` entry with neither `col_name` nor a valid `col_name_idx`, or a `priority` entry whose `col_name_idx` is unset or out of range for `enum_priority_order`.
 
 **Relationships:**
 - **One-to-One with Market**: Each market has one SetupObject
@@ -160,7 +181,7 @@ Defines a priority rule for vendor assignment based on column values.
 
 **Fields:**
 - `id: int` - Unique identifier for this priority rule
-- `col_name_idx: int` - Index into `SetupObject.col_names` indicating which column to prioritize
+- `col_name_idx: Optional[int]` - Index into `SetupObject.col_names` indicating which column to prioritize. `None` on application-based markets; required (and validated against `enum_priority_order`) before assignment runs.
 - `data_type: DataType` - Type of data in the column (affects how prioritization works)
 - `sorting_order: str` - Sort order (e.g., "ascending", "descending")
 
@@ -177,12 +198,14 @@ Represents a market date and its associated data column.
 
 **Fields:**
 - `date: str` - ISO format date string
-- `col_name_idx: int` - Index into `SetupObject.col_names` indicating which column contains date availability data
+- `col_name_idx: Optional[int]` - Index into `SetupObject.col_names` indicating which column contains date availability data. `None` on application-based markets.
 - `col_name: Optional[str]` - Cached column name (populated during assignment processing)
 
 **Relationships:**
 - **Many-to-One with SetupObject**: Multiple MarketDateObjects belong to one SetupObject
 - **Used by Assignment**: Each MarketDateObject creates a DateAssignment during assignment processing
+
+**Note:** `col_name` and `col_name_idx` are still read at runtime by `record_attendance()` (`back-end/api/attendance.py`, which builds date aliases from `col_name`) and by `_calculate_date_flexibility()` (`back-end/assignment/assignment.py`). They are kept for CSV-backed markets and are removed only once the solver adapter and attendance redesign land.
 
 ---
 
@@ -244,10 +267,16 @@ Configuration options that control the assignment algorithm behavior.
 **Fields:**
 - `max_assignments_per_vendor: Optional[int]` - Maximum number of table assignments per vendor (None = unlimited)
 - `max_half_table_proportion_per_section: Optional[int]` - Maximum proportion of half tables per section (None = unlimited)
+- `email_col_name_idx: Optional[int]` - Index of the vendor email column. Required before assignment runs.
+- `table_choice_col_name_idx: Optional[int]` - Index of the table choice column. Required before assignment runs.
+- `table_share_email_col_name_idx: Optional[int]` - Index of the table-share partner email column. Required before assignment runs.
+- `max_days_col_name_idx: Optional[int]` - Index of the per-vendor max-days column. Genuinely optional (None = no per-vendor cap from CSV, only global caps).
 
 **Relationships:**
 - **One-to-One with SetupObject**: Each SetupObject has one AssignmentOptionObject
 - **Used by Assignment Algorithm**: Controls assignment constraints
+
+**Note:** All four column indices are `Optional` on the model but validated by `_validate_assignment_column_mappings()` when assignment runs. There are no legacy default column names to fall back on.
 
 **Note:** Commented fields suggest future features:
 - `use_totally_random_assignment: bool`
@@ -338,6 +367,74 @@ Statistical summary of an assignment operation.
 
 ---
 
+## Application Objects
+
+These models back the application-based market flow (vendors apply through a form instead of being imported from a CSV).
+
+**Status:** the models and their camelCase contracts exist today, and `ApplicationForm` is reachable through `Market.application_form`.
+`Application` itself is a model only: there is no `applications` collection and no endpoints that read or write one yet.
+Both land in a later phase.
+
+### ApplicationForm
+**Location:** `back-end/datatypes.py`
+
+The application form definition for a market.
+
+**Fields:**
+- `fields: List[FormField]` - Ordered list of form fields
+- `published_at: Optional[str]` - ISO timestamp set when the form is published. Locks the form once applications exist.
+
+**Relationships:**
+- **One-to-One with Market**: Embedded in `Market.application_form` (optional; None for CSV-based markets)
+- **One-to-Many with FormField**: Contains multiple form fields
+
+---
+
+### FormField
+**Location:** `back-end/datatypes.py`
+
+A single field in an application form.
+
+**Fields:**
+- `key: str` - Machine name (e.g., `business_name`); the key used in `Application.form_data`
+- `label: str` - Human-readable label (e.g., "Business Name")
+- `type: str` - Field type: `text`, `number`, `select`, `multi_select`, `checkbox`, `date`, `email`, or `file`
+- `required: bool` - Whether the field must be filled. Default **false**.
+- `options: List[str]` - Choices for `select` / `multi_select` fields. Default `[]`.
+- `help_text: Optional[str]` - Optional helper text shown under the field
+- `order: int` - Display order. Default **0**.
+
+**Relationships:**
+- **Many-to-One with ApplicationForm**: Multiple FormFields belong to one ApplicationForm
+- **Referenced by Application**: `Application.form_data` is keyed by `FormField.key`
+
+---
+
+### Application
+**Location:** `back-end/datatypes.py`
+
+A vendor's submitted application to a market.
+
+**Fields:**
+- `id: str` - UUID, immutable primary key
+- `market_id: str` - References `Market.id`
+- `applicant_email: str` - The applicant's email (also the login key for the applicant portal)
+- `form_data: Dict[str, Any]` - Submitted answers, keyed by `FormField.key`
+- `status: ApplicationStatus` - Current state in the application state machine
+- `application_type: ApplicationType` - `MAIN` or `WAITLIST`. Default **`MAIN`**.
+- `main_application_id: Optional[str]` - References the main `Application.id` a waitlist entry was prefilled from
+- `submitted_at: Optional[str]` - ISO timestamp of submission
+- `updated_at: str` - ISO timestamp of the last update. Defaults to now.
+- `otp`, `otp_expires`, `otp_attempts` - Email-key login state for the applicant (mirrors `User`)
+- `assigned_reviewer_id: Optional[str]` - References the `User.id` of the assigned reviewer
+
+**Relationships:**
+- **Many-to-One with Market**: Multiple Applications belong to one Market (via `market_id`)
+- **Many-to-One with Application**: A waitlist Application can reference a main Application (via `main_application_id`)
+- **Uses ApplicationStatus / ApplicationType**: References both enums
+
+---
+
 ## Supporting Types
 
 ### DataType (Enum)
@@ -377,6 +474,61 @@ Owner (4) > Admin (3) > Editor (2) > Viewer (1)
 **Relationships:**
 - **Used by Market**: Stored in `Market.roles` dictionary
 - **Used by Permission System**: Determines user access levels
+
+---
+
+### MarketPhase (Enum)
+**Location:** `back-end/datatypes.py`
+
+The market lifecycle. A market moves forward through these phases; the phase drives which operations are available.
+
+**Values:**
+- `DRAFT = "draft"` - Being configured; not yet accepting applications. Default for new markets.
+- `APPLICATIONS_OPEN = "applications_open"` - Vendors can submit applications
+- `APPLICATIONS_CLOSED = "applications_closed"` - Submission window has closed
+- `REVIEW = "review"` - Reviewers are triaging applications
+- `ASSIGNMENT = "assignment"` - Tables are being assigned
+- `OFFERS = "offers"` - Assignments have been sent; vendors accept or refuse
+- `MARKET_DAYS = "market_days"` - The market is running (check-in is live)
+- `ARCHIVED = "archived"` - Read-only
+
+**Relationships:**
+- **Used by Market**: Stored in `Market.phase`, server-owned (see [Market](#market))
+- **Coexists with `is_draft`**: `is_draft` is still the field existing code reads. `phase` is written alongside it and takes over gradually.
+
+---
+
+### ApplicationStatus (Enum)
+**Location:** `back-end/datatypes.py`
+
+The application state machine. An application occupies exactly one of these states.
+
+**Values:**
+- `OPEN = "open"` - Submitted, not yet picked up
+- `UNDER_REVIEW = "under_review"` - A reviewer is working on it
+- `REVIEWER_APPROVED = "reviewer_approved"` - Approved by a reviewer
+- `REVIEWER_REJECTED = "reviewer_rejected"` - Rejected by a reviewer
+- `UNASSIGNED = "unassigned"` - Approved but no table assigned
+- `ASSIGNED = "assigned"` - A table has been assigned
+- `ASSIGNMENT_SENT = "assignment_sent"` - The offer has been sent to the vendor
+- `VENDOR_ACCEPTED = "vendor_accepted"` - The vendor accepted the offer
+- `VENDOR_REFUSED = "vendor_refused"` - The vendor declined the offer
+- `CANCELLED = "cancelled"` - Withdrawn or cancelled
+
+**Relationships:**
+- **Used by Application**: Stored in `Application.status`
+
+---
+
+### ApplicationType (Enum)
+**Location:** `back-end/datatypes.py`
+
+**Values:**
+- `MAIN = "main"` - A normal application
+- `WAITLIST = "waitlist"` - A waitlist entry, optionally prefilled from a main application via `Application.main_application_id`
+
+**Relationships:**
+- **Used by Application**: Stored in `Application.application_type`
 
 ---
 
@@ -426,11 +578,12 @@ The system uses MongoDB with the following collections:
 - **Authentication**: Used by Flask-Login for session management (lookup by email)
 
 #### `markets` Collection
-- **Document Structure**: Matches `Market` datatype (with camelCase keys in database), including `isDraft` for draft vs. completed setup
+- **Document Structure**: Matches `Market` datatype (with camelCase keys in database), including `isDraft` for draft vs. completed setup and `phase` for the market lifecycle
 - **Primary Key**: `id` field (UUID)
 - **Operations**: Create, read, update, delete via `api/markets.py`
 - **Key Conversion**: Uses snake_case ↔ camelCase conversion utilities
 - **Indexing**: Markets are queried by id; roles dict keys are user ids
+- **Backfilling `phase`**: Market documents written before `phase` existed have no such field. `back-end/migrations/migrate_phase.py` backfills them (`isDraft: true` → `draft`, `isDraft: false` → `archived`, the safe default given archives are read-only). It is idempotent and supports `--dry-run`. Documents without `phase` still load: the model defaults them to `DRAFT`.
 
 #### `organizations` Collection
 - **Document Structure**: Matches `Organization` datatype (with camelCase keys in database)
@@ -516,6 +669,8 @@ The permission system determines user access to markets through a two-tier resol
 Market
 ├── roles: Dict[str, MarketRole] (many-to-many with User, keys are user ids)
 ├── organization_id: Optional[str] (many-to-one with Organization)
+├── phase: MarketPhase (lifecycle, server-owned, default DRAFT)
+├── is_draft: bool (legacy draft flag, still read by existing code)
 ├── theme: Optional[ThemeObject]
 ├── SetupObject (1:1, optional)
 │   ├── PriorityObject[] (1:many)
@@ -526,10 +681,17 @@ Market
 │   │   ├── LocationObject (many:1, optional)
 │   │   └── TierObject (many:1, optional)
 │   └── AssignmentOptionObject (1:1)
+├── ApplicationForm (1:1, optional)
+│   └── FormField[] (1:many)
 ├── ModificationObject[] (1:many, currently unused)
 └── AssignmentObject (1:1)
     ├── VendorAssignmentResult[] (1:many)
     └── AssignmentStatistics (1:1, optional)
+
+Application (many:1 with Market, via market_id; model only, not yet persisted)
+├── status: ApplicationStatus
+├── application_type: ApplicationType
+└── main_application_id: Optional[str] (many:1 with Application, waitlist prefill)
 ```
 
 ### User-Market Access Control
@@ -667,6 +829,8 @@ SourceData (CSV)
 - `SectionObject.location` and `tier` are optional (sections can exist independently)
 - `Market.organization_id` is optional (markets can be standalone)
 - `Market.theme` and `Organization.theme` are optional
+- `Market.application_form`, `review_config`, and `discord_guild_id` are optional (None on CSV-based markets)
+- The CSV-derived fields (`SetupObject.col_names` / `col_values` / `col_include` / `enum_priority_order`, `PriorityObject.col_name_idx`, `MarketDateObject.col_name_idx`, and the `AssignmentOptionObject` column indices) are optional so application-based markets can omit them. The assignment algorithm validates them instead of the models. See [SetupObject](#setupobject).
 
 ### 5. Permission Resolution
 - Two-tier resolution: explicit role first, then organization membership
@@ -677,6 +841,11 @@ SourceData (CSV)
 - Organization theme takes precedence over market theme
 - If `Market.organization_id` is set → use `Organization.theme`
 - Else → use `Market.theme` (or default if neither exists)
+
+### 7. Additive Schema Evolution
+- New fields are added alongside the fields they will eventually replace, never in place of them: `Market.phase` ships next to `Market.is_draft`, and the CSV-derived fields are relaxed to optional rather than deleted.
+- Old documents therefore keep loading without a migration, and code moves to the new field one call site at a time.
+- Migration scripts (like `migrations/migrate_phase.py`) backfill the new field so it is queryable, but the model defaults keep documents valid even before the migration runs.
 
 ---
 

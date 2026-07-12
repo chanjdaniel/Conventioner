@@ -25,11 +25,14 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-63 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
-column mapping, schema generation, role validation, and CAPTCHA verification/bypass.
+108 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
+column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
+Conventioner data model (market phases, application form/status models, and backward
+compatibility with existing market documents), the `phase` backfill migration, and the
+server-owned market fields preserved across updates.
 
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
-(tests use in-memory fakes).
+(tests use in-memory fakes). Shared module stubs live in `back-end/tests/conftest.py`.
 
 ## Front-End Unit Tests
 
@@ -38,8 +41,10 @@ cd front-end
 npm run test:unit
 ```
 
-Tests cover the API client interceptor (automatic `X-Owner-Email` header injection).
-Add more component tests in `front-end/src/__tests__/`.
+Tests cover the API client interceptor (automatic `X-Owner-Email` header injection) and
+`parseMarketFromApi()` (`market.test.ts`), which round-trips the market `phase`,
+application form, review config, and Discord guild id, and leaves them undefined when the
+API omits them. Add more component tests in `front-end/src/__tests__/`.
 
 Configuration: `front-end/vitest.config.ts` with `happy-dom` environment.
 

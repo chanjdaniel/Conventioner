@@ -297,6 +297,7 @@ Conventioner/
    - Python scripts in `back-end/migrations/`
    - Run migrations to update schema
    - Example: `python back-end/migrations/add_email_verification.py`
+   - `migrate_phase.py` backfills `phase` on existing market documents (`isDraft: true` → `draft`, `isDraft: false` → `archived`). It is idempotent, and `--dry-run` previews the changes without applying them.
 
 ## External Services
 

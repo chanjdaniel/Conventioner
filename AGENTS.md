@@ -98,3 +98,27 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - After publishing (`isDraft: false`) with a configured `setup_object`, you must fetch the
   computed assignment via `GET /markets/{id}/assignment` and store it back via PUT.
   The stored `assignmentObject.vendorAssignments` is what `record_attendance` reads at check-in time.
+
+## CSV Field Runtime Coupling (Conventioner sharp edge)
+
+- `col_name` and `col_name_idx` on `MarketDateObject` (in `back-end/datatypes.py`) are
+  used at runtime in two places that CANNOT be removed until Phase 5 of Conventioner:
+  - `back-end/api/attendance.py:67-75` - `record_attendance()` builds date aliases from
+    `md.get("col_name")`. Without it, public check-in for existing markets breaks.
+  - `back-end/assignment/assignment.py:53` - `_calculate_date_flexibility()` resolves
+    dates via `market_date.col_name`. Without it, the solver fails for existing markets.
+- These fields are kept Optional with `None` defaults on the Pydantic models during
+  Phases 1-4. New application-based markets leave them `None`. Existing CSV-backed
+  markets retain their values.
+- The same backward-compat strategy applies to the other CSV-derived fields on
+  `SetupObject`, `PriorityObject`, and `AssignmentOptionObject`: keep them Optional,
+  remove them in Phase 5 when the solver adapter and attendance redesign land.
+- Do NOT delete `is_draft` from the `Market` model. Existing code reads it. The new
+  `phase` field is added alongside it; code migrates to `phase` checks gradually.
+
+## Maintaining this file
+
+Keep this file for knowledge useful to almost every future agent session in this project.
+Do not repeat what the codebase already shows; point to the authoritative file or command instead.
+Prefer rewriting or pruning existing entries over appending new ones.
+When updating this file, preserve this bar for all agents and keep entries concise.

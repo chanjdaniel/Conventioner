@@ -21,6 +21,17 @@ class MarketRole(str, Enum):
     VIEWER = "viewer"
 
 
+class MarketPhase(str, Enum):
+    DRAFT = "draft"
+    APPLICATIONS_OPEN = "applications_open"
+    APPLICATIONS_CLOSED = "applications_closed"
+    REVIEW = "review"
+    ASSIGNMENT = "assignment"
+    OFFERS = "offers"
+    MARKET_DAYS = "market_days"
+    ARCHIVED = "archived"
+
+
 class OrganizationRole(str, Enum):
     OWNER = "owner"
     ADMIN = "admin"
@@ -53,14 +64,14 @@ class MarketTableRow(BaseModel):
 
 class PriorityObject(BaseModel):
     id: int
-    col_name_idx: int
+    col_name_idx: Optional[int] = None
     data_type: DataType
     sorting_order: str
 
 
 class MarketDateObject(BaseModel):
     date: str
-    col_name_idx: int
+    col_name_idx: Optional[int] = None
     col_name: Optional[str] = None
 
 
@@ -94,10 +105,10 @@ class AssignmentOptionObject(BaseModel):
 
 
 class SetupObject(BaseModel):
-    col_names: List[str]
-    col_values: List[List[str]]
-    col_include: List[bool]
-    enum_priority_order: List[List[str]]
+    col_names: List[str] = []
+    col_values: List[List[str]] = []
+    col_include: List[bool] = []
+    enum_priority_order: List[List[str]] = []
     priority: List[PriorityObject]
     market_dates: List[MarketDateObject]
     tiers: List[TierObject]
@@ -189,6 +200,10 @@ class Market(BaseModel):
     modification_list: List[ModificationObject]
     assignment_object: AssignmentObject
     is_draft: bool = True  # False after user completes setup (Generated Assignment Done)
+    phase: MarketPhase = MarketPhase.DRAFT  # Market lifecycle phase (replaces is_draft gradually)
+    application_form: Optional["ApplicationForm"] = None  # Application form definition
+    review_config: Optional[Dict[str, Any]] = None  # Review configuration (reviewer pool, etc.)
+    discord_guild_id: Optional[str] = None  # Per-market Discord guild reference (D4 integration seam)
     discord_webhook_url: Optional[str] = None  # Per-market Discord webhook target for assignment notifications
 
     @model_validator(mode='after')
@@ -236,6 +251,55 @@ class User(BaseModel):
     otp_attempts: int = 0
 
 
+class ApplicationStatus(str, Enum):
+    OPEN = "open"
+    UNDER_REVIEW = "under_review"
+    REVIEWER_APPROVED = "reviewer_approved"
+    REVIEWER_REJECTED = "reviewer_rejected"
+    UNASSIGNED = "unassigned"
+    ASSIGNED = "assigned"
+    ASSIGNMENT_SENT = "assignment_sent"
+    VENDOR_ACCEPTED = "vendor_accepted"
+    VENDOR_REFUSED = "vendor_refused"
+    CANCELLED = "cancelled"
+
+
+class ApplicationType(str, Enum):
+    MAIN = "main"
+    WAITLIST = "waitlist"
+
+
+class FormField(BaseModel):
+    key: str                       # machine name (e.g., "business_name")
+    label: str                     # human label (e.g., "Business Name")
+    type: str                      # "text", "number", "select", "multi_select", "checkbox", "date", "email", "file"
+    required: bool = False
+    options: List[str] = []        # for select/multi_select
+    help_text: Optional[str] = None
+    order: int = 0                 # display order
+
+
+class ApplicationForm(BaseModel):
+    fields: List[FormField]
+    published_at: Optional[str] = None  # locks form when applications exist (D9)
+
+
+class Application(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    market_id: str                        # FK to Market
+    applicant_email: str                  # the applicant's email
+    form_data: Dict[str, Any]             # { field_key: value }
+    status: ApplicationStatus
+    application_type: ApplicationType = ApplicationType.MAIN
+    main_application_id: Optional[str] = None  # FK for waitlist prefill (D11)
+    submitted_at: Optional[str] = None
+    updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+    otp: Optional[str] = None             # for email-key login
+    otp_expires: Optional[str] = None
+    otp_attempts: int = 0
+    assigned_reviewer_id: Optional[str] = None
+
+
 def to_camel(string: str) -> str:
     parts = string.split("_")
     return parts[0] + "".join(word.capitalize() for word in parts[1:])
@@ -270,15 +334,15 @@ class MarketTableRowContract(ContractModel):
 
 
 class PriorityContract(ContractModel):
-    col_name_idx: int
+    col_name_idx: Optional[int] = None
     data_type: DataType
     id: int
     sorting_order: str
 
 
 class MarketDateContract(ContractModel):
-    col_name: str
-    col_name_idx: int
+    col_name: Optional[str] = None
+    col_name_idx: Optional[int] = None
     date: str
 
 
@@ -305,10 +369,10 @@ class UnassignedTableEntryContract(ContractModel):
 
 class SetupObjectContract(ContractModel):
     assignment_options: AssignmentOptionContract
-    col_include: List[bool]
-    col_names: List[str]
-    col_values: List[List[str]]
-    enum_priority_order: List[List[str]]
+    col_include: List[bool] = []
+    col_names: List[str] = []
+    col_values: List[List[str]] = []
+    enum_priority_order: List[List[str]] = []
     locations: List[LocationContract]
     market_dates: List[MarketDateContract]
     priority: List[PriorityContract]
@@ -458,15 +522,28 @@ class FloorplanTemplateContract(FloorplanTemplate, ContractModel):
     pass
 
 
+class FormFieldContract(FormField, ContractModel):
+    """Camel-cased contract view of an application form field."""
+
+
+class ApplicationFormContract(ContractModel):
+    fields: List[FormFieldContract]
+    published_at: Optional[str] = None
+
+
 class MarketSchemaContract(ContractModel):
+    application_form: Optional[ApplicationFormContract] = None
     assignment_object: AssignmentObjectContract
     creation_date: str
+    discord_guild_id: Optional[str] = None
+    discord_webhook_url: Optional[str] = None
     id: str
     is_draft: Optional[bool] = None
     modification_list: List[ModificationObject]
     name: str
     organization_id: Optional[str] = None
+    phase: Optional[str] = None
+    review_config: Optional[Dict[str, Any]] = None
     roles: Dict[str, str]
     setup_object: Optional[SetupObjectContract]
     user_role: Optional[str] = None
-    discord_webhook_url: Optional[str] = None

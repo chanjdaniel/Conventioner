@@ -4,6 +4,7 @@
     "name": "Spring Makers Fair",
     "creationDate": "2026-04-10",
     "isDraft": true,
+    "phase": "draft",
     "roles": {
       "user-1": "owner"
     },
@@ -20,6 +21,7 @@
     "id": "market-456",
     "name": "Summer Night Market",
     "creationDate": "2026-04-12",
+    "phase": "market_days",
     "roles": {
       "user-2": "admin",
       "user-3": "editor"
@@ -140,5 +142,53 @@
       }
     },
     "userRole": "admin"
+  },
+  {
+    "id": "market-789",
+    "name": "Autumn Artisan Expo",
+    "creationDate": "2026-04-14",
+    "phase": "applications_open",
+    "roles": {
+      "user-4": "owner"
+    },
+    "setupObject": null,
+    "applicationForm": {
+      "fields": [
+        {
+          "key": "business_name",
+          "label": "Business Name",
+          "type": "text",
+          "required": true,
+          "options": [],
+          "order": 0
+        },
+        {
+          "key": "category",
+          "label": "Category",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Ceramics",
+            "Jewellery",
+            "Textiles"
+          ],
+          "helpText": "Pick the category that best fits your work.",
+          "order": 1
+        }
+      ],
+      "publishedAt": "2026-04-15T09:00:00"
+    },
+    "reviewConfig": {
+      "reviewers": [
+        "reviewer@example.com"
+      ]
+    },
+    "discordGuildId": "123456789012345678",
+    "modificationList": [],
+    "assignmentObject": {
+      "vendorAssignments": [],
+      "assignmentDate": "",
+      "assignmentStatistics": null
+    }
   }
 ]

@@ -175,26 +175,48 @@ class DateAssignment:
 
 
 def _validate_assignment_column_mappings(setup_object: SetupObject) -> None:
-    """Require email, table choice, and table share columns; max days is optional (null = no per-vendor cap)."""
+    """Require every column index the solver dereferences to be set and in range.
+
+    The CSV-derived fields are optional on the models so application-based markets can omit
+    them, so a setup object that reaches the solver has to be checked here instead.
+    """
     ao = setup_object.assignment_options
     n = len(setup_object.col_names)
+    if n == 0:
+        raise ValueError(
+            "setup_object.col_names is empty; this market has no CSV columns to map"
+        )
 
     def require_idx(field: str, idx: Optional[int]) -> None:
         if idx is None:
             raise ValueError(
-                f"setup_object.assignment_options.{field} must be set to a column index (no legacy default names)"
+                f"setup_object.{field} must be set to a column index (no legacy default names)"
             )
         i = int(idx)
         if i < 0 or i >= n:
             raise ValueError(
-                f"setup_object.assignment_options.{field} must be a valid column index (0..{n - 1})"
+                f"setup_object.{field} must be a valid column index (0..{n - 1})"
             )
 
-    require_idx("email_col_name_idx", ao.email_col_name_idx)
-    require_idx("table_choice_col_name_idx", ao.table_choice_col_name_idx)
-    require_idx("table_share_email_col_name_idx", ao.table_share_email_col_name_idx)
+    require_idx("assignment_options.email_col_name_idx", ao.email_col_name_idx)
+    require_idx("assignment_options.table_choice_col_name_idx", ao.table_choice_col_name_idx)
+    require_idx("assignment_options.table_share_email_col_name_idx", ao.table_share_email_col_name_idx)
     if ao.max_days_col_name_idx is not None:
-        require_idx("max_days_col_name_idx", ao.max_days_col_name_idx)
+        require_idx("assignment_options.max_days_col_name_idx", ao.max_days_col_name_idx)
+
+    for i, market_date in enumerate(setup_object.market_dates):
+        if not market_date.col_name:
+            require_idx(f"market_dates[{i}].col_name_idx", market_date.col_name_idx)
+
+    enum_count = len(setup_object.enum_priority_order)
+    for i, priority_item in enumerate(setup_object.priority):
+        field = f"priority[{i}].col_name_idx"
+        require_idx(field, priority_item.col_name_idx)
+        if priority_item.col_name_idx >= enum_count:
+            raise ValueError(
+                f"setup_object.{field} ({priority_item.col_name_idx}) is out of range for "
+                f"setup_object.enum_priority_order (length {enum_count})"
+            )
 
 
 class MarketAssignment:

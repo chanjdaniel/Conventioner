@@ -1,4 +1,4 @@
-import { type Market, MarketRole } from '@/assets/types/datatypes';
+import { type ApplicationForm, type Market, type MarketPhase, MarketRole } from '@/assets/types/datatypes';
 import { marketNameToKebabSlug } from '@/utils/marketSlug';
 
 /**
@@ -28,6 +28,8 @@ export function parseMarketFromApi(market: any): Market {
         }
     }
     const roleEmails = market.roleEmails ?? market.role_emails ?? {};
+    const phaseRaw = market.phase;
+    const applicationForm = market.applicationForm ?? market.application_form;
     return {
         id: market.id,
         name: market.name,
@@ -39,6 +41,7 @@ export function parseMarketFromApi(market: any): Market {
         theme: market.theme,
         userRole: userRoleRaw ? (userRoleRaw as MarketRole) : undefined,
         isDraft: market.isDraft ?? market.is_draft ?? true,
+        phase: phaseRaw ? (phaseRaw as MarketPhase) : undefined,
         setupObject: {
             colNames: market.setupObject?.colNames || [],
             colValues: market.setupObject?.colValues || [],
@@ -79,6 +82,9 @@ export function parseMarketFromApi(market: any): Market {
             totalTablesAssigned: 0,
             assignmentStatistics: null,
         },
+        applicationForm: applicationForm ? (applicationForm as ApplicationForm) : undefined,
+        reviewConfig: market.reviewConfig ?? market.review_config ?? undefined,
+        discordGuildId: market.discordGuildId ?? market.discord_guild_id ?? undefined,
         discordWebhookUrl:
             market.discordWebhookUrl ??
             market.discord_webhook_url ??

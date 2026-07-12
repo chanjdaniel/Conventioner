@@ -8,8 +8,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from assignment.assignment import assign_market, MarketAssignment, _validate_assignment_column_mappings
 from datatypes import (
+    DataType,
     Market,
     MarketRole,
+    PriorityObject,
     SetupObject,
     MarketDateObject,
     TierObject,
@@ -108,6 +110,67 @@ def test_missing_required_column_mapping_raises(mapping_setup_and_source):
         _validate_assignment_column_mappings(bad)
     with pytest.raises(ValueError, match="email_col_name_idx"):
         MarketAssignment(bad, source_data)
+
+
+def test_market_date_without_col_name_or_idx_raises(mapping_setup_and_source):
+    """CSV fields are Optional on the models, so the solver must reject unresolvable dates."""
+    setup, source_data = mapping_setup_and_source
+    bad = copy.deepcopy(setup)
+    bad.market_dates[0].col_name = None
+    bad.market_dates[0].col_name_idx = None
+    with pytest.raises(ValueError, match=r"market_dates\[0\].col_name_idx"):
+        _validate_assignment_column_mappings(bad)
+    with pytest.raises(ValueError, match=r"market_dates\[0\].col_name_idx"):
+        MarketAssignment(bad, source_data)
+
+
+def test_market_date_col_name_idx_out_of_range_raises(mapping_setup_and_source):
+    setup, source_data = mapping_setup_and_source
+    bad = copy.deepcopy(setup)
+    bad.market_dates[0].col_name = None
+    bad.market_dates[0].col_name_idx = 99
+    with pytest.raises(ValueError, match=r"market_dates\[0\].col_name_idx"):
+        MarketAssignment(bad, source_data)
+
+
+def test_priority_without_col_name_idx_raises(mapping_setup_and_source):
+    setup, source_data = mapping_setup_and_source
+    bad = copy.deepcopy(setup)
+    bad.priority = [PriorityObject(id=1, col_name_idx=None, data_type=DataType.STRING, sorting_order="asc")]
+    with pytest.raises(ValueError, match=r"priority\[0\].col_name_idx"):
+        _validate_assignment_column_mappings(bad)
+    with pytest.raises(ValueError, match=r"priority\[0\].col_name_idx"):
+        MarketAssignment(bad, source_data)
+
+
+def test_priority_without_enum_priority_order_entry_raises(mapping_setup_and_source):
+    """An empty enum_priority_order must fail at the boundary, not IndexError inside the solver."""
+    setup, source_data = mapping_setup_and_source
+    bad = copy.deepcopy(setup)
+    bad.enum_priority_order = []
+    bad.priority = [PriorityObject(id=1, col_name_idx=1, data_type=DataType.STRING, sorting_order="asc")]
+    with pytest.raises(ValueError, match="enum_priority_order"):
+        _validate_assignment_column_mappings(bad)
+    with pytest.raises(ValueError, match="enum_priority_order"):
+        MarketAssignment(bad, source_data)
+
+
+def test_empty_col_names_raises_a_message_about_the_missing_columns(mapping_setup_and_source):
+    """col_names defaults to [] for application-based markets; the solver must say so plainly."""
+    setup, source_data = mapping_setup_and_source
+    bad = copy.deepcopy(setup)
+    bad.col_names = []
+    with pytest.raises(ValueError, match="col_names is empty"):
+        _validate_assignment_column_mappings(bad)
+    with pytest.raises(ValueError, match="col_names is empty"):
+        MarketAssignment(bad, source_data)
+
+
+def test_valid_priority_mapping_passes(mapping_setup_and_source):
+    setup, source_data = mapping_setup_and_source
+    setup.priority = [PriorityObject(id=1, col_name_idx=1, data_type=DataType.STRING, sorting_order="asc")]
+    _validate_assignment_column_mappings(setup)
+    assert len(MarketAssignment(setup, source_data).vendors) == 2
 
 
 def test_max_days_unmapped_skips_per_vendor_cap(mapping_setup_and_source):

@@ -14,6 +14,17 @@ export enum MarketRole {
     Viewer = "viewer",
 }
 
+export enum MarketPhase {
+    Draft = "draft",
+    ApplicationsOpen = "applications_open",
+    ApplicationsClosed = "applications_closed",
+    Review = "review",
+    Assignment = "assignment",
+    Offers = "offers",
+    MarketDays = "market_days",
+    Archived = "archived",
+}
+
 export enum OrganizationRole {
     Owner = "owner",
     Admin = "admin",
@@ -128,6 +139,8 @@ export interface Market {
     creationDate: string,
     /** False after user completes setup (Generated Assignment Done). Omitted in old data = treat as draft. */
     isDraft?: boolean,
+    /** Market lifecycle phase (replaces is_draft over time). Omitted in old data = treat as draft. */
+    phase?: MarketPhase,
     roles: Record<string, MarketRole>,  // Map of user_id -> role
     roleEmails?: Record<string, string>,  // Map of user_id -> email (for display)
     organizationId?: string | null,
@@ -136,6 +149,9 @@ export interface Market {
     setupObject: SetupObject | null,
     modificationList: ModificationObject[],
     assignmentObject: AssignmentObject,
+    applicationForm?: ApplicationForm,
+    reviewConfig?: Record<string, unknown>,
+    discordGuildId?: string,
     userRole?: MarketRole,  // User's effective role (added by API)
     /** Per-market Discord webhook URL; omitted/blank disables Discord notifications. */
     discordWebhookUrl?: string | null,
@@ -162,6 +178,52 @@ export interface VendorAttendance {
     vendorEmail: string,
     date: string,
     checkedInAt: string,
+}
+
+export enum ApplicationStatus {
+    Open = "open",
+    UnderReview = "under_review",
+    ReviewerApproved = "reviewer_approved",
+    ReviewerRejected = "reviewer_rejected",
+    Unassigned = "unassigned",
+    Assigned = "assigned",
+    AssignmentSent = "assignment_sent",
+    VendorAccepted = "vendor_accepted",
+    VendorRefused = "vendor_refused",
+    Cancelled = "cancelled",
+}
+
+export enum ApplicationType {
+    Main = "main",
+    Waitlist = "waitlist",
+}
+
+export interface FormField {
+    key: string,
+    label: string,
+    type: string,
+    required: boolean,
+    options: string[],
+    helpText?: string,
+    order: number,
+}
+
+export interface ApplicationForm {
+    fields: FormField[],
+    publishedAt?: string,
+}
+
+export interface Application {
+    id: string,
+    marketId: string,
+    applicantEmail: string,
+    formData: Record<string, unknown>,
+    status: ApplicationStatus,
+    applicationType: ApplicationType,
+    mainApplicationId?: string,
+    submittedAt?: string,
+    updatedAt: string,
+    assignedReviewerId?: string,
 }
 
 export interface User {
