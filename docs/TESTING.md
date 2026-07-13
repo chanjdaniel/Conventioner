@@ -164,6 +164,17 @@ either. The floorplan suite
 it walks the Floorplan AI 5-step wizard (upload, scale calibration, table
 placement, section grouping, save) and verifies the resulting sections land
 back in the setup wizard.
+The access-control suite (`access-control.spec.ts`) covers who can see a market: an org
+member with no explicit market role, a user granted an explicit role but no org membership,
+membership changes taking effect (adding a user grants visibility, removing revokes it), and
+org deletion revoking org-based access while explicit-role access survives. Each test pairs a
+positive assertion with a negative one **against the same market**, so a broken query that
+returns zero rows fails the positive assertion instead of vacuously satisfying an empty-list
+negative - the trap the org-membership regression fell into. Each user is driven in its own
+browser context (`withUser()`) so no two of them ever share a session cookie or the persisted
+`user` in `localStorage`, and every navigation waits for the markets fetch to settle before
+asserting, since `.markets-view` renders before the list does and a `not.toBeVisible()` would
+otherwise pass against a still-loading page.
 
 Configuration: `front-end/playwright.config.ts` (auto-detects the worktree
 frontend port via `detectFrontendPort()`).
@@ -217,17 +228,27 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     additionally configures the market's `setupObject` and triggers the
     assignment engine via the API, returning the seed plus the market's URL
     `slug`.
-  - `seedApplication()` (`front-end/e2e/helpers/seedApplication.ts`) is one of two
+  - `seedApplication()` (`front-end/e2e/helpers/seedApplication.ts`) is one of three
     exceptions to API-level seeding: it inserts an application document straight into
     Mongo via `mongosh` (`E2E_MONGO_CONTAINER` overrides the container name, as in
     `auth.spec.ts`). There is no applicant-facing submit endpoint yet, so writing the
     document the way that endpoint eventually will - snake_case, keyed by `market_id` -
     is the only way to reach the D9-locked state.
-  - `helpers/legacyMarketDoc.ts` is the other: `makeLegacyPublishedMarket()` rewrites a
+  - `helpers/legacyMarketDoc.ts` is the second: `makeLegacyPublishedMarket()` rewrites a
     market into the shape the pre-`phase` build stored for a published one, and
     `runIsDraftConsistencyMigration()` runs the real migration script inside the back-end
     container (`E2E_BACKEND_CONTAINER` overrides that container name). Both reach past the
     API on purpose - no endpoint can produce or repair that document shape.
+  - `ensureVerifiedUser()` (`front-end/e2e/helpers/verifiedUser.ts`) is the third: a spec
+    that needs users beyond the two `scripts/seed_fixture.sh` creates (as
+    `access-control.spec.ts` does) calls it in `beforeAll` to create one idempotently. It
+    runs `back-end/create_test_user.py` inside the back-end container
+    (`E2E_BACKEND_CONTAINER` overrides the container name), because `/register-user` does
+    not set `email_verified` and a user registered through it therefore cannot log in. The
+    script exits `0` whether it created the user, found one already there, or failed to
+    insert, so the helper checks its *output* for one of the two outcomes that leave a
+    usable user behind and throws otherwise - a seeding failure has to surface at the
+    `beforeAll` that caused it rather than much later as an opaque login timeout.
 
 ### Bypassing CAPTCHA and email in tests
 

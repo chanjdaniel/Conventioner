@@ -59,6 +59,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `scripts/seed_fixture.sh` creates two verified users: `TEST_EMAIL` (owns `Seed Test Org`)
   and `NO_ORG_EMAIL` (`e2e-noorg@example.com`), which is deliberately left in no organization
   so `new-market-org.spec.ts` can exercise the zero-org fallback.
+  A spec needing users beyond those two calls `ensureVerifiedUser()`
+  (`front-end/e2e/helpers/verifiedUser.ts`) in `beforeAll`, which runs that same script inside
+  the back-end container; do not hand-roll the user document, and do not switch to
+  `/register-user`.
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `detectFrontendPort()`.
 
@@ -166,6 +170,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `back-end/market_documents.py` (`market_doc_field`/`market_doc_filter`/`market_doc_set`/
   `market_from_document`). Do not add a read-time fallback that accepts both spellings: writes
   only refresh the camelCase key, so a legacy key holds a value that is stale forever.
+  `front-end/e2e/access-control.spec.ts` pins the visibility that depends on this: a
+  snake_case filter in the org-scoped market query is exactly the bug that once hid every
+  org member's markets, and the suite's positive assertions catch it.
 - **Parse stored markets with `market_from_document()`**, never `Market(**snake_dict)`.
   `Market.phase` defaults to `draft`, so a raw parse silently mislabels every market written
   before the field existed. `phase_from_market_document()` (`back-end/datatypes.py`) is the one
