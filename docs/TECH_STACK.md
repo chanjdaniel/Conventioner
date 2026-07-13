@@ -25,7 +25,7 @@ This document outlines the complete technology stack used in the Conventioner ap
 ### Database
 - **MongoDB 7** - NoSQL document database
   - Primary data storage
-  - Collections: `users`, `markets`, `organizations`, `source_data`, `attendance`, `applications`, `floorplan_templates` (created by `back-end/mongo-init.js` on a fresh volume)
+  - Collections: `users`, `markets`, `organizations`, `source_data`, `attendance`, `applications`, `floorplan_templates`, `schema_migrations` (created by `back-end/mongo-init.js` on a fresh volume)
   - Connection via PyMongo 4.6.1
   - Database name: `conventioner`
 
@@ -266,6 +266,8 @@ Conventioner/
 │   ├── assignment/       # Assignment algorithm logic
 │   ├── app.py            # Flask application entry point
 │   ├── datatypes.py      # Pydantic data models
+│   ├── guards.py         # Every phase-transition precondition (the D16 registry)
+│   ├── market_documents.py  # Canonical market document keys + migration marker
 │   ├── db_config.py      # MongoDB connection configuration
 │   └── requirements.txt  # Python dependencies
 ├── front-end/
@@ -300,6 +302,8 @@ Conventioner/
    - Example: `python back-end/migrations/add_email_verification.py`
    - `migrate_phase.py` backfills `phase` on existing market documents (`isDraft: true` → `draft`, `isDraft: false` → `archived`). It is idempotent, and `--dry-run` previews the changes without applying them.
    - `create_applications_collection.py` creates the `applications` collection and its `market_id` index on an already-deployed database (`mongo-init.js` only runs on a fresh data volume). The D9 application-form lock counts applications by market on every market write, so that index is load-bearing. It is idempotent, and `--dry-run` previews the changes without applying them.
+   - `migrate_market_keys.py` rewrites market documents under the canonical camelCase keys (`organization_id` → `organizationId`), dropping the legacy snake_case spelling so no document carries both. Writes only ever refresh the camelCase key, so a legacy key left in place holds a value that is stale forever - any query still matching it acts on data no write has touched since. It is idempotent, and `--dry-run` previews the changes without applying them.
+   - The back end **refuses to boot** until `migrate_market_keys.py` has recorded its marker in the `schema_migrations` collection. Reads name the canonical key only, so an unmigrated market is invisible rather than broken, and a silent refusal to serve half the data is worse than a loud refusal to start. A Mongo volume created before the migration existed has no marker, so an existing dev stack hits this - recover with `docker compose run --rm backend python migrations/migrate_market_keys.py` (`run`, not `exec`: the back-end container is crash-looping). See the Troubleshooting section of `docs/STARTUP.md`.
 
 ## External Services
 

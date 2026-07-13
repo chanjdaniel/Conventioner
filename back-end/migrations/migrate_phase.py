@@ -19,7 +19,7 @@ import sys
 # Add parent directory to path to import modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from datatypes import MarketPhase
+from datatypes import phase_from_market_document
 from db_config import get_database
 
 
@@ -31,7 +31,7 @@ def read_is_draft(doc):
 
 
 def target_phase(doc):
-    return MarketPhase.DRAFT.value if read_is_draft(doc) else MarketPhase.ARCHIVED.value
+    return phase_from_market_document(doc).value
 
 
 def migrate(db, dry_run=False):

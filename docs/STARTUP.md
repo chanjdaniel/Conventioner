@@ -129,6 +129,13 @@ docker run -d \
   ```bash
    mkdir -p flask_session csv_exports
   ```
+5. Initialize the database:
+  ```bash
+   python init_database.py
+  ```
+   This creates the collections and records the market-key migration marker.
+   The back end refuses to boot without that marker (see Troubleshooting below), and a MongoDB you started yourself has never run `back-end/mongo-init.js`, which is what records it for the Docker stack.
+   Re-running it is harmless.
 
 ## Step 3: Frontend Setup
 
@@ -284,6 +291,21 @@ docker-compose build --no-cache
 docker-compose up
 ```
 
+**Backend exits at startup with "The market-key migration has not been applied to this database"**:
+
+The back end refuses to boot against a database whose market documents may still be stored under the legacy snake_case keys, because it reads the canonical camelCase key only - an unmigrated market would simply be invisible, with nothing logged.
+A Mongo volume created before the migration existed has no marker, so an existing dev stack hits this the first time it pulls the change.
+The migration is the whole fix: it runs against an existing database, rewrites the documents, and records the marker itself.
+
+```bash
+docker compose run --rm backend python migrations/migrate_market_keys.py
+docker compose up backend
+```
+
+Use `run`, not `exec`: the back-end container is crash-looping, so there is nothing to attach to.
+`run` starts a throwaway container (with MongoDB already up as its dependency) and passes the command straight through the entrypoint.
+Add `--dry-run` to the migration to preview the changes without applying them.
+
 ### Backend Issues
 
 **MongoDB Connection Error**:
@@ -393,6 +415,8 @@ Both keys are configured in `.env` and forwarded to the backend via `docker-comp
 - **API Modules**: `back-end/api/` (users, markets, source_data)
 - **Assignment Logic**: `back-end/assignment/assignment.py`
 - **Data Types**: `back-end/datatypes.py` (Pydantic models)
+- **Phase Guards**: `back-end/guards.py` (every precondition for every market phase transition)
+- **Market Documents**: `back-end/market_documents.py` (the canonical keys stored market documents use, and the migration marker the app boots on)
 - **Database Config**: `back-end/db_config.py` (MongoDB connection)
 
 ### Frontend Structure

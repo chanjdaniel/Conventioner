@@ -148,6 +148,36 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   (`front-end/e2e/helpers/seedApplication.ts`), which writes the document straight into Mongo
   via `mongosh`, because no applicant-facing submit endpoint exists yet.
 
+## Market Document Keys (Conventioner sharp edge)
+
+- **The back end refuses to boot** unless `migrations/migrate_market_keys.py` has recorded its
+  marker in the `schema_migrations` collection. A dev Mongo volume created before the migration
+  existed has no marker, so an existing stack hits this on first pull. The fix is the migration
+  itself: `docker compose run --rm backend python migrations/migrate_market_keys.py`
+  (`run`, not `exec` - the back end is crash-looping). Do not "fix" it by softening the check:
+  it fails closed because an unmigrated market is invisible, not broken.
+- **Market documents are stored camelCase, and that is the only spelling reads may name.**
+  Every write camel-cases the whole document, so a hand-written filter on `organization_id`
+  matches nothing. Anything touching a raw document or a Mongo filter goes through
+  `back-end/market_documents.py` (`market_doc_field`/`market_doc_filter`/`market_doc_set`/
+  `market_from_document`). Do not add a read-time fallback that accepts both spellings: writes
+  only refresh the camelCase key, so a legacy key holds a value that is stale forever.
+- **Parse stored markets with `market_from_document()`**, never `Market(**snake_dict)`.
+  `Market.phase` defaults to `draft`, so a raw parse silently mislabels every market written
+  before the field existed. `phase_from_market_document()` (`back-end/datatypes.py`) is the one
+  source of truth for that mapping, and `MarketsApi.load_market_context()` is the shared
+  market + organization + permission load every endpoint should use.
+
+## Phase Transitions (Conventioner sharp edge)
+
+- **Every precondition for every phase transition lives in `back-end/guards.py`.** Adding or
+  removing one is a one-file edit: the `POST /markets/<id>/transition` endpoint and the
+  front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
+  stay that way. `_validate_registry()` runs at import and refuses to load tables that disagree,
+  so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
+- `Market.phase` is server-owned: `create_market()` stamps `draft`, `update_market()` re-applies
+  the stored phase, and the transition endpoint is the only writer on an existing market.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.

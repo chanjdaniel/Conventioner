@@ -4,6 +4,7 @@ import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.source_data as SourceDataApi
 import api.attendance as AttendanceApi
+import api.permissions as PermissionsApi
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
 from api.floorplans_templates import floorplans_templates_bp
@@ -19,8 +20,12 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
 from datetime import timedelta, datetime, timezone
-from datatypes import Market, MarketRole
+from datatypes import Market, MarketPhase, MarketRole, phase_from_market_document
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
+from guards import PreconditionResult, VALID_TRANSITIONS, evaluate_transition
+from market_documents import MarketKeyMigrationError, assert_market_key_migration_recorded
+import db_config
+from dataclasses import asdict
 import json
 import os
 import glob
@@ -33,6 +38,34 @@ logger = logging.getLogger(__name__)
 
 SESSION_FOLDER = "flask_session"
 SESSION_MAX_AGE = 7200
+
+
+def verify_market_key_migration() -> None:
+    """Refuse to boot unless the market-key migration is recorded as applied.
+
+    Reads name the canonical camelCase key only, so a market left under the legacy snake_case
+    keys is simply invisible - vendors are told the market does not exist at check-in, and org
+    members get an empty market list, with nothing logged anywhere. Nothing auto-runs the
+    migration (rewriting stored documents is the operator's call), so this check is what makes
+    skipping it impossible to miss.
+
+    It reads the migration's marker document by ``_id``: one indexed lookup, bounded by a short
+    server selection timeout so a database blip cannot hang boot. Being that cheap is what lets
+    it fail closed on every outcome that is not a confirmed marker - an unreachable database
+    could not serve a request anyway, and an unknown migration state must never be taken for a
+    migrated one.
+    """
+    probe = db_config.get_migration_probe_database()
+    try:
+        assert_market_key_migration_recorded(probe)
+    except MarketKeyMigrationError as e:
+        logger.critical("%s", e)
+        raise
+    finally:
+        probe.client.close()
+
+
+verify_market_key_migration()
 
 app = Flask(__name__)
 
@@ -751,6 +784,118 @@ def delete_market(market_id: str) -> Response:
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/markets/<market_id>/transition', methods=['POST'])
+@login_required
+def transition_market(market_id: str) -> Response:
+    """Advance a market to a new lifecycle phase. Evaluates guards server-side.
+
+    Body: { "toPhase": "applications_open" }
+
+    Returns:
+        200 on success with { "phase": "<new_phase>" }
+        409 with a camelCase blocker list when preconditions are not met, or
+            when the phase changed underneath this request
+        400 when the transition is not valid from the current phase
+    """
+    try:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        data = convert_keys_to_snake_case(data)
+        to_phase_raw = data.get("to_phase")
+        if not to_phase_raw:
+            return jsonify({"error": "to_phase is required"}), 400
+
+        try:
+            to_phase = MarketPhase(to_phase_raw)
+        except ValueError:
+            valid = [p.value for p in MarketPhase]
+            return jsonify({
+                "error": f"Unknown phase: '{to_phase_raw}'. Valid phases: {', '.join(valid)}"
+            }), 400
+
+        user_email = request.headers.get("X-Owner-Email")
+        if not user_email:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        if not UsersApi.get_user(user_email):
+            return jsonify({"error": "User not found"}), 404
+
+        context = MarketsApi.load_market_context(market_id)
+        if context is None:
+            return jsonify({"error": "Market not found"}), 404
+        if context.market is None:
+            return jsonify({"error": "Invalid market data"}), 400
+
+        market = context.market
+
+        if not PermissionsApi.user_has_permission(
+            user_email, market, MarketRole.ADMIN, context.organization
+        ):
+            return jsonify({
+                "error": "User does not have permission to manage this market's phase"
+            }), 403
+
+        from_phase = market.phase.value
+
+        if (from_phase, to_phase.value) not in VALID_TRANSITIONS:
+            return jsonify({
+                "error": (
+                    f"Transition from '{from_phase}' to '{to_phase.value}' "
+                    "is not available in the current phase."
+                ),
+            }), 400
+
+        blockers = evaluate_transition(market, to_phase.value, MarketsApi.db)
+        if blockers:
+            return jsonify(convert_keys_to_camel_case({
+                "error": "preconditions_not_met",
+                "current_phase": from_phase,
+                "target_phase": to_phase.value,
+                "blockers": [asdict(b) for b in blockers],
+            })), 409
+
+        stored_phase = (
+            context.document["phase"] if "phase" in context.document
+            else {"$exists": False}
+        )
+        result = MarketsApi.markets_collection.update_one(
+            {"id": market_id, "phase": stored_phase},
+            {"$set": {"phase": to_phase.value}},
+        )
+
+        if result.matched_count == 0:
+            latest_doc = MarketsApi.markets_collection.find_one({"id": market_id})
+            if latest_doc is None:
+                return jsonify({"error": "Market not found"}), 404
+
+            actual_phase = phase_from_market_document(latest_doc).value
+            conflict = PreconditionResult(
+                id="phase_changed",
+                passed=False,
+                message=(
+                    f"This market moved to the '{actual_phase}' phase while the "
+                    f"request was in flight, so it can no longer move to "
+                    f"'{to_phase.value}' from '{from_phase}'. "
+                    "Reload the market and try again."
+                ),
+            )
+            return jsonify(convert_keys_to_camel_case({
+                "error": "phase_changed",
+                "current_phase": actual_phase,
+                "target_phase": to_phase.value,
+                "blockers": [asdict(conflict)],
+            })), 409
+
+        return jsonify({"phase": to_phase.value}), 200
+
+    except Exception as e:
+        logger.error(f"Error in transition_market {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @app.route('/markets/<market_id>/assignment', methods=['GET'])
 @login_required
 def get_assigned_market(market_id: str) -> Response:
@@ -918,32 +1063,15 @@ def get_market_attendance(market_id: str) -> Response:
         if not requesting_user:
             return jsonify({"error": "User email not provided in headers"}), 400
 
-        from datatypes import MarketRole as _MR
-        import api.permissions as _Permissions
-        import api.organizations as _Orgs
-
-        market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
-        if not market_doc:
+        context = MarketsApi.load_market_context(market_id)
+        if context is None:
             return jsonify({"error": "Market not found"}), 404
-
-        market_snake = convert_keys_to_snake_case(market_doc.copy())
-        try:
-            market_obj = Market(**market_snake)
-        except Exception:
+        if context.market is None:
             return jsonify({"error": "Invalid market data"}), 400
 
-        organization = None
-        if market_obj.organization_id:
-            org_dict = _Orgs.get_organization(market_obj.organization_id)
-            if org_dict:
-                org_dict.pop('_id', None)
-                try:
-                    from datatypes import Organization
-                    organization = Organization(**org_dict)
-                except Exception:
-                    pass
-
-        if not _Permissions.user_has_permission(requesting_user, market_obj, _MR.VIEWER, organization):
+        if not PermissionsApi.user_has_permission(
+            requesting_user, context.market, MarketRole.VIEWER, context.organization
+        ):
             return jsonify({"error": "User does not have permission to view this market"}), 403
 
         result, status_code = AttendanceApi.get_attendance_for_market(market_id)

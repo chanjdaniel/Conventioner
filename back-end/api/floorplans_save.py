@@ -15,8 +15,9 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
 from db_config import get_database
-from datatypes import Market, MarketRole
-from assignment.utils import convert_keys_to_snake_case
+from datatypes import MarketRole
+import api.markets as MarketsApi
+import api.permissions as PermissionsApi
 
 logger = logging.getLogger(__name__)
 
@@ -74,38 +75,22 @@ def save_floorplan_to_market():
             return jsonify({"error": "floorplan is required"}), 400
 
         # ── 1. Find the market ─────────────────────────────────────────────
-        market_doc = markets_collection.find_one({"id": market_id})
-        if not market_doc:
+        context = MarketsApi.load_market_context(market_id)
+        if context is None:
             return jsonify({"error": "Market not found"}), 404
+
+        market_doc = context.document
 
         # ── 2. Permission check ────────────────────────────────────────────
         user_email = request.headers.get("X-Owner-Email")
         if not user_email:
             return jsonify({"error": "User email not provided in headers"}), 401
 
-        market_dict_snake = convert_keys_to_snake_case(market_doc.copy())
-        try:
-            market = Market(**market_dict_snake)
-        except Exception:
+        if context.market is None:
             return jsonify({"error": "Invalid market data"}), 400
 
-        # Resolve organization for org-based access
-        import api.permissions as PermissionsApi
-        import api.organizations as OrgsApi
-
-        organization = None
-        if market.organization_id:
-            org_dict = OrgsApi.get_organization(market.organization_id)
-            if org_dict:
-                org_dict.pop("_id", None)
-                try:
-                    from datatypes import Organization
-                    organization = Organization(**org_dict)
-                except Exception:
-                    pass
-
         if not PermissionsApi.user_has_permission(
-            user_email, market, MarketRole.EDITOR, organization
+            user_email, context.market, MarketRole.EDITOR, context.organization
         ):
             return jsonify({
                 "error": "User does not have permission to edit this market"

@@ -24,6 +24,18 @@ def test_update_keeps_stored_phase(collection):
     assert written["name"] == "Renamed Market"
 
 
+def test_update_preserves_the_derived_phase_of_a_market_predating_the_migration(monkeypatch):
+    stored = stored_market(phase=MarketPhase.ARCHIVED)
+    stored.pop("phase")
+    fake = FakeMarketsCollection(stored)
+    monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
+
+    MarketsApi.update_market("market-123", client_market(), "user-1")
+
+    assert fake.last_update["$set"]["phase"] == MarketPhase.ARCHIVED.value
+
+
 def test_update_cannot_set_phase_from_the_client_body(collection):
     MarketsApi.update_market("market-123", client_market(phase=MarketPhase.DRAFT), "user-1")
 

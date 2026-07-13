@@ -7,6 +7,7 @@ from pymongo.results import UpdateResult, DeleteResult
 from bson import ObjectId
 from datatypes import Organization
 from db_config import get_database
+from market_documents import market_doc_filter, market_doc_set
 import api.users as UsersApi
 
 db = get_database()
@@ -147,8 +148,8 @@ def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult
         raise PermissionError("Only organization owner can delete organization")
     
     markets_collection.update_many(
-        {"organization_id": org_id},
-        {"$set": {"organization_id": None}}
+        market_doc_filter("organization_id", org_id),
+        market_doc_set("organization_id", None)
     )
     
     users_collection.update_many(

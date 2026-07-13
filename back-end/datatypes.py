@@ -1,8 +1,11 @@
+import logging
 import uuid
 from enum import Enum
 from typing import List, Optional, Union, Dict, Any, Tuple
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class DataType(str, Enum):
@@ -30,6 +33,34 @@ class MarketPhase(str, Enum):
     OFFERS = "offers"
     MARKET_DAYS = "market_days"
     ARCHIVED = "archived"
+
+
+def phase_from_market_document(document: Dict[str, Any]) -> MarketPhase:
+    """Effective phase of a stored market document.
+
+    Documents written before the phase field existed carry only ``isDraft``
+    (older ones ``is_draft``). This is the single source of truth for the
+    draft/archived mapping applied to them; ``migrations/migrate_phase.py``
+    backfills the field with the very same mapping, so a market behaves
+    identically before and after the migration runs.
+
+    Callers pass raw stored documents, which no write path validates on the way
+    out of Mongo, so a phase value this build does not recognize degrades to the
+    same mapping rather than raising and taking down whatever list is being served.
+    """
+    stored_phase = document.get("phase")
+    if stored_phase:
+        try:
+            return MarketPhase(stored_phase)
+        except ValueError:
+            logger.warning(
+                "Market %s stores unrecognized phase %r; falling back to the isDraft mapping",
+                document.get("id"),
+                stored_phase,
+            )
+
+    is_draft = document.get("isDraft", document.get("is_draft", True))
+    return MarketPhase.DRAFT if is_draft else MarketPhase.ARCHIVED
 
 
 class OrganizationRole(str, Enum):

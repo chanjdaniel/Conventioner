@@ -62,6 +62,21 @@ The manifest is seeded at `0.0.0`, and the first release is pinned to `v0.1.0` v
 `release-as` is a forced version: it overrides the conventional-commit calculation on **every** run until it is removed, so it must be cleared after the first release ships.
 Once `v0.1.0` is tagged, remove the `release-as` field from `release-please-config.json`; from then on release-please derives each version from the accumulated commits (`feat:` → minor, `fix:` → patch, breaking change → major).
 
+## Pre-Deploy: Database Migrations
+
+Migrations are never run automatically - rewriting stored documents is a deliberate operator action.
+Before a promotion reaches production, run the pending migrations in `back-end/migrations/` against the production database (each is idempotent, and `--dry-run` previews the changes):
+
+```bash
+python migrations/migrate_phase.py         # backfills `phase` on existing markets
+python migrations/migrate_market_keys.py   # rewrites markets under the canonical camelCase keys
+```
+
+`migrate_market_keys.py` **must** be run before the code that reads market documents by the canonical key only.
+An unmigrated market is invisible to every such read: vendors are told the market does not exist at check-in, and organization members get an empty market list.
+The migration records a marker document in the `schema_migrations` collection when it completes, and the back end refuses to boot unless it can read that marker; the fatal log names the script to run.
+The check fails closed on anything short of a confirmed marker - an unknown migration state is not a migrated one - so a deploy that skipped the migration fails loudly at startup rather than quietly serving half the data.
+
 ## Files
 
 | File | Purpose |

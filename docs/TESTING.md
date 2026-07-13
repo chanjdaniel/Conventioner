@@ -33,7 +33,7 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-167 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
+251 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
 column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
 Conventioner data model (market phases, application form/status models, and backward
 compatibility with existing market documents), the `phase` backfill migration, the
@@ -42,6 +42,26 @@ updates, and the application form endpoints (`test_application_form.py`: permiss
 checks, field/key/option validation, `order` renormalization, server-owned
 `published_at`, and the D9 lock refusing edits on every write path once an application
 exists or the market leaves `draft`).
+
+The market phase lifecycle adds five suites:
+
+- `test_guards.py` - the guard registry (`back-end/guards.py`) in isolation: which edges
+  are valid, the `form_has_fields` guard passing and failing, and the import-time
+  self-check that rejects a registry whose tables disagree (a guard on an unreachable
+  edge, an entry invariant an inbound edge fails to carry).
+- `test_transition_api.py` - `POST /markets/<id>/transition` through the Flask test
+  client, so the wire contract is covered and not just the registry: the status codes,
+  the ADMIN permission gate, the camelCase blocker payload the front-end binds to, and
+  the `409` when the phase changes underneath a request in flight.
+- `test_market_document_keys.py` - reads of raw market documents name the canonical
+  camelCase key, so an org-scoped market list and the public check-in lookup find the
+  markets they should.
+- `test_market_phase_consistency.py` - a market reports the same phase whichever endpoint
+  served it (the list endpoint used to hand back raw documents while the detail endpoint
+  derived the phase, so the two could disagree about pre-migration markets).
+- `test_migrate_market_keys.py` - the key migration leaves every market under exactly one
+  spelling of each field, camelCase wins where a document carries both, and it is
+  idempotent.
 
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
 (tests use in-memory fakes). Shared module stubs live in `back-end/tests/conftest.py`.
@@ -65,6 +85,10 @@ renumbering `order` contiguously as fields are added and removed, and hiding eve
 affordance when read-only), and `marketSetupForm.test.ts` (the `MarketSetupView` wiring:
 the builder stays read-only until the server reports the lock state, never offers to edit
 a locked form even for a frame, and keeps auto-derived keys auto-derived across a save).
+`BlockerPanel.test.ts` covers the panel that renders a blocked phase transition: it lists
+every blocker the server returned, links to the guard's `resolutionLink` when there is one,
+and renders nothing when there are no blockers - all without a line of guard-specific
+logic, which is the point of the registry (see `docs/OBJECT_RELATIONSHIPS.md`).
 Add more component tests in `front-end/src/__tests__/`.
 
 Configuration: `front-end/vitest.config.ts` with `happy-dom` environment.

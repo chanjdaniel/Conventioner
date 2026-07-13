@@ -3,8 +3,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from assignment.assignment import assign_market
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
-from datatypes import Market
 from db_config import get_database
+from market_documents import market_doc_filter, market_from_document
 import api.source_data as SourceDataApi
 
 db = get_database()
@@ -35,10 +35,7 @@ def get_published_market_by_slug(market_slug: str) -> Optional[Dict[str, Any]]:
     if not market_slug:
         return None
     target = market_slug.strip().lower()
-    for doc in markets_collection.find({"isDraft": False}):
-        if _slugify(doc.get("name", "")) == target:
-            return doc
-    for doc in markets_collection.find({"is_draft": False}):
+    for doc in markets_collection.find(market_doc_filter("is_draft", False)):
         if _slugify(doc.get("name", "")) == target:
             return doc
     return None
@@ -153,7 +150,7 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
     }
 
     try:
-        market = Market(**market_snake)
+        market = market_from_document(market_doc, market_snake)
     except Exception:
         return {"error": "Invalid market data"}, 400
 

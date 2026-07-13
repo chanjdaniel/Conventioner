@@ -139,7 +139,8 @@ export interface Market {
     creationDate: string,
     /** False after user completes setup (Generated Assignment Done). Omitted in old data = treat as draft. */
     isDraft?: boolean,
-    /** Market lifecycle phase (replaces is_draft over time). Omitted in old data = treat as draft. */
+    /** Market lifecycle phase (replaces is_draft over time). Always derived server-side: markets
+     * stored before the phase field existed report `draft` when isDraft, otherwise `archived`. */
     phase?: MarketPhase,
     roles: Record<string, MarketRole>,  // Map of user_id -> role
     roleEmails?: Record<string, string>,  // Map of user_id -> email (for display)
@@ -224,6 +225,28 @@ export interface Application {
     submittedAt?: string,
     updatedAt: string,
     assignedReviewerId?: string,
+}
+
+export interface PreconditionResult {
+    id: string,
+    passed: boolean,
+    message: string,
+    resolutionLink?: string,
+}
+
+export interface TransitionRequest {
+    toPhase: string,
+}
+
+export interface TransitionResponse {
+    phase: string,
+}
+
+export interface TransitionBlockedResponse {
+    error: string,
+    currentPhase: string,
+    targetPhase: string,
+    blockers: PreconditionResult[],
 }
 
 export interface User {

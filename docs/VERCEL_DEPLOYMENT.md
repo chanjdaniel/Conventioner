@@ -103,7 +103,16 @@ RECAPTCHA_SECRET_KEY=your-recaptcha-secret-key
    - **Note**: `MONGODB_URI` should already be set if you used the MongoDB Atlas integration
    - Apply to Production, Preview, and Development environments as needed
 
-5. **Deploy**
+5. **Initialize / migrate the database** (before the first deploy, and before any deploy that carries a new migration)
+   - The back end refuses to boot unless the market-key migration is recorded as applied, and that check runs at import - so on Vercel it runs on every cold start, and an unmigrated database fails every request rather than serving markets it can only half see.
+   - `mongo-init.js` never runs against Atlas (it is the Docker Mongo entrypoint), so a freshly provisioned cluster has no marker. Run this once, from `back-end/`, with `MONGODB_URI` pointing at the Atlas cluster:
+     ```bash
+     python init_database.py                    # fresh cluster: creates collections, records the marker
+     python migrations/migrate_market_keys.py   # existing data: rewrites markets under the canonical keys
+     ```
+   - See [RELEASING.md](./RELEASING.md#pre-deploy-database-migrations) for the full pre-deploy migration list. Migrations are never run automatically.
+
+6. **Deploy**
    - Click "Deploy" or push to your main branch
    - Vercel will automatically detect Flask and deploy
 
@@ -122,3 +131,4 @@ back-end/
 - **MongoDB Connection Issues**: Check your MongoDB Atlas network access settings
 - **Session Issues**: Verify `SESSION_TYPE=null` is set for Vercel
 - **CORS Issues**: Ensure `FRONTEND_URL` matches your frontend domain exactly
+- **"The market-key migration has not been applied to this database"**: the function is refusing to boot because it cannot confirm the migration (see step 5 above). Run `migrations/migrate_market_keys.py` against the Atlas database and redeploy. The same error appears when the marker simply cannot be read - an unknown migration state is treated as unmigrated - so check network access too.

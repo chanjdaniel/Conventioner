@@ -92,7 +92,7 @@ The central entity representing a market event with configuration, assignments, 
 - `modification_list: List[ModificationObject]` - List of modifications (currently empty structure)
 - `assignment_object: AssignmentObject` - Contains vendor assignment results and statistics
 - `is_draft: bool` - Stored as `isDraft` in MongoDB (camelCase). Default **true**: market setup is not finished. Set to **false** when the user completes the Generated Assignment flow (Done). While `true`, opening the market from the dashboard or Markets sends the user to market setup; when `false`, the SPA routes to `/{kebab-case-slug}` derived from the market **name** (e.g. `my-summer-market`).
-- `phase: MarketPhase` - Market lifecycle phase. Default **`DRAFT`**. Coexists with `is_draft` and is intended to replace it gradually; both are written today and existing code still reads `is_draft`. See [MarketPhase](#marketphase-enum).
+- `phase: MarketPhase` - Market lifecycle phase. Default **`DRAFT`**. Coexists with `is_draft` and is intended to replace it gradually; both are written today and existing code still reads `is_draft`. Advanced only through `POST /markets/<market_id>/transition`. See [MarketPhase](#marketphase-enum).
 - `application_form: Optional[ApplicationForm]` - Application form definition for application-based markets (None for CSV-based markets). Server-owned on update: only `PUT /markets/<market_id>/application-form` writes it (see [ApplicationForm](#applicationform))
 - `review_config: Optional[Dict[str, Any]]` - Free-form review configuration (reviewer pool, etc.); no fixed schema yet
 - `discord_guild_id: Optional[str]` - Per-market Discord guild reference (integration seam; not yet consumed)
@@ -109,7 +109,8 @@ The central entity representing a market event with configuration, assignments, 
 - **Stored in**: MongoDB `markets` collection
 
 **Server-Owned Fields:**
-- `phase` is lifecycle state owned by the server, never by a client update body. `create_market()` always persists `phase: "draft"`, and `update_market()` re-applies the stored phase over whatever the payload contained.
+- `phase` is lifecycle state owned by the server, never by a client update body. `create_market()` always persists `phase: "draft"`, and `update_market()` re-applies the stored phase over whatever the payload contained. The one way to change it after creation is `POST /markets/<market_id>/transition`, which evaluates the guard registry before it writes (see [MarketPhase](#marketphase-enum)).
+- On read, the phase a market reports is always derived from its stored document by `phase_from_market_document()` (`back-end/datatypes.py`), never taken from the raw document as-is. Documents written before the field existed have no `phase`, so the detail endpoint, the market list, and every internal parse (`market_from_document()` in `back-end/market_documents.py`) run the same `isDraft` fallback and cannot disagree about what phase a market is in.
 - `application_form` is written on an existing market only by `PUT /markets/<market_id>/application-form`. `update_market()` always re-applies the stored form over whatever the market payload contained, so a stale client copy cannot revert a saved form and no market PUT can bypass the D9 lock. `POST /markets` may still carry a form on the create body, and it goes through the same validation and normalization as the dedicated endpoint.
 - `review_config` and `discord_guild_id` are carried over on update whenever the payload omits them, so a client that round-trips a market it fetched cannot accidentally null them out. Passing an explicit `null` still clears the field.
 
@@ -517,9 +518,38 @@ The market lifecycle. A market moves forward through these phases; the phase dri
 - `MARKET_DAYS = "market_days"` - The market is running (check-in is live)
 - `ARCHIVED = "archived"` - Read-only
 
+**Transitions:**
+
+Only these edges exist today (`VALID_TRANSITIONS` in `back-end/guards.py`); every other pair is rejected, and each missing edge lands with the feature that needs it.
+The remaining phases are declared on the enum but no transition enters them yet - though a market can still *sit* in one: a published market written before `phase` existed reads back as `archived`.
+
+- `draft` → `applications_open`
+- `applications_open` → `applications_closed`
+- `applications_closed` → `applications_open` (reopening the submission window)
+
+**Endpoint:**
+- `POST /markets/<market_id>/transition` - Requires `ADMIN`. Body: `{ "toPhase": "applications_open" }`. Returns `200` with `{ "phase": "<new_phase>" }`. `400` on an unknown phase or an edge that is not valid from the market's current phase, `403` on insufficient permission, `404` on an unknown market, `409` when a guard blocks the transition or when the market's phase changed while the request was in flight (the write is a compare-and-set against the phase the request read, so two organizers racing cannot both win). This is the only writer of `Market.phase` on an existing market.
+
+**Guards (the D16 registry):**
+
+Every precondition for every transition lives in `back-end/guards.py` and nowhere else - the endpoint and the front-end contain no guard-specific logic, so adding or removing a precondition is a one-file edit. Three hand-maintained tables drive it, and `_validate_registry()` runs at import and refuses to load a file whose tables disagree (a guard on an edge that does not exist, a phase no transition enters, an edge that fails to carry its target phase's entry invariants):
+
+- `VALID_TRANSITIONS` - the edges above. Anything else is a `400`.
+- `PHASE_ENTRY_INVARIANTS` - what must hold of a market *sitting in* a phase, whatever route it took. Every inbound edge to the phase must enforce these.
+- `TRANSITION_GUARDS` - `(from_phase, to_phase)` → the guards that edge evaluates. Keyed by edge rather than by target phase, because a precondition can belong to a route rather than to a phase.
+
+The only guard today is `FormHasFieldsGuard` (`form_has_fields`): the application form must have at least one field, enforced on both edges into `applications_open`.
+
+**Blocker wire shape:**
+
+A failed guard becomes a `PreconditionResult` (`id`, `passed`, `message`, optional `resolution_link`), and the `409` body is `{ error, currentPhase, targetPhase, blockers: PreconditionResult[] }`, camelCased on the wire. The front-end mirrors these as `PreconditionResult` / `TransitionRequest` / `TransitionResponse` / `TransitionBlockedResponse` in `front-end/src/assets/types/datatypes.ts`, and `BlockerPanel.vue` renders the blocker list generically - message plus a "Fix this" link when the guard supplied a `resolutionLink`.
+
+The component and its types ship ahead of the UI that calls the endpoint: no view invokes the transition yet, and `FormHasFieldsGuard`'s `resolution_link` (`/markets/<market_id>/form-builder`) has no matching route in `front-end/src/router/index.ts` yet either - the form builder is today a tab inside `/market-setup`. Both land with the view that wires the transition up.
+
 **Relationships:**
 - **Used by Market**: Stored in `Market.phase`, server-owned (see [Market](#market))
 - **Coexists with `is_draft`**: `is_draft` is still the field existing code reads. `phase` is written alongside it and takes over gradually.
+- **Derived on read**: `phase_from_market_document()` (`back-end/datatypes.py`) is the single source of truth for the phase of a stored document - it falls back to the `isDraft` mapping when the field is absent, and logs and falls back rather than raising when the stored value is one this build does not recognize.
 
 ---
 
@@ -607,8 +637,16 @@ The system uses MongoDB with the following collections:
 - **Primary Key**: `id` field (UUID)
 - **Operations**: Create, read, update, delete via `api/markets.py`
 - **Key Conversion**: Uses snake_case ↔ camelCase conversion utilities
+- **Canonical keys are camelCase**: every write camel-cases the whole document, so `organization_id` is persisted as `organizationId`, and reads name that one spelling. Code that touches a raw document or writes a Mongo filter goes through the helpers in `back-end/market_documents.py` (`market_doc_field()`, `market_doc_filter()`, `market_doc_set()`, `market_from_document()`) rather than a string literal, so the spelling is decided in one place. Tolerating both spellings at read time would not converge - a write only ever refreshes the camelCase key, so a legacy `organization_id` holds a value that is stale forever and any filter still matching it acts on data no write has touched since (an organization a market was moved away from would go on seeing it).
+- **Normalizing legacy keys**: documents written before that convention carry snake_case keys. `back-end/migrations/migrate_market_keys.py` rewrites them under the canonical keys, dropping the legacy spelling (where a document carries both, the camelCase value wins - it is the one the last write set). It is idempotent and supports `--dry-run`. Nothing runs it for you, and the back end **refuses to boot** until it records its marker in `schema_migrations`: an unmigrated market is invisible to the canonical-key reads rather than broken, so it would be hidden from the public check-in lookup and from organization-scoped market lists with nothing logged anywhere.
 - **Indexing**: Markets are queried by id; roles dict keys are user ids
-- **Backfilling `phase`**: Market documents written before `phase` existed have no such field. `back-end/migrations/migrate_phase.py` backfills them (`isDraft: true` → `draft`, `isDraft: false` → `archived`, the safe default given archives are read-only). It is idempotent and supports `--dry-run`. Documents without `phase` still load: the model defaults them to `DRAFT`.
+- **Backfilling `phase`**: Market documents written before `phase` existed have no such field. `back-end/migrations/migrate_phase.py` backfills them (`isDraft: true` → `draft`, `isDraft: false` → `archived`, the safe default given archives are read-only). It is idempotent and supports `--dry-run`. Documents without `phase` still load: `phase_from_market_document()` applies the same mapping on read, so a market behaves identically before and after the migration runs.
+
+#### `schema_migrations` Collection
+- **Document Structure**: one marker document per applied migration - `_id` is the migration name (today only `market_document_keys`), with an `appliedAt` ISO timestamp
+- **Owner module**: `back-end/market_documents.py` (`read_market_key_migration_marker()`, `record_market_key_migration()`, `assert_market_key_migration_recorded()`)
+- **Operations**: `app.py` asserts the `market_document_keys` marker at import, before the app can serve anything, and refuses to boot without it. The check is a single `_id` lookup bounded by a short server-selection timeout (`MIGRATION_PROBE_TIMEOUT_MS` in `back-end/db_config.py`) so a database blip cannot hang boot, and it fails closed on every outcome that is not a confirmed marker - an unknown migration state is not a migrated one.
+- **Creation**: `mongo-init.js` creates the collection on a fresh Mongo volume and records the marker vacuously (a brand new database holds no market documents, so nothing is under the legacy keys). `back-end/init_database.py` does the same for a database it initializes, and refuses to record the marker if it finds markets that still need rewriting. `migrations/migrate_market_keys.py` records it after a real rewrite.
 
 #### `organizations` Collection
 - **Document Structure**: Matches `Organization` datatype (with camelCase keys in database)
@@ -881,6 +919,7 @@ SourceData (CSV)
 - New fields are added alongside the fields they will eventually replace, never in place of them: `Market.phase` ships next to `Market.is_draft`, and the CSV-derived fields are relaxed to optional rather than deleted.
 - Old documents therefore keep loading without a migration, and code moves to the new field one call site at a time.
 - Migration scripts (like `migrations/migrate_phase.py`) backfill the new field so it is queryable, but the model defaults keep documents valid even before the migration runs.
+- **The exception is the key convention.** `migrations/migrate_market_keys.py` is not additive and is not optional: a market left under the legacy snake_case keys is invisible to reads that name the canonical key, so the back end refuses to boot until the migration is recorded rather than serve a database it can only half see. See the [`markets`](#markets-collection) and [`schema_migrations`](#schema_migrations-collection) collections.
 
 ---
 
