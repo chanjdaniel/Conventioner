@@ -2,7 +2,7 @@
 import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { type AssignmentStatistics, type Market, type UnassignedTableEntry } from '@/assets/types/datatypes';
+import { type AssignmentStatistics, type Market, type UnassignedTableEntry, MarketPhase } from '@/assets/types/datatypes';
 import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
 import IconSettings from '@/components/icons/IconSettings.vue';
@@ -354,10 +354,15 @@ const handleDone = async () => {
         doneError.value = 'Invalid market data.';
         return;
     }
-    market = { ...market, isDraft: false };
     try {
-        await api.put(`/markets/${encodeURIComponent(market.id)}`, market);
+        const response = await api.post(`/markets/${encodeURIComponent(market.id)}/transition`, {
+            toPhase: 'archived',
+        });
+        // Update localStorage with the new phase so future reads reflect the advance.
+        market = { ...market, phase: response.data.phase as MarketPhase };
         localStorage.setItem('market', JSON.stringify(market));
+        // Also persist via PUT so the full market body stays in sync (isDraft is server-derived now).
+        await api.put(`/markets/${encodeURIComponent(market.id)}`, market);
         const slug = marketNameToKebabSlug(market.name);
         if (slug) {
             router.push(`/${slug}`);
@@ -365,10 +370,15 @@ const handleDone = async () => {
             router.push('/market-setup');
         }
     } catch (err: unknown) {
-        const msg = err && typeof err === 'object' && 'response' in err
-            ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+        const response = err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { status?: number; data?: { error?: string; blockers?: Array<{ message: string }> } } }).response
             : undefined;
-        doneError.value = msg || 'Failed to save market.';
+        if (response?.status === 409 && response.data?.blockers) {
+            doneError.value = response.data.blockers.map((b: { message: string }) => b.message).join(' ');
+        } else {
+            const msg = response?.data?.error;
+            doneError.value = msg || 'Failed to publish market.';
+        }
     }
 }
 

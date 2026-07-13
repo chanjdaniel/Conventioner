@@ -33,7 +33,7 @@ from assignment.utils import (
     convert_keys_to_snake_case,
     snake_to_camel,
 )
-from datatypes import Market, phase_from_market_document
+from datatypes import Market, MarketPhase, phase_from_market_document
 
 MONGO_ID_KEY = "_id"
 
@@ -160,6 +160,25 @@ def market_doc_filter(field: str, condition: Any) -> Dict[str, Any]:
 def market_doc_set(field: str, value: Any) -> Dict[str, Any]:
     """Mongo update writing a market field under its persisted spelling."""
     return {"$set": {market_doc_key(field): value}}
+
+
+def non_draft_market_prefilter() -> Dict[str, Any]:
+    """Mongo filter over every market that could possibly be non-draft.
+
+    No condition can decide the draft question outright: ``phase_from_market_document`` reads
+    two fields with a default and is the only authority on a document's effective phase. This
+    excludes just the documents that are unambiguously drafts, so what survives is a superset
+    of the non-drafts and the Python test still decides - it prunes, it does not judge. Without
+    it a lookup that has to fall back to a Python scan decodes the whole markets collection,
+    ``setupObject`` and ``assignmentObject`` included, on every call.
+    """
+    phase_key = market_doc_key("phase")
+    return {
+        "$nor": [
+            {phase_key: MarketPhase.DRAFT.value},
+            {phase_key: {"$exists": False}, market_doc_key("is_draft"): True},
+        ]
+    }
 
 
 def market_from_document(

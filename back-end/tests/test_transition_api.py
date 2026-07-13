@@ -175,6 +175,26 @@ class TestTransitionSuccess:
         assert collection.doc["phase"] == "applications_open"
         assert collection.updates[0][0] == {"id": "market-1", "phase": {"$exists": False}}
 
+    def test_draft_to_archived_publishes_without_form(self, client, markets):
+        """CSV publish path: no form guard needed for draft -> archived."""
+        collection = markets(_market_doc(fields=[]))
+
+        response = _post(client, {"toPhase": "archived"})
+
+        assert response.status_code == 200
+        assert response.get_json() == {"phase": "archived"}
+        assert collection.doc["phase"] == "archived"
+        assert collection.doc["isDraft"] is False
+
+    def test_draft_to_archived_sets_is_draft_to_false(self, client, markets):
+        """Publishing via transition must keep isDraft in sync with phase."""
+        collection = markets(_market_doc())
+
+        response = _post(client, {"toPhase": "archived"})
+
+        assert response.status_code == 200
+        assert collection.doc["isDraft"] is False
+
 
 class TestTransitionBlocked:
     def test_empty_form_blocks_publish_with_camel_case_payload(self, client, markets):

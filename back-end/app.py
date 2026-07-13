@@ -23,7 +23,11 @@ from datetime import timedelta, datetime, timezone
 from datatypes import Market, MarketPhase, MarketRole, phase_from_market_document
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from guards import PreconditionResult, VALID_TRANSITIONS, evaluate_transition
-from market_documents import MarketKeyMigrationError, assert_market_key_migration_recorded
+from market_documents import (
+    MarketKeyMigrationError,
+    assert_market_key_migration_recorded,
+    market_doc_key,
+)
 import db_config
 from dataclasses import asdict
 import json
@@ -856,13 +860,18 @@ def transition_market(market_id: str) -> Response:
                 "blockers": [asdict(b) for b in blockers],
             })), 409
 
+        phase_key = market_doc_key("phase")
+        is_draft_key = market_doc_key("is_draft")
         stored_phase = (
-            context.document["phase"] if "phase" in context.document
+            context.document[phase_key] if phase_key in context.document
             else {"$exists": False}
         )
         result = MarketsApi.markets_collection.update_one(
-            {"id": market_id, "phase": stored_phase},
-            {"$set": {"phase": to_phase.value}},
+            {"id": market_id, phase_key: stored_phase},
+            {"$set": {
+                phase_key: to_phase.value,
+                is_draft_key: to_phase == MarketPhase.DRAFT,
+            }},
         )
 
         if result.matched_count == 0:

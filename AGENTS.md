@@ -107,7 +107,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   published market with vendor assignments ready for check-in, vendor browsing, and table filtering tests.
 - The back-end assignment algorithm (`assign_market`) requires `enum_priority_order` to have one
   entry (empty list) per column in `col_names`. Omitting this causes an `IndexError`.
-- After publishing (`isDraft: false`) with a configured `setup_object`, you must fetch the
+- Publishing is `POST /markets/{id}/transition` with `{ toPhase: 'archived' }`, never a PUT of
+  `isDraft: false` - `isDraft` is derived from `phase` and a PUT body cannot set it.
+- After publishing, with a configured `setup_object`, you must fetch the
   computed assignment via `GET /markets/{id}/assignment` and store it back via PUT.
   The stored `assignmentObject.vendorAssignments` is what `record_attendance` reads at check-in time.
 
@@ -125,8 +127,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - The same backward-compat strategy applies to the other CSV-derived fields on
   `SetupObject`, `PriorityObject`, and `AssignmentOptionObject`: keep them Optional,
   remove them in Phase 5 when the solver adapter and attendance redesign land.
-- Do NOT delete `is_draft` from the `Market` model. Existing code reads it. The new
-  `phase` field is added alongside it; code migrates to `phase` checks gradually.
+- Do NOT delete `is_draft` from the `Market` model, and do not make it writable again. It is a
+  `@computed_field` derived strictly from `phase` (true iff `phase == draft`), kept on the
+  document only because it is the fallback `phase_from_market_document()` uses for a market
+  written before `phase` existed. See Phase Transitions below.
 
 ## Application Form Lock (Conventioner sharp edge)
 
@@ -177,6 +181,34 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
 - `Market.phase` is server-owned: `create_market()` stamps `draft`, `update_market()` re-applies
   the stored phase, and the transition endpoint is the only writer on an existing market.
+- **`phase` is the single source of truth for the market lifecycle; `is_draft` is derived from
+  it.** `Market.is_draft` is a Pydantic `@computed_field` (true iff `phase == draft`) and is
+  never independently writable: no request body can set it, and it is recomputed from the stored
+  phase on every write. Nothing reads the stored value for a market whose `phase` this build
+  understands. It is still *persisted*, and every writer keeps it in agreement with `phase` (create stamps both,
+  `update_market()` re-derives it from the stored phase, the transition endpoint sets both in one
+  atomic update), purely because it is the fallback `phase_from_market_document()` drops to when
+  `phase` is missing or unrecognized - a fallback that contradicted the phase would answer
+  confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
+  `Market` re-stamp `isDraft` from the effective phase before responding.
+- **Publishing a CSV market is the `draft` → `archived` transition** (no guards), fired by the
+  Done button in `GenerateAssignmentView.vue`. It used to be a `PUT` of `isDraft: false`; that
+  route is gone, and this transition is now the only way a CSV market leaves `draft`.
+  A legacy published market (`phase: "draft"` + `isDraft: false`) reads back as a *draft*, since
+  `draft` is a phase this build recognizes and takes at face value - hence the migration below.
+- **No Mongo condition can answer "is this market published?"** `{"phase": {"$ne": "draft"}}`
+  also matches a document with no `phase` - which is exactly what a legacy *draft* looks like -
+  so a filter like that would put an unpublished market on a public check-in URL. The public
+  slug lookup prunes with `non_draft_market_prefilter()` (`back-end/market_documents.py`) and
+  makes the draft decision in Python via `phase_from_market_document()`. The prefilter prunes;
+  it does not judge. Keep it that way.
+- **`migrations/migrate_is_draft_consistency.py`** repairs documents whose `isDraft` and `phase`
+  disagree, in *opposite* directions depending on which build wrote them: a market the old build
+  published (`phase: "draft"` + `isDraft: false`) has its **phase** advanced to `archived` - its
+  `isDraft` was the only publish signal it ever had, and confirming it as a draft would take a
+  live market's public check-in URL off the air - while a market with a non-draft `phase` and a
+  stale `isDraft: true` has its `isDraft` recomputed. Documents with **no** `phase` are left
+  alone; they are `migrate_phase.py`'s to backfill.
 
 ## Maintaining this file
 

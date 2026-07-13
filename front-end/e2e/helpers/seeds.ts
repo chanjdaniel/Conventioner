@@ -186,7 +186,10 @@ export async function seedMarketWithVendors(
  *
  * Unlike seedMarketWithVendors(), this also configures the market's
  * setup_object (column mapping, dates, sections, tiers, locations) and
- * sets isDraft = false so the check-in API and vendor/table views work.
+ * publishes the market via the transition endpoint (draft -> archived, the same
+ * edge the product's Done button takes) so the check-in API and vendor/table
+ * views work. Publishing has to move the phase: isDraft is derived from it, and
+ * the public slug lookup serves markets past draft only.
  *
  * The CSV includes a proper date column so the assignment algorithm
  * produces meaningful per-date assignments.
@@ -258,7 +261,7 @@ export async function seedPublishedMarketWithAssignments(
   }
   const { market } = await getMarketRes.json() as { market: Record<string, unknown> };
 
-  // Step 5: Construct and attach the setup_object, then publish
+  // Step 5: Attach the setup_object, then publish via the transition endpoint
   // Hardcode colValues to match the CSV above — avoids issues with
   // source-data API response format differences between endpoints.
   const setupObject = {
@@ -305,11 +308,22 @@ export async function seedPublishedMarketWithAssignments(
     data: {
       ...market,
       setupObject,
-      isDraft: false,
     },
   });
   if (!publishRes.ok()) {
-    throw new Error(`Market publish failed: ${publishRes.status()} ${await publishRes.text()}`);
+    throw new Error(`Market setup put failed: ${publishRes.status()} ${await publishRes.text()}`);
+  }
+
+  // Publish via the transition endpoint so phase advances and isDraft stays in sync.
+  const transitionRes = await request.post(`${baseURL}/markets/${marketId}/transition`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Owner-Email': email,
+    },
+    data: { toPhase: 'archived' },
+  });
+  if (!transitionRes.ok()) {
+    throw new Error(`Market transition failed: ${transitionRes.status()} ${await transitionRes.text()}`);
   }
 
   const marketSlug = marketNameToSlug(marketName);
@@ -331,7 +345,6 @@ export async function seedPublishedMarketWithAssignments(
       ...market,
       setupObject,
       assignmentObject: assignedMarket.assignmentObject || {},
-      isDraft: false,
     },
   });
   if (!storeRes.ok()) {

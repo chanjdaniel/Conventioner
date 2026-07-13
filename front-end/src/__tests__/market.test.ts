@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseMarketFromApi } from '@/utils/market';
-import { MarketPhase } from '@/assets/types/datatypes';
+import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market';
+import { MarketPhase, type Market } from '@/assets/types/datatypes';
 
 const apiMarket = {
     id: 'market-123',
@@ -50,5 +50,27 @@ describe('parseMarketFromApi', () => {
         expect(market.applicationForm).toBeUndefined();
         expect(market.reviewConfig).toBeUndefined();
         expect(market.discordGuildId).toBeUndefined();
+    });
+});
+
+describe('pathAfterLoadingMarket', () => {
+    const market = (fields: Partial<Market>): Market =>
+        ({ id: 'market-123', name: 'Test Market', ...fields }) as Market;
+
+    it('sends a draft to the setup wizard', () => {
+        expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Draft, isDraft: true }))).toBe(
+            '/market-setup',
+        );
+    });
+
+    it('sends a market past draft to its public slug', () => {
+        expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Archived, isDraft: false }))).toBe(
+            '/test-market',
+        );
+    });
+
+    it('falls back to isDraft for a stored market that predates the phase field', () => {
+        expect(pathAfterLoadingMarket(market({ isDraft: false }))).toBe('/test-market');
+        expect(pathAfterLoadingMarket(market({ isDraft: true }))).toBe('/market-setup');
     });
 });

@@ -18,7 +18,12 @@ from datatypes import (
 from assignment.assignment import assign_market
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case, snake_to_camel
 import api.applications as ApplicationsApi
-from market_documents import market_doc_field, market_doc_filter, market_from_document
+from market_documents import (
+    market_doc_field,
+    market_doc_filter,
+    market_doc_key,
+    market_from_document,
+)
 import api.source_data as SourceDataApi
 import api.permissions as PermissionsApi
 import api.organizations as OrgsApi
@@ -236,10 +241,19 @@ def _preserve_server_owned_fields(
     and stops a stale client copy of the market from silently reverting a saved form on the next
     PUT. Both are always taken from the stored market, whatever the payload carries.
 
+    `isDraft` is derived strictly from `phase` and rewritten here from the stored phase, never
+    from the payload. No read consults the stored value while the document's `phase` is one this
+    build knows -- ``Market.is_draft`` is computed, and no query filters on it. It is kept in
+    agreement anyway because it is the fallback ``phase_from_market_document`` drops to when
+    `phase` is missing or unrecognized (an older build reading a phase a newer one wrote, say),
+    and a fallback that disagrees with the phase is worse than no fallback: it answers
+    confidently and wrongly.
+
     The remaining Conventioner fields are carried over whenever the payload omits them, so a client
     that round-trips a market it fetched cannot null them out; an explicit null still clears them.
     """
     market_dict["phase"] = existing_market.phase.value
+    market_dict["is_draft"] = existing_market.is_draft
     market_dict["application_form"] = _application_form_dump(existing_market)
     for field in ("review_config", "discord_guild_id"):
         if field in market.model_fields_set:
@@ -399,6 +413,19 @@ def load_market_context(market_id: str) -> Optional[MarketContext]:
     return MarketContext(market_dict, market, organization, org_dict)
 
 
+def _stamp_effective_phase(market: Dict[str, Any], phase: MarketPhase) -> None:
+    """Serve a raw market document with its phase and ``isDraft`` agreeing.
+
+    A response built from a raw document bypasses ``Market``, and with it the guarantee that
+    ``is_draft`` is derived strictly from phase - a document the old publish flow wrote
+    (``phase: draft`` from create, ``isDraft: false`` from the publish PUT) would otherwise go
+    out with the two fields contradicting each other. Deriving ``isDraft`` from the effective
+    phase here means no reader has to know which of the two to believe, migrated or not.
+    """
+    market['phase'] = phase.value
+    market[market_doc_key('is_draft')] = phase == MarketPhase.DRAFT
+
+
 def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, Any]]:
     """Get a market by id, checking user has access."""
     context = load_market_context(market_id)
@@ -415,7 +442,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
 
     market_dict['_id'] = str(market_dict['_id'])
     market_dict['user_role'] = user_role.value
-    market_dict['phase'] = market.phase.value
+    _stamp_effective_phase(market_dict, market.phase)
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -466,7 +493,7 @@ def _decorate_market_summary(
     """
     market['_id'] = str(market['_id'])
     market['user_role'] = user_role
-    market['phase'] = phase_from_market_document(market).value
+    _stamp_effective_phase(market, phase_from_market_document(market))
     organization_id = market_doc_field(market, 'organization_id')
     if organization_id:
         org = lookups.organization(organization_id)
@@ -550,6 +577,7 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict = market.model_dump()
     _strip_persisted_assignment_statistics(market_dict)
     market_dict["phase"] = MarketPhase.DRAFT.value
+    market_dict["is_draft"] = True  # phase is always DRAFT at creation; kept in sync as the phase fallback
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form

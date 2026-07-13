@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 import api.attendance as AttendanceApi
 
 
@@ -192,3 +194,132 @@ def test_get_attendance_for_market_returns_camel_case_records(monkeypatch):
     assert result[0]["marketId"] == "m1"
     assert result[0]["vendorEmail"] == "a@example.com"
     assert result[0]["checkedInAt"] == "2026-05-01T09:00:00"
+
+
+def _mongo_matches(doc, query):
+    """Evaluate a Mongo filter the way the server does.
+
+    `$ne`, `$exists` and `$nor` are modelled exactly, because the distinction is the whole point
+    of these tests: Mongo matches `{"$ne": "draft"}` against a document that has no such field at
+    all, so a filter cannot tell a published market from a market written before `phase` existed.
+    `$nor` is how the lookup prunes the documents that are unambiguously drafts without asking a
+    filter to decide the question.
+    """
+    for key, condition in (query or {}).items():
+        if key == "$nor":
+            if any(_mongo_matches(doc, clause) for clause in condition):
+                return False
+            continue
+        present = key in doc
+        if isinstance(condition, dict):
+            if "$exists" in condition and present != condition["$exists"]:
+                return False
+            if "$ne" in condition and doc.get(key) == condition["$ne"]:
+                return False
+        elif not present or doc[key] != condition:
+            return False
+    return True
+
+
+class FakeSlugMarketsCollection:
+    """Stand-in for the markets collection, scanned by the slug lookup."""
+
+    def __init__(self, docs):
+        self.docs = docs
+        self.scanned = []
+
+    def find(self, query):
+        matched = [dict(d) for d in self.docs if _mongo_matches(d, query)]
+        self.scanned = [d["id"] for d in matched]
+        return iter(matched)
+
+
+def _slug_market(name, **overrides):
+    doc = {"id": name, "name": name}
+    doc.update(overrides)
+    return doc
+
+
+def test_get_published_market_by_slug_skips_legacy_draft_without_phase(monkeypatch):
+    """A draft written before the phase field existed must not be publicly reachable.
+
+    Regression: the lookup filtered on `phase != draft` in Mongo, and `$ne` also matches a
+    document with no `phase` key at all -- which put every legacy draft on a check-in URL.
+    """
+    fake = FakeSlugMarketsCollection([_slug_market("Legacy Draft", isDraft=True)])
+    monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
+
+    assert AttendanceApi.get_published_market_by_slug("legacy-draft") is None
+
+
+def test_get_published_market_by_slug_finds_legacy_published_without_phase(monkeypatch):
+    """The other half of the legacy mapping: no phase + isDraft false is published."""
+    fake = FakeSlugMarketsCollection([_slug_market("Legacy Published", isDraft=False)])
+    monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
+
+    found = AttendanceApi.get_published_market_by_slug("legacy-published")
+    assert found is not None and found["name"] == "Legacy Published"
+
+
+def test_get_published_market_by_slug_skips_draft_phase(monkeypatch):
+    fake = FakeSlugMarketsCollection([_slug_market("Draft Market", phase="draft", isDraft=True)])
+    monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
+
+    assert AttendanceApi.get_published_market_by_slug("draft-market") is None
+
+
+def test_get_published_market_by_slug_finds_archived_phase(monkeypatch):
+    fake = FakeSlugMarketsCollection([
+        _slug_market("Draft Market", phase="draft", isDraft=True),
+        _slug_market("Live Market", phase="archived", isDraft=False),
+    ])
+    monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
+
+    found = AttendanceApi.get_published_market_by_slug("live-market")
+    assert found is not None and found["name"] == "Live Market"
+
+
+class TestSlugLookupPrunesInMongo:
+    """The lookup runs on unauthenticated public endpoints, and a market document carries the
+    whole setupObject and assignmentObject, so it must not decode the collection to answer.
+
+    Mongo prunes only the documents that are unambiguously drafts; the Python test still decides
+    what counts as published, so pruning can never be what publishes or hides a market.
+    """
+
+    def test_unambiguous_drafts_are_never_decoded(self, monkeypatch):
+        fake = FakeSlugMarketsCollection([
+            _slug_market("Phase Draft", phase="draft", isDraft=True),
+            _slug_market("Legacy Draft", isDraft=True),
+            _slug_market("Live Market", phase="archived", isDraft=False),
+        ])
+        monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
+
+        AttendanceApi.get_published_market_by_slug("live-market")
+
+        assert fake.scanned == ["Live Market"]
+
+    def test_a_draft_the_prune_cannot_rule_out_is_still_rejected_in_python(self, monkeypatch):
+        """No phase and no isDraft maps to draft, but no filter can see that -- Python must."""
+        fake = FakeSlugMarketsCollection([_slug_market("Bare Market")])
+        monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
+
+        assert AttendanceApi.get_published_market_by_slug("bare-market") is None
+        assert fake.scanned == ["Bare Market"]
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"phase": "archived", "isDraft": False},
+            {"phase": "applications_open", "isDraft": True},
+            {"isDraft": False},
+            {"phase": "phase_from_a_future_build", "isDraft": False},
+        ],
+    )
+    def test_the_prune_never_hides_a_published_market(self, monkeypatch, overrides):
+        fake = FakeSlugMarketsCollection([_slug_market("Live Market", **overrides)])
+        monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
+
+        found = AttendanceApi.get_published_market_by_slug("live-market")
+
+        assert found is not None and found["name"] == "Live Market"

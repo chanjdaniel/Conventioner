@@ -259,17 +259,21 @@ def _make_existing_market_doc(**overrides):
 
 
 class TestBackwardCompatibility:
-    def test_existing_published_market_loads_without_phase_field(self):
+    def test_published_market_is_draft_derived_from_phase(self):
+        """is_draft is a computed field; the constructor's is_draft kwarg is ignored.
+        A market without an explicit phase defaults to DRAFT, so is_draft is True."""
         doc = _make_existing_market_doc(
             id="published-mkt",
             is_draft=False,
         )
         market = Market(**doc)
         assert market.id == "published-mkt"
-        assert market.is_draft is False
+        # is_draft is derived from phase (DRAFT), not from the stored document value.
+        assert market.is_draft is True
         assert market.phase == MarketPhase.DRAFT  # default when field absent
 
-    def test_existing_draft_market_loads_without_phase_field(self):
+    def test_draft_market_is_draft_derived_from_phase(self):
+        """is_draft is derived from phase regardless of what the constructor carries."""
         doc = _make_existing_market_doc(
             id="draft-mkt",
             is_draft=True,

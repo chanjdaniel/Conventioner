@@ -2,7 +2,7 @@ import logging
 import uuid
 from enum import Enum
 from typing import List, Optional, Union, Dict, Any, Tuple
-from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validator, model_validator
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -230,12 +230,21 @@ class Market(BaseModel):
     setup_object: Optional[SetupObject] = None
     modification_list: List[ModificationObject]
     assignment_object: AssignmentObject
-    is_draft: bool = True  # False after user completes setup (Generated Assignment Done)
-    phase: MarketPhase = MarketPhase.DRAFT  # Market lifecycle phase (replaces is_draft gradually)
+    phase: MarketPhase = MarketPhase.DRAFT  # Market lifecycle phase (single source of truth)
     application_form: Optional["ApplicationForm"] = None  # Application form definition
     review_config: Optional[Dict[str, Any]] = None  # Review configuration (reviewer pool, etc.)
     discord_guild_id: Optional[str] = None  # Per-market Discord guild reference (D4 integration seam)
     discord_webhook_url: Optional[str] = None  # Per-market Discord webhook target for assignment notifications
+
+    @computed_field
+    def is_draft(self) -> bool:
+        """Derived strictly from phase -- never independently writable.
+
+        True when the market is in its draft (setup) phase, False once published/archived.
+        Every read of a stored document goes through ``market_from_document``, which
+        overrides the phase to its effective value, so the two can never disagree.
+        """
+        return self.phase == MarketPhase.DRAFT
 
     @model_validator(mode='after')
     def validate_single_owner(self):

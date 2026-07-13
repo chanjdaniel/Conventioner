@@ -21,3 +21,4 @@ users.json
 # Logs
 *.log
 tmux-*.log
+flask_session/

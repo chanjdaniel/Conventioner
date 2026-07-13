@@ -1,7 +1,14 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { test, expect, MarketSetupPage, AssignmentResultsPage, NewMarketPage, BACKEND_URL, TEST_USER } from './fixtures';
-import { ensureTestOrg } from './helpers/seeds';
+import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import {
+  makeLegacyPublishedMarket,
+  readMarketLifecycle,
+  runIsDraftConsistencyMigration,
+} from './helpers/legacyMarketDoc';
+import { CheckinPage } from './pages/CheckinPage';
+import { marketNameToKebabSlug } from '../src/utils/marketSlug';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CSV_PATH = path.resolve(__dirname, 'fixtures', 'test-vendors.csv');
@@ -13,11 +20,12 @@ test.describe('Market pipeline E2E', () => {
 
   /**
    * Full end-to-end pipeline: create market with CSV upload, walk the 3-page
-   * setup wizard, trigger assignment generation, and verify the results view.
+   * setup wizard, trigger assignment generation, verify the results view, and
+   * publish the market with Done.
    *
    * This test exercises the real product flow without API shortcuts.
    */
-  test('create market, configure, assign, and view results', async ({ authenticatedPage: page }) => {
+  test('create market, configure, assign, view results, and publish', async ({ authenticatedPage: page, playwright }, testInfo) => {
     const marketName = `Pipeline E2E ${Date.now()}`;
 
     // ── Phase 1: Create a new market with CSV upload ──────────────────────
@@ -119,5 +127,124 @@ test.describe('Market pipeline E2E', () => {
     await expect(resultsPage.viewVendorsButton).toBeVisible();
     await expect(resultsPage.viewTablesButton).toBeVisible();
     await expect(resultsPage.viewAttendanceButton).toBeVisible();
+
+    // ── Phase 4: Publish with Done ─────────────────────────────────────────
+    // Done advances the phase through POST /markets/:id/transition. `isDraft` is
+    // derived from the stored phase, so publishing is what moves the market out of
+    // draft - nothing writes `isDraft` on its own.
+    await page.screenshot({ path: testInfo.outputPath('01-assignment-results-before-publish.png'), fullPage: true });
+
+    const marketId = await page.evaluate(
+      () => (JSON.parse(localStorage.getItem('market') || '{}') as { id?: string }).id,
+    );
+    expect(marketId).toBeTruthy();
+
+    await resultsPage.clickDone();
+
+    // A published market lands on its public slug URL, not back in the wizard.
+    const slug = marketNameToKebabSlug(marketName);
+    await page.waitForURL(`**/${slug}`, { timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Market home' })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('02-published-market-home.png'), fullPage: true });
+
+    // The server advanced the phase, and reports isDraft derived from it.
+    const marketRes = await page.request.get(`${BACKEND_URL}/markets/${marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    expect(marketRes.ok()).toBe(true);
+    const { market: storedMarket } = await marketRes.json() as {
+      market: { phase: string; isDraft: boolean };
+    };
+    expect(storedMarket.phase).toBe('archived');
+    expect(storedMarket.isDraft).toBe(false);
+
+    // Reopening the published market from the markets list routes on phase, so it
+    // goes to the public page instead of dropping the owner back into setup.
+    await page.goto('/markets');
+    await page.getByTestId('market-card').filter({ hasText: marketName })
+      .getByTestId('market-card-open-button').click();
+    await page.waitForURL(`**/${slug}`, { timeout: 10000 });
+
+    // ── Phase 5: A vendor can now check in ─────────────────────────────────
+    // The public slug lookup serves markets past draft only, so it resolves this
+    // market only because Done advanced its phase.
+    const anonymous = await playwright.request.newContext({ ignoreHTTPSErrors: true });
+    const publicRes = await anonymous.get(
+      `${BACKEND_URL}/public/markets/${slug}/vendors/${encodeURIComponent('alice@example.com')}/assignments`,
+    );
+    expect(publicRes.status()).toBe(200);
+    await anonymous.dispose();
+
+    // And the vendor-facing check-in page finds the assignment.
+    const checkinPage = new CheckinPage(page);
+    await checkinPage.goto(slug);
+    await checkinPage.fillEmail('alice@example.com');
+    await checkinPage.clickLookup();
+    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
+    await page.screenshot({ path: testInfo.outputPath('03-checkin-after-publish.png'), fullPage: true });
+  });
+
+  /**
+   * The upgrade path for markets the OLD build published.
+   *
+   * Publishing used to be `PUT isDraft: false`, which left the document as
+   * `phase: "draft"` + `isDraft: false` - the phase never moved, so `isDraft` was the only
+   * publish signal there was. The slug lookup now decides on phase, so those markets are
+   * invisible on their public check-in URL until `migrate_is_draft_consistency.py` advances
+   * them. Silently 404ing a live market's public URL is the worst outcome this PR could have,
+   * so the repair is exercised against the real script, the real database and the real
+   * vendor-facing page rather than asserted.
+   */
+  test('a market published by the old build stays published across the migration', async ({
+    authenticatedPage: page,
+    request,
+    playwright,
+  }) => {
+    // Seeding, two migration runs and a browser pass do not fit the default budget.
+    test.slow();
+
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const vendorAssignmentsUrl =
+      `${BACKEND_URL}/public/markets/${seed.marketSlug}` +
+      `/vendors/${encodeURIComponent('alice@example.com')}/assignments`;
+
+    const anonymous = await playwright.request.newContext({ ignoreHTTPSErrors: true });
+
+    // Rewind the document to the shape the old build stored for a published market.
+    makeLegacyPublishedMarket(seed.marketId);
+    expect(readMarketLifecycle(seed.marketId)).toEqual({ phase: 'draft', isDraft: false });
+
+    // Unmigrated, this live market's public check-in URL is off the air.
+    expect((await anonymous.get(vendorAssignmentsUrl)).status()).toBe(404);
+
+    runIsDraftConsistencyMigration();
+
+    // The migration resolves the disagreement in favour of isDraft: the market is published,
+    // so its phase advances rather than the market being confirmed as a draft.
+    expect(readMarketLifecycle(seed.marketId)).toEqual({ phase: 'archived', isDraft: false });
+
+    const migratedRes = await anonymous.get(vendorAssignmentsUrl);
+    expect(migratedRes.status()).toBe(200);
+    await anonymous.dispose();
+
+    // Re-running it changes nothing.
+    runIsDraftConsistencyMigration();
+    expect(readMarketLifecycle(seed.marketId)).toEqual({ phase: 'archived', isDraft: false });
+
+    // And the check-in page still finds the vendor's assignment, which is what that URL is for.
+    // (It is driven from a signed-in page, as `checkin.spec.ts` does: `App.vue` bounces a
+    // session-less visitor to /login even on this public route. That is a real bug on the
+    // public surface, but a pre-existing one this migration neither causes nor repairs - the
+    // anonymous request above is what proves the lookup resolves without a session.)
+    const checkinPage = new CheckinPage(page);
+    await checkinPage.goto(seed.marketSlug);
+    await checkinPage.fillEmail('alice@example.com');
+    await checkinPage.clickLookup();
+    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
   });
 });

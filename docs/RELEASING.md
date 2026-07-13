@@ -68,9 +68,16 @@ Migrations are never run automatically - rewriting stored documents is a deliber
 Before a promotion reaches production, run the pending migrations in `back-end/migrations/` against the production database (each is idempotent, and `--dry-run` previews the changes):
 
 ```bash
-python migrations/migrate_phase.py         # backfills `phase` on existing markets
-python migrations/migrate_market_keys.py   # rewrites markets under the canonical camelCase keys
+python migrations/migrate_phase.py                 # backfills `phase` on existing markets
+python migrations/migrate_market_keys.py           # rewrites markets under the canonical camelCase keys
+python migrations/migrate_is_draft_consistency.py  # makes `isDraft` agree with `phase` on markets that have one
 ```
+
+`migrate_is_draft_consistency.py` **must** be run with the code that makes `phase` the single source of truth, and it is the migration whose omission is visible to vendors.
+A market the old build published carries `phase: "draft"` + `isDraft: false` (publishing was a `PUT` of `isDraft: false`; nothing advanced the phase), and every read now derives the market's state from `phase`.
+`draft` is a recognized phase, so it is taken at face value: until the migration advances those markets to `archived`, an already-live market reverts to looking unpublished - its public check-in URL returns `404`, and its organizer is routed back into the setup wizard.
+The migration repairs that disagreement in favour of `isDraft`, because on those documents `isDraft` was the only publish signal that ever existed.
+Run it after `migrate_phase.py`: the two are disjoint by construction (one touches only documents *with* a `phase`, the other only those without), but that ordering means a database migrated in one pass ends up fully consistent.
 
 `migrate_market_keys.py` **must** be run before the code that reads market documents by the canonical key only.
 An unmigrated market is invisible to every such read: vendors are told the market does not exist at check-in, and organization members get an empty market list.

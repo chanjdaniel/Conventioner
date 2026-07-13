@@ -137,9 +137,10 @@ export interface Market {
     id: string,
     name: string,
     creationDate: string,
-    /** False after user completes setup (Generated Assignment Done). Omitted in old data = treat as draft. */
+    /** Derived server-side from phase: true when phase is ``draft``, false otherwise. The
+     * server overwrites whatever a PUT body carries; the field is never independently writable. */
     isDraft?: boolean,
-    /** Market lifecycle phase (replaces is_draft over time). Always derived server-side: markets
+    /** Market lifecycle phase - the single source of truth. Always derived server-side: markets
      * stored before the phase field existed report `draft` when isDraft, otherwise `archived`. */
     phase?: MarketPhase,
     roles: Record<string, MarketRole>,  // Map of user_id -> role

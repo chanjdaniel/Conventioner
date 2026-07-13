@@ -121,6 +121,46 @@ def test_unrecognized_stored_phase_degrades_instead_of_breaking_the_list(collect
     assert listed["draft-market"]["phase"] == MarketPhase.DRAFT.value
 
 
+class TestServedIsDraftAgreesWithPhase:
+    """A response can never carry a phase and an ``isDraft`` that contradict each other.
+
+    Both read paths build the response from the raw document, bypassing ``Market`` and with it
+    the computed field that derives ``is_draft`` from phase. The old publish flow wrote exactly
+    the contradiction: ``phase: draft`` from create, ``isDraft: false`` from the publish PUT.
+    ``migrate_is_draft_consistency.py`` repairs it, but it is manual and nothing asserts it ran.
+    """
+
+    @pytest.fixture
+    def contradictory(self, collection):
+        collection.docs.append(
+            {
+                **_pre_migration_market("contradictory-market", is_draft=False),
+                "phase": MarketPhase.DRAFT.value,
+            }
+        )
+        return collection
+
+    def test_list_serves_is_draft_derived_from_phase(self, contradictory):
+        listed = {m["id"]: m for m in MarketsApi.get_markets_for_user(USER_EMAIL)}
+
+        served = listed["contradictory-market"]
+        assert served["phase"] == MarketPhase.DRAFT.value
+        assert served["isDraft"] is True
+
+    def test_detail_serves_is_draft_derived_from_phase(self, contradictory):
+        served = MarketsApi.get_market_for_user(USER_EMAIL, "contradictory-market")
+
+        assert served["phase"] == MarketPhase.DRAFT.value
+        assert served["isDraft"] is True
+
+    def test_a_published_market_is_served_as_not_draft(self, collection):
+        listed = {m["id"]: m for m in MarketsApi.get_markets_for_user(USER_EMAIL)}
+        detail = MarketsApi.get_market_for_user(USER_EMAIL, "published-market")
+
+        assert listed["published-market"]["isDraft"] is False
+        assert detail["isDraft"] is False
+
+
 class TestSharedParser:
     """Every parse of a stored market goes through one function, so none of them can quietly
     disagree with the document about what phase the market is in.

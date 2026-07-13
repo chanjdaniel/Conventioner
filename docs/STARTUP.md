@@ -306,6 +306,20 @@ Use `run`, not `exec`: the back-end container is crash-looping, so there is noth
 `run` starts a throwaway container (with MongoDB already up as its dependency) and passes the command straight through the entrypoint.
 Add `--dry-run` to the migration to preview the changes without applying them.
 
+**A market you published before now reads as a draft: its check-in URL 404s, and opening it drops you back into the setup wizard**:
+
+The market lifecycle is now driven by `phase`, and every read derives the market's state from it.
+Publishing used to be a `PUT` of `isDraft: false`, which never moved the phase - so a market published by the older build sits at `phase: "draft"` with `isDraft: false`.
+`draft` is a phase this build recognizes, so it is taken at face value and the market reverts to looking unpublished: the public slug lookup, which serves markets past `draft` only, returns `404`, and the SPA routes the organizer to market setup instead of the market's public page.
+The migration advances those markets to `archived`, resolving the disagreement in favour of `isDraft` (on those documents it was the only publish signal that existed):
+
+```bash
+docker compose exec backend python migrations/migrate_is_draft_consistency.py
+```
+
+Unlike the market-key migration this one does not gate boot, so nothing forces it - run it against any database with markets predating the change.
+It is idempotent, and `--dry-run` previews the changes without applying them.
+
 ### Backend Issues
 
 **MongoDB Connection Error**:

@@ -73,6 +73,7 @@ class FormHasFieldsGuard:
 # if the transition has preconditions.
 VALID_TRANSITIONS: set[tuple[str, str]] = {
     ("draft", "applications_open"),
+    ("draft", "archived"),
     ("applications_open", "applications_closed"),
     ("applications_closed", "applications_open"),
 }

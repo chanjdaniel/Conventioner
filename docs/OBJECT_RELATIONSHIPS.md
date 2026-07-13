@@ -91,8 +91,8 @@ The central entity representing a market event with configuration, assignments, 
 - `setup_object: Optional[SetupObject]` - Market configuration and setup data
 - `modification_list: List[ModificationObject]` - List of modifications (currently empty structure)
 - `assignment_object: AssignmentObject` - Contains vendor assignment results and statistics
-- `is_draft: bool` - Stored as `isDraft` in MongoDB (camelCase). Default **true**: market setup is not finished. Set to **false** when the user completes the Generated Assignment flow (Done). While `true`, opening the market from the dashboard or Markets sends the user to market setup; when `false`, the SPA routes to `/{kebab-case-slug}` derived from the market **name** (e.g. `my-summer-market`).
-- `phase: MarketPhase` - Market lifecycle phase. Default **`DRAFT`**. Coexists with `is_draft` and is intended to replace it gradually; both are written today and existing code still reads `is_draft`. Advanced only through `POST /markets/<market_id>/transition`. See [MarketPhase](#marketphase-enum).
+- `phase: MarketPhase` - Market lifecycle phase, and the **single source of truth** for where a market is in its life. Default **`DRAFT`**. Advanced only through `POST /markets/<market_id>/transition`. While the market is in `draft`, opening it from the dashboard or Markets sends the user to market setup; past `draft` the SPA routes to `/{kebab-case-slug}` derived from the market **name** (e.g. `my-summer-market`), and the public check-in URL resolves. See [MarketPhase](#marketphase-enum).
+- `is_draft: bool` - Stored as `isDraft` in MongoDB (camelCase). A Pydantic `@computed_field` **derived strictly from `phase`** (`true` exactly when `phase == draft`), never independently writable: no request body can set it, and it is recomputed from the stored phase on every write. It is still persisted, and kept in agreement with `phase` by every writer, for exactly one reason: it is the fallback `phase_from_market_document()` drops to when a document's `phase` is missing or unrecognized. Nothing reads the stored value for a market whose `phase` this build understands - a fallback that disagreed with the phase would answer confidently and wrongly. Treat it as a persisted view of `phase`, never as state of its own.
 - `application_form: Optional[ApplicationForm]` - Application form definition for application-based markets (None for CSV-based markets). Server-owned on update: only `PUT /markets/<market_id>/application-form` writes it (see [ApplicationForm](#applicationform))
 - `review_config: Optional[Dict[str, Any]]` - Free-form review configuration (reviewer pool, etc.); no fixed schema yet
 - `discord_guild_id: Optional[str]` - Per-market Discord guild reference (integration seam; not yet consumed)
@@ -110,7 +110,8 @@ The central entity representing a market event with configuration, assignments, 
 
 **Server-Owned Fields:**
 - `phase` is lifecycle state owned by the server, never by a client update body. `create_market()` always persists `phase: "draft"`, and `update_market()` re-applies the stored phase over whatever the payload contained. The one way to change it after creation is `POST /markets/<market_id>/transition`, which evaluates the guard registry before it writes (see [MarketPhase](#marketphase-enum)).
-- On read, the phase a market reports is always derived from its stored document by `phase_from_market_document()` (`back-end/datatypes.py`), never taken from the raw document as-is. Documents written before the field existed have no `phase`, so the detail endpoint, the market list, and every internal parse (`market_from_document()` in `back-end/market_documents.py`) run the same `isDraft` fallback and cannot disagree about what phase a market is in.
+- `is_draft` is not owned by anything either: it is *computed* from `phase` on the model, and rewritten from the stored phase on every write path (`create_market()` stamps `true` alongside `phase: "draft"`; `update_market()` re-derives it from the stored phase; the transition endpoint sets both fields in one atomic update). A PUT body carrying `isDraft` is ignored, so a client cannot publish a market by flipping the flag - it must transition the phase.
+- On read, the phase a market reports is always derived from its stored document by `phase_from_market_document()` (`back-end/datatypes.py`), never taken from the raw document as-is. Documents written before the field existed have no `phase`, so the detail endpoint, the market list, and every internal parse (`market_from_document()` in `back-end/market_documents.py`) run the same `isDraft` fallback and cannot disagree about what phase a market is in. The two endpoints that serve a *raw* document rather than a parsed `Market` (the detail endpoint and the market list) additionally re-stamp `isDraft` from that effective phase before responding, so a document the old publish flow left self-contradictory (`phase: "draft"` + `isDraft: false`) never goes out over the wire with its two fields disagreeing.
 - `application_form` is written on an existing market only by `PUT /markets/<market_id>/application-form`. `update_market()` always re-applies the stored form over whatever the market payload contained, so a stale client copy cannot revert a saved form and no market PUT can bypass the D9 lock. `POST /markets` may still carry a form on the create body, and it goes through the same validation and normalization as the dedicated endpoint.
 - `review_config` and `discord_guild_id` are carried over on update whenever the payload omits them, so a client that round-trips a market it fetched cannot accidentally null them out. Passing an explicit `null` still clears the field.
 
@@ -521,14 +522,16 @@ The market lifecycle. A market moves forward through these phases; the phase dri
 **Transitions:**
 
 Only these edges exist today (`VALID_TRANSITIONS` in `back-end/guards.py`); every other pair is rejected, and each missing edge lands with the feature that needs it.
-The remaining phases are declared on the enum but no transition enters them yet - though a market can still *sit* in one: a published market written before `phase` existed reads back as `archived`.
+`review`, `assignment`, `offers`, and `market_days` are declared on the enum but no transition enters them yet.
 
 - `draft` → `applications_open`
+- `draft` → `archived` (**publishing a CSV-based market**: the Done button at the end of the Generated Assignment flow. A CSV market never opens applications - its vendors arrive in the upload - so the one thing publishing has to do is move it out of `draft`, which is what puts it on its public check-in URL. `archived` is where that lands: it is the phase a published pre-`phase` market already reads back as, so the CSV flow and the legacy documents agree. No guards - a CSV market that has an assignment has nothing left to satisfy.)
 - `applications_open` → `applications_closed`
 - `applications_closed` → `applications_open` (reopening the submission window)
 
 **Endpoint:**
-- `POST /markets/<market_id>/transition` - Requires `ADMIN`. Body: `{ "toPhase": "applications_open" }`. Returns `200` with `{ "phase": "<new_phase>" }`. `400` on an unknown phase or an edge that is not valid from the market's current phase, `403` on insufficient permission, `404` on an unknown market, `409` when a guard blocks the transition or when the market's phase changed while the request was in flight (the write is a compare-and-set against the phase the request read, so two organizers racing cannot both win). This is the only writer of `Market.phase` on an existing market.
+- `POST /markets/<market_id>/transition` - Requires `ADMIN`. Body: `{ "toPhase": "applications_open" }`. Returns `200` with `{ "phase": "<new_phase>" }`. `400` on an unknown phase or an edge that is not valid from the market's current phase, `403` on insufficient permission, `404` on an unknown market, `409` when a guard blocks the transition or when the market's phase changed while the request was in flight (the write is a compare-and-set against the phase the request read, so two organizers racing cannot both win). This is the only writer of `Market.phase` on an existing market, and it writes the derived `isDraft` in the same atomic update so the two can never drift apart.
+- **Callers**: `GenerateAssignmentView.vue`'s Done button posts `{ "toPhase": "archived" }` to publish a CSV-based market, surfacing a `409`'s blocker messages in the Done error rather than a generic "failed to save". Publishing used to be a `PUT` of `isDraft: false`; that route is gone, and this transition is now the only way a CSV market leaves `draft`.
 
 **Guards (the D16 registry):**
 
@@ -544,12 +547,13 @@ The only guard today is `FormHasFieldsGuard` (`form_has_fields`): the applicatio
 
 A failed guard becomes a `PreconditionResult` (`id`, `passed`, `message`, optional `resolution_link`), and the `409` body is `{ error, currentPhase, targetPhase, blockers: PreconditionResult[] }`, camelCased on the wire. The front-end mirrors these as `PreconditionResult` / `TransitionRequest` / `TransitionResponse` / `TransitionBlockedResponse` in `front-end/src/assets/types/datatypes.ts`, and `BlockerPanel.vue` renders the blocker list generically - message plus a "Fix this" link when the guard supplied a `resolutionLink`.
 
-The component and its types ship ahead of the UI that calls the endpoint: no view invokes the transition yet, and `FormHasFieldsGuard`'s `resolution_link` (`/markets/<market_id>/form-builder`) has no matching route in `front-end/src/router/index.ts` yet either - the form builder is today a tab inside `/market-setup`. Both land with the view that wires the transition up.
+`BlockerPanel` itself still ships ahead of the view that mounts it: the only caller of the transition today is the CSV publish (`draft` → `archived`), which carries no guards and so can never be blocked. `FormHasFieldsGuard`'s `resolution_link` (`/markets/<market_id>/form-builder`) has no matching route in `front-end/src/router/index.ts` yet either - the form builder is today a tab inside `/market-setup`. Both land with the view that wires up an application-based market's transition into `applications_open`.
 
 **Relationships:**
 - **Used by Market**: Stored in `Market.phase`, server-owned (see [Market](#market))
-- **Coexists with `is_draft`**: `is_draft` is still the field existing code reads. `phase` is written alongside it and takes over gradually.
+- **`is_draft` is derived from it**: `Market.is_draft` is a computed field, true exactly when `phase == draft`. Phase is the single source of truth; `is_draft` is a persisted view of it kept in agreement by every writer, and is only ever *read* as the fallback for a document that has no usable `phase`.
 - **Derived on read**: `phase_from_market_document()` (`back-end/datatypes.py`) is the single source of truth for the phase of a stored document - it falls back to the `isDraft` mapping when the field is absent, and logs and falls back rather than raising when the stored value is one this build does not recognize.
+- **Not decidable in Mongo**: because that fallback exists, no query condition can answer "is this market published?" - `{"phase": {"$ne": "draft"}}` also matches a phase-less document, which is what a legacy *draft* looks like. The public slug lookup (`get_published_market_by_slug()`) therefore prunes with `non_draft_market_prefilter()` (`back-end/market_documents.py`) and makes the actual draft decision in Python through `phase_from_market_document()`. The prefilter excludes only the unambiguous drafts: it prunes, it does not judge.
 
 ---
 
@@ -633,7 +637,7 @@ The system uses MongoDB with the following collections:
 - **Authentication**: Used by Flask-Login for session management (lookup by email)
 
 #### `markets` Collection
-- **Document Structure**: Matches `Market` datatype (with camelCase keys in database), including `isDraft` for draft vs. completed setup and `phase` for the market lifecycle
+- **Document Structure**: Matches `Market` datatype (with camelCase keys in database), including `phase` for the market lifecycle and the `isDraft` flag derived from it
 - **Primary Key**: `id` field (UUID)
 - **Operations**: Create, read, update, delete via `api/markets.py`
 - **Key Conversion**: Uses snake_case ↔ camelCase conversion utilities
@@ -641,6 +645,11 @@ The system uses MongoDB with the following collections:
 - **Normalizing legacy keys**: documents written before that convention carry snake_case keys. `back-end/migrations/migrate_market_keys.py` rewrites them under the canonical keys, dropping the legacy spelling (where a document carries both, the camelCase value wins - it is the one the last write set). It is idempotent and supports `--dry-run`. Nothing runs it for you, and the back end **refuses to boot** until it records its marker in `schema_migrations`: an unmigrated market is invisible to the canonical-key reads rather than broken, so it would be hidden from the public check-in lookup and from organization-scoped market lists with nothing logged anywhere.
 - **Indexing**: Markets are queried by id; roles dict keys are user ids
 - **Backfilling `phase`**: Market documents written before `phase` existed have no such field. `back-end/migrations/migrate_phase.py` backfills them (`isDraft: true` → `draft`, `isDraft: false` → `archived`, the safe default given archives are read-only). It is idempotent and supports `--dry-run`. Documents without `phase` still load: `phase_from_market_document()` applies the same mapping on read, so a market behaves identically before and after the migration runs.
+- **Reconciling `isDraft` with `phase`**: `back-end/migrations/migrate_is_draft_consistency.py` brings the two fields into agreement on every document that stores a `phase`. Two shapes disagree, and they are repaired in *opposite* directions, because which field carried the truth depends on which build wrote the document:
+  - `phase: "draft"` + `isDraft: false` - a market **published by the old build**, when publishing was a `PUT` of `isDraft: false` and nothing advanced the phase. `isDraft` was the only publish signal that existed, so it wins: the *phase* is advanced to `archived` (where the CSV publish now lands). Confirming these as drafts instead would take a live market's public check-in URL off the air, because the slug lookup now decides on phase.
+  - `phase != "draft"` + `isDraft: true` - a market the transition endpoint advanced before `isDraft` joined its atomic update. The phase is what moved, so `isDraft` is the stale field and is recomputed from it.
+
+  Documents with **no** `phase` at all are deliberately untouched: `phase_from_market_document()` derives their phase *from* `isDraft`, so they are already self-consistent, and `migrate_phase.py` is what backfills them. Every repair is a targeted, condition-checked `$set` (never a scan-then-replace) whose filter Mongo re-checks per document as it writes, so a market the live app transitions mid-run drops out of the repair instead of having a stale value written over its new phase. It is idempotent and supports `--dry-run`.
 
 #### `schema_migrations` Collection
 - **Document Structure**: one marker document per applied migration - `_id` is the migration name (today only `market_document_keys`), with an `appliedAt` ISO timestamp
@@ -741,8 +750,8 @@ The permission system determines user access to markets through a two-tier resol
 Market
 ├── roles: Dict[str, MarketRole] (many-to-many with User, keys are user ids)
 ├── organization_id: Optional[str] (many-to-one with Organization)
-├── phase: MarketPhase (lifecycle, server-owned, default DRAFT)
-├── is_draft: bool (legacy draft flag, still read by existing code)
+├── phase: MarketPhase (lifecycle, server-owned, default DRAFT - single source of truth)
+├── is_draft: bool (computed from phase: true iff phase == draft)
 ├── theme: Optional[ThemeObject]
 ├── SetupObject (1:1, optional)
 │   ├── PriorityObject[] (1:many)
@@ -916,9 +925,10 @@ SourceData (CSV)
 - Else → use `Market.theme` (or default if neither exists)
 
 ### 7. Additive Schema Evolution
-- New fields are added alongside the fields they will eventually replace, never in place of them: `Market.phase` ships next to `Market.is_draft`, and the CSV-derived fields are relaxed to optional rather than deleted.
+- New fields are added alongside the fields they will eventually replace, never in place of them: `Market.phase` shipped next to `Market.is_draft`, and the CSV-derived fields are relaxed to optional rather than deleted.
 - Old documents therefore keep loading without a migration, and code moves to the new field one call site at a time.
 - Migration scripts (like `migrations/migrate_phase.py`) backfill the new field so it is queryable, but the model defaults keep documents valid even before the migration runs.
+- **The takeover completes by deriving the old field, not by dropping it.** `Market.is_draft` is now a computed field over `phase` rather than independent state: the old field keeps its shape on the wire and in the database - so old documents, and any reader that still names it, keep working - while there is exactly one thing left to write. A field kept only as a fallback must never be allowed to *contradict* the field it falls back for, which is what `migrations/migrate_is_draft_consistency.py` guarantees for documents the old write path left disagreeing.
 - **The exception is the key convention.** `migrations/migrate_market_keys.py` is not additive and is not optional: a market left under the legacy snake_case keys is invisible to reads that name the canonical key, so the back end refuses to boot until the migration is recorded rather than serve a database it can only half see. See the [`markets`](#markets-collection) and [`schema_migrations`](#schema_migrations-collection) collections.
 
 ---
@@ -970,4 +980,5 @@ Public attendance check-in record. One document per (market_id, vendor_email, da
 
 - Public read of a single vendor's own assignments + check-in status via `GET /public/markets/<slug>/vendors/<email>/assignments`.
 - Public write via `POST /public/markets/<slug>/attendance/checkin`.
+- Both resolve the slug through `get_published_market_by_slug()`, which serves a market only once it is **past `draft`** - so a market reaches its public check-in URL by being transitioned, and a draft is a `404` there. The draft test is made in Python on the effective phase, not by a Mongo condition (see [MarketPhase](#marketphase-enum)).
 - Owner-only listing of all attendance records for a market via `GET /markets/<market_id>/attendance` (requires `VIEWER` permission).
