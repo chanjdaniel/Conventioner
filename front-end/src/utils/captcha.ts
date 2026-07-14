@@ -14,6 +14,21 @@ declare global {
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 const RECAPTCHA_SCRIPT_URL = 'https://www.google.com/recaptcha/api.js?render=' + RECAPTCHA_SITE_KEY;
 
+/**
+ * The token a build with no site key sends. Only a back end running with `DISABLE_CAPTCHA` accepts
+ * it; the back end refuses to boot without a reCAPTCHA secret otherwise, and Google - which never
+ * issued this - fails it, so every registration comes back 400.
+ */
+const PLACEHOLDER_TOKEN = 'e2e-test-captcha-token';
+
+/**
+ * A build that has declared itself a local development one. `vite build` refuses a missing site key
+ * unless this is set (see vite.config.ts), so this is the only way a keyless bundle exists at all -
+ * and the dev server, which e2e drives, is a local development process by definition.
+ */
+const INSECURE_LOCAL_DEV =
+  import.meta.env.DEV || import.meta.env.VITE_ALLOW_INSECURE_LOCAL_DEV === 'true';
+
 let scriptLoaded = false;
 let scriptLoading = false;
 
@@ -76,11 +91,19 @@ function loadRecaptchaScript(): Promise<void> {
  */
 export async function executeRecaptcha(action: string): Promise<string> {
   if (!RECAPTCHA_SITE_KEY) {
-    // In test/dev builds the site key is intentionally empty (production always
-    // injects it via docker-compose env). Return a placeholder token so callers
-    // can still reach the backend, which applies its own DISABLE_CAPTCHA bypass.
-    console.warn('RECAPTCHA_SITE_KEY is not configured; using placeholder token');
-    return 'e2e-test-captcha-token';
+    if (!INSECURE_LOCAL_DEV) {
+      // Unreachable: `vite build` refuses to produce this bundle. Reached only by a build that
+      // skipped that check, and a placeholder token is not a token - sending it would have the back
+      // end verify it against Google and reject the registration with a 400 naming none of this.
+      throw new Error(
+        'VITE_RECAPTCHA_SITE_KEY is not configured, so there is no captcha to solve. Set it to the ' +
+          "site key that pairs with the back end's RECAPTCHA_SECRET_KEY.",
+      );
+    }
+    // A local development build: the site key is intentionally empty, and the back end it talks to
+    // is running with DISABLE_CAPTCHA, which is the only thing that accepts this token.
+    console.warn('VITE_RECAPTCHA_SITE_KEY is not configured; using placeholder token');
+    return PLACEHOLDER_TOKEN;
   }
 
   try {

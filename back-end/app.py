@@ -1,4 +1,11 @@
 # flask run --cert=adhoc > error.log 2>&1
+# First, before the imports below build their Mongo clients from it. Nothing reads a *secret* at
+# import any more - the three that used to are now read on call, so the boot check answers for the
+# environment as it stands rather than for the import order that produced it. See utils.env_file.
+from utils.env_file import load_env_file
+
+load_env_file()
+
 import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
@@ -13,12 +20,10 @@ from api.floorplans_calibrate import floorplans_calibrate_bp
 from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
-from typing import Any, Dict
+from typing import Any, Dict, List, NamedTuple
 from flask import Flask, request, jsonify, Response
-from flask_session import Session
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
-from flask_cors import CORS
 from datetime import timedelta, datetime, timezone
 from datatypes import Market, MarketPhase, MarketRole, phase_from_market_document
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
@@ -37,10 +42,41 @@ import time
 import traceback
 import logging
 
+from utils.captcha import (
+    CaptchaNotConfiguredError,
+    assert_captcha_configured,
+)
+from utils.cors import (
+    AllowedOrigin,
+    CorsConfigError,
+    allowed_origins,
+    describe_origins,
+    install_cors,
+)
+from utils.email import (
+    MailerNotConfiguredError,
+    assert_mailer_configured,
+)
+from utils.proxy import (
+    TrustedProxyConfigError,
+    install_trusted_proxy_fix,
+    trusted_proxy_hops,
+)
+from utils.secret_key import (
+    SecretKeyNotConfiguredError,
+    signing_secret,
+)
+from utils.session_storage import (
+    ON_DISK,
+    SESSION_FOLDER,
+    SessionStorageNotConfiguredError,
+    install_session_storage,
+    session_backend,
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-SESSION_FOLDER = "flask_session"
 SESSION_MAX_AGE = 7200
 
 
@@ -71,44 +107,162 @@ def verify_market_key_migration() -> None:
 
 verify_market_key_migration()
 
+
+class PublicEndpointDefenseError(RuntimeError):
+    """The public endpoints are not configured to defend themselves."""
+
+
+class PublicEndpointDefenses(NamedTuple):
+    """What a passing check found, so the caller that installs it does not fetch it a second time."""
+
+    signing_secret: str
+    origins: List[AllowedOrigin]
+    session_backend: str
+    trusted_proxy_hops: int
+
+
+def check_public_endpoint_defenses() -> PublicEndpointDefenses:
+    """Refuse to boot without the configuration this app's public surface rests on.
+
+    The signup, verification, password-reset and OTP endpoints are unauthenticated, they write to
+    the database, and they send mail from this domain. What keeps a script off them is a reCAPTCHA
+    secret; what makes the session cookie they hand back mean anything is a signing secret; what
+    decides which websites may spend that cookie against the organizer API is the browser origin
+    list; what carries the verification link, the reset link, and the login code - the only ways an
+    organizer account is ever reached - is a mail key; what says where that session is kept at all,
+    which has no answer that is right for both a container and a serverless function, is
+    ``SESSION_TYPE``; and what decides whose address the captcha is actually scored against, when
+    something the deployment owns sits in front of Flask, is ``TRUSTED_PROXY_HOPS``.
+
+    Three of the six fail *silently* when unset: the captcha passes everybody, a session cookie
+    signed with a key the repository publishes is a session anyone can forge, and a credentialed
+    CORS policy with no origin list hands the organizer API to every website an organizer visits.
+    The mail key and the session backend are here for the mirror-image reason - unset, the first
+    fails *every* registration, reset and OTP with a 500 that names nothing, and the second sends a
+    serverless deployment looking for a disk it does not have, failing at import and naming nothing
+    either - and a variable whose absence has to be diagnosed one broken deployment at a time
+    belongs in the same refusal as the ones whose absence is never diagnosed at all. The hop count
+    is the quietest of all: unset behind a proxy, every signup in the world is reported to Google
+    as coming from one address, and a reCAPTCHA score is the only place it ever shows. As with the
+    market-key migration above, an unknown state is never taken for a safe one: it fails at boot,
+    naming the variables, rather than in production, naming nothing.
+
+    This is a *check*: it reads configuration and nothing else, so asking whether this deployment is
+    configured cannot change it. Installing what it found is ``configure_public_endpoint_defenses``.
+
+    Every check runs, and the refusal carries *all* of them. Stopping at the first would hand an
+    operator one variable at a time and a redeploy between each, which turns one loud failure into
+    a sequence of them and invites the third to be met by giving up. What is required is written
+    down where the promotion is - ``docs/RELEASING.md`` - because this is a boot-time contract,
+    and a deployment that has not met it does not serve the organizer app either.
+
+    This runs for *every* process, not only one that calls itself production. Conditioning it on
+    ``FLASK_ENV`` is what made the whole check dead code: the repo's own image exported
+    ``FLASK_ENV=development`` and nothing overrode it, so the deployments that most needed the
+    check were exactly the ones exempt from it. The escape hatch is opt-in and it is loud - see
+    ``utils.deployment`` - so a development machine can still boot unconfigured while a deployment
+    that forgets cannot.
+
+    Raises:
+        PublicEndpointDefenseError: naming every variable that is missing, all at once.
+    """
+    problems = []
+    secret = ""
+    origins: List[AllowedOrigin] = []
+    sessions = ON_DISK
+    hops = 0
+
+    try:
+        assert_captcha_configured()
+    except CaptchaNotConfiguredError as e:
+        problems.append(str(e))
+
+    try:
+        assert_mailer_configured()
+    except MailerNotConfiguredError as e:
+        problems.append(str(e))
+
+    try:
+        secret = signing_secret()
+    except SecretKeyNotConfiguredError as e:
+        problems.append(str(e))
+
+    try:
+        origins = allowed_origins()
+    except CorsConfigError as e:
+        problems.append(str(e))
+
+    try:
+        sessions = session_backend()
+    except SessionStorageNotConfiguredError as e:
+        problems.append(str(e))
+
+    try:
+        hops = trusted_proxy_hops()
+    except TrustedProxyConfigError as e:
+        problems.append(str(e))
+
+    if problems:
+        message = "\n\n".join([
+            f"Refusing to start: {len(problems)} of the things this app's public surface rests on "
+            f"are not configured, and not one of them announces itself when unset - each is either "
+            f"a defense that quietly stops defending, the mail without which no organizer account "
+            f"can be reached at all, the store the session itself is kept in, or the address a "
+            f"caller is taken to be at. All of them are named below. See the required production "
+            f"environment in docs/RELEASING.md before promoting.",
+            *problems,
+        ])
+        logger.critical("%s", message)
+        raise PublicEndpointDefenseError(message)
+
+    return PublicEndpointDefenses(
+        signing_secret=secret,
+        origins=origins,
+        session_backend=sessions,
+        trusted_proxy_hops=hops,
+    )
+
+
+def configure_public_endpoint_defenses(
+    flask_app: Flask, defenses: PublicEndpointDefenses,
+) -> None:
+    """Install what the check confirmed: the signing key, the origins it may be spent from, the store
+    it is kept in, and the hops a caller's address may be read back through.
+
+    The session store goes on last, because a cookie-only session *is* the signed cookie: the
+    interface is built against the app's ``SECRET_KEY``, which the first line here is what puts
+    there.
+    """
+    flask_app.config["SECRET_KEY"] = defenses.signing_secret
+    install_cors(flask_app, defenses.origins)
+    logger.info(
+        "Allowing credentialed browser requests from: %s", describe_origins(defenses.origins),
+    )
+    install_trusted_proxy_fix(flask_app, defenses.trusted_proxy_hops)
+    install_session_storage(flask_app, defenses.session_backend)
+
+
 app = Flask(__name__)
 
-# Session configuration: Use 'null' for Vercel serverless (stores in cookies only)
-# For production with persistent sessions, consider MongoDB-backed sessions
-# Set SESSION_TYPE env var to override: 'null' for Vercel, 'filesystem' for local dev
-session_type = os.getenv("SESSION_TYPE", "filesystem" if os.getenv("FLASK_ENV") != "production" else "null")
-
-app.config["SESSION_TYPE"] = session_type
 app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = SESSION_MAX_AGE
 app.config["SESSION_COOKIE_NAME"] = "session"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-# Only require secure cookies in production or when using HTTPS
-app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production" or os.getenv("USE_HTTPS", "true").lower() == "true"
+# Not configurable: a SameSite=None cookie is one the browser attaches to cross-site requests, and
+# browsers only accept such a cookie when it is also Secure - so an environment variable that could
+# turn this off would not "allow plain HTTP", it would ship a session cookie the browser drops, or
+# sends in the clear where it does not. Loopback counts as a secure context, so local dev is unaffected.
+app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'TEMP_KEY_CHANGE_IN_PRODUCTION')
+
+configure_public_endpoint_defenses(app, check_public_endpoint_defenses())
+
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB upload limit
 
-# Only create session folder for filesystem sessions
-if session_type == "filesystem":
-    os.makedirs(SESSION_FOLDER, exist_ok=True)
-    app.config["SESSION_FILE_DIR"] = SESSION_FOLDER
-
-Session(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.session_protection = "strong"
-# Configure CORS based on environment
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-if os.getenv("FLASK_ENV") == "production":
-    # In production, only allow the configured frontend URL
-    CORS(app, 
-         origins=[frontend_url],
-         supports_credentials=True)
-else:
-    # In development, allow all origins for easier local development
-    CORS(app, supports_credentials=True)
 
 app.register_blueprint(floorplans_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_placement_bp, url_prefix="/floorplans")
@@ -1095,7 +1249,7 @@ def get_market_attendance(market_id: str) -> Response:
 
 def cleanup_sessions() -> None:
     """Clean up expired session files. Only runs for filesystem sessions."""
-    if app.config["SESSION_TYPE"] == "filesystem":
+    if app.config["SESSION_TYPE"] == ON_DISK:
         now = time.time()
         for session_file in glob.glob(os.path.join(SESSION_FOLDER, "*")):
             if os.stat(session_file).st_mtime < now - SESSION_MAX_AGE:

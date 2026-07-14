@@ -1,38 +1,134 @@
 """
 Email service integration using Resend for sending verification emails, password reset emails, and OTP emails.
+
+Every value this module needs is read from the environment when it is used, never captured into a
+module global on the way up. The key used to be read at import and the client initialized there, and
+that made this module's answer a function of *when it was imported* rather than of the environment:
+the boot check could not be asked a question without knowing the import order, a ``.env`` loaded
+afterwards was a ``.env`` nobody saw, and a test that cleared ``RESEND_API_KEY`` cleared nothing -
+it had to know to patch a module attribute instead, which is a test passing for a reason unrelated
+to what it claims. ``utils.secret_key`` and ``utils.captcha`` read on call for the same reason.
 """
 
 import os
 import logging
 import resend
 
+from utils.configured_secret import configured_secret, is_published
+from utils.deployment import (
+    INSECURE_LOCAL_DEV_VAR,
+    insecure_local_dev,
+    warn_insecure_local_dev,
+)
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
-# Initialize Resend client
-resend_api_key = os.getenv("RESEND_API_KEY")
-resend_initialized = False
-if resend_api_key:
-    resend.api_key = resend_api_key
-    resend_initialized = True
-    logger.info("Resend API initialized successfully")
-else:
-    logger.warning("RESEND_API_KEY not set - email sending will be disabled")
+RESEND_API_KEY_VAR = "RESEND_API_KEY"
 
-# Get frontend URL from environment
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")  # Default Resend email
+DEFAULT_FRONTEND_URL = "http://localhost:5173"
+DEFAULT_FROM_EMAIL = "onboarding@resend.dev"  # Default Resend email
 
-logger.info(f"Email configuration: FROM_EMAIL={FROM_EMAIL}, FRONTEND_URL={FRONTEND_URL}")
 
+def configured_value() -> str:
+    """What ``RESEND_API_KEY`` holds right now, whatever it holds."""
+    return os.getenv(RESEND_API_KEY_VAR, "")
+
+
+def sendable_key() -> str:
+    """The key Resend can actually send with, or ``""`` when there is not one.
+
+    A blank value is not a key, and neither is a placeholder this repository has published:
+    ``re_xxxxx`` is *truthy*, so initializing the client on it would report a configured mailer to
+    the boot check and then have Resend reject every send - one 500 per signup, with the new account
+    rolled back behind it and nothing naming the variable. The check and the client ask this one
+    question, so a deployment cannot pass the first and fail the second.
+    """
+    return configured_secret(configured_value())
+
+
+def frontend_url() -> str:
+    """The origin the verification and reset links this module sends point back at."""
+    return os.getenv("FRONTEND_URL") or DEFAULT_FRONTEND_URL
+
+
+def from_email() -> str:
+    """The address this product's mail is sent from."""
+    return os.getenv("FROM_EMAIL") or DEFAULT_FROM_EMAIL
+
+
+def ready_mailer() -> bool:
+    """Point the Resend client at this process's key, and say whether there was one to point it at.
+
+    Called on the way into every send rather than once at import, so the key a send uses is the key
+    the boot check passed on.
+    """
+    key = sendable_key()
+    if not key:
+        return False
+    resend.api_key = key
+    return True
+
+
+class MailerNotConfiguredError(RuntimeError):
+    """There is no mail key, so nothing this product sends would be delivered."""
+
+
+def assert_mailer_configured() -> None:
+    """Refuse to serve endpoints whose whole purpose is the mail they cannot send.
+
+    Every route into an organizer account runs through this key. Registration rolls the new user
+    back and answers 500 when the verification mail does not go out; an account that is never
+    verified cannot log in; and the password-reset and OTP endpoints answer 500 as well. So a
+    deployment that forgot this variable does not degrade - it cannot onboard a single organizer,
+    and it says so one failed signup at a time, in a 500 that names nothing.
+
+    That is the mirror image of the three defenses beside it, whose absence is never reported at
+    all, and it wants the same answer: name the variable once, at boot, where an operator is
+    looking, instead of leaving it to be inferred from the wreckage.
+
+    Raises:
+        MailerNotConfiguredError: when no key is configured and this is not an opted-in local
+            development process, or when the configured value is a placeholder this repository has
+            published - which holds everywhere, escape hatch or not, the same way it does for the
+            signing key.
+    """
+    if is_published(configured_value()):
+        raise MailerNotConfiguredError(
+            f"{RESEND_API_KEY_VAR} is set to a placeholder this repository has printed, not to a "
+            f"key. Resend rejects it, so every verification link, reset link and OTP this product "
+            f"owes is a 500 with the account rolled back behind it - the same deployment that "
+            f"cannot onboard anybody, arrived at by way of a check that passed. A truthy "
+            f"placeholder is worse than a blank, because a check that asks only whether the "
+            f"variable is set takes it for a configured secret. Set a real key "
+            f"(https://resend.com/api-keys), or clear the variable and set "
+            f"{INSECURE_LOCAL_DEV_VAR}=true (with DISABLE_EMAIL=true) if this is a local "
+            f"development machine."
+        )
+    if sendable_key():
+        return
+    if insecure_local_dev():
+        warn_insecure_local_dev(f"outbound email ({RESEND_API_KEY_VAR})")
+        return
+    raise MailerNotConfiguredError(
+        f"{RESEND_API_KEY_VAR} is not set. It delivers the email-verification link, the "
+        f"password-reset link, and the OTP login code - every route by which an organizer account "
+        f"is reached. Without it, registration fails and rolls the account back, an unverified "
+        f"organizer can never log in, and reset and OTP answer 500: not a degraded deployment, one "
+        f"that cannot onboard anybody. Set {RESEND_API_KEY_VAR} (https://resend.com/api-keys), or "
+        f"set {INSECURE_LOCAL_DEV_VAR}=true if this really is a local development machine."
+    )
 
 def _email_disabled() -> bool:
     """Return True when email sending is explicitly disabled for testing.
 
-    Only honored in non-production environments. Activated by the
-    DISABLE_EMAIL env var.
+    Honored only by a process that has declared itself a local development one, and activated by the
+    DISABLE_EMAIL env var. It used to be scoped by ``FLASK_ENV != "production"``, which scoped it to
+    nothing: the Dockerfile exported ``FLASK_ENV=development`` and nothing overrode it, so a deployment
+    that inherited ``DISABLE_EMAIL=true`` from a copied env file would silently send no mail at all
+    -- while reporting every verification link and reset link as delivered. See ``utils.deployment``.
     """
-    if os.getenv("FLASK_ENV", "") == "production":
+    if not insecure_local_dev():
         return False
     return os.getenv("DISABLE_EMAIL", "").lower() in ("true", "1")
 
@@ -47,7 +143,7 @@ def send_verification_email(email: str, token: str) -> bool:
     Returns:
         True if email sent successfully, False otherwise
     """
-    verification_url = f"{FRONTEND_URL}/verify-email?token={token}"
+    verification_url = f"{frontend_url()}/verify-email?token={token}"
     
     html_content = f"""
     <!DOCTYPE html>
@@ -87,13 +183,13 @@ def send_verification_email(email: str, token: str) -> bool:
         logger.info("DISABLE_EMAIL is enabled - skipping verification email")
         return True
 
-    if not resend_initialized:
+    if not ready_mailer():
         logger.error("Cannot send verification email: RESEND_API_KEY not set")
         return False
-    
+
     try:
         response = resend.Emails.send({
-            "from": FROM_EMAIL,
+            "from": from_email(),
             "to": [email],
             "subject": "Verify Your Email Address",
             "html": html_content,
@@ -135,7 +231,7 @@ def send_password_reset_email(email: str, token: str) -> bool:
     Returns:
         True if email sent successfully, False otherwise
     """
-    reset_url = f"{FRONTEND_URL}/reset-password?token={token}"
+    reset_url = f"{frontend_url()}/reset-password?token={token}"
     
     html_content = f"""
     <!DOCTYPE html>
@@ -175,13 +271,13 @@ def send_password_reset_email(email: str, token: str) -> bool:
         logger.info("DISABLE_EMAIL is enabled - skipping password reset email")
         return True
 
-    if not resend_initialized:
+    if not ready_mailer():
         logger.error("Cannot send password reset email: RESEND_API_KEY not set")
         return False
-    
+
     try:
         response = resend.Emails.send({
-            "from": FROM_EMAIL,
+            "from": from_email(),
             "to": [email],
             "subject": "Reset Your Password",
             "html": html_content,
@@ -259,13 +355,13 @@ def send_otp_email(email: str, otp: str) -> bool:
         logger.info("DISABLE_EMAIL is enabled - skipping OTP email")
         return True
 
-    if not resend_initialized:
+    if not ready_mailer():
         logger.error("Cannot send OTP email: RESEND_API_KEY not set")
         return False
-    
+
     try:
         response = resend.Emails.send({
-            "from": FROM_EMAIL,
+            "from": from_email(),
             "to": [email],
             "subject": "Your Login Code",
             "html": html_content,

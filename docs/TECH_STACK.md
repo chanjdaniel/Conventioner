@@ -48,8 +48,8 @@ This document outlines the complete technology stack used in the Conventioner ap
   - Invisible CAPTCHA verification
   - Score-based verification (minimum 0.5)
   - Used on registration endpoint
-  - Secret key configured via `RECAPTCHA_SECRET_KEY` environment variable
-  - Test-only bypass via `DISABLE_CAPTCHA` (non-production only; see Environment Variables)
+  - Secret key configured via `RECAPTCHA_SECRET_KEY` environment variable, which the app refuses to boot without
+  - Test-only bypass via `DISABLE_CAPTCHA`, honored only under `ALLOW_INSECURE_LOCAL_DEV` (see Environment Variables)
 
 ### Utilities
 - **Cryptography 41.0.0+** - Cryptographic functions
@@ -57,12 +57,14 @@ This document outlines the complete technology stack used in the Conventioner ap
   - Used for email verification and password reset tokens
 - **Requests 2.31.0+** - HTTP library
   - Used for reCAPTCHA verification API calls
+- **python-dotenv 1.0.1** - Reads `back-end/.env` on the first line `app.py` runs
+  - The real environment wins over the file, so nothing exported by hand is shadowed by it
 
 ### Session Management
 - **Flask-Session 0.8.0** - Server-side session storage
-  - Filesystem-based session storage
+  - Session store selected by `SESSION_TYPE`, which has no default: `filesystem` (local disk) on a container or VM, `null` (signed cookie only, no server-side store) on a serverless host
   - Session lifetime: 2 hours (7200 seconds)
-  - Secure cookie configuration for production
+  - The cookie is `SameSite=None`, so it is always `Secure` and `HttpOnly` - not configurable
 
 ### Testing
 - **pytest 8+** - Python test framework
@@ -220,32 +222,36 @@ This document outlines the complete technology stack used in the Conventioner ap
 - **CAPTCHA Protection**: reCAPTCHA v3 on registration
 - **Rate Limiting**: OTP and password reset requests
 - **Token Expiration**: Time-limited tokens for verification and reset
-- **Secure Sessions**: HTTP-only, secure cookies in production
-- **CORS Protection**: Configured for specific origins
+- **Secure Sessions**: HTTP-only, `Secure`, `SameSite=None` cookies, signed with a `SECRET_KEY` that has no fallback
+- **CORS Protection**: An explicit origin allowlist (`CORS_ALLOWED_ORIGINS`); `*` is refused, because the session cookie is credentialed
+- **Boot-Time Defenses**: The app refuses to start unless every variable its public surface rests on is configured (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment))
 - **Input Validation**: Pydantic models for type safety
 
 ## Environment Variables
 
 ### Backend
-- `RESEND_API_KEY` - Resend email service API key
-- `FRONTEND_URL` - Frontend URL for email links (e.g., `http://localhost:5173`)
+- `RESEND_API_KEY` - Resend email service API key. **Required**: the app refuses to boot without it (see [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment))
+- `FRONTEND_URL` - Frontend URL for email links (e.g., `http://localhost:5173`). Has no say in CORS
 - `FROM_EMAIL` - Email address to send from (default: `onboarding@resend.dev`)
-- `RECAPTCHA_SECRET_KEY` - Google reCAPTCHA v3 secret key
-- `DISABLE_CAPTCHA` - Test-only flag to skip reCAPTCHA verification (default OFF; set `true`/`1`). Honored only when `FLASK_ENV` is not `production`
-- `DISABLE_EMAIL` - Test-only flag to skip sending verification, password reset, and OTP emails via Resend, treating them as sent (default OFF; set `true`/`1`). Honored only when `FLASK_ENV` is not `production`
+- `RECAPTCHA_SECRET_KEY` - Google reCAPTCHA v3 secret key. **Required**: the app refuses to boot without it
+- `CORS_ALLOWED_ORIGINS` - Comma-separated browser origins allowed to make credentialed requests (e.g., `https://app.example.com`). **Required**: the app refuses to boot without it, and `*` is refused
+- `SECRET_KEY` - Signs the Flask session cookie. **Required**: there is no fallback, and the app refuses to boot without it. Must be at least 32 characters, and every value this repository has published (the old `TEMP_KEY_CHANGE_IN_PRODUCTION` fallback, the env-template and deploy-guide placeholders) is refused by name - it is readable by anyone who can read the repo. Rotating it ends every session signed with the old key
+- `TRUSTED_PROXY_HOPS` - How many proxies of this deployment's own a request passes through before it reaches Flask (Vercel: `1`; Flask exposed directly: `0`). **Required**: there is no default, because unset is not zero but unknown. It decides whose address organizer signup reports to reCAPTCHA, which scores on it - behind an unnamed ingress that is the ingress's address, for every caller in the world
+- `ALLOW_INSECURE_LOCAL_DEV` - Local-development escape hatch for the six required variables above (default OFF; set `true`/`1`). Never set it on a deployment
+- `DISABLE_CAPTCHA` - Test-only flag to skip reCAPTCHA verification (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
+- `DISABLE_EMAIL` - Test-only flag to skip sending verification, password reset, and OTP emails via Resend, treating them as sent (default OFF; set `true`/`1`). Honored only when `ALLOW_INSECURE_LOCAL_DEV` is also set
 - `MONGODB_HOST` - MongoDB hostname (default: `mongodb` in Docker, `localhost` locally)
 - `MONGODB_PORT` - MongoDB port (default: `27017`)
 - `MONGODB_USER` - MongoDB username (default: `admin`)
 - `MONGODB_PASSWORD` - MongoDB password (default: `secret`)
 - `MONGODB_DB` - Database name (default: `conventioner`)
-- `FLASK_ENV` - Flask environment (`development` or `production`)
-- `USE_HTTPS` - Enable HTTPS (default: `true`)
-- `SECRET_KEY` - Flask secret key for sessions
+- `SESSION_TYPE` - Where the organizer's session is kept: `filesystem` (on local disk: a container or VM) or `null` (in the signed cookie only: a serverless deployment, which has no disk that outlives a request). **Required**: there is deliberately no default, because neither value is right for both hosts, and the app refuses to boot without it
 
 ### Frontend
 - `VITE_FLASK_HOST` - API base path (default: `/api`)
 - `VITE_BACKEND_URL` - Backend URL for Vite proxy (default: `https://backend:5000`)
-- `VITE_RECAPTCHA_SITE_KEY` - Google reCAPTCHA v3 site key
+- `VITE_RECAPTCHA_SITE_KEY` - Google reCAPTCHA v3 site key, from the same reCAPTCHA property as the back end's `RECAPTCHA_SECRET_KEY`. **Required to build**: it is baked into the bundle, and without it the front end sends a placeholder token that the back end hands to Google, who never issued it - so every organizer signup is rejected. `vite build` refuses without it
+- `VITE_ALLOW_INSECURE_LOCAL_DEV` - the only thing that lets a bundle be built with no site key above (local development and E2E, where the back end runs with `DISABLE_CAPTCHA`). Opt-in, warns on every build it allows, and must never be set on a deployed build
 
 ## Project Structure
 

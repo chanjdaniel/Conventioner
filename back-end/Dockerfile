@@ -39,8 +39,11 @@ RUN mkdir -p flask_session csv_exports && \
 EXPOSE 5000
 
 # Set environment variables
+# FLASK_APP only. There is deliberately no FLASK_ENV: nothing in this codebase reads it and Flask
+# has not since 2.3, but this image used to export `development`, and any control keyed on it
+# therefore read `development` on every deployment built from here. That is the shape of both
+# vulnerabilities the boot check in app.py exists to close. An unset variable cannot be keyed on.
 ENV FLASK_APP=app.py
-ENV FLASK_ENV=development
 ENV PYTHONUNBUFFERED=1
 
 # Set entrypoint

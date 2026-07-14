@@ -41,6 +41,10 @@ UNREACHABLE_MONGODB_URI = "mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=100"
 if not any(os.getenv(key) for key in MONGO_ENV_KEYS):
     os.environ["MONGODB_URI"] = UNREACHABLE_MONGODB_URI
 
+# The test suite is the one place the boot check is allowed to be off: every test that asserts a
+# defense works unsets it, and every other test simply does not care about what it skips.
+os.environ.setdefault("ALLOW_INSECURE_LOCAL_DEV", "true")
+
 
 def _needs_stub(module_name: str) -> bool:
     """True when module_name is neither already imported nor installed."""
@@ -134,6 +138,22 @@ if _needs_stub("resend"):
     fake_resend.Emails = SimpleNamespace(send=lambda *_args, **_kwargs: {})
     sys.modules["resend"] = fake_resend
 
+if _needs_stub("dotenv"):
+    fake_dotenv = types.ModuleType("dotenv")
+    fake_dotenv.load_dotenv = lambda *_args, **_kwargs: False
+    fake_dotenv.dotenv_values = lambda *_args, **_kwargs: {}
+    sys.modules["dotenv"] = fake_dotenv
+
+# app.py loads `back-end/.env` on its first line, and two test modules import app - so without this
+# the suite would read whatever untracked file the machine running it happens to hold, and its result
+# would depend on it. It is not hypothetical: the `.env` a developer already has was written from the
+# *old* template, which printed a published placeholder for all three secrets, and every one of them
+# is now refused by name (escape hatch or not) - so those modules would fail at collection here while
+# passing in CI, where the checkout has no `.env` at all. The suite reads no `.env`: it is pointed at
+# a path that does not exist, the same way the migration probe below is answered in-process.
+import utils.env_file
+
+utils.env_file.ENV_FILE = utils.env_file.BACK_END_DIR / ".env.the-test-suite-reads-no-env-file"
 
 
 from datatypes import AssignmentObject, Market, MarketPhase, MarketRole

@@ -217,6 +217,99 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   stale `isDraft: true` has its `isDraft` recomputed. Documents with **no** `phase` are left
   alone; they are `migrate_phase.py`'s to backfill.
 
+## Security Hardening (PR 5a)
+
+- **Invariant: a security control must never key on a variable whose default is the insecure value.**
+  This is the root cause of both vulnerabilities this PR closes: `SECRET_KEY` fell back to a
+  committed literal, and the CORS policy gated on `FLASK_ENV`, whose default (`development`) ran
+  the permissive branch on every deployment.
+- **There is no fallback signing secret anywhere in this repository** and there must never be one
+  again - not even "for dev". A committed fallback is a published key. Deleting one is only half the
+  job, because it stays readable in the history: `back-end/utils/configured_secret.py` is the single
+  answer to "does this variable hold a secret?", and all three secrets (`SECRET_KEY`,
+  `RECAPTCHA_SECRET_KEY`, `RESEND_API_KEY`) ask it. An operator meeting the boot refusal has an
+  incentive to paste the old literal back (a fresh key logs every organizer out; the old one does
+  not), and that would clear the refusal while changing nothing.
+- **A blank or published value is NOT a configured secret, and a truthy placeholder is worse than a
+  blank.** Both are what a half-copied template looks like, and a check that keys on mere truthiness
+  passes on `re_xxxxx` - so the boot check reported a configured deployment and the failure landed at
+  request time instead (a captcha verified against a key Google never issued, a 500 per signup from
+  Resend). `configured_secret()` therefore strips, and `is_published()` refuses every value this repo
+  has printed where a secret goes plus anything shaped like one (a run of x's, a `your-` prefix), on
+  a laptop as on a deployment. Add any future placeholder to that set; better, never let a doc or a
+  template print a usable-looking key - **every env template in this repo ships blanks** (with
+  `DISABLE_CAPTCHA`/`DISABLE_EMAIL` on) precisely so there is nothing to copy.
+- **`ALLOW_INSECURE_LOCAL_DEV` is the ONLY escape hatch** for the six boot-time requirements
+  (`SECRET_KEY`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `SESSION_TYPE`,
+  `TRUSTED_PROXY_HOPS`). It defaults to OFF - the secure state is the one you get by forgetting. It
+  does *not* excuse a published `SECRET_KEY`: the hatch exists so a process with **no** key can boot
+  with a random one.
+- **A boot requirement must defend something this branch actually serves.** Each of the six is
+  reachable today: the session cookie, `POST /register`'s captcha, the organizer API's origin list,
+  the mail that carries every verification link, reset link and OTP, the store the session is kept
+  in, and - the subtlest - the address that captcha is scored against. A requirement with nothing
+  behind it teaches operators to work around the check, so `utils/rate_limit.py` is *not* here: it
+  bounds the applicant endpoints, which are not on this branch. `TRUSTED_PROXY_HOPS` is, because
+  `remote_addr` is what organizer signup hands Google as reCAPTCHA's `remoteip` - so the hop count
+  serves the captcha, not a limiter that does not exist yet. Make the requirement follow the caller,
+  not the module it was first written for: the same variable can be dead weight in one slice and
+  load-bearing in the next, and this one became load-bearing the moment `RECAPTCHA_SECRET_KEY` did
+  (before, a deployment with no secret took the dev bypass and no token ever reached Google).
+- **`FLASK_ENV` does not exist in this repository - nothing reads it, and nothing sets it.** It is
+  gone from the Dockerfile, `docker-compose.yml` and the env templates, so the invariant is
+  structural rather than aspirational: a variable nobody sets is a variable nobody can key on. Do not
+  reintroduce it. The image used to export `development`, so anything keyed on it read the same on a
+  deployment as on a laptop - that is how the CORS hole survived, and how `SESSION_TYPE` came to
+  default to `filesystem` on serverless hosts that have no disk. `SESSION_TYPE` is therefore
+  configuration with no default (`back-end/utils/session_storage.py`), and `SESSION_COOKIE_SECURE` is
+  not configurable at all, because a `SameSite=None` cookie is only accepted by a browser when Secure.
+- **`SESSION_TYPE=null` installs no session store.** flask-session has no `null` backend and raises
+  on one; Flask's own interface signs the session into the cookie, which is the only store a
+  serverless function has. Do not "fix" a `null` deployment by handing it to `Session(app)`.
+- **The check is a check.** `check_public_endpoint_defenses()` reads configuration and returns it;
+  `configure_public_endpoint_defenses()` is the only thing that touches the app. Keep them apart:
+  flask-cors installs an `after_request` handler per call, so a check with side effects stacked one
+  onto the live app every time anything asked it a question.
+- **The required production environment is documented in `docs/RELEASING.md`** - keep that table
+  in step with the boot check in `back-end/app.py`. `back-end/.env.example` is the local-development
+  template and must boot as it stands (it sets the hatch); a placeholder that is *truthy* is worse
+  than a blank, because the app takes it for a configured secret. A deploy doc that is wrong is worse
+  than one that is missing, because it will be trusted.
+- **Every secret is read from the environment when it is asked for, never captured at import.**
+  `signing_secret()`, `verifiable_secret()` and `sendable_key()` all call `os.getenv` per call, so the
+  boot check is a pure function of the environment rather than of the import order that produced it.
+  Two of them used to read their key into a module global on the way up, and that one difference cost
+  three separate bugs: a `.env` loaded afterwards was a `.env` nobody saw (hence the ordering rule
+  `app.py` used to hold in a comment), `monkeypatch.delenv` on those variables was a silent no-op, and
+  every test had to know which module attribute to patch instead - so a test that "cleared the secret"
+  cleared nothing and passed only because the shell running it happened to hold no key. Do not
+  reintroduce a module-level `os.getenv` for a secret. `resend.api_key` is set on the way into each
+  send (`ready_mailer()`), for the same reason.
+- **`back-end/.env` is read by `back-end/utils/env_file.py`, called on `app.py`'s first line** (before
+  the imports below it build their Mongo clients). Nothing loaded that file before this PR (no
+  `load_dotenv`, no `python-dotenv`), which was harmless only while the app booted regardless; with
+  the six requirements in place, the developer who followed `docs/STARTUP.md` met a refusal naming
+  the variable they had just set. The real environment wins (`override=False`): the Docker stack
+  bind-mounts `back-end/` into the container, so a stray `.env` must never be able to hand a process
+  an escape hatch or a signing key it did not choose. **The test suite reads no `.env` at all** -
+  `tests/conftest.py` points `utils.env_file.ENV_FILE` at a path that does not exist, because two test
+  modules import `app`, and a suite whose result depends on an untracked file is green in CI and red
+  on the laptop of anyone whose `.env` still carries what the old template printed.
+  `test_the_local_development_template_boots_as_it_stands`
+  (`tests/test_public_endpoint_defenses.py`) runs the shipped template through the real boot check, so
+  an edit that pins an origin or reinstates a placeholder fails there rather than on a laptop.
+- **`VITE_RECAPTCHA_SITE_KEY` is the other half of `RECAPTCHA_SECRET_KEY`, and it is a *build-time*
+  requirement.** Making the back-end secret mandatory is what made it load-bearing: a bundle with no
+  site key sends a placeholder token (`front-end/src/utils/captcha.ts`), which a back end with no
+  secret used to wave through and a back end with a real one hands to Google, who never issued it - so
+  every organizer signup 400s on a deployment that looks healthy. `vite build` therefore refuses a
+  bundle without it (`front-end/vite.config.ts`), with the same opt-in escape hatch by the same name
+  (`VITE_ALLOW_INSECURE_LOCAL_DEV`). A defense that exists on only one side of the wire is not one.
+  Consequence for setup: **`cp .env.example .env` is a step in `front-end/` too**, not only in
+  `back-end/`. Vite's `loadEnv` reads `front-end/.env` and never `.env.example`, so a fresh clone has
+  no site key and no hatch, and `npm run build` throws. Both templates ship the shape that works as
+  it stands; `docs/STARTUP.md` names both copies.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.

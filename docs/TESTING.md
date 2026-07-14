@@ -33,7 +33,7 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-276 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
+409 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
 column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
 Conventioner data model (market phases, `is_draft` computed strictly from `phase`, application
 form/status models, and backward compatibility with existing market documents), the `phase`
@@ -76,8 +76,19 @@ The market phase lifecycle adds six suites:
   silently archive every legacy draft), the writes are condition-checked so a concurrent
   transition cannot have a stale value written over it, and it is idempotent.
 
+The boot-time defenses add seven suites: one per thing the app refuses to start without
+(`test_secret_key.py`, `test_cors.py`, `test_captcha.py`, `test_email.py`,
+`test_session_storage.py`, `test_proxy.py`), and `test_public_endpoint_defenses.py`, which
+pins the refusal itself: what it names, that `ALLOW_INSECURE_LOCAL_DEV` is the only thing
+that waives it, and that `back-end/.env.example` still boots as it stands. Two more cover the
+machinery underneath: `test_configured_secret.py` (a blank or published placeholder is not a
+configured secret) and `test_env_file.py` (the `.env` loader, and that the real environment
+wins over the file).
+
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
-(tests use in-memory fakes). Shared module stubs live in `back-end/tests/conftest.py`.
+(tests use in-memory fakes). Shared module stubs live in `back-end/tests/conftest.py`, which
+also points the `.env` loader at a path that does not exist - the suite reads no `.env`, so a
+stale one on your machine cannot change its result.
 
 ## Front-End Unit Tests
 
@@ -254,8 +265,11 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
 
 The registration flow is protected by reCAPTCHA v3. For local development and E2E
 runs, set `DISABLE_CAPTCHA=true` (or `1`) so `verify_recaptcha` skips verification
-and returns a passing result. The bypass is honored only when `FLASK_ENV` is not
-`production`, defaults OFF, and never applies in production. The CI e2e job sets
+and returns a passing result. The bypass defaults OFF and is honored only by a back
+end that has also been told it is a local development one, with
+`ALLOW_INSECURE_LOCAL_DEV=true` (which `docker-compose.yml` sets); on anything else
+it does nothing, so a deployment that inherited it from a copied env file is not
+silently unprotected. The CI e2e job sets
 `DISABLE_CAPTCHA=true`, and `docker-compose.yml` forwards the variable to the
 back-end so `./scripts/seed_fixture.sh` and Playwright can register users without a
 real CAPTCHA token. On the front-end, `executeRecaptcha()` returns a placeholder
@@ -264,8 +278,8 @@ still reaches the back-end where the `DISABLE_CAPTCHA` bypass applies.
 
 Similarly, set `DISABLE_EMAIL=true` (or `1`) so the Resend-backed
 `send_verification_email`, `send_password_reset_email`, and `send_otp_email`
-helpers skip the actual send and report success. This is also honored only when
-`FLASK_ENV` is not `production`, defaults OFF, and is forwarded by
+helpers skip the actual send and report success. This is also honored only under
+`ALLOW_INSECURE_LOCAL_DEV`, defaults OFF, and is forwarded by
 `docker-compose.yml`; the CI e2e job sets it too. The password-reset E2E test does
 not read the reset link from an email - it reads the token directly from MongoDB
 (via `docker exec` into the container named by `E2E_MONGO_CONTAINER`, default
