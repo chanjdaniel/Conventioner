@@ -1,19 +1,7 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test'
+import { stack } from './e2e/helpers/stack'
 
-function detectFrontendPort(): number {
-  const envPort = process.env.FRONTEND_PORT;
-  if (envPort) return parseInt(envPort, 10);
-
-  const cwd = process.cwd();
-  const match = cwd.match(/\.treehouse\/[^/]+\/(\d+)\//);
-  if (match) {
-    const slot = parseInt(match[1], 10);
-    return 5173 + slot * 10;
-  }
-  return 5173;
-}
-
-const BASE_PORT = detectFrontendPort();
+const BASE_PORT = parseInt(process.env.FRONTEND_PORT ?? '', 10) || stack().frontendPort
 
 export default defineConfig({
   testDir: './e2e',
@@ -42,4 +30,4 @@ export default defineConfig({
     port: BASE_PORT,
     reuseExistingServer: true,
   },
-});
+})

@@ -1,12 +1,13 @@
 import { test as base, type Page } from '@playwright/test'
 import { LoginPage } from './pages/LoginPage'
+import { stack } from './helpers/stack'
 
 export const TEST_USER = {
   email: 'e2e@example.com',
   password: 'e2epassword123',
 }
 
-export const BACKEND_URL = process.env.BACKEND_URL || 'https://localhost:5000'
+export const BACKEND_URL = process.env.BACKEND_URL || stack().backendURL
 
 async function login(page: Page, email: string, password: string) {
   const loginPage = new LoginPage(page)

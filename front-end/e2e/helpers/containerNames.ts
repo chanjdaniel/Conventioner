@@ -5,18 +5,20 @@
  * offset theirs in `docker-compose.worktree.yml` via `COMPOSE_PROJECT_NAME`. Every caller
  * that shells into a container reads the name from here so the override point is one place.
  *
+ * Both functions delegate to `stack.ts` for the default value, so worktree-aware
+ * detection is shared with playwright.config.ts and fixtures.ts.
+ *
  * Override via environment:
- *   E2E_MONGO_CONTAINER   - Mongo container name (default: conventioner_mongodb)
- *   E2E_BACKEND_CONTAINER - Backend container name (default: conventioner_backend)
+ *   E2E_MONGO_CONTAINER   - Mongo container name
+ *   E2E_BACKEND_CONTAINER - Backend container name
  */
 
-const DEFAULT_MONGO = 'conventioner_mongodb'
-const DEFAULT_BACKEND = 'conventioner_backend'
+import { stack } from './stack'
 
 export function mongoContainer(): string {
-  return process.env.E2E_MONGO_CONTAINER || DEFAULT_MONGO
+  return process.env.E2E_MONGO_CONTAINER || stack().mongoContainerName
 }
 
 export function backendContainer(): string {
-  return process.env.E2E_BACKEND_CONTAINER || DEFAULT_BACKEND
+  return process.env.E2E_BACKEND_CONTAINER || stack().backendContainerName
 }

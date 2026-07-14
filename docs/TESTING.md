@@ -192,7 +192,7 @@ asserting, since `.markets-view` renders before the list does and a `not.toBeVis
 otherwise pass against a still-loading page.
 
 Configuration: `front-end/playwright.config.ts` (auto-detects the worktree
-frontend port via `detectFrontendPort()`).
+frontend port via `stack().frontendPort`).
 
 **Prerequisite**: Docker stack running with seeded test users.
 Email: `e2e@example.com` (default, change via `TEST_EMAIL` env var when seeding),
@@ -212,9 +212,10 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
   `getByTestId()` selectors and expose action methods. New page objects should follow
   these patterns.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
-  `BACKEND_URL` constant (defaults to `https://localhost:5000`, override via the
-  `BACKEND_URL` env var), the `authenticatedPage` fixture (logs in before the
-  test), and re-exports page objects for convenience.
+  `BACKEND_URL` constant (derived from `stack().backendURL`; defaults to
+  `https://localhost:5000` for the primary stack, offset per worktree slot,
+  override via the `BACKEND_URL` env var), the `authenticatedPage` fixture
+  (logs in before the test), and re-exports page objects for convenience.
 - **API-level seeding** (`front-end/e2e/helpers/seeds.ts`): all helpers use
   Playwright's `APIRequestContext` (cookies flow automatically) and require a
   verified test user created by `scripts/seed_fixture.sh`.
@@ -288,8 +289,8 @@ helpers skip the actual send and report success. This is also honored only under
 `ALLOW_INSECURE_LOCAL_DEV`, defaults OFF, and is forwarded by
 `docker-compose.yml`; the CI e2e job sets it too. The password-reset E2E test does
 not read the reset link from an email - it reads the token directly from MongoDB
-(via `docker exec` into the container named by `E2E_MONGO_CONTAINER`, default
-`conventioner_mongodb`).
+(via `docker exec` into the container named by `E2E_MONGO_CONTAINER`, derived
+from `stack().mongoContainerName`).
 
 ## CI Pipeline
 

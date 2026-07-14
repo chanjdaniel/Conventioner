@@ -38,7 +38,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `AssignmentResultsPage`, `OrganizationsPage`, `ManageMarketPage` patterns.
 - **Fixtures**: `front-end/e2e/fixtures.ts` provides `TEST_USER`, `authenticatedPage`,
   re-exports page objects for convenience, and exposes `BACKEND_URL`
-  (via `detectBackendPort()`) for direct API calls.
+  (derived from `stack().backendURL`) for direct API calls.
 - **API-level seeding**: `front-end/e2e/helpers/seeds.ts` exports `seedMarketWithVendors()`
   which creates markets and uploads vendor CSV via the back-end API.
   `front-end/e2e/helpers/seedAssignedMarket.ts` exports `seedAssignedMarket()`, which
@@ -64,7 +64,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   the back-end container; do not hand-roll the user document, and do not switch to
   `/register-user`.
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
-  Playwright config auto-detects worktree port via `detectFrontendPort()`.
+  Playwright config auto-detects worktree port via `stack().frontendPort`.
 
 ### Floorplan Workflow E2E
 
