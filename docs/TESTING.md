@@ -300,8 +300,11 @@ Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
 - Docker build verification
 - E2E: build and start the Docker stack, seed fixtures, install Playwright
   (Chromium), run the Playwright suite with `DISABLE_CAPTCHA=true` and
-  `DISABLE_EMAIL=true`, and upload the Playwright report + test results as
-  artifacts on failure
+  `DISABLE_EMAIL=true` — Playwright is configured with 2 retries and
+  `failOnFlakyTests: true` in CI, so a test that passes only on retry
+  still fails the job — then upload the Playwright report + test results
+  as artifacts on failure, and post a flaky-test summary to the GitHub
+  step summary
 
 ## Testing Gotchas
 

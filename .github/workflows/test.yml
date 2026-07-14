@@ -86,6 +86,32 @@ jobs:
       - name: Run Playwright tests
         working-directory: front-end
         run: npx playwright test
+      - name: Report flaky tests
+        if: always()
+        working-directory: front-end
+        run: |
+          if [ -f test-results/results.json ]; then
+            FLAKY=$(jq -r '.stats.flaky // 0' test-results/results.json)
+            PASSED=$(jq -r '.stats.expected // 0' test-results/results.json)
+            FAILED=$(jq -r '.stats.unexpected // 0' test-results/results.json)
+            {
+              echo "### E2E Test Results"
+              echo "| Outcome | Count |"
+              echo "|---------|-------|"
+              echo "| Passed  | $PASSED |"
+              echo "| Failed  | $FAILED |"
+              echo "| Flaky   | $FLAKY |"
+            } >> "$GITHUB_STEP_SUMMARY"
+            if [ "$FLAKY" -gt 0 ]; then
+              {
+                echo ""
+                echo ':warning: **'"$FLAKY"' test(s) passed only after retry.**'
+                echo "These tests failed on their first attempt and recovered on a retry —"
+                echo "a genuine intermittent failure, not a clean pass. Each flaky test is"
+                echo "listed with its error in the Playwright run output above."
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
       - name: Docker compose logs
         if: always()
         run: docker compose logs
