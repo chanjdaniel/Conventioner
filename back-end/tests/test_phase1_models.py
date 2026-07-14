@@ -112,9 +112,6 @@ class TestApplication:
         assert app.application_type == ApplicationType.MAIN
         assert app.main_application_id is None
         assert app.submitted_at is None
-        assert app.otp is None
-        assert app.otp_expires is None
-        assert app.otp_attempts == 0
         assert app.assigned_reviewer_id is None
 
     def test_waitlist_application(self):

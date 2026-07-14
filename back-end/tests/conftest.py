@@ -422,3 +422,10 @@ if not STUBBED_MODULES:
     import api.applications as _applications_module
 
     _applications_module.applications_collection = FakeApplicationsCollection()
+
+    # The applicant login challenge module also has a collection that the boot
+    # check builds indexes against. Same treatment as applications above: install
+    # a fake so the boot check passes without reaching a real database.
+    import api.applicant_auth as _applicant_auth_module
+
+    _applicant_auth_module.challenges_collection = FakeApplicationsCollection()

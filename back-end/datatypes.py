@@ -377,9 +377,6 @@ class Application(BaseModel):
     main_application_id: Optional[str] = None  # FK for waitlist prefill (D11)
     submitted_at: Optional[str] = None
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-    otp: Optional[str] = None             # for email-key login
-    otp_expires: Optional[str] = None
-    otp_attempts: int = 0
     assigned_reviewer_id: Optional[str] = None
 
 

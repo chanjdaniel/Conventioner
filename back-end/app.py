@@ -12,6 +12,7 @@ import api.markets as MarketsApi
 import api.source_data as SourceDataApi
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
+import api.applicant_auth as ApplicantAuthApi
 import api.permissions as PermissionsApi
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
@@ -135,6 +136,27 @@ def verify_application_indexes() -> None:
 
 
 verify_application_indexes()
+
+
+def verify_applicant_login_indexes() -> None:
+    """Refuse to boot unless the applicant login challenge indexes are in place.
+
+    The applicant login endpoints rest on two indexes: a unique compound index
+    on (market_id, email) that ensures one active challenge per address, and a
+    TTL index on expires_at that cleans up expired challenges. Without them,
+    code replay is possible and expired challenges accumulate forever.
+
+    Built here, once, at boot, so a deployment that cannot hold them says so
+    before it takes a request rather than in the middle of one.
+    """
+    try:
+        ApplicantAuthApi.ensure_applicant_login_indexes()
+    except ApplicantAuthApi.ApplicantLoginIndexError as e:
+        logger.critical("Refusing to start: %s", e)
+        raise
+
+
+verify_applicant_login_indexes()
 
 
 class PublicEndpointDefenseError(RuntimeError):
@@ -1242,6 +1264,42 @@ def public_attendance_checkin(market_slug: str) -> Response:
         return jsonify(result), status_code
     except Exception as e:
         logger.error(f"Error in public_attendance_checkin {market_slug}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# applicant login - public, unauthenticated, attacker-facing
+
+@app.route('/public/markets/<market_slug>/applicant-login/request-code', methods=['POST'])
+def applicant_login_request_code(market_slug: str) -> Response:
+    """Request an email login code for an applicant.
+
+    Fully indistinguishable: same response whether or not the address is known
+    to this market. The login challenge is created for every request so its
+    existence leaks nothing.
+    """
+    try:
+        result, status_code = ApplicantAuthApi.request_login_code(market_slug)
+        return result, status_code
+    except Exception as e:
+        logger.error("Error in applicant_login_request_code %s: %s", market_slug, e)
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/public/markets/<market_slug>/applicant-login/verify-code', methods=['POST'])
+def applicant_login_verify_code(market_slug: str) -> Response:
+    """Verify an email login code for an applicant.
+
+    Fully indistinguishable: every failure branch collapses to one observable
+    response. The caller cannot distinguish "no such address", "no code issued",
+    "expired", "already consumed", or "wrong code".
+    """
+    try:
+        result, status_code = ApplicantAuthApi.verify_login_code(market_slug)
+        return result, status_code
+    except Exception as e:
+        logger.error("Error in applicant_login_verify_code %s: %s", market_slug, e)
         logger.error(traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
 

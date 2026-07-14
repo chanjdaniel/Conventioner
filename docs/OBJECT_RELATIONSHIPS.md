@@ -451,7 +451,6 @@ A vendor's submitted application to a market.
 - `main_application_id: Optional[str]` - References the main `Application.id` a waitlist entry was prefilled from
 - `submitted_at: Optional[str]` - ISO timestamp of submission
 - `updated_at: str` - ISO timestamp of the last update. Defaults to now.
-- `otp`, `otp_expires`, `otp_attempts` - Email-key login state for the applicant (mirrors `User`)
 - `assigned_reviewer_id: Optional[str]` - References the `User.id` of the assigned reviewer
 
 **Relationships:**
