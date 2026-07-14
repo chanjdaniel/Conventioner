@@ -8,7 +8,13 @@ Usage:
 """
 
 from db_config import get_database
-from api.applications import APPLICATIONS_COLLECTION, MARKET_ID_FIELD
+from api.applications import (
+    APPLICANT_EMAIL_FIELD,
+    APPLICANT_IDENTITY_INDEX,
+    APPLICATION_TYPE_FIELD,
+    APPLICATIONS_COLLECTION,
+    MARKET_ID_FIELD,
+)
 from market_documents import (
     MARKET_KEY_MIGRATION,
     MARKET_SLUG_INDEX,
@@ -42,6 +48,16 @@ def init_database():
     # The D9 application-form lock counts applications by market, so that lookup is indexed.
     db[APPLICATIONS_COLLECTION].create_index([(MARKET_ID_FIELD, 1)])
     print(f"✅ Ensured index on {APPLICATIONS_COLLECTION}.{MARKET_ID_FIELD}")
+
+    # An applicant is one applicant: the public request-key endpoint reads before it inserts, so
+    # only the database can stop two concurrent requests for one address from leaving two
+    # applications behind. See ``api.applications.ensure_application_indexes``.
+    db[APPLICATIONS_COLLECTION].create_index(
+        [(MARKET_ID_FIELD, 1), (APPLICANT_EMAIL_FIELD, 1), (APPLICATION_TYPE_FIELD, 1)],
+        unique=True,
+        name=APPLICANT_IDENTITY_INDEX,
+    )
+    print(f"✅ Ensured unique index {APPLICANT_IDENTITY_INDEX} on {APPLICATIONS_COLLECTION}")
 
     # Every public URL a market appears on resolves it by the slug of its name, on an
     # unauthenticated endpoint. See ``market_documents.ensure_market_slug_index``.

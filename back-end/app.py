@@ -11,6 +11,7 @@ import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.source_data as SourceDataApi
 import api.attendance as AttendanceApi
+import api.applications as ApplicationsApi
 import api.permissions as PermissionsApi
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
@@ -106,6 +107,34 @@ def verify_market_key_migration() -> None:
 
 
 verify_market_key_migration()
+
+
+def verify_application_indexes() -> None:
+    """Refuse to boot unless the uniqueness the application endpoints rest on is enforced.
+
+    One applicant is one application at a market, and that guarantee is one a unique
+    database index carries: the write that creates an application is an upsert on a
+    public endpoint, so it is a read-then-write race that only the database can settle.
+    A process that could not build the index would run with the guarantee silently
+    absent -- duplicate applications on the organizer's list, and the D9 form lock
+    double-counted into uselessness.
+
+    So it is built here, once, at boot, and a build that fails takes the process with
+    it, exactly as a missing market-key migration does. An index that will not build
+    almost always means the collection already holds the duplicates the index exists to
+    forbid; that is a state to stop and fix, not to serve more traffic into.
+
+    Building it here also takes it off the request path: the lazy build the module
+    keeps is for tooling and tests, and in a booted process it has already been done.
+    """
+    try:
+        ApplicationsApi.ensure_application_indexes()
+    except ApplicationsApi.ApplicationIndexError as e:
+        logger.critical("Refusing to start: %s", e)
+        raise
+
+
+verify_application_indexes()
 
 
 class PublicEndpointDefenseError(RuntimeError):

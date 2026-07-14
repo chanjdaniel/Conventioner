@@ -142,7 +142,7 @@ FROM_EMAIL=your-verified-email@domain.com
      ```bash
      python init_database.py                              # fresh cluster: creates collections and indexes, records the marker
      python migrations/migrate_market_keys.py             # existing data: rewrites markets under the canonical keys
-     python migrations/create_applications_collection.py  # existing data: the applications collection and its `market_id` index
+     python migrations/create_applications_collection.py  # existing data: the applications collection and its indexes (market_id + unique compound)
      ```
    - See [RELEASING.md](./RELEASING.md#pre-deploy-database-migrations) for the full pre-deploy migration list. Migrations are never run automatically.
 

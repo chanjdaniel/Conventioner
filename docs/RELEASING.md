@@ -137,11 +137,13 @@ Before a promotion reaches production, run the pending migrations in `back-end/m
 python migrations/migrate_phase.py                    # backfills `phase` on existing markets
 python migrations/migrate_market_keys.py              # rewrites market documents into canonical form (camelCase keys + stored slug, builds slug index)
 python migrations/migrate_is_draft_consistency.py     # makes `isDraft` agree with `phase` on markets that have one
-python migrations/create_applications_collection.py   # creates the applications collection and its `market_id` index
+python migrations/create_applications_collection.py   # creates the applications collection and its indexes
 ```
 
-`create_applications_collection.py` creates the applications collection and indexes it on `market_id`, which is the lookup the D9 application-form lock counts on.
-It is not a uniqueness constraint and nothing on this branch depends on one: the collection has no public writer yet, so the only documents in it are the ones an operator or a test put there.
+`create_applications_collection.py` creates the applications collection and builds both its indexes: `market_id` (the lookup the D9 lock counts on) and the unique compound index on `(market_id, applicant_email, application_type)` that enforces one applicant per market.
+The uniqueness is the database's, not the application code's - the write that creates an application is an atomic upsert (`find_or_create_application` in `api/applications.py`), and the unique index is what makes it safe under concurrency.
+A database that already holds duplicates cannot take the index; the migration detects them and names the conflicting documents rather than failing with a cryptic key-build error.
+See `api.applications.ensure_application_indexes`.
 
 `migrate_is_draft_consistency.py` **must** be run with the code that makes `phase` the single source of truth, and it is the migration whose omission is visible to vendors.
 A market the old build published carries `phase: "draft"` + `isDraft: false` (publishing was a `PUT` of `isDraft: false`; nothing advanced the phase), and every read now derives the market's state from `phase`.

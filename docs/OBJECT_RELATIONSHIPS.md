@@ -105,7 +105,7 @@ The central entity representing a market event with configuration, assignments, 
 - **One-to-One with AssignmentObject**: Each market has one assignment result object
 - **One-to-One with SourceData**: Each market can have one source data CSV (stored separately in MongoDB)
 - **One-to-One with ApplicationForm**: Each market can have one application form (embedded, optional)
-- **One-to-Many with Application**: Applications reference the market via `Application.market_id`. The `applications` collection exists and the market write path counts it (the D9 form lock), but nothing writes application documents yet - see [Application Objects](#application-objects)
+- **One-to-Many with Application**: Applications reference the market via `Application.market_id`. The `applications` collection exists, the market write path counts it (the D9 form lock), and `api/applications.find_or_create_application` can write to it - see [Application Objects](#application-objects)
 - **Stored in**: MongoDB `markets` collection
 
 **Server-Owned Fields:**
@@ -375,8 +375,7 @@ Statistical summary of an assignment operation.
 These models back the application-based market flow (vendors apply through a form instead of being imported from a CSV).
 
 **Status:** `ApplicationForm` is fully live: organizers build it in the market-setup Application Form tab and it is read and written through the endpoints below.
-`Application` is a model plus an empty collection: `applications` exists (with a `market_id` index) and the market write path counts it to enforce the D9 form lock, but no endpoint writes an application document yet.
-Applicant submission lands in a later phase.
+`Application` is a model with its own collection: `applications` exists (indexed on `market_id` and a unique compound index on `(market_id, applicant_email, application_type)`) and the market write path counts it to enforce the D9 form lock. The atomic upsert `find_or_create_application` in `api/applications.py` can write an application document, and the unique index is what makes it safe under concurrency. The applicant-facing submit endpoint lands in a later phase.
 
 ### ApplicationForm
 **Location:** `back-end/datatypes.py`
@@ -678,10 +677,10 @@ The system uses MongoDB with the following collections:
 #### `applications` Collection
 - **Document Structure**: Matches the `Application` datatype, stored **snake_case** - unlike `markets` and `organizations`, application documents are *not* camelCased on write. The market foreign key is `market_id`, not `marketId`.
 - **Primary Key**: `id` field (UUID)
-- **Index**: `market_id`, which the D9 form lock counts on every market write
+- **Indexes**: `market_id` (the D9 form lock counts on every market write) and a unique compound index `market_applicant_type_unique` on `(market_id, applicant_email, application_type)` that enforces one applicant per market.
 - **Owner module**: `back-end/api/applications.py` is the single owner of this collection; every reader and writer goes through it so the storage contract lives in one place. A writer that stored the market reference under any other key would silently disable the form lock.
-- **Operations**: Today only `count_applications_for_market()` (drives the D9 lock). Applicant submission lands in a later phase, so the collection is empty in normal use.
-- **Creation**: `mongo-init.js` creates it and its index on a fresh Mongo volume; `back-end/migrations/create_applications_collection.py` does the same for an already-deployed database (idempotent, supports `--dry-run`).
+- **Operations**: `count_applications_for_market()` (drives the D9 lock) and `find_or_create_application()` (atomic upsert guarded by the unique index, safe under concurrency). The applicant-facing submit endpoint lands in a later phase.
+- **Creation**: `mongo-init.js` creates it and its indexes on a fresh Mongo volume; `back-end/migrations/create_applications_collection.py` does the same for an already-deployed database (idempotent, supports `--dry-run`).
 - **Relationship**: Many-to-One with Market (via `market_id`)
 
 ---
@@ -769,7 +768,7 @@ Market
     ├── VendorAssignmentResult[] (1:many)
     └── AssignmentStatistics (1:1, optional)
 
-Application (many:1 with Market, via market_id; applications collection exists, nothing writes it yet)
+Application (many:1 with Market, via market_id; atomic upsert find_or_create_application writes it)
 ├── status: ApplicationStatus
 ├── application_type: ApplicationType
 └── main_application_id: Optional[str] (many:1 with Application, waitlist prefill)
