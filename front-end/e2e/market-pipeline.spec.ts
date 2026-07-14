@@ -1,14 +1,14 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { test, expect, MarketSetupPage, AssignmentResultsPage, NewMarketPage, BACKEND_URL, TEST_USER } from './fixtures';
-import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { ensureTestOrg, marketNameToSlug, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import {
   makeLegacyPublishedMarket,
   readMarketLifecycle,
   runIsDraftConsistencyMigration,
 } from './helpers/legacyMarketDoc';
 import { CheckinPage } from './pages/CheckinPage';
-import { marketNameToKebabSlug } from '../src/utils/marketSlug';
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CSV_PATH = path.resolve(__dirname, 'fixtures', 'test-vendors.csv');
@@ -142,7 +142,7 @@ test.describe('Market pipeline E2E', () => {
     await resultsPage.clickDone();
 
     // A published market lands on its public slug URL, not back in the wizard.
-    const slug = marketNameToKebabSlug(marketName);
+    const slug = marketNameToSlug(marketName);
     await page.waitForURL(`**/${slug}`, { timeout: 10000 });
     await expect(page.getByRole('heading', { name: 'Market home' })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('02-published-market-home.png'), fullPage: true });

@@ -20,7 +20,7 @@ export interface PublishedSeedResult extends SeedResult {
 /**
  * Replicate the front-end marketNameToKebabSlug logic for URL-safe slugs.
  */
-function marketNameToSlug(name: string): string {
+export function marketNameToSlug(name: string): string {
   return name
     .trim()
     .replace(/\s+/g, ' ')
