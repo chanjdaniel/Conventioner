@@ -1,19 +1,25 @@
 <script setup lang="ts">
-import Papa from 'papaparse';
+import Papa from 'papaparse'
 
-import IconImport from '@/components/icons/IconImport.vue';
+import IconImport from '@/components/icons/IconImport.vue'
 
 import { useDropZone } from '@vueuse/core'
 import { useFileDialog } from '@vueuse/core'
-import { shallowRef, useTemplateRef, defineEmits } from 'vue';
+import { shallowRef, useTemplateRef, defineEmits } from 'vue'
 
 defineProps<{
-  isOpen: boolean;
-}>();
+  isOpen: boolean
+}>()
 
-const emit = defineEmits(['file-uploaded', 'source-data-uploaded']);
+const emit = defineEmits(['file-uploaded', 'source-data-uploaded'])
 
-const fileData = shallowRef<{ name: string, size: number, type: string, lastModified: number, data: unknown }>()
+const fileData = shallowRef<{
+  name: string
+  size: number
+  type: string
+  lastModified: number
+  data: unknown
+}>()
 const dropZoneRef = useTemplateRef<HTMLElement>('dropZoneRef')
 
 const {} = useDropZone(dropZoneRef, { dataTypes: ['text/csv'], onDrop: onDrop })
@@ -24,22 +30,22 @@ const { open, onChange } = useFileDialog({
 })
 
 interface FileData {
-  name: string;
-  size: number;
-  type: string;
-  lastModified: number;
-  data: unknown;
+  name: string
+  size: number
+  type: string
+  lastModified: number
+  data: unknown
 }
 
 function onDrop(files: File[] | null) {
-  const file = files ? files[0] : null;
-  handleUpload(file);
+  const file = files ? files[0] : null
+  handleUpload(file)
 }
 
 onChange((files: FileList | null) => {
-  const file = files ? files[0] : null;
-  handleUpload(file);
-});
+  const file = files ? files[0] : null
+  handleUpload(file)
+})
 
 async function handleUpload(file: File | null) {
   if (file) {
@@ -49,26 +55,25 @@ async function handleUpload(file: File | null) {
       type: file.type,
       lastModified: file.lastModified,
       data: await readCSVFile(file),
-    }))(file);
+    }))(file)
 
-    emit('file-uploaded', fileData.value);
-    emit('source-data-uploaded', [file]);
+    emit('file-uploaded', fileData.value)
+    emit('source-data-uploaded', [file])
   }
 }
 
 const readCSVFile = (file: File) => {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+    const reader = new FileReader()
     reader.onload = () => {
-      const text: string = reader.result ? reader.result as string : "";
-      const result = Papa.parse(text, { header: true });
-      resolve(result);
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsText(file);
-  });
-};
-
+      const text: string = reader.result ? (reader.result as string) : ''
+      const result = Papa.parse(text, { header: true })
+      resolve(result)
+    }
+    reader.onerror = (error) => reject(error)
+    reader.readAsText(file)
+  })
+}
 </script>
 
 <template>
@@ -76,7 +81,16 @@ const readCSVFile = (file: File) => {
     <div class="file-drop-icons">
       <IconImport />
       <h3>
-        <span><button class="file-button" type="button" @click="open()" data-testid="file-drop-choose-button">Choose a file</button></span>
+        <span
+          ><button
+            class="file-button"
+            type="button"
+            @click="open()"
+            data-testid="file-drop-choose-button"
+          >
+            Choose a file
+          </button></span
+        >
         <span class="file-text"> or drag it here </span>
       </h3>
     </div>
@@ -85,6 +99,7 @@ const readCSVFile = (file: File) => {
 
 <style scoped>
 .file-container {
+  position: relative;
   width: 50%;
   height: 50%;
   display: flex;
@@ -125,6 +140,6 @@ const readCSVFile = (file: File) => {
   line-height: 15px;
   text-align: center;
 
-  color: #FFFFFF;
+  color: #ffffff;
 }
 </style>
