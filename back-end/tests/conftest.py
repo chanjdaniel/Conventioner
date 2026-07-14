@@ -104,13 +104,26 @@ if _needs_stub("pymongo"):
         def __getitem__(self, _name):
             return _FakeDatabase()
 
+    fake_pymongo_errors = types.ModuleType("pymongo.errors")
+
+    class _FakePyMongoError(Exception):
+        pass
+
+    class _FakeDuplicateKeyError(_FakePyMongoError):
+        pass
+
     fake_pymongo.MongoClient = _FakeMongoClient
     fake_pymongo.results = fake_pymongo_results
+    fake_pymongo.errors = fake_pymongo_errors
+    fake_pymongo.ReturnDocument = SimpleNamespace(BEFORE=False, AFTER=True)
+    fake_pymongo_errors.PyMongoError = _FakePyMongoError
+    fake_pymongo_errors.DuplicateKeyError = _FakeDuplicateKeyError
     fake_pymongo_results.InsertOneResult = object
     fake_pymongo_results.UpdateResult = object
     fake_pymongo_results.DeleteResult = object
     sys.modules["pymongo"] = fake_pymongo
     sys.modules["pymongo.results"] = fake_pymongo_results
+    sys.modules["pymongo.errors"] = fake_pymongo_errors
 
 if _needs_stub("bson"):
     fake_bson = types.ModuleType("bson")
@@ -156,7 +169,19 @@ import utils.env_file
 utils.env_file.ENV_FILE = utils.env_file.BACK_END_DIR / ".env.the-test-suite-reads-no-env-file"
 
 
-from datatypes import AssignmentObject, Market, MarketPhase, MarketRole
+from datatypes import AssignmentObject, Market, MarketPhase, MarketRole, market_name_slug
+
+
+def mongo_project(doc: dict, projection) -> dict:
+    """Apply a Mongo projection the way the server does, so a fake hands back what Mongo would.
+
+    A fake that ignores the projection hands the caller fields the real query never fetched, which
+    is exactly how a read of a field nobody asked for passes here and reads ``None`` in production.
+    Only the inclusion form is modelled, because that is the only form these callers use.
+    """
+    if not projection:
+        return doc
+    return {key: value for key, value in doc.items() if key in projection}
 
 
 class FakeMarketsCollection:
@@ -167,8 +192,8 @@ class FakeMarketsCollection:
         self.last_update = None
         self.inserted = None
 
-    def find_one(self, _query):
-        return dict(self.doc) if self.doc is not None else None
+    def find_one(self, _query, projection=None):
+        return mongo_project(dict(self.doc), projection) if self.doc is not None else None
 
     def update_one(self, _filter, update):
         self.last_update = update
@@ -179,17 +204,86 @@ class FakeMarketsCollection:
         return SimpleNamespace(inserted_id="mongo-id")
 
 
+class FakeSlugMarketsCollection:
+    """Stand-in for the markets collection, matching filters and projections the way Mongo does.
+
+    ``find`` applies the filter rather than handing back everything, so the public slug lookup is
+    exercised as it actually runs: it queries the *stored* slug, and a document that does not carry
+    one is a market Mongo would never return. It applies the projection for the same reason, one
+    step on: the applicant endpoints fetch the fields they read and no others, and a fake that
+    served the whole document would let a read of the rest pass here and find nothing in production.
+
+    It lives here, and not in the two suites that need it, because it did live in both of them: the
+    same fake written twice is the same fix applied once.
+    """
+
+    def __init__(self, docs):
+        self.docs = docs if isinstance(docs, list) else [docs]
+        self.last_update = None
+        self.last_projection = None
+
+    def find_one(self, query, projection=None):
+        return next(self.find(query, projection), None)
+
+    def find(self, query, projection=None):
+        self.last_projection = projection
+        matched = [dict(d) for d in self.docs if mongo_matches(d, query)]
+        return iter([mongo_project(d, projection) for d in matched])
+
+    def update_one(self, _filter, update):
+        self.last_update = update
+        return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
+
+    def insert_one(self, _document):
+        return SimpleNamespace(inserted_id="fake-id")
+
+
+def mongo_matches(doc: dict, query: dict) -> bool:
+    """Evaluate a Mongo filter the way the server does.
+
+    The fakes that stand in for the markets collection share this, because a fake that ignores the
+    filter is a fake that passes a document Mongo would never have handed back - which is exactly
+    how a lookup querying a field no document carries would go unnoticed here and 404 in
+    production. ``$ne``, ``$exists``, ``$in`` and ``$nor`` are modelled because the public slug
+    lookup is built out of them.
+    """
+    for key, condition in (query or {}).items():
+        if key == "$nor":
+            if any(mongo_matches(doc, clause) for clause in condition):
+                return False
+            continue
+        present = key in doc
+        if isinstance(condition, dict):
+            if "$exists" in condition and present != condition["$exists"]:
+                return False
+            if "$ne" in condition and doc.get(key) == condition["$ne"]:
+                return False
+            if "$in" in condition and doc.get(key) not in condition["$in"]:
+                return False
+        elif not present or doc[key] != condition:
+            return False
+    return True
+
+
 def stored_market(phase: MarketPhase = MarketPhase.DRAFT, **overrides) -> dict:
-    """A market document as Mongo holds it: camelCase, with the server-owned phase stamped on."""
+    """A market document as Mongo holds it: camelCase, phase and slug stamped on by the server.
+
+    The slug is derived from the name here for the same reason ``Market.slug`` derives it on every
+    write: it is what the public lookup queries, so a test document without one is a market no
+    public URL can reach, and a fixture that hard-coded one could pin a market to a URL its name
+    does not spell.
+    """
+    name = overrides.pop("name", "Test Market")
     doc = {
         "id": "market-123",
-        "name": "Test Market",
+        "name": name,
         "creationDate": "2026-01-01T00:00:00Z",
         "roles": {"user-1": "owner"},
         "modificationList": [],
         "assignmentObject": {"vendorAssignments": [], "assignmentStatistics": None},
         "isDraft": phase == MarketPhase.DRAFT,
         "phase": phase.value,
+        "slug": market_name_slug(name),
     }
     doc.update(overrides)
     return doc
@@ -249,16 +343,23 @@ def applications(monkeypatch):
 # by a database that reports the migration as applied. Only the probe is redirected: the data
 # collections stay unreachable, so a test that touches an unpatched one still fails loudly.
 import db_config
-from market_documents import MARKET_KEY_MIGRATION_ID, MONGO_ID_KEY, SCHEMA_COLLECTION
+from market_documents import MARKET_KEY_MIGRATION_ID, MARKET_SLUG_MIGRATION_ID, MONGO_ID_KEY, SCHEMA_COLLECTION
 
 
 class _MigratedProbeDatabase:
     client = SimpleNamespace(close=lambda: None)
 
+    _markers = {
+        MARKET_KEY_MIGRATION_ID: {MONGO_ID_KEY: MARKET_KEY_MIGRATION_ID},
+        MARKET_SLUG_MIGRATION_ID: {MONGO_ID_KEY: MARKET_SLUG_MIGRATION_ID},
+    }
+
     def __getitem__(self, name):
         assert name == SCHEMA_COLLECTION, "the probe reads the schema marker and nothing else"
         return SimpleNamespace(
-            find_one=lambda _query: {MONGO_ID_KEY: MARKET_KEY_MIGRATION_ID}
+            find_one=lambda query: _MigratedProbeDatabase._markers.get(
+                query.get(MONGO_ID_KEY)
+            )
         )
 
 

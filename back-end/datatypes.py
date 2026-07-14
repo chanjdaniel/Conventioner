@@ -1,4 +1,6 @@
 import logging
+import re
+import unicodedata
 import uuid
 from enum import Enum
 from typing import List, Optional, Union, Dict, Any, Tuple
@@ -6,6 +8,30 @@ from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validat
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+
+def market_name_slug(name: str) -> str:
+    """The URL path segment a market name is reachable under.
+
+    The front end builds every public link from the same rule
+    (``marketNameToKebabSlug`` in ``front-end/src/utils/marketSlug.ts``): decompose to NFKD and
+    drop combining marks, so an accented name and its ASCII fold produce the same segment. A
+    second copy of this rule that skips the fold does not merely differ in style - it computes
+    ``caf-market`` where the link says ``cafe-market``, and every lookup behind that link 404s.
+    So there is one copy, and every public slug lookup goes through it.
+
+    It lives here, beside the model, because ``Market.slug`` is derived from it: the slug is
+    persisted so that a public lookup is one indexed query rather than a decode of every market,
+    and a stored value derived by anything other than the rule the links are built from would be
+    a market nobody can reach.
+    """
+    if not name:
+        return ""
+    s = unicodedata.normalize("NFKD", name.strip())
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    return re.sub(r"-+", "-", s).strip("-")
 
 
 class DataType(str, Enum):
@@ -245,6 +271,23 @@ class Market(BaseModel):
         overrides the phase to its effective value, so the two can never disagree.
         """
         return self.phase == MarketPhase.DRAFT
+
+    @computed_field
+    def slug(self) -> str:
+        """Derived strictly from the name -- never independently writable.
+
+        The slug is the market's public identifier: it is what every public URL names, and what
+        the unauthenticated slug lookup resolves. It is persisted, and indexed, because the
+        alternative is deriving it per document on every one of those requests - which makes an
+        unauthenticated read of one market a decode of every market in the database.
+
+        Deriving it here, rather than stamping it at each write site, is what keeps a stored slug
+        from ever contradicting the name it belongs to: a rename dumps the model, and the model
+        has only one answer. See ``market_name_slug`` for the rule, ``normalize_market_document``
+        for the documents written before this field existed, and note that a stored slug is a
+        cached derivation, never an authority - ``published_market_by_slug`` re-checks the name.
+        """
+        return market_name_slug(self.name)
 
     @model_validator(mode='after')
     def validate_single_owner(self):

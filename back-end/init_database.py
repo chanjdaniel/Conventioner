@@ -11,7 +11,10 @@ from db_config import get_database
 from api.applications import APPLICATIONS_COLLECTION, MARKET_ID_FIELD
 from market_documents import (
     MARKET_KEY_MIGRATION,
+    MARKET_SLUG_INDEX,
+    MARKETS_COLLECTION,
     SCHEMA_COLLECTION,
+    ensure_market_slug_index,
     pending_market_key_rewrites,
     record_market_key_migration,
 )
@@ -40,6 +43,11 @@ def init_database():
     db[APPLICATIONS_COLLECTION].create_index([(MARKET_ID_FIELD, 1)])
     print(f"✅ Ensured index on {APPLICATIONS_COLLECTION}.{MARKET_ID_FIELD}")
 
+    # Every public URL a market appears on resolves it by the slug of its name, on an
+    # unauthenticated endpoint. See ``market_documents.ensure_market_slug_index``.
+    ensure_market_slug_index(db)
+    print(f"✅ Ensured index {MARKET_SLUG_INDEX} on {MARKETS_COLLECTION}")
+
     # Verify collections exist
     existing_collections = db.list_collection_names()
     print(f"\n📊 Database 'conventioner' contains {len(existing_collections)} collection(s):")
@@ -47,17 +55,18 @@ def init_database():
         count = db[coll].count_documents({})
         print(f"   - {coll}: {count} document(s)")
     
-    # The app refuses to boot unless the market-key migration is recorded as applied. A database
-    # whose markets are all under the canonical keys already satisfies it -- an empty one
-    # trivially so -- and recording that here is what lets a fresh install boot. Documents that
-    # do need rewriting are not touched: that is the migration's job, and the operator's call.
+    # The app refuses to boot unless the market-document migration is recorded as applied. A
+    # database whose markets are all in canonical form -- camelCase keys, and a stored slug --
+    # already satisfies it, an empty one trivially so, and recording that here is what lets a
+    # fresh install boot. Documents that do need rewriting are not touched: that is the
+    # migration's job, and the operator's call.
     pending = pending_market_key_rewrites(db)
     if pending:
-        print(f"\n⚠️  {len(pending)} market(s) still carry legacy snake_case keys.")
+        print(f"\n⚠️  {len(pending)} market(s) are not in canonical form (legacy keys, or no slug).")
         print(f"   The app will refuse to boot. Run: python {MARKET_KEY_MIGRATION}")
     else:
         record_market_key_migration(db)
-        print("\n✅ Market documents are under the canonical keys")
+        print("\n✅ Market documents are in canonical form")
 
     if created_collections:
         print(f"\n✅ Successfully initialized database with collections: {', '.join(created_collections)}")

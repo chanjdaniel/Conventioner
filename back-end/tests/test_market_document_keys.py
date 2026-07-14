@@ -24,6 +24,8 @@ from datatypes import MarketRole
 from market_documents import (
     MARKETS_COLLECTION,
     MARKET_KEY_MIGRATION_ID,
+    MARKET_MIGRATION_IDS,
+    MARKET_SLUG_INDEX,
     MONGO_ID_KEY,
     SCHEMA_COLLECTION,
     MarketKeyMigrationMissingError,
@@ -66,6 +68,10 @@ class FakeMarketsCollection:
 
     def __init__(self, docs):
         self.docs = docs
+        self.indexes = []
+
+    def create_index(self, keys, name=None, **_kwargs):
+        self.indexes.append((keys, name))
 
     def _matches(self, doc, query):
         for key, condition in query.items():
@@ -88,6 +94,16 @@ class FakeMarketsCollection:
                 self.docs[index] = replacement
                 return SimpleNamespace(modified_count=1)
         return SimpleNamespace(modified_count=0)
+
+    def update_one(self, query, update):
+        for index, doc in enumerate(self.docs):
+            if self._matches(doc, query):
+                if "$set" in update:
+                    doc.update(update["$set"])
+                else:
+                    doc.update(update)
+                return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
+        return SimpleNamespace(matched_count=0, modified_count=0, upserted_id=None)
 
     def update_many(self, query, update):
         matched = [doc for doc in self.docs if self._matches(doc, query)]
@@ -307,15 +323,25 @@ class TestStartupCheck:
             in str(excinfo.value)
         )
 
-    def test_a_fresh_docker_volume_seeds_the_marker_the_check_reads(self):
-        """mongo-init.js writes the marker in JavaScript, so nothing links it to the constants
-        the check reads: a rename on the Python side would leave a brand-new stack - the one
-        environment that must just work - refusing to boot on a marker nobody looks for."""
+    def test_a_fresh_docker_volume_seeds_every_marker_the_check_reads(self):
+        """mongo-init.js writes the markers in JavaScript, so nothing links them to the constants
+        the check reads: a rename on the Python side, or a marker added to the list without being
+        added there, would leave a brand-new stack - the one environment that must just work -
+        refusing to boot on a marker nobody seeds."""
         source = (Path(__file__).resolve().parent.parent / "mongo-init.js").read_text()
 
         assert f"db.createCollection('{SCHEMA_COLLECTION}')" in source
         assert f"db.{SCHEMA_COLLECTION}.updateOne(" in source
-        assert f"{{ _id: '{MARKET_KEY_MIGRATION_ID}' }}" in source
+        for marker in MARKET_MIGRATION_IDS:
+            assert f"'{marker}'" in source
+
+    def test_a_fresh_docker_volume_indexes_the_slug_the_public_lookup_queries(self):
+        """Same linkage, for the index: an unindexed slug is a collection scan on every public
+        URL, and nothing would say so - it would just get slower as the product grew."""
+        source = (Path(__file__).resolve().parent.parent / "mongo-init.js").read_text()
+
+        assert f"db.{MARKETS_COLLECTION}.createIndex({{ slug: 1 }}" in source
+        assert f"'{MARKET_SLUG_INDEX}'" in source
 
 
 def test_deleting_an_org_detaches_a_migrated_legacy_market(org_delete):

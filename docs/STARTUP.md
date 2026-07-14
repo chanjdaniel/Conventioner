@@ -142,8 +142,8 @@ docker run -d \
   ```bash
    python init_database.py
   ```
-   This creates the collections and records the market-key migration marker.
-   The back end refuses to boot without that marker (see Troubleshooting below), and a MongoDB you started yourself has never run `back-end/mongo-init.js`, which is what records it for the Docker stack.
+   This creates the collections and records the market-document migration markers.
+   The back end refuses to boot without both markers (see Troubleshooting below), and a MongoDB you started yourself has never run `back-end/mongo-init.js`, which is what records them for the Docker stack.
    Re-running it is harmless.
 
 ## Step 3: Frontend Setup
@@ -339,11 +339,11 @@ The six variables the refusal names are boot-time requirements, and nothing in t
 Running under `docker-compose`, that is already handled: the compose file sets `ALLOW_INSECURE_LOCAL_DEV=true`.
 Running the back end directly, it means the process has no `.env` to read: do step 5 of Backend Setup (`cd back-end && cp .env.example .env`), which sets the same escape hatch.
 
-**Backend exits at startup with "The market-key migration has not been applied to this database"**:
+**Backend exits at startup with "The market-document migration has not been applied to this database"**:
 
-The back end refuses to boot against a database whose market documents may still be stored under the legacy snake_case keys, because it reads the canonical camelCase key only - an unmigrated market would simply be invisible, with nothing logged.
-A Mongo volume created before the migration existed has no marker, so an existing dev stack hits this the first time it pulls the change.
-The migration is the whole fix: it runs against an existing database, rewrites the documents, and records the marker itself.
+The back end refuses to boot against a database whose market documents may not be in canonical form (legacy snake_case keys, or missing the stored slug), because it reads the canonical camelCase key only and the public slug lookup queries the stored slug - an unmigrated market would be invisible at every public URL, with nothing logged.
+A Mongo volume created before the migration existed has no markers, so an existing dev stack hits this the first time it pulls the change.
+The migration is the whole fix: it runs against an existing database, rewrites the documents into canonical form, builds the slug index, and records both markers itself.
 
 ```bash
 docker compose run --rm backend python migrations/migrate_market_keys.py
@@ -478,7 +478,7 @@ Both keys are configured in `.env` and forwarded to the backend via `docker-comp
 - **Assignment Logic**: `back-end/assignment/assignment.py`
 - **Data Types**: `back-end/datatypes.py` (Pydantic models)
 - **Phase Guards**: `back-end/guards.py` (every precondition for every market phase transition)
-- **Market Documents**: `back-end/market_documents.py` (the canonical keys stored market documents use, and the migration marker the app boots on)
+- **Market Documents**: `back-end/market_documents.py` (canonical market document form - camelCase keys + stored slug - and the migration markers the app boots on)
 - **Database Config**: `back-end/db_config.py` (MongoDB connection)
 
 ### Frontend Structure

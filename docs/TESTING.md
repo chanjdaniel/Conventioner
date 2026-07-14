@@ -33,7 +33,7 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-409 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
+433 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
 column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
 Conventioner data model (market phases, `is_draft` computed strictly from `phase`, application
 form/status models, and backward compatibility with existing market documents), the `phase`
@@ -43,11 +43,11 @@ permission checks, field/key/option validation, `order` renormalization, server-
 `published_at`, and the D9 lock refusing edits on every write path once an application
 exists or the market leaves `draft`).
 
-`test_attendance_api.py` additionally pins the public slug lookup, which is what decides
-whether a market's public check-in URL is live: it serves a market past `draft` and refuses a
-draft, on both a document that stores a `phase` and one written before the field existed (where
-the phase is derived from `isDraft`), and it asserts the Mongo prefilter only *prunes* the
-unambiguous drafts rather than making the draft decision itself.
+`test_attendance_api.py` additionally pins the public slug lookup (queried via the
+stored `slug` field for an indexed, O(1) lookup rather than a collection scan), which
+decides whether a market's public check-in URL is live: it serves a market past `draft`
+and refuses a draft, on both a document that stores a `phase` and one written before the
+field existed (where the phase is derived from `isDraft`).
 
 The market phase lifecycle adds six suites:
 
@@ -60,14 +60,18 @@ The market phase lifecycle adds six suites:
   the ADMIN permission gate, the camelCase blocker payload the front-end binds to, and
   the `409` when the phase changes underneath a request in flight.
 - `test_market_document_keys.py` - reads of raw market documents name the canonical
-  camelCase key, so an org-scoped market list and the public check-in lookup find the
-  markets they should.
+  camelCase key and the slug index and markers the app boots on are seeded or verified;
+  the public slug lookup is one indexed query rather than a collection scan.
+- `test_market_slug.py` - pins that `Market.slug` is derived from the name (never
+  writable from a request body), every write persists it, and `published_market_by_slug`
+  is one indexed query with a projection the caller controls.
 - `test_market_phase_consistency.py` - a market reports the same phase whichever endpoint
   served it (the list endpoint used to hand back raw documents while the detail endpoint
   derived the phase, so the two could disagree about pre-migration markets).
-- `test_migrate_market_keys.py` - the key migration leaves every market under exactly one
-  spelling of each field, camelCase wins where a document carries both, and it is
-  idempotent.
+- `test_migrate_market_keys.py` - the migration leaves every market in canonical form
+  (camelCase keys, no legacy snake_case spelling, and a stored slug); camelCase wins
+  where a document carries both, the slug is backfilled from the name and repaired
+  when it disagrees, the index is built, and it is idempotent.
 - `test_migrate_is_draft_consistency.py` - the `isDraft`/`phase` reconciliation migration:
   a market the old build published (`phase: "draft"` + `isDraft: false`) has its *phase*
   advanced to `archived` rather than being confirmed as a draft, a stale `isDraft` on an

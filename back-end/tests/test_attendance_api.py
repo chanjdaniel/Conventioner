@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 import api.attendance as AttendanceApi
+from market_documents import market_name_slug
 
 
 class FakeAttendanceCollection:
@@ -12,7 +13,7 @@ class FakeAttendanceCollection:
         self.last_update = None
         self.upsert_called = False
 
-    def find(self, query):
+    def find(self, query, projection=None):
         out = []
         for d in self.docs:
             if all(d.get(k) == v for k, v in query.items()):
@@ -222,20 +223,36 @@ def _mongo_matches(doc, query):
 
 
 class FakeSlugMarketsCollection:
-    """Stand-in for the markets collection, scanned by the slug lookup."""
+    """Stand-in for the markets collection the slug lookup queries.
+
+    `find` matches the filter the way the server does, and records the filters it was handed, so
+    a lookup that asks Mongo for more documents than it should -- every published market, say --
+    fails here rather than passing on a query no index can serve.
+    """
 
     def __init__(self, docs):
         self.docs = docs
         self.scanned = []
+        self.queries = []
 
-    def find(self, query):
+    def find(self, query, projection=None):
         matched = [dict(d) for d in self.docs if _mongo_matches(d, query)]
         self.scanned = [d["id"] for d in matched]
+        self.queries.append(query)
+        if projection:
+            matched = [{k: v for k, v in d.items() if k in projection} for d in matched]
         return iter(matched)
+
+    def find_one(self, query):
+        for doc in self.docs:
+            if _mongo_matches(doc, query):
+                return dict(doc)
+        return None
 
 
 def _slug_market(name, **overrides):
-    doc = {"id": name, "name": name}
+    """A market document as it is stored: with the slug the migration and every write stamp on it."""
+    doc = {"id": name, "name": name, "slug": market_name_slug(name)}
     doc.update(overrides)
     return doc
 
@@ -323,3 +340,103 @@ class TestSlugLookupPrunesInMongo:
         found = AttendanceApi.get_published_market_by_slug("live-market")
 
         assert found is not None and found["name"] == "Live Market"
+
+
+class TestSlugLookupQueriesTheStoredSlug:
+    """The lookup asks Mongo for the market with this slug, not for every published market.
+
+    It runs on unauthenticated endpoints -- check-in, the application form, applicant sign-in --
+    and a market document carries the whole setupObject and assignmentObject, so a lookup that
+    fetched every published market and slugified their names in Python would be an O(markets)
+    decode that any stranger could drive by typing a URL, with a slug that matches nothing costing
+    exactly as much as one that matches. The slug is stored and indexed so the question goes to the
+    index.
+    """
+
+    def _fake(self, monkeypatch, *docs):
+        fake = FakeSlugMarketsCollection(list(docs))
+        monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
+        return fake
+
+    def test_the_query_names_the_slug(self, monkeypatch):
+        fake = self._fake(
+            monkeypatch,
+            _slug_market("Other Market", phase="archived", isDraft=False, setupObject={"big": 1}),
+            _slug_market("Live Market", phase="archived", isDraft=False, setupObject={"big": 1}),
+        )
+
+        AttendanceApi.get_published_market_by_slug("live-market")
+
+        assert [q.get("slug") for q in fake.queries] == ["live-market"]
+        assert fake.scanned == ["Live Market"], "no other market was fetched to answer"
+
+    def test_a_slug_that_matches_nothing_fetches_nothing(self, monkeypatch):
+        fake = self._fake(
+            monkeypatch,
+            _slug_market("Live Market", phase="archived", isDraft=False),
+        )
+
+        assert AttendanceApi.get_published_market_by_slug("no-such-market") is None
+        assert fake.scanned == [], "a miss must not cost a pass over the collection"
+
+    def test_the_match_is_returned_whole(self, monkeypatch):
+        """One query, and it is the market itself: no projection, no second fetch."""
+        self._fake(
+            monkeypatch,
+            _slug_market(
+                "Live Market",
+                phase="archived",
+                isDraft=False,
+                setupObject={"colNames": ["Saturday"]},
+                assignmentObject={"vendorAssignments": []},
+            ),
+        )
+
+        found = AttendanceApi.get_published_market_by_slug("live-market")
+
+        assert found["setupObject"] == {"colNames": ["Saturday"]}
+        assert found["assignmentObject"] == {"vendorAssignments": []}
+
+    def test_a_market_with_no_stored_slug_is_not_reachable(self, monkeypatch):
+        """The migration's contract, stated as a test.
+
+        A document the slug backfill has not reached is invisible to every public URL, which is
+        exactly why the app refuses to boot until the migration is recorded
+        (``assert_market_key_migration_recorded``). Softening this into a read-time fallback would
+        put the O(markets) scan back on the miss path, where an attacker lives.
+        """
+        doc = _slug_market("Live Market", phase="archived", isDraft=False)
+        del doc["slug"]
+        self._fake(monkeypatch, doc)
+
+        assert AttendanceApi.get_published_market_by_slug("live-market") is None
+
+    def test_a_stored_slug_that_contradicts_the_name_serves_nothing(self, monkeypatch):
+        """The stored slug narrows the query; the name is what decides.
+
+        Nothing in this codebase can write the two out of step -- ``Market.slug`` is computed from
+        the name -- and this is what keeps a hand-edited document from putting a market on a URL
+        its name does not spell.
+        """
+        self._fake(
+            monkeypatch,
+            _slug_market("Live Market", phase="archived", isDraft=False, slug="other-market"),
+        )
+
+        assert AttendanceApi.get_published_market_by_slug("other-market") is None
+
+    def test_the_document_returned_is_the_one_the_draft_test_ran_on(self, monkeypatch):
+        """One read, so there is no second version of the market to disagree with the first.
+
+        The lookup used to match on a projected pass and then re-fetch the winner, which left a
+        window: a market unpublished between the two reads would be served on a public URL by a
+        decision made about the version before it. The window is gone because the read is one.
+        """
+        fake = self._fake(
+            monkeypatch, _slug_market("Live Market", phase="archived", isDraft=False)
+        )
+        fake.find_one = lambda query: pytest.fail("the lookup must not re-fetch the market")
+
+        found = AttendanceApi.get_published_market_by_slug("live-market")
+
+        assert found["name"] == "Live Market"

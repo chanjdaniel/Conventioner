@@ -135,7 +135,7 @@ Before a promotion reaches production, run the pending migrations in `back-end/m
 
 ```bash
 python migrations/migrate_phase.py                    # backfills `phase` on existing markets
-python migrations/migrate_market_keys.py              # rewrites markets under the canonical camelCase keys
+python migrations/migrate_market_keys.py              # rewrites market documents into canonical form (camelCase keys + stored slug, builds slug index)
 python migrations/migrate_is_draft_consistency.py     # makes `isDraft` agree with `phase` on markets that have one
 python migrations/create_applications_collection.py   # creates the applications collection and its `market_id` index
 ```
@@ -149,10 +149,10 @@ A market the old build published carries `phase: "draft"` + `isDraft: false` (pu
 The migration repairs that disagreement in favour of `isDraft`, because on those documents `isDraft` was the only publish signal that ever existed.
 Run it after `migrate_phase.py`: the two are disjoint by construction (one touches only documents *with* a `phase`, the other only those without), but that ordering means a database migrated in one pass ends up fully consistent.
 
-`migrate_market_keys.py` **must** be run before the code that reads market documents by the canonical key only.
-An unmigrated market is invisible to every such read: vendors are told the market does not exist at check-in, and organization members get an empty market list.
-The migration records a marker document in the `schema_migrations` collection when it completes, and the back end refuses to boot unless it can read that marker; the fatal log names the script to run.
-The check fails closed on anything short of a confirmed marker - an unknown migration state is not a migrated one - so a deploy that skipped the migration fails loudly at startup rather than quietly serving half the data.
+`migrate_market_keys.py` **must** be run before the code that reads market documents by the canonical key only and the code that queries the stored slug.
+An unmigrated market is invisible to every such read: vendors are told the market does not exist at check-in, applicants get a 404 at the public market URL, and organization members get an empty market list.
+The migration records both of its marker documents (`market_document_keys` and `market_slugs`) in the `schema_migrations` collection, builds the `market_slug` index, and the back end refuses to boot unless it can read both markers; the fatal log names every missing one and the script to run.
+The check fails closed on anything short of confirmed markers - an unknown migration state is not a migrated one - so a deploy that skipped the migration fails loudly at startup rather than quietly serving half the data.
 
 ## Files
 

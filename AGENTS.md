@@ -156,14 +156,18 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   (`front-end/e2e/helpers/seedApplication.ts`), which writes the document straight into Mongo
   via `mongosh`, because no applicant-facing submit endpoint exists yet.
 
-## Market Document Keys (Conventioner sharp edge)
+## Market Document Canonical Form (Conventioner sharp edge)
 
-- **The back end refuses to boot** unless `migrations/migrate_market_keys.py` has recorded its
-  marker in the `schema_migrations` collection. A dev Mongo volume created before the migration
-  existed has no marker, so an existing stack hits this on first pull. The fix is the migration
-  itself: `docker compose run --rm backend python migrations/migrate_market_keys.py`
-  (`run`, not `exec` - the back end is crash-looping). Do not "fix" it by softening the check:
-  it fails closed because an unmigrated market is invisible, not broken.
+- **The back end refuses to boot** unless `migrations/migrate_market_keys.py` has recorded
+  both of its markers (`market_document_keys` and `market_slugs`) in the `schema_migrations`
+  collection. The migration establishes a market document's canonical form: camelCase keys (no
+  legacy snake_case) plus a stored slug derived from the name. A dev Mongo volume created
+  before the migration existed has no marker, so an existing stack hits this on first pull.
+  The fix is the migration itself: `docker compose run --rm backend python
+  migrations/migrate_market_keys.py` (`run`, not `exec` - the back end is crash-looping). One
+  command records both markers; the operator never discovers them one restart at a time. Do
+  not "fix" it by softening the check: it fails closed because an unmigrated market is
+  invisible, not broken.
 - **Market documents are stored camelCase, and that is the only spelling reads may name.**
   Every write camel-cases the whole document, so a hand-written filter on `organization_id`
   matches nothing. Anything touching a raw document or a Mongo filter goes through
@@ -173,6 +177,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `front-end/e2e/access-control.spec.ts` pins the visibility that depends on this: a
   snake_case filter in the org-scoped market query is exactly the bug that once hid every
   org member's markets, and the suite's positive assertions catch it.
+- **`Market.slug` is a computed field** (`@computed_field` on the Pydantic model, derived from
+  the name via `market_name_slug()` in `back-end/datatypes.py`). It is persisted and indexed
+  (`market_slug` index on the `markets` collection) so the public slug lookup
+  (`published_market_by_slug` in `market_documents.py`) is one indexed query rather than a
+  decode of every market on every unauthenticated request. It is never independently writable:
+  no request body can name it, and every write recomputes it from the name. The stored slug
+  narrows the query but does not decide it - `published_market_by_slug` re-checks the name
+  against `market_name_slug`.
 - **Parse stored markets with `market_from_document()`**, never `Market(**snake_dict)`.
   `Market.phase` defaults to `draft`, so a raw parse silently mislabels every market written
   before the field existed. `phase_from_market_document()` (`back-end/datatypes.py`) is the one
