@@ -81,6 +81,27 @@ export async function seedAssignedMarket(
   if (!assignRes.ok()) {
     throw new Error(`Assignment GET failed: ${assignRes.status()} ${await assignRes.text()}`);
   }
+  const assignedMarket = await assignRes.json() as Record<string, unknown>;
+
+  const storeRes = await request.put(`${baseURL}/markets/${encodeURIComponent(seed.marketId)}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Owner-Email': email,
+    },
+    data: {
+      id: seed.marketId,
+      name: seed.marketName,
+      creationDate: new Date().toISOString(),
+      organizationId: seed.orgId,
+      roles: { [seed.userId]: 'owner' },
+      modificationList: [],
+      setupObject,
+      assignmentObject: assignedMarket.assignmentObject || {},
+    },
+  });
+  if (!storeRes.ok()) {
+    throw new Error(`Assignment store failed: ${storeRes.status()} ${await storeRes.text()}`);
+  }
 
   const slug = seed.marketName
     .trim()

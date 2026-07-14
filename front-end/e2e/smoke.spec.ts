@@ -19,6 +19,8 @@ test.describe('Conventioner smoke test', () => {
     await page.goto('/markets');
     await expect(page.locator('.markets-view')).toBeVisible({ timeout: 10000 });
 
-    await expect(page.getByTestId('market-card').first()).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByTestId('market-card').filter({ hasText: 'Seed Market' }).first(),
+    ).toBeVisible({ timeout: 10000 });
   });
 });

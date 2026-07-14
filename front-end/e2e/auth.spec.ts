@@ -7,6 +7,7 @@ import {
   AssignmentResultsPage,
 } from './fixtures';
 import { execSync } from 'child_process';
+import { mongoContainer } from './helpers/containerNames';
 
 const REGISTER_PASSWORD = 'E2eRegister123!';
 const NEW_PASSWORD = 'E2eNewPass456!';
@@ -142,10 +143,8 @@ test.describe('Authentication journeys', () => {
         expect(resetReqRes.ok()).toBeTruthy();
 
         // Step 3: Read the reset token directly from MongoDB.
-        const mongoContainer =
-          process.env.E2E_MONGO_CONTAINER || 'conventioner_mongodb';
         const token = execSync(
-          `docker exec ${mongoContainer} mongosh --quiet ` +
+          `docker exec ${mongoContainer()} mongosh --quiet ` +
             `-u admin -p secret --authenticationDatabase admin ` +
             `--eval "db.getSiblingDB('conventioner').users.findOne({email:'${email}'}).password_reset_token"`,
           { encoding: 'utf-8', timeout: 10000 },
@@ -227,6 +226,7 @@ test.describe('Authentication journeys', () => {
             creationDate: new Date().toISOString(),
             roles: {},
             roleEmails: {},
+            phase: 'draft',
             isDraft: true,
             setupObject: null,
             modificationList: [],

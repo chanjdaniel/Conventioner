@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { mongoContainer } from './containerNames';
 
 /**
  * Insert an application document for a market, straight into Mongo.
@@ -11,12 +12,9 @@ import { randomUUID } from 'node:crypto';
  * eventually will: snake_case, matching the `Application` model in `datatypes.py`.
  *
  * Runs `mongosh` inside the stack's Mongo container, which the e2e suite already assumes
- * is running (`auth.spec.ts` reads reset tokens the same way). `E2E_MONGO_CONTAINER`
- * overrides the container name for worktree stacks that offset their names; the default
- * matches `docker-compose.yml`.
+ * is running (`auth.spec.ts` reads reset tokens the same way).
  */
 export function seedApplication(marketId: string, applicantEmail = 'applicant@example.com'): string {
-  const container = process.env.E2E_MONGO_CONTAINER || 'conventioner_mongodb';
   const applicationId = randomUUID();
   const application = {
     id: applicationId,
@@ -34,7 +32,7 @@ export function seedApplication(marketId: string, applicantEmail = 'applicant@ex
     'docker',
     [
       'exec',
-      container,
+      mongoContainer(),
       'mongosh',
       'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
       '--quiet',

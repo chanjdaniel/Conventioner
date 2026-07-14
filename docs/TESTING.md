@@ -240,9 +240,11 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     for navigating to the public check-in URL. See `AGENTS.md` for the
     `enum_priority_order` sizing requirement and other sharp edges.
   - `seedAssignedMarket()` (`front-end/e2e/helpers/seedAssignedMarket.ts`)
-    additionally configures the market's `setupObject` and triggers the
-    assignment engine via the API, returning the seed plus the market's URL
-    `slug`.
+    additionally configures the market's `setupObject`, triggers the
+    assignment engine via the API, then fetches the computed assignment
+    via `GET /markets/{id}/assignment` and stores it back via PUT so the
+    check-in API and vendor/table views have persisted assignments.
+    Returns the seed plus the market's URL `slug`.
   - `seedApplication()` (`front-end/e2e/helpers/seedApplication.ts`) is one of three
     exceptions to API-level seeding: it inserts an application document straight into
     Mongo via `mongosh` (`E2E_MONGO_CONTAINER` overrides the container name, as in

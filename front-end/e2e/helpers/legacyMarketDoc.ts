@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { mongoContainer, backendContainer } from './containerNames';
 
 /**
  * Reach into the stack's Mongo and back end to reproduce, and then repair, a market document
@@ -7,19 +8,14 @@ import { execFileSync } from 'node:child_process';
  * There is no product path back to that document shape - the whole point of PR 4 is that the
  * running app can no longer produce it - so the only way to test the upgrade is to write the
  * shape directly and run the real migration script against it.
- *
- * `E2E_MONGO_CONTAINER` / `E2E_BACKEND_CONTAINER` override the container names for worktree
- * stacks that offset theirs; the defaults match `docker-compose.yml`, the same convention
- * `seedApplication.ts` and `auth.spec.ts` already use.
  */
 
 const MONGO_URI = 'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin';
 
 function mongoEval(script: string): string {
-  const container = process.env.E2E_MONGO_CONTAINER || 'conventioner_mongodb';
   return execFileSync(
     'docker',
-    ['exec', container, 'mongosh', MONGO_URI, '--quiet', '--eval', script],
+    ['exec', mongoContainer(), 'mongosh', MONGO_URI, '--quiet', '--eval', script],
     { encoding: 'utf-8' },
   ).trim();
 }
@@ -53,10 +49,9 @@ export function readMarketLifecycle(marketId: string): MarketLifecycle {
 
 /** Run the real migration script, in the back-end container, against the live database. */
 export function runIsDraftConsistencyMigration(): string {
-  const container = process.env.E2E_BACKEND_CONTAINER || 'conventioner_backend';
   return execFileSync(
     'docker',
-    ['exec', container, 'python', 'migrations/migrate_is_draft_consistency.py'],
+    ['exec', backendContainer(), 'python', 'migrations/migrate_is_draft_consistency.py'],
     { encoding: 'utf-8' },
   );
 }

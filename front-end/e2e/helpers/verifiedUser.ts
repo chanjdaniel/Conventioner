@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { backendContainer } from './containerNames'
 
 /**
  * Markers printed by `back-end/create_test_user.py`. The script exits 0 whether it created the
@@ -20,16 +21,11 @@ const ALREADY_EXISTS_MARKER = 'already exists'
  * A seeding failure has to surface here, at the `beforeAll` that caused it, rather than much
  * later as an opaque login timeout, so the script's output is checked for one of the two
  * outcomes that leave a usable user behind.
- *
- * `E2E_BACKEND_CONTAINER` overrides the container name for worktree stacks that offset
- * theirs; the default matches `docker-compose.yml`, the same convention `seedApplication.ts`
- * and `legacyMarketDoc.ts` already use.
  */
 export function ensureVerifiedUser(email: string, password: string): void {
-  const container = process.env.E2E_BACKEND_CONTAINER || 'conventioner_backend'
   const output = execFileSync(
     'docker',
-    ['exec', container, 'python', '/app/create_test_user.py', email, password],
+    ['exec', backendContainer(), 'python', '/app/create_test_user.py', email, password],
     { encoding: 'utf-8', timeout: 30_000 },
   )
 
