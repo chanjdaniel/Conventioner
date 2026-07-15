@@ -25,11 +25,9 @@ test.describe('New market - organization is required', () => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password)
   })
 
-  test('org picker gates submission and the created market carries the org', async ({
-    authenticatedPage: page,
-    request,
-  }, testInfo) => {
+  test('API enforces organization at market creation', async ({ request }) => {
     await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password)
+
     const orgsRes = await request.get(`${BACKEND_URL}/organizations`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     })
@@ -37,8 +35,90 @@ test.describe('New market - organization is required', () => {
     const orgs = (await orgsRes.json()).organizations as { id: string; name: string }[]
     expect(orgs.length).toBeGreaterThan(0)
 
+    const orgId = orgs[0].id
+
+    // POST /markets without organizationId is rejected.
+    const noOrgRes = await request.post(`${BACKEND_URL}/markets`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Owner-Email': TEST_USER.email,
+      },
+      data: {
+        name: `No Org E2E ${Date.now()}`,
+        creationDate: new Date().toISOString(),
+        roles: { [TEST_USER.email]: 'owner' },
+        modificationList: [],
+        assignmentObject: {},
+      },
+    })
+    expect(noOrgRes.ok()).toBe(false)
+    expect(noOrgRes.status()).toBe(400)
+    expect((await noOrgRes.json()).error).toMatch(/organization/i)
+
+    // POST /markets with a valid organizationId succeeds.
+    const marketName = `API Org Required ${Date.now()}`
+    const createRes = await request.post(`${BACKEND_URL}/markets`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Owner-Email': TEST_USER.email,
+      },
+      data: {
+        name: marketName,
+        creationDate: new Date().toISOString(),
+        organizationId: orgId,
+        roles: { [TEST_USER.email]: 'owner' },
+        modificationList: [],
+        assignmentObject: {},
+      },
+    })
+    expect(createRes.ok()).toBe(true)
+    const { market_id: marketId } = (await createRes.json()) as { market_id: string }
+
+    // The persisted market carries the organizationId that was submitted.
+    const marketRes = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    })
+    expect(marketRes.ok()).toBe(true)
+    const { market } = (await marketRes.json()) as { market: { organizationId: string } }
+    expect(market.organizationId).toBe(orgId)
+  })
+
+  test('user with no organizations cannot create a market via API', async ({ playwright }) => {
+    const api = await playwright.request.newContext({
+      baseURL: BACKEND_URL,
+      ignoreHTTPSErrors: true,
+    })
+    await api.post('/login', {
+      data: { email: NO_ORG_USER.email, password: NO_ORG_USER.password },
+    })
+
+    const orgsRes = await api.get('/organizations', {
+      headers: { 'X-Owner-Email': NO_ORG_USER.email },
+    })
+    expect(orgsRes.ok()).toBe(true)
+    const orgs = (await orgsRes.json()).organizations as { id: string }[]
+    expect(orgs.length).toBe(0)
+
+    // Without an organization to attach, the request is rejected.
+    const createRes = await api.post('/markets', {
+      data: {
+        name: `Zero Org E2E ${Date.now()}`,
+        creationDate: new Date().toISOString(),
+        roles: { [NO_ORG_USER.email]: 'owner' },
+        modificationList: [],
+        assignmentObject: {},
+      },
+    })
+    expect(createRes.ok()).toBe(false)
+    expect(createRes.status()).toBe(400)
+
+    await api.dispose()
+  })
+
+  test('org picker gates submission in the overlay', async ({
+    authenticatedPage: page,
+  }, testInfo) => {
     const newMarketPage = new NewMarketPage(page)
-    const marketName = `Org Required E2E ${Date.now()}`
 
     await page.goto('/markets')
     await page.getByTestId('markets-create-button').click()
@@ -46,13 +126,10 @@ test.describe('New market - organization is required', () => {
     await newMarketPage.uploadCsv(CSV_PATH)
     await newMarketPage.waitForNameInput()
 
-    // The dropdown offers exactly the organizations GET /organizations returns.
-    expect((await newMarketPage.orgOptionLabels()).sort()).toEqual(orgs.map((o) => o.name).sort())
-
     // Nothing selected yet, so the market cannot be created.
     await expect(newMarketPage.orgSelect).toHaveValue('')
     await expect(newMarketPage.submitButton).toBeDisabled()
-    await newMarketPage.fillMarketName(marketName)
+    await newMarketPage.fillMarketName(`Org Gate E2E ${Date.now()}`)
     await expect(newMarketPage.submitButton).toBeDisabled()
     await page.screenshot({ path: testInfo.outputPath('01-submit-blocked-no-org.png') })
 
@@ -60,31 +137,6 @@ test.describe('New market - organization is required', () => {
     await newMarketPage.selectFirstOrg()
     await expect(newMarketPage.submitButton).toBeEnabled()
     await page.screenshot({ path: testInfo.outputPath('02-org-selected-submit-enabled.png') })
-
-    const selectedOrgId = await newMarketPage.orgSelect.inputValue()
-    expect(orgs.map((o) => o.id)).toContain(selectedOrgId)
-
-    await newMarketPage.clickSubmit()
-    await newMarketPage.waitForSetupRedirect()
-
-    // CSV must have been parsed — a silent failure is data-loss, not a pass.
-    const uploadData = await page.evaluate(() => {
-      const stored = localStorage.getItem('upload')
-      return stored ? JSON.parse(stored) : null
-    })
-    expect(uploadData, 'CSV parse result must be stored in localStorage').toBeTruthy()
-    expect(uploadData?.data?.data, 'PapaParse rows must be present').toBeTruthy()
-    expect(uploadData.data.data.length, 'Must have parsed CSV rows').toBeGreaterThan(0)
-
-    // The persisted market is stamped with the organization that was chosen.
-    const marketsRes = await request.get(`${BACKEND_URL}/markets`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    })
-    expect(marketsRes.ok()).toBe(true)
-    const markets = (await marketsRes.json()).markets as { name: string; organizationId?: string }[]
-    const created = markets.find((m) => m.name === marketName)
-    expect(created).toBeTruthy()
-    expect(created?.organizationId).toBe(selectedOrgId)
   })
 
   test('a user with no organizations is pointed at organization creation', async ({

@@ -139,9 +139,9 @@ npm run test:e2e
 E2E tests use Playwright driving Chromium against the running Docker stack.
 The smoke test covers login, dashboard, and markets navigation, and the market
 pipeline test (`market-pipeline.spec.ts`) exercises the full product flow:
-creating a market with a CSV upload, walking the 3-page setup wizard, triggering
-assignment generation, verifying the assignment results view, then **publishing with
-Done** - which posts the `draft` → `archived` transition - and confirming the market
+creating a market via API (no CSV upload, using localStorage-injected upload data),
+walking the 3-page setup wizard, triggering assignment generation, verifying the
+assignment results view, then **publishing with Done** - which posts the `draft` → `archived` transition - and confirming the market
 lands on its public slug, reports `phase: archived` with `isDraft: false`, reopens from
 the markets list to its public page rather than back into the wizard, and is reachable by
 a vendor at its public check-in URL.
@@ -164,17 +164,18 @@ journeys (`auth.spec.ts`) cover new-user registration, the full password reset
 flow (including reading the real reset token from MongoDB), posting an assignment
 to Discord, and login/OTP error states. The organization-required suite
 (`new-market-org.spec.ts`) covers the rule that every market must be created in an
-organization: it asserts the new-market overlay's org dropdown lists exactly the
-organizations from `GET /organizations`, that submission stays disabled until one is
-picked, that the created market is stamped with the chosen `organizationId`, and that
-a user belonging to no organization gets a disabled dropdown plus a link to
-`/organizations`. The application-form suite (`application-form.spec.ts`) drives the
+organization: it asserts that `POST /markets` rejects a payload with no
+`organizationId` (400) and succeeds with a valid one, that the persisted market
+carries the submitted `organizationId`, that a user with no organizations cannot
+create a market via API, and that the new-market overlay's submission stays
+disabled until an organization is picked (with a link to `/organizations` when
+none exist). The application-form suite (`application-form.spec.ts`) drives the
 market-setup Application Form tab: an organizer builds a form (keys auto-slugged from the
-labels), watches the live preview, saves it, and reloads to confirm it persisted; a second
-test seeds an application straight into Mongo and asserts the D9 lock then renders the
-builder read-only with its lock banner, that `PUT /markets/{id}/application-form` refuses
-with 409, and that a market PUT carrying a rewritten form cannot smuggle one past it
-either. The floorplan suite
+labels) on a market created through the API path, watches the live preview, saves it, and
+reloads to confirm it persisted; a second test seeds an application straight into Mongo
+and asserts the D9 lock then renders the builder read-only with its lock banner, that
+`PUT /markets/{id}/application-form` refuses with 409, and that a market PUT carrying a
+rewritten form cannot smuggle one past it either. The floorplan suite
 (`floorplan.spec.ts`) drives the create-from-floorplan setup path end to end:
 it walks the Floorplan AI 5-step wizard (upload, scale calibration, table
 placement, section grouping, save) and verifies the resulting sections land
@@ -230,8 +231,9 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     create a market through the UI call it in `beforeAll` so the org dropdown is not
     empty.
   - `seedMarketWithVendors()` logs in, ensures an organization, creates a market in
-    it, and uploads a vendor CSV via the back-end API. The organization id is
-    returned as `orgId` on the seed result.
+    it, finalizes the application form (required by the D9 lock ordering), and
+    uploads source data via the back-end API so the assignment engine can compute
+    assignments. The organization id is returned as `orgId` on the seed result.
   - `seedPublishedMarketWithAssignments()` additionally configures the market's
     `setup_object` (column mapping, dates, sections, tiers, locations), publishes
     it via `POST /markets/{id}/transition` with `{ toPhase: 'archived' }` - the same
@@ -246,7 +248,8 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     assignment engine via the API, then fetches the computed assignment
     via `GET /markets/{id}/assignment` and stores it back via PUT so the
     check-in API and vendor/table views have persisted assignments.
-    Returns the seed plus the market's URL `slug`.
+    Returns the seed plus the market's URL `slug` and the stored
+    `assignmentObject`.
   - `seedApplicantMarket()` (`front-end/e2e/helpers/seedApplicantMarket.ts`) creates a
     published market in `applications_open` phase with an application form, ready for the
     applicant login flow. Returns the market's id, name, slug, and organization id.

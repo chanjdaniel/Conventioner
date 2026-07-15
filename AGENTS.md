@@ -40,7 +40,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   re-exports page objects for convenience, and exposes `BACKEND_URL`
   (derived from `stack().backendURL`) for direct API calls.
 - **API-level seeding**: `front-end/e2e/helpers/seeds.ts` exports `seedMarketWithVendors()`
-  which creates markets and uploads vendor CSV via the back-end API.
+  which creates markets through the application-based path (organization -> market ->
+  application form finalization -> source data upload) via the back-end API.
   `front-end/e2e/helpers/seedAssignedMarket.ts` exports `seedAssignedMarket()`, which
   also configures the market `setupObject` and triggers assignment via the API.
   Requires a verified test user (created by `scripts/seed_fixture.sh`).
