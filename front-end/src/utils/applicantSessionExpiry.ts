@@ -7,8 +7,7 @@ import { useApplicationStore } from '@/stores/application'
  * On the 5d backend there is no applicant session token yet, so this handler
  * is a no-op. It exists as the hook point for when applicant auth (JWT or
  * similar) is added, at which point a 401 on an applicant API call will
- * clear the session and redirect to login, preserving the draft answers the
- * applicant was typing.
+ * clear the session and redirect to login.
  */
 export function installApplicantSessionExpiry(router: Router): void {
   // No-op for 5d backend: no applicant session token exists yet.

@@ -20,11 +20,21 @@ const isOpen = ref(false)
 const loading = ref(true)
 const formData = ref<Record<string, unknown>>({})
 const validationErrors = ref<Record<string, string>>({})
+const saving = ref(false)
 
 const sortedFields = computed(() => sortedFormFields(fields.value))
 const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value))
 
 onMounted(async () => {
+  if (!signedIn.value) {
+    router.push({
+      name: 'applicant-login',
+      params: { marketSlug: marketSlug.value },
+      query: { redirect: 'apply' },
+    })
+    return
+  }
+
   const form = await fetchPublicApplicationForm(marketSlug.value)
   fields.value = form.fields
   marketName.value = form.marketName
@@ -44,29 +54,20 @@ function clearFieldError(field: FormField) {
   }
 }
 
-const submitLabel = computed(() => {
-  if (!signedIn.value) return 'Continue to sign in'
-  return 'Save Application'
-})
-
-function submitForm() {
+async function submitForm() {
   if (!validateAll()) return
 
-  if (!signedIn.value) {
+  saving.value = true
+  store.error = null
+  const app = await store.saveApplication(formData.value)
+  saving.value = false
+
+  if (app) {
     router.push({
-      name: 'applicant-login',
+      name: 'applicant-dashboard',
       params: { marketSlug: marketSlug.value },
-      query: { redirect: 'apply' },
     })
   }
-}
-
-function goToLogin() {
-  router.push({
-    name: 'applicant-login',
-    params: { marketSlug: marketSlug.value },
-    query: { redirect: 'dashboard' },
-  })
 }
 </script>
 
@@ -109,19 +110,17 @@ function goToLogin() {
             <button
               type="submit"
               class="apply-submit-btn"
-              :disabled="!sortedFields.length"
+              :disabled="!sortedFields.length || saving"
               data-testid="apply-submit-button"
             >
-              {{ submitLabel }}
+              {{ saving ? 'Saving...' : 'Save Application' }}
             </button>
+          </div>
+          <div v-if="store.error" class="apply-error" data-testid="apply-error">
+            {{ store.error }}
           </div>
         </form>
       </template>
-
-      <div v-if="!signedIn" class="apply-returning" data-testid="apply-returning">
-        Already applied?
-        <a href="#" @click.prevent="goToLogin">Sign in to view your application</a>
-      </div>
     </template>
   </div>
 </template>
@@ -219,20 +218,14 @@ function goToLogin() {
   cursor: not-allowed;
 }
 
-.apply-returning {
-  margin-top: 24px;
-  text-align: center;
+.apply-error {
+  margin-top: 4px;
+  background: #f8d7da;
+  border: 1px solid var(--mm-red, #cc0000);
+  border-radius: 6px;
+  padding: 12px 16px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #666);
-}
-
-.apply-returning a {
-  color: var(--mm-green);
-  text-decoration: none;
-}
-
-.apply-returning a:hover {
-  text-decoration: underline;
+  color: #721c24;
 }
 </style>
