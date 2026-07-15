@@ -1,9 +1,9 @@
-import { fileURLToPath, URL } from 'node:url'
+import { fileURLToPath, URL } from 'node:url';
 
-import { defineConfig, loadEnv } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import vueJsx from '@vitejs/plugin-vue-jsx'
-import vueDevTools from 'vite-plugin-vue-devtools'
+import { defineConfig, loadEnv } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import vueJsx from '@vitejs/plugin-vue-jsx';
+import vueDevTools from 'vite-plugin-vue-devtools';
 
 /**
  * Refuse to build a bundle that cannot pass the captcha the back end now enforces.
@@ -23,53 +23,49 @@ import vueDevTools from 'vite-plugin-vue-devtools'
  */
 function assertCaptchaSiteKey(env: Record<string, string>) {
   if (env.VITE_RECAPTCHA_SITE_KEY?.trim()) {
-    return
+    return;
   }
   if (env.VITE_ALLOW_INSECURE_LOCAL_DEV === 'true') {
     console.warn(
       '[captcha] VITE_ALLOW_INSECURE_LOCAL_DEV is set: building a bundle with no reCAPTCHA site ' +
         'key. It sends a placeholder token, which only a back end running with DISABLE_CAPTCHA ' +
         'accepts. Never deploy this bundle.',
-    )
-    return
+    );
+    return;
   }
   throw new Error(
     'VITE_RECAPTCHA_SITE_KEY is not set, so this bundle would carry no reCAPTCHA site key and ' +
       'send a placeholder token instead. The back end verifies that token against Google, which ' +
       'never issued it, and rejects every registration with a 400 that names none of this - a ' +
       'deployment nobody can sign up for. Set VITE_RECAPTCHA_SITE_KEY to the site key that pairs ' +
-      'with the back end\'s RECAPTCHA_SECRET_KEY (https://www.google.com/recaptcha/admin), or set ' +
+      "with the back end's RECAPTCHA_SECRET_KEY (https://www.google.com/recaptcha/admin), or set " +
       'VITE_ALLOW_INSECURE_LOCAL_DEV=true if this build is only ever going to talk to a local ' +
       'back end running with DISABLE_CAPTCHA.',
-  )
+  );
 }
 
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
-  const env = loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_')
+  const env = loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_');
 
   if (command === 'build') {
-    assertCaptchaSiteKey(env)
+    assertCaptchaSiteKey(env);
   }
 
   return {
-    plugins: [
-      vue(),
-      vueJsx(),
-      vueDevTools(),
-    ],
+    plugins: [vue(), vueJsx(), vueDevTools()],
     define: {
-      "process.env": process.env,
+      'process.env': process.env,
     },
     resolve: {
       alias: {
-        '@': fileURLToPath(new URL('./src', import.meta.url))
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
     server: {
       hmr: true,
       watch: {
-        usePolling: true
+        usePolling: true,
       },
       proxy: {
         '/api': {
@@ -79,6 +75,6 @@ export default defineConfig(({ command, mode }) => {
           rewrite: (path) => path.replace(/^\/api/, ''),
         },
       },
-    }
-  }
+    },
+  };
 });

@@ -92,9 +92,7 @@ const fieldCount = computed(() => fields.value.length);
 <template>
   <div class="form-builder" data-testid="form-builder">
     <div class="builder-header">
-      <span class="field-count">
-        {{ fieldCount }} field{{ fieldCount !== 1 ? 's' : '' }}
-      </span>
+      <span class="field-count"> {{ fieldCount }} field{{ fieldCount !== 1 ? 's' : '' }} </span>
       <button
         v-if="!readonly"
         class="add-field-btn"

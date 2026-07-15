@@ -1,29 +1,29 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import type { FormField } from '@/assets/types/datatypes'
-import ApplicationFormFields from '@/components/application/ApplicationFormFields.vue'
-import { formValidationErrors, sortedFormFields } from '@/utils/applicationForm'
-import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm'
-import { useApplicationStore } from '@/stores/application'
+import { ref, computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import type { FormField } from '@/assets/types/datatypes';
+import ApplicationFormFields from '@/components/application/ApplicationFormFields.vue';
+import { formValidationErrors, sortedFormFields } from '@/utils/applicationForm';
+import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
+import { useApplicationStore } from '@/stores/application';
 
-const route = useRoute()
-const router = useRouter()
-const store = useApplicationStore()
+const route = useRoute();
+const router = useRouter();
+const store = useApplicationStore();
 
-const marketSlug = computed(() => (route.params.marketSlug as string) || '')
+const marketSlug = computed(() => (route.params.marketSlug as string) || '');
 
-const fields = ref<FormField[]>([])
-const marketName = ref('')
-const phaseLabel = ref('')
-const isOpen = ref(false)
-const loading = ref(true)
-const formData = ref<Record<string, unknown>>({})
-const validationErrors = ref<Record<string, string>>({})
-const saving = ref(false)
+const fields = ref<FormField[]>([]);
+const marketName = ref('');
+const phaseLabel = ref('');
+const isOpen = ref(false);
+const loading = ref(true);
+const formData = ref<Record<string, unknown>>({});
+const validationErrors = ref<Record<string, string>>({});
+const saving = ref(false);
 
-const sortedFields = computed(() => sortedFormFields(fields.value))
-const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value))
+const sortedFields = computed(() => sortedFormFields(fields.value));
+const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value));
 
 onMounted(async () => {
   if (!signedIn.value) {
@@ -31,42 +31,42 @@ onMounted(async () => {
       name: 'applicant-login',
       params: { marketSlug: marketSlug.value },
       query: { redirect: 'apply' },
-    })
-    return
+    });
+    return;
   }
 
-  const form = await fetchPublicApplicationForm(marketSlug.value)
-  fields.value = form.fields
-  marketName.value = form.marketName
-  phaseLabel.value = form.phaseLabel
-  isOpen.value = form.isOpen
-  loading.value = false
-})
+  const form = await fetchPublicApplicationForm(marketSlug.value);
+  fields.value = form.fields;
+  marketName.value = form.marketName;
+  phaseLabel.value = form.phaseLabel;
+  isOpen.value = form.isOpen;
+  loading.value = false;
+});
 
 function validateAll(): boolean {
-  validationErrors.value = formValidationErrors(sortedFields.value, formData.value)
-  return Object.keys(validationErrors.value).length === 0
+  validationErrors.value = formValidationErrors(sortedFields.value, formData.value);
+  return Object.keys(validationErrors.value).length === 0;
 }
 
 function clearFieldError(field: FormField) {
   if (validationErrors.value[field.key]) {
-    validationErrors.value = { ...validationErrors.value, [field.key]: '' }
+    validationErrors.value = { ...validationErrors.value, [field.key]: '' };
   }
 }
 
 async function submitForm() {
-  if (!validateAll()) return
+  if (!validateAll()) return;
 
-  saving.value = true
-  store.error = null
-  const app = await store.saveApplication(formData.value)
-  saving.value = false
+  saving.value = true;
+  store.error = null;
+  const app = await store.saveApplication(formData.value);
+  saving.value = false;
 
   if (app) {
     router.push({
       name: 'applicant-dashboard',
       params: { marketSlug: marketSlug.value },
-    })
+    });
   }
 }
 </script>

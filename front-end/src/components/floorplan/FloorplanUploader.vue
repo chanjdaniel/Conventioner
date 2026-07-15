@@ -1,111 +1,111 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ref, watch, onUnmounted } from 'vue'
-import { useDropZone, useFileDialog } from '@vueuse/core'
-import { api } from '@/utils/api'
+import { ref, watch, onUnmounted } from 'vue';
+import { useDropZone, useFileDialog } from '@vueuse/core';
+import { api } from '@/utils/api';
 
 type UploadResult = {
-  gridfs_id: string
-  width: number
-  height: number
-}
+  gridfs_id: string;
+  width: number;
+  height: number;
+};
 
-type PageResult = UploadResult & { page?: number }
+type PageResult = UploadResult & { page?: number };
 
-const dropZoneRef = ref<HTMLDivElement>()
-const uploading = ref(false)
-const error = ref('')
-const uploadedFile = ref<File | null>(null)
-const previewUrl = ref('')
-const pages = ref<PageResult[]>([])
-const selectedPage = ref(0)
-const singleResult = ref<UploadResult | null>(null)
+const dropZoneRef = ref<HTMLDivElement>();
+const uploading = ref(false);
+const error = ref('');
+const uploadedFile = ref<File | null>(null);
+const previewUrl = ref('');
+const pages = ref<PageResult[]>([]);
+const selectedPage = ref(0);
+const singleResult = ref<UploadResult | null>(null);
 
 const emit = defineEmits<{
-  uploaded: [payload: { gridfs_id: string; width: number; height: number }]
-  error: [message: string]
-}>()
+  uploaded: [payload: { gridfs_id: string; width: number; height: number }];
+  error: [message: string];
+}>();
 
-const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf']
+const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 
 function isValidType(file: File): boolean {
-  if (ALLOWED_TYPES.includes(file.type)) return true
+  if (ALLOWED_TYPES.includes(file.type)) return true;
   // pdf2image on the backend also accepts .pdf by extension
-  if (file.name.toLowerCase().endsWith('.pdf')) return true
-  return false
+  if (file.name.toLowerCase().endsWith('.pdf')) return true;
+  return false;
 }
 
 function revokePreview() {
   if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value)
-    previewUrl.value = ''
+    URL.revokeObjectURL(previewUrl.value);
+    previewUrl.value = '';
   }
 }
 
 async function handleFile(file: File) {
   if (!isValidType(file)) {
-    error.value = 'Unsupported file type. Please use PNG, JPG, WebP, or PDF.'
-    emit('error', error.value)
-    return
+    error.value = 'Unsupported file type. Please use PNG, JPG, WebP, or PDF.';
+    emit('error', error.value);
+    return;
   }
 
-  revokePreview()
-  uploadedFile.value = file
-  previewUrl.value = URL.createObjectURL(file)
-  error.value = ''
-  uploading.value = true
+  revokePreview();
+  uploadedFile.value = file;
+  previewUrl.value = URL.createObjectURL(file);
+  error.value = '';
+  uploading.value = true;
 
   try {
-    const formData = new FormData()
-    formData.append('file', file)
+    const formData = new FormData();
+    formData.append('file', file);
 
-    const { data } = await api.post('/floorplans/upload', formData)
+    const { data } = await api.post('/floorplans/upload', formData);
 
     if (data.pages) {
-      pages.value = data.pages
-      selectedPage.value = 0
-      emit('uploaded', data.pages[0])
+      pages.value = data.pages;
+      selectedPage.value = 0;
+      emit('uploaded', data.pages[0]);
     } else {
       singleResult.value = {
         gridfs_id: data.gridfs_id,
         width: data.width,
         height: data.height,
-      }
-      emit('uploaded', singleResult.value)
+      };
+      emit('uploaded', singleResult.value);
     }
   } catch (e: any) {
-    error.value = e.response?.data?.error || 'Upload failed'
-    emit('error', error.value)
+    error.value = e.response?.data?.error || 'Upload failed';
+    emit('error', error.value);
   } finally {
-    uploading.value = false
+    uploading.value = false;
   }
 }
 
 const { isOverDropZone } = useDropZone(dropZoneRef, {
   dataTypes: ALLOWED_TYPES,
   onDrop(files: File[] | null) {
-    if (files?.length) handleFile(files[0])
+    if (files?.length) handleFile(files[0]);
   },
-})
+});
 
 const { open: openFileDialog, onChange } = useFileDialog({
   accept: 'image/png,image/jpeg,image/webp,application/pdf',
   multiple: false,
-})
+});
 
 onChange((files: FileList | null) => {
-  if (files?.length) handleFile(files[0])
-})
+  if (files?.length) handleFile(files[0]);
+});
 
 watch(selectedPage, (idx) => {
   if (pages.value[idx]) {
-    emit('uploaded', pages.value[idx])
+    emit('uploaded', pages.value[idx]);
   }
-})
+});
 
 onUnmounted(() => {
-  revokePreview()
-})
+  revokePreview();
+});
 </script>
 
 <template>

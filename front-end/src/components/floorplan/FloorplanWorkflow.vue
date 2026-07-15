@@ -1,38 +1,38 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useFloorplanStore } from '@/stores/floorplan'
-import FloorplanUploader from './FloorplanUploader.vue'
-import ScaleCalibration from './ScaleCalibration.vue'
-import TableTypePanel from './TableTypePanel.vue'
-import AutoPlaceButton from './AutoPlaceButton.vue'
-import FloorplanEditor from './FloorplanEditor.vue'
-import WallEditor from './WallEditor.vue'
-import SectionGrouping from './SectionGrouping.vue'
-import SaveFlow from './SaveFlow.vue'
-import TemplatePanel from './TemplatePanel.vue'
-import ExportButton from './ExportButton.vue'
+import { ref, computed } from 'vue';
+import { useFloorplanStore } from '@/stores/floorplan';
+import FloorplanUploader from './FloorplanUploader.vue';
+import ScaleCalibration from './ScaleCalibration.vue';
+import TableTypePanel from './TableTypePanel.vue';
+import AutoPlaceButton from './AutoPlaceButton.vue';
+import FloorplanEditor from './FloorplanEditor.vue';
+import WallEditor from './WallEditor.vue';
+import SectionGrouping from './SectionGrouping.vue';
+import SaveFlow from './SaveFlow.vue';
+import TemplatePanel from './TemplatePanel.vue';
+import ExportButton from './ExportButton.vue';
 
 // ── Props ────────────────────────────────────────────────────────────
 const props = defineProps<{
-  marketId: string
-}>()
+  marketId: string;
+}>();
 
 // ── Emits ────────────────────────────────────────────────────────────
 const emit = defineEmits<{
-  (e: 'saved', payload: { market_id: string }): void
-}>()
+  (e: 'saved', payload: { market_id: string }): void;
+}>();
 
 // ── Store ────────────────────────────────────────────────────────────
-const store = useFloorplanStore()
+const store = useFloorplanStore();
 
 // ── Local state ──────────────────────────────────────────────────────
-const step = ref(0)
-const gridfsId = ref<string | null>(null)
-const wallEditMode = ref(false)
-const editorRef = ref<InstanceType<typeof FloorplanEditor> | null>(null)
+const step = ref(0);
+const gridfsId = ref<string | null>(null);
+const wallEditMode = ref(false);
+const editorRef = ref<InstanceType<typeof FloorplanEditor> | null>(null);
 
 /** Non-null-safe string for prop binding when v-if guards the value. */
-const safeGridfsId = computed(() => gridfsId.value ?? '')
+const safeGridfsId = computed(() => gridfsId.value ?? '');
 
 // ── Step progression ─────────────────────────────────────────────────
 
@@ -45,41 +45,41 @@ const canProceed = computed(() => {
   switch (step.value) {
     case 0:
       // Upload complete → gridfsId is set
-      return gridfsId.value !== null
+      return gridfsId.value !== null;
     case 1:
       // Calibration complete → scale has been set (default is 1)
-      return store.scalePxPerMm !== 1
+      return store.scalePxPerMm !== 1;
     case 2:
       // Auto-placement complete → tables placed in store
-      return store.placedTables.length > 0
+      return store.placedTables.length > 0;
     case 3:
       // Sections grouped → sections array populated
-      return store.sections.length > 0
+      return store.sections.length > 0;
     default:
-      return false
+      return false;
   }
-})
+});
 
 // ── Event handlers ───────────────────────────────────────────────────
 
 function onUploaded(payload: { gridfs_id: string; width: number; height: number }) {
-  gridfsId.value = payload.gridfs_id
+  gridfsId.value = payload.gridfs_id;
 }
 
 function onCalibrated(_payload: {
-  pxPerMm: number
-  pixelDistance: number
-  lengthMm: number
-  unit: string
+  pxPerMm: number;
+  pixelDistance: number;
+  lengthMm: number;
+  unit: string;
 }) {
-  void _payload
+  void _payload;
   // ScaleCalibration already calls store.setScale() internally
   // Auto-advance to the next step
-  step.value++
+  step.value++;
 }
 
 function onPlaced(_count: number) {
-  void _count
+  void _count;
   // AutoPlaceButton already calls store.setPlacedTables() internally
 }
 
@@ -89,7 +89,7 @@ function onSectionsUpdated() {
 }
 
 function onSaved(payload: { market_id: string }) {
-  emit('saved', payload)
+  emit('saved', payload);
 }
 </script>
 

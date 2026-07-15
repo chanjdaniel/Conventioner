@@ -1,13 +1,13 @@
-import { defineConfig, devices } from '@playwright/test'
-import { stack } from './e2e/helpers/stack'
+import { defineConfig, devices } from '@playwright/test';
+import { stack } from './e2e/helpers/stack';
 
-const BASE_PORT = parseInt(process.env.FRONTEND_PORT ?? '', 10) || stack().frontendPort
+const BASE_PORT = parseInt(process.env.FRONTEND_PORT ?? '', 10) || stack().frontendPort;
 
 const ciReporters = [
   ['list'] as const,
   ['html', { open: 'never' }] as const,
   ['json', { outputFile: 'test-results/results.json' }] as const,
-]
+];
 
 export default defineConfig({
   testDir: './e2e',
@@ -39,4 +39,4 @@ export default defineConfig({
     port: BASE_PORT,
     reuseExistingServer: true,
   },
-})
+});

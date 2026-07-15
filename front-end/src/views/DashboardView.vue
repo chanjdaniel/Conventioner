@@ -78,51 +78,68 @@ const handleSignOut = async () => {
         <div
           v-if="lastMarket"
           class="last-market-card"
-        role="button"
-        tabindex="0"
-        @click="handleLoadLastMarket"
-        @keydown.enter="handleLoadLastMarket"
-        data-testid="dashboard-last-market-card"
-      >
-        <div class="card-header">
-          <h3>{{ lastMarket.name }}</h3>
-        </div>
-        <div class="card-content">
-          <div class="info-group">
-            <div class="info-row">
-              <span class="info-label">Created:</span>
-              <span class="info-value">{{ lastMarket.creationDate ? formatDate(lastMarket.creationDate) : '—' }}</span>
-            </div>
-            <div v-if="lastMarket.organizationName" class="info-row">
-              <span class="info-label">Organization:</span>
-              <span class="info-value">{{ lastMarket.organizationName }}</span>
-            </div>
-            <div v-if="lastMarket.userRole" class="info-row">
-              <span class="info-label">Your role:</span>
-              <span class="info-value role-badge" :class="`role-${lastMarket.userRole.toLowerCase()}`">
-                {{ getRoleDisplayName(lastMarket.userRole) }}
-              </span>
+          role="button"
+          tabindex="0"
+          @click="handleLoadLastMarket"
+          @keydown.enter="handleLoadLastMarket"
+          data-testid="dashboard-last-market-card"
+        >
+          <div class="card-header">
+            <h3>{{ lastMarket.name }}</h3>
+          </div>
+          <div class="card-content">
+            <div class="info-group">
+              <div class="info-row">
+                <span class="info-label">Created:</span>
+                <span class="info-value">{{
+                  lastMarket.creationDate ? formatDate(lastMarket.creationDate) : '—'
+                }}</span>
+              </div>
+              <div v-if="lastMarket.organizationName" class="info-row">
+                <span class="info-label">Organization:</span>
+                <span class="info-value">{{ lastMarket.organizationName }}</span>
+              </div>
+              <div v-if="lastMarket.userRole" class="info-row">
+                <span class="info-label">Your role:</span>
+                <span
+                  class="info-value role-badge"
+                  :class="`role-${lastMarket.userRole.toLowerCase()}`"
+                >
+                  {{ getRoleDisplayName(lastMarket.userRole) }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
         <div v-else class="last-market-card last-market-card--disabled">
           <span class="disabled-text">Last market not found</span>
         </div>
       </div>
 
       <div class="button-row">
-        <button class="button button-half" @click="handleMarkets" data-testid="dashboard-markets-button">
+        <button
+          class="button button-half"
+          @click="handleMarkets"
+          data-testid="dashboard-markets-button"
+        >
           <h3>Markets</h3>
         </button>
-        <button class="button button-half" @click="handleOrganizations" data-testid="dashboard-organizations-button">
+        <button
+          class="button button-half"
+          @click="handleOrganizations"
+          data-testid="dashboard-organizations-button"
+        >
           <h3>Organizations</h3>
         </button>
       </div>
     </div>
 
     <div class="secondary-buttons">
-      <button class="button button-small" @click="handleSignOut" data-testid="dashboard-sign-out-button">
+      <button
+        class="button button-small"
+        @click="handleSignOut"
+        data-testid="dashboard-sign-out-button"
+      >
         <h4>Sign out</h4>
       </button>
     </div>
@@ -210,7 +227,10 @@ const handleSignOut = async () => {
   gap: 24px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .last-market-card:hover {

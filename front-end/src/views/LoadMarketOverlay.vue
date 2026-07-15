@@ -1,40 +1,40 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { type Market } from '@/assets/types/datatypes.ts'
-import { api } from '@/utils/api'
-import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market'
-import { getRoleDisplayName } from '@/utils/permissions'
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { type Market } from '@/assets/types/datatypes.ts';
+import { api } from '@/utils/api';
+import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market';
+import { getRoleDisplayName } from '@/utils/permissions';
 
 defineProps<{
-  loadOpen: boolean
-}>()
+  loadOpen: boolean;
+}>();
 
-const router = useRouter()
-const markets = ref<Market[]>([])
+const router = useRouter();
+const markets = ref<Market[]>([]);
 
 onMounted(async () => {
-  const response = await api.get('/markets')
+  const response = await api.get('/markets');
 
   for (const market of response.data.markets) {
-    markets.value.push(parseMarketFromApi(market))
+    markets.value.push(parseMarketFromApi(market));
   }
-})
+});
 
 const handleLoadMarket = async (market: Market) => {
-  localStorage.removeItem('market')
-  localStorage.setItem('market', JSON.stringify(market))
-  router.push(pathAfterLoadingMarket(market))
-}
+  localStorage.removeItem('market');
+  localStorage.setItem('market', JSON.stringify(market));
+  router.push(pathAfterLoadingMarket(market));
+};
 
 const formatDate = (dateString: string) => {
-  const date = new Date(dateString)
+  const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-  })
-}
+  });
+};
 </script>
 
 <template>

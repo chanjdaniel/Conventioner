@@ -15,12 +15,12 @@
  *   E2E_BACKEND_CONTAINER - Backend container name
  */
 
-import { stack } from './stack'
+import { stack } from './stack';
 
 export function mongoContainer(): string {
-  return process.env.E2E_MONGO_CONTAINER || stack().mongoContainerName
+  return process.env.E2E_MONGO_CONTAINER || stack().mongoContainerName;
 }
 
 export function backendContainer(): string {
-  return process.env.E2E_BACKEND_CONTAINER || stack().backendContainerName
+  return process.env.E2E_BACKEND_CONTAINER || stack().backendContainerName;
 }

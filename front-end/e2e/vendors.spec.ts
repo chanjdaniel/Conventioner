@@ -18,7 +18,7 @@ test.describe('Vendor browsing and search', () => {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     expect(marketRes.ok()).toBeTruthy();
-    const { market: marketData } = await marketRes.json() as { market: Record<string, unknown> };
+    const { market: marketData } = (await marketRes.json()) as { market: Record<string, unknown> };
 
     await page.evaluate((data) => {
       const m = { ...(data as Record<string, unknown>) };

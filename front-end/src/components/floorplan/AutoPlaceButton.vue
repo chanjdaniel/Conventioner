@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useFloorplanStore } from '@/stores/floorplan'
-import { api } from '@/utils/api'
-import type { PlacedTableObject } from '@/assets/types/datatypes'
+import { ref, computed } from 'vue';
+import { useFloorplanStore } from '@/stores/floorplan';
+import { api } from '@/utils/api';
+import type { PlacedTableObject } from '@/assets/types/datatypes';
 
 // ── Emits ──────────────────────────────────────────────────────────
 const emit = defineEmits<{
-  placed: [count: number]
-  error: [message: string]
-}>()
+  placed: [count: number];
+  error: [message: string];
+}>();
 
 // ── Store ──────────────────────────────────────────────────────────
-const store = useFloorplanStore()
+const store = useFloorplanStore();
 
 // ── State ──────────────────────────────────────────────────────────
-const isLoading = ref(false)
-const errorMessage = ref('')
+const isLoading = ref(false);
+const errorMessage = ref('');
 
 // ── Computed ───────────────────────────────────────────────────────
 const isDisabled = computed(
   () => isLoading.value || store.tableTypes.length === 0 || !store.scalePxPerMm,
-)
+);
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -31,12 +31,12 @@ function buildRequestBody() {
     end: w.end,
     thickness_mm: w.thicknessMm,
     is_exterior: w.isExterior,
-  }))
+  }));
 
   const obstacles = store.obstacles.map((o) => ({
     polygon: o.polygon,
     type: o.type,
-  }))
+  }));
 
   const tableTypes = store.tableTypes.map((tt) => ({
     id: tt.id,
@@ -44,13 +44,13 @@ function buildRequestBody() {
     width_mm: tt.widthMm,
     height_mm: tt.heightMm,
     max_capacity: tt.maxCapacity,
-  }))
+  }));
 
   // Derive counts from existing placed tables, or default to 1 per type
-  const counts: Record<string, number> = {}
+  const counts: Record<string, number> = {};
   for (const tt of store.tableTypes) {
-    const existingCount = store.placedTables.filter((pt) => pt.tableTypeId === tt.id).length
-    counts[tt.id] = existingCount > 0 ? existingCount : 1
+    const existingCount = store.placedTables.filter((pt) => pt.tableTypeId === tt.id).length;
+    counts[tt.id] = existingCount > 0 ? existingCount : 1;
   }
 
   return {
@@ -63,18 +63,18 @@ function buildRequestBody() {
       wallBufferMm: 1500,
       tableSpacingMm: 1200,
     },
-  }
+  };
 }
 
 /** Map the API response to PlacedTableObject array. */
 function mapResponseToPlacedTables(
   raw: Array<{
-    x_mm: number
-    y_mm: number
-    rotation: number
-    width_mm: number
-    height_mm: number
-    table_type_id: string
+    x_mm: number;
+    y_mm: number;
+    rotation: number;
+    width_mm: number;
+    height_mm: number;
+    table_type_id: string;
   }>,
 ): PlacedTableObject[] {
   return raw.map((t) => ({
@@ -85,48 +85,48 @@ function mapResponseToPlacedTables(
     rotation: t.rotation,
     widthMm: t.width_mm,
     heightMm: t.height_mm,
-  }))
+  }));
 }
 
 // ── Auto-place action ──────────────────────────────────────────────
 
 async function triggerAutoPlace() {
-  if (isDisabled.value) return
+  if (isDisabled.value) return;
 
-  isLoading.value = true
-  errorMessage.value = ''
+  isLoading.value = true;
+  errorMessage.value = '';
 
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 30_000)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
   try {
-    const body = buildRequestBody()
+    const body = buildRequestBody();
 
     const { data } = await api.post('/floorplans/place-tables', body, {
       signal: controller.signal,
-    })
+    });
 
-    const placed = mapResponseToPlacedTables(data.placed_tables ?? [])
-    store.setPlacedTables(placed)
-    emit('placed', placed.length)
+    const placed = mapResponseToPlacedTables(data.placed_tables ?? []);
+    store.setPlacedTables(placed);
+    emit('placed', placed.length);
   } catch (_e: unknown) {
     const err = _e as {
-      name?: string
-      code?: string
-      response?: { data?: { error?: string } }
-      message?: string
-    }
+      name?: string;
+      code?: string;
+      response?: { data?: { error?: string } };
+      message?: string;
+    };
     if (err?.name === 'AbortError' || err?.code === 'ECONNABORTED') {
-      errorMessage.value = 'Placement timed out. Please try again with fewer tables.'
+      errorMessage.value = 'Placement timed out. Please try again with fewer tables.';
     } else if (err?.response?.data?.error) {
-      errorMessage.value = err.response.data.error
+      errorMessage.value = err.response.data.error;
     } else {
-      errorMessage.value = err?.message || 'Auto-placement failed. Please try again.'
+      errorMessage.value = err?.message || 'Auto-placement failed. Please try again.';
     }
-    emit('error', errorMessage.value)
+    emit('error', errorMessage.value);
   } finally {
-    clearTimeout(timeoutId)
-    isLoading.value = false
+    clearTimeout(timeoutId);
+    isLoading.value = false;
   }
 }
 </script>

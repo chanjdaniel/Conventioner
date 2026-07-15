@@ -78,7 +78,11 @@ describe('MarketSetupView application form', () => {
   it('keeps the builder read-only until the server has reported the lock state', async () => {
     storeMarket(formWith('shop_name', 'Shop'));
     let resolveGet: (value: unknown) => void = () => {};
-    api.get.mockReturnValue(new Promise((resolve) => { resolveGet = resolve; }));
+    api.get.mockReturnValue(
+      new Promise((resolve) => {
+        resolveGet = resolve;
+      }),
+    );
 
     const wrapper = await mountOnFormTab();
 

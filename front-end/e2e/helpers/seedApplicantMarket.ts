@@ -130,11 +130,7 @@ export function seedApplicationDoc(
  * Call this BEFORE requesting a code through the UI (or intercept the
  * request-code API call so the manually inserted challenge is not overwritten).
  */
-export function createApplicantLoginChallenge(
-  marketId: string,
-  email: string,
-  code: string,
-): void {
+export function createApplicantLoginChallenge(marketId: string, email: string, code: string): void {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.createHash('sha256').update(`${salt}:${code}`).digest('hex');
   const codeHash = `${salt}:${hash}`;
@@ -155,15 +151,7 @@ export function createApplicantLoginChallenge(
 
   execFileSync(
     'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      MONGO_URI,
-      '--quiet',
-      '--eval',
-      evalJs,
-    ],
+    ['exec', mongoContainer(), 'mongosh', MONGO_URI, '--quiet', '--eval', evalJs],
     { encoding: 'utf-8' },
   );
 }

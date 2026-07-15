@@ -157,16 +157,20 @@ export class MarketSetupPage {
     const nameInput = this.page.getByTestId(`setup-section-name-input-${index}`);
     await nameInput.waitFor({ state: 'visible' });
     await nameInput.fill(name);
-    await this.page.getByTestId(`setup-section-location-select-${index}`).selectOption({ label: locationOptionLabel });
+    await this.page
+      .getByTestId(`setup-section-location-select-${index}`)
+      .selectOption({ label: locationOptionLabel });
     // Resolve the tier option matching the requested label, then select by index.
     // Index-based selection preserves the bound TierObject reference (with its id field);
     // index 0 is the disabled placeholder ("Select a tier"), so real options start at 1.
     const tierSelect = this.page.getByTestId(`setup-section-tier-select-${index}`);
-    const tierOptionIndex = await tierSelect.locator('option').evaluateAll(
-      (options, label) =>
-        options.findIndex((option) => (option.textContent ?? '').trim() === label),
-      tierOptionLabel,
-    );
+    const tierOptionIndex = await tierSelect
+      .locator('option')
+      .evaluateAll(
+        (options, label) =>
+          options.findIndex((option) => (option.textContent ?? '').trim() === label),
+        tierOptionLabel,
+      );
     if (tierOptionIndex < 1) {
       throw new Error(`Tier option "${tierOptionLabel}" not found in section tier select`);
     }
@@ -232,9 +236,14 @@ export class MarketSetupPage {
   async waitForAssignEnabled(): Promise<void> {
     await this.assignButton.waitFor({ state: 'visible', timeout: 5000 });
     // The button should not be disabled
-    await this.page.waitForFunction(() => {
-      const btn = document.querySelector('[data-testid="market-setup-assign-button"]') as HTMLButtonElement;
-      return btn && !btn.disabled;
-    }, { timeout: 10000 });
+    await this.page.waitForFunction(
+      () => {
+        const btn = document.querySelector(
+          '[data-testid="market-setup-assign-button"]',
+        ) as HTMLButtonElement;
+        return btn && !btn.disabled;
+      },
+      { timeout: 10000 },
+    );
   }
 }

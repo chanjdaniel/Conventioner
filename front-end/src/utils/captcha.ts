@@ -68,18 +68,18 @@ function loadRecaptchaScript(): Promise<void> {
     script.src = RECAPTCHA_SCRIPT_URL;
     script.async = true;
     script.defer = true;
-    
+
     script.onload = () => {
       scriptLoaded = true;
       scriptLoading = false;
       resolve();
     };
-    
+
     script.onerror = () => {
       scriptLoading = false;
       reject(new Error('Failed to load reCAPTCHA script'));
     };
-    
+
     document.head.appendChild(script);
   });
 }
@@ -108,7 +108,7 @@ export async function executeRecaptcha(action: string): Promise<string> {
 
   try {
     await loadRecaptchaScript();
-    
+
     return new Promise((resolve, reject) => {
       window.grecaptcha.ready(() => {
         window.grecaptcha

@@ -138,11 +138,7 @@ function updateOption(idx: number, value: string) {
     <div class="field-row" v-if="local.type === 'select' || local.type === 'multi_select'">
       <label class="field-label">Options</label>
       <div class="options-list">
-        <div
-          v-for="(opt, optIdx) in local.options"
-          :key="optIdx"
-          class="option-row"
-        >
+        <div v-for="(opt, optIdx) in local.options" :key="optIdx" class="option-row">
           <input
             class="field-input"
             :value="opt"

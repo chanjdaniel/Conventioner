@@ -63,7 +63,9 @@ describe('applicationFormError', () => {
   it('rejects duplicate keys, which would collide as answer keys', () => {
     const dupe = form(field(), field({ label: 'Other', order: 1 }));
 
-    expect(applicationFormError(dupe)).toBe('Duplicate field key "shop_name". Keys must be unique.');
+    expect(applicationFormError(dupe)).toBe(
+      'Duplicate field key "shop_name". Keys must be unique.',
+    );
   });
 
   it('requires select fields to offer an option', () => {

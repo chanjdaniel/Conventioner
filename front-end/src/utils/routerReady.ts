@@ -1,4 +1,4 @@
-import type { Router } from 'vue-router'
+import type { Router } from 'vue-router';
 
 /**
  * The first navigation, settled - however it ended, asked as many times as anyone needs to ask.
@@ -27,15 +27,15 @@ import type { Router } from 'vue-router'
  * which is what starts it. A promise asked for after the failure is the promise that never settles,
  * and there is nothing this can do about that but be there first.
  */
-const settledByRouter = new WeakMap<Router, Promise<void>>()
+const settledByRouter = new WeakMap<Router, Promise<void>>();
 
 export function routerSettled(router: Router): Promise<void> {
-  let settled = settledByRouter.get(router)
+  let settled = settledByRouter.get(router);
   if (!settled) {
     settled = router.isReady().catch((err: unknown) => {
-      console.error('The first navigation failed; carrying on without it.', err)
-    })
-    settledByRouter.set(router, settled)
+      console.error('The first navigation failed; carrying on without it.', err);
+    });
+    settledByRouter.set(router, settled);
   }
-  return settled
+  return settled;
 }

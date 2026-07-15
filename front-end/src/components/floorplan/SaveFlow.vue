@@ -1,54 +1,54 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
-import { useFloorplanStore } from '@/stores/floorplan'
-import { api } from '@/utils/api'
-import IconCloseRound from '@/components/icons/IconCloseRound.vue'
+import { ref, computed, watch, onUnmounted } from 'vue';
+import { useFloorplanStore } from '@/stores/floorplan';
+import { api } from '@/utils/api';
+import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 
 // ── Props ────────────────────────────────────────────────────────────
 const props = defineProps<{
-  marketId: string
-}>()
+  marketId: string;
+}>();
 
 // ── Emits ─────────────────────────────────────────────────────────────
 const emit = defineEmits<{
-  saved: [payload: { market_id: string }]
-}>()
+  saved: [payload: { market_id: string }];
+}>();
 
 // ── Store ─────────────────────────────────────────────────────────────
-const store = useFloorplanStore()
+const store = useFloorplanStore();
 
 // ── Dialog state ──────────────────────────────────────────────────────
-const dialogOpen = ref(false)
-const saving = ref(false)
-const error = ref('')
-const successMessage = ref('')
+const dialogOpen = ref(false);
+const saving = ref(false);
+const error = ref('');
+const successMessage = ref('');
 
 // Editable copies of section data
 interface EditableSection {
-  id: string
-  name: string
-  locationName: string
-  tableIds: string[]
+  id: string;
+  name: string;
+  locationName: string;
+  tableIds: string[];
 }
-const editableSections = ref<EditableSection[]>([])
+const editableSections = ref<EditableSection[]>([]);
 
 // ── Computed ─────────────────────────────────────────────────────────
 
 /** Whether the save button should be enabled. */
 const canSave = computed(() => {
-  if (!props.marketId) return false
-  if (store.placedTables.length === 0) return false
-  if (store.sections.length === 0) return false
-  return true
-})
+  if (!props.marketId) return false;
+  if (store.placedTables.length === 0) return false;
+  if (store.sections.length === 0) return false;
+  return true;
+});
 
 /** Reason the button is disabled (for tooltip). */
 const disabledReason = computed(() => {
-  if (!props.marketId) return 'No market selected'
-  if (store.placedTables.length === 0) return 'Place at least one table'
-  if (store.sections.length === 0) return 'Define at least one section'
-  return ''
-})
+  if (!props.marketId) return 'No market selected';
+  if (store.placedTables.length === 0) return 'Place at least one table';
+  if (store.sections.length === 0) return 'Define at least one section';
+  return '';
+});
 
 /** Sections enriched with table count. */
 const sectionSummary = computed(() =>
@@ -56,29 +56,29 @@ const sectionSummary = computed(() =>
     ...s,
     tableCount: s.tableIds.length,
   })),
-)
+);
 
 /** Unique location names from sections. */
 const locations = computed(() => {
-  const set = new Set(editableSections.value.map((s) => s.locationName).filter(Boolean))
-  return Array.from(set).sort()
-})
+  const set = new Set(editableSections.value.map((s) => s.locationName).filter(Boolean));
+  return Array.from(set).sort();
+});
 
 /** Total table count across all sections. */
 const totalTables = computed(() =>
   editableSections.value.reduce((sum, s) => sum + s.tableIds.length, 0),
-)
+);
 
 /** Tables not assigned to any section. */
 const unassignedTableCount = computed(() => {
-  const assigned = new Set(editableSections.value.flatMap((s) => s.tableIds))
-  return store.placedTables.filter((t) => !assigned.has(t.id)).length
-})
+  const assigned = new Set(editableSections.value.flatMap((s) => s.tableIds));
+  return store.placedTables.filter((t) => !assigned.has(t.id)).length;
+});
 
 // ── Dialog open / close ──────────────────────────────────────────────
 
 function openDialog() {
-  if (!canSave.value) return
+  if (!canSave.value) return;
 
   // Clone store sections into editable copies
   editableSections.value = store.sections.map((s) => ({
@@ -86,24 +86,24 @@ function openDialog() {
     name: s.name,
     locationName: s.locationName,
     tableIds: [...s.tableIds],
-  }))
+  }));
 
-  error.value = ''
-  successMessage.value = ''
-  dialogOpen.value = true
+  error.value = '';
+  successMessage.value = '';
+  dialogOpen.value = true;
 }
 
 function closeDialog() {
-  dialogOpen.value = false
+  dialogOpen.value = false;
 }
 
 function handleBackdropClick() {
-  closeDialog()
+  closeDialog();
 }
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && dialogOpen.value && !saving.value) {
-    closeDialog()
+    closeDialog();
   }
 }
 
@@ -111,34 +111,34 @@ watch(
   () => dialogOpen.value,
   (isOpen) => {
     if (isOpen) {
-      window.addEventListener('keydown', handleKeydown)
+      window.addEventListener('keydown', handleKeydown);
     } else {
-      window.removeEventListener('keydown', handleKeydown)
+      window.removeEventListener('keydown', handleKeydown);
     }
   },
-)
+);
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown)
-})
+  window.removeEventListener('keydown', handleKeydown);
+});
 
 // ── Section editing ──────────────────────────────────────────────────
 
 function updateSectionName(id: string, value: string) {
-  const sec = editableSections.value.find((s) => s.id === id)
-  if (sec) sec.name = value
+  const sec = editableSections.value.find((s) => s.id === id);
+  if (sec) sec.name = value;
 }
 
 function updateSectionLocation(id: string, value: string) {
-  const sec = editableSections.value.find((s) => s.id === id)
-  if (sec) sec.locationName = value
+  const sec = editableSections.value.find((s) => s.id === id);
+  if (sec) sec.locationName = value;
 }
 
 // ── Save ─────────────────────────────────────────────────────────────
 
 async function handleSave() {
-  error.value = ''
-  successMessage.value = ''
+  error.value = '';
+  successMessage.value = '';
 
   // Apply edits back to store before saving
   store.setSections(
@@ -148,31 +148,31 @@ async function handleSave() {
       locationName: s.locationName,
       tableIds: s.tableIds,
     })),
-  )
+  );
 
   const payload = {
     market_id: props.marketId,
     floorplan: store.currentFloorplan,
-  }
+  };
 
-  saving.value = true
+  saving.value = true;
   try {
-    await api.post('/floorplans/save-to-market', payload)
-    successMessage.value = 'Floorplan saved successfully!'
-    emit('saved', { market_id: props.marketId })
+    await api.post('/floorplans/save-to-market', payload);
+    successMessage.value = 'Floorplan saved successfully!';
+    emit('saved', { market_id: props.marketId });
 
     // Auto-close after brief delay so user can see success
     setTimeout(() => {
-      dialogOpen.value = false
-    }, 1200)
+      dialogOpen.value = false;
+    }, 1200);
   } catch (err: unknown) {
     const msg =
       err && typeof err === 'object' && 'response' in err
         ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
-        : undefined
-    error.value = msg || 'Failed to save floorplan. Please try again.'
+        : undefined;
+    error.value = msg || 'Failed to save floorplan. Please try again.';
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 </script>

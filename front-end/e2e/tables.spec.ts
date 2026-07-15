@@ -60,10 +60,7 @@ test.describe('Table browsing and filtering', () => {
     expect(sectionFilteredCount).toBeGreaterThan(0);
   });
 
-  test('clearing filters restores all table rows', async ({
-    authenticatedPage: page,
-    request,
-  }) => {
+  test('clearing filters restores all table rows', async ({ authenticatedPage: page, request }) => {
     const seed = await seedPublishedMarketWithAssignments(
       request,
       BACKEND_URL,

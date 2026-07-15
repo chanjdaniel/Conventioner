@@ -1,243 +1,243 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useFloorplanStore } from '@/stores/floorplan'
-import { api } from '@/utils/api'
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useFloorplanStore } from '@/stores/floorplan';
+import { api } from '@/utils/api';
 
 // ── Props & Emits ───────────────────────────────────────────────────
 const props = defineProps<{
-  gridfsId: string
-}>()
+  gridfsId: string;
+}>();
 
 const emit = defineEmits<{
   calibrated: [
     payload: {
-      pxPerMm: number
-      pixelDistance: number
-      lengthMm: number
-      unit: string
+      pxPerMm: number;
+      pixelDistance: number;
+      lengthMm: number;
+      unit: string;
     },
-  ]
-  cancel: []
-}>()
+  ];
+  cancel: [];
+}>();
 
 // ── Store ───────────────────────────────────────────────────────────
-const store = useFloorplanStore()
+const store = useFloorplanStore();
 
 // ── Phase state machine ─────────────────────────────────────────────
-type Phase = 'loading' | 'idle' | 'drawing' | 'input' | 'calibrated' | 'done' | 'error'
-const phase = ref<Phase>('loading')
-const errorMsg = ref('')
+type Phase = 'loading' | 'idle' | 'drawing' | 'input' | 'calibrated' | 'done' | 'error';
+const phase = ref<Phase>('loading');
+const errorMsg = ref('');
 
 // ── Container & stage ───────────────────────────────────────────────
-const containerRef = ref<HTMLDivElement>()
-const stageRef = ref()
-const bgImage = ref<HTMLImageElement | null>(null)
-const containerWidth = ref(0)
-const containerHeight = ref(0)
+const containerRef = ref<HTMLDivElement>();
+const stageRef = ref();
+const bgImage = ref<HTMLImageElement | null>(null);
+const containerWidth = ref(0);
+const containerHeight = ref(0);
 
-let resizeObserver: ResizeObserver | null = null
-let imageObjectUrl: string | null = null
+let resizeObserver: ResizeObserver | null = null;
+let imageObjectUrl: string | null = null;
 
 function updateContainerSize() {
   if (containerRef.value) {
-    containerWidth.value = containerRef.value.clientWidth
-    containerHeight.value = containerRef.value.clientHeight
+    containerWidth.value = containerRef.value.clientWidth;
+    containerHeight.value = containerRef.value.clientHeight;
   }
 }
 
 onMounted(() => {
-  updateContainerSize()
+  updateContainerSize();
   if (containerRef.value) {
-    resizeObserver = new ResizeObserver(() => updateContainerSize())
-    resizeObserver.observe(containerRef.value)
+    resizeObserver = new ResizeObserver(() => updateContainerSize());
+    resizeObserver.observe(containerRef.value);
   }
-  window.addEventListener('keydown', handleKeyDown)
-  loadImage()
-})
+  window.addEventListener('keydown', handleKeyDown);
+  loadImage();
+});
 
 onUnmounted(() => {
-  resizeObserver?.disconnect()
-  window.removeEventListener('keydown', handleKeyDown)
+  resizeObserver?.disconnect();
+  window.removeEventListener('keydown', handleKeyDown);
   if (imageObjectUrl) {
-    URL.revokeObjectURL(imageObjectUrl)
-    imageObjectUrl = null
+    URL.revokeObjectURL(imageObjectUrl);
+    imageObjectUrl = null;
   }
-})
+});
 
 // ── Keyboard escape ─────────────────────────────────────────────────
 function handleKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (phase.value === 'input') {
-      resetCalibration()
+      resetCalibration();
     } else if (phase.value === 'calibrated') {
-      resetCalibration()
+      resetCalibration();
     } else {
-      emit('cancel')
+      emit('cancel');
     }
   }
   if (e.key === 'Enter' && phase.value === 'input') {
-    confirmCalibration()
+    confirmCalibration();
   }
 }
 
 // ── Image loading ───────────────────────────────────────────────────
 async function loadImage() {
-  phase.value = 'loading'
-  errorMsg.value = ''
+  phase.value = 'loading';
+  errorMsg.value = '';
   try {
     const { data } = await api.get(`/floorplans/${props.gridfsId}`, {
       responseType: 'blob',
-    })
-    imageObjectUrl = URL.createObjectURL(data)
+    });
+    imageObjectUrl = URL.createObjectURL(data);
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image()
-      i.onload = () => resolve(i)
-      i.onerror = () => reject(new Error('Image failed to decode'))
-      i.src = imageObjectUrl!
-    })
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('Image failed to decode'));
+      i.src = imageObjectUrl!;
+    });
     if (img.width === 0 || img.height === 0) {
-      throw new Error('Image has zero dimensions')
+      throw new Error('Image has zero dimensions');
     }
-    bgImage.value = img
-    phase.value = 'idle'
+    bgImage.value = img;
+    phase.value = 'idle';
   } catch (err: any) {
-    const msg = err?.response?.data?.error || err?.message || 'Failed to load floorplan image'
-    errorMsg.value = msg
-    phase.value = 'error'
+    const msg = err?.response?.data?.error || err?.message || 'Failed to load floorplan image';
+    errorMsg.value = msg;
+    phase.value = 'error';
   }
 }
 
 // ── Image scaling ───────────────────────────────────────────────────
 const imageScale = computed(() => {
-  if (!bgImage.value || !containerWidth.value || !containerHeight.value) return 1
-  if (containerWidth.value <= 0 || containerHeight.value <= 0) return 1
-  const scaleX = containerWidth.value / bgImage.value.width
-  const scaleY = containerHeight.value / bgImage.value.height
-  return Math.min(scaleX, scaleY)
-})
+  if (!bgImage.value || !containerWidth.value || !containerHeight.value) return 1;
+  if (containerWidth.value <= 0 || containerHeight.value <= 0) return 1;
+  const scaleX = containerWidth.value / bgImage.value.width;
+  const scaleY = containerHeight.value / bgImage.value.height;
+  return Math.min(scaleX, scaleY);
+});
 
 const bgImageConfig = computed(() => {
-  if (!bgImage.value) return {}
-  const scale = imageScale.value
-  const w = bgImage.value.width * scale
-  const h = bgImage.value.height * scale
+  if (!bgImage.value) return {};
+  const scale = imageScale.value;
+  const w = bgImage.value.width * scale;
+  const h = bgImage.value.height * scale;
   return {
     image: bgImage.value,
     x: (containerWidth.value - w) / 2,
     y: (containerHeight.value - h) / 2,
     width: w,
     height: h,
-  }
-})
+  };
+});
 
 const stageConfig = computed(() => ({
   width: containerWidth.value || 800,
   height: containerHeight.value || 600,
-}))
+}));
 
 // ── Coordinate conversion ───────────────────────────────────────────
 function toOriginalCoords(stageX: number, stageY: number): { x: number; y: number } {
-  const cfg = bgImageConfig.value
-  if (!cfg.x && cfg.x !== 0) return { x: stageX, y: stageY }
-  const scale = imageScale.value || 1
+  const cfg = bgImageConfig.value;
+  if (!cfg.x && cfg.x !== 0) return { x: stageX, y: stageY };
+  const scale = imageScale.value || 1;
   return {
     x: (stageX - (cfg.x as number)) / scale,
     y: (stageY - (cfg.y as number)) / scale,
-  }
+  };
 }
 
 function isOnImage(stageX: number, stageY: number): boolean {
-  const cfg = bgImageConfig.value
-  if (!cfg.x && cfg.x !== 0) return true
+  const cfg = bgImageConfig.value;
+  if (!cfg.x && cfg.x !== 0) return true;
   return (
     stageX >= (cfg.x as number) &&
     stageX <= (cfg.x as number) + (cfg.width as number) &&
     stageY >= (cfg.y as number) &&
     stageY <= (cfg.y as number) + (cfg.height as number)
-  )
+  );
 }
 
 // ── Drawing state ───────────────────────────────────────────────────
-const isDrawing = ref(false)
-const startPoint = ref<{ x: number; y: number } | null>(null)
-const endPoint = ref<{ x: number; y: number } | null>(null)
+const isDrawing = ref(false);
+const startPoint = ref<{ x: number; y: number } | null>(null);
+const endPoint = ref<{ x: number; y: number } | null>(null);
 
 function handleMouseDown(e: any) {
-  if (phase.value !== 'idle') return
+  if (phase.value !== 'idle') return;
 
-  const stage = stageRef.value?.getNode()
-  if (!stage) return
+  const stage = stageRef.value?.getNode();
+  if (!stage) return;
 
-  const pos = stage.getPointerPosition()
-  if (!pos) return
+  const pos = stage.getPointerPosition();
+  if (!pos) return;
 
-  if (!isOnImage(pos.x, pos.y)) return
+  if (!isOnImage(pos.x, pos.y)) return;
 
-  startPoint.value = { x: pos.x, y: pos.y }
-  endPoint.value = null
-  isDrawing.value = true
-  phase.value = 'drawing'
+  startPoint.value = { x: pos.x, y: pos.y };
+  endPoint.value = null;
+  isDrawing.value = true;
+  phase.value = 'drawing';
 }
 
 function handleMouseMove(e: any) {
-  if (!isDrawing.value || phase.value !== 'drawing') return
+  if (!isDrawing.value || phase.value !== 'drawing') return;
 
-  const stage = stageRef.value?.getNode()
-  if (!stage) return
+  const stage = stageRef.value?.getNode();
+  if (!stage) return;
 
-  const pos = stage.getPointerPosition()
-  if (!pos) return
+  const pos = stage.getPointerPosition();
+  if (!pos) return;
 
-  endPoint.value = { x: pos.x, y: pos.y }
+  endPoint.value = { x: pos.x, y: pos.y };
 }
 
 function handleMouseUp(_e: any) {
-  if (!isDrawing.value) return
-  isDrawing.value = false
+  if (!isDrawing.value) return;
+  isDrawing.value = false;
 
   if (!startPoint.value || !endPoint.value) {
-    resetCalibration()
-    return
+    resetCalibration();
+    return;
   }
 
-  const dx = endPoint.value.x - startPoint.value.x
-  const dy = endPoint.value.y - startPoint.value.y
-  const dist = Math.sqrt(dx * dx + dy * dy)
+  const dx = endPoint.value.x - startPoint.value.x;
+  const dy = endPoint.value.y - startPoint.value.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
 
   if (dist < 20) {
-    resetCalibration()
-    return
+    resetCalibration();
+    return;
   }
 
-  phase.value = 'input'
+  phase.value = 'input';
 }
 
 function resetCalibration() {
-  startPoint.value = null
-  endPoint.value = null
-  isDrawing.value = false
-  realLength.value = null
-  inputError.value = ''
-  calibrationWarning.value = ''
-  phase.value = 'idle'
+  startPoint.value = null;
+  endPoint.value = null;
+  isDrawing.value = false;
+  realLength.value = null;
+  inputError.value = '';
+  calibrationWarning.value = '';
+  phase.value = 'idle';
 }
 
 // ── Konva configs ───────────────────────────────────────────────────
 
 const calibrationLine = computed(() => {
-  if (!startPoint.value || !endPoint.value) return null
+  if (!startPoint.value || !endPoint.value) return null;
   return {
     points: [startPoint.value.x, startPoint.value.y, endPoint.value.x, endPoint.value.y],
     stroke: '#e74c3c',
     strokeWidth: 2,
     dash: [8, 4],
     listening: false,
-  }
-})
+  };
+});
 
 const startMarker = computed(() => {
-  if (!startPoint.value) return null
+  if (!startPoint.value) return null;
   return {
     x: startPoint.value.x,
     y: startPoint.value.y,
@@ -246,11 +246,11 @@ const startMarker = computed(() => {
     stroke: '#ffffff',
     strokeWidth: 2,
     listening: false,
-  }
-})
+  };
+});
 
 const endMarker = computed(() => {
-  if (!endPoint.value) return null
+  if (!endPoint.value) return null;
   return {
     x: endPoint.value.x,
     y: endPoint.value.y,
@@ -259,19 +259,19 @@ const endMarker = computed(() => {
     stroke: '#ffffff',
     strokeWidth: 2,
     listening: false,
-  }
-})
+  };
+});
 
 const pixelDistanceLabel = computed(() => {
-  if (!startPoint.value || !endPoint.value) return null
+  if (!startPoint.value || !endPoint.value) return null;
 
-  const dx = endPoint.value.x - startPoint.value.x
-  const dy = endPoint.value.y - startPoint.value.y
-  const displayDist = Math.sqrt(dx * dx + dy * dy)
-  const originalDist = displayDist / (imageScale.value || 1)
+  const dx = endPoint.value.x - startPoint.value.x;
+  const dy = endPoint.value.y - startPoint.value.y;
+  const displayDist = Math.sqrt(dx * dx + dy * dy);
+  const originalDist = displayDist / (imageScale.value || 1);
 
-  const midX = (startPoint.value.x + endPoint.value.x) / 2
-  const midY = (startPoint.value.y + endPoint.value.y) / 2
+  const midX = (startPoint.value.x + endPoint.value.x) / 2;
+  const midY = (startPoint.value.y + endPoint.value.y) / 2;
 
   return {
     x: midX - 100,
@@ -283,70 +283,70 @@ const pixelDistanceLabel = computed(() => {
     align: 'center',
     width: 200,
     listening: false,
-  }
-})
+  };
+});
 
 // ── Length input ────────────────────────────────────────────────────
-const realLength = ref<number | null>(null)
-const selectedUnit = ref<'ft' | 'm' | 'mm'>('m')
-const inputError = ref('')
-const isSubmitting = ref(false)
-const calibrationWarning = ref('')
+const realLength = ref<number | null>(null);
+const selectedUnit = ref<'ft' | 'm' | 'mm'>('m');
+const inputError = ref('');
+const isSubmitting = ref(false);
+const calibrationWarning = ref('');
 
 const UNIT_TO_MM: Record<string, number> = {
   ft: 304.8,
   m: 1000,
   mm: 1,
-}
+};
 
 const unitOptions = [
   { value: 'ft' as const, label: 'Feet (ft)' },
   { value: 'm' as const, label: 'Meters (m)' },
   { value: 'mm' as const, label: 'Millimeters (mm)' },
-]
+];
 
 // ── Calibration results ─────────────────────────────────────────────
-const computedPxPerMm = ref(0)
-const originalPixelDistance = ref(0)
-const calibratedLengthMm = ref(0)
+const computedPxPerMm = ref(0);
+const originalPixelDistance = ref(0);
+const calibratedLengthMm = ref(0);
 
 function validateLengthInput(): boolean {
-  inputError.value = ''
+  inputError.value = '';
   if (realLength.value === null || realLength.value === undefined) {
-    inputError.value = 'Please enter a length.'
-    return false
+    inputError.value = 'Please enter a length.';
+    return false;
   }
   if (realLength.value <= 0) {
-    inputError.value = 'Length must be greater than zero.'
-    return false
+    inputError.value = 'Length must be greater than zero.';
+    return false;
   }
   if (!Number.isFinite(realLength.value)) {
-    inputError.value = 'Please enter a valid number.'
-    return false
+    inputError.value = 'Please enter a valid number.';
+    return false;
   }
-  return true
+  return true;
 }
 
 async function confirmCalibration() {
-  if (!validateLengthInput()) return
-  if (!startPoint.value || !endPoint.value) return
+  if (!validateLengthInput()) return;
+  if (!startPoint.value || !endPoint.value) return;
 
-  isSubmitting.value = true
-  inputError.value = ''
+  isSubmitting.value = true;
+  inputError.value = '';
 
-  const startOrig = toOriginalCoords(startPoint.value.x, startPoint.value.y)
-  const endOrig = toOriginalCoords(endPoint.value.x, endPoint.value.y)
+  const startOrig = toOriginalCoords(startPoint.value.x, startPoint.value.y);
+  const endOrig = toOriginalCoords(endPoint.value.x, endPoint.value.y);
 
-  const dx = endOrig.x - startOrig.x
-  const dy = endOrig.y - startOrig.y
-  const pixelDist = Math.sqrt(dx * dx + dy * dy)
+  const dx = endOrig.x - startOrig.x;
+  const dy = endOrig.y - startOrig.y;
+  const pixelDist = Math.sqrt(dx * dx + dy * dy);
 
-  const lengthMm = (realLength.value as number) * UNIT_TO_MM[selectedUnit.value]
-  const pxPerMm = pixelDist / lengthMm
+  const lengthMm = (realLength.value as number) * UNIT_TO_MM[selectedUnit.value];
+  const pxPerMm = pixelDist / lengthMm;
 
-  originalPixelDistance.value = pixelDist
-  computedPxPerMm.value = pxPerMm
-  calibratedLengthMm.value = lengthMm
+  originalPixelDistance.value = pixelDist;
+  computedPxPerMm.value = pxPerMm;
+  calibratedLengthMm.value = lengthMm;
 
   // Call API to persist calibration
   try {
@@ -359,20 +359,20 @@ async function confirmCalibration() {
         end_y: endOrig.y,
       },
       length_mm: lengthMm,
-    })
+    });
   } catch (err: any) {
     // Store locally even if API call fails
-    const msg = err?.response?.data?.error || err?.message || 'Calibration API call failed'
-    console.error('Calibration API call failed:', err)
+    const msg = err?.response?.data?.error || err?.message || 'Calibration API call failed';
+    console.error('Calibration API call failed:', err);
     calibrationWarning.value =
-      'Saved locally but sync to server failed. You may need to recalibrate later.'
+      'Saved locally but sync to server failed. You may need to recalibrate later.';
   }
 
   // Store in Pinia
-  store.setScale(pxPerMm)
+  store.setScale(pxPerMm);
 
-  phase.value = 'calibrated'
-  isSubmitting.value = false
+  phase.value = 'calibrated';
+  isSubmitting.value = false;
 }
 
 function acceptCalibration() {
@@ -381,9 +381,9 @@ function acceptCalibration() {
     pixelDistance: originalPixelDistance.value,
     lengthMm: calibratedLengthMm.value,
     unit: selectedUnit.value,
-  })
+  });
   // Dismiss the calibration dialog so user can proceed
-  phase.value = 'done'
+  phase.value = 'done';
 }
 
 // ── Stage mouse leave (cancel drawing if pointer leaves) ────────────
@@ -398,28 +398,28 @@ function handleStageMouseLeave() {
 // ── Global mouseup to catch releases outside the stage ──────────────
 function handleWindowMouseUp() {
   if (isDrawing.value) {
-    isDrawing.value = false
+    isDrawing.value = false;
     if (!startPoint.value || !endPoint.value) {
-      resetCalibration()
+      resetCalibration();
     } else {
-      const dx = endPoint.value.x - startPoint.value.x
-      const dy = endPoint.value.y - startPoint.value.y
+      const dx = endPoint.value.x - startPoint.value.x;
+      const dy = endPoint.value.y - startPoint.value.y;
       if (Math.sqrt(dx * dx + dy * dy) < 20) {
-        resetCalibration()
+        resetCalibration();
       } else {
-        phase.value = 'input'
+        phase.value = 'input';
       }
     }
   }
 }
 
 onMounted(() => {
-  window.addEventListener('mouseup', handleWindowMouseUp)
-})
+  window.addEventListener('mouseup', handleWindowMouseUp);
+});
 
 onUnmounted(() => {
-  window.removeEventListener('mouseup', handleWindowMouseUp)
-})
+  window.removeEventListener('mouseup', handleWindowMouseUp);
+});
 </script>
 
 <template>

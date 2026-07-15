@@ -1,33 +1,33 @@
 <script setup lang="ts">
-import { ref, watch, computed, onUnmounted } from 'vue'
+import { ref, watch, computed, onUnmounted } from 'vue';
 import {
   type Market,
   type VendorAssignmentResult,
   type MarketDateObject,
-} from '@/assets/types/datatypes'
-import IconCloseRound from '@/components/icons/IconCloseRound.vue'
-import { api } from '@/utils/api'
+} from '@/assets/types/datatypes';
+import IconCloseRound from '@/components/icons/IconCloseRound.vue';
+import { api } from '@/utils/api';
 
 const props = defineProps<{
-  open: boolean
-  market: Market | null
-}>()
+  open: boolean;
+  market: Market | null;
+}>();
 
 const emit = defineEmits<{
-  close: []
-}>()
+  close: [];
+}>();
 
-const loadError = ref<string | null>(null)
-const dataRows = ref<string[][] | null>(null)
+const loadError = ref<string | null>(null);
+const dataRows = ref<string[][] | null>(null);
 
 function assignmentHeaderLabel(marketDate: MarketDateObject): string {
-  const d = new Date(marketDate.date + 'T12:00:00')
+  const d = new Date(marketDate.date + 'T12:00:00');
   if (Number.isNaN(d.getTime())) {
-    return 'Assignment'
+    return 'Assignment';
   }
   /* Match Figma-style labels e.g. "Nov. 14 assignment" */
-  const short = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  return `${short.replace(',', '')} assignment`
+  const short = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${short.replace(',', '')} assignment`;
 }
 
 function normalizeVendorAssignment(raw: Record<string, unknown>): VendorAssignmentResult {
@@ -39,51 +39,51 @@ function normalizeVendorAssignment(raw: Record<string, unknown>): VendorAssignme
     section: String(raw.section ?? ''),
     tier: String(raw.tier ?? ''),
     location: String(raw.location ?? ''),
-  }
+  };
 }
 
 async function loadSourceData() {
-  loadError.value = null
-  dataRows.value = null
-  const market = props.market
+  loadError.value = null;
+  dataRows.value = null;
+  const market = props.market;
   if (!market?.id) {
-    loadError.value = 'No market loaded.'
-    return
+    loadError.value = 'No market loaded.';
+    return;
   }
 
   try {
-    const res = await api.get(`/source-data/${encodeURIComponent(market.id)}`)
-    const rows = res.data?.data
+    const res = await api.get(`/source-data/${encodeURIComponent(market.id)}`);
+    const rows = res.data?.data;
     if (Array.isArray(rows) && rows.length > 0) {
       dataRows.value = rows.map((row: unknown) =>
         Array.isArray(row) ? row.map((c) => (c == null ? '' : String(c))) : [],
-      )
-      return
+      );
+      return;
     }
   } catch {
-    loadError.value = 'Could not fetch vendor source data.'
-    return
+    loadError.value = 'Could not fetch vendor source data.';
+    return;
   }
 
-  loadError.value = 'No vendor source data found.'
+  loadError.value = 'No vendor source data found.';
 }
 
 watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
-      void loadSourceData()
+      void loadSourceData();
     }
   },
-)
+);
 
 function handleBackdropClick() {
-  emit('close')
+  emit('close');
 }
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && props.open) {
-    emit('close')
+    emit('close');
   }
 }
 
@@ -91,132 +91,132 @@ watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
-      window.addEventListener('keydown', handleKeydown)
+      window.addEventListener('keydown', handleKeydown);
     } else {
-      window.removeEventListener('keydown', handleKeydown)
+      window.removeEventListener('keydown', handleKeydown);
     }
   },
-)
+);
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown)
-})
+  window.removeEventListener('keydown', handleKeydown);
+});
 
-const setup = computed(() => props.market?.setupObject ?? null)
+const setup = computed(() => props.market?.setupObject ?? null);
 
 const includedIndices = computed(() => {
-  const s = setup.value
-  if (!s?.colNames?.length) return [] as number[]
-  const out: number[] = []
+  const s = setup.value;
+  if (!s?.colNames?.length) return [] as number[];
+  const out: number[] = [];
   for (let i = 0; i < s.colNames.length; i++) {
-    if (s.colInclude[i]) out.push(i)
+    if (s.colInclude[i]) out.push(i);
   }
-  return out
-})
+  return out;
+});
 
 const columnHeaders = computed(() => {
-  const s = setup.value
-  if (!s) return [] as string[]
-  const headers: string[] = []
+  const s = setup.value;
+  if (!s) return [] as string[];
+  const headers: string[] = [];
   for (const i of includedIndices.value) {
-    headers.push(s.colNames[i] ?? '')
+    headers.push(s.colNames[i] ?? '');
   }
   for (const md of s.marketDates ?? []) {
-    headers.push(assignmentHeaderLabel(md))
+    headers.push(assignmentHeaderLabel(md));
   }
-  headers.push('Cost')
-  return headers
-})
+  headers.push('Cost');
+  return headers;
+});
 
 const emailColIdx = computed(() => {
-  const idx = setup.value?.assignmentOptions?.emailColNameIdx
-  return typeof idx === 'number' && idx >= 0 ? idx : null
-})
+  const idx = setup.value?.assignmentOptions?.emailColNameIdx;
+  return typeof idx === 'number' && idx >= 0 ? idx : null;
+});
 
-const marketDates = computed(() => setup.value?.marketDates ?? [])
+const marketDates = computed(() => setup.value?.marketDates ?? []);
 
-const colNames = computed(() => setup.value?.colNames ?? [])
+const colNames = computed(() => setup.value?.colNames ?? []);
 
 function vendorAssignmentsList(m: Market | null): unknown[] {
-  if (!m?.assignmentObject) return []
-  const ao = m.assignmentObject as unknown as Record<string, unknown>
-  const list = ao.vendorAssignments ?? ao.vendor_assignments
-  return Array.isArray(list) ? list : []
+  if (!m?.assignmentObject) return [];
+  const ao = m.assignmentObject as unknown as Record<string, unknown>;
+  const list = ao.vendorAssignments ?? ao.vendor_assignments;
+  return Array.isArray(list) ? list : [];
 }
 
 /** Map: email -> (dateColName -> assignment string) */
 const assignmentByEmailAndDate = computed(() => {
-  const map = new Map<string, Map<string, string>>()
-  const raw = vendorAssignmentsList(props.market)
-  if (raw.length === 0) return map
+  const map = new Map<string, Map<string, string>>();
+  const raw = vendorAssignmentsList(props.market);
+  if (raw.length === 0) return map;
   for (const item of raw) {
-    const va = normalizeVendorAssignment(item as Record<string, unknown>)
-    const email = va.email.trim().toLowerCase()
-    if (!email) continue
-    const key = va.date
-    const display = `${va.tableCode} - ${va.tableChoice}`.trim()
-    const line = display === '-' ? '' : display
-    if (!map.has(email)) map.set(email, new Map())
-    map.get(email)!.set(key, line)
+    const va = normalizeVendorAssignment(item as Record<string, unknown>);
+    const email = va.email.trim().toLowerCase();
+    if (!email) continue;
+    const key = va.date;
+    const display = `${va.tableCode} - ${va.tableChoice}`.trim();
+    const line = display === '-' ? '' : display;
+    if (!map.has(email)) map.set(email, new Map());
+    map.get(email)!.set(key, line);
   }
-  return map
-})
+  return map;
+});
 
 function dateKeyForMarketDate(md: MarketDateObject): string {
-  const ext = md as MarketDateObject & { col_name?: string }
-  if (ext.col_name) return ext.col_name
-  const names = colNames.value
-  const idx = md.colNameIdx ?? (md as { col_name_idx?: number }).col_name_idx
+  const ext = md as MarketDateObject & { col_name?: string };
+  if (ext.col_name) return ext.col_name;
+  const names = colNames.value;
+  const idx = md.colNameIdx ?? (md as { col_name_idx?: number }).col_name_idx;
   if (typeof idx === 'number' && idx >= 0 && idx < names.length) {
-    return names[idx] ?? ''
+    return names[idx] ?? '';
   }
-  return ''
+  return '';
 }
 
 const bodyRows = computed(() => {
-  const rows = dataRows.value
-  const s = setup.value
-  if (!rows || rows.length < 2 || !s) return [] as string[][]
+  const rows = dataRows.value;
+  const s = setup.value;
+  if (!rows || rows.length < 2 || !s) return [] as string[][];
 
-  const inc = includedIndices.value
-  const emailIdx = emailColIdx.value
-  const dates = marketDates.value
-  const assignMap = assignmentByEmailAndDate.value
+  const inc = includedIndices.value;
+  const emailIdx = emailColIdx.value;
+  const dates = marketDates.value;
+  const assignMap = assignmentByEmailAndDate.value;
 
-  const result: string[][] = []
+  const result: string[][] = [];
   for (let r = 1; r < rows.length; r++) {
-    const row = rows[r]
-    const cells: string[] = []
+    const row = rows[r];
+    const cells: string[] = [];
 
     for (const j of inc) {
-      cells.push(j < row.length ? (row[j] ?? '') : '')
+      cells.push(j < row.length ? (row[j] ?? '') : '');
     }
 
     const emailRaw =
-      emailIdx != null && emailIdx < row.length ? String(row[emailIdx] ?? '').trim() : ''
-    const emailLower = emailRaw.toLowerCase()
-    const rowAssign = emailLower ? assignMap.get(emailLower) : undefined
+      emailIdx != null && emailIdx < row.length ? String(row[emailIdx] ?? '').trim() : '';
+    const emailLower = emailRaw.toLowerCase();
+    const rowAssign = emailLower ? assignMap.get(emailLower) : undefined;
 
     for (const md of dates) {
-      const dk = dateKeyForMarketDate(md)
-      let cell = ''
+      const dk = dateKeyForMarketDate(md);
+      let cell = '';
       if (rowAssign && dk) {
-        cell = rowAssign.get(dk) ?? ''
+        cell = rowAssign.get(dk) ?? '';
       }
-      cells.push(cell)
+      cells.push(cell);
     }
 
-    cells.push('—')
-    result.push(cells)
+    cells.push('—');
+    result.push(cells);
   }
-  return result
-})
+  return result;
+});
 
 const gridTemplate = computed(() => {
-  const n = columnHeaders.value.length
-  if (n === 0) return ''
-  return `grid-template-columns: repeat(${n}, minmax(100px, 1fr));`
-})
+  const n = columnHeaders.value.length;
+  if (n === 0) return '';
+  return `grid-template-columns: repeat(${n}, minmax(100px, 1fr));`;
+});
 </script>
 
 <template>

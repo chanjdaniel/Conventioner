@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { Application, Market } from '@/assets/types/datatypes'
-import { ApplicationStatus } from '@/assets/types/datatypes'
+import { ref, watch } from 'vue';
+import type { Application, Market } from '@/assets/types/datatypes';
+import { ApplicationStatus } from '@/assets/types/datatypes';
 import {
   fetchMarketApplications,
   reviewApplication,
   publishResults as publishResultsApi,
-} from '@/utils/applicantApi'
-import { getApiErrorMessage } from '@/utils/api'
+} from '@/utils/applicantApi';
+import { getApiErrorMessage } from '@/utils/api';
 
 const props = defineProps<{
-  market: Market | null
-  visible: boolean
-}>()
+  market: Market | null;
+  visible: boolean;
+}>();
 
-const applications = ref<Application[]>([])
-const loading = ref(false)
-const errorMessage = ref('')
-const publishLoading = ref(false)
-const publishError = ref('')
-const resultsPublished = ref(false)
+const applications = ref<Application[]>([]);
+const loading = ref(false);
+const errorMessage = ref('');
+const publishLoading = ref(false);
+const publishError = ref('');
+const resultsPublished = ref(false);
 
 const statusLabels: Record<string, string> = {
   open: 'Open',
@@ -32,7 +32,7 @@ const statusLabels: Record<string, string> = {
   vendor_accepted: 'Accepted',
   vendor_refused: 'Refused',
   cancelled: 'Cancelled',
-}
+};
 
 const statusColors: Record<string, string> = {
   open: '#2196f3',
@@ -45,63 +45,63 @@ const statusColors: Record<string, string> = {
   vendor_accepted: '#4caf50',
   vendor_refused: '#f44336',
   cancelled: '#9e9e9e',
-}
+};
 
 watch(
   () => [props.visible, props.market] as const,
   async ([visible]) => {
     if (visible && props.market) {
-      resultsPublished.value = props.market.resultsPublished ?? false
-      await loadApplications()
+      resultsPublished.value = props.market.resultsPublished ?? false;
+      await loadApplications();
     }
   },
   { immediate: true },
-)
+);
 
 async function loadApplications() {
-  if (!props.market) return
-  loading.value = true
-  errorMessage.value = ''
+  if (!props.market) return;
+  loading.value = true;
+  errorMessage.value = '';
   try {
-    const apps = await fetchMarketApplications(props.market.id)
-    applications.value = apps
+    const apps = await fetchMarketApplications(props.market.id);
+    applications.value = apps;
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load applications')
+    errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 async function handleReview(app: Application, newStatus: ApplicationStatus) {
-  if (!props.market) return
+  if (!props.market) return;
   try {
-    await reviewApplication(props.market.id, app.id, newStatus)
-    await loadApplications()
+    await reviewApplication(props.market.id, app.id, newStatus);
+    await loadApplications();
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to update application')
+    errorMessage.value = getApiErrorMessage(err, 'Failed to update application');
   }
 }
 
 async function handlePublish() {
-  if (!props.market) return
-  publishLoading.value = true
-  publishError.value = ''
+  if (!props.market) return;
+  publishLoading.value = true;
+  publishError.value = '';
   try {
-    await publishResultsApi(props.market.id)
-    resultsPublished.value = true
+    await publishResultsApi(props.market.id);
+    resultsPublished.value = true;
   } catch (err) {
-    publishError.value = getApiErrorMessage(err, 'Failed to publish results')
+    publishError.value = getApiErrorMessage(err, 'Failed to publish results');
   } finally {
-    publishLoading.value = false
+    publishLoading.value = false;
   }
 }
 
 function statusLabel(status: string): string {
-  return statusLabels[status] ?? status
+  return statusLabels[status] ?? status;
 }
 
 function statusColor(status: string): string {
-  return statusColors[status] ?? '#9e9e9e'
+  return statusColors[status] ?? '#9e9e9e';
 }
 </script>
 
@@ -119,7 +119,11 @@ function statusColor(status: string): string {
         >
           {{ publishLoading ? 'Publishing...' : 'Publish Results' }}
         </button>
-        <span v-if="resultsPublished" class="published-badge" data-testid="app-monitor-published-badge">
+        <span
+          v-if="resultsPublished"
+          class="published-badge"
+          data-testid="app-monitor-published-badge"
+        >
           Results Published
         </span>
       </div>
@@ -159,7 +163,12 @@ function statusColor(status: string): string {
 
         <div class="app-actions">
           <button
-            v-if="app.status === ApplicationStatus.Open || app.status === ApplicationStatus.UnderReview || app.status === ApplicationStatus.ReviewerApproved || app.status === ApplicationStatus.ReviewerRejected"
+            v-if="
+              app.status === ApplicationStatus.Open ||
+              app.status === ApplicationStatus.UnderReview ||
+              app.status === ApplicationStatus.ReviewerApproved ||
+              app.status === ApplicationStatus.ReviewerRejected
+            "
             class="approve-button"
             @click="handleReview(app, ApplicationStatus.ReviewerApproved)"
             data-testid="app-monitor-approve-button"
@@ -167,7 +176,12 @@ function statusColor(status: string): string {
             Approve
           </button>
           <button
-            v-if="app.status === ApplicationStatus.Open || app.status === ApplicationStatus.UnderReview || app.status === ApplicationStatus.ReviewerApproved || app.status === ApplicationStatus.ReviewerRejected"
+            v-if="
+              app.status === ApplicationStatus.Open ||
+              app.status === ApplicationStatus.UnderReview ||
+              app.status === ApplicationStatus.ReviewerApproved ||
+              app.status === ApplicationStatus.ReviewerRejected
+            "
             class="reject-button"
             @click="handleReview(app, ApplicationStatus.ReviewerRejected)"
             data-testid="app-monitor-reject-button"

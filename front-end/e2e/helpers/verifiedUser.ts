@@ -1,13 +1,13 @@
-import { execFileSync } from 'node:child_process'
-import { backendContainer } from './containerNames'
+import { execFileSync } from 'node:child_process';
+import { backendContainer } from './containerNames';
 
 /**
  * Markers printed by `back-end/create_test_user.py`. The script exits 0 whether it created the
  * user, found one already there, or failed to insert, so its exit code says nothing; its output
  * is the only signal that a login-ready user actually exists.
  */
-const CREATED_MARKER = 'Successfully created test user'
-const ALREADY_EXISTS_MARKER = 'already exists'
+const CREATED_MARKER = 'Successfully created test user';
+const ALREADY_EXISTS_MARKER = 'already exists';
 
 /**
  * Create a verified test user, idempotently.
@@ -27,11 +27,11 @@ export function ensureVerifiedUser(email: string, password: string): void {
     'docker',
     ['exec', backendContainer(), 'python', '/app/create_test_user.py', email, password],
     { encoding: 'utf-8', timeout: 30_000 },
-  )
+  );
 
   if (!output.includes(CREATED_MARKER) && !output.includes(ALREADY_EXISTS_MARKER)) {
     throw new Error(
       `create_test_user.py did not confirm a verified user for ${email}.\n` + `Output:\n${output}`,
-    )
+    );
   }
 }

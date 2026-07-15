@@ -1,104 +1,108 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useFloorplanStore } from '@/stores/floorplan'
-import type { WallSegment, ObstacleZone } from '@/assets/types/datatypes'
-import type Konva from 'konva'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { useFloorplanStore } from '@/stores/floorplan';
+import type { WallSegment, ObstacleZone } from '@/assets/types/datatypes';
+import type Konva from 'konva';
 
 // ── Props ──────────────────────────────────────────────────────────
 const props = withDefaults(
   defineProps<{
-    enabled?: boolean
+    enabled?: boolean;
   }>(),
   {
     enabled: true,
   },
-)
+);
 
 // ── Store ──────────────────────────────────────────────────────────
-const store = useFloorplanStore()
+const store = useFloorplanStore();
 
 // ── Refs ───────────────────────────────────────────────────────────
-const stageRef = ref()
-const containerRef = ref<HTMLDivElement>()
-const containerWidth = ref(0)
-const containerHeight = ref(0)
+const stageRef = ref();
+const containerRef = ref<HTMLDivElement>();
+const containerWidth = ref(0);
+const containerHeight = ref(0);
 
 // ── Viewport state (independent from FloorplanEditor) ──────────────
-const stageX = ref(0)
-const stageY = ref(0)
-const stageScale = ref(1)
+const stageX = ref(0);
+const stageY = ref(0);
+const stageScale = ref(1);
 
 // ── UI state ───────────────────────────────────────────────────────
-const wallVisible = ref(true)
-const toolMode = ref<'select' | 'add-wall' | 'add-obstacle'>('select')
-const selectedWallId = ref<string | null>(null)
-const selectedObstacleId = ref<string | null>(null)
-const hoveredVertex = ref<{ wallId: string; vertex: 'start' | 'end' } | null>(null)
+const wallVisible = ref(true);
+const toolMode = ref<'select' | 'add-wall' | 'add-obstacle'>('select');
+const selectedWallId = ref<string | null>(null);
+const selectedObstacleId = ref<string | null>(null);
+const hoveredVertex = ref<{ wallId: string; vertex: 'start' | 'end' } | null>(null);
 
 // New wall placement
-const newWallStart = ref<{ x: number; y: number } | null>(null)
-const cursorPixel = ref<{ x: number; y: number } | null>(null)
+const newWallStart = ref<{ x: number; y: number } | null>(null);
+const cursorPixel = ref<{ x: number; y: number } | null>(null);
 
 // New obstacle placement
-const newObstaclePoints = ref<Array<[number, number]>>([])
+const newObstaclePoints = ref<Array<[number, number]>>([]);
 
 // Keyboard state for multi-select
-const shiftHeld = ref(false)
+const shiftHeld = ref(false);
 
 // ── Resize observer ────────────────────────────────────────────────
-let resizeObserver: ResizeObserver | null = null
+let resizeObserver: ResizeObserver | null = null;
 
 function updateContainerSize() {
   if (containerRef.value) {
-    containerWidth.value = containerRef.value.clientWidth
-    containerHeight.value = containerRef.value.clientHeight
+    containerWidth.value = containerRef.value.clientWidth;
+    containerHeight.value = containerRef.value.clientHeight;
   }
 }
 
 onMounted(() => {
-  updateContainerSize()
+  updateContainerSize();
   if (containerRef.value) {
-    resizeObserver = new ResizeObserver(() => updateContainerSize())
-    resizeObserver.observe(containerRef.value)
+    resizeObserver = new ResizeObserver(() => updateContainerSize());
+    resizeObserver.observe(containerRef.value);
   }
-  window.addEventListener('keydown', handleKeyDown)
-  window.addEventListener('keyup', handleKeyUp)
-})
+  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keyup', handleKeyUp);
+});
 
 onUnmounted(() => {
-  resizeObserver?.disconnect()
-  window.removeEventListener('keydown', handleKeyDown)
-  window.removeEventListener('keyup', handleKeyUp)
-})
+  resizeObserver?.disconnect();
+  window.removeEventListener('keydown', handleKeyDown);
+  window.removeEventListener('keyup', handleKeyUp);
+});
 
 // ── Keyboard handlers ──────────────────────────────────────────────
 function handleKeyDown(e: KeyboardEvent) {
-  if (!props.enabled) return
+  if (!props.enabled) return;
 
   if (e.key === 'Shift') {
-    shiftHeld.value = true
+    shiftHeld.value = true;
   }
 
   if (e.key === 'Escape') {
-    cancelCurrentAction()
-    return
+    cancelCurrentAction();
+    return;
   }
 
-  if (e.key === 'Enter' && toolMode.value === 'add-obstacle' && newObstaclePoints.value.length >= 3) {
-    e.preventDefault()
-    finishObstacle()
-    return
+  if (
+    e.key === 'Enter' &&
+    toolMode.value === 'add-obstacle' &&
+    newObstaclePoints.value.length >= 3
+  ) {
+    e.preventDefault();
+    finishObstacle();
+    return;
   }
 
   if ((e.key === 'Delete' || e.key === 'Backspace') && toolMode.value === 'select') {
-    e.preventDefault()
-    deleteSelected()
+    e.preventDefault();
+    deleteSelected();
   }
 }
 
 function handleKeyUp(e: KeyboardEvent) {
   if (e.key === 'Shift') {
-    shiftHeld.value = false
+    shiftHeld.value = false;
   }
 }
 
@@ -111,68 +115,58 @@ const stageConfig = computed(() => ({
   y: stageY.value,
   scaleX: stageScale.value,
   scaleY: stageScale.value,
-}))
+}));
 
 // ── Zoom ───────────────────────────────────────────────────────────
 function handleZoom(e: Konva.KonvaEventObject<WheelEvent>) {
-  e.evt.preventDefault()
-  const stage = stageRef.value?.getNode()
-  if (!stage) return
+  e.evt.preventDefault();
+  const stage = stageRef.value?.getNode();
+  if (!stage) return;
 
-  const scaleBy = 1.08
-  const oldScale = stage.scaleX()
-  const pointer = stage.getPointerPosition()
-  if (!pointer) return
+  const scaleBy = 1.08;
+  const oldScale = stage.scaleX();
+  const pointer = stage.getPointerPosition();
+  if (!pointer) return;
 
   const mousePointTo = {
     x: (pointer.x - stage.x()) / oldScale,
     y: (pointer.y - stage.y()) / oldScale,
-  }
+  };
 
-  const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy
-  const clamped = Math.max(0.1, Math.min(8, newScale))
+  const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
+  const clamped = Math.max(0.1, Math.min(8, newScale));
 
-  stageX.value = pointer.x - mousePointTo.x * clamped
-  stageY.value = pointer.y - mousePointTo.y * clamped
-  stageScale.value = clamped
+  stageX.value = pointer.x - mousePointTo.x * clamped;
+  stageY.value = pointer.y - mousePointTo.y * clamped;
+  stageScale.value = clamped;
 }
 
 // ── Coordinate helpers ─────────────────────────────────────────────
 /** Convert stage pointer position to floorplan pixel coordinates. */
 function stagePointerToFloor(pos: { x: number; y: number }): [number, number] {
-  return [pos.x / store.scalePxPerMm, pos.y / store.scalePxPerMm]
+  return [pos.x / store.scalePxPerMm, pos.y / store.scalePxPerMm];
 }
 
 /** Convert floorplan mm coords to stage pixels. */
 function mmToPx(mm: number): number {
-  return mm * store.scalePxPerMm
+  return mm * store.scalePxPerMm;
 }
 
 /** Convert [x,y] mm pair to pixel point array for Konva line. */
 function mmPairToPx(pair: [number, number]): [number, number] {
-  return [mmToPx(pair[0]), mmToPx(pair[1])]
+  return [mmToPx(pair[0]), mmToPx(pair[1])];
 }
 
 // ── Vertex circle config ───────────────────────────────────────────
-const VERTEX_RADIUS = 7
-const VERTEX_HOVER_RADIUS = 9
+const VERTEX_RADIUS = 7;
+const VERTEX_HOVER_RADIUS = 9;
 
-function vertexConfig(
-  wall: WallSegment,
-  vertex: 'start' | 'end',
-  px: number,
-  py: number,
-) {
+function vertexConfig(wall: WallSegment, vertex: 'start' | 'end', px: number, py: number) {
   const isHovered =
-    hoveredVertex.value?.wallId === wall.id &&
-    hoveredVertex.value?.vertex === vertex
-  const isSelected = selectedWallId.value === wall.id
+    hoveredVertex.value?.wallId === wall.id && hoveredVertex.value?.vertex === vertex;
+  const isSelected = selectedWallId.value === wall.id;
 
-  const fill = isHovered
-    ? 'var(--mm-yellow)'
-    : isSelected
-      ? 'var(--mm-yellow)'
-      : 'var(--mm-green)'
+  const fill = isHovered ? 'var(--mm-yellow)' : isSelected ? 'var(--mm-yellow)' : 'var(--mm-green)';
 
   return {
     x: px,
@@ -184,20 +178,20 @@ function vertexConfig(
     name: `vertex-${vertex}`,
     draggable: props.enabled && toolMode.value === 'select',
     hitStrokeWidth: 12,
-  }
+  };
 }
 
 // ── Wall line config ───────────────────────────────────────────────
 function wallLineConfig(wall: WallSegment) {
-  const [sx, sy] = mmPairToPx(wall.start)
-  const [ex, ey] = mmPairToPx(wall.end)
-  const isSelected = selectedWallId.value === wall.id
-  const isExterior = wall.isExterior
+  const [sx, sy] = mmPairToPx(wall.start);
+  const [ex, ey] = mmPairToPx(wall.end);
+  const isSelected = selectedWallId.value === wall.id;
+  const isExterior = wall.isExterior;
 
-  let stroke: string
-  if (isSelected) stroke = '#E4A629'
-  else if (isExterior) stroke = '#4a4a4a'
-  else stroke = '#666666'
+  let stroke: string;
+  if (isSelected) stroke = '#E4A629';
+  else if (isExterior) stroke = '#4a4a4a';
+  else stroke = '#666666';
 
   return {
     points: [sx, sy, ex, ey],
@@ -207,20 +201,20 @@ function wallLineConfig(wall: WallSegment) {
     id: wall.id,
     hitStrokeWidth: 10,
     listening: true,
-  }
+  };
 }
 
 // ── Obstacle polygon config ────────────────────────────────────────
 function obstacleConfig(obs: ObstacleZone) {
-  const isSelected = selectedObstacleId.value === obs.id
-  const points = obs.polygon.flatMap((p) => mmPairToPx(p))
+  const isSelected = selectedObstacleId.value === obs.id;
+  const points = obs.polygon.flatMap((p) => mmPairToPx(p));
 
   const typeColors: Record<string, string> = {
     pillar: 'rgba(180, 130, 100, 0.4)',
     stage: 'rgba(130, 160, 200, 0.35)',
     no_table_zone: 'rgba(200, 120, 120, 0.3)',
     custom: 'rgba(150, 150, 160, 0.35)',
-  }
+  };
 
   return {
     points,
@@ -232,12 +226,12 @@ function obstacleConfig(obs: ObstacleZone) {
     id: obs.id,
     listening: true,
     hitStrokeWidth: 8,
-  }
+  };
 }
 
 // ── New wall preview ───────────────────────────────────────────────
 const newWallPreviewConfig = computed(() => {
-  if (!newWallStart.value || !cursorPixel.value) return null
+  if (!newWallStart.value || !cursorPixel.value) return null;
   return {
     points: [newWallStart.value.x, newWallStart.value.y, cursorPixel.value.x, cursorPixel.value.y],
     stroke: '#E4A629',
@@ -245,15 +239,15 @@ const newWallPreviewConfig = computed(() => {
     dash: [8, 6],
     name: 'wall-preview',
     listening: false,
-  }
-})
+  };
+});
 
 // ── New obstacle preview ───────────────────────────────────────────
 const newObstaclePreviewConfig = computed(() => {
-  if (newObstaclePoints.value.length === 0) return null
-  const pxPoints = newObstaclePoints.value.flatMap((p) => mmPairToPx(p))
+  if (newObstaclePoints.value.length === 0) return null;
+  const pxPoints = newObstaclePoints.value.flatMap((p) => mmPairToPx(p));
   if (cursorPixel.value) {
-    pxPoints.push(cursorPixel.value.x, cursorPixel.value.y)
+    pxPoints.push(cursorPixel.value.x, cursorPixel.value.y);
   }
   return {
     points: pxPoints,
@@ -264,14 +258,14 @@ const newObstaclePreviewConfig = computed(() => {
     fill: 'rgba(228, 166, 41, 0.12)',
     name: 'obstacle-preview',
     listening: false,
-  }
-})
+  };
+});
 
 // ── Obstacle vertex dots for editing ───────────────────────────────
 function obstacleVertexConfigs(obs: ObstacleZone) {
-  if (selectedObstacleId.value !== obs.id) return []
+  if (selectedObstacleId.value !== obs.id) return [];
   return obs.polygon.map((pt, i) => {
-    const [px, py] = mmPairToPx(pt)
+    const [px, py] = mmPairToPx(pt);
     return {
       key: `${obs.id}-vtx-${i}`,
       x: px,
@@ -283,151 +277,161 @@ function obstacleVertexConfigs(obs: ObstacleZone) {
       name: 'obstacle-vertex',
       draggable: props.enabled && toolMode.value === 'select',
       hitStrokeWidth: 10,
-    }
-  })
+    };
+  });
 }
 
 // ── Stage event handlers ───────────────────────────────────────────
 function handleStageMouseDown(e: Konva.KonvaEventObject<MouseEvent>) {
-  if (!props.enabled) return
+  if (!props.enabled) return;
 
   // Check if click is on empty stage area
-  const clickedOnStage = e.target === e.target.getStage()
+  const clickedOnStage = e.target === e.target.getStage();
 
   if (toolMode.value === 'add-wall') {
-    if (!clickedOnStage) return
-    const stage = e.target.getStage()
-    if (!stage) return
-    const pos = stage.getPointerPosition()
-    if (!pos) return
+    if (!clickedOnStage) return;
+    const stage = e.target.getStage();
+    if (!stage) return;
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
 
     if (!newWallStart.value) {
       // First click: set start point
-      newWallStart.value = { x: pos.x, y: pos.y }
+      newWallStart.value = { x: pos.x, y: pos.y };
     } else {
       // Second click: create wall
-      const startMm = stagePointerToFloor(newWallStart.value)
-      const endMm = stagePointerToFloor(pos)
-      addWall(startMm, endMm)
-      newWallStart.value = null
-      cursorPixel.value = null
-      setToolMode('select')
+      const startMm = stagePointerToFloor(newWallStart.value);
+      const endMm = stagePointerToFloor(pos);
+      addWall(startMm, endMm);
+      newWallStart.value = null;
+      cursorPixel.value = null;
+      setToolMode('select');
     }
-    return
+    return;
   }
 
   if (toolMode.value === 'add-obstacle') {
-    if (!clickedOnStage) return
-    const stage = e.target.getStage()
-    if (!stage) return
-    const pos = stage.getPointerPosition()
-    if (!pos) return
-    const mm = stagePointerToFloor(pos)
-    newObstaclePoints.value = [...newObstaclePoints.value, mm]
-    return
+    if (!clickedOnStage) return;
+    const stage = e.target.getStage();
+    if (!stage) return;
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+    const mm = stagePointerToFloor(pos);
+    newObstaclePoints.value = [...newObstaclePoints.value, mm];
+    return;
   }
 
   if (toolMode.value === 'select') {
     // Deselect when clicking stage background
     if (clickedOnStage) {
-      clearSelection()
+      clearSelection();
     }
   }
 }
 
 function handleStageMouseMove() {
-  if (!props.enabled) return
-  const stage = stageRef.value?.getNode()
-  if (!stage) return
-  const pos = stage.getPointerPosition()
-  if (!pos) return
-  cursorPixel.value = { x: pos.x, y: pos.y }
+  if (!props.enabled) return;
+  const stage = stageRef.value?.getNode();
+  if (!stage) return;
+  const pos = stage.getPointerPosition();
+  if (!pos) return;
+  cursorPixel.value = { x: pos.x, y: pos.y };
 }
 
 function handleStageDblClick(e: Konva.KonvaEventObject<MouseEvent>) {
-  if (!props.enabled) return
+  if (!props.enabled) return;
   if (toolMode.value === 'add-obstacle' && newObstaclePoints.value.length >= 3) {
-    e.evt.preventDefault()
-    finishObstacle()
+    e.evt.preventDefault();
+    finishObstacle();
   }
 }
 
 // ── Wall click handler ─────────────────────────────────────────────
 function onWallClick(wall: WallSegment) {
-  if (!props.enabled || toolMode.value !== 'select') return
-  selectedWallId.value = selectedWallId.value === wall.id ? null : wall.id
-  selectedObstacleId.value = null
+  if (!props.enabled || toolMode.value !== 'select') return;
+  selectedWallId.value = selectedWallId.value === wall.id ? null : wall.id;
+  selectedObstacleId.value = null;
 }
 
 // ── Obstacle click handler ─────────────────────────────────────────
 function onObstacleClick(obs: ObstacleZone) {
-  if (!props.enabled || toolMode.value !== 'select') return
-  selectedObstacleId.value = selectedObstacleId.value === obs.id ? null : obs.id
-  selectedWallId.value = null
+  if (!props.enabled || toolMode.value !== 'select') return;
+  selectedObstacleId.value = selectedObstacleId.value === obs.id ? null : obs.id;
+  selectedWallId.value = null;
 }
 
 // ── Vertex drag handlers ───────────────────────────────────────────
-function onVertexDragStart(wall: WallSegment, vertex: 'start' | 'end', e: Konva.KonvaEventObject<MouseEvent>) {
-  if (!props.enabled) return
+function onVertexDragStart(
+  wall: WallSegment,
+  vertex: 'start' | 'end',
+  e: Konva.KonvaEventObject<MouseEvent>,
+) {
+  if (!props.enabled) return;
   // Store initial coords in case we need them
-  const node = e.target
+  const node = e.target;
   node.setAttrs({
     _dragStartX: node.x(),
     _dragStartY: node.y(),
-  })
+  });
 }
 
 function onVertexDragMove(_wall: WallSegment, _vertex: 'start' | 'end', _e: unknown) {
-  void _wall
-  void _vertex
-  void _e
+  void _wall;
+  void _vertex;
+  void _e;
   // Real-time preview: nothing extra needed, Konva handles visual
 }
 
-function onVertexDragEnd(wall: WallSegment, vertex: 'start' | 'end', e: Konva.KonvaEventObject<MouseEvent>) {
-  if (!props.enabled) return
-  const node = e.target
-  const newPx = { x: node.x(), y: node.y() }
-  const [newXmm, newYmm] = stagePointerToFloor(newPx)
+function onVertexDragEnd(
+  wall: WallSegment,
+  vertex: 'start' | 'end',
+  e: Konva.KonvaEventObject<MouseEvent>,
+) {
+  if (!props.enabled) return;
+  const node = e.target;
+  const newPx = { x: node.x(), y: node.y() };
+  const [newXmm, newYmm] = stagePointerToFloor(newPx);
 
   const updates: Partial<WallSegment> =
-    vertex === 'start'
-      ? { start: [newXmm, newYmm] }
-      : { end: [newXmm, newYmm] }
+    vertex === 'start' ? { start: [newXmm, newYmm] } : { end: [newXmm, newYmm] };
 
-  store.updateWall(wall.id, updates)
+  store.updateWall(wall.id, updates);
 }
 
 // ── Obstacle vertex drag ───────────────────────────────────────────
-function onObstacleVertexDragEnd(obs: ObstacleZone, vertexIndex: number, e: Konva.KonvaEventObject<MouseEvent>) {
-  if (!props.enabled) return
-  const node = e.target
-  const [newXmm, newYmm] = stagePointerToFloor({ x: node.x(), y: node.y() })
+function onObstacleVertexDragEnd(
+  obs: ObstacleZone,
+  vertexIndex: number,
+  e: Konva.KonvaEventObject<MouseEvent>,
+) {
+  if (!props.enabled) return;
+  const node = e.target;
+  const [newXmm, newYmm] = stagePointerToFloor({ x: node.x(), y: node.y() });
   const newPolygon = obs.polygon.map((p, i) =>
     i === vertexIndex ? ([newXmm, newYmm] as [number, number]) : p,
-  )
-  store.updateObstacle(obs.id, { polygon: newPolygon })
+  );
+  store.updateObstacle(obs.id, { polygon: newPolygon });
 }
 
 // ── Hover handlers ─────────────────────────────────────────────────
 function onVertexMouseEnter(wall: WallSegment, vertex: 'start' | 'end') {
-  hoveredVertex.value = { wallId: wall.id, vertex }
+  hoveredVertex.value = { wallId: wall.id, vertex };
 }
 
 function onVertexMouseLeave() {
-  hoveredVertex.value = null
+  hoveredVertex.value = null;
 }
 
 // ── Actions ────────────────────────────────────────────────────────
 function setToolMode(mode: 'select' | 'add-wall' | 'add-obstacle') {
-  cancelCurrentAction()
-  toolMode.value = mode
+  cancelCurrentAction();
+  toolMode.value = mode;
 }
 
 function cancelCurrentAction() {
-  newWallStart.value = null
-  newObstaclePoints.value = []
-  cursorPixel.value = null
+  newWallStart.value = null;
+  newObstaclePoints.value = [];
+  cursorPixel.value = null;
 }
 
 function addWall(startMm: [number, number], endMm: [number, number]) {
@@ -437,81 +441,77 @@ function addWall(startMm: [number, number], endMm: [number, number]) {
     end: endMm,
     thicknessMm: 100,
     isExterior: false,
-  }
-  store.setWalls([...store.walls, wall])
+  };
+  store.setWalls([...store.walls, wall]);
 }
 
 function finishObstacle() {
-  if (newObstaclePoints.value.length < 3) return
+  if (newObstaclePoints.value.length < 3) return;
   const obs: ObstacleZone = {
     id: crypto.randomUUID(),
     polygon: newObstaclePoints.value,
     type: 'custom',
-  }
-  store.obstacles.push(obs)
-  store.markDirty()
-  newObstaclePoints.value = []
-  cursorPixel.value = null
-  setToolMode('select')
+  };
+  store.obstacles.push(obs);
+  store.markDirty();
+  newObstaclePoints.value = [];
+  cursorPixel.value = null;
+  setToolMode('select');
 }
 
 function deleteSelected() {
   if (selectedWallId.value) {
-    store.setWalls(store.walls.filter((w) => w.id !== selectedWallId.value))
-    selectedWallId.value = null
+    store.setWalls(store.walls.filter((w) => w.id !== selectedWallId.value));
+    selectedWallId.value = null;
   }
   if (selectedObstacleId.value) {
     store.obstacles.splice(
       store.obstacles.findIndex((o) => o.id === selectedObstacleId.value),
       1,
-    )
-    store.markDirty()
-    selectedObstacleId.value = null
+    );
+    store.markDirty();
+    selectedObstacleId.value = null;
   }
 }
 
 function clearSelection() {
-  selectedWallId.value = null
-  selectedObstacleId.value = null
+  selectedWallId.value = null;
+  selectedObstacleId.value = null;
 }
 
 function toggleWallVisibility() {
-  wallVisible.value = !wallVisible.value
+  wallVisible.value = !wallVisible.value;
 }
 
 function zoomIn() {
-  stageScale.value = Math.min(8, stageScale.value * 1.2)
+  stageScale.value = Math.min(8, stageScale.value * 1.2);
 }
 
 function zoomOut() {
-  stageScale.value = Math.max(0.1, stageScale.value / 1.2)
+  stageScale.value = Math.max(0.1, stageScale.value / 1.2);
 }
 
 function fitToScreen() {
-  stageX.value = 0
-  stageY.value = 0
-  stageScale.value = 1
+  stageX.value = 0;
+  stageY.value = 0;
+  stageScale.value = 1;
 }
 
 // ── Wall count computed ────────────────────────────────────────────
-const wallCount = computed(() => store.walls.length)
-const obstacleCount = computed(() => store.obstacles.length)
+const wallCount = computed(() => store.walls.length);
+const obstacleCount = computed(() => store.obstacles.length);
 
 // ── Watch enabled to cancel actions ────────────────────────────────
 watch(
   () => props.enabled,
   (val) => {
-    if (!val) cancelCurrentAction()
+    if (!val) cancelCurrentAction();
   },
-)
+);
 </script>
 
 <template>
-  <div
-    class="wall-editor"
-    :class="{ 'is-disabled': !props.enabled }"
-    ref="containerRef"
-  >
+  <div class="wall-editor" :class="{ 'is-disabled': !props.enabled }" ref="containerRef">
     <v-stage
       ref="stageRef"
       :config="stageConfig"
@@ -534,12 +534,7 @@ watch(
         <template v-for="wall in store.walls" :key="`vtx-${wall.id}`">
           <v-circle
             :config="{
-              ...vertexConfig(
-                wall,
-                'start',
-                mmToPx(wall.start[0]),
-                mmToPx(wall.start[1]),
-              ),
+              ...vertexConfig(wall, 'start', mmToPx(wall.start[0]), mmToPx(wall.start[1])),
               id: `${wall.id}-start`,
             }"
             @dragstart="onVertexDragStart(wall, 'start', $event)"
@@ -550,12 +545,7 @@ watch(
           />
           <v-circle
             :config="{
-              ...vertexConfig(
-                wall,
-                'end',
-                mmToPx(wall.end[0]),
-                mmToPx(wall.end[1]),
-              ),
+              ...vertexConfig(wall, 'end', mmToPx(wall.end[0]), mmToPx(wall.end[1])),
               id: `${wall.id}-end`,
             }"
             @dragstart="onVertexDragStart(wall, 'end', $event)"
@@ -567,10 +557,7 @@ watch(
         </template>
 
         <!-- New wall preview -->
-        <v-line
-          v-if="newWallPreviewConfig"
-          :config="newWallPreviewConfig"
-        />
+        <v-line v-if="newWallPreviewConfig" :config="newWallPreviewConfig" />
         <!-- New wall start marker -->
         <v-circle
           v-if="newWallStart"
@@ -606,10 +593,7 @@ watch(
         </template>
 
         <!-- New obstacle preview -->
-        <v-line
-          v-if="newObstaclePreviewConfig"
-          :config="newObstaclePreviewConfig"
-        />
+        <v-line v-if="newObstaclePreviewConfig" :config="newObstaclePreviewConfig" />
       </v-layer>
     </v-stage>
 
@@ -744,27 +728,17 @@ watch(
           stroke-linejoin="round"
         >
           <polyline points="3 6 5 6 21 6" />
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <path
+            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+          />
         </svg>
       </button>
 
       <div class="toolbar-separator" />
 
       <!-- Zoom controls -->
-      <button
-        class="toolbar-btn"
-        @click="zoomIn"
-        title="Zoom in"
-        aria-label="Zoom in"
-      >
-        +
-      </button>
-      <button
-        class="toolbar-btn"
-        @click="zoomOut"
-        title="Zoom out"
-        aria-label="Zoom out"
-      >
+      <button class="toolbar-btn" @click="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+      <button class="toolbar-btn" @click="zoomOut" title="Zoom out" aria-label="Zoom out">
         &minus;
       </button>
       <button
@@ -779,23 +753,15 @@ watch(
 
     <!-- Status bar -->
     <div class="wall-editor-status">
-      <span class="status-label">
-        {{ wallCount }} wall{{ wallCount !== 1 ? 's' : '' }}
-      </span>
+      <span class="status-label"> {{ wallCount }} wall{{ wallCount !== 1 ? 's' : '' }} </span>
       <span class="status-sep">·</span>
       <span class="status-label">
         {{ obstacleCount }} zone{{ obstacleCount !== 1 ? 's' : '' }}
       </span>
-      <span
-        v-if="toolMode === 'add-wall'"
-        class="status-hint"
-      >
+      <span v-if="toolMode === 'add-wall'" class="status-hint">
         {{ newWallStart ? 'Click to place end point' : 'Click to place start point' }}
       </span>
-      <span
-        v-if="toolMode === 'add-obstacle'"
-        class="status-hint"
-      >
+      <span v-if="toolMode === 'add-obstacle'" class="status-hint">
         Click points · dbl-click or Enter to finish ({{ newObstaclePoints.length }})
       </span>
     </div>

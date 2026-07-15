@@ -1,233 +1,233 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { type Market, MarketRole } from '@/assets/types/datatypes'
-import { api, getApiErrorMessage } from '@/utils/api'
-import { parseMarketFromApi } from '@/utils/market'
+import { ref, watch } from 'vue';
+import { type Market, MarketRole } from '@/assets/types/datatypes';
+import { api, getApiErrorMessage } from '@/utils/api';
+import { parseMarketFromApi } from '@/utils/market';
 import {
   getRoleDisplayName,
   canManageRoles,
   canChangeRole,
   getRolesForChange,
-} from '@/utils/permissions'
+} from '@/utils/permissions';
 
 const props = defineProps<{
-  manageOpen: boolean
-  market: Market | null
-}>()
+  manageOpen: boolean;
+  market: Market | null;
+}>();
 
 const emit = defineEmits<{
-  manageClose: []
-}>()
+  manageClose: [];
+}>();
 
-const marketData = ref<Market | null>(null)
-const loading = ref(false)
-const errorMessage = ref('')
-const renameValue = ref('')
-const showAddUserForm = ref(false)
-const newUserEmail = ref('')
-const newUserRole = ref<MarketRole>(MarketRole.Editor)
-const addUserError = ref('')
-const showAddOrgForm = ref(false)
-const newOrgName = ref('')
-const addOrgError = ref('')
-const userOrgs = ref<Array<{ id: string; name: string }>>([])
-const renameError = ref('')
-const deleteConfirming = ref(false)
-const deleteError = ref('')
+const marketData = ref<Market | null>(null);
+const loading = ref(false);
+const errorMessage = ref('');
+const renameValue = ref('');
+const showAddUserForm = ref(false);
+const newUserEmail = ref('');
+const newUserRole = ref<MarketRole>(MarketRole.Editor);
+const addUserError = ref('');
+const showAddOrgForm = ref(false);
+const newOrgName = ref('');
+const addOrgError = ref('');
+const userOrgs = ref<Array<{ id: string; name: string }>>([]);
+const renameError = ref('');
+const deleteConfirming = ref(false);
+const deleteError = ref('');
 
-const addableRoles = [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer]
+const addableRoles = [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer];
 
 watch(
   () => [props.manageOpen, props.market] as const,
   async ([open, market]) => {
     if (open && market) {
-      marketData.value = market
-      renameValue.value = market.name
-      showAddUserForm.value = false
-      showAddOrgForm.value = false
-      deleteConfirming.value = false
-      errorMessage.value = ''
-      addUserError.value = ''
-      addOrgError.value = ''
-      renameError.value = ''
-      deleteError.value = ''
-      await fetchMarket()
+      marketData.value = market;
+      renameValue.value = market.name;
+      showAddUserForm.value = false;
+      showAddOrgForm.value = false;
+      deleteConfirming.value = false;
+      errorMessage.value = '';
+      addUserError.value = '';
+      addOrgError.value = '';
+      renameError.value = '';
+      deleteError.value = '';
+      await fetchMarket();
     } else {
-      marketData.value = null
+      marketData.value = null;
     }
   },
   { immediate: true },
-)
+);
 
 async function fetchMarket(showLoading = true) {
-  if (!marketData.value) return
-  if (showLoading) loading.value = true
-  errorMessage.value = ''
+  if (!marketData.value) return;
+  if (showLoading) loading.value = true;
+  errorMessage.value = '';
   try {
-    const response = await api.get(`/markets/${encodeURIComponent(marketData.value.id)}`)
-    const m = response.data.market
-    marketData.value = parseMarketFromApi(m)
-    renameValue.value = marketData.value.name
+    const response = await api.get(`/markets/${encodeURIComponent(marketData.value.id)}`);
+    const m = response.data.market;
+    marketData.value = parseMarketFromApi(m);
+    renameValue.value = marketData.value.name;
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to load market')
+    errorMessage.value = getApiErrorMessage(err, 'Failed to load market');
   } finally {
-    if (showLoading) loading.value = false
+    if (showLoading) loading.value = false;
   }
 }
 
 function getUserList(): Array<{ userId: string; email: string; role: MarketRole }> {
-  if (!marketData.value?.roles) return []
+  if (!marketData.value?.roles) return [];
   return Object.entries(marketData.value.roles).map(([userId, role]) => ({
     userId,
     email: marketData.value!.roleEmails?.[userId] ?? userId,
     role: role as MarketRole,
-  }))
+  }));
 }
 
 function getOrganizationList(): string[] {
-  if (!marketData.value?.organizationName) return []
-  return [marketData.value.organizationName]
+  if (!marketData.value?.organizationName) return [];
+  return [marketData.value.organizationName];
 }
 
 function getAvailableOrgsForAdd(): Array<{ id: string; name: string }> {
-  const currentId = marketData.value?.organizationId
-  return userOrgs.value.filter((org) => org.id !== currentId)
+  const currentId = marketData.value?.organizationId;
+  return userOrgs.value.filter((org) => org.id !== currentId);
 }
 
 async function fetchUserOrgs() {
   try {
-    const response = await api.get('/organizations')
-    userOrgs.value = response.data.organizations || []
+    const response = await api.get('/organizations');
+    userOrgs.value = response.data.organizations || [];
   } catch {
-    userOrgs.value = []
+    userOrgs.value = [];
   }
 }
 
 function canRemoveUser(targetRole: MarketRole): boolean {
-  if (targetRole === MarketRole.Owner) return false
-  const userRole = marketData.value?.userRole
-  if (!userRole) return false
-  return canManageRoles(userRole, targetRole)
+  if (targetRole === MarketRole.Owner) return false;
+  const userRole = marketData.value?.userRole;
+  if (!userRole) return false;
+  return canManageRoles(userRole, targetRole);
 }
 
 async function handleAddUser() {
-  if (!marketData.value || !newUserEmail.value.trim()) return
-  addUserError.value = ''
+  if (!marketData.value || !newUserEmail.value.trim()) return;
+  addUserError.value = '';
   try {
     await api.post(`/markets/${encodeURIComponent(marketData.value.id)}/roles`, {
       user_email: newUserEmail.value.trim(),
       role: newUserRole.value,
-    })
-    showAddUserForm.value = false
-    newUserEmail.value = ''
-    newUserRole.value = MarketRole.Editor
-    await fetchMarket(false)
+    });
+    showAddUserForm.value = false;
+    newUserEmail.value = '';
+    newUserRole.value = MarketRole.Editor;
+    await fetchMarket(false);
   } catch (err) {
-    addUserError.value = getApiErrorMessage(err, 'Failed to add user')
+    addUserError.value = getApiErrorMessage(err, 'Failed to add user');
   }
 }
 
 async function handleRemoveUser(userId: string) {
-  if (!marketData.value) return
+  if (!marketData.value) return;
   try {
     await api.delete(
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
-    )
-    await fetchMarket(false)
+    );
+    await fetchMarket(false);
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to remove user')
+    errorMessage.value = getApiErrorMessage(err, 'Failed to remove user');
   }
 }
 
 async function handleRoleChange(userId: string, newRole: MarketRole) {
-  if (!marketData.value) return
+  if (!marketData.value) return;
   try {
     await api.put(
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
       { role: newRole },
-    )
-    await fetchMarket(false)
+    );
+    await fetchMarket(false);
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to update role')
+    errorMessage.value = getApiErrorMessage(err, 'Failed to update role');
   }
 }
 
 async function handleAddOrg() {
-  if (!marketData.value || !newOrgName.value.trim()) return
-  addOrgError.value = ''
+  if (!marketData.value || !newOrgName.value.trim()) return;
+  addOrgError.value = '';
   try {
-    const org = userOrgs.value.find((o) => o.name === newOrgName.value.trim())
-    const orgId = org?.id ?? newOrgName.value.trim()
-    const updated = { ...marketData.value, organizationId: orgId }
-    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}`, updated)
+    const org = userOrgs.value.find((o) => o.name === newOrgName.value.trim());
+    const orgId = org?.id ?? newOrgName.value.trim();
+    const updated = { ...marketData.value, organizationId: orgId };
+    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}`, updated);
     marketData.value = {
       ...marketData.value,
       organizationId: orgId,
       organizationName: org?.name ?? newOrgName.value.trim(),
-    }
-    showAddOrgForm.value = false
-    newOrgName.value = ''
-    await fetchMarket(false)
+    };
+    showAddOrgForm.value = false;
+    newOrgName.value = '';
+    await fetchMarket(false);
   } catch (err) {
-    addOrgError.value = getApiErrorMessage(err, 'Failed to add organization')
+    addOrgError.value = getApiErrorMessage(err, 'Failed to add organization');
   }
 }
 
 async function handleRemoveOrg() {
-  if (!marketData.value) return
+  if (!marketData.value) return;
   try {
-    const updated = { ...marketData.value, organizationId: null }
-    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}`, updated)
+    const updated = { ...marketData.value, organizationId: null };
+    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}`, updated);
     marketData.value = {
       ...marketData.value,
       organizationId: undefined,
       organizationName: undefined,
-    }
-    await fetchMarket(false)
+    };
+    await fetchMarket(false);
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to remove organization')
+    errorMessage.value = getApiErrorMessage(err, 'Failed to remove organization');
   }
 }
 
 function canRemoveOrg(): boolean {
-  const userRole = marketData.value?.userRole
-  if (!userRole) return false
-  return userRole === MarketRole.Owner || userRole === MarketRole.Admin
+  const userRole = marketData.value?.userRole;
+  if (!userRole) return false;
+  return userRole === MarketRole.Owner || userRole === MarketRole.Admin;
 }
 
 async function handleRename() {
-  if (!marketData.value || renameValue.value.trim() === marketData.value.name) return
-  renameError.value = ''
+  if (!marketData.value || renameValue.value.trim() === marketData.value.name) return;
+  renameError.value = '';
   try {
-    const updated = { ...marketData.value, name: renameValue.value.trim() }
-    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}`, updated)
-    marketData.value = { ...marketData.value, name: renameValue.value.trim() }
+    const updated = { ...marketData.value, name: renameValue.value.trim() };
+    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}`, updated);
+    marketData.value = { ...marketData.value, name: renameValue.value.trim() };
   } catch (err) {
-    const msg = getApiErrorMessage(err, '')
+    const msg = getApiErrorMessage(err, '');
     renameError.value = msg.toLowerCase().includes('already exists')
       ? 'A market with this name already exists'
-      : msg || 'Failed to rename'
+      : msg || 'Failed to rename';
   }
 }
 
 async function handleDeleteConfirm() {
-  if (!marketData.value) return
-  deleteError.value = ''
+  if (!marketData.value) return;
+  deleteError.value = '';
   try {
-    await api.delete(`/markets/${encodeURIComponent(marketData.value.id)}`)
-    emit('manageClose')
+    await api.delete(`/markets/${encodeURIComponent(marketData.value.id)}`);
+    emit('manageClose');
   } catch (err) {
-    deleteError.value = getApiErrorMessage(err, 'Failed to delete market')
+    deleteError.value = getApiErrorMessage(err, 'Failed to delete market');
   }
 }
 
 function handleDeleteCancel() {
-  deleteConfirming.value = false
-  deleteError.value = ''
+  deleteConfirming.value = false;
+  deleteError.value = '';
 }
 
 function handleClose() {
-  emit('manageClose')
+  emit('manageClose');
 }
 </script>
 

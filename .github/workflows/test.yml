@@ -48,6 +48,8 @@ jobs:
           cache: npm
           cache-dependency-path: front-end/package-lock.json
       - run: npm ci
+      - name: Format check (Prettier)
+        run: npm run format:check
       - name: Lint (full repo)
         run: npm run lint
       - name: Type-check (full repo)

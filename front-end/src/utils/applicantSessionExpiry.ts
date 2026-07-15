@@ -1,5 +1,5 @@
-import type { Router } from 'vue-router'
-import { useApplicationStore } from '@/stores/application'
+import type { Router } from 'vue-router';
+import { useApplicationStore } from '@/stores/application';
 
 /**
  * Register the handler that fires when the applicant's session is rejected.
@@ -14,6 +14,6 @@ export function installApplicantSessionExpiry(router: Router): void {
   // When session-based applicant auth is added, register a 401 interceptor
   // handler here that calls useApplicationStore().clearSession() and
   // router.push to applicant-login.
-  void router
-  void useApplicationStore
+  void router;
+  void useApplicationStore;
 }

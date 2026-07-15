@@ -27,6 +27,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Back-end: Python 3.11 / Flask + MongoDB (in `back-end/`).
 - Testing: Vitest (unit) + Playwright (e2e) for front-end; pytest for back-end.
 - CI: `.github/workflows/test.yml` runs on `dev` and `main` for both PRs and pushes.
+- Front-end formatting is Prettier-enforced: config in `front-end/.prettierrc.json`
+  (semi:true, singleQuote:true, printWidth:100, trailingComma:all), `npm run format`
+  to fix and `npm run format:check` to verify. CI runs `format:check` in the
+  `frontend-lint-and-types` job, so unformatted front-end code fails the build; run
+  `npm run format` before committing. The one-time reformat commit is listed in
+  `.git-blame-ignore-revs`.
 
 ## E2E Testing Patterns
 

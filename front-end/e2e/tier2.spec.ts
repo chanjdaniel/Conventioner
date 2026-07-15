@@ -1,4 +1,11 @@
-import { test, expect, TEST_USER, OrganizationsPage, ManageMarketPage, BACKEND_URL } from './fixtures';
+import {
+  test,
+  expect,
+  TEST_USER,
+  OrganizationsPage,
+  ManageMarketPage,
+  BACKEND_URL,
+} from './fixtures';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { ensureTestOrgAuthenticated } from './helpers/seeds';
 
@@ -36,9 +43,14 @@ test.describe('Tier 2 - Organization CRUD', () => {
     const orgName = `E2E Org ${Date.now()}`;
 
     await orgsPage.createOrg(orgName);
-    await expect(page.locator('.org-card').filter({ hasText: orgName })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.org-card').filter({ hasText: orgName })).toBeVisible({
+      timeout: 10000,
+    });
 
-    const manageButton = page.locator('.org-card').filter({ hasText: orgName }).getByTestId('organizations-manage-button');
+    const manageButton = page
+      .locator('.org-card')
+      .filter({ hasText: orgName })
+      .getByTestId('organizations-manage-button');
 
     await manageButton.click();
     await orgsPage.waitForManageOverlay();
@@ -66,7 +78,9 @@ test.describe('Tier 2 - Organization CRUD', () => {
     await orgsPage.deleteOrg();
     await page.waitForTimeout(500);
 
-    await expect(page.locator('.org-card').filter({ hasText: newName })).not.toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.org-card').filter({ hasText: newName })).not.toBeVisible({
+      timeout: 5000,
+    });
   });
 });
 
@@ -92,7 +106,7 @@ test.describe('Tier 2 - Market role management', () => {
     if (!loginRes.ok()) {
       throw new Error(`Login failed: ${loginRes.status()} ${await loginRes.text()}`);
     }
-    const loginBody = await loginRes.json() as { user_data: { id: string } };
+    const loginBody = (await loginRes.json()) as { user_data: { id: string } };
     const userId = loginBody.user_data.id;
 
     const orgId = await ensureTestOrgAuthenticated(request, BACKEND_URL, TEST_USER.email);
@@ -114,7 +128,9 @@ test.describe('Tier 2 - Market role management', () => {
     }
   });
 
-  test('add user, change role, and remove user from market', async ({ authenticatedPage: page }) => {
+  test('add user, change role, and remove user from market', async ({
+    authenticatedPage: page,
+  }) => {
     await page.goto('/markets');
     await expect(page.locator('.markets-view')).toBeVisible({ timeout: 10000 });
 
@@ -130,20 +146,34 @@ test.describe('Tier 2 - Market role management', () => {
     await manageMarket.addUser(SECOND_USER.email, 'editor');
     await page.waitForTimeout(1000);
 
-    await expect(page.locator('.user-card').filter({ hasText: SECOND_USER.email })).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.user-card').filter({ hasText: SECOND_USER.email }).locator('.role-editor')).toBeVisible();
+    await expect(page.locator('.user-card').filter({ hasText: SECOND_USER.email })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(
+      page.locator('.user-card').filter({ hasText: SECOND_USER.email }).locator('.role-editor'),
+    ).toBeVisible();
 
-    const roleSelect = page.locator('.user-card').filter({ hasText: SECOND_USER.email }).getByTestId('manage-market-role-select');
+    const roleSelect = page
+      .locator('.user-card')
+      .filter({ hasText: SECOND_USER.email })
+      .getByTestId('manage-market-role-select');
     await roleSelect.selectOption('viewer');
     await page.waitForTimeout(1000);
 
-    await expect(page.locator('.user-card').filter({ hasText: SECOND_USER.email }).locator('.role-viewer')).toBeVisible({ timeout: 5000 });
+    await expect(
+      page.locator('.user-card').filter({ hasText: SECOND_USER.email }).locator('.role-viewer'),
+    ).toBeVisible({ timeout: 5000 });
 
-    const removeButton = page.locator('.user-card').filter({ hasText: SECOND_USER.email }).getByTestId('manage-market-remove-user-button');
+    const removeButton = page
+      .locator('.user-card')
+      .filter({ hasText: SECOND_USER.email })
+      .getByTestId('manage-market-remove-user-button');
     await removeButton.click();
     await page.waitForTimeout(1000);
 
-    await expect(page.locator('.user-card').filter({ hasText: SECOND_USER.email })).not.toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.user-card').filter({ hasText: SECOND_USER.email })).not.toBeVisible(
+      { timeout: 5000 },
+    );
   });
 });
 
@@ -151,21 +181,32 @@ test.describe('Tier 2 - Assignment CSV export', () => {
   let marketId: string;
 
   test.beforeAll(async ({ request }) => {
-    const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const seed = await seedAssignedMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
     marketId = seed.marketId;
   });
 
   test('download CSV with expected columns', async ({ authenticatedPage: page }) => {
-    const marketRes = await page.request.get(`${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const marketRes = await page.request.get(
+      `${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`,
+      {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      },
+    );
     expect(marketRes.ok()).toBeTruthy();
     const marketData = (await marketRes.json()).market as Record<string, unknown>;
 
-    await page.evaluate(({ market, user }) => {
-      localStorage.setItem('market', JSON.stringify(market));
-      localStorage.setItem('user', JSON.stringify(user));
-    }, { market: marketData, user: TEST_USER.email });
+    await page.evaluate(
+      ({ market, user }) => {
+        localStorage.setItem('market', JSON.stringify(market));
+        localStorage.setItem('user', JSON.stringify(user));
+      },
+      { market: marketData, user: TEST_USER.email },
+    );
 
     await page.goto('/assignment-results');
     await expect(page.locator('.generate-assignment-view')).toBeVisible({ timeout: 15000 });
@@ -193,7 +234,14 @@ test.describe('Tier 2 - Assignment CSV export', () => {
     // The export is a wide-format CSV: the included source columns followed by
     // one column per market date (the date string itself). Each date cell holds
     // the vendor's "<table_code> - <table_choice>" assignment.
-    const expectedColumns = ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1', '2025-06-01'];
+    const expectedColumns = [
+      'email',
+      'vendor_name',
+      'table_choice',
+      'buddy_email',
+      'day_1',
+      '2025-06-01',
+    ];
     for (const col of expectedColumns) {
       expect(headerLine.toLowerCase()).toContain(col.toLowerCase());
     }
@@ -208,22 +256,33 @@ test.describe('Tier 2 - Publish market', () => {
   let slug: string;
 
   test.beforeAll(async ({ request }) => {
-    const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const seed = await seedAssignedMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
     marketId = seed.marketId;
     slug = seed.slug;
   });
 
   test('publish market and verify check-in URL', async ({ authenticatedPage: page }) => {
-    const marketRes = await page.request.get(`${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
+    const marketRes = await page.request.get(
+      `${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`,
+      {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      },
+    );
     expect(marketRes.ok()).toBeTruthy();
     const marketData = (await marketRes.json()).market as Record<string, unknown>;
 
-    await page.evaluate(({ market, user }) => {
-      localStorage.setItem('market', JSON.stringify(market));
-      localStorage.setItem('user', JSON.stringify(user));
-    }, { market: marketData, user: TEST_USER.email });
+    await page.evaluate(
+      ({ market, user }) => {
+        localStorage.setItem('market', JSON.stringify(market));
+        localStorage.setItem('user', JSON.stringify(user));
+      },
+      { market: marketData, user: TEST_USER.email },
+    );
 
     await page.goto('/assignment-results');
     await expect(page.locator('.generate-assignment-view')).toBeVisible({ timeout: 15000 });

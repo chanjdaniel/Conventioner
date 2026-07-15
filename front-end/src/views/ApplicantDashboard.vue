@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useApplicationStore } from '@/stores/application'
-import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm'
-import type { Application } from '@/assets/types/datatypes'
-import { ApplicationStatus } from '@/assets/types/datatypes'
+import { ref, onMounted, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useApplicationStore } from '@/stores/application';
+import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
+import type { Application } from '@/assets/types/datatypes';
+import { ApplicationStatus } from '@/assets/types/datatypes';
 
-const route = useRoute()
-const router = useRouter()
-const store = useApplicationStore()
+const route = useRoute();
+const router = useRouter();
+const store = useApplicationStore();
 
-const marketSlug = computed(() => (route.params.marketSlug as string) || '')
-const marketName = ref('')
-const loading = ref(true)
-const application = ref<Application | null>(null)
+const marketSlug = computed(() => (route.params.marketSlug as string) || '');
+const marketName = ref('');
+const loading = ref(true);
+const application = ref<Application | null>(null);
 
 const statusLabels: Record<string, string> = {
   open: 'Submitted',
@@ -26,43 +26,45 @@ const statusLabels: Record<string, string> = {
   vendor_accepted: 'Accepted',
   vendor_refused: 'Not Accepted',
   cancelled: 'Cancelled',
-}
+};
 
 const statusBadgeClass = computed(() => {
-  if (!application.value) return 'status-neutral'
-  const s = application.value.status
-  if (s === ApplicationStatus.ReviewerApproved || s === ApplicationStatus.VendorAccepted) return 'status-approved'
-  if (s === ApplicationStatus.ReviewerRejected || s === ApplicationStatus.VendorRefused) return 'status-rejected'
-  if (s === ApplicationStatus.UnderReview) return 'status-review'
-  return 'status-neutral'
-})
+  if (!application.value) return 'status-neutral';
+  const s = application.value.status;
+  if (s === ApplicationStatus.ReviewerApproved || s === ApplicationStatus.VendorAccepted)
+    return 'status-approved';
+  if (s === ApplicationStatus.ReviewerRejected || s === ApplicationStatus.VendorRefused)
+    return 'status-rejected';
+  if (s === ApplicationStatus.UnderReview) return 'status-review';
+  return 'status-neutral';
+});
 
 onMounted(async () => {
   if (!store.isAuthenticatedFor(marketSlug.value)) {
     router.push({
       name: 'applicant-login',
       params: { marketSlug: marketSlug.value },
-    })
-    return
+    });
+    return;
   }
 
-  loading.value = true
-  const form = await fetchPublicApplicationForm(marketSlug.value)
-  marketName.value = form.marketName
+  loading.value = true;
+  const form = await fetchPublicApplicationForm(marketSlug.value);
+  marketName.value = form.marketName;
 
-  const app = await store.fetchApplication()
+  const app = await store.fetchApplication();
   if (app) {
-    application.value = app
+    application.value = app;
   }
-  loading.value = false
-})
+  loading.value = false;
+});
 
 function logout() {
-  store.logout()
+  store.logout();
   router.push({
     name: 'apply',
     params: { marketSlug: marketSlug.value },
-  })
+  });
 }
 </script>
 
@@ -85,7 +87,11 @@ function logout() {
     </div>
 
     <template v-else-if="application">
-      <div class="dash-status-card" :class="statusBadgeClass" data-testid="applicant-dashboard-status">
+      <div
+        class="dash-status-card"
+        :class="statusBadgeClass"
+        data-testid="applicant-dashboard-status"
+      >
         <span class="status-label">
           {{ statusLabels[application.status] ?? application.status }}
         </span>
@@ -100,11 +106,7 @@ function logout() {
           No answers submitted yet.
         </div>
         <dl v-else class="answers-list">
-          <div
-            v-for="(value, key) in application.formData"
-            :key="key"
-            class="answer-row"
-          >
+          <div v-for="(value, key) in application.formData" :key="key" class="answer-row">
             <dt>{{ key }}</dt>
             <dd>{{ Array.isArray(value) ? value.join(', ') : String(value ?? '') }}</dd>
           </div>

@@ -4,7 +4,6 @@ import { RouterLink } from 'vue-router';
 defineProps<{
   to: string;
 }>();
-
 </script>
 
 <template>
@@ -29,7 +28,9 @@ defineProps<{
   border-bottom: 1.75px solid #2723237c;
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
-  transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  transition:
+    background-color 0.15s ease-in-out,
+    box-shadow 0.15s ease-in-out;
 }
 
 .item:hover {

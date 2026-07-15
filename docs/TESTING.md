@@ -299,7 +299,7 @@ from `stack().mongoContainerName`).
 
 Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
 - Back-end: install dependencies + pytest
-- Front-end: npm ci + type-check + lint + unit tests
+- Front-end: (two jobs) `frontend-unit` runs unit tests; `frontend-lint-and-types` runs `format:check`, lint, and type-check
 - Docker build verification
 - E2E: build and start the Docker stack, seed fixtures, install Playwright
   (Chromium), run the Playwright suite with `DISABLE_CAPTCHA=true` and

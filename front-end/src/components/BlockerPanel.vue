@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { PreconditionResult } from '@/assets/types/datatypes'
+import type { PreconditionResult } from '@/assets/types/datatypes';
 
 defineProps<{
-  blockers: PreconditionResult[]
-}>()
+  blockers: PreconditionResult[];
+}>();
 </script>
 
 <template>

@@ -1,11 +1,11 @@
-import type { FormField } from '@/assets/types/datatypes'
-import { api } from '@/utils/api'
+import type { FormField } from '@/assets/types/datatypes';
+import { api } from '@/utils/api';
 
 export interface PublicApplicationForm {
-  marketName: string
-  fields: FormField[]
-  phaseLabel: string
-  isOpen: boolean
+  marketName: string;
+  fields: FormField[];
+  phaseLabel: string;
+  isOpen: boolean;
 }
 
 /**
@@ -19,20 +19,20 @@ export async function fetchPublicApplicationForm(
   marketSlug: string,
 ): Promise<PublicApplicationForm> {
   try {
-    const { data } = await api.get(`/public/markets/${marketSlug}/application-form`)
-    const form = data.application_form || data.applicationForm || {}
+    const { data } = await api.get(`/public/markets/${marketSlug}/application-form`);
+    const form = data.application_form || data.applicationForm || {};
     return {
       marketName: data.market_name || data.marketName || '',
       fields: form.fields ?? [],
       phaseLabel: data.phase_label || data.phaseLabel || '',
       isOpen: data.is_open === true || data.isOpen === true,
-    }
+    };
   } catch {
     return {
       marketName: '',
       fields: [],
       phaseLabel: '',
       isOpen: false,
-    }
+    };
   }
 }

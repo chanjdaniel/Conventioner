@@ -1,0 +1,6 @@
+# Revisions listed here are skipped by `git blame` (via blame.ignoreRevsFile).
+# Enable locally with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style(frontend): reformat with Prettier
+54f1ecf9e9d3f9b2b5d2dd04d4ca08c228271abb

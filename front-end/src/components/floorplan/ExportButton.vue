@@ -1,50 +1,50 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useFloorplanStore } from '@/stores/floorplan'
-import { api } from '@/utils/api'
+import { ref } from 'vue';
+import { useFloorplanStore } from '@/stores/floorplan';
+import { api } from '@/utils/api';
 
-const store = useFloorplanStore()
+const store = useFloorplanStore();
 
-const showDropdown = ref(false)
-const showCodes = ref(true)
-const showSections = ref(true)
-const isExporting = ref(false)
-const exportError = ref('')
+const showDropdown = ref(false);
+const showCodes = ref(true);
+const showSections = ref(true);
+const isExporting = ref(false);
+const exportError = ref('');
 
 async function handleExport() {
-  if (isExporting.value) return
+  if (isExporting.value) return;
 
   const body = {
     gridfs_id: store.floorplan?.imageGridfsId,
     placed_tables: store.placedTables,
     scale_px_per_mm: store.scalePxPerMm,
     options: { show_codes: showCodes.value, show_sections: showSections.value },
-  }
+  };
 
-  isExporting.value = true
+  isExporting.value = true;
   try {
     const response = await api.post('/floorplans/export', body, {
       responseType: 'blob',
-    })
-    const url = URL.createObjectURL(response.data)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'floorplan.png'
-    a.click()
-    URL.revokeObjectURL(url)
-    showDropdown.value = false
+    });
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'floorplan.png';
+    a.click();
+    URL.revokeObjectURL(url);
+    showDropdown.value = false;
   } catch (err) {
-    console.error('Floorplan export failed:', err)
-    exportError.value = 'Export failed. Please try again.'
+    console.error('Floorplan export failed:', err);
+    exportError.value = 'Export failed. Please try again.';
   } finally {
-    isExporting.value = false
+    isExporting.value = false;
   }
 }
 
 function toggleDropdown() {
   if (!isExporting.value) {
-    showDropdown.value = !showDropdown.value
-    if (showDropdown.value) exportError.value = ''
+    showDropdown.value = !showDropdown.value;
+    if (showDropdown.value) exportError.value = '';
   }
 }
 </script>
@@ -91,11 +91,7 @@ function toggleDropdown() {
           <input v-model="showSections" type="checkbox" />
           Show Sections
         </label>
-        <button
-          class="export-action-btn"
-          :disabled="isExporting"
-          @click="handleExport"
-        >
+        <button class="export-action-btn" :disabled="isExporting" @click="handleExport">
           <span v-if="isExporting" class="spinner spinner--small" />
           {{ isExporting ? 'Exporting…' : 'Export' }}
         </button>

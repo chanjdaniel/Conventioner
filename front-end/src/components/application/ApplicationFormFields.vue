@@ -10,39 +10,42 @@
  * field type added to the builder must reach the applicant everywhere at once, so it is added
  * here, once.
  */
-import { computed } from 'vue'
-import type { FormField } from '@/assets/types/datatypes'
-import { sortedFormFields } from '@/utils/applicationForm'
+import { computed } from 'vue';
+import type { FormField } from '@/assets/types/datatypes';
+import { sortedFormFields } from '@/utils/applicationForm';
 
 const props = withDefaults(
   defineProps<{
-    fields: FormField[]
-    modelValue: Record<string, unknown>
-    errors?: Record<string, string>
-    prefix?: string
+    fields: FormField[];
+    modelValue: Record<string, unknown>;
+    errors?: Record<string, string>;
+    prefix?: string;
   }>(),
   { errors: () => ({}), prefix: 'apply' },
-)
+);
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: Record<string, unknown>): void
-  (e: 'field-change', field: FormField): void
-}>()
+  (e: 'update:modelValue', value: Record<string, unknown>): void;
+  (e: 'field-change', field: FormField): void;
+}>();
 
-const fields = computed(() => sortedFormFields(props.fields))
+const fields = computed(() => sortedFormFields(props.fields));
 
 function errorFor(field: FormField): string {
-  return props.errors[field.key] || ''
+  return props.errors[field.key] || '';
 }
 
 function onFieldChange(field: FormField, value: unknown) {
-  emit('update:modelValue', { ...props.modelValue, [field.key]: value })
-  emit('field-change', field)
+  emit('update:modelValue', { ...props.modelValue, [field.key]: value });
+  emit('field-change', field);
 }
 
 function toggleOption(field: FormField, option: string, checked: boolean) {
-  const current = [...((props.modelValue[field.key] as string[]) || [])]
-  onFieldChange(field, checked ? [...current, option] : current.filter((v: string) => v !== option))
+  const current = [...((props.modelValue[field.key] as string[]) || [])];
+  onFieldChange(
+    field,
+    checked ? [...current, option] : current.filter((v: string) => v !== option),
+  );
 }
 </script>
 

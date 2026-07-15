@@ -1,139 +1,139 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes'
-import { api, getApiErrorMessage } from '@/utils/api'
+import { ref, watch } from 'vue';
+import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes';
+import { api, getApiErrorMessage } from '@/utils/api';
 
 const props = defineProps<{
-  manageOpen: boolean
-  org: Organization | null
-}>()
+  manageOpen: boolean;
+  org: Organization | null;
+}>();
 
 const emit = defineEmits<{
-  manageClose: []
-}>()
+  manageClose: [];
+}>();
 
-const orgData = ref<Organization | null>(null)
-const errorMessage = ref('')
-const renameValue = ref('')
-const renameError = ref('')
-const showAddAdminForm = ref(false)
-const showAddMemberForm = ref(false)
-const newAdminEmail = ref('')
-const newMemberEmail = ref('')
-const addAdminError = ref('')
-const addMemberError = ref('')
-const deleteConfirming = ref(false)
-const deleteError = ref('')
+const orgData = ref<Organization | null>(null);
+const errorMessage = ref('');
+const renameValue = ref('');
+const renameError = ref('');
+const showAddAdminForm = ref(false);
+const showAddMemberForm = ref(false);
+const newAdminEmail = ref('');
+const newMemberEmail = ref('');
+const addAdminError = ref('');
+const addMemberError = ref('');
+const deleteConfirming = ref(false);
+const deleteError = ref('');
 
 watch(
   () => [props.manageOpen, props.org] as const,
   ([open, org]) => {
     if (open && org) {
-      orgData.value = org
-      renameValue.value = org.name
-      showAddAdminForm.value = false
-      showAddMemberForm.value = false
-      deleteConfirming.value = false
-      errorMessage.value = ''
-      renameError.value = ''
-      addAdminError.value = ''
-      addMemberError.value = ''
-      deleteError.value = ''
+      orgData.value = org;
+      renameValue.value = org.name;
+      showAddAdminForm.value = false;
+      showAddMemberForm.value = false;
+      deleteConfirming.value = false;
+      errorMessage.value = '';
+      renameError.value = '';
+      addAdminError.value = '';
+      addMemberError.value = '';
+      deleteError.value = '';
     } else {
-      orgData.value = null
+      orgData.value = null;
     }
   },
   { immediate: true },
-)
+);
 
 function canManage(): boolean {
-  const role = orgData.value?.userRole
-  return role === 'owner' || role === 'admin'
+  const role = orgData.value?.userRole;
+  return role === 'owner' || role === 'admin';
 }
 
 function isOwner(): boolean {
-  return orgData.value?.userRole === 'owner'
+  return orgData.value?.userRole === 'owner';
 }
 
 async function handleRename() {
-  if (!orgData.value || renameValue.value.trim() === orgData.value.name) return
-  renameError.value = ''
+  if (!orgData.value || renameValue.value.trim() === orgData.value.name) return;
+  renameError.value = '';
   try {
     await api.put(`/organizations/${encodeURIComponent(orgData.value.id)}`, {
       name: renameValue.value.trim(),
-    })
-    orgData.value = { ...orgData.value, name: renameValue.value.trim() }
+    });
+    orgData.value = { ...orgData.value, name: renameValue.value.trim() };
   } catch (err) {
-    renameError.value = getApiErrorMessage(err, 'Failed to rename')
+    renameError.value = getApiErrorMessage(err, 'Failed to rename');
   }
 }
 
 async function handleAddAdmin() {
-  if (!orgData.value || !newAdminEmail.value.trim()) return
-  addAdminError.value = ''
+  if (!orgData.value || !newAdminEmail.value.trim()) return;
+  addAdminError.value = '';
   try {
     await api.post(`/organizations/${encodeURIComponent(orgData.value.id)}/admins`, {
       user_email: newAdminEmail.value.trim(),
-    })
-    showAddAdminForm.value = false
-    newAdminEmail.value = ''
-    emit('manageClose')
+    });
+    showAddAdminForm.value = false;
+    newAdminEmail.value = '';
+    emit('manageClose');
   } catch (err) {
-    addAdminError.value = getApiErrorMessage(err, 'Failed to add admin')
+    addAdminError.value = getApiErrorMessage(err, 'Failed to add admin');
   }
 }
 
 async function handleAddMember() {
-  if (!orgData.value || !newMemberEmail.value.trim()) return
-  addMemberError.value = ''
+  if (!orgData.value || !newMemberEmail.value.trim()) return;
+  addMemberError.value = '';
   try {
     await api.post(`/organizations/${encodeURIComponent(orgData.value.id)}/members`, {
       user_email: newMemberEmail.value.trim(),
-    })
-    showAddMemberForm.value = false
-    newMemberEmail.value = ''
-    emit('manageClose')
+    });
+    showAddMemberForm.value = false;
+    newMemberEmail.value = '';
+    emit('manageClose');
   } catch (err) {
-    addMemberError.value = getApiErrorMessage(err, 'Failed to add member')
+    addMemberError.value = getApiErrorMessage(err, 'Failed to add member');
   }
 }
 
 async function handleRemoveUser(userId: string) {
-  if (!orgData.value) return
+  if (!orgData.value) return;
   try {
     await api.delete(
       `/organizations/${encodeURIComponent(orgData.value.id)}/users/${encodeURIComponent(userId)}`,
-    )
-    emit('manageClose')
+    );
+    emit('manageClose');
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to remove user')
+    errorMessage.value = getApiErrorMessage(err, 'Failed to remove user');
   }
 }
 
 function canRemoveUser(userId: string, role: OrganizationRoleType): boolean {
-  if (role === 'owner') return false
-  if (!isOwner()) return role === 'member'
-  return true
+  if (role === 'owner') return false;
+  if (!isOwner()) return role === 'member';
+  return true;
 }
 
 async function handleDeleteConfirm() {
-  if (!orgData.value) return
-  deleteError.value = ''
+  if (!orgData.value) return;
+  deleteError.value = '';
   try {
-    await api.delete(`/organizations/${encodeURIComponent(orgData.value.id)}`)
-    emit('manageClose')
+    await api.delete(`/organizations/${encodeURIComponent(orgData.value.id)}`);
+    emit('manageClose');
   } catch (err) {
-    deleteError.value = getApiErrorMessage(err, 'Failed to delete organization')
+    deleteError.value = getApiErrorMessage(err, 'Failed to delete organization');
   }
 }
 
 function handleDeleteCancel() {
-  deleteConfirming.value = false
-  deleteError.value = ''
+  deleteConfirming.value = false;
+  deleteError.value = '';
 }
 
 function handleClose() {
-  emit('manageClose')
+  emit('manageClose');
 }
 </script>
 

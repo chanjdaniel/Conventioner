@@ -1,109 +1,109 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useApplicationStore } from '@/stores/application'
-import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm'
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useApplicationStore } from '@/stores/application';
+import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
 
-const route = useRoute()
-const router = useRouter()
-const store = useApplicationStore()
+const route = useRoute();
+const router = useRouter();
+const store = useApplicationStore();
 
-const marketSlug = computed(() => (route.params.marketSlug as string) || '')
-const redirect = computed(() => (route.query.redirect as string) || 'dashboard')
-const marketName = ref('')
+const marketSlug = computed(() => (route.params.marketSlug as string) || '');
+const redirect = computed(() => (route.query.redirect as string) || 'dashboard');
+const marketName = ref('');
 
-const RESEND_COOLDOWN_SECONDS = 60
+const RESEND_COOLDOWN_SECONDS = 60;
 
-const email = ref('')
-const code = ref('')
-const step = ref<'email' | 'code'>('email')
-const submitting = ref(false)
-const validationError = ref<string | null>(null)
-const displayedError = computed(() => validationError.value || store.error)
+const email = ref('');
+const code = ref('');
+const step = ref<'email' | 'code'>('email');
+const submitting = ref(false);
+const validationError = ref<string | null>(null);
+const displayedError = computed(() => validationError.value || store.error);
 
 function goOnward() {
   router.push({
     name: redirect.value === 'apply' ? 'apply' : 'applicant-dashboard',
     params: { marketSlug: marketSlug.value },
-  })
+  });
 }
 
-const requestedEmail = ref('')
-const cooldownRemaining = ref(0)
-let cooldownTimer: ReturnType<typeof setInterval> | undefined
+const requestedEmail = ref('');
+const cooldownRemaining = ref(0);
+let cooldownTimer: ReturnType<typeof setInterval> | undefined;
 
 const cooldownApplies = computed(
   () => cooldownRemaining.value > 0 && requestedEmail.value === email.value.trim().toLowerCase(),
-)
+);
 
 function startCooldown() {
-  cooldownRemaining.value = RESEND_COOLDOWN_SECONDS
-  clearInterval(cooldownTimer)
+  cooldownRemaining.value = RESEND_COOLDOWN_SECONDS;
+  clearInterval(cooldownTimer);
   cooldownTimer = setInterval(() => {
-    cooldownRemaining.value -= 1
+    cooldownRemaining.value -= 1;
     if (cooldownRemaining.value <= 0) {
-      clearInterval(cooldownTimer)
-      cooldownTimer = undefined
+      clearInterval(cooldownTimer);
+      cooldownTimer = undefined;
     }
-  }, 1000)
+  }, 1000);
 }
 
-onUnmounted(() => clearInterval(cooldownTimer))
+onUnmounted(() => clearInterval(cooldownTimer));
 
 onMounted(async () => {
-  store.error = null
+  store.error = null;
   if (store.isAuthenticatedFor(marketSlug.value)) {
-    goOnward()
-    return
+    goOnward();
+    return;
   }
-  marketName.value = (await fetchPublicApplicationForm(marketSlug.value)).marketName
-})
+  marketName.value = (await fetchPublicApplicationForm(marketSlug.value)).marketName;
+});
 
 async function requestCode() {
   if (!email.value.trim()) {
-    validationError.value = 'Email address is required.'
-    return
+    validationError.value = 'Email address is required.';
+    return;
   }
   if (cooldownApplies.value) {
-    return
+    return;
   }
-  validationError.value = null
-  store.error = null
-  submitting.value = true
-  const address = email.value.trim().toLowerCase()
-  await store.requestCode(marketSlug.value, address)
-  submitting.value = false
+  validationError.value = null;
+  store.error = null;
+  submitting.value = true;
+  const address = email.value.trim().toLowerCase();
+  await store.requestCode(marketSlug.value, address);
+  submitting.value = false;
   if (!store.error) {
-    requestedEmail.value = address
-    startCooldown()
-    step.value = 'code'
+    requestedEmail.value = address;
+    startCooldown();
+    step.value = 'code';
   }
 }
 
 async function verifyCode() {
   if (!code.value.trim()) {
-    validationError.value = 'Verification code is required.'
-    return
+    validationError.value = 'Verification code is required.';
+    return;
   }
-  validationError.value = null
-  store.error = null
-  submitting.value = true
+  validationError.value = null;
+  store.error = null;
+  submitting.value = true;
   const ok = await store.verifyCode(
     marketSlug.value,
     email.value.trim().toLowerCase(),
     code.value.trim(),
-  )
-  submitting.value = false
+  );
+  submitting.value = false;
   if (ok) {
-    goOnward()
+    goOnward();
   }
 }
 
 function goBack() {
-  step.value = 'email'
-  code.value = ''
-  validationError.value = null
-  store.error = null
+  step.value = 'email';
+  code.value = '';
+  validationError.value = null;
+  store.error = null;
 }
 </script>
 

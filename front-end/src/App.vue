@@ -1,63 +1,63 @@
 <script setup lang="ts">
-import axios from 'axios'
-import { RouterView } from 'vue-router'
-import ElementBanner from './components/elements/ElementBanner.vue'
-import ElementNavigation from './components/elements/ElementNavigation.vue'
+import axios from 'axios';
+import { RouterView } from 'vue-router';
+import ElementBanner from './components/elements/ElementBanner.vue';
+import ElementNavigation from './components/elements/ElementNavigation.vue';
 
-import { onMounted, ref, provide, computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { routerSettled } from '@/utils/routerReady'
+import { onMounted, ref, provide, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { routerSettled } from '@/utils/routerReady';
 
-const hostname = import.meta.env.VITE_FLASK_HOST
+const hostname = import.meta.env.VITE_FLASK_HOST;
 
-const navOpen = ref(false)
-const route = useRoute()
-const router = useRouter()
-const isLogin = computed(() => route.path === '/login')
-const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true))
+const navOpen = ref(false);
+const route = useRoute();
+const router = useRouter();
+const isLogin = computed(() => route.path === '/login');
+const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
 
-const user = ref<string | null>(null)
+const user = ref<string | null>(null);
 const setUser = (user_data: string | null) => {
-  user.value = user_data
-}
+  user.value = user_data;
+};
 
-provide('user', user)
-provide('setUser', setUser)
+provide('user', user);
+provide('setUser', setUser);
 
 onMounted(async () => {
   // Wait for the first navigation to settle before probing the session.
   // Without this, the session check runs before the router knows which page
   // it is on, so every page reads as an authenticated one and the login
   // redirect never fires.
-  await routerSettled(router)
+  await routerSettled(router);
 
   // Public pages do not require an organizer session.
-  if (isPublicPage.value) return
+  if (isPublicPage.value) return;
 
   try {
     const response = await axios.get(`${hostname}/check-session`, {
       withCredentials: true,
-    })
+    });
 
     if (response.status === 200) {
-      const user_email = response.data.email
-      localStorage.setItem('user', JSON.stringify(user_email))
-      setUser(user_email)
+      const user_email = response.data.email;
+      localStorage.setItem('user', JSON.stringify(user_email));
+      setUser(user_email);
     } else {
-      localStorage.clear()
-      router.push('/login')
+      localStorage.clear();
+      router.push('/login');
     }
   } catch {
-    localStorage.clear()
-    router.push('/login')
+    localStorage.clear();
+    router.push('/login');
   }
-})
+});
 
 watch(isLogin, (newValue) => {
   if (newValue) {
-    navOpen.value = false
+    navOpen.value = false;
   }
-})
+});
 </script>
 
 <template>

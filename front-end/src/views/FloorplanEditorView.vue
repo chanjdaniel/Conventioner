@@ -1,27 +1,23 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import FloorplanWorkflow from '@/components/floorplan/FloorplanWorkflow.vue'
+import { computed } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import FloorplanWorkflow from '@/components/floorplan/FloorplanWorkflow.vue';
 
-const router = useRouter()
-const route = useRoute()
+const router = useRouter();
+const route = useRoute();
 
-const marketId = computed(() => route.query.marketId as string | undefined)
+const marketId = computed(() => route.query.marketId as string | undefined);
 
 function handleSaved(_payload: { market_id: string }) {
   void _payload;
-  router.push('/market-setup')
+  router.push('/market-setup');
 }
 </script>
 
 <template>
   <div class="floorplan-editor-view">
     <div class="editor-wrapper">
-      <FloorplanWorkflow
-        v-if="marketId"
-        :marketId="marketId"
-        @saved="handleSaved"
-      />
+      <FloorplanWorkflow v-if="marketId" :marketId="marketId" @saved="handleSaved" />
       <div v-else class="no-market-message">
         <p>No market selected. Please start from the Market Setup page.</p>
         <button class="return-button" @click="router.push('/market-setup')">
@@ -77,7 +73,9 @@ function handleSaved(_payload: { market_id: string }) {
   font-size: 16px;
   color: #ffffff;
   cursor: pointer;
-  transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out;
+  transition:
+    opacity 0.15s ease-in-out,
+    background-color 0.15s ease-in-out;
 }
 
 .return-button:hover {

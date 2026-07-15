@@ -1,10 +1,4 @@
-import {
-  test,
-  expect,
-  BACKEND_URL,
-  TEST_USER,
-  ApplicantLoginPage,
-} from './fixtures';
+import { test, expect, BACKEND_URL, TEST_USER, ApplicantLoginPage } from './fixtures';
 import {
   seedApplicantMarket,
   seedApplicationDoc,
@@ -57,12 +51,7 @@ test.describe('Public applicant login — anti-oracle', () => {
   let market: ApplicantMarketSeed;
 
   test.beforeEach(async ({ request }) => {
-    market = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    );
+    market = await seedApplicantMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   });
 
   // ── Request-code anti-oracle ──────────────────────────────────────────
@@ -154,9 +143,7 @@ test.describe('Public applicant login — anti-oracle', () => {
 
   // ── UI rendering and flow ─────────────────────────────────────────────
 
-  test('the login page transitions from email step to code step', async ({
-    page,
-  }) => {
+  test('the login page transitions from email step to code step', async ({ page }) => {
     const login = new ApplicantLoginPage(page);
 
     await login.goto(market.marketSlug);
@@ -168,14 +155,10 @@ test.describe('Public applicant login — anti-oracle', () => {
     // After requesting a code the page transitions to the code input step,
     // showing the anti-oracle instruction text.
     await expect(login.codeInput).toBeVisible({ timeout: 5000 });
-    await expect(
-      page.getByText('If an account exists for this email'),
-    ).toBeVisible();
+    await expect(page.getByText('If an account exists for this email')).toBeVisible();
   });
 
-  test('verify-code failure shows the same error message through the UI', async ({
-    page,
-  }) => {
+  test('verify-code failure shows the same error message through the UI', async ({ page }) => {
     const login = new ApplicantLoginPage(page);
 
     await login.goto(market.marketSlug);
@@ -194,9 +177,7 @@ test.describe('Public applicant login — anti-oracle', () => {
     await expect(login.error).toHaveText('Invalid or expired code.');
   });
 
-  test('a successful verification redirects the applicant to the dashboard', async ({
-    page,
-  }) => {
+  test('a successful verification redirects the applicant to the dashboard', async ({ page }) => {
     const login = new ApplicantLoginPage(page);
     const knownCode = KNOWN_CODE;
 
@@ -226,8 +207,6 @@ test.describe('Public applicant login — anti-oracle', () => {
 
     // On success the front end redirects to the applicant dashboard.
     await page.waitForURL(dashboardUrl(market.marketSlug), { timeout: 5000 });
-    await expect(
-      page.getByTestId('applicant-dashboard-page'),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('applicant-dashboard-page')).toBeVisible({ timeout: 5000 });
   });
 });

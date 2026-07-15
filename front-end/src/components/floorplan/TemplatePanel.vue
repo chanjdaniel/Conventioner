@@ -1,57 +1,57 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useFloorplanStore } from '@/stores/floorplan'
-import { api } from '@/utils/api'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import type { FloorplanTemplate } from '@/assets/types/datatypes'
+import { ref, computed } from 'vue';
+import { useFloorplanStore } from '@/stores/floorplan';
+import { api } from '@/utils/api';
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import type { FloorplanTemplate } from '@/assets/types/datatypes';
 
-const store = useFloorplanStore()
+const store = useFloorplanStore();
 
 // ── User ────────────────────────────────────────────────────
 interface StoredUser {
-  id: string
-  email: string
+  id: string;
+  email: string;
 }
 
 const currentUser = computed<StoredUser | null>(() => {
   try {
-    return JSON.parse(localStorage.getItem('user') || 'null')
+    return JSON.parse(localStorage.getItem('user') || 'null');
   } catch {
-    return null
+    return null;
   }
-})
+});
 
 // ── Panel state ─────────────────────────────────────────────
-const saveDialog = ref(false)
-const loadDialog = ref(false)
-const confirmOpen = ref(false)
-const templateName = ref('')
-const templates = ref<FloorplanTemplate[]>([])
-const loading = ref(false)
-const saving = ref(false)
-const saveError = ref('')
-const loadError = ref('')
-const feedback = ref('')
-const feedbackType = ref<'success' | 'error'>('success')
-const selectedTemplate = ref<FloorplanTemplate | null>(null)
+const saveDialog = ref(false);
+const loadDialog = ref(false);
+const confirmOpen = ref(false);
+const templateName = ref('');
+const templates = ref<FloorplanTemplate[]>([]);
+const loading = ref(false);
+const saving = ref(false);
+const saveError = ref('');
+const loadError = ref('');
+const feedback = ref('');
+const feedbackType = ref<'success' | 'error'>('success');
+const selectedTemplate = ref<FloorplanTemplate | null>(null);
 
 function showFeedback(msg: string, type: 'success' | 'error') {
-  feedback.value = msg
-  feedbackType.value = type
+  feedback.value = msg;
+  feedbackType.value = type;
   setTimeout(() => {
-    if (feedback.value === msg) feedback.value = ''
-  }, 4000)
+    if (feedback.value === msg) feedback.value = '';
+  }, 4000);
 }
 
 // ── Save template ───────────────────────────────────────────
 async function saveTemplate() {
   if (!templateName.value.trim()) {
-    saveError.value = 'Enter a template name.'
-    return
+    saveError.value = 'Enter a template name.';
+    return;
   }
-  saveError.value = ''
-  saving.value = true
+  saveError.value = '';
+  saving.value = true;
   try {
     await api.post('/floorplans/templates', {
       name: templateName.value.trim(),
@@ -61,86 +61,86 @@ async function saveTemplate() {
         tableSpacingMm: 1200,
         walkwayWidthMm: 2000,
       },
-    })
-    showFeedback(`Template &ldquo;${templateName.value.trim()}&rdquo; saved.`, 'success')
-    templateName.value = ''
-    saveDialog.value = false
+    });
+    showFeedback(`Template &ldquo;${templateName.value.trim()}&rdquo; saved.`, 'success');
+    templateName.value = '';
+    saveDialog.value = false;
   } catch (_e: unknown) {
-    const e = _e as { response?: { data?: { error?: string } }; message?: string }
-    saveError.value = e.response?.data?.error || 'Failed to save template.'
+    const e = _e as { response?: { data?: { error?: string } }; message?: string };
+    saveError.value = e.response?.data?.error || 'Failed to save template.';
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 
 // ── Load templates ──────────────────────────────────────────
 async function fetchTemplates() {
-  loading.value = true
-  loadError.value = ''
+  loading.value = true;
+  loadError.value = '';
   try {
-    const uid = currentUser.value?.id
-    const params: Record<string, string> = {}
-    if (uid) params.userId = uid
-    const { data } = await api.get('/floorplans/templates', { params })
-    templates.value = data.templates ?? data ?? []
+    const uid = currentUser.value?.id;
+    const params: Record<string, string> = {};
+    if (uid) params.userId = uid;
+    const { data } = await api.get('/floorplans/templates', { params });
+    templates.value = data.templates ?? data ?? [];
   } catch (_e: unknown) {
-    const e = _e as { response?: { data?: { error?: string } }; message?: string }
-    loadError.value = e.response?.data?.error || 'Failed to load templates.'
-    templates.value = []
+    const e = _e as { response?: { data?: { error?: string } }; message?: string };
+    loadError.value = e.response?.data?.error || 'Failed to load templates.';
+    templates.value = [];
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 function openLoadDialog() {
-  loadDialog.value = true
-  confirmOpen.value = false
-  selectedTemplate.value = null
-  loadError.value = ''
-  fetchTemplates()
+  loadDialog.value = true;
+  confirmOpen.value = false;
+  selectedTemplate.value = null;
+  loadError.value = '';
+  fetchTemplates();
 }
 
 function selectTemplate(tpl: FloorplanTemplate) {
-  selectedTemplate.value = tpl
-  confirmOpen.value = true
+  selectedTemplate.value = tpl;
+  confirmOpen.value = true;
 }
 
 function confirmLoad() {
-  if (!selectedTemplate.value) return
-  store.tableTypes = selectedTemplate.value.tableTypes.map((tt) => ({ ...tt }))
-  showFeedback(`Template &ldquo;${selectedTemplate.value.name}&rdquo; loaded.`, 'success')
-  confirmOpen.value = false
-  loadDialog.value = false
-  selectedTemplate.value = null
+  if (!selectedTemplate.value) return;
+  store.tableTypes = selectedTemplate.value.tableTypes.map((tt) => ({ ...tt }));
+  showFeedback(`Template &ldquo;${selectedTemplate.value.name}&rdquo; loaded.`, 'success');
+  confirmOpen.value = false;
+  loadDialog.value = false;
+  selectedTemplate.value = null;
 }
 
 function cancelConfirm() {
-  selectedTemplate.value = null
-  confirmOpen.value = false
+  selectedTemplate.value = null;
+  confirmOpen.value = false;
 }
 
 function closeSaveDialog() {
-  saveDialog.value = false
-  saveError.value = ''
-  templateName.value = ''
+  saveDialog.value = false;
+  saveError.value = '';
+  templateName.value = '';
 }
 
 function closeLoadDialog() {
-  loadDialog.value = false
-  loadError.value = ''
-  confirmOpen.value = false
-  selectedTemplate.value = null
+  loadDialog.value = false;
+  loadError.value = '';
+  confirmOpen.value = false;
+  selectedTemplate.value = null;
 }
 
 // ── Date formatting ─────────────────────────────────────────
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return dateStr
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
   return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  })
+  });
 }
 </script>
 
@@ -168,11 +168,7 @@ function formatDate(dateStr: string): string {
       >
         Save as Template
       </button>
-      <button
-        class="tp-btn tp-btn--load"
-        title="Load a saved template"
-        @click="openLoadDialog"
-      >
+      <button class="tp-btn tp-btn--load" title="Load a saved template" @click="openLoadDialog">
         Load Template
       </button>
     </div>
@@ -189,8 +185,10 @@ function formatDate(dateStr: string): string {
     >
       <div class="tp-dialog-body">
         <p class="tp-dialog-desc">
-          Save the current <strong>{{ store.tableTypes.length }}</strong>
-          table type{{ store.tableTypes.length === 1 ? '' : 's' }} as a reusable template.
+          Save the current <strong>{{ store.tableTypes.length }}</strong> table type{{
+            store.tableTypes.length === 1 ? '' : 's'
+          }}
+          as a reusable template.
         </p>
 
         <div class="tp-field">
@@ -209,11 +207,7 @@ function formatDate(dateStr: string): string {
         <p v-if="saveError" class="tp-error">{{ saveError }}</p>
 
         <div class="tp-dialog-actions">
-          <button
-            class="tp-btn tp-btn--secondary"
-            :disabled="saving"
-            @click="saveDialog = false"
-          >
+          <button class="tp-btn tp-btn--secondary" :disabled="saving" @click="saveDialog = false">
             Cancel
           </button>
           <button
@@ -250,9 +244,7 @@ function formatDate(dateStr: string): string {
           <p v-else-if="loadError" class="tp-error">{{ loadError }}</p>
 
           <!-- Empty -->
-          <p v-else-if="templates.length === 0" class="tp-empty">
-            No templates saved yet.
-          </p>
+          <p v-else-if="templates.length === 0" class="tp-empty">No templates saved yet.</p>
 
           <!-- Template list -->
           <div v-else class="tp-template-list">
@@ -278,27 +270,20 @@ function formatDate(dateStr: string): string {
         <!-- Confirm replace view -->
         <template v-else>
           <p class="tp-confirm-text">
-            Replace the current <strong>{{ store.tableTypes.length }}</strong>
-            table type{{ store.tableTypes.length === 1 ? '' : 's' }} with
+            Replace the current <strong>{{ store.tableTypes.length }}</strong> table type{{
+              store.tableTypes.length === 1 ? '' : 's'
+            }}
+            with
             <strong>{{ selectedTemplate?.tableTypes.length ?? 0 }}</strong>
-            from &ldquo;<strong>{{ selectedTemplate?.name }}</strong>&rdquo;?
+            from &ldquo;<strong>{{ selectedTemplate?.name }}</strong
+            >&rdquo;?
           </p>
           <p class="tp-confirm-warning">
             This will replace all existing table types. This action cannot be undone.
           </p>
           <div class="tp-dialog-actions">
-            <button
-              class="tp-btn tp-btn--secondary"
-              @click="cancelConfirm"
-            >
-              Cancel
-            </button>
-            <button
-              class="tp-btn tp-btn--danger"
-              @click="confirmLoad"
-            >
-              Replace Table Types
-            </button>
+            <button class="tp-btn tp-btn--secondary" @click="cancelConfirm">Cancel</button>
+            <button class="tp-btn tp-btn--danger" @click="confirmLoad">Replace Table Types</button>
           </div>
         </template>
       </div>
@@ -657,7 +642,9 @@ function formatDate(dateStr: string): string {
   flex-shrink: 0;
   font-size: 18px;
   color: var(--mm-grey);
-  transition: color 0.15s ease-in-out, transform 0.15s ease-in-out;
+  transition:
+    color 0.15s ease-in-out,
+    transform 0.15s ease-in-out;
 }
 
 .tp-template-card:hover .tp-template-arrow {

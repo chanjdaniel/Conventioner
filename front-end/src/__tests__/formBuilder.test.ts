@@ -210,9 +210,7 @@ describe('FormBuilder', () => {
 
   it('emits nothing and hides the editing affordances when readonly', async () => {
     const existing: ApplicationForm = {
-      fields: [
-        { key: 'shop', label: 'Shop', type: 'text', required: true, options: [], order: 0 },
-      ],
+      fields: [{ key: 'shop', label: 'Shop', type: 'text', required: true, options: [], order: 0 }],
     };
     const { wrapper, form } = mountWithParent(existing, true);
 

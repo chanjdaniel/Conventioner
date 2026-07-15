@@ -1,39 +1,39 @@
 <script setup lang="ts">
-import ElementOrgSelect from '@/components/elements/ElementOrgSelect.vue'
-import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { type Market, MarketRole } from '@/assets/types/datatypes.ts'
-import axios from 'axios'
-import { api } from '@/utils/api'
+import ElementOrgSelect from '@/components/elements/ElementOrgSelect.vue';
+import { ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { type Market, MarketRole } from '@/assets/types/datatypes.ts';
+import axios from 'axios';
+import { api } from '@/utils/api';
 
 defineProps<{
-  newOpen: boolean
-}>()
+  newOpen: boolean;
+}>();
 
-const router = useRouter()
-const marketName = ref('')
-const selectedOrgId = ref('')
-const errorMessage = ref('')
+const router = useRouter();
+const marketName = ref('');
+const selectedOrgId = ref('');
+const errorMessage = ref('');
 
 watch(selectedOrgId, () => {
-  errorMessage.value = ''
-})
+  errorMessage.value = '';
+});
 
 const handleSubmit = async () => {
-  errorMessage.value = ''
+  errorMessage.value = '';
 
   if (!selectedOrgId.value) {
-    errorMessage.value = 'Organization is required'
-    return
+    errorMessage.value = 'Organization is required';
+    return;
   }
 
   if (!marketName.value.trim()) {
-    errorMessage.value = 'Market name is required'
-    return
+    errorMessage.value = 'Market name is required';
+    return;
   }
 
   try {
-    const userEmail = JSON.parse(localStorage.getItem('user') || 'null')
+    const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
     const newMarket: Omit<Market, 'id'> & { id?: string } = {
       name: marketName.value,
       creationDate: new Date().toISOString(),
@@ -51,33 +51,33 @@ const handleSubmit = async () => {
         totalTablesAssigned: 0,
         assignmentStatistics: null,
       },
-    }
+    };
 
-    const createResponse = await api.post('/markets', newMarket)
-    const marketId = createResponse.data.market_id
+    const createResponse = await api.post('/markets', newMarket);
+    const marketId = createResponse.data.market_id;
 
-    const marketWithId: Market = { ...newMarket, id: marketId }
-    localStorage.removeItem('market')
-    localStorage.setItem('market', JSON.stringify(marketWithId))
+    const marketWithId: Market = { ...newMarket, id: marketId };
+    localStorage.removeItem('market');
+    localStorage.setItem('market', JSON.stringify(marketWithId));
 
-    router.push('/market-setup')
+    router.push('/market-setup');
   } catch (error) {
     if (
       axios.isAxiosError(error) &&
       error.response?.status === 400 &&
       error.response?.data?.error
     ) {
-      const errorText = error.response.data.error.toLowerCase()
+      const errorText = error.response.data.error.toLowerCase();
       if (errorText.includes('already exists') || errorText.includes('market already')) {
-        errorMessage.value = 'A market with this name already exists'
+        errorMessage.value = 'A market with this name already exists';
       } else {
-        errorMessage.value = error.response.data.error
+        errorMessage.value = error.response.data.error;
       }
     } else {
-      errorMessage.value = 'An error occurred. Please try again.'
+      errorMessage.value = 'An error occurred. Please try again.';
     }
   }
-}
+};
 </script>
 
 <template>

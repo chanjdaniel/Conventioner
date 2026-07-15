@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
-import { useFloorplanStore } from '@/stores/floorplan'
-import type { TableTypeObject } from '@/assets/types/datatypes'
-import InputText from 'primevue/inputtext'
-import InputNumber from 'primevue/inputnumber'
-import SelectButton from 'primevue/selectbutton'
-import Dialog from 'primevue/dialog'
+import { ref, reactive, watch } from 'vue';
+import { useFloorplanStore } from '@/stores/floorplan';
+import type { TableTypeObject } from '@/assets/types/datatypes';
+import InputText from 'primevue/inputtext';
+import InputNumber from 'primevue/inputnumber';
+import SelectButton from 'primevue/selectbutton';
+import Dialog from 'primevue/dialog';
 
 // ── Store ──────────────────────────────────────────────────────────
-const store = useFloorplanStore()
+const store = useFloorplanStore();
 
 // ── Emits ──────────────────────────────────────────────────────────
 const emit = defineEmits<{
-  (e: 'types-changed'): void
-}>()
+  (e: 'types-changed'): void;
+}>();
 
 // ── Color palette ──────────────────────────────────────────────────
 const PALETTE: string[] = [
@@ -27,13 +27,13 @@ const PALETTE: string[] = [
   '#2C3E50',
   '#95A5A6',
   '#D35400',
-]
+];
 
 /** Pick the first palette colour not currently assigned to any table type. */
 function nextAvailableColor(): string {
-  const used = new Set(store.tableTypes.map((t) => t.color))
-  const available = PALETTE.find((c) => !used.has(c))
-  return available ?? PALETTE[store.tableTypes.length % PALETTE.length]
+  const used = new Set(store.tableTypes.map((t) => t.color));
+  const available = PALETTE.find((c) => !used.has(c));
+  return available ?? PALETTE[store.tableTypes.length % PALETTE.length];
 }
 
 // ── Unit conversion ──────────────────────────────────────────────────
@@ -42,66 +42,66 @@ const UNIT_TO_MM: Record<string, number> = {
   cm: 10,
   in: 25.4,
   ft: 304.8,
-}
+};
 
 const UNIT_OPTIONS = [
   { value: 'mm', label: 'mm' },
   { value: 'cm', label: 'cm' },
   { value: 'in', label: 'in' },
   { value: 'ft', label: 'ft' },
-]
+];
 
 // ── Inline add form ────────────────────────────────────────────────
-const showForm = ref(false)
+const showForm = ref(false);
 
 const form = reactive<{ name: string; maxCapacity: 1 | 2 }>({
   name: '',
   maxCapacity: 1,
-})
-const formWidthMm = ref<number | null>(null)
-const formHeightMm = ref<number | null>(null)
+});
+const formWidthMm = ref<number | null>(null);
+const formHeightMm = ref<number | null>(null);
 
-const selectedUnit = ref('mm')
-const formError = ref('')
+const selectedUnit = ref('mm');
+const formError = ref('');
 
 function resetForm() {
-  form.name = ''
-  formWidthMm.value = null
-  formHeightMm.value = null
-  form.maxCapacity = 1
-  selectedUnit.value = 'mm'
-  formError.value = ''
+  form.name = '';
+  formWidthMm.value = null;
+  formHeightMm.value = null;
+  form.maxCapacity = 1;
+  selectedUnit.value = 'mm';
+  formError.value = '';
 }
 
 function openForm() {
-  resetForm()
-  showForm.value = true
+  resetForm();
+  showForm.value = true;
 }
 
 function cancelForm() {
-  showForm.value = false
-  resetForm()
+  showForm.value = false;
+  resetForm();
 }
 
 function saveType() {
-  formError.value = ''
+  formError.value = '';
 
   if (!form.name.trim()) {
-    formError.value = 'Name is required.'
-    return
+    formError.value = 'Name is required.';
+    return;
   }
   if (formWidthMm.value === null || formWidthMm.value <= 0) {
-    formError.value = 'Width must be a positive number.'
-    return
+    formError.value = 'Width must be a positive number.';
+    return;
   }
   if (formHeightMm.value === null || formHeightMm.value <= 0) {
-    formError.value = 'Height must be a positive number.'
-    return
+    formError.value = 'Height must be a positive number.';
+    return;
   }
 
-  const factor = UNIT_TO_MM[selectedUnit.value]
-  const widthMm = formWidthMm.value * factor
-  const heightMm = formHeightMm.value * factor
+  const factor = UNIT_TO_MM[selectedUnit.value];
+  const widthMm = formWidthMm.value * factor;
+  const heightMm = formHeightMm.value * factor;
 
   const tt: TableTypeObject = {
     id: crypto.randomUUID(),
@@ -110,57 +110,57 @@ function saveType() {
     heightMm,
     maxCapacity: form.maxCapacity,
     color: nextAvailableColor(),
-  }
+  };
 
-  store.addTableType(tt)
-  emit('types-changed')
-  cancelForm()
+  store.addTableType(tt);
+  emit('types-changed');
+  cancelForm();
 }
 
 // ── Edit dialog ────────────────────────────────────────────────────
-const editVisible = ref(false)
-const editingId = ref<string | null>(null)
+const editVisible = ref(false);
+const editingId = ref<string | null>(null);
 
 const editForm = reactive<{ name: string; maxCapacity: 1 | 2 }>({
   name: '',
   maxCapacity: 1,
-})
-const editWidthMm = ref<number | null>(null)
-const editHeightMm = ref<number | null>(null)
+});
+const editWidthMm = ref<number | null>(null);
+const editHeightMm = ref<number | null>(null);
 
-const editUnit = ref('mm')
-const editError = ref('')
+const editUnit = ref('mm');
+const editError = ref('');
 
 function editType(tt: TableTypeObject) {
-  editingId.value = tt.id
-  editUnit.value = 'mm'
-  editForm.name = tt.name
-  editWidthMm.value = tt.widthMm
-  editHeightMm.value = tt.heightMm
-  editForm.maxCapacity = tt.maxCapacity as 1 | 2
-  editError.value = ''
-  editVisible.value = true
+  editingId.value = tt.id;
+  editUnit.value = 'mm';
+  editForm.name = tt.name;
+  editWidthMm.value = tt.widthMm;
+  editHeightMm.value = tt.heightMm;
+  editForm.maxCapacity = tt.maxCapacity as 1 | 2;
+  editError.value = '';
+  editVisible.value = true;
 }
 
 function saveEdit() {
-  editError.value = ''
+  editError.value = '';
 
   if (!editForm.name.trim()) {
-    editError.value = 'Name is required.'
-    return
+    editError.value = 'Name is required.';
+    return;
   }
   if (editWidthMm.value === null || editWidthMm.value <= 0) {
-    editError.value = 'Width must be a positive number.'
-    return
+    editError.value = 'Width must be a positive number.';
+    return;
   }
   if (editHeightMm.value === null || editHeightMm.value <= 0) {
-    editError.value = 'Height must be a positive number.'
-    return
+    editError.value = 'Height must be a positive number.';
+    return;
   }
 
-  const factor = UNIT_TO_MM[editUnit.value]
+  const factor = UNIT_TO_MM[editUnit.value];
 
-  const idx = store.tableTypes.findIndex((t) => t.id === editingId.value)
+  const idx = store.tableTypes.findIndex((t) => t.id === editingId.value);
   if (idx >= 0) {
     store.tableTypes[idx] = {
       ...store.tableTypes[idx],
@@ -168,38 +168,38 @@ function saveEdit() {
       widthMm: editWidthMm.value * factor,
       heightMm: editHeightMm.value * factor,
       maxCapacity: editForm.maxCapacity,
-    }
-    store.markDirty()
+    };
+    store.markDirty();
   }
 
-  emit('types-changed')
-  editVisible.value = false
-  editingId.value = null
+  emit('types-changed');
+  editVisible.value = false;
+  editingId.value = null;
 }
 
 function cancelEdit() {
-  editVisible.value = false
-  editingId.value = null
-  editError.value = ''
+  editVisible.value = false;
+  editingId.value = null;
+  editError.value = '';
 }
 
 // When the user changes units in the edit dialog, convert the displayed values
 watch(editUnit, (newUnit, oldUnit) => {
-  if (!editingId.value) return
-  const oldFactor = UNIT_TO_MM[oldUnit] ?? 1
-  const newFactor = UNIT_TO_MM[newUnit] ?? 1
+  if (!editingId.value) return;
+  const oldFactor = UNIT_TO_MM[oldUnit] ?? 1;
+  const newFactor = UNIT_TO_MM[newUnit] ?? 1;
   if (editWidthMm.value !== null) {
-    editWidthMm.value = (editWidthMm.value * oldFactor) / newFactor
+    editWidthMm.value = (editWidthMm.value * oldFactor) / newFactor;
   }
   if (editHeightMm.value !== null) {
-    editHeightMm.value = (editHeightMm.value * oldFactor) / newFactor
+    editHeightMm.value = (editHeightMm.value * oldFactor) / newFactor;
   }
-})
+});
 
 // ── Delete ─────────────────────────────────────────────────────────
 function deleteType(tt: TableTypeObject) {
-  store.removeTableType(tt.id)
-  emit('types-changed')
+  store.removeTableType(tt.id);
+  emit('types-changed');
 }
 
 // ── Computed ───────────────────────────────────────────────────────
@@ -207,7 +207,7 @@ function deleteType(tt: TableTypeObject) {
 const selectOptions = [
   { label: '1', value: 1 },
   { label: '2', value: 2 },
-]
+];
 </script>
 
 <template>

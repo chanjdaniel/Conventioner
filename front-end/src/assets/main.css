@@ -14,7 +14,8 @@
   padding: 3px;
 }
 
-button, a {
+button,
+a {
   cursor: pointer;
 }
 

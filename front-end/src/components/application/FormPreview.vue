@@ -55,12 +55,7 @@ const hasFields = computed(() => sortedFields.value.length > 0);
           disabled
         />
 
-        <input
-          v-else-if="field.type === 'date'"
-          class="preview-input"
-          type="date"
-          disabled
-        />
+        <input v-else-if="field.type === 'date'" class="preview-input" type="date" disabled />
 
         <input
           v-else-if="field.type === 'checkbox'"
@@ -69,21 +64,14 @@ const hasFields = computed(() => sortedFields.value.length > 0);
           disabled
         />
 
-        <select
-          v-else-if="field.type === 'select'"
-          class="preview-input"
-          disabled
-        >
+        <select v-else-if="field.type === 'select'" class="preview-input" disabled>
           <option value="">-- Select --</option>
           <option v-for="(opt, optIdx) in field.options" :key="optIdx" :value="opt">
             {{ opt }}
           </option>
         </select>
 
-        <div
-          v-else-if="field.type === 'multi_select'"
-          class="preview-multiselect"
-        >
+        <div v-else-if="field.type === 'multi_select'" class="preview-multiselect">
           <label
             v-for="(opt, optIdx) in field.options"
             :key="optIdx"
@@ -94,9 +82,7 @@ const hasFields = computed(() => sortedFields.value.length > 0);
           </label>
         </div>
 
-        <div v-else class="preview-unsupported">
-          Unknown field type: {{ field.type }}
-        </div>
+        <div v-else class="preview-unsupported">Unknown field type: {{ field.type }}</div>
       </div>
     </form>
   </div>

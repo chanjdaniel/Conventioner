@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineEmits<{
-  select: [path: 'manual' | 'floorplan']
-}>()
+  select: [path: 'manual' | 'floorplan'];
+}>();
 </script>
 
 <template>

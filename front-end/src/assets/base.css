@@ -1,9 +1,9 @@
 /* color palette from <https://github.com/vuejs/theme> */
 :root {
   --mm-black: #272323;
-  --mm-green: #49B096;
-  --mm-yellow: #E4A629;
-  --mm-beige: #E9E6E1;
+  --mm-green: #49b096;
+  --mm-yellow: #e4a629;
+  --mm-beige: #e9e6e1;
   --mm-black: #272323;
   --mm-grey: rgba(39, 35, 35, 0.25);
   --hover-grey: rgba(192, 192, 192, 0.486);

@@ -20,9 +20,7 @@ function uniqueEmail(): string {
 test.describe('Authentication journeys', () => {
   // ── Journey 1: Register new user ───────────────────────────────────
   test.describe('Register new user', () => {
-    test('registers with valid credentials and shows success message', async ({
-      page,
-    }) => {
+    test('registers with valid credentials and shows success message', async ({ page }) => {
       const email = uniqueEmail();
 
       await page.route('**/register', async (route) => {
@@ -51,9 +49,7 @@ test.describe('Authentication journeys', () => {
       await expect(loginPage.registerSuccessMessage).toBeVisible({
         timeout: 10000,
       });
-      await expect(loginPage.registerSuccessMessage).toContainText(
-        'registered successfully',
-      );
+      await expect(loginPage.registerSuccessMessage).toContainText('registered successfully');
     });
 
     test('shows error when passwords do not match', async ({ page }) => {
@@ -74,17 +70,13 @@ test.describe('Authentication journeys', () => {
       await loginPage.registerSubmitButton.click();
 
       await expect(loginPage.registerErrorMessage).toBeVisible();
-      await expect(loginPage.registerErrorMessage).toContainText(
-        'do not match',
-      );
+      await expect(loginPage.registerErrorMessage).toContainText('do not match');
     });
   });
 
   // ── Journey 2: Password reset full flow ────────────────────────────
   test.describe('Password reset', () => {
-    test('requests password reset and shows success message', async ({
-      page,
-    }) => {
+    test('requests password reset and shows success message', async ({ page }) => {
       const email = uniqueEmail();
 
       // Navigate via login page's "Forgot password?" link.
@@ -117,10 +109,7 @@ test.describe('Authentication journeys', () => {
       });
     });
 
-    test('completes full reset flow using real token from DB', async ({
-      page,
-      request,
-    }) => {
+    test('completes full reset flow using real token from DB', async ({ page, request }) => {
       const email = uniqueEmail();
 
       // Step 1: Create a user via the back-end API (no CAPTCHA).
@@ -133,13 +122,10 @@ test.describe('Authentication journeys', () => {
       try {
         // Step 2: Request a password reset via the back-end API to
         // store a real token in MongoDB.
-        const resetReqRes = await request.post(
-          '/api/request-password-reset',
-          {
-            data: { email },
-            headers: { 'Content-Type': 'application/json' },
-          },
-        );
+        const resetReqRes = await request.post('/api/request-password-reset', {
+          data: { email },
+          headers: { 'Content-Type': 'application/json' },
+        });
         expect(resetReqRes.ok()).toBeTruthy();
 
         // Step 3: Read the reset token directly from MongoDB.
@@ -178,9 +164,7 @@ test.describe('Authentication journeys', () => {
           });
         });
 
-        await page.goto(
-          `/reset-password?token=${encodeURIComponent(token)}`,
-        );
+        await page.goto(`/reset-password?token=${encodeURIComponent(token)}`);
 
         const resetPage = new PasswordResetPage(page);
         await expect(resetPage.resetForm).toBeVisible({ timeout: 10000 });
@@ -189,9 +173,7 @@ test.describe('Authentication journeys', () => {
         await expect(resetPage.resetSuccessMessage).toBeVisible({
           timeout: 10000,
         });
-        await expect(resetPage.resetSuccessMessage).toContainText(
-          'successfully',
-        );
+        await expect(resetPage.resetSuccessMessage).toContainText('successfully');
 
         expect(resetPayload).toBeDefined();
         expect(resetPayload!.token).toBe(token);
@@ -310,9 +292,7 @@ test.describe('Authentication journeys', () => {
       await expect(page).toHaveURL(/login/, { timeout: 10000 });
     });
 
-    test('redirects to login from protected route with no session', async ({
-      page,
-    }) => {
+    test('redirects to login from protected route with no session', async ({ page }) => {
       await page.goto('/markets');
       await expect(page).toHaveURL(/login/, { timeout: 10000 });
     });

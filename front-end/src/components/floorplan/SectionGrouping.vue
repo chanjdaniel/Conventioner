@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useFloorplanStore } from '@/stores/floorplan'
-import type { PlacedTableObject, FloorplanSectionObject } from '@/assets/types/datatypes'
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useFloorplanStore } from '@/stores/floorplan';
+import type { PlacedTableObject, FloorplanSectionObject } from '@/assets/types/datatypes';
 
 // ══════════════════════════════════════════════════════════════════
 //  Store
 // ══════════════════════════════════════════════════════════════════
-const store = useFloorplanStore()
+const store = useFloorplanStore();
 
 // ══════════════════════════════════════════════════════════════════
 //  Section colour palette — distinct from table-type colours
@@ -24,43 +24,43 @@ const SECTION_PALETTE = [
   { fill: 'rgba(205, 92, 92, 0.28)', stroke: '#CD5C5C' }, // indian red
   { fill: 'rgba(147, 112, 219, 0.28)', stroke: '#9370DB' }, // medium purple
   { fill: 'rgba(60, 179, 113, 0.28)', stroke: '#3CB371' }, // medium sea green
-]
+];
 
 function sectionColors(index: number) {
-  return SECTION_PALETTE[index % SECTION_PALETTE.length]
+  return SECTION_PALETTE[index % SECTION_PALETTE.length];
 }
 
 // ══════════════════════════════════════════════════════════════════
 //  UI state
 // ══════════════════════════════════════════════════════════════════
-const groupMode = ref(false)
-const isDrawing = ref(false)
-const lassoStart = ref({ x: 0, y: 0 })
-const lassoEnd = ref({ x: 0, y: 0 })
-const showDialog = ref(false)
-const showSectionList = ref(false)
+const groupMode = ref(false);
+const isDrawing = ref(false);
+const lassoStart = ref({ x: 0, y: 0 });
+const lassoEnd = ref({ x: 0, y: 0 });
+const showDialog = ref(false);
+const showSectionList = ref(false);
 
 // Dialog fields
-const dialogSectionName = ref('')
-const dialogLocationName = ref('')
-const dialogTierId = ref('')
+const dialogSectionName = ref('');
+const dialogLocationName = ref('');
+const dialogTierId = ref('');
 
 // Tables captured by the last lasso gesture
-const lassoedTableIds = ref<string[]>([])
+const lassoedTableIds = ref<string[]>([]);
 
 // Container sizing
-const containerWidth = ref(1200)
-const containerHeight = ref(800)
-const rootRef = ref<HTMLDivElement>()
+const containerWidth = ref(1200);
+const containerHeight = ref(800);
+const rootRef = ref<HTMLDivElement>();
 
 // Store section index map for reactive colour lookup
 const sectionColorMap = computed(() => {
-  const map = new Map<string, { fill: string; stroke: string }>()
+  const map = new Map<string, { fill: string; stroke: string }>();
   store.sections.forEach((s, i) => {
-    map.set(s.id, sectionColors(i))
-  })
-  return map
-})
+    map.set(s.id, sectionColors(i));
+  });
+  return map;
+});
 
 // ══════════════════════════════════════════════════════════════════
 //  Coordinate helpers
@@ -68,24 +68,24 @@ const sectionColorMap = computed(() => {
 
 /** Convert a table's mm centre to stage world-px coordinates. */
 function tableWorldCenter(table: PlacedTableObject): { x: number; y: number } {
-  const px = store.scalePxPerMm
-  return { x: table.x * px, y: table.y * px }
+  const px = store.scalePxPerMm;
+  return { x: table.x * px, y: table.y * px };
 }
 
 /** Convert a table's mm rect to stage world-px rect. */
 function tableWorldRect(table: PlacedTableObject): {
-  x: number
-  y: number
-  width: number
-  height: number
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 } {
-  const px = store.scalePxPerMm
+  const px = store.scalePxPerMm;
   return {
     x: (table.x - table.widthMm / 2) * px,
     y: (table.y - table.heightMm / 2) * px,
     width: table.widthMm * px,
     height: table.heightMm * px,
-  }
+  };
 }
 
 /**
@@ -93,11 +93,11 @@ function tableWorldRect(table: PlacedTableObject): {
  * accounting for the overlay stage's x/y/scale transform.
  */
 function screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
-  const cfg = store.stageConfig
+  const cfg = store.stageConfig;
   return {
     x: (screenX - cfg.x) / cfg.scale,
     y: (screenY - cfg.y) / cfg.scale,
-  }
+  };
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -111,33 +111,33 @@ const overlayStageConfig = computed(() => ({
   scaleX: store.stageConfig.scale,
   scaleY: store.stageConfig.scale,
   listening: false,
-}))
+}));
 
 // ══════════════════════════════════════════════════════════════════
 //  Section table overlay rects (Konva)
 // ══════════════════════════════════════════════════════════════════
 const sectionOverlays = computed(() => {
   const overlays: Array<{
-    id: string
-    x: number
-    y: number
-    width: number
-    height: number
-    rotation: number
-    fill: string
-    stroke: string
-    strokeWidth: number
-    strokeScaleEnabled: boolean
-    listening: boolean
-    name: string
-  }> = []
+    id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation: number;
+    fill: string;
+    stroke: string;
+    strokeWidth: number;
+    strokeScaleEnabled: boolean;
+    listening: boolean;
+    name: string;
+  }> = [];
   for (const section of store.sections) {
-    const colors = sectionColorMap.value.get(section.id)
-    if (!colors) continue
+    const colors = sectionColorMap.value.get(section.id);
+    if (!colors) continue;
     for (const tid of section.tableIds) {
-      const table = store.placedTables.find((t) => t.id === tid)
-      if (!table) continue
-      const r = tableWorldRect(table)
+      const table = store.placedTables.find((t) => t.id === tid);
+      if (!table) continue;
+      const r = tableWorldRect(table);
       overlays.push({
         id: `sec-overlay-${tid}`,
         x: r.x,
@@ -151,24 +151,24 @@ const sectionOverlays = computed(() => {
         strokeScaleEnabled: false,
         listening: false,
         name: 'sectionOverlay',
-      })
+      });
     }
   }
-  return overlays
-})
+  return overlays;
+});
 
 // ══════════════════════════════════════════════════════════════════
 //  Lasso configuration (Konva rect in world-px coordinates)
 // ══════════════════════════════════════════════════════════════════
 const lassoWorldRect = computed(() => {
-  if (!isDrawing.value) return null
-  const sX1 = Math.min(lassoStart.value.x, lassoEnd.value.x)
-  const sY1 = Math.min(lassoStart.value.y, lassoEnd.value.y)
-  const sX2 = Math.max(lassoStart.value.x, lassoEnd.value.x)
-  const sY2 = Math.max(lassoStart.value.y, lassoEnd.value.y)
+  if (!isDrawing.value) return null;
+  const sX1 = Math.min(lassoStart.value.x, lassoEnd.value.x);
+  const sY1 = Math.min(lassoStart.value.y, lassoEnd.value.y);
+  const sX2 = Math.max(lassoStart.value.x, lassoEnd.value.x);
+  const sY2 = Math.max(lassoStart.value.y, lassoEnd.value.y);
 
-  const w1 = screenToWorld(sX1, sY1)
-  const w2 = screenToWorld(sX2, sY2)
+  const w1 = screenToWorld(sX1, sY1);
+  const w2 = screenToWorld(sX2, sY2);
 
   return {
     x: w1.x,
@@ -181,8 +181,8 @@ const lassoWorldRect = computed(() => {
     dash: [8, 4],
     strokeScaleEnabled: false,
     listening: false,
-  }
-})
+  };
+});
 
 // ══════════════════════════════════════════════════════════════════
 //  Existing sections list
@@ -193,62 +193,62 @@ const sectionListItems = computed(() =>
     tableCount: s.tableIds.length,
     colors: sectionColorMap.value.get(s.id) ?? sectionColors(0),
   })),
-)
+);
 
 // ══════════════════════════════════════════════════════════════════
 //  Lasso event handlers
 // ══════════════════════════════════════════════════════════════════
 
 function handleLassoStart(e: MouseEvent) {
-  if (!groupMode.value) return
+  if (!groupMode.value) return;
   // Only left mouse button
-  if (e.button !== 0) return
-  isDrawing.value = true
-  lassoStart.value = { x: e.offsetX, y: e.offsetY }
-  lassoEnd.value = { x: e.offsetX, y: e.offsetY }
-  lassoedTableIds.value = []
+  if (e.button !== 0) return;
+  isDrawing.value = true;
+  lassoStart.value = { x: e.offsetX, y: e.offsetY };
+  lassoEnd.value = { x: e.offsetX, y: e.offsetY };
+  lassoedTableIds.value = [];
 }
 
 function handleLassoMove(e: MouseEvent) {
-  if (!isDrawing.value) return
-  lassoEnd.value = { x: e.offsetX, y: e.offsetY }
+  if (!isDrawing.value) return;
+  lassoEnd.value = { x: e.offsetX, y: e.offsetY };
 }
 
 function handleLassoEnd(_e: MouseEvent) {
-  void _e
-  if (!isDrawing.value) return
-  isDrawing.value = false
+  void _e;
+  if (!isDrawing.value) return;
+  isDrawing.value = false;
 
   // Determine lasso bounds in screen coords
-  const sMinX = Math.min(lassoStart.value.x, lassoEnd.value.x)
-  const sMinY = Math.min(lassoStart.value.y, lassoEnd.value.y)
-  const sMaxX = Math.max(lassoStart.value.x, lassoEnd.value.x)
-  const sMaxY = Math.max(lassoStart.value.y, lassoEnd.value.y)
+  const sMinX = Math.min(lassoStart.value.x, lassoEnd.value.x);
+  const sMinY = Math.min(lassoStart.value.y, lassoEnd.value.y);
+  const sMaxX = Math.max(lassoStart.value.x, lassoEnd.value.x);
+  const sMaxY = Math.max(lassoStart.value.y, lassoEnd.value.y);
 
   // Minimum drag distance to count as a lasso (5px)
-  const dragDist = sMaxX - sMinX + (sMaxY - sMinY)
+  const dragDist = sMaxX - sMinX + (sMaxY - sMinY);
   if (dragDist < 5) {
-    lassoedTableIds.value = []
-    return
+    lassoedTableIds.value = [];
+    return;
   }
 
   // Convert screen bounds to world coords
-  const wMin = screenToWorld(sMinX, sMinY)
-  const wMax = screenToWorld(sMaxX, sMaxY)
+  const wMin = screenToWorld(sMinX, sMinY);
+  const wMax = screenToWorld(sMaxX, sMaxY);
 
   // Find tables whose centre falls within the world-space lasso
-  const ids: string[] = []
+  const ids: string[] = [];
   for (const table of store.placedTables) {
-    const center = tableWorldCenter(table)
+    const center = tableWorldCenter(table);
     if (center.x >= wMin.x && center.x <= wMax.x && center.y >= wMin.y && center.y <= wMax.y) {
-      ids.push(table.id)
+      ids.push(table.id);
     }
   }
 
-  lassoedTableIds.value = ids
+  lassoedTableIds.value = ids;
 
   if (ids.length > 0) {
-    openDialog()
+    openDialog();
   }
 }
 
@@ -257,37 +257,37 @@ function handleLassoEnd(_e: MouseEvent) {
 // ══════════════════════════════════════════════════════════════════
 
 function openDialog() {
-  dialogSectionName.value = ''
-  dialogLocationName.value = ''
-  dialogTierId.value = ''
-  showDialog.value = true
+  dialogSectionName.value = '';
+  dialogLocationName.value = '';
+  dialogTierId.value = '';
+  showDialog.value = true;
 }
 
 function cancelSection() {
-  showDialog.value = false
-  lassoedTableIds.value = []
+  showDialog.value = false;
+  lassoedTableIds.value = [];
 }
 
 /** Strip spaces and hyphens for table-code prefix. */
 function sanitizeCode(name: string): string {
-  return name.replace(/[\s-]+/g, '')
+  return name.replace(/[\s-]+/g, '');
 }
 
 function confirmSection() {
-  const name = dialogSectionName.value.trim()
-  if (!name) return
+  const name = dialogSectionName.value.trim();
+  if (!name) return;
 
-  const ids = lassoedTableIds.value
-  if (ids.length === 0) return
+  const ids = lassoedTableIds.value;
+  if (ids.length === 0) return;
 
   // Remove these tables from any existing sections
   const updatedSections = store.sections.map((s) => ({
     ...s,
     tableIds: s.tableIds.filter((tid) => !ids.includes(tid)),
-  }))
+  }));
 
   // Purge empty sections
-  const nonEmpty = updatedSections.filter((s) => s.tableIds.length > 0)
+  const nonEmpty = updatedSections.filter((s) => s.tableIds.length > 0);
 
   // Create new section
   const newSection: FloorplanSectionObject = {
@@ -296,25 +296,25 @@ function confirmSection() {
     locationName: dialogLocationName.value.trim(),
     tableIds: [...ids],
     tierId: dialogTierId.value.trim() || undefined,
-  }
+  };
 
-  const allSections = [...nonEmpty, newSection]
+  const allSections = [...nonEmpty, newSection];
 
   // Assign table codes: {sanitizedName}{1-based index}
-  const codePrefix = sanitizeCode(name)
+  const codePrefix = sanitizeCode(name);
   const tableCodes = store.placedTables.map((t) => {
-    if (!ids.includes(t.id)) return t
-    const idx = ids.indexOf(t.id) + 1
-    return { ...t, tableCode: `${codePrefix}${idx}` }
-  })
+    if (!ids.includes(t.id)) return t;
+    const idx = ids.indexOf(t.id) + 1;
+    return { ...t, tableCode: `${codePrefix}${idx}` };
+  });
 
   // Persist
-  store.setPlacedTables(tableCodes)
-  store.setSections(allSections)
+  store.setPlacedTables(tableCodes);
+  store.setSections(allSections);
 
   // Clean up
-  showDialog.value = false
-  lassoedTableIds.value = []
+  showDialog.value = false;
+  lassoedTableIds.value = [];
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -322,8 +322,8 @@ function confirmSection() {
 // ══════════════════════════════════════════════════════════════════
 
 function deleteSection(sectionId: string) {
-  const updated = store.sections.filter((s) => s.id !== sectionId)
-  store.setSections(updated)
+  const updated = store.sections.filter((s) => s.id !== sectionId);
+  store.setSections(updated);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -331,11 +331,11 @@ function deleteSection(sectionId: string) {
 // ══════════════════════════════════════════════════════════════════
 
 function toggleGroupMode() {
-  groupMode.value = !groupMode.value
+  groupMode.value = !groupMode.value;
   if (!groupMode.value) {
-    isDrawing.value = false
-    lassoedTableIds.value = []
-    showDialog.value = false
+    isDrawing.value = false;
+    lassoedTableIds.value = [];
+    showDialog.value = false;
   }
 }
 
@@ -346,11 +346,11 @@ function toggleGroupMode() {
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (showDialog.value) {
-      cancelSection()
-      return
+      cancelSection();
+      return;
     }
     if (groupMode.value) {
-      toggleGroupMode()
+      toggleGroupMode();
     }
   }
 }
@@ -359,30 +359,30 @@ function handleKeydown(e: KeyboardEvent) {
 //  Resize observer
 // ══════════════════════════════════════════════════════════════════
 
-let resizeObserver: ResizeObserver | null = null
+let resizeObserver: ResizeObserver | null = null;
 
 function updateContainerSize() {
   if (rootRef.value) {
-    containerWidth.value = rootRef.value.clientWidth
-    containerHeight.value = rootRef.value.clientHeight
+    containerWidth.value = rootRef.value.clientWidth;
+    containerHeight.value = rootRef.value.clientHeight;
   }
 }
 
 onMounted(() => {
-  updateContainerSize()
+  updateContainerSize();
   if (rootRef.value) {
     resizeObserver = new ResizeObserver(() => {
-      updateContainerSize()
-    })
-    resizeObserver.observe(rootRef.value)
+      updateContainerSize();
+    });
+    resizeObserver.observe(rootRef.value);
   }
-  window.addEventListener('keydown', handleKeydown)
-})
+  window.addEventListener('keydown', handleKeydown);
+});
 
 onUnmounted(() => {
-  resizeObserver?.disconnect()
-  window.removeEventListener('keydown', handleKeydown)
-})
+  resizeObserver?.disconnect();
+  window.removeEventListener('keydown', handleKeydown);
+});
 </script>
 
 <template>

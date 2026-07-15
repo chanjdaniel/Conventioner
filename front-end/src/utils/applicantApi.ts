@@ -1,5 +1,5 @@
-import { api, getApiErrorMessage } from '@/utils/api'
-import type { Application } from '@/assets/types/datatypes'
+import { api, getApiErrorMessage } from '@/utils/api';
+import type { Application } from '@/assets/types/datatypes';
 
 /**
  * Request a login code for the applicant's email.
@@ -14,8 +14,8 @@ export async function requestLoginCode(
 ): Promise<{ message: string }> {
   const { data } = await api.post(`/public/markets/${marketSlug}/applicant-login/request-code`, {
     email,
-  })
-  return data
+  });
+  return data;
 }
 
 /**
@@ -36,18 +36,23 @@ export async function verifyLoginCode(
   const { data } = await api.post(`/public/markets/${marketSlug}/applicant-login/verify-code`, {
     email,
     code,
-  })
-  return { success: true, marketId: data.marketId, applicantEmail: data.applicantEmail, token: data.token }
+  });
+  return {
+    success: true,
+    marketId: data.marketId,
+    applicantEmail: data.applicantEmail,
+    token: data.token,
+  };
 }
 
 /** Uniform error message for verification failures (anti-oracle ruling). */
 export function verifyErrorFrom(err: unknown): string {
-  return getApiErrorMessage(err, 'Invalid or expired code.')
+  return getApiErrorMessage(err, 'Invalid or expired code.');
 }
 
 /** Suitable error message for unexpected request-code failures. */
 export function requestErrorFrom(err: unknown): string {
-  return getApiErrorMessage(err, 'Unable to send code. Please try again.')
+  return getApiErrorMessage(err, 'Unable to send code. Please try again.');
 }
 
 /**
@@ -59,11 +64,10 @@ export async function fetchApplicantApplication(
   marketSlug: string,
   token: string,
 ): Promise<Application> {
-  const { data } = await api.get(
-    `/public/markets/${marketSlug}/applicant/application`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  )
-  return data.application as Application
+  const { data } = await api.get(`/public/markets/${marketSlug}/applicant/application`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data.application as Application;
 }
 
 /**
@@ -80,8 +84,8 @@ export async function saveApplicantApplication(
     `/public/markets/${marketSlug}/applicant/application`,
     { formData },
     { headers: { Authorization: `Bearer ${token}` } },
-  )
-  return data.application as Application
+  );
+  return data.application as Application;
 }
 
 /**
@@ -89,8 +93,8 @@ export async function saveApplicantApplication(
  * GET /markets/<id>/applications
  */
 export async function fetchMarketApplications(marketId: string): Promise<Application[]> {
-  const { data } = await api.get(`/markets/${marketId}/applications`)
-  return data.applications as Application[]
+  const { data } = await api.get(`/markets/${marketId}/applications`);
+  return data.applications as Application[];
 }
 
 /**
@@ -102,11 +106,10 @@ export async function reviewApplication(
   applicationId: string,
   status: string,
 ): Promise<Application> {
-  const { data } = await api.put(
-    `/markets/${marketId}/applications/${applicationId}/review`,
-    { status },
-  )
-  return data.application as Application
+  const { data } = await api.put(`/markets/${marketId}/applications/${applicationId}/review`, {
+    status,
+  });
+  return data.application as Application;
 }
 
 /**
@@ -114,6 +117,6 @@ export async function reviewApplication(
  * POST /markets/<id>/publish-results
  */
 export async function publishResults(marketId: string): Promise<{ results_published: boolean }> {
-  const { data } = await api.post(`/markets/${marketId}/publish-results`)
-  return data
+  const { data } = await api.post(`/markets/${marketId}/publish-results`);
+  return data;
 }

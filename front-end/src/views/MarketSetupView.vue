@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, nextTick, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
-import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue'
-import ElementSetupColumns from '@/components/elements/ElementSetupColumns.vue'
-import ElementMarketDates from '@/components/elements/ElementMarketDates.vue'
-import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue'
-import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue'
-import ElementTierSetup from '@/components/elements/ElementTierSetup.vue'
-import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue'
-import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue'
-import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue'
-import { type SetupObject, type Market, type ApplicationForm } from '@/assets/types/datatypes'
-import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api'
-import { applicationFormError, applicationFormHint } from '@/utils/applicationForm'
-import FormBuilder from '@/components/application/FormBuilder.vue'
-import FormPreview from '@/components/application/FormPreview.vue'
-import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue'
+import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
+import ElementSetupColumns from '@/components/elements/ElementSetupColumns.vue';
+import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
+import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
+import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue';
+import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
+import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
+import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
+import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
+import { type SetupObject, type Market, type ApplicationForm } from '@/assets/types/datatypes';
+import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
+import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
+import FormBuilder from '@/components/application/FormBuilder.vue';
+import FormPreview from '@/components/application/FormPreview.vue';
+import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 
-const router = useRouter()
+const router = useRouter();
 
-const showPathChoice = ref(false)
-const activeTab = ref<'form' | 'setup' | 'applications'>('setup')
+const showPathChoice = ref(false);
+const activeTab = ref<'form' | 'setup' | 'applications'>('setup');
 
-const market = ref<Market | null>(null)
-const applicationForm = ref<ApplicationForm | null>(null)
+const market = ref<Market | null>(null);
+const applicationForm = ref<ApplicationForm | null>(null);
 /**
  * Per-field "the organizer typed this key themselves" flags, positionally aligned with the
  * form's fields. It lives beside the form, whose lifetime it shares, rather than inside the
@@ -32,26 +32,26 @@ const applicationForm = ref<ApplicationForm | null>(null)
  * auto-derived key and a hand-typed one are indistinguishable once written. Only a direct edit
  * of a key input and the stored-form seed in {@link adoptStoredApplicationForm} ever write it.
  */
-const keyTouched = ref<boolean[]>([])
-const formSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
-const formErrorMessage = ref<string | null>(null)
-const formLockReason = ref<string | null>(null)
-const formLoadStatus = ref<'loading' | 'loaded' | 'error'>('loading')
-const formLoadError = ref<string | null>(null)
-const formLocked = computed(() => formLockReason.value !== null)
+const keyTouched = ref<boolean[]>([]);
+const formSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
+const formErrorMessage = ref<string | null>(null);
+const formLockReason = ref<string | null>(null);
+const formLoadStatus = ref<'loading' | 'loaded' | 'error'>('loading');
+const formLoadError = ref<string | null>(null);
+const formLocked = computed(() => formLockReason.value !== null);
 /**
  * Only edit a form we know to be editable. Until the server answers - the load is still in
  * flight, or it failed - the lock state is unknown, and assuming "editable" there invites the
  * organizer to rework a locked form and lose it to a 409.
  */
-const formEditable = computed(() => formLoadStatus.value === 'loaded' && !formLocked.value)
+const formEditable = computed(() => formLoadStatus.value === 'loaded' && !formLocked.value);
 /**
  * No answer from the server and nothing cached tells us nothing about the market's form - not
  * even whether it has one - so there is nothing we can honestly render but the load state.
  */
 const formStateUnknown = computed(
   () => formLoadStatus.value !== 'loaded' && applicationForm.value === null,
-)
+);
 const setupObject = reactive<SetupObject>({
   colNames: [],
   colValues: [],
@@ -70,35 +70,35 @@ const setupObject = reactive<SetupObject>({
     tableShareEmailColNameIdx: null,
     maxDaysColNameIdx: null,
   },
-})
+});
 
-const pageIdx = ref(0)
-const maxPageIdx = 2
+const pageIdx = ref(0);
+const maxPageIdx = 2;
 
 function parseFiniteInt(v: unknown): number | null {
-  if (v === null || v === undefined || v === '') return null
-  const n = typeof v === 'string' ? parseInt(v, 10) : Number(v)
-  return Number.isFinite(n) ? Math.floor(n) : null
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'string' ? parseInt(v, 10) : Number(v);
+  return Number.isFinite(n) ? Math.floor(n) : null;
 }
 
 function parseFiniteNumber(v: unknown): number | null {
-  if (v === null || v === undefined || v === '') return null
-  const n = typeof v === 'string' ? parseFloat(v) : Number(v)
-  return Number.isFinite(n) ? n : null
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'string' ? parseFloat(v) : Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 /** True when required Assignment Options are set (Assign enabled). Max days column mapping is optional. */
 const assignmentOptionsComplete = computed(() => {
-  const ao = setupObject.assignmentOptions
-  const numCols = setupObject.colNames.length
-  const numMarketDates = setupObject.marketDates.length
+  const ao = setupObject.assignmentOptions;
+  const numCols = setupObject.colNames.length;
+  const numMarketDates = setupObject.marketDates.length;
 
-  const maxPer = parseFiniteInt(ao.maxAssignmentsPerVendor)
-  if (maxPer === null || maxPer < 1) return false
-  if (numMarketDates > 0 && maxPer > numMarketDates) return false
+  const maxPer = parseFiniteInt(ao.maxAssignmentsPerVendor);
+  if (maxPer === null || maxPer < 1) return false;
+  if (numMarketDates > 0 && maxPer > numMarketDates) return false;
 
-  const halfProp = parseFiniteNumber(ao.maxHalfTableProportionPerSection)
-  if (halfProp === null || halfProp < 0 || halfProp > 100) return false
+  const halfProp = parseFiniteNumber(ao.maxHalfTableProportionPerSection);
+  if (halfProp === null || halfProp < 0 || halfProp > 100) return false;
 
   const idxValid = (idx: number | null | undefined) =>
     idx !== null &&
@@ -106,33 +106,33 @@ const assignmentOptionsComplete = computed(() => {
     Number.isInteger(idx) &&
     idx >= 0 &&
     numCols > 0 &&
-    idx < numCols
+    idx < numCols;
 
-  if (!idxValid(ao.emailColNameIdx)) return false
-  if (!idxValid(ao.tableChoiceColNameIdx)) return false
-  if (!idxValid(ao.tableShareEmailColNameIdx)) return false
+  if (!idxValid(ao.emailColNameIdx)) return false;
+  if (!idxValid(ao.tableChoiceColNameIdx)) return false;
+  if (!idxValid(ao.tableShareEmailColNameIdx)) return false;
   // maxDaysColNameIdx optional: null = backend applies no per-vendor max-days cap from CSV
 
-  return true
-})
+  return true;
+});
 
 onMounted(() => {
   // create setup object
 
-  market.value = JSON.parse(localStorage.getItem('market') || 'null')
+  market.value = JSON.parse(localStorage.getItem('market') || 'null');
   if (market.value && market.value.setupObject) {
-    Object.assign(setupObject, market.value.setupObject)
+    Object.assign(setupObject, market.value.setupObject);
   }
 
   // retrieve view state
-  const setupPageIdx = JSON.parse(localStorage.getItem('setupPageIdx') || 'null')
-  pageIdx.value = setupPageIdx === null ? 0 : setupPageIdx
+  const setupPageIdx = JSON.parse(localStorage.getItem('setupPageIdx') || 'null');
+  pageIdx.value = setupPageIdx === null ? 0 : setupPageIdx;
 
   // Paint the cached form immediately, then reconcile with the server, which also
   // tells us whether the form is still editable.
-  adoptStoredApplicationForm(market.value?.applicationForm ?? null)
-  loadApplicationForm()
-})
+  adoptStoredApplicationForm(market.value?.applicationForm ?? null);
+  loadApplicationForm();
+});
 
 /**
  * The market document is the single source of truth for the form; keep it in step. The key flags
@@ -140,10 +140,10 @@ onMounted(() => {
  * fields it was given, and saving does not make an auto-derived key a hand-typed one.
  */
 function adoptApplicationForm(form: ApplicationForm | null) {
-  applicationForm.value = form
+  applicationForm.value = form;
   if (market.value) {
-    market.value.applicationForm = form ?? undefined
-    localStorage.setItem('market', JSON.stringify(market.value))
+    market.value.applicationForm = form ?? undefined;
+    localStorage.setItem('market', JSON.stringify(market.value));
   }
 }
 
@@ -153,36 +153,36 @@ function adoptApplicationForm(form: ApplicationForm | null) {
  * seed every flag as the organizer's own. The one place the flags come from field data.
  */
 function adoptStoredApplicationForm(form: ApplicationForm | null) {
-  adoptApplicationForm(form)
-  keyTouched.value = (form?.fields ?? []).map(() => true)
+  adoptApplicationForm(form);
+  keyTouched.value = (form?.fields ?? []).map(() => true);
 }
 
 async function loadApplicationForm() {
   if (!market.value?.id) {
-    formLoadStatus.value = 'error'
-    formLoadError.value = 'No market is loaded, so its application form is unknown.'
-    return
+    formLoadStatus.value = 'error';
+    formLoadError.value = 'No market is loaded, so its application form is unknown.';
+    return;
   }
-  formLoadStatus.value = 'loading'
-  formLoadError.value = null
+  formLoadStatus.value = 'loading';
+  formLoadError.value = null;
   try {
-    const response = await api.get(`/markets/${market.value.id}/application-form`)
-    adoptStoredApplicationForm(response.data?.application_form ?? null)
-    formLockReason.value = response.data?.lock_reason ?? null
-    formLoadStatus.value = 'loaded'
+    const response = await api.get(`/markets/${market.value.id}/application-form`);
+    adoptStoredApplicationForm(response.data?.application_form ?? null);
+    formLockReason.value = response.data?.lock_reason ?? null;
+    formLoadStatus.value = 'loaded';
   } catch (err: unknown) {
-    formLoadStatus.value = 'error'
+    formLoadStatus.value = 'error';
     formLoadError.value = getApiErrorMessage(
       err,
       'Could not load the application form. Retry before editing it.',
-    )
+    );
   }
 }
 
 /** Guidance for a form the organizer has not finished starting; not a mistake to flag in red. */
-const formIncompleteHint = computed(() => applicationFormHint(applicationForm.value))
+const formIncompleteHint = computed(() => applicationFormHint(applicationForm.value));
 
-const formValidationError = computed(() => applicationFormError(applicationForm.value))
+const formValidationError = computed(() => applicationFormError(applicationForm.value));
 
 const canSaveForm = computed(
   () =>
@@ -190,104 +190,104 @@ const canSaveForm = computed(
     formIncompleteHint.value === null &&
     formValidationError.value === null &&
     formSaveStatus.value !== 'saving',
-)
+);
 
-const savedStatusTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const savedStatusTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 
 function clearSavedStatusTimer() {
   if (savedStatusTimer.value !== null) {
-    clearTimeout(savedStatusTimer.value)
-    savedStatusTimer.value = null
+    clearTimeout(savedStatusTimer.value);
+    savedStatusTimer.value = null;
   }
 }
 
-onUnmounted(clearSavedStatusTimer)
+onUnmounted(clearSavedStatusTimer);
 
 async function saveApplicationForm() {
-  if (!market.value?.id || !canSaveForm.value) return
-  clearSavedStatusTimer()
-  formSaveStatus.value = 'saving'
-  formErrorMessage.value = null
+  if (!market.value?.id || !canSaveForm.value) return;
+  clearSavedStatusTimer();
+  formSaveStatus.value = 'saving';
+  formErrorMessage.value = null;
   try {
     const response = await api.put(
       `/markets/${market.value.id}/application-form`,
       applicationForm.value,
-    )
-    formSaveStatus.value = 'saved'
+    );
+    formSaveStatus.value = 'saved';
     if (response.data?.application_form) {
-      adoptApplicationForm(response.data.application_form)
+      adoptApplicationForm(response.data.application_form);
     }
     savedStatusTimer.value = setTimeout(() => {
-      savedStatusTimer.value = null
-      if (formSaveStatus.value === 'saved') formSaveStatus.value = 'idle'
-    }, 2000)
+      savedStatusTimer.value = null;
+      if (formSaveStatus.value === 'saved') formSaveStatus.value = 'idle';
+    }, 2000);
   } catch (err: unknown) {
-    formSaveStatus.value = 'error'
-    formErrorMessage.value = getApiErrorMessage(err, 'Failed to save form')
+    formSaveStatus.value = 'error';
+    formErrorMessage.value = getApiErrorMessage(err, 'Failed to save form');
     // A 409 means the server locked the form under us; stop presenting the rejected edits as
     // editable, and put back the form applicants will actually see.
     if (getApiErrorStatus(err) === 409) {
-      formLockReason.value = formErrorMessage.value
-      await loadApplicationForm()
+      formLockReason.value = formErrorMessage.value;
+      await loadApplicationForm();
     }
   }
 }
 
 const updateMarket = async () => {
-  localStorage.setItem('market', JSON.stringify(market.value))
-  await api.put('/markets/' + market.value!.id, market.value)
-}
+  localStorage.setItem('market', JSON.stringify(market.value));
+  await api.put('/markets/' + market.value!.id, market.value);
+};
 
 const handleDiscordWebhookInput = (event: Event) => {
-  if (!market.value) return
-  const value = (event.target as HTMLInputElement).value
-  const trimmed = value.trim()
-  market.value.discordWebhookUrl = trimmed === '' ? null : value
-  localStorage.setItem('market', JSON.stringify(market.value))
-}
+  if (!market.value) return;
+  const value = (event.target as HTMLInputElement).value;
+  const trimmed = value.trim();
+  market.value.discordWebhookUrl = trimmed === '' ? null : value;
+  localStorage.setItem('market', JSON.stringify(market.value));
+};
 
 const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
   nextTick(() => {
     if (market.value) {
-      Object.assign(setupObject, newSetupObject)
-      market.value.setupObject = newSetupObject
-      localStorage.setItem('market', JSON.stringify(market.value))
+      Object.assign(setupObject, newSetupObject);
+      market.value.setupObject = newSetupObject;
+      localStorage.setItem('market', JSON.stringify(market.value));
     }
-  })
-}
+  });
+};
 
 const handleNext = async () => {
-  pageIdx.value = pageIdx.value === maxPageIdx ? maxPageIdx : pageIdx.value + 1
-  localStorage.setItem('setupPageIdx', JSON.stringify(pageIdx.value))
-  await updateMarket()
-}
+  pageIdx.value = pageIdx.value === maxPageIdx ? maxPageIdx : pageIdx.value + 1;
+  localStorage.setItem('setupPageIdx', JSON.stringify(pageIdx.value));
+  await updateMarket();
+};
 const handleBack = async () => {
-  pageIdx.value = pageIdx.value === 0 ? 0 : pageIdx.value - 1
-  localStorage.setItem('setupPageIdx', JSON.stringify(pageIdx.value))
-  await updateMarket()
-}
+  pageIdx.value = pageIdx.value === 0 ? 0 : pageIdx.value - 1;
+  localStorage.setItem('setupPageIdx', JSON.stringify(pageIdx.value));
+  await updateMarket();
+};
 const handleAssign = async () => {
   if (!assignmentOptionsComplete.value) {
-    return
+    return;
   }
-  await updateMarket()
+  await updateMarket();
 
-  const response = await api.get('/markets/' + market.value!.id + '/assignment')
+  const response = await api.get('/markets/' + market.value!.id + '/assignment');
 
-  const assignedMarket: Market = response.data
-  market.value = assignedMarket
-  await updateMarket()
+  const assignedMarket: Market = response.data;
+  market.value = assignedMarket;
+  await updateMarket();
 
-  router.push('/assignment-results')
-}
+  router.push('/assignment-results');
+};
 
 function handlePathChoice(path: 'manual' | 'floorplan') {
-  showPathChoice.value = false
+  showPathChoice.value = false;
   if (path === 'floorplan') {
     router.push({
       path: '/floorplan-editor',
       query: { marketId: market.value?.id },
-    })
+    });
   }
   // For 'manual': just hide overlay, existing text-based UI is already underneath
 }
@@ -299,9 +299,9 @@ watch(pageIdx, (newIdx) => {
     setupObject.sections.length === 0 &&
     (!setupObject.floorplans || setupObject.floorplans.length === 0)
   ) {
-    showPathChoice.value = true
+    showPathChoice.value = true;
   }
-})
+});
 </script>
 
 <template>

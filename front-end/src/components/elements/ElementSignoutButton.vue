@@ -2,27 +2,26 @@
 import { inject } from 'vue';
 import { useRouter } from 'vue-router';
 
-const setUser = inject<(user: unknown) => void>("setUser", () => {});
+const setUser = inject<(user: unknown) => void>('setUser', () => {});
 const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
 
 const logout = async () => {
   try {
     await fetch(`${hostname}/logout`, {
-      method: "POST",
-      credentials: "include",
+      method: 'POST',
+      credentials: 'include',
     });
 
     localStorage.clear();
     setUser(null);
-    router.push("/login");
-
+    router.push('/login');
   } catch (error) {
-    console.error("Logout failed:", error);
+    console.error('Logout failed:', error);
 
     localStorage.clear();
     setUser(null);
-    router.push("/login");
+    router.push('/login');
   }
 };
 </script>
@@ -33,14 +32,14 @@ const logout = async () => {
       <slot name="icon"></slot>
       <slot></slot>
     </div>
-</div>
+  </div>
 </template>
 
 <style scoped>
 .signout-button {
-    border: none;
-    background-color: transparent;
-    cursor: pointer;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
 }
 
 .item {
@@ -55,7 +54,9 @@ const logout = async () => {
   border-bottom: 1.75px solid #2723237c;
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
-  transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  transition:
+    background-color 0.15s ease-in-out,
+    box-shadow 0.15s ease-in-out;
 }
 
 .item:hover {

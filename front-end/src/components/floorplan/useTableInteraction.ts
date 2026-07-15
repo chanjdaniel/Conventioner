@@ -1,32 +1,36 @@
-import { ref, onMounted, onUnmounted } from 'vue'
-import type { Ref } from 'vue'
-import Konva from 'konva'
-import type { PlacedTableObject } from '@/assets/types/datatypes'
-import { useFloorplanStore } from '@/stores/floorplan'
+import { ref, onMounted, onUnmounted } from 'vue';
+import type { Ref } from 'vue';
+import Konva from 'konva';
+import type { PlacedTableObject } from '@/assets/types/datatypes';
+import { useFloorplanStore } from '@/stores/floorplan';
 
 // ── Types ────────────────────────────────────────────────────────────
 
-interface StageRef { getNode(): Konva.Stage | null }
-interface TransformerRef { getNode(): Konva.Transformer | null }
+interface StageRef {
+  getNode(): Konva.Stage | null;
+}
+interface TransformerRef {
+  getNode(): Konva.Transformer | null;
+}
 
 export interface SnapGuide {
-  key: string
-  points: number[]
-  stroke: string
-  strokeWidth: number
-  dash: number[]
-  listening: boolean
+  key: string;
+  points: number[];
+  stroke: string;
+  strokeWidth: number;
+  dash: number[];
+  listening: boolean;
 }
 
 interface RectBounds {
-  x: number
-  y: number
-  width: number
-  height: number
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /** Standard rotation snap angles (degrees) for the Konva Transformer. */
-export const rotationSnaps: number[] = [0, 90, 180, 270]
+export const rotationSnaps: number[] = [0, 90, 180, 270];
 
 // ── Helper ──────────────────────────────────────────────────────────
 
@@ -35,7 +39,7 @@ export const rotationSnaps: number[] = [0, 90, 180, 270]
  * X coordinate, accounting for the stage's pan and scale.
  */
 function screenToLayerX(stage: Konva.Stage, screenX: number): number {
-  return (screenX - stage.x()) / stage.scaleX()
+  return (screenX - stage.x()) / stage.scaleX();
 }
 
 /**
@@ -43,15 +47,15 @@ function screenToLayerX(stage: Konva.Stage, screenX: number): number {
  * Y coordinate, accounting for the stage's pan and scale.
  */
 function screenToLayerY(stage: Konva.Stage, screenY: number): number {
-  return (screenY - stage.y()) / stage.scaleY()
+  return (screenY - stage.y()) / stage.scaleY();
 }
 
 // ── Core snap algorithm ──────────────────────────────────────────────
 
 interface SnapResult {
-  x: number
-  y: number
-  guides: SnapGuide[]
+  x: number;
+  y: number;
+  guides: SnapGuide[];
 }
 
 /**
@@ -71,7 +75,7 @@ function calculateSnap(
   tolerance = 10,
 ): SnapResult | null {
   for (const other of otherRects) {
-    const or = other.rect
+    const or = other.rect;
 
     // Left edge
     if (Math.abs(nodeRect.x - or.x) < tolerance) {
@@ -88,12 +92,12 @@ function calculateSnap(
             listening: false,
           },
         ],
-      }
+      };
     }
 
     // Right edge
-    const nodeRight = nodeRect.x + nodeRect.width
-    const otherRight = or.x + or.width
+    const nodeRight = nodeRect.x + nodeRect.width;
+    const otherRight = or.x + or.width;
     if (Math.abs(nodeRight - otherRight) < tolerance) {
       return {
         x: nodeRect.x + (otherRight - nodeRight),
@@ -108,12 +112,12 @@ function calculateSnap(
             listening: false,
           },
         ],
-      }
+      };
     }
 
     // Center X
-    const nodeCenterX = nodeRect.x + nodeRect.width / 2
-    const otherCenterX = or.x + or.width / 2
+    const nodeCenterX = nodeRect.x + nodeRect.width / 2;
+    const otherCenterX = or.x + or.width / 2;
     if (Math.abs(nodeCenterX - otherCenterX) < tolerance) {
       return {
         x: nodeRect.x + (otherCenterX - nodeCenterX),
@@ -128,7 +132,7 @@ function calculateSnap(
             listening: false,
           },
         ],
-      }
+      };
     }
 
     // Top edge
@@ -146,12 +150,12 @@ function calculateSnap(
             listening: false,
           },
         ],
-      }
+      };
     }
 
     // Bottom edge
-    const nodeBottom = nodeRect.y + nodeRect.height
-    const otherBottom = or.y + or.height
+    const nodeBottom = nodeRect.y + nodeRect.height;
+    const otherBottom = or.y + or.height;
     if (Math.abs(nodeBottom - otherBottom) < tolerance) {
       return {
         x: nodeRect.x,
@@ -166,12 +170,12 @@ function calculateSnap(
             listening: false,
           },
         ],
-      }
+      };
     }
 
     // Center Y
-    const nodeCenterY = nodeRect.y + nodeRect.height / 2
-    const otherCenterY = or.y + or.height / 2
+    const nodeCenterY = nodeRect.y + nodeRect.height / 2;
+    const otherCenterY = or.y + or.height / 2;
     if (Math.abs(nodeCenterY - otherCenterY) < tolerance) {
       return {
         x: nodeRect.x,
@@ -186,11 +190,11 @@ function calculateSnap(
             listening: false,
           },
         ],
-      }
+      };
     }
   }
 
-  return null
+  return null;
 }
 
 // ── Composable ──────────────────────────────────────────────────────
@@ -213,18 +217,18 @@ export function useTableInteraction(
   store: ReturnType<typeof useFloorplanStore>,
 ) {
   // ── Reactive state ─────────────────────────────────────────────────
-  const snapGuides = ref<SnapGuide[]>([])
+  const snapGuides = ref<SnapGuide[]>([]);
 
   // ── Internal helpers ───────────────────────────────────────────────
 
   /** Safely get the underlying Konva.Stage, or null if not yet mounted. */
   function getStage(): Konva.Stage | null {
-    return stageRef.value?.getNode() ?? null
+    return stageRef.value?.getNode() ?? null;
   }
 
   /** Safely get the underlying Konva.Transformer, or null. */
   function getTransformer(): Konva.Transformer | null {
-    return transformerRef.value?.getNode() ?? null
+    return transformerRef.value?.getNode() ?? null;
   }
 
   /** Gather client-rect data for every table EXCEPT the one with `excludeId`. */
@@ -232,27 +236,27 @@ export function useTableInteraction(
     stage: Konva.Stage,
     excludeId: string,
   ): Array<{ rect: RectBounds; id: string }> {
-    const tables: Konva.Rect[] = stage.find('.table') as Konva.Rect[]
+    const tables: Konva.Rect[] = stage.find('.table') as Konva.Rect[];
     return tables
       .filter((n) => n.id() !== excludeId)
-      .map((n) => ({ rect: n.getClientRect(), id: n.id() }))
+      .map((n) => ({ rect: n.getClientRect(), id: n.id() }));
   }
 
   /** Update the transformer to surround the currently selected tables. */
   function syncTransformer() {
-    const stage = getStage()
-    const tr = getTransformer()
-    if (!stage || !tr) return
+    const stage = getStage();
+    const tr = getTransformer();
+    if (!stage || !tr) return;
 
     if (store.selectedTableIds.length === 0) {
-      tr.nodes([])
+      tr.nodes([]);
     } else {
       const selectedNodes = store.selectedTableIds
         .map((id) => stage.findOne(`#${id}`))
-        .filter(Boolean) as Konva.Node[]
-      tr.nodes(selectedNodes)
+        .filter(Boolean) as Konva.Node[];
+      tr.nodes(selectedNodes);
     }
-    tr.getLayer()?.batchDraw()
+    tr.getLayer()?.batchDraw();
   }
 
   // ── Snap-to-edge during drag (dragBoundFunc factory) ───────────────
@@ -268,67 +272,56 @@ export function useTableInteraction(
     table: PlacedTableObject,
   ): (pos: { x: number; y: number }) => { x: number; y: number } {
     return (pos: { x: number; y: number }): { x: number; y: number } => {
-      const stage = getStage()
-      if (!stage) return pos
+      const stage = getStage();
+      if (!stage) return pos;
 
-      const node = stage.findOne(`#${table.id}`)
-      if (!node) return pos
+      const node = stage.findOne(`#${table.id}`);
+      if (!node) return pos;
 
       // Save original layer position so we can restore it after the
       // temporary probe below.
-      const origX = node.x()
-      const origY = node.y()
+      const origX = node.x();
+      const origY = node.y();
 
       // Temporarily move the node to the proposed position so
       // getClientRect() reflects what the user sees.
-      node.x(pos.x)
-      node.y(pos.y)
+      node.x(pos.x);
+      node.y(pos.y);
 
-      const nodeRect = node.getClientRect()
-      const otherRects = getOtherTableRects(stage, table.id)
+      const nodeRect = node.getClientRect();
+      const otherRects = getOtherTableRects(stage, table.id);
 
-      const result = calculateSnap(
-        nodeRect,
-        otherRects,
-        stage.width(),
-        stage.height(),
-      )
+      const result = calculateSnap(nodeRect, otherRects, stage.width(), stage.height());
 
       // Restore original position – the real position will be set by
       // Konva after this function returns.
-      node.x(origX)
-      node.y(origY)
+      node.x(origX);
+      node.y(origY);
 
       if (result) {
-        snapGuides.value = result.guides
+        snapGuides.value = result.guides;
 
         // Convert the screen-coordinate delta back to layer-coordinate
         // delta (accounting for stage pan & scale).
-        const deltaLayerX = screenToLayerX(
-          stage,
-          result.x,
-        ) - screenToLayerX(stage, nodeRect.x)
-        const deltaLayerY = screenToLayerY(
-          stage,
-          result.y,
-        ) - screenToLayerY(stage, nodeRect.y)
+        const deltaLayerX = screenToLayerX(stage, result.x) - screenToLayerX(stage, nodeRect.x);
+        const deltaLayerY = screenToLayerY(stage, result.y) - screenToLayerY(stage, nodeRect.y);
 
-        return { x: pos.x + deltaLayerX, y: pos.y + deltaLayerY }
+        return { x: pos.x + deltaLayerX, y: pos.y + deltaLayerY };
       }
 
-      snapGuides.value = []
-      return pos
-    }
+      snapGuides.value = [];
+      return pos;
+    };
   }
 
   // ── Drag lifecycle ──────────────────────────────────────────────────
 
   /** Push a JSON snapshot for undo before the drag starts. */
   function onTableDragStart(_table: PlacedTableObject) {
-    void _table
-    const stage = getStage()
-    if (stage) store.pushHistory(stage.toJSON())
-    snapGuides.value = []
+    void _table;
+    const stage = getStage();
+    if (stage) store.pushHistory(stage.toJSON());
+    snapGuides.value = [];
   }
 
   /**
@@ -336,13 +329,13 @@ export function useTableInteraction(
    * clear any remaining guide lines.
    */
   function onTableDragEnd(table: PlacedTableObject) {
-    const stage = getStage()
-    if (!stage) return
+    const stage = getStage();
+    if (!stage) return;
 
-    const node = stage.findOne(`#${table.id}`)
-    if (!node) return
+    const node = stage.findOne(`#${table.id}`);
+    if (!node) return;
 
-    const pxPerMm = store.scalePxPerMm
+    const pxPerMm = store.scalePxPerMm;
 
     // The node's position may already have been adjusted by
     // dragBoundFunc.  Compute the centre in mm and save it.
@@ -351,9 +344,9 @@ export function useTableInteraction(
       (node.x() + node.width() / 2) / pxPerMm,
       (node.y() + node.height() / 2) / pxPerMm,
       node.rotation(),
-    )
+    );
 
-    snapGuides.value = []
+    snapGuides.value = [];
   }
 
   // ── Selection (click) ──────────────────────────────────────────────
@@ -367,12 +360,15 @@ export function useTableInteraction(
    * | Ctrl / ⌘     | Toggle this table in the selection                |
    * | Shift        | Add this table to the selection (never remove)    |
    */
-  function onTableClick(table: PlacedTableObject, e: { evt?: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean } }) {
-    const stage = getStage()
-    if (!stage) return
+  function onTableClick(
+    table: PlacedTableObject,
+    e: { evt?: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean } },
+  ) {
+    const stage = getStage();
+    if (!stage) return;
 
-    const ctrl = e.evt?.ctrlKey || e.evt?.metaKey
-    const shift = e.evt?.shiftKey
+    const ctrl = e.evt?.ctrlKey || e.evt?.metaKey;
+    const shift = e.evt?.shiftKey;
 
     if (shift) {
       // Shift+click: always add (range-select helper).
@@ -380,13 +376,13 @@ export function useTableInteraction(
       // NOT to be in the selection (we checked above), the toggle will
       // unconditionally add it.
       if (!store.selectedTableIds.includes(table.id)) {
-        store.selectTable(table.id, true)
+        store.selectTable(table.id, true);
       }
     } else {
-      store.selectTable(table.id, !!ctrl)
+      store.selectTable(table.id, !!ctrl);
     }
 
-    syncTransformer()
+    syncTransformer();
   }
 
   // ── Stage click (clear selection) ──────────────────────────────────
@@ -394,10 +390,10 @@ export function useTableInteraction(
   /** Clicking on empty canvas space clears the selection. */
   function onStageMouseDown(e: { target: { getStage(): unknown } }) {
     if (e.target === e.target.getStage()) {
-      store.clearSelection()
-      const tr = getTransformer()
-      if (tr) tr.nodes([])
-      snapGuides.value = []
+      store.clearSelection();
+      const tr = getTransformer();
+      if (tr) tr.nodes([]);
+      snapGuides.value = [];
     }
   }
 
@@ -405,17 +401,17 @@ export function useTableInteraction(
 
   /** Remove every currently selected table from the store. */
   function deleteSelected() {
-    if (store.selectedTableIds.length === 0) return
+    if (store.selectedTableIds.length === 0) return;
 
-    const tr = getTransformer()
+    const tr = getTransformer();
 
     for (const id of store.selectedTableIds) {
-      store.removePlacedTable(id)
+      store.removePlacedTable(id);
     }
-    store.clearSelection()
+    store.clearSelection();
 
-    if (tr) tr.nodes([])
-    snapGuides.value = []
+    if (tr) tr.nodes([]);
+    snapGuides.value = [];
   }
 
   // ── Add table ──────────────────────────────────────────────────────
@@ -431,29 +427,29 @@ export function useTableInteraction(
    * type.
    */
   function addTableAtPosition(pos?: { x: number; y: number }) {
-    const stage = getStage()
-    if (!stage) return
+    const stage = getStage();
+    if (!stage) return;
 
-    const tableType = store.tableTypes[0]
-    if (!tableType) return
+    const tableType = store.tableTypes[0];
+    if (!tableType) return;
 
     // Determine the layer (floorplan) coordinates for the centre
-    let layerX: number
-    let layerY: number
+    let layerX: number;
+    let layerY: number;
 
     if (pos) {
       // Convert the caller-provided stage-container coordinates
-      layerX = screenToLayerX(stage, pos.x)
-      layerY = screenToLayerY(stage, pos.y)
+      layerX = screenToLayerX(stage, pos.x);
+      layerY = screenToLayerY(stage, pos.y);
     } else {
       // Default: centre of the current viewport
-      layerX = screenToLayerX(stage, stage.width() / 2)
-      layerY = screenToLayerY(stage, stage.height() / 2)
+      layerX = screenToLayerX(stage, stage.width() / 2);
+      layerY = screenToLayerY(stage, stage.height() / 2);
     }
 
     // Convert layer px → floorplan mm
-    const mmX = layerX / store.scalePxPerMm
-    const mmY = layerY / store.scalePxPerMm
+    const mmX = layerX / store.scalePxPerMm;
+    const mmY = layerY / store.scalePxPerMm;
 
     const newTable: PlacedTableObject = {
       id: crypto.randomUUID(),
@@ -463,9 +459,9 @@ export function useTableInteraction(
       rotation: 0,
       widthMm: tableType.widthMm,
       heightMm: tableType.heightMm,
-    }
+    };
 
-    store.addPlacedTable(newTable)
+    store.addPlacedTable(newTable);
   }
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────
@@ -474,23 +470,23 @@ export function useTableInteraction(
     // Delete / Backspace → remove selected tables
     if (e.key === 'Delete' || e.key === 'Backspace') {
       // Don't swallow Backspace when the user is typing in an input
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
       if (store.selectedTableIds.length > 0) {
-        e.preventDefault()
-        deleteSelected()
+        e.preventDefault();
+        deleteSelected();
       }
     }
   }
 
   onMounted(() => {
-    window.addEventListener('keydown', handleKeyDown)
-  })
+    window.addEventListener('keydown', handleKeyDown);
+  });
 
   onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyDown)
-  })
+    window.removeEventListener('keydown', handleKeyDown);
+  });
 
   // ── Public API ──────────────────────────────────────────────────────
 
@@ -515,5 +511,5 @@ export function useTableInteraction(
     onStageMouseDown,
     /** Keyboard handler (Delete/Backspace); wired automatically via onMounted. */
     handleKeyDown,
-  }
+  };
 }
