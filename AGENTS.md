@@ -322,6 +322,23 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   no site key and no hatch, and `npm run build` throws. Both templates ship the shape that works as
   it stands; `docs/STARTUP.md` names both copies.
 
+## No-mistakes Gate
+
+- `.no-mistakes.yaml` at the repo root configures the no-mistakes CI gate.
+  `allow_repo_commands: true` is the only safe setting (without it the gate has
+  no way to run the test suite), but it is **only trusted from the `dev` branch**:
+  the gate reads the config from the base branch's commit, so a pushed branch
+  cannot self-enable arbitrary commands.
+- `scripts/nm-test.sh` is the committed test runner the gate invokes. It runs the
+  full suite (backend pytest, frontend vitest, Playwright E2E) with an isolated
+  Docker stack (unique `COMPOSE_PROJECT_NAME` + bind-to-port-0 free ports), and
+  guarantees teardown via an `EXIT` trap.
+- Both `scripts/th-compose.sh` and `scripts/seed_fixture.sh` resolve their stack
+  identity in this priority order: 1) explicit env vars (`COMPOSE_PROJECT_NAME` +
+  `TH_BACKEND_PORT` etc.), 2) treehouse slot from path, 3) primary defaults (or
+  fail loud for `th-compose.sh`). This makes them work from a no-mistakes worktree
+  (which has no treehouse slot) without falling through to the primary stack.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.

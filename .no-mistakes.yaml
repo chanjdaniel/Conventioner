@@ -1,0 +1,3 @@
+allow_repo_commands: true
+commands:
+  test: ./scripts/nm-test.sh

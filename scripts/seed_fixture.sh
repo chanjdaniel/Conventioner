@@ -14,17 +14,25 @@ NO_ORG_PASSWORD="${NO_ORG_PASSWORD:-e2enoorg123}"
 CSV_FILE="${FIXTURES_DIR}/vendors.csv"
 
 # ── Detect worktree vs primary checkout ──
-SLOT="$(printf '%s' "$PROJECT_DIR" | sed -nE 's#.*/\.treehouse/[^/]+/([0-9]+)/.*#\1#p')"
-if [[ "$SLOT" =~ ^[0-9]+$ ]] && [ -x "$PROJECT_DIR/scripts/th-compose.sh" ]; then
+# Resolution order: 1) explicit env  2) treehouse slot  3) primary defaults
+if [ -n "${COMPOSE_PROJECT_NAME:-}" ] && [ -n "${TH_BACKEND_PORT:-}" ] && [ -n "${TH_FRONTEND_PORT:-}" ]; then
   DOCKER_CMD=("$PROJECT_DIR/scripts/th-compose.sh")
-  BACKEND_PORT=$((5000 + SLOT * 10))
-  FRONTEND_PORT=$((5173 + SLOT * 10))
-  echo "Worktree slot: $SLOT (ports: backend=$BACKEND_PORT, frontend=$FRONTEND_PORT)"
+  BACKEND_PORT="$TH_BACKEND_PORT"
+  FRONTEND_PORT="$TH_FRONTEND_PORT"
+  echo "Explicit stack identity: project=$COMPOSE_PROJECT_NAME (ports: backend=$BACKEND_PORT, frontend=$FRONTEND_PORT)"
 else
-  DOCKER_CMD=(docker compose)
-  BACKEND_PORT=5000
-  FRONTEND_PORT=5173
-  echo "Primary checkout (default ports)"
+  SLOT="$(printf '%s' "$PROJECT_DIR" | sed -nE 's#.*/\.treehouse/[^/]+/([0-9]+)/.*#\1#p')"
+  if [[ "$SLOT" =~ ^[0-9]+$ ]] && [ -x "$PROJECT_DIR/scripts/th-compose.sh" ]; then
+    DOCKER_CMD=("$PROJECT_DIR/scripts/th-compose.sh")
+    BACKEND_PORT=$((5000 + SLOT * 10))
+    FRONTEND_PORT=$((5173 + SLOT * 10))
+    echo "Worktree slot: $SLOT (ports: backend=$BACKEND_PORT, frontend=$FRONTEND_PORT)"
+  else
+    DOCKER_CMD=(docker compose)
+    BACKEND_PORT=5000
+    FRONTEND_PORT=5173
+    echo "Primary checkout (default ports)"
+  fi
 fi
 
 BACKEND_URL="https://localhost:${BACKEND_PORT}"
@@ -50,7 +58,7 @@ fi
 
 # Wait for backend to accept connections
 echo "  Waiting for backend..."
-for i in $(seq 1 30); do
+for _ in $(seq 1 30); do
   if curl -k -s -o /dev/null -w '%{http_code}' "$BACKEND_URL/" 2>/dev/null | grep -qE '^(200|404|401)'; then
     echo "  Backend ready."
     break

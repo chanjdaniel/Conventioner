@@ -41,8 +41,9 @@ Slot = the pool index `N` in `~/.treehouse/<pool>/<N>/Conventioner`; offset = `N
 | mongo-express | 8081                    | 8091   | 8101   |
 
 The **primary checkout** uses plain `docker compose` (default ports, container
-names `conventioner-*-1`, auto-named by Compose). `th-compose.sh` is for worktrees only and refuses to run
-elsewhere.
+names `conventioner-*-1`, auto-named by Compose). `th-compose.sh` also supports
+an explicit stack identity via `COMPOSE_PROJECT_NAME` + `TH_*` port variables
+(used by `scripts/nm-test.sh` for the no-mistakes gate).
 
 ## Housekeeping
 
