@@ -1,9 +1,9 @@
-import { createRouter, createWebHistory } from 'vue-router';
-import InitView from '@/views/InitView.vue';
-import LoginView from '@/views/LoginView.vue';
-import EmailVerificationView from '@/views/EmailVerificationView.vue';
-import PasswordResetRequestView from '@/views/PasswordResetRequestView.vue';
-import PasswordResetView from '@/views/PasswordResetView.vue';
+import { createRouter, createWebHistory } from 'vue-router'
+import InitView from '@/views/InitView.vue'
+import LoginView from '@/views/LoginView.vue'
+import EmailVerificationView from '@/views/EmailVerificationView.vue'
+import PasswordResetRequestView from '@/views/PasswordResetRequestView.vue'
+import PasswordResetView from '@/views/PasswordResetView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -92,48 +92,66 @@ const router = createRouter({
       path: '/:marketSlug/check-in',
       name: 'attendance-checkin',
       component: () => import('@/views/AttendanceCheckinView.vue'),
+      meta: { public: true },
     },
     {
       path: '/:marketSlug',
       name: 'market-home',
       component: () => import('@/views/MarketHomeView.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/:marketSlug/apply',
+      name: 'apply',
+      component: () => import('@/views/ApplicationPage.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/:marketSlug/applicant-login',
+      name: 'applicant-login',
+      component: () => import('@/views/ApplicantLogin.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/:marketSlug/applicant/dashboard',
+      name: 'applicant-dashboard',
+      component: () => import('@/views/ApplicantDashboard.vue'),
+      meta: { public: true },
     },
   ],
 })
 
-router.beforeEach((to, from, next) => {
-  const publicPages = ["/login", "/register", "/verify-email", "/reset-password-request", "/reset-password"];
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+router.beforeEach((to, _from, next) => {
+  const publicPages = [
+    '/login',
+    '/register',
+    '/verify-email',
+    '/reset-password-request',
+    '/reset-password',
+  ]
+  const user = JSON.parse(localStorage.getItem('user') || 'null')
 
   if (publicPages.includes(to.path)) {
-    next();
-    return;
+    next()
+    return
   }
 
-  if (to.path.endsWith('/check-in')) {
-    next();
-    return;
+  if (to.matched.some((record) => record.meta.public === true)) {
+    next()
+    return
   }
-  
+
   if (!user) {
-    next("/login");
-    return;
+    next('/login')
+    return
   }
 
-  if (user && to.path === "/login") {
-    next("/dashboard");
-    return;
+  if (user && to.path === '/login') {
+    next('/dashboard')
+    return
   }
 
-  next();
-
-  // if (!user && !publicPages.includes(to.path)) {
-  //   next("/login");
-  // } else if (user && to.path === "/login") {
-  //   next("/init");
-  // } else {
-  //   next();
-  // }
-});
+  next()
+})
 
 export default router

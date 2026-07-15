@@ -208,7 +208,8 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
 - **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `NewMarketPage`,
   `MarketSetupPage`, `AssignmentResultsPage`, `CheckinPage`, `VendorsPage`,
   `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, `ManageMarketPage`,
-  `PasswordResetPage`, `ApplicationFormPage`, and `FloorplanWorkflowPage` each wrap
+  `PasswordResetPage`, `ApplicationFormPage`, `FloorplanWorkflowPage`,
+  `ApplicantLoginPage`, `ApplicantDashboardPage`, and `ApplyPage` each wrap
   `getByTestId()` selectors and expose action methods. New page objects should follow
   these patterns.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
@@ -246,18 +247,31 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     via `GET /markets/{id}/assignment` and stores it back via PUT so the
     check-in API and vendor/table views have persisted assignments.
     Returns the seed plus the market's URL `slug`.
-  - `seedApplication()` (`front-end/e2e/helpers/seedApplication.ts`) is one of three
+  - `seedApplicantMarket()` (`front-end/e2e/helpers/seedApplicantMarket.ts`) creates a
+    published market in `applications_open` phase with an application form, ready for the
+    applicant login flow. Returns the market's id, name, slug, and organization id.
+    Requires an authenticated API request context and a verified test user (see
+    `scripts/seed_fixture.sh`). The helper also provides `seedApplicationDoc()` (wraps
+    `seedApplication`) and `createApplicantLoginChallenge()` - see the direct-to-Mongo
+    items below for these.
+  - `seedApplication()` (`front-end/e2e/helpers/seedApplication.ts`) is one of several
     exceptions to API-level seeding: it inserts an application document straight into
     Mongo via `mongosh` (`E2E_MONGO_CONTAINER` overrides the container name, as in
     `auth.spec.ts`). There is no applicant-facing submit endpoint yet, so writing the
     document the way that endpoint eventually will - snake_case, keyed by `market_id` -
     is the only way to reach the D9-locked state.
-  - `helpers/legacyMarketDoc.ts` is the second: `makeLegacyPublishedMarket()` rewrites a
+  - `createApplicantLoginChallenge()` (`front-end/e2e/helpers/seedApplicantMarket.ts`)
+    inserts a login challenge into `applicant_login_challenges` with a known plaintext
+    code. The 5d back end hashes codes on generation (salted SHA-256), so the test cannot
+    read a code out of MongoDB after requesting one. This helper inserts a challenge
+    directly with the correct hash, letting the test verify the full end-to-end login flow.
+    Like `seedApplication()`, it writes straight into Mongo via `mongosh`.
+  - `helpers/legacyMarketDoc.ts`: `makeLegacyPublishedMarket()` rewrites a
     market into the shape the pre-`phase` build stored for a published one, and
     `runIsDraftConsistencyMigration()` runs the real migration script inside the back-end
     container (`E2E_BACKEND_CONTAINER` overrides that container name). Both reach past the
     API on purpose - no endpoint can produce or repair that document shape.
-  - `ensureVerifiedUser()` (`front-end/e2e/helpers/verifiedUser.ts`) is the third: a spec
+  - `ensureVerifiedUser()` (`front-end/e2e/helpers/verifiedUser.ts`): a spec
     that needs users beyond the two `scripts/seed_fixture.sh` creates (as
     `access-control.spec.ts` does) calls it in `beforeAll` to create one idempotently. It
     runs `back-end/create_test_user.py` inside the back-end container

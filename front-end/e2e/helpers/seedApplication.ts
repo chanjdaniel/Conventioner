@@ -14,18 +14,21 @@ import { mongoContainer } from './containerNames';
  * Runs `mongosh` inside the stack's Mongo container, which the e2e suite already assumes
  * is running (`auth.spec.ts` reads reset tokens the same way).
  */
-export function seedApplication(marketId: string, applicantEmail = 'applicant@example.com'): string {
+export function seedApplication(
+  marketId: string,
+  applicantEmail = 'applicant@example.com',
+  formData: Record<string, unknown> = { business_name: 'Sample Applicant' },
+): string {
   const applicationId = randomUUID();
   const application = {
     id: applicationId,
     market_id: marketId,
     applicant_email: applicantEmail,
-    form_data: { business_name: 'Sample Applicant' },
+    form_data: formData,
     status: 'open',
     application_type: 'main',
     submitted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    otp_attempts: 0,
   };
 
   execFileSync(
