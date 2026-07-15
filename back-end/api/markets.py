@@ -699,10 +699,8 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
             assigned_market_dict = assigned_market.model_dump()
 
             assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)
-            if market_dict.get('organization_id'):
-                org = OrgsApi.get_organization(market_dict['organization_id'])
-                if org:
-                    assigned_market_dict['organizationName'] = org.get('name')
+            if context.organization_dict:
+                assigned_market_dict['organizationName'] = context.organization_dict.get('name')
             return assigned_market_dict, 200
 
         except Exception as validation_error:
