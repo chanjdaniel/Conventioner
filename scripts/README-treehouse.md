@@ -41,7 +41,7 @@ Slot = the pool index `N` in `~/.treehouse/<pool>/<N>/Conventioner`; offset = `N
 | mongo-express | 8081                    | 8091   | 8101   |
 
 The **primary checkout** uses plain `docker compose` (default ports, container
-names `conventioner_*`). `th-compose.sh` is for worktrees only and refuses to run
+names `conventioner-*-1`, auto-named by Compose). `th-compose.sh` is for worktrees only and refuses to run
 elsewhere.
 
 ## Housekeeping
@@ -59,12 +59,17 @@ elsewhere.
 
 ### Kill lingering worktree stacks
 
-Worktree containers are named `conventioner-<slot>-*` (dash); the primary checkout
-uses `conventioner_*` (underscore), so this prefix filter never touches it:
+Worktree containers are named `conventioner-<slot>-*` (dash, with explicit
+`container_name` in `docker-compose.worktree.yml`); the primary checkout
+containers are auto-named `conventioner-*-1`. Filter on the numeric slot prefix
+to avoid touching the primary stack:
 
 ```sh
-# Remove every lingering per-worktree container (leaves the primary checkout alone):
-docker ps -aq --filter name=conventioner- | xargs -r docker rm -f
+# Remove every lingering per-worktree container (leaves the primary checkout alone).
+# Matches container names starting with conventioner-<digit> (slot-based worktrees)
+# and conventioner-nm (no-mistakes worktrees), excluding -1 suffixed primary containers.
+docker ps -a --filter name=conventioner- --format '{{.ID}}\t{{.Names}}' \
+  | awk '!/\t.*-1$/' | cut -f1 | xargs -r docker rm -f
 ```
 
 ## Notes / gotchas

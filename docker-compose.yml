@@ -1,7 +1,6 @@
 services:
   mongodb:
     image: mongo:7
-    container_name: conventioner_mongodb
     restart: unless-stopped
     command: ["mongod", "--quiet", "--logpath", "/var/log/mongodb/mongod.log"]
     environment:
@@ -24,7 +23,6 @@ services:
     build:
       context: ./back-end
       dockerfile: Dockerfile
-    container_name: conventioner_backend
     restart: unless-stopped
     environment:
       - FLASK_APP=app.py
@@ -84,7 +82,6 @@ services:
     build:
       context: ./front-end
       dockerfile: Dockerfile
-    container_name: conventioner_frontend
     restart: unless-stopped
     environment:
       - VITE_FLASK_HOST=/api
@@ -106,7 +103,6 @@ services:
 
   mongo-express:
     image: mongo-express:latest
-    container_name: conventioner_mongo_express
     restart: unless-stopped
     ports:
       - "8081:8081"
