@@ -197,6 +197,7 @@ def _application_doc(market_id="test-market-1",
                      email="applicant@example.com"):
     """A minimal application document for checking known addresses."""
     return {
+        "id": "app-test-1",
         "market_id": market_id,
         "applicant_email": email,
         "application_type": "main",
@@ -218,10 +219,10 @@ def test_db():
 def applicant_auth_module(test_db, monkeypatch):
     """Import applicant_auth with our fake database installed."""
     import api.applicant_auth as mod
-    # Replace the module's `db` with our test database
+    import api.applications as ApplicationsApi
     monkeypatch.setattr(mod, "db", test_db)
     monkeypatch.setattr(mod, "challenges_collection", test_db["applicant_login_challenges"])
-    # Disable email sending
+    monkeypatch.setattr(ApplicationsApi, "applications_collection", test_db["applications"])
     monkeypatch.setattr(mod, "_send_code_email", lambda *a, **kw: True)
     return mod
 
@@ -719,11 +720,11 @@ class TestSuccessfulVerification:
         body, status = result
 
         assert status == 200
-        assert body.get_json() == {
-            "success": True,
-            "marketId": "test-market-1",
-            "applicantEmail": "applicant@example.com",
-        }
+        body_json = body.get_json()
+        assert body_json["success"] is True
+        assert body_json["marketId"] == "test-market-1"
+        assert body_json["applicantEmail"] == "applicant@example.com"
+        assert "token" in body_json  # JWT for subsequent API calls
 
 
 # ── Edge cases ───────────────────────────────────────────────────────

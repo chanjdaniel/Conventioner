@@ -259,6 +259,7 @@ class Market(BaseModel):
     phase: MarketPhase = MarketPhase.DRAFT  # Market lifecycle phase (single source of truth)
     application_form: Optional["ApplicationForm"] = None  # Application form definition
     review_config: Optional[Dict[str, Any]] = None  # Review configuration (reviewer pool, etc.)
+    results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
     discord_guild_id: Optional[str] = None  # Per-market Discord guild reference (D4 integration seam)
     discord_webhook_url: Optional[str] = None  # Per-market Discord webhook target for assignment notifications
 

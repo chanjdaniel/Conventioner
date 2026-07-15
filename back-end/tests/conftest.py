@@ -304,6 +304,25 @@ def client_market(**overrides) -> Market:
     return Market(**kwargs)
 
 
+class _SortableCursor:
+    """A list that exposes .sort() returning self, so a fake ``find`` can chain sort/limit."""
+
+    def __init__(self, results):
+        self._results = results
+
+    def sort(self, _key, _direction=None):
+        return self
+
+    def limit(self, _n):
+        return self
+
+    def __iter__(self):
+        return iter(self._results)
+
+    def __bool__(self):
+        return bool(self._results)
+
+
 class FakeApplicationsCollection:
     """Stand-in for the applications collection the D9 form lock counts.
 
@@ -337,6 +356,13 @@ class FakeApplicationsCollection:
     def find_one(self, query):
         doc = self._find(query)
         return dict(doc) if doc else None
+
+    def find(self, query, projection=None):
+        results = []
+        for doc in self.documents:
+            if self._matches(doc, query):
+                results.append(dict(doc))
+        return _SortableCursor(results)
 
     def insert_one(self, document):
         self.documents.append(document)

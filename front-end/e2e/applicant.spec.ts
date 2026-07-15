@@ -202,6 +202,7 @@ test.describe('Public applicant login — anti-oracle', () => {
 
     // Seed a challenge with a known code so the test can verify end-to-end
     // without reading a hashed code out of the database.
+    seedApplicationDoc(market.marketId, APPLICANT_EMAIL);
     createApplicantLoginChallenge(market.marketId, APPLICANT_EMAIL, knownCode);
 
     // Intercept the request-code API call. The real backend call would

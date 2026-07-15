@@ -16,11 +16,12 @@ import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
+import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 
 const router = useRouter();
 
 const showPathChoice = ref(false);
-const activeTab = ref<'form' | 'setup'>('setup');
+const activeTab = ref<'form' | 'setup' | 'applications'>('setup');
 
 const market = ref<Market | null>(null);
 const applicationForm = ref<ApplicationForm | null>(null);
@@ -374,6 +375,13 @@ watch(pageIdx, (newIdx) => {
                         >
                             Market Setup
                         </button>
+                        <button
+                            :class="['tab-button', { active: activeTab === 'applications' }]"
+                            @click="activeTab = 'applications'"
+                            data-testid="market-setup-applications-tab"
+                        >
+                            Applications
+                        </button>
                     </div>
                 </div>
 
@@ -597,6 +605,14 @@ watch(pageIdx, (newIdx) => {
                     </button>
                     <button v-else class="done-button" @click="handleNext" data-testid="market-setup-next-button">Next</button>
                 </div>
+            </div>
+
+            <!-- Applications Tab -->
+            <div v-if="activeTab === 'applications'" class="settings-body">
+                <ApplicationMonitor
+                    :market="market"
+                    :visible="activeTab === 'applications'"
+                />
             </div>
         </div>
     </div>

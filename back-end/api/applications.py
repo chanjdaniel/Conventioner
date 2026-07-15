@@ -13,12 +13,12 @@ Identity contract: (``market_id``, ``applicant_email``, ``application_type``) id
 application, and the database is what enforces that -- see ``ensure_application_indexes``.
 """
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
-from datatypes import Application
+from datatypes import Application, ApplicationStatus, ApplicationType
 from db_config import get_database
 
 logger = logging.getLogger(__name__)
@@ -152,3 +152,62 @@ def find_or_create_application(app: Application) -> Application:
         f"Could not store the application for {app.applicant_email}: a concurrent write for the "
         f"same applicant keeps winning, and no document for them can be read back."
     )
+
+
+def list_applications_for_market(market_id: str) -> List[Dict[str, Any]]:
+    """Return every application belonging to one market, newest first."""
+    ensure_application_indexes()
+    cursor = applications_collection.find(market_filter(market_id)).sort(
+        "submitted_at", -1
+    )
+    apps = []
+    for doc in cursor:
+        doc.pop("_id", None)
+        apps.append(doc)
+    return apps
+
+
+def find_application_by_id(app_id: str) -> Optional[Dict[str, Any]]:
+    """Find one application by its ``id`` field."""
+    ensure_application_indexes()
+    doc = applications_collection.find_one({"id": app_id})
+    if doc:
+        doc.pop("_id", None)
+    return doc
+
+
+def find_application_by_email(market_id: str, email: str) -> Optional[Dict[str, Any]]:
+    """Find one application by its market + email identity."""
+    ensure_application_indexes()
+    doc = applications_collection.find_one(
+        applicant_filter(market_id, email, ApplicationType.MAIN.value)
+    )
+    if doc:
+        doc.pop("_id", None)
+    return doc
+
+
+def update_application_status(app_id: str, status: ApplicationStatus) -> bool:
+    """Set a new status on an application. Returns whether any document was matched."""
+    ensure_application_indexes()
+    result = applications_collection.update_one(
+        {"id": app_id},
+        {"$set": {"status": status.value}},
+    )
+    return result.matched_count > 0
+
+
+def update_application_form_data(
+    app_id: str, form_data: Dict[str, Any], submitted_at: str, updated_at: str,
+) -> bool:
+    """Write form answers and timestamps for an application."""
+    ensure_application_indexes()
+    result = applications_collection.update_one(
+        {"id": app_id},
+        {"$set": {
+            "form_data": form_data,
+            "submitted_at": submitted_at,
+            "updated_at": updated_at,
+        }},
+    )
+    return result.matched_count > 0

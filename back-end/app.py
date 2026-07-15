@@ -13,6 +13,7 @@ import api.source_data as SourceDataApi
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
+import api.applicants as ApplicantsApi
 import api.permissions as PermissionsApi
 from api.floorplans import floorplans_bp
 from api.floorplans_placement import floorplans_placement_bp
@@ -1300,6 +1301,167 @@ def applicant_login_verify_code(market_slug: str) -> Response:
         return result, status_code
     except Exception as e:
         logger.error("Error in applicant_login_verify_code %s: %s", market_slug, e)
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# applicant application endpoints - public, JWT-authenticated
+
+
+@app.route('/public/markets/<market_slug>/application-form', methods=['GET'])
+def public_get_application_form(market_slug: str) -> Response:
+    """Public: return the market's application form. No authentication required."""
+    try:
+        result, status_code = ApplicantsApi.get_public_application_form(market_slug)
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in public_get_application_form {market_slug}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/public/markets/<market_slug>/applicant/application', methods=['GET'])
+def public_get_applicant_application(market_slug: str) -> Response:
+    """Return the authenticated applicant's application. Bearer token required."""
+    try:
+        token_payload = ApplicantsApi.authenticate_request(
+            request.headers.get('Authorization')
+        )
+        if not token_payload:
+            return jsonify({"error": "Authentication required. Your session may have expired. "
+                                     "Please sign in again."}), 401
+
+        result, status_code = ApplicantsApi.get_applicant_application(
+            market_slug, token_payload,
+        )
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in public_get_applicant_application {market_slug}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/public/markets/<market_slug>/applicant/application', methods=['PUT'])
+def public_save_applicant_application(market_slug: str) -> Response:
+    """Save or update the authenticated applicant's application. Bearer token required."""
+    try:
+        token_payload = ApplicantsApi.authenticate_request(
+            request.headers.get('Authorization')
+        )
+        if not token_payload:
+            return jsonify({"error": "Authentication required. Your session may have expired. "
+                                     "Please sign in again."}), 401
+
+        data = request.json or {}
+        form_data = data.get('formData') or data.get('form_data') or {}
+        result, status_code = ApplicantsApi.save_applicant_application(
+            market_slug, token_payload, form_data,
+        )
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in public_save_applicant_application {market_slug}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+# organizer application monitoring and review endpoints
+
+
+@app.route('/markets/<market_id>/applications', methods=['GET'])
+@login_required
+def list_market_applications(market_id: str) -> Response:
+    """List all applications for a market. Requires VIEWER+ permission."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        context = MarketsApi.load_market_context(market_id)
+        if context is None:
+            return jsonify({"error": "Market not found"}), 404
+        if context.market is None:
+            return jsonify({"error": "Invalid market data"}), 400
+
+        if not PermissionsApi.user_has_permission(
+            requesting_user, context.market, MarketRole.VIEWER, context.organization
+        ):
+            return jsonify({"error": "User does not have permission to view this market"}), 403
+
+        result, status_code = ApplicantsApi.list_market_applications(market_id)
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in list_market_applications {market_id}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/applications/<application_id>/review', methods=['PUT'])
+@login_required
+def review_application(market_id: str, application_id: str) -> Response:
+    """Record a review verdict (approved/rejected) on an application. Requires ADMIN+."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        context = MarketsApi.load_market_context(market_id)
+        if context is None:
+            return jsonify({"error": "Market not found"}), 404
+        if context.market is None:
+            return jsonify({"error": "Invalid market data"}), 400
+
+        if not PermissionsApi.user_has_permission(
+            requesting_user, context.market, MarketRole.ADMIN, context.organization
+        ):
+            return jsonify({"error": "User does not have permission to review applications"}), 403
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "No data provided"}), 400
+
+        status_raw = data.get('status') or data.get('statusRaw')
+        if not status_raw:
+            return jsonify({"error": "status is required"}), 400
+
+        try:
+            new_status = ApplicationStatus(status_raw)
+        except ValueError:
+            return jsonify({"error": f"Invalid status: {status_raw}"}), 400
+
+        result, status_code = ApplicantsApi.review_application(
+            market_id, application_id, new_status,
+        )
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in review_application {market_id}/{application_id}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/publish-results', methods=['POST'])
+@login_required
+def publish_market_results(market_id: str) -> Response:
+    """Publish review results, making verdicts visible to applicants. Requires ADMIN+."""
+    try:
+        requesting_user = request.headers.get('X-Owner-Email')
+        if not requesting_user:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        context = MarketsApi.load_market_context(market_id)
+        if context is None:
+            return jsonify({"error": "Market not found"}), 404
+        if context.market is None:
+            return jsonify({"error": "Invalid market data"}), 400
+
+        if not PermissionsApi.user_has_permission(
+            requesting_user, context.market, MarketRole.ADMIN, context.organization
+        ):
+            return jsonify({"error": "User does not have permission to publish results"}), 403
+
+        result, status_code = ApplicantsApi.publish_results(market_id)
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in publish_market_results {market_id}: {e}")
         logger.error(traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
 

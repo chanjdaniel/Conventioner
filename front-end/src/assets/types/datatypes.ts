@@ -153,6 +153,7 @@ export interface Market {
     assignmentObject: AssignmentObject,
     applicationForm?: ApplicationForm,
     reviewConfig?: Record<string, unknown>,
+    resultsPublished?: boolean,
     discordGuildId?: string,
     userRole?: MarketRole,  // User's effective role (added by API)
     /** Per-market Discord webhook URL; omitted/blank disables Discord notifications. */

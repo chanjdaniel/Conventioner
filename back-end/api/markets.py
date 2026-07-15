@@ -255,6 +255,8 @@ def _preserve_server_owned_fields(
     market_dict["phase"] = existing_market.phase.value
     market_dict["is_draft"] = existing_market.is_draft
     market_dict["application_form"] = _application_form_dump(existing_market)
+    # results_published is a server-owned gate: only the publish-results endpoint flips it.
+    market_dict["results_published"] = existing_market.results_published
     for field in ("review_config", "discord_guild_id"):
         if field in market.model_fields_set:
             continue
