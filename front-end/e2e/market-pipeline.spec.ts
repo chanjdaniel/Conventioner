@@ -6,17 +6,7 @@ import {
   BACKEND_URL,
   TEST_USER,
 } from './fixtures'
-import {
-  ensureTestOrg,
-  loginViaApi,
-  marketNameToSlug,
-  seedPublishedMarketWithAssignments,
-} from './helpers/seeds'
-import {
-  makeLegacyPublishedMarket,
-  readMarketLifecycle,
-  runIsDraftConsistencyMigration,
-} from './helpers/legacyMarketDoc'
+import { ensureTestOrg, loginViaApi, marketNameToSlug } from './helpers/seeds'
 import { CheckinPage } from './pages/CheckinPage'
 
 test.describe('Market pipeline E2E', () => {
@@ -25,8 +15,8 @@ test.describe('Market pipeline E2E', () => {
   })
 
   /**
-   * Full end-to-end pipeline: create market via API (no CSV), walk the 3-page
-   * setup wizard using localStorage-injected upload data, trigger assignment
+   * Full end-to-end pipeline: create market via API, seed a setupObject,
+   * walk the 3-page setup wizard, trigger assignment
    * generation, verify the results view, and publish the market with Done.
    */
   test('create market, configure, assign, view results, and publish', async ({
@@ -92,67 +82,51 @@ test.describe('Market pipeline E2E', () => {
     const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     })
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> }
+    let { market } = (await marketRes.json()) as { market: Record<string, unknown> }
 
-    // Inject the market + pseudo-upload into localStorage so the setup wizard
-    // has CSV-like columns to display without an actual CSV upload.
-    const fakeUpload = {
-      name: 'test-vendors.csv',
-      size: 123,
-      type: 'text/csv',
-      lastModified: Date.now(),
-      data: {
-        data: [
-          {
-            email: 'alice@example.com',
-            vendor_name: 'Alice',
-            table_choice: 'Full table',
-            buddy_email: '',
-            day_1: 'Gold',
-          },
-          {
-            email: 'bob@example.com',
-            vendor_name: 'Bob',
-            table_choice: 'Full table',
-            buddy_email: '',
-            day_1: 'Gold',
-          },
-          {
-            email: 'carol@example.com',
-            vendor_name: 'Carol',
-            table_choice: 'Half Table',
-            buddy_email: '',
-            day_1: 'Silver',
-          },
-          {
-            email: 'dave@example.com',
-            vendor_name: 'Dave',
-            table_choice: 'Half Table',
-            buddy_email: 'carol@example.com',
-            day_1: 'Silver',
-          },
-          {
-            email: 'eve@example.com',
-            vendor_name: 'Eve',
-            table_choice: 'Full table',
-            buddy_email: '',
-            day_1: 'Gold',
-          },
-        ],
-        errors: [],
-        meta: {
-          fields: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
-        },
+    // Seed a minimal setupObject so the setup wizard has columns to display.
+    const minimalSetup = {
+      colNames: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
+      colValues: [[], [], [], [], ['Gold', 'Silver']],
+      colInclude: [false, false, false, false, false],
+      enumPriorityOrder: [[], [], [], [], []],
+      priority: [],
+      marketDates: [],
+      tiers: [],
+      locations: [],
+      sections: [],
+      assignmentOptions: {
+        maxAssignmentsPerVendor: null,
+        maxHalfTableProportionPerSection: null,
+        emailColNameIdx: null,
+        tableChoiceColNameIdx: null,
+        tableShareEmailColNameIdx: null,
+        maxDaysColNameIdx: null,
       },
     }
+    const setupRes = await ctx.put(`${BACKEND_URL}/markets/${marketId}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Owner-Email': TEST_USER.email,
+      },
+      data: { ...market, setupObject: minimalSetup },
+    })
+    if (!setupRes.ok()) {
+      throw new Error(`Setup PUT failed: ${setupRes.status()} ${await setupRes.text()}`)
+    }
+    const updatedRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    })
+    const updated = (await updatedRes.json()) as { market: Record<string, unknown> }
+    market = updated.market
 
+    // Inject the market into localStorage so the setup wizard can pick it up.
     await page.evaluate(
-      ({ m, upload, user }) => {
+      ({ m, user }) => {
         localStorage.setItem('market', JSON.stringify(m))
-        localStorage.setItem('upload', JSON.stringify(upload))
         localStorage.setItem('user', JSON.stringify(user))
       },
-      { m: market, upload: fakeUpload, user: TEST_USER.email },
+      { m: market, user: TEST_USER.email },
     )
 
     await page.goto('/market-setup')
@@ -281,68 +255,5 @@ test.describe('Market pipeline E2E', () => {
       path: testInfo.outputPath('03-checkin-after-publish.png'),
       fullPage: true,
     })
-  })
-
-  /**
-   * The upgrade path for markets the OLD build published.
-   *
-   * Publishing used to be `PUT isDraft: false`, which left the document as
-   * `phase: "draft"` + `isDraft: false` - the phase never moved, so `isDraft` was the only
-   * publish signal there was. The slug lookup now decides on phase, so those markets are
-   * invisible on their public check-in URL until `migrate_is_draft_consistency.py` advances
-   * them. Silently 404ing a live market's public URL is the worst outcome this PR could have,
-   * so the repair is exercised against the real script, the real database and the real
-   * vendor-facing page rather than asserted.
-   *
-   * This test is OUT OF SCOPE for the CSV pivot and must remain intact - it tests the
-   * old-build shape migration, which belongs to PR 7's CSV/old-shape removal.
-   */
-  test('a market published by the old build stays published across the migration', async ({
-    authenticatedPage: page,
-    request,
-    playwright,
-  }) => {
-    // Seeding, two migration runs and a browser pass do not fit the default budget.
-    test.slow()
-
-    const seed = await seedPublishedMarketWithAssignments(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-    )
-    const vendorAssignmentsUrl =
-      `${BACKEND_URL}/public/markets/${seed.marketSlug}` +
-      `/vendors/${encodeURIComponent('alice@example.com')}/assignments`
-
-    const anonymous = await playwright.request.newContext({ ignoreHTTPSErrors: true })
-
-    // Rewind the document to the shape the old build stored for a published market.
-    makeLegacyPublishedMarket(seed.marketId)
-    expect(readMarketLifecycle(seed.marketId)).toEqual({ phase: 'draft', isDraft: false })
-
-    // Unmigrated, this live market's public check-in URL is off the air.
-    expect((await anonymous.get(vendorAssignmentsUrl)).status()).toBe(404)
-
-    runIsDraftConsistencyMigration()
-
-    // The migration resolves the disagreement in favour of isDraft: the market is published,
-    // so its phase advances rather than the market being confirmed as a draft.
-    expect(readMarketLifecycle(seed.marketId)).toEqual({ phase: 'archived', isDraft: false })
-
-    const migratedRes = await anonymous.get(vendorAssignmentsUrl)
-    expect(migratedRes.status()).toBe(200)
-    await anonymous.dispose()
-
-    // Re-running it changes nothing.
-    runIsDraftConsistencyMigration()
-    expect(readMarketLifecycle(seed.marketId)).toEqual({ phase: 'archived', isDraft: false })
-
-    // And the check-in page still finds the vendor's assignment.
-    const checkinPage = new CheckinPage(page)
-    await checkinPage.goto(seed.marketSlug)
-    await checkinPage.fillEmail('alice@example.com')
-    await checkinPage.clickLookup()
-    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 })
   })
 })

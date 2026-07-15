@@ -211,9 +211,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `phase` is missing or unrecognized - a fallback that contradicted the phase would answer
   confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
   `Market` re-stamp `isDraft` from the effective phase before responding.
-- **Publishing a CSV market is the `draft` → `archived` transition** (no guards), fired by the
+- **Publishing a market is the `draft` → `archived` transition** (no guards), fired by the
   Done button in `GenerateAssignmentView.vue`. It used to be a `PUT` of `isDraft: false`; that
-  route is gone, and this transition is now the only way a CSV market leaves `draft`.
+  route is gone, and this transition is now the only way a market leaves `draft`.
   A legacy published market (`phase: "draft"` + `isDraft: false`) reads back as a *draft*, since
   `draft` is a phase this build recognizes and takes at face value - hence the migration below.
 - **No Mongo condition can answer "is this market published?"** `{"phase": {"$ne": "draft"}}`

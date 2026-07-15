@@ -119,9 +119,6 @@ This document outlines the complete technology stack used in the Conventioner ap
 ### Utilities
 - **VueUse 12.5.0** - Collection of Vue composition utilities
   - Reusable composition functions
-- **PapaParse 5.5.2** - CSV parsing library
-  - CSV file parsing and generation
-  - Used for vendor data import/export
 - **VueDraggable 4.1.0** - Drag and drop component
   - Drag-and-drop functionality for UI elements
 

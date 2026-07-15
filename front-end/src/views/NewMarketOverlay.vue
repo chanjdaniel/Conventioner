@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import ElementFileDrop from '@/components/elements/ElementFileDrop.vue'
 import ElementOrgSelect from '@/components/elements/ElementOrgSelect.vue'
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -12,9 +11,6 @@ defineProps<{
 }>()
 
 const router = useRouter()
-const uploadedFiles = ref<unknown>([])
-const uploadedSourceData = ref<File[]>([])
-const next = ref(false)
 const marketName = ref('')
 const selectedOrgId = ref('')
 const errorMessage = ref('')
@@ -23,17 +19,8 @@ watch(selectedOrgId, () => {
   errorMessage.value = ''
 })
 
-const handleFileUploaded = (files: unknown) => {
-  uploadedFiles.value = files
-  next.value = true
-}
-
-const handleSourceDataUploaded = (sourceData: File[]) => {
-  uploadedSourceData.value = sourceData
-}
-
 const handleSubmit = async () => {
-  errorMessage.value = '' // Clear previous error
+  errorMessage.value = ''
 
   if (!selectedOrgId.value) {
     errorMessage.value = 'Organization is required'
@@ -69,15 +56,6 @@ const handleSubmit = async () => {
     const createResponse = await api.post('/markets', newMarket)
     const marketId = createResponse.data.market_id
 
-    const formData = new FormData()
-    if (uploadedSourceData.value.length > 0) {
-      formData.append('file', uploadedSourceData.value[0])
-      await api.post(`/source-data/${marketId}`, formData)
-    }
-
-    localStorage.removeItem('upload')
-    localStorage.setItem('upload', JSON.stringify(uploadedFiles.value))
-
     const marketWithId: Market = { ...newMarket, id: marketId }
     localStorage.removeItem('market')
     localStorage.setItem('market', JSON.stringify(marketWithId))
@@ -110,53 +88,44 @@ const handleSubmit = async () => {
       :style="{ opacity: newOpen ? '100%' : '0%' }"
       data-testid="new-market-overlay-background"
     ></div>
-    <template v-if="!next">
-      <ElementFileDrop
-        :isOpen="newOpen"
-        @file-uploaded="handleFileUploaded"
-        @source-data-uploaded="handleSourceDataUploaded"
-      ></ElementFileDrop>
-    </template>
-    <template v-else>
-      <div class="window">
-        <h2>Create new market</h2>
-        <div class="org-select-container">
-          <label class="org-select-label">Organization</label>
-          <ElementOrgSelect v-model="selectedOrgId" />
-        </div>
-        <div class="input-wrapper">
-          <div style="width: 100%; height: 30px; display: grid; grid-template-columns: 1fr 3fr 1fr">
-            <div></div>
-            <div class="text-input-container">
-              <input
-                type="text"
-                v-model="marketName"
-                @keydown.enter="handleSubmit"
-                @input="errorMessage = ''"
-                style="all: unset; font-size: 14px; width: 100%; text-align: center"
-                placeholder="Market name"
-                data-testid="new-market-name-input"
-              />
-            </div>
-            <div style="padding-left: 10px">
-              <button
-                @click="handleSubmit"
-                :disabled="!selectedOrgId"
-                style="all: unset; height: 100%; width: 100%; cursor: pointer"
-                :style="{
-                  opacity: selectedOrgId ? '75%' : '30%',
-                  cursor: selectedOrgId ? 'pointer' : 'not-allowed',
-                }"
-                data-testid="new-market-submit-button"
-              >
-                Submit
-              </button>
-            </div>
-          </div>
-          <p v-show="errorMessage" class="error-message">{{ errorMessage }}</p>
-        </div>
+    <div v-if="newOpen" class="window">
+      <h2>Create new market</h2>
+      <div class="org-select-container">
+        <label class="org-select-label">Organization</label>
+        <ElementOrgSelect v-model="selectedOrgId" />
       </div>
-    </template>
+      <div class="input-wrapper">
+        <div style="width: 100%; height: 30px; display: grid; grid-template-columns: 1fr 3fr 1fr">
+          <div></div>
+          <div class="text-input-container">
+            <input
+              type="text"
+              v-model="marketName"
+              @keydown.enter="handleSubmit"
+              @input="errorMessage = ''"
+              style="all: unset; font-size: 14px; width: 100%; text-align: center"
+              placeholder="Market name"
+              data-testid="new-market-name-input"
+            />
+          </div>
+          <div style="padding-left: 10px">
+            <button
+              @click="handleSubmit"
+              :disabled="!selectedOrgId"
+              style="all: unset; height: 100%; width: 100%; cursor: pointer"
+              :style="{
+                opacity: selectedOrgId ? '75%' : '30%',
+                cursor: selectedOrgId ? 'pointer' : 'not-allowed',
+              }"
+              data-testid="new-market-submit-button"
+            >
+              Submit
+            </button>
+          </div>
+        </div>
+        <p v-show="errorMessage" class="error-message">{{ errorMessage }}</p>
+      </div>
+    </div>
   </div>
 </template>
 

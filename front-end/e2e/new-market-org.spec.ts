@@ -1,10 +1,5 @@
-import path from 'path'
-import { fileURLToPath } from 'url'
 import { test, expect, LoginPage, NewMarketPage, BACKEND_URL, TEST_USER } from './fixtures'
 import { ensureTestOrg, loginViaApi } from './helpers/seeds'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const CSV_PATH = path.resolve(__dirname, 'fixtures', 'test-vendors.csv')
 
 /**
  * Verified user that deliberately belongs to no organization.
@@ -123,8 +118,6 @@ test.describe('New market - organization is required', () => {
     await page.goto('/markets')
     await page.getByTestId('markets-create-button').click()
     await newMarketPage.waitForOverlay()
-    await newMarketPage.uploadCsv(CSV_PATH)
-    await newMarketPage.waitForNameInput()
 
     // Nothing selected yet, so the market cannot be created.
     await expect(newMarketPage.orgSelect).toHaveValue('')
@@ -150,8 +143,6 @@ test.describe('New market - organization is required', () => {
     await page.goto('/markets')
     await page.getByTestId('markets-create-button').click()
     await newMarketPage.waitForOverlay()
-    await newMarketPage.uploadCsv(CSV_PATH)
-    await newMarketPage.waitForNameInput()
 
     await expect(newMarketPage.orgEmptyHint).toBeVisible()
     await expect(newMarketPage.orgSelect).toBeDisabled()

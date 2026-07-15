@@ -9,8 +9,7 @@ The fastest way to get a working test environment:
 ```
 
 This brings up the Docker stack, creates the test users, creates an organization
-(`Seed Test Org`, reused if the user already has one), creates a market in it, and
-uploads a sample CSV.
+(`Seed Test Org`, reused if the user already has one), and creates a market in it.
 The output prints the credentials and market ID.
 
 Two verified users are created: the main test user, and a second user that
@@ -139,21 +138,13 @@ npm run test:e2e
 E2E tests use Playwright driving Chromium against the running Docker stack.
 The smoke test covers login, dashboard, and markets navigation, and the market
 pipeline test (`market-pipeline.spec.ts`) exercises the full product flow:
-creating a market via API (no CSV upload, using localStorage-injected upload data),
-walking the 3-page setup wizard, triggering assignment generation, verifying the
-assignment results view, then **publishing with Done** - which posts the `draft` → `archived` transition - and confirming the market
+creating a market via API, seeding a setupObject, walking the 3-page setup wizard,
+triggering assignment generation, verifying the assignment results view, then
+**publishing with Done** - which posts the `draft` → `archived` transition - and confirming the market
 lands on its public slug, reports `phase: archived` with `isDraft: false`, reopens from
 the markets list to its public page rather than back into the wizard, and is reachable by
 a vendor at its public check-in URL.
-A second test in that spec covers the **upgrade path for markets the old build published**:
-it rewinds a seeded market to the shape that build stored (`phase: "draft"` +
-`isDraft: false`, via `helpers/legacyMarketDoc.ts`), asserts the public check-in URL is a
-`404` in that state, runs the real `migrate_is_draft_consistency.py` inside the back-end
-container against the live database, and asserts the market's phase advanced, its check-in
-URL is live again, and a second run changes nothing. There is no product path back to that
-document shape - the whole point of the change is that the app can no longer produce one -
-so writing it directly is the only way to exercise the repair. Coverage also
-includes tier-1 market operations journeys: public vendor check-in
+Coverage also includes tier-1 market operations journeys: public vendor check-in
 (`checkin.spec.ts`), vendor browsing with search (`vendors.spec.ts`), and table
 browsing with filtering (`tables.spec.ts`). The tier-2 suite (`tier2.spec.ts`)
 covers organization CRUD (create, add admin/member, remove member, rename,
@@ -269,11 +260,6 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     read a code out of MongoDB after requesting one. This helper inserts a challenge
     directly with the correct hash, letting the test verify the full end-to-end login flow.
     Like `seedApplication()`, it writes straight into Mongo via `mongosh`.
-  - `helpers/legacyMarketDoc.ts`: `makeLegacyPublishedMarket()` rewrites a
-    market into the shape the pre-`phase` build stored for a published one, and
-    `runIsDraftConsistencyMigration()` runs the real migration script inside the back-end
-    container (`E2E_BACKEND_CONTAINER` overrides that container name). Both reach past the
-    API on purpose - no endpoint can produce or repair that document shape.
   - `ensureVerifiedUser()` (`front-end/e2e/helpers/verifiedUser.ts`): a spec
     that needs users beyond the two `scripts/seed_fixture.sh` creates (as
     `access-control.spec.ts` does) calls it in `beforeAll` to create one idempotently. It

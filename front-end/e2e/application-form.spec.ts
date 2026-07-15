@@ -3,62 +3,6 @@ import { seedApplication } from './helpers/seedApplication'
 import { ensureTestOrg, loginViaApi } from './helpers/seeds'
 import type { Page } from '@playwright/test'
 
-/**
- * Fake upload object matching test-vendors.csv so the setup wizard has
- * column data to render without a real CSV upload.
- */
-function fakeUpload() {
-  return {
-    name: 'test-vendors.csv',
-    size: 123,
-    type: 'text/csv',
-    lastModified: Date.now(),
-    data: {
-      data: [
-        {
-          email: 'alice@example.com',
-          vendor_name: 'Alice',
-          table_choice: 'Full table',
-          buddy_email: '',
-          day_1: 'Gold',
-        },
-        {
-          email: 'bob@example.com',
-          vendor_name: 'Bob',
-          table_choice: 'Full table',
-          buddy_email: '',
-          day_1: 'Gold',
-        },
-        {
-          email: 'carol@example.com',
-          vendor_name: 'Carol',
-          table_choice: 'Half Table',
-          buddy_email: '',
-          day_1: 'Silver',
-        },
-        {
-          email: 'dave@example.com',
-          vendor_name: 'Dave',
-          table_choice: 'Half Table',
-          buddy_email: 'carol@example.com',
-          day_1: 'Silver',
-        },
-        {
-          email: 'eve@example.com',
-          vendor_name: 'Eve',
-          table_choice: 'Full table',
-          buddy_email: '',
-          day_1: 'Gold',
-        },
-      ],
-      errors: [],
-      meta: {
-        fields: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
-      },
-    },
-  }
-}
-
 /** Create a bare market via the API and land on the setup view. Returns its id. */
 async function createMarket(page: Page): Promise<string> {
   const ctx = page.request
@@ -96,12 +40,11 @@ async function createMarket(page: Page): Promise<string> {
   const { market } = (await marketRes.json()) as { market: Record<string, unknown> }
 
   await page.evaluate(
-    ({ m, upload, user }) => {
+    ({ m, user }) => {
       localStorage.setItem('market', JSON.stringify(m))
-      localStorage.setItem('upload', JSON.stringify(upload))
       localStorage.setItem('user', JSON.stringify(user))
     },
-    { m: market, upload: fakeUpload(), user: TEST_USER.email },
+    { m: market, user: TEST_USER.email },
   )
 
   await page.goto('/market-setup')

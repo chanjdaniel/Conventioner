@@ -3,7 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-FIXTURES_DIR="$SCRIPT_DIR/fixtures"
 COOKIE_JAR="$(mktemp /tmp/conventioner_seed.XXXXXX)"
 TEST_EMAIL="${TEST_EMAIL:-e2e@example.com}"
 TEST_PASSWORD="${TEST_PASSWORD:-e2epassword123}"
@@ -11,7 +10,6 @@ TEST_PASSWORD="${TEST_PASSWORD:-e2epassword123}"
 # the zero-org state of the market-creation org picker.
 NO_ORG_EMAIL="${NO_ORG_EMAIL:-e2e-noorg@example.com}"
 NO_ORG_PASSWORD="${NO_ORG_PASSWORD:-e2enoorg123}"
-CSV_FILE="${FIXTURES_DIR}/vendors.csv"
 
 # ── Detect worktree vs primary checkout ──
 # Resolution order: 1) explicit env  2) treehouse slot  3) primary defaults
@@ -140,12 +138,19 @@ if [ -z "$MARKET_ID" ]; then
 fi
 echo "  Market ID: $MARKET_ID"
 
-# ── 5. Upload CSV fixture ──
-echo "[5/6] Uploading CSV fixture..."
-UPLOAD_RESPONSE=$(curl -k -s -b "$COOKIE_JAR" \
+# ── 5. Upload source data via inline CSV (solver still reads source_data collection) ──
+echo "[5/6] Uploading source data..."
+INLINE_CSV="email,vendor_name,table_choice,buddy_email,day_1
+alice@example.com,Alice,Full table,,Gold
+bob@example.com,Bob,Full table,,Gold
+carol@example.com,Carol,Half Table,,Silver
+dave@example.com,Dave,Half Table,carol@example.com,Silver
+eve@example.com,Eve,Full table,,Gold"
+
+UPLOAD_RESPONSE=$(echo "$INLINE_CSV" | curl -k -s -b "$COOKIE_JAR" \
   -X POST "$BACKEND_URL/source-data/$MARKET_ID" \
   -H "X-Owner-Email: $TEST_EMAIL" \
-  -F "file=@$CSV_FILE")
+  -F "file=@-;filename=vendors.csv;type=text/csv")
 echo "  $UPLOAD_RESPONSE"
 
 # ── Done ──
@@ -159,4 +164,4 @@ echo "No-org:    $NO_ORG_EMAIL / $NO_ORG_PASSWORD (verified, belongs to no organ
 echo "Market ID: $MARKET_ID"
 echo ""
 echo "Next: open $FRONTEND_URL/login and log in to configure the market."
-echo "      The CSV has already been uploaded — go to Market Setup to configure columns."
+echo "      Source data has been uploaded — go to Market Setup to configure columns."

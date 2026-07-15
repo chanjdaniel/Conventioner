@@ -216,7 +216,7 @@ The frontend will start on: **[http://localhost:5173](http://localhost:5173)** (
 ## Step 6: Testing the Application
 
 > **Automated test suites and a one-command seed fixture are documented in [TESTING.md](./TESTING.md).**
-> For a ready-to-use test environment (Docker stack + test users + test organization + seeded market + sample CSV), run `./scripts/seed_fixture.sh` from the repository root.
+> For a ready-to-use test environment (Docker stack + test users + test organization + seeded market), run `./scripts/seed_fixture.sh` from the repository root.
 
 ### Create a Test User
 
@@ -238,19 +238,12 @@ curl -k -X POST https://127.0.0.1:5000/register-user \
 1. **Login**: Use the credentials you just created
 2. **Create Organization**: Open "Organizations" and create one. Every market belongs to an organization, so a brand-new user must do this before they can create a market. The new-market form links here when you have no organizations.
 3. **Create Market**: Click "New Market", select the organization, and fill in the market details. Submission stays disabled until an organization is selected.
-4. **Upload CSV**: Upload a vendor CSV file with columns like:
-  - Email
-  - Vendor name
-  - Market date preferences
-  - Table preferences
-  - Other vendor attributes
-5. **Configure Market Setup**:
-  - Select columns to include
+4. **Configure Market Setup**:
   - Set up market dates
   - Configure tiers, locations, and sections
   - Set assignment priorities
-6. **Generate Assignment**: Click "Assign" to run the assignment algorithm
-7. **View Results**: Review the assignment statistics and vendor assignments
+5. **Generate Assignment**: Click "Assign" to run the assignment algorithm
+6. **View Results**: Review the assignment statistics and vendor assignments
 
 ### Discord Webhook Setup
 

@@ -13,62 +13,6 @@ import { ensureTestOrg, loginViaApi } from './helpers/seeds'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const FLOORPLAN_PATH = path.resolve(__dirname, 'fixtures', 'test-floorplan.png')
 
-/**
- * Parsed CSV data matching fixtures/test-vendors.csv, built by hand so the
- * floorplan spec does not need to upload a CSV through the overlay.
- */
-function fakeUploadObject() {
-  return {
-    name: 'test-vendors.csv',
-    size: 123,
-    type: 'text/csv',
-    lastModified: Date.now(),
-    data: {
-      data: [
-        {
-          email: 'alice@example.com',
-          vendor_name: 'Alice',
-          table_choice: 'Full table',
-          buddy_email: '',
-          day_1: 'Gold',
-        },
-        {
-          email: 'bob@example.com',
-          vendor_name: 'Bob',
-          table_choice: 'Full table',
-          buddy_email: '',
-          day_1: 'Gold',
-        },
-        {
-          email: 'carol@example.com',
-          vendor_name: 'Carol',
-          table_choice: 'Half Table',
-          buddy_email: '',
-          day_1: 'Silver',
-        },
-        {
-          email: 'dave@example.com',
-          vendor_name: 'Dave',
-          table_choice: 'Half Table',
-          buddy_email: 'carol@example.com',
-          day_1: 'Silver',
-        },
-        {
-          email: 'eve@example.com',
-          vendor_name: 'Eve',
-          table_choice: 'Full table',
-          buddy_email: '',
-          day_1: 'Gold',
-        },
-      ],
-      errors: [],
-      meta: {
-        fields: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
-      },
-    },
-  }
-}
-
 test.describe('Floorplan workflow E2E', () => {
   test.beforeAll(async ({ request }) => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password)
@@ -106,22 +50,56 @@ test.describe('Floorplan workflow E2E', () => {
     if (!createRes.ok()) {
       throw new Error(`Market creation failed: ${createRes.status()} ${await createRes.text()}`)
     }
+    const { market_id: marketId } = (await createRes.json()) as { market_id: string }
 
-    const marketRes = await ctx.get(
-      `${BACKEND_URL}/markets/${(await createRes.json()).market_id}`,
-      { headers: { 'X-Owner-Email': TEST_USER.email } },
-    )
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> }
+    const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    })
+    let { market } = (await marketRes.json()) as { market: Record<string, unknown> }
 
-    // Inject the market + pseudo-upload into localStorage so the setup wizard
-    // has columns to display without a real CSV upload.
+    // Seed a minimal setupObject so the setup wizard has columns to display.
+    const minimalSetup = {
+      colNames: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
+      colValues: [[], [], [], [], ['Gold', 'Silver']],
+      colInclude: [false, false, false, false, false],
+      enumPriorityOrder: [[], [], [], [], []],
+      priority: [],
+      marketDates: [],
+      tiers: [],
+      locations: [],
+      sections: [],
+      assignmentOptions: {
+        maxAssignmentsPerVendor: null,
+        maxHalfTableProportionPerSection: null,
+        emailColNameIdx: null,
+        tableChoiceColNameIdx: null,
+        tableShareEmailColNameIdx: null,
+        maxDaysColNameIdx: null,
+      },
+    }
+    const setupRes = await ctx.put(`${BACKEND_URL}/markets/${marketId}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Owner-Email': TEST_USER.email,
+      },
+      data: { ...market, setupObject: minimalSetup },
+    })
+    if (!setupRes.ok()) {
+      throw new Error(`Setup PUT failed: ${setupRes.status()} ${await setupRes.text()}`)
+    }
+    const updatedRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    })
+    const updated = (await updatedRes.json()) as { market: Record<string, unknown> }
+    market = updated.market
+
+    // Inject the market into localStorage so the setup wizard can pick it up.
     await page.evaluate(
-      ({ m, upload, user }) => {
+      ({ m, user }) => {
         localStorage.setItem('market', JSON.stringify(m))
-        localStorage.setItem('upload', JSON.stringify(upload))
         localStorage.setItem('user', JSON.stringify(user))
       },
-      { m: market, upload: fakeUploadObject(), user: TEST_USER.email },
+      { m: market, user: TEST_USER.email },
     )
 
     await page.goto('/market-setup')

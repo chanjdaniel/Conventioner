@@ -93,7 +93,7 @@ The central entity representing a market event with configuration, assignments, 
 - `assignment_object: AssignmentObject` - Contains vendor assignment results and statistics
 - `phase: MarketPhase` - Market lifecycle phase, and the **single source of truth** for where a market is in its life. Default **`DRAFT`**. Advanced only through `POST /markets/<market_id>/transition`. While the market is in `draft`, opening it from the dashboard or Markets sends the user to market setup; past `draft` the SPA routes to `/{kebab-case-slug}` derived from the market **name** (e.g. `my-summer-market`), and the public check-in URL resolves. See [MarketPhase](#marketphase-enum).
 - `is_draft: bool` - Stored as `isDraft` in MongoDB (camelCase). A Pydantic `@computed_field` **derived strictly from `phase`** (`true` exactly when `phase == draft`), never independently writable: no request body can set it, and it is recomputed from the stored phase on every write. It is still persisted, and kept in agreement with `phase` by every writer, for exactly one reason: it is the fallback `phase_from_market_document()` drops to when a document's `phase` is missing or unrecognized. Nothing reads the stored value for a market whose `phase` this build understands - a fallback that disagreed with the phase would answer confidently and wrongly. Treat it as a persisted view of `phase`, never as state of its own.
-- `application_form: Optional[ApplicationForm]` - Application form definition for application-based markets (None for CSV-based markets). Server-owned on update: only `PUT /markets/<market_id>/application-form` writes it (see [ApplicationForm](#applicationform))
+- `application_form: Optional[ApplicationForm]` - Application form definition (None if no form has been saved). Server-owned on update: only `PUT /markets/<market_id>/application-form` writes it (see [ApplicationForm](#applicationform))
 - `review_config: Optional[Dict[str, Any]]` - Free-form review configuration (reviewer pool, etc.); no fixed schema yet
 - `discord_guild_id: Optional[str]` - Per-market Discord guild reference (integration seam; not yet consumed)
 - `discord_webhook_url: Optional[str]` - Per-market Discord webhook target for assignment notifications (omitted/blank disables Discord notifications)
@@ -146,7 +146,7 @@ The central entity representing a market event with configuration, assignments, 
 Contains all configuration data needed to set up and run a market assignment.
 
 **Fields:**
-- `col_names: List[str]` - Column names from the uploaded CSV source data. Defaults to `[]`.
+- `col_names: List[str]` - Column names from source data (formerly CSV upload intake). Defaults to `[]`.
 - `col_values: List[List[str]]` - Unique values for each column (used for filtering/prioritization). Defaults to `[]`.
 - `col_include: List[bool]` - Flags indicating which columns to include in assignment logic. Defaults to `[]`.
 - `enum_priority_order: List[List[str]]` - Priority ordering for enum-type columns. Defaults to `[]`.
@@ -158,9 +158,9 @@ Contains all configuration data needed to set up and run a market assignment.
 - `assignment_options: AssignmentOptionObject` - Configuration options for assignment algorithm
 - `floorplans: Optional[List[FloorplanObject]]` - Saved floorplans for the market (optional)
 
-**CSV-Derived Fields Are Optional:**
+**CSV-Derived Fields Are Optional (Backward Compat):**
 
-The four `col_*` fields above describe an uploaded CSV, so an application-based market has nothing to put in them.
+The four `col_*` fields were introduced for the CSV upload intake that has since been removed.
 They default to empty lists rather than being required, and the same applies to `PriorityObject.col_name_idx` and `MarketDateObject.col_name_idx` (both `Optional[int]`, default `None`).
 
 Because the models no longer enforce them, the assignment algorithm validates them instead.
@@ -184,7 +184,7 @@ Defines a priority rule for vendor assignment based on column values.
 
 **Fields:**
 - `id: int` - Unique identifier for this priority rule
-- `col_name_idx: Optional[int]` - Index into `SetupObject.col_names` indicating which column to prioritize. `None` on application-based markets; required (and validated against `enum_priority_order`) before assignment runs.
+- `col_name_idx: Optional[int]` - Index into `SetupObject.col_names` indicating which column to prioritize. `None` by default; required (and validated against `enum_priority_order`) before assignment runs.
 - `data_type: DataType` - Type of data in the column (affects how prioritization works)
 - `sorting_order: str` - Sort order (e.g., "ascending", "descending")
 
@@ -201,14 +201,14 @@ Represents a market date and its associated data column.
 
 **Fields:**
 - `date: str` - ISO format date string
-- `col_name_idx: Optional[int]` - Index into `SetupObject.col_names` indicating which column contains date availability data. `None` on application-based markets.
+- `col_name_idx: Optional[int]` - Index into `SetupObject.col_names` indicating which column contains date availability data. `None` by default.
 - `col_name: Optional[str]` - Cached column name (populated during assignment processing)
 
 **Relationships:**
 - **Many-to-One with SetupObject**: Multiple MarketDateObjects belong to one SetupObject
 - **Used by Assignment**: Each MarketDateObject creates a DateAssignment during assignment processing
 
-**Note:** `col_name` and `col_name_idx` are still read at runtime by `record_attendance()` (`back-end/api/attendance.py`, which builds date aliases from `col_name`) and by `_calculate_date_flexibility()` (`back-end/assignment/assignment.py`). They are kept for CSV-backed markets and are removed only once the solver adapter and attendance redesign land.
+**Note:** `col_name` and `col_name_idx` are still read at runtime by `record_attendance()` (`back-end/api/attendance.py`, which builds date aliases from `col_name`) and by `_calculate_date_flexibility()` (`back-end/assignment/assignment.py`). They are kept for backward compatibility and are removed only once the solver adapter and attendance redesign land.
 
 ---
 
@@ -372,7 +372,7 @@ Statistical summary of an assignment operation.
 
 ## Application Objects
 
-These models back the application-based market flow (vendors apply through a form instead of being imported from a CSV).
+These models back the market's vendor application flow (vendors submit applications through a form).
 
 **Status:** `ApplicationForm` is fully live: organizers build it in the market-setup Application Form tab and it is read and written through the endpoints below.
 `Application` is a model with its own collection: `applications` exists (indexed on `market_id` and a unique compound index on `(market_id, applicant_email, application_type)`) and the market write path counts it to enforce the D9 form lock. The atomic upsert `find_or_create_application` in `api/applications.py` can write an application document, and the unique index is what makes it safe under concurrency. The applicant-facing submit endpoint lands in a later phase.
@@ -403,7 +403,7 @@ The second rule is permanent: once an applicant has submitted, the form can neve
 Every writer (`POST /markets` with a form on the body, and the `PUT` above) runs the form through one validator, which returns it exactly as it will be persisted, so a stored form can never differ from the form that was checked. It rejects a form with no fields, and per field enforces the [FormField](#formfield) rules below. It also renormalizes `order` to the field's array position, so the builder and the applicant's form can never disagree about display order.
 
 **Relationships:**
-- **One-to-One with Market**: Embedded in `Market.application_form` (optional; None for CSV-based markets)
+- **One-to-One with Market**: Embedded in `Market.application_form` (optional; None if no form has been saved)
 - **One-to-Many with FormField**: Contains multiple form fields
 
 ---
@@ -523,13 +523,13 @@ Only these edges exist today (`VALID_TRANSITIONS` in `back-end/guards.py`); ever
 `review`, `assignment`, `offers`, and `market_days` are declared on the enum but no transition enters them yet.
 
 - `draft` → `applications_open`
-- `draft` → `archived` (**publishing a CSV-based market**: the Done button at the end of the Generated Assignment flow. A CSV market never opens applications - its vendors arrive in the upload - so the one thing publishing has to do is move it out of `draft`, which is what puts it on its public check-in URL. `archived` is where that lands: it is the phase a published pre-`phase` market already reads back as, so the CSV flow and the legacy documents agree. No guards - a CSV market that has an assignment has nothing left to satisfy.)
+- `draft` → `archived` (**publishing a market**: the Done button at the end of the Generated Assignment flow. A published market reaches its public check-in URL; `archived` is the phase a published pre-`phase` market already reads back as, so the transition and the legacy documents agree. No guards - a market that has an assignment has nothing left to satisfy.)
 - `applications_open` → `applications_closed`
 - `applications_closed` → `applications_open` (reopening the submission window)
 
 **Endpoint:**
 - `POST /markets/<market_id>/transition` - Requires `ADMIN`. Body: `{ "toPhase": "applications_open" }`. Returns `200` with `{ "phase": "<new_phase>" }`. `400` on an unknown phase or an edge that is not valid from the market's current phase, `403` on insufficient permission, `404` on an unknown market, `409` when a guard blocks the transition or when the market's phase changed while the request was in flight (the write is a compare-and-set against the phase the request read, so two organizers racing cannot both win). This is the only writer of `Market.phase` on an existing market, and it writes the derived `isDraft` in the same atomic update so the two can never drift apart.
-- **Callers**: `GenerateAssignmentView.vue`'s Done button posts `{ "toPhase": "archived" }` to publish a CSV-based market, surfacing a `409`'s blocker messages in the Done error rather than a generic "failed to save". Publishing used to be a `PUT` of `isDraft: false`; that route is gone, and this transition is now the only way a CSV market leaves `draft`.
+- **Callers**: `GenerateAssignmentView.vue`'s Done button posts `{ "toPhase": "archived" }` to publish a market, surfacing a `409`'s blocker messages in the Done error rather than a generic "failed to save". Publishing used to be a `PUT` of `isDraft: false`; that route is gone, and this transition is now the only way a market leaves `draft`.
 
 **Guards (the D16 registry):**
 
@@ -545,7 +545,7 @@ The only guard today is `FormHasFieldsGuard` (`form_has_fields`): the applicatio
 
 A failed guard becomes a `PreconditionResult` (`id`, `passed`, `message`, optional `resolution_link`), and the `409` body is `{ error, currentPhase, targetPhase, blockers: PreconditionResult[] }`, camelCased on the wire. The front-end mirrors these as `PreconditionResult` / `TransitionRequest` / `TransitionResponse` / `TransitionBlockedResponse` in `front-end/src/assets/types/datatypes.ts`, and `BlockerPanel.vue` renders the blocker list generically - message plus a "Fix this" link when the guard supplied a `resolutionLink`.
 
-`BlockerPanel` itself still ships ahead of the view that mounts it: the only caller of the transition today is the CSV publish (`draft` → `archived`), which carries no guards and so can never be blocked. `FormHasFieldsGuard`'s `resolution_link` (`/markets/<market_id>/form-builder`) has no matching route in `front-end/src/router/index.ts` yet either - the form builder is today a tab inside `/market-setup`. Both land with the view that wires up an application-based market's transition into `applications_open`.
+`BlockerPanel` itself still ships ahead of the view that mounts it: the only caller of the transition today is the Done button (`draft` → `archived`), which carries no guards and so can never be blocked. `FormHasFieldsGuard`'s `resolution_link` (`/markets/<market_id>/form-builder`) has no matching route in `front-end/src/router/index.ts` yet either - the form builder is today a tab inside `/market-setup`. Both land with the view that wires up the `applications_open` transition.
 
 **Relationships:**
 - **Used by Market**: Stored in `Market.phase`, server-owned (see [Market](#market))
@@ -644,7 +644,7 @@ The system uses MongoDB with the following collections:
 - **Indexing**: Markets are queried by id; roles dict keys are user ids
 - **Backfilling `phase`**: Market documents written before `phase` existed have no such field. `back-end/migrations/migrate_phase.py` backfills them (`isDraft: true` → `draft`, `isDraft: false` → `archived`, the safe default given archives are read-only). It is idempotent and supports `--dry-run`. Documents without `phase` still load: `phase_from_market_document()` applies the same mapping on read, so a market behaves identically before and after the migration runs.
 - **Reconciling `isDraft` with `phase`**: `back-end/migrations/migrate_is_draft_consistency.py` brings the two fields into agreement on every document that stores a `phase`. Two shapes disagree, and they are repaired in *opposite* directions, because which field carried the truth depends on which build wrote the document:
-  - `phase: "draft"` + `isDraft: false` - a market **published by the old build**, when publishing was a `PUT` of `isDraft: false` and nothing advanced the phase. `isDraft` was the only publish signal that existed, so it wins: the *phase* is advanced to `archived` (where the CSV publish now lands). Confirming these as drafts instead would take a live market's public check-in URL off the air, because the slug lookup now decides on phase.
+  - `phase: "draft"` + `isDraft: false` - a market **published by the old build**, when publishing was a `PUT` of `isDraft: false` and nothing advanced the phase. `isDraft` was the only publish signal that existed, so it wins: the *phase* is advanced to `archived` (where publishing transitions now land). Confirming these as drafts instead would take a live market's public check-in URL off the air, because the slug lookup now decides on phase.
   - `phase != "draft"` + `isDraft: true` - a market the transition endpoint advanced before `isDraft` joined its atomic update. The phase is what moved, so `isDraft` is the stale field and is recomputed from it.
 
   Documents with **no** `phase` at all are deliberately untouched: `phase_from_market_document()` derives their phase *from* `isDraft`, so they are already self-consistent, and `migrate_phase.py` is what backfills them. Every repair is a targeted, condition-checked `$set` (never a scan-then-replace) whose filter Mongo re-checks per document as it writes, so a market the live app transitions mid-run drops out of the repair instead of having a stale value written over its new phase. It is idempotent and supports `--dry-run`.
@@ -806,11 +806,11 @@ Organization
 ### Data Flow for Assignment
 
 ```
-SourceData (CSV)
+SourceData
     │
-    ├── Upload → MongoDB source_data collection
+    ├── Stored → MongoDB source_data collection
     │
-    └── Used by → MarketAssignment class
+    └── Read by → MarketAssignment class
                       │
                       ├── SetupObject (configuration)
                       │
@@ -831,7 +831,7 @@ SourceData (CSV)
 3. **Market** must carry an `organizationId`; the API rejects a missing organization id, an organization that does not exist, or an organization the requesting user is not a member of (400). The front-end enforces the same rule up front: the new-market overlay requires an organization to be picked from a dropdown before submission is enabled, and users with no organizations are linked to `/organizations` to create one.
 4. **Market** is stored in MongoDB `markets` collection (identified by `id` UUID)
 5. Market is added to its `Organization.markets` list
-6. **SourceData** CSV is uploaded separately and stored in `source_data` collection (via `market_id`)
+6. **SourceData** is uploaded separately and stored in `source_data` collection (via `market_id`)
 7. **SetupObject** is configured within the Market
 8. **AssignmentObject** is initialized empty
 
@@ -909,8 +909,8 @@ SourceData (CSV)
 - `SectionObject.location` and `tier` are optional (sections can exist independently)
 - `Market.organization_id` is `Optional` in the model but required by `POST /markets`: new markets always belong to an organization, and the optional typing only keeps pre-existing org-less markets readable
 - `Market.theme` and `Organization.theme` are optional
-- `Market.application_form`, `review_config`, and `discord_guild_id` are optional (None on CSV-based markets)
-- The CSV-derived fields (`SetupObject.col_names` / `col_values` / `col_include` / `enum_priority_order`, `PriorityObject.col_name_idx`, `MarketDateObject.col_name_idx`, and the `AssignmentOptionObject` column indices) are optional so application-based markets can omit them. The assignment algorithm validates them instead of the models. See [SetupObject](#setupobject).
+- `Market.application_form`, `review_config`, and `discord_guild_id` are optional (None by default)
+- The CSV-derived fields (`SetupObject.col_names` / `col_values` / `col_include` / `enum_priority_order`, `PriorityObject.col_name_idx`, `MarketDateObject.col_name_idx`, and the `AssignmentOptionObject` column indices) are optional and kept for backward compatibility. The assignment algorithm validates them instead of the models. See [SetupObject](#setupobject).
 
 ### 5. Permission Resolution
 - Two-tier resolution: explicit role first, then organization membership
@@ -923,7 +923,7 @@ SourceData (CSV)
 - Else → use `Market.theme` (or default if neither exists)
 
 ### 7. Additive Schema Evolution
-- New fields are added alongside the fields they will eventually replace, never in place of them: `Market.phase` shipped next to `Market.is_draft`, and the CSV-derived fields are relaxed to optional rather than deleted.
+- New fields are added alongside the fields they will eventually replace, never in place of them: `Market.phase` shipped next to `Market.is_draft`, and the CSV-derived fields are optional for backward compatibility.
 - Old documents therefore keep loading without a migration, and code moves to the new field one call site at a time.
 - Migration scripts (like `migrations/migrate_phase.py`) backfill the new field so it is queryable, but the model defaults keep documents valid even before the migration runs.
 - **The takeover completes by deriving the old field, not by dropping it.** `Market.is_draft` is now a computed field over `phase` rather than independent state: the old field keeps its shape on the wire and in the database - so old documents, and any reader that still names it, keep working - while there is exactly one thing left to write. A field kept only as a fallback must never be allowed to *contradict* the field it falls back for, which is what `migrations/migrate_is_draft_consistency.py` guarantees for documents the old write path left disagreeing.
