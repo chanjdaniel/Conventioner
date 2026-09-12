@@ -192,4 +192,116 @@ test.describe('CSV vendor import', () => {
     const { applications } = (await listRes.json()) as { applications: unknown[] };
     expect(applications).toHaveLength(0);
   });
+
+  test('a checkbox grid is mapped as one question', async ({
+    authenticatedPage: page,
+    request,
+  }, testInfo) => {
+    // The same market plan, asked as a Google Forms GRID: one column per option, the header
+    // carrying the question stem and the option in brackets.
+    const gridHeaders = [
+      'Timestamp',
+      'Email Address',
+      'Business name',
+      'Which days can you attend? [2026-08-01]',
+      'Which days can you attend? [2026-08-08]',
+      'How many days do you want?',
+      'Which tiers will you accept?',
+      'Full or half table?',
+      'Rank the sections [Main Hall]',
+      'Rank the sections [Garden]',
+      'What do you sell?',
+    ];
+    const gridCsv = [
+      gridHeaders.join(','),
+      '2026/05/02 9:14:03,nadia@ember.test,Ember Ceramics,Yes,Yes,2,Gold,half,2nd choice,1st choice,Pottery',
+    ].join('\n');
+
+    const seed = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject() },
+    );
+    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+
+    await openImport(page, market);
+    await chooseFile(page, gridCsv);
+
+    // Two grids are recognised, each shown once with its member columns beneath it, and the
+    // screen says which shape it read so a wrong guess is visible rather than silent.
+    await expect(page.getByTestId('import-group-row')).toHaveCount(2);
+    await expect(page.getByTestId('import-group-shape').first()).toContainText(
+      '2 columns · one per option',
+    );
+    await expect(page.getByTestId('import-group-member')).toHaveCount(4);
+
+    // One action maps all of a grid's columns.
+    await page.getByTestId('import-group-select-3').selectOption('essential_available_dates');
+    await page.getByTestId('import-group-select-8').selectOption('essential_section_ranking');
+    await page.getByTestId('import-target-select-5').selectOption('essential_max_dates');
+    await page.getByTestId('import-target-select-6').selectOption('essential_tier_preference');
+    await page.getByTestId('import-target-select-7').selectOption('essential_table_choice');
+    await page.getByTestId('import-target-select-2').selectOption('business_name');
+    await page.getByTestId('import-target-select-10').selectOption('product_type');
+
+    await expect(page.getByTestId('import-all-mapped')).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('03-import-grid-mapping.png'),
+      fullPage: true,
+    });
+
+    await page.getByTestId('import-preview-button').click();
+    await page.getByTestId('import-confirm-button').click();
+    await expect(page.getByTestId('import-result-summary')).toContainText('1 new application');
+
+    const listRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    const { applications } = (await listRes.json()) as {
+      applications: Array<{ applicantEmail: string; formData: Record<string, unknown> }>;
+    };
+    const nadia = applications.find((a) => a.applicantEmail === 'nadia@ember.test');
+    // Identical to what the single-column spelling of the same answers produces.
+    expect(nadia!.formData).toMatchObject({
+      essential_available_dates: ['2026-08-01', '2026-08-08'],
+      // The grid's own cells carry the order, so Garden's "1st choice" wins over column position.
+      essential_section_ranking: ['Garden', 'Main Hall'],
+    });
+  });
+
+  test('a grid the detection got wrong can be split apart', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const headers = ['Email Address', 'Notes [internal]', 'Notes [public]'];
+    const csv = [headers.join(','), 'nadia@ember.test,a,b'].join('\n');
+
+    const seed = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject() },
+    );
+    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+
+    await openImport(page, market);
+    await chooseFile(page, csv);
+
+    // Bracketed headers that are not really one question: the organizer says so and gets two
+    // ordinary rows back.
+    await expect(page.getByTestId('import-group-row')).toHaveCount(1);
+    await page.getByTestId('import-split-group-1').click();
+    await expect(page.getByTestId('import-group-row')).toHaveCount(0);
+    await expect(page.getByTestId('import-target-select-1')).toBeVisible();
+    await expect(page.getByTestId('import-target-select-2')).toBeVisible();
+  });
 });
