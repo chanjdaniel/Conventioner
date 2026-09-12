@@ -2,9 +2,9 @@
 id: E01/F03/S03
 title: Return changed approved applications to review
 type: story
-status: in-progress
+status: done
 blocked_by: [E01/F03/S02]
-pr: []
+pr: [#60]
 ---
 
 ## What to build
