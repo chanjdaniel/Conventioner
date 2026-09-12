@@ -630,3 +630,93 @@ class TestRememberingTheMapping:
 
         assert body["hasSavedMapping"] is False
         assert body["restoredMapping"] == {}
+
+
+class TestMergingAgainstWhatIsAlreadyHere:
+    """A second import of the same form must merge, not collide.
+
+    Identity is a unique index on (market, email, type), so an append would simply throw; and a
+    wholesale replace would destroy review state and rotate ids the review view depends on.
+    """
+
+    SECOND = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca")
+
+    def test_a_re_import_updates_rather_than_colliding(self, markets, applications):
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        changed = GOOD_ROW.replace("Ember Ceramics", "Ember Ceramics Studio")
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(changed), MAPPING,
+        )
+
+        assert status == 200, body
+        assert body["created"] == 0 and body["updated"] == 1
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["business_name"] == "Ember Ceramics Studio"
+
+    def test_application_ids_are_stable_across_a_re_import(self, markets, applications):
+        """The review view and any future offer reference them."""
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        first_id = applications.find_one({"applicant_email": "nadia@ember.ca"})["id"]
+
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        assert applications.find_one({"applicant_email": "nadia@ember.ca"})["id"] == first_id
+
+    def test_a_mixed_file_is_counted_as_new_and_updated(self, markets, applications):
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING,
+        )
+
+        assert body["created"] == 1
+        assert body["updated"] == 1
+
+    def test_the_preview_says_which_rows_are_new_and_which_update(self, markets, applications):
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING)
+
+        assert body["newRows"] == 1
+        assert body["updatedRows"] == 1
+        assert body["absentApplications"] == 0
+
+    def test_an_application_absent_from_the_file_is_left_alone_and_counted(
+        self, markets, applications,
+    ):
+        """Absence almost always means a filtered export, not a withdrawal."""
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING)
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        assert body["absentApplications"] == 1
+        assert body["absentEmails"] == ["kai@ember.ca"]
+
+        # And the import itself leaves them exactly as they were.
+        before = applications.find_one({"applicant_email": "kai@ember.ca"})
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        after = applications.find_one({"applicant_email": "kai@ember.ca"})
+        assert after == before
+
+    def test_a_file_whose_applicants_are_all_absent_still_imports_nothing_destructive(
+        self, markets, applications,
+    ):
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING)
+        third = GOOD_ROW.replace("nadia@ember.ca", "wren@ember.ca")
+
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(third), MAPPING)
+
+        assert body["created"] == 1
+        assert body["absentApplications"] == 2
+        assert applications.find_one({"applicant_email": "nadia@ember.ca"}) is not None
+        assert applications.find_one({"applicant_email": "kai@ember.ca"}) is not None
+
+    def test_a_skipped_row_does_not_count_as_present(self, markets, applications):
+        """A row that will not import cannot be evidence that its applicant is still in the file."""
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        broken = GOOD_ROW.replace(",2,Gold,", ",lots,Gold,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(broken), MAPPING)
+
+        assert body["absentApplications"] == 1

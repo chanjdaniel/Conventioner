@@ -433,4 +433,84 @@ test.describe('CSV vendor import', () => {
     await page.getByTestId('import-preview-button').click();
     await expect(page.getByTestId('import-preview')).toBeVisible();
   });
+
+  test('a re-import updates who is already here and leaves the absent alone', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject() },
+    );
+    const fetchMarket = async () => {
+      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      return ((await res.json()) as { market: Record<string, unknown> }).market;
+    };
+    const listApplications = async () => {
+      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      return (
+        (await res.json()) as {
+          applications: Array<{
+            id: string;
+            applicantEmail: string;
+            formData: Record<string, unknown>;
+          }>;
+        }
+      ).applications;
+    };
+
+    // First import: two vendors (the third row has no email and is skipped).
+    await openImport(page, await fetchMarket());
+    await chooseFile(page, CSV);
+    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
+    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
+    await mapColumn(page, 'Which tiers will you accept?', 'essential_tier_preference');
+    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
+    await mapColumn(page, "Partner's email if sharing", 'essential_table_share_email');
+    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
+    await mapColumn(page, 'Business name', 'business_name');
+    await mapColumn(page, 'What do you sell?', 'product_type');
+    await page.getByTestId('import-preview-button').click();
+    await page.getByTestId('import-confirm-button').click();
+    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+
+    const before = await listApplications();
+    const nadiaIdBefore = before.find((a) => a.applicantEmail === 'nadia@ember.test')!.id;
+
+    // Second file: Nadia's answer has changed, and Theo is simply not in this export.
+    const second = [
+      HEADERS.join(','),
+      ROWS[0].replace('Ember Ceramics', 'Ember Ceramics Studio'),
+    ].join('\n');
+
+    await openImport(page, await fetchMarket());
+    await chooseFile(page, second);
+    await expect(page.getByTestId('import-restored-banner')).toBeVisible();
+    await page.getByTestId('import-preview-button').click();
+
+    // The preview separates the three fates before anything is written.
+    await expect(page.getByTestId('import-preview-merge')).toContainText('0 new, 1 updated');
+    await expect(page.getByTestId('import-absent-note')).toContainText('theo@thistle.test');
+    await expect(page.getByTestId('import-absent-note')).toContainText('left exactly as they are');
+
+    await page.getByTestId('import-confirm-button').click();
+    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+
+    const after = await listApplications();
+    // Updated in place, same id - the review view and any future offer reference it.
+    const nadia = after.find((a) => a.applicantEmail === 'nadia@ember.test')!;
+    expect(nadia.id).toBe(nadiaIdBefore);
+    expect(nadia.formData.business_name).toBe('Ember Ceramics Studio');
+    // Absent, and untouched.
+    const theo = after.find((a) => a.applicantEmail === 'theo@thistle.test');
+    expect(theo).toBeTruthy();
+    expect(theo!.formData.business_name).toBe('Thorn & Thistle');
+  });
 });

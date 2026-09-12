@@ -612,7 +612,42 @@ def preview_values(
     failures = _row_faults(market_doc, assembled)
     result["failures"] = failures
     result["validRows"] = len(rows) - len(failures)
+    result.update(_merge_shape(market_doc.get("id", ""), assembled, failures))
     return result, 200
+
+
+def _merge_shape(
+    market_id: str,
+    assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
+    failures: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """How this file lands against the applications already here: new, updated, or absent.
+
+    "Absent" is the interesting one. An application that exists but is not in the file is LEFT
+    ALONE and merely counted: absence almost always means the organizer exported a filtered or
+    partial range, not that the applicant withdrew, and inferring a withdrawal from a missing row
+    would destroy review state on a guess. ``cancelled`` exists for a real withdrawal, but that is
+    a deliberate act.
+    """
+    skipped_lines = {failure["row"] for failure in failures}
+    in_file = {
+        email for line, email, _submitted, _data in assembled
+        if email and line not in skipped_lines
+    }
+
+    existing_emails = set()
+    for doc in ApplicationsApi.list_applications_for_market(market_id):
+        address = str(doc.get("applicant_email") or "").strip().lower()
+        if address:
+            existing_emails.add(address)
+
+    absent = sorted(existing_emails - in_file)
+    return {
+        "newRows": len(in_file - existing_emails),
+        "updatedRows": len(in_file & existing_emails),
+        "absentApplications": len(absent),
+        "absentEmails": absent[:20],
+    }
 
 
 def import_applications(
@@ -704,6 +739,13 @@ def import_applications(
     updated = 0
     failures: List[Dict[str, Any]] = []
 
+    # Counted before the writes, so it means "already here and not in this file" rather than
+    # being confused by the rows this run is about to add.
+    assembled_all = _assembled_rows(market_doc, headers, rows, resolved, resolutions)
+    absent_before = _merge_shape(
+        market_id, assembled_all, _row_faults(market_doc, assembled_all),
+    )["absentApplications"]
+
     for row_number, email, submitted_at, form_data in _assembled_rows(
         market_doc, headers, rows, resolved, resolutions,
     ):
@@ -745,6 +787,7 @@ def import_applications(
         "skipped": len(failures),
         "rowCount": len(rows),
         "failures": failures,
+        "absentApplications": absent_before,
     }, 200
 
 

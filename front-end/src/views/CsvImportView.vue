@@ -104,6 +104,11 @@ const failures = ref<ImportFailure[]>([]);
 /** What the dry run said would import, and what it said would be skipped. */
 const validRows = ref(0);
 const previewFailures = ref<ImportFailure[]>([]);
+/** How the file lands against what is already here. */
+const newRows = ref(0);
+const updatedRows = ref(0);
+const absentApplications = ref(0);
+const absentEmails = ref<string[]>([]);
 
 onMounted(() => {
   market.value = JSON.parse(localStorage.getItem('market') || 'null');
@@ -320,6 +325,10 @@ async function checkValues() {
     unmatched.value = data.unmatched ?? [];
     validRows.value = data.validRows ?? 0;
     previewFailures.value = data.failures ?? [];
+    newRows.value = data.newRows ?? 0;
+    updatedRows.value = data.updatedRows ?? 0;
+    absentApplications.value = data.absentApplications ?? 0;
+    absentEmails.value = data.absentEmails ?? [];
     if (unmatched.value.length === 0) step.value = 'preview';
   } catch (e) {
     error.value = getApiErrorMessage(e, 'That file could not be checked.');
@@ -665,8 +674,20 @@ function startOver() {
       <h2 data-testid="import-preview-counts">
         {{ validRows }} of {{ rowCount }} row{{ rowCount === 1 ? '' : 's' }} will be imported
       </h2>
-      <p class="import-help">
-        Each imported row becomes an application awaiting your review. Nothing has been written yet.
+      <p class="import-help" data-testid="import-preview-merge">
+        <template v-if="updatedRows">{{ newRows }} new, {{ updatedRows }} updated. </template>Each
+        imported row becomes an application awaiting your review. Nothing has been written yet.
+      </p>
+
+      <!-- Already here, not in this file. Left alone: absence is almost always a filtered export,
+           not a withdrawal, and guessing otherwise would destroy review state on a guess. -->
+      <p v-if="absentApplications" class="import-note" data-testid="import-absent-note">
+        {{ absentApplications }} existing application{{ absentApplications === 1 ? '' : 's' }}
+        {{ absentApplications === 1 ? 'is' : 'are' }} not in this file<span
+          v-if="absentEmails.length"
+        >
+          ({{ absentEmails.join(', ') }})</span
+        >. They will be left exactly as they are.
       </p>
 
       <!-- Everything that would be skipped, before it is skipped. -->
@@ -1080,6 +1101,16 @@ function startOver() {
 
 .preview-mapping span {
   color: var(--mm-grey, #666);
+}
+
+.import-note {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--mm-grey, #ddd);
+  border-radius: 6px;
+  background: #fafafa;
+  font-size: 13px;
+  color: var(--mm-grey, #555);
 }
 
 .import-failures {
