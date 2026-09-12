@@ -246,6 +246,24 @@ class AssignmentObject(BaseModel):
     assignment_statistics: Optional[AssignmentStatistics] = None
 
 
+class ImportMapping(BaseModel):
+    """How the organizer's CSV columns were mapped, kept so a re-import opens ready to confirm.
+
+    Columns are recorded by HEADER TEXT, never by position. A form whose questions are reordered
+    exports the same headers in a different order, and a mapping keyed on position would then map
+    every answer to the wrong question without a word. Text also makes "this column is gone" and
+    "this column is new" answerable, which is what the re-import screen has to say.
+    """
+    # target key -> the header text of each column serving it (several when a grid spells one
+    # question across many columns).
+    targets: Dict[str, List[str]] = {}
+    # The whole header row as it stood, so a header that has since appeared can be called new.
+    headers: List[str] = []
+    # target key -> raw cell value -> the market's own name for it, or None meaning "ignore".
+    resolutions: Dict[str, Dict[str, Optional[str]]] = {}
+    saved_at: Optional[str] = None
+
+
 class Market(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # UUID, immutable primary key
     name: str
@@ -262,6 +280,8 @@ class Market(BaseModel):
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
     discord_guild_id: Optional[str] = None  # Per-market Discord guild reference (D4 integration seam)
     discord_webhook_url: Optional[str] = None  # Per-market Discord webhook target for assignment notifications
+    # Server-owned: written only by the CSV import endpoint, never by a market update body.
+    import_mapping: Optional["ImportMapping"] = None
 
     @computed_field
     def is_draft(self) -> bool:
@@ -641,8 +661,13 @@ class ApplicationFormContract(ContractModel):
     essential_options: Optional[EssentialFormOptionsContract] = None
 
 
+class ImportMappingContract(ImportMapping, ContractModel):
+    """Camel-cased contract view of a saved CSV import mapping."""
+
+
 class MarketSchemaContract(ContractModel):
     application_form: Optional[ApplicationFormContract] = None
+    import_mapping: Optional[ImportMappingContract] = None
     assignment_object: AssignmentObjectContract
     creation_date: str
     discord_guild_id: Optional[str] = None

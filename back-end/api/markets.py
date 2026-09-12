@@ -277,6 +277,12 @@ def _preserve_server_owned_fields(
     market_dict["application_form"] = _application_form_dump(existing_market)
     # results_published is a server-owned gate: only the publish-results endpoint flips it.
     market_dict["results_published"] = existing_market.results_published
+    # import_mapping is written only by the CSV import endpoint, for the same single-writer reason
+    # as application_form: a stale client copy must not revert what an import just saved.
+    market_dict["import_mapping"] = (
+        existing_market.import_mapping.model_dump()
+        if existing_market.import_mapping is not None else None
+    )
     for field in ("review_config", "discord_guild_id"):
         if field in market.model_fields_set:
             continue
