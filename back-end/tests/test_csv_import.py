@@ -246,3 +246,113 @@ class TestImportApplications:
         CsvImport.import_applications(markets, markets.doc, _csv(shouty), MAPPING)
 
         assert applications.find_one({"applicant_email": "nadia@ember.ca"}) is not None
+
+
+# A Google Forms CHECKBOX GRID exports one column per option, the header carrying the question
+# stem and the option in brackets. The same question asked once exports as a single
+# comma-separated column. Both mean the same thing, and both must import identically.
+GRID_HEADERS = [
+    "Timestamp",
+    "Email Address",
+    "Business name",
+    "Which days can you attend? [2026-08-01]",
+    "Which days can you attend? [2026-08-08]",
+    "How many days do you want?",
+    "Which tiers will you accept?",
+    "Full or half table?",
+    "Partner's email if sharing",
+    "Rank the sections [Main Hall]",
+    "Rank the sections [Garden]",
+]
+
+GRID_MAPPING = {
+    CsvImport.SUBMITTED_AT_TARGET: 0,
+    CsvImport.APPLICANT_EMAIL_TARGET: 1,
+    "business_name": 2,
+    EssentialFields.AVAILABLE_DATES_KEY: [3, 4],
+    EssentialFields.MAX_DATES_KEY: 5,
+    EssentialFields.TIER_PREFERENCE_KEY: 6,
+    EssentialFields.TABLE_CHOICE_KEY: 7,
+    EssentialFields.TABLE_SHARE_EMAIL_KEY: 8,
+    EssentialFields.SECTION_RANKING_KEY: [9, 10],
+}
+
+
+def _grid_csv(*rows: str) -> str:
+    return "\n".join([",".join(GRID_HEADERS), *rows])
+
+
+# Ticked on both days; ranks Garden first by saying so in the grid's own cells.
+GRID_ROW = (
+    "2026/05/02 9:14:03,nadia@ember.ca,Ember Ceramics,Yes,Yes,2,Gold,half,,2nd choice,1st choice"
+)
+
+
+class TestColumnGroups:
+    def test_a_grid_is_detected_as_one_question(self, markets):
+        body, _ = CsvImport.inspect(markets.doc, _grid_csv(GRID_ROW))
+
+        stems = {group["stem"]: group for group in body["groups"]}
+        assert "Which days can you attend?" in stems
+        assert stems["Which days can you attend?"]["columns"] == [3, 4]
+        assert stems["Which days can you attend?"]["options"] == ["2026-08-01", "2026-08-08"]
+
+    def test_a_lone_bracketed_column_is_not_a_group(self, markets):
+        """One column is not a grid; grouping it would invent structure that is not there."""
+        headers = ["Email Address", "Which days can you attend? [2026-08-01]"]
+        body, _ = CsvImport.inspect(markets.doc, ",".join(headers) + "\nx@y.z,Yes")
+
+        assert body["groups"] == []
+
+    def test_plain_headers_produce_no_groups(self, markets):
+        body, _ = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
+
+        assert body["groups"] == []
+
+
+class TestImportingAGrid:
+    def test_both_export_shapes_produce_the_same_answers(self, markets, applications):
+        """The point of the story: one question, two spellings, one stored document."""
+        CsvImport.import_applications(markets, markets.doc, _grid_csv(GRID_ROW), GRID_MAPPING)
+        from_grid = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+
+        applications.documents.clear()
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        from_single = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+
+        assert from_grid["essential_available_dates"] == from_single["essential_available_dates"]
+        assert from_grid["essential_section_ranking"] == from_single["essential_section_ranking"]
+
+    def test_an_unticked_option_is_not_selected(self, markets, applications):
+        one_day = GRID_ROW.replace("Ember Ceramics,Yes,Yes,2", "Ember Ceramics,Yes,,1")
+
+        CsvImport.import_applications(markets, markets.doc, _grid_csv(one_day), GRID_MAPPING)
+
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_available_dates"] == ["2026-08-01"]
+
+    def test_a_ranking_grid_is_ordered_by_what_the_cells_say(self, markets, applications):
+        """A multiple-choice grid records the rank in the cell; column order is only the tiebreak."""
+        CsvImport.import_applications(markets, markets.doc, _grid_csv(GRID_ROW), GRID_MAPPING)
+
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_section_ranking"] == ["Garden", "Main Hall"]
+
+    def test_a_ranking_grid_with_no_ranks_falls_back_to_column_order(self, markets, applications):
+        """The only ordering information left is the order the organizer wrote the options in."""
+        ticked = GRID_ROW.replace(",2nd choice,1st choice", ",Yes,Yes")
+
+        CsvImport.import_applications(markets, markets.doc, _grid_csv(ticked), GRID_MAPPING)
+
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_section_ranking"] == ["Main Hall", "Garden"]
+
+    def test_a_grid_column_outside_the_file_is_refused(self, markets, applications):
+        broken = {**GRID_MAPPING, EssentialFields.AVAILABLE_DATES_KEY: [3, 99]}
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _grid_csv(GRID_ROW), broken,
+        )
+
+        assert status == 400 and "not in this file" in body["error"]
+        assert applications.documents == []

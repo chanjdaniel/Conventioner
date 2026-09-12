@@ -16,6 +16,20 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, getApiErrorMessage } from '@/utils/api';
 import type { Market } from '@/assets/types/datatypes';
+import {
+  AVAILABLE_DATES_KEY,
+  SECTION_RANKING_KEY,
+  TABLE_TYPE_RANKING_KEY,
+  TIER_PREFERENCE_KEY,
+} from '@/utils/essentialFields';
+
+/** Targets whose answer is several values, so one column holds a comma-separated list. */
+const MULTI_VALUE_TARGETS = new Set<string>([
+  AVAILABLE_DATES_KEY,
+  TIER_PREFERENCE_KEY,
+  SECTION_RANKING_KEY,
+  TABLE_TYPE_RANKING_KEY,
+]);
 
 type Step = 'upload' | 'map' | 'preview' | 'done';
 
@@ -24,6 +38,13 @@ interface ImportTarget {
   label: string;
   required: boolean;
   kind: 'identity' | 'essential' | 'custom' | 'meta';
+}
+
+/** Several columns that are one question: a Google Forms checkbox or multiple-choice grid. */
+interface ColumnGroup {
+  stem: string;
+  columns: number[];
+  options: string[];
 }
 
 interface ImportFailure {
@@ -50,6 +71,11 @@ const rowCount = ref(0);
 const targets = ref<ImportTarget[]>([]);
 /** Column index -> target key. The ledger is column-driven, so this is its natural direction. */
 const columnTarget = ref<Record<number, string>>({});
+const groups = ref<ColumnGroup[]>([]);
+/** Group stem -> target key: a grid is mapped once, for all of its columns at a time. */
+const groupTarget = ref<Record<string, string>>({});
+/** Stems the organizer has broken apart, when the detection guessed wrong. */
+const splitStems = ref<Set<string>>(new Set());
 
 const created = ref(0);
 const updated = ref(0);
@@ -62,18 +88,70 @@ onMounted(() => {
   }
 });
 
+const activeGroups = computed(() => groups.value.filter((g) => !splitStems.value.has(g.stem)));
+const groupedColumns = computed(
+  () => new Set(activeGroups.value.flatMap((group) => group.columns)),
+);
+
+/** The ledger in render order: a grid appears once, at its first column's position. */
+const ledgerRows = computed(() => {
+  const byFirstColumn = new Map(activeGroups.value.map((g) => [g.columns[0], g]));
+  const rows: Array<{ kind: 'group'; group: ColumnGroup } | { kind: 'column'; index: number }> = [];
+  headers.value.forEach((_header, index) => {
+    const group = byFirstColumn.get(index);
+    if (group) {
+      rows.push({ kind: 'group', group });
+    } else if (!groupedColumns.value.has(index)) {
+      rows.push({ kind: 'column', index });
+    }
+  });
+  return rows;
+});
+
 const requiredTargets = computed(() => targets.value.filter((t) => t.required));
-const mappedKeys = computed(() => new Set(Object.values(columnTarget.value).filter(Boolean)));
+const mappedKeys = computed(
+  () =>
+    new Set(
+      [
+        ...Object.entries(columnTarget.value)
+          .filter(([index]) => !groupedColumns.value.has(Number(index)))
+          .map(([, key]) => key),
+        ...activeGroups.value.map((g) => groupTarget.value[g.stem]),
+      ].filter(Boolean),
+    ),
+);
+
+/** What shape a mapped target is being read from, said plainly so a wrong guess is visible. */
+function shapeLabel(group: ColumnGroup): string {
+  return `${group.columns.length} columns · one per option`;
+}
+
+function singleShapeLabel(index: number): string {
+  const key = columnTarget.value[index];
+  return key && MULTI_VALUE_TARGETS.has(key) ? '1 column · values split on commas' : '';
+}
+
+function splitGroup(stem: string) {
+  const next = new Set(splitStems.value);
+  next.add(stem);
+  splitStems.value = next;
+  delete groupTarget.value[stem];
+}
 const unservedRequired = computed(() =>
   requiredTargets.value.filter((t) => !mappedKeys.value.has(t.key)),
 );
 const canPreview = computed(() => unservedRequired.value.length === 0);
 
-/** A target already taken by another column, so the ledger can grey it out. */
-function takenBy(key: string, columnIndex: number): boolean {
-  return Object.entries(columnTarget.value).some(
-    ([index, value]) => value === key && Number(index) !== columnIndex,
+/** A target already taken elsewhere, so the ledger can grey it out. */
+function takenBy(key: string, columnIndex: number | null, stem: string | null): boolean {
+  const byColumn = Object.entries(columnTarget.value).some(
+    ([index, value]) =>
+      value === key && Number(index) !== columnIndex && !groupedColumns.value.has(Number(index)),
   );
+  const byGroup = Object.entries(groupTarget.value).some(
+    ([groupStem, value]) => value === key && groupStem !== stem,
+  );
+  return byColumn || byGroup;
 }
 
 async function onFileChosen(event: Event) {
@@ -96,6 +174,9 @@ async function inspect() {
     sampleValues.value = data.sampleValues ?? [];
     rowCount.value = data.rowCount ?? 0;
     targets.value = data.targets ?? [];
+    groups.value = data.groups ?? [];
+    groupTarget.value = {};
+    splitStems.value = new Set();
     columnTarget.value = {};
     for (const [key, index] of Object.entries(data.suggestedMapping ?? {})) {
       columnTarget.value[Number(index)] = key;
@@ -112,9 +193,13 @@ async function runImport() {
   busy.value = true;
   error.value = '';
   try {
-    const mapping: Record<string, number> = {};
+    const mapping: Record<string, number | number[]> = {};
     for (const [index, key] of Object.entries(columnTarget.value)) {
-      if (key) mapping[key] = Number(index);
+      if (key && !groupedColumns.value.has(Number(index))) mapping[key] = Number(index);
+    }
+    for (const group of activeGroups.value) {
+      const key = groupTarget.value[group.stem];
+      if (key) mapping[key] = group.columns;
     }
     const { data } = await api.post(`/markets/${marketId.value}/applications/import`, {
       csvContent: csvContent.value,
@@ -196,32 +281,102 @@ function startOver() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(header, index) in headers" :key="index" data-testid="import-column-row">
-              <td class="ledger-header">{{ header || `(column ${index + 1})` }}</td>
-              <td
-                class="ledger-samples"
-                :class="{ empty: samplesFor(index) === 'no values in the first rows' }"
-              >
-                {{ samplesFor(index) }}
-              </td>
-              <td>
-                <select
-                  v-model="columnTarget[index]"
-                  class="ledger-select"
-                  :data-testid="`import-target-select-${index}`"
+            <template
+              v-for="row in ledgerRows"
+              :key="row.kind === 'group' ? row.group.stem : row.index"
+            >
+              <!-- A grid: one question spread across several columns, mapped once. -->
+              <template v-if="row.kind === 'group'">
+                <tr class="ledger-group-row" data-testid="import-group-row">
+                  <td class="ledger-header">
+                    {{ row.group.stem }}
+                    <span class="ledger-shape" data-testid="import-group-shape">
+                      {{ shapeLabel(row.group) }}
+                    </span>
+                  </td>
+                  <td class="ledger-samples">
+                    <button
+                      class="ledger-split"
+                      :data-testid="`import-split-group-${row.group.columns[0]}`"
+                      @click="splitGroup(row.group.stem)"
+                    >
+                      Not one question - split
+                    </button>
+                  </td>
+                  <td>
+                    <select
+                      v-model="groupTarget[row.group.stem]"
+                      class="ledger-select"
+                      :data-testid="`import-group-select-${row.group.columns[0]}`"
+                    >
+                      <option value="">Ignore these columns</option>
+                      <option
+                        v-for="target in targets"
+                        :key="target.key"
+                        :value="target.key"
+                        :disabled="takenBy(target.key, null, row.group.stem)"
+                      >
+                        {{ target.label }}{{ target.required ? ' *' : '' }}
+                      </option>
+                    </select>
+                  </td>
+                </tr>
+                <tr
+                  v-for="(option, position) in row.group.options"
+                  :key="`${row.group.stem}-${option}`"
+                  class="ledger-member-row"
+                  data-testid="import-group-member"
                 >
-                  <option value="">Ignore this column</option>
-                  <option
-                    v-for="target in targets"
-                    :key="target.key"
-                    :value="target.key"
-                    :disabled="takenBy(target.key, index)"
+                  <td class="ledger-member">↳ {{ option }}</td>
+                  <td
+                    class="ledger-samples"
+                    :class="{
+                      empty: samplesFor(row.group.columns[position]).startsWith('no values'),
+                    }"
                   >
-                    {{ target.label }}{{ target.required ? ' *' : '' }}
-                  </option>
-                </select>
-              </td>
-            </tr>
+                    {{ samplesFor(row.group.columns[position]) }}
+                  </td>
+                  <td class="ledger-member-note">part of the question above</td>
+                </tr>
+              </template>
+
+              <!-- An ordinary column. -->
+              <tr v-else data-testid="import-column-row">
+                <td class="ledger-header">
+                  {{ headers[row.index] || `(column ${row.index + 1})` }}
+                  <span
+                    v-if="singleShapeLabel(row.index)"
+                    class="ledger-shape"
+                    data-testid="import-column-shape"
+                  >
+                    {{ singleShapeLabel(row.index) }}
+                  </span>
+                </td>
+                <td
+                  class="ledger-samples"
+                  :class="{ empty: samplesFor(row.index).startsWith('no values') }"
+                >
+                  {{ samplesFor(row.index) }}
+                </td>
+                <td>
+                  <select
+                    v-model="columnTarget[row.index]"
+                    class="ledger-select"
+                    :data-testid="`import-target-select-${row.index}`"
+                  >
+                    <option value="">Ignore this column</option>
+                    <option
+                      v-for="target in targets"
+                      :key="target.key"
+                      :value="target.key"
+                      :disabled="takenBy(target.key, row.index, null)"
+                    >
+                      {{ target.label }}{{ target.required ? ' *' : '' }}
+                    </option>
+                  </select>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -452,6 +607,43 @@ function startOver() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ledger-group-row {
+  background: #f2f8f4;
+}
+
+.ledger-shape {
+  display: block;
+  margin-top: 2px;
+  font-weight: normal;
+  font-size: 12px;
+  color: var(--mm-green, #2e7d4f);
+}
+
+.ledger-member td {
+  border-bottom: none;
+}
+
+.ledger-member {
+  padding-left: 26px !important;
+  color: var(--mm-grey, #444);
+}
+
+.ledger-member-note {
+  font-size: 12px;
+  color: var(--mm-grey, #999);
+}
+
+.ledger-split {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: 'Outfit Regular';
+  font-size: 12px;
+  color: var(--mm-grey, #666);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .ledger-select {

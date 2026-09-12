@@ -9,14 +9,19 @@ That sameness is the point, and it is why every row goes through
 application and a form-submitted one are then the same kind of thing by construction, so the
 solver reads one shape and the review view shows one behaviour.
 
-Scope of this first cut (E01/F02/S02): every target is served by exactly one column, and cell
-values already name what the market offers. A checkbox grid spread across several columns, and
-values that need resolving against the plan, are the two stories that follow.
+One question does not always mean one column. A Google Forms CHECKBOX GRID exports one column per
+option, its header carrying the question stem and the option in brackets; the same question asked
+once exports as a single comma-separated column. Both mean the same thing, so both must import to
+the same stored answer - which is why a mapping maps a target to one column OR to several.
+
+Scope so far: cell values already name what the market offers. Values that need resolving against
+the plan are the story that follows.
 """
 import csv
 import io
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+import re
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
@@ -44,12 +49,55 @@ _AUTO_DETECT = {
     "email": APPLICANT_EMAIL_TARGET,
 }
 
+_RANKING_ESSENTIALS = (
+    EssentialFields.SECTION_RANKING_KEY,
+    EssentialFields.TABLE_TYPE_RANKING_KEY,
+)
+
 _MULTI_VALUE_ESSENTIALS = (
     EssentialFields.AVAILABLE_DATES_KEY,
     EssentialFields.TIER_PREFERENCE_KEY,
     EssentialFields.SECTION_RANKING_KEY,
     EssentialFields.TABLE_TYPE_RANKING_KEY,
 )
+
+
+# "Which days can you attend? [Saturday July 4]" - the shape Google Forms gives every grid column.
+_GRID_HEADER = re.compile(r"^(?P<stem>.+?)\s*\[(?P<option>.+)\]$")
+
+
+class ColumnGroup:
+    """Several columns that are one question: a checkbox or multiple-choice grid."""
+
+    def __init__(self, stem: str, columns: List[int], options: List[str]):
+        self.stem = stem
+        self.columns = columns
+        self.options = options
+
+    def payload(self) -> Dict[str, Any]:
+        return {"stem": self.stem, "columns": self.columns, "options": self.options}
+
+
+def column_groups(headers: Sequence[str]) -> List[ColumnGroup]:
+    """Columns sharing a question stem, in the order the file writes them.
+
+    A single bracketed column is NOT a group: one column is not a grid, and grouping it would
+    invent structure the file does not have.
+    """
+    order: List[str] = []
+    found: Dict[str, ColumnGroup] = {}
+    for index, header in enumerate(headers):
+        match = _GRID_HEADER.match(str(header).strip())
+        if not match:
+            continue
+        stem = match.group("stem").strip()
+        option = match.group("option").strip()
+        if stem not in found:
+            found[stem] = ColumnGroup(stem, [], [])
+            order.append(stem)
+        found[stem].columns.append(index)
+        found[stem].options.append(option)
+    return [found[stem] for stem in order if len(found[stem].columns) > 1]
 
 
 class ImportTarget:
@@ -176,12 +224,49 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
         "sampleValues": samples,
         "rowCount": len(rows),
         "targets": [target.payload() for target in targets],
+        "groups": [group.payload() for group in column_groups(headers)],
         "suggestedMapping": suggested_mapping(headers, targets),
     }, 200
 
 
 def _split_multi(raw: str) -> List[str]:
     return [part.strip() for part in str(raw).split(",") if part.strip()]
+
+
+def _grid_option(header: str) -> str:
+    """The option a grid column stands for: the text in brackets, or the whole header."""
+    match = _GRID_HEADER.match(str(header).strip())
+    return match.group("option").strip() if match else str(header).strip()
+
+
+def _rank_key(value: str) -> Any:
+    """Order a ranking grid by what its cells say.
+
+    A multiple-choice grid records the rank in the cell - "1st choice", "2", "Top" - so that is
+    the ordering information the file actually carries. Leading digits are read as a number so
+    "10th" sorts after "9th"; anything else sorts as text. Ties keep the file's column order.
+    """
+    text = str(value).strip()
+    digits = re.match(r"^(\d+)", text)
+    return (0, int(digits.group(1)), "") if digits else (1, 0, text.lower())
+
+
+def _grid_values(
+    target: ImportTarget, headers: Sequence[str], row: Sequence[str], columns: Sequence[int],
+) -> List[str]:
+    """The answer a grid spells across several columns.
+
+    A column with an empty cell was not selected. For a SET (dates, tiers) that is the whole
+    story. For a RANKING the cells carry the order, so they decide it - see ``_rank_key``.
+    """
+    selected = [
+        (index, _grid_option(headers[index]), str(row[index]).strip() if index < len(row) else "")
+        for index in columns
+    ]
+    chosen = [entry for entry in selected if entry[2]]
+    if target.key in _RANKING_ESSENTIALS:
+        chosen.sort(key=lambda entry: (_rank_key(entry[2]), columns.index(entry[0])))
+    return [option for _index, option, _value in chosen]
 
 
 def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> Any:
@@ -233,21 +318,46 @@ def import_applications(
     if unknown:
         return {"error": f"Unknown mapping target(s): {', '.join(sorted(unknown))}."}, 400
 
+    def _indexes(value: Any) -> Optional[List[int]]:
+        """A mapping value is one column, or several when a grid spells one question across many."""
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return [value]
+        if isinstance(value, list) and value and all(
+            isinstance(item, int) and not isinstance(item, bool) for item in value
+        ):
+            return list(value)
+        return None
+
+    resolved: Dict[str, List[int]] = {}
+    malformed = []
+    for key, value in mapping.items():
+        indexes = _indexes(value)
+        if indexes is None:
+            malformed.append(key)
+        else:
+            resolved[key] = indexes
+    if malformed:
+        return {
+            "error": f"Mapped column must be a column number: {', '.join(sorted(malformed))}.",
+        }, 400
+
     out_of_range = [
-        key for key, index in mapping.items()
-        if not isinstance(index, int) or index < 0 or index >= len(headers)
+        key for key, indexes in resolved.items()
+        if any(index < 0 or index >= len(headers) for index in indexes)
     ]
     if out_of_range:
         return {
             "error": f"Mapped column is not in this file: {', '.join(sorted(out_of_range))}.",
         }, 400
 
-    missing = [t.label for t in targets if t.required and t.key not in mapping]
+    missing = [t.label for t in targets if t.required and t.key not in resolved]
     if missing:
         return {
             "error": "Every required question needs a column before anything can be imported. "
                      f"Still unmapped: {', '.join(missing)}.",
-            "unmappedRequired": [t.key for t in targets if t.required and t.key not in mapping],
+            "unmappedRequired": [t.key for t in targets if t.required and t.key not in resolved],
         }, 422
 
     form = market_doc_field(market_doc, "application_form") or {}
@@ -263,10 +373,11 @@ def import_applications(
         row_number = offset + 2
 
         def cell(key: str) -> str:
-            index = mapping.get(key)
-            if index is None or index >= len(row):
+            indexes = resolved.get(key)
+            if not indexes:
                 return ""
-            return row[index]
+            index = indexes[0]
+            return row[index] if index < len(row) else ""
 
         email = str(cell(APPLICANT_EMAIL_TARGET) or "").strip().lower()
         if not email:
@@ -274,11 +385,14 @@ def import_applications(
             continue
 
         form_data: Dict[str, Any] = {}
-        for key, index in mapping.items():
+        for key, indexes in resolved.items():
             if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET):
                 continue
             target = by_key[key]
-            form_data[key] = _coerce(target, cell(key), fields_by_key.get(key))
+            if len(indexes) > 1:
+                form_data[key] = _grid_values(target, headers, row, indexes)
+            else:
+                form_data[key] = _coerce(target, cell(key), fields_by_key.get(key))
 
         existing = ApplicationsApi.find_application_by_email(market_id, email)
         submitted_at = str(cell(SUBMITTED_AT_TARGET) or "").strip()

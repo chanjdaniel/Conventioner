@@ -20,8 +20,8 @@ What the solver actually read, established by reading the consumption sites:
 | `table_choice` (full/half/either) | `table_choice_col_name_idx` | **no source** |
 | `table_share_email` (partner) | `table_share_email_col_name_idx` | **no source** |
 | Priority ordering | arbitrary columns + `enum_priority_order` | no source (ticket 03) |
-| — | — | `essential_section_ranking` **unconsumed** |
-| — | — | `essential_table_type_ranking` **unconsumed** |
+| - | - | `essential_section_ranking` **unconsumed** |
+| - | - | `essential_table_type_ranking` **unconsumed** |
 
 Decide the full field set the solver reads, and therefore what the essential contract must become.
 
