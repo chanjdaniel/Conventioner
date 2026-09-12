@@ -612,14 +612,37 @@ def preview_values(
     failures = _row_faults(market_doc, assembled)
     result["failures"] = failures
     result["validRows"] = len(rows) - len(failures)
-    result.update(_merge_shape(market_doc.get("id", ""), assembled, failures))
+    result.update(_merge_shape(market_doc.get("id", ""), assembled, failures, market_doc))
     return result, 200
+
+
+def _would_return_to_review(
+    market_doc: Dict[str, Any], existing: Optional[Dict[str, Any]], form_data: Dict[str, Any],
+) -> bool:
+    """Would importing this row invalidate a review that has already happened?
+
+    Only for an application already APPROVED: nothing else has a verdict to invalidate. The
+    comparison is against NORMALISED answers on both sides, so a re-export that merely reformats a
+    value is not a change - treating it as one would un-approve a market's worth of vendors for
+    nothing.
+    """
+    if not existing:
+        return False
+    if existing.get("status") != ApplicationStatus.REVIEWER_APPROVED.value:
+        return False
+
+    options = EssentialFields.effective_essential_options(market_doc)
+    error, incoming = EssentialFields.validated_essential_answers(form_data, options)
+    if error:
+        return False
+    return EssentialFields.solver_relevant_change(existing.get("form_data") or {}, incoming)
 
 
 def _merge_shape(
     market_id: str,
     assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
     failures: Sequence[Dict[str, Any]],
+    market_doc: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """How this file lands against the applications already here: new, updated, or absent.
 
@@ -635,18 +658,30 @@ def _merge_shape(
         if email and line not in skipped_lines
     }
 
-    existing_emails = set()
+    existing_by_email = {}
     for doc in ApplicationsApi.list_applications_for_market(market_id):
         address = str(doc.get("applicant_email") or "").strip().lower()
         if address:
-            existing_emails.add(address)
+            existing_by_email[address] = doc
 
+    existing_emails = set(existing_by_email)
     absent = sorted(existing_emails - in_file)
+
+    returning = []
+    if market_doc is not None:
+        for line, email, _submitted, data in assembled:
+            if not email or line in skipped_lines:
+                continue
+            if _would_return_to_review(market_doc, existing_by_email.get(email), data):
+                returning.append(email)
+
     return {
         "newRows": len(in_file - existing_emails),
         "updatedRows": len(in_file & existing_emails),
         "absentApplications": len(absent),
         "absentEmails": absent[:20],
+        "returningToReview": len(returning),
+        "returningEmails": sorted(returning)[:20],
     }
 
 
@@ -737,14 +772,16 @@ def import_applications(
 
     created = 0
     updated = 0
+    returned_to_review = 0
     failures: List[Dict[str, Any]] = []
 
     # Counted before the writes, so it means "already here and not in this file" rather than
     # being confused by the rows this run is about to add.
     assembled_all = _assembled_rows(market_doc, headers, rows, resolved, resolutions)
-    absent_before = _merge_shape(
-        market_id, assembled_all, _row_faults(market_doc, assembled_all),
-    )["absentApplications"]
+    shape_before = _merge_shape(
+        market_id, assembled_all, _row_faults(market_doc, assembled_all), market_doc,
+    )
+    absent_before = shape_before["absentApplications"]
 
     for row_number, email, submitted_at, form_data in _assembled_rows(
         market_doc, headers, rows, resolved, resolutions,
@@ -754,6 +791,9 @@ def import_applications(
             continue
 
         existing = ApplicationsApi.find_application_by_email(market_id, email)
+        # Decided BEFORE the write, while the stored answers are still the ones the organizer
+        # approved: afterwards there is nothing left to compare against.
+        stale_review = _would_return_to_review(market_doc, existing, form_data)
         app_doc = existing or ApplicationsApi.find_or_create_application(Application(
             market_id=market_id,
             applicant_email=email,
@@ -772,6 +812,12 @@ def import_applications(
             failures.append({"row": row_number, "email": email, "error": row_error})
             continue
 
+        if stale_review:
+            ApplicationsApi.update_application_status(
+                app_doc.get("id", ""), ApplicationStatus.OPEN,
+            )
+            returned_to_review += 1
+
         if existing:
             updated += 1
         else:
@@ -788,6 +834,7 @@ def import_applications(
         "rowCount": len(rows),
         "failures": failures,
         "absentApplications": absent_before,
+        "returnedToReview": returned_to_review,
     }, 200
 
 
