@@ -38,6 +38,12 @@ export interface MarketSchema {
   discordGuildId?: string;
   discordWebhookUrl?: string;
   id: string;
+  importMapping?: {
+    headers?: string[];
+    resolutions?: Record<string, Record<string, null | string>>;
+    savedAt?: string;
+    targets?: Record<string, string[]>;
+  };
   isDraft?: boolean;
   modificationList: {
   }[];

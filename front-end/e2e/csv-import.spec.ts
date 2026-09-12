@@ -377,4 +377,60 @@ test.describe('CSV vendor import', () => {
       expect(app.formData.essential_tier_preference).toEqual(['Gold']);
     }
   });
+
+  test('a second import opens with the last mapping restored', async ({
+    authenticatedPage: page,
+    request,
+  }, testInfo) => {
+    const seed = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject() },
+    );
+    const fetchMarket = async () => {
+      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      return ((await res.json()) as { market: Record<string, unknown> }).market;
+    };
+
+    // First import: the organizer maps everything by hand.
+    await openImport(page, await fetchMarket());
+    await chooseFile(page, CSV);
+    await expect(page.getByTestId('import-restored-banner')).toHaveCount(0);
+    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
+    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
+    await mapColumn(page, 'Which tiers will you accept?', 'essential_tier_preference');
+    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
+    await mapColumn(page, "Partner's email if sharing", 'essential_table_share_email');
+    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
+    await mapColumn(page, 'Business name', 'business_name');
+    await mapColumn(page, 'What do you sell?', 'product_type');
+    await page.getByTestId('import-preview-button').click();
+    await page.getByTestId('import-confirm-button').click();
+    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+
+    // Second import of the same form: nothing to redo. The form has since gained a question, and
+    // that column is called out rather than quietly ignored.
+    const secondHeaders = [...HEADERS, 'Anything else?'];
+    const secondCsv = [secondHeaders.join(','), ROWS[0] + ',No'].join('\n');
+
+    await openImport(page, await fetchMarket());
+    await chooseFile(page, secondCsv);
+
+    await expect(page.getByTestId('import-restored-banner')).toBeVisible();
+    await expect(page.getByTestId('import-restored-new')).toContainText('1 column is new');
+    await expect(page.getByTestId('import-restored-badge').first()).toBeVisible();
+    // Every required question is already served, so the organizer can go straight on.
+    await expect(page.getByTestId('import-all-mapped')).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('05-import-restored.png'),
+      fullPage: true,
+    });
+
+    await page.getByTestId('import-preview-button').click();
+    await expect(page.getByTestId('import-preview')).toBeVisible();
+  });
 });

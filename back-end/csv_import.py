@@ -25,13 +25,14 @@ import csv
 import io
 import logging
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
 from application_write import record_application_answers, validate_application_answers
-from datatypes import Application, ApplicationStatus
-from market_documents import market_doc_field
+from datatypes import Application, ApplicationStatus, ImportMapping
+from market_documents import market_doc_field, market_doc_key
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +275,70 @@ def suggested_mapping(headers: List[str], targets: List[ImportTarget]) -> Dict[s
     return mapping
 
 
+# The stored mapping's own field names are camelCase like the rest of the market document, but its
+# CONTENTS are data: target keys inside ``targets``, and raw cell values inside ``resolutions``.
+# A blanket key conversion would rewrite those - "Gold Tier" is a value the organizer's form
+# produced, not a schema key, and mangling it would silently lose the resolution it stands for.
+_MAPPING_FIELDS = {"targets": "targets", "headers": "headers",
+                   "resolutions": "resolutions", "saved_at": "savedAt"}
+
+
+def stored_mapping(market_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """The mapping a previous import saved on this market, with its data keys left alone."""
+    raw = market_doc_field(market_doc, "import_mapping")
+    if not isinstance(raw, dict):
+        return {}
+    return {snake: raw.get(camel) for snake, camel in _MAPPING_FIELDS.items() if camel in raw}
+
+
+def restore_mapping(
+    headers: Sequence[str], saved: Dict[str, Any], targets: Sequence["ImportTarget"],
+) -> Tuple[Dict[str, List[int]], List[Dict[str, Any]], List[str]]:
+    """Re-apply a saved mapping to this file, by header TEXT and never by position.
+
+    Returns ``(mapping, unresolved_targets, new_headers)``. A target whose columns are not all
+    present is deliberately NOT half-restored: a partly-mapped grid is worse than an unmapped one,
+    because it looks answered. It is reported instead, so the screen can say which header went
+    missing rather than silently mapping to the wrong one.
+    """
+    positions: Dict[str, List[int]] = {}
+    for index, header in enumerate(headers):
+        positions.setdefault(str(header).strip(), []).append(index)
+
+    known = {target.key for target in targets}
+    restored: Dict[str, List[int]] = {}
+    unresolved: List[Dict[str, Any]] = []
+    used: List[str] = []
+
+    for key, saved_headers in (saved.get("targets") or {}).items():
+        if key not in known:
+            continue
+        wanted = [str(header).strip() for header in saved_headers or []]
+        indexes: List[int] = []
+        missing: List[str] = []
+        taken: Dict[str, int] = {}
+        for header in wanted:
+            available = positions.get(header, [])
+            offset = taken.get(header, 0)
+            if offset < len(available):
+                indexes.append(available[offset])
+                taken[header] = offset + 1
+            else:
+                missing.append(header)
+        if missing:
+            unresolved.append({"target": key, "missingHeaders": missing})
+            continue
+        restored[key] = indexes
+        used.extend(wanted)
+
+    previous = {str(header).strip() for header in saved.get("headers") or []}
+    new_headers = [
+        str(header).strip() for header in headers
+        if previous and str(header).strip() not in previous
+    ]
+    return restored, unresolved, new_headers
+
+
 def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) -> Tuple[Dict[str, Any], int]:
     """What the mapping screen needs to render: the columns, some values, and the targets."""
     error, headers, rows = parse_csv(csv_content)
@@ -285,6 +350,9 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
         [row[index] if index < len(row) else "" for row in rows[:sample_rows]]
         for index in range(len(headers))
     ]
+    saved = stored_mapping(market_doc)
+    restored, unresolved, new_headers = restore_mapping(headers, saved, targets)
+
     return {
         "headers": headers,
         "sampleValues": samples,
@@ -292,6 +360,12 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
         "targets": [target.payload() for target in targets],
         "groups": [group.payload() for group in column_groups(headers)],
         "suggestedMapping": suggested_mapping(headers, targets),
+        # A previous import's answers, re-applied to this file.
+        "restoredMapping": restored,
+        "restoredResolutions": saved.get("resolutions") or {},
+        "restoredTargetsMissingColumns": unresolved,
+        "newHeaders": new_headers,
+        "hasSavedMapping": bool(saved.get("targets")),
     }, 200
 
 
@@ -661,6 +735,10 @@ def import_applications(
         else:
             created += 1
 
+    # Remember how this file was read, so the next import opens ready to confirm rather than
+    # asking the organizer to rebuild a dozen decisions they have already made.
+    save_mapping(markets_collection, market_id, headers, resolved, resolutions)
+
     return {
         "created": created,
         "updated": updated,
@@ -668,3 +746,28 @@ def import_applications(
         "rowCount": len(rows),
         "failures": failures,
     }, 200
+
+
+def save_mapping(
+    markets_collection: Any,
+    market_id: str,
+    headers: Sequence[str],
+    resolved: Dict[str, List[int]],
+    resolutions: Dict[str, Dict[str, Optional[str]]],
+) -> None:
+    """Store the mapping by header text, for the next import to restore."""
+    mapping = ImportMapping(
+        targets={
+            key: [str(headers[index]).strip() for index in indexes if index < len(headers)]
+            for key, indexes in resolved.items()
+        },
+        headers=[str(header).strip() for header in headers],
+        resolutions=resolutions,
+        saved_at=datetime.now(timezone.utc).isoformat(),
+    )
+    dumped = mapping.model_dump()
+    payload = {camel: dumped[snake] for snake, camel in _MAPPING_FIELDS.items()}
+    markets_collection.update_one(
+        {"id": market_id},
+        {"$set": {market_doc_key("import_mapping"): payload}},
+    )
