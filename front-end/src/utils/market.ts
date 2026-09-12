@@ -1,23 +1,28 @@
 import {
   type ApplicationForm,
   type Market,
-  type MarketPhase,
+  MarketPhase,
   MarketRole,
 } from '@/assets/types/datatypes';
 import { marketNameToKebabSlug } from '@/utils/marketSlug';
 
 /**
- * Where to send the user after choosing a market (draft → setup, else → kebab URL).
- * Phase is the single source of truth; ``isDraft`` is derived server-side, and is only
- * consulted for a market with no phase at all - a published one left in localStorage by a
- * build that predates the field, which would otherwise be routed back into the setup wizard.
+ * Where to send the user after choosing a market.
+ *
+ * Every pre-archive phase routes to the setup wizard so the phase controls are reachable.
+ * ``isDraft`` is only consulted for a market with no phase at all - one left in localStorage
+ * by a build that predates the field.
  */
 export function pathAfterLoadingMarket(market: Market): string {
-  const published = market.phase ? market.phase !== 'draft' : market.isDraft === false;
-  if (published) {
-    const slug = marketNameToKebabSlug(market.name);
-    if (slug) return `/${slug}`;
+  if (market.phase && market.phase !== MarketPhase.Archived) {
+    return '/market-setup';
   }
+  if (!market.phase) {
+    const interpretedAsDraft = market.isDraft !== false;
+    if (interpretedAsDraft) return '/market-setup';
+  }
+  const slug = marketNameToKebabSlug(market.name);
+  if (slug) return `/${slug}`;
   return '/market-setup';
 }
 

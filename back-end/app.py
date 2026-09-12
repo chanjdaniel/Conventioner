@@ -28,7 +28,7 @@ from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
-from datatypes import Market, MarketPhase, MarketRole, phase_from_market_document
+from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole, phase_from_market_document
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from guards import PreconditionResult, VALID_TRANSITIONS, evaluate_transition
 from market_documents import (
@@ -1103,11 +1103,65 @@ def transition_market(market_id: str) -> Response:
                 "blockers": [asdict(conflict)],
             })), 409
 
+        # ── Side effects (only after a successful phase write) ────────────
+        if from_phase == MarketPhase.OFFERS.value and to_phase == MarketPhase.MARKET_DAYS:
+            try:
+                swept = ApplicationsApi.sweep_unanswered_offers(market_id)
+                logger.info(
+                    "Swept %d assignment_sent applications to vendor_refused for market %s",
+                    swept,
+                    market_id,
+                )
+            except Exception:
+                logger.error(
+                    "Phase advanced to market_days for market %s but the "
+                    "assignment_sent -> vendor_refused sweep failed",
+                    market_id,
+                    exc_info=True,
+                )
+
         return jsonify({"phase": to_phase.value}), 200
 
     except Exception as e:
         logger.error(f"Error in transition_market {market_id}: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/pending-offers-count', methods=['GET'])
+@login_required
+def pending_offers_count(market_id: str) -> Response:
+    """Return how many applications are still in ``assignment_sent`` — the count of
+    offers that will be swept to ``vendor_refused`` when the market advances from
+    ``offers`` to ``market_days``. Drives the sweep confirmation dialog in the UI.
+    """
+    try:
+        user_email = request.headers.get("X-Owner-Email")
+        if not user_email:
+            return jsonify({"error": "User email not provided in headers"}), 400
+
+        if not UsersApi.get_user(user_email):
+            return jsonify({"error": "User not found"}), 404
+
+        context = MarketsApi.load_market_context(market_id)
+        if context is None or context.market is None:
+            return jsonify({"error": "Market not found"}), 404
+
+        if not PermissionsApi.user_has_permission(
+            user_email, context.market, MarketRole.VIEWER, context.organization
+        ):
+            return jsonify({
+                "error": "User does not have permission to view this market"
+            }), 403
+
+        count = ApplicationsApi.count_applications_with_status(
+            market_id, ApplicationStatus.ASSIGNMENT_SENT.value,
+        )
+
+        return jsonify({"count": count}), 200
+
+    except Exception as e:
+        logger.error(f"Error in pending_offers_count {market_id}: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 

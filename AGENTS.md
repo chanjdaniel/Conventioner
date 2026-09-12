@@ -218,8 +218,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
   `Market` re-stamp `isDraft` from the effective phase before responding.
 - **Publishing a market is the `draft` → `archived` transition** (no guards), fired by the
-  Done button in `GenerateAssignmentView.vue`. It used to be a `PUT` of `isDraft: false`; that
-  route is gone, and this transition is now the only way a market leaves `draft`.
+  Done button in `GenerateAssignmentView.vue`. A market can also leave `draft` via
+  `draft` → `applications_open` (guarded by `FormHasFieldsGuard`).
   A legacy published market (`phase: "draft"` + `isDraft: false`) reads back as a *draft*, since
   `draft` is a phase this build recognizes and takes at face value - hence the migration below.
 - **No Mongo condition can answer "is this market published?"** `{"phase": {"$ne": "draft"}}`

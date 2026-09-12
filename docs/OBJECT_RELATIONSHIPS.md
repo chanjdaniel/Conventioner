@@ -91,7 +91,7 @@ The central entity representing a market event with configuration, assignments, 
 - `setup_object: Optional[SetupObject]` - Market configuration and setup data
 - `modification_list: List[ModificationObject]` - List of modifications (currently empty structure)
 - `assignment_object: AssignmentObject` - Contains vendor assignment results and statistics
-- `phase: MarketPhase` - Market lifecycle phase, and the **single source of truth** for where a market is in its life. Default **`DRAFT`**. Advanced only through `POST /markets/<market_id>/transition`. While the market is in `draft`, opening it from the dashboard or Markets sends the user to market setup; past `draft` the SPA routes to `/{kebab-case-slug}` derived from the market **name** (e.g. `my-summer-market`), and the public check-in URL resolves. See [MarketPhase](#marketphase-enum).
+- `phase: MarketPhase` - Market lifecycle phase, and the **single source of truth** for where a market is in its life. Default **`DRAFT`**. Advanced only through `POST /markets/<market_id>/transition`. Every pre-archive phase routes to the setup wizard (`/market-setup`) so the phase controls are reachable; only `archived` routes to the kebab-slug URL (e.g. `my-summer-market`) and the public check-in URL. See [MarketPhase](#marketphase-enum).
 - `is_draft: bool` - Stored as `isDraft` in MongoDB (camelCase). A Pydantic `@computed_field` **derived strictly from `phase`** (`true` exactly when `phase == draft`), never independently writable: no request body can set it, and it is recomputed from the stored phase on every write. It is still persisted, and kept in agreement with `phase` by every writer, for exactly one reason: it is the fallback `phase_from_market_document()` drops to when a document's `phase` is missing or unrecognized. Nothing reads the stored value for a market whose `phase` this build understands - a fallback that disagreed with the phase would answer confidently and wrongly. Treat it as a persisted view of `phase`, never as state of its own.
 - `application_form: Optional[ApplicationForm]` - Application form definition (None if no form has been saved). Server-owned on update: only `PUT /markets/<market_id>/application-form` writes it (see [ApplicationForm](#applicationform))
 - `review_config: Optional[Dict[str, Any]]` - Free-form review configuration (reviewer pool, etc.); no fixed schema yet
@@ -520,17 +520,23 @@ The market lifecycle. A market moves forward through these phases; the phase dri
 
 **Transitions:**
 
-Only these edges exist today (`VALID_TRANSITIONS` in `back-end/guards.py`); every other pair is rejected, and each missing edge lands with the feature that needs it.
-`review`, `assignment`, `offers`, and `market_days` are declared on the enum but no transition enters them yet.
+`VALID_TRANSITIONS` in `back-end/guards.py` defines every permitted edge; anything else is a `400`. The full set:
 
 - `draft` → `applications_open`
-- `draft` → `archived` (**publishing a market**: the Done button at the end of the Generated Assignment flow. A published market reaches its public check-in URL; `archived` is the phase a published pre-`phase` market already reads back as, so the transition and the legacy documents agree. No guards - a market that has an assignment has nothing left to satisfy.)
+- `draft` → `archived` (**publishing a market**: the Done button at the end of the Generated Assignment flow. A published market reaches its public check-in URL; `archived` is the phase a published pre-`phase` market already reads back as, so the transition and the legacy documents agree.)
 - `applications_open` → `applications_closed`
 - `applications_closed` → `applications_open` (reopening the submission window)
+- `applications_closed` → `review`
+- `review` → `applications_closed` (reopening review)
+- `review` → `assignment`
+- `assignment` → `offers`
+- `offers` → `market_days`
+- Archive edges from every pre-archive phase: `applications_open` → `archived`, `applications_closed` → `archived`, `review` → `archived`, `assignment` → `archived`, `offers` → `archived`, `market_days` → `archived`
 
 **Endpoint:**
-- `POST /markets/<market_id>/transition` - Requires `ADMIN`. Body: `{ "toPhase": "applications_open" }`. Returns `200` with `{ "phase": "<new_phase>" }`. `400` on an unknown phase or an edge that is not valid from the market's current phase, `403` on insufficient permission, `404` on an unknown market, `409` when a guard blocks the transition or when the market's phase changed while the request was in flight (the write is a compare-and-set against the phase the request read, so two organizers racing cannot both win). This is the only writer of `Market.phase` on an existing market, and it writes the derived `isDraft` in the same atomic update so the two can never drift apart.
-- **Callers**: `GenerateAssignmentView.vue`'s Done button posts `{ "toPhase": "archived" }` to publish a market, surfacing a `409`'s blocker messages in the Done error rather than a generic "failed to save". Publishing used to be a `PUT` of `isDraft: false`; that route is gone, and this transition is now the only way a market leaves `draft`.
+- `POST /markets/<market_id>/transition` - Requires `ADMIN`. Body: `{ "toPhase": "<phase>" }`. Returns `200` with `{ "phase": "<new_phase>" }`. `400` on an unknown phase or an edge that is not in `VALID_TRANSITIONS`, `403` on insufficient permission, `404` on an unknown market, `409` when a guard blocks the transition or when the market's phase changed while the request was in flight (the write is a compare-and-set against the phase the request read, so two organizers racing cannot both win). This is the only writer of `Market.phase` on an existing market, and it writes the derived `isDraft` in the same atomic update so the two can never drift apart.
+- When transitioning `offers` → `market_days`, the endpoint sweeps all `assignment_sent` applications to `vendor_refused` before returning success.
+- **Callers**: `PhaseControlPanel.vue` mounts the transition endpoint for all phase advances. Previously only `GenerateAssignmentView.vue`'s Done button called it (for `draft` → `archived`); that still works but is no longer the sole caller.
 
 **Guards (the D16 registry):**
 
@@ -540,13 +546,19 @@ Every precondition for every transition lives in `back-end/guards.py` and nowher
 - `PHASE_ENTRY_INVARIANTS` - what must hold of a market *sitting in* a phase, whatever route it took. Every inbound edge to the phase must enforce these.
 - `TRANSITION_GUARDS` - `(from_phase, to_phase)` → the guards that edge evaluates. Keyed by edge rather than by target phase, because a precondition can belong to a route rather than to a phase.
 
-The only guard today is `FormHasFieldsGuard` (`form_has_fields`): the application form must have at least one field, enforced on both edges into `applications_open`.
+Guards implemented:
+
+| Guard | Enforced on | Purpose |
+|-------|-------------|---------|
+| `FormHasFieldsGuard` | Both edges into `applications_open` | Form must have at least one field |
+| `AllApplicationsReviewedGuard` | `review` → `assignment` | Every application must be approved or rejected |
+| `NoApprovedApplicationsGuard` | `assignment` → `offers` | No `reviewer_approved` applications remain |
 
 **Blocker wire shape:**
 
 A failed guard becomes a `PreconditionResult` (`id`, `passed`, `message`, optional `resolution_link`), and the `409` body is `{ error, currentPhase, targetPhase, blockers: PreconditionResult[] }`, camelCased on the wire. The front-end mirrors these as `PreconditionResult` / `TransitionRequest` / `TransitionResponse` / `TransitionBlockedResponse` in `front-end/src/assets/types/datatypes.ts`, and `BlockerPanel.vue` renders the blocker list generically - message plus a "Fix this" link when the guard supplied a `resolutionLink`.
 
-`BlockerPanel` itself still ships ahead of the view that mounts it: the only caller of the transition today is the Done button (`draft` → `archived`), which carries no guards and so can never be blocked. `FormHasFieldsGuard`'s `resolution_link` (`/markets/<market_id>/form-builder`) has no matching route in `front-end/src/router/index.ts` yet either - the form builder is today a tab inside `/market-setup`. Both land with the view that wires up the `applications_open` transition.
+`PhaseControlPanel.vue` is the primary caller of the transition endpoint and renders `BlockerPanel.vue` inline when a guard blocks a transition.
 
 **Relationships:**
 - **Used by Market**: Stored in `Market.phase`, server-owned (see [Market](#market))

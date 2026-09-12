@@ -63,9 +63,30 @@ describe('pathAfterLoadingMarket', () => {
     );
   });
 
-  it('sends a market past draft to its public slug', () => {
+  it('routes archived markets to their public slug', () => {
     expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Archived, isDraft: false }))).toBe(
       '/test-market',
+    );
+  });
+
+  it('routes pre-archive phases to /market-setup so phase controls are reachable', () => {
+    expect(
+      pathAfterLoadingMarket(market({ phase: MarketPhase.ApplicationsOpen, isDraft: false })),
+    ).toBe('/market-setup');
+    expect(
+      pathAfterLoadingMarket(market({ phase: MarketPhase.ApplicationsClosed, isDraft: false })),
+    ).toBe('/market-setup');
+    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Review, isDraft: false }))).toBe(
+      '/market-setup',
+    );
+    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Assignment, isDraft: false }))).toBe(
+      '/market-setup',
+    );
+    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Offers, isDraft: false }))).toBe(
+      '/market-setup',
+    );
+    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.MarketDays, isDraft: false }))).toBe(
+      '/market-setup',
     );
   });
 

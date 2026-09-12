@@ -123,9 +123,12 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
 
     existing_app_count = ApplicationsApi.count_applications_for_market(market.id)
     if existing_app_count > 0:
+        app_word = (
+            "application has" if existing_app_count == 1 else "applications have"
+        )
         return (
             "Application form is locked. "
-            f"{existing_app_count} application(s) already exist for this market. "
+            f"{existing_app_count} {app_word} already been submitted for this market. "
             "The form cannot be modified once applicants have submitted."
         )
 

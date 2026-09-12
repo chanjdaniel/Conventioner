@@ -173,7 +173,7 @@ test.describe('Application form builder', () => {
     await formPage.openFormTab();
     await expect(formPage.lockBanner).toBeVisible();
     await expect(formPage.lockBanner).toContainText('Application form is locked');
-    await expect(formPage.lockBanner).toContainText('1 application(s) already exist');
+    await expect(formPage.lockBanner).toContainText('1 application has already been submitted');
     await expect(formPage.addFieldButton).toHaveCount(0);
     await expect(formPage.saveButton).toHaveCount(0);
     await expect(formPage.removeFieldButton(0)).toHaveCount(0);
