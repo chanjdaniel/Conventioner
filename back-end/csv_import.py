@@ -14,8 +14,12 @@ option, its header carrying the question stem and the option in brackets; the sa
 once exports as a single comma-separated column. Both mean the same thing, so both must import to
 the same stored answer - which is why a mapping maps a target to one column OR to several.
 
-Scope so far: cell values already name what the market offers. Values that need resolving against
-the plan are the story that follows.
+Cell values are the organizer's own free text, so they rarely name the market's configuration
+exactly: a form that said "Gold Tier" has to reach a tier called "Gold". Trivial differences -
+surrounding space, capitalisation - are matched silently, because making someone audit those is
+worse than useless. Everything left over is shown to them ONCE per distinct value, with the number
+of rows it affects, and mapped by hand. The distinct values in a column are a small set, which is
+what makes that cheap: three values to look at rather than two hundred rows.
 """
 import csv
 import io
@@ -100,6 +104,16 @@ def column_groups(headers: Sequence[str]) -> List[ColumnGroup]:
     return [found[stem] for stem in order if len(found[stem].columns) > 1]
 
 
+def _normalize(value: str) -> str:
+    """The form in which two values are "the same" for matching purposes.
+
+    Space and capitalisation are noise here: a form answer of " gold " and a tier named "Gold" are
+    the same thing to everyone except a string comparison, and surfacing that as a decision would
+    train the organizer to click through the whole list.
+    """
+    return " ".join(str(value).strip().lower().split())
+
+
 class ImportTarget:
     """One thing a CSV column can be mapped to."""
 
@@ -170,6 +184,58 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
             key, field.get("label") or key, bool(field.get("required")), "custom",
         ))
     return targets
+
+
+def offered_values(
+    target: "ImportTarget",
+    options: Any,
+    field: Optional[Dict[str, Any]],
+) -> Optional[List[str]]:
+    """What this target will accept, or None when it accepts free text.
+
+    A target with a closed set of values is one whose answers must name something the market
+    configured; anything else - a business name, an email - is the applicant's own words and has
+    nothing to match against.
+    """
+    if target.key == EssentialFields.AVAILABLE_DATES_KEY:
+        return list(options.dates)
+    if target.key == EssentialFields.TIER_PREFERENCE_KEY:
+        return list(options.tiers)
+    if target.key == EssentialFields.SECTION_RANKING_KEY:
+        return list(options.sections)
+    if target.key == EssentialFields.TABLE_TYPE_RANKING_KEY:
+        return list(options.table_types)
+    if target.key == EssentialFields.TABLE_CHOICE_KEY:
+        return list(EssentialFields.TABLE_CHOICES)
+    if target.kind == "custom" and field and field.get("type") in ("select", "multi_select"):
+        return list(field.get("options") or [])
+    return None
+
+
+def resolve_value(
+    raw: str, offered: List[str], resolutions: Dict[str, Optional[str]],
+) -> Tuple[Optional[str], bool]:
+    """One cell value against what the market offers.
+
+    Returns ``(value, resolved)``. ``value`` is None when the organizer has explicitly chosen to
+    ignore this value; ``resolved`` is False when nobody has said what it means yet, which is what
+    blocks the import.
+    """
+    text = str(raw).strip()
+    if not text:
+        return None, True
+
+    normalized = _normalize(text)
+    for candidate in offered:
+        if _normalize(candidate) == normalized:
+            return candidate, True
+
+    if text in resolutions:
+        return resolutions[text], True
+    for key, value in resolutions.items():
+        if _normalize(key) == normalized:
+            return value, True
+    return None, False
 
 
 def parse_csv(csv_content: str) -> Tuple[Optional[str], List[str], List[List[str]]]:
@@ -280,8 +346,6 @@ def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> 
         return _split_multi(text)
     if target.key == EssentialFields.MAX_DATES_KEY:
         return text
-    if target.key == EssentialFields.TABLE_CHOICE_KEY:
-        return text.lower()
     if target.kind == "custom" and field:
         field_type = field.get("type", "text")
         if field_type == "multi_select":
@@ -293,11 +357,110 @@ def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> 
     return text
 
 
+def _raw_values(
+    target: ImportTarget,
+    headers: Sequence[str],
+    row: Sequence[str],
+    indexes: Sequence[int],
+    field: Optional[Dict[str, Any]],
+) -> Any:
+    """A target's answer for one row, before its values are matched against the market."""
+    if len(indexes) > 1:
+        return _grid_values(target, headers, row, indexes)
+    index = indexes[0]
+    cell = row[index] if index < len(row) else ""
+    return _coerce(target, cell, field)
+
+
+def _matched(
+    value: Any, offered: List[str], resolutions: Dict[str, Optional[str]],
+) -> Tuple[Any, List[str]]:
+    """Apply the market's own names to a target's answer.
+
+    Returns ``(value, unmatched)``. Values the organizer chose to ignore are dropped; values
+    nobody has spoken for are returned in ``unmatched``, which is what blocks the import.
+    """
+    if isinstance(value, list):
+        kept: List[str] = []
+        unmatched: List[str] = []
+        for item in value:
+            resolved, known = resolve_value(item, offered, resolutions)
+            if not known:
+                unmatched.append(str(item).strip())
+            elif resolved is not None:
+                kept.append(resolved)
+        return kept, unmatched
+
+    resolved, known = resolve_value(value, offered, resolutions)
+    if not known:
+        return value, [str(value).strip()]
+    return (resolved if resolved is not None else ""), []
+
+
+def preview_values(
+    market_doc: Dict[str, Any],
+    csv_content: str,
+    mapping: Dict[str, Any],
+    resolutions: Optional[Dict[str, Dict[str, Optional[str]]]] = None,
+) -> Tuple[Dict[str, Any], int]:
+    """Which cell values do not name anything this market offers, and how often each appears.
+
+    Writes nothing. One entry per DISTINCT value, because that is the unit the organizer decides
+    on - the same "Gold Tier" in two hundred rows is one decision, not two hundred.
+    """
+    error, headers, rows = parse_csv(csv_content)
+    if error:
+        return {"error": error}, 400
+
+    resolutions = resolutions or {}
+    options = EssentialFields.effective_essential_options(market_doc)
+    targets = {t.key: t for t in import_targets(market_doc)}
+    form = market_doc_field(market_doc, "application_form") or {}
+    fields_by_key = {f.get("key"): f for f in form.get("fields") or [] if f.get("key")}
+
+    tally: Dict[Tuple[str, str], int] = {}
+    order: List[Tuple[str, str]] = []
+    for row in rows:
+        for key, value in mapping.items():
+            target = targets.get(key)
+            if target is None:
+                continue
+            indexes = value if isinstance(value, list) else [value]
+            if not all(isinstance(i, int) and 0 <= i < len(headers) for i in indexes):
+                continue
+            offered = offered_values(target, options, fields_by_key.get(key))
+            if offered is None:
+                continue
+            raw = _raw_values(target, headers, row, indexes, fields_by_key.get(key))
+            _kept, unmatched = _matched(raw, offered, resolutions.get(key, {}))
+            for item in unmatched:
+                slot = (key, item)
+                if slot not in tally:
+                    tally[slot] = 0
+                    order.append(slot)
+                tally[slot] += 1
+
+    return {
+        "rowCount": len(rows),
+        "unmatched": [
+            {
+                "target": key,
+                "targetLabel": targets[key].label,
+                "value": item,
+                "rows": tally[(key, item)],
+                "offered": offered_values(targets[key], options, fields_by_key.get(key)) or [],
+            }
+            for key, item in order
+        ],
+    }, 200
+
+
 def import_applications(
     markets_collection: Any,
     market_doc: Dict[str, Any],
     csv_content: str,
-    mapping: Dict[str, int],
+    mapping: Dict[str, Any],
+    resolutions: Optional[Dict[str, Dict[str, Optional[str]]]] = None,
 ) -> Tuple[Dict[str, Any], int]:
     """Turn the mapped rows into applications.
 
@@ -360,9 +523,22 @@ def import_applications(
             "unmappedRequired": [t.key for t in targets if t.required and t.key not in resolved],
         }, 422
 
+    resolutions = resolutions or {}
+    options = EssentialFields.effective_essential_options(market_doc)
     form = market_doc_field(market_doc, "application_form") or {}
     fields_by_key = {f.get("key"): f for f in form.get("fields") or [] if f.get("key")}
     market_id = market_doc.get("id", "")
+
+    # An unspoken-for value would otherwise be dropped or refused row by row, so it is settled
+    # once, before anything is written.
+    outstanding, _status = preview_values(market_doc, csv_content, mapping, resolutions)
+    if outstanding.get("unmatched"):
+        first = outstanding["unmatched"][0]
+        return {
+            "error": f"Some answers do not match this market yet, starting with "
+                     f"'{first['value']}' under {first['targetLabel']}.",
+            "unmatched": outstanding["unmatched"],
+        }, 422
 
     created = 0
     updated = 0
@@ -389,10 +565,12 @@ def import_applications(
             if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET):
                 continue
             target = by_key[key]
-            if len(indexes) > 1:
-                form_data[key] = _grid_values(target, headers, row, indexes)
-            else:
-                form_data[key] = _coerce(target, cell(key), fields_by_key.get(key))
+            field = fields_by_key.get(key)
+            value = _raw_values(target, headers, row, indexes, field)
+            offered = offered_values(target, options, field)
+            if offered is not None:
+                value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
+            form_data[key] = value
 
         existing = ApplicationsApi.find_application_by_email(market_id, email)
         submitted_at = str(cell(SUBMITTED_AT_TARGET) or "").strip()
