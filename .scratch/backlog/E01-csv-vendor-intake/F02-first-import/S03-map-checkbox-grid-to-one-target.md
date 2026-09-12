@@ -2,7 +2,7 @@
 id: E01/F02/S03
 title: Map a checkbox grid to one target
 type: story
-status: ready
+status: in-progress
 blocked_by: [E01/F02/S02]
 pr: []
 ---
