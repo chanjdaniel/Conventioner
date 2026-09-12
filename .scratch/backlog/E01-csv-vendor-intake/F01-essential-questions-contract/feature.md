@@ -2,7 +2,7 @@
 id: E01/F01
 title: Essential questions reshaped to the solver contract
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
