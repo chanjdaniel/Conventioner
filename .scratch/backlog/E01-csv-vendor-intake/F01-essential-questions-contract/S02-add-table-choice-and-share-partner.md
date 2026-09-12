@@ -2,7 +2,7 @@
 id: E01/F01/S02
 title: Add table choice and table-share partner
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

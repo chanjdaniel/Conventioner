@@ -60,6 +60,15 @@ export class ApplyPage {
     return this.page.getByTestId(`apply-essential-tier-${tier}`);
   }
 
+  /** Table choice is a radio over the three fixed ways a table can be occupied. */
+  tableChoiceRadio(value: 'full' | 'half' | 'either'): Locator {
+    return this.page.getByTestId(`apply-essential-table-choice-${value}`);
+  }
+
+  get tableShareEmailInput(): Locator {
+    return this.page.getByTestId('apply-essential-table-share-email-input');
+  }
+
   get maxDatesInput(): Locator {
     return this.page.getByTestId('apply-essential-max-dates-input');
   }

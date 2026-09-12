@@ -14,6 +14,11 @@ import {
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_KEY,
   TABLE_TYPE_RANKING_LABEL,
+  TABLE_CHOICES,
+  TABLE_CHOICE_KEY,
+  TABLE_CHOICE_LABEL,
+  TABLE_SHARE_EMAIL_KEY,
+  TABLE_SHARE_EMAIL_LABEL,
   TIER_PREFERENCE_KEY,
   TIER_PREFERENCE_LABEL,
   formattedEssentialDate,
@@ -109,6 +114,13 @@ const answerRows = computed<AnswerRow[]>(() => {
     [MAX_DATES_KEY, MAX_DATES_LABEL, (v) => v],
     // Tier is an accepted set, not a ranking, so it is listed unnumbered.
     [TIER_PREFERENCE_KEY, TIER_PREFERENCE_LABEL, (v) => v],
+    // Stored as a code; the applicant should read back the sentence they picked.
+    [
+      TABLE_CHOICE_KEY,
+      TABLE_CHOICE_LABEL,
+      (v) => TABLE_CHOICES.find((c) => c.value === v)?.label ?? v,
+    ],
+    [TABLE_SHARE_EMAIL_KEY, TABLE_SHARE_EMAIL_LABEL, (v) => v],
     [
       SECTION_RANKING_KEY,
       SECTION_RANKING_LABEL,
