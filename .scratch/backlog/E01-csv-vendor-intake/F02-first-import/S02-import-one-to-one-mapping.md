@@ -2,9 +2,9 @@
 id: E01/F02/S02
 title: Import a CSV whose targets map one-to-one
 type: story
-status: in-progress
+status: done
 blocked_by: [E01/F02/S01]
-pr: []
+pr: [#53]
 ---
 
 ## What to build
