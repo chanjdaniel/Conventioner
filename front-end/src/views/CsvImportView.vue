@@ -109,6 +109,8 @@ const newRows = ref(0);
 const updatedRows = ref(0);
 const absentApplications = ref(0);
 const absentEmails = ref<string[]>([]);
+const returningToReview = ref(0);
+const returningEmails = ref<string[]>([]);
 
 onMounted(() => {
   market.value = JSON.parse(localStorage.getItem('market') || 'null');
@@ -329,6 +331,8 @@ async function checkValues() {
     updatedRows.value = data.updatedRows ?? 0;
     absentApplications.value = data.absentApplications ?? 0;
     absentEmails.value = data.absentEmails ?? [];
+    returningToReview.value = data.returningToReview ?? 0;
+    returningEmails.value = data.returningEmails ?? [];
     if (unmatched.value.length === 0) step.value = 'preview';
   } catch (e) {
     error.value = getApiErrorMessage(e, 'That file could not be checked.');
@@ -677,6 +681,18 @@ function startOver() {
       <p class="import-help" data-testid="import-preview-merge">
         <template v-if="updatedRows">{{ newRows }} new, {{ updatedRows }} updated. </template>Each
         imported row becomes an application awaiting your review. Nothing has been written yet.
+      </p>
+
+      <!-- An approval the import would invalidate. Said before it happens, because silently
+           un-approving someone the organizer already decided on is not acceptable either way. -->
+      <p v-if="returningToReview" class="import-note warn" data-testid="import-returning-note">
+        {{ returningToReview }} approved application{{ returningToReview === 1 ? '' : 's' }} will
+        return to review because
+        {{ returningToReview === 1 ? 'its answers have' : 'their answers have' }} changed<span
+          v-if="returningEmails.length"
+        >
+          ({{ returningEmails.join(', ') }})</span
+        >.
       </p>
 
       <!-- Already here, not in this file. Left alone: absence is almost always a filtered export,
@@ -1101,6 +1117,12 @@ function startOver() {
 
 .preview-mapping span {
   color: var(--mm-grey, #666);
+}
+
+.import-note.warn {
+  border-color: #e6c07a;
+  background: #fff8ea;
+  color: #7a5a12;
 }
 
 .import-note {

@@ -720,3 +720,94 @@ class TestMergingAgainstWhatIsAlreadyHere:
         body, _ = CsvImport.preview_values(markets.doc, _csv(broken), MAPPING)
 
         assert body["absentApplications"] == 1
+
+
+class TestReviewsInvalidatedByAReImport:
+    """An organizer approved a vendor on the strength of what they saw.
+
+    If an answer the solver reads moves afterwards, that approval is stale: the solver would place
+    someone against constraints nobody accepted. If anything else moves, the approval stands - a
+    corrected business name must not undo a review.
+    """
+
+    def _approved(self, markets, applications, row=GOOD_ROW):
+        CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        applications.update_one(
+            {"id": stored["id"]},
+            {"$set": {"status": ApplicationStatus.REVIEWER_APPROVED.value}},
+        )
+        return stored["id"]
+
+    def test_a_changed_solver_answer_returns_an_approval_to_review(self, markets, applications):
+        app_id = self._approved(markets, applications)
+        # Was available on both dates; now only one.
+        changed = GOOD_ROW.replace('"2026-08-01, 2026-08-08",2', '2026-08-01,1')
+
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(changed), MAPPING)
+
+        assert body["returnedToReview"] == 1
+        assert applications.find_one({"id": app_id})["status"] == ApplicationStatus.OPEN.value
+
+    def test_a_changed_custom_answer_leaves_the_approval_alone(self, markets, applications):
+        app_id = self._approved(markets, applications)
+        changed = GOOD_ROW.replace("Ember Ceramics", "Ember Ceramics Studio")
+
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(changed), MAPPING)
+
+        assert body["returnedToReview"] == 0
+        stored = applications.find_one({"id": app_id})
+        assert stored["status"] == ApplicationStatus.REVIEWER_APPROVED.value
+        # ...and the answer is still updated.
+        assert stored["form_data"]["business_name"] == "Ember Ceramics Studio"
+
+    def test_an_unchanged_re_import_changes_nothing(self, markets, applications):
+        app_id = self._approved(markets, applications)
+
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        assert body["returnedToReview"] == 0
+        assert applications.find_one({"id": app_id})["status"] == (
+            ApplicationStatus.REVIEWER_APPROVED.value
+        )
+
+    def test_a_merely_reordered_answer_is_not_a_change(self, markets, applications):
+        """Both sides are compared after normalisation, so a re-export that reorders a
+        multi-select does not un-approve anybody."""
+        app_id = self._approved(markets, applications)
+        reordered = GOOD_ROW.replace(
+            '"2026-08-01, 2026-08-08"', '"2026-08-08, 2026-08-01"',
+        ).replace('"Garden, Main Hall"', '"Garden, Main Hall"')
+
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(reordered), MAPPING)
+
+        assert body["returnedToReview"] == 0
+        assert applications.find_one({"id": app_id})["status"] == (
+            ApplicationStatus.REVIEWER_APPROVED.value
+        )
+
+    def test_an_unapproved_application_is_unaffected(self, markets, applications):
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        changed = GOOD_ROW.replace('"2026-08-01, 2026-08-08",2', '2026-08-01,1')
+
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(changed), MAPPING)
+
+        assert body["returnedToReview"] == 0
+        assert applications.find_one({"applicant_email": "nadia@ember.ca"})["status"] == (
+            ApplicationStatus.OPEN.value
+        )
+
+    def test_the_preview_says_how_many_will_return_before_anything_is_written(
+        self, markets, applications,
+    ):
+        app_id = self._approved(markets, applications)
+        changed = GOOD_ROW.replace('"2026-08-01, 2026-08-08",2', '2026-08-01,1')
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(changed), MAPPING)
+
+        assert body["returningToReview"] == 1
+        assert body["returningEmails"] == ["nadia@ember.ca"]
+        # Still approved: the preview wrote nothing.
+        assert applications.find_one({"id": app_id})["status"] == (
+            ApplicationStatus.REVIEWER_APPROVED.value
+        )

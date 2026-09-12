@@ -513,4 +513,84 @@ test.describe('CSV vendor import', () => {
     expect(theo).toBeTruthy();
     expect(theo!.formData.business_name).toBe('Thorn & Thistle');
   });
+
+  test('a re-import that changes a solver answer returns an approval to review', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject() },
+    );
+    const fetchMarket = async () => {
+      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      return ((await res.json()) as { market: Record<string, unknown> }).market;
+    };
+    const applicationsNow = async () => {
+      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      return (
+        (await res.json()) as {
+          applications: Array<{
+            id: string;
+            applicantEmail: string;
+            statusRaw?: string;
+            status?: string;
+          }>;
+        }
+      ).applications;
+    };
+
+    const onlyNadia = [HEADERS.join(','), ROWS[0]].join('\n');
+    await openImport(page, await fetchMarket());
+    await chooseFile(page, onlyNadia);
+    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
+    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
+    await mapColumn(page, 'Which tiers will you accept?', 'essential_tier_preference');
+    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
+    await mapColumn(page, "Partner's email if sharing", 'essential_table_share_email');
+    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
+    await mapColumn(page, 'Business name', 'business_name');
+    await mapColumn(page, 'What do you sell?', 'product_type');
+    await page.getByTestId('import-preview-button').click();
+    await page.getByTestId('import-confirm-button').click();
+    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+
+    // The organizer reviews and approves them.
+    const imported = (await applicationsNow()).find(
+      (a) => a.applicantEmail === 'nadia@ember.test',
+    )!;
+    const reviewRes = await request.put(
+      `${BACKEND_URL}/markets/${seed.marketId}/applications/${imported.id}/review`,
+      { headers: { 'X-Owner-Email': TEST_USER.email }, data: { status: 'reviewer_approved' } },
+    );
+    expect(reviewRes.ok()).toBeTruthy();
+
+    // The form is re-exported with their availability narrowed - an answer the solver reads.
+    const narrowed = [
+      HEADERS.join(','),
+      ROWS[0].replace('"2026-08-01, 2026-08-08",2', '2026-08-01,1'),
+    ].join('\n');
+    await openImport(page, await fetchMarket());
+    await chooseFile(page, narrowed);
+    await page.getByTestId('import-preview-button').click();
+
+    // Said before it happens: silently un-approving someone is not acceptable either way.
+    await expect(page.getByTestId('import-returning-note')).toContainText(
+      '1 approved application will return to review',
+    );
+    await expect(page.getByTestId('import-returning-note')).toContainText('nadia@ember.test');
+
+    await page.getByTestId('import-confirm-button').click();
+    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+
+    const after = (await applicationsNow()).find((a) => a.applicantEmail === 'nadia@ember.test')!;
+    expect(after.statusRaw ?? after.status).toBe('open');
+  });
 });

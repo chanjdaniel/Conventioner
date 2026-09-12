@@ -84,6 +84,38 @@ TABLE_CHOICES = (TABLE_CHOICE_FULL, TABLE_CHOICE_HALF, TABLE_CHOICE_EITHER)
 STUB_TABLE_TYPE = "Standard"
 
 
+# The answers a change to which invalidates a review. An organizer approved a vendor on the
+# strength of what they saw; if their availability or tier moves afterwards, the approval is stale
+# and the solver would place someone against constraints nobody accepted. Kept here, beside the
+# contract itself, so there is one list rather than one per caller.
+#
+# Custom answers are deliberately absent: a corrected business name or Instagram handle changes
+# nothing the solver reads. That stops being true when priority rules can name a custom field
+# (E02), at which point a market's priority targets join this set.
+SOLVER_RELEVANT_KEYS = (
+    AVAILABLE_DATES_KEY,
+    MAX_DATES_KEY,
+    TIER_PREFERENCE_KEY,
+    TABLE_CHOICE_KEY,
+    TABLE_SHARE_EMAIL_KEY,
+    SECTION_RANKING_KEY,
+    TABLE_TYPE_RANKING_KEY,
+)
+
+
+def solver_relevant_change(before: Dict[str, Any], after: Dict[str, Any]) -> bool:
+    """Did an answer the solver reads actually change?
+
+    Both sides are compared AFTER normalisation, so a re-export that merely reformats a value -
+    reordering a multi-select, changing whitespace - is not a change. Treating it as one would
+    un-approve a market's worth of vendors for nothing.
+    """
+    for key in SOLVER_RELEVANT_KEYS:
+        if before.get(key) != after.get(key):
+            return True
+    return False
+
+
 def _unique_names(values: Any) -> List[str]:
     """Trimmed, non-blank, order-preserving unique strings."""
     seen: List[str] = []
