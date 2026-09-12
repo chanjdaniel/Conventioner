@@ -1,8 +1,13 @@
 <script setup lang="ts">
 /**
  * The essential questions every applicant answers: available dates, how many dates they want,
- * and ranked section and table type preferences. Their answers are what the assignment solver
- * reads, so the shape is fixed - the market plan only decides what they offer.
+ * which tiers they accept, and ranked section and table type preferences. Their answers are what
+ * the assignment solver reads, so the shape is fixed - the market plan only decides what they
+ * offer.
+ *
+ * Tier and section are asked differently on purpose. Tier is a hard filter - it sets what the
+ * applicant pays for a table, and they are never placed at one they did not accept - so it is a
+ * multi-select. Section is a preference they may not get, so it is a total ranking.
  *
  * One component for both applicant surfaces and the organizer's preview (`disabled`), for the
  * same no-drift reason as ApplicationFormFields: what the organizer previews must be what the
@@ -19,6 +24,8 @@ import {
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_KEY,
   TABLE_TYPE_RANKING_LABEL,
+  TIER_PREFERENCE_KEY,
+  TIER_PREFERENCE_LABEL,
   formattedEssentialDate,
 } from '@/utils/essentialFields';
 import RankedChoiceInput from './RankedChoiceInput.vue';
@@ -41,6 +48,7 @@ const emit = defineEmits<{
 }>();
 
 const selectedDates = computed(() => (props.modelValue[AVAILABLE_DATES_KEY] as string[]) ?? []);
+const selectedTiers = computed(() => (props.modelValue[TIER_PREFERENCE_KEY] as string[]) ?? []);
 
 const sectionRanking = computed(
   () => (props.modelValue[SECTION_RANKING_KEY] as string[]) ?? props.options.sections,
@@ -81,6 +89,11 @@ function toggleDate(date: string, checked: boolean) {
   setAnswer(AVAILABLE_DATES_KEY, checked ? [...current, date] : current.filter((d) => d !== date));
 }
 
+function toggleTier(tier: string, checked: boolean) {
+  const current = selectedTiers.value;
+  setAnswer(TIER_PREFERENCE_KEY, checked ? [...current, tier] : current.filter((t) => t !== tier));
+}
+
 function onMaxDatesInput(event: Event) {
   const raw = (event.target as HTMLInputElement).value;
   setAnswer(MAX_DATES_KEY, raw === '' ? null : Number(raw));
@@ -110,11 +123,11 @@ function errorFor(key: string): string {
         <span class="essential-required">*</span>
       </span>
       <p class="essential-help">Tick every market date you could attend.</p>
-      <div class="essential-dates" :class="{ error: errorFor(AVAILABLE_DATES_KEY) }">
+      <div class="essential-choice-list" :class="{ error: errorFor(AVAILABLE_DATES_KEY) }">
         <label
           v-for="date in options.dates"
           :key="date"
-          class="essential-date-option"
+          class="essential-choice"
           :class="{ checked: selectedDates.includes(date) }"
         >
           <input
@@ -169,6 +182,46 @@ function errorFor(key: string): string {
         :data-testid="`${prefix}-essential-error-max-dates`"
       >
         {{ errorFor(MAX_DATES_KEY) }}
+      </p>
+    </div>
+
+    <!-- Tier preference: a hard filter, so a multi-select rather than a ranking -->
+    <div
+      v-if="options.tiers.length"
+      class="essential-field"
+      :data-testid="`${prefix}-essential-tier-preference`"
+    >
+      <span class="essential-label">
+        {{ TIER_PREFERENCE_LABEL }}
+        <span class="essential-required">*</span>
+      </span>
+      <p class="essential-help">
+        Tick every tier you would accept. You will never be placed in one you leave unticked, even
+        if it means going unplaced.
+      </p>
+      <div class="essential-choice-list" :class="{ error: errorFor(TIER_PREFERENCE_KEY) }">
+        <label
+          v-for="tier in options.tiers"
+          :key="tier"
+          class="essential-choice"
+          :class="{ checked: selectedTiers.includes(tier) }"
+        >
+          <input
+            type="checkbox"
+            :checked="selectedTiers.includes(tier)"
+            :disabled="disabled"
+            :data-testid="`${prefix}-essential-tier-${tier}`"
+            @change="toggleTier(tier, ($event.target as HTMLInputElement).checked)"
+          />
+          <span>{{ tier }}</span>
+        </label>
+      </div>
+      <p
+        v-if="errorFor(TIER_PREFERENCE_KEY)"
+        class="essential-error"
+        :data-testid="`${prefix}-essential-error-tier-preference`"
+      >
+        {{ errorFor(TIER_PREFERENCE_KEY) }}
       </p>
     </div>
 
@@ -272,7 +325,7 @@ function errorFor(key: string): string {
   margin: 0;
 }
 
-.essential-dates {
+.essential-choice-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -282,11 +335,11 @@ function errorFor(key: string): string {
   background: white;
 }
 
-.essential-dates.error {
+.essential-choice-list.error {
   border-color: var(--mm-red, #cc0000);
 }
 
-.essential-date-option {
+.essential-choice {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -300,16 +353,16 @@ function errorFor(key: string): string {
   cursor: pointer;
 }
 
-.essential-date-option:hover {
+.essential-choice:hover {
   background: #f4f4f4;
 }
 
-.essential-date-option.checked {
+.essential-choice.checked {
   background: #eef7ef;
   border-color: #cfe3d4;
 }
 
-.essential-date-option input[type='checkbox'] {
+.essential-choice input[type='checkbox'] {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
