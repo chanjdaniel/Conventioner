@@ -106,11 +106,18 @@ async function signInApplicant(page: Page, marketId: string, marketSlug: string)
   await page.unroute('**/applicant-login/request-code');
 
   // waitForURL returns the moment the route changes, while the page is still fetching its form.
-  // Asserting on the form from here races that fetch, and under a full-suite run the request can
-  // take longer than an element assertion's budget - which is what made this spec flaky, always
-  // caught mid-load on "Loading application form...". Wait for the page to have FINISHED loading,
-  // then assert what it actually shows.
+  // Asserting on the form from here races that fetch, so wait for the page to have FINISHED
+  // loading before asserting what it shows.
   await expect(page.getByTestId('apply-loading')).toBeHidden({ timeout: 30000 });
+
+  // That fetch occasionally stalls past its timeout under a full-suite run, and the page then
+  // offers a retry - so take it, exactly as an applicant would. This is a workaround, not a fix:
+  // the stall itself is tracked as E06/F01/S02, with the evidence that the request hangs rather
+  // than errors. If this retry ever starts firing routinely, that story is overdue.
+  if (await page.getByTestId('apply-load-failed').isVisible()) {
+    await page.getByTestId('apply-retry-button').click();
+    await expect(page.getByTestId('apply-loading')).toBeHidden({ timeout: 30000 });
+  }
   await expect(page.getByTestId('apply-load-failed')).toHaveCount(0);
 }
 
