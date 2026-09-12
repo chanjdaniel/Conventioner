@@ -84,6 +84,11 @@ const targets = ref<ImportTarget[]>([]);
 /** Column index -> target key. The ledger is column-driven, so this is its natural direction. */
 const columnTarget = ref<Record<number, string>>({});
 const groups = ref<ColumnGroup[]>([]);
+/** A previous import's decisions, re-applied to this file. */
+const restoredTargets = ref<Set<string>>(new Set());
+const restoredMissing = ref<Array<{ target: string; missingHeaders: string[] }>>([]);
+const newHeaders = ref<string[]>([]);
+const hasSavedMapping = ref(false);
 /** Group stem -> target key: a grid is mapped once, for all of its columns at a time. */
 const groupTarget = ref<Record<string, string>>({});
 /** Stems the organizer has broken apart, when the detection guessed wrong. */
@@ -156,6 +161,20 @@ function unmatchedFor(key: string | undefined): UnmatchedValue[] {
   return unmatched.value.filter((entry) => entry.target === key);
 }
 
+/** Was this row's target restored from last time, rather than chosen just now? */
+function isRestored(key: string | undefined): boolean {
+  return !!key && restoredTargets.value.has(key);
+}
+
+function missingHeadersFor(key: string | undefined): string[] {
+  if (!key) return [];
+  return restoredMissing.value.find((entry) => entry.target === key)?.missingHeaders ?? [];
+}
+
+function isNewHeader(index: number): boolean {
+  return newHeaders.value.includes((headers.value[index] ?? '').trim());
+}
+
 function resolutionFor(target: string, value: string): string {
   return resolutions.value[target]?.[value] ?? '';
 }
@@ -218,11 +237,42 @@ async function inspect() {
     groupTarget.value = {};
     splitStems.value = new Set();
     columnTarget.value = {};
+    groupTarget.value = {};
     unmatched.value = [];
     resolutions.value = {};
     for (const [key, index] of Object.entries(data.suggestedMapping ?? {})) {
       columnTarget.value[Number(index)] = key;
     }
+
+    // A previous import's decisions win over the auto-detected two: the organizer already said
+    // what these columns mean, and re-asking is the friction this remembers them to avoid.
+    hasSavedMapping.value = data.hasSavedMapping === true;
+    restoredMissing.value = data.restoredTargetsMissingColumns ?? [];
+    newHeaders.value = data.newHeaders ?? [];
+    restoredTargets.value = new Set(Object.keys(data.restoredMapping ?? {}));
+    const groupByFirstColumn = new Map(
+      (groups.value ?? []).map((group) => [group.columns[0], group]),
+    );
+    for (const [key, indexes] of Object.entries(
+      (data.restoredMapping ?? {}) as Record<string, number[]>,
+    )) {
+      const group = groupByFirstColumn.get(indexes[0]);
+      if (group && group.columns.length === indexes.length) {
+        groupTarget.value[group.stem] = key;
+      } else {
+        columnTarget.value[indexes[0]] = key;
+      }
+    }
+    resolutions.value = Object.fromEntries(
+      Object.entries(
+        (data.restoredResolutions ?? {}) as Record<string, Record<string, string | null>>,
+      ).map(([target, byValue]) => [
+        target,
+        Object.fromEntries(
+          Object.entries(byValue).map(([value, choice]) => [value, choice ?? IGNORE_VALUE]),
+        ),
+      ]),
+    );
     step.value = 'map';
   } catch (e) {
     error.value = getApiErrorMessage(e, 'That file could not be read.');
@@ -351,6 +401,17 @@ function startOver() {
     <!-- 2. Map columns -->
     <section v-if="step === 'map'" class="import-map" data-testid="import-map">
       <div class="import-ledger">
+        <div v-if="hasSavedMapping" class="import-restored" data-testid="import-restored-banner">
+          <strong>Restored from your last import.</strong>
+          <span v-if="restoredMissing.length" data-testid="import-restored-missing">
+            {{ restoredMissing.length }} question{{ restoredMissing.length === 1 ? '' : 's' }} lost
+            {{ restoredMissing.length === 1 ? 'its' : 'their' }} column and need mapping again.
+          </span>
+          <span v-if="newHeaders.length" data-testid="import-restored-new">
+            {{ newHeaders.length }} column{{ newHeaders.length === 1 ? ' is' : 's are' }} new since
+            then.
+          </span>
+        </div>
         <h2>{{ headers.length }} columns in this file</h2>
         <p class="import-help">
           Every column, in file order. Leave a column unmapped to ignore it.
@@ -373,6 +434,13 @@ function startOver() {
                 <tr class="ledger-group-row" data-testid="import-group-row">
                   <td class="ledger-header">
                     {{ row.group.stem }}
+                    <span
+                      v-if="isRestored(groupTarget[row.group.stem])"
+                      class="ledger-badge"
+                      data-testid="import-restored-badge"
+                    >
+                      restored from last import
+                    </span>
                     <span class="ledger-shape" data-testid="import-group-shape">
                       {{ shapeLabel(row.group) }}
                     </span>
@@ -469,6 +537,20 @@ function startOver() {
               <tr v-else data-testid="import-column-row">
                 <td class="ledger-header">
                   {{ headers[row.index] || `(column ${row.index + 1})` }}
+                  <span
+                    v-if="isRestored(columnTarget[row.index])"
+                    class="ledger-badge"
+                    data-testid="import-restored-badge"
+                  >
+                    restored from last import
+                  </span>
+                  <span
+                    v-else-if="isNewHeader(row.index)"
+                    class="ledger-badge new"
+                    data-testid="import-new-badge"
+                  >
+                    new since last import
+                  </span>
                   <span
                     v-if="singleShapeLabel(row.index)"
                     class="ledger-shape"
@@ -833,6 +915,34 @@ function startOver() {
 .ledger-member-note {
   font-size: 12px;
   color: var(--mm-grey, #999);
+}
+
+.import-restored {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid #cfe3d4;
+  border-radius: 6px;
+  background: #f2f8f4;
+  font-size: 13px;
+}
+
+.ledger-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e8f3ec;
+  color: var(--mm-green, #2e7d4f);
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.ledger-badge.new {
+  background: #fff4e5;
+  color: #a5670b;
 }
 
 .ledger-fixes {

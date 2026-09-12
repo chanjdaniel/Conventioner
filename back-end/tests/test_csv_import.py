@@ -535,3 +535,98 @@ class TestPreviewingRowValidity:
 
         assert imported["created"] == preview["validRows"]
         assert [f["row"] for f in imported["failures"]] == [f["row"] for f in preview["failures"]]
+
+
+class TestRememberingTheMapping:
+    """Re-import is the expected case, not the exception - a form keeps collecting after the
+    first import. Re-specifying a dozen decisions every time is what makes an organizer keep a
+    spreadsheet instead."""
+
+    def test_a_successful_import_saves_how_the_file_was_read(self, markets, applications):
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        saved = markets.last_update["$set"]["importMapping"]
+        assert saved["targets"]["essential_tier_preference"] == ["Which tiers will you accept?"]
+        assert saved["headers"] == HEADERS
+        assert saved["savedAt"]
+
+    def test_columns_are_remembered_by_header_text_not_position(self, markets, applications):
+        """A reordered form exports the same headers in a different order; a mapping keyed on
+        position would then map every answer to the wrong question without a word."""
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        saved = CsvImport.stored_mapping({"importMapping": markets.last_update["$set"]["importMapping"]})
+
+        # The same questions, business name moved to the end.
+        moved = [h for h in HEADERS if h != "Business name"] + ["Business name"]
+        targets = CsvImport.import_targets(markets.doc)
+        restored, unresolved, _new = CsvImport.restore_mapping(moved, saved, targets)
+
+        assert unresolved == []
+        assert restored["business_name"] == [len(moved) - 1]
+        assert restored[EssentialFields.TIER_PREFERENCE_KEY] == [moved.index("Which tiers will you accept?")]
+
+    def test_a_vanished_header_is_reported_not_guessed_at(self, markets, applications):
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        saved = CsvImport.stored_mapping({"importMapping": markets.last_update["$set"]["importMapping"]})
+
+        without = [h for h in HEADERS if h != "Which tiers will you accept?"]
+        targets = CsvImport.import_targets(markets.doc)
+        restored, unresolved, _new = CsvImport.restore_mapping(without, saved, targets)
+
+        assert EssentialFields.TIER_PREFERENCE_KEY not in restored
+        assert unresolved == [{
+            "target": EssentialFields.TIER_PREFERENCE_KEY,
+            "missingHeaders": ["Which tiers will you accept?"],
+        }]
+
+    def test_a_grid_is_never_half_restored(self, markets, applications):
+        """A partly-mapped grid is worse than an unmapped one: it looks answered."""
+        CsvImport.import_applications(markets, markets.doc, _grid_csv(GRID_ROW), GRID_MAPPING)
+        saved = CsvImport.stored_mapping({"importMapping": markets.last_update["$set"]["importMapping"]})
+
+        without = [h for h in GRID_HEADERS if h != "Which days can you attend? [2026-08-08]"]
+        targets = CsvImport.import_targets(markets.doc)
+        restored, unresolved, _new = CsvImport.restore_mapping(without, saved, targets)
+
+        assert EssentialFields.AVAILABLE_DATES_KEY not in restored
+        assert unresolved[0]["target"] == EssentialFields.AVAILABLE_DATES_KEY
+
+    def test_a_header_that_has_appeared_since_is_called_new(self, markets, applications):
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+        saved = CsvImport.stored_mapping({"importMapping": markets.last_update["$set"]["importMapping"]})
+
+        targets = CsvImport.import_targets(markets.doc)
+        _restored, _unresolved, new = CsvImport.restore_mapping(
+            HEADERS + ["Anything else?"], saved, targets,
+        )
+
+        assert new == ["Anything else?"]
+
+    def test_value_resolutions_are_remembered_too(self, markets, applications):
+        row = GOOD_ROW.replace(",Gold,", ",Gold Tier,")
+        resolutions = {EssentialFields.TIER_PREFERENCE_KEY: {"Gold Tier": "Gold"}}
+
+        CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING, resolutions)
+
+        saved = markets.last_update["$set"]["importMapping"]
+        assert saved["resolutions"]["essential_tier_preference"]["Gold Tier"] == "Gold"
+
+    def test_data_keys_survive_the_round_trip_unmangled(self, markets, applications):
+        """The mapping's own field names are camelCase like the rest of the market document, but
+        its CONTENTS are data: target keys, and raw cell values the organizer's form produced. A
+        blanket key conversion would rewrite "Gold Tier" and silently lose what it stood for."""
+        row = GOOD_ROW.replace(",Gold,", ",Gold Tier,")
+        resolutions = {EssentialFields.TIER_PREFERENCE_KEY: {"Gold Tier": "Gold"}}
+        CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING, resolutions)
+
+        stored = markets.last_update["$set"]["importMapping"]
+        read_back = CsvImport.stored_mapping({"importMapping": stored})
+
+        assert EssentialFields.TIER_PREFERENCE_KEY in read_back["targets"]
+        assert read_back["resolutions"][EssentialFields.TIER_PREFERENCE_KEY]["Gold Tier"] == "Gold"
+
+    def test_a_first_import_has_nothing_to_restore(self, markets):
+        body, _ = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
+
+        assert body["hasSavedMapping"] is False
+        assert body["restoredMapping"] == {}
