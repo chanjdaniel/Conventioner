@@ -28,6 +28,17 @@ export class ApplicationFormPage {
   // Preview
   readonly preview: Locator;
   readonly previewEmpty: Locator;
+  readonly previewEssential: Locator;
+
+  // Essential fields panel (always present in the builder; not removable)
+  readonly essentialPanel: Locator;
+  readonly essentialBadge: Locator;
+  readonly essentialDateChips: Locator;
+  readonly essentialSectionChips: Locator;
+  readonly essentialTableTypeChips: Locator;
+  readonly essentialDatesEmpty: Locator;
+  readonly essentialSectionsEmpty: Locator;
+  readonly essentialTableTypesEmpty: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -48,6 +59,16 @@ export class ApplicationFormPage {
 
     this.preview = page.getByTestId('form-preview');
     this.previewEmpty = page.getByTestId('form-preview-empty');
+    this.previewEssential = page.getByTestId('form-preview-essential');
+
+    this.essentialPanel = page.getByTestId('essential-fields-panel');
+    this.essentialBadge = page.getByTestId('essential-fields-badge');
+    this.essentialDateChips = page.getByTestId('essential-date-chip');
+    this.essentialSectionChips = page.getByTestId('essential-section-chip');
+    this.essentialTableTypeChips = page.getByTestId('essential-table-type-chip');
+    this.essentialDatesEmpty = page.getByTestId('essential-dates-empty');
+    this.essentialSectionsEmpty = page.getByTestId('essential-sections-empty');
+    this.essentialTableTypesEmpty = page.getByTestId('essential-table-types-empty');
   }
 
   async openFormTab(): Promise<void> {
@@ -137,5 +158,10 @@ export class ApplicationFormPage {
   /** A field in the applicant preview, addressed by its (slugged) key. */
   previewField(key: string): Locator {
     return this.page.getByTestId(`form-preview-field-${key}`);
+  }
+
+  /** One of the five essential-question cards in the builder panel. */
+  essentialItem(name: string): Locator {
+    return this.page.getByTestId(`essential-item-${name}`);
   }
 }

@@ -354,7 +354,7 @@ class ApplicationType(str, Enum):
 
 
 class FormField(BaseModel):
-    key: str                       # machine name (e.g., "business_name")
+    key: str                       # machine name (e.g., "business_name"); must not use the reserved "essential_" prefix
     label: str                     # human label (e.g., "Business Name")
     type: str                      # "text", "number", "select", "multi_select", "checkbox", "date", "email", "file"
     required: bool = False
@@ -363,9 +363,32 @@ class FormField(BaseModel):
     order: int = 0                 # display order
 
 
+class EssentialFormOptions(BaseModel):
+    """What the essential form questions offer, derived from the market plan.
+
+    The essential questions (available dates, max dates, section preference, table type
+    preference) are present in every application form; the only thing an organizer customises
+    is what they offer, and that offering is the market plan itself: ``dates`` come from
+    ``SetupObject.market_dates``, ``sections`` from ``SetupObject.sections``, and
+    ``table_types`` from the market's floorplan table types. See ``essential_fields.py``,
+    the single owner of that derivation.
+
+    A value of this type stored on ``ApplicationForm.essential_options`` is a *frozen*
+    offering: it is written by the server the first time an applicant's answers are recorded
+    against it (the same principle as the D9 lock - an applicant can never have answered a
+    question that moved), and never refreshed afterwards.
+    """
+    dates: List[str] = []
+    sections: List[str] = []
+    table_types: List[str] = []
+
+
 class ApplicationForm(BaseModel):
     fields: List[FormField]
     published_at: Optional[str] = None  # locks form when applications exist (D9)
+    # Server-owned frozen offering of the essential questions; None until the first
+    # applicant answer freezes it. Never writable by a client (see _normalized_application_form).
+    essential_options: Optional[EssentialFormOptions] = None
 
 
 class Application(BaseModel):
@@ -607,9 +630,14 @@ class FormFieldContract(FormField, ContractModel):
     """Camel-cased contract view of an application form field."""
 
 
+class EssentialFormOptionsContract(EssentialFormOptions, ContractModel):
+    """Camel-cased contract view of the essential questions' offering."""
+
+
 class ApplicationFormContract(ContractModel):
     fields: List[FormFieldContract]
     published_at: Optional[str] = None
+    essential_options: Optional[EssentialFormOptionsContract] = None
 
 
 class MarketSchemaContract(ContractModel):

@@ -329,6 +329,27 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   no site key and no hatch, and `npm run build` throws. Both templates ship the shape that works as
   it stands; `docs/STARTUP.md` names both copies.
 
+## Essential Form Fields (Conventioner sharp edge)
+
+- `back-end/essential_fields.py` is the single owner of the essential-questions contract:
+  the reserved `essential_*` answer keys in `Application.form_data`, the offering derivation
+  (dates from `setupObject.marketDates`, sections from `setupObject.sections`, table types from
+  the LAST floorplan's `tableTypes`), applicant answer validation, and the freeze.
+  `front-end/src/utils/essentialFields.ts` is its front-end mirror and must stay in step.
+- The offering follows the market plan live until the first applicant save, which snapshots it
+  onto `applicationForm.essentialOptions` (camelCase, server-owned like `publishedAt`; a client
+  payload can never write it). After that, no market-plan edit reaches the form - do not add a
+  refresh path. The form save writes `essentialOptions: null`, so the freeze filter matches
+  null-or-missing, not `$exists`.
+- Custom form-field keys may not use the `essential_` prefix (validated in
+  `_normalized_application_form` and mirrored in `front-end/src/utils/applicationForm.ts`).
+- `docs/schema.d.ts` is generated from `datatypes:MarketSchemaContract`; after changing a
+  contract model, run `python generate_market_schema.py --output ../docs/schema.d.ts` from
+  `back-end/` (pinned by `tests/test_generate_market_schema.py`).
+- Local stack for E2E: export `DISABLE_EMAIL=true` when bringing the stack up (`nm-test.sh`
+  does this; a bare `th-compose.sh up` does not), otherwise `auth.spec.ts`'s password-reset
+  test hits a 500 from the unconfigured mailer.
+
 ## No-mistakes Gate
 
 - `.no-mistakes.yaml` at the repo root configures the no-mistakes CI gate.

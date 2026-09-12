@@ -5,6 +5,11 @@
 
 export interface MarketSchema {
   applicationForm?: {
+    essentialOptions?: {
+      dates?: string[];
+      sections?: string[];
+      tableTypes?: string[];
+    };
     fields: {
       helpText?: string;
       key: string;

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import type { FormField } from '@/assets/types/datatypes';
+import type { EssentialFormOptions, FormField } from '@/assets/types/datatypes';
 import ApplicationFormFields from '@/components/application/ApplicationFormFields.vue';
+import EssentialApplicationFields from '@/components/application/EssentialApplicationFields.vue';
 import { formValidationErrors, sortedFormFields } from '@/utils/applicationForm';
+import { EMPTY_ESSENTIAL_OPTIONS, essentialValidationErrors } from '@/utils/essentialFields';
 import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
 import { useApplicationStore } from '@/stores/application';
 
@@ -14,6 +16,7 @@ const store = useApplicationStore();
 const marketSlug = computed(() => (route.params.marketSlug as string) || '');
 
 const fields = ref<FormField[]>([]);
+const essentialOptions = ref<EssentialFormOptions>(EMPTY_ESSENTIAL_OPTIONS);
 const marketName = ref('');
 const phaseLabel = ref('');
 const isOpen = ref(false);
@@ -37,6 +40,7 @@ onMounted(async () => {
 
   const form = await fetchPublicApplicationForm(marketSlug.value);
   fields.value = form.fields;
+  essentialOptions.value = form.essentialOptions;
   marketName.value = form.marketName;
   phaseLabel.value = form.phaseLabel;
   isOpen.value = form.isOpen;
@@ -44,13 +48,20 @@ onMounted(async () => {
 });
 
 function validateAll(): boolean {
-  validationErrors.value = formValidationErrors(sortedFields.value, formData.value);
+  validationErrors.value = {
+    ...essentialValidationErrors(essentialOptions.value, formData.value),
+    ...formValidationErrors(sortedFields.value, formData.value),
+  };
   return Object.keys(validationErrors.value).length === 0;
 }
 
 function clearFieldError(field: FormField) {
-  if (validationErrors.value[field.key]) {
-    validationErrors.value = { ...validationErrors.value, [field.key]: '' };
+  clearErrorFor(field.key);
+}
+
+function clearErrorFor(key: string) {
+  if (validationErrors.value[key]) {
+    validationErrors.value = { ...validationErrors.value, [key]: '' };
   }
 }
 
@@ -98,6 +109,17 @@ async function submitForm() {
         </div>
 
         <form v-else class="apply-form" @submit.prevent="submitForm" data-testid="apply-form">
+          <EssentialApplicationFields
+            v-model="formData"
+            :options="essentialOptions"
+            :errors="validationErrors"
+            :email="store.applicantEmail"
+            prefix="apply"
+            @field-change="clearErrorFor"
+          />
+
+          <div class="apply-custom-divider" v-if="sortedFields.length">More questions</div>
+
           <ApplicationFormFields
             v-model="formData"
             :fields="sortedFields"
@@ -194,6 +216,18 @@ async function submitForm() {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.apply-custom-divider {
+  font-family: 'Outfit Regular';
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mm-grey, #999);
+  border-bottom: 1px solid #e5e5e5;
+  padding-bottom: 4px;
+  margin-top: 8px;
 }
 
 .apply-actions {

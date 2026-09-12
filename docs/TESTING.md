@@ -32,15 +32,17 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-433 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
+526 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
 column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
 Conventioner data model (market phases, `is_draft` computed strictly from `phase`, application
 form/status models, and backward compatibility with existing market documents), the `phase`
 backfill migration, the `applications` collection migration, the server-owned market fields
-preserved across updates, and the application form endpoints (`test_application_form.py`:
+preserved across updates, the application form endpoints (`test_application_form.py`:
 permission checks, field/key/option validation, `order` renormalization, server-owned
-`published_at`, and the D9 lock refusing edits on every write path once an application
-exists or the market leaves `draft`).
+`published_at`/`essential_options`, and the D9 lock refusing edits on every write path once an
+application exists or the market leaves `draft`), and the essential form fields
+(`test_essential_fields.py`: offering derivation, answer validation, freeze-on-first-answer,
+server-owned options stripped from client payloads, and the `essential_` prefix guard).
 
 `test_attendance_api.py` additionally pins the public slug lookup (queried via the
 stored `slug` field for an indexed, O(1) lookup rather than a collection scan), which

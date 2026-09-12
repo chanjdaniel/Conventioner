@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { type ApplicationForm } from '@/assets/types/datatypes';
+import { type ApplicationForm, type EssentialFormOptions } from '@/assets/types/datatypes';
+import EssentialApplicationFields from './EssentialApplicationFields.vue';
 
 const props = defineProps<{
   applicationForm: ApplicationForm | null;
+  essentialOptions?: EssentialFormOptions | null;
 }>();
 
 const sortedFields = computed(() => {
@@ -12,6 +14,15 @@ const sortedFields = computed(() => {
 });
 
 const hasFields = computed(() => sortedFields.value.length > 0);
+
+/**
+ * The preview renders the same essential component the applicant gets, disabled. Rankings are
+ * seeded here (the disabled component never writes), so the preview shows the plan's order.
+ */
+const essentialPreviewData = computed<Record<string, unknown>>(() => ({
+  essential_section_ranking: props.essentialOptions?.sections ?? [],
+  essential_table_type_ranking: props.essentialOptions?.tableTypes ?? [],
+}));
 </script>
 
 <template>
@@ -19,6 +30,17 @@ const hasFields = computed(() => sortedFields.value.length > 0);
     <div class="preview-banner">
       <span class="preview-badge">PREVIEW</span>
       Applicant view
+    </div>
+
+    <div v-if="essentialOptions" class="preview-essential" data-testid="form-preview-essential">
+      <EssentialApplicationFields
+        :options="essentialOptions"
+        :modelValue="essentialPreviewData"
+        prefix="form-preview"
+        email="applicant@example.com"
+        disabled
+      />
+      <div class="preview-custom-divider">Your questions</div>
     </div>
 
     <div v-if="!hasFields" class="preview-empty" data-testid="form-preview-empty">
@@ -115,6 +137,23 @@ const hasFields = computed(() => sortedFields.value.length > 0);
   padding: 1px 6px;
   font-weight: bold;
   font-size: 10px;
+}
+
+.preview-essential {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.preview-custom-divider {
+  font-family: 'Outfit Regular';
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mm-grey, #999);
+  border-bottom: 1px solid #e5e5e5;
+  padding-bottom: 4px;
 }
 
 .preview-empty {

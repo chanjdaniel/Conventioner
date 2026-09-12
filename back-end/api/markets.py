@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from bson import ObjectId
 from datatypes import (
     ApplicationForm,
+    EssentialFormOptions,
     FormField,
     Market,
     MarketPhase,
@@ -18,6 +19,7 @@ from datatypes import (
 from assignment.assignment import assign_market
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case, snake_to_camel
 import api.applications as ApplicationsApi
+import essential_fields as EssentialFields
 from market_documents import (
     market_doc_field,
     market_doc_filter,
@@ -160,7 +162,9 @@ def _normalized_select_options(field: FormField, key: str) -> List[str]:
 
 
 def _normalized_application_form(
-    application_form: ApplicationForm, published_at: Optional[str] = None
+    application_form: ApplicationForm,
+    published_at: Optional[str] = None,
+    essential_options: Optional[EssentialFormOptions] = None,
 ) -> ApplicationForm:
     """Validate a form and return it exactly as it will be persisted.
 
@@ -173,6 +177,9 @@ def _normalized_application_form(
 
     ``published_at`` is lock-bearing lifecycle state (D9). It is taken from the server's stored
     form and any value in the payload is discarded, so a client can never forge it.
+    ``essential_options`` is the frozen offering of the essential questions and is server-owned
+    for the same reason: it is stamped by the first recorded applicant answer
+    (``essential_fields.freeze_essential_options``) and any value in a payload is discarded.
     """
     if not application_form.fields:
         raise ValueError("Application form must include at least one field")
@@ -189,6 +196,12 @@ def _normalized_application_form(
             raise ValueError(
                 f"Invalid field key '{key}'. Keys may only contain lowercase letters, "
                 "numbers, and underscores."
+            )
+        if key.startswith(EssentialFields.ESSENTIAL_KEY_PREFIX):
+            raise ValueError(
+                f"Field key '{key}' uses the reserved "
+                f"'{EssentialFields.ESSENTIAL_KEY_PREFIX}' prefix. Those keys belong to the "
+                "essential questions every form already asks."
             )
         if key in seen_keys:
             raise ValueError(f"Duplicate field key '{key}'. Field keys must be unique.")
@@ -217,7 +230,11 @@ def _normalized_application_form(
             "order": index,
         }))
 
-    return application_form.model_copy(update={"fields": fields, "published_at": published_at})
+    return application_form.model_copy(update={
+        "fields": fields,
+        "published_at": published_at,
+        "essential_options": essential_options,
+    })
 
 
 def _application_form_dump(market: Market) -> Optional[Dict[str, Any]]:
@@ -1175,6 +1192,7 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
     application_form = _normalized_application_form(
         application_form,
         published_at=stored_form.published_at if stored_form else None,
+        essential_options=stored_form.essential_options if stored_form else None,
     )
 
     form_dict = convert_keys_to_camel_case(application_form.model_dump())
@@ -1192,6 +1210,10 @@ def get_application_form(market_id: str, requesting_user: str) -> dict:
     Requires VIEWER+ permission. ``application_form`` is camelCase, matching the
     front-end contract and the persisted market document. ``editable``/``lock_reason``
     let the builder render read-only before an organizer invests work in a locked form.
+
+    ``essential_options`` is what the essential questions currently offer: the frozen
+    snapshot once one exists, otherwise the market plan as it stands. The builder renders
+    the always-present essential questions from it.
     """
     market = _load_market_for(market_id, requesting_user, MarketRole.VIEWER, "view")
 
@@ -1200,6 +1222,9 @@ def get_application_form(market_id: str, requesting_user: str) -> dict:
 
     return {
         "application_form": convert_keys_to_camel_case(form_dict) if form_dict else None,
+        "essential_options": EssentialFields.essential_options_payload(
+            EssentialFields.effective_essential_options_for_market(market)
+        ),
         "editable": lock_reason is None,
         "lock_reason": lock_reason,
     }

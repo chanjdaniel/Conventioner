@@ -1,4 +1,5 @@
 import type { ApplicationForm, FormField } from '@/assets/types/datatypes';
+import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 
 /** The charset the back-end holds field keys to; they become document keys on every answer. */
 export const FIELD_KEY_PATTERN = /^[a-z0-9_]+$/;
@@ -45,6 +46,9 @@ export function applicationFormError(form: ApplicationForm | null): string | nul
     if (!key) return `Field "${field.label}" needs a key.`;
     if (!FIELD_KEY_PATTERN.test(key)) {
       return `Key "${key}" is invalid. Use lowercase letters, numbers, and underscores only.`;
+    }
+    if (key.startsWith(ESSENTIAL_KEY_PREFIX)) {
+      return `Key "${key}" uses the reserved "${ESSENTIAL_KEY_PREFIX}" prefix. Those keys belong to the essential questions every form already asks.`;
     }
     if (seen.has(key)) return `Duplicate field key "${key}". Keys must be unique.`;
     seen.add(key);

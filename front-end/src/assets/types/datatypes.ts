@@ -201,6 +201,11 @@ export enum ApplicationType {
   Waitlist = 'waitlist',
 }
 
+/**
+ * A single editable field in an application form. Keys with the reserved `essential_`
+ * prefix are rejected by both front-end validation and the back-end API; see
+ * `essential_fields.py` and `front-end/src/utils/applicationForm.ts`.
+ */
 export interface FormField {
   key: string;
   label: string;
@@ -211,9 +216,22 @@ export interface FormField {
   order: number;
 }
 
+/**
+ * What the essential form questions offer. Derived from the market plan (dates, sections,
+ * floorplan table types); once an applicant records an answer, the back end freezes it onto
+ * the stored form so the questions can never move under recorded answers.
+ */
+export interface EssentialFormOptions {
+  dates: string[];
+  sections: string[];
+  tableTypes: string[];
+}
+
 export interface ApplicationForm {
   fields: FormField[];
   publishedAt?: string;
+  /** Server-owned frozen offering; null/undefined until the first applicant answer. */
+  essentialOptions?: EssentialFormOptions | null;
 }
 
 export interface Application {

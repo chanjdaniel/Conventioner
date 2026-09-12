@@ -11,11 +11,18 @@ import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
-import { type SetupObject, type Market, type ApplicationForm } from '@/assets/types/datatypes';
+import {
+  type SetupObject,
+  type Market,
+  type ApplicationForm,
+  type EssentialFormOptions,
+} from '@/assets/types/datatypes';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
+import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
+import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 
 const router = useRouter();
@@ -74,6 +81,21 @@ const setupObject = reactive<SetupObject>({
 
 const pageIdx = ref(0);
 const maxPageIdx = 2;
+
+/**
+ * The essential questions' offering as the server reports it: the frozen snapshot once an
+ * applicant's answer exists, the stored plan otherwise.
+ */
+const serverEssentialOptions = ref<EssentialFormOptions | null>(null);
+/**
+ * What the essential questions offer right now. While the form is editable it follows the
+ * organizer's local market plan live - an unsaved date shows up immediately - and once the form
+ * is locked it is the server's frozen offering, which local plan edits can no longer move.
+ */
+const essentialOptions = computed<EssentialFormOptions>(() => {
+  if (formLocked.value) return serverEssentialOptions.value ?? EMPTY_ESSENTIAL_OPTIONS;
+  return essentialOptionsFromSetup(setupObject);
+});
 
 function parseFiniteInt(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
@@ -169,6 +191,7 @@ async function loadApplicationForm() {
     const response = await api.get(`/markets/${market.value.id}/application-form`);
     adoptStoredApplicationForm(response.data?.application_form ?? null);
     formLockReason.value = response.data?.lock_reason ?? null;
+    serverEssentialOptions.value = response.data?.essential_options ?? null;
     formLoadStatus.value = 'loaded';
   } catch (err: unknown) {
     formLoadStatus.value = 'error';
@@ -373,6 +396,11 @@ watch(pageIdx, (newIdx) => {
                   >
                     Loading the application form...
                   </div>
+                  <EssentialFieldsPanel
+                    v-if="!formStateUnknown"
+                    :options="essentialOptions"
+                    :locked="formLocked"
+                  />
                   <FormBuilder
                     v-if="!formStateUnknown"
                     :applicationForm="applicationForm"
@@ -427,7 +455,11 @@ watch(pageIdx, (newIdx) => {
                 <h2>Preview</h2>
               </template>
               <template #setting-content>
-                <FormPreview v-if="!formStateUnknown" :applicationForm="applicationForm" />
+                <FormPreview
+                  v-if="!formStateUnknown"
+                  :applicationForm="applicationForm"
+                  :essentialOptions="essentialOptions"
+                />
                 <p v-else class="preview-unavailable" data-testid="form-preview-unavailable">
                   Preview unavailable until the application form loads.
                 </p>
