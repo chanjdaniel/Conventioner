@@ -9,6 +9,7 @@ load_env_file()
 import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
+import csv_import as CsvImport
 import api.source_data as SourceDataApi
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
@@ -23,7 +24,7 @@ from api.floorplans_calibrate import floorplans_calibrate_bp
 from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
-from typing import Any, Dict, List, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Optional
 from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
@@ -1488,6 +1489,82 @@ def review_application(market_id: str, application_id: str) -> Response:
         return jsonify(result), status_code
     except Exception as e:
         logger.error(f"Error in review_application {market_id}/{application_id}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+def _import_context(market_id: str, requesting_user: Optional[str]):
+    """Load the market and check ADMIN for both import endpoints.
+
+    Returns ``(market_doc, error_response, status)``; the market document is the raw stored one,
+    because that is what the essential-offering derivation and the shared write path both read.
+    """
+    if not requesting_user:
+        return None, {"error": "User email not provided in headers"}, 400
+
+    context = MarketsApi.load_market_context(market_id)
+    if context is None:
+        return None, {"error": "Market not found"}, 404
+    if context.market is None:
+        return None, {"error": "Invalid market data"}, 400
+    if not PermissionsApi.user_has_permission(
+        requesting_user, context.market, MarketRole.ADMIN, context.organization
+    ):
+        return None, {"error": "User does not have permission to import applications"}, 403
+
+    market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
+    if not market_doc:
+        return None, {"error": "Market not found"}, 404
+    return market_doc, None, 200
+
+
+@app.route('/markets/<market_id>/applications/import/inspect', methods=['POST'])
+@login_required
+def inspect_application_import(market_id: str) -> Response:
+    """Read a CSV's columns and say what they can be mapped to. Writes nothing. Requires ADMIN+."""
+    try:
+        market_doc, error, status_code = _import_context(
+            market_id, request.headers.get('X-Owner-Email'),
+        )
+        if error:
+            return jsonify(error), status_code
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
+            return jsonify({"error": "csvContent is required"}), 400
+
+        result, status_code = CsvImport.inspect(market_doc, data['csvContent'])
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in inspect_application_import {market_id}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/applications/import', methods=['POST'])
+@login_required
+def import_applications(market_id: str) -> Response:
+    """Import the mapped CSV rows as applications awaiting review. Requires ADMIN+."""
+    try:
+        market_doc, error, status_code = _import_context(
+            market_id, request.headers.get('X-Owner-Email'),
+        )
+        if error:
+            return jsonify(error), status_code
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
+            return jsonify({"error": "csvContent is required"}), 400
+        mapping = data.get('mapping')
+        if not isinstance(mapping, dict):
+            return jsonify({"error": "mapping is required"}), 400
+
+        result, status_code = CsvImport.import_applications(
+            MarketsApi.markets_collection, market_doc, data['csvContent'], mapping,
+        )
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in import_applications {market_id}: {e}")
         logger.error(traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
 
