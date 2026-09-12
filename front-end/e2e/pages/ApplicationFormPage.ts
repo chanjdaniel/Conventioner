@@ -39,7 +39,7 @@ export class ApplicationFormPage {
   readonly essentialTierChips: Locator;
   readonly essentialDatesEmpty: Locator;
   readonly essentialSectionsEmpty: Locator;
-  readonly essentialTableTypesEmpty: Locator;
+  readonly essentialTableTypesStubbed: Locator;
   readonly essentialTiersEmpty: Locator;
 
   constructor(page: Page) {
@@ -71,7 +71,7 @@ export class ApplicationFormPage {
     this.essentialTierChips = page.getByTestId('essential-tier-chip');
     this.essentialDatesEmpty = page.getByTestId('essential-dates-empty');
     this.essentialSectionsEmpty = page.getByTestId('essential-sections-empty');
-    this.essentialTableTypesEmpty = page.getByTestId('essential-table-types-empty');
+    this.essentialTableTypesStubbed = page.getByTestId('essential-table-types-stubbed');
     this.essentialTiersEmpty = page.getByTestId('essential-tiers-empty');
   }
 
