@@ -385,10 +385,11 @@ The application form definition for a market.
 **Fields:**
 - `fields: List[FormField]` - Ordered list of form fields. Must contain at least one field.
 - `published_at: Optional[str]` - ISO timestamp for when the form is published. Server-owned: a save always carries over the value on the stored form and discards any value in the payload, so a client cannot forge this lock-bearing state. No write path sets it yet, so it is `None` in practice; publishing lands with the applicant flow.
+- `essential_options: Optional[EssentialFormOptions]` - Frozen offering of the essential questions (dates, sections, table types). Server-owned: written by the back end (`essential_fields.freeze_essential_options`) on the first applicant answer, never writable from a client payload. `None` until frozen.
 
 **Endpoints:**
-- `GET /markets/<market_id>/application-form` - Requires `VIEWER`. Returns `{ application_form, editable, lock_reason }`, where `application_form` is camelCase (or `null` when no form has been saved) and `editable` / `lock_reason` describe the lock so the builder can render read-only before an organizer invests work in a form they cannot save.
-- `PUT /markets/<market_id>/application-form` - Requires `EDITOR`. The only writer of `Market.application_form` on an existing market. Takes the form (camelCase) as the body and returns `{ message, application_form }` with the form exactly as persisted. `404` unknown market, `403` insufficient permission, `400` validation failure, `409` locked.
+- `GET /markets/<market_id>/application-form` - Requires `VIEWER`. Returns `{ application_form, editable, lock_reason }`, where `application_form` is camelCase (or `null` when no form has been saved) and `editable` / `lock_reason` describe the lock so the builder can render read-only before an organizer invests work in a form they cannot save. The response includes `essentialOptions` (the effective offering, live or frozen).
+- `PUT /markets/<market_id>/application-form` - Requires `EDITOR`. The only writer of `Market.application_form` on an existing market. Takes the form (camelCase) as the body and returns `{ message, application_form }` with the form exactly as persisted. `essential_options` in the body is server-owned and discarded; the stored value is carried over from the existing document. `404` unknown market, `403` insufficient permission, `400` validation failure, `409` locked.
 
 **Editability (the D9 lock):**
 
@@ -400,7 +401,7 @@ The second rule is permanent: once an applicant has submitted, the form can neve
 
 **Validation and Normalization:**
 
-Every writer (`POST /markets` with a form on the body, and the `PUT` above) runs the form through one validator, which returns it exactly as it will be persisted, so a stored form can never differ from the form that was checked. It rejects a form with no fields, and per field enforces the [FormField](#formfield) rules below. It also renormalizes `order` to the field's array position, so the builder and the applicant's form can never disagree about display order.
+Every writer (`POST /markets` with a form on the body, and the `PUT` above) runs the form through one validator, which returns it exactly as it will be persisted, so a stored form can never differ from the form that was checked. It rejects a form with no fields, and per field enforces the [FormField](#formfield) rules below. It also renormalizes `order` to the field's array position, so the builder and the applicant's form can never disagree about display order. `essential_options` is server-owned (like `published_at`): any value in the payload is stripped and the stored value is carried over from the existing document.
 
 **Relationships:**
 - **One-to-One with Market**: Embedded in `Market.application_form` (optional; None if no form has been saved)
@@ -423,7 +424,7 @@ A single field in an application form.
 - `order: int` - Display order. Default **0**. Server-owned: renormalized on every write to the field's position in `ApplicationForm.fields`.
 
 **Validation (enforced on every write of `Market.application_form`):**
-- `key` must be non-blank, unique within the form, and match `^[a-z0-9_]+$`. Field keys become document keys inside `Application.form_data`, where a dot or a leading `$` cannot be addressed by Mongo update operators, so the charset is held to the slug form the builder auto-generates from the label.
+- `key` must be non-blank, unique within the form, and match `^[a-z0-9_]+$`. Field keys become document keys inside `Application.form_data`, where a dot or a leading `$` cannot be addressed by Mongo update operators, so the charset is held to the slug form the builder auto-generates from the label. Custom keys may not use the reserved `essential_` prefix (validated in `back-end/api/markets.py:_normalized_application_form` and mirrored in `front-end/src/utils/applicationForm.ts`).
 - `label` must be non-blank.
 - `type` must be one of the accepted types above.
 - `select` / `multi_select` fields must have at least one option, and options are trimmed and must be non-blank and unique - they are the persisted answer values in `Application.form_data`, so a duplicate would be an ambiguous answer. Options are cleared to `[]` on every other field type.
@@ -761,6 +762,7 @@ Market
 │   │   └── TierObject (many:1, optional)
 │   └── AssignmentOptionObject (1:1)
 ├── ApplicationForm (1:1, optional, server-owned: written only via PUT /markets/<id>/application-form)
+│   ├── EssentialFormOptions (1:1, server-owned, frozen: stamped by freeze_essential_options on first applicant answer)
 │   └── FormField[] (1:many)
 ├── ModificationObject[] (1:many, currently unused)
 └── AssignmentObject (1:1)
@@ -909,7 +911,7 @@ SourceData
 - `SectionObject.location` and `tier` are optional (sections can exist independently)
 - `Market.organization_id` is `Optional` in the model but required by `POST /markets`: new markets always belong to an organization, and the optional typing only keeps pre-existing org-less markets readable
 - `Market.theme` and `Organization.theme` are optional
-- `Market.application_form`, `review_config`, and `discord_guild_id` are optional (None by default)
+- `Market.application_form`, `review_config`, and `discord_guild_id` are optional (None by default); within `ApplicationForm`, `essential_options` and `published_at` are optional (None until set by the server)
 - The CSV-derived fields (`SetupObject.col_names` / `col_values` / `col_include` / `enum_priority_order`, `PriorityObject.col_name_idx`, `MarketDateObject.col_name_idx`, and the `AssignmentOptionObject` column indices) are optional and kept for backward compatibility. The assignment algorithm validates them instead of the models. See [SetupObject](#setupobject).
 
 ### 5. Permission Resolution

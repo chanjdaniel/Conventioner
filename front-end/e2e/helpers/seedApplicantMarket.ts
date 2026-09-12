@@ -42,6 +42,53 @@ export const APPLICATION_FIELDS = [
   },
 ];
 
+/** The dates, sections and table types a seeded market plan offers. */
+export const PLAN_DATES = ['2026-08-01', '2026-08-08', '2026-08-15'];
+export const PLAN_SECTIONS = ['Main Hall', 'Garden'];
+export const PLAN_TABLE_TYPES = ['Full Table', 'Half Table'];
+
+/**
+ * A market plan (camelCase `setupObject`) that offers the essential questions everything they
+ * need: dates, sections, and a floorplan carrying table types - the same three sources the
+ * back end derives the essential offering from.
+ */
+export function planSetupObject(dates: string[] = PLAN_DATES) {
+  return {
+    colNames: [],
+    colValues: [],
+    colInclude: [],
+    enumPriorityOrder: [],
+    priority: [],
+    marketDates: dates.map((date) => ({ date, colNameIdx: null })),
+    tiers: [],
+    locations: [{ name: 'Indoors' }],
+    sections: PLAN_SECTIONS.map((name) => ({
+      name,
+      location: { name: 'Indoors' },
+      tier: null,
+      count: 4,
+    })),
+    assignmentOptions: {
+      maxAssignmentsPerVendor: null,
+      maxHalfTableProportionPerSection: null,
+      emailColNameIdx: null,
+      tableChoiceColNameIdx: null,
+      tableShareEmailColNameIdx: null,
+      maxDaysColNameIdx: null,
+    },
+    floorplans: [
+      {
+        tableTypes: PLAN_TABLE_TYPES.map((name) => ({
+          name,
+          widthMm: 1800,
+          heightMm: 800,
+          maxCapacity: 2,
+        })),
+      },
+    ],
+  };
+}
+
 /**
  * Create a published market in `applications_open` phase with an application
  * form and an Application document for the test applicant.
@@ -58,6 +105,7 @@ export async function seedApplicantMarket(
   baseURL: string,
   email: string,
   password: string,
+  options: { setupObject?: Record<string, unknown> } = {},
 ): Promise<ApplicantMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
@@ -72,6 +120,7 @@ export async function seedApplicantMarket(
       roles: { [userId]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      ...(options.setupObject ? { setupObject: options.setupObject } : {}),
     },
   });
   if (!createRes.ok()) {
@@ -139,14 +188,18 @@ export function createApplicantLoginChallenge(marketId: string, email: string, c
   const createdAt = new Date().toISOString();
 
   const evalJs = [
-    `db.applicant_login_challenges.insertOne({`,
-    `  market_id: ${JSON.stringify(marketId)},`,
-    `  email: ${JSON.stringify(emailLower)},`,
-    `  code_hash: ${JSON.stringify(codeHash)},`,
-    `  consumed: false,`,
-    `  expires_at: new Date(${expiryTs}),`,
-    `  created_at: ${JSON.stringify(createdAt)}`,
-    `})`,
+    `db.applicant_login_challenges.replaceOne(`,
+    `  { market_id: ${JSON.stringify(marketId)}, email: ${JSON.stringify(emailLower)} },`,
+    `  {`,
+    `    market_id: ${JSON.stringify(marketId)},`,
+    `    email: ${JSON.stringify(emailLower)},`,
+    `    code_hash: ${JSON.stringify(codeHash)},`,
+    `    consumed: false,`,
+    `    expires_at: new Date(${expiryTs}),`,
+    `    created_at: ${JSON.stringify(createdAt)}`,
+    `  },`,
+    `  { upsert: true }`,
+    `)`,
   ].join('\n');
 
   execFileSync(

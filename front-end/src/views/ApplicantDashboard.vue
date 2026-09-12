@@ -3,8 +3,19 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApplicationStore } from '@/stores/application';
 import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
-import type { Application } from '@/assets/types/datatypes';
+import type { Application, FormField } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
+import {
+  AVAILABLE_DATES_KEY,
+  AVAILABLE_DATES_LABEL,
+  MAX_DATES_KEY,
+  MAX_DATES_LABEL,
+  SECTION_RANKING_KEY,
+  SECTION_RANKING_LABEL,
+  TABLE_TYPE_RANKING_KEY,
+  TABLE_TYPE_RANKING_LABEL,
+  formattedEssentialDate,
+} from '@/utils/essentialFields';
 
 const route = useRoute();
 const router = useRouter();
@@ -14,6 +25,7 @@ const marketSlug = computed(() => (route.params.marketSlug as string) || '');
 const marketName = ref('');
 const loading = ref(true);
 const application = ref<Application | null>(null);
+const formFields = ref<FormField[]>([]);
 
 const statusLabels: Record<string, string> = {
   open: 'Submitted',
@@ -51,12 +63,78 @@ onMounted(async () => {
   loading.value = true;
   const form = await fetchPublicApplicationForm(marketSlug.value);
   marketName.value = form.marketName;
+  formFields.value = form.fields;
 
   const app = await store.fetchApplication();
   if (app) {
     application.value = app;
   }
   loading.value = false;
+});
+
+interface AnswerRow {
+  key: string;
+  label: string;
+  value: string;
+}
+
+/**
+ * The applicant's answers with the questions' own labels: the essential answers first (they
+ * are asked first), then the organizer's questions in form order, then anything the form no
+ * longer names, so no stored answer is ever silently dropped.
+ */
+const answerRows = computed<AnswerRow[]>(() => {
+  const data = application.value?.formData ?? {};
+  const rows: AnswerRow[] = [];
+  const seen = new Set<string>();
+
+  const push = (key: string, label: string, value: unknown) => {
+    if (value === null || value === undefined || value === '') return;
+    if (Array.isArray(value) && value.length === 0) return;
+    rows.push({
+      key,
+      label,
+      value: Array.isArray(value) ? value.join(', ') : String(value),
+    });
+  };
+
+  const essentialRows: Array<[string, string, (v: unknown) => unknown]> = [
+    [
+      AVAILABLE_DATES_KEY,
+      AVAILABLE_DATES_LABEL,
+      (v) => (Array.isArray(v) ? v.map((d) => formattedEssentialDate(String(d))) : v),
+    ],
+    [MAX_DATES_KEY, MAX_DATES_LABEL, (v) => v],
+    [
+      SECTION_RANKING_KEY,
+      SECTION_RANKING_LABEL,
+      (v) => (Array.isArray(v) ? v.map((s, i) => `${i + 1}. ${s}`) : v),
+    ],
+    [
+      TABLE_TYPE_RANKING_KEY,
+      TABLE_TYPE_RANKING_LABEL,
+      (v) => (Array.isArray(v) ? v.map((t, i) => `${i + 1}. ${t}`) : v),
+    ],
+  ];
+  for (const [key, label, present] of essentialRows) {
+    if (key in data) {
+      seen.add(key);
+      push(key, label, present(data[key]));
+    }
+  }
+
+  for (const field of formFields.value) {
+    if (field.key in data && !seen.has(field.key)) {
+      seen.add(field.key);
+      push(field.key, field.label, data[field.key]);
+    }
+  }
+
+  for (const [key, value] of Object.entries(data)) {
+    if (!seen.has(key)) push(key, key, value);
+  }
+
+  return rows;
 });
 
 function logout() {
@@ -102,13 +180,16 @@ function logout() {
 
       <div class="dash-form-answers" data-testid="applicant-dashboard-answers">
         <h3>Your Answers</h3>
-        <div v-if="Object.keys(application.formData).length === 0" class="dash-no-answers">
-          No answers submitted yet.
-        </div>
+        <div v-if="answerRows.length === 0" class="dash-no-answers">No answers submitted yet.</div>
         <dl v-else class="answers-list">
-          <div v-for="(value, key) in application.formData" :key="key" class="answer-row">
-            <dt>{{ key }}</dt>
-            <dd>{{ Array.isArray(value) ? value.join(', ') : String(value ?? '') }}</dd>
+          <div
+            v-for="row in answerRows"
+            :key="row.key"
+            class="answer-row"
+            :data-testid="`applicant-dashboard-answer-${row.key}`"
+          >
+            <dt>{{ row.label }}</dt>
+            <dd>{{ row.value }}</dd>
           </div>
         </dl>
       </div>
