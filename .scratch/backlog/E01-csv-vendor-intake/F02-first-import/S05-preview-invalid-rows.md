@@ -2,9 +2,9 @@
 id: E01/F02/S05
 title: Preview invalid rows and import only the valid ones
 type: story
-status: in-progress
+status: done
 blocked_by: [E01/F02/S02]
-pr: []
+pr: [#57]
 ---
 
 ## What to build

@@ -2,7 +2,7 @@
 id: E01/F02
 title: First import
 type: feature
-status: ready
+status: done
 blocked_by: [E01/F01]
 pr: []
 ---
