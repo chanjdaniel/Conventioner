@@ -2,9 +2,9 @@
 id: E01/F03/S02
 title: Upsert on applicant identity and report absent rows
 type: story
-status: in-progress
+status: done
 blocked_by: [E01/F02/S02]
-pr: []
+pr: [#59]
 ---
 
 ## What to build
