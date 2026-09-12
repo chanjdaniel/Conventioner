@@ -459,3 +459,79 @@ class TestMatchingCellValues:
         assert status == 200, body
         data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
         assert data["essential_table_choice"] == "half"
+
+
+class TestPreviewingRowValidity:
+    """What will and will not import, said before anything is written.
+
+    Silently skipping a row is the worst outcome available: the import looks complete and a vendor
+    is simply missing. So everything that would be skipped is shown first, with the line the
+    organizer can find it on.
+    """
+
+    def test_a_clean_file_previews_every_row_as_valid(self, markets):
+        body, status = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, GOOD_ROW), MAPPING)
+
+        assert status == 200
+        assert body["validRows"] == 2
+        assert body["failures"] == []
+
+    def test_a_mixed_file_counts_both_and_names_the_bad_lines(self, markets):
+        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, bad), MAPPING)
+
+        assert body["rowCount"] == 2
+        assert body["validRows"] == 1
+        assert len(body["failures"]) == 1
+        assert body["failures"][0]["row"] == 3
+        assert body["failures"][0]["email"] == "kai@ember.ca"
+        assert "whole number" in body["failures"][0]["error"]
+
+    def test_an_all_invalid_file_previews_nothing_as_valid(self, markets):
+        bad = GOOD_ROW.replace(",2,Gold,", ",lots,Gold,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(bad, bad), MAPPING)
+
+        assert body["validRows"] == 0
+        assert len(body["failures"]) == 2
+
+    def test_previewing_writes_nothing(self, markets, applications):
+        CsvImport.preview_values(markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        assert applications.documents == []
+
+    def test_previewing_does_not_freeze_the_offering(self, markets, applications):
+        """A dry run that froze would let merely LOOKING at an import decide the form for ever."""
+        CsvImport.preview_values(markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        assert markets.last_update is None
+
+    def test_row_validity_waits_until_the_mapping_is_complete(self, markets):
+        """Before that every row fails for the same reason, which the rail already says."""
+        partial = {k: v for k, v in MAPPING.items() if k != EssentialFields.TIER_PREFERENCE_KEY}
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW), partial)
+
+        assert body["failures"] == []
+        assert body["validRows"] == 0
+
+    def test_row_validity_waits_until_values_are_resolved(self, markets):
+        row = GOOD_ROW.replace(",Gold,", ",Gold Tier,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
+
+        assert body["unmatched"] != []
+        assert body["failures"] == []
+
+    def test_the_preview_agrees_with_what_the_import_then_does(self, markets, applications):
+        """Both run the same assembly, so a row cannot pass the preview and fail the import."""
+        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
+
+        preview, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, bad), MAPPING)
+        imported, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW, bad), MAPPING,
+        )
+
+        assert imported["created"] == preview["validRows"]
+        assert [f["row"] for f in imported["failures"]] == [f["row"] for f in preview["failures"]]

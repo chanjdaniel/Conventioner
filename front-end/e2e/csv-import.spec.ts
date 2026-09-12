@@ -108,8 +108,14 @@ test.describe('CSV vendor import', () => {
     });
 
     // Nothing is written until the organizer confirms.
+    // The dry run says exactly what will happen before anything is written: two of the three
+    // rows, with the third named and its reason given.
     await page.getByTestId('import-preview-button').click();
-    await expect(page.getByTestId('import-preview')).toContainText('3 rows');
+    await expect(page.getByTestId('import-preview-counts')).toContainText('2 of 3 rows');
+    const previewSkips = page.getByTestId('import-preview-failure-row');
+    await expect(previewSkips).toHaveCount(1);
+    await expect(previewSkips.first()).toContainText('Row 4');
+    await expect(page.getByTestId('import-confirm-button')).toContainText('Import 2 rows');
 
     await page.getByTestId('import-confirm-button').click();
     await expect(page.getByTestId('import-result-summary')).toContainText('2 new applications');

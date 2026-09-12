@@ -96,6 +96,9 @@ const resolutions = ref<Record<string, Record<string, string>>>({});
 const created = ref(0);
 const updated = ref(0);
 const failures = ref<ImportFailure[]>([]);
+/** What the dry run said would import, and what it said would be skipped. */
+const validRows = ref(0);
+const previewFailures = ref<ImportFailure[]>([]);
 
 onMounted(() => {
   market.value = JSON.parse(localStorage.getItem('market') || 'null');
@@ -266,6 +269,8 @@ async function checkValues() {
       resolutions: currentResolutions(),
     });
     unmatched.value = data.unmatched ?? [];
+    validRows.value = data.validRows ?? 0;
+    previewFailures.value = data.failures ?? [];
     if (unmatched.value.length === 0) step.value = 'preview';
   } catch (e) {
     error.value = getApiErrorMessage(e, 'That file could not be checked.');
@@ -573,10 +578,37 @@ function startOver() {
 
     <!-- 3. Preview -->
     <section v-if="step === 'preview'" class="import-panel" data-testid="import-preview">
-      <h2>Ready to import {{ rowCount }} row{{ rowCount === 1 ? '' : 's' }}</h2>
+      <h2 data-testid="import-preview-counts">
+        {{ validRows }} of {{ rowCount }} row{{ rowCount === 1 ? '' : 's' }} will be imported
+      </h2>
       <p class="import-help">
-        Each row becomes an application awaiting your review. Nothing has been written yet.
+        Each imported row becomes an application awaiting your review. Nothing has been written yet.
       </p>
+
+      <!-- Everything that would be skipped, before it is skipped. -->
+      <div
+        v-if="previewFailures.length"
+        class="import-failures"
+        data-testid="import-preview-failures"
+      >
+        <h3>
+          {{ previewFailures.length }} row{{ previewFailures.length === 1 ? '' : 's' }} will be
+          skipped
+        </h3>
+        <p class="import-help">
+          These will not be imported. Import the rest, or go back and fix them in your spreadsheet.
+        </p>
+        <ul>
+          <li
+            v-for="failure in previewFailures"
+            :key="failure.row"
+            data-testid="import-preview-failure-row"
+          >
+            <strong>Row {{ failure.row }}</strong>
+            <span v-if="failure.email"> ({{ failure.email }})</span>: {{ failure.error }}
+          </li>
+        </ul>
+      </div>
       <ul class="preview-mapping">
         <li v-for="target in targets" :key="target.key" v-show="mappedKeys.has(target.key)">
           <strong>{{ target.label }}</strong>
@@ -631,11 +663,11 @@ function startOver() {
       <button
         v-if="step === 'preview'"
         class="button-primary"
-        :disabled="busy"
+        :disabled="busy || validRows === 0"
         data-testid="import-confirm-button"
         @click="runImport"
       >
-        Import {{ rowCount }} row{{ rowCount === 1 ? '' : 's' }}
+        Import {{ validRows }} row{{ validRows === 1 ? '' : 's' }}
       </button>
       <button
         v-if="step === 'done'"
