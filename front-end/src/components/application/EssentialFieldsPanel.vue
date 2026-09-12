@@ -4,7 +4,8 @@
  *
  * These are purpose-built, not custom fields: an organizer cannot remove or reorder them, and
  * the only thing they customise is what the questions offer - which is the market plan itself
- * (dates, sections, tiers, and the floorplan's table types). This panel therefore renders the current
+ * (dates, sections and tiers; table type is stubbed to one until the floorplan ships). This panel
+ * therefore renders the current
  * offering read-only and points at where each list is edited, instead of offering a second
  * place to edit it.
  */
@@ -167,7 +168,7 @@ defineProps<{
         <span class="essential-item-label">{{ TABLE_TYPE_RANKING_LABEL }}</span>
         <span class="essential-type-badge">ranking</span>
       </div>
-      <div v-if="options.tableTypes.length" class="essential-chips">
+      <div v-if="options.tableTypes.length > 1" class="essential-chips">
         <span
           v-for="(tableType, index) in options.tableTypes"
           :key="tableType"
@@ -178,9 +179,9 @@ defineProps<{
           {{ tableType }}
         </span>
       </div>
-      <p v-else class="essential-item-warning" data-testid="essential-table-types-empty">
-        No table types yet - this question is hidden from applicants until your floorplan defines
-        table types.
+      <p v-else class="essential-item-warning" data-testid="essential-table-types-stubbed">
+        Every table is the same type for now, so applicants are not asked to rank them. This
+        question appears once a floorplan gives your market more than one table type.
       </p>
     </div>
   </div>

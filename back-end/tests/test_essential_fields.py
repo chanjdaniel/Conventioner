@@ -28,6 +28,14 @@ OPTIONS = EssentialFormOptions(
     dates=DATES, sections=SECTIONS, table_types=TABLE_TYPES, tiers=TIERS,
 )
 
+# What a market PLAN offers today: table type is stubbed to one type, so it differs from OPTIONS.
+# OPTIONS keeps two so the ranking validation still has something to rank - a frozen snapshot
+# written before the stub may legitimately hold more than one.
+STUB_TABLE_TYPES = [EssentialFields.STUB_TABLE_TYPE]
+PLAN_OPTIONS = EssentialFormOptions(
+    dates=DATES, sections=SECTIONS, table_types=STUB_TABLE_TYPES, tiers=TIERS,
+)
+
 SETUP_SNAKE = {
     "market_dates": [{"date": date} for date in DATES],
     "sections": [{"name": name, "count": 4} for name in SECTIONS],
@@ -73,12 +81,11 @@ VALID_ANSWERS = {
 
 
 class TestEssentialOptionsFromSetup:
-    def test_reads_dates_sections_table_types_and_tiers_from_the_plan(self):
+    def test_reads_dates_sections_and_tiers_from_the_plan(self):
         options = EssentialFields.essential_options_from_setup(SETUP_SNAKE)
 
         assert options.dates == DATES
         assert options.sections == SECTIONS
-        assert options.table_types == TABLE_TYPES
         assert options.tiers == TIERS
 
     def test_tiers_come_from_the_plan_not_the_floorplan(self):
@@ -90,12 +97,19 @@ class TestEssentialOptionsFromSetup:
 
         assert options.tiers == ["Gold"]
 
-    def test_the_latest_floorplan_owns_the_table_types(self):
-        """floorplans_save appends floorplans and overwrites sections from the latest one,
-        so the latest floorplan's table types are the current plan's."""
+    def test_table_type_is_stubbed_to_one_type_and_ignores_the_floorplan(self):
+        """STUB until the floorplan ships (E01/F01/S03).
+
+        Table type is a property of an individual table, not of its section - any table in any
+        section may be any type - so only a floorplan can truly describe it, and the floorplan
+        GUI is out of MVP scope. Until then a market has exactly one type, whatever floorplans
+        it happens to carry.
+        """
         options = EssentialFields.essential_options_from_setup(SETUP_SNAKE)
 
+        assert options.table_types == [EssentialFields.STUB_TABLE_TYPE]
         assert "Stale Type" not in options.table_types
+        assert "Full Table" not in options.table_types
 
     def test_a_market_with_no_plan_offers_nothing(self):
         assert EssentialFields.essential_options_from_setup(None) == EssentialFormOptions()
@@ -116,7 +130,7 @@ class TestEffectiveEssentialOptions:
 
         options = EssentialFields.effective_essential_options(doc)
 
-        assert options == OPTIONS
+        assert options == PLAN_OPTIONS
 
     def test_a_frozen_snapshot_wins_over_the_live_plan(self):
         """Once an answer froze the offering, later plan edits must never reach the form."""
@@ -305,6 +319,48 @@ class TestTierPreference:
         assert stored["essential_tier_preference"] == []
 
 
+class TestRankingSuppression:
+    """A ranking of fewer than two options is not a question.
+
+    The offering-empty rule generalises: asking someone to rank a list of one is the kind of
+    detail that makes software feel unserious, and it reads correctly for the real case too - a
+    market with genuinely one section has nothing to ask about section preference. It applies to
+    rankings ONLY. A single offered date or tier is still a real question, because the applicant
+    may be unable or unwilling to take it.
+    """
+
+    def test_a_single_option_ranking_is_not_asked(self):
+        options = EssentialFormOptions(dates=DATES, sections=["Main Hall"], table_types=["Standard"])
+        answers = {
+            "essential_available_dates": ["2026-08-01"],
+            "essential_max_dates": 1,
+            "essential_table_choice": "half",
+        }
+
+        error, stored = EssentialFields.validated_essential_answers(answers, options)
+
+        assert error is None
+        assert stored["essential_section_ranking"] == []
+        assert stored["essential_table_type_ranking"] == []
+
+    def test_a_single_offered_date_is_still_asked(self):
+        """Not a ranking: the applicant may simply not be available that day."""
+        options = EssentialFormOptions(dates=["2026-08-01"])
+
+        error, _ = EssentialFields.validated_essential_answers({}, options)
+
+        assert error is not None and "'Available dates' is required" in error
+
+    def test_a_single_offered_tier_is_still_asked(self):
+        """Not a ranking: accepting the only tier is a real commitment about what they pay."""
+        options = EssentialFormOptions(dates=["2026-08-01"], tiers=["Gold"])
+        answers = {"essential_available_dates": ["2026-08-01"], "essential_max_dates": 1}
+
+        error, _ = EssentialFields.validated_essential_answers(answers, options)
+
+        assert error is not None and "'Tier preference' is required" in error
+
+
 class TestTableChoiceAndSharePartner:
     """Whether the applicant wants a whole table, and who they would like to share one with.
 
@@ -481,7 +537,9 @@ class TestApplicantSave:
         assert stored["essential_available_dates"] == ["2026-08-01", "2026-08-08"]
         assert stored["essential_max_dates"] == 2
         assert stored["essential_section_ranking"] == ["Garden", "Main Hall"]
-        assert stored["essential_table_type_ranking"] == ["Full Table", "Half Table"]
+        # The offering here comes from the market plan, where table type is stubbed to one type,
+        # so the ranking is suppressed and stores empty whatever the applicant sent.
+        assert stored["essential_table_type_ranking"] == []
 
     def test_a_save_missing_an_essential_answer_is_refused(self, applicant_db, applications):
         _seed_application(applications)
@@ -503,7 +561,7 @@ class TestApplicantSave:
         assert status == 200
         frozen = applicant_db.last_update["$set"]["applicationForm.essentialOptions"]
         assert frozen == {
-            "dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES,
+            "dates": DATES, "sections": SECTIONS, "tableTypes": STUB_TABLE_TYPES,
             "tiers": TIERS,
             "tiers": TIERS,
         }
@@ -574,7 +632,7 @@ class TestPublicForm:
 
         assert status == 200
         assert body["essential_options"] == {
-            "dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES,
+            "dates": DATES, "sections": SECTIONS, "tableTypes": STUB_TABLE_TYPES,
             "tiers": TIERS,
         }
 
@@ -589,6 +647,6 @@ class TestPublicForm:
         result = MarketsApi.get_application_form("market-123", "user-1")
 
         assert result["essential_options"] == {
-            "dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES,
+            "dates": DATES, "sections": SECTIONS, "tableTypes": STUB_TABLE_TYPES,
             "tiers": TIERS,
         }

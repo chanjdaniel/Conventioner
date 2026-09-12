@@ -152,9 +152,10 @@ test.describe('Essential form fields', () => {
     await expect(formPage.essentialDatesEmpty).toBeVisible();
     await expect(formPage.essentialSectionsEmpty).toBeVisible();
     await expect(formPage.essentialTiersEmpty).toBeVisible();
-    // Table types already come from the plan's floorplan.
-    await expect(formPage.essentialTableTypeChips).toHaveCount(2);
-    await expect(formPage.essentialTableTypeChips.nth(0)).toContainText('Full Table');
+    // Table type is stubbed to a single type until the floorplan ships, so applicants are not
+    // asked to rank it and the panel says so instead of showing a one-item ranking.
+    await expect(formPage.essentialTableTypesStubbed).toBeVisible();
+    await expect(formPage.essentialTableTypeChips).toHaveCount(0);
     // Purpose-built, not custom fields: the panel offers no remove/reorder/edit controls.
     await expect(formPage.essentialPanel.locator('button')).toHaveCount(0);
     await page.screenshot({
@@ -211,7 +212,9 @@ test.describe('Essential form fields', () => {
     await formPage.openFormTab();
     await expect(formPage.essentialDateChips).toHaveCount(2);
     await expect(formPage.essentialSectionChips).toHaveCount(2);
-    await expect(formPage.essentialTableTypeChips).toHaveCount(2);
+    // Still stubbed after the round trip: the offering is derived server-side, and the server
+    // ignores the floorplan's table types too.
+    await expect(formPage.essentialTableTypesStubbed).toBeVisible();
     await expect(formPage.previewField('business_name')).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('03-essential-panel-after-reload.png'),
@@ -266,10 +269,6 @@ test.describe('Essential form fields', () => {
     await expect(apply.sectionRankName(0)).toHaveText('Garden');
     await expect(apply.sectionRankName(1)).toHaveText('Main Hall');
 
-    await expect(apply.tableTypeRankName(0)).toHaveText('Full Table');
-    await apply.tableTypeRankDown(0).click();
-    await expect(apply.tableTypeRankName(0)).toHaveText('Half Table');
-
     await apply.fillField('business_name', 'Vermilion Ceramics');
     await apply.fillField('product_type', 'Hand-thrown pottery');
 
@@ -312,9 +311,6 @@ test.describe('Essential form fields', () => {
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_section_ranking'),
     ).toContainText('1. Garden');
-    await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_table_type_ranking'),
-    ).toContainText('1. Half Table');
     await page.screenshot({
       path: testInfo.outputPath('06-applicant-dashboard-answers.png'),
       fullPage: true,
@@ -340,7 +336,8 @@ test.describe('Essential form fields', () => {
       essential_table_choice: 'half',
       essential_table_share_email: 'buddy@example.com',
       essential_section_ranking: ['Garden', 'Main Hall'],
-      essential_table_type_ranking: ['Half Table', 'Full Table'],
+      // Suppressed: one table type on offer, so there is nothing to rank.
+      essential_table_type_ranking: [],
     });
   });
 
@@ -376,7 +373,6 @@ test.describe('Essential form fields', () => {
             essential_tier_preference: ['Gold'],
             essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
-            essential_table_type_ranking: ['Full Table', 'Half Table'],
           },
         },
       },
@@ -418,7 +414,6 @@ test.describe('Essential form fields', () => {
             essential_tier_preference: ['Gold'],
             essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
-            essential_table_type_ranking: ['Full Table', 'Half Table'],
           },
         },
       },

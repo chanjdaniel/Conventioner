@@ -76,6 +76,13 @@ TABLE_CHOICE_HALF = "half"
 TABLE_CHOICE_EITHER = "either"
 TABLE_CHOICES = (TABLE_CHOICE_FULL, TABLE_CHOICE_HALF, TABLE_CHOICE_EITHER)
 
+# STUB until the floorplan ships. Table type is a property of an individual TABLE, not of its
+# section - any table in any section may be any type - so only a floorplan can truly describe it,
+# and the floorplan GUI is out of MVP scope. Until then every market offers exactly one type, so
+# the ranking is suppressed by the fewer-than-two rule and the question is never asked. The field
+# and its validation stay in place; only a real offering is missing.
+STUB_TABLE_TYPE = "Standard"
+
 
 def _unique_names(values: Any) -> List[str]:
     """Trimmed, non-blank, order-preserving unique strings."""
@@ -115,16 +122,8 @@ def essential_options_from_setup(setup: Optional[Dict[str, Any]]) -> EssentialFo
         if isinstance(tier, dict)
     ])
 
-    floorplans = [fp for fp in setup.get("floorplans") or [] if isinstance(fp, dict)]
-    table_types: List[str] = []
-    if floorplans:
-        # The latest floorplan is the current plan: floorplans_save overwrites sections and
-        # locations from it, so its table types are what the plan actually offers.
-        table_types = _unique_names([
-            table_type.get("name")
-            for table_type in floorplans[-1].get("table_types") or []
-            if isinstance(table_type, dict)
-        ])
+    # STUB: one type for every market, whatever floorplans it carries. See STUB_TABLE_TYPE.
+    table_types = [STUB_TABLE_TYPE]
 
     return EssentialFormOptions(
         dates=dates, sections=sections, table_types=table_types, tiers=tiers,
@@ -416,7 +415,11 @@ def _validate_ranking(
     offered: List[str],
     stored: Dict[str, Any],
 ) -> Optional[str]:
-    if not offered:
+    # Fewer than two options is not a question: there is exactly one order, so asking for it
+    # gains nothing and asking someone to rank a list of one reads as a bug. This is the
+    # offering-empty rule generalised, and it applies to rankings only - a single offered date or
+    # tier is still a real question, because the applicant may be unable or unwilling to take it.
+    if len(offered) < 2:
         stored[key] = []
         return None
 
