@@ -64,17 +64,18 @@ const tableTypeRanking = computed(
 
 /**
  * A ranking is total, so it always holds every offered option - seed it from the plan's order
- * the moment the offering is known, and the applicant only ever reorders.
+ * the moment the offering is known, and the applicant only ever reorders. Fewer than two options
+ * is not a question, so nothing is seeded and nothing is asked.
  */
 watch(
   () => props.options,
   (options) => {
     if (props.disabled) return;
     const seeded: Record<string, unknown> = {};
-    if (options.sections.length && !props.modelValue[SECTION_RANKING_KEY]) {
+    if (options.sections.length > 1 && !props.modelValue[SECTION_RANKING_KEY]) {
       seeded[SECTION_RANKING_KEY] = [...options.sections];
     }
-    if (options.tableTypes.length && !props.modelValue[TABLE_TYPE_RANKING_KEY]) {
+    if (options.tableTypes.length > 1 && !props.modelValue[TABLE_TYPE_RANKING_KEY]) {
       seeded[TABLE_TYPE_RANKING_KEY] = [...options.tableTypes];
     }
     if (Object.keys(seeded).length) {
@@ -306,7 +307,7 @@ function errorFor(key: string): string {
 
     <!-- Section preference -->
     <div
-      v-if="options.sections.length"
+      v-if="options.sections.length > 1"
       class="essential-field"
       :data-testid="`${prefix}-essential-section-ranking`"
     >
@@ -325,7 +326,7 @@ function errorFor(key: string): string {
 
     <!-- Table type preference -->
     <div
-      v-if="options.tableTypes.length"
+      v-if="options.tableTypes.length > 1"
       class="essential-field"
       :data-testid="`${prefix}-essential-table-type-ranking`"
     >

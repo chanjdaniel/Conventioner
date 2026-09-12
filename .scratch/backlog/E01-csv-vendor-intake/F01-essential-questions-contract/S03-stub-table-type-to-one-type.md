@@ -2,7 +2,7 @@
 id: E01/F01/S03
 title: Stub table type to a single type
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

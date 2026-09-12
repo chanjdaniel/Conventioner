@@ -29,6 +29,14 @@ export const TABLE_SHARE_EMAIL_LABEL = 'Table-share partner';
  * Every table holds one full-table vendor or two halves, so these three are the whole space.
  * Unlike the other offerings this one is not plan-derived - the organizer does not choose it.
  */
+/**
+ * STUB until the floorplan ships. Table type is a property of an individual TABLE, not of its
+ * section - any table in any section may be any type - so only a floorplan can truly describe it,
+ * and the floorplan GUI is out of MVP scope. Every market offers exactly one type, so the ranking
+ * is suppressed by the fewer-than-two rule and the question is never asked.
+ */
+export const STUB_TABLE_TYPE = 'Standard';
+
 export const TABLE_CHOICES: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'full', label: 'A whole table to myself' },
   { value: 'half', label: 'Half a table, shared' },
@@ -56,18 +64,16 @@ function uniqueNames(values: Array<string | null | undefined>): string[] {
 /**
  * What the essential questions offer, read live from the market plan. The mirror of
  * `essential_options_from_setup`: dates from the plan's market dates, sections from its
- * sections, tiers from its tiers, table types from the latest floorplan (the one whose sections
- * the plan carries).
+ * sections, tiers from its tiers. Table type is stubbed to one type (see STUB_TABLE_TYPE).
  */
 export function essentialOptionsFromSetup(
   setup: SetupObject | null | undefined,
 ): EssentialFormOptions {
   if (!setup) return EMPTY_ESSENTIAL_OPTIONS;
-  const floorplan = setup.floorplans?.length ? setup.floorplans[setup.floorplans.length - 1] : null;
   return {
     dates: uniqueNames((setup.marketDates ?? []).map((d) => d.date)),
     sections: uniqueNames((setup.sections ?? []).map((s) => s.name)),
-    tableTypes: uniqueNames((floorplan?.tableTypes ?? []).map((t) => t.name)),
+    tableTypes: [STUB_TABLE_TYPE],
     tiers: uniqueNames((setup.tiers ?? []).map((t) => t.name)),
   };
 }
@@ -139,8 +145,10 @@ export function essentialValidationErrors(
     }
   }
 
+  // Fewer than two options is not a question - there is exactly one order. Rankings only: a
+  // single offered date or tier is still asked, since the applicant may not want it.
   const rankingError = (key: string, label: string, offered: string[]) => {
-    if (offered.length === 0) return;
+    if (offered.length < 2) return;
     const ranked = formData[key];
     if (!Array.isArray(ranked) || ranked.length !== offered.length) {
       errors[key] = `'${label}' is required. Rank every option, best first.`;

@@ -84,16 +84,4 @@ export class ApplyPage {
   sectionRankDown(index: number): Locator {
     return this.page.getByTestId(`apply-essential-section-rank-down-${index}`);
   }
-
-  tableTypeRankName(index: number): Locator {
-    return this.page.getByTestId(`apply-essential-table-type-rank-name-${index}`);
-  }
-
-  tableTypeRankUp(index: number): Locator {
-    return this.page.getByTestId(`apply-essential-table-type-rank-up-${index}`);
-  }
-
-  tableTypeRankDown(index: number): Locator {
-    return this.page.getByTestId(`apply-essential-table-type-rank-down-${index}`);
-  }
 }
