@@ -72,6 +72,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `/register-user`.
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `stack().frontendPort`.
+  Bring the stack up with `DISABLE_EMAIL=true scripts/th-compose.sh up -d` (compose passes it
+  through from the host shell; CI and `nm-test.sh` set it) - without it the password-reset
+  E2E 500s on the missing `RESEND_API_KEY`.
+- **Market dates are calendar days, not instants**: a stored `YYYY-MM-DD` market date must
+  render as the same day for every viewer regardless of timezone. `getFormattedDate`
+  (`front-end/src/utils/utils.ts`) formats with pure UTC math; never parse a market date
+  through `new Date()` with an offset. `front-end/e2e/date-display-timezone.spec.ts` pins
+  this across Honolulu/LA/Tokyo via Playwright `timezoneId`.
 
 ### Floorplan Workflow E2E
 
