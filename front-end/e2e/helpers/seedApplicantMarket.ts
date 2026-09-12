@@ -46,6 +46,7 @@ export const APPLICATION_FIELDS = [
 export const PLAN_DATES = ['2026-08-01', '2026-08-08', '2026-08-15'];
 export const PLAN_SECTIONS = ['Main Hall', 'Garden'];
 export const PLAN_TABLE_TYPES = ['Full Table', 'Half Table'];
+export const PLAN_TIERS = ['Gold', 'Silver'];
 
 /**
  * A market plan (camelCase `setupObject`) that offers the essential questions everything they
@@ -60,7 +61,7 @@ export function planSetupObject(dates: string[] = PLAN_DATES) {
     enumPriorityOrder: [],
     priority: [],
     marketDates: dates.map((date) => ({ date, colNameIdx: null })),
-    tiers: [],
+    tiers: PLAN_TIERS.map((name, id) => ({ id, name })),
     locations: [{ name: 'Indoors' }],
     sections: PLAN_SECTIONS.map((name) => ({
       name,

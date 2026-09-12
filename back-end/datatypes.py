@@ -366,12 +366,12 @@ class FormField(BaseModel):
 class EssentialFormOptions(BaseModel):
     """What the essential form questions offer, derived from the market plan.
 
-    The essential questions (available dates, max dates, section preference, table type
-    preference) are present in every application form; the only thing an organizer customises
-    is what they offer, and that offering is the market plan itself: ``dates`` come from
-    ``SetupObject.market_dates``, ``sections`` from ``SetupObject.sections``, and
-    ``table_types`` from the market's floorplan table types. See ``essential_fields.py``,
-    the single owner of that derivation.
+    The essential questions (available dates, max dates, tier preference, section preference,
+    table type preference) are present in every application form; the only thing an organizer
+    customises is what they offer, and that offering is the market plan itself: ``dates`` come
+    from ``SetupObject.market_dates``, ``sections`` from ``SetupObject.sections``, ``tiers``
+    from ``SetupObject.tiers``, and ``table_types`` from the market's floorplan table types.
+    See ``essential_fields.py``, the single owner of that derivation.
 
     A value of this type stored on ``ApplicationForm.essential_options`` is a *frozen*
     offering: it is written by the server the first time an applicant's answers are recorded
@@ -381,6 +381,7 @@ class EssentialFormOptions(BaseModel):
     dates: List[str] = []
     sections: List[str] = []
     table_types: List[str] = []
+    tiers: List[str] = []
 
 
 class ApplicationForm(BaseModel):

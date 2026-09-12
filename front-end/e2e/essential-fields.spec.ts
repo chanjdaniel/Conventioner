@@ -140,6 +140,7 @@ test.describe('Essential form fields', () => {
     await createMarketWithPlan(page, {
       ...planSetupObject([]),
       sections: [],
+      tiers: [],
     });
 
     // The essential questions are present before the organizer builds anything.
@@ -150,6 +151,7 @@ test.describe('Essential form fields', () => {
     // Offering not configured yet: the panel says so instead of showing empty questions.
     await expect(formPage.essentialDatesEmpty).toBeVisible();
     await expect(formPage.essentialSectionsEmpty).toBeVisible();
+    await expect(formPage.essentialTiersEmpty).toBeVisible();
     // Table types already come from the plan's floorplan.
     await expect(formPage.essentialTableTypeChips).toHaveCount(2);
     await expect(formPage.essentialTableTypeChips.nth(0)).toContainText('Full Table');
@@ -249,6 +251,11 @@ test.describe('Essential form fields', () => {
     // Max dates: appetite - available on two dates, wants at most two.
     await apply.maxDatesInput.fill('2');
 
+    // Tier: a hard filter, so a subset is a complete answer. Refusing Silver means the solver
+    // may leave them unplaced rather than seat them there.
+    await expect(apply.tierCheckbox('Silver')).toBeVisible();
+    await apply.tierCheckbox('Gold').check();
+
     // Rankings arrive seeded in the plan's order; the applicant reorders with the arrows.
     await expect(apply.sectionRankName(0)).toHaveText('Main Hall');
     await apply.sectionRankUp(1).click();
@@ -289,6 +296,9 @@ test.describe('Essential form fields', () => {
       answers.getByTestId('applicant-dashboard-answer-essential_max_dates'),
     ).toContainText('2');
     await expect(
+      answers.getByTestId('applicant-dashboard-answer-essential_tier_preference'),
+    ).toContainText('Gold');
+    await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_section_ranking'),
     ).toContainText('1. Garden');
     await expect(
@@ -314,6 +324,8 @@ test.describe('Essential form fields', () => {
       product_type: 'Hand-thrown pottery',
       essential_available_dates: ['2026-08-01', '2026-08-08'],
       essential_max_dates: 2,
+      // Only Gold was ticked: an accepted SET, so Silver's absence is the answer, not an omission.
+      essential_tier_preference: ['Gold'],
       essential_section_ranking: ['Garden', 'Main Hall'],
       essential_table_type_ranking: ['Half Table', 'Full Table'],
     });
@@ -348,6 +360,7 @@ test.describe('Essential form fields', () => {
             product_type: 'Pottery',
             essential_available_dates: ['2026-08-01'],
             essential_max_dates: 1,
+            essential_tier_preference: ['Gold'],
             essential_section_ranking: ['Main Hall', 'Garden'],
             essential_table_type_ranking: ['Full Table', 'Half Table'],
           },
@@ -388,6 +401,7 @@ test.describe('Essential form fields', () => {
             product_type: 'Pottery',
             essential_available_dates: ['2026-08-22'],
             essential_max_dates: 1,
+            essential_tier_preference: ['Gold'],
             essential_section_ranking: ['Main Hall', 'Garden'],
             essential_table_type_ranking: ['Full Table', 'Half Table'],
           },

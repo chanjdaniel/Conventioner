@@ -36,9 +36,11 @@ export class ApplicationFormPage {
   readonly essentialDateChips: Locator;
   readonly essentialSectionChips: Locator;
   readonly essentialTableTypeChips: Locator;
+  readonly essentialTierChips: Locator;
   readonly essentialDatesEmpty: Locator;
   readonly essentialSectionsEmpty: Locator;
   readonly essentialTableTypesEmpty: Locator;
+  readonly essentialTiersEmpty: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -66,9 +68,11 @@ export class ApplicationFormPage {
     this.essentialDateChips = page.getByTestId('essential-date-chip');
     this.essentialSectionChips = page.getByTestId('essential-section-chip');
     this.essentialTableTypeChips = page.getByTestId('essential-table-type-chip');
+    this.essentialTierChips = page.getByTestId('essential-tier-chip');
     this.essentialDatesEmpty = page.getByTestId('essential-dates-empty');
     this.essentialSectionsEmpty = page.getByTestId('essential-sections-empty');
     this.essentialTableTypesEmpty = page.getByTestId('essential-table-types-empty');
+    this.essentialTiersEmpty = page.getByTestId('essential-tiers-empty');
   }
 
   async openFormTab(): Promise<void> {

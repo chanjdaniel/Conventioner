@@ -6,17 +6,25 @@ algorithm reads it, it is essential - that test is mechanical, and five fields p
   - email                    -- the applicant's identity; captured at sign-in, not asked here
   - essential_available_dates -- which market dates the applicant CAN attend (capability)
   - essential_max_dates       -- at most how many dates they WANT (appetite; not capability)
+  - essential_tier_preference -- which tiers they ACCEPT (a hard filter, not a ranking)
   - essential_section_ranking -- section preference, best first
   - essential_table_type_ranking -- table type preference, best first
+
+Tier and section are answered differently on purpose. A tier determines what the applicant pays
+for a table on a given day, so it is a hard filter: a vendor is never placed at a tier they did
+not accept, even if that leaves them unassigned - hence a SET of accepted tiers. A section is a
+preference: a vendor gets their highest-ranked section still available and is never left
+unassigned merely because it filled up - hence a total ranking.
 
 This module is the single owner of that contract: the reserved answer keys, the derivation of
 what the questions offer, the validation of an applicant's answers, and the freeze that stops
 the offering from moving under recorded answers.
 
 The offering is never an independent list: it is the market plan itself. Dates come from
-``SetupObject.market_dates``, sections from ``SetupObject.sections``, and table types from the
-market's floorplan (the latest saved one - ``floorplans_save`` overwrites ``sections`` and
-``locations`` from the latest floorplan too, so its table types are the current plan's).
+``SetupObject.market_dates``, sections from ``SetupObject.sections``, tiers from
+``SetupObject.tiers``, and table types from the market's floorplan (the latest saved one -
+``floorplans_save`` overwrites ``sections`` and ``locations`` from the latest floorplan too, so
+its table types are the current plan's).
 
 Freeze semantics (the D9 principle extended to the offering): while no applicant has recorded
 an answer, the offering follows the market plan live - an organizer edits their plan and the
@@ -43,6 +51,7 @@ ESSENTIAL_KEY_PREFIX = "essential_"
 
 AVAILABLE_DATES_KEY = "essential_available_dates"
 MAX_DATES_KEY = "essential_max_dates"
+TIER_PREFERENCE_KEY = "essential_tier_preference"
 SECTION_RANKING_KEY = "essential_section_ranking"
 TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 
@@ -50,6 +59,7 @@ TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 # question exactly as the form asked it.
 AVAILABLE_DATES_LABEL = "Available dates"
 MAX_DATES_LABEL = "Number of dates you want"
+TIER_PREFERENCE_LABEL = "Tier preference"
 SECTION_RANKING_LABEL = "Section preference"
 TABLE_TYPE_RANKING_LABEL = "Table type preference"
 
@@ -86,6 +96,11 @@ def essential_options_from_setup(setup: Optional[Dict[str, Any]]) -> EssentialFo
         for section in setup.get("sections") or []
         if isinstance(section, dict)
     ])
+    tiers = _unique_names([
+        tier.get("name")
+        for tier in setup.get("tiers") or []
+        if isinstance(tier, dict)
+    ])
 
     floorplans = [fp for fp in setup.get("floorplans") or [] if isinstance(fp, dict)]
     table_types: List[str] = []
@@ -98,7 +113,9 @@ def essential_options_from_setup(setup: Optional[Dict[str, Any]]) -> EssentialFo
             if isinstance(table_type, dict)
         ])
 
-    return EssentialFormOptions(dates=dates, sections=sections, table_types=table_types)
+    return EssentialFormOptions(
+        dates=dates, sections=sections, table_types=table_types, tiers=tiers,
+    )
 
 
 def effective_essential_options(market_doc: Dict[str, Any]) -> EssentialFormOptions:
@@ -142,6 +159,7 @@ def essential_options_from_snapshot(snapshot: Dict[str, Any]) -> EssentialFormOp
         dates=_unique_names(data.get("dates")),
         sections=_unique_names(data.get("sections")),
         table_types=_unique_names(data.get("table_types")),
+        tiers=_unique_names(data.get("tiers")),
     )
 
 
@@ -215,11 +233,19 @@ def validated_essential_answers(
     """
     stored: Dict[str, Any] = {}
 
-    error = _validate_available_dates(incoming, options, stored)
+    error = _validate_accepted_subset(
+        incoming, AVAILABLE_DATES_KEY, AVAILABLE_DATES_LABEL, "date", options.dates, stored,
+    )
     if error:
         return error, {}
 
     error = _validate_max_dates(incoming, options, stored)
+    if error:
+        return error, {}
+
+    error = _validate_accepted_subset(
+        incoming, TIER_PREFERENCE_KEY, TIER_PREFERENCE_LABEL, "tier", options.tiers, stored,
+    )
     if error:
         return error, {}
 
@@ -238,28 +264,44 @@ def validated_essential_answers(
     return None, stored
 
 
-def _validate_available_dates(
-    incoming: Dict[str, Any], options: EssentialFormOptions, stored: Dict[str, Any],
+def _validate_accepted_subset(
+    incoming: Dict[str, Any],
+    key: str,
+    label: str,
+    noun: str,
+    offered: List[str],
+    stored: Dict[str, Any],
 ) -> Optional[str]:
-    if not options.dates:
-        stored[AVAILABLE_DATES_KEY] = []
+    """An answer that ACCEPTS some of what is offered: at least one, nothing invented, no repeats.
+
+    Unlike a ranking this is deliberately not total - accepting a subset is a complete answer.
+    That is what separates the hard filters (dates, tiers) from the preferences (sections, table
+    types): what an applicant leaves out here, they are refusing.
+
+    Because the accepted values are an explicit list of offered names, membership is exact. The
+    tier check the solver used to make was ``table.tier.name in <the applicant's answer string>``,
+    a substring test in which a tier named 'A' matched an answer of 'AB'; that confusion is not
+    expressible in this shape.
+    """
+    if not offered:
+        stored[key] = []
         return None
 
-    raw = incoming.get(AVAILABLE_DATES_KEY)
+    raw = incoming.get(key)
     if raw is None or raw == []:
-        return f"'{AVAILABLE_DATES_LABEL}' is required. Select at least one date."
+        return f"'{label}' is required. Select at least one {noun}."
     if not isinstance(raw, list):
-        return f"'{AVAILABLE_DATES_LABEL}' requires one or more of the offered dates."
+        return f"'{label}' requires one or more of the offered {noun}s."
 
     chosen = [str(value).strip() for value in raw]
     for value in chosen:
-        if value not in options.dates:
-            return f"'{AVAILABLE_DATES_LABEL}' contains a date this market does not offer: {value}"
+        if value not in offered:
+            return f"'{label}' contains a {noun} this market does not offer: {value}"
     if len(set(chosen)) != len(chosen):
-        return f"'{AVAILABLE_DATES_LABEL}' repeats a date."
+        return f"'{label}' repeats a {noun}."
 
     # Stored in the market plan's order, so every consumer reads one canonical ordering.
-    stored[AVAILABLE_DATES_KEY] = [date for date in options.dates if date in chosen]
+    stored[key] = [value for value in offered if value in chosen]
     return None
 
 
