@@ -71,6 +71,15 @@ const router = useRouter();
 const market = ref<Market | null>(null);
 const marketId = computed(() => market.value?.id ?? '');
 
+/**
+ * Importing belongs to the phases that take applications. The server enforces this - all three
+ * import endpoints are reachable directly, and a hidden button is not a rule - but saying so
+ * before the organizer picks a file beats letting them choose one and then refusing it.
+ */
+const INTAKE_PHASES = ['applications_open', 'applications_closed'];
+const marketPhase = computed(() => String((market.value as { phase?: string })?.phase ?? ''));
+const takingApplications = computed(() => INTAKE_PHASES.includes(marketPhase.value));
+
 const step = ref<Step>('upload');
 const busy = ref(false);
 const error = ref('');
@@ -394,8 +403,26 @@ function startOver() {
 
     <p v-if="error" class="import-error" data-testid="import-error">{{ error }}</p>
 
+    <!-- Not taking applications: say so instead of offering a file picker. -->
+    <section
+      v-if="step === 'upload' && marketId && !takingApplications"
+      class="import-panel"
+      data-testid="import-wrong-phase"
+    >
+      <h2>This market is not taking applications right now</h2>
+      <p class="import-help">
+        Importing changes who has applied, so it belongs to the phases where the market is open to
+        applications. Move the market back to
+        <strong>applications closed</strong> and you can import again.
+      </p>
+    </section>
+
     <!-- 1. Upload -->
-    <section v-if="step === 'upload'" class="import-panel" data-testid="import-upload">
+    <section
+      v-if="step === 'upload' && takingApplications"
+      class="import-panel"
+      data-testid="import-upload"
+    >
       <h2>Choose the CSV your form produced</h2>
       <p class="import-help">
         Export your Google Form responses as CSV and choose the file here. Nothing is written until
