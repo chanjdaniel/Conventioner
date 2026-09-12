@@ -166,9 +166,8 @@ function isRestored(key: string | undefined): boolean {
   return !!key && restoredTargets.value.has(key);
 }
 
-function missingHeadersFor(key: string | undefined): string[] {
-  if (!key) return [];
-  return restoredMissing.value.find((entry) => entry.target === key)?.missingHeaders ?? [];
+function labelForTarget(key: string): string {
+  return targets.value.find((t) => t.key === key)?.label ?? key;
 }
 
 function isNewHeader(index: number): boolean {
@@ -404,8 +403,11 @@ function startOver() {
         <div v-if="hasSavedMapping" class="import-restored" data-testid="import-restored-banner">
           <strong>Restored from your last import.</strong>
           <span v-if="restoredMissing.length" data-testid="import-restored-missing">
-            {{ restoredMissing.length }} question{{ restoredMissing.length === 1 ? '' : 's' }} lost
-            {{ restoredMissing.length === 1 ? 'its' : 'their' }} column and need mapping again.
+            <template v-for="(entry, position) in restoredMissing" :key="entry.target">
+              {{ position ? '; ' : '' }}{{ labelForTarget(entry.target) }} lost
+              {{ entry.missingHeaders.join(', ') }}
+            </template>
+            - map {{ restoredMissing.length === 1 ? 'it' : 'them' }} again.
           </span>
           <span v-if="newHeaders.length" data-testid="import-restored-new">
             {{ newHeaders.length }} column{{ newHeaders.length === 1 ? ' is' : 's are' }} new since
