@@ -20,9 +20,9 @@ Publication gate (captain ruling 2026-07-13):
 """
 
 import logging
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from application_write import record_application_answers
 from market_documents import (
     market_doc_field,
     published_market_by_slug,
@@ -302,49 +302,12 @@ def save_applicant_application(
     if app_doc.get("applicant_email") != token_payload.get("email"):
         return {"error": "Application not found."}, 404
 
-    # Validate form data against the application form fields
-    application_form = market_doc_field(market_doc, "application_form")
-    fields = (application_form or {}).get("fields") or []
-    error, stored_form_data = _validated_form_data(form_data, fields)
+    # Validation, the offering freeze, the write and the status all live in one place, so an
+    # imported application and a form-submitted one cannot drift apart.
+    error, app = record_application_answers(db["markets"], market_doc, app_doc, form_data)
     if error:
         return {"error": error}, 422
 
-    # Validate the essential answers against what the questions offered. The essential answers
-    # are merged last so no custom answer can ever shadow one.
-    essential_options = EssentialFields.effective_essential_options(market_doc)
-    essential_error, essential_answers = EssentialFields.validated_essential_answers(
-        form_data, essential_options,
-    )
-    if essential_error:
-        return {"error": essential_error}, 422
-
-    # Freeze BEFORE persisting, so no answer is ever recorded against an unfrozen offering.
-    # A concurrent first save may have frozen a different offering; when the governing one
-    # differs from what we validated against, re-validate against it.
-    frozen_options = EssentialFields.freeze_and_effective_essential_options(
-        db["markets"], market_id, essential_options,
-    )
-    if frozen_options != essential_options:
-        essential_error, essential_answers = EssentialFields.validated_essential_answers(
-            form_data, frozen_options,
-        )
-        if essential_error:
-            return {"error": essential_error}, 422
-    stored_form_data.update(essential_answers)
-
-    now = datetime.now(timezone.utc).isoformat()
-
-    submitted_at = app_doc.get("submitted_at") or now
-
-    ApplicationsApi.update_application_form_data(
-        app_id, stored_form_data,
-        submitted_at, now,
-    )
-    if not app_doc.get("status"):
-        ApplicationsApi.update_application_status(app_id, ApplicationStatus.OPEN)
-
-    updated_doc = ApplicationsApi.find_application_by_id(app_id)
-    app = Application(**updated_doc) if updated_doc else Application(**app_doc)
     results_published = bool(market_doc.get("resultsPublished"))
     return {"application": _application_response(app, results_published)}, 200
 
@@ -416,129 +379,3 @@ def publish_results(market_id: str) -> Tuple[Dict[str, Any], int]:
         {"$set": {"resultsPublished": True}},
     )
     return {"results_published": True}, 200
-
-
-# ── Form validation (shared between applicant and organizer) ───────────────
-
-def _validated_form_data(
-    incoming: Dict[str, Any], fields: List[Dict[str, Any]],
-) -> Tuple[Optional[str], Dict[str, Any]]:
-    """Validate submitted form data against field definitions.
-
-    Returns (error_message, stored_data). When ``error_message`` is not None, the form
-    should be refused. When it is None, ``stored_data`` is ready to persist.
-
-    Field key defines identity; anything not in a field key is ignored (and
-    stripped). An answer is present when it passes the field-type-specific
-    "answered" test.
-    """
-    if not fields:
-        return "This market does not have an application form configured.", {}
-
-    stored: Dict[str, Any] = {}
-
-    for field_def in fields:
-        key = field_def.get("key")
-        if not key:
-            continue
-        field_type = field_def.get("type", "text")
-        required = field_def.get("required", False)
-        label = field_def.get("label", key)
-
-        raw = incoming.get(key)
-        answered = _is_answered(raw, field_type)
-
-        if not answered:
-            if required:
-                return f"'{label}' is required.", {}
-            stored[key] = _unanswered_value(field_type)
-            continue
-
-        # Type-specific validation
-        if field_type == "number":
-            try:
-                stored[key] = _as_number(raw)
-            except (TypeError, ValueError) as e:
-                return f"'{label}' must be a number: {e}", {}
-            continue
-
-        if field_type in ("select", "multi_select"):
-            options = field_def.get("options") or []
-            if field_type == "select":
-                raw_str = str(raw).strip()
-                if raw_str not in options:
-                    return f"'{label}' must be one of: {', '.join(options)}", {}
-                stored[key] = raw_str
-            else:
-                if not isinstance(raw, list):
-                    return f"'{label}' requires one or more selections.", {}
-                for val in raw:
-                    if str(val).strip() not in options:
-                        return f"'{label}' contains an invalid option: {val}", {}
-                stored[key] = [str(v).strip() for v in raw]
-            continue
-
-        if field_type == "checkbox":
-            if not isinstance(raw, bool):
-                return f"'{label}' must be true or false.", {}
-            stored[key] = raw
-            continue
-
-        # text, email, date: store as trimmed string
-        if not isinstance(raw, str):
-            return f"'{label}' must be text.", {}
-        stored[key] = raw.strip()
-
-    return None, stored
-
-
-def _is_answered(value: Any, field_type: str) -> bool:
-    """Whether a submitted value counts as an answer for a field of this type.
-
-    "Present in the payload" is not the same as "answered", and the difference is type-shaped:
-    an unticked mandatory consent checkbox arrives as ``False`` and an untouched mandatory
-    multi_select as ``[]``, both of which are non-null, non-empty-string values that a purely
-    null/blank test waves through.
-    """
-    if value is None:
-        return False
-    if isinstance(value, str):
-        return value.strip() != ""
-    if isinstance(value, list):
-        return len(value) > 0
-    if field_type == "checkbox":
-        return value is True
-    return True
-
-
-def _unanswered_value(field_type: str) -> Any:
-    """What an unanswered field of this type stores."""
-    if field_type == "number":
-        return None
-    if field_type == "checkbox":
-        return False
-    if field_type == "multi_select":
-        return []
-    return ""
-
-
-def _as_number(value: Any) -> Any:
-    """The numeric value of an answer to a ``number`` field. Raises if it is not one."""
-    if isinstance(value, bool):
-        raise TypeError("a boolean is not a number")
-    if isinstance(value, int):
-        number: Any = value
-    elif isinstance(value, str):
-        text = value.strip()
-        try:
-            number = int(text)
-        except ValueError:
-            number = float(text)
-    else:
-        number = float(value)
-    if isinstance(number, float):
-        if number != number or number in (float("inf"), float("-inf")):
-            raise ValueError("not a finite number")
-    if isinstance(number, float) and number.is_integer():
-        return int(number)
-    return number
