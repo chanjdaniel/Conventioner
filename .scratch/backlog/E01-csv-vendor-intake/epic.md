@@ -2,9 +2,9 @@
 id: E01
 title: CSV vendor intake into Applications
 type: epic
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#49, #50, #51, #52, #53, #54, #56, #57, #58, #59, #60, #61]
 ---
 
 ## Outcome

@@ -2,9 +2,9 @@
 id: E01/F03/S04
 title: Restrict import to the intake phases
 type: story
-status: in-progress
+status: done
 blocked_by: [E01/F02/S02]
-pr: []
+pr: [#61]
 ---
 
 ## What to build
