@@ -2,9 +2,9 @@
 id: E01/F03/S01
 title: Persist the mapping and pre-fill it on re-import
 type: story
-status: in-progress
+status: done
 blocked_by: [E01/F02/S02]
-pr: []
+pr: [#58]
 ---
 
 ## What to build
