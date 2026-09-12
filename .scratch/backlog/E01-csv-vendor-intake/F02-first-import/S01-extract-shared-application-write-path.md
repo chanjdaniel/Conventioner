@@ -2,9 +2,9 @@
 id: E01/F02/S01
 title: Extract the shared application-write path
 type: story
-status: in-progress
+status: done
 blocked_by: [E01/F01/S01, E01/F01/S02, E01/F01/S03]
-pr: []
+pr: [#52]
 ---
 
 ## What to build
