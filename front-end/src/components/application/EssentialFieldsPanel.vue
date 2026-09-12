@@ -14,6 +14,9 @@ import {
   MAX_DATES_LABEL,
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_LABEL,
+  TABLE_CHOICES,
+  TABLE_CHOICE_LABEL,
+  TABLE_SHARE_EMAIL_LABEL,
   TIER_PREFERENCE_LABEL,
   formattedEssentialDate,
 } from '@/utils/essentialFields';
@@ -102,6 +105,38 @@ defineProps<{
       <p v-else class="essential-item-warning" data-testid="essential-tiers-empty">
         No tiers yet - this question is hidden from applicants until your market plan defines tiers
         under Market Setup.
+      </p>
+    </div>
+
+    <div class="essential-item" data-testid="essential-item-table-choice">
+      <div class="essential-item-header">
+        <span class="essential-item-label">{{ TABLE_CHOICE_LABEL }}</span>
+        <span class="essential-type-badge">choice</span>
+      </div>
+      <div class="essential-chips">
+        <span
+          v-for="choice in TABLE_CHOICES"
+          :key="choice.value"
+          class="essential-chip"
+          data-testid="essential-table-choice-chip"
+        >
+          {{ choice.label }}
+        </span>
+      </div>
+      <p class="essential-item-detail">
+        Fixed options - a table seats two, so this is how it can be occupied, not something your
+        plan configures.
+      </p>
+    </div>
+
+    <div class="essential-item" data-testid="essential-item-table-share-email">
+      <div class="essential-item-header">
+        <span class="essential-item-label">{{ TABLE_SHARE_EMAIL_LABEL }}</span>
+        <span class="essential-type-badge">optional</span>
+      </div>
+      <p class="essential-item-detail">
+        The only optional essential question. An applicant who names a partner is seated with them
+        when possible; one who leaves it blank may be paired with anyone else sharing.
       </p>
     </div>
 

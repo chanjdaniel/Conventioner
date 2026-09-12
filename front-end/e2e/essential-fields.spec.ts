@@ -256,6 +256,10 @@ test.describe('Essential form fields', () => {
     await expect(apply.tierCheckbox('Silver')).toBeVisible();
     await apply.tierCheckbox('Gold').check();
 
+    // Table choice: sharing, and with someone specific in mind.
+    await apply.tableChoiceRadio('half').check();
+    await apply.tableShareEmailInput.fill('buddy@example.com');
+
     // Rankings arrive seeded in the plan's order; the applicant reorders with the arrows.
     await expect(apply.sectionRankName(0)).toHaveText('Main Hall');
     await apply.sectionRankUp(1).click();
@@ -298,6 +302,13 @@ test.describe('Essential form fields', () => {
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_tier_preference'),
     ).toContainText('Gold');
+    // Stored as a code, read back as the sentence the applicant picked.
+    await expect(
+      answers.getByTestId('applicant-dashboard-answer-essential_table_choice'),
+    ).toContainText('Half a table');
+    await expect(
+      answers.getByTestId('applicant-dashboard-answer-essential_table_share_email'),
+    ).toContainText('buddy@example.com');
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_section_ranking'),
     ).toContainText('1. Garden');
@@ -326,6 +337,8 @@ test.describe('Essential form fields', () => {
       essential_max_dates: 2,
       // Only Gold was ticked: an accepted SET, so Silver's absence is the answer, not an omission.
       essential_tier_preference: ['Gold'],
+      essential_table_choice: 'half',
+      essential_table_share_email: 'buddy@example.com',
       essential_section_ranking: ['Garden', 'Main Hall'],
       essential_table_type_ranking: ['Half Table', 'Full Table'],
     });
@@ -361,6 +374,7 @@ test.describe('Essential form fields', () => {
             essential_available_dates: ['2026-08-01'],
             essential_max_dates: 1,
             essential_tier_preference: ['Gold'],
+            essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
             essential_table_type_ranking: ['Full Table', 'Half Table'],
           },
@@ -402,6 +416,7 @@ test.describe('Essential form fields', () => {
             essential_available_dates: ['2026-08-22'],
             essential_max_dates: 1,
             essential_tier_preference: ['Gold'],
+            essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
             essential_table_type_ranking: ['Full Table', 'Half Table'],
           },

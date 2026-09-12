@@ -24,6 +24,11 @@ import {
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_KEY,
   TABLE_TYPE_RANKING_LABEL,
+  TABLE_CHOICES,
+  TABLE_CHOICE_KEY,
+  TABLE_CHOICE_LABEL,
+  TABLE_SHARE_EMAIL_KEY,
+  TABLE_SHARE_EMAIL_LABEL,
   TIER_PREFERENCE_KEY,
   TIER_PREFERENCE_LABEL,
   formattedEssentialDate,
@@ -92,6 +97,13 @@ function toggleDate(date: string, checked: boolean) {
 function toggleTier(tier: string, checked: boolean) {
   const current = selectedTiers.value;
   setAnswer(TIER_PREFERENCE_KEY, checked ? [...current, tier] : current.filter((t) => t !== tier));
+}
+
+const tableChoice = computed(() => (props.modelValue[TABLE_CHOICE_KEY] as string) ?? '');
+const tableShareEmail = computed(() => (props.modelValue[TABLE_SHARE_EMAIL_KEY] as string) ?? '');
+
+function onShareEmailInput(event: Event) {
+  setAnswer(TABLE_SHARE_EMAIL_KEY, (event.target as HTMLInputElement).value);
 }
 
 function onMaxDatesInput(event: Event) {
@@ -223,6 +235,73 @@ function errorFor(key: string): string {
       >
         {{ errorFor(TIER_PREFERENCE_KEY) }}
       </p>
+    </div>
+
+    <!-- Table choice: fixed options, not plan-derived -->
+    <div
+      v-if="options.dates.length"
+      class="essential-field"
+      :data-testid="`${prefix}-essential-table-choice`"
+    >
+      <span class="essential-label">
+        {{ TABLE_CHOICE_LABEL }}
+        <span class="essential-required">*</span>
+      </span>
+      <p class="essential-help">
+        A table seats two vendors side by side. Say whether you want one to yourself.
+      </p>
+      <div class="essential-choice-list" :class="{ error: errorFor(TABLE_CHOICE_KEY) }">
+        <label
+          v-for="choice in TABLE_CHOICES"
+          :key="choice.value"
+          class="essential-choice"
+          :class="{ checked: tableChoice === choice.value }"
+        >
+          <input
+            type="radio"
+            :name="`${prefix}-table-choice`"
+            :value="choice.value"
+            :checked="tableChoice === choice.value"
+            :disabled="disabled"
+            :data-testid="`${prefix}-essential-table-choice-${choice.value}`"
+            @change="setAnswer(TABLE_CHOICE_KEY, choice.value)"
+          />
+          <span>{{ choice.label }}</span>
+        </label>
+      </div>
+      <p
+        v-if="errorFor(TABLE_CHOICE_KEY)"
+        class="essential-error"
+        :data-testid="`${prefix}-essential-error-table-choice`"
+      >
+        {{ errorFor(TABLE_CHOICE_KEY) }}
+      </p>
+    </div>
+
+    <!-- Table-share partner: optional, and usually blank -->
+    <div
+      v-if="options.dates.length"
+      class="essential-field"
+      :data-testid="`${prefix}-essential-table-share-email`"
+    >
+      <label class="essential-label" :for="`${prefix}-essential-table-share-email-input`">
+        {{ TABLE_SHARE_EMAIL_LABEL }}
+      </label>
+      <p class="essential-help">
+        Optional. If someone specific is sharing with you, put their email here and we'll try to
+        seat you together. Leave it blank and you may be paired with another vendor.
+      </p>
+      <input
+        :id="`${prefix}-essential-table-share-email-input`"
+        class="essential-text-input"
+        type="email"
+        autocomplete="off"
+        placeholder="their@email.com"
+        :value="tableShareEmail"
+        :disabled="disabled"
+        :data-testid="`${prefix}-essential-table-share-email-input`"
+        @input="onShareEmailInput"
+      />
     </div>
 
     <!-- Section preference -->
@@ -362,12 +441,23 @@ function errorFor(key: string): string {
   border-color: #cfe3d4;
 }
 
-.essential-choice input[type='checkbox'] {
+.essential-choice input[type='checkbox'],
+.essential-choice input[type='radio'] {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
   accent-color: var(--mm-green);
   cursor: pointer;
+}
+
+.essential-text-input {
+  height: 36px;
+  padding: 4px 10px;
+  font-family: 'Outfit Regular';
+  font-size: 14px;
+  border: 1px solid var(--mm-grey, #b0b0b0);
+  border-radius: 5px;
+  background: white;
 }
 
 .essential-max-input {
