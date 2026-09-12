@@ -2,9 +2,9 @@
 id: E06/F01/S01
 title: Fix flaky applicant-form wait in essential-fields.spec.ts
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#55]
 ---
 
 ## What to build
