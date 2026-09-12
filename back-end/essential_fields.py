@@ -7,6 +7,8 @@ algorithm reads it, it is essential - that test is mechanical, and five fields p
   - essential_available_dates -- which market dates the applicant CAN attend (capability)
   - essential_max_dates       -- at most how many dates they WANT (appetite; not capability)
   - essential_tier_preference -- which tiers they ACCEPT (a hard filter, not a ranking)
+  - essential_table_choice    -- a whole table, half a table, or either
+  - essential_table_share_email -- who they would like to share a table with (OPTIONAL)
   - essential_section_ranking -- section preference, best first
   - essential_table_type_ranking -- table type preference, best first
 
@@ -52,6 +54,8 @@ ESSENTIAL_KEY_PREFIX = "essential_"
 AVAILABLE_DATES_KEY = "essential_available_dates"
 MAX_DATES_KEY = "essential_max_dates"
 TIER_PREFERENCE_KEY = "essential_tier_preference"
+TABLE_CHOICE_KEY = "essential_table_choice"
+TABLE_SHARE_EMAIL_KEY = "essential_table_share_email"
 SECTION_RANKING_KEY = "essential_section_ranking"
 TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 
@@ -60,8 +64,17 @@ TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 AVAILABLE_DATES_LABEL = "Available dates"
 MAX_DATES_LABEL = "Number of dates you want"
 TIER_PREFERENCE_LABEL = "Tier preference"
+TABLE_CHOICE_LABEL = "Table choice"
+TABLE_SHARE_EMAIL_LABEL = "Table-share partner"
 SECTION_RANKING_LABEL = "Section preference"
 TABLE_TYPE_RANKING_LABEL = "Table type preference"
+
+# Every table holds one full-table vendor or two halves, so these three are the whole space.
+# Unlike the other offerings this one is not plan-derived: the organizer does not choose it.
+TABLE_CHOICE_FULL = "full"
+TABLE_CHOICE_HALF = "half"
+TABLE_CHOICE_EITHER = "either"
+TABLE_CHOICES = (TABLE_CHOICE_FULL, TABLE_CHOICE_HALF, TABLE_CHOICE_EITHER)
 
 
 def _unique_names(values: Any) -> List[str]:
@@ -249,6 +262,12 @@ def validated_essential_answers(
     if error:
         return error, {}
 
+    error = _validate_table_choice(incoming, options, stored)
+    if error:
+        return error, {}
+
+    _store_table_share_email(incoming, options, stored)
+
     error = _validate_ranking(
         incoming, SECTION_RANKING_KEY, SECTION_RANKING_LABEL, options.sections, stored,
     )
@@ -340,6 +359,54 @@ def _validate_max_dates(
 
     stored[MAX_DATES_KEY] = value
     return None
+
+
+def _validate_table_choice(
+    incoming: Dict[str, Any], options: EssentialFormOptions, stored: Dict[str, Any],
+) -> Optional[str]:
+    """Whole table, half a table, or either.
+
+    Gated on the dates offering for the same reason ``max_dates`` is: a market with no dates has
+    nothing to be assigned to, so there is no question to ask. The choices themselves are fixed -
+    they describe how a table can be occupied, which is not the organizer's to configure.
+
+    Required when asked, because the half-table machinery has no default that is safe to guess:
+    seating someone at half a table they did not ask for, or holding a whole one for someone who
+    would have shared, are both worse than making them answer.
+    """
+    if not options.dates:
+        stored[TABLE_CHOICE_KEY] = None
+        return None
+
+    raw = incoming.get(TABLE_CHOICE_KEY)
+    value = str(raw).strip().lower() if raw is not None else ""
+    if not value:
+        return f"'{TABLE_CHOICE_LABEL}' is required."
+    if value not in TABLE_CHOICES:
+        return (
+            f"'{TABLE_CHOICE_LABEL}' must be one of: {', '.join(TABLE_CHOICES)}."
+        )
+
+    stored[TABLE_CHOICE_KEY] = value
+    return None
+
+
+def _store_table_share_email(
+    incoming: Dict[str, Any], options: EssentialFormOptions, stored: Dict[str, Any],
+) -> None:
+    """Who the applicant would like to share a table with. Optional, and usually empty.
+
+    Never a validation failure: most applicants have nobody in mind, and one who names nobody is
+    paired with whoever else wants a half table - possibly a stranger. An address that matches no
+    other applicant falls back to that same behaviour, so a typo costs the pairing, not the
+    application.
+    """
+    if not options.dates:
+        stored[TABLE_SHARE_EMAIL_KEY] = ""
+        return
+
+    raw = incoming.get(TABLE_SHARE_EMAIL_KEY)
+    stored[TABLE_SHARE_EMAIL_KEY] = str(raw).strip() if raw is not None else ""
 
 
 def _validate_ranking(

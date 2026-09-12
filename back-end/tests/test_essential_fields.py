@@ -65,6 +65,8 @@ VALID_ANSWERS = {
     "essential_available_dates": ["2026-08-08", "2026-08-01"],
     "essential_max_dates": 2,
     "essential_tier_preference": ["Silver", "Gold"],
+    "essential_table_choice": "half",
+    "essential_table_share_email": "buddy@example.com",
     "essential_section_ranking": ["Garden", "Main Hall"],
     "essential_table_type_ranking": ["Full Table", "Half Table"],
 }
@@ -147,6 +149,8 @@ class TestValidatedEssentialAnswers:
         assert stored["essential_max_dates"] == 2
         # Accepted tiers are canonicalized to the plan's order, like dates.
         assert stored["essential_tier_preference"] == ["Gold", "Silver"]
+        assert stored["essential_table_choice"] == "half"
+        assert stored["essential_table_share_email"] == "buddy@example.com"
         assert stored["essential_section_ranking"] == ["Garden", "Main Hall"]
         assert stored["essential_table_type_ranking"] == ["Full Table", "Half Table"]
 
@@ -154,6 +158,7 @@ class TestValidatedEssentialAnswers:
         ("essential_available_dates", "'Available dates' is required"),
         ("essential_max_dates", "'Number of dates you want' is required"),
         ("essential_tier_preference", "'Tier preference' is required"),
+        ("essential_table_choice", "'Table choice' is required"),
         ("essential_section_ranking", "'Section preference' is required"),
         ("essential_table_type_ranking", "'Table type preference' is required"),
     ])
@@ -223,6 +228,8 @@ class TestValidatedEssentialAnswers:
             "essential_available_dates": [],
             "essential_max_dates": None,
             "essential_tier_preference": [],
+            "essential_table_choice": None,
+            "essential_table_share_email": "",
             "essential_section_ranking": [],
             "essential_table_type_ranking": [],
         }
@@ -286,12 +293,75 @@ class TestTierPreference:
 
     def test_a_market_with_no_tiers_does_not_ask(self):
         options = EssentialFormOptions(dates=DATES)
-        answers = {"essential_available_dates": ["2026-08-01"], "essential_max_dates": 1}
+        answers = {
+            "essential_available_dates": ["2026-08-01"],
+            "essential_max_dates": 1,
+            "essential_table_choice": "half",
+        }
 
         error, stored = EssentialFields.validated_essential_answers(answers, options)
 
         assert error is None
         assert stored["essential_tier_preference"] == []
+
+
+class TestTableChoiceAndSharePartner:
+    """Whether the applicant wants a whole table, and who they would like to share one with.
+
+    Every table holds one full-table vendor or two halves. Table choice is required because the
+    half-table machinery has no default that is safe to guess. The partner is optional: most
+    applicants have nobody in mind, and one who names nobody is paired with whoever else wants a
+    half table - possibly a stranger.
+    """
+
+    def test_the_three_table_choices_are_accepted(self):
+        for choice in ("full", "half", "either"):
+            answers = {**VALID_ANSWERS, "essential_table_choice": choice}
+
+            error, stored = EssentialFields.validated_essential_answers(answers, OPTIONS)
+
+            assert error is None, f"{choice!r} should be accepted"
+            assert stored["essential_table_choice"] == choice
+
+    def test_a_choice_outside_the_three_is_refused(self):
+        answers = {**VALID_ANSWERS, "essential_table_choice": "banquet"}
+
+        error, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
+
+        assert error is not None and "'Table choice'" in error
+
+    def test_a_blank_partner_email_is_a_complete_answer(self):
+        """Naming nobody is the common case, not an omission."""
+        for blank in (None, "", "   "):
+            answers = {**VALID_ANSWERS, "essential_table_share_email": blank}
+
+            error, stored = EssentialFields.validated_essential_answers(answers, OPTIONS)
+
+            assert error is None, f"{blank!r} should be accepted"
+            assert stored["essential_table_share_email"] == ""
+
+    def test_a_missing_partner_email_key_is_a_complete_answer(self):
+        answers = {k: v for k, v in VALID_ANSWERS.items() if k != "essential_table_share_email"}
+
+        error, stored = EssentialFields.validated_essential_answers(answers, OPTIONS)
+
+        assert error is None
+        assert stored["essential_table_share_email"] == ""
+
+    def test_a_partner_email_is_trimmed(self):
+        answers = {**VALID_ANSWERS, "essential_table_share_email": "  buddy@example.com  "}
+
+        _, stored = EssentialFields.validated_essential_answers(answers, OPTIONS)
+
+        assert stored["essential_table_share_email"] == "buddy@example.com"
+
+    def test_a_market_with_no_plan_asks_neither(self):
+        """Both follow max_dates: with no dates offered there is nothing to be assigned to."""
+        error, stored = EssentialFields.validated_essential_answers({}, EssentialFormOptions())
+
+        assert error is None
+        assert stored["essential_table_choice"] is None
+        assert stored["essential_table_share_email"] == ""
 
 
 class TestReservedKeyPrefix:

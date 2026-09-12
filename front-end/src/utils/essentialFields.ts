@@ -14,12 +14,26 @@ export const ESSENTIAL_KEY_PREFIX = 'essential_';
 export const AVAILABLE_DATES_KEY = 'essential_available_dates';
 export const MAX_DATES_KEY = 'essential_max_dates';
 export const TIER_PREFERENCE_KEY = 'essential_tier_preference';
+export const TABLE_CHOICE_KEY = 'essential_table_choice';
+export const TABLE_SHARE_EMAIL_KEY = 'essential_table_share_email';
 export const SECTION_RANKING_KEY = 'essential_section_ranking';
 export const TABLE_TYPE_RANKING_KEY = 'essential_table_type_ranking';
 
 export const AVAILABLE_DATES_LABEL = 'Available dates';
 export const MAX_DATES_LABEL = 'Number of dates you want';
 export const TIER_PREFERENCE_LABEL = 'Tier preference';
+export const TABLE_CHOICE_LABEL = 'Table choice';
+export const TABLE_SHARE_EMAIL_LABEL = 'Table-share partner';
+
+/**
+ * Every table holds one full-table vendor or two halves, so these three are the whole space.
+ * Unlike the other offerings this one is not plan-derived - the organizer does not choose it.
+ */
+export const TABLE_CHOICES: ReadonlyArray<{ value: string; label: string }> = [
+  { value: 'full', label: 'A whole table to myself' },
+  { value: 'half', label: 'Half a table, shared' },
+  { value: 'either', label: 'Either is fine' },
+];
 export const SECTION_RANKING_LABEL = 'Section preference';
 export const TABLE_TYPE_RANKING_LABEL = 'Table type preference';
 
@@ -111,6 +125,17 @@ export function essentialValidationErrors(
     if (!Array.isArray(tiers) || tiers.length === 0) {
       errors[TIER_PREFERENCE_KEY] =
         `'${TIER_PREFERENCE_LABEL}' is required. Select at least one tier.`;
+    }
+  }
+
+  // Table choice follows max dates: gated on the dates offering, since a market with no dates
+  // has nothing to be assigned to. Required when asked - there is no safe default between
+  // holding a whole table for someone who would have shared and halving one for someone who
+  // would not. The partner email is deliberately never an error; naming nobody is the norm.
+  if (options.dates.length > 0) {
+    const choice = formData[TABLE_CHOICE_KEY];
+    if (typeof choice !== 'string' || !TABLE_CHOICES.some((c) => c.value === choice)) {
+      errors[TABLE_CHOICE_KEY] = `'${TABLE_CHOICE_LABEL}' is required.`;
     }
   }
 
