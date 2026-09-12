@@ -28,3 +28,5 @@ All settled. Read these before writing stories:
 - [06: Intake mode on Market](../../wayfinding/v0-1-0/issues/06-intake-mode-semantics.md) - the field that marks a market CSV-intake in the first place.
 
 Note that `find_or_create_application` writes with `$setOnInsert` and therefore **cannot update**; re-import needs its own write path.
+
+The mapping-screen decision came from a three-variant prototype, kept on the unmerged branch **`prototype/csv-mapping`**. Drive it before building the real screen, but rewrite rather than lift: it has no tests, no error handling and no backend.

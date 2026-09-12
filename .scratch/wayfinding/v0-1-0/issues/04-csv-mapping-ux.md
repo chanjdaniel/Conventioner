@@ -48,10 +48,13 @@ Since re-import is the common case rather than the edge case, that asymmetry out
 
 ## Prototype
 
-Three variants at `/prototype/csv-mapping?variant=A|B|C`, run with `cd front-end && npm run dev`.
-Files: `front-end/src/prototypes/csv-mapping/`, `front-end/src/prototypes/PrototypeVariantSwitcher.vue`, `front-end/src/views/CsvMappingPrototypeView.vue`, plus one throwaway route.
+**Captured on the branch `prototype/csv-mapping` (commit `ce195be9`), which is not merged and must not be.**
+It is the primary source behind the decision above; the working tree on `dev` carries none of it.
 
-**Throwaway - do not promote this code.** Written under prototype constraints: no tests, no error handling, no backend. Per the prototype skill it should be captured onto a throwaway branch and removed from the working tree once E01 folds the decision into real code.
+To drive it: `git checkout prototype/csv-mapping`, then `cd front-end && npm run dev`, then `/prototype/csv-mapping?variant=A|B|C`.
+The route is `meta: { public: true }` so no login is needed, and the floating switcher cycles with the arrow keys.
+
+**Do not promote this code.** It was written under prototype constraints - no tests, no error handling, no backend - so E01 rewrites the winning shape properly rather than lifting it.
 
 Two defects observed while driving it, both cosmetic and both in prototype-only code: A's "Available dates (accepts many columns)" select clips its text under the chevron, and the variant switcher overlaps the Vue DevTools button at bottom-centre.
 
