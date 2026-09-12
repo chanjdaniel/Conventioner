@@ -218,8 +218,13 @@ class TestImportApplications:
         assert "email" in body["failures"][0]["error"].lower()
 
     def test_one_bad_row_does_not_stop_the_others(self, markets, applications):
-        """Refuse at the mapping level, tolerate at the row level."""
-        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",Gold,", ",Platinum,")
+        """Refuse at the mapping level, tolerate at the row level.
+
+        A row-level fault is one only that row has - here a max-dates answer that is not a number.
+        A cell value that names nothing the market offers is NOT one of these: it is the same
+        decision for every row carrying it, so it is settled before anything is written.
+        """
+        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
 
         body, _ = CsvImport.import_applications(
             markets, markets.doc, _csv(GOOD_ROW, bad), MAPPING,
@@ -228,11 +233,11 @@ class TestImportApplications:
         assert body["created"] == 1
         assert body["skipped"] == 1
         assert body["failures"][0]["email"] == "kai@ember.ca"
-        assert "does not offer" in body["failures"][0]["error"]
+        assert "whole number" in body["failures"][0]["error"]
 
     def test_a_skipped_row_names_its_spreadsheet_line(self, markets, applications):
         """Row 1 is the header, so the organizer can find row 3 in their own file."""
-        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",Gold,", ",Platinum,")
+        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
 
         body, _ = CsvImport.import_applications(
             markets, markets.doc, _csv(GOOD_ROW, bad), MAPPING,
@@ -356,3 +361,101 @@ class TestImportingAGrid:
 
         assert status == 400 and "not in this file" in body["error"]
         assert applications.documents == []
+
+
+class TestMatchingCellValues:
+    """The organizer's own words against the market's configuration.
+
+    A form that said "Gold Tier" has to reach a tier called "Gold". Trivial differences are matched
+    silently; everything left over is one decision per distinct value, not one per row.
+    """
+
+    def test_trivial_differences_are_matched_without_asking(self, markets, applications):
+        for spelling in ("  Gold  ", "gold", "GOLD"):
+            applications.documents.clear()
+            row = GOOD_ROW.replace(",Gold,", f",{spelling},")
+
+            body, status = CsvImport.import_applications(
+                markets, markets.doc, _csv(row), MAPPING,
+            )
+
+            assert status == 200, f"{spelling!r} should have matched: {body}"
+            data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+            assert data["essential_tier_preference"] == ["Gold"]
+
+    def test_an_unmatched_value_is_reported_once_with_its_row_count(self, markets):
+        rows = [GOOD_ROW.replace(",Gold,", ",Gold Tier,")] * 3
+
+        body, status = CsvImport.preview_values(markets.doc, _csv(*rows), MAPPING)
+
+        assert status == 200
+        assert len(body["unmatched"]) == 1
+        entry = body["unmatched"][0]
+        assert entry["value"] == "Gold Tier"
+        assert entry["rows"] == 3
+        assert entry["targetLabel"] == EssentialFields.TIER_PREFERENCE_LABEL
+        assert entry["offered"] == TIERS
+
+    def test_a_matching_file_has_nothing_to_resolve(self, markets):
+        body, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        assert body["unmatched"] == []
+
+    def test_an_unresolved_value_imports_nothing(self, markets, applications):
+        row = GOOD_ROW.replace(",Gold,", ",Gold Tier,")
+
+        body, status = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+
+        assert status == 422
+        assert "Gold Tier" in body["error"]
+        assert applications.documents == []
+
+    def test_a_resolution_is_applied_to_every_row_carrying_the_value(self, markets, applications):
+        rows = [
+            GOOD_ROW.replace(",Gold,", ",Gold Tier,"),
+            GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",Gold,", ",Gold Tier,"),
+        ]
+        resolutions = {EssentialFields.TIER_PREFERENCE_KEY: {"Gold Tier": "Gold"}}
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(*rows), MAPPING, resolutions,
+        )
+
+        assert status == 200, body
+        assert body["created"] == 2
+        for email in ("nadia@ember.ca", "kai@ember.ca"):
+            data = applications.find_one({"applicant_email": email})["form_data"]
+            assert data["essential_tier_preference"] == ["Gold"]
+
+    def test_a_value_can_be_explicitly_ignored(self, markets, applications):
+        """Not every stray answer means something; dropping one is a decision the organizer makes."""
+        row = GOOD_ROW.replace('"2026-08-01, 2026-08-08"', '"2026-08-01, Maybe Sunday"')
+        resolutions = {EssentialFields.AVAILABLE_DATES_KEY: {"Maybe Sunday": None}}
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(row), MAPPING, resolutions,
+        )
+
+        assert status == 200, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_available_dates"] == ["2026-08-01"]
+
+    def test_free_text_answers_are_never_matched(self, markets):
+        """A business name is the applicant's own words and has nothing to match against."""
+        row = GOOD_ROW.replace("Ember Ceramics", "Somewhere Entirely New")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
+
+        assert body["unmatched"] == []
+
+    def test_table_choice_is_matched_against_its_fixed_options(self, markets, applications):
+        resolutions = {EssentialFields.TABLE_CHOICE_KEY: {"Half table please": "half"}}
+        row = GOOD_ROW.replace(",half,", ",Half table please,")
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(row), MAPPING, resolutions,
+        )
+
+        assert status == 200, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_table_choice"] == "half"

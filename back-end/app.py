@@ -1541,6 +1541,37 @@ def inspect_application_import(market_id: str) -> Response:
         return jsonify({"error": "Internal server error"}), 500
 
 
+@app.route('/markets/<market_id>/applications/import/preview', methods=['POST'])
+@login_required
+def preview_application_import(market_id: str) -> Response:
+    """Report cell values that name nothing this market offers. Writes nothing. Requires ADMIN+."""
+    try:
+        market_doc, error, status_code = _import_context(
+            market_id, request.headers.get('X-Owner-Email'),
+        )
+        if error:
+            return jsonify(error), status_code
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
+            return jsonify({"error": "csvContent is required"}), 400
+        mapping = data.get('mapping')
+        if not isinstance(mapping, dict):
+            return jsonify({"error": "mapping is required"}), 400
+        resolutions = data.get('resolutions')
+        if resolutions is not None and not isinstance(resolutions, dict):
+            return jsonify({"error": "resolutions must be an object"}), 400
+
+        result, status_code = CsvImport.preview_values(
+            market_doc, data['csvContent'], mapping, resolutions,
+        )
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in preview_application_import {market_id}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @app.route('/markets/<market_id>/applications/import', methods=['POST'])
 @login_required
 def import_applications(market_id: str) -> Response:
@@ -1559,8 +1590,12 @@ def import_applications(market_id: str) -> Response:
         if not isinstance(mapping, dict):
             return jsonify({"error": "mapping is required"}), 400
 
+        resolutions = data.get('resolutions')
+        if resolutions is not None and not isinstance(resolutions, dict):
+            return jsonify({"error": "resolutions must be an object"}), 400
+
         result, status_code = CsvImport.import_applications(
-            MarketsApi.markets_collection, market_doc, data['csvContent'], mapping,
+            MarketsApi.markets_collection, market_doc, data['csvContent'], mapping, resolutions,
         )
         return jsonify(result), status_code
     except Exception as e:

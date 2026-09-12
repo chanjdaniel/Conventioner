@@ -33,6 +33,9 @@ const MULTI_VALUE_TARGETS = new Set<string>([
 
 type Step = 'upload' | 'map' | 'preview' | 'done';
 
+/** Sentinel for "this value means nothing; leave it out" - distinct from "not yet decided". */
+const IGNORE_VALUE = '__ignore__';
+
 interface ImportTarget {
   key: string;
   label: string;
@@ -45,6 +48,15 @@ interface ColumnGroup {
   stem: string;
   columns: number[];
   options: string[];
+}
+
+/** A cell value that names nothing this market offers, and how many rows carry it. */
+interface UnmatchedValue {
+  target: string;
+  targetLabel: string;
+  value: string;
+  rows: number;
+  offered: string[];
 }
 
 interface ImportFailure {
@@ -76,6 +88,10 @@ const groups = ref<ColumnGroup[]>([]);
 const groupTarget = ref<Record<string, string>>({});
 /** Stems the organizer has broken apart, when the detection guessed wrong. */
 const splitStems = ref<Set<string>>(new Set());
+
+const unmatched = ref<UnmatchedValue[]>([]);
+/** target -> raw value -> the market's own name for it, or '' meaning "ignore this value". */
+const resolutions = ref<Record<string, Record<string, string>>>({});
 
 const created = ref(0);
 const updated = ref(0);
@@ -131,6 +147,27 @@ function singleShapeLabel(index: number): string {
   return key && MULTI_VALUE_TARGETS.has(key) ? '1 column · values split on commas' : '';
 }
 
+/** The unmatched values belonging to whatever target this ledger row is mapped to. */
+function unmatchedFor(key: string | undefined): UnmatchedValue[] {
+  if (!key) return [];
+  return unmatched.value.filter((entry) => entry.target === key);
+}
+
+function resolutionFor(target: string, value: string): string {
+  return resolutions.value[target]?.[value] ?? '';
+}
+
+function setResolution(target: string, value: string, choice: string) {
+  resolutions.value = {
+    ...resolutions.value,
+    [target]: { ...(resolutions.value[target] ?? {}), [value]: choice },
+  };
+}
+
+const unresolvedCount = computed(
+  () => unmatched.value.filter((e) => resolutionFor(e.target, e.value) === '').length,
+);
+
 function splitGroup(stem: string) {
   const next = new Set(splitStems.value);
   next.add(stem);
@@ -178,6 +215,8 @@ async function inspect() {
     groupTarget.value = {};
     splitStems.value = new Set();
     columnTarget.value = {};
+    unmatched.value = [];
+    resolutions.value = {};
     for (const [key, index] of Object.entries(data.suggestedMapping ?? {})) {
       columnTarget.value[Number(index)] = key;
     }
@@ -189,21 +228,60 @@ async function inspect() {
   }
 }
 
+function currentMapping(): Record<string, number | number[]> {
+  const mapping: Record<string, number | number[]> = {};
+  for (const [index, key] of Object.entries(columnTarget.value)) {
+    if (key && !groupedColumns.value.has(Number(index))) mapping[key] = Number(index);
+  }
+  for (const group of activeGroups.value) {
+    const key = groupTarget.value[group.stem];
+    if (key) mapping[key] = group.columns;
+  }
+  return mapping;
+}
+
+/** Values the organizer has spoken for, in the shape the back end expects ('' means ignore). */
+function currentResolutions(): Record<string, Record<string, string | null>> {
+  const out: Record<string, Record<string, string | null>> = {};
+  for (const [target, byValue] of Object.entries(resolutions.value)) {
+    out[target] = {};
+    for (const [value, choice] of Object.entries(byValue)) {
+      if (choice !== '') out[target][value] = choice === IGNORE_VALUE ? null : choice;
+    }
+  }
+  return out;
+}
+
+/**
+ * Ask which cell values name nothing this market offers, before anything is written. Unresolved
+ * values keep the organizer on the mapping step, with each one shown in the row that owns it.
+ */
+async function checkValues() {
+  busy.value = true;
+  error.value = '';
+  try {
+    const { data } = await api.post(`/markets/${marketId.value}/applications/import/preview`, {
+      csvContent: csvContent.value,
+      mapping: currentMapping(),
+      resolutions: currentResolutions(),
+    });
+    unmatched.value = data.unmatched ?? [];
+    if (unmatched.value.length === 0) step.value = 'preview';
+  } catch (e) {
+    error.value = getApiErrorMessage(e, 'That file could not be checked.');
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function runImport() {
   busy.value = true;
   error.value = '';
   try {
-    const mapping: Record<string, number | number[]> = {};
-    for (const [index, key] of Object.entries(columnTarget.value)) {
-      if (key && !groupedColumns.value.has(Number(index))) mapping[key] = Number(index);
-    }
-    for (const group of activeGroups.value) {
-      const key = groupTarget.value[group.stem];
-      if (key) mapping[key] = group.columns;
-    }
     const { data } = await api.post(`/markets/${marketId.value}/applications/import`, {
       csvContent: csvContent.value,
-      mapping,
+      mapping: currentMapping(),
+      resolutions: currentResolutions(),
     });
     created.value = data.created ?? 0;
     updated.value = data.updated ?? 0;
@@ -319,6 +397,48 @@ function startOver() {
                         {{ target.label }}{{ target.required ? ' *' : '' }}
                       </option>
                     </select>
+
+                    <!-- Values the market does not recognise, fixed in the row that owns them. -->
+                    <div
+                      v-if="unmatchedFor(groupTarget[row.group.stem]).length"
+                      class="ledger-fixes"
+                      data-testid="import-value-fixes"
+                    >
+                      <p class="ledger-fixes-title">
+                        {{ unmatchedFor(groupTarget[row.group.stem]).length }} value{{
+                          unmatchedFor(groupTarget[row.group.stem]).length === 1 ? '' : 's'
+                        }}
+                        did not match your market
+                      </p>
+                      <div
+                        v-for="entry in unmatchedFor(groupTarget[row.group.stem])"
+                        :key="entry.value"
+                        class="ledger-fix"
+                      >
+                        <code :data-testid="`import-unmatched-value`">{{ entry.value }}</code>
+                        <span class="ledger-fix-rows"
+                          >{{ entry.rows }} row{{ entry.rows === 1 ? '' : 's' }}</span
+                        >
+                        <select
+                          class="ledger-fix-select"
+                          :value="resolutionFor(entry.target, entry.value)"
+                          :data-testid="`import-fix-${entry.value}`"
+                          @change="
+                            setResolution(
+                              entry.target,
+                              entry.value,
+                              ($event.target as HTMLSelectElement).value,
+                            )
+                          "
+                        >
+                          <option value="">Choose…</option>
+                          <option v-for="choice in entry.offered" :key="choice" :value="choice">
+                            {{ choice }}
+                          </option>
+                          <option :value="IGNORE_VALUE">Ignore this value</option>
+                        </select>
+                      </div>
+                    </div>
                   </td>
                 </tr>
                 <tr
@@ -374,6 +494,48 @@ function startOver() {
                       {{ target.label }}{{ target.required ? ' *' : '' }}
                     </option>
                   </select>
+
+                  <!-- Values the market does not recognise, fixed in the row that owns them. -->
+                  <div
+                    v-if="unmatchedFor(columnTarget[row.index]).length"
+                    class="ledger-fixes"
+                    data-testid="import-value-fixes"
+                  >
+                    <p class="ledger-fixes-title">
+                      {{ unmatchedFor(columnTarget[row.index]).length }} value{{
+                        unmatchedFor(columnTarget[row.index]).length === 1 ? '' : 's'
+                      }}
+                      did not match your market
+                    </p>
+                    <div
+                      v-for="entry in unmatchedFor(columnTarget[row.index])"
+                      :key="entry.value"
+                      class="ledger-fix"
+                    >
+                      <code :data-testid="`import-unmatched-value`">{{ entry.value }}</code>
+                      <span class="ledger-fix-rows"
+                        >{{ entry.rows }} row{{ entry.rows === 1 ? '' : 's' }}</span
+                      >
+                      <select
+                        class="ledger-fix-select"
+                        :value="resolutionFor(entry.target, entry.value)"
+                        :data-testid="`import-fix-${entry.value}`"
+                        @change="
+                          setResolution(
+                            entry.target,
+                            entry.value,
+                            ($event.target as HTMLSelectElement).value,
+                          )
+                        "
+                      >
+                        <option value="">Choose…</option>
+                        <option v-for="choice in entry.offered" :key="choice" :value="choice">
+                          {{ choice }}
+                        </option>
+                        <option :value="IGNORE_VALUE">Ignore this value</option>
+                      </select>
+                    </div>
+                  </div>
                 </td>
               </tr>
             </template>
@@ -396,6 +558,12 @@ function startOver() {
         </ul>
         <p v-if="canPreview" class="rail-ok" data-testid="import-all-mapped">
           All required questions are mapped.
+        </p>
+        <p v-if="unresolvedCount" class="rail-warning" data-testid="import-unresolved-warning">
+          {{
+            unresolvedCount === 1 ? '1 value still needs' : `${unresolvedCount} values still need`
+          }}
+          a match.
         </p>
         <p v-else class="rail-warning" data-testid="import-unmapped-warning">
           Still unmapped: {{ unservedRequired.map((t) => t.label).join(', ') }}
@@ -454,11 +622,11 @@ function startOver() {
       <button
         v-if="step === 'map'"
         class="button-primary"
-        :disabled="!canPreview || busy"
+        :disabled="!canPreview || busy || unresolvedCount > 0"
         data-testid="import-preview-button"
-        @click="step = 'preview'"
+        @click="checkValues"
       >
-        Preview import
+        {{ unmatched.length ? 'Re-check values' : 'Preview import' }}
       </button>
       <button
         v-if="step === 'preview'"
@@ -633,6 +801,50 @@ function startOver() {
 .ledger-member-note {
   font-size: 12px;
   color: var(--mm-grey, #999);
+}
+
+.ledger-fixes {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--mm-red, #cc0000);
+  border-radius: 6px;
+  background: #fff8f8;
+}
+
+.ledger-fixes-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--mm-red, #cc0000);
+}
+
+.ledger-fix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ledger-fix code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f2f2f2;
+  font-size: 12px;
+}
+
+.ledger-fix-rows {
+  font-size: 11px;
+  color: var(--mm-grey, #888);
+}
+
+.ledger-fix-select {
+  height: 30px;
+  padding: 2px 6px;
+  font-family: 'Outfit Regular';
+  font-size: 13px;
+  border: 1px solid var(--mm-grey, #b0b0b0);
+  border-radius: 5px;
+  background: white;
 }
 
 .ledger-split {

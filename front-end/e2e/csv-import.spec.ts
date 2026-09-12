@@ -304,4 +304,71 @@ test.describe('CSV vendor import', () => {
     await expect(page.getByTestId('import-target-select-1')).toBeVisible();
     await expect(page.getByTestId('import-target-select-2')).toBeVisible();
   });
+
+  test('a value the market does not recognise is resolved before anything is written', async ({
+    authenticatedPage: page,
+    request,
+  }, testInfo) => {
+    // The organizer's form said "Gold Tier"; the market's tier is called "Gold".
+    const rows = [
+      HEADERS.join(','),
+      '2026/05/02 9:14:03,nadia@ember.test,Ember Ceramics,"2026-08-01, 2026-08-08",2,Gold Tier,half,,"Garden, Main Hall",Pottery',
+      '2026/05/02 11:40:22,theo@thistle.test,Thorn & Thistle,2026-08-01,1,Gold Tier,full,,"Main Hall, Garden",Dried flowers',
+    ].join('\n');
+
+    const seed = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject() },
+    );
+    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+
+    await openImport(page, market);
+    await chooseFile(page, rows);
+
+    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
+    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
+    await mapColumn(page, 'Which tiers will you accept?', 'essential_tier_preference');
+    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
+    await mapColumn(page, "Partner's email if sharing", 'essential_table_share_email');
+    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
+    await mapColumn(page, 'Business name', 'business_name');
+    await mapColumn(page, 'What do you sell?', 'product_type');
+
+    // Everything is mapped, but the check finds a value nobody has spoken for and keeps the
+    // organizer here rather than importing something it had to guess at.
+    await page.getByTestId('import-preview-button').click();
+    await expect(page.getByTestId('import-value-fixes')).toBeVisible();
+    await expect(page.getByTestId('import-unmatched-value')).toHaveText('Gold Tier');
+    // One decision per distinct value, with the number of rows it affects - not one per row.
+    await expect(page.getByTestId('import-value-fixes')).toContainText('2 rows');
+    await expect(page.getByTestId('import-unresolved-warning')).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('04-import-value-fix.png'),
+      fullPage: true,
+    });
+
+    await page.getByTestId('import-fix-Gold Tier').selectOption('Gold');
+    await page.getByTestId('import-preview-button').click();
+    await expect(page.getByTestId('import-preview')).toBeVisible();
+    await page.getByTestId('import-confirm-button').click();
+    await expect(page.getByTestId('import-result-summary')).toContainText('2 new applications');
+
+    // The one resolution reached every row carrying that value.
+    const listRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    const { applications } = (await listRes.json()) as {
+      applications: Array<{ applicantEmail: string; formData: Record<string, unknown> }>;
+    };
+    expect(applications).toHaveLength(2);
+    for (const app of applications) {
+      expect(app.formData.essential_tier_preference).toEqual(['Gold']);
+    }
+  });
 });
