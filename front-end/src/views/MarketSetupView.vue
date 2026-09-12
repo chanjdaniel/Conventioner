@@ -629,6 +629,18 @@ watch(pageIdx, (newIdx) => {
 
       <!-- Applications Tab -->
       <div v-if="activeTab === 'applications'" class="settings-body">
+        <div class="applications-toolbar">
+          <button
+            class="import-entry-button"
+            data-testid="market-setup-import-button"
+            @click="router.push({ name: 'import-applications' })"
+          >
+            Import from CSV
+          </button>
+          <span class="import-entry-hint">
+            Bring in the responses your Google Form collected.
+          </span>
+        </div>
         <ApplicationMonitor :market="market" :visible="activeTab === 'applications'" />
       </div>
     </div>
@@ -636,6 +648,32 @@ watch(pageIdx, (newIdx) => {
 </template>
 
 <style scoped>
+.applications-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.import-entry-button {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+  border: 1px solid var(--mm-green, #2e7d4f);
+  background: var(--mm-green, #2e7d4f);
+  color: white;
+  font-family: 'Outfit Regular';
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.import-entry-hint {
+  font-family: 'Outfit Regular';
+  font-size: 13px;
+  color: var(--mm-grey, #666);
+}
+
 .market-setup-view {
   width: 100%;
   min-width: 1000px;
