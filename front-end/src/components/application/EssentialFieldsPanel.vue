@@ -4,7 +4,7 @@
  *
  * These are purpose-built, not custom fields: an organizer cannot remove or reorder them, and
  * the only thing they customise is what the questions offer - which is the market plan itself
- * (dates, sections, and the floorplan's table types). This panel therefore renders the current
+ * (dates, sections, tiers, and the floorplan's table types). This panel therefore renders the current
  * offering read-only and points at where each list is edited, instead of offering a second
  * place to edit it.
  */
@@ -14,6 +14,7 @@ import {
   MAX_DATES_LABEL,
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_LABEL,
+  TIER_PREFERENCE_LABEL,
   formattedEssentialDate,
 } from '@/utils/essentialFields';
 
@@ -80,6 +81,27 @@ defineProps<{
           applicant actually wants.`
             : 'Asked alongside the dates once your market has them.'
         }}
+      </p>
+    </div>
+
+    <div class="essential-item" data-testid="essential-item-tier-preference">
+      <div class="essential-item-header">
+        <span class="essential-item-label">{{ TIER_PREFERENCE_LABEL }}</span>
+        <span class="essential-type-badge">pick tiers</span>
+      </div>
+      <div v-if="options.tiers.length" class="essential-chips">
+        <span
+          v-for="tier in options.tiers"
+          :key="tier"
+          class="essential-chip"
+          data-testid="essential-tier-chip"
+        >
+          {{ tier }}
+        </span>
+      </div>
+      <p v-else class="essential-item-warning" data-testid="essential-tiers-empty">
+        No tiers yet - this question is hidden from applicants until your market plan defines tiers
+        under Market Setup.
       </p>
     </div>
 

@@ -9,6 +9,7 @@ export interface MarketSchema {
       dates?: string[];
       sections?: string[];
       tableTypes?: string[];
+      tiers?: string[];
     };
     fields: {
       helpText?: string;

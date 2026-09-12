@@ -2,7 +2,7 @@
 id: E01/F01/S01
 title: Split availability from tier preference
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

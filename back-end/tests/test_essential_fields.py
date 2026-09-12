@@ -22,12 +22,16 @@ from datatypes import Application, ApplicationForm, ApplicationStatus, Essential
 DATES = ["2026-08-01", "2026-08-08", "2026-08-15"]
 SECTIONS = ["Main Hall", "Garden"]
 TABLE_TYPES = ["Full Table", "Half Table"]
+TIERS = ["Gold", "Silver"]
 
-OPTIONS = EssentialFormOptions(dates=DATES, sections=SECTIONS, table_types=TABLE_TYPES)
+OPTIONS = EssentialFormOptions(
+    dates=DATES, sections=SECTIONS, table_types=TABLE_TYPES, tiers=TIERS,
+)
 
 SETUP_SNAKE = {
     "market_dates": [{"date": date} for date in DATES],
     "sections": [{"name": name, "count": 4} for name in SECTIONS],
+    "tiers": [{"id": index, "name": name} for index, name in enumerate(TIERS)],
     "floorplans": [
         {"table_types": [{"name": "Stale Type"}]},
         {"table_types": [{"name": name} for name in TABLE_TYPES]},
@@ -47,7 +51,7 @@ SETUP_CAMEL = {
     "enumPriorityOrder": [],
     "priority": [],
     "marketDates": [{"date": date} for date in DATES],
-    "tiers": [],
+    "tiers": [{"id": index, "name": name} for index, name in enumerate(TIERS)],
     "locations": [],
     "sections": [{"name": name, "count": 4} for name in SECTIONS],
     "assignmentOptions": {},
@@ -60,18 +64,29 @@ SETUP_CAMEL = {
 VALID_ANSWERS = {
     "essential_available_dates": ["2026-08-08", "2026-08-01"],
     "essential_max_dates": 2,
+    "essential_tier_preference": ["Silver", "Gold"],
     "essential_section_ranking": ["Garden", "Main Hall"],
     "essential_table_type_ranking": ["Full Table", "Half Table"],
 }
 
 
 class TestEssentialOptionsFromSetup:
-    def test_reads_dates_sections_and_table_types_from_the_plan(self):
+    def test_reads_dates_sections_table_types_and_tiers_from_the_plan(self):
         options = EssentialFields.essential_options_from_setup(SETUP_SNAKE)
 
         assert options.dates == DATES
         assert options.sections == SECTIONS
         assert options.table_types == TABLE_TYPES
+        assert options.tiers == TIERS
+
+    def test_tiers_come_from_the_plan_not_the_floorplan(self):
+        """Tier is a price band on the plan; unlike table types it owes nothing to a floorplan."""
+        options = EssentialFields.essential_options_from_setup({
+            "tiers": [{"id": 0, "name": "Gold"}],
+            "floorplans": [{"table_types": [{"name": "Full Table"}]}],
+        })
+
+        assert options.tiers == ["Gold"]
 
     def test_the_latest_floorplan_owns_the_table_types(self):
         """floorplans_save appends floorplans and overwrites sections from the latest one,
@@ -130,12 +145,15 @@ class TestValidatedEssentialAnswers:
         # Dates are canonicalized to the plan's order.
         assert stored["essential_available_dates"] == ["2026-08-01", "2026-08-08"]
         assert stored["essential_max_dates"] == 2
+        # Accepted tiers are canonicalized to the plan's order, like dates.
+        assert stored["essential_tier_preference"] == ["Gold", "Silver"]
         assert stored["essential_section_ranking"] == ["Garden", "Main Hall"]
         assert stored["essential_table_type_ranking"] == ["Full Table", "Half Table"]
 
     @pytest.mark.parametrize("missing_key,expected", [
         ("essential_available_dates", "'Available dates' is required"),
         ("essential_max_dates", "'Number of dates you want' is required"),
+        ("essential_tier_preference", "'Tier preference' is required"),
         ("essential_section_ranking", "'Section preference' is required"),
         ("essential_table_type_ranking", "'Table type preference' is required"),
     ])
@@ -204,9 +222,76 @@ class TestValidatedEssentialAnswers:
         assert stored == {
             "essential_available_dates": [],
             "essential_max_dates": None,
+            "essential_tier_preference": [],
             "essential_section_ranking": [],
             "essential_table_type_ranking": [],
         }
+
+
+class TestTierPreference:
+    """Tier is a HARD FILTER, not a ranking.
+
+    The tier determines what an applicant pays for a table on a given day, so a vendor is never
+    placed at a tier they did not accept - even if that leaves them unassigned. The answer is
+    therefore the SET of tiers they accept, not an ordering of all of them.
+    """
+
+    def test_the_applicant_may_accept_a_subset_of_the_offered_tiers(self):
+        """Unlike a ranking, this is not total: accepting only Gold is a complete answer."""
+        answers = {**VALID_ANSWERS, "essential_tier_preference": ["Gold"]}
+
+        error, stored = EssentialFields.validated_essential_answers(answers, OPTIONS)
+
+        assert error is None
+        assert stored["essential_tier_preference"] == ["Gold"]
+
+    def test_a_tier_the_market_does_not_offer_is_refused(self):
+        answers = {**VALID_ANSWERS, "essential_tier_preference": ["Platinum"]}
+
+        error, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
+
+        assert "does not offer" in error
+
+    def test_a_tier_name_is_matched_whole_never_as_a_substring(self):
+        """The regression this question was split out to kill.
+
+        The solver used to decide placement with ``table.tier.name in <the applicant's answer
+        string>``, so a tier named 'A' matched an answer of 'AB'. An explicit set of accepted
+        tier names cannot express that confusion: 'AB' is simply not on offer.
+        """
+        options = EssentialFormOptions(dates=DATES, tiers=["A"])
+        answers = {
+            "essential_available_dates": ["2026-08-01"],
+            "essential_max_dates": 1,
+            "essential_tier_preference": ["AB"],
+        }
+
+        error, _ = EssentialFields.validated_essential_answers(answers, options)
+
+        assert error is not None and "does not offer" in error
+
+    def test_a_repeated_tier_is_refused(self):
+        answers = {**VALID_ANSWERS, "essential_tier_preference": ["Gold", "Gold"]}
+
+        error, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
+
+        assert error is not None
+
+    def test_an_empty_selection_is_refused_when_tiers_are_offered(self):
+        answers = {**VALID_ANSWERS, "essential_tier_preference": []}
+
+        error, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
+
+        assert error is not None and "'Tier preference' is required" in error
+
+    def test_a_market_with_no_tiers_does_not_ask(self):
+        options = EssentialFormOptions(dates=DATES)
+        answers = {"essential_available_dates": ["2026-08-01"], "essential_max_dates": 1}
+
+        error, stored = EssentialFields.validated_essential_answers(answers, options)
+
+        assert error is None
+        assert stored["essential_tier_preference"] == []
 
 
 class TestReservedKeyPrefix:
@@ -261,7 +346,11 @@ class TestFreezeEssentialOptions:
         assert filter_["applicationForm.essentialOptions"] is None
         assert filter_["applicationForm"] == {"$type": "object"}
         written = update["$set"]["applicationForm.essentialOptions"]
-        assert written == {"dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES}
+        assert written == {
+            "dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES,
+            "tiers": TIERS,
+            "tiers": TIERS,
+        }
 
 
 def _applicant_market_doc(**overrides):
@@ -343,7 +432,11 @@ class TestApplicantSave:
 
         assert status == 200
         frozen = applicant_db.last_update["$set"]["applicationForm.essentialOptions"]
-        assert frozen == {"dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES}
+        assert frozen == {
+            "dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES,
+            "tiers": TIERS,
+            "tiers": TIERS,
+        }
 
     def test_answers_are_validated_against_the_frozen_offering_not_the_live_plan(
         self, monkeypatch, applications,
@@ -352,6 +445,7 @@ class TestApplicantSave:
         doc = _applicant_market_doc()
         doc["applicationForm"]["essentialOptions"] = {
             "dates": ["2026-08-01"], "sections": ["Main Hall"], "tableTypes": ["Full Table"],
+                "tiers": [],
         }
         markets = FakeSlugMarketsCollection(doc)
 
@@ -382,6 +476,7 @@ class TestApplicantSave:
         def losing_freeze(filter_, update):
             doc["applicationForm"]["essentialOptions"] = {
                 "dates": ["2026-08-01"], "sections": ["Main Hall"], "tableTypes": ["Full Table"],
+                "tiers": [],
             }
             return original_update(filter_, update)
 
@@ -410,6 +505,7 @@ class TestPublicForm:
         assert status == 200
         assert body["essential_options"] == {
             "dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES,
+            "tiers": TIERS,
         }
 
     def test_the_organizer_form_endpoint_carries_the_effective_offering(
@@ -424,4 +520,5 @@ class TestPublicForm:
 
         assert result["essential_options"] == {
             "dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES,
+            "tiers": TIERS,
         }

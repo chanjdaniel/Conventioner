@@ -31,6 +31,7 @@ export async function fetchPublicApplicationForm(
         dates: essential.dates ?? [],
         sections: essential.sections ?? [],
         tableTypes: essential.tableTypes ?? [],
+        tiers: essential.tiers ?? [],
       },
       phaseLabel: data.phase_label || data.phaseLabel || '',
       isOpen: data.is_open === true || data.isOpen === true,

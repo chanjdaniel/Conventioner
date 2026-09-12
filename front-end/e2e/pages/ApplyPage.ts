@@ -55,6 +55,11 @@ export class ApplyPage {
     return this.page.getByTestId(`apply-essential-date-${date}`);
   }
 
+  /** Tier is a hard filter, so it is a checkbox per offered tier, not a ranking. */
+  tierCheckbox(tier: string): Locator {
+    return this.page.getByTestId(`apply-essential-tier-${tier}`);
+  }
+
   get maxDatesInput(): Locator {
     return this.page.getByTestId('apply-essential-max-dates-input');
   }

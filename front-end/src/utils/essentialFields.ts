@@ -13,11 +13,13 @@ export const ESSENTIAL_KEY_PREFIX = 'essential_';
 
 export const AVAILABLE_DATES_KEY = 'essential_available_dates';
 export const MAX_DATES_KEY = 'essential_max_dates';
+export const TIER_PREFERENCE_KEY = 'essential_tier_preference';
 export const SECTION_RANKING_KEY = 'essential_section_ranking';
 export const TABLE_TYPE_RANKING_KEY = 'essential_table_type_ranking';
 
 export const AVAILABLE_DATES_LABEL = 'Available dates';
 export const MAX_DATES_LABEL = 'Number of dates you want';
+export const TIER_PREFERENCE_LABEL = 'Tier preference';
 export const SECTION_RANKING_LABEL = 'Section preference';
 export const TABLE_TYPE_RANKING_LABEL = 'Table type preference';
 
@@ -25,6 +27,7 @@ export const EMPTY_ESSENTIAL_OPTIONS: EssentialFormOptions = {
   dates: [],
   sections: [],
   tableTypes: [],
+  tiers: [],
 };
 
 function uniqueNames(values: Array<string | null | undefined>): string[] {
@@ -39,7 +42,8 @@ function uniqueNames(values: Array<string | null | undefined>): string[] {
 /**
  * What the essential questions offer, read live from the market plan. The mirror of
  * `essential_options_from_setup`: dates from the plan's market dates, sections from its
- * sections, table types from the latest floorplan (the one whose sections the plan carries).
+ * sections, tiers from its tiers, table types from the latest floorplan (the one whose sections
+ * the plan carries).
  */
 export function essentialOptionsFromSetup(
   setup: SetupObject | null | undefined,
@@ -50,6 +54,7 @@ export function essentialOptionsFromSetup(
     dates: uniqueNames((setup.marketDates ?? []).map((d) => d.date)),
     sections: uniqueNames((setup.sections ?? []).map((s) => s.name)),
     tableTypes: uniqueNames((floorplan?.tableTypes ?? []).map((t) => t.name)),
+    tiers: uniqueNames((setup.tiers ?? []).map((t) => t.name)),
   };
 }
 
@@ -96,6 +101,16 @@ export function essentialValidationErrors(
     } else if (maxNumber > options.dates.length) {
       errors[MAX_DATES_KEY] =
         `'${MAX_DATES_LABEL}' cannot exceed the ${options.dates.length} date(s) this market offers.`;
+    }
+  }
+
+  // Tier is a hard filter, not a ranking: accepting a subset is a complete answer, but
+  // accepting nothing is not, since the applicant would be placeable nowhere.
+  if (options.tiers.length > 0) {
+    const tiers = formData[TIER_PREFERENCE_KEY];
+    if (!Array.isArray(tiers) || tiers.length === 0) {
+      errors[TIER_PREFERENCE_KEY] =
+        `'${TIER_PREFERENCE_LABEL}' is required. Select at least one tier.`;
     }
   }
 

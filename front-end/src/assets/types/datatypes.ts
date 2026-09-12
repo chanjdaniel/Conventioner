@@ -225,6 +225,7 @@ export interface EssentialFormOptions {
   dates: string[];
   sections: string[];
   tableTypes: string[];
+  tiers: string[];
 }
 
 export interface ApplicationForm {
