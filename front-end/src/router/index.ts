@@ -69,6 +69,11 @@ const router = createRouter({
       component: () => import('@/views/MarketSetupView.vue'),
     },
     {
+      path: '/import-applications',
+      name: 'import-applications',
+      component: () => import('@/views/CsvImportView.vue'),
+    },
+    {
       path: '/floorplan-editor',
       name: 'floorplan-editor',
       component: () => import('@/views/FloorplanEditorView.vue'),
