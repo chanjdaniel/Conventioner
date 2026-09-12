@@ -80,7 +80,7 @@ const addRow = () => {
         @mouseleave="hoverIndex = null"
       >
         <div class="row-item text-item">
-          <h4 class="date-display">
+          <h4 class="date-display" :data-testid="'setup-dates-date-display-' + index">
             {{ getFormattedDate(marketDates[index].date) }}
           </h4>
           <input
