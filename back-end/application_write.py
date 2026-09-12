@@ -31,6 +31,27 @@ from market_documents import market_doc_field
 logger = logging.getLogger(__name__)
 
 
+def validate_application_answers(
+    market_doc: Dict[str, Any], form_data: Dict[str, Any],
+) -> Optional[str]:
+    """Would these answers be accepted? Returns the refusal, or None.
+
+    Writes nothing and - importantly - does NOT freeze the offering. A dry run that froze would
+    make merely looking at an import decide what the form offers for ever, which is a side effect
+    no preview is allowed to have. It therefore validates against the offering as it stands; the
+    real save validates again, against whichever offering actually governs by then.
+    """
+    application_form = market_doc_field(market_doc, "application_form")
+    fields = (application_form or {}).get("fields") or []
+    error, _stored = validated_form_data(form_data, fields)
+    if error:
+        return error
+
+    options = EssentialFields.effective_essential_options(market_doc)
+    essential_error, _answers = EssentialFields.validated_essential_answers(form_data, options)
+    return essential_error
+
+
 def record_application_answers(
     markets_collection: Any,
     market_doc: Dict[str, Any],
