@@ -32,6 +32,19 @@ This shipped in PR #46; its e2e coverage passes only because it seeds those stat
 Relaxing it would convert a loud, accurate failure into a market that silently advances with nobody assigned.
 The fix is this epic, not a patch.
 
+## Before any mail is sent: imported emails are unverified
+
+**An imported applicant's email address is asserted by the organizer. A form applicant's is proven.**
+
+The form path issues a login-code challenge, so the applicant demonstrably controls the address.
+CSV import has no such step - the address is transcribed from a spreadsheet - and nothing on the `Application` document records the difference.
+
+This is harmless today only because intake mode keeps the public applicant surface off for CSV markets, so an imported applicant never logs in.
+It stops being harmless the moment this epic ships: offer and outcome mail would go to addresses nobody has verified, at whatever volume a market has vendors.
+A single mistyped address in a spreadsheet becomes a bounce at best, and mail to a stranger at worst.
+
+Decide the handling before the first notification is sent. Ticket 05 deliberately declined to add a `source` field, on the grounds that intake mode already says how an application arrived - so the information is available, but the decision about what to do with it is not made.
+
 ## Scope
 
 - Solver writes assignment outcomes back onto applications (`assigned` / `unassigned`)
