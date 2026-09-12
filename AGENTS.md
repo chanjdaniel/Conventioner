@@ -375,6 +375,16 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   fail loud for `th-compose.sh`). This makes them work from a no-mistakes worktree
   (which has no treehouse slot) without falling through to the primary stack.
 
+## Agent skills
+
+### Issue tracker
+
+Work is tracked as committed markdown under `.scratch/`: an Epic > Feature > Story backlog in
+`.scratch/backlog/`, and Wayfinder decision maps in `.scratch/wayfinding/`. GitHub is used for pull
+requests only; its issue tracker is deliberately empty. Work items are things to *build*; Wayfinder
+maps are open *questions* to resolve, and a decision lives in exactly one of them. Story status must
+be updated as PRs merge - see `docs/agents/issue-tracker.md` for the full convention.
+
 ## Maintaining this file
 
 Keep this file for knowledge useful to almost every future agent session in this project.
