@@ -31,13 +31,46 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
 from application_write import record_application_answers, validate_application_answers
-from datatypes import Application, ApplicationStatus, ImportMapping
+from datatypes import (
+    Application,
+    ApplicationStatus,
+    ImportMapping,
+    MarketPhase,
+    phase_from_market_document,
+)
 from market_documents import market_doc_field, market_doc_key
 
 logger = logging.getLogger(__name__)
 
 # Not a form answer: it identifies the applicant, so it lands on the document rather than in
 # ``form_data``. Every import must map it - without it a row names nobody.
+# Importing is an intake operation, so it belongs to the phases where a market is taking
+# applications. Once REVIEW has begun, the applicant set must stop moving under the reviewer:
+# rows appearing, changing, or returning to `open` beneath someone working through a list is the
+# hazard. The organizer is not stuck - `review -> applications_closed` is an existing edge, so the
+# way through is to reopen, import, and move forward again. That is deliberate and visible, and it
+# needs no new edges in the transition registry.
+IMPORT_PHASES = (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED)
+
+
+def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
+    """Why this market cannot be imported into right now, or None."""
+    phase = phase_from_market_document(market_doc)
+    if phase in IMPORT_PHASES:
+        return None
+    readable = phase.value.replace("_", " ")
+    if phase == MarketPhase.DRAFT:
+        return (
+            f"This market is still a draft, so it is not taking applications yet. "
+            f"Open applications first, then import."
+        )
+    return (
+        f"This market is in the {readable} phase, so importing would change the applicant set "
+        f"under a review that has already begun. Reopen applications first (move back to "
+        f"applications closed), then import."
+    )
+
+
 APPLICANT_EMAIL_TARGET = "applicant_email"
 APPLICANT_EMAIL_LABEL = "Applicant email"
 
