@@ -79,6 +79,14 @@ const router = createRouter({
       component: () => import('@/views/GenerateAssignmentView.vue'),
     },
     {
+      // THROWAWAY UI prototype: three takes on the CSV column-mapping screen,
+      // switched with ?variant=A|B|C. Delete with src/prototypes/ once one wins.
+      path: '/prototype/csv-mapping',
+      name: 'prototype-csv-mapping',
+      component: () => import('@/views/CsvMappingPrototypeView.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/markets/:marketId/attendance',
       name: 'attendance-status',
       component: () => import('@/views/AttendanceStatusView.vue'),
