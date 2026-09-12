@@ -21,12 +21,26 @@ const marketName = ref('');
 const phaseLabel = ref('');
 const isOpen = ref(false);
 const loading = ref(true);
+/** The public form request did not answer. Distinct from a market that is not open. */
+const loadFailed = ref(false);
 const formData = ref<Record<string, unknown>>({});
 const validationErrors = ref<Record<string, string>>({});
 const saving = ref(false);
 
 const sortedFields = computed(() => sortedFormFields(fields.value));
 const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value));
+
+async function loadForm() {
+  loading.value = true;
+  const form = await fetchPublicApplicationForm(marketSlug.value);
+  loadFailed.value = form.failed;
+  fields.value = form.fields;
+  essentialOptions.value = form.essentialOptions;
+  marketName.value = form.marketName;
+  phaseLabel.value = form.phaseLabel;
+  isOpen.value = form.isOpen;
+  loading.value = false;
+}
 
 onMounted(async () => {
   if (!signedIn.value) {
@@ -38,13 +52,7 @@ onMounted(async () => {
     return;
   }
 
-  const form = await fetchPublicApplicationForm(marketSlug.value);
-  fields.value = form.fields;
-  essentialOptions.value = form.essentialOptions;
-  marketName.value = form.marketName;
-  phaseLabel.value = form.phaseLabel;
-  isOpen.value = form.isOpen;
-  loading.value = false;
+  await loadForm();
 });
 
 function validateAll(): boolean {
@@ -86,6 +94,14 @@ async function submitForm() {
   <div class="apply-page" data-testid="apply-page">
     <div v-if="loading" class="apply-loading" data-testid="apply-loading">
       Loading application form...
+    </div>
+
+    <!-- The request did not answer. Saying "closed" here would blame the market for our silence. -->
+    <div v-else-if="loadFailed" class="apply-load-failed" data-testid="apply-load-failed">
+      <p>
+        This market's application form could not be loaded. Check your connection and try again.
+      </p>
+      <button type="button" data-testid="apply-retry-button" @click="loadForm">Try again</button>
     </div>
 
     <template v-else>
@@ -152,6 +168,27 @@ async function submitForm() {
   max-width: 640px;
   margin: 40px auto;
   padding: 0 16px;
+}
+
+.apply-load-failed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 24px;
+  font-family: 'Outfit Regular';
+  font-size: 14px;
+}
+
+.apply-load-failed button {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+  border: 1px solid var(--mm-grey, #b0b0b0);
+  background: white;
+  font-family: 'Outfit Regular';
+  font-size: 14px;
+  cursor: pointer;
 }
 
 .apply-loading {
