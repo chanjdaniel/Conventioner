@@ -13,7 +13,7 @@ from conftest import FakeMarketsCollection, stored_market
 
 import csv_import as CsvImport
 import essential_fields as EssentialFields
-from datatypes import ApplicationStatus
+from datatypes import ApplicationStatus, MarketPhase
 
 
 DATES = ["2026-08-01", "2026-08-08"]
@@ -811,3 +811,58 @@ class TestReviewsInvalidatedByAReImport:
         assert applications.find_one({"id": app_id})["status"] == (
             ApplicationStatus.REVIEWER_APPROVED.value
         )
+
+
+class TestWhenImportingIsAllowed:
+    """Importing is an intake operation, so it belongs to the phases that take applications.
+
+    Once review has begun the applicant set must stop moving under the reviewer. The organizer is
+    not stuck: `review -> applications_closed` is an existing edge, so the way through is to
+    reopen, import, and move forward again - deliberate and visible, and needing no new edges.
+    """
+
+    def test_the_intake_phases_are_allowed(self):
+        for phase in (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED):
+            doc = _market_doc()
+            doc["phase"] = phase.value
+
+            assert CsvImport.import_phase_refusal(doc) is None, phase
+
+    def test_review_onward_is_refused(self):
+        for phase in (
+            MarketPhase.REVIEW, MarketPhase.ASSIGNMENT, MarketPhase.OFFERS,
+            MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED,
+        ):
+            doc = _market_doc()
+            doc["phase"] = phase.value
+
+            refusal = CsvImport.import_phase_refusal(doc)
+
+            assert refusal is not None, phase
+            assert phase.value.replace("_", " ") in refusal
+
+    def test_the_refusal_points_at_the_way_through(self):
+        doc = _market_doc()
+        doc["phase"] = MarketPhase.REVIEW.value
+
+        refusal = CsvImport.import_phase_refusal(doc)
+
+        assert "Reopen applications" in refusal
+
+    def test_a_draft_is_refused_for_its_own_reason(self):
+        """Not "reopen applications" - a draft has never opened them."""
+        doc = _market_doc()
+        doc["phase"] = MarketPhase.DRAFT.value
+
+        refusal = CsvImport.import_phase_refusal(doc)
+
+        assert refusal is not None and "still a draft" in refusal
+
+    def test_reopening_makes_importing_possible_again(self):
+        doc = _market_doc()
+        doc["phase"] = MarketPhase.REVIEW.value
+        assert CsvImport.import_phase_refusal(doc) is not None
+
+        doc["phase"] = MarketPhase.APPLICATIONS_CLOSED.value
+
+        assert CsvImport.import_phase_refusal(doc) is None

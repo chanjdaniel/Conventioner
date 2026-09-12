@@ -593,4 +593,53 @@ test.describe('CSV vendor import', () => {
     const after = (await applicationsNow()).find((a) => a.applicantEmail === 'nadia@ember.test')!;
     expect(after.statusRaw ?? after.status).toBe('open');
   });
+
+  test('importing is refused once review has begun, and possible again after reopening', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject() },
+    );
+    const transition = async (toPhase: string) => {
+      const res = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+        data: { toPhase },
+      });
+      expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
+    };
+    const fetchMarket = async () => {
+      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      return ((await res.json()) as { market: Record<string, unknown> }).market;
+    };
+
+    await transition('applications_closed');
+    await transition('review');
+
+    // Server-side, not merely a hidden button: the endpoint refuses directly.
+    const direct = await request.post(
+      `${BACKEND_URL}/markets/${seed.marketId}/applications/import/inspect`,
+      { headers: { 'X-Owner-Email': TEST_USER.email }, data: { csvContent: CSV } },
+    );
+    expect(direct.status()).toBe(409);
+    expect(await direct.text()).toContain('Reopen applications');
+
+    // And the screen says so before asking for a file.
+    await openImport(page, await fetchMarket());
+    await expect(page.getByTestId('import-wrong-phase')).toBeVisible();
+    await expect(page.getByTestId('import-upload')).toHaveCount(0);
+
+    // The way through is the edge the state machine already has.
+    await transition('applications_closed');
+    await openImport(page, await fetchMarket());
+    await expect(page.getByTestId('import-upload')).toBeVisible();
+    await chooseFile(page, CSV);
+    await expect(page.getByTestId('import-map')).toBeVisible();
+  });
 });

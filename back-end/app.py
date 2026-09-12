@@ -1515,6 +1515,12 @@ def _import_context(market_id: str, requesting_user: Optional[str]):
     market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
     if not market_doc:
         return None, {"error": "Market not found"}, 404
+
+    # Enforced here rather than by hiding the entry point: a hidden button is not a rule, and all
+    # three import endpoints are reachable directly.
+    refusal = CsvImport.import_phase_refusal(market_doc)
+    if refusal:
+        return None, {"error": refusal, "phase": market_doc.get("phase")}, 409
     return market_doc, None, 200
 
 
