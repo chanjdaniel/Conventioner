@@ -104,6 +104,14 @@ async function signInApplicant(page: Page, marketId: string, marketSlug: string)
   await login.enterCode(KNOWN_CODE);
   await page.waitForURL(new RegExp(`/${marketSlug}/apply`), { timeout: 5000 });
   await page.unroute('**/applicant-login/request-code');
+
+  // waitForURL returns the moment the route changes, while the page is still fetching its form.
+  // Asserting on the form from here races that fetch, and under a full-suite run the request can
+  // take longer than an element assertion's budget - which is what made this spec flaky, always
+  // caught mid-load on "Loading application form...". Wait for the page to have FINISHED loading,
+  // then assert what it actually shows.
+  await expect(page.getByTestId('apply-loading')).toBeHidden({ timeout: 30000 });
+  await expect(page.getByTestId('apply-load-failed')).toHaveCount(0);
 }
 
 /** An applicant JWT obtained through the real login endpoints, for API-level saves. */

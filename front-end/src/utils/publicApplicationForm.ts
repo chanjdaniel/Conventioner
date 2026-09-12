@@ -8,20 +8,28 @@ export interface PublicApplicationForm {
   essentialOptions: EssentialFormOptions;
   phaseLabel: string;
   isOpen: boolean;
+  /**
+   * The request did not answer. Distinct from a market that answered "not open": a caller that
+   * conflates them tells the applicant their market is closed when in truth we never asked it.
+   */
+  failed: boolean;
 }
 
 /**
- * Fetch the market's public information for applicant screens.
- *
- * Tries the public application-form endpoint. When the endpoint is not yet
- * wired (current 5d backend has login-only), returns an empty form so views
- * degrade gracefully.
+ * How long an applicant waits for this before being told it did not load. Generous, because a
+ * phone on a bad connection is the normal case, but bounded - an unbounded request leaves the
+ * page on its loading state for ever, with nothing to retry and nothing to read.
  */
+const REQUEST_TIMEOUT_MS = 15000;
+
+/** Fetch the market's public information for applicant screens. */
 export async function fetchPublicApplicationForm(
   marketSlug: string,
 ): Promise<PublicApplicationForm> {
   try {
-    const { data } = await api.get(`/public/markets/${marketSlug}/application-form`);
+    const { data } = await api.get(`/public/markets/${marketSlug}/application-form`, {
+      timeout: REQUEST_TIMEOUT_MS,
+    });
     const form = data.application_form || data.applicationForm || {};
     const essential = data.essential_options || data.essentialOptions || {};
     return {
@@ -35,6 +43,7 @@ export async function fetchPublicApplicationForm(
       },
       phaseLabel: data.phase_label || data.phaseLabel || '',
       isOpen: data.is_open === true || data.isOpen === true,
+      failed: false,
     };
   } catch {
     return {
@@ -43,6 +52,7 @@ export async function fetchPublicApplicationForm(
       essentialOptions: EMPTY_ESSENTIAL_OPTIONS,
       phaseLabel: '',
       isOpen: false,
+      failed: true,
     };
   }
 }
