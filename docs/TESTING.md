@@ -105,10 +105,10 @@ npm run test:unit
 Tests cover the API client interceptor (automatic `X-Owner-Email` header injection) and
 `parseMarketFromApi()` (`market.test.ts`), which round-trips the market `phase`,
 application form, review config, and Discord guild id, and leaves them undefined when the
-API omits them. The same suite covers `pathAfterLoadingMarket()`, which routes on `phase`
-(draft → the setup wizard, anything past it → the market's public slug) and falls back to
-`isDraft` only for a market cached by a build that predates the field - without that fallback,
-a published market left in `localStorage` would be routed back into the setup wizard.
+API omits them. The same suite covers `pathAfterLoadingMarket()`, which routes every pre-archive phase to the
+setup wizard and only routes `archived` to the market's public slug, falling back to `isDraft`
+only for a market cached by a build that predates the field - without that fallback, a published
+market left in `localStorage` would be routed back into the setup wizard.
 The application form builder is covered by three suites:
 `applicationForm.test.ts` (the shared validator: which forms Save blocks with a hint - a
 field the organizer has not started filling in - versus a validation error such as a bad,

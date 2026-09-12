@@ -11,7 +11,9 @@ from datatypes import (
     ApplicationForm, AssignmentObject, FormField, Market, MarketPhase, MarketRole,
 )
 from guards import (
+    AllApplicationsReviewedGuard,
     FormHasFieldsGuard,
+    NoApprovedApplicationsGuard,
     PreconditionResult,
     TRANSITION_GUARDS,
     VALID_TRANSITIONS,
@@ -140,15 +142,22 @@ class TestValidTransitions:
         assert ("applications_open", "applications_closed") in VALID_TRANSITIONS
         assert ("applications_closed", "applications_open") in VALID_TRANSITIONS
 
-    def test_later_phase_transitions_not_registered(self):
-        assert ("applications_closed", "review") not in VALID_TRANSITIONS
-        assert ("review", "assignment") not in VALID_TRANSITIONS
-        assert ("assignment", "offers") not in VALID_TRANSITIONS
-        assert ("offers", "market_days") not in VALID_TRANSITIONS
-        assert ("market_days", "archived") not in VALID_TRANSITIONS
+    def test_later_phase_transitions_are_registered(self):
+        assert ("applications_closed", "review") in VALID_TRANSITIONS
+        assert ("review", "assignment") in VALID_TRANSITIONS
+        assert ("assignment", "offers") in VALID_TRANSITIONS
+        assert ("offers", "market_days") in VALID_TRANSITIONS
+        assert ("market_days", "archived") in VALID_TRANSITIONS
 
     def test_reverse_draft_not_registered(self):
         assert ("applications_open", "draft") not in VALID_TRANSITIONS
+
+    def test_archive_from_every_phase_is_registered(self):
+        phases = [p.value for p in MarketPhase if p != MarketPhase.ARCHIVED]
+        for phase in phases:
+            assert (phase, "archived") in VALID_TRANSITIONS, (
+                f"Missing archive edge from {phase}"
+            )
 
 
 class TestTransitionGuards:
@@ -285,3 +294,111 @@ class TestGuardDesignProperties:
     def test_adding_guard_is_only_a_dict_entry(self):
         guards = TRANSITION_GUARDS[("draft", "applications_open")]
         assert len(guards) == 1
+
+
+class TestAllApplicationsReviewedGuard:
+    def _market(self):
+        return _make_market(
+            phase=MarketPhase.REVIEW,
+            application_form=ApplicationForm(
+                fields=[FormField(key="name", label="Name", type="text")],
+            ),
+        )
+
+    @staticmethod
+    def _patch(monkeypatch, total=0, unreviewed=0):
+        monkeypatch.setattr(
+            guards.ApplicationsApi,
+            "count_applications_for_market",
+            lambda _market_id: total,
+        )
+        monkeypatch.setattr(
+            guards.ApplicationsApi,
+            "count_applications_with_any_status",
+            lambda _market_id, _statuses: unreviewed,
+        )
+
+    def test_passes_when_all_apps_are_reviewed(self, monkeypatch):
+        self._patch(monkeypatch, total=3, unreviewed=0)
+        result = AllApplicationsReviewedGuard().evaluate(self._market(), None)
+        assert result.passed is True
+        assert result.id == "all_applications_reviewed"
+
+    def test_fails_when_some_apps_are_open(self, monkeypatch):
+        self._patch(monkeypatch, total=3, unreviewed=1)
+        result = AllApplicationsReviewedGuard().evaluate(self._market(), None)
+        assert result.passed is False
+        assert "still awaiting review" in result.message.lower()
+
+    def test_fails_when_some_apps_are_under_review(self, monkeypatch):
+        self._patch(monkeypatch, total=1, unreviewed=1)
+        result = AllApplicationsReviewedGuard().evaluate(self._market(), None)
+        assert result.passed is False
+
+    def test_fails_when_no_applications_exist(self, monkeypatch):
+        self._patch(monkeypatch, total=0, unreviewed=0)
+        result = AllApplicationsReviewedGuard().evaluate(self._market(), None)
+        assert result.passed is False
+        assert "no applications" in result.message.lower()
+
+    def test_has_id_and_description(self):
+        guard = AllApplicationsReviewedGuard()
+        assert guard.id == "all_applications_reviewed"
+        assert isinstance(guard.description, str)
+        assert len(guard.description) > 0
+
+
+class TestNoApprovedApplicationsGuard:
+    def _market(self):
+        return _make_market(
+            phase=MarketPhase.ASSIGNMENT,
+            application_form=ApplicationForm(
+                fields=[FormField(key="name", label="Name", type="text")],
+            ),
+        )
+
+    @staticmethod
+    def _patch(monkeypatch, approved_count=0):
+        monkeypatch.setattr(
+            guards.ApplicationsApi,
+            "count_applications_with_status",
+            lambda _market_id, _status: approved_count,
+        )
+
+    def test_passes_when_no_apps_are_approved(self, monkeypatch):
+        self._patch(monkeypatch, approved_count=0)
+        result = NoApprovedApplicationsGuard().evaluate(self._market(), None)
+        assert result.passed is True
+        assert result.id == "no_approved_applications"
+
+    def test_fails_when_some_apps_are_still_approved(self, monkeypatch):
+        self._patch(monkeypatch, approved_count=2)
+        result = NoApprovedApplicationsGuard().evaluate(self._market(), None)
+        assert result.passed is False
+        assert "still approved" in result.message.lower()
+
+    def test_has_id_and_description(self):
+        guard = NoApprovedApplicationsGuard()
+        assert guard.id == "no_approved_applications"
+        assert isinstance(guard.description, str)
+        assert len(guard.description) > 0
+
+
+class TestAssignmentEntryInvariants:
+    """Every edge into assignment (currently only review -> assignment) must carry the
+    reviewed-every-application guard."""
+
+    def test_review_to_assignment_is_guarded(self):
+        guards = TRANSITION_GUARDS.get(("review", "assignment"), [])
+        assert len(guards) == 1
+        assert isinstance(guards[0], AllApplicationsReviewedGuard)
+
+
+class TestOffersEntryInvariants:
+    """Every edge into offers (currently only assignment -> offers) must carry the
+    no-more-approved guard."""
+
+    def test_assignment_to_offers_is_guarded(self):
+        guards = TRANSITION_GUARDS.get(("assignment", "offers"), [])
+        assert len(guards) == 1
+        assert isinstance(guards[0], NoApprovedApplicationsGuard)

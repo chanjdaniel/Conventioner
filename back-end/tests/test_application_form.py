@@ -444,7 +444,7 @@ class TestGetApplicationForm:
         result = MarketsApi.get_application_form("market-123", "user-1")
 
         assert result["editable"] is False
-        assert "2 application(s)" in result["lock_reason"]
+        assert "2 applications have" in result["lock_reason"]
 
     def test_reports_the_lock_reason_out_of_draft(self, monkeypatch, applications):
         monkeypatch.setattr(

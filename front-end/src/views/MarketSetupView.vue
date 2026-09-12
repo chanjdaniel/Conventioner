@@ -24,6 +24,7 @@ import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
+import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
 
 const router = useRouter();
 
@@ -107,6 +108,10 @@ function parseFiniteNumber(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
   const n = typeof v === 'string' ? parseFloat(v) : Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function handlePhaseAdvanced(updatedMarket: Market) {
+  market.value = updatedMarket;
 }
 
 /** True when required Assignment Options are set (Assign enabled). Max days column mapping is optional. */
@@ -329,6 +334,7 @@ watch(pageIdx, (newIdx) => {
 
 <template>
   <div class="market-setup-view">
+    <PhaseControlPanel :market="market" @phase-advanced="handlePhaseAdvanced" />
     <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
     <div class="market-setup-body">
       <div class="settings-container">

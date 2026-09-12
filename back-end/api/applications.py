@@ -211,3 +211,35 @@ def update_application_form_data(
         }},
     )
     return result.matched_count > 0
+
+
+def count_applications_with_status(market_id: str, status: str) -> int:
+    """How many applications for a market hold a specific status."""
+    ensure_application_indexes()
+    return applications_collection.count_documents({
+        **market_filter(market_id),
+        "status": status,
+    })
+
+
+def count_applications_with_any_status(market_id: str, statuses: List[str]) -> int:
+    """How many applications for a market hold any of the given statuses."""
+    ensure_application_indexes()
+    return applications_collection.count_documents({
+        **market_filter(market_id),
+        "status": {"$in": list(statuses)},
+    })
+
+
+def sweep_unanswered_offers(market_id: str) -> int:
+    """Mark every ``assignment_sent`` application for a market as ``vendor_refused``.
+
+    This is the deadline mechanism: the admin holds the deadline, and this operation
+    is what records it. Returns the number of applications swept.
+    """
+    ensure_application_indexes()
+    result = applications_collection.update_many(
+        {**market_filter(market_id), "status": ApplicationStatus.ASSIGNMENT_SENT.value},
+        {"$set": {"status": ApplicationStatus.VENDOR_REFUSED.value}},
+    )
+    return result.modified_count

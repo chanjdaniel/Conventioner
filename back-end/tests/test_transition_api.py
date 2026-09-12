@@ -212,7 +212,7 @@ class TestTransitionBlocked:
         assert blocker["id"] == "form_has_fields"
         assert blocker["passed"] is False
         assert blocker["message"]
-        assert blocker["resolutionLink"] == "/markets/market-1/form-builder"
+        assert blocker["resolutionLink"] == "/market-setup"
 
         assert collection.doc["phase"] == "draft"
 
@@ -227,7 +227,7 @@ class TestTransitionBlocked:
         assert body["currentPhase"] == "applications_closed"
         assert body["targetPhase"] == "applications_open"
         assert body["blockers"][0]["id"] == "form_has_fields"
-        assert body["blockers"][0]["resolutionLink"] == "/markets/market-1/form-builder"
+        assert body["blockers"][0]["resolutionLink"] == "/market-setup"
 
         assert collection.doc["phase"] == "applications_closed"
 
