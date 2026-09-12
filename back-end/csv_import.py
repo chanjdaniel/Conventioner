@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
-from application_write import record_application_answers
+from application_write import record_application_answers, validate_application_answers
 from datatypes import Application, ApplicationStatus
 from market_documents import market_doc_field
 
@@ -397,6 +397,70 @@ def _matched(
     return (resolved if resolved is not None else ""), []
 
 
+def _assembled_rows(
+    market_doc: Dict[str, Any],
+    headers: Sequence[str],
+    rows: Sequence[Sequence[str]],
+    resolved: Dict[str, List[int]],
+    resolutions: Dict[str, Dict[str, Optional[str]]],
+) -> List[Tuple[int, str, str, Dict[str, Any]]]:
+    """Every row as ``(spreadsheet line, email, submitted_at, form_data)``.
+
+    Row 1 is the header, so the first data row is line 2 in the organizer's own file - which is
+    what they need in order to find it.
+    """
+    options = EssentialFields.effective_essential_options(market_doc)
+    by_key = {t.key: t for t in import_targets(market_doc)}
+    form = market_doc_field(market_doc, "application_form") or {}
+    fields_by_key = {f.get("key"): f for f in form.get("fields") or [] if f.get("key")}
+
+    assembled = []
+    for offset, row in enumerate(rows):
+        def cell(key: str) -> str:
+            indexes = resolved.get(key)
+            if not indexes:
+                return ""
+            index = indexes[0]
+            return row[index] if index < len(row) else ""
+
+        form_data: Dict[str, Any] = {}
+        for key, indexes in resolved.items():
+            if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET):
+                continue
+            target = by_key.get(key)
+            if target is None:
+                continue
+            field = fields_by_key.get(key)
+            value = _raw_values(target, headers, row, indexes, field)
+            offered = offered_values(target, options, field)
+            if offered is not None:
+                value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
+            form_data[key] = value
+
+        assembled.append((
+            offset + 2,
+            str(cell(APPLICANT_EMAIL_TARGET) or "").strip().lower(),
+            str(cell(SUBMITTED_AT_TARGET) or "").strip(),
+            form_data,
+        ))
+    return assembled
+
+
+def _row_faults(
+    market_doc: Dict[str, Any], assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    """Rows that would be refused, each with the reason and its line in the organizer's file."""
+    faults = []
+    for line, email, _submitted_at, form_data in assembled:
+        if not email:
+            faults.append({"row": line, "email": "", "error": "No email address."})
+            continue
+        error = validate_application_answers(market_doc, form_data)
+        if error:
+            faults.append({"row": line, "email": email, "error": error})
+    return faults
+
+
 def preview_values(
     market_doc: Dict[str, Any],
     csv_content: str,
@@ -440,19 +504,41 @@ def preview_values(
                     order.append(slot)
                 tally[slot] += 1
 
-    return {
+    unmatched_payload = [
+        {
+            "target": key,
+            "targetLabel": targets[key].label,
+            "value": item,
+            "rows": tally[(key, item)],
+            "offered": offered_values(targets[key], options, fields_by_key.get(key)) or [],
+        }
+        for key, item in order
+    ]
+
+    result: Dict[str, Any] = {
         "rowCount": len(rows),
-        "unmatched": [
-            {
-                "target": key,
-                "targetLabel": targets[key].label,
-                "value": item,
-                "rows": tally[(key, item)],
-                "offered": offered_values(targets[key], options, fields_by_key.get(key)) or [],
-            }
-            for key, item in order
-        ],
-    }, 200
+        "unmatched": unmatched_payload,
+        "validRows": 0,
+        "failures": [],
+    }
+
+    # Row-by-row validity is only meaningful once the mapping is complete and every value has been
+    # spoken for: before that, every row would fail for the same reason and the list would say
+    # nothing the mapping rail is not already saying.
+    resolved = {
+        key: (value if isinstance(value, list) else [value])
+        for key, value in mapping.items()
+        if isinstance(value, (int, list)) and not isinstance(value, bool)
+    }
+    unserved = [t for t in targets.values() if t.required and t.key not in resolved]
+    if unmatched_payload or unserved:
+        return result, 200
+
+    assembled = _assembled_rows(market_doc, headers, rows, resolved, resolutions)
+    failures = _row_faults(market_doc, assembled)
+    result["failures"] = failures
+    result["validRows"] = len(rows) - len(failures)
+    return result, 200
 
 
 def import_applications(
@@ -544,36 +630,14 @@ def import_applications(
     updated = 0
     failures: List[Dict[str, Any]] = []
 
-    for offset, row in enumerate(rows):
-        # Row 1 is the header, so the first data row is row 2 in the organizer's spreadsheet.
-        row_number = offset + 2
-
-        def cell(key: str) -> str:
-            indexes = resolved.get(key)
-            if not indexes:
-                return ""
-            index = indexes[0]
-            return row[index] if index < len(row) else ""
-
-        email = str(cell(APPLICANT_EMAIL_TARGET) or "").strip().lower()
+    for row_number, email, submitted_at, form_data in _assembled_rows(
+        market_doc, headers, rows, resolved, resolutions,
+    ):
         if not email:
             failures.append({"row": row_number, "email": "", "error": "No email address."})
             continue
 
-        form_data: Dict[str, Any] = {}
-        for key, indexes in resolved.items():
-            if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET):
-                continue
-            target = by_key[key]
-            field = fields_by_key.get(key)
-            value = _raw_values(target, headers, row, indexes, field)
-            offered = offered_values(target, options, field)
-            if offered is not None:
-                value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
-            form_data[key] = value
-
         existing = ApplicationsApi.find_application_by_email(market_id, email)
-        submitted_at = str(cell(SUBMITTED_AT_TARGET) or "").strip()
         app_doc = existing or ApplicationsApi.find_or_create_application(Application(
             market_id=market_id,
             applicant_email=email,

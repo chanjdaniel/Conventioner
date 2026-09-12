@@ -2,9 +2,9 @@
 id: E01/F02/S04
 title: Resolve unmatched cell values
 type: story
-status: in-progress
+status: done
 blocked_by: [E01/F02/S02]
-pr: []
+pr: [#56]
 ---
 
 ## What to build
