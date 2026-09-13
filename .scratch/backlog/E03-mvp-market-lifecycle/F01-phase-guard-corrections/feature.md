@@ -2,7 +2,7 @@
 id: E03/F01
 title: Phase guard corrections
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
