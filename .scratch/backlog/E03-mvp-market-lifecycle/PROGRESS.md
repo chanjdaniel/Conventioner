@@ -17,7 +17,7 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | 2 | F02/S01 A market declares how vendors reach it | - | done (unpushed) | |
 | 3 | F02/S02 A CSV market's applicant endpoints answer as if it did not exist | F02/S01 | done (unpushed) | |
 | 4 | F02/S03 A stranger visiting a CSV market's public pages is told nothing | F02/S02 | done (unpushed) | |
-| 5 | F02/S04 Publishing lands the organizer on a page their market serves (found in S03) | F02/S03 | not started | |
+| 5 | F02/S04 Publishing lands the organizer on a page their market serves (found in S03) | F02/S03 | done (unpushed) | |
 
 F01/S01 and F02/S01 are both unblocked and may run in either order.
 F01 has no dependency on F02: the guard correction is a pre-existing bug that MVP merely exposes.
@@ -171,3 +171,31 @@ reward for publishing is a page telling them their own market does not exist.
 
 This is a regression this story introduces, not a pre-existing wart, so it is not left standing.
 Per the tracker convention it is a sibling story rather than growth of this one: F02/S04.
+
+### F02/S04 Publishing lands the organizer on a page their market serves
+
+Front-end unit suite green at 83 passed, up from 79.
+Full Playwright suite green at 73 passed.
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| Publishing a CSV market lands the organizer on a page that renders, not on not-found | met | `market-pipeline.spec.ts` and `tier2.spec.ts` both publish a market and wait for the check-in URL, then assert the attendance view is visible. `tier2` also asserts the not-found block is absent, so a future regression that routed back to the market home fails there. |
+| Publishing a form market still lands on the market home | met | `publishedMarketDestination` returns the bare slug for `IntakeMode.Form`, unit-tested. Not covered end to end: MVP seeds no form market through the assignment wizard, and building one only to publish it would be a fixture with no product behind it. |
+| The destination is decided from the market's intake mode, not guessed from the phase | met | The helper takes the intake mode as an argument and reads nothing else; `handleDone` passes `market.intakeMode` from the stored market document. |
+| A market whose slug cannot be derived still falls back as it does today | met | `falls back to the organizer market page when the name yields no slug`, for a name of only punctuation and for an empty name. |
+| An e2e story publishes a market and asserts the organizer can read the page they land on | met | Both publish specs above. |
+
+#### Why check-in, and not the market home with a notice
+
+The alternative was to let a CSV market's market home render something for its own organizer.
+That would mean the page answers differently depending on who is asking, which is the property
+E03/F02 exists to remove: the page cannot tell an organizer from a stranger without an
+authenticated call, and an unauthenticated page that leaks "this market is real" to the right
+visitor leaks it to every visitor.
+
+Check-in needs no such distinction. It is already public, already serves CSV markets, and is the
+link the organizer has to share on the day, so it is the page that was always going to be useful
+at that moment.
+
+`IntakeMode` now exists in the front-end type module as well, mirroring the back-end enum, and
+`Market.intakeMode` is declared on the TypeScript interface.
