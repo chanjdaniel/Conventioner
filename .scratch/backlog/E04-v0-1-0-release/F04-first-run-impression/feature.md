@@ -2,7 +2,7 @@
 id: E04/F04
 title: A new organizer's first screen makes sense
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

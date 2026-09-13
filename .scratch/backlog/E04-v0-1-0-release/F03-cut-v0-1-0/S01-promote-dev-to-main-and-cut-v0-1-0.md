@@ -2,7 +2,7 @@
 id: E04/F03/S01
 title: Promote dev to main and cut v0.1.0
 type: story
-status: ready
+status: in-progress
 blocked_by: [E04/F01/S02, E04/F02/S01, E04/F02/S02]
 pr: []
 ---

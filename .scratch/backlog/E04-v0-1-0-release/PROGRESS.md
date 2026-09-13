@@ -17,20 +17,27 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 
 | # | Story | Blocked by | Status | PR |
 | --- | --- | --- | --- | --- |
-| 1 | F01/S01 Extract a CSV import page object | - | done (unpushed) | |
-| 2 | F02/S01 STARTUP.md walks a fresh clone to a running stack | - | done (unpushed) | |
-| 3 | F01/S02 Walk the whole journey in one session | F01/S01 | done (unpushed) | |
-| 4 | F02/S02 TESTING.md describes the suites that exist | F01/S02 | done (unpushed) | |
-| 5 | F03/S01 Promote dev to main and cut v0.1.0 | F01/S02, F02/S01, F02/S02, E06/F01/S02 | not started | |
+| 1 | F01/S01 Extract a CSV import page object | - | in review | #66 |
+| 2 | F02/S01 STARTUP.md walks a fresh clone to a running stack | - | in review | #66 |
+| 3 | F01/S02 Walk the whole journey in one session | F01/S01 | in review | #66 |
+| 4 | F02/S02 TESTING.md describes the suites that exist | F01/S02 | in review | #66 |
+| - | F01/S03 An essential-only form can receive an application (found in F01/S02) | - | in review | #66 |
+| - | F04/S01 A new organizer's dashboard does not report a missing market | - | in review | #66 |
+| - | F04/S02 Unsaved plan edits survive a phase advance | - | in review | #66 |
+| 5 | F03/S01 Promote dev to main and cut v0.1.0 | F01/S02, F02/S01, F02/S02 | in progress | |
 | 6 | F03/S02 Later versions follow conventional commits | F03/S01 | not started | |
-| - | F01/S03 An essential-only form can receive an application (found in F01/S02) | - | done (unpushed) | |
-| - | F04/S01 A new organizer's dashboard does not report a missing market | - | done (unpushed) | |
-| - | F04/S02 Unsaved plan edits survive a phase advance | - | done (unpushed) | |
+
+"In review" means the work is complete and pushed in **PR #66** (`feat/e04-v0-1-0-release` -> `dev`)
+but not yet merged. `docs/agents/issue-tracker.md` defines *done* as the PR merging to `dev` with
+its number appended to the story's `pr:` field, so the front-matter stays `in-progress` and every
+`pr:` stays empty until that happens. **On merge, set all seven to `done` with `pr: [#66]`.**
+
+F03/S01 is in progress rather than done: the branch is pushed and PR #66 is open, and the promotion
+to `main` follows once it merges.
+
+Its `E06/F01/S02` blocker was **lifted** by the epic owner; the reasoning is in the story.
 
 Both F04 stories were pulled into v0.1.0 by the epic owner, along with `E06/F02/S01`.
-
-F01/S01 and F02/S01 are both unblocked and may run in either order, or in parallel: one is e2e
-infrastructure and the other is documentation, and they do not touch the same files.
 
 ## Blocked outside this epic
 
