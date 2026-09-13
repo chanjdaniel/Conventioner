@@ -4,6 +4,7 @@ import { mongoContainer } from './helpers/containerNames';
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
   seedPhaseMarket,
+  seedFormlessPhaseMarket,
   seedApplicationWithStatus,
   type PhaseMarketSeed,
 } from './helpers/seedPhaseMarket';
@@ -384,5 +385,71 @@ test.describe('Phase state machine - archive confirmation', () => {
     await expect(page.getByTestId('phase-control-terminal')).toBeVisible();
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/13-archived.png`, fullPage: true });
+  });
+});
+
+test.describe('Phase state machine - guard: a form of essential questions alone', () => {
+  test('a market with no custom fields but a date on the plan opens applications', async ({
+    request,
+    authenticatedPage: page,
+  }) => {
+    const seed = await seedFormlessPhaseMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      true,
+    );
+
+    const marketBody = await loadMarket(page, seed.marketId);
+    await setMarketInPage(page, marketBody);
+    await page.goto('/market-setup');
+    await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Draft', {
+      timeout: 10000,
+    });
+
+    await page.getByTestId('phase-transition-applications_open').click();
+
+    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Applications Open', {
+      timeout: 10000,
+    });
+    await expect(page.getByTestId('phase-control-blockers')).toBeHidden();
+
+    await page.screenshot({
+      path: `${SCREENSHOT_DIR}/11-essential-only-form-opens.png`,
+      fullPage: true,
+    });
+  });
+
+  test('a market whose plan offers nothing is blocked, and told to add dates', async ({
+    request,
+    authenticatedPage: page,
+  }) => {
+    const seed = await seedFormlessPhaseMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      false,
+    );
+
+    const marketBody = await loadMarket(page, seed.marketId);
+    await setMarketInPage(page, marketBody);
+    await page.goto('/market-setup');
+    await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
+
+    await page.getByTestId('phase-transition-applications_open').click();
+
+    const blockers = page.getByTestId('phase-control-blockers');
+    await expect(blockers).toBeVisible({ timeout: 10000 });
+    await expect(blockers).toContainText('asks nothing');
+    await expect(blockers).toContainText('dates');
+    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Draft');
+
+    await page.screenshot({
+      path: `${SCREENSHOT_DIR}/12-empty-plan-blocked.png`,
+      fullPage: true,
+    });
   });
 });

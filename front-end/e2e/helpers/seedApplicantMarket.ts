@@ -98,7 +98,7 @@ export async function seedApplicantMarket(
   baseURL: string,
   email: string,
   password: string,
-  options: { setupObject?: Record<string, unknown> } = {},
+  options: { setupObject?: Record<string, unknown>; intakeMode?: 'csv' | 'form' } = {},
 ): Promise<ApplicantMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
@@ -113,6 +113,10 @@ export async function seedApplicantMarket(
       roles: { [userId]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      // This market's vendors apply through the public form, so it has to say so: intake mode
+      // defaults to `csv`, which switches the applicant surface off entirely. A spec that wants
+      // that switched-off market asks for `csv` here.
+      intakeMode: options.intakeMode ?? 'form',
       ...(options.setupObject ? { setupObject: options.setupObject } : {}),
     },
   });

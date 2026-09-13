@@ -8,7 +8,8 @@ import pytest
 
 import guards
 from datatypes import (
-    ApplicationForm, AssignmentObject, FormField, Market, MarketPhase, MarketRole,
+    ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions, FormField,
+    Market, MarketDateObject, MarketPhase, MarketRole, SectionObject, SetupObject, TierObject,
 )
 from guards import (
     AllApplicationsReviewedGuard,
@@ -32,6 +33,18 @@ def _make_market(**overrides):
         **overrides,
     }
     return Market(**kwargs)
+
+
+def _setup(dates=(), tiers=(), sections=()):
+    """A market plan offering exactly what is named, and nothing else."""
+    return SetupObject(
+        priority=[],
+        market_dates=[MarketDateObject(date=d) for d in dates],
+        tiers=[TierObject(id=i, name=name) for i, name in enumerate(tiers)],
+        locations=[],
+        sections=[SectionObject(name=name, count=1) for name in sections],
+        assignment_options=AssignmentOptionObject(),
+    )
 
 
 class TestPreconditionResult:
@@ -61,7 +74,15 @@ class TestPreconditionResult:
 
 
 class TestFormHasFieldsGuard:
-    def test_passes_when_form_has_fields(self):
+    """The guard asks whether the form asks the applicant anything at all.
+
+    Custom fields are one way to ask; the essential questions are the other, and they are
+    deliberately not members of ``ApplicationForm.fields`` -- they are purpose-built components
+    whose offering comes from the market plan. A form that asks every question the solver reads
+    and no custom ones is a complete form, and used to be judged empty.
+    """
+
+    def test_passes_when_form_has_a_custom_field(self):
         market = _make_market(
             application_form=ApplicationForm(
                 fields=[FormField(key="name", label="Name", type="text")],
@@ -71,20 +92,86 @@ class TestFormHasFieldsGuard:
         assert result.passed is True
         assert result.id == "form_has_fields"
 
-    def test_fails_when_form_is_none(self):
-        market = _make_market(application_form=None)
-        result = FormHasFieldsGuard().evaluate(market, None)
-        assert result.passed is False
-        assert "no fields" in result.message.lower()
-        assert result.resolution_link is not None
-
-    def test_fails_when_form_has_empty_fields_list(self):
+    def test_passes_when_the_form_asks_only_essential_questions(self):
         market = _make_market(
             application_form=ApplicationForm(fields=[]),
+            setup_object=_setup(dates=["2026-05-01"]),
+        )
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.passed is True
+
+    def test_passes_when_the_form_asks_essential_questions_and_no_form_exists_yet(self):
+        market = _make_market(application_form=None, setup_object=_setup(dates=["2026-05-01"]))
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.passed is True
+
+    def test_passes_when_the_form_asks_both_kinds_of_question(self):
+        market = _make_market(
+            application_form=ApplicationForm(
+                fields=[FormField(key="name", label="Name", type="text")],
+            ),
+            setup_object=_setup(dates=["2026-05-01"], tiers=["Standard"]),
+        )
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.passed is True
+
+    def test_a_tier_alone_is_a_question(self):
+        market = _make_market(
+            application_form=ApplicationForm(fields=[]),
+            setup_object=_setup(tiers=["Standard"]),
+        )
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.passed is True
+
+    def test_two_sections_alone_are_a_question(self):
+        market = _make_market(
+            application_form=ApplicationForm(fields=[]),
+            setup_object=_setup(sections=["North", "South"]),
+        )
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.passed is True
+
+    def test_one_section_alone_is_not_a_question(self):
+        """Ranking a list of one has exactly one order, so it is not asked (``asks_ranking``)."""
+        market = _make_market(
+            application_form=ApplicationForm(fields=[]),
+            setup_object=_setup(sections=["North"]),
         )
         result = FormHasFieldsGuard().evaluate(market, None)
         assert result.passed is False
-        assert "no fields" in result.message.lower()
+
+    def test_fails_when_the_form_asks_nothing(self):
+        market = _make_market(application_form=None, setup_object=None)
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.passed is False
+        assert result.resolution_link is not None
+
+    def test_fails_when_an_empty_form_meets_an_empty_plan(self):
+        market = _make_market(application_form=ApplicationForm(fields=[]), setup_object=None)
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.passed is False
+
+    def test_the_blocker_does_not_name_a_custom_field_as_the_only_remedy(self):
+        """The old message said "add at least one field", which was the workaround, not the fix.
+
+        An organizer whose form asks nothing usually has an unconfigured market plan, and adding
+        a custom field they do not want was the only way the old guard could be satisfied.
+        """
+        market = _make_market(application_form=None, setup_object=None)
+        message = FormHasFieldsGuard().evaluate(market, None).message.lower()
+        assert "date" in message
+
+    def test_a_frozen_offering_is_what_counts_once_it_exists(self):
+        """The market plan stops speaking for the form the moment an applicant has saved one."""
+        market = _make_market(
+            application_form=ApplicationForm(
+                fields=[],
+                essential_options=EssentialFormOptions(dates=["2026-05-01"]),
+            ),
+            setup_object=None,
+        )
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.passed is True
 
 
 class TestEvaluateTransition:

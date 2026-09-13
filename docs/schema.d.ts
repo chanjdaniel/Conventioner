@@ -44,6 +44,7 @@ export interface MarketSchema {
     savedAt?: string;
     targets?: Record<string, string[]>;
   };
+  intakeMode?: string;
   isDraft?: boolean;
   modificationList: {
   }[];
