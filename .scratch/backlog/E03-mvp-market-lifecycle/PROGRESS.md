@@ -16,7 +16,8 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | 1 | F01/S01 FormHasFieldsGuard counts essential questions | - | done (unpushed) | |
 | 2 | F02/S01 A market declares how vendors reach it | - | done (unpushed) | |
 | 3 | F02/S02 A CSV market's applicant endpoints answer as if it did not exist | F02/S01 | done (unpushed) | |
-| 4 | F02/S03 A stranger visiting a CSV market's public pages is told nothing | F02/S02 | not started | |
+| 4 | F02/S03 A stranger visiting a CSV market's public pages is told nothing | F02/S02 | done (unpushed) | |
+| 5 | F02/S04 Publishing lands the organizer on a page their market serves (found in S03) | F02/S03 | not started | |
 
 F01/S01 and F02/S01 are both unblocked and may run in either order.
 F01 has no dependency on F02: the guard correction is a pre-existing bug that MVP merely exposes.
@@ -141,3 +142,32 @@ market fixtures named no intake mode, and absence means CSV.
 Each was a market whose vendors apply through the public form, so each fixture now says so.
 The same was true of `seedApplicantMarket` in the e2e helpers.
 That is the fail-closed default doing its job on the only markets that existed to test it.
+
+### F02/S03 A stranger visiting a CSV market's public pages is told nothing
+
+Front-end unit suite green at 79 passed, up from 74: five new `MarketHomeView` tests.
+`intake-mode.spec.ts` green at 12 passed, all new.
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| Each of the four public applicant routes renders the not-found state for a published CSV market | met | `intake-mode.spec.ts` walks all four against a seeded CSV market. Three of them needed no code change: after F02/S02 the API answers a CSV market exactly as it answers an unknown slug, and those pages already render that answer. Only the market home had to change. |
+| That state is the same one an unknown slug produces; the two are asserted to be identical rather than each asserted separately | met | Eight parametrized tests, two per route: the rendered body text, and the path the visitor ends up on after any redirect. Both are compared gated-against-absent, with the slug masked out - the one thing the two legitimately differ by, since every applicant page falls back to printing what the visitor typed when it has no market name, which it has in neither case. |
+| The market home route no longer renders the slug stub for a market it cannot serve | met | `MarketHomeView` resolves its market through the public application-form endpoint, the same gated surface its siblings use, and renders "Page not found" when that does not answer. `test_never_prints_the_slug_back_before_it_knows_the_market_is_real` covers the loading state too: the old stub told every visitor their guess was real, and a page that printed the slug while loading would keep doing so. |
+| The check-in route for the same market is unaffected | met | `its vendors still reach check-in` loads the check-in page for that same CSV market and finds the email input. |
+| No page tells the visitor that the market exists but is not taking applications | met | `the market home never confirms that the market exists` asserts the not-found block is present and the market-name element absent. The unit suite pins the copy: it names no market, no application and no import. |
+| An e2e story walks a stranger through a CSV market's applicant routes and then through its check-in route, against one seeded market | met | One `beforeAll` seed, shared by all ten CSV tests. A second describe block covers a form market, so the suite proves the gate discriminates rather than merely blocking. |
+
+The not-found baseline was left as it stands, for both cases equally.
+`ApplicationPage` still says "could not be loaded, check your connection" rather than "not found",
+which is a wording question older than this story and equally wrong for an unknown slug.
+Improving it for only the gated case is what the story rules out, and improving it for both is a
+change to applicant-facing copy that MVP does not need.
+
+#### Found along the way: publishing now lands the organizer on a dead end
+
+The Done button in `GenerateAssignmentView` publishes the market and then navigates to `/<slug>`.
+For an MVP market that is a CSV market, so it now renders "Page not found" - the organizer's
+reward for publishing is a page telling them their own market does not exist.
+
+This is a regression this story introduces, not a pre-existing wart, so it is not left standing.
+Per the tracker convention it is a sibling story rather than growth of this one: F02/S04.
