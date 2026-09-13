@@ -213,6 +213,29 @@ def update_application_form_data(
     return result.matched_count > 0
 
 
+def list_applications_with_status(
+    market_id: str, status: str, application_type: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Every application for a market holding one status, newest first.
+
+    The counting functions below answer "how many", which is all the phase guards ever needed.
+    The solver needs the applications themselves: assignment reads the approved ones and nothing
+    else. ``application_type`` narrows further, because an applicant's waitlist application is a
+    second document for the same address and a caller that wants one vendor per person must say
+    so.
+    """
+    ensure_application_indexes()
+    query: Dict[str, Any] = {**market_filter(market_id), "status": status}
+    if application_type is not None:
+        query[APPLICATION_TYPE_FIELD] = application_type
+    cursor = applications_collection.find(query).sort("submitted_at", -1)
+    apps = []
+    for doc in cursor:
+        doc.pop("_id", None)
+        apps.append(doc)
+    return apps
+
+
 def count_applications_with_status(market_id: str, status: str) -> int:
     """How many applications for a market hold a specific status."""
     ensure_application_indexes()
