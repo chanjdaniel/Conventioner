@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 
 /**
  * Page object for the Market Setup wizard view.
@@ -29,9 +29,6 @@ export class MarketSetupPage {
   readonly sectionAddButton: Locator;
 
   // Page 2: Assignment Options
-  readonly optionsEmailSelect: Locator;
-  readonly optionsTableChoiceSelect: Locator;
-  readonly optionsTableShareEmailSelect: Locator;
   readonly optionsMaxAssignmentsInput: Locator;
   readonly optionsMaxProportionInput: Locator;
 
@@ -51,10 +48,6 @@ export class MarketSetupPage {
     this.locationAddButton = page.getByTestId('setup-location-add-button');
 
     this.sectionAddButton = page.getByTestId('setup-section-add-button');
-
-    this.optionsEmailSelect = page.getByTestId('setup-options-email-select');
-    this.optionsTableChoiceSelect = page.getByTestId('setup-options-table-choice-select');
-    this.optionsTableShareEmailSelect = page.getByTestId('setup-options-table-share-email-select');
     this.optionsMaxAssignmentsInput = page.getByTestId('setup-options-max-assignments-input');
     this.optionsMaxProportionInput = page.getByTestId('setup-options-max-proportion-input');
   }
@@ -104,21 +97,6 @@ export class MarketSetupPage {
     return this.page.getByTestId(`setup-dates-column-select-${index}`);
   }
 
-  // --- Page 0: Column checkboxes ---
-
-  /** Get a column's include checkbox by column index. */
-  getColumnCheckbox(index: number): Locator {
-    return this.page.locator('.setup-row').nth(index).locator('.include-checkbox');
-  }
-
-  /** Verify that N column rows are visible. */
-  async expectColumnCount(count: number): Promise<void> {
-    // The setup-row class is used across multiple components; scope to the columns container.
-    const colRows = this.page.locator('.double-column-body .setup-row');
-    await colRows.first().waitFor({ state: 'visible' });
-    await expect(colRows).toHaveCount(count);
-  }
-
   // --- Page 1: Path choice ---
 
   /** Select the Manual Setup path from the ChoosePathOverlay. */
@@ -130,6 +108,20 @@ export class MarketSetupPage {
   // --- Page 1: Locations ---
 
   /** Add a new location with the given name. */
+  /**
+   * Name a tier.
+   *
+   * Tiers used to arrive pre-filled, scraped from the uploaded spreadsheet's cell values. There
+   * is no spreadsheet behind a market any more and a tier is the organizer's own decision, so
+   * every test that needs one names it.
+   */
+  async addTier(name: string, index: number = 0): Promise<void> {
+    await this.page.getByTestId('setup-tier-add-button').click();
+    const nameInput = this.page.getByTestId(`setup-tier-name-input-${index}`);
+    await nameInput.waitFor({ state: 'visible' });
+    await nameInput.fill(name);
+  }
+
   async addLocation(name: string, index: number = 0): Promise<void> {
     await this.locationAddButton.click();
     const nameInput = this.page.getByTestId(`setup-location-name-input-${index}`);
@@ -198,21 +190,6 @@ export class MarketSetupPage {
   }
 
   // --- Page 2: Assignment Options ---
-
-  /** Select the email column by its column index. */
-  async selectEmailColumn(columnIndex: number): Promise<void> {
-    await this.optionsEmailSelect.selectOption(String(columnIndex));
-  }
-
-  /** Select the table choice column by its column index. */
-  async selectTableChoiceColumn(columnIndex: number): Promise<void> {
-    await this.optionsTableChoiceSelect.selectOption(String(columnIndex));
-  }
-
-  /** Select the table share email column by its column index. */
-  async selectTableShareEmailColumn(columnIndex: number): Promise<void> {
-    await this.optionsTableShareEmailSelect.selectOption(String(columnIndex));
-  }
 
   /** Set the max assignments per vendor. */
   async setMaxAssignmentsPerVendor(value: number): Promise<void> {

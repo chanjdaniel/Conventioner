@@ -277,19 +277,36 @@ const handleBack = async () => {
   localStorage.setItem('setupPageIdx', JSON.stringify(pageIdx.value));
   await updateMarket();
 };
+const assignError = ref('');
+
+/**
+ * Run the assignment, or say why it was refused.
+ *
+ * The back end refuses the whole run when an approved application is missing an answer the
+ * solver needs, naming the applicants, because an assignment that looks complete with someone
+ * silently missing is worse than no assignment. That refusal has to reach the organizer: this
+ * used to let the error escape unhandled, so the button did nothing at all and the page simply
+ * sat there.
+ */
 const handleAssign = async () => {
   if (!assignmentOptionsComplete.value) {
     return;
   }
-  await updateMarket();
+  assignError.value = '';
+  try {
+    await updateMarket();
 
-  const response = await api.get('/markets/' + market.value!.id + '/assignment');
+    const response = await api.get('/markets/' + market.value!.id + '/assignment');
 
-  const assignedMarket: Market = response.data;
-  market.value = assignedMarket;
-  await updateMarket();
+    const assignedMarket: Market = response.data;
+    market.value = assignedMarket;
+    await updateMarket();
 
-  router.push('/assignment-results');
+    router.push('/assignment-results');
+  } catch (err: unknown) {
+    const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+    assignError.value = detail || 'Assignment failed. Please try again.';
+  }
 };
 
 function handlePathChoice(path: 'manual' | 'floorplan') {
@@ -582,13 +599,20 @@ watch(pageIdx, (newIdx) => {
             :title="
               assignmentOptionsComplete
                 ? ''
-                : 'Complete required assignment options (max assignments, proportion, and column mappings; Max days is optional)'
+                : 'Complete the required assignment options: max assignments per vendor, and max half-table proportion'
             "
             @click="handleAssign"
             data-testid="market-setup-assign-button"
           >
             Assign
           </button>
+          <div
+            v-if="assignError"
+            class="form-load-error-banner assign-error-banner"
+            data-testid="market-setup-assign-error"
+          >
+            <span>{{ assignError }}</span>
+          </div>
           <button
             v-else
             class="done-button"
@@ -895,6 +919,11 @@ h2 {
   border: 1px solid #e0e0e0;
   border-radius: 6px;
   padding: 10px 12px;
+}
+
+.assign-error-banner {
+  margin-top: 10px;
+  max-width: 520px;
 }
 
 .form-load-error-banner {

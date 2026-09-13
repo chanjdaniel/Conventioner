@@ -21,7 +21,7 @@ SECTIONS = ["Main Hall", "Garden"]
 TIERS = ["Gold", "Silver"]
 
 SETUP_CAMEL = {
-    "colNames": [], "colValues": [], "colInclude": [], "priority": [],
+    "priority": [],
     "marketDates": [{"date": date} for date in DATES],
     "tiers": [{"id": index, "name": name} for index, name in enumerate(TIERS)],
     "locations": [],

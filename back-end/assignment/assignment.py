@@ -103,14 +103,19 @@ class Vendor:
     def is_available_on(self, market_date: MarketDateObject) -> bool:
         return market_date.date in self.want.available_dates
 
-    def accepts_tier(self, tier: TierObject) -> bool:
+    def accepts_tier(self, tier: Optional[TierObject]) -> bool:
         """Set membership, not a substring test.
 
         The CSV-era check was ``table.tier.name in <the vendor's answer string>``, in which a
-        tier named 'A' matched an answer of 'AB'. A market offering no tiers constrains nothing,
-        so every table is acceptable.
+        tier named 'A' matched an answer of 'AB'.
+
+        A table with no tier constrains nothing, which is what a market that offers no tiers
+        produces. That is deliberately not the same as a vendor whose accepted tiers are empty:
+        such a vendor accepts no tier this market offers and belongs at no table, which is how an
+        organizer dropping a tier after applications are in reads - the applicant goes
+        unassigned rather than the market going unassignable.
         """
-        if not self.want.accepted_tiers:
+        if tier is None:
             return True
         return tier.name in self.want.accepted_tiers
 
@@ -368,16 +373,22 @@ class MarketAssignment:
 
 
     def sort_vendors(self):
-        """Sort vendors by assignment priority using priority configuration."""
+        """Order vendors for placement. Earlier sorts first.
+
+        The last key is a tiebreaker of last resort, and it is here so that two vendors nothing
+        else separates are still ordered by something the market can explain. Without it the
+        order is whatever the database happened to return, so the same market assigned twice
+        could place different people and nobody could say why.
+        """
         def sort_key(vendor):
-            priority_scores = self._calculate_priority_score(vendor)
-            
             return (
-                vendor.num_assignments,  # Fewest assignments first
-                priority_scores,         # Priority-based sorting
-                vendor.date_flexibility, # Lowest flexibility first
+                vendor.num_assignments,                 # Fewest assignments first
+                self._calculate_priority_score(vendor), # The organizer's rules, in rule order
+                vendor.date_flexibility,                # Most constrained first
+                vendor.want.submitted_at or "",         # Then whoever applied earlier
+                vendor.want.email,                      # Then something that is always distinct
             )
-        
+
         self.vendors.sort(key=sort_key)
 
     def is_valid_vendor(self, vendor, market_date: MarketDateObject, table):

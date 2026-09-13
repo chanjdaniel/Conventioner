@@ -2,6 +2,15 @@ import type { APIRequestContext } from '@playwright/test';
 import { seedApprovedVendor } from './seedApplication';
 
 /**
+ * The market day every seeded vendor says they can attend.
+ *
+ * Shared on purpose: a vendor is only placeable on a date they answered for, so a setupObject
+ * whose market date differs from this silently assigns nobody, and the failure reads as "the
+ * solver is broken" rather than "the seed disagrees with itself".
+ */
+export const SEED_MARKET_DATE = '2026-05-01';
+
+/**
  * Result returned by seedMarketWithVendors().
  */
 export interface SeedResult {
@@ -188,7 +197,7 @@ export async function seedMarketWithVendors(
   // which is what a vendor is; this used to be a fabricated CSV upload because the solver read a
   // separate source_data collection.
   for (const applicant of ['alice@example.com', 'bob@example.com']) {
-    seedApprovedVendor(marketId, applicant, { dates: ['2026-05-01'], tiers: ['Gold'] });
+    seedApprovedVendor(marketId, applicant, { dates: [SEED_MARKET_DATE], tiers: ['Gold'] });
   }
 
   return { marketId, userId, marketName, orgId };
@@ -204,10 +213,8 @@ export async function seedMarketWithVendors(
  * edge the product's Done button takes) so the check-in API and vendor/table
  * views work.
  *
- * The assignment engine still requires source_data (populated by the CSV
- * intake). A minimal inline CSV is uploaded to satisfy that dependency while
- * the assignment solver still routes through source_data. This dependency
- * belongs to Phase 5 of Conventioner and is explicitly NOT removed here.
+ * Vendors are seeded as approved applications, which is what the solver reads. They used to be
+ * a fabricated CSV upload, back when the solver read a separate source_data collection.
  *
  * @returns PublishedSeedResult with marketSlug for navigating to
  *          the public check-in URL.
@@ -256,14 +263,14 @@ export async function seedPublishedMarketWithAssignments(
   // Step 3: Seed the vendors as approved applications - what a vendor is. This used to upload a
   // fabricated CSV, because the solver read a separate source_data collection.
   for (const applicant of ['alice@example.com', 'bob@example.com']) {
-    seedApprovedVendor(marketId, applicant, { dates: ['2026-05-01'], tiers: ['Gold'] });
+    seedApprovedVendor(marketId, applicant, { dates: [SEED_MARKET_DATE], tiers: ['Gold'] });
   }
 
   // Step 4: Put the setupObject directly. A market date is now just a date: it carried a
   // spreadsheet column name only so the solver could look the answer up by heading.
   const setupObject = {
     priority: [],
-    marketDates: [{ date: '2026-05-01' }],
+    marketDates: [{ date: SEED_MARKET_DATE }],
     tiers: [{ id: 0, name: 'Gold' }],
     locations: [{ name: 'Main Hall' }],
     sections: [

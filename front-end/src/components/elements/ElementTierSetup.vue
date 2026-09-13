@@ -122,6 +122,7 @@ const dragOptions = computed(() => ({
                 <input
                   type="text"
                   v-model="tierObjects[parentIndex].name"
+                  :data-testid="'setup-tier-name-input-' + parentIndex"
                   style="
                     all: unset;
                     font-size: 14px;
@@ -157,7 +158,11 @@ const dragOptions = computed(() => ({
       </draggable>
 
       <div class="add-container">
-        <IconAddRound class="icon-add-round" @click="addTierRow" />
+        <IconAddRound
+          class="icon-add-round"
+          data-testid="setup-tier-add-button"
+          @click="addTierRow"
+        />
       </div>
     </div>
   </div>

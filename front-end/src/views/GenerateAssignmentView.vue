@@ -129,8 +129,9 @@ const showUnassignedColumn = computed(
   () => hasUnassignedVendors.value || hasUnassignedTables.value,
 );
 
-const NO_EMAIL_HINT =
-  '(no email — check Assignment Options column mapping matches the column names in Manage Columns)';
+// An assignment with no address is now a bug rather than a mapping mistake: the address comes
+// from the application itself, and there is no column mapping left to get wrong.
+const NO_EMAIL_HINT = '(no email recorded on this assignment)';
 
 function displayUnassignedEntry(vendor: unknown): string {
   if (vendor == null) return '(unknown)';

@@ -21,11 +21,8 @@ def _sample_market_doc():
 def _sample_market_doc_with_setup():
     market = _sample_market_doc()
     market["setupObject"] = {
-        "colNames": ["Email", "Table Choice", "Table Share Email", "Day 1"],
-        "colValues": [],
-        "colInclude": [True, True, True, True],
         "priority": [],
-        "marketDates": [{"date": "2026-01-01", "colNameIdx": 3, "colName": "Day 1"}],
+        "marketDates": [{"date": "2026-01-01"}],
         "tiers": [{"id": 1, "name": "Gold"}],
         "locations": [{"name": "Main Hall"}],
         "sections": [
