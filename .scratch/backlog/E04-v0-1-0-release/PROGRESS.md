@@ -263,7 +263,32 @@ payload the next save actually sends.
 
 ## Release status
 
-Ten consecutive green full-suite runs, six of them after the applicant-form retry workaround was
-deleted. `F03` remains **not started**: the epic owner chose to hold the release until
-`E06/F01/S02` is solved, and it is not. Its first acceptance criterion is "the cause is identified
-and stated, not inferred", and this session narrowed it by elimination without meeting that bar.
+**Ready to promote. Everything up to the push is done and verified; the push itself is the epic
+owner's, by their own instruction.**
+
+`scripts/nm-test.sh` - the committed gate, run against the exact commit that would ship:
+
+```
+Backend tests: OK          (794 passed)
+Frontend unit tests: OK    (99 passed)
+E2E tests: OK              (74 passed)
+===== All tests passed =====
+```
+
+Preconditions checked against `origin`, not a local ref:
+
+| Check | Result |
+| --- | --- |
+| `origin/main` is an ancestor of `origin/dev` | yes - the promotion is a clean fast-forward |
+| commits `main..dev` | 56 |
+| this branch contains all of `origin/dev` | yes, 21 commits ahead |
+| conventional-commit compliance of those 21 | all conform |
+| what release-please reads since `main` | 27 `feat`, 17 `fix` |
+| version | pinned by `release-as: 0.1.0`; manifest at `0.0.0` |
+
+The pin is what decides the version, not the 27 feats - though they agree: 27 feats against a
+`0.0.0` baseline would produce `0.1.0` anyway. Removing the pin is `F03/S02`, and it can only
+happen after the tag exists.
+
+The `E06/F01/S02` gate was lifted by the epic owner; the reasoning is recorded in `F03/S01`, and
+that story stays open.
