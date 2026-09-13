@@ -410,6 +410,38 @@ class MarketAssignment:
         return None
 
     # get next valid vendor with highest priority
+    def best_table_for(self, vendor: Vendor, market_date: MarketDateObject):
+        """The empty table this vendor should get, or None when nothing suits them.
+
+        This is the inversion. The solver used to walk tables and ask each one which vendor it
+        should take, under which a vendor's own section ranking could not influence anything -
+        by the time a table asked, it had already decided which section it was in.
+
+        A ranking is a permutation of the whole offering, so it excludes nothing: an unranked
+        section is not refused, it merely sorts behind every ranked one. That is what makes this
+        a preference rather than a filter, and it is why nobody goes unplaced for wanting
+        something. Tier, in contrast, IS a filter, and ``is_valid_vendor`` has already applied it.
+        """
+        ranking = vendor.want.section_ranking
+
+        def rank(table) -> int:
+            try:
+                return ranking.index(table.section.name)
+            except ValueError:
+                # Unranked sorts behind everything ranked, never out of consideration.
+                return len(ranking)
+
+        candidates = [
+            table for table in self.date_assignments[market_date.date].tables
+            if not table.assignment and self.is_valid_vendor(vendor, market_date, table)
+        ]
+        if not candidates:
+            return None
+        # Stable within a rank, so the table order still decides among equally-preferred tables
+        # and a re-run of the same market produces the same assignment.
+        return min(candidates, key=rank)
+
+
     def get_valid_vendor(self, market_date: MarketDateObject, table):
         for vendor in self.vendors:
             if self.is_valid_vendor(vendor, market_date, table):
@@ -419,14 +451,14 @@ class MarketAssignment:
     # return with a valid pair of vendors for a given table
     # [Vendor A, Vendor A] <-- one vendor, full table
     # [Vendor A, Vendor B] <-- two vendors, half tables
-    def get_valid_vendors(self, market_date: MarketDateObject, table):
-        date = market_date.date
-        next_vendor = self.get_valid_vendor(market_date, table)
+    def get_valid_vendors(self, market_date: MarketDateObject, table, next_vendor):
+        """Who occupies ``table``, given that ``next_vendor`` is being placed at it.
 
-        # check if no more valid vendors
-        if next_vendor == None:
-            return None
-
+        Returns ``[v, v]`` for one vendor holding a whole table, or ``[a, b]`` for two halves.
+        The lead vendor is passed in rather than looked up: they were chosen by priority, and
+        the table was then chosen to suit THEM. Picking the lead here, from the table, is what
+        made a vendor's own section ranking unable to influence anything.
+        """
         # check for valid table sharing partner
         table_share_email = self._vendor_table_share_email_str(next_vendor)
         if table_share_email != "" and not self._is_full_table_only(next_vendor):
@@ -448,23 +480,17 @@ class MarketAssignment:
         # half table, loop to find next vendor for other half
         valid_vendors = [next_vendor]
         for vendor in self.vendors:
-            # exit loop when valid_vendors is full
             if len(valid_vendors) == 2:
                 break
-            
-            # check: valid table tier, vendor not max assigned, vendor not assigned for date
             if not self.is_valid_vendor(vendor, market_date, table):
                 continue
-
-            # check not equal to next_vendor
             if self.vendor_email(vendor) == self.vendor_email(next_vendor):
                 continue
-
-            # append if vendor selected half table
             if not self._is_full_table_only(vendor):
                 valid_vendors.append(vendor)
-                
+
         return valid_vendors
+
 
     def is_max_half_tables(self, market_date: MarketDateObject, section_object: SectionObject):
         date_col_name = market_date.date
@@ -610,24 +636,35 @@ class MarketAssignment:
         return statistics
 
     def assign(self):
-        # loop market dates
-        for _, date_assignment in self.date_assignments.items():
-            market_date = date_assignment.market_date
+        """Place vendors, best-priority first, each at the best table still open to them.
 
-            # sort vendors
+        Vendor-driven rather than table-driven. Besides honouring section preference, this
+        removes a defect the table-driven loop had: it stopped a date the moment one table could
+        not be filled, but validity is answered per table - a vendor who accepts only one tier is
+        not valid for a table of another - so an unfillable table early in the list left every
+        later table empty however many vendors could have taken one.
+        """
+        for date_assignment in self.date_assignments.values():
+            market_date = date_assignment.market_date
             self.sort_vendors()
 
-            # loop tables
-            for table in date_assignment.tables:
-                
-                vendor_list = self.get_valid_vendors(market_date, table)
+            # A snapshot, because assigning re-sorts nothing until the next date: every vendor
+            # gets one turn on this date, taken in priority order.
+            for vendor in list(self.vendors):
+                if vendor.is_date_assigned(market_date):
+                    continue
+                if self.is_vendor_max_assigned(vendor):
+                    continue
+                if not vendor.is_available_on(market_date):
+                    continue
 
-                # break if no more valid vendors
-                if vendor_list == None:
-                    break
+                table = self.best_table_for(vendor, market_date)
+                if table is None:
+                    continue
 
-                self.assign_table(market_date, vendor_list, table)
+                self.assign_table(market_date, self.get_valid_vendors(market_date, table, vendor), table)
         self.sort_vendors()
+
 
 
 class IncompleteApplicationsError(ValueError):
