@@ -23,6 +23,7 @@ from typing import Optional
 
 import api.applications as ApplicationsApi
 from datatypes import ApplicationStatus, Market, MarketPhase
+from essential_fields import asked_essential_keys, effective_essential_options_for_market
 
 
 # ── Wire shape (backend/frontend contract) ──────────────────────────────
@@ -46,20 +47,42 @@ class PreconditionResult:
 
 
 class FormHasFieldsGuard:
-    """Application form must have at least one field before publishing."""
+    """The application form must ask the applicant something before applications open.
+
+    There are two ways to ask, and this guard counts both.
+
+    A market's *custom* fields live in ``ApplicationForm.fields``. Its *essential* questions do
+    not: they are purpose-built components whose offering is derived from the market plan
+    (``essential_fields``), and they are deliberately kept out of that list. Counting only the
+    list therefore judged a form that asks every question the solver reads to be empty, and the
+    organizer's only way past this guard was to add a custom field they did not want. That was a
+    pre-existing bug; a market whose intake is the essential questions alone is the first thing
+    to meet it.
+
+    "The essential questions ask something" is not "the market has a form". It is
+    ``asked_essential_keys``, the one statement of which questions an offering actually asks --
+    the same rule that decides what an applicant is shown and what the solver requires of them.
+    A question with nothing to offer is not asked, so a market with no dates, no tiers and fewer
+    than two sections genuinely asks nothing, and is genuinely blocked.
+    """
 
     id: str = "form_has_fields"
-    description: str = "Application form has at least one field"
+    description: str = "Application form asks at least one question"
 
     def evaluate(self, market: Market, db) -> PreconditionResult:
         form = market.application_form
-        if form is None or len(form.fields) == 0:
+        custom_fields = 0 if form is None else len(form.fields)
+        essential_questions = len(
+            asked_essential_keys(effective_essential_options_for_market(market))
+        )
+        if custom_fields == 0 and essential_questions == 0:
             return PreconditionResult(
                 id=self.id,
                 passed=False,
                 message=(
-                    "The application form has no fields. "
-                    "Add at least one field before publishing the market."
+                    "The application form asks nothing. "
+                    "Add market dates, tiers or sections so the form can ask the essential "
+                    "questions, or add a custom field, before opening applications."
                 ),
                 resolution_link="/market-setup",
             )

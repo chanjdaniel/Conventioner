@@ -111,3 +111,49 @@ export function seedApplicationWithStatus(
   );
   return applicationId;
 }
+
+/**
+ * Create a draft market whose application form has no custom fields.
+ *
+ * `withDates` decides whether the market plan offers anything: a market with a date asks the
+ * essential questions, and a market with an empty plan asks nothing at all. That is the whole
+ * difference `FormHasFieldsGuard` has to see, and neither market has a custom field to hide
+ * behind.
+ */
+export async function seedFormlessPhaseMarket(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  password: string,
+  withDates: boolean,
+): Promise<PhaseMarketSeed> {
+  const userId = await loginViaApi(request, baseURL, email, password);
+  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
+
+  const marketName = `E2E Formless ${randomUUID().slice(0, 8)}`;
+  const createRes = await request.post(`${baseURL}/markets`, {
+    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+    data: {
+      name: marketName,
+      creationDate: new Date().toISOString(),
+      organizationId: orgId,
+      roles: { [userId]: 'owner' },
+      modificationList: [],
+      assignmentObject: {},
+      setupObject: {
+        priority: [],
+        marketDates: withDates ? [{ date: '2099-05-01' }] : [],
+        tiers: [],
+        locations: [],
+        sections: [],
+        assignmentOptions: {},
+      },
+    },
+  });
+  if (!createRes.ok()) {
+    throw new Error(`Market creation failed: ${createRes.status()} ${await createRes.text()}`);
+  }
+  const { market_id: marketId } = (await createRes.json()) as { market_id: string };
+
+  return { marketId, marketName, orgId, userId };
+}
