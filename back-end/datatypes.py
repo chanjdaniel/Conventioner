@@ -80,6 +80,51 @@ def phase_from_market_document(document: Dict[str, Any]) -> MarketPhase:
     return MarketPhase.DRAFT if is_draft else MarketPhase.ARCHIVED
 
 
+class IntakeMode(str, Enum):
+    """How vendors reach a market: imported by the organizer, or applying themselves.
+
+    Exactly one, never both. Hybrid intake is plausible eventually, but nothing needs it yet and
+    a third value can be added later without disturbing either of these two.
+
+    This is not the same question as the phase. Application submission is already gated to
+    ``applications_open``, but a CSV market passes through that phase too -- that is where the
+    import happens -- so during that window its public application form would be live and taking
+    applications from strangers the organizer never meant to hear from. The phase cannot tell the
+    two intakes apart; this is what does.
+    """
+
+    CSV = "csv"
+    FORM = "form"
+
+
+def intake_mode_from_market_document(document: Dict[str, Any]) -> IntakeMode:
+    """Effective intake mode of a stored market document.
+
+    Absence means CSV, so the public applicant surface is off unless a market says otherwise.
+    Of the two possible mistakes, wrongly exposing a public application surface is worse than
+    wrongly hiding one: hiding is visible and gets complained about, exposing is silent until a
+    stranger applies. The same reasoning that made ``phase_from_market_document`` refuse to guess
+    from a Mongo condition applies here, so this is the one place the question is answered.
+
+    Callers pass raw stored documents, which no write path validates on the way out of Mongo, so
+    a value this build does not recognize degrades to CSV rather than raising and taking down
+    whatever list is being served. It degrades on read only: nothing rewrites the document, so an
+    operator repairing a typo finds the typo still there.
+    """
+    stored = document.get("intakeMode", document.get("intake_mode"))
+    if not stored:
+        return IntakeMode.CSV
+    try:
+        return IntakeMode(stored)
+    except ValueError:
+        logger.warning(
+            "Market %s stores unrecognized intake mode %r; falling back to csv",
+            document.get("id"),
+            stored,
+        )
+        return IntakeMode.CSV
+
+
 class OrganizationRole(str, Enum):
     OWNER = "owner"
     ADMIN = "admin"
@@ -310,6 +355,8 @@ class Market(BaseModel):
     discord_webhook_url: Optional[str] = None  # Per-market Discord webhook target for assignment notifications
     # Server-owned: written only by the CSV import endpoint, never by a market update body.
     import_mapping: Optional["ImportMapping"] = None
+    # Organizer-settable while the market is a draft, frozen by ``update_market`` once it is not.
+    intake_mode: IntakeMode = IntakeMode.CSV
 
     @computed_field
     def is_draft(self) -> bool:
@@ -695,6 +742,7 @@ class MarketSchemaContract(ContractModel):
     discord_guild_id: Optional[str] = None
     discord_webhook_url: Optional[str] = None
     id: str
+    intake_mode: Optional[str] = None
     is_draft: Optional[bool] = None
     modification_list: List[ModificationObject]
     name: str

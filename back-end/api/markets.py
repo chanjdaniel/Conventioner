@@ -8,12 +8,14 @@ from datatypes import (
     ApplicationForm,
     EssentialFormOptions,
     FormField,
+    IntakeMode,
     Market,
     MarketPhase,
     MarketRole,
     MarketTableRow,
     Organization,
     UnassignedTableEntry,
+    intake_mode_from_market_document,
     phase_from_market_document,
 )
 from assignment.assignment import IncompleteApplicationsError, assign_market
@@ -250,6 +252,29 @@ def _strip_persisted_assignment_statistics(market_dict: Dict[str, Any]) -> None:
         assignment_object.pop("assignment_statistics", None)
 
 
+def _intake_mode_for_update(market: Market, existing_market: Market) -> IntakeMode:
+    """The intake mode an update writes: the payload's while the market is a draft, else the stored one.
+
+    Switching intake mid-lifecycle strands whatever the previous mode produced -- flip a form
+    market to CSV after applicants have applied and their dashboards go dark -- so the answer is
+    fixed the moment the market leaves ``draft``. This mirrors the application-form lock: editable
+    until it would invalidate something real, then fixed for good.
+
+    The freeze is derived from the stored phase rather than from a list of phases that count as
+    late, so it stays in step with the phase machine as edges are added.
+
+    A draft payload that does not mention intake mode keeps what the draft stored.
+    ``Market.intake_mode`` defaults to ``csv``, so an omitted field is otherwise indistinguishable
+    from a deliberate ``csv``, and a client round-tripping a market it fetched would silently
+    switch off a form market's own intake.
+    """
+    if existing_market.phase is not MarketPhase.DRAFT:
+        return existing_market.intake_mode
+    if "intake_mode" not in market.model_fields_set:
+        return existing_market.intake_mode
+    return market.intake_mode
+
+
 def _preserve_server_owned_fields(
     market_dict: Dict[str, Any], market: Market, existing_market: Market
 ) -> None:
@@ -268,11 +293,15 @@ def _preserve_server_owned_fields(
     and a fallback that disagrees with the phase is worse than no fallback: it answers
     confidently and wrongly.
 
+    `intake_mode` is the one field here the client may write, and only while the market is still a
+    draft -- see ``_intake_mode_for_update``.
+
     The remaining Conventioner fields are carried over whenever the payload omits them, so a client
     that round-trips a market it fetched cannot null them out; an explicit null still clears them.
     """
     market_dict["phase"] = existing_market.phase.value
     market_dict["is_draft"] = existing_market.is_draft
+    market_dict["intake_mode"] = _intake_mode_for_update(market, existing_market).value
     market_dict["application_form"] = _application_form_dump(existing_market)
     # results_published is a server-owned gate: only the publish-results endpoint flips it.
     market_dict["results_published"] = existing_market.results_published
@@ -433,17 +462,24 @@ def load_market_context(market_id: str) -> Optional[MarketContext]:
     return MarketContext(market_dict, market, organization, org_dict)
 
 
-def _stamp_effective_phase(market: Dict[str, Any], phase: MarketPhase) -> None:
-    """Serve a raw market document with its phase and ``isDraft`` agreeing.
+def _stamp_effective_market_state(market: Dict[str, Any], phase: MarketPhase) -> None:
+    """Serve a raw market document with its derived fields agreeing with what it stores.
 
     A response built from a raw document bypasses ``Market``, and with it the guarantee that
     ``is_draft`` is derived strictly from phase - a document the old publish flow wrote
     (``phase: draft`` from create, ``isDraft: false`` from the publish PUT) would otherwise go
     out with the two fields contradicting each other. Deriving ``isDraft`` from the effective
     phase here means no reader has to know which of the two to believe, migrated or not.
+
+    Intake mode is stamped for the same reason, one field over: a document that names none, or
+    names one this build does not recognize, is served the value every reader on the server side
+    has already agreed it has. Without that, a client round-tripping such a market would PUT back
+    a value the model refuses, and a draft market would answer 400 on an edit that touched
+    something else entirely.
     """
     market['phase'] = phase.value
     market[market_doc_key('is_draft')] = phase == MarketPhase.DRAFT
+    market[market_doc_key('intake_mode')] = intake_mode_from_market_document(market).value
 
 
 def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, Any]]:
@@ -462,7 +498,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
 
     market_dict['_id'] = str(market_dict['_id'])
     market_dict['user_role'] = user_role.value
-    _stamp_effective_phase(market_dict, market.phase)
+    _stamp_effective_market_state(market_dict, market.phase)
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -513,7 +549,7 @@ def _decorate_market_summary(
     """
     market['_id'] = str(market['_id'])
     market['user_role'] = user_role
-    _stamp_effective_phase(market, phase_from_market_document(market))
+    _stamp_effective_market_state(market, phase_from_market_document(market))
     organization_id = market_doc_field(market, 'organization_id')
     if organization_id:
         org = lookups.organization(organization_id)
