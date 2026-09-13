@@ -63,8 +63,9 @@ class VendorWant:
 
 
 def market_for(wants, *, section_counts=((GOLD, 2), (SILVER, 2)), max_per_vendor=4,
-               half_proportion=100):
+               half_proportion=100, dates=None):
     """A market plan for ``wants``. The plan no longer describes any spreadsheet."""
+    dates = list(dates or DATES)
     tiers = {GOLD: TierObject(id=1, name=GOLD), SILVER: TierObject(id=2, name=SILVER)}
     location = LocationObject(name="Main Hall")
     sections = [
@@ -73,7 +74,7 @@ def market_for(wants, *, section_counts=((GOLD, 2), (SILVER, 2)), max_per_vendor
     ]
     setup = SetupObject(
         priority=[],
-        market_dates=[MarketDateObject(date=date) for date in DATES],
+        market_dates=[MarketDateObject(date=date) for date in dates],
         tiers=list(tiers.values()),
         locations=[location],
         sections=sections,
@@ -432,3 +433,77 @@ class TestAnIncompleteApplicationStopsTheRun:
         with pytest.raises(IncompleteApplicationsError):
             assign_market(market)
         assert market.assignment_object.vendor_assignments in ([], None)
+
+
+MANY_DATES = [f"2025-04-{day:02d}" for day in range(1, 7)]
+
+
+class TestTheOrganizersCapOnAssignmentsPerVendor:
+    """The setting existed, was rendered, was clamped, was persisted - and was never read.
+
+    An organizer could set it to six, watch it save, and get four, because a hard-coded
+    four-day constant won everywhere. This is not new configuration; it is connecting a control
+    that was lying.
+    """
+
+    def test_a_vendor_may_take_more_than_four_dates_when_the_organizer_allows_it(self):
+        market = assign(
+            [VendorWant("keen@example.com", available=MANY_DATES, tiers=[GOLD], max_days=6)],
+            dates=MANY_DATES,
+            max_per_vendor=6,
+        )
+
+        assert len(dates_for(market, "keen@example.com")) == 6
+
+    def test_the_market_cap_bounds_a_vendor_who_asked_for_more(self):
+        market = assign(
+            [VendorWant("keen@example.com", available=MANY_DATES, tiers=[GOLD], max_days=6)],
+            dates=MANY_DATES,
+            max_per_vendor=2,
+        )
+
+        assert len(dates_for(market, "keen@example.com")) == 2
+
+    def test_the_vendors_own_answer_bounds_them_below_the_market_cap(self):
+        market = assign(
+            [VendorWant("modest@example.com", available=MANY_DATES, tiers=[GOLD], max_days=1)],
+            dates=MANY_DATES,
+            max_per_vendor=6,
+        )
+
+        assert len(dates_for(market, "modest@example.com")) == 1
+
+    def test_the_lower_of_the_two_wins_whichever_it_is(self):
+        market = assign(
+            [
+                VendorWant("capped@example.com", available=MANY_DATES, tiers=[GOLD],
+                           max_days=5),
+                VendorWant("modest@example.com", available=MANY_DATES, tiers=[GOLD],
+                           max_days=2),
+            ],
+            dates=MANY_DATES,
+            max_per_vendor=3,
+        )
+
+        assert len(dates_for(market, "capped@example.com")) == 3
+        assert len(dates_for(market, "modest@example.com")) == 2
+
+    def test_an_unset_cap_leaves_the_vendors_own_answer_to_bound_them(self):
+        """Documented, not accidental: no setting means the organizer set no ceiling."""
+        market = assign(
+            [VendorWant("keen@example.com", available=MANY_DATES, tiers=[GOLD], max_days=6)],
+            dates=MANY_DATES,
+            max_per_vendor=None,
+        )
+
+        assert len(dates_for(market, "keen@example.com")) == 6
+
+    def test_a_vendor_wanting_twelve_dates_is_not_capped_at_one(self):
+        """The CSV era read one character of the answer, so twelve became one."""
+        market = assign(
+            [VendorWant("twelve@example.com", available=MANY_DATES, tiers=[GOLD], max_days=12)],
+            dates=MANY_DATES,
+            max_per_vendor=6,
+        )
+
+        assert len(dates_for(market, "twelve@example.com")) == 6

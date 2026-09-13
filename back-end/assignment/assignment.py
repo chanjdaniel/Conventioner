@@ -25,7 +25,6 @@ FULL_TABLE_LABEL = "Full Table"
 HALF_TABLE_LEFT_LABEL = "Half Table (Left)"
 HALF_TABLE_RIGHT_LABEL = "Half Table (Right)"
 NO_CLUB_MEMBERSHIP = "I am NOT a part of any of these clubs"
-MAX_VENDING_DAYS = 4
 MAX_HALF_TABLES_PER_SECTION = 0.3
 
 class Vendor:
@@ -214,19 +213,39 @@ class MarketAssignment:
     def _is_either_table_choice(self, vendor: Vendor) -> bool:
         return vendor.want.table_choice == TABLE_CHOICE_EITHER
 
+    def market_max_assignments(self) -> Optional[int]:
+        """The organizer's ceiling on how many dates one vendor may take, if they set one.
+
+        This setting has existed all along: the setup UI renders it, clamps it to the market's
+        date count, and persists it. The solver never read it - a hard-coded ``MAX_VENDING_DAYS
+        = 4`` won everywhere - so an organizer could set it to six, watch it save, and get four.
+
+        None means no ceiling, which is what "the organizer set none" should mean. There is no
+        hidden default to replace the constant with: a market whose organizer named no limit is
+        bounded by what each vendor asked for and by how many dates they can attend, both of
+        which are real answers rather than a number nobody chose.
+        """
+        return self.setup_object.assignment_options.max_assignments_per_vendor
+
+    def max_assignments_for(self, vendor: Vendor) -> Optional[int]:
+        """The lower of the organizer's ceiling and what this vendor asked for."""
+        caps = [
+            cap for cap in (self.market_max_assignments(), vendor.want.max_dates)
+            if cap is not None
+        ]
+        return min(caps) if caps else None
+
     def is_vendor_max_assigned(self, vendor: Vendor) -> bool:
         """Has this vendor taken every date they are entitled to?
 
-        Two independent ceilings: the global one, and the number of dates the vendor asked for.
         The vendor's own answer is an ``int`` on a typed record, so the CSV era's
         ``int(max_days_val[0])`` - which read one character, turning twelve dates into one - has
         nothing left to go wrong in.
         """
-        if vendor.num_assignments >= MAX_VENDING_DAYS:
-            return True
-        if vendor.want.max_dates is None:
+        cap = self.max_assignments_for(vendor)
+        if cap is None:
             return False
-        return vendor.num_assignments >= vendor.want.max_dates
+        return vendor.num_assignments >= cap
 
 
     def _calculate_priority_score(self, vendor: Vendor) -> List[int]:
@@ -456,9 +475,10 @@ class MarketAssignment:
                 if vendor.is_available_on(market_date)
             )
 
-            caps: List[float] = [MAX_VENDING_DAYS, num_requested_assignments]
-            if vendor.want.max_dates is not None:
-                caps.append(vendor.want.max_dates)
+            caps: List[float] = [num_requested_assignments]
+            cap = self.max_assignments_for(vendor)
+            if cap is not None:
+                caps.append(cap)
             num_potential_assignments = min(caps)
             
             # Avoid division by zero

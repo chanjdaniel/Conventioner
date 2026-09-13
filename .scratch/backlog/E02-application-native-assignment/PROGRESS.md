@@ -12,7 +12,8 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | --- | --- | --- | --- | --- |
 | 1 | F01/S01 Build approved applications into typed solver vendors | - | done (unpushed) | |
 | 2 | F01/S02 Assign a market from its Applications | F01/S01 | done (unpushed) | |
-| 3 | F01/S03 Honour the organizer's max assignments per vendor | F01/S02 | not started | |
+| 3 | F01/S03 Honour the organizer's max assignments per vendor | F01/S02 | done (unpushed) | |
+| 3b | F01/S04 Refuse a zero assignment cap (found in S03) | F01/S03 | not started | |
 | 4 | F02/S01 Build a priority rule from a form question | F01/S02 | not started | |
 | 5 | F02/S02 Prioritise by when the application arrived | F02/S01 | not started | |
 | 6 | F03/S01 Place vendors in their highest-ranked available section | F01/S02 | not started | |
@@ -143,3 +144,29 @@ Pre-existing, not introduced here.
 Fixing it would have moved placement and destroyed the equivalence proof this story rests on, so
 it is pinned by `TestKnownDefectTheTableLoopStopsEarly` and handed to F03/S01, which inverts that
 loop anyway. That story gained an acceptance criterion to fix it and invert the test.
+
+### F01/S03 Honour the organizer's max assignments per vendor
+
+Branch `feat/e02-solver-vendor-input`. Full back-end suite green at 689 passed.
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| The solver reads the market's max-assignments-per-vendor setting | met | `MarketAssignment.market_max_assignments`, consumed by `max_assignments_for`. |
+| The hard-coded four-day constant is gone from the solver and the validator, with no duplicate | met | `MAX_VENDING_DAYS` survives only as a word in a docstring explaining what it used to do. The validator's copy went with the module itself in S02. |
+| A vendor is capped by the lower of the market setting and their own stated number of dates | met | `max_assignments_for` takes the min of whichever are set. `test_the_lower_of_the_two_wins_whichever_it_is` covers both directions in one market. |
+| A vendor who asked for more days than the market allows is capped at the market setting | met | `test_the_market_cap_bounds_a_vendor_who_asked_for_more`. |
+| A market with the setting unset has a defined, documented behaviour | met | Unset means no ceiling, documented on `market_max_assignments` with the reasoning: a market whose organizer named no limit is bounded by what each vendor asked for and how many dates they can attend, both real answers, rather than by a number nobody chose. |
+| A vendor wanting twelve dates is not capped at one | met | `test_a_vendor_wanting_twelve_dates_is_not_capped_at_one`, over a six-date market. |
+| The setup UI's clamp still agrees with what the solver enforces | met | The screen clamps to the market's date count and stores null when cleared; the solver reads null as no ceiling. A cap above the date count is not reachable, so the two cannot disagree. |
+
+The proof that the setting was previously ignored is in the test run: five of the six tests
+failed before the wiring, including one asserting six dates and getting four.
+
+#### Found, not fixed here
+
+The setup screen accepts a cap of **zero** and stores it, and the solver honours it literally,
+so the market assigns nobody.
+Filed as E02/F01/S04 rather than folded in, following the repo's rule that work discovered
+mid-story becomes a sibling story.
+Low severity: the failure is visible rather than silent, since every vendor reports as
+unassigned.
