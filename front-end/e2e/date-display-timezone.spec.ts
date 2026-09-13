@@ -61,7 +61,6 @@ async function seedMarketWithDate(request: APIRequestContext): Promise<Record<st
     colNames: ['email', 'day_1'],
     colValues: [[], []],
     colInclude: [false, false],
-    enumPriorityOrder: [[], []],
     priority: [],
     marketDates: [{ date: MARKET_DATE, colNameIdx: 1 }],
     tiers: [],

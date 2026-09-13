@@ -62,7 +62,6 @@ export function parseMarketFromApi(market: any): Market {
       colNames: market.setupObject?.colNames || [],
       colValues: market.setupObject?.colValues || [],
       colInclude: market.setupObject?.colInclude || [],
-      enumPriorityOrder: market.setupObject?.enumPriorityOrder || [],
       priority: market.setupObject?.priority || [],
       marketDates: market.setupObject?.marketDates || [],
       tiers: market.setupObject?.tiers || [],

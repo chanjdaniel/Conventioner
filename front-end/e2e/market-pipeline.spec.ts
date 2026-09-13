@@ -89,7 +89,6 @@ test.describe('Market pipeline E2E', () => {
       colNames: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
       colValues: [[], [], [], [], ['Gold', 'Silver']],
       colInclude: [false, false, false, false, false],
-      enumPriorityOrder: [[], [], [], [], []],
       priority: [],
       marketDates: [],
       tiers: [],

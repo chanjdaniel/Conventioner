@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 from collections import defaultdict
 from datatypes import (
     Market, SetupObject, MarketDateObject, TierObject, SectionObject,
-    AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityObject, DataType,
+    ALL_OTHERS, AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityObject,
     LocationObject
 )
 from essential_fields import (
@@ -249,26 +249,52 @@ class MarketAssignment:
 
 
     def _calculate_priority_score(self, vendor: Vendor) -> List[int]:
-        """Priority ordering, pending its rewrite.
+        """Where this vendor sorts under the organizer's rules. Lower is better.
 
-        The old scheme addressed its target by index into ``col_names`` and read the ordering
-        out of ``enum_priority_order``, a parallel array with one entry per column. A vendor no
-        longer has columns, so that scheme has no addressing left and cannot be ported - it is
-        replaced in E02/F02, where a rule names a form field or an application attribute and its
-        ordering lives on the rule itself.
+        A rule names a target and carries its own ordering, so scoring is a lookup of the
+        vendor's answer in that list. The old scheme addressed its target by index into
+        ``col_names`` and kept the ordering in a parallel array with one entry required per
+        column; a vendor has no columns now, and the index arithmetic is gone with them.
 
-        Until then every vendor scores alike and the remaining sort keys decide. That is a
-        smaller change than it sounds: the solver already ignored ``data_type`` and
-        ``sorting_order`` entirely, so any rule an organizer configured as anything but an
-        enumerated ordering already scored every vendor identically.
+        One score per rule, in rule order, compared as a tuple - so an earlier rule always
+        outranks a later one and a later rule only ever breaks a tie the earlier ones left.
         """
-        return []
+        scores = []
+        for rule in sorted(self.setup_object.priority, key=lambda p: p.id):
+            scores.append(self._rule_score(rule, vendor))
+        return scores
+
+    def _rule_score(self, rule: PriorityObject, vendor: Vendor) -> int:
+        """This vendor's position under one rule.
+
+        A rule with no target or no ordering scores every vendor alike rather than raising: an
+        organizer part-way through building a rule should not break the run they are building it
+        for.
+        """
+        if not rule.target or not rule.ordering:
+            return 0
+
+        answer = self._priority_answer(rule.target, vendor)
+        if answer in rule.ordering:
+            return rule.ordering.index(answer)
+        if ALL_OTHERS in rule.ordering:
+            return rule.ordering.index(ALL_OTHERS)
+        # An answer the organizer neither placed nor covered sorts behind everyone they did.
+        return len(rule.ordering)
+
+    def _priority_answer(self, target: str, vendor: Vendor) -> str:
+        """The vendor's answer to whatever a rule targets, as the ordering spells it."""
+        value = vendor.want.custom_answers.get(target)
+        if isinstance(value, list):
+            # A multi-select answer has no single position. Its first choice is the one the
+            # applicant put first, which is the only ordering information the answer carries.
+            return str(value[0]).strip() if value else ""
+        return "" if value is None else str(value).strip()
 
 
     def sort_vendors(self):
         """Sort vendors by assignment priority using priority configuration."""
         def sort_key(vendor):
-            # Calculate priority scores based on enumPriorityOrder
             priority_scores = self._calculate_priority_score(vendor)
             
             return (

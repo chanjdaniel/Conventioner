@@ -216,9 +216,8 @@ def _make_existing_market_doc(**overrides):
                 ["Full table"],
             ],
             "col_include": [True, True, True],
-            "enum_priority_order": [[], [], []],
             "priority": [
-                {"id": 1, "col_name_idx": 0, "data_type": "String", "sorting_order": "asc"},
+                {"id": 1, "target": "returning_vendor", "ordering": ["yes", "no"]},
             ],
             "market_dates": [
                 {"date": "2025-03-15", "col_name_idx": 1, "col_name": "Date"},
@@ -292,8 +291,7 @@ class TestBackwardCompatibility:
             ["Full table"],
         ]
         assert setup.col_include == [True, True, True]
-        assert setup.enum_priority_order == [[], [], []]
-        assert setup.priority[0].col_name_idx == 0
+        assert setup.priority[0].target == "returning_vendor"
         assert setup.market_dates[0].col_name_idx == 1
         assert setup.market_dates[0].col_name == "Date"
 
@@ -326,7 +324,6 @@ class TestSetupObjectOptionalCsvFields:
         assert setup.col_names == []
         assert setup.col_values == []
         assert setup.col_include == []
-        assert setup.enum_priority_order == []
 
     def test_new_market_without_csv_fields_in_constructor(self):
         setup = SetupObject(
@@ -347,7 +344,8 @@ class TestColNameIdxOptional:
         assert md.date == "2025-01-15"
         assert md.col_name_idx is None
 
-    def test_priority_without_col_name_idx(self):
-        from datatypes import DataType
-        p = PriorityObject(id=1, data_type=DataType.STRING, sorting_order="asc")
-        assert p.col_name_idx is None
+    def test_a_priority_rule_needs_only_an_id(self):
+        """A half-built rule is a normal state in the setup UI, not an error."""
+        rule = PriorityObject(id=1)
+        assert rule.target is None
+        assert rule.ordering == []

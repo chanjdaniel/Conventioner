@@ -50,7 +50,7 @@ The applicant-facing form cannot produce one: ``_validate_accepted_subset`` and
 recorded under it. Reaching this check therefore means a document that did not come through that
 path, which is exactly when a loud failure is worth more than a quiet placement.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Tuple
 
 import api.applications as ApplicationsApi
@@ -80,6 +80,12 @@ class SolverVendor:
     table_share_email: Optional[str]
     section_ranking: Tuple[str, ...]
     table_type_ranking: Tuple[str, ...]
+    # The organizer's own form questions and this applicant's answers to them. The solver reads
+    # these only through a priority rule that names one by key, so it is addressed deliberately
+    # rather than groped at: an unknown key is a rule the organizer has to fix, not a blank.
+    custom_answers: Dict[str, Any] = field(default_factory=dict)
+    # Real submission time, used by a first-come-first-served priority rule.
+    submitted_at: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -213,6 +219,11 @@ def _solver_vendor(
             table_share_email=_text(answers.get(EF.TABLE_SHARE_EMAIL_KEY)) or None,
             section_ranking=tuple(section_ranking),
             table_type_ranking=tuple(table_type_ranking),
+            custom_answers={
+                key: value for key, value in answers.items()
+                if not key.startswith(EF.ESSENTIAL_KEY_PREFIX)
+            },
+            submitted_at=application.submitted_at,
         ),
         None,
     )

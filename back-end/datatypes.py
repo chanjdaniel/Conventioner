@@ -34,15 +34,6 @@ def market_name_slug(name: str) -> str:
     return re.sub(r"-+", "-", s).strip("-")
 
 
-class DataType(str, Enum):
-    DEFAULT = "Select a datatype"
-    STRING = "String"
-    NUMBER = "Number"
-    ENUM = "Enum"
-    CONTAINS = "Contains"
-    NOT_CONTAINS = "Does not contain"
-
-
 class MarketRole(str, Enum):
     OWNER = "owner"
     ADMIN = "admin"
@@ -119,11 +110,28 @@ class MarketTableRow(BaseModel):
     table_code: str
     tier: str
 
+# An organizer need not enumerate every answer: whatever they leave out sorts where this token
+# sits, and last when they did not place it at all.
+ALL_OTHERS = "<All others>"
+
+
 class PriorityObject(BaseModel):
+    """One rule in the ordered list that decides who is placed first when demand exceeds tables.
+
+    A rule names a ``target`` and carries its own ``ordering``. It used to name a column by index
+    into ``col_names`` and keep its ordering in ``SetupObject.enum_priority_order``, a parallel
+    array with one entry required per column - the index arithmetic behind a well-known
+    ``IndexError`` trap, and an addressing scheme that dies with the columns.
+
+    It also used to carry a ``data_type`` the solver read nothing from, so a rule an organizer
+    configured as a number in ascending order scored every vendor identically and did nothing,
+    silently. How to order a target follows from that target's type, so declaring it separately
+    only ever made an invalid state representable.
+    """
+
     id: int
-    col_name_idx: Optional[int] = None
-    data_type: DataType
-    sorting_order: str
+    target: Optional[str] = None
+    ordering: List[str] = []
 
 
 class MarketDateObject(BaseModel):
@@ -165,7 +173,6 @@ class SetupObject(BaseModel):
     col_names: List[str] = []
     col_values: List[List[str]] = []
     col_include: List[bool] = []
-    enum_priority_order: List[List[str]] = []
     priority: List[PriorityObject]
     market_dates: List[MarketDateObject]
     tiers: List[TierObject]
@@ -459,10 +466,9 @@ class MarketTableRowContract(ContractModel):
 
 
 class PriorityContract(ContractModel):
-    col_name_idx: Optional[int] = None
-    data_type: DataType
     id: int
-    sorting_order: str
+    ordering: List[str] = []
+    target: Optional[str] = None
 
 
 class MarketDateContract(ContractModel):
@@ -497,7 +503,6 @@ class SetupObjectContract(ContractModel):
     col_include: List[bool] = []
     col_names: List[str] = []
     col_values: List[List[str]] = []
-    enum_priority_order: List[List[str]] = []
     locations: List[LocationContract]
     market_dates: List[MarketDateContract]
     priority: List[PriorityContract]

@@ -24,7 +24,6 @@ def _sample_market_doc_with_setup():
         "colNames": ["Email", "Table Choice", "Table Share Email", "Day 1"],
         "colValues": [],
         "colInclude": [True, True, True, True],
-        "enumPriorityOrder": [],
         "priority": [],
         "marketDates": [{"date": "2026-01-01", "colNameIdx": 3, "colName": "Day 1"}],
         "tiers": [{"id": 1, "name": "Gold"}],

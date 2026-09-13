@@ -40,7 +40,6 @@ export async function seedAssignedMarket(
       ['Gold'],
     ],
     colInclude: [true, true, true, true, true],
-    enumPriorityOrder: [[], [], [], [], []],
     priority: [],
     marketDates: [{ date: '2025-06-01', colNameIdx: 4, colName: 'day_1' }],
     tiers: [{ id: 1, name: 'Gold' }],
