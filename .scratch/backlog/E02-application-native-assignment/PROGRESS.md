@@ -255,7 +255,7 @@ No organizer data exists anywhere. Ticket 03's conclusion holds, now on evidence
 
 ## Outcome
 
-E02 is complete. Full suite green: **721 back-end, 69 front-end unit, 59 Playwright e2e**
+E02 is complete. Full suite green: **724 back-end, 74 front-end unit, 59 Playwright e2e**
 (`scripts/nm-test.sh`, exit 0).
 
 `source_data`, `col_names`, `col_values`, `col_include`, `enum_priority_order`, every
