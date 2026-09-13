@@ -26,6 +26,9 @@ export class AssignmentResultsPage {
   readonly discordError: Locator;
   readonly discordToast: Locator;
 
+  // The Vendors modal this view opens: one row per applicant, one cell per market date
+  readonly vendorRows: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
@@ -42,6 +45,30 @@ export class AssignmentResultsPage {
 
     this.discordError = page.getByTestId('assignment-results-discord-error');
     this.discordToast = page.getByTestId('assignment-results-discord-toast');
+
+    this.vendorRows = page.getByTestId('vendors-modal-row');
+  }
+
+  /** The Vendors-modal row for one applicant, found by the address they applied with. */
+  vendorRow(applicantEmail: string): Locator {
+    return this.vendorRows.filter({ hasText: applicantEmail });
+  }
+
+  /**
+   * Where one applicant was placed, one entry per market date they were given a table on.
+   *
+   * The modal lists every applicant, placed or not, with an empty cell per date they hold no
+   * table on. Those empty cells are dropped here, so the result reads as "what they got".
+   */
+  async placementsFor(applicantEmail: string): Promise<string[]> {
+    const cells = await this.vendorRow(applicantEmail)
+      .getByTestId('vendors-modal-cell')
+      .allTextContents();
+    // The first cell is the address and the last is cost; the dates are the ones between.
+    return cells
+      .slice(1, -1)
+      .map((cell) => cell.trim())
+      .filter((cell) => cell.length > 0);
   }
 
   async goto(): Promise<void> {
