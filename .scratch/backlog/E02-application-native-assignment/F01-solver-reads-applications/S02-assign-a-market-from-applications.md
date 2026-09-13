@@ -40,6 +40,7 @@ That number was an artifact of the CSV encoding, not a designed quantity, and it
 - [ ] Flexibility counts available dates
 - [ ] An application missing a required answer blocks assignment with a message naming the applicants, and no partial assignment is produced
 - [ ] A vendor with no application is not silently skipped
+- [ ] Characterisation tests pin the solver's placement behaviour BEFORE the swap, and still pass after it
 - [ ] Backend tests cover assignment from applications, the tier filter, and the missing-answer precondition
 - [ ] An e2e story imports a CSV, approves the applications, runs assignment, and asserts a real result, with no fabricated source data anywhere in the path
 
@@ -49,3 +50,15 @@ The CSV substrate is not deleted here.
 Call sites stop using it and F04 removes it, so CI stays green through the middle of the epic.
 
 The e2e seeds still fabricate source data at this point and may keep doing so until F04; do not let that fabrication leak into the new path.
+
+**There is no solver safety net to inherit.** Found while implementing S01: `assign_market` is
+monkeypatched away in the assignment-statistics tests, so the only tests that actually run the
+solver are the eleven in the column-mapping module - and those exist to test column mapping,
+which F04 deletes outright.
+Placement itself, half-table pairing, priority ordering and the max-days cap have no coverage at
+all.
+So this story cannot lean on existing tests to prove the swap preserved behaviour; it has to
+write the characterisation tests first, against the CSV path, and then show them still passing
+against the application path.
+Doing it the other way round proves nothing, because the only witness to the old behaviour would
+already be gone.

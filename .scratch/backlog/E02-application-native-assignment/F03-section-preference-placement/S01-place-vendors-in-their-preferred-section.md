@@ -38,7 +38,7 @@ No data is needed either way; a table already knows its section.
 - [ ] No vendor loses a placement they would have received before, purely to satisfy another vendor's preference
 - [ ] Preference never overrides tier, which stays a hard filter
 - [ ] Preference never overrides priority order: a higher-priority vendor is still placed first
-- [ ] Existing solver tests are updated with their output changes explained, not silently re-baselined
+- [ ] The characterisation tests S02 built are updated with their output changes explained, not silently re-baselined
 - [ ] Backend tests cover a satisfied preference, a contended one, and a full top choice
 - [ ] An e2e story asserts a vendor lands in their preferred section
 
@@ -50,3 +50,8 @@ Do not treat it as a second preference to wire up here.
 
 Half-table pairing and the per-section half-table proportion interact with placement.
 Preference must not silently defeat either.
+
+The solver had no behavioural tests of its own before this epic; F01/S02 is where that safety net
+gets built.
+If it did not get built there, build it here before touching the loop, because an inversion with
+nothing pinning the old behaviour is an unreviewable diff.

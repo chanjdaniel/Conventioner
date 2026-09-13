@@ -53,6 +53,7 @@ These frame every ticket below and are not open for re-litigation without redraw
 - **Review and bulk-approve details.** How bulk-approve interacts with the D9 application-form lock, and whether rejecting after import needs an audit trail.
 - **What the organizer does with the assignment output.** MVP ends at "assignment computed" with no offers and no emails, so the organizer communicates results themselves. Whether that needs any export beyond the existing CSV download is unexamined.
 - **`MarketHomeView.vue` disposition.** A 32-line stub on the public slug route. Ticket 06 settled that intake mode gates the route for CSV markets; what it should *render* for a form-intake market, and what a gated visitor sees, is still undecided.
+- **What an approved waitlist application means to the solver.** `Application` models a waitlist type and the identity index allows one beside each main application, but nothing creates one, so neither answer is reachable today. E02's solver input reads main applications only, deliberately conservative: reading both would place one person twice. Revisit when waitlists become reachable.
 - **Seed and demo data for a fresh deployment.** What a brand-new organizer sees before they have imported anything.
 
 ## Out of scope
