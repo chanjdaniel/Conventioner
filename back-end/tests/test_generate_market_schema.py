@@ -87,11 +87,7 @@ def test_assignment_options_contract_fields_are_not_rendered_as_literal_nulls():
     )
 
     assert "assignmentOptions: {" in declaration
-    assert "emailColNameIdx?: number;" in declaration
-    assert "tableChoiceColNameIdx?: number;" in declaration
-    assert "tableShareEmailColNameIdx?: number;" in declaration
     assert "maxAssignmentsPerVendor?: number;" in declaration
-    assert "maxDaysColNameIdx?: number;" in declaration
     assert "maxHalfTableProportionPerSection?: number;" in declaration
 
     assignment_options_block = declaration.split("assignmentOptions: {", 1)[1].split("};", 1)[0]

@@ -209,13 +209,6 @@ def _make_existing_market_doc(**overrides):
         "organization_id": None,
         "theme": None,
         "setup_object": {
-            "col_names": ["Email", "Date", "TableChoice"],
-            "col_values": [
-                ["vendor@example.com"],
-                ["2025-03-15"],
-                ["Full table"],
-            ],
-            "col_include": [True, True, True],
             "priority": [
                 {"id": 1, "target": "returning_vendor", "ordering": ["yes", "no"]},
             ],
@@ -279,19 +272,13 @@ class TestBackwardCompatibility:
         assert market.is_draft is True
         assert market.phase == MarketPhase.DRAFT
 
-    def test_existing_setup_object_csv_fields_preserved(self):
+    def test_an_existing_setup_object_still_loads(self):
         doc = _make_existing_market_doc()
         market = Market(**doc)
         setup = market.setup_object
         assert setup is not None
-        assert setup.col_names == ["Email", "Date", "TableChoice"]
-        assert setup.col_values == [
-            ["vendor@example.com"],
-            ["2025-03-15"],
-            ["Full table"],
-        ]
-        assert setup.col_include == [True, True, True]
         assert setup.priority[0].target == "returning_vendor"
+        assert [d.date for d in setup.market_dates] == ["2025-03-15"]
         assert setup.market_dates[0].col_name_idx == 1
         assert setup.market_dates[0].col_name == "Date"
 
@@ -311,8 +298,9 @@ class TestBackwardCompatibility:
         assert market.setup_object is None
 
 
-class TestSetupObjectOptionalCsvFields:
-    def test_new_market_with_empty_csv_fields(self):
+class TestASetupObjectDescribesNoSpreadsheet:
+    def test_a_market_plan_needs_only_the_organizer_own_decisions(self):
+        """The CSV-derived fields are gone, not merely optional: there is no spreadsheet."""
         setup = SetupObject(
             priority=[],
             market_dates=[],
@@ -321,21 +309,39 @@ class TestSetupObjectOptionalCsvFields:
             sections=[],
             assignment_options=AssignmentOptionObject(),
         )
-        assert setup.col_names == []
-        assert setup.col_values == []
-        assert setup.col_include == []
 
-    def test_new_market_without_csv_fields_in_constructor(self):
+        for gone in ("col_names", "col_values", "col_include", "enum_priority_order"):
+            assert not hasattr(setup, gone), f"{gone} should no longer exist on SetupObject"
+
+    def test_assignment_options_hold_no_column_indices(self):
+        options = AssignmentOptionObject()
+
+        for gone in (
+            "email_col_name_idx",
+            "table_choice_col_name_idx",
+            "table_share_email_col_name_idx",
+            "max_days_col_name_idx",
+        ):
+            assert not hasattr(options, gone), f"{gone} should no longer exist"
+
+    def test_a_stored_market_written_before_this_change_still_loads(self):
+        """Pydantic ignores the keys rather than refusing the document."""
         setup = SetupObject(
-            priority=[],
-            market_dates=[],
-            tiers=[],
-            locations=[],
-            sections=[],
-            assignment_options=AssignmentOptionObject(),
+            **{
+                "col_names": ["Email"],
+                "col_values": [["a@example.com"]],
+                "col_include": [True],
+                "enum_priority_order": [[]],
+                "priority": [],
+                "market_dates": [],
+                "tiers": [],
+                "locations": [],
+                "sections": [],
+                "assignment_options": {"email_col_name_idx": 0},
+            }
         )
-        # CSV fields default to empty lists
-        assert isinstance(setup.col_names, list)
+
+        assert setup.priority == []
 
 
 class TestColNameIdxOptional:
