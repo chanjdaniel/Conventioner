@@ -3,6 +3,8 @@ import { onMounted, ref, toRef, nextTick, computed, watch } from 'vue';
 import draggable from 'vuedraggable';
 import {
   ALL_OTHERS,
+  BUILT_IN_PRIORITY_TARGETS,
+  PriorityDirection,
   type FormField,
   type PriorityObject,
   type SetupObject,
@@ -45,16 +47,73 @@ watch(
  * A free-text question has no arrangement to make, so offering it would only let an organizer
  * build a rule that cannot do anything.
  */
-const ORDERABLE_FIELD_TYPES = ['select', 'multi_select'];
+const ARRANGED_FIELD_TYPES = ['select', 'multi_select'];
+const MAGNITUDE_FIELD_TYPES = ['number', 'date', 'checkbox'];
 
-const targetableFields = computed<FormField[]>(() =>
-  (props.formFields ?? []).filter((field) => ORDERABLE_FIELD_TYPES.includes(field.type)),
+/**
+ * A target, whichever kind it is, reduced to what this screen needs to draw it.
+ *
+ * `arranged` means the answers are a fixed set and the organizer puts them in order.
+ * `magnitude` means the answer has size, earliness or truth, and the organizer picks an end.
+ * Which one applies follows from the target's own type; there is nothing to declare.
+ */
+type PriorityTarget = {
+  key: string;
+  label: string;
+  kind: 'arranged' | 'magnitude';
+  options: string[];
+  ascendingLabel: string;
+  descendingLabel: string;
+  group: string;
+};
+
+const DIRECTION_LABELS: Record<string, { ascending: string; descending: string }> = {
+  number: { ascending: 'Lowest first', descending: 'Highest first' },
+  date: { ascending: 'Earliest first', descending: 'Latest first' },
+  checkbox: { ascending: 'Ticked first', descending: 'Unticked first' },
+};
+
+const fieldTargets = computed<PriorityTarget[]>(() =>
+  (props.formFields ?? [])
+    .filter(
+      (field) =>
+        ARRANGED_FIELD_TYPES.includes(field.type) || MAGNITUDE_FIELD_TYPES.includes(field.type),
+    )
+    .map((field) => ({
+      key: field.key,
+      label: field.label,
+      kind: ARRANGED_FIELD_TYPES.includes(field.type) ? 'arranged' : 'magnitude',
+      options: field.options ?? [],
+      ascendingLabel: DIRECTION_LABELS[field.type]?.ascending ?? 'Ascending',
+      descendingLabel: DIRECTION_LABELS[field.type]?.descending ?? 'Descending',
+      group: 'Your questions',
+    })),
 );
 
-const fieldFor = (target: string | null): FormField | undefined =>
+const builtInTargets = computed<PriorityTarget[]>(() =>
+  BUILT_IN_PRIORITY_TARGETS.map((target) => ({
+    key: target.key,
+    label: target.label,
+    kind: target.kind,
+    options: 'options' in target ? (target.options ?? []) : [],
+    ascendingLabel: 'ascendingLabel' in target ? (target.ascendingLabel ?? '') : 'Ascending',
+    descendingLabel: 'descendingLabel' in target ? (target.descendingLabel ?? '') : 'Descending',
+    group: 'About the application',
+  })),
+);
+
+const targetableFields = computed<PriorityTarget[]>(() => [
+  ...fieldTargets.value,
+  ...builtInTargets.value,
+]);
+
+const fieldFor = (target: string | null): PriorityTarget | undefined =>
   targetableFields.value.find((field) => field.key === target);
 
 const labelFor = (target: string | null): string => fieldFor(target)?.label ?? '';
+
+const isArranged = (rule: PriorityObject): boolean => fieldFor(rule.target)?.kind === 'arranged';
+const isMagnitude = (rule: PriorityObject): boolean => fieldFor(rule.target)?.kind === 'magnitude';
 
 /** Answers this rule's target offers that the organizer has not placed yet. */
 const unplacedOptions = (rule: PriorityObject): string[] => {
@@ -89,16 +148,21 @@ const nextRuleId = () =>
   priorityObjects.value.reduce((highest, rule) => Math.max(highest, rule.id), 0) + 1;
 
 const addPriorityRow = () => {
-  priorityObjects.value.push({ id: nextRuleId(), target: null, ordering: [] });
+  priorityObjects.value.push({ id: nextRuleId(), target: null, ordering: [], direction: null });
 };
 
 const removePriorityRow = (index: number) => {
   priorityObjects.value.splice(index, 1);
 };
 
-/** Retargeting a rule discards an ordering that belonged to a different question's answers. */
+/**
+ * Retargeting a rule discards an ordering that belonged to a different question's answers, and
+ * seeds a sensible direction when the new target is ordered by magnitude instead.
+ */
 const handleTargetChange = (index: number) => {
-  priorityObjects.value[index].ordering = [];
+  const rule = priorityObjects.value[index];
+  rule.ordering = [];
+  rule.direction = isMagnitude(rule) ? PriorityDirection.Ascending : null;
 };
 
 const addOrderingItem = (index: number, value: string) => {
@@ -134,9 +198,10 @@ const dragOptions = computed(() => ({
       <h3></h3>
     </div>
     <div class="rows" ref="rows">
-      <p v-if="targetableFields.length === 0" class="empty-hint">
+      <p v-if="fieldTargets.length === 0" class="empty-hint">
         Priority rules order vendors by an answer on your application form. Add a question with a
-        fixed set of answers, such as a dropdown or a multi-select, and it will appear here.
+        fixed set of answers, such as a dropdown or a multi-select, and it will appear here. You can
+        always order by when the application arrived.
       </p>
       <draggable class="priority-rows" v-model="priorityObjects" item-key="id" v-bind="dragOptions">
         <template #item="{ element, index: parentIndex }">
@@ -159,18 +224,51 @@ const dragOptions = computed(() => ({
                 @change="handleTargetChange(parentIndex)"
               >
                 <option disabled :value="null">{{ targetDefault }}</option>
-                <option
-                  class="display-list"
-                  v-for="field in targetableFields"
-                  :key="field.key"
-                  :value="field.key"
-                >
-                  {{ field.label }}
-                </option>
+                <optgroup v-if="fieldTargets.length" label="Your questions">
+                  <option
+                    class="display-list"
+                    v-for="field in fieldTargets"
+                    :key="field.key"
+                    :value="field.key"
+                  >
+                    {{ field.label }}
+                  </option>
+                </optgroup>
+                <optgroup label="About the application">
+                  <option
+                    class="display-list"
+                    v-for="field in builtInTargets"
+                    :key="field.key"
+                    :value="field.key"
+                  >
+                    {{ field.label }}
+                  </option>
+                </optgroup>
               </select>
             </div>
             <div class="row-item">
-              <div class="sorting-order-container" v-if="priorityObjects[parentIndex].target">
+              <div
+                class="direction-container"
+                v-if="isMagnitude(priorityObjects[parentIndex])"
+                data-testid="priority-direction"
+              >
+                <select
+                  class="dropdown"
+                  data-testid="priority-direction-select"
+                  v-model="priorityObjects[parentIndex].direction"
+                >
+                  <option :value="PriorityDirection.Ascending">
+                    {{ fieldFor(priorityObjects[parentIndex].target)?.ascendingLabel }}
+                  </option>
+                  <option :value="PriorityDirection.Descending">
+                    {{ fieldFor(priorityObjects[parentIndex].target)?.descendingLabel }}
+                  </option>
+                </select>
+              </div>
+              <div
+                class="sorting-order-container"
+                v-else-if="isArranged(priorityObjects[parentIndex])"
+              >
                 <draggable
                   class="sorting-rows"
                   v-model="priorityObjects[parentIndex].ordering"

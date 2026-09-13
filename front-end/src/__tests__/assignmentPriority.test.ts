@@ -3,7 +3,12 @@ import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
 
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
-import { ALL_OTHERS, type FormField, type SetupObject } from '@/assets/types/datatypes';
+import {
+  ALL_OTHERS,
+  PriorityDirection,
+  type FormField,
+  type SetupObject,
+} from '@/assets/types/datatypes';
 
 /**
  * The rebuilt priority screen: a rule names one of the organizer's own form questions and
@@ -185,5 +190,114 @@ describe('ElementAssignmentPriority', () => {
     await wrapper.find('[data-testid="priority-rule-remove"]').trigger('click');
 
     expect(wrapper.props('setupObject').priority).toEqual([]);
+  });
+
+  describe('targets that are attributes of the application', () => {
+    it('offers ordering by when the application arrived', async () => {
+      const wrapper = mountPriority();
+      await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
+
+      const labels = wrapper
+        .find('[data-testid="priority-target-select"]')
+        .findAll('option')
+        .map((option) => option.text());
+
+      expect(labels).toContain('When the application arrived');
+    });
+
+    it('keeps them in their own group, apart from the organizer questions', async () => {
+      const wrapper = mountPriority();
+      await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
+
+      const groups = wrapper
+        .find('[data-testid="priority-target-select"]')
+        .findAll('optgroup')
+        .map((group) => group.attributes('label'));
+
+      expect(groups).toEqual(['Your questions', 'About the application']);
+    });
+
+    it('still offers them when the form has no targetable question of its own', async () => {
+      const wrapper = mountPriority([NOTES]);
+      await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
+
+      const labels = wrapper
+        .find('[data-testid="priority-target-select"]')
+        .findAll('option')
+        .map((option) => option.text());
+
+      expect(labels).toContain('When the application arrived');
+    });
+  });
+
+  describe('a target ordered by magnitude', () => {
+    const RATING = field({ key: 'rating', label: 'How many stars?', type: 'number' });
+
+    it('asks for a direction rather than an arrangement', async () => {
+      const wrapper = mountPriority([RATING]);
+      await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
+      await wrapper.find('[data-testid="priority-target-select"]').setValue(RATING.key);
+
+      expect(wrapper.find('[data-testid="priority-direction"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="priority-ordering-add"]').exists()).toBe(false);
+    });
+
+    it('words the direction for the kind of target it is', async () => {
+      const wrapper = mountPriority([RATING]);
+      await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
+      await wrapper.find('[data-testid="priority-target-select"]').setValue(RATING.key);
+
+      const choices = wrapper
+        .find('[data-testid="priority-direction-select"]')
+        .findAll('option')
+        .map((option) => option.text());
+
+      expect(choices).toEqual(['Lowest first', 'Highest first']);
+    });
+
+    it('words it differently for a date', async () => {
+      const wrapper = mountPriority();
+      await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
+      await wrapper
+        .find('[data-testid="priority-target-select"]')
+        .setValue('application.submitted_at');
+
+      const choices = wrapper
+        .find('[data-testid="priority-direction-select"]')
+        .findAll('option')
+        .map((option) => option.text());
+
+      expect(choices).toEqual(['Earliest first', 'Latest first']);
+    });
+
+    it('starts from a direction rather than from nothing', async () => {
+      const wrapper = mountPriority([RATING]);
+      await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
+      await wrapper.find('[data-testid="priority-target-select"]').setValue(RATING.key);
+
+      expect(wrapper.props('setupObject').priority[0].direction).toBe(PriorityDirection.Ascending);
+    });
+
+    it('clears the direction when retargeted at a question with arrangeable answers', async () => {
+      const wrapper = mountPriority([RATING, RETURNING]);
+      await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
+      const target = wrapper.find('[data-testid="priority-target-select"]');
+      await target.setValue(RATING.key);
+      await target.setValue(RETURNING.key);
+
+      expect(wrapper.props('setupObject').priority[0].direction).toBeNull();
+    });
+
+    it('does not offer a free-text question, which has no magnitude either', async () => {
+      const wrapper = mountPriority([NOTES]);
+      await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
+
+      const labels = wrapper
+        .find('[data-testid="priority-target-select"]')
+        .findAll('option')
+        .map((option) => option.text());
+
+      expect(labels).not.toContain('Anything else?');
+    });
   });
 });

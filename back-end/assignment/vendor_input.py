@@ -86,6 +86,7 @@ class SolverVendor:
     custom_answers: Dict[str, Any] = field(default_factory=dict)
     # Real submission time, used by a first-come-first-served priority rule.
     submitted_at: Optional[str] = None
+    application_type: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -224,6 +225,10 @@ def _solver_vendor(
                 if not key.startswith(EF.ESSENTIAL_KEY_PREFIX)
             },
             submitted_at=application.submitted_at,
+            application_type=(
+                application.application_type.value
+                if application.application_type is not None else None
+            ),
         ),
         None,
     )

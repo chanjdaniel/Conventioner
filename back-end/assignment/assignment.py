@@ -2,8 +2,9 @@ from typing import List, Dict, Any, Optional
 from collections import defaultdict
 from datatypes import (
     Market, SetupObject, MarketDateObject, TierObject, SectionObject,
-    ALL_OTHERS, AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityObject,
-    LocationObject
+    ALL_OTHERS, APPLICATION_TYPE_RULE_TARGET, BUILT_IN_TARGET_PREFIX, SUBMITTED_AT_RULE_TARGET,
+    AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityDirection,
+    PriorityObject, LocationObject
 )
 from essential_fields import (
     TABLE_CHOICE_EITHER,
@@ -11,6 +12,48 @@ from essential_fields import (
     effective_essential_options_for_market,
 )
 from assignment.vendor_input import IncompleteApplication, SolverVendor, approved_solver_vendors
+
+
+# Deliberately not including "1" and "0": those are numbers, and a numeric target whose answer
+# is zero must sort as zero rather than as "false".
+TRUE_ANSWERS = {"true", "yes", "y"}
+FALSE_ANSWERS = {"false", "no", "n"}
+
+
+def _as_magnitude(answer: str) -> Optional[float]:
+    """An answer as something orderable, or None when it says nothing.
+
+    A date sorts by when it happened, a number by how big it is, a yes/no by being true - and an
+    ISO timestamp sorts correctly as text, so the earliest submission is simply the smallest
+    string. Comparing them as one type keeps a single ordering rule for every magnitude target
+    rather than one per stored shape.
+    """
+    answer = (answer or "").strip()
+    if not answer:
+        return None
+    # Numbers first, so a numeric answer of zero is zero rather than a word that looks false.
+    try:
+        return float(answer)
+    except ValueError:
+        pass
+    lowered = answer.lower()
+    if lowered in TRUE_ANSWERS:
+        return 0.0
+    if lowered in FALSE_ANSWERS:
+        return 1.0
+    return _as_moment(answer)
+
+
+def _as_moment(answer: str) -> Optional[float]:
+    """A stored date or timestamp as a sortable number, or None when it is neither."""
+    text = answer.strip().replace("Z", "+00:00")
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        return moment.timestamp()
+    return moment.timestamp()
 
 import math
 from datetime import datetime
@@ -264,16 +307,25 @@ class MarketAssignment:
             scores.append(self._rule_score(rule, vendor))
         return scores
 
-    def _rule_score(self, rule: PriorityObject, vendor: Vendor) -> int:
-        """This vendor's position under one rule.
+    def _rule_score(self, rule: PriorityObject, vendor: Vendor):
+        """This vendor's position under one rule. Lower sorts first.
 
-        A rule with no target or no ordering scores every vendor alike rather than raising: an
-        organizer part-way through building a rule should not break the run they are building it
-        for.
+        A rule with no target scores every vendor alike rather than raising: an organizer
+        part-way through building a rule should not break the run they are building it for.
+
+        Two shapes, and which one applies follows from the target rather than from anything the
+        organizer declared. A target whose answers are a fixed set is ordered by arranging those
+        answers; a target with magnitude - a number, a date, a yes/no - is ordered by direction.
         """
-        if not rule.target or not rule.ordering:
+        if not rule.target:
             return 0
+        if rule.ordering:
+            return self._arranged_score(rule, vendor)
+        if rule.direction:
+            return self._magnitude_score(rule, vendor)
+        return 0
 
+    def _arranged_score(self, rule: PriorityObject, vendor: Vendor) -> int:
         answer = self._priority_answer(rule.target, vendor)
         if answer in rule.ordering:
             return rule.ordering.index(answer)
@@ -282,14 +334,37 @@ class MarketAssignment:
         # An answer the organizer neither placed nor covered sorts behind everyone they did.
         return len(rule.ordering)
 
+    def _magnitude_score(self, rule: PriorityObject, vendor: Vendor) -> float:
+        """Order by how much, how early, or whether.
+
+        A vendor with no usable answer sorts last whichever direction the rule runs, rather than
+        winning by default: an absent answer is not evidence of anything.
+        """
+        magnitude = _as_magnitude(self._priority_answer(rule.target, vendor))
+        if magnitude is None:
+            return math.inf
+        if rule.direction == PriorityDirection.DESCENDING:
+            return -magnitude
+        return magnitude
+
     def _priority_answer(self, target: str, vendor: Vendor) -> str:
         """The vendor's answer to whatever a rule targets, as the ordering spells it."""
+        if target and target.startswith(BUILT_IN_TARGET_PREFIX):
+            return self._built_in_answer(target, vendor)
         value = vendor.want.custom_answers.get(target)
         if isinstance(value, list):
             # A multi-select answer has no single position. Its first choice is the one the
             # applicant put first, which is the only ordering information the answer carries.
             return str(value[0]).strip() if value else ""
         return "" if value is None else str(value).strip()
+
+    def _built_in_answer(self, target: str, vendor: Vendor) -> str:
+        """An attribute of the application rather than an answer the organizer asked for."""
+        if target == SUBMITTED_AT_RULE_TARGET:
+            return vendor.want.submitted_at or ""
+        if target == APPLICATION_TYPE_RULE_TARGET:
+            return vendor.want.application_type or ""
+        return ""
 
 
     def sort_vendors(self):

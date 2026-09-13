@@ -647,3 +647,183 @@ class TestTheOrganizersPriorityRules:
         )
 
         assert [p[0] for p in placements(market)] == ["newcomer@example.com"]
+
+
+class TestPrioritisingByWhenTheApplicationArrived:
+    """First come, first served: probably the most common tiebreaker there is.
+
+    No form question can supply it - it lives on the application itself - so a field-only design
+    would have forced organizers to fake it with a "what time is it" question.
+    """
+
+    def _race(self, rules, attributes):
+        from datatypes import PriorityObject
+
+        wants = [
+            VendorWant("early@example.com", available=[DATES[0]], tiers=[GOLD]),
+            VendorWant("late@example.com", available=[DATES[0]], tiers=[GOLD]),
+        ]
+        market = market_for(wants, section_counts=((GOLD, 1),), dates=[DATES[0]])
+        market.setup_object.priority = [
+            PriorityObject(id=index, **rule) for index, rule in enumerate(rules)
+        ]
+        vendors = []
+        for want in wants:
+            vendor = want.as_solver_vendor()
+            vendors.append(
+                type(vendor)(**{**vendor.__dict__, **attributes[want.email]})
+            )
+        return assign_market(market, vendors)
+
+    def test_the_earlier_application_takes_the_only_table(self):
+        market = self._race(
+            [{"target": "application.submitted_at", "direction": "ascending"}],
+            {
+                "early@example.com": {"submitted_at": "2025-01-05T09:00:00"},
+                "late@example.com": {"submitted_at": "2025-02-20T09:00:00"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["early@example.com"]
+
+    def test_descending_gives_it_to_the_later_application_instead(self):
+        """Only the direction differs from the previous test."""
+        market = self._race(
+            [{"target": "application.submitted_at", "direction": "descending"}],
+            {
+                "early@example.com": {"submitted_at": "2025-01-05T09:00:00"},
+                "late@example.com": {"submitted_at": "2025-02-20T09:00:00"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["late@example.com"]
+
+    def test_an_application_with_no_recorded_time_sorts_last_rather_than_first(self):
+        market = self._race(
+            [{"target": "application.submitted_at", "direction": "ascending"}],
+            {
+                "early@example.com": {"submitted_at": None},
+                "late@example.com": {"submitted_at": "2025-02-20T09:00:00"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["late@example.com"], (
+            "an absent answer is not evidence of anything, so it must not win by default"
+        )
+
+    def test_every_applicant_sharing_one_timestamp_leaves_the_rule_deciding_nothing(self):
+        """The trap behind the constraint that submission time be REAL, not import time."""
+        market = self._race(
+            [{"target": "application.submitted_at", "direction": "ascending"}],
+            {
+                "early@example.com": {"submitted_at": "2025-03-01T10:00:00"},
+                "late@example.com": {"submitted_at": "2025-03-01T10:00:00"},
+            },
+        )
+
+        assert len(placements(market)) == 1
+
+    def test_the_application_type_is_selectable_as_a_target(self):
+        market = self._race(
+            [{"target": "application.application_type", "ordering": ["waitlist", "main"]}],
+            {
+                "early@example.com": {"application_type": "main"},
+                "late@example.com": {"application_type": "waitlist"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["late@example.com"]
+
+
+class TestOrderingByMagnitude:
+    def _two(self, rule, answers):
+        from datatypes import PriorityObject
+
+        wants = [
+            VendorWant("first@example.com", available=[DATES[0]], tiers=[GOLD]),
+            VendorWant("second@example.com", available=[DATES[0]], tiers=[GOLD]),
+        ]
+        market = market_for(wants, section_counts=((GOLD, 1),), dates=[DATES[0]])
+        market.setup_object.priority = [PriorityObject(id=1, **rule)]
+        vendors = []
+        for want in wants:
+            vendor = want.as_solver_vendor()
+            vendors.append(
+                type(vendor)(
+                    **{**vendor.__dict__, "custom_answers": {"answer": answers[want.email]}}
+                )
+            )
+        return assign_market(market, vendors)
+
+    def test_a_number_orders_ascending(self):
+        market = self._two(
+            {"target": "answer", "direction": "ascending"},
+            {"first@example.com": 2, "second@example.com": 9},
+        )
+
+        assert [p[0] for p in placements(market)] == ["first@example.com"]
+
+    def test_a_number_orders_descending(self):
+        market = self._two(
+            {"target": "answer", "direction": "descending"},
+            {"first@example.com": 2, "second@example.com": 9},
+        )
+
+        assert [p[0] for p in placements(market)] == ["second@example.com"]
+
+    def test_a_numeric_zero_is_zero_and_not_a_word_that_looks_false(self):
+        market = self._two(
+            {"target": "answer", "direction": "ascending"},
+            {"first@example.com": 0, "second@example.com": 1},
+        )
+
+        assert [p[0] for p in placements(market)] == ["first@example.com"]
+
+    def test_a_yes_no_answer_puts_yes_first_when_ascending(self):
+        market = self._two(
+            {"target": "answer", "direction": "ascending"},
+            {"first@example.com": False, "second@example.com": True},
+        )
+
+        assert [p[0] for p in placements(market)] == ["second@example.com"]
+
+    def test_a_date_orders_earliest_first_when_ascending(self):
+        market = self._two(
+            {"target": "answer", "direction": "ascending"},
+            {"first@example.com": "2024-07-01", "second@example.com": "2020-01-01"},
+        )
+
+        assert [p[0] for p in placements(market)] == ["second@example.com"]
+
+    def test_an_arranged_rule_and_a_magnitude_rule_combine_in_order(self):
+        from datatypes import PriorityObject
+
+        wants = [
+            VendorWant("a@example.com", available=[DATES[0]], tiers=[GOLD]),
+            VendorWant("b@example.com", available=[DATES[0]], tiers=[GOLD]),
+        ]
+        market = market_for(wants, section_counts=((GOLD, 1),), dates=[DATES[0]])
+        market.setup_object.priority = [
+            PriorityObject(id=1, target="tier_answer", ordering=["gold", "bronze"]),
+            PriorityObject(id=2, target="application.submitted_at", direction="ascending"),
+        ]
+        vendors = []
+        for want, tier_answer, submitted in (
+            (wants[0], "bronze", "2025-01-01T00:00:00"),
+            (wants[1], "gold", "2025-06-01T00:00:00"),
+        ):
+            vendor = want.as_solver_vendor()
+            vendors.append(
+                type(vendor)(
+                    **{
+                        **vendor.__dict__,
+                        "custom_answers": {"tier_answer": tier_answer},
+                        "submitted_at": submitted,
+                    }
+                )
+            )
+        assigned = assign_market(market, vendors)
+
+        assert [p[0] for p in placements(assigned)] == ["b@example.com"], (
+            "the first rule decides; arriving earlier must not overturn it"
+        )

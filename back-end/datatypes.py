@@ -114,6 +114,27 @@ class MarketTableRow(BaseModel):
 # sits, and last when they did not place it at all.
 ALL_OTHERS = "<All others>"
 
+# A priority rule may target an attribute of the application itself rather than a question the
+# organizer asked. First come, first served is probably the most common tiebreaker there is, and
+# no form question can supply it - a field-only design would force organizers to fake it with a
+# "what time is it" question.
+#
+# The namespace keeps the two kinds of target apart for good: form field keys are held to
+# ``^[a-z0-9_]+$`` by the form builder, so a key can never contain a dot and can never collide
+# with one of these.
+# Named ...RULE_TARGET, not ...TARGET: ``csv_import`` has its own SUBMITTED_AT_TARGET meaning the
+# import-mapping target, which is a different thing entirely.
+BUILT_IN_TARGET_PREFIX = "application."
+SUBMITTED_AT_RULE_TARGET = "application.submitted_at"
+APPLICATION_TYPE_RULE_TARGET = "application.application_type"
+
+
+class PriorityDirection(str, Enum):
+    """Which end of an ordered target sorts first. Derived from the target's type, never declared."""
+
+    ASCENDING = "ascending"
+    DESCENDING = "descending"
+
 
 class PriorityObject(BaseModel):
     """One rule in the ordered list that decides who is placed first when demand exceeds tables.
@@ -132,6 +153,9 @@ class PriorityObject(BaseModel):
     id: int
     target: Optional[str] = None
     ordering: List[str] = []
+    # Only meaningful for a target ordered by magnitude rather than by an arrangement of named
+    # answers: a number, a date, a yes/no. Which of the two a rule uses follows from its target.
+    direction: Optional[PriorityDirection] = None
 
 
 class MarketDateObject(BaseModel):
@@ -466,6 +490,7 @@ class MarketTableRowContract(ContractModel):
 
 
 class PriorityContract(ContractModel):
+    direction: Optional[PriorityDirection] = None
     id: int
     ordering: List[str] = []
     target: Optional[str] = None
