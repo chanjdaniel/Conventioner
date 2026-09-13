@@ -31,6 +31,28 @@ from market_documents import market_doc_field
 logger = logging.getLogger(__name__)
 
 
+def _asks_nothing(market_doc: Dict[str, Any], fields: List[Dict[str, Any]]) -> bool:
+    """Does this market ask nothing at all, so there is genuinely no form to answer?
+
+    A form is its custom fields PLUS the essential questions the market plan asks, and either half
+    alone is a form. This used to be read off the custom fields alone, which was true only before
+    the essential questions existed: a market whose form was exactly the essential questions could
+    open applications - ``FormHasFieldsGuard`` says such a form asks something - and then refuse
+    every application it received, by import and by applicant alike.
+
+    ``asked_essential_keys`` is deliberately the same function the guard and the solver's input
+    translation read. Three copies of "what does this market ask" would drift, and the drift shows
+    up as one layer refusing what another just accepted, which is exactly the bug this replaces.
+    """
+    if fields:
+        return False
+    options = EssentialFields.effective_essential_options(market_doc)
+    return not EssentialFields.asked_essential_keys(options)
+
+
+NO_FORM_ERROR = "This market does not have an application form configured."
+
+
 def validate_application_answers(
     market_doc: Dict[str, Any], form_data: Dict[str, Any],
 ) -> Optional[str]:
@@ -43,6 +65,8 @@ def validate_application_answers(
     """
     application_form = market_doc_field(market_doc, "application_form")
     fields = (application_form or {}).get("fields") or []
+    if _asks_nothing(market_doc, fields):
+        return NO_FORM_ERROR
     error, _stored = validated_form_data(form_data, fields)
     if error:
         return error
@@ -70,6 +94,8 @@ def record_application_answers(
     """
     application_form = market_doc_field(market_doc, "application_form")
     fields = (application_form or {}).get("fields") or []
+    if _asks_nothing(market_doc, fields):
+        return NO_FORM_ERROR, None
     error, stored_form_data = validated_form_data(form_data, fields)
     if error:
         return error, None
@@ -117,10 +143,11 @@ def validated_form_data(
     Field key defines identity; anything not in a field key is ignored (and
     stripped). An answer is present when it passes the field-type-specific
     "answered" test.
-    """
-    if not fields:
-        return "This market does not have an application form configured.", {}
 
+    An empty field list is not an error here: it means the market asks no CUSTOM question, which
+    is ordinary for a market whose form is exactly the essential questions. Whether the market
+    asks anything at all is ``_asks_nothing``'s question, because only it can see both halves.
+    """
     stored: Dict[str, Any] = {}
 
     for field_def in fields:
