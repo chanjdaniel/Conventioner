@@ -2,7 +2,7 @@
 id: E03/F02/S01
 title: A market declares how vendors reach it
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
