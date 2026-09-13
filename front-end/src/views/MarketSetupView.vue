@@ -101,8 +101,20 @@ function parseFiniteNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Take the new phase from the server without throwing away the organizer's unsaved plan.
+ *
+ * This used to replace the whole market with the server's copy. A transition changes the phase and
+ * nothing else, but the server's copy carries the setup as it was last SAVED - so every edit not
+ * yet persisted vanished the moment the organizer advanced a phase, silently. The assignment
+ * options showed it most often, because they live on the wizard's last page, which has no Next to
+ * save them: type them, open applications, and they are gone, leaving Assign disabled for a reason
+ * nothing states.
+ */
 function handlePhaseAdvanced(updatedMarket: Market) {
-  market.value = updatedMarket;
+  const localSetup = market.value?.setupObject;
+  market.value = localSetup ? { ...updatedMarket, setupObject: localSetup } : updatedMarket;
+  localStorage.setItem('market', JSON.stringify(market.value));
 }
 
 /**
@@ -606,6 +618,13 @@ watch(pageIdx, (newIdx) => {
           >
             Assign
           </button>
+          <p
+            v-if="!assignmentOptionsComplete"
+            class="assign-disabled-hint"
+            data-testid="market-setup-assign-hint"
+          >
+            Set both assignment options above to run the assignment.
+          </p>
           <div
             v-if="assignError"
             class="form-load-error-banner assign-error-banner"
@@ -919,6 +938,12 @@ h2 {
   border: 1px solid #e0e0e0;
   border-radius: 6px;
   padding: 10px 12px;
+}
+
+.assign-disabled-hint {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: rgba(39, 35, 35, 0.65);
 }
 
 .assign-error-banner {
