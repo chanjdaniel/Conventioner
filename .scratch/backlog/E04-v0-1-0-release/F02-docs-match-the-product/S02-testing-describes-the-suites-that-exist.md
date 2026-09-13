@@ -2,9 +2,9 @@
 id: E04/F02/S02
 title: TESTING.md describes the suites that exist, and TODO.md is gone
 type: story
-status: in-progress
+status: done
 blocked_by: [E04/F01/S02]
-pr: []
+pr: [#66]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E04/F02/S01
 title: STARTUP.md walks a fresh clone to a running stack
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## What to build

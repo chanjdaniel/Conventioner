@@ -2,9 +2,9 @@
 id: E06/F02/S01
 title: Remove the csv_exports directory nothing writes to
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E04/F04/S01
 title: A new organizer's dashboard does not report a missing market
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## What to build

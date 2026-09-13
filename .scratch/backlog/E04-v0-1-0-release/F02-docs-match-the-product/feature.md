@@ -2,9 +2,9 @@
 id: E04/F02
 title: The docs match the product
 type: feature
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## Outcome

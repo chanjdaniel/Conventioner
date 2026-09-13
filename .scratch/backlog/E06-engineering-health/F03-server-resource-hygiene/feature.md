@@ -2,9 +2,9 @@
 id: E06/F03
 title: Server resource hygiene
 type: feature
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## Outcome

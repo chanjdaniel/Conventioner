@@ -2,9 +2,9 @@
 id: E06/F02
 title: Vestigial infrastructure removed
 type: feature
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## Outcome

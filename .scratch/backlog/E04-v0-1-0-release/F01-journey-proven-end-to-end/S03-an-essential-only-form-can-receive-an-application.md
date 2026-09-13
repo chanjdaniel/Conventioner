@@ -2,9 +2,9 @@
 id: E04/F01/S03
 title: A market whose form is only the essential questions can receive an application
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## What to build

@@ -17,23 +17,22 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 
 | # | Story | Blocked by | Status | PR |
 | --- | --- | --- | --- | --- |
-| 1 | F01/S01 Extract a CSV import page object | - | in review | #66 |
-| 2 | F02/S01 STARTUP.md walks a fresh clone to a running stack | - | in review | #66 |
-| 3 | F01/S02 Walk the whole journey in one session | F01/S01 | in review | #66 |
-| 4 | F02/S02 TESTING.md describes the suites that exist | F01/S02 | in review | #66 |
-| - | F01/S03 An essential-only form can receive an application (found in F01/S02) | - | in review | #66 |
-| - | F04/S01 A new organizer's dashboard does not report a missing market | - | in review | #66 |
-| - | F04/S02 Unsaved plan edits survive a phase advance | - | in review | #66 |
+| 1 | F01/S01 Extract a CSV import page object | - | done | #66 |
+| 2 | F02/S01 STARTUP.md walks a fresh clone to a running stack | - | done | #66 |
+| 3 | F01/S02 Walk the whole journey in one session | F01/S01 | done | #66 |
+| 4 | F02/S02 TESTING.md describes the suites that exist | F01/S02 | done | #66 |
+| - | F01/S03 An essential-only form can receive an application (found in F01/S02) | - | done | #66 |
+| - | F04/S01 A new organizer's dashboard does not report a missing market | - | done | #66 |
+| - | F04/S02 Unsaved plan edits survive a phase advance | - | done | #66 |
 | 5 | F03/S01 Promote dev to main and cut v0.1.0 | F01/S02, F02/S01, F02/S02 | in progress | |
 | 6 | F03/S02 Later versions follow conventional commits | F03/S01 | not started | |
 
-"In review" means the work is complete and pushed in **PR #66** (`feat/e04-v0-1-0-release` -> `dev`)
-but not yet merged. `docs/agents/issue-tracker.md` defines *done* as the PR merging to `dev` with
-its number appended to the story's `pr:` field, so the front-matter stays `in-progress` and every
-`pr:` stays empty until that happens. **On merge, set all seven to `done` with `pr: [#66]`.**
+**PR #66 merged to `dev` on 2026-09-13** as `d4a116f8` (squash), so those seven stories and their
+three features are `done` with `pr: [#66]`. `E06/F02/S01` and `E06/F03/S01` rode in the same PR and
+are closed out in E06's own progress file.
 
-F03/S01 is in progress rather than done: the branch is pushed and PR #66 is open, and the promotion
-to `main` follows once it merges.
+F03/S01 is in progress rather than done: `dev` now carries the work, and the promotion to `main`
+is the remaining step.
 
 Its `E06/F01/S02` blocker was **lifted** by the epic owner; the reasoning is in the story.
 

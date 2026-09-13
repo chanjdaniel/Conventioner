@@ -2,9 +2,9 @@
 id: E04/F01
 title: The MVP journey proven end to end
 type: feature
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## Outcome

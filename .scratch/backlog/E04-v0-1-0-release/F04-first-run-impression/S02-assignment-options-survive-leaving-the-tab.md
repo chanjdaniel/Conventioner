@@ -2,9 +2,9 @@
 id: E04/F04/S02
 title: Assignment options typed in the wizard survive leaving the tab
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## What to build

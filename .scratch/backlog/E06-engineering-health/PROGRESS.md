@@ -9,11 +9,10 @@ stories are picked up wherever they are found, so this file records **which PR c
 | --- | --- | --- | --- |
 | F01/S01 Essential-fields applicant form flake | done | #55 | |
 | F01/S02 The public form request stalls under load | **open** | | Investigated at length in E04; still not solved |
-| F02/S01 Remove the `csv_exports` directory | in review | #66 | Pulled into v0.1.0 by the epic owner |
-| F03/S01 One MongoDB client per process | in review | #66 | Found while investigating F01/S02 |
+| F02/S01 Remove the `csv_exports` directory | done | #66 | Pulled into v0.1.0 by the epic owner |
+| F03/S01 One MongoDB client per process | done | #66 | Found while investigating F01/S02 |
 
-"In review" means complete and pushed in PR #66 (`feat/e04-v0-1-0-release` -> `dev`), not yet
-merged. On merge, set both to `done` with `pr: [#66]`.
+Both landed on `dev` with PR #66 (`d4a116f8`, squash) on 2026-09-13.
 
 ## F01/S02, the one that is still open
 

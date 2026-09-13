@@ -2,9 +2,9 @@
 id: E06/F03/S01
 title: The back end makes one MongoDB client per process, not one per request
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#66]
 ---
 
 ## What to build
