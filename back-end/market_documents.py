@@ -52,6 +52,7 @@ from assignment.utils import (
 from datatypes import (
     Market,
     MarketPhase,
+    intake_mode_from_market_document,
     market_name_slug,
     phase_from_market_document,
 )
@@ -297,6 +298,11 @@ def published_market_by_slug(
     return None
 
 
+# Fields whose stored value is decided by a document reader rather than by Pydantic, because a
+# value this build does not recognize has to degrade instead of raising. See the docstring below.
+_DOCUMENT_READ_FIELDS = ("phase", "intake_mode")
+
+
 def market_from_document(
     document: Dict[str, Any], market_snake: Optional[Dict[str, Any]] = None
 ) -> Market:
@@ -307,15 +313,25 @@ def market_from_document(
     ``phase_from_market_document``, and so does a document with an unrecognized phase value. The
     result is assigned to ``phase`` on the Pydantic model, so it overrides the default both ways.
     See ``Market.phase``.
+
+    Both of those fields are *withheld* from the parse rather than corrected after it. Pydantic
+    validates an enum field before any later assignment can degrade it, so a document carrying a
+    value this build does not recognize used to raise here -- which is exactly what the two
+    document readers exist to prevent, and the failure would have landed on whatever list
+    happened to include that one market. The reader decides; the parse never sees the raw value.
     """
     if market_snake is not None:
         doc = convert_keys_to_snake_case(document)
         doc.update(market_snake)
     else:
         doc = convert_keys_to_snake_case(document)
-    model_data = {k: v for k, v in doc.items() if k in Market.model_fields}
+    model_data = {
+        k: v for k, v in doc.items()
+        if k in Market.model_fields and k not in _DOCUMENT_READ_FIELDS
+    }
     market = Market(**model_data)
     object.__setattr__(market, "phase", phase_from_market_document(document))
+    object.__setattr__(market, "intake_mode", intake_mode_from_market_document(document))
     return market
 
 

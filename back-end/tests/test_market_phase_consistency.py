@@ -213,3 +213,35 @@ def test_corrupt_market_document_is_logged(collection, caplog):
 
     assert context.market is None
     assert "corrupt-market" in caplog.text
+
+
+class TestIntakeModeOnAServedDocument:
+    """The raw-document endpoints stamp intake mode for the same reason they stamp ``isDraft``.
+
+    A response built from a stored document bypasses ``Market``. A document naming no intake
+    mode, or one this build does not recognize, would otherwise be served verbatim -- and a
+    client round-tripping it would PUT back a value the model refuses, answering 400 on an edit
+    that touched something else entirely.
+    """
+
+    def test_a_document_naming_no_intake_mode_is_served_as_csv(self, collection):
+        served = MarketsApi.get_market_for_user(USER_EMAIL, "draft-market")
+        assert served["intakeMode"] == "csv"
+
+    def test_the_list_serves_the_same_answer_as_the_detail(self, collection):
+        listed = {m["id"]: m for m in MarketsApi.get_markets_for_user(USER_EMAIL)}
+        assert listed["draft-market"]["intakeMode"] == "csv"
+
+    def test_a_stored_form_market_is_served_as_form(self, collection):
+        collection.docs.append(
+            {**_pre_migration_market("form-market", is_draft=True), "intakeMode": "form"}
+        )
+        served = MarketsApi.get_market_for_user(USER_EMAIL, "form-market")
+        assert served["intakeMode"] == "form"
+
+    def test_an_unrecognized_stored_value_is_never_handed_back(self, collection):
+        collection.docs.append(
+            {**_pre_migration_market("odd-market", is_draft=True), "intakeMode": "carrier_pigeon"}
+        )
+        served = MarketsApi.get_market_for_user(USER_EMAIL, "odd-market")
+        assert served["intakeMode"] == "csv"
