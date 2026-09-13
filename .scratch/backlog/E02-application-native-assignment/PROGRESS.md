@@ -14,8 +14,8 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | 2 | F01/S02 Assign a market from its Applications | F01/S01 | done (unpushed) | |
 | 3 | F01/S03 Honour the organizer's max assignments per vendor | F01/S02 | done (unpushed) | |
 | 3b | F01/S04 Refuse a zero assignment cap (found in S03) | F01/S03 | not started | |
-| 4 | F02/S01 Build a priority rule from a form question | F01/S02 | not started | |
-| 5 | F02/S02 Prioritise by when the application arrived | F02/S01 | not started | |
+| 4 | F02/S01 Build a priority rule from a form question | F01/S02 | done (unpushed) | |
+| 5 | F02/S02 Prioritise by when the application arrived | F02/S01 | done (unpushed) | |
 | 6 | F03/S01 Place vendors in their highest-ranked available section | F01/S02 | not started | |
 | 7 | F04/S01 Stop the product reading source data | F02/S02, F03/S01 | not started | |
 | 8 | F04/S02 Remove the source-data endpoints and collection | F04/S01 | not started | |
@@ -170,3 +170,45 @@ Filed as E02/F01/S04 rather than folded in, following the repo's rule that work 
 mid-story becomes a sibling story.
 Low severity: the failure is visible rather than silent, since every vendor reports as
 unassigned.
+
+### F02/S01 Build a priority rule from a form question
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| A rule names a form field key and carries its own ordering | met | `PriorityObject(id, target, ordering)`. |
+| The ordering's shape is derived from the target's type, not declared | met | The screen picks the control from the target's type; there is no type to choose. |
+| Data type, sorting order and column index are gone from the rule | met | Gone from the model, the contract, the TypeScript type and the screen. `DataType` is deleted entirely. |
+| The per-column array of enum orderings is gone from the setup model | met | `enum_priority_order` removed from `SetupObject` and its contract, and from every fixture and e2e seed. |
+| The solver orders vendors by the configured rules, in rule order | met | `_calculate_priority_score` returns one score per rule; compared as a tuple, so an earlier rule always outranks a later one. Two tests cover "the first rule decides" and "a tie is broken by the second". |
+| An unplaced answer falls at `<All others>`, or last when absent | met | Two tests. |
+| The target picker lists the market's own questions; the data-type dropdown is gone | met | Component tests assert both, including that a free-text question is not offered because it has no arrangement to make. |
+| Contains and Does not contain are no longer offered | met | Deleted with `DataType`; a component test asserts the text is absent. |
+| A configured rule demonstrably changes the order, provably so under the old behaviour | met | `test_reversing_the_ordering_reverses_who_is_placed` changes only the ordering between two otherwise identical runs. Under the old scheme both runs scored every vendor identically. |
+| Frontend and backend tests cover rule creation, reordering, and scoring | met | 8 solver tests, 12 component tests. |
+| `docs/schema.d.ts` regenerated, not hand-edited | met | Regenerated via `generate_market_schema.py`; its pinning test passes. |
+
+### F02/S02 Prioritise by when the application arrived
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| Submission time is selectable and orders earliest-first | met | `application.submitted_at`; `test_the_earlier_application_takes_the_only_table`. |
+| Application type is selectable as a target | met | `application.application_type`. |
+| Built-ins appear as their own group, separate from the organizer's questions | met | `optgroup` per group; a component test asserts the two labels in order. |
+| Number, date and yes/no orderings work, direction derived from the target's type | met | Six solver tests plus component tests asserting the direction is worded for the target ("Lowest first" for a number, "Earliest first" for a date). |
+| A market can combine a form-question rule and a built-in rule, applied in rule order | met | `test_an_arranged_rule_and_a_magnitude_rule_combine_in_order`. |
+| An imported application carries its real submission time, proven by a test | met | Two tests in `test_csv_import.py`: the row's own Timestamp reaches `submitted_at`, and two rows keep distinct, correctly ordered times. |
+| Frontend and backend tests cover each ordering shape | met | 710 back-end, 69 front-end, all green. |
+
+#### Calls taken
+
+- **An absent answer sorts last, never first.** An application with no usable value for a
+  magnitude rule scores as infinitely far back rather than as zero.
+  An absent answer is not evidence of anything, and letting it win by default would be the same
+  silent-advantage failure this epic keeps removing.
+- **Numbers are parsed before the true/false words**, so a numeric answer of zero is zero rather
+  than a word that looks false. `"1"` and `"0"` were removed from the boolean vocabulary for the
+  same reason.
+- **A multi-select answer sorts by the applicant's first choice**, which is the only ordering
+  information such an answer carries.
+- **Renamed `SUBMITTED_AT_TARGET` to `SUBMITTED_AT_RULE_TARGET`** in `datatypes`, because
+  `csv_import` already had that exact name meaning the import-mapping target.
