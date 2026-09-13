@@ -181,22 +181,14 @@ class SectionObject(BaseModel):
 
 
 class AssignmentOptionObject(BaseModel):
+    # None = the organizer named no ceiling, so each vendor is bounded by their own answer and by
+    # how many dates they can attend. There is no hidden default standing in for the four-day
+    # constant this replaced.
     max_assignments_per_vendor: Optional[int] = None
     max_half_table_proportion_per_section: Optional[int] = None
-    # For assignment: email / table_choice / table_share must be set (column index). No legacy names.
-    email_col_name_idx: Optional[int] = None
-    table_choice_col_name_idx: Optional[int] = None
-    table_share_email_col_name_idx: Optional[int] = None
-    # None = no per-vendor max-days limit from CSV (only global caps). Mapped empty cell = same.
-    max_days_col_name_idx: Optional[int] = None
-    # use_totally_random_assignment: bool
-    # use_maximum_capacity_assignment: bool
 
 
 class SetupObject(BaseModel):
-    col_names: List[str] = []
-    col_values: List[List[str]] = []
-    col_include: List[bool] = []
     priority: List[PriorityObject]
     market_dates: List[MarketDateObject]
     tiers: List[TierObject]
@@ -525,9 +517,6 @@ class UnassignedTableEntryContract(ContractModel):
 
 class SetupObjectContract(ContractModel):
     assignment_options: AssignmentOptionContract
-    col_include: List[bool] = []
-    col_names: List[str] = []
-    col_values: List[List[str]] = []
     locations: List[LocationContract]
     market_dates: List[MarketDateContract]
     priority: List[PriorityContract]

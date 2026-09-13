@@ -55,16 +55,9 @@ export interface MarketSchema {
   roles: Record<string, string>;
   setupObject: null | {
     assignmentOptions: {
-      emailColNameIdx?: number;
       maxAssignmentsPerVendor?: number;
-      maxDaysColNameIdx?: number;
       maxHalfTableProportionPerSection?: number;
-      tableChoiceColNameIdx?: number;
-      tableShareEmailColNameIdx?: number;
     };
-    colInclude?: boolean[];
-    colNames?: string[];
-    colValues?: string[][];
     floorplans?: {
       id?: string;
       imageGridfsId?: string;
