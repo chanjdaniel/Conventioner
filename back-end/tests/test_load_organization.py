@@ -136,14 +136,9 @@ class TestGetAssignedMarketOrganizationName:
         monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda _q: _market_doc())
         monkeypatch.setattr(MarketsApi.OrgsApi, "get_organization", _get_organization)
         monkeypatch.setattr(
-            MarketsApi.SourceDataApi,
-            "get_source_data",
-            lambda _mid: ({"headers": [], "data": []}, 200),
-        )
-        monkeypatch.setattr(
             MarketsApi,
             "assign_market",
-            lambda _market, _source_data: SimpleNamespace(model_dump=lambda: {}),
+            lambda _market: SimpleNamespace(model_dump=lambda: {}),
         )
 
         result, status = MarketsApi.get_assigned_market("market-123")

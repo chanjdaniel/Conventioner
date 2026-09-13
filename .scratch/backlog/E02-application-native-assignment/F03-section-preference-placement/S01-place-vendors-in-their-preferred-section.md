@@ -35,6 +35,7 @@ No data is needed either way; a table already knows its section.
 - [ ] A vendor with a clear section preference and multiple valid options is placed in their highest-ranked available section
 - [ ] A vendor whose top section is full is still placed, in their next-best available section
 - [ ] No vendor is left unassigned as a result of preference
+- [ ] The early-break defect below is fixed, and its pinning test inverted to assert the vendor IS placed
 - [ ] No vendor loses a placement they would have received before, purely to satisfy another vendor's preference
 - [ ] Preference never overrides tier, which stays a hard filter
 - [ ] Preference never overrides priority order: a higher-priority vendor is still placed first
@@ -50,6 +51,17 @@ Do not treat it as a second preference to wire up here.
 
 Half-table pairing and the per-section half-table proportion interact with placement.
 Preference must not silently defeat either.
+
+**There is a placement defect waiting in this loop.**
+Found while implementing F01/S02 and pinned there rather than fixed, so the input swap's diff
+stayed free of placement changes.
+`assign` breaks out of the table loop the moment one table cannot be filled, but validity is
+answered per *table* - a vendor who accepts only one tier is not valid for a table of another.
+So an unfillable table early in the list ends that date, and every later table is left empty
+however many vendors could have taken one.
+A market with two tiers strands everyone whose tier sorts second.
+`TestKnownDefectTheTableLoopStopsEarly` in `tests/test_assignment_behaviour.py` is the witness;
+inverting it is part of this story.
 
 The solver had no behavioural tests of its own before this epic; F01/S02 is where that safety net
 gets built.

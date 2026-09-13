@@ -16,7 +16,7 @@ from datatypes import (
     UnassignedTableEntry,
     phase_from_market_document,
 )
-from assignment.assignment import assign_market
+from assignment.assignment import IncompleteApplicationsError, assign_market
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case, snake_to_camel
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
@@ -705,23 +705,14 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
             "assignment_statistics": None
         }
 
-        # get market source data
-        source_data = None
-        try:
-            source_data_result = SourceDataApi.get_source_data(market_id)
-            if source_data_result is None:
-                raise Exception("Source data not found")
-                
-            source_data, _ = source_data_result  # Extract dict, ignore status code
-
-        except Exception as e:
-            logger.error(f"Error getting market source data: {str(e)}")
-            logger.error(f"Error type: {type(e)}")
-
         # Convert dictionary to Market object
         try:
             market = market_from_document(context.document, market_dict)
-            assigned_market = assign_market(market, source_data)
+            try:
+                assigned_market = assign_market(market)
+            except IncompleteApplicationsError as incomplete:
+                # The organizer has to go and fix something, so say who.
+                return {"error": incomplete.message()}, 400
             assigned_market_dict = assigned_market.model_dump()
 
             assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)
@@ -778,16 +769,13 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
             if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
                 return {"error": "User does not have permission to view this market"}, 403
 
-        source_data_result = SourceDataApi.get_source_data(market_id)
-        if source_data_result is None:
-            return {"error": "Source data not found"}, 404
-        source_data, source_status = source_data_result
-        if source_status != 200:
-            return source_data, source_status
-
         # Keep persisted schema free of assignment statistics, then derive fresh.
         market.assignment_object.assignment_statistics = None
-        assigned_market = assign_market(market, source_data)
+        try:
+            assigned_market = assign_market(market)
+        except IncompleteApplicationsError as incomplete:
+            # The organizer has to go and fix something, so say who.
+            return {"error": incomplete.message()}, 400
         stats = assigned_market.assignment_object.assignment_statistics
         if stats is None:
             return {"error": "Unable to derive assignment statistics"}, 500
@@ -838,19 +826,16 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
         if market.setup_object is None:
             return {"error": "Market has no setup configured"}, 400
 
-        source_data_result = SourceDataApi.get_source_data(market_id)
-        if source_data_result is None:
-            return {"error": "Source data not found"}, 404
-        source_data, source_status = source_data_result
-        if source_status != 200:
-            return source_data, source_status
-
         market.assignment_object.assignment_statistics = None
-        assigned_market = assign_market(market, source_data)
+        try:
+            assigned_market = assign_market(market)
+        except IncompleteApplicationsError as incomplete:
+            # The organizer has to go and fix something, so say who.
+            return {"error": incomplete.message()}, 400
         assigned_market_dict = assigned_market.model_dump()
 
         try:
-            csv_content = market_csv_to_string(assigned_market_dict, source_data)
+            csv_content = market_csv_to_string(assigned_market_dict)
         except ValueError as e:
             return {"error": str(e)}, 400
 
@@ -883,15 +868,12 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.VIEWER, context.organization):
                 return {"error": "User does not have permission to view this market"}, 403
 
-        source_data_result = SourceDataApi.get_source_data(market_id)
-        if source_data_result is None:
-            return {"error": "Source data not found"}, 404
-        source_data, source_status = source_data_result
-        if source_status != 200:
-            return source_data, source_status
-
         market.assignment_object.assignment_statistics = None
-        assigned_market = assign_market(market, source_data)
+        try:
+            assigned_market = assign_market(market)
+        except IncompleteApplicationsError as incomplete:
+            # The organizer has to go and fix something, so say who.
+            return {"error": incomplete.message()}, 400
         rows = derive_market_table_rows(assigned_market)
         return [convert_keys_to_camel_case(row.model_dump()) for row in rows], 200
     except Exception as e:
@@ -983,15 +965,12 @@ def post_assignment_to_discord(market_id: str, requesting_user: str) -> tuple[Di
         if market.setup_object is None:
             return {"error": "Market has no setup configured"}, 400
 
-        source_data_result = SourceDataApi.get_source_data(market_id)
-        if source_data_result is None:
-            return {"error": "Source data not found"}, 404
-        source_data, source_status = source_data_result
-        if source_status != 200:
-            return source_data, source_status
-
         market.assignment_object.assignment_statistics = None
-        assigned_market = assign_market(market, source_data)
+        try:
+            assigned_market = assign_market(market)
+        except IncompleteApplicationsError as incomplete:
+            # The organizer has to go and fix something, so say who.
+            return {"error": incomplete.message()}, 400
 
         payload = _build_discord_payload(market, assigned_market)
 
