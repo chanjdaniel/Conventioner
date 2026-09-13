@@ -59,9 +59,6 @@ test.describe('Floorplan workflow E2E', () => {
 
     // Seed a minimal setupObject so the setup wizard has columns to display.
     const minimalSetup = {
-      colNames: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
-      colValues: [[], [], [], [], ['Gold', 'Silver']],
-      colInclude: [false, false, false, false, false],
       priority: [],
       marketDates: [],
       tiers: [],
@@ -70,10 +67,6 @@ test.describe('Floorplan workflow E2E', () => {
       assignmentOptions: {
         maxAssignmentsPerVendor: null,
         maxHalfTableProportionPerSection: null,
-        emailColNameIdx: null,
-        tableChoiceColNameIdx: null,
-        tableShareEmailColNameIdx: null,
-        maxDaysColNameIdx: null,
       },
     };
     const setupRes = await ctx.put(`${BACKEND_URL}/markets/${marketId}`, {
@@ -109,7 +102,7 @@ test.describe('Floorplan workflow E2E', () => {
     await expect(page.locator('.double-column-body .setup-row').first()).toBeVisible({
       timeout: 5000,
     });
-    await setupPage.addMarketDate('2026-07-15', 4, 0);
+    await setupPage.addMarketDate('2026-07-15', 0);
     await setupPage.clickNext();
 
     const floorplanPage = new FloorplanWorkflowPage(page);

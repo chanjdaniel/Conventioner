@@ -1,47 +1,14 @@
-import type { SetupObject, TierObject } from '@/assets/types/datatypes';
-
-function splitTierTokens(raw: unknown): string[] {
-  if (raw === null || raw === undefined) return [];
-  const s = String(raw).trim();
-  if (!s) return [];
-  return s
-    .split(',')
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-}
+import type { TierObject } from '@/assets/types/datatypes';
 
 /**
- * Unique tier names from `colValues` for columns mapped as market dates (`colNameIdx`).
- * Order: each market date in configured order, then each distinct cell value in `colValues[idx]`
- * (same order as when the column was scanned), with comma-separated cells split like the assignment backend.
+ * Tiers an organizer names themselves.
+ *
+ * There used to be a `collectDefaultTierNames` here that scraped tier names out of the uploaded
+ * spreadsheet's cell values, so the tier list could be pre-filled from whatever vendors had
+ * typed. There is no spreadsheet behind a market any more, and a tier is a decision the
+ * organizer makes rather than something to be inferred from answers, so there is nothing left
+ * to derive and nothing to pre-fill.
  */
-export function collectDefaultTierNames(setup: SetupObject): string[] {
-  const { colValues, marketDates, colNames } = setup;
-  if (!Array.isArray(colValues) || !Array.isArray(marketDates)) return [];
-
-  const seen = new Set<string>();
-  const ordered: string[] = [];
-
-  for (const md of marketDates) {
-    const idx = md.colNameIdx;
-    if (idx < 0 || idx >= colNames.length || idx >= colValues.length) continue;
-
-    const values = colValues[idx];
-    if (!Array.isArray(values)) continue;
-
-    for (const raw of values) {
-      for (const token of splitTierTokens(raw)) {
-        if (!seen.has(token)) {
-          seen.add(token);
-          ordered.push(token);
-        }
-      }
-    }
-  }
-
-  return ordered;
-}
-
 export function buildDefaultTierObjects(names: string[]): TierObject[] {
   return names.map((name, index) => ({
     id: index + 1,

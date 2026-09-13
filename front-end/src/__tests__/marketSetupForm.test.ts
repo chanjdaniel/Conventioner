@@ -17,9 +17,6 @@ vi.mock('@/utils/api', async (importOriginal) => {
 });
 
 const EMPTY_SETUP_OBJECT = {
-  colNames: [],
-  colValues: [],
-  colInclude: [],
   priority: [],
   marketDates: [],
   tiers: [],

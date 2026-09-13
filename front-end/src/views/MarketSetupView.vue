@@ -3,7 +3,6 @@ import { computed, onMounted, onUnmounted, reactive, nextTick, ref, watch } from
 import { useRouter } from 'vue-router';
 
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
-import ElementSetupColumns from '@/components/elements/ElementSetupColumns.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
 import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue';
@@ -61,9 +60,6 @@ const formStateUnknown = computed(
   () => formLoadStatus.value !== 'loaded' && applicationForm.value === null,
 );
 const setupObject = reactive<SetupObject>({
-  colNames: [],
-  colValues: [],
-  colInclude: [],
   priority: [],
   marketDates: [],
   tiers: [],
@@ -72,10 +68,6 @@ const setupObject = reactive<SetupObject>({
   assignmentOptions: {
     maxAssignmentsPerVendor: null,
     maxHalfTableProportionPerSection: null,
-    emailColNameIdx: null,
-    tableChoiceColNameIdx: null,
-    tableShareEmailColNameIdx: null,
-    maxDaysColNameIdx: null,
   },
 });
 
@@ -113,10 +105,15 @@ function handlePhaseAdvanced(updatedMarket: Market) {
   market.value = updatedMarket;
 }
 
-/** True when required Assignment Options are set (Assign enabled). Max days column mapping is optional. */
+/**
+ * True when the required Assignment Options are set, which is what enables Assign.
+ *
+ * It used to also require four spreadsheet columns to be mapped - which vendor answer lived
+ * where. The application form supplies all four now, so what is left is what the organizer
+ * actually decides.
+ */
 const assignmentOptionsComplete = computed(() => {
   const ao = setupObject.assignmentOptions;
-  const numCols = setupObject.colNames.length;
   const numMarketDates = setupObject.marketDates.length;
 
   const maxPer = parseFiniteInt(ao.maxAssignmentsPerVendor);
@@ -125,19 +122,6 @@ const assignmentOptionsComplete = computed(() => {
 
   const halfProp = parseFiniteNumber(ao.maxHalfTableProportionPerSection);
   if (halfProp === null || halfProp < 0 || halfProp > 100) return false;
-
-  const idxValid = (idx: number | null | undefined) =>
-    idx !== null &&
-    idx !== undefined &&
-    Number.isInteger(idx) &&
-    idx >= 0 &&
-    numCols > 0 &&
-    idx < numCols;
-
-  if (!idxValid(ao.emailColNameIdx)) return false;
-  if (!idxValid(ao.tableChoiceColNameIdx)) return false;
-  if (!idxValid(ao.tableShareEmailColNameIdx)) return false;
-  // maxDaysColNameIdx optional: null = backend applies no per-vendor max-days cap from CSV
 
   return true;
 });
@@ -477,17 +461,6 @@ watch(pageIdx, (newIdx) => {
         <div v-if="activeTab === 'setup'" class="settings-body">
           <template v-if="pageIdx === 0">
             <div class="double-column-body">
-              <ElementSettingContainer>
-                <template #setting-title>
-                  <h2>Manage Columns</h2>
-                </template>
-                <template #setting-content>
-                  <ElementSetupColumns
-                    :setupObject="setupObject"
-                    @update:setupObject="handleUpdateSetupObject"
-                  />
-                </template>
-              </ElementSettingContainer>
               <ElementSettingContainer>
                 <template #setting-title>
                   <h2>Market Dates</h2>

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, watch, computed, onUnmounted } from 'vue';
 import {
+  type Application,
   type Market,
   type VendorAssignmentResult,
   type MarketDateObject,
 } from '@/assets/types/datatypes';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
-import { api } from '@/utils/api';
+import { fetchMarketApplications } from '@/utils/applicantApi';
+import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 
 const props = defineProps<{
   open: boolean;
@@ -18,7 +20,7 @@ const emit = defineEmits<{
 }>();
 
 const loadError = ref<string | null>(null);
-const dataRows = ref<string[][] | null>(null);
+const applications = ref<Application[] | null>(null);
 
 function assignmentHeaderLabel(marketDate: MarketDateObject): string {
   const d = new Date(marketDate.date + 'T12:00:00');
@@ -42,9 +44,9 @@ function normalizeVendorAssignment(raw: Record<string, unknown>): VendorAssignme
   };
 }
 
-async function loadSourceData() {
+async function loadVendors() {
   loadError.value = null;
-  dataRows.value = null;
+  applications.value = null;
   const market = props.market;
   if (!market?.id) {
     loadError.value = 'No market loaded.';
@@ -52,27 +54,24 @@ async function loadSourceData() {
   }
 
   try {
-    const res = await api.get(`/source-data/${encodeURIComponent(market.id)}`);
-    const rows = res.data?.data;
-    if (Array.isArray(rows) && rows.length > 0) {
-      dataRows.value = rows.map((row: unknown) =>
-        Array.isArray(row) ? row.map((c) => (c == null ? '' : String(c))) : [],
-      );
+    const list = await fetchMarketApplications(market.id);
+    if (Array.isArray(list) && list.length > 0) {
+      applications.value = list;
       return;
     }
   } catch {
-    loadError.value = 'Could not fetch vendor source data.';
+    loadError.value = 'Could not fetch this market&rsquo;s applications.';
     return;
   }
 
-  loadError.value = 'No vendor source data found.';
+  loadError.value = 'No vendors have applied to this market yet.';
 }
 
 watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
-      void loadSourceData();
+      void loadVendors();
     }
   },
 );
@@ -104,22 +103,24 @@ onUnmounted(() => {
 
 const setup = computed(() => props.market?.setupObject ?? null);
 
-const includedIndices = computed(() => {
-  const s = setup.value;
-  if (!s?.colNames?.length) return [] as number[];
-  const out: number[] = [];
-  for (let i = 0; i < s.colNames.length; i++) {
-    if (s.colInclude[i]) out.push(i);
-  }
-  return out;
-});
+/**
+ * The organizer's own questions, in form order. These were the included columns of an uploaded
+ * spreadsheet; a vendor is an application now, so they come from the form that produced it.
+ * Essential answers are left out: they restate the market plan rather than describing a vendor.
+ */
+const customFields = computed(() =>
+  (props.market?.applicationForm?.fields ?? [])
+    .filter((field) => !field.key.startsWith(ESSENTIAL_KEY_PREFIX))
+    .slice()
+    .sort((a, b) => a.order - b.order),
+);
 
 const columnHeaders = computed(() => {
   const s = setup.value;
   if (!s) return [] as string[];
-  const headers: string[] = [];
-  for (const i of includedIndices.value) {
-    headers.push(s.colNames[i] ?? '');
+  const headers: string[] = ['Email'];
+  for (const field of customFields.value) {
+    headers.push(field.label || field.key);
   }
   for (const md of s.marketDates ?? []) {
     headers.push(assignmentHeaderLabel(md));
@@ -128,14 +129,14 @@ const columnHeaders = computed(() => {
   return headers;
 });
 
-const emailColIdx = computed(() => {
-  const idx = setup.value?.assignmentOptions?.emailColNameIdx;
-  return typeof idx === 'number' && idx >= 0 ? idx : null;
-});
-
 const marketDates = computed(() => setup.value?.marketDates ?? []);
 
-const colNames = computed(() => setup.value?.colNames ?? []);
+function answerText(value: unknown): string {
+  if (value == null) return '';
+  if (Array.isArray(value)) return value.map((item) => String(item)).join(', ');
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
 
 function vendorAssignmentsList(m: Market | null): unknown[] {
   if (!m?.assignmentObject) return [];
@@ -162,54 +163,32 @@ const assignmentByEmailAndDate = computed(() => {
   return map;
 });
 
-function dateKeyForMarketDate(md: MarketDateObject): string {
-  const ext = md as MarketDateObject & { col_name?: string };
-  if (ext.col_name) return ext.col_name;
-  const names = colNames.value;
-  const idx = md.colNameIdx ?? (md as { col_name_idx?: number }).col_name_idx;
-  if (typeof idx === 'number' && idx >= 0 && idx < names.length) {
-    return names[idx] ?? '';
-  }
-  return '';
-}
-
 const bodyRows = computed(() => {
-  const rows = dataRows.value;
+  const list = applications.value;
   const s = setup.value;
-  if (!rows || rows.length < 2 || !s) return [] as string[][];
+  if (!list || list.length === 0 || !s) return [] as string[][];
 
-  const inc = includedIndices.value;
-  const emailIdx = emailColIdx.value;
-  const dates = marketDates.value;
   const assignMap = assignmentByEmailAndDate.value;
 
-  const result: string[][] = [];
-  for (let r = 1; r < rows.length; r++) {
-    const row = rows[r];
-    const cells: string[] = [];
+  return list.map((application) => {
+    const emailRaw = (application.applicantEmail ?? '').trim();
+    const answers = (application.formData ?? {}) as Record<string, unknown>;
+    const cells: string[] = [emailRaw];
 
-    for (const j of inc) {
-      cells.push(j < row.length ? (row[j] ?? '') : '');
+    for (const field of customFields.value) {
+      cells.push(answerText(answers[field.key]));
     }
 
-    const emailRaw =
-      emailIdx != null && emailIdx < row.length ? String(row[emailIdx] ?? '').trim() : '';
-    const emailLower = emailRaw.toLowerCase();
-    const rowAssign = emailLower ? assignMap.get(emailLower) : undefined;
-
-    for (const md of dates) {
-      const dk = dateKeyForMarketDate(md);
-      let cell = '';
-      if (rowAssign && dk) {
-        cell = rowAssign.get(dk) ?? '';
-      }
-      cells.push(cell);
+    const rowAssign = emailRaw ? assignMap.get(emailRaw.toLowerCase()) : undefined;
+    for (const md of marketDates.value) {
+      // A placement is dated by the market date itself; a spreadsheet column heading no longer
+      // stands in for it, so there is no alias to resolve.
+      cells.push(rowAssign?.get(md.date) ?? '');
     }
 
     cells.push('—');
-    result.push(cells);
-  }
-  return result;
+    return cells;
+  });
 });
 
 const gridTemplate = computed(() => {

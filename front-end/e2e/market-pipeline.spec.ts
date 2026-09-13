@@ -7,6 +7,10 @@ import {
   TEST_USER,
 } from './fixtures';
 import { ensureTestOrg, loginViaApi, marketNameToSlug } from './helpers/seeds';
+import { seedApprovedVendor } from './helpers/seedApplication';
+
+/** The single market day this pipeline sets up, seeds vendors for, and assigns. */
+const MARKET_DATE = '2026-07-15';
 import { CheckinPage } from './pages/CheckinPage';
 
 test.describe('Market pipeline E2E', () => {
@@ -54,29 +58,23 @@ test.describe('Market pipeline E2E', () => {
     }
     const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-    // Upload source data so the assignment engine can compute assignments.
-    // The solver reads from the source_data collection; without it, the
-    // assignment on the setup wizard's Assign button returns 400.
-    const csvContent = [
-      'email,vendor_name,table_choice,buddy_email,day_1',
-      'alice@example.com,Alice,Full table,,Gold',
-      'bob@example.com,Bob,Full table,,Gold',
-      'carol@example.com,Carol,Half Table,,Silver',
-      'dave@example.com,Dave,Half Table,carol@example.com,Silver',
-      'eve@example.com,Eve,Full table,,Gold',
-    ].join('\n');
-    const srcRes = await ctx.post(`${BACKEND_URL}/source-data/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-      multipart: {
-        file: {
-          name: 'vendors.csv',
-          mimeType: 'text/csv',
-          buffer: Buffer.from(csvContent, 'utf-8'),
-        },
-      },
-    });
-    if (!srcRes.ok()) {
-      throw new Error(`Source data upload failed: ${srcRes.status()} ${await srcRes.text()}`);
+    // The vendors the wizard's Assign button will place. Approved applications, which is what a
+    // vendor is; this used to upload a fabricated CSV because the solver read a separate
+    // source_data collection.
+    const VENDORS: Array<[string, string, string, string]> = [
+      ['alice@example.com', 'Gold', 'full', ''],
+      ['bob@example.com', 'Gold', 'full', ''],
+      ['carol@example.com', 'Silver', 'half', ''],
+      ['dave@example.com', 'Silver', 'half', 'carol@example.com'],
+      ['eve@example.com', 'Gold', 'full', ''],
+    ];
+    for (const [applicant, tier, tableChoice, shareWith] of VENDORS) {
+      seedApprovedVendor(marketId, applicant, {
+        dates: [MARKET_DATE],
+        tiers: [tier],
+        tableChoice,
+        shareWith,
+      });
     }
 
     const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
@@ -86,9 +84,6 @@ test.describe('Market pipeline E2E', () => {
 
     // Seed a minimal setupObject so the setup wizard has columns to display.
     const minimalSetup = {
-      colNames: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
-      colValues: [[], [], [], [], ['Gold', 'Silver']],
-      colInclude: [false, false, false, false, false],
       priority: [],
       marketDates: [],
       tiers: [],
@@ -97,10 +92,6 @@ test.describe('Market pipeline E2E', () => {
       assignmentOptions: {
         maxAssignmentsPerVendor: null,
         maxHalfTableProportionPerSection: null,
-        emailColNameIdx: null,
-        tableChoiceColNameIdx: null,
-        tableShareEmailColNameIdx: null,
-        maxDaysColNameIdx: null,
       },
     };
     const setupRes = await ctx.put(`${BACKEND_URL}/markets/${marketId}`, {
@@ -141,7 +132,7 @@ test.describe('Market pipeline E2E', () => {
     const columnRows = page.locator('.double-column-body .setup-row');
     await expect(columnRows).toHaveCount(5);
 
-    await setupPage.addMarketDate('2026-07-15', 4, 0);
+    await setupPage.addMarketDate(MARKET_DATE, 0);
 
     // Advance to page 1
     await setupPage.clickNext();
