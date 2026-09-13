@@ -70,7 +70,6 @@ services:
     volumes:
       - ./back-end:/app
       - backend_sessions:/app/flask_session
-      - backend_csv:/app/csv_exports
     depends_on:
       mongodb:
         condition: service_healthy
@@ -128,6 +127,4 @@ volumes:
   mongodb_data:
     driver: local
   backend_sessions:
-    driver: local
-  backend_csv:
     driver: local

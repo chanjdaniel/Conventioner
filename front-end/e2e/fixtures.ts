@@ -42,3 +42,5 @@ export { ApplicationFormPage } from './pages/ApplicationFormPage';
 export { ApplicantDashboardPage } from './pages/ApplicantDashboardPage';
 export { ApplicantLoginPage } from './pages/ApplicantLoginPage';
 export { ApplyPage } from './pages/ApplyPage';
+export { CsvImportPage } from './pages/CsvImportPage';
+export { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
