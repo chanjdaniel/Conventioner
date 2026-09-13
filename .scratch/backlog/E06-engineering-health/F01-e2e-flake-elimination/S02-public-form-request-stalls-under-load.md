@@ -31,15 +31,58 @@ running, on a request that normally answers in milliseconds against an indexed l
 
 ## Where to look
 
-Unproven, in rough order of suspicion:
+Revised 2026-09-13 after an investigation that narrowed it without closing it.
 
-- The Flask development server's concurrency under `--cert=adhoc`: every request is a fresh TLS
-  connection, and a queued request behind a slow one would look exactly like this.
-- Vite's dev proxy in front of it, which is what the browser actually talks to.
+### Ruled out: the Flask dev server serialising requests
+
+`flask run` defaults `--with-threads` to **true** (Flask 3.0), so the dev server is threaded and a
+slow request does not block the accept loop. A queue behind one slow request is not the mechanism.
+
+### Ruled out as the cause: a leaked MongoDB client per request
+
+This looked extremely promising and was wrong, which is worth recording so nobody spends the time
+again.
+
+`api/applicants.py` was building a **new `MongoClient` inside four request handlers**, including
+`get_public_application_form` - the exact endpoint that stalls - and it was the only module in the
+codebase doing so; every other one builds a client at import. A `MongoClient` is a connection pool
+with background monitor threads that nothing closes, so each request leaked one. That fits the
+symptom shape exactly: invisible in isolation, worsening across a long run, intermittent, a stall
+rather than an error, and specific to *these* endpoints.
+
+It is a real defect and it is fixed (`E06/F03/S01`, measured: applicant requests took MongoDB's
+open connection count from 28 to 60 while `/markets` never moved it; flat at 9 afterwards).
+
+**But it is not this stall.** With ~400 leaked clients deliberately created against a live stack,
+the endpoint answered in **19-20ms, flat**, sampled across three 10-second heartbeat windows. The
+leak does not produce the latency.
+
+### Where suspicion now sits
+
+**Vite's dev proxy**, which is the one part of the path every reproduction attempt so far has
+skipped. Every probe above used `curl` straight to the back end and could not reproduce the stall
+at any scale. The browser does not: it talks to Vite, which proxies to the back end over HTTPS with
+a self-signed certificate. That is also the only component under real load from something other
+than the request itself, since it is transforming modules for the page at the same time.
+
+A reproduction has to go through the proxy, under a browser, with the rest of the suite running.
+
+### Still unexamined
+
 - Whether an earlier spec leaves a long-running request in flight that this one queues behind.
+- Whether the stall correlates with a particular preceding spec, which the suite's fixed ordering
+  would make visible: run the suite with `--repeat-each` or a shuffled order and see if the
+  failure follows a neighbour rather than the clock.
 
-Backend timing logs around the public endpoints during a failing run would settle it quickly; the
-stack teardown in `scripts/nm-test.sh` currently discards them, so capture them first.
+Backend timing logs around the public endpoints during a failing run would still settle it; the
+stack teardown in `scripts/nm-test.sh` discards them, so capture them first.
+
+### Note on frequency
+
+Three consecutive full-suite runs passed on 2026-09-13 with the retry workaround still in place and
+never firing. That is consistent with "rarer since S01" and is **not** evidence the defect is gone:
+it was already intermittent at roughly one run in two before S01, and three green runs cannot clear
+that.
 
 ## Acceptance criteria
 
