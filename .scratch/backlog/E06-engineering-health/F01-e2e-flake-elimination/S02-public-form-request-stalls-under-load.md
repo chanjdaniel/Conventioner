@@ -77,12 +77,45 @@ A reproduction has to go through the proxy, under a browser, with the rest of th
 Backend timing logs around the public endpoints during a failing run would still settle it; the
 stack teardown in `scripts/nm-test.sh` discards them, so capture them first.
 
-### Note on frequency
+### The counterfactual, run and reported
 
-Three consecutive full-suite runs passed on 2026-09-13 with the retry workaround still in place and
-never firing. That is consistent with "rarer since S01" and is **not** evidence the defect is gone:
-it was already intermittent at roughly one run in two before S01, and three green runs cannot clear
-that.
+The strongest available test short of catching it live: revert **only** the `MongoClient` fix, keep
+the retry workaround removed, and see whether the stall returns. Every green workaround-free run so
+far had happened after that fix, so the correlation was real and worth testing.
+
+**Five full-suite runs with the leak deliberately restored: all 74 passed.**
+
+So the leak is not the cause, by a second and independent route. The fix stays - it is a real defect
+on its own terms - but it is not what this story is about, and nobody should record it as the
+resolution.
+
+### Where that leaves this story
+
+**The stall does not reproduce on this machine at all.** As of 2026-09-13:
+
+| Configuration | Runs | Result |
+| --- | --- | --- |
+| Workaround present | 4 | all green |
+| Workaround removed, client fix in | 6 | all green |
+| Workaround removed, leak restored | 5 | all green |
+
+Fifteen consecutive green full-suite runs, eleven of them with nothing to absorb a stall.
+
+That is **not** a fix, and this story stays open. What it does mean is that the next person cannot
+start by trying to reproduce it on demand - the reproduction itself is now the hard part, and these
+three configurations are ruled out as ways to get one.
+
+Two possibilities worth holding:
+
+- **E06/F01/S01 resolved more than it claimed.** It was written as a workaround for a test racing
+  the page's own load, and the evidence for a genuine stall behind it (an indefinite spinner, then
+  a load-failed state at 15s) is also what an *aborted* request looks like. S01 fixed the abort.
+- **It is environmental**, and the machine that observed it was in a state this one is not. Note
+  that three orphaned `flakehunt*` stacks were running throughout all fifteen runs, so the box was
+  not idle.
+
+If it recurs, `scripts/nm-test.sh` now writes both containers' logs to `.stack-logs/` before
+teardown - which is what this story asked for, and what no previous attempt had.
 
 ## Acceptance criteria
 
