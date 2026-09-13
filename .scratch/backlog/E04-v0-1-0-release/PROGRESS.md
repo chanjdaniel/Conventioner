@@ -24,10 +24,10 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | 5 | F03/S01 Promote dev to main and cut v0.1.0 | F01/S02, F02/S01, F02/S02, E06/F01/S02 | not started | |
 | 6 | F03/S02 Later versions follow conventional commits | F03/S01 | not started | |
 | - | F01/S03 An essential-only form can receive an application (found in F01/S02) | - | done (unpushed) | |
-| - | F04/S01 A new organizer's dashboard does not report a missing market | - | not started | |
+| - | F04/S01 A new organizer's dashboard does not report a missing market | - | done (unpushed) | |
+| - | F04/S02 Unsaved plan edits survive a phase advance | - | done (unpushed) | |
 
-F04/S01 was found while walking STARTUP.md and is not currently a blocker for the release. Whether
-the first screen a new organizer sees should gate v0.1.0 is a call for the epic's owner.
+Both F04 stories were pulled into v0.1.0 by the epic owner, along with `E06/F02/S01`.
 
 F01/S01 and F02/S01 are both unblocked and may run in either order, or in parallel: one is e2e
 infrastructure and the other is documentation, and they do not touch the same files.
@@ -233,3 +233,37 @@ Two further things the spec established along the way, neither of them assertion
 with its own diagnosis ("rarer since S01") and is **not** evidence it is fixed. Two green runs do
 not clear a defect that was already intermittent at roughly one run in two before being papered
 over; the story stands, and F03/S01 still blocks on it.
+
+### F04/S01, F04/S02 and E06/F02/S01, the three defects pulled into v0.1.0
+
+All three were found by this epic's own work rather than reported, and all three were fixed after
+the epic owner decided they belonged in the release. Unit suite 89 -> 99; full e2e suite green.
+
+| Story | Verdict | Evidence |
+| --- | --- | --- |
+| F04/S01 a new organizer's dashboard | met | `DashboardView.test.ts`, seven cases: never-opened invites and routes to the markets list, unreadable-stored says the market is no longer available, and the heading only appears over a card that means something. |
+| F04/S02 unsaved plan edits survive a phase advance | met | `marketSetupPhaseAdvance.test.ts`. Two of its three cases fail against the old handler; see the honesty note below. |
+| E06/F02/S01 remove `csv_exports` | met | Gone from the Dockerfile, entrypoint, compose, `.gitignore`, `.dockerignore` and STARTUP. Image rebuilt and the full suite run against it; `tier2.spec.ts` performs a real CSV download and reads its columns. |
+
+#### The diagnosis in F04/S02 was wrong when filed, and the correction matters
+
+Filed as "the wizard only persists on Back, Next and Assign". True, but not the mechanism.
+`handlePhaseAdvanced` replaced the **whole local market** with the server's copy, so a phase advance
+discarded *every* unsaved edit, not only the assignment options. The options were the likeliest
+victim because their page has no Next. Anyone reading the original story would have fixed the wrong
+thing.
+
+#### A test that passed against the broken code
+
+The first version of `marketSetupPhaseAdvance.test.ts` asserted on `localStorage`. The old handler
+never wrote there, so the untouched original still carried the options and two of three cases passed
+while the defect stood. Caught by reverting the fix and re-running, which is the only thing that
+distinguishes a test that pins behaviour from one that describes it. Rewritten to assert on the
+payload the next save actually sends.
+
+## Release status
+
+Ten consecutive green full-suite runs, six of them after the applicant-form retry workaround was
+deleted. `F03` remains **not started**: the epic owner chose to hold the release until
+`E06/F01/S02` is solved, and it is not. Its first acceptance criterion is "the cause is identified
+and stated, not inferred", and this session narrowed it by elimination without meeting that bar.
