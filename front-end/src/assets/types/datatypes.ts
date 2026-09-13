@@ -154,6 +154,17 @@ export interface AssignmentObject {
   assignmentStatistics: AssignmentStatistics | null;
 }
 
+/**
+ * How vendors reach a market: imported by the organizer, or applying themselves.
+ *
+ * Mirrors the back end's `IntakeMode`. A market that names none is CSV, so the public applicant
+ * surface is off unless the market says otherwise.
+ */
+export enum IntakeMode {
+  Csv = 'csv',
+  Form = 'form',
+}
+
 export interface Market {
   id: string;
   name: string;
@@ -175,6 +186,9 @@ export interface Market {
   applicationForm?: ApplicationForm;
   reviewConfig?: Record<string, unknown>;
   resultsPublished?: boolean;
+  /** How vendors reach this market. Organizer-settable while draft, frozen by the server after.
+   * Absent means `csv`, which is what the server reads too. */
+  intakeMode?: IntakeMode;
   discordGuildId?: string;
   userRole?: MarketRole; // User's effective role (added by API)
   /** Per-market Discord webhook URL; omitted/blank disables Discord notifications. */

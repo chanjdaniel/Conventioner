@@ -202,12 +202,14 @@ test.describe('Market pipeline E2E', () => {
 
     await resultsPage.clickDone();
 
-    // A published market lands on its public slug URL, not back in the wizard.
+    // A published market lands on the public page it actually serves, not back in the wizard.
+    // This market takes its vendors by CSV import, so that is check-in rather than the market
+    // home, which answers a stranger as a market that does not exist.
     const slug = marketNameToSlug(marketName);
-    await page.waitForURL(`**/${slug}`, { timeout: 10000 });
-    await expect(page.getByRole('heading', { name: 'Market home' })).toBeVisible();
+    await page.waitForURL(`**/${slug}/check-in`, { timeout: 10000 });
+    await expect(page.locator('.attendance-view')).toBeVisible({ timeout: 10000 });
     await page.screenshot({
-      path: testInfo.outputPath('02-published-market-home.png'),
+      path: testInfo.outputPath('02-published-market-checkin.png'),
       fullPage: true,
     });
 

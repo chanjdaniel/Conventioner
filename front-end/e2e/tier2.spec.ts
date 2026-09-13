@@ -283,10 +283,14 @@ test.describe('Tier 2 - Publish market', () => {
     const doneButton = page.getByTestId('assignment-results-done-button');
     await doneButton.click();
 
-    await page.waitForURL(`**/${slug}`, { timeout: 10000 });
+    // A published market's organizer is sent to the public page their market actually serves.
+    // This one takes its vendors by CSV import, so that is check-in: its market home answers as a
+    // market that does not exist, and landing there would tell the organizer their own market
+    // cannot be found.
+    await page.waitForURL(`**/${slug}/check-in`, { timeout: 10000 });
 
-    await page.goto(`/${slug}/check-in`);
     await expect(page.locator('.attendance-view')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('attendance-checkin-email-input')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('market-home-not-found')).toHaveCount(0);
   });
 });
