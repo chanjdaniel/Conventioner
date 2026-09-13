@@ -15,7 +15,7 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | --- | --- | --- | --- | --- |
 | 1 | F01/S01 FormHasFieldsGuard counts essential questions | - | done (unpushed) | |
 | 2 | F02/S01 A market declares how vendors reach it | - | done (unpushed) | |
-| 3 | F02/S02 A CSV market's applicant endpoints answer as if it did not exist | F02/S01 | not started | |
+| 3 | F02/S02 A CSV market's applicant endpoints answer as if it did not exist | F02/S01 | done (unpushed) | |
 | 4 | F02/S03 A stranger visiting a CSV market's public pages is told nothing | F02/S02 | not started | |
 
 F01/S01 and F02/S01 are both unblocked and may run in either order.
@@ -103,3 +103,41 @@ degrades_instead_of_failing_the_parse` pins the phase half.
   something the model refuses, and a draft market would answer 400 on an edit that touched
   something else entirely. `_stamp_effective_phase` is renamed `_stamp_effective_market_state`,
   since it now keeps two derived fields honest rather than one.
+
+### F02/S02 A CSV market's applicant endpoints answer as if it did not exist
+
+Back-end suite green at 784 passed, up from 760: 24 new tests.
+Full Playwright suite green at 61 passed, including the applicant specs and the check-in URL test.
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| Each of the five applicant-intake endpoints answers 404 for a published CSV market | met, with one deviation recorded below | `TestTheThreeApplicationEndpoints` asserts 404 from the public form, the application read and the application save. The two login endpoints are the deviation. |
+| Each of them still serves a published form-intake market exactly as it does today | met | `test_the_public_form_is_served_for_a_form_market`, and the whole pre-existing applicant suite, which now declares `intakeMode: "form"` on its fixtures and is otherwise untouched. |
+| A 404 from a gated market is indistinguishable from a 404 for an unknown slug: same status, same body | met | Four tests compare the two whole responses rather than their statuses: one per endpoint, gated against absent. |
+| Both check-in endpoints serve a published CSV market unchanged | met | `TestCheckInIsNotGated`, parametrized over `csv`, `form` and absent, plus `test_published_market_by_slug_still_serves_a_csv_market`. End to end, `tier2.spec.ts` publishes a market (intake mode unset, so CSV) and verifies its check-in URL. |
+| A draft market is still unreachable through the new lookup, in either intake mode | met | `test_a_draft_form_market_is_not`: both gates have to pass, and neither weakens the other. |
+| The new lookup is the only place the intake requirement is expressed, and it keeps the caller-named field projection | met | `applicant_intake_market_by_slug` is the sole reader of intake mode on the public path; the five endpoints carry no check of their own. `test_the_caller_still_gets_only_the_fields_it_named` pins the projection, and `test_intake_mode_is_projected_even_when_the_caller_does_not_name_it` pins the one field it adds. |
+| Back-end tests cover every gated endpoint in both modes, both check-in endpoints against a CSV market, and the draft case | met | `tests/test_applicant_intake_gate.py`, 24 tests. |
+
+#### Deviation: the two login endpoints do not answer 404, and must not
+
+`request-code` and `verify-code` have never answered 404 for an unknown market.
+They return one uniform response whether the market, the applicant, or the code is unknown
+(`200` "if an account exists..." and `401` "invalid or expired code"), precisely so nothing about
+who has applied can be read off them.
+
+Making a CSV market answer 404 there would have built the oracle those endpoints exist to avoid:
+a 404 would say "this slug is a CSV market" where every other answer says nothing.
+So a CSV market joins the indistinguishable set instead, which is the criterion's actual intent
+and what the third criterion states outright.
+`test_requesting_a_code_for_a_csv_market_answers_as_an_unknown_slug_does` and its verify twin
+compare whole responses, and `test_requesting_a_code_for_a_csv_market_stores_no_challenge` proves
+nothing downstream of the lookup runs.
+
+#### Evidence the gate fails closed, from the test suite itself
+
+Twelve existing tests failed the moment the five endpoints moved onto the new lookup: their
+market fixtures named no intake mode, and absence means CSV.
+Each was a market whose vendors apply through the public form, so each fixture now says so.
+The same was true of `seedApplicantMarket` in the e2e helpers.
+That is the fail-closed default doing its job on the only markets that existed to test it.

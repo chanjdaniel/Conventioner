@@ -480,6 +480,7 @@ def _applicant_market_doc(**overrides):
 
     return stored_market(
         phase=MarketPhase.APPLICATIONS_OPEN,
+        intakeMode="form",
         setupObject=SETUP_CAMEL,
         applicationForm={"fields": [
             {"key": "business_name", "label": "Business Name", "type": "text",
