@@ -10,7 +10,7 @@ from datatypes import MarketDateObject, TierObject, LocationObject, SectionObjec
 
 
 def _build_table(table_code: str = "meh18", date: str = "2026-03-17") -> Table:
-    market_date = MarketDateObject(date=date, col_name_idx=0, col_name=date)
+    market_date = MarketDateObject(date=date)
     tier = TierObject(id=1, name="Gold")
     location = LocationObject(name="Main Hall")
     section = SectionObject(name="A", location=location, tier=tier, count=1)

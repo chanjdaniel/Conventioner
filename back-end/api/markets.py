@@ -301,13 +301,6 @@ def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
     if setup_object is None:
         return []
 
-    # Map assignment date values (often col_name) back to configured market date.
-    date_aliases: Dict[str, str] = {}
-    for market_date in setup_object.market_dates:
-        date_aliases[market_date.date] = market_date.date
-        if market_date.col_name:
-            date_aliases[market_date.col_name] = market_date.date
-
     rows_by_key: Dict[tuple[str, str], Dict[str, Any]] = {}
 
     for market_date in setup_object.market_dates:
@@ -325,7 +318,7 @@ def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
                 }
 
     for assignment in assigned_market.assignment_object.vendor_assignments:
-        date_value = date_aliases.get(assignment.date, assignment.date)
+        date_value = assignment.date
         key = (date_value, assignment.table_code)
 
         if key not in rows_by_key:
@@ -689,10 +682,6 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
                 market_dict["setup_object"]["assignment_options"] = {
                     "max_assignments_per_vendor": None,
                     "max_half_table_proportion_per_section": None,
-                    "email_col_name_idx": None,
-                    "table_choice_col_name_idx": None,
-                    "table_share_email_col_name_idx": None,
-                    "max_days_col_name_idx": None,
                 }
         
         # Fix None assignment_object

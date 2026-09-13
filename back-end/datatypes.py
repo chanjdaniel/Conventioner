@@ -159,9 +159,14 @@ class PriorityObject(BaseModel):
 
 
 class MarketDateObject(BaseModel):
+    """One day of a market. A date is a date.
+
+    It used to also carry the spreadsheet column heading that asked about that day, and the
+    index of that column, because the solver looked a vendor's answer up by heading and dated
+    every placement by it. Both are gone with the spreadsheet.
+    """
+
     date: str
-    col_name_idx: Optional[int] = None
-    col_name: Optional[str] = None
 
 
 class TierObject(BaseModel):
@@ -489,8 +494,6 @@ class PriorityContract(ContractModel):
 
 
 class MarketDateContract(ContractModel):
-    col_name: Optional[str] = None
-    col_name_idx: Optional[int] = None
     date: str
 
 

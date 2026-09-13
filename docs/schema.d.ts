@@ -110,8 +110,6 @@ export interface MarketSchema {
       name: string;
     }[];
     marketDates: {
-      colName?: string;
-      colNameIdx?: number;
       date: string;
     }[];
     priority: {

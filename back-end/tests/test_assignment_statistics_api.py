@@ -282,7 +282,7 @@ def test_get_market_tables_returns_camel_case_rows(monkeypatch):
 def test_derive_market_table_rows_includes_unassigned_tables():
     assigned_market = SimpleNamespace(
         setup_object=SimpleNamespace(
-            market_dates=[SimpleNamespace(date="2026-01-01", col_name="Day 1")],
+            market_dates=[SimpleNamespace(date="2026-01-01")],
             sections=[
                 SimpleNamespace(
                     name="A",
@@ -296,7 +296,7 @@ def test_derive_market_table_rows_includes_unassigned_tables():
             vendor_assignments=[
                 SimpleNamespace(
                     email="full@example.com",
-                    date="Day 1",
+                    date="2026-01-01",
                     table_code="A1",
                     table_choice="Full Table",
                     section="A",
@@ -391,14 +391,14 @@ def test_get_assignment_csv_surfaces_csv_value_error(monkeypatch):
     )
 
     def _raise_value_error(*_args, **_kwargs):
-        raise ValueError("email_col_name_idx required")
+        raise ValueError("the market has nothing to export")
 
     monkeypatch.setattr(MarketsApi, "market_csv_to_string", _raise_value_error)
 
     result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
 
     assert status == 400
-    assert "email_col_name_idx" in result["error"]
+    assert "nothing to export" in result["error"]
 
 
 def test_market_csv_filename_sanitizes_unsafe_characters():
@@ -557,7 +557,7 @@ def test_post_assignment_to_discord_returns_502_on_connection_error(monkeypatch)
 def test_derive_market_table_rows_builds_half_table_assignments():
     assigned_market = SimpleNamespace(
         setup_object=SimpleNamespace(
-            market_dates=[SimpleNamespace(date="2026-01-01", col_name="Day 1")],
+            market_dates=[SimpleNamespace(date="2026-01-01")],
             sections=[
                 SimpleNamespace(
                     name="A",
@@ -571,7 +571,7 @@ def test_derive_market_table_rows_builds_half_table_assignments():
             vendor_assignments=[
                 SimpleNamespace(
                     email="left@example.com",
-                    date="Day 1",
+                    date="2026-01-01",
                     table_code="A1",
                     table_choice="Half Table (Left)",
                     section="A",
@@ -580,7 +580,7 @@ def test_derive_market_table_rows_builds_half_table_assignments():
                 ),
                 SimpleNamespace(
                     email="right@example.com",
-                    date="Day 1",
+                    date="2026-01-01",
                     table_code="A1",
                     table_choice="Half Table (Right)",
                     section="A",
