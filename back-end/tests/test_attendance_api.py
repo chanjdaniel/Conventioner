@@ -138,10 +138,10 @@ def test_get_vendor_assignment_summary_returns_camel_case_with_attendance_flag(m
     monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda slug: market)
 
     assigned = SimpleNamespace(
-        setup_object=SimpleNamespace(market_dates=[SimpleNamespace(date="2026-05-01", col_name="Day 1")]),
+        setup_object=SimpleNamespace(market_dates=[SimpleNamespace(date="2026-05-01")]),
         assignment_object=SimpleNamespace(vendor_assignments=[
             SimpleNamespace(
-                email="vendor@example.com", date="Day 1",
+                email="vendor@example.com", date="2026-05-01",
                 table_code="A1", table_choice="Full Table",
                 section="A", tier="Gold", location="Main Hall",
             ),

@@ -493,9 +493,9 @@ class MarketAssignment:
 
 
     def is_max_half_tables(self, market_date: MarketDateObject, section_object: SectionObject):
-        date_col_name = market_date.date
+        date_key = market_date.date
         section = section_object.name
-        return self.half_tables[date_col_name][section] / section_object.count >= MAX_HALF_TABLES_PER_SECTION
+        return self.half_tables[date_key][section] / section_object.count >= MAX_HALF_TABLES_PER_SECTION
 
     def assign_table(self, market_date: MarketDateObject, vendor_list, table):
         

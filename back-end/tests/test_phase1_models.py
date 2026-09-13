@@ -213,7 +213,7 @@ def _make_existing_market_doc(**overrides):
                 {"id": 1, "target": "returning_vendor", "ordering": ["yes", "no"]},
             ],
             "market_dates": [
-                {"date": "2025-03-15", "col_name_idx": 1, "col_name": "Date"},
+                {"date": "2025-03-15"},
             ],
             "tiers": [{"id": 1, "name": "Gold"}],
             "locations": [{"name": "Main Hall"}],
@@ -226,10 +226,6 @@ def _make_existing_market_doc(**overrides):
                 },
             ],
             "assignment_options": {
-                "email_col_name_idx": 0,
-                "table_choice_col_name_idx": 2,
-                "table_share_email_col_name_idx": None,
-                "max_days_col_name_idx": None,
                 "max_assignments_per_vendor": 4,
                 "max_half_table_proportion_per_section": 100,
             },
@@ -279,8 +275,6 @@ class TestBackwardCompatibility:
         assert setup is not None
         assert setup.priority[0].target == "returning_vendor"
         assert [d.date for d in setup.market_dates] == ["2025-03-15"]
-        assert setup.market_dates[0].col_name_idx == 1
-        assert setup.market_dates[0].col_name == "Date"
 
     def test_existing_market_with_phase_field_respected(self):
         doc = _make_existing_market_doc(
@@ -344,11 +338,18 @@ class TestASetupObjectDescribesNoSpreadsheet:
         assert setup.priority == []
 
 
-class TestColNameIdxOptional:
-    def test_market_date_without_col_name_idx(self):
+class TestAMarketDateIsADate:
+    def test_it_carries_nothing_but_the_day(self):
         md = MarketDateObject(date="2025-01-15")
+
         assert md.date == "2025-01-15"
-        assert md.col_name_idx is None
+        assert not hasattr(md, "col_name")
+        assert not hasattr(md, "col_name_idx")
+
+    def test_a_stored_date_written_with_a_column_heading_still_loads(self):
+        md = MarketDateObject(**{"date": "2025-01-15", "col_name": "Day 1", "col_name_idx": 3})
+
+        assert md.date == "2025-01-15"
 
     def test_a_priority_rule_needs_only_an_id(self):
         """A half-built rule is a normal state in the setup UI, not an error."""

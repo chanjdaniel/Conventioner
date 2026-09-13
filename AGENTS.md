@@ -132,20 +132,40 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   computed assignment via `GET /markets/{id}/assignment` and store it back via PUT.
   The stored `assignmentObject.vendorAssignments` is what `record_attendance` reads at check-in time.
 
-## CSV Field Runtime Coupling (Conventioner sharp edge)
+## The Solver Reads Applications (Conventioner sharp edge)
 
-- `col_name` and `col_name_idx` on `MarketDateObject` (in `back-end/datatypes.py`) are
-  used at runtime in two places that CANNOT be removed until Phase 5 of Conventioner:
-  - `back-end/api/attendance.py:67-75` - `record_attendance()` builds date aliases from
-    `md.get("col_name")`. Without it, public check-in for existing markets breaks.
-  - `back-end/assignment/assignment.py:53` - `_calculate_date_flexibility()` resolves
-    dates via `market_date.col_name`. Without it, the solver fails for existing markets.
-- These fields are kept Optional with `None` defaults on the Pydantic models during
-  Phases 1-4. New application-based markets leave them `None`. Existing CSV-backed
-  markets retain their values.
-- The same backward-compat strategy applies to the other CSV-derived fields on
-  `SetupObject`, `PriorityObject`, and `AssignmentOptionObject`: keep them Optional,
-  remove them in Phase 5 when the solver adapter and attendance redesign land.
+- **There is no spreadsheet behind a market.** E02 removed `source_data`, its endpoints and its
+  collection, every `col_name`/`col_name_idx`/`col_names`/`col_values`/`col_include`, and
+  `enum_priority_order`. What this file used to call "Phase 5" is done; nothing is waiting on it.
+- **`assign_market(market)` reads the market's own approved applications.** No caller fetches
+  anything first. `assignment/vendor_input.py` is the single seam where application shape meets
+  solver shape, and it is the only place that knows both; it is unit-testable with no database.
+- **An approved application missing a required answer refuses the whole run**, naming the
+  applicants (`IncompleteApplicationsError`), rather than being skipped into an assignment that
+  looks complete with someone silently missing.
+- **Requiredness is defined by what the market asked**, not by a fixed list.
+  `essential_fields.asked_essential_keys()` is the single statement of that rule, read by both
+  the applicant validator and the solver's translation. Two copies would drift, and the drift
+  would surface as the solver rejecting answers the form had just accepted. Table type is stubbed
+  to one type in MVP, so a fixed list would reject every application in the product.
+- **A placement is dated by the market date itself.** It used to be dated by the spreadsheet
+  column heading, which is why check-in, the table rows and the statistics each built a map from
+  headings back to dates. Those maps are gone; do not reintroduce one.
+- **A priority rule names a target and carries its own ordering.** The target is a form field key
+  or a built-in attribute in the `application.` namespace (`submitted_at`, `application_type`);
+  field keys are held to `^[a-z0-9_]+$`, so the two can never collide. How to order follows from
+  the target's type - there is no `data_type` to declare, and adding one back would restore the
+  silent no-op it replaced. **A CSV-imported row must carry its own `submitted_at`**, or
+  first-come-first-served decides nothing.
+- **`max_assignments_per_vendor` is the only ceiling.** The hard-coded `MAX_VENDING_DAYS = 4` is
+  gone. Unset means the organizer named no ceiling; there is no hidden default.
+- **Placement is vendor-driven.** `assign()` walks vendors in priority order and gives each the
+  best table still open to them (`best_table_for`). It was table-driven, which made a vendor's own
+  section ranking unable to influence anything and stopped a date at the first unfillable table.
+  Section ranking is a preference and never a filter; tier is a filter, because it sets the price.
+- `back-end/tests/test_assignment_behaviour.py` is the solver's behavioural suite. Before E02 the
+  solver had none - `assign_market` was monkeypatched away everywhere - so any change to placement
+  should be made against it rather than beside it.
 - Do NOT delete `is_draft` from the `Market` model, and do not make it writable again. It is a
   `@computed_field` derived strictly from `phase` (true iff `phase == draft`), kept on the
   document only because it is the fallback `phase_from_market_document()` uses for a market
