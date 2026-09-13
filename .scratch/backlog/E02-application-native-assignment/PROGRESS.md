@@ -16,11 +16,11 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | 3b | F01/S04 Refuse a zero assignment cap (found in S03) | F01/S03 | not started | |
 | 4 | F02/S01 Build a priority rule from a form question | F01/S02 | done (unpushed) | |
 | 5 | F02/S02 Prioritise by when the application arrived | F02/S01 | done (unpushed) | |
-| 6 | F03/S01 Place vendors in their highest-ranked available section | F01/S02 | not started | |
-| 7 | F04/S01 Stop the product reading source data | F02/S02, F03/S01 | not started | |
-| 8 | F04/S02 Remove the source-data endpoints and collection | F04/S01 | not started | |
-| 9 | F04/S03 Remove the CSV-derived fields from the setup model | F04/S02 | not started | |
-| 10 | F04/S04 Remove col_name from market dates and public check-in | F04/S03 | not started | |
+| 6 | F03/S01 Place vendors in their highest-ranked available section | F01/S02 | done (unpushed) | |
+| 7 | F04/S01 Stop the product reading source data | F02/S02, F03/S01 | done (unpushed) | |
+| 8 | F04/S02 Remove the source-data endpoints and collection | F04/S01 | done (unpushed) | |
+| 9 | F04/S03 Remove the CSV-derived fields from the setup model | F04/S02 | done (unpushed) | |
+| 10 | F04/S04 Remove col_name from market dates and public check-in | F04/S03 | done (unpushed) | |
 
 Stories 3, 4 and 6 are all unblocked by F01/S02 and may run in any order relative to each other.
 
@@ -212,3 +212,76 @@ unassigned.
   information such an answer carries.
 - **Renamed `SUBMITTED_AT_TARGET` to `SUBMITTED_AT_RULE_TARGET`** in `datatypes`, because
   `csv_import` already had that exact name meaning the import-mapping target.
+
+### F03/S01 Place vendors in their highest-ranked available section
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| A vendor with a clear preference and several valid options gets their highest-ranked section | met | `best_table_for`. Two tests differing only in the ranking place the vendor in opposite sections. |
+| A vendor whose top section is full still gets their next-best | met | `test_a_vendor_whose_top_section_is_full_still_gets_their_next_best`. |
+| No vendor is left unassigned as a result of preference | met | Four contending vendors, all placed. |
+| No vendor loses a placement to satisfy another's preference | met | Covered by the capacity characterisation tests, which are unchanged. |
+| Preference never overrides tier | met | `test_preference_never_overrides_tier`. |
+| Preference never overrides priority order | met | `test_preference_never_overrides_priority_order`. |
+| The early-break defect is fixed and its pinning test inverted | met | `TestNoVendorIsStrandedBehindATableTheyCouldNotTake`, inverted from the pin F01/S02 left. |
+| Characterisation tests updated with their changes explained, not silently re-baselined | met | **None needed.** Every characterisation test written before the swap passes unchanged through the inverted loop, which is a stronger result than the criterion asked for. |
+| Backend tests cover a satisfied preference, a contended one, and a full top choice | met | `TestSectionPreference`, seven tests. |
+| An e2e story asserts a vendor lands in their preferred section | met | `front-end/e2e/section-preference.spec.ts`. Two sections at the same tier, so tier rules nothing out and only preference can decide. |
+
+### F04 Remove the CSV substrate
+
+| Story | Verdict | Notes |
+| --- | --- | --- |
+| S01 Stop the product reading source data | met | Column-selection step, the four column pickers and the per-date column dropdown deleted. Vendor list and modal read applications and the form that produced them. No front-end call to a source-data endpoint. E2E seeds seed approved applications via `seedApprovedVendor`. |
+| S02 Remove the endpoints and collection | met | Six API functions, their routes, the module, DB init and reset, and the market-delete cleanup. **The owed verification was done** - see below. |
+| S03 Remove the CSV fields from the setup model | met | `SetupObject` and `AssignmentOptionObject` cleaned; `schema.d.ts` regenerated; a test pins that a legacy document still loads. |
+| S04 Remove `col_name` from market dates and public check-in | met | The field and all three date-alias maps. Verified through the real check-in path by `market-pipeline.spec.ts`, which publishes and then checks a vendor in over the public URL. `AGENTS.md` updated. |
+
+#### The verification F04/S02 owed
+
+Ticket 03 concluded there was nothing to migrate but asked that it be confirmed against a real
+database rather than assumed, for priority configurations and source data together.
+
+Checked across every running stack (six Mongo containers: the primary dev stack, two named
+worktrees, three flakehunt worktrees). Findings:
+
+- Every market carrying a priority rule is named `E2E Published <timestamp>`.
+- Every priority rule is byte-for-byte the shape the e2e seed wrote
+  (`{id: 0, colNameIdx: 4, dataType: 'String', sortingOrder: 'ascending'}`).
+- Every `source_data` document is the seeds' own `vendors.csv` or `test-vendors.csv`.
+- Filtering market names against the test-fixture prefixes leaves an empty set on every stack.
+
+No organizer data exists anywhere. Ticket 03's conclusion holds, now on evidence.
+
+## Outcome
+
+E02 is complete. Full suite green: **721 back-end, 69 front-end unit, 59 Playwright e2e**
+(`scripts/nm-test.sh`, exit 0).
+
+`source_data`, `col_names`, `col_values`, `col_include`, `enum_priority_order`, every
+`*_col_name_idx`, `MarketDateObject.col_name`, `MAX_VENDING_DAYS` and the `DataType` enum are
+gone from the repository, along with the `/source-data` endpoints and the collection behind them.
+
+### What E2E caught that unit tests did not
+
+Worth recording, because it is the argument for the e2e criteria being on these tickets at all.
+
+1. **A design mistake in the S01 offering check.** Refusing the whole run over an answer naming
+   something the market no longer offers looked right in isolation and is wrong in practice: the
+   ordinary cause is an organizer dropping a tier after applications arrive. Corrected to drop
+   the value and let the vendor be unplaceable, which is what the existing unassigned-vendors
+   reporting is for.
+2. **Assignment failures were invisible.** `handleAssign` let the error escape unhandled, so a
+   refused run left the page sitting there with no message. The precondition F01/S02 added had
+   no way to reach the organizer it was written for.
+3. **Assignment output depended on database return order.** Once priority and flexibility had
+   nothing left to say, order fell through to whatever Mongo returned - newest-first, as it
+   happens, because the query was written for a review list.
+4. **Two specs were incidentally testing the tier pre-fill**, which scraped tier names out of the
+   uploaded spreadsheet. Removing the spreadsheet removed the pre-fill and left them asserting on
+   rows that no longer had a reason to exist.
+
+### Follow-up filed, not done
+
+- **E02/F01/S04** - the setup screen accepts a max-assignments cap of zero and the solver honours
+  it literally, so the market assigns nobody. Visible rather than silent, so not blocking.
