@@ -2,7 +2,7 @@
 id: E06/F01/S02
 title: The public application-form request stalls under suite load
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
@@ -119,11 +119,35 @@ teardown - which is what this story asked for, and what no previous attempt had.
 
 ## Acceptance criteria
 
-- [ ] The cause is identified and stated, not inferred
-- [ ] The request answers promptly under full-suite load, demonstrated over repeated runs
-- [ ] The retry workaround in `signInApplicant` is removed, and the spec passes without it
-- [ ] If the cause is environmental rather than a product defect, that is recorded here and the
-      product's timeout and retry behaviour is left in place deliberately rather than by accident
+- [ ] **The cause is identified and stated, not inferred - NOT met.** See the closure note below.
+- [x] The request answers promptly under full-suite load, demonstrated over repeated runs - fifteen
+      consecutive green full-suite runs across three configurations
+- [x] The retry workaround in `signInApplicant` is removed, and the spec passes without it - eleven
+      of those fifteen runs had nothing in place to absorb a stall
+- [x] The cause is taken to be environmental, that is recorded here, and the product's timeout and
+      retry behaviour is left in place deliberately - see below
+
+## Closure note, 2026-09-13
+
+**Closed by the epic owner's decision, on the assumption that the stall is environmental. The cause
+was never found.** That distinction is the whole point of this note: the first criterion is
+unticked above because it was not met, not because it was forgotten.
+
+What is actually known is narrow and negative. Three hypotheses were tested and refused - the Flask
+dev server serialising requests, the per-request `MongoClient` leak, and Vite reloading on Playwright
+artifacts. None of them is it. What remains under suspicion is the Flask development server and the
+Vite dev proxy, **neither of which exists in a deployed build**, which is the substance of the
+"environmental" assumption. It is an assumption, not a finding: nobody demonstrated it.
+
+The product's timeout and retry behaviour stays, deliberately. A bounded timeout and a retry are
+correct for an applicant on a bad connection regardless of what caused this, and they are what turned
+a silent indefinite spinner into something that says what happened.
+
+**Reopen this story if it recurs.** The conditions for diagnosing it are in place now and were not
+before: the test-side retry is gone so a recurrence fails loudly rather than passing quietly, CI runs
+with two retries and `failOnFlakyTests`, and `scripts/nm-test.sh` writes both containers' logs to
+`.stack-logs/` before teardown. A recurrence will arrive with the evidence every previous attempt
+lacked.
 
 ## Notes
 

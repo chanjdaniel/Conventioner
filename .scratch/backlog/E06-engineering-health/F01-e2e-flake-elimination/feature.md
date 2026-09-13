@@ -2,7 +2,7 @@
 id: E06/F01
 title: E2E flake elimination
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
