@@ -40,13 +40,14 @@ class VendorWant:
     """
 
     def __init__(self, email, available, tiers, table_choice="full",
-                 share_with="", max_days=None):
+                 share_with="", max_days=None, sections=()):
         self.email = email
         self.available = list(available)
         self.tiers = list(tiers)
         self.table_choice = table_choice
         self.share_with = share_with
         self.max_days = max_days
+        self.sections = tuple(sections)
 
     def as_solver_vendor(self):
         return SolverVendor(
@@ -57,7 +58,7 @@ class VendorWant:
             accepted_tiers=frozenset(self.tiers),
             table_choice=self.table_choice,
             table_share_email=self.share_with or None,
-            section_ranking=(),
+            section_ranking=self.sections,
             table_type_ranking=(),
         )
 
@@ -345,30 +346,37 @@ class TestAssigningFromTheMarketsOwnApplications:
         assert {p[1] for p in placements(assigned)} == {DATES[0]}
 
 
-class TestKnownDefectTheTableLoopStopsEarly:
-    """Pinned, not fixed: this is pre-existing and fixing it here would move placement.
+class TestNoVendorIsStrandedBehindATableTheyCouldNotTake:
+    """The defect the loop inversion fixes.
 
-    ``assign`` breaks out of the table loop the moment one table cannot be filled, but
-    ``get_valid_vendors`` answers per TABLE - a vendor who accepts only Silver is not valid for a
-    Gold table. So an unfillable table early in the list ends the date, and every later table is
-    left empty however many vendors could have taken one.
+    The table-driven loop broke out the moment one table could not be filled, but validity is
+    answered per table: a vendor who accepts only Silver is not valid for a Gold table. An
+    unfillable table early in the list therefore ended the date and left every later table empty,
+    stranding everyone whose tier sorted second.
 
-    E02/F01/S02 deliberately preserves it so the input swap's diff stays free of placement
-    changes. E02/F03/S01 inverts this loop and is where it gets fixed; this test is the witness
-    that it was known, and should be inverted to assert the vendor IS placed once it is.
+    Pinned as a known defect by E02/F01/S02 so the input swap's diff stayed free of placement
+    changes. Fixed here.
     """
 
-    def test_a_vendor_is_stranded_behind_a_table_they_could_not_take(self):
+    def test_a_vendor_is_placed_at_a_table_further_down_the_list(self):
         market = assign([
             VendorWant("gold@example.com", available=[DATES[0]], tiers=[GOLD]),
             VendorWant("silver@example.com", available=[DATES[0]], tiers=[SILVER]),
         ])
 
         placed = {p[0] for p in placements(market)}
-        assert "gold@example.com" in placed
-        assert "silver@example.com" not in placed, (
-            "known defect: the Silver tables are never reached. Fix in E02/F03/S01."
+        assert placed == {"gold@example.com", "silver@example.com"}
+
+    def test_a_whole_tier_of_vendors_is_not_lost_to_one_unfillable_table(self):
+        market = assign(
+            [
+                VendorWant(f"silver{i}@example.com", available=[DATES[0]], tiers=[SILVER])
+                for i in range(2)
+            ]
+            + [VendorWant("gold@example.com", available=[DATES[0]], tiers=[GOLD])],
         )
+
+        assert len({p[0] for p in placements(market)}) == 3
 
 
 class TestAnIncompleteApplicationStopsTheRun:
@@ -827,3 +835,94 @@ class TestOrderingByMagnitude:
         assert [p[0] for p in placements(assigned)] == ["b@example.com"], (
             "the first rule decides; arriving earlier must not overturn it"
         )
+
+
+class TestSectionPreference:
+    """A vendor's ranked section preference decides which table they reach.
+
+    Honoured as a placement preference: not an optimisation objective, and not a tie-break. A
+    ranking is a permutation of the whole offering, so it excludes nothing and cannot act as a
+    filter - which is what separates it from tier, a hard filter, where the tier decides what the
+    applicant pays.
+    """
+
+    SECTIONS = (f"Section {GOLD}", f"Section {SILVER}")
+
+    def test_a_vendor_gets_the_section_they_ranked_first(self):
+        market = assign([
+            VendorWant("picky@example.com", available=[DATES[0]], tiers=[GOLD, SILVER],
+                       sections=(f"Section {SILVER}", f"Section {GOLD}")),
+        ])
+
+        assert [p[4] for p in placements(market)] == [f"Section {SILVER}"]
+
+    def test_the_opposite_ranking_sends_them_to_the_other_section(self):
+        """Only the ranking differs between this and the previous test."""
+        market = assign([
+            VendorWant("picky@example.com", available=[DATES[0]], tiers=[GOLD, SILVER],
+                       sections=(f"Section {GOLD}", f"Section {SILVER}")),
+        ])
+
+        assert [p[4] for p in placements(market)] == [f"Section {GOLD}"]
+
+    def test_a_vendor_whose_top_section_is_full_still_gets_their_next_best(self):
+        wants = [
+            VendorWant(f"first{i}@example.com", available=[DATES[0]], tiers=[GOLD, SILVER],
+                       sections=(f"Section {GOLD}", f"Section {SILVER}"))
+            for i in range(3)
+        ]
+        market = assign(wants)
+
+        placed_sections = [p[4] for p in placements(market)]
+        assert placed_sections.count(f"Section {GOLD}") == 2
+        assert placed_sections.count(f"Section {SILVER}") == 1
+
+    def test_no_vendor_is_left_unassigned_because_a_preferred_section_filled_up(self):
+        wants = [
+            VendorWant(f"v{i}@example.com", available=[DATES[0]], tiers=[GOLD, SILVER],
+                       sections=(f"Section {GOLD}", f"Section {SILVER}"))
+            for i in range(4)
+        ]
+        market = assign(wants)
+
+        assert len({p[0] for p in placements(market)}) == 4
+
+    def test_preference_never_overrides_tier(self):
+        market = assign([
+            VendorWant("gold_only@example.com", available=[DATES[0]], tiers=[GOLD],
+                       sections=(f"Section {SILVER}", f"Section {GOLD}")),
+        ])
+
+        assert [p[5] for p in placements(market)] == [GOLD], (
+            "a preferred section at a tier they refused is not an option"
+        )
+
+    def test_preference_never_overrides_priority_order(self):
+        from datatypes import PriorityObject
+
+        wants = [
+            VendorWant("low@example.com", available=[DATES[0]], tiers=[GOLD],
+                       sections=(f"Section {GOLD}",)),
+            VendorWant("high@example.com", available=[DATES[0]], tiers=[GOLD],
+                       sections=(f"Section {GOLD}",)),
+        ]
+        market = market_for(wants, section_counts=((GOLD, 1),), dates=[DATES[0]])
+        market.setup_object.priority = [
+            PriorityObject(id=1, target="rank", ordering=["first", "second"])
+        ]
+        vendors = []
+        for want, rank in ((wants[0], "second"), (wants[1], "first")):
+            vendor = want.as_solver_vendor()
+            vendors.append(
+                type(vendor)(**{**vendor.__dict__, "custom_answers": {"rank": rank}})
+            )
+        assigned = assign_market(market, vendors)
+
+        assert [p[0] for p in placements(assigned)] == ["high@example.com"]
+
+    def test_a_vendor_who_ranked_nothing_is_still_placed(self):
+        market = assign([
+            VendorWant("nopref@example.com", available=[DATES[0]], tiers=[GOLD, SILVER]),
+        ])
+
+        assert len(placements(market)) == 1
