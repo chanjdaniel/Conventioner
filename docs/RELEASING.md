@@ -57,10 +57,11 @@ Release management is handled by [release-please](https://github.com/googleapis/
 ### Bootstrapping Note
 
 The release-please workflow becomes active once it reaches `main` (via the first `dev` → `main` promotion after this config is merged to `dev`).
-The manifest is seeded at `0.0.0`, and the first release is pinned to `v0.1.0` via `"release-as": "0.1.0"` in `release-please-config.json`.
+`v0.1.0` shipped on 2026-09-13, and `.release-please-manifest.json` now tracks the current version.
 
-`release-as` is a forced version: it overrides the conventional-commit calculation on **every** run until it is removed, so it must be cleared after the first release ships.
-Once `v0.1.0` is tagged, remove the `release-as` field from `release-please-config.json`; from then on release-please derives each version from the accumulated commits (`feat:` → minor, `fix:` → patch, breaking change → major).
+The first release was bootstrapped with `"release-as": "0.1.0"`, which has since been removed.
+`release-as` is a forced version: it overrides the conventional-commit calculation on **every** run until it is cleared, so it is a one-time bootstrap and never a way to pick a version.
+Each version is now derived from the accumulated commits (`feat:` → minor, `fix:` → patch, breaking change → major).
 
 ## Pre-Deploy: Required Production Environment
 
@@ -160,7 +161,7 @@ The check fails closed on anything short of confirmed markers - an unknown migra
 
 | File | Purpose |
 |------|---------|
-| `release-please-config.json` | Configures release-please behavior (release type, tag format); holds the one-time `release-as: 0.1.0` bootstrap that must be removed after the first release |
-| `.release-please-manifest.json` | Tracks current version per package (auto-updated by release-please); seeded at the `0.0.0` baseline, with the first release pinned to `v0.1.0` via `release-as` |
+| `release-please-config.json` | Configures release-please behavior (release type, tag format) |
+| `.release-please-manifest.json` | Tracks the current version per package, auto-updated by release-please |
 | `.github/workflows/release-please.yml` | GitHub Actions workflow that runs release-please on pushes to `main` |
 | `CHANGELOG.md` | Auto-generated changelog (created on first release) |

@@ -18,7 +18,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - When `dev` is promoted to `main`, release-please opens a Release PR with version bump + CHANGELOG.
 - Merging the Release PR creates a git tag (e.g., `v0.1.0`) and a GitHub Release.
 - All commits MUST follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, etc.).
-- Baseline seed: `0.0.0` in `.release-please-manifest.json`; the first release is pinned to `v0.1.0` via `release-as: 0.1.0` in `release-please-config.json`. Remove that `release-as` field after `v0.1.0` ships, after which versions follow conventional commits (`feat:` → minor, `fix:` → patch, breaking → major).
+- `v0.1.0` shipped on 2026-09-13; `.release-please-manifest.json` tracks the current version. Versions are derived from conventional commits (`feat:` → minor, `fix:` → patch, breaking → major). The one-time `release-as: 0.1.0` bootstrap that forced the first version has been removed - do not reintroduce it, since `release-as` overrides the calculation on *every* run until cleared.
 - Full release docs: `docs/RELEASING.md`.
 
 ## Tech Stack
