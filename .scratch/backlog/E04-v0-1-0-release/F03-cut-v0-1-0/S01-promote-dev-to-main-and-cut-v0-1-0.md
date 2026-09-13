@@ -3,7 +3,7 @@ id: E04/F03/S01
 title: Promote dev to main and cut v0.1.0
 type: story
 status: ready
-blocked_by: [E04/F01/S02, E04/F02/S01, E04/F02/S02, E06/F01/S02]
+blocked_by: [E04/F01/S02, E04/F02/S01, E04/F02/S02]
 pr: []
 ---
 
@@ -34,6 +34,26 @@ anything that is not one.
 
 `main` does **not** yet carry `.github/workflows/release-please.yml`; it arrives with this
 promotion, and the same push triggers it.
+
+## The E06/F01/S02 gate, lifted deliberately
+
+This story blocked on the public-form stall, on the principle that a release whose suite is
+known-flaky teaches everyone to re-run rather than read failures. The epic owner lifted that gate
+on 2026-09-13, and the reasoning is recorded here rather than lost in a chat:
+
+- The stall **does not reproduce**: fifteen consecutive green full-suite runs across three
+  configurations, eleven of them with the retry workaround deleted so nothing could absorb one.
+- The workaround is **gone**, so a recurrence now fails loudly instead of silently succeeding, and
+  CI runs with two retries and `failOnFlakyTests`.
+- Both mechanisms that could have made it a *product* defect were tested and refused. What remains
+  under suspicion is the Flask development server and the Vite dev proxy, **neither of which exists
+  in a deployed build** - so the gate was defending a surface no user can reach, which is the same
+  test `AGENTS.md` applies to boot requirements.
+- `scripts/nm-test.sh` now captures both containers' logs before teardown, so the next recurrence
+  is diagnosable rather than discarded.
+
+`E06/F01/S02` stays **open**. Not reproducing is not the same as fixed, and its first criterion is
+that the cause be identified.
 
 ## Acceptance criteria
 

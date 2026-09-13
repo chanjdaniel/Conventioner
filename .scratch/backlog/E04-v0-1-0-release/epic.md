@@ -3,7 +3,7 @@ id: E04
 title: v0.1.0 release
 type: epic
 status: in-progress
-blocked_by: [E01, E02, E03, E06/F01/S02]
+blocked_by: [E01, E02, E03]
 pr: []
 ---
 
