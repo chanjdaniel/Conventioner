@@ -108,10 +108,19 @@ def intake_mode_from_market_document(document: Dict[str, Any]) -> IntakeMode:
 
     Callers pass raw stored documents, which no write path validates on the way out of Mongo, so
     a value this build does not recognize degrades to CSV rather than raising and taking down
-    whatever list is being served. It degrades on read only: nothing rewrites the document, so an
-    operator repairing a typo finds the typo still there.
+    whatever list is being served.
+
+    Reading degrades; it does not write. This function touches no document, so a market nobody
+    edits keeps whatever it stores. The next write to that market is a different matter: every
+    writer persists the effective value, so an unrecognized one is normalized to ``csv`` then --
+    which is the repair, not a loss, since ``csv`` is already the only answer every reader gives it.
+
+    ``intakeMode`` is the only spelling read, because it is the only spelling written. There is no
+    snake_case fallback here and there must never be one: every write camel-cases the whole
+    document, so a legacy key would hold a value that is stale for ever. This field is newer than
+    that convention, so no stored document can carry the other spelling in the first place.
     """
-    stored = document.get("intakeMode", document.get("intake_mode"))
+    stored = document.get("intakeMode")
     if not stored:
         return IntakeMode.CSV
     try:

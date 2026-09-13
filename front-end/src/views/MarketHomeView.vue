@@ -10,6 +10,10 @@
  *
  * It used to print the slug straight back out of the URL, which told every visitor that whatever
  * they had typed was a real market.
+ *
+ * A request that never answered is not a market that does not exist. A phone on a bad connection
+ * gets "could not be loaded" and a retry, not "page not found", which would send a visitor away
+ * from a page that would have loaded on the next try.
  */
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -20,14 +24,19 @@ const marketSlug = computed(() => String(route.params.marketSlug ?? ''));
 
 const loading = ref(true);
 const found = ref(false);
+const missing = ref(false);
 const marketName = ref('');
 
-onMounted(async () => {
+async function load() {
+  loading.value = true;
   const form = await fetchPublicApplicationForm(marketSlug.value);
   found.value = !form.failed;
+  missing.value = form.notFound;
   marketName.value = form.marketName;
   loading.value = false;
-});
+}
+
+onMounted(load);
 </script>
 
 <template>
@@ -36,9 +45,15 @@ onMounted(async () => {
       Loading...
     </div>
 
-    <div v-else-if="!found" class="market-home-missing" data-testid="market-home-not-found">
+    <div v-else-if="missing" class="market-home-missing" data-testid="market-home-not-found">
       <h1>Page not found</h1>
       <p>There is nothing to see at this address.</p>
+    </div>
+
+    <div v-else-if="!found" class="market-home-missing" data-testid="market-home-load-failed">
+      <h1>This page could not be loaded</h1>
+      <p>Check your connection and try again.</p>
+      <button type="button" data-testid="market-home-retry-button" @click="load">Try again</button>
     </div>
 
     <template v-else>

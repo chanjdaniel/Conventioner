@@ -34,12 +34,16 @@ class TestReadingItFromAStoredDocument:
         doc = stored_market(intakeMode="form")
         assert intake_mode_from_market_document(doc) is IntakeMode.FORM
 
-    def test_a_snake_case_spelling_is_read_too(self):
-        """Nothing writes this spelling, but a hand-repaired document is not worth a 500."""
+    def test_only_the_camel_case_spelling_is_read(self):
+        """The one spelling every write produces is the one spelling reads may name.
+
+        A read-time fallback to snake_case would let a legacy key hold a value that is stale for
+        ever, since writes only ever refresh the camelCase one.
+        """
         doc = stored_market()
         doc.pop("intakeMode", None)
         doc["intake_mode"] = "form"
-        assert intake_mode_from_market_document(doc) is IntakeMode.FORM
+        assert intake_mode_from_market_document(doc) is IntakeMode.CSV
 
     def test_an_unrecognized_value_reads_as_csv_rather_than_raising(self):
         doc = stored_market(intakeMode="carrier_pigeon")
@@ -49,6 +53,17 @@ class TestReadingItFromAStoredDocument:
         doc = stored_market(intakeMode="carrier_pigeon")
         intake_mode_from_market_document(doc)
         assert doc["intakeMode"] == "carrier_pigeon"
+
+    def test_the_next_write_normalizes_an_unrecognized_value(self, monkeypatch):
+        """Reading leaves the typo alone; writing repairs it.
+
+        Every writer persists the effective value, and the effective value of an unrecognized one
+        is ``csv`` -- which every reader already answers for it. Leaving the raw value in place for
+        ever would keep a document that no build can explain.
+        """
+        fake = _collection(monkeypatch, stored_market(intakeMode="carrier_pigeon"))
+        MarketsApi.update_market("market-123", client_market(), "user-1")
+        assert fake.last_update["$set"]["intakeMode"] == "csv"
 
     def test_a_blank_value_is_csv(self):
         assert intake_mode_from_market_document(stored_market(intakeMode="")) is IntakeMode.CSV
