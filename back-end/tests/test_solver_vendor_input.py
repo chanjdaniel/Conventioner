@@ -212,6 +212,95 @@ class TestReportingAnIncompleteApplication:
         assert [i.applicant_email for i in incomplete] == ["bad@example.com"]
 
 
+class TestAnAnswerTheMarketNeverOffered:
+    """Present is not the same as usable.
+
+    A date the market does not offer matches no market date, so the vendor is placed nowhere.
+    Carrying it would be the same silent failure the typed record exists to remove, moved from
+    the attribute's name to its value.
+    """
+
+    def test_an_available_date_the_market_does_not_offer_is_reported(self):
+        app = application(
+            **{EF.AVAILABLE_DATES_KEY: ["2026-06-01", "2026-12-25"]}
+        )
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert vendors == []
+        assert any("2026-12-25" in reason for reason in incomplete[0].unrecognised)
+
+    def test_a_differently_spelled_date_is_not_silently_unplaceable(self):
+        app = application(**{EF.AVAILABLE_DATES_KEY: ["2026-6-1"]})
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert vendors == []
+        assert incomplete[0].unrecognised
+
+    def test_a_tier_the_market_does_not_offer_is_reported(self):
+        app = application(**{EF.TIER_PREFERENCE_KEY: ["A", "Platinum"]})
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert vendors == []
+        assert any("Platinum" in reason for reason in incomplete[0].unrecognised)
+
+    def test_a_section_the_market_does_not_offer_is_reported(self):
+        app = application(
+            **{EF.SECTION_RANKING_KEY: ["Food", "Artisan", "Mezzanine"]}
+        )
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert vendors == []
+        assert any("Mezzanine" in reason for reason in incomplete[0].unrecognised)
+
+    def test_an_unrecognised_answer_reads_differently_from_a_missing_one(self):
+        app = application(
+            **{
+                EF.AVAILABLE_DATES_KEY: ["2026-12-25"],
+                EF.TABLE_CHOICE_KEY: None,
+            }
+        )
+
+        _, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert EF.TABLE_CHOICE_LABEL in incomplete[0].missing
+        assert any("2026-12-25" in reason for reason in incomplete[0].unrecognised)
+        assert set(incomplete[0].reasons) == set(
+            incomplete[0].missing + incomplete[0].unrecognised
+        )
+
+    def test_a_question_the_market_did_not_ask_is_not_checked_against_an_offering(self):
+        """Table type is stubbed to one type, so its ranking is not a question at all."""
+        app = application(**{EF.TABLE_TYPE_RANKING_KEY: ["Whatever"]})
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert incomplete == []
+        assert vendors
+
+
+class TestTableChoiceSpelling:
+    @pytest.mark.parametrize("spelling", ["Half", "HALF", " half "])
+    def test_an_imported_rows_capitalisation_is_still_an_answer(self, spelling):
+        app = application(**{EF.TABLE_CHOICE_KEY: spelling})
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert incomplete == []
+        assert vendors[0].table_choice == EF.TABLE_CHOICE_HALF
+
+    def test_a_choice_that_is_not_one_of_the_three_is_reported(self):
+        app = application(**{EF.TABLE_CHOICE_KEY: "a quarter"})
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert vendors == []
+        assert EF.TABLE_CHOICE_LABEL in incomplete[0].missing
+
+
 class TestWhatTheMarketDidNotAsk:
     def test_the_stubbed_table_type_ranking_is_not_required(self):
         """One offered type is not a question, so an empty ranking is a complete answer."""

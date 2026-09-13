@@ -30,17 +30,28 @@ since every use is a membership test against dates that came from the same plan.
 
 What "required" means
 ---------------------
-Requiredness is defined by what the market actually asked, mirroring
-``essential_fields.validated_essential_answers`` question for question. A market offering one
-table type does not ask for a table-type ranking, so an empty ranking is a complete answer, not
-a missing one - and in MVP that is *every* market, since table type is stubbed to a single type.
-Requiring it unconditionally would reject every application in the product.
+Requiredness is defined by what the market actually asked, and the rule for that lives where
+``CLAUDE.md`` says it lives: ``essential_fields`` is the single owner of the essential-questions
+contract, so ``asked_essential_keys`` is read from there rather than restated here. A market
+offering one table type does not ask for a table-type ranking, so an empty ranking is a complete
+answer, not a missing one - and in MVP that is *every* market, since table type is stubbed to a
+single type. Requiring it unconditionally would reject every application in the product.
 
-These two must stay in step. If the validator's rule for a question changes, the rule here
-changes with it, or the solver starts rejecting answers the form accepted.
+Why an answer is checked against the offering
+---------------------------------------------
+A required answer being *present* is not enough. An availability list holding a date the market
+does not offer - a different spelling, or a date dropped from the plan - matches no market date,
+so the vendor is placed nowhere and nobody is told why. That is the same silent failure the
+typed record exists to remove, merely moved from the attribute's name to its value, so an answer
+naming something the market never offered is reported rather than carried.
+
+The applicant-facing form cannot produce one: ``_validate_accepted_subset`` and
+``_validate_ranking`` refuse it at submission, and the offering is frozen against the answers
+recorded under it. Reaching this check therefore means a document that did not come through that
+path, which is exactly when a loud failure is worth more than a quiet placement.
 """
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Tuple
 
 import api.applications as ApplicationsApi
 import essential_fields as EF
@@ -50,8 +61,6 @@ from datatypes import (
     ApplicationType,
     EssentialFormOptions,
 )
-
-EMAIL_LABEL = "Email address"
 
 
 @dataclass(frozen=True)
@@ -64,9 +73,9 @@ class SolverVendor:
 
     application_id: str
     email: str
-    available_dates: frozenset
+    available_dates: FrozenSet[str]
     max_dates: Optional[int]
-    accepted_tiers: frozenset
+    accepted_tiers: FrozenSet[str]
     table_choice: Optional[str]
     table_share_email: Optional[str]
     section_ranking: Tuple[str, ...]
@@ -75,16 +84,26 @@ class SolverVendor:
 
 @dataclass(frozen=True)
 class IncompleteApplication:
-    """An approved application the solver cannot place, and the questions it left unanswered.
+    """An approved application the solver cannot place, and why.
 
     Carried rather than swallowed so a caller can name the applicants. Skipping them instead
     would produce an assignment that looks complete with someone silently missing, which is the
     failure this whole rewrite exists to remove.
+
+    The two reasons are kept apart because they read differently to whoever has to fix them:
+    ``missing`` names questions left unanswered, while ``unrecognised`` names answers given to
+    questions this market never asked that way.
     """
 
     application_id: str
     applicant_email: str
     missing: Tuple[str, ...]
+    unrecognised: Tuple[str, ...] = ()
+
+    @property
+    def reasons(self) -> Tuple[str, ...]:
+        """Every reason this application cannot be placed, for a caller building one message."""
+        return self.missing + self.unrecognised
 
 
 def solver_vendors_from_applications(
@@ -98,15 +117,9 @@ def solver_vendors_from_applications(
     incomplete: List[IncompleteApplication] = []
 
     for application in applications:
-        vendor, missing = _solver_vendor(application, options)
+        vendor, problem = _solver_vendor(application, options)
         if vendor is None:
-            incomplete.append(
-                IncompleteApplication(
-                    application_id=application.id,
-                    applicant_email=(application.applicant_email or "").strip(),
-                    missing=tuple(missing),
-                )
-            )
+            incomplete.append(problem)
         else:
             vendors.append(vendor)
 
@@ -119,9 +132,14 @@ def approved_solver_vendors(
     """Every vendor a market's approved applications describe.
 
     Only ``reviewer_approved`` applications feed the solver, which is what
-    ``NoApprovedApplicationsGuard`` already implies. Only *main* applications do: an applicant's
-    waitlist application is a second document for the same address, so counting both would place
-    one person twice.
+    ``NoApprovedApplicationsGuard`` already implies.
+
+    Only *main* applications do, which is a narrower claim and a deliberately conservative one:
+    the identity index is ``(market_id, applicant_email, application_type)``, so an applicant's
+    waitlist application is a second document for the same address, and reading both would place
+    one person twice. Nothing creates a waitlist application today, so neither behaviour is
+    reachable; what a waitlisted applicant's approval should mean to the solver is an open
+    question recorded on the v0.1.0 map, not something settled here.
     """
     documents = ApplicationsApi.list_applications_with_status(
         market_id,
@@ -135,42 +153,52 @@ def approved_solver_vendors(
 
 def _solver_vendor(
     application: Application, options: EssentialFormOptions,
-) -> Tuple[Optional[SolverVendor], List[str]]:
+) -> Tuple[Optional[SolverVendor], Optional[IncompleteApplication]]:
     answers: Dict[str, Any] = application.form_data or {}
+    asked = EF.asked_essential_keys(options)
     missing: List[str] = []
+    unrecognised: List[str] = []
 
-    email = (application.applicant_email or "").strip()
+    email = _text(application.applicant_email)
     if not email:
-        missing.append(EMAIL_LABEL)
+        missing.append(EF.EMAIL_LABEL)
 
-    asks_about_dates = bool(options.dates)
+    def answer(key: str, label: str) -> List[str]:
+        """A list answer, required when asked and checked against what the question offered."""
+        names = EF.normalized_names(answers.get(key))
+        if key not in asked:
+            return names
+        if not names:
+            missing.append(label)
+            return names
+        offered = EF.offering_for_key(key, options)
+        strangers = [name for name in names if name not in offered]
+        if strangers:
+            unrecognised.append(f"{label}: {', '.join(strangers)}")
+        return names
 
-    available_dates = _names(answers.get(EF.AVAILABLE_DATES_KEY))
-    if asks_about_dates and not available_dates:
-        missing.append(EF.AVAILABLE_DATES_LABEL)
+    available_dates = answer(EF.AVAILABLE_DATES_KEY, EF.AVAILABLE_DATES_LABEL)
+    accepted_tiers = answer(EF.TIER_PREFERENCE_KEY, EF.TIER_PREFERENCE_LABEL)
+    section_ranking = answer(EF.SECTION_RANKING_KEY, EF.SECTION_RANKING_LABEL)
+    table_type_ranking = answer(EF.TABLE_TYPE_RANKING_KEY, EF.TABLE_TYPE_RANKING_LABEL)
 
     max_dates = _whole_number(answers.get(EF.MAX_DATES_KEY))
-    if asks_about_dates and max_dates is None:
+    if EF.MAX_DATES_KEY in asked and max_dates is None:
         missing.append(EF.MAX_DATES_LABEL)
 
-    accepted_tiers = _names(answers.get(EF.TIER_PREFERENCE_KEY))
-    if options.tiers and not accepted_tiers:
-        missing.append(EF.TIER_PREFERENCE_LABEL)
-
-    table_choice = _text(answers.get(EF.TABLE_CHOICE_KEY))
-    if asks_about_dates and table_choice not in EF.TABLE_CHOICES:
+    # Lower-cased for the same reason the form stores it lower-cased: the choices are a fixed
+    # vocabulary, and an imported row spelling one 'Half' should not read as no answer at all.
+    table_choice = _text(answers.get(EF.TABLE_CHOICE_KEY)).lower()
+    if EF.TABLE_CHOICE_KEY in asked and table_choice not in EF.TABLE_CHOICES:
         missing.append(EF.TABLE_CHOICE_LABEL)
 
-    section_ranking = _names(answers.get(EF.SECTION_RANKING_KEY))
-    if _is_asked_as_a_ranking(options.sections) and not section_ranking:
-        missing.append(EF.SECTION_RANKING_LABEL)
-
-    table_type_ranking = _names(answers.get(EF.TABLE_TYPE_RANKING_KEY))
-    if _is_asked_as_a_ranking(options.table_types) and not table_type_ranking:
-        missing.append(EF.TABLE_TYPE_RANKING_LABEL)
-
-    if missing:
-        return None, missing
+    if missing or unrecognised:
+        return None, IncompleteApplication(
+            application_id=application.id,
+            applicant_email=email,
+            missing=tuple(missing),
+            unrecognised=tuple(unrecognised),
+        )
 
     return (
         SolverVendor(
@@ -186,23 +214,8 @@ def _solver_vendor(
             section_ranking=tuple(section_ranking),
             table_type_ranking=tuple(table_type_ranking),
         ),
-        [],
+        None,
     )
-
-
-def _is_asked_as_a_ranking(offered: Sequence[str]) -> bool:
-    """Fewer than two options is not a question: there is exactly one order.
-
-    The same rule ``essential_fields._validate_ranking`` applies when accepting the answer.
-    """
-    return len(offered or []) >= 2
-
-
-def _names(value: Any) -> List[str]:
-    """Trimmed, non-blank strings from a stored list answer, order preserved."""
-    if not isinstance(value, list):
-        return []
-    return [text for text in (_text(item) for item in value) if text]
 
 
 def _text(value: Any) -> str:
