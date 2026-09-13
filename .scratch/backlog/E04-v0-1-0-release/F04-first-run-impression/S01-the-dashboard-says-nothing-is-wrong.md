@@ -2,7 +2,7 @@
 id: E04/F04/S01
 title: A new organizer's dashboard does not report a missing market
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -32,12 +32,16 @@ first post-login screen a brand-new verified user gets.
 
 ## Acceptance criteria
 
-- [ ] A user who has never opened a market sees wording that invites them to begin, and the card
-      does not read as an error
-- [ ] The genuinely-missing case is still distinguishable, rather than both collapsing into one
-      cheerful message
-- [ ] The "Previously opened" heading is not shown above a card for someone who has opened nothing
-- [ ] Covered by a test at the level the behaviour lives at
+- [x] A user who has never opened a market sees wording that invites them to begin, and the card
+      does not read as an error - "Open a market to get started", and clicking it goes to the
+      markets list, so the invitation leads somewhere
+- [x] The genuinely-missing case is still distinguishable - an unreadable stored market says "The
+      market you last opened is no longer available", a different message and a different testid
+- [x] The "Previously opened" heading is not shown above a card for someone who has opened nothing
+- [x] Covered by a test at the level the behaviour lives at - `DashboardView.test.ts`, seven cases
+      across all three states
+
+A user-visible em dash in the created-date fallback was replaced while here.
 
 ## Notes
 

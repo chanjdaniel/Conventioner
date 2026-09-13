@@ -2,7 +2,7 @@
 id: E06/F02/S01
 title: Remove the csv_exports directory nothing writes to
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -30,8 +30,11 @@ Found while reading `docs/STARTUP.md` for E04/F02/S01.
 
 ## Acceptance criteria
 
-- [ ] No reference to `csv_exports` or `backend_csv` remains anywhere in the repository
-- [ ] The stack builds and comes up from a clean clone with no volume left orphaned
-- [ ] Assignment CSV download still works, demonstrated rather than assumed
-- [ ] Existing developers' orphaned `backend_csv` volumes are mentioned wherever the change is
-      described, since removing the mount does not remove a volume already created
+- [x] No reference remains in the Dockerfile, the entrypoint, `docker-compose.yml`, `.gitignore`,
+      `.dockerignore` or `docs/STARTUP.md`. The one surviving mention is the STARTUP line saying it
+      is gone.
+- [x] The stack builds and comes up: the image was rebuilt and the full e2e suite run against it
+- [x] Assignment CSV download still works, demonstrated - `tier2.spec.ts`'s "download CSV with
+      expected columns" performs a real download and reads its columns, and passed in that run
+- [x] Named in the commit message: removing the mount does not remove a volume already created, so
+      an existing developer has an orphaned `<project>_backend_csv` to `docker volume rm`
