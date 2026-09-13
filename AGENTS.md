@@ -191,6 +191,43 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   (`front-end/e2e/helpers/seedApplication.ts`), which writes the document straight into Mongo
   via `mongosh`, because no applicant-facing submit endpoint exists yet.
 
+## Intake Mode (Conventioner sharp edge)
+
+- **`Market.intake_mode` says how vendors reach a market: `csv` or `form`, exactly one.** The
+  phase cannot express this. Application submission is already gated to `applications_open`, but a
+  CSV market passes through that phase too - that is where the import happens - so during that
+  window its public application form would be live and taking applications from strangers the
+  organizer has no way to answer.
+- **Absence means `csv`, so the public applicant surface fails closed.** Wrongly hiding an
+  application surface is visible and gets complained about; wrongly exposing one is silent until a
+  stranger applies. There is no migration and no backfill, and none is needed.
+  Consequence for tests: **any fixture whose market serves applicants must say `intakeMode: "form"`**,
+  in pytest and in the e2e seeds alike. A fixture that does not is a market whose applicant
+  endpoints answer 404, which is the default doing its job.
+- **`applicant_intake_market_by_slug()` (`back-end/market_documents.py`) is the single expression of
+  the gate**, layered on `published_market_by_slug` and read by exactly the five applicant-intake
+  endpoints. It cannot move into `published_market_by_slug`, because check-in shares that lookup and
+  must stay open to every published market: how a vendor entered has no bearing on whether they can
+  scan in on the day. It is one lookup rather than a check in each endpoint, because five checks are
+  five chances to forget the sixth.
+- **A gated market answers exactly as a market that does not exist.** Never add a "not accepting
+  applications online" message: it confirms to any stranger guessing slugs that the market is real.
+  The two applicant-login endpoints keep their *uniform* response rather than gaining a 404 of their
+  own, because a 404 there would be an oracle saying "this slug is a CSV market" where every other
+  answer says nothing. `front-end/e2e/intake-mode.spec.ts` asserts the gated and absent renders are
+  identical rather than asserting each alone.
+- **Intake mode does not gate the form builder.** A CSV market still has an application form,
+  because the essential questions define the offering the CSV maps onto. Intake mode decides who
+  fills the form in, not whether one exists.
+- **It is organizer-settable only while the market is a draft**, then frozen by `update_market()`,
+  derived from the stored phase rather than from a list of late phases. MVP ships no UI control for
+  it, deliberately: every MVP market is CSV, and a toggle would advertise a surface MVP withholds.
+- **`market_from_document()` withholds `phase` and `intake_mode` from the Pydantic parse** and takes
+  both from their document readers. Pydantic validates an enum on construction, before any later
+  assignment can degrade it, so a stored value this build does not recognize used to raise - taking
+  down every list that included that one market. Do not "simplify" this by letting the model parse
+  either field.
+
 ## Market Document Canonical Form (Conventioner sharp edge)
 
 - **The back end refuses to boot** unless `migrations/migrate_market_keys.py` has recorded
