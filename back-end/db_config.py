@@ -1,4 +1,5 @@
 import os
+import threading
 from pymongo import MongoClient
 
 # The startup migration check runs at import, before the app can serve anything, so it must
@@ -32,9 +33,37 @@ def get_mongodb_client(server_selection_timeout_ms=None):
     connection_string = f"mongodb://{mongodb_user}:{mongodb_password}@{mongodb_host}:{mongodb_port}/{mongodb_auth_db}"
     return MongoClient(connection_string, **options)
 
+_default_clients = {}
+_default_clients_lock = threading.Lock()
+
+
 def get_database(db_name='conventioner', server_selection_timeout_ms=None):
-    """Get database instance."""
-    client = get_mongodb_client(server_selection_timeout_ms)
+    """Get database instance.
+
+    The default client is made once per process and reused. A ``MongoClient`` is a connection
+    POOL with its own background monitoring threads, and it is never closed - so building one per
+    request leaks a pool and its threads for the life of the process. Most API modules already
+    called this once at import; ``api/applicants.py`` called it inside four request handlers, so
+    every public applicant request leaked one. Measured against a running stack: forty applicant
+    requests grew MongoDB's open connection count while forty requests to an endpoint whose module
+    builds one client at import did not move it at all.
+
+    Memoizing here rather than hoisting those four calls to module level keeps ``get_database`` as
+    the seam the applicant tests patch, and makes the leak structurally impossible rather than
+    fixed at four call sites someone can add a fifth to.
+
+    A caller that passes ``server_selection_timeout_ms`` is asking for a handle on its own terms
+    and gets a fresh client: that is the startup migration probe, which wants a short-lived,
+    time-bounded one and runs once.
+    """
+    if server_selection_timeout_ms is not None:
+        return get_mongodb_client(server_selection_timeout_ms)[db_name]
+
+    with _default_clients_lock:
+        client = _default_clients.get(db_name)
+        if client is None:
+            client = get_mongodb_client(None)
+            _default_clients[db_name] = client
     return client[db_name]
 
 def get_migration_probe_database(db_name='conventioner'):

@@ -49,8 +49,24 @@ echo "nm-test: ports mongo=$TH_MONGO_PORT backend=$TH_BACKEND_PORT frontend=$TH_
 
 # ── Teardown ─────────────────────────────────────────────────────────────────
 
+STACK_LOG_DIR="$REPO_ROOT/.stack-logs"
+
 cleanup() {
   echo ""
+  # Capture the stack's logs BEFORE tearing it down. `down -v` destroys them, and a failure that
+  # only happens under a full-suite run is exactly the one whose logs you cannot get afterwards -
+  # which is why E06/F01/S02 went undiagnosed through several attempts.
+  mkdir -p "$STACK_LOG_DIR"
+  for service in backend frontend; do
+    docker compose \
+      -f "$REPO_ROOT/docker-compose.yml" \
+      -f "$REPO_ROOT/docker-compose.worktree.yml" \
+      -p "$COMPOSE_PROJECT_NAME" \
+      logs --no-color --timestamps "$service" \
+      > "$STACK_LOG_DIR/$COMPOSE_PROJECT_NAME-$service.log" 2>&1 || true
+  done
+  echo "nm-test: stack logs in $STACK_LOG_DIR/"
+
   echo "nm-test: tearing down stack..."
   docker compose \
     -f "$REPO_ROOT/docker-compose.yml" \

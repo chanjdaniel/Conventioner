@@ -13,7 +13,6 @@ env/
 ENV/
 .venv
 flask_session/
-csv_exports/
 error.log
 *.log
 .pytest_cache/

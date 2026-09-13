@@ -4,7 +4,8 @@ Charted 2026-09-12.
 
 ## Destination
 
-Conventioner v0.1.0: an organizer can create a market, set up its tables, import their vendors from a Google Forms CSV, review them, and run assignment - on a deployed instance any organizer can use.
+Conventioner v0.1.0: an organizer can create a market, set up its tables, import their vendors from a Google Forms CSV, review them, and run assignment - proven as one continuous journey, and tagged `v0.1.0` by release-please.
+Deploying that tag is the user's own acceptance step, outside this map.
 The way is clear when nothing remains to decide before that journey can be built, and the resulting Epic/Feature backlog in `.scratch/backlog/` is the by-product.
 
 ## Notes
@@ -37,6 +38,16 @@ These frame every ticket below and are not open for re-litigation without redraw
 - **The real organizer's market is decoupled** and will be served by hand if its date arrives first.
   No organizer's specifics steer the roadmap.
 
+
+### Settled while charting E04 (2026-09-13)
+
+- **v0.1.0 means the tag, not a live instance.**
+  Release-please cutting `v0.1.0` closes this map; walking the journey on a deployed instance is the user's own step.
+- **The journey is proven by one continuous e2e spec**, walked as a single organizer session, not by auditing the existing slice coverage for gaps.
+  Slice coverage is exactly what missed the publishing seam bug E03 found in F02/S04.
+- **The release blocks on `E06/F01/S02`** (the public application-form stall), which stays in E06 rather than moving into E04.
+  A tag whose suite is known-flaky teaches everyone to re-run rather than read failures.
+
 ## Decisions so far
 
 <!-- one line per resolved ticket -->
@@ -51,10 +62,7 @@ These frame every ticket below and are not open for re-litigation without redraw
 
 ## Not yet specified
 
-- **Review and bulk-approve details.** How bulk-approve interacts with the D9 application-form lock, and whether rejecting after import needs an audit trail.
-- **What the organizer does with the assignment output.** MVP ends at "assignment computed" with no offers and no emails, so the organizer communicates results themselves. Whether that needs any export beyond the existing CSV download is unexamined.
 - **What an approved waitlist application means to the solver.** `Application` models a waitlist type and the identity index allows one beside each main application, but nothing creates one, so neither answer is reachable today. E02's solver input reads main applications only, deliberately conservative: reading both would place one person twice. Revisit when waitlists become reachable.
-- **Seed and demo data for a fresh deployment.** What a brand-new organizer sees before they have imported anything.
 
 ## Out of scope
 
@@ -72,3 +80,6 @@ Ruled beyond this destination. These never graduate; they return only if the des
 - **Invite-gating and access control on signup.** Deferred; registration stays as it is.
 - **Market-day check-in.** Works today, but sits past the MVP journey, which ends at assignment.
 - **Billing and plan limits.**
+- **Seed and demo data for a fresh deployment.** A brand-new organizer's first real market is the onboarding. Fabricated demo markets inside a live instance are a support burden, not a welcome.
+- **Any assignment export beyond the existing CSV download.** MVP ends at "assignment computed" and the organizer communicates results themselves; `GET /markets/<id>/assignment-csv` already serves that. Anything richer is E05's, with offers.
+- **`docs/TODO.md`.** Deleted rather than rewritten. `.scratch/backlog/` superseded it, and two competing lists are how a stale one survives.

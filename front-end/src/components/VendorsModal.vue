@@ -271,17 +271,19 @@ const gridTemplate = computed(() => {
                     {{ h }}
                   </div>
                 </div>
-                <div class="vendors-modal-rows">
+                <div class="vendors-modal-rows" data-testid="vendors-modal-rows">
                   <div
                     v-for="(row, ri) in bodyRows"
                     :key="'r-' + ri"
                     class="vendors-modal-data-row"
+                    data-testid="vendors-modal-row"
                     :style="gridTemplate"
                   >
                     <div
                       v-for="(cell, ci) in row"
                       :key="'c-' + ri + '-' + ci"
                       class="vendors-modal-cell"
+                      data-testid="vendors-modal-cell"
                     >
                       {{ cell }}
                     </div>

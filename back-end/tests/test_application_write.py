@@ -14,7 +14,7 @@ import pytest
 from conftest import FakeMarketsCollection, stored_market
 
 import essential_fields as EssentialFields
-from application_write import record_application_answers
+from application_write import record_application_answers, validate_application_answers
 from datatypes import ApplicationStatus
 
 
@@ -162,3 +162,79 @@ class TestRecordApplicationAnswers:
         error, _ = record_application_answers(markets, doc, _app_doc(), ANSWERS)
 
         assert error is not None and "does not offer" in error
+
+
+class TestAMarketThatAsksOnlyTheEssentialQuestions:
+    """A form made entirely of the essential questions is a form.
+
+    ``FormHasFieldsGuard`` says so: a market whose plan has dates, tiers or two sections may leave
+    ``draft`` and open applications with no custom field at all (E03/F01/S01). The write path used
+    to disagree, refusing every such application with "does not have an application form
+    configured" - so that market could open applications and then never receive one, by import or
+    by an applicant. The refusal keyed on the custom fields alone, which is the one half of the
+    form that E01 stopped being the whole of it.
+    """
+
+    def _essential_only_market(self):
+        return stored_market(
+            setupObject=SETUP_CAMEL,
+            applicationForm={"fields": [], "essentialOptions": None},
+        )
+
+    def test_answers_are_accepted_when_the_form_has_no_custom_field(self, applications):
+        applications.insert_one(_app_doc())
+        doc = self._essential_only_market()
+        markets = FakeMarketsCollection(doc)
+
+        error, app = record_application_answers(markets, doc, _app_doc(), ANSWERS)
+
+        assert error is None
+        assert app is not None
+        assert app.form_data["essential_available_dates"] == DATES
+        assert app.status == ApplicationStatus.OPEN
+
+    def test_the_dry_run_agrees_with_the_save(self, applications):
+        """The importer previews with this; a preview that refused what the save accepts is worse
+        than either being wrong on its own."""
+        doc = self._essential_only_market()
+
+        assert validate_application_answers(doc, ANSWERS) is None
+
+    def test_a_market_with_no_form_object_at_all_is_the_same_case(self, applications):
+        applications.insert_one(_app_doc())
+        doc = stored_market(setupObject=SETUP_CAMEL)
+        markets = FakeMarketsCollection(doc)
+
+        error, app = record_application_answers(markets, doc, _app_doc(), ANSWERS)
+
+        assert error is None
+        assert app is not None
+
+    def test_a_market_that_asks_nothing_at_all_is_still_refused(self, applications):
+        """The refusal has a job: a plan with no dates, no tiers and fewer than two sections asks
+        no essential question either, so there is genuinely no form to answer."""
+        applications.insert_one(_app_doc())
+        doc = stored_market(
+            setupObject={
+                "priority": [], "marketDates": [], "tiers": [], "locations": [],
+                "sections": [], "assignmentOptions": {}, "floorplans": [],
+            },
+            applicationForm={"fields": [], "essentialOptions": None},
+        )
+        markets = FakeMarketsCollection(doc)
+
+        error, app = record_application_answers(markets, doc, _app_doc(), {})
+
+        assert error is not None
+        assert "does not have an application form configured" in error
+        assert app is None
+
+    def test_a_custom_field_is_still_validated_when_there_is_one(self, markets, applications):
+        """The relaxation is about an EMPTY field list, not about skipping validation."""
+        applications.insert_one(_app_doc())
+        missing = {key: value for key, value in ANSWERS.items() if key != "business_name"}
+
+        error, app = record_application_answers(markets, markets.doc, _app_doc(), missing)
+
+        assert error is not None and "required" in error
+        assert app is None
