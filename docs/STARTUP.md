@@ -6,8 +6,13 @@ This guide will help you set up and run the Conventioner application for develop
 
 Before starting, ensure you have the following installed:
 
-- **Docker** and **Docker Compose** (recommended - see Docker Setup below)
-  - OR **Python 3.8+**, **Node.js 18+**, and **MongoDB** (for local development)
+- **Docker** and **Docker Compose v2** (recommended - see Docker Setup below)
+  - OR **Python 3.11**, **Node.js 20+**, and **MongoDB** (for local development)
+
+The versions are the ones the project is built and tested against: `back-end/Dockerfile` pins
+`python:3.11-slim`, and `.github/workflows/test.yml` runs Node 20.
+Compose commands here are v2 (`docker compose`, two words); v1 (`docker-compose`) reached end of
+life and is not tested.
 
 ## Quick Start with Docker (Recommended)
 
@@ -15,26 +20,38 @@ The easiest way to get started is using Docker Compose:
 
 1. **Start all services**:
   ```bash
-   docker-compose up
+   docker compose up
   ```
 2. **Access the application**:
   - Frontend: [http://localhost:5173](http://localhost:5173)
   - Backend API: [https://localhost:5000](https://localhost:5000)
   - MongoDB: localhost:27017
+  - mongo-express (database browser): [http://localhost:8081](http://localhost:8081), `admin` / `admin`
 3. **Stop all services**:
   ```bash
-   docker-compose down
+   docker compose down
   ```
 4. **View logs**:
   ```bash
-   docker-compose logs -f [service_name]  # e.g., backend, frontend, mongodb
+   docker compose logs -f [service_name]  # e.g., backend, frontend, mongodb
   ```
 5. **Rebuild after code changes**:
   ```bash
-   docker-compose up --build
+   docker compose up --build
   ```
 
-That's it! The Docker setup handles all dependencies automatically.
+That is genuinely it, on a fresh clone: **no `.env` file to copy**.
+The back end refuses to boot without six variables it has no default for, and `docker-compose.yml`
+sets the local-development escape hatch (`ALLOW_INSECURE_LOCAL_DEV`) and its front-end half
+(`VITE_ALLOW_INSECURE_LOCAL_DEV`) inline, which is what lets the stack start without them.
+It says so in the log on every boot.
+The `.env` copies described below belong to the without-Docker path, and to running the tooling
+directly.
+
+**One exception, and only for a clone you already had.**
+If the back end crash-loops saying the market-document migration has not been applied, your MongoDB
+volume predates that migration.
+Run it once and start again - see [Troubleshooting](#troubleshooting) below.
 
 ---
 
@@ -46,15 +63,21 @@ If you prefer to run services locally without Docker:
 
 ```
 Conventioner/
-├── back-end/          # Flask backend API
-│   ├── Dockerfile     # Backend Docker image
+├── back-end/           # Flask backend API
+│   ├── Dockerfile      # Backend Docker image
 │   ├── requirements.txt
-│   └── db_config.py   # MongoDB connection config
-├── front-end/         # Vue 3 frontend application
-│   ├── Dockerfile     # Frontend Docker image
+│   ├── migrations/     # One-off migrations, two of which the app refuses to boot without
+│   ├── tests/          # pytest suite
+│   └── db_config.py    # MongoDB connection config
+├── front-end/          # Vue 3 frontend application
+│   ├── Dockerfile      # Frontend Docker image
+│   ├── e2e/            # Playwright suite, page objects and seed helpers
 │   └── package.json
-├── docker-compose.yml # Docker Compose configuration
-└── STARTUP.md         # This file
+├── docs/               # This file, TESTING.md, RELEASING.md, ADRs
+├── scripts/            # seed_fixture.sh, th-compose.sh, nm-test.sh
+├── .scratch/           # The work backlog: epics, features, stories, wayfinding maps
+├── docker-compose.yml  # Docker Compose configuration
+└── AGENTS.md           # Project-intrinsic notes: sharp edges, conventions, invariants
 ```
 
 ## Step 1: MongoDB Setup
@@ -69,9 +92,11 @@ The application requires MongoDB to be running. The backend connects to:
 
 1. Install MongoDB Community Edition:
   ```bash
-   # Ubuntu/Debian
-   sudo apt-get install mongodb
+   # Ubuntu/Debian: the `mongodb` apt package was removed years ago. Use MongoDB's own
+   # repository, per https://www.mongodb.com/docs/manual/administration/install-on-linux/
+
    # macOS (using Homebrew)
+   brew tap mongodb/brew
    brew install mongodb-community
 
    # Or download from https://www.mongodb.com/try/download/community
@@ -125,10 +150,11 @@ docker run -d \
    pip install -r requirements.txt
   ```
    Install the file, not a hand-listed subset: `app.py` imports the floorplan and email modules on the way up, and `python-dotenv` is what reads the `.env` you write in step 5.
-4. Create necessary directories:
+4. Create the session directory:
   ```bash
-   mkdir -p flask_session csv_exports
+   mkdir -p flask_session
   ```
+   This is where `SESSION_TYPE=filesystem` keeps the organizer's session.
 5. Create the environment file:
   ```bash
    cp .env.example .env
@@ -220,30 +246,57 @@ The frontend will start on: **[http://localhost:5173](http://localhost:5173)** (
 
 ### Create a Test User
 
-You can register a user via the UI or using curl:
+Register through the UI and follow the verification link, or - faster, and the only way that works
+when email is disabled - create a pre-verified user directly:
 
 ```bash
-curl -k -X POST https://127.0.0.1:5000/register-user \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "testpassword",
-    "organizations": [],
-    "markets": []
-  }'
+docker compose exec backend python create_test_user.py test@example.com testpassword
 ```
 
-### Basic Workflow Test
+**Do not create a test user by posting to `/register-user`.**
+That endpoint does not set `email_verified`, so the account it creates can never log in, and the
+login failure does not say why.
+`create_test_user.py` sets it, which is why every test fixture goes through that script.
 
-1. **Login**: Use the credentials you just created
-2. **Create Organization**: Open "Organizations" and create one. Every market belongs to an organization, so a brand-new user must do this before they can create a market. The new-market form links here when you have no organizations.
-3. **Create Market**: Click "New Market", select the organization, and fill in the market details. Submission stays disabled until an organization is selected.
-4. **Configure Market Setup**:
-  - Set up market dates
-  - Configure tiers, locations, and sections
-  - Set assignment priorities
-5. **Generate Assignment**: Click "Assign" to run the assignment algorithm
-6. **View Results**: Review the assignment statistics and vendor assignments
+Easier still, `./scripts/seed_fixture.sh` from the repository root creates two verified users, an
+organization and a market in one command.
+
+### The Full Workflow
+
+This is the journey the product exists to serve, end to end.
+Every step is reachable from the UI; none of it needs the API.
+
+1. **Login** with the verified user you just created.
+2. **Create an organization.**
+   Open "Organizations" and create one.
+   Every market belongs to an organization, so a brand-new user must do this before they can create
+   a market; the new-market form links here when you have none.
+3. **Create a market.**
+   Click "New Market", select the organization, and fill in the details.
+   Submission stays disabled until an organization is selected.
+4. **Plan the market**, on Market Setup's **Setup** tab.
+   Add the market dates, then the tiers, locations and sections, then the assignment options.
+   Do this before the next step: what the market offers its applicants is derived from this plan,
+   and a market that offers nothing has nothing to ask anybody about.
+5. **Open applications**, using the phase control panel at the top of Market Setup.
+   A new market starts in `draft`, and importing vendors is only permitted once applications are
+   open.
+   If the panel refuses, it names what is missing and links to where to fix it.
+6. **Import the vendors** from the **Applications** tab: click "Import from CSV".
+   Upload the CSV your Google Form produced, map its columns onto the questions the solver reads,
+   resolve any cell value the market does not recognise, then preview and confirm.
+   Nothing is written until you confirm, and the preview says exactly what will happen.
+7. **Review the applications**, back on the Applications tab.
+   Imported rows arrive awaiting review.
+   Approve the ones a table should go to: **the solver reads approved applications and nothing
+   else**, so an application left unreviewed takes no part in assignment.
+8. **Generate the assignment** by running "Assign" from Market Setup.
+9. **View the results**, download the CSV, and optionally post the summary to Discord.
+
+**Where do I get a CSV?**
+Any CSV with a header row will do for a first look: an email address column, plus one column per
+question your market asks.
+`front-end/e2e/csv-import.spec.ts` carries a small realistic example at the top of the file.
 
 ### Discord Webhook Setup
 
@@ -264,20 +317,20 @@ The webhook URL is stored per-market and treated as a secret; it is never logged
 
 ```bash
 # Check if ports are already in use
-docker-compose ps
+docker compose ps
 lsof -i :5000  # Check port 5000
 lsof -i :5173  # Check port 5173
 lsof -i :27017 # Check port 27017
 
 # Remove old containers
-docker-compose down
+docker compose down
 docker system prune -f
 ```
 
 **MongoDB connection errors in Docker**:
 
-- Ensure MongoDB container is healthy: `docker-compose ps`
-- Check MongoDB logs: `docker-compose logs mongodb`
+- Ensure MongoDB container is healthy: `docker compose ps`
+- Check MongoDB logs: `docker compose logs mongodb`
 - Wait for MongoDB to be fully initialized (healthcheck passes)
 
 **Backend can't connect to MongoDB**:
@@ -288,15 +341,15 @@ docker system prune -f
 
 **Frontend can't connect to backend**:
 
-- Verify backend is running: `docker-compose logs backend`
+- Verify backend is running: `docker compose logs backend`
 - Check VITE_BACKEND_URL environment variable
 - Ensure proxy configuration in vite.config.ts is correct
 
 **Rebuild after dependency changes**:
 
 ```bash
-docker-compose build --no-cache
-docker-compose up
+docker compose build --no-cache
+docker compose up
 ```
 
 **Backend crash-loops with "`SECRET_KEY` / `RESEND_API_KEY` / `RECAPTCHA_SECRET_KEY` is set to a placeholder this repository has printed"**:
@@ -426,7 +479,7 @@ mkdir -p flask_session
 
 ### Docker Services
 
-The `docker-compose.yml` defines three services:
+The `docker-compose.yml` defines four services:
 
 1. **mongodb**: MongoDB database
   - Port: `27017`
@@ -435,11 +488,14 @@ The `docker-compose.yml` defines three services:
 2. **backend**: Flask API server
   - Port: `5000` (HTTPS with adhoc certificate)
   - Hot-reload enabled via volume mount
-  - Sessions and CSV exports persisted in volumes
+  - Sessions persisted in a volume
 3. **frontend**: Vue 3 development server
   - Port: `5173`
   - Hot-reload enabled via volume mount
   - Proxies `/api` requests to backend
+4. **mongo-express**: browser-based database viewer
+  - Port: `8081`, basic auth `admin` / `admin`
+  - Convenient for reading market and application documents by hand
 
 ### Environment Variables
 
@@ -457,7 +513,7 @@ The `docker-compose.yml` defines three services:
 
 ### Vision AI Setup (Optional)
 
-The floorplan feature includes AI-powered auto-detection of table placements. This is **optional** — the floorplan editor works without these keys, but the automatic table detection feature will be disabled.
+The floorplan feature includes AI-powered auto-detection of table placements. This is **optional** - the floorplan editor works without these keys, but the automatic table detection feature will be disabled.
 
 1. **Gemini API Key**: Visit [aistudio.google.com/apikey](https://aistudio.google.com/apikey), sign in with your Google account, and click **Create API Key**. Copy the key and set `GEMINI_API_KEY` in your `.env`.
 2. **OpenAI API Key**: Visit [platform.openai.com/api-keys](https://platform.openai.com/api-keys), sign in, and click **Create new secret key**. Copy the key and set `OPENAI_API_KEY` in your `.env`.
@@ -467,7 +523,7 @@ Both keys are configured in `.env` and forwarded to the backend via `docker-comp
 ### Backend Structure
 
 - **API Routes**: Defined in `back-end/app.py`
-- **API Modules**: `back-end/api/` (users, markets, source_data)
+- **API Modules**: `back-end/api/` (users, markets, organizations, permissions, applications, applicants, applicant_auth, attendance, floorplans)
 - **Assignment Logic**: `back-end/assignment/assignment.py`
 - **Data Types**: `back-end/datatypes.py` (Pydantic models)
 - **Phase Guards**: `back-end/guards.py` (every precondition for every market phase transition)
@@ -488,11 +544,13 @@ Both keys are configured in `.env` and forwarded to the backend via `docker-comp
 - **Environment**: `back-end/.env` (loaded by `back-end/utils/env_file.py`) and `front-end/.env` (read by Vite); copy each from its `.env.example`
 - **Docker Compose**: `docker-compose.yml` (Service orchestration)
 
-### CSV Export Location
+### Assignment CSV Download
 
-- Assignment CSV files are saved to: `back-end/csv_exports/`
-- Files are named: `{market_name}_assigned.csv`
-- In Docker: Persisted in volume `backend_csv`
+- `GET /markets/<market_id>/assignment-csv` builds the CSV in memory and returns it as an
+  attachment; the browser saves it wherever downloads go.
+- Reached from **Assignment Results** in the UI.
+- Nothing is written to the server's disk. The `csv_exports` directory the Dockerfile still creates
+  is vestigial, and its removal is tracked as `E06/F02/S01`.
 
 ### Generate Shared Market Contract
 
@@ -506,25 +564,19 @@ Use the schema utility to regenerate the backend/frontend contract declaration d
 2. The generated contract will be written to:
   - `docs/schema.d.ts`
 
-### Discord Webhook Setup (per market)
+### Discord Webhook Setup
 
-The Conventioner UI lets a market owner post the assignment summary to a Discord channel. No bot or token is required — Conventioner uses incoming webhooks.
-
-1. In Discord, open the target server → **Server Settings → Integrations → Webhooks → New Webhook**.
-2. Pick the channel that should receive the assignment summary, click **Copy Webhook URL**.
-3. In Conventioner, open the market → **Market Setup → Discord webhook URL** field → paste the URL → save.
-4. From **Assignment Results**, click **Send to Discord** to post the summary. The webhook URL is stored per market and is not part of the global `.env`.
-
-Webhook URLs are sensitive — anyone with the URL can post to the channel. Treat them like a password and rotate via Discord if leaked.
+Per market, and documented under [The Full Workflow](#the-full-workflow) above.
+The webhook URL is stored on the market, never in `.env`, and is treated as a secret.
 
 ## Next Steps
 
 Once the application is running:
 
-1. Review the [TODO.md](./TODO.md) for remaining features
-2. Check the codebase for implementation details
+1. Read `AGENTS.md` for this codebase's sharp edges before changing markets, phases or secrets
+2. Browse the work backlog under `.scratch/backlog/` for what is built and what is planned
 3. Explore the API endpoints via the browser dev tools Network tab
-4. Test the assignment algorithm with sample vendor data
+4. Run the test suites, documented in [TESTING.md](./TESTING.md)
 
 ## Additional Resources
 
