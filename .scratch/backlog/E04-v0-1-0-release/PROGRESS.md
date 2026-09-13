@@ -18,11 +18,15 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | # | Story | Blocked by | Status | PR |
 | --- | --- | --- | --- | --- |
 | 1 | F01/S01 Extract a CSV import page object | - | done (unpushed) | |
-| 2 | F02/S01 STARTUP.md walks a fresh clone to a running stack | - | not started | |
+| 2 | F02/S01 STARTUP.md walks a fresh clone to a running stack | - | done (unpushed) | |
 | 3 | F01/S02 Walk the whole journey in one session | F01/S01 | not started | |
 | 4 | F02/S02 TESTING.md describes the suites that exist | F01/S02 | not started | |
 | 5 | F03/S01 Promote dev to main and cut v0.1.0 | F01/S02, F02/S01, F02/S02, E06/F01/S02 | not started | |
 | 6 | F03/S02 Later versions follow conventional commits | F03/S01 | not started | |
+| - | F04/S01 A new organizer's dashboard does not report a missing market | - | not started | |
+
+F04/S01 was found while walking STARTUP.md and is not currently a blocker for the release. Whether
+the first screen a new organizer sees should gate v0.1.0 is a call for the epic's owner.
 
 F01/S01 and F02/S01 are both unblocked and may run in either order, or in parallel: one is e2e
 infrastructure and the other is documentation, and they do not touch the same files.
@@ -89,3 +93,57 @@ fixture anyway, so passing it is honest.
   `docker-entrypoint.sh` chowns it, `docker-compose.yml` mounts a named volume at it, and
   `docs/STARTUP.md` tells the reader to `mkdir` it. Found while reading STARTUP.md for F02/S01.
   The docs half is F02/S01's; removing the directory and its volume is a sibling story.
+
+### F02/S01 STARTUP.md walks a fresh clone to a running stack
+
+Verified by doing it, twice, from a genuinely clean `git clone` of this branch into a scratch
+directory (`ls back-end/.env front-end/.env .env` returned nothing, so no local state leaked in).
+The stack ran on a unique compose project with four free ports, so it could not touch the
+developer's own stacks, and was torn down with `down -v` afterwards.
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| Every command in the document has been run, in order, from a clean checkout | met | `docker compose up -d --build` on a clean clone with no env file: backend answered in 2s. `docker compose exec backend python create_test_user.py test@example.com testpassword` created the user. `POST /login` with those credentials returned `Login successful`. Frontend served HTTP 200. |
+| The document ends with the reader logged in and looking at the product, not at a stack trace | met | Driven through the real login form with Playwright against that clean-clone stack: landed on `/dashboard` showing the signed-in user. Screenshot taken. |
+| Both env-template copies are named, and the boot requirements they satisfy are explained rather than listed | met, already | Backend Setup step 5 and Frontend Setup step 3 each name their `cp .env.example .env` and explain what the hatch turns off and why. That text predates this story; it was written with the security work. What this story added is the fact that **the Docker path needs neither**, which the document did not say and which the clean-clone run proves: `docker-compose.yml` sets both hatches inline. |
+| The market-key migration is part of the path, not a troubleshooting footnote | met, deliberately reshaped | On a fresh clone it is genuinely not a step: `mongo-init.js` records both markers on first database init, which the clean-clone run confirms by booting without it. Making it a mandatory step would be documenting a lie. It is now a named exception inside the Quick Start - "only for a clone you already had" - linking to the full fix, so the reader meets it before it bites rather than only after. |
+| Nothing references a module, endpoint or directory that no longer exists | met | `source_data` removed from the API-module list (replaced by the real contents of `back-end/api/`). The "CSV Export Location" section, which described files written to `back-end/csv_exports/`, is replaced by how the download actually works: built in memory, returned as an attachment. `/register-user` now appears exactly once, as a warning not to use it. |
+| Where a step has a known failure mode, the document says what it looks like and what to do | met | The pre-existing troubleshooting entries for the placeholder-secret refusal, the boot refusal and the two migrations are intact and accurate. Added: the migration exception in the Quick Start, and why `/register-user` produces a user who cannot log in. |
+
+#### Corrections beyond the story's known-stale list
+
+The list in the story was a starting point, not a scope limit. Also found and fixed:
+
+- **Prerequisites named Python 3.8+ and Node 18+.** The image pins `python:3.11-slim` and CI runs
+  Node 20.
+- **Compose v1 throughout the Quick Start** (`docker-compose`, hyphenated) while the troubleshooting
+  sections used v2. v1 is end-of-life; all seven invocations are now v2.
+- **`sudo apt-get install mongodb`** has not been a valid package on Debian or Ubuntu for years.
+- **The "Basic Workflow Test" could not produce an assignment.** It went from market setup straight
+  to "Generate Assignment", never importing or approving a vendor - and the solver reads approved
+  applications and nothing else, so the documented workflow ended at an empty result. Rewritten as
+  the real journey, including the phase transition that makes import legal, the Applications tab
+  where both import and review live, and the fact that an unreviewed application takes no part in
+  assignment.
+- **The project-structure tree** claimed this file lives at the repository root and omitted `docs/`,
+  `scripts/`, `.scratch/`, `migrations/` and both test directories.
+- **Three services documented, four defined.** mongo-express was undocumented; it is a useful way to
+  read market documents by hand.
+- **The Discord webhook instructions appeared twice**, in near-identical prose. One copy remains.
+- **Next Steps pointed at `docs/TODO.md`**, which F02/S02 deletes. It now points at `AGENTS.md` and
+  the backlog.
+- **Three em dashes** replaced, per the repository's writing convention.
+
+#### A note on formatting
+
+`docs/` is **not** Prettier-managed: CI's `format:check` runs inside `front-end/` only. Running
+Prettier over this file dedents fenced code blocks out of their numbered list items, which breaks
+the nesting and leaves stray leading spaces inside the fences. Do not run it here.
+
+#### Sibling work discovered
+
+- **A new organizer's first screen reports a failure.** After signing in for the first time the
+  dashboard shows a greyed card reading "Last market not found" under a "Previously opened"
+  heading. Nothing is wrong: they have not opened one yet. Filed as `E04/F04/S01`. It is not the
+  seed-data question the wayfinding map ruled out of scope - this is what the empty state *says*,
+  not what fills it.

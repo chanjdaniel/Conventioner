@@ -2,7 +2,7 @@
 id: E04/F02
 title: The docs match the product
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
