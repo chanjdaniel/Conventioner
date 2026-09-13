@@ -26,6 +26,17 @@ This is what `AGENTS.md` has been calling "Phase 5". Charting resolved it rather
 
 The genuinely hard part is not the input model but the priority system, which addresses its targets by column index into a parallel array.
 
+**Correction found while charting the features.** `_get_vendor_rows()` is indeed the only reader of `source_data`, but the accessor layer above it - `_vendor_field_at`, `_get_vendor_column_value`, `_mapped_col_idx`, and the six `*_col_name_idx` lookups - is around ninety lines, not fifteen.
+All of it is mechanical and collapses into typed attribute reads, so the scoping call stands; the sizing does not.
+`assign_market()` also has seven call sites, six in `api/markets.py` and one in `api/attendance.py`, each of which fetches source data first.
+
+## Features
+
+- **F01 The solver reads Applications** - the input-model swap, plus the three behaviour changes the port forces.
+- **F02 Priority rules without columns** - the redesign, model and organizer UI together.
+- **F03 Section preference honoured in placement** - the loop inversion, deliberately alone.
+- **F04 Remove the CSV substrate** - one trailing cut, so CI stays green through the middle.
+
 ## Decisions
 
 All settled. Read these before writing stories:

@@ -51,7 +51,6 @@ These frame every ticket below and are not open for re-litigation without redraw
 ## Not yet specified
 
 - **Review and bulk-approve details.** How bulk-approve interacts with the D9 application-form lock, and whether rejecting after import needs an audit trail.
-- **Expand-contract sequencing for deleting `source_data`.** The order in which the collection, the `col_name` fields, and the `/source-data` endpoints come out while CI stays green.
 - **What the organizer does with the assignment output.** MVP ends at "assignment computed" with no offers and no emails, so the organizer communicates results themselves. Whether that needs any export beyond the existing CSV download is unexamined.
 - **`MarketHomeView.vue` disposition.** A 32-line stub on the public slug route. Ticket 06 settled that intake mode gates the route for CSV markets; what it should *render* for a form-intake market, and what a gated visitor sees, is still undecided.
 - **Seed and demo data for a fresh deployment.** What a brand-new organizer sees before they have imported anything.
