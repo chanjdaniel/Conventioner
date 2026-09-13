@@ -32,6 +32,19 @@ export class MarketSetupPage {
   readonly optionsMaxAssignmentsInput: Locator;
   readonly optionsMaxProportionInput: Locator;
 
+  // Tabs: the view hosts the setup wizard, the form builder and the application monitor
+  readonly setupTab: Locator;
+  readonly formTab: Locator;
+  readonly applicationsTab: Locator;
+  readonly importButton: Locator;
+
+  // Phase control panel, above the tabs
+  readonly phaseControlPanel: Locator;
+  readonly currentPhase: Locator;
+  readonly phaseBlockers: Locator;
+
+  readonly assignError: Locator;
+
   constructor(page: Page) {
     this.page = page;
 
@@ -50,6 +63,51 @@ export class MarketSetupPage {
     this.sectionAddButton = page.getByTestId('setup-section-add-button');
     this.optionsMaxAssignmentsInput = page.getByTestId('setup-options-max-assignments-input');
     this.optionsMaxProportionInput = page.getByTestId('setup-options-max-proportion-input');
+
+    this.setupTab = page.getByTestId('market-setup-setup-tab');
+    this.formTab = page.getByTestId('market-setup-form-tab');
+    this.applicationsTab = page.getByTestId('market-setup-applications-tab');
+    this.importButton = page.getByTestId('market-setup-import-button');
+
+    this.phaseControlPanel = page.getByTestId('phase-control-panel');
+    this.currentPhase = page.getByTestId('phase-control-current-phase');
+    this.phaseBlockers = page.getByTestId('phase-control-blockers');
+
+    this.assignError = page.getByTestId('market-setup-assign-error');
+  }
+
+  // --- Tabs ---
+
+  async openSetupTab(): Promise<void> {
+    await this.setupTab.click();
+  }
+
+  async openApplicationsTab(): Promise<void> {
+    await this.applicationsTab.click();
+  }
+
+  /** Leave for the CSV import flow, the way the organizer does: from the Applications tab. */
+  async startCsvImport(): Promise<void> {
+    await this.importButton.click();
+    await this.page.waitForURL('**/import-applications');
+  }
+
+  // --- Phase control ---
+
+  /**
+   * Move the market to a phase, and wait for the panel to say it got there.
+   *
+   * `expectedLabel` is the phase as the organizer reads it, not the stored value: asserting on it
+   * is what turns a refused transition into a failure that names the phase rather than a timeout
+   * somewhere later.
+   */
+  async advancePhaseTo(toPhase: string, expectedLabel: string): Promise<void> {
+    await this.page.getByTestId(`phase-transition-${toPhase}`).click();
+    await this.page.getByTestId('phase-control-current-phase').waitFor({ state: 'visible' });
+    await this.page
+      .getByTestId('phase-control-current-phase')
+      .filter({ hasText: expectedLabel })
+      .waitFor({ timeout: 10000 });
   }
 
   async goto(): Promise<void> {
