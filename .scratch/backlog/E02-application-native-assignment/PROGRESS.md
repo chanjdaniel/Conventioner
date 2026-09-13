@@ -11,7 +11,7 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | # | Story | Blocked by | Status | PR |
 | --- | --- | --- | --- | --- |
 | 1 | F01/S01 Build approved applications into typed solver vendors | - | done (unpushed) | |
-| 2 | F01/S02 Assign a market from its Applications | F01/S01 | not started | |
+| 2 | F01/S02 Assign a market from its Applications | F01/S01 | done (unpushed) | |
 | 3 | F01/S03 Honour the organizer's max assignments per vendor | F01/S02 | not started | |
 | 4 | F02/S01 Build a priority rule from a form question | F01/S02 | not started | |
 | 5 | F02/S02 Prioritise by when the application arrived | F02/S01 | not started | |
@@ -91,3 +91,55 @@ Placement, half-table pairing, priority ordering and the max-days cap have no co
 
 Consequence recorded on the tickets rather than left to be rediscovered:
 F01/S02 gains an acceptance criterion to build characterisation tests against the CSV path *before* the swap, and F03/S01's criterion changed from updating existing solver tests to updating the ones S02 builds.
+
+### F01/S02 Assign a market from its Applications
+
+Branch `feat/e02-solver-vendor-input`, commits `4b46f2e0` (safety net) and `d078117d` (the swap).
+Full back-end suite green at 683 passed. Net -496 lines.
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| Characterisation tests pin placement BEFORE the swap and still pass after | met | `tests/test_assignment_behaviour.py`, committed green against the CSV path in `4b46f2e0`, then passing unchanged against the application path in `d078117d`. Only the harness's adapter changed; every assertion is identical. Mutation-checked: breaking the tier filter fails two of them. |
+| `assign_market()` takes a market and its approved applications, and no caller fetches source data first | met | `assign_market(market)` resolves vendors via `solver_vendors_for`. No `source_data` reference remains in `api/markets.py` or `api/attendance.py` outside the unrelated delete path. |
+| All call sites are moved over, including the one behind public check-in | met | Six, not the seven previously claimed: five in `api/markets.py`, one in `api/attendance.py`. Count corrected in the epic. |
+| The solver and its validator read only typed vendor attributes | met | No `col_name`, `col_name_idx`, `toAttrString` or `getattr` vendor read remains in `assignment/`. The validator was deleted outright - see below. |
+| The dead column-values helper is deleted rather than ported | met | Gone with the rest of the accessor layer. |
+| A vendor is placed only at a tier they accepted, and a substring no longer matches | met | `Vendor.accepts_tier` is set membership. Pinned by `test_a_vendor_is_never_placed_at_a_tier_they_did_not_accept`. |
+| Flexibility counts available dates | met | `date_flexibility = len(want.available_dates)`. |
+| An application missing a required answer blocks assignment with a message naming the applicants, and no partial assignment is produced | met | `IncompleteApplicationsError`, raised before any placement, surfaced as 400 at all five market endpoints. Three tests, including one asserting no partial assignment. |
+| A vendor with no application is not silently skipped | met | The refusal is all-or-nothing by construction. |
+| Backend tests cover assignment from applications, the tier filter, and the missing-answer precondition | met | 22 tests in `test_assignment_behaviour.py`. |
+| An e2e story imports a CSV, approves, assigns, with no fabricated source data | **not met** | Deferred. The e2e seeds still fabricate source data; F04/S01 is the story that removes that fabrication, and doing it here would duplicate its work. Flagged rather than quietly dropped. |
+
+#### Calls taken beyond the ticket
+
+- **`assignment/validator.py` deleted, not ported.** Its only call site was commented out, so it was
+  unreachable, and its entire content was CSV coupling.
+  Porting dead code to keep a constant alive for F01/S03 to delete would have been waste.
+  Consequence: F01/S03's criterion about the duplicated four-day constant in the validator is
+  already satisfied.
+- **The assignment CSV export was rebuilt.** It composed the organizer's own spreadsheet columns
+  plus a date column each, which is why it needed the upload still on hand at download time.
+  It now describes what the solver decided: one row per placed vendor, one column per date.
+  Not named in the ticket, but unavoidable - the export took `source_data` as an argument.
+- **`test_column_mapping.py` deleted.** Its subject is the column mapping this story removes, so
+  it had no subject left. F04 was scheduled to delete it; it could not survive this story.
+- **Priority ordering is temporarily inert.** The old scheme addressed its target by index into
+  `col_names`, which no longer exists, so it cannot be ported - F02 replaces it. Every vendor now
+  scores alike and the remaining sort keys decide. Smaller than it sounds: the solver already
+  ignored `data_type` and `sorting_order`, so any rule configured as anything but an enumerated
+  ordering already scored every vendor identically. **This is the one behaviour regression in the
+  epic's middle, and F02 immediately closes it.**
+
+#### Defect found and pinned, not fixed
+
+`assign` breaks out of the table loop the moment one table cannot be filled, but validity is
+answered per *table*: a vendor who accepts only one tier is not valid for a table of another.
+An unfillable table early in the list therefore ends that date, leaving every later table empty
+however many vendors could have taken one - a market with two tiers strands everyone whose tier
+sorts second.
+
+Pre-existing, not introduced here.
+Fixing it would have moved placement and destroyed the equivalence proof this story rests on, so
+it is pinned by `TestKnownDefectTheTableLoopStopsEarly` and handed to F03/S01, which inverts that
+loop anyway. That story gained an acceptance criterion to fix it and invert the test.

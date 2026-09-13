@@ -33,7 +33,7 @@ That number was an artifact of the CSV encoding, not a designed quantity, and it
 ## Acceptance criteria
 
 - [ ] `assign_market()` takes a market and its approved applications, and no caller fetches source data first
-- [ ] All seven call sites are moved over, including the one behind public check-in
+- [ ] All six call sites are moved over, including the one behind public check-in
 - [ ] The solver and its validator read only typed vendor attributes; no column index, column name, or dynamic attribute lookup remains in either
 - [ ] The dead column-values helper is deleted rather than ported
 - [ ] A vendor is placed only at a tier they accepted, and a tier whose name is a substring of another no longer matches
