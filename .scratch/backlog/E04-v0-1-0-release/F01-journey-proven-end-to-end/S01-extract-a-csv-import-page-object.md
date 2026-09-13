@@ -2,7 +2,7 @@
 id: E04/F01/S01
 title: Extract a CSV import page object
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

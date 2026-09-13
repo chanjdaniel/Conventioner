@@ -1,5 +1,5 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import type { Page } from '@playwright/test';
+import { test, expect, TEST_USER, BACKEND_URL, CsvImportPage } from './fixtures';
+import type { APIRequestContext } from '@playwright/test';
 import { ensureTestOrg } from './helpers/seeds';
 import { seedApplicantMarket, planSetupObject, PLAN_TIERS } from './helpers/seedApplicantMarket';
 
@@ -34,31 +34,70 @@ const ROWS = [
 
 const CSV = [HEADERS.join(','), ...ROWS].join('\n');
 
-/** Put the seeded market where every organizer view reads it, then open the import flow. */
-async function openImport(page: Page, market: Record<string, unknown>) {
-  await page.evaluate(
-    ({ m, user }) => {
-      localStorage.setItem('market', JSON.stringify(m));
-      localStorage.setItem('user', JSON.stringify(user));
-    },
-    { m: market, user: TEST_USER.email },
-  );
-  await page.goto('/import-applications');
-  await expect(page.getByTestId('import-view')).toBeVisible();
-}
+/**
+ * Every question in HEADERS the organizer has to map by hand.
+ *
+ * Google Forms always writes Timestamp first and names the address column Email Address, so those
+ * two are offered without asking and are absent here.
+ */
+const FULL_MAPPING: Record<string, string> = {
+  'Which days can you attend?': 'essential_available_dates',
+  'How many days do you want?': 'essential_max_dates',
+  'Which tiers will you accept?': 'essential_tier_preference',
+  'Full or half table?': 'essential_table_choice',
+  "Partner's email if sharing": 'essential_table_share_email',
+  'Rank the sections': 'essential_section_ranking',
+  'Business name': 'business_name',
+  'What do you sell?': 'product_type',
+};
 
-async function chooseFile(page: Page, contents: string) {
-  await page.getByTestId('import-file-input').setInputFiles({
-    name: 'form-responses.csv',
-    mimeType: 'text/csv',
-    buffer: Buffer.from(contents, 'utf-8'),
+/** A market with dates, tiers and sections on its plan, ready to be imported into. */
+async function seedPlannedMarket(request: APIRequestContext) {
+  return await seedApplicantMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+    setupObject: planSetupObject(),
   });
 }
 
-/** Map a target onto the column whose header is `header`. */
-async function mapColumn(page: Page, header: string, targetKey: string) {
-  const index = HEADERS.indexOf(header);
-  await page.getByTestId(`import-target-select-${index}`).selectOption(targetKey);
+/**
+ * Open the import flow on a market, re-fetching it first so it carries the latest phase.
+ *
+ * The view reads the current market out of local storage, so every visit needs the document as it
+ * stands now - a stale copy would show the organizer the phase they were in two transitions ago.
+ */
+async function openImport(
+  importPage: CsvImportPage,
+  request: APIRequestContext,
+  marketId: string,
+): Promise<void> {
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+  });
+  const { market } = (await res.json()) as { market: Record<string, unknown> };
+  await importPage.open(market, TEST_USER.email);
+}
+
+/** Which field carries the status varies by serializer version; this says so once. */
+function statusOf(app: ApplicationRow): string | undefined {
+  return app.statusRaw ?? app.status;
+}
+
+type ApplicationRow = {
+  id: string;
+  applicantEmail: string;
+  statusRaw?: string;
+  status?: string;
+  submittedAt?: string;
+  formData: Record<string, unknown>;
+};
+
+async function listApplications(
+  request: APIRequestContext,
+  marketId: string,
+): Promise<ApplicationRow[]> {
+  const res = await request.get(`${BACKEND_URL}/markets/${marketId}/applications`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+  });
+  return ((await res.json()) as { applications: ApplicationRow[] }).applications;
 }
 
 test.describe('CSV vendor import', () => {
@@ -70,38 +109,21 @@ test.describe('CSV vendor import', () => {
     authenticatedPage: page,
     request,
   }, testInfo) => {
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { setupObject: planSetupObject() },
-    );
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
 
-    await openImport(page, market);
-    await chooseFile(page, CSV);
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(CSV);
 
     // Every column in the file is listed, in file order.
-    await expect(page.getByTestId('import-column-row')).toHaveCount(HEADERS.length);
-    await expect(page.getByTestId('import-filename')).toContainText('form-responses.csv');
+    await expect(importPage.columnRows).toHaveCount(HEADERS.length);
+    await expect(importPage.filename).toContainText('form-responses.csv');
 
-    // Google Forms always writes Timestamp first and names the address column Email Address, so
-    // those two are offered without asking. Everything else the organizer maps.
-    await expect(page.getByTestId('import-unmapped-warning')).toBeVisible();
-    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
-    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
-    await mapColumn(page, 'Which tiers will you accept?', 'essential_tier_preference');
-    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
-    await mapColumn(page, "Partner's email if sharing", 'essential_table_share_email');
-    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
-    await mapColumn(page, 'Business name', 'business_name');
-    await mapColumn(page, 'What do you sell?', 'product_type');
+    // Timestamp and Email Address are recognised without asking; everything else is mapped here.
+    await expect(importPage.unmappedWarning).toBeVisible();
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
 
-    await expect(page.getByTestId('import-all-mapped')).toBeVisible();
+    await expect(importPage.allMapped).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('01-import-mapping.png'),
       fullPage: true,
@@ -110,20 +132,18 @@ test.describe('CSV vendor import', () => {
     // Nothing is written until the organizer confirms.
     // The dry run says exactly what will happen before anything is written: two of the three
     // rows, with the third named and its reason given.
-    await page.getByTestId('import-preview-button').click();
-    await expect(page.getByTestId('import-preview-counts')).toContainText('2 of 3 rows');
-    const previewSkips = page.getByTestId('import-preview-failure-row');
-    await expect(previewSkips).toHaveCount(1);
-    await expect(previewSkips.first()).toContainText('Row 4');
-    await expect(page.getByTestId('import-confirm-button')).toContainText('Import 2 rows');
+    await importPage.clickPreview();
+    await expect(importPage.previewCounts).toContainText('2 of 3 rows');
+    await expect(importPage.previewFailureRows).toHaveCount(1);
+    await expect(importPage.previewFailureRows.first()).toContainText('Row 4');
+    await expect(importPage.confirmButton).toContainText('Import 2 rows');
 
-    await page.getByTestId('import-confirm-button').click();
-    await expect(page.getByTestId('import-result-summary')).toContainText('2 new applications');
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('2 new applications');
 
     // The row with no email is skipped and named, not silently dropped.
-    const failures = page.getByTestId('import-failure-row');
-    await expect(failures).toHaveCount(1);
-    await expect(failures.first()).toContainText('Row 4');
+    await expect(importPage.failureRows).toHaveCount(1);
+    await expect(importPage.failureRows.first()).toContainText('Row 4');
     await page.screenshot({
       path: testInfo.outputPath('02-import-result.png'),
       fullPage: true,
@@ -131,21 +151,10 @@ test.describe('CSV vendor import', () => {
 
     // The imported rows are ordinary applications: awaiting review, with the answers the solver
     // reads stored in exactly the shapes a form submission would have produced.
-    const listRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { applications } = (await listRes.json()) as {
-      applications: Array<{
-        applicantEmail: string;
-        statusRaw?: string;
-        status?: string;
-        submittedAt?: string;
-        formData: Record<string, unknown>;
-      }>;
-    };
+    const applications = await listApplications(request, seed.marketId);
     const nadia = applications.find((a) => a.applicantEmail === 'nadia@ember.test');
     expect(nadia).toBeTruthy();
-    expect(nadia!.statusRaw ?? nadia!.status).toBe('open');
+    expect(statusOf(nadia!)).toBe('open');
     expect(nadia!.formData).toMatchObject({
       business_name: 'Ember Ceramics',
       product_type: 'Pottery',
@@ -165,38 +174,23 @@ test.describe('CSV vendor import', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { setupObject: planSetupObject() },
-    );
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
 
-    await openImport(page, market);
-    await chooseFile(page, CSV);
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(CSV);
 
     // Map everything except the tier question.
-    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
-    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
-    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
-    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
-    await mapColumn(page, 'Business name', 'business_name');
-    await mapColumn(page, 'What do you sell?', 'product_type');
+    const withoutTier = Object.fromEntries(
+      Object.entries(FULL_MAPPING).filter(([header]) => header !== 'Which tiers will you accept?'),
+    );
+    await importPage.mapColumns(HEADERS, withoutTier);
 
     // A configuration error, so the flow will not even offer to proceed.
-    await expect(page.getByTestId('import-unmapped-warning')).toContainText('Tier preference');
-    await expect(page.getByTestId('import-preview-button')).toBeDisabled();
+    await expect(importPage.unmappedWarning).toContainText('Tier preference');
+    await expect(importPage.previewButton).toBeDisabled();
 
-    const listRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { applications } = (await listRes.json()) as { applications: unknown[] };
-    expect(applications).toHaveLength(0);
+    expect(await listApplications(request, seed.marketId)).toHaveLength(0);
   });
 
   test('a checkbox grid is mapped as one question', async ({
@@ -223,54 +217,47 @@ test.describe('CSV vendor import', () => {
       '2026/05/02 9:14:03,nadia@ember.test,Ember Ceramics,Yes,Yes,2,Gold,half,2nd choice,1st choice,Pottery',
     ].join('\n');
 
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { setupObject: planSetupObject() },
-    );
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
 
-    await openImport(page, market);
-    await chooseFile(page, gridCsv);
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(gridCsv);
 
     // Two grids are recognised, each shown once with its member columns beneath it, and the
     // screen says which shape it read so a wrong guess is visible rather than silent.
-    await expect(page.getByTestId('import-group-row')).toHaveCount(2);
-    await expect(page.getByTestId('import-group-shape').first()).toContainText(
-      '2 columns · one per option',
-    );
-    await expect(page.getByTestId('import-group-member')).toHaveCount(4);
+    await expect(importPage.groupRows).toHaveCount(2);
+    await expect(importPage.groupShape.first()).toContainText('2 columns · one per option');
+    await expect(importPage.groupMembers).toHaveCount(4);
 
     // One action maps all of a grid's columns.
-    await page.getByTestId('import-group-select-3').selectOption('essential_available_dates');
-    await page.getByTestId('import-group-select-8').selectOption('essential_section_ranking');
-    await page.getByTestId('import-target-select-5').selectOption('essential_max_dates');
-    await page.getByTestId('import-target-select-6').selectOption('essential_tier_preference');
-    await page.getByTestId('import-target-select-7').selectOption('essential_table_choice');
-    await page.getByTestId('import-target-select-2').selectOption('business_name');
-    await page.getByTestId('import-target-select-10').selectOption('product_type');
+    await importPage.mapGroup(
+      gridHeaders,
+      'Which days can you attend? [2026-08-01]',
+      'essential_available_dates',
+    );
+    await importPage.mapGroup(
+      gridHeaders,
+      'Rank the sections [Main Hall]',
+      'essential_section_ranking',
+    );
+    await importPage.mapColumns(gridHeaders, {
+      'How many days do you want?': 'essential_max_dates',
+      'Which tiers will you accept?': 'essential_tier_preference',
+      'Full or half table?': 'essential_table_choice',
+      'Business name': 'business_name',
+      'What do you sell?': 'product_type',
+    });
 
-    await expect(page.getByTestId('import-all-mapped')).toBeVisible();
+    await expect(importPage.allMapped).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('03-import-grid-mapping.png'),
       fullPage: true,
     });
 
-    await page.getByTestId('import-preview-button').click();
-    await page.getByTestId('import-confirm-button').click();
-    await expect(page.getByTestId('import-result-summary')).toContainText('1 new application');
+    await importPage.previewAndConfirm();
+    await expect(importPage.resultSummary).toContainText('1 new application');
 
-    const listRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { applications } = (await listRes.json()) as {
-      applications: Array<{ applicantEmail: string; formData: Record<string, unknown> }>;
-    };
+    const applications = await listApplications(request, seed.marketId);
     const nadia = applications.find((a) => a.applicantEmail === 'nadia@ember.test');
     // Identical to what the single-column spelling of the same answers produces.
     expect(nadia!.formData).toMatchObject({
@@ -287,28 +274,19 @@ test.describe('CSV vendor import', () => {
     const headers = ['Email Address', 'Notes [internal]', 'Notes [public]'];
     const csv = [headers.join(','), 'nadia@ember.test,a,b'].join('\n');
 
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { setupObject: planSetupObject() },
-    );
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
 
-    await openImport(page, market);
-    await chooseFile(page, csv);
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(csv);
 
     // Bracketed headers that are not really one question: the organizer says so and gets two
     // ordinary rows back.
-    await expect(page.getByTestId('import-group-row')).toHaveCount(1);
-    await page.getByTestId('import-split-group-1').click();
-    await expect(page.getByTestId('import-group-row')).toHaveCount(0);
-    await expect(page.getByTestId('import-target-select-1')).toBeVisible();
-    await expect(page.getByTestId('import-target-select-2')).toBeVisible();
+    await expect(importPage.groupRows).toHaveCount(1);
+    await importPage.splitGroup(headers, 'Notes [internal]');
+    await expect(importPage.groupRows).toHaveCount(0);
+    await expect(importPage.targetSelectAt(1)).toBeVisible();
+    await expect(importPage.targetSelectAt(2)).toBeVisible();
   });
 
   test('a value the market does not recognise is resolved before anything is written', async ({
@@ -322,56 +300,34 @@ test.describe('CSV vendor import', () => {
       '2026/05/02 11:40:22,theo@thistle.test,Thorn & Thistle,2026-08-01,1,Gold Tier,full,,"Main Hall, Garden",Dried flowers',
     ].join('\n');
 
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { setupObject: planSetupObject() },
-    );
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
 
-    await openImport(page, market);
-    await chooseFile(page, rows);
-
-    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
-    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
-    await mapColumn(page, 'Which tiers will you accept?', 'essential_tier_preference');
-    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
-    await mapColumn(page, "Partner's email if sharing", 'essential_table_share_email');
-    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
-    await mapColumn(page, 'Business name', 'business_name');
-    await mapColumn(page, 'What do you sell?', 'product_type');
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(rows);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
 
     // Everything is mapped, but the check finds a value nobody has spoken for and keeps the
     // organizer here rather than importing something it had to guess at.
-    await page.getByTestId('import-preview-button').click();
-    await expect(page.getByTestId('import-value-fixes')).toBeVisible();
-    await expect(page.getByTestId('import-unmatched-value')).toHaveText('Gold Tier');
+    await importPage.clickPreview();
+    await expect(importPage.valueFixes).toBeVisible();
+    await expect(importPage.unmatchedValues).toHaveText('Gold Tier');
     // One decision per distinct value, with the number of rows it affects - not one per row.
-    await expect(page.getByTestId('import-value-fixes')).toContainText('2 rows');
-    await expect(page.getByTestId('import-unresolved-warning')).toBeVisible();
+    await expect(importPage.valueFixes).toContainText('2 rows');
+    await expect(importPage.unresolvedWarning).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('04-import-value-fix.png'),
       fullPage: true,
     });
 
-    await page.getByTestId('import-fix-Gold Tier').selectOption('Gold');
-    await page.getByTestId('import-preview-button').click();
-    await expect(page.getByTestId('import-preview')).toBeVisible();
-    await page.getByTestId('import-confirm-button').click();
-    await expect(page.getByTestId('import-result-summary')).toContainText('2 new applications');
+    await importPage.resolveValue('Gold Tier', 'Gold');
+    await importPage.clickPreview();
+    await expect(importPage.preview).toBeVisible();
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('2 new applications');
 
     // The one resolution reached every row carrying that value.
-    const listRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { applications } = (await listRes.json()) as {
-      applications: Array<{ applicantEmail: string; formData: Record<string, unknown> }>;
-    };
+    const applications = await listApplications(request, seed.marketId);
     expect(applications).toHaveLength(2);
     for (const app of applications) {
       expect(app.formData.essential_tier_preference).toEqual(['Gold']);
@@ -382,106 +338,52 @@ test.describe('CSV vendor import', () => {
     authenticatedPage: page,
     request,
   }, testInfo) => {
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { setupObject: planSetupObject() },
-    );
-    const fetchMarket = async () => {
-      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
-      return ((await res.json()) as { market: Record<string, unknown> }).market;
-    };
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
 
     // First import: the organizer maps everything by hand.
-    await openImport(page, await fetchMarket());
-    await chooseFile(page, CSV);
-    await expect(page.getByTestId('import-restored-banner')).toHaveCount(0);
-    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
-    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
-    await mapColumn(page, 'Which tiers will you accept?', 'essential_tier_preference');
-    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
-    await mapColumn(page, "Partner's email if sharing", 'essential_table_share_email');
-    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
-    await mapColumn(page, 'Business name', 'business_name');
-    await mapColumn(page, 'What do you sell?', 'product_type');
-    await page.getByTestId('import-preview-button').click();
-    await page.getByTestId('import-confirm-button').click();
-    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(CSV);
+    await expect(importPage.restoredBanner).toHaveCount(0);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.previewAndConfirm();
 
     // Second import of the same form: nothing to redo. The form has since gained a question, and
     // that column is called out rather than quietly ignored.
     const secondHeaders = [...HEADERS, 'Anything else?'];
     const secondCsv = [secondHeaders.join(','), ROWS[0] + ',No'].join('\n');
 
-    await openImport(page, await fetchMarket());
-    await chooseFile(page, secondCsv);
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(secondCsv);
 
-    await expect(page.getByTestId('import-restored-banner')).toBeVisible();
-    await expect(page.getByTestId('import-restored-new')).toContainText('1 column is new');
-    await expect(page.getByTestId('import-restored-badge').first()).toBeVisible();
+    await expect(importPage.restoredBanner).toBeVisible();
+    await expect(importPage.restoredNew).toContainText('1 column is new');
+    await expect(importPage.restoredBadges.first()).toBeVisible();
     // Every required question is already served, so the organizer can go straight on.
-    await expect(page.getByTestId('import-all-mapped')).toBeVisible();
+    await expect(importPage.allMapped).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('05-import-restored.png'),
       fullPage: true,
     });
 
-    await page.getByTestId('import-preview-button').click();
-    await expect(page.getByTestId('import-preview')).toBeVisible();
+    await importPage.clickPreview();
+    await expect(importPage.preview).toBeVisible();
   });
 
   test('a re-import updates who is already here and leaves the absent alone', async ({
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { setupObject: planSetupObject() },
-    );
-    const fetchMarket = async () => {
-      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
-      return ((await res.json()) as { market: Record<string, unknown> }).market;
-    };
-    const listApplications = async () => {
-      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
-      return (
-        (await res.json()) as {
-          applications: Array<{
-            id: string;
-            applicantEmail: string;
-            formData: Record<string, unknown>;
-          }>;
-        }
-      ).applications;
-    };
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
 
     // First import: two vendors (the third row has no email and is skipped).
-    await openImport(page, await fetchMarket());
-    await chooseFile(page, CSV);
-    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
-    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
-    await mapColumn(page, 'Which tiers will you accept?', 'essential_tier_preference');
-    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
-    await mapColumn(page, "Partner's email if sharing", 'essential_table_share_email');
-    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
-    await mapColumn(page, 'Business name', 'business_name');
-    await mapColumn(page, 'What do you sell?', 'product_type');
-    await page.getByTestId('import-preview-button').click();
-    await page.getByTestId('import-confirm-button').click();
-    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(CSV);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.previewAndConfirm();
 
-    const before = await listApplications();
+    const before = await listApplications(request, seed.marketId);
     const nadiaIdBefore = before.find((a) => a.applicantEmail === 'nadia@ember.test')!.id;
 
     // Second file: Nadia's answer has changed, and Theo is simply not in this export.
@@ -490,20 +392,20 @@ test.describe('CSV vendor import', () => {
       ROWS[0].replace('Ember Ceramics', 'Ember Ceramics Studio'),
     ].join('\n');
 
-    await openImport(page, await fetchMarket());
-    await chooseFile(page, second);
-    await expect(page.getByTestId('import-restored-banner')).toBeVisible();
-    await page.getByTestId('import-preview-button').click();
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(second);
+    await expect(importPage.restoredBanner).toBeVisible();
+    await importPage.clickPreview();
 
     // The preview separates the three fates before anything is written.
-    await expect(page.getByTestId('import-preview-merge')).toContainText('0 new, 1 updated');
-    await expect(page.getByTestId('import-absent-note')).toContainText('theo@thistle.test');
-    await expect(page.getByTestId('import-absent-note')).toContainText('left exactly as they are');
+    await expect(importPage.previewMerge).toContainText('0 new, 1 updated');
+    await expect(importPage.absentNote).toContainText('theo@thistle.test');
+    await expect(importPage.absentNote).toContainText('left exactly as they are');
 
-    await page.getByTestId('import-confirm-button').click();
-    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toBeVisible();
 
-    const after = await listApplications();
+    const after = await listApplications(request, seed.marketId);
     // Updated in place, same id - the review view and any future offer reference it.
     const nadia = after.find((a) => a.applicantEmail === 'nadia@ember.test')!;
     expect(nadia.id).toBe(nadiaIdBefore);
@@ -518,52 +420,17 @@ test.describe('CSV vendor import', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { setupObject: planSetupObject() },
-    );
-    const fetchMarket = async () => {
-      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
-      return ((await res.json()) as { market: Record<string, unknown> }).market;
-    };
-    const applicationsNow = async () => {
-      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}/applications`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
-      return (
-        (await res.json()) as {
-          applications: Array<{
-            id: string;
-            applicantEmail: string;
-            statusRaw?: string;
-            status?: string;
-          }>;
-        }
-      ).applications;
-    };
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
 
     const onlyNadia = [HEADERS.join(','), ROWS[0]].join('\n');
-    await openImport(page, await fetchMarket());
-    await chooseFile(page, onlyNadia);
-    await mapColumn(page, 'Which days can you attend?', 'essential_available_dates');
-    await mapColumn(page, 'How many days do you want?', 'essential_max_dates');
-    await mapColumn(page, 'Which tiers will you accept?', 'essential_tier_preference');
-    await mapColumn(page, 'Full or half table?', 'essential_table_choice');
-    await mapColumn(page, "Partner's email if sharing", 'essential_table_share_email');
-    await mapColumn(page, 'Rank the sections', 'essential_section_ranking');
-    await mapColumn(page, 'Business name', 'business_name');
-    await mapColumn(page, 'What do you sell?', 'product_type');
-    await page.getByTestId('import-preview-button').click();
-    await page.getByTestId('import-confirm-button').click();
-    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(onlyNadia);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.previewAndConfirm();
 
     // The organizer reviews and approves them.
-    const imported = (await applicationsNow()).find(
+    const imported = (await listApplications(request, seed.marketId)).find(
       (a) => a.applicantEmail === 'nadia@ember.test',
     )!;
     const reviewRes = await request.put(
@@ -577,46 +444,37 @@ test.describe('CSV vendor import', () => {
       HEADERS.join(','),
       ROWS[0].replace('"2026-08-01, 2026-08-08",2', '2026-08-01,1'),
     ].join('\n');
-    await openImport(page, await fetchMarket());
-    await chooseFile(page, narrowed);
-    await page.getByTestId('import-preview-button').click();
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(narrowed);
+    await importPage.clickPreview();
 
     // Said before it happens: silently un-approving someone is not acceptable either way.
-    await expect(page.getByTestId('import-returning-note')).toContainText(
+    await expect(importPage.returningNote).toContainText(
       '1 approved application will return to review',
     );
-    await expect(page.getByTestId('import-returning-note')).toContainText('nadia@ember.test');
+    await expect(importPage.returningNote).toContainText('nadia@ember.test');
 
-    await page.getByTestId('import-confirm-button').click();
-    await expect(page.getByTestId('import-result-summary')).toBeVisible();
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toBeVisible();
 
-    const after = (await applicationsNow()).find((a) => a.applicantEmail === 'nadia@ember.test')!;
-    expect(after.statusRaw ?? after.status).toBe('open');
+    const after = (await listApplications(request, seed.marketId)).find(
+      (a) => a.applicantEmail === 'nadia@ember.test',
+    )!;
+    expect(statusOf(after)).toBe('open');
   });
 
   test('importing is refused once review has begun, and possible again after reopening', async ({
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      { setupObject: planSetupObject() },
-    );
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
     const transition = async (toPhase: string) => {
       const res = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
         headers: { 'X-Owner-Email': TEST_USER.email },
         data: { toPhase },
       });
       expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
-    };
-    const fetchMarket = async () => {
-      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      });
-      return ((await res.json()) as { market: Record<string, unknown> }).market;
     };
 
     await transition('applications_closed');
@@ -631,15 +489,15 @@ test.describe('CSV vendor import', () => {
     expect(await direct.text()).toContain('Reopen applications');
 
     // And the screen says so before asking for a file.
-    await openImport(page, await fetchMarket());
-    await expect(page.getByTestId('import-wrong-phase')).toBeVisible();
-    await expect(page.getByTestId('import-upload')).toHaveCount(0);
+    await openImport(importPage, request, seed.marketId);
+    await expect(importPage.wrongPhase).toBeVisible();
+    await expect(importPage.upload).toHaveCount(0);
 
     // The way through is the edge the state machine already has.
     await transition('applications_closed');
-    await openImport(page, await fetchMarket());
-    await expect(page.getByTestId('import-upload')).toBeVisible();
-    await chooseFile(page, CSV);
-    await expect(page.getByTestId('import-map')).toBeVisible();
+    await openImport(importPage, request, seed.marketId);
+    await expect(importPage.upload).toBeVisible();
+    await importPage.chooseFile(CSV);
+    await expect(importPage.map).toBeVisible();
   });
 });
