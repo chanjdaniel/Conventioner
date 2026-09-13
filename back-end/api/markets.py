@@ -26,7 +26,6 @@ from market_documents import (
     market_doc_key,
     market_from_document,
 )
-import api.source_data as SourceDataApi
 import api.permissions as PermissionsApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
@@ -1134,11 +1133,6 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
     user_role = PermissionsApi.get_user_market_role(requesting_user, market, context.organization)
     if user_role != MarketRole.OWNER:
         raise PermissionError("Only the market owner can delete this market")
-
-    try:
-        SourceDataApi.delete_source_data(market_id)
-    except Exception as e:
-        logger.warning(f"Failed to delete source data for {market_id}: {e}")
 
     if market.organization_id:
         try:

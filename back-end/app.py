@@ -10,7 +10,6 @@ import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import csv_import as CsvImport
-import api.source_data as SourceDataApi
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
@@ -698,67 +697,6 @@ def update_market_role(market_id: str, user_id: str) -> Response:
         return jsonify({"error": str(e)}), 500
 
 # source data
-
-@app.route('/source-data/<market_id>', methods=['POST'])
-@login_required
-def upload_source_data(market_id: str) -> Response:
-    """Upload CSV source data for a market."""
-    if 'file' not in request.files:
-        return jsonify({"error": "No file provided"}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
-    
-    if not file.filename.lower().endswith('.csv'):
-        return jsonify({"error": "File must be a CSV"}), 400
-    
-    result, status_code = SourceDataApi.upload_source_data(market_id, file)
-    return jsonify(result), status_code
-
-@app.route('/source-data/<market_id>', methods=['GET'])
-@login_required
-def get_source_data(market_id: str) -> Response:
-    """Retrieve CSV source data for a market."""
-    result, status_code = SourceDataApi.get_source_data(market_id)
-    return jsonify(result), status_code
-
-@app.route('/source-data/<market_id>/csv', methods=['GET'])
-@login_required
-def get_source_data_csv(market_id: str) -> Response:
-    """Retrieve CSV source data as downloadable CSV file."""
-    result, status_code = SourceDataApi.get_source_data_csv(market_id)
-    if status_code == 200:
-        from flask import make_response
-        response = make_response(result['csv_content'])
-        response.headers['Content-Type'] = 'text/csv'
-        response.headers['Content-Disposition'] = f'attachment; filename={result["filename"]}'
-        return response
-    else:
-        return jsonify(result), status_code
-
-@app.route('/source-data/<market_id>/headers', methods=['GET'])
-@login_required
-def get_source_data_headers(market_id: str) -> Response:
-    """Get just the headers for a market's source data."""
-    result, status_code = SourceDataApi.get_source_data_headers(market_id)
-    return jsonify(result), status_code
-
-@app.route('/source-data', methods=['GET'])
-@login_required
-def list_source_data() -> Response:
-    """List all available source data files."""
-    result, status_code = SourceDataApi.list_source_data()
-    return jsonify(result), status_code
-
-@app.route('/source-data/<market_id>', methods=['DELETE'])
-@login_required
-def delete_source_data(market_id: str) -> Response:
-    """Delete source data for a market."""
-    result, status_code = SourceDataApi.delete_source_data(market_id)
-    return jsonify(result), status_code
-
-# markets
 
 @app.route('/markets/<market_id>', methods=['GET'])
 @login_required

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script to reset the database by deleting all test data.
-Wipes organizations, markets, source_data, and users.
+Wipes organizations, markets, and users.
 
 Usage:
     python reset_database.py
@@ -14,7 +14,7 @@ def reset_database():
     """Delete all documents from app collections."""
     db = get_database()
     
-    collections = ['organizations', 'markets', 'source_data', 'users']
+    collections = ['organizations', 'markets', 'users']
     
     for name in collections:
         coll = db[name]
