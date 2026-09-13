@@ -2,7 +2,7 @@
 id: E06/F01/S02
 title: The public application-form request stalls under suite load
 type: story
-status: done
+status: ready
 blocked_by: []
 pr: []
 ---
@@ -127,7 +127,56 @@ teardown - which is what this story asked for, and what no previous attempt had.
 - [x] The cause is taken to be environmental, that is recorded here, and the product's timeout and
       retry behaviour is left in place deliberately - see below
 
-## Closure note, 2026-09-13
+## REOPENED 2026-09-13, within minutes of being closed
+
+**It recurred on CI, and this time it was caught with evidence.** The closure below was wrong, and
+is kept rather than deleted because the reasoning that produced it is the thing to learn from.
+
+Run `34756547118`, `Test` on `dev`, commit `7db8b7ce`:
+
+```
+✘  36 essential-fields.spec.ts:241 › the applicant answers the essential questions ... (27.8s)
+✓  37 essential-fields.spec.ts:241 › ... (retry #1) (3.6s)
+   Error: expect(getByTestId('apply-load-failed')).toHaveCount(0)
+   1 flaky
+```
+
+It failed at exactly the assertion left behind when the retry workaround was removed - which is what
+made it visible rather than silently rescued. Removing that workaround was the right call.
+
+### What the backend logs show, which nothing before this ever did
+
+The window of the failing attempt, roughly 12:17:31 to 12:18:00:
+
+- The applicant's own request is logged at **12:17:32**: `GET /public/markets/e2e-applicant-1789301851561/application-form`.
+- Then the backend logs **8 lines in 29 seconds**, against many per second either side of that window.
+- The next public application-form request is at **12:18:02**, thirty seconds later.
+
+So this is **not one slow endpoint**. The whole stack goes quiet for about half a minute and then
+resumes. That reframes the question: it was always investigated as "why is this request slow", and
+the answer appears to be that nothing was being served at all.
+
+### What that points at
+
+Resource starvation of the entire stack, not a defect in this endpoint. It has now happened on a
+two-core GitHub runner that is simultaneously running MongoDB, the Flask dev server, the Vite dev
+server, Chromium and Playwright - and has **never** happened across fifteen full-suite runs on a
+developer machine, including five with a deliberate connection-pool leak. That asymmetry is the
+strongest signal in this story.
+
+### Next step for whoever picks this up
+
+Do not start by trying to reproduce it locally; fifteen runs say you will not. Start from a CI
+failure, which now carries the evidence:
+
+- Constrain the local stack to two cores (`cpus: 2` on the compose services, or `docker run --cpus`)
+  and see whether the silence reproduces.
+- Check whether the silence correlates with the Playwright browser launch or a Vite transform burst
+  in the same window - the frontend container's logs are captured in the same artifact.
+- If it is starvation, the fix is scheduling, not code: serialise the heavy steps, or give CI more
+  cores, and the product's timeout and retry behaviour stays as the correct client response.
+
+## Superseded closure note, 2026-09-13
 
 **Closed by the epic owner's decision, on the assumption that the stall is environmental. The cause
 was never found.** That distinction is the whole point of this note: the first criterion is

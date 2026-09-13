@@ -8,14 +8,14 @@ stories are picked up wherever they are found, so this file records **which PR c
 | Story | Status | PR | Note |
 | --- | --- | --- | --- |
 | F01/S01 Essential-fields applicant form flake | done | #55 | |
-| F01/S02 The public form request stalls under load | done | | Closed on an assumption, not a cause - see below |
+| F01/S02 The public form request stalls under load | **reopened** | | Recurred on CI minutes after being closed; now has evidence |
 | F02/S01 Remove the `csv_exports` directory | done | #66 | Pulled into v0.1.0 by the epic owner |
 | F02/S02 Remove the tracked Playwright artifact | done | | Found while promoting dev to main |
 | F03/S01 One MongoDB client per process | done | #66 | Found while investigating F01/S02 |
 
 Both landed on `dev` with PR #66 (`d4a116f8`, squash) on 2026-09-13.
 
-## F01/S02, closed without a cause
+## F01/S02, closed and immediately reopened
 
 **Closed by the epic owner's decision on 2026-09-13, on the assumption that the stall is
 environmental. The cause was never identified**, and the story's first acceptance criterion is
