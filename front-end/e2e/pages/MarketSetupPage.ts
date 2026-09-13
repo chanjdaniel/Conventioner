@@ -86,13 +86,12 @@ export class MarketSetupPage {
   // --- Page 0: Market Dates ---
 
   /** Add a new market date row and configure it. */
-  async addMarketDate(date: string, columnIndex: number, index: number = 0): Promise<void> {
+  /** A market date is a date. It used to also need a spreadsheet column chosen beside it. */
+  async addMarketDate(date: string, index: number = 0): Promise<void> {
     await this.datesAddButton.click();
     const dateInput = this.page.getByTestId(`setup-dates-date-input-${index}`);
     await dateInput.waitFor({ state: 'visible' });
     await dateInput.fill(date);
-    const colSelect = this.page.getByTestId(`setup-dates-column-select-${index}`);
-    await colSelect.selectOption(String(columnIndex));
   }
 
   /** Get a date input by row index. */

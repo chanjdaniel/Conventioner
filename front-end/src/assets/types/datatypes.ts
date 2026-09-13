@@ -79,7 +79,6 @@ export const BUILT_IN_PRIORITY_TARGETS = [
 
 export interface MarketDateObject {
   date: string;
-  colNameIdx: number;
 }
 
 export interface TierObject {
@@ -99,22 +98,12 @@ export interface SectionObject {
 }
 
 export interface AssignmentOptionObject {
+  /** null = the organizer set no ceiling; each vendor is bounded by their own answer. */
   maxAssignmentsPerVendor: number | null;
   maxHalfTableProportionPerSection: number | null;
-  /** Required: index into colNames (blank/null invalid for assignment). */
-  emailColNameIdx: number | null;
-  tableChoiceColNameIdx: number | null;
-  tableShareEmailColNameIdx: number | null;
-  /** Optional: null = no per-vendor max-days cap from CSV (only global limits apply). */
-  maxDaysColNameIdx: number | null;
-  // USE_TOTALLY_RANDOM_ASSIGNMENT: boolean,
-  // USE_MAXIMUM_CAPACITY_ASSIGNMENT: boolean,
 }
 
 export interface SetupObject {
-  colNames: string[];
-  colValues: string[][];
-  colInclude: boolean[];
   priority: PriorityObject[];
   marketDates: MarketDateObject[];
   tiers: TierObject[];

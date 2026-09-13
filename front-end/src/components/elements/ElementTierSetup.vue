@@ -6,7 +6,6 @@ import IconAddRound from '../icons/IconAddRound.vue';
 import IconClickDrag from '../icons/IconClickDrag.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
 import { type TierObject } from '@/assets/types/datatypes';
-import { buildDefaultTierObjects, collectDefaultTierNames } from '@/utils/tierDefaults';
 
 const props = defineProps<{ setupObject: SetupObject }>();
 const emit = defineEmits(['update:setupObject']);
@@ -66,14 +65,8 @@ const setHeight = () => {
 onMounted(() => {
   setHeight();
 
-  const tiers = setupObject.value.tiers;
-  if (tiers.length > 0) return;
-
-  const names = collectDefaultTierNames(setupObject.value);
-  if (names.length === 0) return;
-
-  const defaults = buildDefaultTierObjects(names);
-  tiers.splice(0, tiers.length, ...defaults);
+  // Tiers used to be pre-filled by scraping the uploaded spreadsheet's cell values. There is no
+  // spreadsheet now, and a tier is the organizer's decision rather than something to infer.
 });
 
 const addTierRow = () => {

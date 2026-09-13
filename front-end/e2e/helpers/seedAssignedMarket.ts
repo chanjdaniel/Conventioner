@@ -26,22 +26,11 @@ export async function seedAssignedMarket(
 ): Promise<AssignedSeedResult> {
   const seed = await seedMarketWithVendors(request, baseURL, email, password);
 
-  // SetupObject with colValues populated so the assignment algorithm has
-  // vendor data to work with. colName is included because the assignment
-  // solver's _calculate_date_flexibility calls toAttrString(market_date.col_name)
-  // which crashes on None. This coupling belongs to Phase 5.
+  // The vendors themselves are approved applications, seeded by seedMarketWithVendors. This
+  // setupObject used to carry their answers as spreadsheet cell values as well.
   const setupObject = {
-    colNames: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
-    colValues: [
-      ['alice@example.com', 'bob@example.com'],
-      ['Alice', 'Bob'],
-      ['Full table'],
-      [''],
-      ['Gold'],
-    ],
-    colInclude: [true, true, true, true, true],
     priority: [],
-    marketDates: [{ date: '2025-06-01', colNameIdx: 4, colName: 'day_1' }],
+    marketDates: [{ date: '2025-06-01' }],
     tiers: [{ id: 1, name: 'Gold' }],
     locations: [{ name: 'Main Hall' }],
     sections: [
@@ -55,10 +44,6 @@ export async function seedAssignedMarket(
     assignmentOptions: {
       maxAssignmentsPerVendor: 1,
       maxHalfTableProportionPerSection: 50,
-      emailColNameIdx: 0,
-      tableChoiceColNameIdx: 2,
-      tableShareEmailColNameIdx: 3,
-      maxDaysColNameIdx: null,
     },
   };
 

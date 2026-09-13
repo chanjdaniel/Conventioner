@@ -41,9 +41,6 @@ const NOTES = field({ key: 'notes', label: 'Anything else?', type: 'text' });
 
 function setup(): SetupObject {
   return {
-    colNames: [],
-    colValues: [],
-    colInclude: [],
     priority: [],
     marketDates: [],
     tiers: [],

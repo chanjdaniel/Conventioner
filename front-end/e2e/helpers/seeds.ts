@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import { seedApprovedVendor } from './seedApplication';
 
 /**
  * Result returned by seedMarketWithVendors().
@@ -183,28 +184,11 @@ export async function seedMarketWithVendors(
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
 
-  // Step 3: Upload source data so the assignment engine can compute assignments.
-  // The solver reads from the source_data collection; without it assignment fails.
-  // This dependency will be removed in Phase 5 (assignment solver adapter).
-  const csvContent = [
-    'email,vendor_name,table_choice,buddy_email,day_1',
-    'alice@example.com,Alice,Full table,,Gold',
-    'bob@example.com,Bob,Full table,,Gold',
-  ].join('\n');
-  const srcRes = await request.post(`${baseURL}/source-data/${marketId}`, {
-    headers: {
-      'X-Owner-Email': email,
-    },
-    multipart: {
-      file: {
-        name: 'vendors.csv',
-        mimeType: 'text/csv',
-        buffer: Buffer.from(csvContent, 'utf-8'),
-      },
-    },
-  });
-  if (!srcRes.ok()) {
-    throw new Error(`Source data upload failed: ${srcRes.status()} ${await srcRes.text()}`);
+  // Step 3: Seed the vendors the assignment engine will place. They are approved applications,
+  // which is what a vendor is; this used to be a fabricated CSV upload because the solver read a
+  // separate source_data collection.
+  for (const applicant of ['alice@example.com', 'bob@example.com']) {
+    seedApprovedVendor(marketId, applicant, { dates: ['2026-05-01'], tiers: ['Gold'] });
   }
 
   return { marketId, userId, marketName, orgId };
@@ -269,41 +253,17 @@ export async function seedPublishedMarketWithAssignments(
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
 
-  // Step 3: Upload source data so the assignment engine can compute assignments.
-  // The solver reads from the source_data collection, not from setupObject.colValues.
-  // This dependency will be removed in Phase 5 (assignment solver adapter).
-  const csvContent = [
-    'email,vendor_name,table_choice,buddy_email,market_date,tier',
-    'alice@example.com,Alice,Full table,,Gold,Gold',
-    'bob@example.com,Bob,Full table,,Gold,Gold',
-  ].join('\n');
-
-  const srcRes = await request.post(`${baseURL}/source-data/${marketId}`, {
-    headers: {
-      'X-Owner-Email': email,
-    },
-    multipart: {
-      file: {
-        name: 'vendors.csv',
-        mimeType: 'text/csv',
-        buffer: Buffer.from(csvContent, 'utf-8'),
-      },
-    },
-  });
-  if (!srcRes.ok()) {
-    throw new Error(`Source data upload failed: ${srcRes.status()} ${await srcRes.text()}`);
+  // Step 3: Seed the vendors as approved applications - what a vendor is. This used to upload a
+  // fabricated CSV, because the solver read a separate source_data collection.
+  for (const applicant of ['alice@example.com', 'bob@example.com']) {
+    seedApprovedVendor(marketId, applicant, { dates: ['2026-05-01'], tiers: ['Gold'] });
   }
 
-  // Step 4: Put the setupObject directly.
-  // colName is included because the assignment solver's _calculate_date_flexibility
-  // calls toAttrString(market_date.col_name) which crashes on None.
-  // This coupling belongs to Phase 5 and is explicitly NOT removed here.
+  // Step 4: Put the setupObject directly. A market date is now just a date: it carried a
+  // spreadsheet column name only so the solver could look the answer up by heading.
   const setupObject = {
-    colNames: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'market_date', 'tier'],
-    colValues: [],
-    colInclude: [true, true, true, true, true, true],
     priority: [],
-    marketDates: [{ date: '2026-05-01', colNameIdx: 4, colName: 'market_date' }],
+    marketDates: [{ date: '2026-05-01' }],
     tiers: [{ id: 0, name: 'Gold' }],
     locations: [{ name: 'Main Hall' }],
     sections: [
@@ -317,10 +277,6 @@ export async function seedPublishedMarketWithAssignments(
     assignmentOptions: {
       maxAssignmentsPerVendor: null,
       maxHalfTableProportionPerSection: null,
-      emailColNameIdx: 0,
-      tableChoiceColNameIdx: 2,
-      tableShareEmailColNameIdx: 3,
-      maxDaysColNameIdx: null,
     },
     floorplans: null,
   };
