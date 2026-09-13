@@ -549,8 +549,8 @@ Both keys are configured in `.env` and forwarded to the backend via `docker-comp
 - `GET /markets/<market_id>/assignment-csv` builds the CSV in memory and returns it as an
   attachment; the browser saves it wherever downloads go.
 - Reached from **Assignment Results** in the UI.
-- Nothing is written to the server's disk. The `csv_exports` directory the Dockerfile still creates
-  is vestigial, and its removal is tracked as `E06/F02/S01`.
+- Nothing is written to the server's disk. A `csv_exports` directory used to be created and
+  mounted for this; nothing ever wrote to it, and it is gone.
 
 ### Generate Shared Market Contract
 
