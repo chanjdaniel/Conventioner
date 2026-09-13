@@ -39,6 +39,20 @@ infrastructure and the other is documentation, and they do not touch the same fi
   whose suite is known-flaky teaches everyone to re-run rather than read failures. The story stays in
   E06; only the blocking edge lives here.
 
+  **Status: investigated, narrowed, not solved.** Two hypotheses were tested and refused (the Flask
+  dev server is threaded by default; the per-request `MongoClient` leak is real, is fixed as
+  `E06/F03/S01`, and does not produce the latency - flat at 19-20ms with 400 leaked clients).
+  Suspicion now sits on Vite's dev proxy, the one part of the path no reproduction attempt has gone
+  through. Full detail is in that story.
+
+  **This is the decision that gates the release**, and it is the epic owner's, not this document's:
+  the stall lives in the Flask development server and the Vite dev proxy, *neither of which exists
+  in a deployed build*. If it is an artifact of the test harness rather than a product defect, the
+  blocking edge defends nothing a user can reach - which is the same test `AGENTS.md` applies to
+  boot requirements: a requirement must defend something the branch actually serves. Three
+  consecutive full-suite runs passed with the workaround in place and never firing, which is
+  evidence but not proof.
+
 ## Not in this epic, deliberately
 
 - **Bulk-approve in the application monitor.** Settled as needed, but its shape is still an open
