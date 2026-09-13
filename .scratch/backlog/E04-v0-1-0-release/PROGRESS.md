@@ -19,10 +19,11 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | --- | --- | --- | --- | --- |
 | 1 | F01/S01 Extract a CSV import page object | - | done (unpushed) | |
 | 2 | F02/S01 STARTUP.md walks a fresh clone to a running stack | - | done (unpushed) | |
-| 3 | F01/S02 Walk the whole journey in one session | F01/S01 | not started | |
+| 3 | F01/S02 Walk the whole journey in one session | F01/S01 | done (unpushed) | |
 | 4 | F02/S02 TESTING.md describes the suites that exist | F01/S02 | done (unpushed) | |
 | 5 | F03/S01 Promote dev to main and cut v0.1.0 | F01/S02, F02/S01, F02/S02, E06/F01/S02 | not started | |
 | 6 | F03/S02 Later versions follow conventional commits | F03/S01 | not started | |
+| - | F01/S03 An essential-only form can receive an application (found in F01/S02) | - | done (unpushed) | |
 | - | F04/S01 A new organizer's dashboard does not report a missing market | - | not started | |
 
 F04/S01 was found while walking STARTUP.md and is not currently a blocker for the release. Whether
@@ -177,3 +178,44 @@ Out of this story's stated scope, fixed because the file is what every agent ses
 recording that E02 deleted both. A false sharp edge is worse than no sharp edge. Two entries added
 while there: the form-is-both-halves invariant that E04/F01/S03 turned into a fix, and where a new
 e2e test belongs now that one spec walks the whole journey and the rest are slices.
+
+### F01/S02 An organizer walks create, setup, import, approve and assign in one session
+
+`front-end/e2e/market-journey.spec.ts`. Two full-suite runs on isolated stacks: **74 passed** in
+1.6m, then **74 passed** in 1.9m. The journey itself runs in 3.4s in isolation.
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| The spec creates the market through the UI and never over the API | met | `/markets` -> Create -> pick the org -> name it -> submit -> redirect to the wizard, via `NewMarketPage`. The only seeding is `ensureTestOrg` in `beforeAll`; there is no market POST, no `setupObject` PUT and no `localStorage` injection anywhere in the spec. |
+| The CSV fixture's columns and values match the market plan the spec just built | met | The plan is built first, deliberately, and the CSV's dates, tier and section names are the same constants the wizard was driven with. The import reaches "all mapped" with no value-resolution step, which is the assertion that they matched. |
+| Applications reach `reviewer_approved` only by the organizer clicking Approve in the monitor | met | `ApplicationMonitorPage.approve()` clicks `app-monitor-approve-button` and waits for the badge to read Approved. Nothing in the spec writes a status. All three applications are asserted to be `Open` first, so the approval is doing the work rather than confirming a state they arrived in. |
+| An `ApplicationMonitorPage` wraps that surface, following the existing pattern | met | `front-end/e2e/pages/ApplicationMonitorPage.ts`, re-exported from `fixtures.ts`. Cards are addressed by the applicant's email, not by index, so a reordering does not silently approve the wrong person. |
+| The assignment is generated from those approvals and every approved vendor appears placed | met | Asserted per applicant through the Vendors modal: the vendor who asked for two days holds a table on both, the one who asked for one holds one, and the rejected applicant holds none. The rejected one is *present and empty* rather than absent, which distinguishes "not placed" from "not loaded" - the weaker assertion would have passed against a modal that failed to load. |
+| The spec passes repeatedly under a full-suite run, not only in isolation | met | Two consecutive full-suite runs, 74 passed each, on isolated stacks with unique compose projects and free ports. |
+| Any bug this uncovers is recorded as a sibling story rather than fixed inside this one, unless the fix is what makes the spec pass at all | met | Two found. The form bug **is** what makes the spec pass, so it was fixed - as `E04/F01/S03`, its own story and its own commit, not folded in silently. The assignment-options papercut is not, so it is `E04/F04/S02` and unfixed. |
+
+#### What the spec found, which is why it exists
+
+**It failed on its first run, and the failure was a product defect, not a test defect.** The import
+preview read "0 of 3 rows will be imported", every row refused with *"This market does not have an
+application form configured."*
+
+A market whose form is only the essential questions could open applications - `FormHasFieldsGuard`
+counts those questions, deliberately, since E03/F01/S01 - and then refuse every application it
+received, by CSV import and by applicant submission alike, because the write path counted only the
+custom fields. No slice test could see it: the import suite seeds a market that has custom fields,
+and the phase suite never imports anything. Fixed under `E04/F01/S03`.
+
+Two further things the spec established along the way, neither of them assertions:
+
+- The assignment options are set immediately before assigning rather than on the way past, because
+  the wizard discards them when the organizer leaves the tab (`E04/F04/S02`).
+- `VendorsModal.vue` had **no** `data-testid` at all, so its rows could not be addressed. Three
+  were added, purely additive.
+
+#### On the known flake
+
+`E06/F01/S02` - the public application-form stall - did not fire in either run. That is consistent
+with its own diagnosis ("rarer since S01") and is **not** evidence it is fixed. Two green runs do
+not clear a defect that was already intermittent at roughly one run in two before being papered
+over; the story stands, and F03/S01 still blocks on it.

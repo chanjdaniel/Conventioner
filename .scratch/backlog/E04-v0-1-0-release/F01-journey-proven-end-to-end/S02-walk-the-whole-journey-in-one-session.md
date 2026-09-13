@@ -2,7 +2,7 @@
 id: E04/F01/S02
 title: An organizer walks create, setup, import, approve and assign in one session
 type: story
-status: ready
+status: in-progress
 blocked_by: [E04/F01/S01]
 pr: []
 ---
