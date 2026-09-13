@@ -10,6 +10,15 @@ const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
 
 const lastMarket = ref<Market | null>(null);
+/**
+ * Whether a market was ever opened in this browser.
+ *
+ * Two very different situations used to render the same greyed "Last market not found" card: an
+ * organizer who has never opened one, and an organizer whose remembered market can no longer be
+ * read. Only the second is a failure, and the first is what EVERY organizer sees on their first
+ * sign-in - so the product's opening words were a report that something was missing.
+ */
+const everOpenedOne = ref(false);
 
 function isValidMarket(obj: unknown): obj is Market {
   if (!obj || typeof obj !== 'object') return false;
@@ -21,6 +30,7 @@ onMounted(() => {
   try {
     const stored = localStorage.getItem('market');
     if (!stored) return;
+    everOpenedOne.value = true;
     const parsed = JSON.parse(stored) as unknown;
     if (isValidMarket(parsed)) {
       lastMarket.value = parsed;
@@ -74,7 +84,7 @@ const handleSignOut = async () => {
   <div class="dashboard-view">
     <div class="main-buttons">
       <div class="last-market-section">
-        <span class="last-market-label">Previously opened</span>
+        <span v-if="lastMarket || everOpenedOne" class="last-market-label">Previously opened</span>
         <div
           v-if="lastMarket"
           class="last-market-card"
@@ -92,7 +102,7 @@ const handleSignOut = async () => {
               <div class="info-row">
                 <span class="info-label">Created:</span>
                 <span class="info-value">{{
-                  lastMarket.creationDate ? formatDate(lastMarket.creationDate) : '—'
+                  lastMarket.creationDate ? formatDate(lastMarket.creationDate) : '-'
                 }}</span>
               </div>
               <div v-if="lastMarket.organizationName" class="info-row">
@@ -111,8 +121,23 @@ const handleSignOut = async () => {
             </div>
           </div>
         </div>
-        <div v-else class="last-market-card last-market-card--disabled">
-          <span class="disabled-text">Last market not found</span>
+        <div
+          v-else-if="everOpenedOne"
+          class="last-market-card last-market-card--disabled"
+          data-testid="dashboard-last-market-unavailable"
+        >
+          <span class="disabled-text">The market you last opened is no longer available</span>
+        </div>
+        <div
+          v-else
+          class="last-market-card last-market-card--welcome"
+          role="button"
+          tabindex="0"
+          @click="handleMarkets"
+          @keydown.enter="handleMarkets"
+          data-testid="dashboard-no-market-yet"
+        >
+          <span class="welcome-text">Open a market to get started</span>
         </div>
       </div>
 
@@ -237,6 +262,17 @@ const handleSignOut = async () => {
   border-color: var(--mm-green);
   box-shadow: 0 4px 12px rgba(73, 176, 150, 0.15);
   transform: translateY(-2px);
+}
+
+.last-market-card--welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.welcome-text {
+  color: rgba(39, 35, 35, 0.7);
 }
 
 .last-market-card--disabled {
