@@ -122,6 +122,7 @@ export interface MarketSchema {
       date: string;
     }[];
     priority: {
+      direction?: string;
       id: number;
       ordering?: string[];
       target?: string;
