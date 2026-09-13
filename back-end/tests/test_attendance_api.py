@@ -115,7 +115,6 @@ def test_get_vendor_assignment_summary_404_when_market_missing(monkeypatch):
 def test_get_vendor_assignment_summary_404_when_no_assignment(monkeypatch):
     market = _market_with_assignment()
     monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda slug: market)
-    monkeypatch.setattr(AttendanceApi.SourceDataApi, "get_source_data", lambda mid: ({"headers": [], "data": []}, 200))
 
     assigned = SimpleNamespace(
         setup_object=None,
@@ -127,7 +126,7 @@ def test_get_vendor_assignment_summary_404_when_no_assignment(monkeypatch):
             )
         ]),
     )
-    monkeypatch.setattr(AttendanceApi, "assign_market", lambda m, s: assigned)
+    monkeypatch.setattr(AttendanceApi, "assign_market", lambda m: assigned)
 
     result, status = AttendanceApi.get_vendor_assignment_summary("test-market", "vendor@example.com")
     assert status == 404
@@ -137,7 +136,6 @@ def test_get_vendor_assignment_summary_404_when_no_assignment(monkeypatch):
 def test_get_vendor_assignment_summary_returns_camel_case_with_attendance_flag(monkeypatch):
     market = _market_with_assignment()
     monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda slug: market)
-    monkeypatch.setattr(AttendanceApi.SourceDataApi, "get_source_data", lambda mid: ({"headers": [], "data": []}, 200))
 
     assigned = SimpleNamespace(
         setup_object=SimpleNamespace(market_dates=[SimpleNamespace(date="2026-05-01", col_name="Day 1")]),
@@ -154,7 +152,7 @@ def test_get_vendor_assignment_summary_returns_camel_case_with_attendance_flag(m
             ),
         ]),
     )
-    monkeypatch.setattr(AttendanceApi, "assign_market", lambda m, s: assigned)
+    monkeypatch.setattr(AttendanceApi, "assign_market", lambda m: assigned)
 
     fake_coll = FakeAttendanceCollection()
     fake_coll.docs.append({

@@ -1,25 +1,26 @@
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
 from datatypes import (
-    Market, SetupObject, MarketDateObject, TierObject, SectionObject, 
+    Market, SetupObject, MarketDateObject, TierObject, SectionObject,
     AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityObject, DataType,
     LocationObject
 )
+from essential_fields import (
+    TABLE_CHOICE_EITHER,
+    TABLE_CHOICE_FULL,
+    effective_essential_options_for_market,
+)
+from assignment.vendor_input import IncompleteApplication, SolverVendor, approved_solver_vendors
 
 import math
 from datetime import datetime
 import traceback
 import logging
 
-from assignment.validator import Validator
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # temporary constants
-FULL_TABLE_ONLY_CHOICES = {"full table", "full table only"}
-HALF_TABLE_ONLY_CHOICES = {"half table", "half table only"}
-EITHER_TABLE_CHOICES = {"either"}
 FULL_TABLE_LABEL = "Full Table"
 HALF_TABLE_LEFT_LABEL = "Half Table (Left)"
 HALF_TABLE_RIGHT_LABEL = "Half Table (Right)"
@@ -27,34 +28,25 @@ NO_CLUB_MEMBERSHIP = "I am NOT a part of any of these clubs"
 MAX_VENDING_DAYS = 4
 MAX_HALF_TABLES_PER_SECTION = 0.3
 
-def toAttrString(str):
-    str = str.lower()
-    str = str.replace(' ', '_')
-    return str
-
 class Vendor:
-    def __init__(self, entry, market_dates: List[MarketDateObject]):
+    """A vendor during one assignment run: what they asked for, plus where they have been put.
+
+    ``want`` is a ``SolverVendor`` and is immutable - it describes the application. Everything
+    else here is state belonging to this run. Keeping the two apart is what stops the old failure
+    mode returning: an answer is read from a named attribute of a typed record, so a wrong name
+    raises instead of quietly reading as "the vendor answered nothing".
+    """
+
+    def __init__(self, want: SolverVendor, market_dates: List[MarketDateObject]):
+        self.want = want
         self.num_assignments = 0
-        
-        # initialize assignment dict from market dates
-        dates = [market_date.date for market_date in market_dates]
-        self.assignment = dict.fromkeys(dates, None)
-
-        # set attributes using row of vendor dataframe
-        for key, value in entry.items():
-            setattr(self, toAttrString(key), value)
-        
-        self.date_flexibility = self._calculate_date_flexibility(market_dates)
-
-    def _calculate_date_flexibility(self, market_dates: List[MarketDateObject]) -> int:
-        flexibility = 0
-        for market_date in market_dates:
-            date_attr = toAttrString(market_date.col_name)
-            if hasattr(self, date_attr):
-                date_value = getattr(self, date_attr, '')
-                if date_value and date_value != '':
-                    flexibility += len(str(date_value).split(','))
-        return flexibility
+        self.assignment = dict.fromkeys(
+            [market_date.date for market_date in market_dates], None
+        )
+        # How scarce this vendor is, used by sort_vendors to place the most constrained first.
+        # Days are what a vendor is actually scarce in; the CSV era summed comma-separated tier
+        # tokens across dates, conflating "how many days" with "how many tiers".
+        self.date_flexibility = len(want.available_dates)
 
     def __repr__(self):
         return f"{vars(self)}"
@@ -64,15 +56,22 @@ class Vendor:
         self.num_assignments += 1
 
     def is_date_assigned(self, market_date: MarketDateObject):
-        return self.assignment[market_date.date] != None
+        return self.assignment[market_date.date] is not None
 
-    def is_max_assigned(self):
-        try:
-            max_days_val = getattr(self, 'max_days', None)
-            vendor_max_days = int(max_days_val[0]) if max_days_val else MAX_VENDING_DAYS
-        except (ValueError, IndexError, TypeError, AttributeError):
-            vendor_max_days = MAX_VENDING_DAYS
-        return self.num_assignments >= MAX_VENDING_DAYS or self.num_assignments >= vendor_max_days
+    def is_available_on(self, market_date: MarketDateObject) -> bool:
+        return market_date.date in self.want.available_dates
+
+    def accepts_tier(self, tier: TierObject) -> bool:
+        """Set membership, not a substring test.
+
+        The CSV-era check was ``table.tier.name in <the vendor's answer string>``, in which a
+        tier named 'A' matched an answer of 'AB'. A market offering no tiers constrains nothing,
+        so every table is acceptable.
+        """
+        if not self.want.accepted_tiers:
+            return True
+        return tier.name in self.want.accepted_tiers
+
 
 
 
@@ -174,216 +173,78 @@ class DateAssignment:
 
 
 
-def _validate_assignment_column_mappings(setup_object: SetupObject) -> None:
-    """Require every column index the solver dereferences to be set and in range.
-
-    The CSV-derived fields are optional on the models so application-based markets can omit
-    them, so a setup object that reaches the solver has to be checked here instead.
-    """
-    ao = setup_object.assignment_options
-    n = len(setup_object.col_names)
-    if n == 0:
-        raise ValueError(
-            "setup_object.col_names is empty; this market has no CSV columns to map"
-        )
-
-    def require_idx(field: str, idx: Optional[int]) -> None:
-        if idx is None:
-            raise ValueError(
-                f"setup_object.{field} must be set to a column index (no legacy default names)"
-            )
-        i = int(idx)
-        if i < 0 or i >= n:
-            raise ValueError(
-                f"setup_object.{field} must be a valid column index (0..{n - 1})"
-            )
-
-    require_idx("assignment_options.email_col_name_idx", ao.email_col_name_idx)
-    require_idx("assignment_options.table_choice_col_name_idx", ao.table_choice_col_name_idx)
-    require_idx("assignment_options.table_share_email_col_name_idx", ao.table_share_email_col_name_idx)
-    if ao.max_days_col_name_idx is not None:
-        require_idx("assignment_options.max_days_col_name_idx", ao.max_days_col_name_idx)
-
-    for i, market_date in enumerate(setup_object.market_dates):
-        if not market_date.col_name:
-            require_idx(f"market_dates[{i}].col_name_idx", market_date.col_name_idx)
-
-    enum_count = len(setup_object.enum_priority_order)
-    for i, priority_item in enumerate(setup_object.priority):
-        field = f"priority[{i}].col_name_idx"
-        require_idx(field, priority_item.col_name_idx)
-        if priority_item.col_name_idx >= enum_count:
-            raise ValueError(
-                f"setup_object.{field} ({priority_item.col_name_idx}) is out of range for "
-                f"setup_object.enum_priority_order (length {enum_count})"
-            )
-
-
 class MarketAssignment:
-    def __init__(self, setup_object: SetupObject, source_data: Dict[str, Any]):
-        _validate_assignment_column_mappings(setup_object)
+    def __init__(self, setup_object: SetupObject, vendors: List[SolverVendor]):
         self.setup_object = setup_object
-        self.source_data = source_data
         self.table_sharing = []
         self.date_assignments = {}
         self.half_tables = {}
 
-        # initialize market date column names
         for market_date in setup_object.market_dates:
-            if not market_date.col_name:
-                market_date_col_name = setup_object.col_names[market_date.col_name_idx]
-                market_date.col_name = market_date_col_name
+            self.date_assignments[market_date.date] = DateAssignment(
+                market_date, setup_object.sections
+            )
 
-        # initialize date assignments from market dates
+        self.vendors = [Vendor(want, setup_object.market_dates) for want in vendors]
+
+        # Half tables taken per date per section, so the per-section proportion can be capped.
+        # Keyed by the market date itself: a date IS its date, and the column heading a
+        # spreadsheet once used to ask about it is not a second name for it.
         for market_date in setup_object.market_dates:
-            self.date_assignments[market_date.date] = DateAssignment(market_date, setup_object.sections)
+            self.half_tables[market_date.date] = {
+                section.name: 0 for section in setup_object.sections
+            }
 
-        # initialize vendors from vendor data frame
-        vendor_rows = self._get_vendor_rows()
-        self.vendors = []
-        for row_entry in vendor_rows:
-            self.vendors.append(Vendor(row_entry, setup_object.market_dates))
-
-        # initialize half tables dict
-        for market_date in setup_object.market_dates:
-            date_col_name = market_date.col_name
-            self.half_tables[date_col_name] = {}
-            for section in setup_object.sections:
-                self.half_tables[date_col_name][section.name] = 0
 
     def __repr__(self):
         return f"{vars(self)}"
 
-    def _mapped_col_idx(self, idx: Optional[int]) -> Optional[int]:
-        if idx is None:
-            return None
-        n = len(self.setup_object.col_names)
-        if idx < 0 or idx >= n:
-            return None
-        return idx
-
-    def _vendor_field_at(self, vendor: Vendor, col_name_idx: int) -> str:
-        mid = self._mapped_col_idx(col_name_idx)
-        if mid is None:
-            raise ValueError("column index is required")
-        return str(self._get_vendor_column_value(vendor, mid) or "")
-
-    def _vendor_table_share_email_str(self, vendor: Vendor) -> str:
-        ao = self.setup_object.assignment_options
-        return self._vendor_field_at(vendor, ao.table_share_email_col_name_idx)
-
     def vendor_email(self, vendor: Vendor) -> str:
-        ao = self.setup_object.assignment_options
-        return self._vendor_field_at(vendor, ao.email_col_name_idx)
+        return vendor.want.email
 
     def vendor_table_choice(self, vendor: Vendor) -> str:
-        ao = self.setup_object.assignment_options
-        return self._vendor_field_at(vendor, ao.table_choice_col_name_idx)
+        return vendor.want.table_choice or ""
 
-    def _normalized_table_choice(self, vendor: Vendor) -> str:
-        return self.vendor_table_choice(vendor).strip().lower()
+    def _vendor_table_share_email_str(self, vendor: Vendor) -> str:
+        return vendor.want.table_share_email or ""
 
     def _is_full_table_only(self, vendor: Vendor) -> bool:
-        return self._normalized_table_choice(vendor) in FULL_TABLE_ONLY_CHOICES
+        return vendor.want.table_choice == TABLE_CHOICE_FULL
 
     def _is_either_table_choice(self, vendor: Vendor) -> bool:
-        return self._normalized_table_choice(vendor) in EITHER_TABLE_CHOICES
-
-    def _max_days_raw(self, vendor: Vendor):
-        """Cell value for max-days column, or None if unmapped / blank cell (no per-vendor cap from CSV)."""
-        ao = self.setup_object.assignment_options
-        mid = self._mapped_col_idx(ao.max_days_col_name_idx)
-        if mid is None:
-            return None
-        v = self._get_vendor_column_value(vendor, mid)
-        return v if v != "" else None
-
-    def _parse_vendor_max_days_int(self, max_days_val) -> Optional[int]:
-        if max_days_val is None or max_days_val == "":
-            return None
-        try:
-            return int(max_days_val[0]) if max_days_val else None
-        except (ValueError, IndexError, TypeError):
-            return None
+        return vendor.want.table_choice == TABLE_CHOICE_EITHER
 
     def is_vendor_max_assigned(self, vendor: Vendor) -> bool:
+        """Has this vendor taken every date they are entitled to?
+
+        Two independent ceilings: the global one, and the number of dates the vendor asked for.
+        The vendor's own answer is an ``int`` on a typed record, so the CSV era's
+        ``int(max_days_val[0])`` - which read one character, turning twelve dates into one - has
+        nothing left to go wrong in.
+        """
         if vendor.num_assignments >= MAX_VENDING_DAYS:
             return True
-        ao = self.setup_object.assignment_options
-        if ao.max_days_col_name_idx is None:
+        if vendor.want.max_dates is None:
             return False
-        max_days_val = self._max_days_raw(vendor)
-        vendor_max_days = self._parse_vendor_max_days_int(max_days_val)
-        if vendor_max_days is None:
-            return False
-        return vendor.num_assignments >= vendor_max_days
+        return vendor.num_assignments >= vendor.want.max_dates
 
-    def _get_column_values(self, col_name: str) -> List[str]:
-        for idx, column in enumerate(self.setup_object.col_names):
-            if toAttrString(column) == toAttrString(col_name):
-                return self.source_data["data"][idx]
-        raise ValueError(f"Column {col_name} not found in setup object")
-
-    def _get_vendor_rows(self) -> List[Dict[str, str]]:
-        vendor_rows = []
-        # Get the header row (first row in data)
-        headers = self.source_data["data"][0]
-        
-        # Iterate through data rows (skip header row)
-        for i in range(1, len(self.source_data["data"])):  # Start from 1 to skip header
-            row = {}
-            for j in range(len(headers)):
-                col_name = self.setup_object.col_names[j]
-                if j < len(self.source_data["data"][i]):  # Check bounds
-                    row[col_name] = self.source_data["data"][i][j]
-                else:
-                    row[col_name] = ""  # Default value for missing columns
-            vendor_rows.append(row)
-        return vendor_rows
-
-    def _get_vendor_column_value(self, vendor: Vendor, col_name_idx: int) -> str:
-        # Must use setup_object.col_names — vendor rows are keyed by those names in _get_vendor_rows,
-        # not by source_data["headers"]. If they differ, using headers here yields empty strings everywhere.
-        if col_name_idx >= len(self.setup_object.col_names):
-            raise ValueError(
-                f"Column index {col_name_idx} out of range for col_names: {self.setup_object.col_names}"
-            )
-        col_name = self.setup_object.col_names[col_name_idx]
-        attr_name = toAttrString(col_name)
-        return getattr(vendor, attr_name, "")
 
     def _calculate_priority_score(self, vendor: Vendor) -> List[int]:
-        """Calculate priority scores for a vendor based on priority configuration."""
-        scores = []
-        
-        # Sort priority items by their id (lower id = higher priority)
-        sorted_priorities = sorted(self.setup_object.priority, key=lambda p: p.id)
-        
-        for priority_item in sorted_priorities:
-            col_name_idx = priority_item.col_name_idx
-            enum_order = self.setup_object.enum_priority_order[col_name_idx]
-            
-            # Skip if enum order is empty
-            if not enum_order:
-                scores.append(0)
-                continue
-            
-            vendor_value = self._get_vendor_column_value(vendor, col_name_idx)
-            
-            # Find the index of the vendor's value in the enum order
-            try:
-                value_index = enum_order.index(vendor_value)
-                scores.append(value_index)
-            except ValueError:
-                # If value not found in enum order, check for "<All others>" token
-                if "<All others>" in enum_order:
-                    all_others_index = enum_order.index("<All others>")
-                    scores.append(all_others_index)
-                else:
-                    # If no "<All others>" token, put at the end
-                    scores.append(len(enum_order))
-        
-        return scores
+        """Priority ordering, pending its rewrite.
+
+        The old scheme addressed its target by index into ``col_names`` and read the ordering
+        out of ``enum_priority_order``, a parallel array with one entry per column. A vendor no
+        longer has columns, so that scheme has no addressing left and cannot be ported - it is
+        replaced in E02/F02, where a rule names a form field or an application attribute and its
+        ordering lives on the rule itself.
+
+        Until then every vendor scores alike and the remaining sort keys decide. That is a
+        smaller change than it sounds: the solver already ignored ``data_type`` and
+        ``sorting_order`` entirely, so any rule an organizer configured as anything but an
+        enumerated ordering already scored every vendor identically.
+        """
+        return []
+
 
     def sort_vendors(self):
         """Sort vendors by assignment priority using priority configuration."""
@@ -402,10 +263,12 @@ class MarketAssignment:
     def is_valid_vendor(self, vendor, market_date: MarketDateObject, table):
         return (
             vendor is not None
-            and table.tier.name in getattr(vendor, toAttrString(market_date.col_name), '')
+            and vendor.is_available_on(market_date)
+            and vendor.accepts_tier(table.tier)
             and not self.is_vendor_max_assigned(vendor)
             and not vendor.is_date_assigned(market_date)
         )
+
 
     def get_vendor_by_email(self, email):
         for vendor in self.vendors:
@@ -484,7 +347,7 @@ class MarketAssignment:
         return valid_vendors
 
     def is_max_half_tables(self, market_date: MarketDateObject, section_object: SectionObject):
-        date_col_name = market_date.col_name
+        date_col_name = market_date.date
         section = section_object.name
         return self.half_tables[date_col_name][section] / section_object.count >= MAX_HALF_TABLES_PER_SECTION
 
@@ -494,7 +357,7 @@ class MarketAssignment:
         if len(vendor_list) < 2 or self.vendor_email(vendor_list[0]) == self.vendor_email(vendor_list[1]):
             assignment = VendorAssignmentResult(
                 email=self.vendor_email(vendor_list[0]),
-                date=market_date.col_name,
+                date=market_date.date,
                 table_code=table.table_code,
                 table_choice=FULL_TABLE_LABEL,
                 section=table.section.name,
@@ -508,7 +371,7 @@ class MarketAssignment:
                 table_choice = HALF_TABLE_LEFT_LABEL if i == 0 else HALF_TABLE_RIGHT_LABEL
                 assignment = VendorAssignmentResult(
                     email=self.vendor_email(vendor),
-                    date=market_date.col_name,
+                    date=market_date.date,
                     table_code=table.table_code,
                     table_choice=table_choice,
                     section=table.section.name,
@@ -516,7 +379,7 @@ class MarketAssignment:
                     location=table.location.name
                 )
                 vendor.assign(market_date, assignment)
-                self.half_tables[market_date.col_name][table.section.name] = self.half_tables[market_date.col_name].get(table.section.name, 0) + 1
+                self.half_tables[market_date.date][table.section.name] = self.half_tables[market_date.date].get(table.section.name, 0) + 1
         
         table.assign(vendor_list)
 
@@ -525,7 +388,7 @@ class MarketAssignment:
         vendor_list = [vendor, vendor]
         vendor.assign(market_date, VendorAssignmentResult(
             email=self.vendor_email(vendor),
-            date=market_date.col_name,
+            date=market_date.date,
             table_code=table_code,
             table_choice=FULL_TABLE_LABEL,
             section=table.section.name,
@@ -572,37 +435,30 @@ class MarketAssignment:
         assignments_per_table_choice = defaultdict(int)
         assignments_per_date = defaultdict(int)
 
-        col_name_to_date = {}
-        for market_date in self.setup_object.market_dates:
-            col_name_to_date[market_date.date] = market_date.date
-            if market_date.col_name:
-                col_name_to_date[market_date.col_name] = market_date.date
+        # Every assignment result now carries the market date itself, so there is nothing to
+        # translate: a date had two names only while a spreadsheet column heading stood in for it.
 
         for assignment in vendor_assignments:
             assignments_per_tier[assignment.tier] += 1
             assignments_per_section[assignment.section] += 1
             assignments_per_table_choice[assignment.table_choice] += 1
-            canonical_date = col_name_to_date.get(assignment.date, assignment.date)
-            assignments_per_date[canonical_date] += 1
+            assignments_per_date[assignment.date] += 1
 
         # Calculate satisfaction score (average ratio of actual to potential assignments)
         satisfaction_score_sum = 0.0
         total_vendors = len(self.vendors)
         
         for vendor in self.vendors:
-            # Count how many dates the vendor requested
+            # What this vendor could have had: every date they said they can attend, bounded by
+            # the global ceiling and by the number of dates they actually asked for.
             num_requested_assignments = sum(
                 1 for market_date in self.setup_object.market_dates
-                if getattr(vendor, toAttrString(market_date.col_name), '') != ""
+                if vendor.is_available_on(market_date)
             )
-            
-            # Potential assignments: cap by global max, dates requested, and optional per-vendor max-days column
-            ao = self.setup_object.assignment_options
+
             caps: List[float] = [MAX_VENDING_DAYS, num_requested_assignments]
-            if ao.max_days_col_name_idx is not None:
-                vd = self._parse_vendor_max_days_int(self._max_days_raw(vendor))
-                if vd is not None:
-                    caps.append(vd)
+            if vendor.want.max_dates is not None:
+                caps.append(vendor.want.max_dates)
             num_potential_assignments = min(caps)
             
             # Avoid division by zero
@@ -653,19 +509,60 @@ class MarketAssignment:
         self.sort_vendors()
 
 
-def assign_market(market: Market, source_data: Dict[str, Any]) -> Market:
-    """Assign vendors to tables for a market."""
+class IncompleteApplicationsError(ValueError):
+    """Approved applications that cannot be placed, raised before any assignment happens.
+
+    Named applicants, not a count: an organizer meeting this has to go and fix something, and
+    "three applications are incomplete" does not tell them which three.
+
+    Refusing the whole run is the point. Skipping the offending vendors would hand back an
+    assignment that looks complete with someone silently missing from it, and nobody would have
+    any reason to look.
+    """
+
+    def __init__(self, incomplete: List[IncompleteApplication]):
+        self.incomplete = list(incomplete)
+        super().__init__(self.message())
+
+    def message(self) -> str:
+        applicants = "; ".join(
+            f"{item.applicant_email or item.application_id} ({', '.join(item.reasons)})"
+            for item in self.incomplete
+        )
+        return (
+            f"{len(self.incomplete)} approved application(s) cannot be assigned until their "
+            f"answers are complete: {applicants}"
+        )
+
+
+def solver_vendors_for(market: Market) -> List[SolverVendor]:
+    """The vendors a market's approved applications describe, or a refusal naming who is missing."""
+    vendors, incomplete = approved_solver_vendors(
+        market.id, effective_essential_options_for_market(market)
+    )
+    if incomplete:
+        raise IncompleteApplicationsError(incomplete)
+    return vendors
+
+
+def assign_market(market: Market, vendors: Optional[List[SolverVendor]] = None) -> Market:
+    """Assign vendors to tables for a market.
+
+    Vendors come from the market's own approved applications. A caller may pass them in - the
+    tests do, to describe a scenario without a database - but no caller has to fetch anything
+    first, which is what makes an application-intake market assignable at all.
+    """
     if not market.setup_object:
         raise ValueError("Market must have setup data to perform assignment")
-    
+
+    if vendors is None:
+        vendors = solver_vendors_for(market)
+
     # Create market assignment instance
-    market_assignment = MarketAssignment(market.setup_object, source_data)
+    market_assignment = MarketAssignment(market.setup_object, vendors)
     # Run the assignment algorithm
     market_assignment.assign()
     # logger.info(f"Market assigned: {market_assignment}")
-
-    # validator = Validator(market_assignment)
-    # validator.validate()
 
     # Convert MarketAssignment to AssignmentObject format
     vendor_assignments = []

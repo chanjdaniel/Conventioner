@@ -5,7 +5,6 @@ from assignment.assignment import assign_market
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from db_config import get_database
 from market_documents import market_from_document, published_market_by_slug
-import api.source_data as SourceDataApi
 
 db = get_database()
 attendance_collection = db["attendance"]
@@ -134,16 +133,8 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
     except Exception:
         return {"error": "Invalid market data"}, 400
 
-    source_data = None
     try:
-        source_result = SourceDataApi.get_source_data(market_id)
-        if source_result is not None:
-            source_data, _ = source_result
-    except Exception:
-        source_data = None
-
-    try:
-        assigned_market = assign_market(market, source_data)
+        assigned_market = assign_market(market)
     except Exception:
         return {"error": "Unable to derive assignments"}, 500
 
