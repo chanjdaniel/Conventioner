@@ -24,8 +24,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from application_write import record_application_answers
 from market_documents import (
+    applicant_intake_market_by_slug,
     market_doc_field,
-    published_market_by_slug,
 )
 from datatypes import (
     Application,
@@ -162,7 +162,7 @@ def get_public_application_form(
 
     from db_config import get_database
     db = get_database()
-    market_doc = published_market_by_slug(
+    market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
         fields=("id", "name", "phase", "applicationForm", "resultsPublished", "setupObject"),
@@ -221,7 +221,7 @@ def get_applicant_application(
     # Verify the token belongs to this market
     from db_config import get_database
     db = get_database()
-    market_doc = published_market_by_slug(db["markets"], market_slug, fields=("id", "resultsPublished"))
+    market_doc = applicant_intake_market_by_slug(db["markets"], market_slug, fields=("id", "resultsPublished"))
     if not market_doc:
         return {"error": "Market not found."}, 404
 
@@ -273,7 +273,7 @@ def save_applicant_application(
     from db_config import get_database
     db = get_database()
 
-    market_doc = published_market_by_slug(
+    market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
         fields=("id", "phase", "applicationForm", "resultsPublished", "setupObject"),

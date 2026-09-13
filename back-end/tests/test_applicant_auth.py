@@ -181,8 +181,13 @@ class FakeDatabase:
 # ── Test data ────────────────────────────────────────────────────────
 
 def _published_market_doc(market_id="test-market-1", name="Test Market",
-                          phase="archived"):
-    """A minimal market document the slug lookup can resolve."""
+                          phase="archived", intake_mode="form"):
+    """A minimal market document the slug lookup can resolve.
+
+    Applicant login is an applicant-intake surface, so it serves form-intake markets only. A
+    market that takes its vendors by CSV import answers here exactly as a market that does not
+    exist, which is what ``intake_mode="csv"`` is for.
+    """
     slug = market_name_slug(name)
     return {
         "id": market_id,
@@ -190,6 +195,7 @@ def _published_market_doc(market_id="test-market-1", name="Test Market",
         "phase": phase,
         "isDraft": phase == "draft",
         "slug": slug,
+        "intakeMode": intake_mode,
     }
 
 

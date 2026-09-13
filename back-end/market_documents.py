@@ -50,6 +50,7 @@ from assignment.utils import (
     snake_to_camel,
 )
 from datatypes import (
+    IntakeMode,
     Market,
     MarketPhase,
     intake_mode_from_market_document,
@@ -301,6 +302,41 @@ def published_market_by_slug(
 # Fields whose stored value is decided by a document reader rather than by Pydantic, because a
 # value this build does not recognize has to degrade instead of raising. See the docstring below.
 _DOCUMENT_READ_FIELDS = ("phase", "intake_mode")
+
+
+def applicant_intake_market_by_slug(
+    collection: Any, market_slug: str, fields: Optional[Sequence[str]] = None,
+) -> Optional[Dict[str, Any]]:
+    """The published market at this slug that takes applications online, or ``None``.
+
+    This is ``published_market_by_slug`` plus one requirement: the market's intake mode is
+    ``form``. It exists because the phase cannot express that requirement. Application submission
+    is already gated to ``applications_open``, but a CSV market passes through that phase too --
+    that is where the import happens -- so during that window its public application form would be
+    live and accepting strangers the organizer has no way to answer.
+
+    It is a second function rather than a flag on the first because check-in shares the first and
+    must stay open to every published market: how a vendor entered a market has no bearing on
+    whether they can scan in on the day. And it is one function rather than a check inside each of
+    the five applicant endpoints, because five checks are five chances to forget the sixth.
+
+    ``None`` is the same answer this returns for a slug that belongs to no market at all, and
+    every caller's existing not-found branch is what serves it. That is deliberate: a stranger who
+    guesses the slug of a CSV market learns nothing, where a "not accepting applications online"
+    message would confirm that the market exists.
+
+    ``intake_mode`` is added to the caller's projection rather than expected in it, for the same
+    reason ``_SLUG_LOOKUP_FIELDS`` is: a projection missing it would not make the lookup cheaper,
+    it would make it answer a different question -- a market with no intake mode in hand reads as
+    CSV, so every form market would look gated.
+    """
+    projected = None if fields is None else (*fields, "intake_mode")
+    market_doc = published_market_by_slug(collection, market_slug, fields=projected)
+    if market_doc is None:
+        return None
+    if intake_mode_from_market_document(market_doc) is not IntakeMode.FORM:
+        return None
+    return market_doc
 
 
 def market_from_document(

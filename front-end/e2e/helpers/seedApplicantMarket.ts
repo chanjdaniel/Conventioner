@@ -113,6 +113,9 @@ export async function seedApplicantMarket(
       roles: { [userId]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      // This market's vendors apply through the public form, so it has to say so: intake mode
+      // defaults to `csv`, which switches the applicant surface off entirely.
+      intakeMode: 'form',
       ...(options.setupObject ? { setupObject: options.setupObject } : {}),
     },
   });
