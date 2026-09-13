@@ -39,7 +39,7 @@ from flask import jsonify, request
 from pymongo.errors import PyMongoError
 
 from db_config import get_database
-from market_documents import published_market_by_slug
+from market_documents import applicant_intake_market_by_slug
 from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
 from utils.application_token import generate_application_token
 
@@ -319,7 +319,7 @@ def request_login_code(market_slug: str) -> tuple:
     # Resolve the slug to a market. If the market does not exist, return the
     # same response - the caller cannot distinguish "no such market" from
     # "no such application."
-    market_doc = published_market_by_slug(
+    market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
         fields=("id", "name"),
@@ -381,7 +381,7 @@ def verify_login_code(market_slug: str) -> tuple:
         return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
 
     # Resolve the slug. Unknown market → same failure response.
-    market_doc = published_market_by_slug(
+    market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
         fields=("id",),

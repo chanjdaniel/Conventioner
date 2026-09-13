@@ -15,7 +15,7 @@ import IconTables from '@/components/icons/IconTables.vue';
 import IconVendors from '@/components/icons/IconVendors.vue';
 import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
-import { marketNameToKebabSlug } from '@/utils/marketSlug';
+import { publishedMarketDestination } from '@/utils/marketSlug';
 
 const router = useRouter();
 
@@ -381,12 +381,7 @@ const handleDone = async () => {
     localStorage.setItem('market', JSON.stringify(market));
     // Also persist via PUT so the full market body stays in sync (isDraft is server-derived now).
     await api.put(`/markets/${encodeURIComponent(market.id)}`, market);
-    const slug = marketNameToKebabSlug(market.name);
-    if (slug) {
-      router.push(`/${slug}`);
-    } else {
-      router.push('/market-setup');
-    }
+    router.push(publishedMarketDestination(market.name, market.intakeMode));
   } catch (err: unknown) {
     const response =
       err && typeof err === 'object' && 'response' in err
