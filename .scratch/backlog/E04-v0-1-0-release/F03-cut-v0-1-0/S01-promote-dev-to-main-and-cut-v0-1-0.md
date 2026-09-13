@@ -16,18 +16,30 @@ conventional commits since the beginning.
 This is the only time `main` is written to outside this process, and the first time the release
 workflow has ever run, so it is as much a test of the machinery as a release.
 
-## A decision this story must make first
+## The state of `main`, checked
 
-`main`'s three commits are `checkpoint`, `checkponit` and `checkout` - a scratch history from before
-the branch model existed, with `dev` dozens of commits ahead. Decide before promoting whether
-`v0.1.0` is tagged on a history that includes those commits, and record the reasoning here. It is
-hard to reverse once a tag and a release exist.
+An earlier note on this story said `main` was three scratch commits (`checkpoint`, `checkponit`,
+`checkout`) and asked what to do about them before tagging. That was read off a **stale local
+`main`**. The real state:
+
+- `origin/main` is at `2ccc8dcb`, an ordinary conventional-commit merge (PR #10).
+- `origin/main` is an **ancestor of `origin/dev`**, so promotion is a clean fast-forward with no
+  merge and no conflict.
+- The three scratch commits are ancestors of *both* branches. They are part of the repository's
+  history whatever happens here, so there is nothing to decide and nothing promotion changes.
+  Rewriting shared history to tidy them is not on the table.
+
+They also will not reach the CHANGELOG: release-please reads conventional commits and ignores
+anything that is not one.
+
+`main` does **not** yet carry `.github/workflows/release-please.yml`; it arrives with this
+promotion, and the same push triggers it.
 
 ## Acceptance criteria
 
 - [ ] The full suite is green on `dev` before anything is promoted, including the e2e suite under a
       full-suite run
-- [ ] The disposition of `main`'s pre-existing history is decided and recorded, not defaulted into
+- [ ] The promotion is a fast-forward, confirmed against `origin/main` rather than a local ref
 - [ ] `main` carries the release workflow and it runs on the promotion
 - [ ] Release-please opens a Release PR whose version is `0.1.0` and whose CHANGELOG reflects the
       conventional commits that produced this release
