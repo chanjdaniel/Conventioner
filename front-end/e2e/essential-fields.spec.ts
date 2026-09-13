@@ -114,10 +114,6 @@ async function signInApplicant(page: Page, marketId: string, marketSlug: string)
   // offers a retry - so take it, exactly as an applicant would. This is a workaround, not a fix:
   // the stall itself is tracked as E06/F01/S02, with the evidence that the request hangs rather
   // than errors. If this retry ever starts firing routinely, that story is overdue.
-  if (await page.getByTestId('apply-load-failed').isVisible()) {
-    await page.getByTestId('apply-retry-button').click();
-    await expect(page.getByTestId('apply-loading')).toBeHidden({ timeout: 30000 });
-  }
   await expect(page.getByTestId('apply-load-failed')).toHaveCount(0);
 }
 
