@@ -70,6 +70,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   (`front-end/e2e/helpers/verifiedUser.ts`) in `beforeAll`, which runs that same script inside
   the back-end container; do not hand-roll the user document, and do not switch to
   `/register-user`.
+- **One spec walks the whole journey; the rest are slices.** `market-journey.spec.ts` is the only
+  one that goes create -> plan -> open -> import -> **approve** -> assign in a single organizer
+  session through the UI, and the only one that clicks Approve at all. Every other spec seeds past
+  some part of it: the pipeline spec seeds applications already approved, the import spec seeds the
+  market over the API and stops at "awaiting review". Before adding a test, decide which of those
+  you are extending - and if the answer is "the seam between two of them", it belongs in the
+  journey spec.
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `stack().frontendPort`.
   Bring the stack up with `DISABLE_EMAIL=true scripts/th-compose.sh up -d` (compose passes it
@@ -124,8 +131,6 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 - `seedPublishedMarketWithAssignments()` in `front-end/e2e/helpers/seeds.ts` creates a fully
   published market with vendor assignments ready for check-in, vendor browsing, and table filtering tests.
-- The back-end assignment algorithm (`assign_market`) requires `enum_priority_order` to have one
-  entry (empty list) per column in `col_names`. Omitting this causes an `IndexError`.
 - Publishing is `POST /markets/{id}/transition` with `{ toPhase: 'archived' }`, never a PUT of
   `isDraft: false` - `isDraft` is derived from `phase` and a PUT body cannot set it.
 - After publishing, with a configured `setup_object`, you must fetch the
@@ -406,6 +411,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   payload can never write it). After that, no market-plan edit reaches the form - do not add a
   refresh path. The form save writes `essentialOptions: null`, so the freeze filter matches
   null-or-missing, not `$exists`.
+- **A form is its custom fields PLUS the essential questions the plan asks, and either half alone
+  is a form.** Every layer that asks "does this market have a form?" must read
+  `asked_essential_keys()` rather than count custom fields. `FormHasFieldsGuard` does, and so does
+  `application_write._asks_nothing()` - it did not, and the disagreement meant a market could open
+  applications and then refuse every application it received, by CSV import and by applicant alike.
+  A market that asks genuinely nothing is still refused.
 - Custom form-field keys may not use the `essential_` prefix (validated in
   `_normalized_application_form` and mirrored in `front-end/src/utils/applicationForm.ts`).
 - `docs/schema.d.ts` is generated from `datatypes:MarketSchemaContract`; after changing a
