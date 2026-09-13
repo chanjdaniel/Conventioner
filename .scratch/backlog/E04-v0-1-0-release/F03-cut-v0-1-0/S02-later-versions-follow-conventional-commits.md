@@ -2,9 +2,9 @@
 id: E04/F03/S02
 title: Later versions follow conventional commits
 type: story
-status: ready
+status: done
 blocked_by: [E04/F03/S01]
-pr: []
+pr: [#67]
 ---
 
 ## What to build

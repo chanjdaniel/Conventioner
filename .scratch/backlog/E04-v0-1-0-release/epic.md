@@ -2,9 +2,9 @@
 id: E04
 title: v0.1.0 release
 type: epic
-status: in-progress
+status: done
 blocked_by: [E01, E02, E03]
-pr: []
+pr: [#66, #67]
 ---
 
 ## Outcome

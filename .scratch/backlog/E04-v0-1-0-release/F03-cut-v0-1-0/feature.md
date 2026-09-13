@@ -2,9 +2,9 @@
 id: E04/F03
 title: v0.1.0 is cut
 type: feature
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#67]
 ---
 
 ## Outcome

@@ -24,15 +24,17 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | - | F01/S03 An essential-only form can receive an application (found in F01/S02) | - | done | #66 |
 | - | F04/S01 A new organizer's dashboard does not report a missing market | - | done | #66 |
 | - | F04/S02 Unsaved plan edits survive a phase advance | - | done | #66 |
-| 5 | F03/S01 Promote dev to main and cut v0.1.0 | F01/S02, F02/S01, F02/S02 | in progress | |
-| 6 | F03/S02 Later versions follow conventional commits | F03/S01 | not started | |
+| 5 | F03/S01 Promote dev to main and cut v0.1.0 | F01/S02, F02/S01, F02/S02 | done | #66, #67 |
+| 6 | F03/S02 Later versions follow conventional commits | F03/S01 | done | #67 |
 
 **PR #66 merged to `dev` on 2026-09-13** as `d4a116f8` (squash), so those seven stories and their
 three features are `done` with `pr: [#66]`. `E06/F02/S01` and `E06/F03/S01` rode in the same PR and
 are closed out in E06's own progress file.
 
-F03/S01 is in progress rather than done: `dev` now carries the work, and the promotion to `main`
-is the remaining step.
+**E04 is done.** `v0.1.0` was tagged and released on 2026-09-13. Two things the promotion taught,
+recorded in F03/S01 because they will recur: release-please cannot open its Release PR unless the
+repository allows GitHub Actions to create pull requests, and the release commit lands on `main`,
+so `main` has to be merged back into `dev` or the next promotion is not a fast-forward.
 
 Its `E06/F01/S02` blocker was **lifted** by the epic owner; the reasoning is in the story.
 

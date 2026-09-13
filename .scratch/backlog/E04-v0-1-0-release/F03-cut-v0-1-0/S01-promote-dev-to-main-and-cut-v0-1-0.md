@@ -2,9 +2,9 @@
 id: E04/F03/S01
 title: Promote dev to main and cut v0.1.0
 type: story
-status: in-progress
+status: done
 blocked_by: [E04/F01/S02, E04/F02/S01, E04/F02/S02]
-pr: []
+pr: [#66, #67]
 ---
 
 ## What to build
@@ -57,12 +57,30 @@ that the cause be identified.
 
 ## Acceptance criteria
 
-- [ ] The full suite is green on `dev` before anything is promoted, including the e2e suite under a
-      full-suite run
-- [ ] The promotion is a fast-forward, confirmed against `origin/main` rather than a local ref
-- [ ] `main` carries the release workflow and it runs on the promotion
-- [ ] Release-please opens a Release PR whose version is `0.1.0` and whose CHANGELOG reflects the
-      conventional commits that produced this release
-- [ ] Merging that PR creates the `v0.1.0` tag and a GitHub Release
-- [ ] `.release-please-manifest.json` reads `0.1.0` afterwards
-- [ ] Nothing was committed directly to `main`
+- [x] The full suite is green on `dev` before anything is promoted - `scripts/nm-test.sh`: backend
+      794, frontend unit 99, e2e 74, "All tests passed"; and CI green on PR #66 including its own
+      e2e job on a different machine
+- [x] The promotion is a fast-forward, confirmed against `origin/main` - `2ccc8dcb..7db8b7ce`,
+      60 commits, and `main` ended byte-identical to `dev`
+- [x] `main` carries the release workflow and it ran on the promotion - it arrived with the
+      promotion and the same push triggered it
+- [x] Release-please opened PR #67, `chore(main): release 0.1.0`, labelled `autorelease: pending`
+- [x] Merging it created the `v0.1.0` tag and the GitHub Release, 2026-09-13
+- [x] `.release-please-manifest.json` reads `0.1.0`
+- [x] Nothing was committed directly to `main`: it only ever moved by fast-forward from `dev` and
+      by the Release PR merge
+
+## What the promotion turned up
+
+**Release-please failed on its first run**, and not because of anything in this repository:
+`GitHub Actions is not permitted to create or approve pull requests`. That is a repository setting
+(`can_approve_pull_request_reviews`), and unlike `contents: write` it cannot be granted from the
+workflow file. Everything else had already succeeded - it parsed 133 commits and created the
+release branch and commit - so only the final PR-creation step was blocked. The epic owner chose to
+enable the setting; `default_workflow_permissions` was deliberately left at `read`. **Anyone
+standing up this workflow on a fresh repository will hit the same thing.**
+
+**The release commit lands on `main`, not `dev`.** After the Release PR merged, `main` was ahead of
+`dev` by `chore(main): release 0.1.0`, which carries the CHANGELOG and the bumped manifest. Left
+alone, the *next* promotion would not have been a fast-forward. `main` was merged back into `dev`
+as part of F03/S02. This is inherent to the release-branch model and will recur every release.
