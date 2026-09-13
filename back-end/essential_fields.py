@@ -61,6 +61,7 @@ TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 
 # The labels the applicant sees, shared with error messages so a validation failure names the
 # question exactly as the form asked it.
+EMAIL_LABEL = "Email address"
 AVAILABLE_DATES_LABEL = "Available dates"
 MAX_DATES_LABEL = "Number of dates you want"
 TIER_PREFERENCE_LABEL = "Tier preference"
@@ -101,6 +102,78 @@ SOLVER_RELEVANT_KEYS = (
     SECTION_RANKING_KEY,
     TABLE_TYPE_RANKING_KEY,
 )
+
+
+# Every essential question except the table-share partner, which is optional by design: most
+# applicants have nobody in mind, and one who names nobody is paired with whoever else wants a
+# half table.
+REQUIRED_ESSENTIAL_KEYS = tuple(
+    key for key in SOLVER_RELEVANT_KEYS if key != TABLE_SHARE_EMAIL_KEY
+)
+
+
+def asks_ranking(offered: Any) -> bool:
+    """Is a ranking over this offering actually a question?
+
+    Fewer than two options is not: there is exactly one order, so asking for it gains nothing
+    and asking someone to rank a list of one reads as a bug. This is the offering-empty rule
+    generalised, and it applies to rankings only - a single offered date or tier is still a real
+    question, because the applicant may be unable or unwilling to take it.
+    """
+    return len(offered or []) >= 2
+
+
+def asked_essential_keys(options: EssentialFormOptions) -> frozenset:
+    """Which essential questions an offering actually asks.
+
+    A question with nothing to offer is not asked, so it is not required and stores its empty
+    value. This is the one statement of that rule: ``validated_essential_answers`` applies it
+    when accepting an applicant's answers, and the solver's input translation applies it when
+    deciding whether an approved application is complete enough to place. Two copies of it would
+    drift, and the drift would show up as the solver rejecting answers the form had accepted.
+
+    Note what ``dates`` gates. A market with no dates has nothing to be assigned to, so the
+    questions about how many dates the applicant wants and how they want to occupy a table are
+    not questions either.
+    """
+    asked = set()
+    if options.dates:
+        asked.update({
+            AVAILABLE_DATES_KEY,
+            MAX_DATES_KEY,
+            TABLE_CHOICE_KEY,
+            TABLE_SHARE_EMAIL_KEY,
+        })
+    if options.tiers:
+        asked.add(TIER_PREFERENCE_KEY)
+    if asks_ranking(options.sections):
+        asked.add(SECTION_RANKING_KEY)
+    if asks_ranking(options.table_types):
+        asked.add(TABLE_TYPE_RANKING_KEY)
+    return frozenset(asked)
+
+
+def offering_for_key(key: str, options: EssentialFormOptions) -> List[str]:
+    """What a given essential question offered, so an answer can be checked against it.
+
+    Returns an empty list for the questions whose answer is not drawn from the market plan
+    (how many dates, how to occupy a table, who to share with); those are validated by shape,
+    not by membership.
+    """
+    if key == AVAILABLE_DATES_KEY:
+        return list(options.dates)
+    if key == TIER_PREFERENCE_KEY:
+        return list(options.tiers)
+    if key == SECTION_RANKING_KEY:
+        return list(options.sections)
+    if key == TABLE_TYPE_RANKING_KEY:
+        return list(options.table_types)
+    return []
+
+
+def normalized_names(values: Any) -> List[str]:
+    """Trimmed, non-blank, order-preserving unique strings from a stored list answer."""
+    return _unique_names(values)
 
 
 def solver_relevant_change(before: Dict[str, Any], after: Dict[str, Any]) -> bool:
@@ -447,11 +520,8 @@ def _validate_ranking(
     offered: List[str],
     stored: Dict[str, Any],
 ) -> Optional[str]:
-    # Fewer than two options is not a question: there is exactly one order, so asking for it
-    # gains nothing and asking someone to rank a list of one reads as a bug. This is the
-    # offering-empty rule generalised, and it applies to rankings only - a single offered date or
-    # tier is still a real question, because the applicant may be unable or unwilling to take it.
-    if len(offered) < 2:
+    # See ``asks_ranking``: fewer than two options is not a question.
+    if not asks_ranking(offered):
         stored[key] = []
         return None
 

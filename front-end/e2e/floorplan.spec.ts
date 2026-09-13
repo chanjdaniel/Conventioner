@@ -59,10 +59,6 @@ test.describe('Floorplan workflow E2E', () => {
 
     // Seed a minimal setupObject so the setup wizard has columns to display.
     const minimalSetup = {
-      colNames: ['email', 'vendor_name', 'table_choice', 'buddy_email', 'day_1'],
-      colValues: [[], [], [], [], ['Gold', 'Silver']],
-      colInclude: [false, false, false, false, false],
-      enumPriorityOrder: [[], [], [], [], []],
       priority: [],
       marketDates: [],
       tiers: [],
@@ -71,10 +67,6 @@ test.describe('Floorplan workflow E2E', () => {
       assignmentOptions: {
         maxAssignmentsPerVendor: null,
         maxHalfTableProportionPerSection: null,
-        emailColNameIdx: null,
-        tableChoiceColNameIdx: null,
-        tableShareEmailColNameIdx: null,
-        maxDaysColNameIdx: null,
       },
     };
     const setupRes = await ctx.put(`${BACKEND_URL}/markets/${marketId}`, {
@@ -107,10 +99,8 @@ test.describe('Floorplan workflow E2E', () => {
     const setupPage = new MarketSetupPage(page);
     await setupPage.waitForWizard();
 
-    await expect(page.locator('.double-column-body .setup-row').first()).toBeVisible({
-      timeout: 5000,
-    });
-    await setupPage.addMarketDate('2026-07-15', 4, 0);
+    // No Manage Columns step: the first page of the wizard is just the market's dates.
+    await setupPage.addMarketDate('2026-07-15', 0);
     await setupPage.clickNext();
 
     const floorplanPage = new FloorplanWorkflowPage(page);
@@ -125,9 +115,21 @@ test.describe('Floorplan workflow E2E', () => {
     const survivingTables = await floorplanPage.snapshotPlacedTables();
     expect(survivingTables.length).toBeGreaterThan(0);
 
-    const sectionsContainer = page.locator('.triple-column-body');
-    await sectionsContainer.waitFor({ state: 'visible', timeout: 5000 });
-    const sectionRows = page.locator('.triple-column-body .priority-row');
-    await expect(sectionRows.first()).toBeVisible({ timeout: 10000 });
+    // The wizard's tier/location/section page is reachable.
+    await expect(page.locator('.triple-column-body')).toBeVisible({ timeout: 5000 });
+
+    // The floorplan's own sections and locations reached the market plan, which is the "verify
+    // save" this test is named for. It used to assert that rows were RENDERED on that page,
+    // which passed only because the tier list was pre-filled by scraping the uploaded
+    // spreadsheet's cell values - an artifact of the CSV era, not of the floorplan.
+    const savedRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    expect(savedRes.ok()).toBeTruthy();
+    const saved = (await savedRes.json()) as {
+      market: { setupObject?: { sections?: unknown[]; locations?: unknown[] } };
+    };
+    expect(saved.market.setupObject?.sections?.length ?? 0).toBeGreaterThan(0);
+    expect(saved.market.setupObject?.locations?.length ?? 0).toBeGreaterThan(0);
   });
 });

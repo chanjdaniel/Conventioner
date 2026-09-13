@@ -55,17 +55,9 @@ export interface MarketSchema {
   roles: Record<string, string>;
   setupObject: null | {
     assignmentOptions: {
-      emailColNameIdx?: number;
       maxAssignmentsPerVendor?: number;
-      maxDaysColNameIdx?: number;
       maxHalfTableProportionPerSection?: number;
-      tableChoiceColNameIdx?: number;
-      tableShareEmailColNameIdx?: number;
     };
-    colInclude?: boolean[];
-    colNames?: string[];
-    colValues?: string[][];
-    enumPriorityOrder?: string[][];
     floorplans?: {
       id?: string;
       imageGridfsId?: string;
@@ -118,15 +110,13 @@ export interface MarketSchema {
       name: string;
     }[];
     marketDates: {
-      colName?: string;
-      colNameIdx?: number;
       date: string;
     }[];
     priority: {
-      colNameIdx?: number;
-      dataType: string;
+      direction?: string;
       id: number;
-      sortingOrder: string;
+      ordering?: string[];
+      target?: string;
     }[];
     sections: {
       count: number;

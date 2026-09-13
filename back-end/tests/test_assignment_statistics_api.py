@@ -21,12 +21,8 @@ def _sample_market_doc():
 def _sample_market_doc_with_setup():
     market = _sample_market_doc()
     market["setupObject"] = {
-        "colNames": ["Email", "Table Choice", "Table Share Email", "Day 1"],
-        "colValues": [],
-        "colInclude": [True, True, True, True],
-        "enumPriorityOrder": [],
         "priority": [],
-        "marketDates": [{"date": "2026-01-01", "colNameIdx": 3, "colName": "Day 1"}],
+        "marketDates": [{"date": "2026-01-01"}],
         "tiers": [{"id": 1, "name": "Gold"}],
         "locations": [{"name": "Main Hall"}],
         "sections": [
@@ -81,30 +77,9 @@ def test_get_assignment_statistics_returns_403_when_user_cannot_view(monkeypatch
     assert status == 403
     assert "does not have permission" in result["error"]
 
-
-def test_get_assignment_statistics_bubbles_source_data_error(monkeypatch):
-    monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc())
-    monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
-    monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"error": "No source data found for market"}, 404),
-    )
-
-    result, status = MarketsApi.get_assignment_statistics("market-123", "viewer@test.com")
-
-    assert status == 404
-    assert result["error"] == "No source data found for market"
-
-
 def test_get_assignment_statistics_returns_derived_statistics(monkeypatch):
     monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc())
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
-    monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"headers": [], "data": []}, 200),
-    )
 
     class DummyStats:
         def __init__(self):
@@ -132,7 +107,7 @@ def test_get_assignment_statistics_returns_derived_statistics(monkeypatch):
     assigned_market = SimpleNamespace(
         assignment_object=SimpleNamespace(assignment_statistics=DummyStats())
     )
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda market, source_data: assigned_market)
+    monkeypatch.setattr(MarketsApi, "assign_market", lambda market: assigned_market)
     monkeypatch.setattr(
         MarketsApi,
         "derive_market_table_rows",
@@ -257,26 +232,6 @@ def test_get_market_tables_returns_403_when_user_cannot_view(monkeypatch):
     assert status == 403
     assert "does not have permission" in result["error"]
 
-
-def test_get_market_tables_bubbles_source_data_error(monkeypatch):
-    monkeypatch.setattr(
-        MarketsApi.markets_collection,
-        "find_one",
-        lambda query: _sample_market_doc_with_setup(),
-    )
-    monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
-    monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"error": "No source data found for market"}, 404),
-    )
-
-    result, status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
-
-    assert status == 404
-    assert result["error"] == "No source data found for market"
-
-
 def test_get_market_tables_returns_camel_case_rows(monkeypatch):
     monkeypatch.setattr(
         MarketsApi.markets_collection,
@@ -284,12 +239,7 @@ def test_get_market_tables_returns_camel_case_rows(monkeypatch):
         lambda query: _sample_market_doc_with_setup(),
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
-    monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"headers": [], "data": []}, 200),
-    )
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda market, source_data: SimpleNamespace())
+    monkeypatch.setattr(MarketsApi, "assign_market", lambda market: SimpleNamespace())
     monkeypatch.setattr(
         MarketsApi,
         "derive_market_table_rows",
@@ -329,7 +279,7 @@ def test_get_market_tables_returns_camel_case_rows(monkeypatch):
 def test_derive_market_table_rows_includes_unassigned_tables():
     assigned_market = SimpleNamespace(
         setup_object=SimpleNamespace(
-            market_dates=[SimpleNamespace(date="2026-01-01", col_name="Day 1")],
+            market_dates=[SimpleNamespace(date="2026-01-01")],
             sections=[
                 SimpleNamespace(
                     name="A",
@@ -343,7 +293,7 @@ def test_derive_market_table_rows_includes_unassigned_tables():
             vendor_assignments=[
                 SimpleNamespace(
                     email="full@example.com",
-                    date="Day 1",
+                    date="2026-01-01",
                     table_code="A1",
                     table_choice="Full Table",
                     section="A",
@@ -397,26 +347,6 @@ def test_get_assignment_csv_returns_400_when_setup_missing(monkeypatch):
     assert status == 400
     assert result["error"] == "Market has no setup configured"
 
-
-def test_get_assignment_csv_bubbles_source_data_error(monkeypatch):
-    monkeypatch.setattr(
-        MarketsApi.markets_collection,
-        "find_one",
-        lambda query: _sample_market_doc_with_setup(),
-    )
-    monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
-    monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"error": "No source data found for market"}, 404),
-    )
-
-    result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
-
-    assert status == 404
-    assert result["error"] == "No source data found for market"
-
-
 def test_get_assignment_csv_returns_csv_string(monkeypatch):
     monkeypatch.setattr(
         MarketsApi.markets_collection,
@@ -425,19 +355,14 @@ def test_get_assignment_csv_returns_csv_string(monkeypatch):
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
     monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"headers": [], "data": []}, 200),
-    )
-    monkeypatch.setattr(
         MarketsApi,
         "assign_market",
-        lambda market, source_data: SimpleNamespace(model_dump=lambda: {}),
+        lambda market: SimpleNamespace(model_dump=lambda: {}),
     )
     monkeypatch.setattr(
         MarketsApi,
         "market_csv_to_string",
-        lambda market_dict, source_data: "Email,Day 1\nvendor@example.com,A1 - Full Table\n",
+        lambda market_dict: "Email,Day 1\nvendor@example.com,A1 - Full Table\n",
     )
 
     result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
@@ -457,25 +382,20 @@ def test_get_assignment_csv_surfaces_csv_value_error(monkeypatch):
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
     monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"headers": [], "data": []}, 200),
-    )
-    monkeypatch.setattr(
         MarketsApi,
         "assign_market",
-        lambda market, source_data: SimpleNamespace(model_dump=lambda: {}),
+        lambda market: SimpleNamespace(model_dump=lambda: {}),
     )
 
     def _raise_value_error(*_args, **_kwargs):
-        raise ValueError("email_col_name_idx required")
+        raise ValueError("the market has nothing to export")
 
     monkeypatch.setattr(MarketsApi, "market_csv_to_string", _raise_value_error)
 
     result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
 
     assert status == 400
-    assert "email_col_name_idx" in result["error"]
+    assert "nothing to export" in result["error"]
 
 
 def test_market_csv_filename_sanitizes_unsafe_characters():
@@ -562,26 +482,6 @@ def test_post_assignment_to_discord_returns_400_when_setup_missing(monkeypatch):
     assert status == 400
     assert result["error"] == "Market has no setup configured"
 
-
-def test_post_assignment_to_discord_returns_404_when_source_data_missing(monkeypatch):
-    monkeypatch.setattr(
-        MarketsApi.markets_collection,
-        "find_one",
-        lambda query: _sample_market_doc_with_webhook(),
-    )
-    monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
-    monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"error": "No source data found for market"}, 404),
-    )
-
-    result, status = MarketsApi.post_assignment_to_discord("market-123", "owner@test.com")
-
-    assert status == 404
-    assert result["error"] == "No source data found for market"
-
-
 def test_post_assignment_to_discord_success(monkeypatch):
     monkeypatch.setattr(
         MarketsApi.markets_collection,
@@ -589,12 +489,7 @@ def test_post_assignment_to_discord_success(monkeypatch):
         lambda query: _sample_market_doc_with_webhook(),
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
-    monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"headers": [], "data": []}, 200),
-    )
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda m, s: _assigned_market_for_discord())
+    monkeypatch.setattr(MarketsApi, "assign_market", lambda m: _assigned_market_for_discord())
 
     captured = {}
 
@@ -623,12 +518,7 @@ def test_post_assignment_to_discord_returns_502_on_discord_error_status(monkeypa
         lambda query: _sample_market_doc_with_webhook(),
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
-    monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"headers": [], "data": []}, 200),
-    )
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda m, s: _assigned_market_for_discord())
+    monkeypatch.setattr(MarketsApi, "assign_market", lambda m: _assigned_market_for_discord())
     monkeypatch.setattr(
         MarketsApi.requests,
         "post",
@@ -648,12 +538,7 @@ def test_post_assignment_to_discord_returns_502_on_connection_error(monkeypatch)
         lambda query: _sample_market_doc_with_webhook(),
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
-    monkeypatch.setattr(
-        MarketsApi.SourceDataApi,
-        "get_source_data",
-        lambda market_id: ({"headers": [], "data": []}, 200),
-    )
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda m, s: _assigned_market_for_discord())
+    monkeypatch.setattr(MarketsApi, "assign_market", lambda m: _assigned_market_for_discord())
 
     def _raise_conn_error(url, json=None, timeout=None):
         raise MarketsApi.requests.ConnectionError("boom")
@@ -669,7 +554,7 @@ def test_post_assignment_to_discord_returns_502_on_connection_error(monkeypatch)
 def test_derive_market_table_rows_builds_half_table_assignments():
     assigned_market = SimpleNamespace(
         setup_object=SimpleNamespace(
-            market_dates=[SimpleNamespace(date="2026-01-01", col_name="Day 1")],
+            market_dates=[SimpleNamespace(date="2026-01-01")],
             sections=[
                 SimpleNamespace(
                     name="A",
@@ -683,7 +568,7 @@ def test_derive_market_table_rows_builds_half_table_assignments():
             vendor_assignments=[
                 SimpleNamespace(
                     email="left@example.com",
-                    date="Day 1",
+                    date="2026-01-01",
                     table_code="A1",
                     table_choice="Half Table (Left)",
                     section="A",
@@ -692,7 +577,7 @@ def test_derive_market_table_rows_builds_half_table_assignments():
                 ),
                 SimpleNamespace(
                     email="right@example.com",
-                    date="Day 1",
+                    date="2026-01-01",
                     table_code="A1",
                     table_choice="Half Table (Right)",
                     section="A",

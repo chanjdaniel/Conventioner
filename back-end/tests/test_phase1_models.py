@@ -209,19 +209,11 @@ def _make_existing_market_doc(**overrides):
         "organization_id": None,
         "theme": None,
         "setup_object": {
-            "col_names": ["Email", "Date", "TableChoice"],
-            "col_values": [
-                ["vendor@example.com"],
-                ["2025-03-15"],
-                ["Full table"],
-            ],
-            "col_include": [True, True, True],
-            "enum_priority_order": [[], [], []],
             "priority": [
-                {"id": 1, "col_name_idx": 0, "data_type": "String", "sorting_order": "asc"},
+                {"id": 1, "target": "returning_vendor", "ordering": ["yes", "no"]},
             ],
             "market_dates": [
-                {"date": "2025-03-15", "col_name_idx": 1, "col_name": "Date"},
+                {"date": "2025-03-15"},
             ],
             "tiers": [{"id": 1, "name": "Gold"}],
             "locations": [{"name": "Main Hall"}],
@@ -234,10 +226,6 @@ def _make_existing_market_doc(**overrides):
                 },
             ],
             "assignment_options": {
-                "email_col_name_idx": 0,
-                "table_choice_col_name_idx": 2,
-                "table_share_email_col_name_idx": None,
-                "max_days_col_name_idx": None,
                 "max_assignments_per_vendor": 4,
                 "max_half_table_proportion_per_section": 100,
             },
@@ -280,22 +268,13 @@ class TestBackwardCompatibility:
         assert market.is_draft is True
         assert market.phase == MarketPhase.DRAFT
 
-    def test_existing_setup_object_csv_fields_preserved(self):
+    def test_an_existing_setup_object_still_loads(self):
         doc = _make_existing_market_doc()
         market = Market(**doc)
         setup = market.setup_object
         assert setup is not None
-        assert setup.col_names == ["Email", "Date", "TableChoice"]
-        assert setup.col_values == [
-            ["vendor@example.com"],
-            ["2025-03-15"],
-            ["Full table"],
-        ]
-        assert setup.col_include == [True, True, True]
-        assert setup.enum_priority_order == [[], [], []]
-        assert setup.priority[0].col_name_idx == 0
-        assert setup.market_dates[0].col_name_idx == 1
-        assert setup.market_dates[0].col_name == "Date"
+        assert setup.priority[0].target == "returning_vendor"
+        assert [d.date for d in setup.market_dates] == ["2025-03-15"]
 
     def test_existing_market_with_phase_field_respected(self):
         doc = _make_existing_market_doc(
@@ -313,8 +292,9 @@ class TestBackwardCompatibility:
         assert market.setup_object is None
 
 
-class TestSetupObjectOptionalCsvFields:
-    def test_new_market_with_empty_csv_fields(self):
+class TestASetupObjectDescribesNoSpreadsheet:
+    def test_a_market_plan_needs_only_the_organizer_own_decisions(self):
+        """The CSV-derived fields are gone, not merely optional: there is no spreadsheet."""
         setup = SetupObject(
             priority=[],
             market_dates=[],
@@ -323,31 +303,56 @@ class TestSetupObjectOptionalCsvFields:
             sections=[],
             assignment_options=AssignmentOptionObject(),
         )
-        assert setup.col_names == []
-        assert setup.col_values == []
-        assert setup.col_include == []
-        assert setup.enum_priority_order == []
 
-    def test_new_market_without_csv_fields_in_constructor(self):
+        for gone in ("col_names", "col_values", "col_include", "enum_priority_order"):
+            assert not hasattr(setup, gone), f"{gone} should no longer exist on SetupObject"
+
+    def test_assignment_options_hold_no_column_indices(self):
+        options = AssignmentOptionObject()
+
+        for gone in (
+            "email_col_name_idx",
+            "table_choice_col_name_idx",
+            "table_share_email_col_name_idx",
+            "max_days_col_name_idx",
+        ):
+            assert not hasattr(options, gone), f"{gone} should no longer exist"
+
+    def test_a_stored_market_written_before_this_change_still_loads(self):
+        """Pydantic ignores the keys rather than refusing the document."""
         setup = SetupObject(
-            priority=[],
-            market_dates=[],
-            tiers=[],
-            locations=[],
-            sections=[],
-            assignment_options=AssignmentOptionObject(),
+            **{
+                "col_names": ["Email"],
+                "col_values": [["a@example.com"]],
+                "col_include": [True],
+                "enum_priority_order": [[]],
+                "priority": [],
+                "market_dates": [],
+                "tiers": [],
+                "locations": [],
+                "sections": [],
+                "assignment_options": {"email_col_name_idx": 0},
+            }
         )
-        # CSV fields default to empty lists
-        assert isinstance(setup.col_names, list)
+
+        assert setup.priority == []
 
 
-class TestColNameIdxOptional:
-    def test_market_date_without_col_name_idx(self):
+class TestAMarketDateIsADate:
+    def test_it_carries_nothing_but_the_day(self):
         md = MarketDateObject(date="2025-01-15")
-        assert md.date == "2025-01-15"
-        assert md.col_name_idx is None
 
-    def test_priority_without_col_name_idx(self):
-        from datatypes import DataType
-        p = PriorityObject(id=1, data_type=DataType.STRING, sorting_order="asc")
-        assert p.col_name_idx is None
+        assert md.date == "2025-01-15"
+        assert not hasattr(md, "col_name")
+        assert not hasattr(md, "col_name_idx")
+
+    def test_a_stored_date_written_with_a_column_heading_still_loads(self):
+        md = MarketDateObject(**{"date": "2025-01-15", "col_name": "Day 1", "col_name_idx": 3})
+
+        assert md.date == "2025-01-15"
+
+    def test_a_priority_rule_needs_only_an_id(self):
+        """A half-built rule is a normal state in the setup UI, not an error."""
+        rule = PriorityObject(id=1)
+        assert rule.target is None
+        assert rule.ordering == []

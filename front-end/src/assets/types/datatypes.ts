@@ -1,12 +1,3 @@
-export enum DataType {
-  Default = 'Select a datatype',
-  String = 'String',
-  Number = 'Number',
-  Enum = 'Enum',
-  Contains = 'Contains',
-  NotContains = 'Does not contain',
-}
-
 export enum MarketRole {
   Owner = 'owner',
   Admin = 'admin',
@@ -37,16 +28,57 @@ export interface ThemeObject {
   logoUrl?: string;
 }
 
+/**
+ * One rule in the ordered list that decides who is placed first when demand exceeds tables.
+ *
+ * A rule names a `target` - the key of one of the organizer's own form questions - and carries
+ * its own `ordering`, a arrangement of that question's answers, best first. How to order a
+ * target follows from that target's type, so there is no separate data type to declare: the
+ * dropdown that used to ask for one let an organizer mark a text field as a number and get
+ * silence.
+ */
 export interface PriorityObject {
   id: number;
-  colNameIdx: number;
-  dataType: DataType;
-  sortingOrder: string;
+  target: string | null;
+  ordering: string[];
+  direction: PriorityDirection | null;
 }
+
+/** Which end of an ordered target sorts first. Derived from the target's type, never declared. */
+export enum PriorityDirection {
+  Ascending = 'ascending',
+  Descending = 'descending',
+}
+
+/** An organizer need not list every answer: whatever they leave out sorts where this sits. */
+export const ALL_OTHERS = '<All others>';
+
+/**
+ * Targets that are attributes of the application rather than questions the organizer asked.
+ *
+ * First come, first served is probably the most common tiebreaker there is, and no form question
+ * can supply it - offering only fields would force organizers to fake it with a "what time is
+ * it" question. The `application.` namespace can never collide with a field key, which the form
+ * builder holds to `^[a-z0-9_]+$`.
+ */
+export const BUILT_IN_PRIORITY_TARGETS = [
+  {
+    key: 'application.submitted_at',
+    label: 'When the application arrived',
+    kind: 'magnitude' as const,
+    ascendingLabel: 'Earliest first',
+    descendingLabel: 'Latest first',
+  },
+  {
+    key: 'application.application_type',
+    label: 'Application type',
+    kind: 'arranged' as const,
+    options: ['main', 'waitlist'],
+  },
+];
 
 export interface MarketDateObject {
   date: string;
-  colNameIdx: number;
 }
 
 export interface TierObject {
@@ -66,23 +98,12 @@ export interface SectionObject {
 }
 
 export interface AssignmentOptionObject {
+  /** null = the organizer set no ceiling; each vendor is bounded by their own answer. */
   maxAssignmentsPerVendor: number | null;
   maxHalfTableProportionPerSection: number | null;
-  /** Required: index into colNames (blank/null invalid for assignment). */
-  emailColNameIdx: number | null;
-  tableChoiceColNameIdx: number | null;
-  tableShareEmailColNameIdx: number | null;
-  /** Optional: null = no per-vendor max-days cap from CSV (only global limits apply). */
-  maxDaysColNameIdx: number | null;
-  // USE_TOTALLY_RANDOM_ASSIGNMENT: boolean,
-  // USE_MAXIMUM_CAPACITY_ASSIGNMENT: boolean,
 }
 
 export interface SetupObject {
-  colNames: string[];
-  colValues: string[][];
-  colInclude: boolean[];
-  enumPriorityOrder: string[][];
   priority: PriorityObject[];
   marketDates: MarketDateObject[];
   tiers: TierObject[];
