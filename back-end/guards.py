@@ -178,9 +178,10 @@ _NO_APPROVED = NoApprovedApplicationsGuard()
 # listing one here makes it impossible to reach the phase without it.
 PHASE_ENTRY_INVARIANTS: dict[str, list] = {
     "applications_open": [_FORM_HAS_FIELDS],
-    # TODO: Add _PRIORITY_CONFIGURED guard here once priority configuration exists.
-    # The guard should verify that the market's setup_object has at least one
-    # priority entry (enum_priority_order is populated) before assignment can begin.
+    # TODO: Add _PRIORITY_CONFIGURED guard here once it is decided whether a market must
+    # have any priority rule at all. A rule now names a form question and carries its own
+    # ordering, so the check would be that every rule has a target and a non-empty ordering -
+    # a half-built rule scores every vendor alike, which is silent rather than wrong.
     "assignment": [_ALL_REVIEWED],
     "offers": [_NO_APPROVED],
 }

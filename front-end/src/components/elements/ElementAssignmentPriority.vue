@@ -1,19 +1,35 @@
 <script setup lang="ts">
 import { onMounted, ref, toRef, nextTick, computed, watch } from 'vue';
 import draggable from 'vuedraggable';
-import { type SetupObject, type PriorityObject } from '@/assets/types/datatypes';
+import {
+  ALL_OTHERS,
+  type FormField,
+  type PriorityObject,
+  type SetupObject,
+} from '@/assets/types/datatypes';
 import IconAddRound from '../icons/IconAddRound.vue';
 import IconClickDrag from '../icons/IconClickDrag.vue';
 import IconClickDragSmall from '../icons/IconClickDragSmall.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
-import { DataType } from '@/assets/types/datatypes';
 
-const props = defineProps<{ setupObject: SetupObject }>();
+/**
+ * The ordered rules that decide who is placed first when demand exceeds tables.
+ *
+ * A rule names one of the organizer's own form questions and arranges its answers, best first.
+ * Priority is exactly where markets differ from one another, so the targets have to be the
+ * organizer's own questions rather than a vocabulary we chose for them.
+ *
+ * There is deliberately no data-type dropdown. The one that used to sit here offered five types
+ * the solver read nothing from, so a rule marked as a number in ascending order scored every
+ * vendor identically and did nothing, with no error and no warning. How to order a target
+ * follows from the target's own type, which makes that state unrepresentable rather than merely
+ * discouraged.
+ */
+const props = defineProps<{ setupObject: SetupObject; formFields?: FormField[] }>();
 const emit = defineEmits(['update:setupObject']);
 
 const setupObject = toRef(props, 'setupObject');
 const priorityObjects = toRef(setupObject.value, 'priority');
-const enumPriorityOrder = toRef(setupObject.value, 'enumPriorityOrder');
 
 watch(
   () => setupObject.value.priority,
@@ -23,47 +39,30 @@ watch(
   { deep: true },
 );
 
-watch(
-  () => setupObject.value.enumPriorityOrder,
-  () => {
-    emit('update:setupObject', setupObject.value);
-  },
-  { deep: true },
+/**
+ * The questions a rule may target: those whose answers form a fixed, orderable set.
+ *
+ * A free-text question has no arrangement to make, so offering it would only let an organizer
+ * build a rule that cannot do anything.
+ */
+const ORDERABLE_FIELD_TYPES = ['select', 'multi_select'];
+
+const targetableFields = computed<FormField[]>(() =>
+  (props.formFields ?? []).filter((field) => ORDERABLE_FIELD_TYPES.includes(field.type)),
 );
 
-const watchers = new Map<number, () => void>();
-const watchPriorityObject = (id: number) => {
-  const getObjectIndex = (id: number) => {
-    return priorityObjects.value.findIndex((obj) => obj.id == id);
-  };
-  const objectIndex = getObjectIndex(id);
+const fieldFor = (target: string | null): FormField | undefined =>
+  targetableFields.value.find((field) => field.key === target);
 
-  const watcher = watch(
-    () => priorityObjects.value[objectIndex],
-    (newObj) => {
-      if (!newObj) {
-        removeWatcher(id);
-        return;
-      }
+const labelFor = (target: string | null): string => fieldFor(target)?.label ?? '';
 
-      if (
-        !dataTypeSorting[newObj.dataType].includes(newObj.sortingOrder) &&
-        newObj.sortingOrder !== ''
-      ) {
-        priorityObjects.value[objectIndex].sortingOrder = '';
-      }
-    },
-    { deep: true },
-  );
-
-  watchers.set(id, watcher);
-};
-
-const removeWatcher = (objId: number) => {
-  if (watchers.has(objId)) {
-    watchers.get(objId)!();
-    watchers.delete(objId);
-  }
+/** Answers this rule's target offers that the organizer has not placed yet. */
+const unplacedOptions = (rule: PriorityObject): string[] => {
+  const field = fieldFor(rule.target);
+  if (!field) return [];
+  const remaining = field.options.filter((option) => !rule.ordering.includes(option));
+  if (!rule.ordering.includes(ALL_OTHERS)) remaining.push(ALL_OTHERS);
+  return remaining;
 };
 
 const rowsMaxHeight = ref<string | null>(null);
@@ -79,55 +78,36 @@ const setHeight = () => {
   });
 };
 
-const dataTypes: DataType[] = [
-  DataType.String,
-  DataType.Number,
-  DataType.Enum,
-  DataType.Contains,
-  DataType.NotContains,
-];
-const dataTypeSorting: Record<DataType, string[]> = {
-  [DataType.String]: ['A-Z', 'Z-A'],
-  [DataType.Number]: ['Ascending', 'Descending'],
-  [DataType.Enum]: [],
-  [DataType.Contains]: [],
-  [DataType.NotContains]: [],
-  [DataType.Default]: [],
-};
-const colDefault = 'Select a column';
-const dataTypeDefault: DataType = DataType.Default;
-const sortingDefault = 'Select a sorting order';
-const enumDefault = 'Select a value';
+const targetDefault = 'Select a question';
+const optionDefault = 'Add an answer';
 
 onMounted(() => {
   setHeight();
 });
 
-const addPriorityRow = () => {
-  const newPriorityObject: PriorityObject = {
-    id: priorityObjects.value.length + 1,
-    colNameIdx: -1,
-    dataType: dataTypeDefault,
-    sortingOrder: '',
-  };
-  priorityObjects.value.push(newPriorityObject);
-  watchPriorityObject(newPriorityObject.id);
-};
+const nextRuleId = () =>
+  priorityObjects.value.reduce((highest, rule) => Math.max(highest, rule.id), 0) + 1;
 
-function sortingItemIndex(index: number) {
-  return priorityObjects.value[index].colNameIdx;
-}
+const addPriorityRow = () => {
+  priorityObjects.value.push({ id: nextRuleId(), target: null, ordering: [] });
+};
 
 const removePriorityRow = (index: number) => {
   priorityObjects.value.splice(index, 1);
 };
 
-const addEnumSortingItem = (index: number) => {
-  enumPriorityOrder.value[index].push(enumDefault);
+/** Retargeting a rule discards an ordering that belonged to a different question's answers. */
+const handleTargetChange = (index: number) => {
+  priorityObjects.value[index].ordering = [];
 };
 
-const removeEnumSortingItem = (parentIndex: number, childIndex: number) => {
-  enumPriorityOrder.value[sortingItemIndex(parentIndex)].splice(childIndex, 1);
+const addOrderingItem = (index: number, value: string) => {
+  if (!value) return;
+  priorityObjects.value[index].ordering.push(value);
+};
+
+const removeOrderingItem = (parentIndex: number, childIndex: number) => {
+  priorityObjects.value[parentIndex].ordering.splice(childIndex, 1);
 };
 
 const hoverParentIndex = ref(null);
@@ -149,17 +129,21 @@ const dragOptions = computed(() => ({
   <div class="container" ref="container">
     <div class="column-titles row-container" ref="columnTitles">
       <h3>Priority</h3>
-      <h3>Column</h3>
-      <h3>Data type</h3>
-      <h3>Sorting order</h3>
+      <h3>Question</h3>
+      <h3>Answers, best first</h3>
       <h3></h3>
     </div>
     <div class="rows" ref="rows">
+      <p v-if="targetableFields.length === 0" class="empty-hint">
+        Priority rules order vendors by an answer on your application form. Add a question with a
+        fixed set of answers, such as a dropdown or a multi-select, and it will appear here.
+      </p>
       <draggable class="priority-rows" v-model="priorityObjects" item-key="id" v-bind="dragOptions">
         <template #item="{ element, index: parentIndex }">
           <div
             class="priority-row row-container"
             :key="element.id"
+            data-testid="priority-rule-row"
             @mouseover="hoverParentIndex = parentIndex"
             @mouseleave="hoverParentIndex = null"
           >
@@ -168,35 +152,28 @@ const dragOptions = computed(() => ({
               <h3>{{ parentIndex + 1 }}</h3>
             </div>
             <div class="row-item click-item">
-              <select class="dropdown" v-model="priorityObjects[parentIndex].colNameIdx">
-                <option disabled value="">{{ colDefault }}</option>
+              <select
+                class="dropdown"
+                data-testid="priority-target-select"
+                v-model="priorityObjects[parentIndex].target"
+                @change="handleTargetChange(parentIndex)"
+              >
+                <option disabled :value="null">{{ targetDefault }}</option>
                 <option
                   class="display-list"
-                  v-for="(value, index) in setupObject.colNames"
-                  :key="index"
-                  :value="index"
+                  v-for="field in targetableFields"
+                  :key="field.key"
+                  :value="field.key"
                 >
-                  {{ value }}
-                </option>
-              </select>
-            </div>
-            <div class="row-item click-item">
-              <select class="dropdown" v-model="priorityObjects[parentIndex].dataType">
-                <option disabled value="">{{ dataTypeDefault }}</option>
-                <option class="display-list" v-for="value in dataTypes" :key="value" :value="value">
-                  {{ value }}
+                  {{ field.label }}
                 </option>
               </select>
             </div>
             <div class="row-item">
-              <div
-                class="sorting-order-container"
-                v-if="priorityObjects[parentIndex].dataType === DataType.Enum"
-              >
+              <div class="sorting-order-container" v-if="priorityObjects[parentIndex].target">
                 <draggable
                   class="sorting-rows"
-                  v-if="priorityObjects[parentIndex].dataType === DataType.Enum"
-                  v-model="enumPriorityOrder[priorityObjects[parentIndex].colNameIdx]"
+                  v-model="priorityObjects[parentIndex].ordering"
                   item-key="element"
                   :options="{
                     handle: '.sorting-index-drag',
@@ -210,9 +187,10 @@ const dragOptions = computed(() => ({
                   :chosenClass="'sorting-ghost'"
                   :dragClass="'sorting-ghost'"
                 >
-                  <template #item="{ index: childIndex }">
+                  <template #item="{ element: answer, index: childIndex }">
                     <div
                       class="sorting-order-row"
+                      data-testid="priority-ordering-row"
                       @mouseover="hoverChildIndex = childIndex"
                       @mouseleave="hoverChildIndex = null"
                     >
@@ -220,119 +198,54 @@ const dragOptions = computed(() => ({
                         <IconClickDragSmall class="sorting-click-drag" />
                         <h3>{{ childIndex + 1 }}</h3>
                       </div>
-                      <h4 class="row-container sorting-text">
-                        <select
-                          class="dropdown"
-                          v-model="enumPriorityOrder[sortingItemIndex(parentIndex)][childIndex]"
-                        >
-                          <option disabled value="">{{ enumDefault }}</option>
-                          <option value="<All others>">&lt;All others&gt;</option>
-                          <option
-                            class="display-list"
-                            v-for="value in setupObject.colValues[sortingItemIndex(parentIndex)]"
-                            :key="value"
-                            :value="value"
-                          >
-                            {{ value }}
-                          </option>
-                        </select>
-                      </h4>
-                      <div
-                        style="
-                          width: 40px;
-                          display: flex;
-                          flex-direction: row;
-                          align-items: center;
-                          justify-content: center;
-                        "
-                      >
-                        <IconCloseRound
-                          :class="{
-                            'hidden-icon':
-                              hoverChildIndex !== childIndex || hoverParentIndex !== parentIndex,
-                          }"
-                          class="icon-close-round"
-                          style="width: 15px"
-                          @click="removeEnumSortingItem(parentIndex, childIndex)"
-                        />
-                      </div>
+                      <h3 class="sorting-answer">{{ answer }}</h3>
+                      <IconCloseRound
+                        class="close-round"
+                        data-testid="priority-ordering-remove"
+                        @click="removeOrderingItem(parentIndex, childIndex)"
+                      />
                     </div>
                   </template>
                 </draggable>
-                <IconAddRound
-                  :class="{
-                    'hidden-icon':
-                      hoverParentIndex !== parentIndex ||
-                      priorityObjects[parentIndex].colNameIdx === -1,
-                  }"
-                  @click="addEnumSortingItem(sortingItemIndex(parentIndex))"
-                  style="cursor: pointer"
-                />
-              </div>
-              <div v-else-if="priorityObjects[parentIndex].dataType === DataType.Default"></div>
-              <div
-                v-else-if="
-                  priorityObjects[parentIndex].dataType === DataType.Contains ||
-                  priorityObjects[parentIndex].dataType === DataType.NotContains
-                "
-                style="width: 100%; display: flex; align-items: center; justify-content: center"
-              >
-                <div class="input-container row-item">
-                  <input
-                    type="text"
-                    v-model="priorityObjects[parentIndex].sortingOrder"
-                    style="
-                      all: unset;
-                      font-size: 14px;
-                      width: 100%;
-                      align-items: center;
-                      justify-content: center;
-                    "
-                  />
-                </div>
-              </div>
-              <select
-                v-else
-                class="dropdown"
-                style="text-align: center"
-                v-model="priorityObjects[parentIndex].sortingOrder"
-              >
-                <option disabled value="">{{ sortingDefault }}</option>
-                <option
-                  class="display-list"
-                  v-for="value in dataTypeSorting[priorityObjects[parentIndex].dataType]"
-                  :key="value"
-                  :value="value"
+                <select
+                  class="dropdown add-answer"
+                  data-testid="priority-ordering-add"
+                  :value="''"
+                  @change="
+                    addOrderingItem(parentIndex, ($event.target as HTMLSelectElement).value);
+                    ($event.target as HTMLSelectElement).value = '';
+                  "
                 >
-                  {{ value }}
-                </option>
-              </select>
+                  <option value="">{{ optionDefault }}</option>
+                  <option
+                    v-for="option in unplacedOptions(priorityObjects[parentIndex])"
+                    :key="option"
+                    :value="option"
+                  >
+                    {{ option }}
+                  </option>
+                </select>
+                <p class="ordering-hint" v-if="priorityObjects[parentIndex].ordering.length === 0">
+                  Add the answers to &ldquo;{{
+                    labelFor(priorityObjects[parentIndex].target)
+                  }}&rdquo; in the order you want them placed. Anything you leave out sorts last, or
+                  where you put &ldquo;{{ ALL_OTHERS }}&rdquo;.
+                </p>
+              </div>
             </div>
-            <div
-              style="
-                padding: none;
-                display: flex;
-                flex-direction: row;
-                align-items: center;
-                justify-content: center;
-              "
-            >
+            <div class="row-item">
               <IconCloseRound
-                :class="{ 'hidden-icon': hoverParentIndex !== parentIndex }"
-                class="icon-close-round"
-                @click="
-                  () => {
-                    removePriorityRow(parentIndex);
-                  }
-                "
+                class="close-round"
+                data-testid="priority-rule-remove"
+                @click="removePriorityRow(parentIndex)"
               />
             </div>
           </div>
         </template>
       </draggable>
-
-      <div class="add-container">
-        <IconAddRound class="icon-add-round" @click="addPriorityRow" />
+      <div class="add-row" data-testid="priority-add-rule" @click="addPriorityRow">
+        <IconAddRound class="add-round" />
+        <h3>Add a rule</h3>
       </div>
     </div>
   </div>

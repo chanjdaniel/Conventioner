@@ -64,7 +64,6 @@ const setupObject = reactive<SetupObject>({
   colNames: [],
   colValues: [],
   colInclude: [],
-  enumPriorityOrder: [],
   priority: [],
   marketDates: [],
   tiers: [],
@@ -550,6 +549,7 @@ watch(pageIdx, (newIdx) => {
                 <template #setting-content>
                   <ElementAssignmentPriority
                     :setupObject="setupObject"
+                    :formFields="applicationForm?.fields ?? []"
                     @update:setupObject="handleUpdateSetupObject"
                   />
                 </template>

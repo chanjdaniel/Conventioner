@@ -65,7 +65,6 @@ export interface MarketSchema {
     colInclude?: boolean[];
     colNames?: string[];
     colValues?: string[][];
-    enumPriorityOrder?: string[][];
     floorplans?: {
       id?: string;
       imageGridfsId?: string;
@@ -123,10 +122,9 @@ export interface MarketSchema {
       date: string;
     }[];
     priority: {
-      colNameIdx?: number;
-      dataType: string;
       id: number;
-      sortingOrder: string;
+      ordering?: string[];
+      target?: string;
     }[];
     sections: {
       count: number;

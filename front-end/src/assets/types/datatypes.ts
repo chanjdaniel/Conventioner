@@ -1,12 +1,3 @@
-export enum DataType {
-  Default = 'Select a datatype',
-  String = 'String',
-  Number = 'Number',
-  Enum = 'Enum',
-  Contains = 'Contains',
-  NotContains = 'Does not contain',
-}
-
 export enum MarketRole {
   Owner = 'owner',
   Admin = 'admin',
@@ -37,12 +28,23 @@ export interface ThemeObject {
   logoUrl?: string;
 }
 
+/**
+ * One rule in the ordered list that decides who is placed first when demand exceeds tables.
+ *
+ * A rule names a `target` - the key of one of the organizer's own form questions - and carries
+ * its own `ordering`, a arrangement of that question's answers, best first. How to order a
+ * target follows from that target's type, so there is no separate data type to declare: the
+ * dropdown that used to ask for one let an organizer mark a text field as a number and get
+ * silence.
+ */
 export interface PriorityObject {
   id: number;
-  colNameIdx: number;
-  dataType: DataType;
-  sortingOrder: string;
+  target: string | null;
+  ordering: string[];
 }
+
+/** An organizer need not list every answer: whatever they leave out sorts where this sits. */
+export const ALL_OTHERS = '<All others>';
 
 export interface MarketDateObject {
   date: string;
@@ -82,7 +84,6 @@ export interface SetupObject {
   colNames: string[];
   colValues: string[][];
   colInclude: boolean[];
-  enumPriorityOrder: string[][];
   priority: PriorityObject[];
   marketDates: MarketDateObject[];
   tiers: TierObject[];

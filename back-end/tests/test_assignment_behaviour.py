@@ -507,3 +507,143 @@ class TestTheOrganizersCapOnAssignmentsPerVendor:
         )
 
         assert len(dates_for(market, "twelve@example.com")) == 6
+
+
+class TestTheOrganizersPriorityRules:
+    """A rule an organizer configures actually changes who is placed first.
+
+    The old scheme scored on one case only: an enumerated ordering looked up by column index.
+    Anything else - a rule marked as a number, ascending - scored every vendor identically and
+    did nothing, with no error and no warning. These tests would fail under that behaviour.
+    """
+
+    def _one_table_market(self, wants, rules):
+        from datatypes import PriorityObject
+
+        market = market_for(wants, section_counts=((GOLD, 1),), dates=[DATES[0]])
+        market.setup_object.priority = [
+            PriorityObject(id=index, target=target, ordering=ordering)
+            for index, (target, ordering) in enumerate(rules)
+        ]
+        return market
+
+    def _assign_with(self, wants, rules, answers):
+        market = self._one_table_market(wants, rules)
+        vendors = []
+        for want in wants:
+            vendor = want.as_solver_vendor()
+            vendors.append(
+                type(vendor)(
+                    **{
+                        **vendor.__dict__,
+                        "custom_answers": answers[want.email],
+                    }
+                )
+            )
+        return assign_market(market, vendors)
+
+    def _contenders(self):
+        return [
+            VendorWant("returning@example.com", available=[DATES[0]], tiers=[GOLD]),
+            VendorWant("newcomer@example.com", available=[DATES[0]], tiers=[GOLD]),
+        ]
+
+    def test_the_higher_ranked_answer_takes_the_only_table(self):
+        market = self._assign_with(
+            self._contenders(),
+            [("returning_vendor", ["yes", "no"])],
+            {
+                "returning@example.com": {"returning_vendor": "yes"},
+                "newcomer@example.com": {"returning_vendor": "no"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["returning@example.com"]
+
+    def test_reversing_the_ordering_reverses_who_is_placed(self):
+        """The sharpest proof the rule is read: only the ordering differs between the two runs."""
+        market = self._assign_with(
+            self._contenders(),
+            [("returning_vendor", ["no", "yes"])],
+            {
+                "returning@example.com": {"returning_vendor": "yes"},
+                "newcomer@example.com": {"returning_vendor": "no"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["newcomer@example.com"]
+
+    def test_an_answer_the_organizer_did_not_place_falls_to_all_others(self):
+        market = self._assign_with(
+            self._contenders(),
+            [("category", ["Food", "<All others>", "Vintage"])],
+            {
+                "returning@example.com": {"category": "Ceramics"},
+                "newcomer@example.com": {"category": "Vintage"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["returning@example.com"]
+
+    def test_an_unplaced_answer_sorts_last_when_there_is_no_all_others_token(self):
+        market = self._assign_with(
+            self._contenders(),
+            [("category", ["Food", "Vintage"])],
+            {
+                "returning@example.com": {"category": "Ceramics"},
+                "newcomer@example.com": {"category": "Vintage"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["newcomer@example.com"]
+
+    def test_a_later_rule_only_breaks_a_tie_the_earlier_one_left(self):
+        market = self._assign_with(
+            self._contenders(),
+            [("returning_vendor", ["yes", "no"]), ("category", ["Food", "Vintage"])],
+            {
+                "returning@example.com": {"returning_vendor": "yes", "category": "Vintage"},
+                "newcomer@example.com": {"returning_vendor": "no", "category": "Food"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["returning@example.com"], (
+            "the first rule decides; the second must not overturn it"
+        )
+
+    def test_a_tie_on_the_first_rule_is_broken_by_the_second(self):
+        market = self._assign_with(
+            self._contenders(),
+            [("returning_vendor", ["yes", "no"]), ("category", ["Food", "Vintage"])],
+            {
+                "returning@example.com": {"returning_vendor": "yes", "category": "Vintage"},
+                "newcomer@example.com": {"returning_vendor": "yes", "category": "Food"},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["newcomer@example.com"]
+
+    def test_a_half_built_rule_does_not_break_the_run(self):
+        """An organizer mid-edit has a rule with no target yet. That is not an error."""
+        market = self._assign_with(
+            self._contenders(),
+            [(None, [])],
+            {
+                "returning@example.com": {},
+                "newcomer@example.com": {},
+            },
+        )
+
+        assert len(placements(market)) == 1
+
+    def test_a_multi_select_answer_sorts_by_the_applicants_first_choice(self):
+        market = self._assign_with(
+            self._contenders(),
+            [("category", ["Food", "Vintage"])],
+            {
+                "returning@example.com": {"category": ["Vintage", "Food"]},
+                "newcomer@example.com": {"category": ["Food", "Vintage"]},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["newcomer@example.com"]

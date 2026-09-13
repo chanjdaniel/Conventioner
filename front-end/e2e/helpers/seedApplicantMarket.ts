@@ -58,7 +58,6 @@ export function planSetupObject(dates: string[] = PLAN_DATES) {
     colNames: [],
     colValues: [],
     colInclude: [],
-    enumPriorityOrder: [],
     priority: [],
     marketDates: dates.map((date) => ({ date, colNameIdx: null })),
     tiers: PLAN_TIERS.map((name, id) => ({ id, name })),
