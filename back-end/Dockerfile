@@ -32,8 +32,8 @@ COPY --chown=appuser:appuser docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Create necessary directories with proper permissions
-RUN mkdir -p flask_session csv_exports && \
-    chown -R appuser:appuser flask_session csv_exports
+RUN mkdir -p flask_session && \
+    chown -R appuser:appuser flask_session
 
 # Expose port
 EXPOSE 5000

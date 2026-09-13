@@ -8,10 +8,5 @@ if [ -d "/app/flask_session" ]; then
     chmod -R 755 /app/flask_session 2>/dev/null || true
 fi
 
-if [ -d "/app/csv_exports" ]; then
-    chown -R appuser:appuser /app/csv_exports 2>/dev/null || true
-    chmod -R 755 /app/csv_exports 2>/dev/null || true
-fi
-
 # Switch to non-root user and execute the command
 exec gosu appuser "$@"
