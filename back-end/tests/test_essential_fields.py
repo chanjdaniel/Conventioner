@@ -53,9 +53,6 @@ def _camel_table_type(name: str) -> dict:
 
 
 SETUP_CAMEL = {
-    "colNames": [],
-    "colValues": [],
-    "colInclude": [],
     "priority": [],
     "marketDates": [{"date": date} for date in DATES],
     "tiers": [{"id": index, "name": name} for index, name in enumerate(TIERS)],

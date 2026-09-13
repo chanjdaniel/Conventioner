@@ -926,3 +926,56 @@ class TestSectionPreference:
         ])
 
         assert len(placements(market)) == 1
+
+
+class TestTheSameMarketAssignsTheSameWayTwice:
+    """Determinism matters to an organizer who re-runs assignment and compares.
+
+    Vendor order used to fall through to whatever the database returned once priority and
+    flexibility had nothing left to say.
+    """
+
+    def _contenders(self):
+        return [
+            VendorWant("later@example.com", available=[DATES[0]], tiers=[GOLD]),
+            VendorWant("earlier@example.com", available=[DATES[0]], tiers=[GOLD]),
+        ]
+
+    def _assign_one_table(self, order, submitted):
+        market = market_for(order, section_counts=((GOLD, 1),), dates=[DATES[0]])
+        vendors = []
+        for want in order:
+            vendor = want.as_solver_vendor()
+            vendors.append(
+                type(vendor)(**{**vendor.__dict__, "submitted_at": submitted[want.email]})
+            )
+        return assign_market(market, vendors)
+
+    def test_the_earlier_application_wins_a_tie_nothing_else_separates(self):
+        submitted = {
+            "earlier@example.com": "2025-01-01T09:00:00",
+            "later@example.com": "2025-02-01T09:00:00",
+        }
+
+        market = self._assign_one_table(self._contenders(), submitted)
+
+        assert [p[0] for p in placements(market)] == ["earlier@example.com"]
+
+    def test_the_input_order_does_not_decide_it(self):
+        """The same two vendors, handed over in the opposite order, place the same person."""
+        submitted = {
+            "earlier@example.com": "2025-01-01T09:00:00",
+            "later@example.com": "2025-02-01T09:00:00",
+        }
+        forwards = self._assign_one_table(self._contenders(), submitted)
+        backwards = self._assign_one_table(list(reversed(self._contenders())), submitted)
+
+        assert [p[0] for p in placements(forwards)] == [p[0] for p in placements(backwards)]
+
+    def test_vendors_with_no_recorded_time_are_still_ordered_reproducibly(self):
+        submitted = {"earlier@example.com": None, "later@example.com": None}
+
+        forwards = self._assign_one_table(self._contenders(), submitted)
+        backwards = self._assign_one_table(list(reversed(self._contenders())), submitted)
+
+        assert [p[0] for p in placements(forwards)] == [p[0] for p in placements(backwards)]

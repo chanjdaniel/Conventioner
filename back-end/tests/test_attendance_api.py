@@ -385,14 +385,14 @@ class TestSlugLookupQueriesTheStoredSlug:
                 "Live Market",
                 phase="archived",
                 isDraft=False,
-                setupObject={"colNames": ["Saturday"]},
+                setupObject={"marketDates": [{"date": "2026-05-01"}]},
                 assignmentObject={"vendorAssignments": []},
             ),
         )
 
         found = AttendanceApi.get_published_market_by_slug("live-market")
 
-        assert found["setupObject"] == {"colNames": ["Saturday"]}
+        assert found["setupObject"] == {"marketDates": [{"date": "2026-05-01"}]}
         assert found["assignmentObject"] == {"vendorAssignments": []}
 
     def test_a_market_with_no_stored_slug_is_not_reachable(self, monkeypatch):

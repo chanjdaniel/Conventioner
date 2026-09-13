@@ -37,18 +37,25 @@ offering one table type does not ask for a table-type ranking, so an empty ranki
 answer, not a missing one - and in MVP that is *every* market, since table type is stubbed to a
 single type. Requiring it unconditionally would reject every application in the product.
 
-Why an answer is checked against the offering
----------------------------------------------
-A required answer being *present* is not enough. An availability list holding a date the market
-does not offer - a different spelling, or a date dropped from the plan - matches no market date,
-so the vendor is placed nowhere and nobody is told why. That is the same silent failure the
-typed record exists to remove, merely moved from the attribute's name to its value, so an answer
-naming something the market never offered is reported rather than carried.
+An answer the market does not offer
+-----------------------------------
+Values that are not in the offering are **dropped**, not carried and not treated as an error.
 
-The applicant-facing form cannot produce one: ``_validate_accepted_subset`` and
-``_validate_ranking`` refuse it at submission, and the offering is frozen against the answers
-recorded under it. Reaching this check therefore means a document that did not come through that
-path, which is exactly when a loud failure is worth more than a quiet placement.
+Carrying them would be the silent failure the typed record exists to remove: a date the market
+does not run matches no market date, so it can only ever be dead weight. But refusing the run
+over them would be worse, because the ordinary way one appears is an organizer editing their
+plan after applications are in - dropping a tier, removing a day. An applicant who chose that
+tier did nothing wrong, and stopping the whole market until someone edits their answers is a
+disproportionate response to a decision the organizer just made.
+
+So a value the market no longer offers simply cannot be honoured. If that leaves a vendor with
+no acceptable tier or no available date, they are unplaceable, and they appear in the
+assignment's ``unassigned_vendors`` - which is the channel that already exists for exactly this
+and is what an organizer reads afterwards.
+
+What still refuses the run is an answer that is **absent**: a question the market asks and this
+application never answered at all. That is an incomplete record rather than a stale one, and no
+plan edit can produce it.
 """
 from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Tuple
@@ -97,20 +104,20 @@ class IncompleteApplication:
     would produce an assignment that looks complete with someone silently missing, which is the
     failure this whole rewrite exists to remove.
 
-    The two reasons are kept apart because they read differently to whoever has to fix them:
-    ``missing`` names questions left unanswered, while ``unrecognised`` names answers given to
-    questions this market never asked that way.
+    ``missing`` names the questions this application never answered. An answer that names
+    something the market no longer offers is NOT here: see the module docstring - that is a stale
+    answer rather than an incomplete one, and it makes the vendor unplaceable rather than the
+    market unassignable.
     """
 
     application_id: str
     applicant_email: str
     missing: Tuple[str, ...]
-    unrecognised: Tuple[str, ...] = ()
 
     @property
     def reasons(self) -> Tuple[str, ...]:
         """Every reason this application cannot be placed, for a caller building one message."""
-        return self.missing + self.unrecognised
+        return self.missing
 
 
 def solver_vendors_from_applications(
@@ -164,14 +171,18 @@ def _solver_vendor(
     answers: Dict[str, Any] = application.form_data or {}
     asked = EF.asked_essential_keys(options)
     missing: List[str] = []
-    unrecognised: List[str] = []
 
     email = _text(application.applicant_email)
     if not email:
         missing.append(EF.EMAIL_LABEL)
 
     def answer(key: str, label: str) -> List[str]:
-        """A list answer, required when asked and checked against what the question offered."""
+        """A list answer: required when asked, and narrowed to what the market still offers.
+
+        Answering nothing is missing. Answering only things the market no longer offers is not:
+        it leaves an empty answer that makes this vendor unplaceable, which the assignment
+        reports as an unassigned vendor.
+        """
         names = EF.normalized_names(answers.get(key))
         if key not in asked:
             return names
@@ -179,10 +190,7 @@ def _solver_vendor(
             missing.append(label)
             return names
         offered = EF.offering_for_key(key, options)
-        strangers = [name for name in names if name not in offered]
-        if strangers:
-            unrecognised.append(f"{label}: {', '.join(strangers)}")
-        return names
+        return [name for name in names if name in offered] if offered else names
 
     available_dates = answer(EF.AVAILABLE_DATES_KEY, EF.AVAILABLE_DATES_LABEL)
     accepted_tiers = answer(EF.TIER_PREFERENCE_KEY, EF.TIER_PREFERENCE_LABEL)
@@ -199,12 +207,11 @@ def _solver_vendor(
     if EF.TABLE_CHOICE_KEY in asked and table_choice not in EF.TABLE_CHOICES:
         missing.append(EF.TABLE_CHOICE_LABEL)
 
-    if missing or unrecognised:
+    if missing:
         return None, IncompleteApplication(
             application_id=application.id,
             applicant_email=email,
             missing=tuple(missing),
-            unrecognised=tuple(unrecognised),
         )
 
     return (

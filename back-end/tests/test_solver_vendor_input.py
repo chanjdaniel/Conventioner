@@ -212,67 +212,70 @@ class TestReportingAnIncompleteApplication:
         assert [i.applicant_email for i in incomplete] == ["bad@example.com"]
 
 
-class TestAnAnswerTheMarketNeverOffered:
-    """Present is not the same as usable.
+class TestAnAnswerTheMarketNoLongerOffers:
+    """Stale, not incomplete.
 
-    A date the market does not offer matches no market date, so the vendor is placed nowhere.
-    Carrying it would be the same silent failure the typed record exists to remove, moved from
-    the attribute's name to its value.
+    The ordinary way one of these appears is an organizer editing their plan after applications
+    are in - dropping a tier, removing a day. The applicant who chose it did nothing wrong, so
+    the value is dropped rather than carried (it can never be honoured) and rather than refusing
+    the run (which would stop the whole market over a decision the organizer just made).
     """
 
-    def test_an_available_date_the_market_does_not_offer_is_reported(self):
+    def test_a_date_the_market_does_not_offer_is_dropped(self):
         app = application(
             **{EF.AVAILABLE_DATES_KEY: ["2026-06-01", "2026-12-25"]}
         )
 
         vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
 
-        assert vendors == []
-        assert any("2026-12-25" in reason for reason in incomplete[0].unrecognised)
+        assert incomplete == []
+        assert vendors[0].available_dates == frozenset({"2026-06-01"})
 
-    def test_a_differently_spelled_date_is_not_silently_unplaceable(self):
-        app = application(**{EF.AVAILABLE_DATES_KEY: ["2026-6-1"]})
-
-        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
-
-        assert vendors == []
-        assert incomplete[0].unrecognised
-
-    def test_a_tier_the_market_does_not_offer_is_reported(self):
+    def test_a_tier_the_market_does_not_offer_is_dropped(self):
         app = application(**{EF.TIER_PREFERENCE_KEY: ["A", "Platinum"]})
 
         vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
 
-        assert vendors == []
-        assert any("Platinum" in reason for reason in incomplete[0].unrecognised)
+        assert incomplete == []
+        assert vendors[0].accepted_tiers == frozenset({"A"})
 
-    def test_a_section_the_market_does_not_offer_is_reported(self):
+    def test_a_section_the_market_does_not_offer_is_dropped_from_the_ranking(self):
         app = application(
-            **{EF.SECTION_RANKING_KEY: ["Food", "Artisan", "Mezzanine"]}
+            **{EF.SECTION_RANKING_KEY: ["Food", "Mezzanine", "Artisan"]}
         )
 
         vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
 
+        assert incomplete == []
+        assert vendors[0].section_ranking == ("Food", "Artisan")
+
+    def test_a_vendor_left_with_no_acceptable_tier_is_built_but_unplaceable(self):
+        """Unplaceable, not unassignable: they show up as an unassigned vendor afterwards."""
+        app = application(**{EF.TIER_PREFERENCE_KEY: ["Platinum"]})
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert incomplete == []
+        assert vendors[0].accepted_tiers == frozenset()
+
+    def test_a_vendor_left_with_no_available_date_is_built_but_unplaceable(self):
+        app = application(**{EF.AVAILABLE_DATES_KEY: ["2026-12-25"]})
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert incomplete == []
+        assert vendors[0].available_dates == frozenset()
+
+    def test_answering_nothing_at_all_is_still_missing(self):
+        """The distinction that matters: no plan edit can produce an unanswered question."""
+        app = application(**{EF.TIER_PREFERENCE_KEY: []})
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
         assert vendors == []
-        assert any("Mezzanine" in reason for reason in incomplete[0].unrecognised)
+        assert EF.TIER_PREFERENCE_LABEL in incomplete[0].missing
 
-    def test_an_unrecognised_answer_reads_differently_from_a_missing_one(self):
-        app = application(
-            **{
-                EF.AVAILABLE_DATES_KEY: ["2026-12-25"],
-                EF.TABLE_CHOICE_KEY: None,
-            }
-        )
-
-        _, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
-
-        assert EF.TABLE_CHOICE_LABEL in incomplete[0].missing
-        assert any("2026-12-25" in reason for reason in incomplete[0].unrecognised)
-        assert set(incomplete[0].reasons) == set(
-            incomplete[0].missing + incomplete[0].unrecognised
-        )
-
-    def test_a_question_the_market_did_not_ask_is_not_checked_against_an_offering(self):
+    def test_a_question_the_market_did_not_ask_is_not_narrowed(self):
         """Table type is stubbed to one type, so its ranking is not a question at all."""
         app = application(**{EF.TABLE_TYPE_RANKING_KEY: ["Whatever"]})
 

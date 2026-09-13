@@ -1,5 +1,10 @@
 import type { APIRequestContext } from '@playwright/test';
-import { type SeedResult, seedMarketWithVendors, marketNameToSlug } from './seeds';
+import {
+  SEED_MARKET_DATE,
+  type SeedResult,
+  seedMarketWithVendors,
+  marketNameToSlug,
+} from './seeds';
 
 export interface AssignedSeedResult extends SeedResult {
   slug: string;
@@ -30,7 +35,7 @@ export async function seedAssignedMarket(
   // setupObject used to carry their answers as spreadsheet cell values as well.
   const setupObject = {
     priority: [],
-    marketDates: [{ date: '2025-06-01' }],
+    marketDates: [{ date: SEED_MARKET_DATE }],
     tiers: [{ id: 1, name: 'Gold' }],
     locations: [{ name: 'Main Hall' }],
     sections: [

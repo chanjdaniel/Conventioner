@@ -7,7 +7,7 @@ import {
   BACKEND_URL,
 } from './fixtures';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
-import { ensureTestOrgAuthenticated } from './helpers/seeds';
+import { SEED_MARKET_DATE, ensureTestOrgAuthenticated } from './helpers/seeds';
 
 const SECOND_USER = {
   email: 'e2e-second@example.com',
@@ -231,18 +231,11 @@ test.describe('Tier 2 - Assignment CSV export', () => {
     const csvContent = Buffer.concat(chunks).toString('utf-8');
     const headerLine = csvContent.split('\n')[0].trim();
 
-    // The export is a wide-format CSV: the included source columns followed by
-    // one column per market date (the date string itself). Each date cell holds
-    // the vendor's "<table_code> - <table_choice>" assignment.
-    const expectedColumns = [
-      'email',
-      'vendor_name',
-      'table_choice',
-      'buddy_email',
-      'day_1',
-      '2025-06-01',
-    ];
-    for (const col of expectedColumns) {
+    // The export describes what the solver decided: the vendor's address, then one column per
+    // market date holding "<table code> - <table choice>". It used to carry the organizer's own
+    // spreadsheet columns through verbatim, which is why it needed the upload still on hand at
+    // download time.
+    for (const col of ['email', SEED_MARKET_DATE]) {
       expect(headerLine.toLowerCase()).toContain(col.toLowerCase());
     }
 
