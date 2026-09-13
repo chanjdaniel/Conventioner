@@ -28,12 +28,16 @@ TEST_EMAIL=myuser@example.com TEST_PASSWORD=mypass \
 
 ```bash
 cd back-end
-pip install -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-526 tests covering the assignment algorithm, statistics, Discord webhook, attendance,
-column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
+Install **both** files. `requirements-dev.txt` is only `pytest`; it does not pull in the runtime
+dependencies, and the suite imports the application. `scripts/nm-test.sh` installs both, which is
+why the gate passes where a hand-run `pip install -r requirements-dev.txt` does not.
+
+The suite covers the assignment algorithm, statistics, Discord webhook, attendance,
+CSV import column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
 Conventioner data model (market phases, `is_draft` computed strictly from `phase`, application
 form/status models, and backward compatibility with existing market documents), the `phase`
 backfill migration, the `applications` collection migration, the server-owned market fields
@@ -43,6 +47,14 @@ permission checks, field/key/option validation, `order` renormalization, server-
 application exists or the market leaves `draft`), and the essential form fields
 (`test_essential_fields.py`: offering derivation, answer validation, freeze-on-first-answer,
 server-owned options stripped from client payloads, and the `essential_` prefix guard).
+`test_application_write.py` covers the one write path both intake routes share - including that a
+form of only the essential questions is still a form, so such a market can actually receive the
+applications its phase lets it open.
+`test_assignment_behaviour.py` is the solver's behavioural suite; change placement against it
+rather than beside it.
+
+A test count is deliberately not quoted here: it goes stale on the next commit, and the suite
+either passes or it does not.
 
 `test_attendance_api.py` additionally pins the public slug lookup (queried via the
 stored `slug` field for an indexed, O(1) lookup rather than a collection scan), which
@@ -138,14 +150,35 @@ npm run test:e2e
 ```
 
 E2E tests use Playwright driving Chromium against the running Docker stack.
-The smoke test covers login, dashboard, and markets navigation, and the market
-pipeline test (`market-pipeline.spec.ts`) exercises the full product flow:
-creating a market via API, seeding a setupObject, walking the 3-page setup wizard,
-triggering assignment generation, verifying the assignment results view, then
-**publishing with Done** - which posts the `draft` → `archived` transition - and confirming the market
-lands on its public slug, reports `phase: archived` with `isDraft: false`, reopens from
-the markets list to its public page rather than back into the wizard, and is reachable by
-a vendor at its public check-in URL.
+
+**The whole journey, once**: `market-journey.spec.ts` is the only spec that walks the MVP
+journey end to end in one organizer session, entirely through the UI. It creates the market,
+plans it, opens applications, imports a Google Forms CSV, **approves the vendors in the
+application monitor**, assigns, and asserts who got a table and who did not. It seeds only the
+verified user and the organization, because those precede the journey.
+It is the release's acceptance test: if it fails, the product does not do what it claims.
+It is also the only spec that clicks Approve, which is what decides the solver's entire input.
+
+Every other spec covers a slice, and the slices deliberately overlap rather than meet. Read the
+boundaries below before deciding where a new test belongs.
+
+**The slices around it**:
+
+- `market-pipeline.spec.ts` covers **setup through publish**. It begins where the journey's
+  fourth step ends: it creates the market over the API and seeds applications already at
+  `reviewer_approved`, then walks the 3-page setup wizard, triggers assignment, verifies the
+  results view, and **publishes with Done** - the `draft` → `archived` transition - confirming
+  the market lands on its public slug, reports `phase: archived` with `isDraft: false`, reopens
+  from the markets list to its public page rather than back into the wizard, and is reachable by
+  a vendor at its public check-in URL. It does not import or review anything.
+- `csv-import.spec.ts` covers **import**, in depth, on a market seeded over the API: column
+  mapping, Google Forms checkbox grids (and splitting one the detection got wrong), resolving a
+  cell value the market does not recognise, a restored mapping on re-import, upsert on identity
+  with absent rows left alone, a changed solver answer returning an approval to review, and the
+  phase restriction. It ends at "rows are applications awaiting review", asserted over the API.
+  It drives the wizard through `CsvImportPage`.
+- `phase-state-machine.spec.ts` walks every phase edge and the guards that refuse them.
+- `smoke.spec.ts` covers login, dashboard, and markets navigation.
 Coverage also includes tier-1 market operations journeys: public vendor check-in
 (`checkin.spec.ts`), vendor browsing with search (`vendors.spec.ts`), and table
 browsing with filtering (`tables.spec.ts`). The tier-2 suite (`tier2.spec.ts`)
@@ -162,7 +195,16 @@ organization: it asserts that `POST /markets` rejects a payload with no
 carries the submitted `organizationId`, that a user with no organizations cannot
 create a market via API, and that the new-market overlay's submission stays
 disabled until an organization is picked (with a link to `/organizations` when
-none exist). The application-form suite (`application-form.spec.ts`) drives the
+none exist). The applicant-facing suites cover the surfaces MVP switches off:
+`applicant.spec.ts` (the public applicant login's anti-oracle behaviour: identical answers for
+known and unknown emails, an identical 401 whatever the failure, and single-use codes),
+`essential-fields.spec.ts` (the essential questions as an applicant answers them), and
+`intake-mode.spec.ts` (a CSV market's applicant endpoints answering exactly as a market that does
+not exist - the gated and absent renders are asserted to be identical, rather than each alone).
+`section-preference.spec.ts` covers a vendor being placed in the section they ranked first, and
+`date-display-timezone.spec.ts` pins a market date rendering as the same calendar day in
+Honolulu, Los Angeles and Tokyo.
+The application-form suite (`application-form.spec.ts`) drives the
 market-setup Application Form tab: an organizer builds a form (keys auto-slugged from the
 labels) on a market created through the API path, watches the live preview, saves it, and
 reloads to confirm it persisted; a second test seeds an application straight into Mongo
@@ -203,9 +245,11 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
   `MarketSetupPage`, `AssignmentResultsPage`, `CheckinPage`, `VendorsPage`,
   `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, `ManageMarketPage`,
   `PasswordResetPage`, `ApplicationFormPage`, `FloorplanWorkflowPage`,
-  `ApplicantLoginPage`, `ApplicantDashboardPage`, and `ApplyPage` each wrap
-  `getByTestId()` selectors and expose action methods. New page objects should follow
-  these patterns.
+  `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`, `CsvImportPage`, and
+  `ApplicationMonitorPage` each wrap `getByTestId()` selectors and expose action methods.
+  New page objects should follow these patterns.
+  `MarketSetupPage` covers the whole of Market Setup, not only the wizard: its three tabs and
+  the phase control panel above them live there too, because they are one view.
 - **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
   `BACKEND_URL` constant (derived from `stack().backendURL`; defaults to
   `https://localhost:5000` for the primary stack, offset per worktree slot,
@@ -223,19 +267,23 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
     `POST /markets` rejects a payload without a valid `organizationId`. Specs that
     create a market through the UI call it in `beforeAll` so the org dropdown is not
     empty.
-  - `seedMarketWithVendors()` logs in, ensures an organization, creates a market in
-    it, finalizes the application form (required by the D9 lock ordering), and
-    uploads source data via the back-end API so the assignment engine can compute
-    assignments. The organization id is returned as `orgId` on the seed result.
+  - `seedMarketWithVendors()` logs in, ensures an organization, creates a market in it,
+    finalizes the application form (required by the D9 lock ordering), and seeds the vendors as
+    **approved applications**, which is what a vendor is and what the solver reads. It used to
+    upload a fabricated CSV, back when the solver read a separate `source_data` collection;
+    that collection, its endpoints and every column field were deleted by E02. The organization
+    id is returned as `orgId` on the seed result.
+    Note what this means for a spec that uses it: the applications arrive already approved, so
+    nothing in such a spec exercises review. `market-journey.spec.ts` is the one that does.
   - `seedPublishedMarketWithAssignments()` additionally configures the market's
-    `setup_object` (column mapping, dates, sections, tiers, locations), publishes
+    `setupObject` (dates, sections, tiers, locations), publishes
     it via `POST /markets/{id}/transition` with `{ toPhase: 'archived' }` - the same
     endpoint the product's Done button calls, since `isDraft` is server-derived and a
     PUT can no longer publish anything - then fetches the computed assignment via
     `GET /markets/{id}/assignment` and stores it back via PUT so the check-in API
     and vendor/table views have persisted assignments. Returns a `marketSlug`
-    for navigating to the public check-in URL. See `AGENTS.md` for the
-    `enum_priority_order` sizing requirement and other sharp edges.
+    for navigating to the public check-in URL. See `AGENTS.md` for the sharp edges around
+    publishing and stored assignments.
   - `seedAssignedMarket()` (`front-end/e2e/helpers/seedAssignedMarket.ts`)
     additionally configures the market's `setupObject`, triggers the
     assignment engine via the API, then fetches the computed assignment
@@ -305,9 +353,9 @@ Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
 - Docker build verification
 - E2E: build and start the Docker stack, seed fixtures, install Playwright
   (Chromium), run the Playwright suite with `DISABLE_CAPTCHA=true` and
-  `DISABLE_EMAIL=true` — Playwright is configured with 2 retries and
+  `DISABLE_EMAIL=true` - Playwright is configured with 2 retries and
   `failOnFlakyTests: true` in CI, so a test that passes only on retry
-  still fails the job — then upload the Playwright report + test results
+  still fails the job - then upload the Playwright report + test results
   as artifacts on failure, and post a flaky-test summary to the GitHub
   step summary
 

@@ -20,7 +20,7 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | 1 | F01/S01 Extract a CSV import page object | - | done (unpushed) | |
 | 2 | F02/S01 STARTUP.md walks a fresh clone to a running stack | - | done (unpushed) | |
 | 3 | F01/S02 Walk the whole journey in one session | F01/S01 | not started | |
-| 4 | F02/S02 TESTING.md describes the suites that exist | F01/S02 | not started | |
+| 4 | F02/S02 TESTING.md describes the suites that exist | F01/S02 | done (unpushed) | |
 | 5 | F03/S01 Promote dev to main and cut v0.1.0 | F01/S02, F02/S01, F02/S02, E06/F01/S02 | not started | |
 | 6 | F03/S02 Later versions follow conventional commits | F03/S01 | not started | |
 | - | F04/S01 A new organizer's dashboard does not report a missing market | - | not started | |
@@ -147,3 +147,33 @@ the nesting and leaves stray leading spaces inside the fences. Do not run it her
   heading. Nothing is wrong: they have not opened one yet. Filed as `E04/F04/S01`. It is not the
   seed-data question the wayfinding map ruled out of scope - this is what the empty state *says*,
   not what fills it.
+
+### F02/S02 TESTING.md describes the suites that exist, and TODO.md is gone
+
+| Acceptance criterion | Verdict | Evidence |
+| --- | --- | --- |
+| Every suite named is described by what it covers, with no claim broader than the spec supports | met | The "full product flow" claim on the pipeline spec is gone. It is now described as covering setup through publish, explicitly beginning where the journey's fourth step ends, and explicitly not importing or reviewing anything. |
+| The journey spec is documented, and the boundary between it and the pipeline and import suites is stated | met | A new "The whole journey, once" block names it as the release's acceptance test and the only spec that clicks Approve, followed by "The slices around it" giving each neighbouring suite's start and end point. |
+| The seeding helpers section matches the helpers that exist, including which ones write a status directly and why a spec might not want that | met | `seedMarketWithVendors()` no longer "uploads source data via the back-end API" - it seeds approved applications, and the entry now says so *and* says what follows: a spec using it exercises no review, which is why the journey spec exists. The `column mapping` in `seedPublishedMarketWithAssignments()`'s `setup_object` description is gone, and so is the pointer to an `enum_priority_order` sizing requirement that no longer exists. |
+| `docs/TODO.md` is deleted, and nothing in the repository still links to it | met | `git rm`'d. The only surviving mentions are in `.scratch/`, describing the deletion. |
+| The commands the document gives for running each suite are run and work as written | met, after a correction | Back end: the documented `pip install -r requirements-dev.txt` **could not work** - that file is one line, `pytest>=8.0`, and pulls in nothing the suite imports. Corrected to install both files, which is what `nm-test.sh` does and why the gate passed where a reader following the doc would not have. Re-run as written: 790 passed. Front-end unit as written: 89 passed. E2E as written: 74 passed. |
+
+#### Corrections beyond the story's known-stale list
+
+- **Eight suites were undocumented**: `applicant`, `csv-import`, `date-display-timezone`,
+  `essential-fields`, `intake-mode`, `phase-state-machine`, `section-preference`, `smoke`. All
+  are now described, grouped by what they are about rather than by tier.
+- **"526 tests"** was quoted for a suite that now has 790. The number is removed rather than
+  updated: it goes stale on the next commit, and the suite either passes or it does not.
+- **Two page objects were missing** from the list (`CsvImportPage`, `ApplicationMonitorPage`),
+  and the note that `MarketSetupPage` covers the tabs and the phase panel, not only the wizard.
+- **Two em dashes** replaced.
+
+#### AGENTS.md corrected alongside
+
+Out of this story's stated scope, fixed because the file is what every agent session reads and it
+**contradicted itself**: the E2E seed-helper section said `assign_market` requires
+`enum_priority_order` to have one entry per column in `col_names`, forty lines above the section
+recording that E02 deleted both. A false sharp edge is worse than no sharp edge. Two entries added
+while there: the form-is-both-halves invariant that E04/F01/S03 turned into a fix, and where a new
+e2e test belongs now that one spec walks the whole journey and the rest are slices.
