@@ -2,9 +2,9 @@
 id: E03/F02/S04
 title: Publishing lands the organizer on a page their market serves
 type: story
-status: in-progress
+status: done
 blocked_by: [E03/F02/S03]
-pr: []
+pr: [#65]
 ---
 
 ## What to build

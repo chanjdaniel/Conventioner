@@ -2,9 +2,9 @@
 id: E03/F01
 title: Phase guard corrections
 type: feature
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#65]
 ---
 
 ## Outcome

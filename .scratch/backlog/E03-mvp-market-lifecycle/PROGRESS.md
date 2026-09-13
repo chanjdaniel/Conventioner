@@ -7,9 +7,7 @@ A story is only marked done once every acceptance criterion in its file is audit
 Branch: `feat/e03-mvp-market-lifecycle`, cut from `dev` at `61826853` (E02's merge).
 One commit per story, one PR at the end, following E02's shape.
 
-Every item is `status: in-progress`, not `done`: `docs/agents/issue-tracker.md` defines done as
-"its PR merges to `dev`, with the PR number appended to `pr`", and no PR is open yet.
-The table below is what is finished in the working tree; the front-matter is what has shipped.
+Shipped in #65, merged to `dev` on 2026-09-13. Every item is `status: done` with `pr: [#65]`.
 
 ## Order of work
 
@@ -17,11 +15,11 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 
 | # | Story | Blocked by | Status | PR |
 | --- | --- | --- | --- | --- |
-| 1 | F01/S01 FormHasFieldsGuard counts essential questions | - | done (unpushed) | |
-| 2 | F02/S01 A market declares how vendors reach it | - | done (unpushed) | |
-| 3 | F02/S02 A CSV market's applicant endpoints answer as if it did not exist | F02/S01 | done (unpushed) | |
-| 4 | F02/S03 A stranger visiting a CSV market's public pages is told nothing | F02/S02 | done (unpushed) | |
-| 5 | F02/S04 Publishing lands the organizer on a page their market serves (found in S03) | F02/S03 | done (unpushed) | |
+| 1 | F01/S01 FormHasFieldsGuard counts essential questions | - | done | #65 |
+| 2 | F02/S01 A market declares how vendors reach it | - | done | #65 |
+| 3 | F02/S02 A CSV market's applicant endpoints answer as if it did not exist | F02/S01 | done | #65 |
+| 4 | F02/S03 A stranger visiting a CSV market's public pages is told nothing | F02/S02 | done | #65 |
+| 5 | F02/S04 Publishing lands the organizer on a page their market serves (found in S03) | F02/S03 | done | #65 |
 
 F01/S01 and F02/S01 are both unblocked and may run in either order.
 F01 has no dependency on F02: the guard correction is a pre-existing bug that MVP merely exposes.

@@ -2,9 +2,9 @@
 id: E03/F02/S03
 title: A stranger visiting a CSV market's public pages is told nothing
 type: story
-status: in-progress
+status: done
 blocked_by: [E03/F02/S02]
-pr: []
+pr: [#65]
 ---
 
 ## What to build

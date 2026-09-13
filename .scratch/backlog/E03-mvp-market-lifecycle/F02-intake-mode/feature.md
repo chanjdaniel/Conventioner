@@ -2,9 +2,9 @@
 id: E03/F02
 title: Intake mode on Market
 type: feature
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#65]
 ---
 
 ## Outcome
