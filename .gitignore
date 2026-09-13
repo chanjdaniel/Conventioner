@@ -10,6 +10,10 @@ users.json
 /back-end/error.log
 /back-end/logs
 /back-end/tests/test_data
+# Playwright writes into front-end/, which front-end/.gitignore covers. These two guard the
+# repo root, where a stale .last-run.json was tracked from PR #33 and shipped in v0.1.0.
+/test-results
+/playwright-report
 .DS_Store
 /.cursor
 
