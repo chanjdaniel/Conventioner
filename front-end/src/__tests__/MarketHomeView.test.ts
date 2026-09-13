@@ -22,9 +22,11 @@ function served(marketName: string) {
     phaseLabel: 'Applications Open',
     isOpen: true,
     failed: false,
+    notFound: false,
   };
 }
 
+/** The applicant surface answered: no such market, or one whose vendors are imported. */
 const notServed = {
   marketName: '',
   fields: [],
@@ -32,7 +34,11 @@ const notServed = {
   phaseLabel: '',
   isOpen: false,
   failed: true,
+  notFound: true,
 };
+
+/** The request never answered at all. A different thing, and it must read as a different thing. */
+const neverAnswered = { ...notServed, notFound: false };
 
 async function mountView() {
   const wrapper = mount(MarketHomeView);
@@ -91,5 +97,22 @@ describe('MarketHomeView', () => {
 
     resolve(notServed);
     await flushPromises();
+  });
+
+  it('does not call a market missing when the request never answered', async () => {
+    fetchPublicApplicationForm.mockResolvedValue(neverAnswered);
+    const wrapper = await mountView();
+
+    expect(wrapper.find('[data-testid="market-home-not-found"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="market-home-load-failed"]').exists()).toBe(true);
+  });
+
+  it('offers a retry when the request never answered', async () => {
+    fetchPublicApplicationForm.mockResolvedValue(neverAnswered);
+    const wrapper = await mountView();
+
+    await wrapper.find('[data-testid="market-home-retry-button"]').trigger('click');
+
+    expect(fetchPublicApplicationForm).toHaveBeenCalledTimes(2);
   });
 });

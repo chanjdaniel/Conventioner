@@ -2,7 +2,7 @@
 id: E03/F02/S02
 title: A CSV market's applicant endpoints answer as if it did not exist
 type: story
-status: done
+status: in-progress
 blocked_by: [E03/F02/S01]
 pr: []
 ---

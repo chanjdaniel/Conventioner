@@ -13,6 +13,15 @@ export interface PublicApplicationForm {
    * conflates them tells the applicant their market is closed when in truth we never asked it.
    */
   failed: boolean;
+  /**
+   * The applicant surface answered, and has nothing at this slug: no such market, or one whose
+   * vendors are imported rather than applying. The two are deliberately indistinguishable.
+   *
+   * Distinct from `failed` for the same reason `failed` is distinct from "not open": a timeout on
+   * a bad connection is not a market that does not exist, and telling a visitor it is sends them
+   * away from a page that would have loaded on the next try.
+   */
+  notFound: boolean;
 }
 
 /**
@@ -44,8 +53,13 @@ export async function fetchPublicApplicationForm(
       phaseLabel: data.phase_label || data.phaseLabel || '',
       isOpen: data.is_open === true || data.isOpen === true,
       failed: false,
+      notFound: false,
     };
-  } catch {
+  } catch (err: unknown) {
+    const status =
+      err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
     return {
       marketName: '',
       fields: [],
@@ -53,6 +67,7 @@ export async function fetchPublicApplicationForm(
       phaseLabel: '',
       isOpen: false,
       failed: true,
+      notFound: status === 404,
     };
   }
 }

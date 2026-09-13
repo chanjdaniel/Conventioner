@@ -2,7 +2,7 @@
 id: E03
 title: MVP market lifecycle
 type: epic
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

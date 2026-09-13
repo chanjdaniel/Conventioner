@@ -7,6 +7,10 @@ A story is only marked done once every acceptance criterion in its file is audit
 Branch: `feat/e03-mvp-market-lifecycle`, cut from `dev` at `61826853` (E02's merge).
 One commit per story, one PR at the end, following E02's shape.
 
+Every item is `status: in-progress`, not `done`: `docs/agents/issue-tracker.md` defines done as
+"its PR merges to `dev`, with the PR number appended to `pr`", and no PR is open yet.
+The table below is what is finished in the working tree; the front-matter is what has shipped.
+
 ## Order of work
 
 Frontier first; a story starts only when every id in its `blocked_by` is done.
@@ -199,3 +203,26 @@ at that moment.
 
 `IntakeMode` now exists in the front-end type module as well, mirroring the back-end enum, and
 `Market.intakeMode` is declared on the TypeScript interface.
+
+## Review findings and what was done about them
+
+`/code-review` against `dev` at the end of the epic, two axes in parallel.
+
+### Standards
+
+| Finding | Verdict | Action |
+| --- | --- | --- |
+| `intake_mode_from_market_document` read `intakeMode` with a snake_case fallback, which `AGENTS.md` forbids outright: "Do not add a read-time fallback that accepts both spellings". | Upheld. The precedent it was copied from (`phase_from_market_document`) is exempt only because documents predate the field; intake mode is new in this branch, so no document can carry the other spelling. | Fallback removed. The test that asserted the fallback now asserts its absence, with the reason. |
+| Items marked `status: done` while `pr` is empty and nothing is merged. | Upheld. | Every E03 item set to `in-progress` until the PR merges. |
+| `PROGRESS.md` is a fourth artifact kind in a tree the tracker defines as epic/feature/story. | Not actioned. It is what this epic was asked for, and E02 established it. The tracker's warning is about conflating *work items* with *decisions*; an audit trail is neither, and `status` cannot carry per-criterion evidence. |
+| The two document readers are now the same shape (possible Duplicated Code). | Not actioned. Two instances, and their fallbacks genuinely differ: phase falls back to the `isDraft` mapping, intake mode to a constant. Extracting would need the fallback passed as a callback, which is more machinery than the duplication costs. Worth revisiting at a third reader. |
+| `MarketHomeView` still renders `marketName || marketSlug`. | Not actioned. That branch is reached only when the market is found, and ticket 07 says a form market keeps the stub. Echoing the slug of a market the visitor has just been shown is not a leak. |
+
+### Spec
+
+| Finding | Verdict | Action |
+| --- | --- | --- |
+| "An unrecognized stored value is not silently rewritten" holds on read but not on write: the next PUT persists the degraded `csv`. | Upheld as an overclaim in the docstring, not as a defect. Normalizing on write is the repair - `csv` is already the only answer every reader gives that document - but the docstring promised the typo survived, which is false. | Docstring corrected to say reading degrades and writing normalizes. `test_the_next_write_normalizes_an_unrecognized_value` pins it, so the behaviour is now chosen rather than incidental. |
+| **`MarketHomeView` called a market missing on any request failure**, including a timeout. `fetchPublicApplicationForm`'s own docstring warns against exactly that conflation. | Upheld, and a real defect. A form market on a flaky connection was told it did not exist. | `notFound` added beside `failed`, set only on a genuine 404. The view renders "page not found" only for that, and a retryable "could not be loaded" otherwise. Four new tests on the fetch util, two on the view. Indistinguishability is untouched: a gated market and an unknown slug both answer 404. |
+| Ticket 07 says a form market's stub stays "exactly as it is"; S03 requires the page to resolve its market through the gated surface. The diff silently picks S03. | Upheld as an undisclosed spec conflict. | Recorded here. S03 is the later and more specific statement, and ticket 07's intent - that no public market landing page gets designed - is honoured: the stub's content is unchanged, only what it does before rendering it. |
+| Drive-by fixes (seed script, `market_from_document` parse) are outside all five specs. | Acknowledged; both were already disclosed above. |

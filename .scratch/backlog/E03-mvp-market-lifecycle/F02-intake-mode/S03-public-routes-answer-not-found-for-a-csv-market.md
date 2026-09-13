@@ -2,7 +2,7 @@
 id: E03/F02/S03
 title: A stranger visiting a CSV market's public pages is told nothing
 type: story
-status: ready
+status: in-progress
 blocked_by: [E03/F02/S02]
 pr: []
 ---

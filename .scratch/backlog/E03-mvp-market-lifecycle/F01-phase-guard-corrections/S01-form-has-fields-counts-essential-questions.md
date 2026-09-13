@@ -2,7 +2,7 @@
 id: E03/F01/S01
 title: FormHasFieldsGuard counts essential questions
 type: story
-status: done
+status: in-progress
 blocked_by: []
 pr: []
 ---
