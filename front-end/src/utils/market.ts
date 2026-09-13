@@ -59,10 +59,6 @@ export function parseMarketFromApi(market: any): Market {
       : (market.isDraft ?? market.is_draft ?? true),
     phase: phaseRaw ? (phaseRaw as MarketPhase) : undefined,
     setupObject: {
-      colNames: market.setupObject?.colNames || [],
-      colValues: market.setupObject?.colValues || [],
-      colInclude: market.setupObject?.colInclude || [],
-      enumPriorityOrder: market.setupObject?.enumPriorityOrder || [],
       priority: market.setupObject?.priority || [],
       marketDates: market.setupObject?.marketDates || [],
       tiers: market.setupObject?.tiers || [],
@@ -73,22 +69,6 @@ export function parseMarketFromApi(market: any): Market {
           market.setupObject?.assignmentOptions?.maxAssignmentsPerVendor ?? null,
         maxHalfTableProportionPerSection:
           market.setupObject?.assignmentOptions?.maxHalfTableProportionPerSection ?? null,
-        emailColNameIdx:
-          market.setupObject?.assignmentOptions?.emailColNameIdx ??
-          market.setupObject?.assignmentOptions?.email_col_name_idx ??
-          null,
-        tableChoiceColNameIdx:
-          market.setupObject?.assignmentOptions?.tableChoiceColNameIdx ??
-          market.setupObject?.assignmentOptions?.table_choice_col_name_idx ??
-          null,
-        tableShareEmailColNameIdx:
-          market.setupObject?.assignmentOptions?.tableShareEmailColNameIdx ??
-          market.setupObject?.assignmentOptions?.table_share_email_col_name_idx ??
-          null,
-        maxDaysColNameIdx:
-          market.setupObject?.assignmentOptions?.maxDaysColNameIdx ??
-          market.setupObject?.assignmentOptions?.max_days_col_name_idx ??
-          null,
       },
     },
     modificationList: market.modificationList || [],

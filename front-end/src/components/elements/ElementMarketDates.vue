@@ -10,7 +10,6 @@ const emit = defineEmits(['update:setupObject']);
 
 const setupObject = toRef(props, 'setupObject');
 const marketDates = toRef(setupObject.value, 'marketDates');
-const colNames = toRef(setupObject.value, 'colNames');
 
 const container = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
@@ -56,10 +55,7 @@ const removeRow = (index: number | null) => {
 };
 
 const addRow = () => {
-  const newMarketDate: MarketDateObject = {
-    date: '',
-    colNameIdx: -1,
-  };
+  const newMarketDate: MarketDateObject = { date: '' };
   marketDates.value.push(newMarketDate);
   setHeight();
 };
@@ -69,7 +65,6 @@ const addRow = () => {
   <div class="container" ref="container">
     <div class="column-titles row-container" ref="columnTitles">
       <h3>Date</h3>
-      <h3>Name in input file</h3>
     </div>
     <div class="rows" ref="rows">
       <div
@@ -90,25 +85,6 @@ const addRow = () => {
             onclick="this.showPicker()"
             :data-testid="'setup-dates-date-input-' + index"
           />
-        </div>
-        <div class="row-item enum-item">
-          <select
-            class="datatype-dropdown"
-            v-model="marketDates[index].colNameIdx"
-            :data-testid="'setup-dates-column-select-' + index"
-          >
-            <optgroup class="datatype-dropdown">
-              <option disabled value="">Values</option>
-              <option
-                class="display-list"
-                v-for="(value, index) in colNames"
-                :key="index"
-                :value="index"
-              >
-                {{ value }}
-              </option>
-            </optgroup>
-          </select>
         </div>
         <div
           style="
@@ -207,7 +183,7 @@ h4 {
 
 .column-titles {
   display: grid;
-  grid-template-columns: 47.5% 47.5% 5%;
+  grid-template-columns: 95% 5%;
 }
 
 .rows {
@@ -228,7 +204,7 @@ h4 {
 
 .setup-row {
   display: grid;
-  grid-template-columns: 47.5% 47.5% 5%;
+  grid-template-columns: 95% 5%;
   padding-top: 5px;
   padding-bottom: 5px;
 }

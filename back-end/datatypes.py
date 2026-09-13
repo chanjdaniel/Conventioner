@@ -34,15 +34,6 @@ def market_name_slug(name: str) -> str:
     return re.sub(r"-+", "-", s).strip("-")
 
 
-class DataType(str, Enum):
-    DEFAULT = "Select a datatype"
-    STRING = "String"
-    NUMBER = "Number"
-    ENUM = "Enum"
-    CONTAINS = "Contains"
-    NOT_CONTAINS = "Does not contain"
-
-
 class MarketRole(str, Enum):
     OWNER = "owner"
     ADMIN = "admin"
@@ -119,17 +110,63 @@ class MarketTableRow(BaseModel):
     table_code: str
     tier: str
 
+# An organizer need not enumerate every answer: whatever they leave out sorts where this token
+# sits, and last when they did not place it at all.
+ALL_OTHERS = "<All others>"
+
+# A priority rule may target an attribute of the application itself rather than a question the
+# organizer asked. First come, first served is probably the most common tiebreaker there is, and
+# no form question can supply it - a field-only design would force organizers to fake it with a
+# "what time is it" question.
+#
+# The namespace keeps the two kinds of target apart for good: form field keys are held to
+# ``^[a-z0-9_]+$`` by the form builder, so a key can never contain a dot and can never collide
+# with one of these.
+# Named ...RULE_TARGET, not ...TARGET: ``csv_import`` has its own SUBMITTED_AT_TARGET meaning the
+# import-mapping target, which is a different thing entirely.
+BUILT_IN_TARGET_PREFIX = "application."
+SUBMITTED_AT_RULE_TARGET = "application.submitted_at"
+APPLICATION_TYPE_RULE_TARGET = "application.application_type"
+
+
+class PriorityDirection(str, Enum):
+    """Which end of an ordered target sorts first. Derived from the target's type, never declared."""
+
+    ASCENDING = "ascending"
+    DESCENDING = "descending"
+
+
 class PriorityObject(BaseModel):
+    """One rule in the ordered list that decides who is placed first when demand exceeds tables.
+
+    A rule names a ``target`` and carries its own ``ordering``. It used to name a column by index
+    into ``col_names`` and keep its ordering in ``SetupObject.enum_priority_order``, a parallel
+    array with one entry required per column - the index arithmetic behind a well-known
+    ``IndexError`` trap, and an addressing scheme that dies with the columns.
+
+    It also used to carry a ``data_type`` the solver read nothing from, so a rule an organizer
+    configured as a number in ascending order scored every vendor identically and did nothing,
+    silently. How to order a target follows from that target's type, so declaring it separately
+    only ever made an invalid state representable.
+    """
+
     id: int
-    col_name_idx: Optional[int] = None
-    data_type: DataType
-    sorting_order: str
+    target: Optional[str] = None
+    ordering: List[str] = []
+    # Only meaningful for a target ordered by magnitude rather than by an arrangement of named
+    # answers: a number, a date, a yes/no. Which of the two a rule uses follows from its target.
+    direction: Optional[PriorityDirection] = None
 
 
 class MarketDateObject(BaseModel):
+    """One day of a market. A date is a date.
+
+    It used to also carry the spreadsheet column heading that asked about that day, and the
+    index of that column, because the solver looked a vendor's answer up by heading and dated
+    every placement by it. Both are gone with the spreadsheet.
+    """
+
     date: str
-    col_name_idx: Optional[int] = None
-    col_name: Optional[str] = None
 
 
 class TierObject(BaseModel):
@@ -149,23 +186,14 @@ class SectionObject(BaseModel):
 
 
 class AssignmentOptionObject(BaseModel):
+    # None = the organizer named no ceiling, so each vendor is bounded by their own answer and by
+    # how many dates they can attend. There is no hidden default standing in for the four-day
+    # constant this replaced.
     max_assignments_per_vendor: Optional[int] = None
     max_half_table_proportion_per_section: Optional[int] = None
-    # For assignment: email / table_choice / table_share must be set (column index). No legacy names.
-    email_col_name_idx: Optional[int] = None
-    table_choice_col_name_idx: Optional[int] = None
-    table_share_email_col_name_idx: Optional[int] = None
-    # None = no per-vendor max-days limit from CSV (only global caps). Mapped empty cell = same.
-    max_days_col_name_idx: Optional[int] = None
-    # use_totally_random_assignment: bool
-    # use_maximum_capacity_assignment: bool
 
 
 class SetupObject(BaseModel):
-    col_names: List[str] = []
-    col_values: List[List[str]] = []
-    col_include: List[bool] = []
-    enum_priority_order: List[List[str]] = []
     priority: List[PriorityObject]
     market_dates: List[MarketDateObject]
     tiers: List[TierObject]
@@ -459,15 +487,13 @@ class MarketTableRowContract(ContractModel):
 
 
 class PriorityContract(ContractModel):
-    col_name_idx: Optional[int] = None
-    data_type: DataType
+    direction: Optional[PriorityDirection] = None
     id: int
-    sorting_order: str
+    ordering: List[str] = []
+    target: Optional[str] = None
 
 
 class MarketDateContract(ContractModel):
-    col_name: Optional[str] = None
-    col_name_idx: Optional[int] = None
     date: str
 
 
@@ -494,10 +520,6 @@ class UnassignedTableEntryContract(ContractModel):
 
 class SetupObjectContract(ContractModel):
     assignment_options: AssignmentOptionContract
-    col_include: List[bool] = []
-    col_names: List[str] = []
-    col_values: List[List[str]] = []
-    enum_priority_order: List[List[str]] = []
     locations: List[LocationContract]
     market_dates: List[MarketDateContract]
     priority: List[PriorityContract]

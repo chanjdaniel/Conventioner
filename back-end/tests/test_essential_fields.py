@@ -53,10 +53,6 @@ def _camel_table_type(name: str) -> dict:
 
 
 SETUP_CAMEL = {
-    "colNames": [],
-    "colValues": [],
-    "colInclude": [],
-    "enumPriorityOrder": [],
     "priority": [],
     "marketDates": [{"date": date} for date in DATES],
     "tiers": [{"id": index, "name": name} for index, name in enumerate(TIERS)],
@@ -650,3 +646,56 @@ class TestPublicForm:
             "dates": DATES, "sections": SECTIONS, "tableTypes": STUB_TABLE_TYPES,
             "tiers": TIERS,
         }
+
+
+class TestWhichQuestionsAnOfferingAsks:
+    """``asked_essential_keys`` is the one statement of the offering-empty rule.
+
+    Both the applicant validator and the solver's input translation read it, so a market can
+    never be in a state where the form accepted an answer the solver then calls missing.
+    """
+
+    def _offering(self, **overrides):
+        base = dict(
+            dates=["2026-06-01", "2026-06-02"],
+            sections=["Artisan", "Food"],
+            table_types=[EssentialFields.STUB_TABLE_TYPE],
+            tiers=["A", "B"],
+        )
+        base.update(overrides)
+        return EssentialFormOptions(**base)
+
+    def test_a_full_offering_asks_everything_except_the_stubbed_table_type(self):
+        asked = EssentialFields.asked_essential_keys(self._offering())
+
+        assert EssentialFields.AVAILABLE_DATES_KEY in asked
+        assert EssentialFields.MAX_DATES_KEY in asked
+        assert EssentialFields.TIER_PREFERENCE_KEY in asked
+        assert EssentialFields.TABLE_CHOICE_KEY in asked
+        assert EssentialFields.SECTION_RANKING_KEY in asked
+        assert EssentialFields.TABLE_TYPE_RANKING_KEY not in asked
+
+    def test_a_market_with_no_dates_asks_nothing_that_depends_on_having_dates(self):
+        asked = EssentialFields.asked_essential_keys(self._offering(dates=[]))
+
+        assert EssentialFields.AVAILABLE_DATES_KEY not in asked
+        assert EssentialFields.MAX_DATES_KEY not in asked
+        assert EssentialFields.TABLE_CHOICE_KEY not in asked
+        assert EssentialFields.TABLE_SHARE_EMAIL_KEY not in asked
+
+    def test_a_single_section_is_not_a_ranking_question(self):
+        assert EssentialFields.SECTION_RANKING_KEY not in EssentialFields.asked_essential_keys(
+            self._offering(sections=["Artisan"])
+        )
+
+    def test_a_single_offered_date_is_still_a_real_question(self):
+        """The fewer-than-two rule is for rankings only: one date may still be refused."""
+        assert EssentialFields.AVAILABLE_DATES_KEY in EssentialFields.asked_essential_keys(
+            self._offering(dates=["2026-06-01"])
+        )
+
+    def test_the_table_share_partner_is_never_required(self):
+        assert EssentialFields.TABLE_SHARE_EMAIL_KEY not in EssentialFields.REQUIRED_ESSENTIAL_KEYS
+        assert set(EssentialFields.REQUIRED_ESSENTIAL_KEYS) | {EssentialFields.TABLE_SHARE_EMAIL_KEY} == set(
+            EssentialFields.SOLVER_RELEVANT_KEYS
+        )

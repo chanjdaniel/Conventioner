@@ -30,7 +30,7 @@ def init_database():
     db = get_database('conventioner')
 
     collections_to_create = [
-        'users', 'markets', 'source_data', 'organizations', 'attendance',
+        'users', 'markets', 'organizations', 'attendance',
         APPLICATIONS_COLLECTION, SCHEMA_COLLECTION,
     ]
     created_collections = []

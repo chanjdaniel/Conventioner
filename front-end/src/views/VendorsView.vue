@@ -3,12 +3,10 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
+import { fetchMarketApplications } from '@/utils/applicantApi';
 import { parseMarketFromApi } from '@/utils/market';
-import type { Market, MarketDateObject } from '@/assets/types/datatypes';
-
-interface SourceDataResponse {
-  data: unknown[][];
-}
+import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
+import type { Application, Market, MarketDateObject } from '@/assets/types/datatypes';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -42,13 +40,14 @@ interface VendorRow {
   assignmentsByDate: Map<string, VendorTableAssignment>;
   isAssigned: boolean;
   assignedDateCount: number;
-  cells: string[];
+  /** The organizer's own questions, keyed by field key. Essential answers are shown separately. */
+  answers: Record<string, unknown>;
 }
 
 const router = useRouter();
 
 const market = ref<Market | null>(null);
-const sourceRows = ref<string[][]>([]);
+const applications = ref<Application[]>([]);
 const tableRows = ref<MarketTableRowResponse[]>([]);
 const unassignedEmails = ref<Set<string>>(new Set());
 
@@ -113,16 +112,13 @@ async function loadVendors(): Promise<void> {
   isLoading.value = true;
 
   try {
-    const [sourceResp, statsResp, tablesResp] = await Promise.all([
-      api.get<SourceDataResponse>(`/source-data/${marketId}`),
+    const [applicationList, statsResp, tablesResp] = await Promise.all([
+      fetchMarketApplications(loaded.id),
       api.get<AssignmentStatisticsResponse>(`/markets/${marketId}/assignment-statistics`),
       api.get<MarketTableRowResponse[]>(`/markets/${marketId}/tables`),
     ]);
 
-    const rawRows = Array.isArray(sourceResp.data?.data) ? sourceResp.data.data : [];
-    sourceRows.value = rawRows.map((row) =>
-      Array.isArray(row) ? row.map((c) => (c == null ? '' : String(c))) : [],
-    );
+    applications.value = Array.isArray(applicationList) ? applicationList : [];
 
     const statsList = statsResp.data?.unassignedVendors ?? statsResp.data?.unassigned_vendors ?? [];
     const unassigned = new Set<string>();
@@ -135,7 +131,7 @@ async function loadVendors(): Promise<void> {
     tableRows.value = Array.isArray(tablesResp.data) ? tablesResp.data : [];
   } catch (err: unknown) {
     loadError.value = extractErrorMessage(err, 'Failed to load vendors.');
-    sourceRows.value = [];
+    applications.value = [];
     tableRows.value = [];
     unassignedEmails.value = new Set();
   } finally {
@@ -146,24 +142,22 @@ async function loadVendors(): Promise<void> {
 onMounted(loadVendors);
 
 const setup = computed(() => market.value?.setupObject ?? null);
-const colNames = computed(() => setup.value?.colNames ?? []);
-const colInclude = computed(() => setup.value?.colInclude ?? []);
 const marketDates = computed<MarketDateObject[]>(() => setup.value?.marketDates ?? []);
 
-const emailColIdx = computed(() => {
-  const idx = setup.value?.assignmentOptions?.emailColNameIdx;
-  return typeof idx === 'number' && idx >= 0 ? idx : null;
-});
-
-const includedColIndices = computed(() => {
-  const include = colInclude.value;
-  const names = colNames.value;
-  const out: number[] = [];
-  for (let i = 0; i < names.length; i++) {
-    if (include[i]) out.push(i);
-  }
-  return out;
-});
+/**
+ * The organizer's own questions, in the order their form asks them.
+ *
+ * This list used to be the included columns of an uploaded spreadsheet. A vendor is an
+ * application now, so the questions come from the form that produced it, and the essential
+ * answers are deliberately left out: they are the market plan restated, and they have their own
+ * presentation elsewhere.
+ */
+const customFields = computed(() =>
+  (market.value?.applicationForm?.fields ?? [])
+    .filter((field) => !field.key.startsWith(ESSENTIAL_KEY_PREFIX))
+    .slice()
+    .sort((a, b) => a.order - b.order),
+);
 
 const assignmentsByEmail = computed(() => {
   const map = new Map<string, Map<string, VendorTableAssignment>>();
@@ -191,40 +185,25 @@ const assignmentsByEmail = computed(() => {
   return map;
 });
 
-const vendors = computed<VendorRow[]>(() => {
-  const rows = sourceRows.value;
-  if (rows.length < 2) return [];
-
-  const emailIdx = emailColIdx.value;
-  const unassigned = unassignedEmails.value;
-  const byEmail = assignmentsByEmail.value;
-
-  const result: VendorRow[] = [];
-  for (let r = 1; r < rows.length; r++) {
-    const row = rows[r] ?? [];
-    const emailRaw =
-      emailIdx != null && emailIdx < row.length ? String(row[emailIdx] ?? '').trim() : '';
+const vendors = computed<VendorRow[]>(() =>
+  applications.value.map((application, index) => {
+    const emailRaw = (application.applicantEmail ?? '').trim();
     const emailLower = emailRaw.toLowerCase();
     const assignmentsByDate = emailLower
-      ? (byEmail.get(emailLower) ?? new Map<string, VendorTableAssignment>())
+      ? (assignmentsByEmail.value.get(emailLower) ?? new Map<string, VendorTableAssignment>())
       : new Map<string, VendorTableAssignment>();
 
-    const isAssigned = emailLower
-      ? !unassigned.has(emailLower) && assignmentsByDate.size > 0
-      : assignmentsByDate.size > 0;
-
-    result.push({
-      rowIndex: r,
+    return {
+      rowIndex: index,
       email: emailLower,
-      displayEmail: emailRaw || `Row ${r}`,
+      displayEmail: emailRaw || `Applicant ${index + 1}`,
       assignmentsByDate,
-      isAssigned,
+      isAssigned: !unassignedEmails.value.has(emailLower) && assignmentsByDate.size > 0,
       assignedDateCount: assignmentsByDate.size,
-      cells: row,
-    });
-  }
-  return result;
-});
+      answers: (application.formData ?? {}) as Record<string, unknown>,
+    };
+  }),
+);
 
 const filteredVendors = computed(() => {
   const term = filterText.value.trim().toLowerCase();
@@ -241,19 +220,20 @@ const selectedVendor = computed(() => {
   return vendors.value.find((v) => v.rowIndex === selectedRowIndex.value) ?? null;
 });
 
+function answerText(value: unknown): string {
+  if (value == null) return '';
+  if (Array.isArray(value)) return value.map((item) => String(item)).join(', ');
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
+
 const detailFields = computed(() => {
   const vendor = selectedVendor.value;
   if (!vendor) return [];
-  const names = colNames.value;
-  const emailIdx = emailColIdx.value;
-  const fields: { label: string; value: string }[] = [];
-  for (const i of includedColIndices.value) {
-    if (i === emailIdx) continue;
-    const label = names[i] ?? `Column ${i + 1}`;
-    const value = i < vendor.cells.length ? vendor.cells[i] : '';
-    fields.push({ label, value: value || '—' });
-  }
-  return fields;
+  return customFields.value.map((field) => ({
+    label: field.label || field.key,
+    value: answerText(vendor.answers[field.key]) || '—',
+  }));
 });
 
 function formatDateLabel(date: string): string {

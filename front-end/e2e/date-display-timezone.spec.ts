@@ -58,22 +58,14 @@ async function seedMarketWithDate(request: APIRequestContext): Promise<Record<st
   const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
 
   const setupObject = {
-    colNames: ['email', 'day_1'],
-    colValues: [[], []],
-    colInclude: [false, false],
-    enumPriorityOrder: [[], []],
     priority: [],
-    marketDates: [{ date: MARKET_DATE, colNameIdx: 1 }],
+    marketDates: [{ date: MARKET_DATE }],
     tiers: [],
     locations: [],
     sections: [],
     assignmentOptions: {
       maxAssignmentsPerVendor: null,
       maxHalfTableProportionPerSection: null,
-      emailColNameIdx: null,
-      tableChoiceColNameIdx: null,
-      tableShareEmailColNameIdx: null,
-      maxDaysColNameIdx: null,
     },
   };
   const putRes = await request.put(`${BACKEND_URL}/markets/${marketId}`, {

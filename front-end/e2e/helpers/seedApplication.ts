@@ -47,3 +47,65 @@ export function seedApplication(
 
   return applicationId;
 }
+
+/**
+ * Insert an APPROVED application carrying the essential answers the solver reads.
+ *
+ * This is what the e2e seeds used to fabricate a CSV for. The solver read a `source_data`
+ * collection, so every seed had to upload a spreadsheet whether or not the test was about
+ * importing one; the comments in `seeds.ts` called that a Phase 5 dependency. The solver reads
+ * applications now, so a vendor is seeded as what a vendor actually is.
+ *
+ * Answers are stored in the shapes `essential_fields.py` validates into: dates and tiers as
+ * lists of the market plan's own names, the count as an integer, the table choice lower-cased.
+ */
+export function seedApprovedVendor(
+  marketId: string,
+  applicantEmail: string,
+  answers: {
+    dates: string[];
+    tiers: string[];
+    sections?: string[];
+    maxDates?: number;
+    tableChoice?: string;
+    shareWith?: string;
+    extra?: Record<string, unknown>;
+  },
+): string {
+  const applicationId = randomUUID();
+  const application = {
+    id: applicationId,
+    market_id: marketId,
+    applicant_email: applicantEmail,
+    form_data: {
+      essential_available_dates: answers.dates,
+      essential_max_dates: answers.maxDates ?? answers.dates.length,
+      essential_tier_preference: answers.tiers,
+      essential_table_choice: answers.tableChoice ?? 'full',
+      essential_table_share_email: answers.shareWith ?? '',
+      essential_section_ranking: answers.sections ?? [],
+      essential_table_type_ranking: [],
+      ...(answers.extra ?? {}),
+    },
+    status: 'reviewer_approved',
+    application_type: 'main',
+    submitted_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      mongoContainer(),
+      'mongosh',
+      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
+      '--quiet',
+      '--eval',
+      `db.applications.insertOne(${JSON.stringify(application)})`,
+    ],
+    { encoding: 'utf-8' },
+  );
+
+  return applicationId;
+}

@@ -5,7 +5,6 @@ from assignment.assignment import assign_market
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from db_config import get_database
 from market_documents import market_from_document, published_market_by_slug
-import api.source_data as SourceDataApi
 
 db = get_database()
 attendance_collection = db["attendance"]
@@ -41,21 +40,13 @@ def record_attendance(market_id: str, vendor_email: str, date: str) -> Tuple[Dic
     target_email = _normalize_email(vendor_email)
     target_date = date.strip()
 
-    setup_object = market_snake.get("setup_object") or {}
-    date_aliases: Dict[str, str] = {}
-    for md in setup_object.get("market_dates") or []:
-        d = md.get("date")
-        if d:
-            date_aliases[d] = d
-            cn = md.get("col_name")
-            if cn:
-                date_aliases[cn] = d
-
+    # A placement is dated by the market date itself. It used to be dated by the spreadsheet
+    # column heading that asked about that day, so every reader here had to build a map from
+    # headings back to dates before it could compare anything.
     has_match = False
     for assignment in vendor_assignments:
         a_email = _normalize_email(str(assignment.get("email", "")))
-        a_date_raw = str(assignment.get("date", ""))
-        a_date = date_aliases.get(a_date_raw, a_date_raw)
+        a_date = str(assignment.get("date", ""))
         if a_email == target_email and a_date == target_date:
             has_match = True
             break
@@ -118,10 +109,6 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
             market_snake["setup_object"]["assignment_options"] = {
                 "max_assignments_per_vendor": None,
                 "max_half_table_proportion_per_section": None,
-                "email_col_name_idx": None,
-                "table_choice_col_name_idx": None,
-                "table_share_email_col_name_idx": None,
-                "max_days_col_name_idx": None,
             }
     market_snake["assignment_object"] = {
         "vendor_assignments": [],
@@ -134,34 +121,17 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
     except Exception:
         return {"error": "Invalid market data"}, 400
 
-    source_data = None
     try:
-        source_result = SourceDataApi.get_source_data(market_id)
-        if source_result is not None:
-            source_data, _ = source_result
-    except Exception:
-        source_data = None
-
-    try:
-        assigned_market = assign_market(market, source_data)
+        assigned_market = assign_market(market)
     except Exception:
         return {"error": "Unable to derive assignments"}, 500
-
-    setup = assigned_market.setup_object
-    date_aliases: Dict[str, str] = {}
-    if setup is not None:
-        for md in setup.market_dates:
-            date_aliases[md.date] = md.date
-            if md.col_name:
-                date_aliases[md.col_name] = md.date
 
     matched: List[Dict[str, Any]] = []
     for assignment in assigned_market.assignment_object.vendor_assignments:
         if _normalize_email(assignment.email) != target_email:
             continue
-        canonical_date = date_aliases.get(assignment.date, assignment.date)
         matched.append({
-            "date": canonical_date,
+            "date": assignment.date,
             "table_code": assignment.table_code,
             "table_choice": assignment.table_choice,
             "section": assignment.section,

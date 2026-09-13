@@ -55,12 +55,8 @@ export const PLAN_TIERS = ['Gold', 'Silver'];
  */
 export function planSetupObject(dates: string[] = PLAN_DATES) {
   return {
-    colNames: [],
-    colValues: [],
-    colInclude: [],
-    enumPriorityOrder: [],
     priority: [],
-    marketDates: dates.map((date) => ({ date, colNameIdx: null })),
+    marketDates: dates.map((date) => ({ date })),
     tiers: PLAN_TIERS.map((name, id) => ({ id, name })),
     locations: [{ name: 'Indoors' }],
     sections: PLAN_SECTIONS.map((name) => ({
@@ -72,10 +68,6 @@ export function planSetupObject(dates: string[] = PLAN_DATES) {
     assignmentOptions: {
       maxAssignmentsPerVendor: null,
       maxHalfTableProportionPerSection: null,
-      emailColNameIdx: null,
-      tableChoiceColNameIdx: null,
-      tableShareEmailColNameIdx: null,
-      maxDaysColNameIdx: null,
     },
     floorplans: [
       {

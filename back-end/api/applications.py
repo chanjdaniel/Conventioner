@@ -27,6 +27,7 @@ APPLICATIONS_COLLECTION = "applications"
 MARKET_ID_FIELD = "market_id"
 APPLICANT_EMAIL_FIELD = "applicant_email"
 APPLICATION_TYPE_FIELD = "application_type"
+STATUS_FIELD = "status"
 APPLICANT_IDENTITY_INDEX = "market_applicant_type_unique"
 
 db = get_database()
@@ -154,17 +155,23 @@ def find_or_create_application(app: Application) -> Application:
     )
 
 
+def _newest_first(query: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Every application matching a query, newest first, with the driver's key stripped.
+
+    The ``_id`` Mongo adds is not part of the storage contract this module owns, and a caller
+    that saw it would be able to depend on it.
+    """
+    ensure_application_indexes()
+    documents = []
+    for doc in applications_collection.find(query).sort("submitted_at", -1):
+        doc.pop("_id", None)
+        documents.append(doc)
+    return documents
+
+
 def list_applications_for_market(market_id: str) -> List[Dict[str, Any]]:
     """Return every application belonging to one market, newest first."""
-    ensure_application_indexes()
-    cursor = applications_collection.find(market_filter(market_id)).sort(
-        "submitted_at", -1
-    )
-    apps = []
-    for doc in cursor:
-        doc.pop("_id", None)
-        apps.append(doc)
-    return apps
+    return _newest_first(market_filter(market_id))
 
 
 def find_application_by_id(app_id: str) -> Optional[Dict[str, Any]]:
@@ -213,12 +220,29 @@ def update_application_form_data(
     return result.matched_count > 0
 
 
+def list_applications_with_status(
+    market_id: str, status: str, application_type: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Every application for a market holding one status, newest first.
+
+    The counting functions below answer "how many", which is all the phase guards ever needed.
+    The solver needs the applications themselves: assignment reads the approved ones and nothing
+    else. ``application_type`` narrows further, because an applicant's waitlist application is a
+    second document for the same address and a caller that wants one vendor per person must say
+    so.
+    """
+    query: Dict[str, Any] = {**market_filter(market_id), STATUS_FIELD: status}
+    if application_type is not None:
+        query[APPLICATION_TYPE_FIELD] = application_type
+    return _newest_first(query)
+
+
 def count_applications_with_status(market_id: str, status: str) -> int:
     """How many applications for a market hold a specific status."""
     ensure_application_indexes()
     return applications_collection.count_documents({
         **market_filter(market_id),
-        "status": status,
+        STATUS_FIELD: status,
     })
 
 
@@ -227,7 +251,7 @@ def count_applications_with_any_status(market_id: str, statuses: List[str]) -> i
     ensure_application_indexes()
     return applications_collection.count_documents({
         **market_filter(market_id),
-        "status": {"$in": list(statuses)},
+        STATUS_FIELD: {"$in": list(statuses)},
     })
 
 

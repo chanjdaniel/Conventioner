@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, toRef, watch } from 'vue';
+import { ref, toRef, watch } from 'vue';
 import { type SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{ setupObject: SetupObject }>();
@@ -7,15 +7,6 @@ const emit = defineEmits(['update:setupObject']);
 
 const setupObject = toRef(props, 'setupObject');
 const assignmentOptions = toRef(setupObject.value, 'assignmentOptions');
-const colNames = computed(() => setupObject.value.colNames ?? []);
-
-onMounted(() => {
-  const ao = assignmentOptions.value;
-  if (ao.emailColNameIdx === undefined) ao.emailColNameIdx = null;
-  if (ao.tableChoiceColNameIdx === undefined) ao.tableChoiceColNameIdx = null;
-  if (ao.tableShareEmailColNameIdx === undefined) ao.tableShareEmailColNameIdx = null;
-  if (ao.maxDaysColNameIdx === undefined) ao.maxDaysColNameIdx = null;
-});
 
 const container = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
@@ -28,30 +19,16 @@ watch(
   { deep: true },
 );
 
-/** Select value: "" = null (unset); required fields must pick a column for assignment to run */
-function colIdxToSelectValue(idx: number | null | undefined): string {
-  if (idx === null || idx === undefined || idx < 0) {
-    return '';
-  }
-  return String(idx);
-}
-
-function setColIdx(
-  key:
-    'emailColNameIdx' | 'tableChoiceColNameIdx' | 'tableShareEmailColNameIdx' | 'maxDaysColNameIdx',
-  raw: string,
-) {
-  if (raw === '') {
-    assignmentOptions.value[key] = null;
-  } else {
-    const n = parseInt(raw, 10);
-    assignmentOptions.value[key] = Number.isNaN(n) ? null : n;
-  }
-}
-
+/**
+ * How many dates one vendor may be given.
+ *
+ * Anything below one leaves the setting unset, which the solver reads as "the organizer named no
+ * ceiling". Zero is included deliberately: the solver honours a cap literally, so a stored zero
+ * assigns nobody, and nobody means zero days per vendor when they type it into a field whose
+ * every other value answers "how many days may one vendor have".
+ */
 const handleDaysInput = (value: number) => {
-  if (value < 0 || isNaN(value)) {
-    // if value is less than zero or is not a number, set to null
+  if (value < 1 || isNaN(value)) {
     assignmentOptions.value.maxAssignmentsPerVendor = null;
     return;
   }
@@ -84,89 +61,7 @@ const handleProportionInput = (value: number) => {
   <div class="container" ref="container">
     <div class="rows" ref="rows">
       <div class="mapping-heading">
-        <h3 class="mapping-title">Column mapping</h3>
-      </div>
-
-      <div class="row-container row">
-        <div class="row-item">
-          <h3>Vendor email</h3>
-        </div>
-        <div class="row-item enum-item">
-          <select
-            class="datatype-dropdown"
-            :value="colIdxToSelectValue(assignmentOptions.emailColNameIdx)"
-            @change="setColIdx('emailColNameIdx', ($event.target as HTMLSelectElement).value)"
-            data-testid="setup-options-email-select"
-          >
-            <option value=""></option>
-            <option
-              v-for="(name, index) in colNames"
-              :key="'email-' + index"
-              :value="String(index)"
-            >
-              {{ name }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <div class="row-container row">
-        <div class="row-item">
-          <h3>Table choice</h3>
-        </div>
-        <div class="row-item enum-item">
-          <select
-            class="datatype-dropdown"
-            :value="colIdxToSelectValue(assignmentOptions.tableChoiceColNameIdx)"
-            @change="setColIdx('tableChoiceColNameIdx', ($event.target as HTMLSelectElement).value)"
-            data-testid="setup-options-table-choice-select"
-          >
-            <option value=""></option>
-            <option v-for="(name, index) in colNames" :key="'tc-' + index" :value="String(index)">
-              {{ name }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <div class="row-container row">
-        <div class="row-item">
-          <h3>Table share email</h3>
-        </div>
-        <div class="row-item enum-item">
-          <select
-            class="datatype-dropdown"
-            :value="colIdxToSelectValue(assignmentOptions.tableShareEmailColNameIdx)"
-            @change="
-              setColIdx('tableShareEmailColNameIdx', ($event.target as HTMLSelectElement).value)
-            "
-            data-testid="setup-options-table-share-email-select"
-          >
-            <option value=""></option>
-            <option v-for="(name, index) in colNames" :key="'tse-' + index" :value="String(index)">
-              {{ name }}
-            </option>
-          </select>
-        </div>
-      </div>
-      <div class="row-container row">
-        <div class="row-item">
-          <h3>Max days <span class="optional-label">(optional)</span></h3>
-        </div>
-        <div class="row-item enum-item">
-          <select
-            class="datatype-dropdown"
-            :value="colIdxToSelectValue(assignmentOptions.maxDaysColNameIdx)"
-            @change="setColIdx('maxDaysColNameIdx', ($event.target as HTMLSelectElement).value)"
-          >
-            <option value=""></option>
-            <option v-for="(name, index) in colNames" :key="'md-' + index" :value="String(index)">
-              {{ name }}
-            </option>
-          </select>
-        </div>
-      </div>
-
-      <div class="mapping-heading additional-options-heading">
-        <h3 class="mapping-title">Additional options</h3>
+        <h3 class="mapping-title">Assignment options</h3>
       </div>
 
       <div class="row-container row">

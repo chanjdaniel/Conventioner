@@ -21,7 +21,7 @@ SECTIONS = ["Main Hall", "Garden"]
 TIERS = ["Gold", "Silver"]
 
 SETUP_CAMEL = {
-    "colNames": [], "colValues": [], "colInclude": [], "enumPriorityOrder": [], "priority": [],
+    "priority": [],
     "marketDates": [{"date": date} for date in DATES],
     "tiers": [{"id": index, "name": name} for index, name in enumerate(TIERS)],
     "locations": [],
@@ -157,6 +157,35 @@ class TestImportApplications:
         assert body["created"] == 1 and body["skipped"] == 0
         stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
         assert stored["status"] == ApplicationStatus.OPEN.value
+
+    def test_an_imported_row_carries_its_real_submission_time(self, markets, applications):
+        """The constraint a first-come-first-served priority rule rests on.
+
+        If every imported row took the time of import they would all be identical, and the rule
+        would silently do nothing for exactly the markets this MVP serves.
+        """
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        assert stored["submitted_at"], "the Timestamp column must reach submitted_at"
+        assert stored["submitted_at"].startswith("2026"), (
+            f"expected the row's own timestamp, got {stored['submitted_at']!r}"
+        )
+
+    def test_two_rows_keep_distinct_submission_times(self, markets, applications):
+        later = GOOD_ROW.replace("2026/05/02 9:14:03", "2026/06/30 17:45:00").replace(
+            "nadia@ember.ca", "second@ember.ca", 1
+        )
+        CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW, later), MAPPING,
+        )
+
+        first = applications.find_one({"applicant_email": "nadia@ember.ca"})["submitted_at"]
+        second = applications.find_one({"applicant_email": "second@ember.ca"})["submitted_at"]
+        assert first != second, (
+            "identical timestamps would make first-come-first-served decide nothing"
+        )
+        assert first < second
 
     def test_answers_land_in_their_stored_shapes(self, markets, applications):
         """Through the shared write path, so identical to a form submission."""
