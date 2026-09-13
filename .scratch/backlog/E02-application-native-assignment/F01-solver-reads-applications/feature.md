@@ -2,7 +2,7 @@
 id: E02/F01
 title: The solver reads Applications
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

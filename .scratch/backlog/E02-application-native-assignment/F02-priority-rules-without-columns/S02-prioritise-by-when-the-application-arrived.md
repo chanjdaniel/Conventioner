@@ -2,7 +2,7 @@
 id: E02/F02/S02
 title: Prioritise by when the application arrived
 type: story
-status: ready
+status: done
 blocked_by: [E02/F02/S01]
 pr: []
 ---

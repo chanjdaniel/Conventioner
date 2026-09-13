@@ -13,7 +13,7 @@ Frontier first; a story starts only when every id in its `blocked_by` is done.
 | 1 | F01/S01 Build approved applications into typed solver vendors | - | done (unpushed) | |
 | 2 | F01/S02 Assign a market from its Applications | F01/S01 | done (unpushed) | |
 | 3 | F01/S03 Honour the organizer's max assignments per vendor | F01/S02 | done (unpushed) | |
-| 3b | F01/S04 Refuse a zero assignment cap (found in S03) | F01/S03 | not started | |
+| 3b | F01/S04 Refuse a zero assignment cap (found in S03) | F01/S03 | done (unpushed) | |
 | 4 | F02/S01 Build a priority rule from a form question | F01/S02 | done (unpushed) | |
 | 5 | F02/S02 Prioritise by when the application arrived | F02/S01 | done (unpushed) | |
 | 6 | F03/S01 Place vendors in their highest-ranked available section | F01/S02 | done (unpushed) | |
@@ -281,7 +281,10 @@ Worth recording, because it is the argument for the e2e criteria being on these 
    uploaded spreadsheet. Removing the spreadsheet removed the pre-fill and left them asserting on
    rows that no longer had a reason to exist.
 
-### Follow-up filed, not done
+### The one story found mid-epic
 
-- **E02/F01/S04** - the setup screen accepts a max-assignments cap of zero and the solver honours
-  it literally, so the market assigns nobody. Visible rather than silent, so not blocking.
+- **E02/F01/S04** - the setup screen accepted a max-assignments cap of zero and the solver
+  honoured it literally, so the market assigned nobody. Filed as a sibling story when found in
+  S03, then done, because a feature is only `done` when every child story is and parking it would
+  have left E02 complete with an asterisk. Anything below one now leaves the setting unset, which
+  the solver reads as "no ceiling". Five component tests.

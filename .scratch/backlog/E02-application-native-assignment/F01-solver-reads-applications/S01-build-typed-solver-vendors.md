@@ -2,7 +2,7 @@
 id: E02/F01/S01
 title: Build approved applications into typed solver vendors
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

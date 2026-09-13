@@ -2,7 +2,7 @@
 id: E02/F03
 title: Section preference honoured in placement
 type: feature
-status: ready
+status: done
 blocked_by: [E02/F01]
 pr: []
 ---

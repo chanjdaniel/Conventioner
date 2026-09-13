@@ -2,7 +2,7 @@
 id: E02/F04
 title: Remove the CSV substrate
 type: feature
-status: ready
+status: done
 blocked_by: [E02/F01, E02/F02, E02/F03]
 pr: []
 ---

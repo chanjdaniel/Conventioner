@@ -2,7 +2,7 @@
 id: E02/F04/S04
 title: Remove col_name from market dates and public check-in
 type: story
-status: ready
+status: done
 blocked_by: [E02/F04/S03]
 pr: []
 ---

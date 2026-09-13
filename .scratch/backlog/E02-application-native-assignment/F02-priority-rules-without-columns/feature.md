@@ -2,7 +2,7 @@
 id: E02/F02
 title: Priority rules without columns
 type: feature
-status: ready
+status: done
 blocked_by: [E02/F01]
 pr: []
 ---

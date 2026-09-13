@@ -2,7 +2,7 @@
 id: E02/F01/S02
 title: Assign a market from its Applications
 type: story
-status: ready
+status: done
 blocked_by: [E02/F01/S01]
 pr: []
 ---

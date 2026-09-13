@@ -2,7 +2,7 @@
 id: E02/F04/S02
 title: Remove the source-data endpoints and collection
 type: story
-status: ready
+status: done
 blocked_by: [E02/F04/S01]
 pr: []
 ---

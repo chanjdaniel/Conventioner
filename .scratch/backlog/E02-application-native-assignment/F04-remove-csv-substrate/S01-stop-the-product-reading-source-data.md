@@ -2,7 +2,7 @@
 id: E02/F04/S01
 title: Stop the product reading source data
 type: story
-status: ready
+status: done
 blocked_by: [E02/F02/S02, E02/F03/S01]
 pr: []
 ---

@@ -2,7 +2,7 @@
 id: E02/F01/S04
 title: Refuse a zero cap on assignments per vendor
 type: story
-status: ready
+status: done
 blocked_by: [E02/F01/S03]
 pr: []
 ---
@@ -36,3 +36,6 @@ becomes a sibling story rather than growing the current one.
 
 Low severity. The failure is visible - every vendor shows as unassigned - rather than silent, so
 this is a correctness tidy-up, not a defect the epic is blocked on.
+
+Done as its own slice rather than deferred, because a feature is only `done` when every child
+story is, and parking one small story would have left E02 complete with an asterisk.

@@ -19,9 +19,16 @@ watch(
   { deep: true },
 );
 
+/**
+ * How many dates one vendor may be given.
+ *
+ * Anything below one leaves the setting unset, which the solver reads as "the organizer named no
+ * ceiling". Zero is included deliberately: the solver honours a cap literally, so a stored zero
+ * assigns nobody, and nobody means zero days per vendor when they type it into a field whose
+ * every other value answers "how many days may one vendor have".
+ */
 const handleDaysInput = (value: number) => {
-  if (value < 0 || isNaN(value)) {
-    // if value is less than zero or is not a number, set to null
+  if (value < 1 || isNaN(value)) {
     assignmentOptions.value.maxAssignmentsPerVendor = null;
     return;
   }

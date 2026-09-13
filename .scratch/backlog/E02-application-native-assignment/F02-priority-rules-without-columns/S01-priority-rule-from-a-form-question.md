@@ -2,7 +2,7 @@
 id: E02/F02/S01
 title: Build a priority rule from a form question
 type: story
-status: ready
+status: done
 blocked_by: [E02/F01/S02]
 pr: []
 ---

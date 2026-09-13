@@ -2,7 +2,7 @@
 id: E02
 title: Application-native assignment solver
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

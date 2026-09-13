@@ -2,7 +2,7 @@
 id: E02/F03/S01
 title: Place vendors in their highest-ranked available section
 type: story
-status: ready
+status: done
 blocked_by: [E02/F01/S02]
 pr: []
 ---

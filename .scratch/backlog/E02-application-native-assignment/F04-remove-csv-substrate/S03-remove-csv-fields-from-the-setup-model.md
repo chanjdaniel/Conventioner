@@ -2,7 +2,7 @@
 id: E02/F04/S03
 title: Remove the CSV-derived fields from the setup model
 type: story
-status: ready
+status: done
 blocked_by: [E02/F04/S02]
 pr: []
 ---

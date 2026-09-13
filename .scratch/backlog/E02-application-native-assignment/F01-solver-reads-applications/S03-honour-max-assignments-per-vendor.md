@@ -2,7 +2,7 @@
 id: E02/F01/S03
 title: Honour the organizer's max assignments per vendor
 type: story
-status: ready
+status: done
 blocked_by: [E02/F01/S02]
 pr: []
 ---
