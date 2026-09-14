@@ -58,6 +58,11 @@ What that leaves for this map is what it was always for: the five decisions belo
 
 <!-- one line per resolved ticket -->
 
+<!-- NONE YET. Tickets 01, 02, 03, 04 and 06 are claimed and part-grilled: two rounds settled eight
+     decisions, recorded under "## Settled so far" in each ticket, and a third round is unanswered.
+     Nothing is resolved until a round closes, because a later answer can still reshape an earlier
+     one - so those notes are the record of what was decided, not the answer to the question. -->
+
 ## Not yet specified
 
 - **What else the synthetic fixtures hid.** Three blockers came from real-world data shape, not from logic.

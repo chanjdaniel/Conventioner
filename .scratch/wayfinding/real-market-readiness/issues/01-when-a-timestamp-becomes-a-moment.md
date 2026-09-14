@@ -39,3 +39,27 @@ ordering nothing" is the same decision seen from the other end.
 Note the invariant `AGENTS.md` already states: "a CSV-imported row must carry its own
 `submitted_at`, or first-come-first-served decides nothing." The row does carry it. It decides
 nothing anyway. Whatever this ticket settles should make that sentence true rather than aspirational.
+
+## Settled so far
+
+Given in grilling on 2026-09-14. **Not a resolution** - this ticket stays open until the whole
+round is closed, because a later answer can still reshape it.
+
+- **The conversion happens at import**, normalising to ISO-8601 on the way into the document.
+  The deciding fact: the *public applicant form already writes ISO*
+  (`application_write.py:124`), so only the CSV path stores a raw `M/D/YYYY`. Converting at read
+  would mean maintaining two stored shapes forever and hoping every future reader knows.
+- **It fixes more than the solver.** `api/applications.py:166` sorts the review queue by the same
+  raw string, so the order an organizer reviews 232 applications in is wrong too. Converting at
+  import fixes both; teaching `_as_moment` would fix only the reader you remembered.
+- **An unparseable timestamp refuses the row**, naming it, the way `IncompleteApplicationsError`
+  refuses rather than silently placing someone.
+- **The refusal applies only when the column is mapped.** `submitted_at` is an optional target
+  (`csv_import.py:195`) and stays optional: the import validates what it was given and does not
+  reach into the setup object to find out whether a priority rule cares. Coupling them would let a
+  rule added later retroactively invalidate an import that already succeeded.
+- **But say something** when no timestamp column is mapped *and* a `submitted_at` priority rule
+  exists - that combination is the silent no-op in a new disguise.
+- **Migrate with a plain script, no boot marker.** The marker pattern exists for hazards that are
+  *invisible* (an unmigrated market simply does not appear). A raw timestamp misorders visibly, so
+  paying a boot refusal for it teaches operators the refusal is noise.

@@ -40,3 +40,24 @@ the contract was careful about.
 
 Interacts with ticket 03: if a required question can be declared "not asked", that mechanism may or
 may not be the right way to express this one too.
+
+## Settled so far
+
+Given in grilling on 2026-09-14. **Not a resolution** - this ticket stays open until the whole
+round is closed.
+
+- **Tier preference becomes per-date**, like availability. The union was rejected because tier is a
+  hard filter *and it sets the price*: a vendor who offered Gold on Monday and Bronze on Friday
+  would be placed at Gold on Friday and charged for it, or at Bronze on their good day. The real
+  form promises "the highest tier available among the selections made" **per day**, so a union
+  breaks a promise the organizer already made in writing.
+- **Availability stays its own answer.** Collapsing it into tier would match the real form exactly
+  but leaves availability undefined for a market that offers no tiers at all - which
+  `asked_essential_keys()` already treats as legitimate. Both are stored, and **validation refuses a
+  ticked date with no tiers**, so they cannot disagree.
+- **Same key, new shape** (`essential_tier_preference` becomes date -> list), with the migration.
+  Accepting either shape at read was rejected for the reason `AGENTS.md` gives about market
+  documents: a read-time fallback leaves stale values alive forever.
+- **Consequence:** `essential_tier_preference` stops being usable as a **priority-rule target** - a
+  map has no ordering. The rule builder must stop offering it rather than score every vendor
+  identically, which is the C1 failure mode in a new costume.

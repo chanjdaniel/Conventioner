@@ -43,3 +43,29 @@ scope". Whether the answer is to reach `market_days` some other way, to rename `
 something new, is what this ticket settles.
 
 Expected to change `CONTEXT.md` either way, and to warrant an ADR if the answer is a new phase.
+
+## Settled so far
+
+Given in grilling on 2026-09-14. **Not a resolution** - this ticket stays open until the whole
+round is closed.
+
+- **Publishing becomes `assignment -> market_days`.** One row in `VALID_TRANSITIONS`, not a new
+  phase: no migration, no new guard table, and `_validate_registry()` catches a mistake at import.
+  It un-strands a phase that already exists and already means exactly this.
+- **`archived` goes back to meaning one thing: finished.** Every `* -> archived` edge means "this
+  market is over", including from `draft`, where it means "finished without ever running".
+  `draft -> archived` is therefore kept, as **abandonment, not publishing** - which makes the red
+  destructive styling on the Archive Market button *correct*, and retires the polish-table item
+  that started this ticket.
+- **Check-in gates on `market_days`.** A market abandoned from draft must not serve a public
+  check-in URL.
+- **Each public surface names its own phases.** `published_market_by_slug` (check-in) and
+  `applicant_intake_market_by_slug` (the five applicant endpoints) answer different questions, and
+  "non-draft" stops being a useful rule for either. Applicant intake narrows to
+  `applications_open` - stricter than today, and the safe direction: a stranger applying to a
+  market that has already assigned is current behaviour and it is wrong.
+- **The new edge needs a guard**: an assignment-computed **entry invariant** on `market_days`, not
+  an edge guard, so a second route to the phase later cannot bypass it. The transition endpoint is
+  reachable directly and a hidden button is not a rule. Caution from a live precedent: `offers` has
+  an entry invariant and is deadlocked *because nothing satisfies it*, so whatever this guard
+  checks must be something the solver actually writes.
