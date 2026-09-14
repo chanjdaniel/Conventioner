@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { inject } from 'vue';
 import ElementNavigationItem from './ElementNavigationItem.vue';
-import IconSettings from '../icons/IconSettings.vue';
+import IconCommunity from '../icons/IconCommunity.vue';
 import IconVendors from '../icons/IconVendors.vue';
-import IconTables from '../icons/IconTables.vue';
 import IconMarkets from '../icons/IconMarkets.vue';
-import IconTools from '../icons/IconTools.vue';
-import IconLog from '../icons/IconLog.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
 import IconSignOutSquare from '../icons/IconSignOutSquare.vue';
 import ElementSignoutButton from './ElementSignoutButton.vue';
@@ -23,26 +20,11 @@ const user = inject<string | null>('user');
     <h2 class="user-email">{{ user }}</h2>
 
     <div class="nav">
-      <ElementNavigationItem to="vendors" @menuClose="$emit('menuClose')">
-        <template #icon>
-          <IconVendors class="nav-icon" />
-        </template>
-        <h3>
-          <span>View </span>
-          <span class="vendors-1">Vendors</span>
-        </h3>
-      </ElementNavigationItem>
-
-      <ElementNavigationItem to="vendors" @menuClose="$emit('menuClose')">
-        <template #icon>
-          <IconTables class="nav-icon" />
-        </template>
-        <h3>
-          <span>View </span>
-          <span class="tables-1">Tables</span>
-        </h3>
-      </ElementNavigationItem>
-
+      <!-- Every item here goes where it says it goes.
+           Four of six used to point at /vendors - "View Tables", "Discord Tools" and "View Change
+           Log" all landed on the vendors page, and "Manage Tables" opened /init, which is the
+           new-or-existing market chooser. Discord tools and a change log do not exist as pages at
+           all. Nothing replaced them, because inventing a destination is how they got here. -->
       <ElementNavigationItem to="/markets" @menuClose="$emit('menuClose')">
         <template #icon>
           <IconMarkets class="nav-icon" />
@@ -50,25 +32,21 @@ const user = inject<string | null>('user');
         <h3>Manage markets</h3>
       </ElementNavigationItem>
 
-      <ElementNavigationItem to="/init" @menuClose="$emit('menuClose')">
+      <ElementNavigationItem to="/organizations" @menuClose="$emit('menuClose')">
         <template #icon>
-          <IconSettings class="nav-icon" />
+          <IconCommunity class="nav-icon" />
         </template>
-        <h3>Manage Tables</h3>
+        <h3>Organizations</h3>
       </ElementNavigationItem>
 
-      <ElementNavigationItem to="vendors" @menuClose="$emit('menuClose')">
+      <ElementNavigationItem to="/vendors" @menuClose="$emit('menuClose')">
         <template #icon>
-          <IconTools class="nav-icon" />
+          <IconVendors class="nav-icon" />
         </template>
-        <h3>Discord Tools</h3>
-      </ElementNavigationItem>
-
-      <ElementNavigationItem to="vendors" @menuClose="$emit('menuClose')">
-        <template #icon>
-          <IconLog class="nav-icon" />
-        </template>
-        <h3>View Change Log</h3>
+        <h3>
+          <span>View </span>
+          <span class="vendors-1">Vendors</span>
+        </h3>
       </ElementNavigationItem>
 
       <ElementSignoutButton>

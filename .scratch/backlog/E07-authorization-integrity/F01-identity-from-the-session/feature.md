@@ -2,7 +2,7 @@
 id: E07/F01
 title: Identity comes from the session, never from a header
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

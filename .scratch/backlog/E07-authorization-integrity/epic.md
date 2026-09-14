@@ -2,7 +2,7 @@
 id: E07
 title: Authorization integrity
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

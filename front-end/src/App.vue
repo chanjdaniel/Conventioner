@@ -88,8 +88,11 @@ watch(isLogin, (newValue) => {
 </template>
 
 <style scoped>
+/* `100vw` includes the vertical scrollbar, so any page tall enough to scroll gained a horizontal
+   scrollbar it did not need (E08/F01/S02). `left/right: 0` fills the containing block exactly,
+   scrollbar or not. */
 .app-container {
-  width: 100vw;
+  right: 0;
   height: 100vh;
   min-width: 1000px;
   background-color: white;
@@ -108,7 +111,7 @@ watch(isLogin, (newValue) => {
 }
 
 header {
-  width: 100vw;
+  width: 100%;
   line-height: 1.5;
   max-height: 100vh;
 }
@@ -131,10 +134,7 @@ header {
 
 .nav-background {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
   background: rgba(0, 0, 0, 0.5);
   opacity: 100%;
   transition:
@@ -143,7 +143,7 @@ header {
 }
 
 .banner {
-  width: 100vw;
+  width: 100%;
   height: 5vh;
 }
 

@@ -2,9 +2,9 @@
 id: E07/F01/S02
 title: Authorize every route against the session user
 type: story
-status: ready
+status: done
 blocked_by: [E07/F01/S01]
-pr: []
+pr: [685cebc6]
 ---
 
 ## What to build

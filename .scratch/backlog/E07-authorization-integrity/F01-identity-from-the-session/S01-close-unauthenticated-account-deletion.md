@@ -2,9 +2,9 @@
 id: E07/F01/S01
 title: Close unauthenticated account deletion
 type: story
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [df3e61de]
 ---
 
 ## What to build
