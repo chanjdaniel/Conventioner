@@ -2,7 +2,7 @@
 id: E08
 title: Interface correctness
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

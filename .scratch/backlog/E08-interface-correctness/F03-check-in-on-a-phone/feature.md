@@ -2,7 +2,7 @@
 id: E08/F03
 title: Check-in works on a phone
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

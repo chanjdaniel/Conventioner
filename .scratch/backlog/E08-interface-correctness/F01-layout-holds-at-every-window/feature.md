@@ -2,7 +2,7 @@
 id: E08/F01
 title: Layout holds at every window size
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

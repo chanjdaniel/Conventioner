@@ -2,7 +2,7 @@
 id: E08/F01/S02
 title: No page scrolls horizontally because it scrolls vertically
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

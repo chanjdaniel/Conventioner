@@ -43,6 +43,17 @@ These frame every ticket and are not open for re-litigation without redrawing th
   Tracked as `.scratch/backlog/E08-interface-correctness/`.
   The one exception is the red "Archive Market" button that publishes a market, which is a modelling question and has its own ticket.
 
+### Built since charting (2026-09-14)
+
+The by-product backlog this map named has been worked; none of it needed a ticket here.
+
+- **E07 Authorization integrity is done.** Both proven vulnerabilities are closed and pinned by tests, including a structural one: the hole was 33 routes wide, and the next route gets written by copying a neighbour.
+- **E08 Interface correctness is done.** Statistics hold at every laptop size (no card clipped at 1280x720 through 2560x1440, against 5 of 5 clipped before), no page scrolls horizontally because it scrolls vertically, the Applications tab renders inside its panel, check-in works one-handed at 390px, and the copy/navigation items are fixed.
+- **E01/F04/S01 is done** - the grid-detection blocker was one missing `re.DOTALL`. Verified closed against the real file through the wizard.
+- **E06/F04 is done** - the real export is committed as an anonymised fixture with its anonymiser, and `tests/test_data/README.md` pins the six shapes it exists to preserve.
+
+What that leaves for this map is what it was always for: the five decisions below, none of which a test or a patch can settle.
+
 ## Decisions so far
 
 <!-- one line per resolved ticket -->

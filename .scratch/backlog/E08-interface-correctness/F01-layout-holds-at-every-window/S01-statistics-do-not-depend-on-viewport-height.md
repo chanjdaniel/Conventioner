@@ -2,7 +2,7 @@
 id: E08/F01/S01
 title: Assignment statistics do not depend on viewport height
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

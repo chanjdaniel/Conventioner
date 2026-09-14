@@ -2,7 +2,7 @@
 id: E08/F01/S03
 title: The Applications tab renders inside its panel
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

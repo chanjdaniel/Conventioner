@@ -2,7 +2,7 @@
 id: E08/F02
 title: Copy and navigation tell the truth
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
