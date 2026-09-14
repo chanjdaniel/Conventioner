@@ -23,17 +23,12 @@ import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
-// PROTOTYPE (ticket 04) - throwaway. Reachable only with ?variant= in the URL.
-import PrototypeReviewQueue from '@/components/application/PrototypeReviewQueue.vue';
 import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
 
 const router = useRouter();
 
 const showPathChoice = ref(false);
 const activeTab = ref<'form' | 'setup' | 'applications'>('setup');
-
-/** PROTOTYPE (ticket 04): ?variant=A|B|C swaps the review queue for the throwaway variants. */
-const prototypeVariant = new URLSearchParams(window.location.search).has('variant');
 
 const market = ref<Market | null>(null);
 const applicationForm = ref<ApplicationForm | null>(null);
@@ -598,12 +593,7 @@ watch(pageIdx, (newIdx) => {
               Bring in the responses your Google Form collected.
             </span>
           </div>
-          <PrototypeReviewQueue
-            v-if="prototypeVariant"
-            :market="market"
-            :visible="activeTab === 'applications'"
-          />
-          <ApplicationMonitor v-else :market="market" :visible="activeTab === 'applications'" />
+          <ApplicationMonitor :market="market" :visible="activeTab === 'applications'" />
         </div>
       </div>
       <div v-if="activeTab === 'setup'" class="discord-webhook-row">
