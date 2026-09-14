@@ -487,6 +487,13 @@ class EssentialFormOptions(BaseModel):
     table_types: List[str] = []
     tiers: List[str] = []
 
+    # Questions this market has declared it does not ask, because its intake cannot answer them
+    # (E01/F06). Only RANKINGS may appear here - see essential_fields.UNASKABLE_ESSENTIAL_KEYS.
+    # A ranking is a soft preference the solver never filters on, so a uniform default changes
+    # nothing but the tie-break; a default for dates, tiers or table choice would invent a
+    # commitment the applicant never made.
+    unasked: List[str] = []
+
 
 class ApplicationForm(BaseModel):
     fields: List[FormField]
@@ -494,6 +501,11 @@ class ApplicationForm(BaseModel):
     # Server-owned frozen offering of the essential questions; None until the first
     # applicant answer freezes it. Never writable by a client (see _normalized_application_form).
     essential_options: Optional[EssentialFormOptions] = None
+    # Essential questions this market has declared it does not ask, because its intake cannot
+    # answer them (E01/F06). Organizer-settable, unlike essential_options above, and durable:
+    # the offering is derived or frozen, so a declaration stored there would be lost. Only
+    # RANKINGS may appear - essential_fields.unaskable_essential_error enforces that on write.
+    unasked_essentials: List[str] = []
 
 
 class Application(BaseModel):
@@ -737,6 +749,7 @@ class ApplicationFormContract(ContractModel):
     fields: List[FormFieldContract]
     published_at: Optional[str] = None
     essential_options: Optional[EssentialFormOptionsContract] = None
+    unasked_essentials: List[str] = []
 
 
 class ImportMappingContract(ImportMapping, ContractModel):

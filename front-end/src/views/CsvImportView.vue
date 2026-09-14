@@ -22,6 +22,7 @@ import {
   TABLE_CHOICES,
   TABLE_TYPE_RANKING_KEY,
   TIER_PREFERENCE_KEY,
+  UNASKABLE_ESSENTIAL_KEYS,
 } from '@/utils/essentialFields';
 
 /** Targets whose answer is several values, so one column holds a comma-separated list. */
@@ -253,6 +254,18 @@ function splitGroup(stem: string) {
 const unservedRequired = computed(() =>
   requiredTargets.value.filter((t) => !mappedKeys.value.has(t.key)),
 );
+/**
+ * Required questions this file cannot answer that the market may simply stop asking (E01/F06).
+ *
+ * Only preference orderings appear, and that is the whole rule: the solver gives a vendor their
+ * best-ranked option still open and never excludes anyone for a ranking, so treating every
+ * applicant equally on it changes nothing but the tie-break. The same offer for dates or tiers
+ * would let a default invent a commitment the applicant never made.
+ */
+const declarableUnasked = computed(() =>
+  unservedRequired.value.filter((t) => UNASKABLE_ESSENTIAL_KEYS.includes(t.key)),
+);
+
 const canPreview = computed(() => unservedRequired.value.length === 0);
 
 /** A target already taken elsewhere, so the ledger can grey it out. */
@@ -774,6 +787,27 @@ function startOver() {
         >
           Still unmapped: {{ unservedRequired.map((t) => t.label).join(', ') }}
         </p>
+
+        <!-- Turning a question off is a change to the FORM, and a form is editable only in draft
+             (D9). This wizard only ever runs in applications_open, so it points at where to do it
+             rather than offering a button that would be refused here - the same shape as the
+             unmapped-column dead end in the ledger. -->
+        <div
+          v-for="target in declarableUnasked"
+          :key="target.key"
+          class="rail-unasked"
+          data-testid="import-declare-unasked"
+        >
+          <p>
+            Your form never asked <strong>{{ target.label }}</strong
+            >. It is a preference, not a constraint, so this market can stop asking it and treat
+            every applicant equally.
+          </p>
+          <p class="rail-unasked-how">
+            Reopen the market for editing, turn it off in the form builder, then open applications
+            and import again.
+          </p>
+        </div>
       </aside>
     </section>
 
@@ -1196,6 +1230,26 @@ function startOver() {
   margin: 0;
   font-size: 13px;
   color: var(--mm-green, #2e7d4f);
+}
+
+.rail-unasked {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--mm-green, #49b096);
+  background: #eef8f5;
+  font-size: 13px;
+}
+
+.rail-unasked p {
+  margin: 0 0 6px;
+}
+
+.rail-unasked p:last-child {
+  margin-bottom: 0;
+}
+
+.rail-unasked-how {
+  color: rgba(39, 35, 35, 0.66);
 }
 
 .rail-warning {

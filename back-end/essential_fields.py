@@ -112,6 +112,34 @@ REQUIRED_ESSENTIAL_KEYS = tuple(
 )
 
 
+# The only essential questions a market may declare it does not ask (E01/F06).
+#
+# Both are RANKINGS, and that is the whole of the rule. The solver gives a vendor their best-ranked
+# option still open and never excludes anyone for a ranking, so declaring one unasked and storing a
+# uniform default changes nothing but the tie-break. Available dates, tier preference and table
+# choice are constraints: a default there invents a commitment the applicant never made, and the
+# solver acts on it - placing someone on a day they cannot attend, or at a price they refused.
+#
+# Adding a key here means asserting that same property of it. Do not add one without it.
+UNASKABLE_ESSENTIAL_KEYS = (SECTION_RANKING_KEY, TABLE_TYPE_RANKING_KEY)
+
+
+def unaskable_essential_error(keys: Optional[List[str]]) -> Optional[str]:
+    """Why this market may not declare these questions unasked, or None.
+
+    The refusal names the key, because the caller is an organizer mapping a spreadsheet and the
+    key is what they chose.
+    """
+    for key in keys or []:
+        if key not in UNASKABLE_ESSENTIAL_KEYS:
+            return (
+                f"'{key}' cannot be left unasked. Only a preference ordering may be "
+                f"({', '.join(UNASKABLE_ESSENTIAL_KEYS)}); every other essential question decides "
+                "where or whether a vendor is placed, so a default would answer for them."
+            )
+    return None
+
+
 def asks_ranking(offered: Any) -> bool:
     """Is a ranking over this offering actually a question?
 
@@ -150,7 +178,11 @@ def asked_essential_keys(options: EssentialFormOptions) -> frozenset:
         asked.add(SECTION_RANKING_KEY)
     if asks_ranking(options.table_types):
         asked.add(TABLE_TYPE_RANKING_KEY)
-    return frozenset(asked)
+    # A question the market has declared it does not ask is not asked - the last word, and the
+    # reason this lives here rather than in each caller. Only rankings can reach this list
+    # (``unaskable_essential_error`` is what enforces that on the way in), so removing one can
+    # never drop a constraint the solver relies on.
+    return frozenset(asked - set(options.unasked or []))
 
 
 def offering_for_key(key: str, options: EssentialFormOptions) -> List[str]:
@@ -235,6 +267,18 @@ def essential_options_from_setup(setup: Optional[Dict[str, Any]]) -> EssentialFo
     )
 
 
+def _with_unasked(options: EssentialFormOptions, unasked: List[str]) -> EssentialFormOptions:
+    """Carry the form's declaration onto the offering, whether frozen or live.
+
+    The declaration lives on the form because it is the organizer's, and durable. It is carried on
+    the OPTIONS because ``asked_essential_keys`` takes only an offering - so every caller of that
+    one rule sees it without knowing it exists.
+    """
+    if not unasked:
+        return options
+    return options.model_copy(update={"unasked": unasked})
+
+
 def effective_essential_options(market_doc: Dict[str, Any]) -> EssentialFormOptions:
     """What the essential questions offer for this market, frozen or live.
 
@@ -246,14 +290,19 @@ def effective_essential_options(market_doc: Dict[str, Any]) -> EssentialFormOpti
     ``applicationForm`` and ``setupObject``.
     """
     form_doc = market_doc_field(market_doc, "application_form")
+    unasked = []
     if isinstance(form_doc, dict):
+        stored = form_doc.get(snake_to_camel("unasked_essentials"))
+        if isinstance(stored, list):
+            unasked = [str(key) for key in stored]
+
         snapshot = form_doc.get(snake_to_camel("essential_options"))
         if isinstance(snapshot, dict):
-            return essential_options_from_snapshot(snapshot)
+            return _with_unasked(essential_options_from_snapshot(snapshot), unasked)
 
     setup_doc = market_doc_field(market_doc, "setup_object")
     setup = convert_keys_to_snake_case(setup_doc) if isinstance(setup_doc, dict) else None
-    return essential_options_from_setup(setup)
+    return _with_unasked(essential_options_from_setup(setup), unasked)
 
 
 def effective_essential_options_for_market(market: Market) -> EssentialFormOptions:
@@ -263,10 +312,11 @@ def effective_essential_options_for_market(market: Market) -> EssentialFormOptio
     stands.
     """
     form = market.application_form
+    unasked = list(form.unasked_essentials) if form is not None else []
     if form is not None and form.essential_options is not None:
-        return form.essential_options
+        return _with_unasked(form.essential_options, unasked)
     setup = market.setup_object.model_dump() if market.setup_object else None
-    return essential_options_from_setup(setup)
+    return _with_unasked(essential_options_from_setup(setup), unasked)
 
 
 def essential_options_from_snapshot(snapshot: Dict[str, Any]) -> EssentialFormOptions:
@@ -372,14 +422,22 @@ def validated_essential_answers(
 
     _store_table_share_email(incoming, options, stored)
 
+    # A question the market declared it does not ask offers nothing, which is the path
+    # ``_validate_ranking`` already takes for a question with nothing to offer: it stores the empty
+    # value and requires no answer. Routing "unasked" through the SAME path rather than adding a
+    # second one is what keeps ``asked_essential_keys`` the one statement of requiredness.
+    asked = asked_essential_keys(options)
+
     error = _validate_ranking(
-        incoming, SECTION_RANKING_KEY, SECTION_RANKING_LABEL, options.sections, stored,
+        incoming, SECTION_RANKING_KEY, SECTION_RANKING_LABEL,
+        options.sections if SECTION_RANKING_KEY in asked else [], stored,
     )
     if error:
         return error, {}
 
     error = _validate_ranking(
-        incoming, TABLE_TYPE_RANKING_KEY, TABLE_TYPE_RANKING_LABEL, options.table_types, stored,
+        incoming, TABLE_TYPE_RANKING_KEY, TABLE_TYPE_RANKING_LABEL,
+        options.table_types if TABLE_TYPE_RANKING_KEY in asked else [], stored,
     )
     if error:
         return error, {}
