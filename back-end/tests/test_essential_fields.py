@@ -471,6 +471,7 @@ class TestFreezeEssentialOptions:
         assert written == {
             "dates": DATES, "sections": SECTIONS, "tableTypes": TABLE_TYPES,
             "tiers": TIERS,
+            "unasked": [],
             "tiers": TIERS,
         }
 
@@ -560,6 +561,7 @@ class TestApplicantSave:
         assert frozen == {
             "dates": DATES, "sections": SECTIONS, "tableTypes": STUB_TABLE_TYPES,
             "tiers": TIERS,
+            "unasked": [],
             "tiers": TIERS,
         }
 
@@ -631,6 +633,7 @@ class TestPublicForm:
         assert body["essential_options"] == {
             "dates": DATES, "sections": SECTIONS, "tableTypes": STUB_TABLE_TYPES,
             "tiers": TIERS,
+            "unasked": [],
         }
 
     def test_the_organizer_form_endpoint_carries_the_effective_offering(
@@ -646,6 +649,7 @@ class TestPublicForm:
         assert result["essential_options"] == {
             "dates": DATES, "sections": SECTIONS, "tableTypes": STUB_TABLE_TYPES,
             "tiers": TIERS,
+            "unasked": [],
         }
 
 

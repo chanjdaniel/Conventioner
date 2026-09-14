@@ -250,42 +250,33 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     it would invite the organizer to map a column that would then be discarded.
     """
     options = EssentialFields.effective_essential_options(market_doc)
+    asked = EssentialFields.asked_essential_keys(options)
+
+    # One entry per essential question, in the order the form asks them. Which of these are
+    # actually offered is NOT decided here: ``asked_essential_keys`` is the single statement of
+    # that rule, and this used to re-implement it (``options.dates``, ``len(options.sections) > 1``)
+    # - a second copy that could not see a market's declaration that it does not ask a question,
+    # and that would have drifted from the applicant validator and the solver the moment either
+    # moved.
+    essential_order = (
+        (EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL),
+        (EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL),
+        (EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL),
+        (EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_EMAIL_LABEL),
+        (EssentialFields.TIER_PREFERENCE_KEY, EssentialFields.TIER_PREFERENCE_LABEL),
+        (EssentialFields.SECTION_RANKING_KEY, EssentialFields.SECTION_RANKING_LABEL),
+        (EssentialFields.TABLE_TYPE_RANKING_KEY, EssentialFields.TABLE_TYPE_RANKING_LABEL),
+    )
+
     targets = [
         ImportTarget(APPLICANT_EMAIL_TARGET, APPLICANT_EMAIL_LABEL, True, "identity"),
         ImportTarget(SUBMITTED_AT_TARGET, SUBMITTED_AT_LABEL, False, "meta"),
     ]
-
-    if options.dates:
-        targets.append(ImportTarget(
-            EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL,
-            True, "essential",
-        ))
-        targets.append(ImportTarget(
-            EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL, True, "essential",
-        ))
-        targets.append(ImportTarget(
-            EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL,
-            True, "essential",
-        ))
-        targets.append(ImportTarget(
-            EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_EMAIL_LABEL,
-            False, "essential",
-        ))
-    if options.tiers:
-        targets.append(ImportTarget(
-            EssentialFields.TIER_PREFERENCE_KEY, EssentialFields.TIER_PREFERENCE_LABEL,
-            True, "essential",
-        ))
-    if len(options.sections) > 1:
-        targets.append(ImportTarget(
-            EssentialFields.SECTION_RANKING_KEY, EssentialFields.SECTION_RANKING_LABEL,
-            True, "essential",
-        ))
-    if len(options.table_types) > 1:
-        targets.append(ImportTarget(
-            EssentialFields.TABLE_TYPE_RANKING_KEY, EssentialFields.TABLE_TYPE_RANKING_LABEL,
-            True, "essential",
-        ))
+    targets += [
+        ImportTarget(key, label, key in EssentialFields.REQUIRED_ESSENTIAL_KEYS, "essential")
+        for key, label in essential_order
+        if key in asked
+    ]
 
     form = market_doc_field(market_doc, "application_form") or {}
     for field in form.get("fields") or []:

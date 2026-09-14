@@ -50,7 +50,27 @@ export const EMPTY_ESSENTIAL_OPTIONS: EssentialFormOptions = {
   sections: [],
   tableTypes: [],
   tiers: [],
+  unasked: [],
 };
+
+/**
+ * The only essential questions a market may declare it does not ask (E01/F06).
+ * Mirrors `UNASKABLE_ESSENTIAL_KEYS` in `back-end/essential_fields.py`.
+ *
+ * Both are rankings, and that is the whole rule: the solver gives a vendor their best-ranked
+ * option still open and never excludes anyone for a ranking, so a uniform default changes nothing
+ * but the tie-break. Dates, tiers and table choice are constraints - a default there invents a
+ * commitment the applicant never made.
+ */
+export const UNASKABLE_ESSENTIAL_KEYS: readonly string[] = [
+  SECTION_RANKING_KEY,
+  TABLE_TYPE_RANKING_KEY,
+];
+
+/** Is this essential question one this market actually asks? */
+export function isEssentialAsked(key: string, options: EssentialFormOptions): boolean {
+  return !(options.unasked ?? []).includes(key);
+}
 
 function uniqueNames(values: Array<string | null | undefined>): string[] {
   const seen: string[] = [];

@@ -85,8 +85,14 @@ const serverEssentialOptions = ref<EssentialFormOptions | null>(null);
  * is locked it is the server's frozen offering, which local plan edits can no longer move.
  */
 const essentialOptions = computed<EssentialFormOptions>(() => {
-  if (formLocked.value) return serverEssentialOptions.value ?? EMPTY_ESSENTIAL_OPTIONS;
-  return essentialOptionsFromSetup(setupObject);
+  // The declaration of which questions this market asks lives on the FORM, and the offering is
+  // derived or frozen - so it has to be carried across, or an unasked question reappears the
+  // moment the offering is recomputed. Mirrors `_with_unasked` in back-end/essential_fields.py.
+  const unasked = applicationForm.value?.unaskedEssentials ?? [];
+  const base = formLocked.value
+    ? (serverEssentialOptions.value ?? EMPTY_ESSENTIAL_OPTIONS)
+    : essentialOptionsFromSetup(setupObject);
+  return unasked.length ? { ...base, unasked } : base;
 });
 
 function parseFiniteInt(v: unknown): number | null {
@@ -225,6 +231,28 @@ function clearSavedStatusTimer() {
 }
 
 onUnmounted(clearSavedStatusTimer);
+
+/**
+ * Switch a preference ordering on or off for this market (E01/F06).
+ *
+ * Saved immediately rather than on the form's Save button: it is a property of what the market
+ * asks, not of the custom fields being edited, and Save is disabled until a custom field exists.
+ * The back end refuses anything but a ranking, so this cannot turn off a constraint.
+ */
+async function handleToggleUnasked(key: string, unasked: boolean) {
+  if (!market.value?.id || !formEditable.value) return;
+  const current = applicationForm.value ?? { fields: [] };
+  const next = new Set(current.unaskedEssentials ?? []);
+  unasked ? next.add(key) : next.delete(key);
+  const updated = { ...current, unaskedEssentials: [...next] };
+  formErrorMessage.value = null;
+  try {
+    const response = await api.put(`/markets/${market.value.id}/application-form`, updated);
+    adoptApplicationForm(response.data?.application_form ?? updated);
+  } catch (err: unknown) {
+    formErrorMessage.value = getApiErrorMessage(err, 'Could not update the form.');
+  }
+}
 
 async function saveApplicationForm() {
   if (!market.value?.id || !canSaveForm.value) return;
@@ -420,6 +448,8 @@ watch(pageIdx, (newIdx) => {
                     v-if="!formStateUnknown"
                     :options="essentialOptions"
                     :locked="formLocked"
+                    :editable="formEditable"
+                    @toggleUnasked="handleToggleUnasked"
                   />
                   <FormBuilder
                     v-if="!formStateUnknown"
