@@ -496,60 +496,65 @@ def get_user_raw(email: str) -> Optional[dict]:
     return None
 
 
-def delete_user(request, requesting_user_email: str = None):
-    """Delete a user account.
-    
-    Args:
-        request: Flask request object
-        requesting_user_email: Email of the user making the request (None for unauthenticated)
-        
-    Returns:
-        JSON response with deletion status
+def delete_user(request, authenticated_email: str):
+    """Delete the authenticated user's own account.
+
+    ``authenticated_email`` is the session's identity, supplied by the caller of this function and
+    never by the HTTP request. An account is deletable by exactly one person: the one signed in to
+    it. There is no unverified-account exception, because "unverified" is a property of the *target*
+    and so let a stranger pick the target.
+
+    An owner of an organization is refused rather than deleted. The previous behaviour deleted them
+    and returned a warning asking someone to transfer ownership manually - but by then the owner id
+    on the organization pointed at a user that no longer existed, stranding every market in it with
+    nobody able to administer them. Ownership transfer is available while the account still exists
+    (``POST /organizations/<id>/transfer-ownership``), so refusing here keeps the only ordering that
+    leaves the data consistent.
     """
     data = request.json or {}
     email_to_delete = data.get("email")
-    
+
     if not email_to_delete:
         return jsonify({"msg": "Email address required"}), 400
-    
-    # Find the user to delete
+
+    if email_to_delete != authenticated_email:
+        # Deliberately the same answer whether or not the target exists: a caller may not use this
+        # endpoint to discover which email addresses are registered.
+        return jsonify({"msg": "You can only delete your own account"}), 403
+
     user_to_delete = users_collection.find_one({"email": email_to_delete})
-    
+
     if not user_to_delete:
         return jsonify({"msg": "User not found"}), 404
-    
-    # Security: Users can only delete their own account, or unverified accounts can be deleted by anyone
-    # (This allows cleanup of orphaned unverified accounts)
-    is_own_account = requesting_user_email and email_to_delete == requesting_user_email
-    is_unverified = not user_to_delete.get("email_verified", False)
-    
-    if not is_own_account and not is_unverified:
-        return jsonify({"msg": "You can only delete your own account or unverified accounts"}), 403
-    
-    # Delete the user
+
+    from api.organizations import organizations_collection
+
+    user_id_to_delete = user_to_delete.get("id")
+
+    owned_orgs = (
+        list(organizations_collection.find({"owner": user_id_to_delete}))
+        if user_id_to_delete
+        else []
+    )
+    if owned_orgs:
+        org_names = [org.get("name") for org in owned_orgs]
+        return jsonify({
+            "msg": (
+                "Transfer ownership of "
+                f"{', '.join(org_names)} before deleting this account."
+            ),
+            "ownedOrganizations": org_names,
+        }), 409
+
     result = users_collection.delete_one({"email": email_to_delete})
-    
+
     if result.deleted_count > 0:
-        # Also remove user from any organizations they belonged to (owner/admins/members are now user ids)
-        from api.organizations import organizations_collection
-        user_id_to_delete = user_to_delete.get("id")
+        # Membership elsewhere is not ownership, so it is safe to drop on the way out.
         if user_id_to_delete:
             organizations_collection.update_many(
                 {},
                 {"$pull": {"members": user_id_to_delete, "admins": user_id_to_delete}}
             )
-        
-        # Note: We don't transfer ownership here - that should be done manually
-        # Check if user was owner of any organizations (owner is now user id)
-        owned_orgs = list(organizations_collection.find({"owner": user_id_to_delete})) if user_id_to_delete else []
-        if owned_orgs:
-            org_names = [org.get("name") for org in owned_orgs]
-            return jsonify({
-                "msg": f"User deleted. Warning: User was owner of organizations: {', '.join(org_names)}. Please transfer ownership manually.",
-                "warning": True,
-                "owned_organizations": org_names
-            }), 200
-        
         return jsonify({"msg": "User deleted successfully"}), 200
-    else:
-        return jsonify({"msg": "Failed to delete user"}), 500
+
+    return jsonify({"msg": "Failed to delete user"}), 500
