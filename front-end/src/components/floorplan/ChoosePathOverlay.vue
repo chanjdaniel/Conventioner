@@ -7,18 +7,22 @@ defineEmits<{
 <template>
   <div class="overlay-backdrop">
     <div class="overlay-panel">
-      <h2 class="overlay-heading">Choose Your Setup Path</h2>
-      <p class="overlay-subtitle">How would you like to configure your market layout?</p>
+      <h2 class="overlay-heading">Choose your setup path</h2>
+      <p class="overlay-subtitle">How would you like to describe what this market has to offer?</p>
 
       <div class="cards-row">
         <!-- ─── Manual Setup Card ─── -->
         <div class="path-card" @click="$emit('select', 'manual')" data-testid="choose-path-manual">
+          <span class="recommended-badge">Recommended</span>
+
           <div class="card-icon-wrapper">
             <i class="pi pi-list card-icon" />
           </div>
 
-          <h3 class="card-title">Manual Setup</h3>
-          <p class="card-desc">Text-based section, tier, and location configuration</p>
+          <h3 class="card-title">Manual setup</h3>
+          <p class="card-desc">
+            Name your sections, tiers and locations, and how many tables each holds.
+          </p>
 
           <ul class="card-features">
             <li>
@@ -35,7 +39,7 @@ defineEmits<{
             </li>
           </ul>
 
-          <button class="card-action" type="button">Get Started</button>
+          <button class="card-action" type="button">Get started</button>
         </div>
 
         <!-- ─── Floorplan AI Card ─── -->
@@ -72,7 +76,15 @@ defineEmits<{
             </li>
           </ul>
 
-          <button class="card-action card-action--accent" type="button">Try Beta</button>
+          <!-- The one thing an organizer needs to know before choosing this path, and the reason
+               it is the quieter of the two: this release assigns a single table type, so the
+               variety a floorplan can express does not reach the assignment yet. -->
+          <p class="card-caveat">
+            Experimental. This release places one table type, so a floorplan's table variety is not
+            used in assignment yet.
+          </p>
+
+          <button class="card-action card-action--quiet" type="button">Try the beta</button>
         </div>
       </div>
     </div>
@@ -183,9 +195,40 @@ defineEmits<{
   transform: translateY(0);
 }
 
-/* ── Floorplan card accent border on hover ── */
+/* The two paths are not equals. Manual is the whole product this release ships; the floorplan is
+   a beta whose table variety the assignment does not read yet, so it stays reachable and quiet
+   rather than sharing the weight of the recommended path. */
+.card-floorplan {
+  background: #fbfbfb;
+  border-color: #e6e4e1;
+}
+
 .card-floorplan:hover {
   border-color: var(--mm-yellow);
+}
+
+.recommended-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 3px 10px;
+  background: var(--mm-green);
+  border-radius: 100px;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-caveat {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--mm-grey);
+  text-align: center;
+  margin: 4px 0 0;
 }
 
 /* ── Card Icon ────────────────────────────────────────────────── */
@@ -284,14 +327,16 @@ defineEmits<{
   background: color-mix(in srgb, var(--mm-green) 85%, black);
 }
 
-.card-action--accent {
-  background: var(--mm-yellow);
+.card-action--quiet {
+  background: transparent;
+  border: 1.5px solid var(--mm-grey);
   color: var(--mm-black);
 }
 
-.card-action--accent:hover {
-  background: color-mix(in srgb, var(--mm-yellow) 85%, black);
-  opacity: 0.9;
+.card-action--quiet:hover {
+  background: var(--mm-beige);
+  border-color: var(--mm-yellow);
+  opacity: 1;
 }
 
 /* ── Beta Badge ───────────────────────────────────────────────── */

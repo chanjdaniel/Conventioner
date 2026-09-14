@@ -37,21 +37,44 @@ First-contact damage, all of it cheap, all of it found by walking the journey on
   moment the organizer confirms 232 writes.
 - Unmatched table-choice values offer "A whole table to myself" rather than the contract's `full`.
 
+## Done 2026-09-14, second pass
+
+- **The Preview step shows the organizer's own rows**, the first three read through the mapping
+  they just chose, rather than a second recap of the mapping. Confirming 232 writes on a restated
+  mapping means trusting that the mapping means what you think it means, which is the one thing a
+  preview exists to check. The mapping recap stays, under a heading that says what it is.
+- **Upload is a drop zone that names the market it writes into.** It was a bare file input on a
+  page that never said which market an import lands in. A file dragged and a file picked now take
+  the same path, and anything that is not a CSV is refused by name.
+- **The priority rule row fits its own sentences.** The question select clipped to "When the
+  application" and the direction to "Earliest", which is the half of each that carries no meaning.
+  The grid also declared five columns for four controls; it declares four now, and the headings
+  and the row share one definition so a heading always sits over the control it names.
+- **Section Setup rows fit their own content.** The name field was a fifth narrower than its
+  column and the location dropdown truncated "Nest Ballroom"; the columns now follow what each
+  holds, and a value that still will not fit ends in an ellipsis rather than mid-word.
+- **A row's remove control is visible.** It was hidden until the pointer happened to be over its
+  row, so every setup screen read as though only the last row could be removed. It is dimmed now,
+  in all six places that shared the rule.
+- **The setup-path modal has its icons.** `primeicons` was a dependency whose stylesheet nothing
+  imported, so every `pi` icon rendered as nothing - the two grey circles were the empty wells
+  they sit in.
+- **Floorplan AI is the quieter of the two paths.** Manual setup is marked as recommended, and the
+  floorplan card says the thing an organizer needs before choosing it: this release places one
+  table type, so a floorplan's table variety does not reach the assignment. Reachable, not sold.
+  It is a polish item, per the map, not an invitation to build the floorplan out.
+- **The first-run dashboard offers the step it was describing.** "Open a market to get started" was
+  an instruction the organizer could not follow, on a page with no market and no way to make one.
+  It now says no market is set up yet, says a market belongs to an organization, and carries the
+  button that starts one. Sign out is no longer a black slab the size of the two real
+  destinations.
+
 ## Still to do
 
-Each is a separate story when picked up; they are listed together because they were found together.
-
-- The step called "Preview" shows only the mapping recap, never a sample row.
-- Section Setup: name inputs about 92px wide clip their content, the location dropdown truncates to
-  "Nest Ballrc", column headers do not align with their fields, and the delete control appears only
-  on the last row.
-- Market Setup step 3: the priority selects truncate to "When the application" and "Earliest".
-- The setup-path modal shows two grey circles where icons should be, and offers "Floorplan AI - Try
-  Beta" prominently although the floorplan is out of scope and table type is stubbed to one type.
 - The vendors table shows "Cost" as an em-dash for all 199 vendors, and identifies vendors by email
   with no business name.
-  See the map's **Not yet specified** on price per tier before building this one.
-- First-run dashboard says "Open a market to get started" with no market and no create action, and
-  gives "Sign out" equal weight to the two real destinations.
-- Import step 1 is a raw unstyled file input with no drag-and-drop and no indication of which market
-  is being imported into.
+  **Blocked, not deferred**: the map's **Not yet specified** holds "Price per tier" - whether a
+  price belongs on a tier at all, or whether the column should go - and building either way would
+  settle it by accident. The business name half is the same shape of question: a name lives in a
+  custom field the market may not ask, and which field holds it is a decision, not a lookup. The
+  Fall 2025 import mapped no custom fields at all, so there would be nothing to show.

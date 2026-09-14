@@ -243,7 +243,11 @@ async function handleToggleUnasked(key: string, unasked: boolean) {
   if (!market.value?.id || !formEditable.value) return;
   const current = applicationForm.value ?? { fields: [] };
   const next = new Set(current.unaskedEssentials ?? []);
-  unasked ? next.add(key) : next.delete(key);
+  if (unasked) {
+    next.add(key);
+  } else {
+    next.delete(key);
+  }
   const updated = { ...current, unaskedEssentials: [...next] };
   formErrorMessage.value = null;
   try {
