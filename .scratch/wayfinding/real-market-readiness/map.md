@@ -58,10 +58,12 @@ What that leaves for this map is what it was always for: the five decisions belo
 
 <!-- one line per resolved ticket -->
 
-<!-- NONE YET. Tickets 01, 02, 03, 04 and 06 are claimed and part-grilled: two rounds settled eight
-     decisions, recorded under "## Settled so far" in each ticket, and a third round is unanswered.
-     Nothing is resolved until a round closes, because a later answer can still reshape an earlier
-     one - so those notes are the record of what was decided, not the answer to the question. -->
+- [04: What must a reviewer see to decide on an application?](issues/04-what-a-reviewer-needs-to-decide.md): triage - one application at a time carrying every answer it holds, keyboard verdicts, progress counted, and **no bulk action at all**, so no application is ever approved without having been looked at. This also settles the superseded v0.1.0 bulk-approve ticket: no selection model, nothing bulk, no confirmation needed. Its cost is 232 deliberate decisions, which makes [05](issues/05-how-custom-fields-reach-a-frozen-form.md) load-bearing - an essential-only form makes every card identical, so triage must not be built before 05 is answered.
+
+<!-- Tickets 01, 02, 03 and 06 are part-grilled: two rounds settled eight decisions, recorded under
+     "## Settled so far" in each ticket, and a third round is unanswered. Nothing is resolved until
+     a round closes, because a later answer can still reshape an earlier one - so those notes are
+     the record of what was decided, not the answer to the question. -->
 
 ## Not yet specified
 

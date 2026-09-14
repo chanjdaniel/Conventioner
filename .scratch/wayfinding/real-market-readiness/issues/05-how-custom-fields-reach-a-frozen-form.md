@@ -2,7 +2,11 @@
 
 Type: grilling
 Status: open
-Blocked by: 04
+Blocked by:
+
+<!-- 04 resolved 2026-09-14. This is on the frontier, and the dependency has inverted: 04's answer
+     (triage, one card at a time, no bulk action) cannot be BUILT until this is resolved, because a
+     form that asks only the essential questions gives every card the same answers. -->
 
 ## Question
 

@@ -1,7 +1,7 @@
 # 04: What must a reviewer see to decide on an application?
 
 Type: prototype
-Status: claimed
+Status: resolved
 Blocked by:
 
 ## Question
@@ -57,3 +57,48 @@ it: no layout can distinguish 232 applicants when the form never asked anything 
 them. Whichever variant wins, it is worth deciding 05 knowing that.
 
 To run it: `?variant=A` on the Applications tab of any market with applications.
+
+## Answer
+
+**Variant B - triage. One application at a time, every answer shown, keyboard-driven. No bulk
+action of any kind.**
+
+Resolved 2026-09-14 by reacting to the prototype on `prototype/04-review-queue`.
+
+### What the organizer sees and does
+
+One card at a time, carrying **every** answer the application holds - the essential ones and any
+custom fields the organizer asked - not an email and a status pill. Progress is counted ("12 of 232
+to review"). Three verdicts: Approve, Reject, Skip, each with a keyboard shortcut, so a reviewer's
+hands need never leave the keyboard.
+
+### What was rejected, and why
+
+- **A - a dense table with checkbox selection.** Readable, and it did show the answers, but its
+  primary affordance is picking rows: a filing action rather than a judging one.
+- **C - filter, then act on the whole filtered set.** Much the fastest way through 232 rows, and
+  that is exactly why it loses: it decides about a *population*. The organizer is accepting or
+  refusing individual people who applied to their market.
+- **A bulk escape hatch on top of B** ("approve the remaining 219") was offered and declined.
+
+This also settles what the superseded [v0.1.0 ticket
+08](../../v0-1-0/issues/08-bulk-approve-shape.md) asked. Selection model: none. Which actions are
+bulk: none. Confirmation: not needed, because there is no action large enough to need one. Scale is
+answered by the reviewer's time, not by a control.
+
+### The consequence, stated plainly because it is the cost of this answer
+
+There is no way to approve an application without having looked at it. 232 applications is 232
+decisions - on the order of 12 to 30 minutes of continuous triage. That is the point: each
+acceptance is deliberate rather than a count.
+
+It also makes **[ticket 05](05-how-custom-fields-reach-a-frozen-form.md) load-bearing rather than a
+nicety**, which building the prototype had already hinted at. With a form that asks only the
+essential questions - today's default, because the form freezes the moment a market leaves `draft`
+- every card shows the same answers, and triage degenerates into 232 indistinguishable cards where
+the only rational act is pressing Approve. Triage is humane only if the cards differ.
+
+**Do not build this before 05 is resolved**, or the result is a slower version of the queue it
+replaces.
+
+Buildable work: `.scratch/backlog/E08-interface-correctness/F04-review-by-triage/`.
