@@ -101,7 +101,13 @@ _MULTI_VALUE_ESSENTIALS = (
 
 
 # "Which days can you attend? [Saturday July 4]" - the shape Google Forms gives every grid column.
-_GRID_HEADER = re.compile(r"^(?P<stem>.+?)\s*\[(?P<option>.+)\]$")
+#
+# DOTALL because a real grid question carries its instructions above the bracketed option, so the
+# header spans lines. Without it this matched only headers short enough to fit on one - which is
+# every header the tests used to write, and no header a real form produces. The five day columns of
+# a real export arrived as five unrelated columns, each competing for the same single target, and
+# the import could not be completed at all.
+_GRID_HEADER = re.compile(r"^(?P<stem>.+?)\s*\[(?P<option>.+)\]$", re.DOTALL)
 
 
 class ColumnGroup:
@@ -128,8 +134,10 @@ def column_groups(headers: Sequence[str]) -> List[ColumnGroup]:
         match = _GRID_HEADER.match(str(header).strip())
         if not match:
             continue
-        stem = match.group("stem").strip()
-        option = match.group("option").strip()
+        # The stem labels the group in the organizer's ledger and keys the saved mapping, so it is
+        # collapsed to one line. A real grid header is mostly instructions, several lines of them.
+        stem = " ".join(match.group("stem").split())
+        option = " ".join(match.group("option").split())
         if stem not in found:
             found[stem] = ColumnGroup(stem, [], [])
             order.append(stem)
