@@ -103,21 +103,9 @@ class Vendor:
     def is_available_on(self, market_date: MarketDateObject) -> bool:
         return market_date.date in self.want.available_dates
 
-    def accepts_tier(self, tier: Optional[TierObject]) -> bool:
-        """Set membership, not a substring test.
-
-        The CSV-era check was ``table.tier.name in <the vendor's answer string>``, in which a
-        tier named 'A' matched an answer of 'AB'.
-
-        A table with no tier constrains nothing, which is what a market that offers no tiers
-        produces. That is deliberately not the same as a vendor whose accepted tiers are empty:
-        such a vendor accepts no tier this market offers and belongs at no table, which is how an
-        organizer dropping a tier after applications are in reads - the applicant goes
-        unassigned rather than the market going unassignable.
-        """
-        if tier is None:
-            return True
-        return tier.name in self.want.accepted_tiers
+    def accepts_tier(self, market_date: MarketDateObject, tier: Optional[TierObject]) -> bool:
+        """Delegated: the answer lives with the answers (``SolverVendor.accepts_tier_on``)."""
+        return self.want.accepts_tier_on(market_date.date, tier.name if tier else None)
 
 
 
@@ -395,7 +383,7 @@ class MarketAssignment:
         return (
             vendor is not None
             and vendor.is_available_on(market_date)
-            and vendor.accepts_tier(table.tier)
+            and vendor.accepts_tier(market_date, table.tier)
             and not self.is_vendor_max_assigned(vendor)
             and not vendor.is_date_assigned(market_date)
         )

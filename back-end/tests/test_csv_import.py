@@ -195,7 +195,8 @@ class TestImportApplications:
         assert data["business_name"] == "Ember Ceramics"
         assert data["essential_available_dates"] == DATES
         assert data["essential_max_dates"] == 2
-        assert data["essential_tier_preference"] == ["Gold"]
+        # Per date (E01/F05). This row asked once, so "Gold" applies to every date it can attend.
+        assert data["essential_tier_preference"] == {date: ["Gold"] for date in DATES}
         assert data["essential_table_choice"] == "half"
         assert data["essential_table_share_email"] == "buddy@ember.ca"
         assert data["essential_section_ranking"] == ["Garden", "Main Hall"]
@@ -414,7 +415,8 @@ class TestMatchingCellValues:
 
             assert status == 200, f"{spelling!r} should have matched: {body}"
             data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
-            assert data["essential_tier_preference"] == ["Gold"]
+            # Per date (E01/F05). This row asked once, so "Gold" applies to every date it can attend.
+        assert data["essential_tier_preference"] == {date: ["Gold"] for date in DATES}
 
     def test_an_unmatched_value_is_reported_once_with_its_row_count(self, markets):
         rows = [GOOD_ROW.replace(",Gold,", ",Gold Tier,")] * 3
@@ -458,7 +460,8 @@ class TestMatchingCellValues:
         assert body["created"] == 2
         for email in ("nadia@ember.ca", "kai@ember.ca"):
             data = applications.find_one({"applicant_email": email})["form_data"]
-            assert data["essential_tier_preference"] == ["Gold"]
+            # Per date (E01/F05). This row asked once, so "Gold" applies to every date it can attend.
+        assert data["essential_tier_preference"] == {date: ["Gold"] for date in DATES}
 
     def test_a_value_can_be_explicitly_ignored(self, markets, applications):
         """Not every stray answer means something; dropping one is a decision the organizer makes."""

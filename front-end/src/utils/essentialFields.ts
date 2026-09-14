@@ -144,13 +144,25 @@ export function essentialValidationErrors(
     }
   }
 
-  // Tier is a hard filter, not a ranking: accepting a subset is a complete answer, but
-  // accepting nothing is not, since the applicant would be placeable nowhere.
+  // Tier is a hard filter, not a ranking: accepting a subset is a complete answer, but accepting
+  // nothing is not, since the applicant would be placeable nowhere. It is answered PER DATE
+  // (E01/F05), because a tier sets the price - one set for the whole application would let someone
+  // be placed at a tier they offered on one day, and charged for it, on another. Availability and
+  // tier are two halves of one truth, so every available date needs an answer.
   if (options.tiers.length > 0) {
-    const tiers = formData[TIER_PREFERENCE_KEY];
-    if (!Array.isArray(tiers) || tiers.length === 0) {
-      errors[TIER_PREFERENCE_KEY] =
-        `'${TIER_PREFERENCE_LABEL}' is required. Select at least one tier.`;
+    const byDate = formData[TIER_PREFERENCE_KEY];
+    const answered = (date: string) => {
+      const on = (byDate as Record<string, unknown> | undefined)?.[date];
+      return Array.isArray(on) && on.length > 0;
+    };
+    const dates = Array.isArray(formData[AVAILABLE_DATES_KEY])
+      ? (formData[AVAILABLE_DATES_KEY] as string[])
+      : [];
+    const unanswered = dates.filter((date) => !answered(date));
+    if (!dates.length || unanswered.length) {
+      errors[TIER_PREFERENCE_KEY] = dates.length
+        ? `'${TIER_PREFERENCE_LABEL}' is missing for ${unanswered.join(', ')}. Choose at least one tier for every date you are available.`
+        : `'${TIER_PREFERENCE_LABEL}' is required. Select at least one tier.`;
     }
   }
 

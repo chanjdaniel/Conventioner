@@ -68,7 +68,10 @@ SETUP_CAMEL = {
 VALID_ANSWERS = {
     "essential_available_dates": ["2026-08-08", "2026-08-01"],
     "essential_max_dates": 2,
-    "essential_tier_preference": ["Silver", "Gold"],
+    # Per date (E01/F05). Given out of plan order on purpose: storage canonicalizes it.
+    "essential_tier_preference": {
+        "2026-08-08": ["Silver", "Gold"], "2026-08-01": ["Silver", "Gold"],
+    },
     "essential_table_choice": "half",
     "essential_table_share_email": "buddy@example.com",
     "essential_section_ranking": ["Garden", "Main Hall"],
@@ -158,7 +161,9 @@ class TestValidatedEssentialAnswers:
         assert stored["essential_available_dates"] == ["2026-08-01", "2026-08-08"]
         assert stored["essential_max_dates"] == 2
         # Accepted tiers are canonicalized to the plan's order, like dates.
-        assert stored["essential_tier_preference"] == ["Gold", "Silver"]
+        assert stored["essential_tier_preference"] == {
+            "2026-08-01": ["Gold", "Silver"], "2026-08-08": ["Gold", "Silver"],
+        }
         assert stored["essential_table_choice"] == "half"
         assert stored["essential_table_share_email"] == "buddy@example.com"
         assert stored["essential_section_ranking"] == ["Garden", "Main Hall"]
@@ -204,7 +209,9 @@ class TestValidatedEssentialAnswers:
         """STUB (product decision pending): max > len(available) is accepted; consumers treat
         the effective cap as min(max_dates, len(available_dates))."""
         answers = {**VALID_ANSWERS, "essential_available_dates": ["2026-08-01"],
-                   "essential_max_dates": 3}
+                   "essential_max_dates": 3,
+                   # Tier answers follow availability (E01/F05): one date, one tier answer.
+                   "essential_tier_preference": {"2026-08-01": ["Gold"]}}
 
         error, stored = EssentialFields.validated_essential_answers(answers, OPTIONS)
 
@@ -237,7 +244,7 @@ class TestValidatedEssentialAnswers:
         assert stored == {
             "essential_available_dates": [],
             "essential_max_dates": None,
-            "essential_tier_preference": [],
+            "essential_tier_preference": {},
             "essential_table_choice": None,
             "essential_table_share_email": "",
             "essential_section_ranking": [],
@@ -255,15 +262,21 @@ class TestTierPreference:
 
     def test_the_applicant_may_accept_a_subset_of_the_offered_tiers(self):
         """Unlike a ranking, this is not total: accepting only Gold is a complete answer."""
-        answers = {**VALID_ANSWERS, "essential_tier_preference": ["Gold"]}
+        answers = {**VALID_ANSWERS, "essential_tier_preference": {
+            "2026-08-08": ["Gold"], "2026-08-01": ["Gold"],
+        }}
 
         error, stored = EssentialFields.validated_essential_answers(answers, OPTIONS)
 
         assert error is None
-        assert stored["essential_tier_preference"] == ["Gold"]
+        assert stored["essential_tier_preference"] == {
+            "2026-08-01": ["Gold"], "2026-08-08": ["Gold"],
+        }
 
     def test_a_tier_the_market_does_not_offer_is_refused(self):
-        answers = {**VALID_ANSWERS, "essential_tier_preference": ["Platinum"]}
+        answers = {**VALID_ANSWERS, "essential_tier_preference": {
+            "2026-08-08": ["Platinum"], "2026-08-01": ["Platinum"],
+        }}
 
         error, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
 
@@ -280,7 +293,7 @@ class TestTierPreference:
         answers = {
             "essential_available_dates": ["2026-08-01"],
             "essential_max_dates": 1,
-            "essential_tier_preference": ["AB"],
+            "essential_tier_preference": {"2026-08-01": ["AB"]},
         }
 
         error, _ = EssentialFields.validated_essential_answers(answers, options)
@@ -288,18 +301,21 @@ class TestTierPreference:
         assert error is not None and "does not offer" in error
 
     def test_a_repeated_tier_is_refused(self):
-        answers = {**VALID_ANSWERS, "essential_tier_preference": ["Gold", "Gold"]}
+        answers = {**VALID_ANSWERS, "essential_tier_preference": {
+            "2026-08-08": ["Gold", "Gold"], "2026-08-01": ["Gold"],
+        }}
 
         error, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
 
         assert error is not None
 
     def test_an_empty_selection_is_refused_when_tiers_are_offered(self):
-        answers = {**VALID_ANSWERS, "essential_tier_preference": []}
+        answers = {**VALID_ANSWERS, "essential_tier_preference": {}}
 
         error, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
 
-        assert error is not None and "'Tier preference' is required" in error
+        assert error is not None
+        assert "Tier preference" in error and "2026-08-01" in error
 
     def test_a_market_with_no_tiers_does_not_ask(self):
         options = EssentialFormOptions(dates=DATES)
@@ -312,7 +328,7 @@ class TestTierPreference:
         error, stored = EssentialFields.validated_essential_answers(answers, options)
 
         assert error is None
-        assert stored["essential_tier_preference"] == []
+        assert stored["essential_tier_preference"] == {}
 
 
 class TestRankingSuppression:
