@@ -2,7 +2,7 @@
 id: E01/F04/S02
 title: A submission timestamp is stored as a moment
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
@@ -25,10 +25,27 @@ Decided by
 
 ## Acceptance criteria
 
-- [ ] A Google Forms `M/D/YYYY H:MM:SS` timestamp is stored as ISO-8601.
-- [ ] `_as_magnitude` returns a real magnitude for every imported application, so "earliest first" actually orders.
-- [ ] The review queue's `submitted_at` sort is chronological (it sorts the same stored value).
-- [ ] A row whose mapped timestamp cannot be parsed is refused and named in the preview.
-- [ ] A CSV with no timestamp column still imports.
-- [ ] The ledger warns when no timestamp is mapped and a `submitted_at` priority rule exists.
-- [ ] A test asserts ordering against `tests/test_data/google_forms_export.csv`, whose unpadded months and hours are the case that broke it.
+- [x] A Google Forms `M/D/YYYY H:MM:SS` timestamp is stored as ISO-8601.
+- [x] `_as_magnitude` returns a real magnitude for every imported application, so "earliest first" actually orders.
+- [x] The review queue's `submitted_at` sort is chronological (it sorts the same stored value).
+- [x] A row whose mapped timestamp cannot be parsed is refused and named in the preview.
+- [x] A CSV with no timestamp column still imports.
+- [x] The ledger warns when no timestamp is mapped and a `submitted_at` priority rule exists.
+- [x] A test asserts ordering against `tests/test_data/google_forms_export.csv`, whose unpadded months and hours are the case that broke it.
+
+## Verified
+
+Measured against `tests/test_data/google_forms_export.csv` (232 real applications) with an
+"earliest first" priority rule, before and after:
+
+| | Gold rate, 30 genuinely-earliest | Gold rate, 30 genuinely-latest |
+|---|---|---|
+| before | 13/30 | 7/30 |
+| after  | **23/30** | **1/30** |
+
+Before the fix the two were close to noise, which is what "the rule orders nothing" looks like from
+the outside. `eun2.studio@gmail.com` - the earliest submission in the whole file, the case the
+report named - now gets a Gold table.
+
+Live: 503 already-imported applications migrated, 0 still scoring `math.inf`, and stored text order
+now equals chronological order.

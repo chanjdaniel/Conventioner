@@ -201,11 +201,15 @@ class TestImportApplications:
         assert data["essential_section_ranking"] == ["Garden", "Main Hall"]
 
     def test_submission_time_comes_from_the_file_not_the_import(self, markets, applications):
-        """Otherwise every row shares one timestamp and first-come-first-served does nothing."""
+        """Otherwise every row shares one timestamp and first-come-first-served does nothing.
+
+        Stored as ISO (E01/F04/S02): the file's own moment, in the one shape every reader compares.
+        The row says ``2026/05/02 9:14:03``; what matters is that it is that moment and not today.
+        """
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
         stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
-        assert stored["submitted_at"] == "2026/05/02 9:14:03"
+        assert stored["submitted_at"] == "2026-05-02T09:14:03"
 
     def test_an_unmapped_required_target_imports_nothing(self, markets, applications):
         partial = {k: v for k, v in MAPPING.items() if k != EssentialFields.TIER_PREFERENCE_KEY}

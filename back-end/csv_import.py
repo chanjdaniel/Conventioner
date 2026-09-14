@@ -32,6 +32,7 @@ import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
 from application_write import record_application_answers, validate_application_answers
 from datatypes import (
+    SUBMITTED_AT_RULE_TARGET,
     Application,
     ApplicationStatus,
     ImportMapping,
@@ -70,6 +71,65 @@ def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
         f"applications closed), then import."
     )
 
+
+# The shapes a form export actually writes a timestamp in. Google Forms emits the spreadsheet's
+# locale, and a sheet exports unpadded, so a single-digit month or hour is the norm rather than the
+# exception - which is exactly what made text ordering wrong.
+_SUBMITTED_AT_FORMATS = (
+    "%m/%d/%Y %H:%M:%S",
+    "%m/%d/%Y %I:%M:%S %p",
+    "%m/%d/%Y %H:%M",
+    "%m/%d/%Y %I:%M %p",
+    "%m/%d/%Y",
+    "%d/%m/%Y %H:%M:%S",
+    "%Y/%m/%d %H:%M:%S",
+)
+
+
+def normalized_submitted_at(raw: Any) -> Optional[str]:
+    """A submission timestamp as ISO-8601, or None when the row carries none.
+
+    Every reader of ``submitted_at`` compares the STORED value: the solver's priority rule through
+    ``_as_magnitude``, and the organizer's review queue through a Mongo sort. Both were wrong on a
+    form export, in the same way and for the same reason - ``9/27/2025 9:04:01`` is neither
+    parseable by ``datetime.fromisoformat`` nor orderable as text against ``9/27/2025 23:49:25``.
+
+    The public applicant form already writes ISO, so normalising here is not a new format: it is
+    the CSV path agreeing with the path that was already right. Converting at read instead would
+    leave two stored shapes alive for the life of the product and fix only the reader someone
+    remembered to teach.
+
+    Raises ``ValueError`` on a value that is not a time at all. Refusing is deliberate: scoring an
+    unreadable timestamp as ``math.inf`` alongside everybody else is how this stayed invisible.
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+
+    try:
+        # Already ISO - the public form's shape. Returned untouched so a round-trip is a no-op.
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return text
+    except ValueError:
+        pass
+
+    for fmt in _SUBMITTED_AT_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).isoformat()
+        except ValueError:
+            continue
+
+    raise ValueError(
+        f"{text!r} is not a date and time this import can read. "
+        "Expected something like 9/12/2025 18:22:56 or 2025-09-12T18:22:56."
+    )
+
+
+# A row whose mapped timestamp will not parse. Prefixed rather than dropped, so the refusal can
+# quote what the organizer actually typed.
+_UNREADABLE_TIMESTAMP = "\x00unreadable:"
 
 APPLICANT_EMAIL_TARGET = "applicant_email"
 APPLICANT_EMAIL_LABEL = "Applicant email"
@@ -390,6 +450,15 @@ def restore_mapping(
     return restored, unresolved, new_headers
 
 
+def orders_by_submitted_at(market_doc: Dict[str, Any]) -> bool:
+    """Does this market have a priority rule that reads when the application arrived?"""
+    setup = market_doc_field(market_doc, "setup_object") or {}
+    return any(
+        (rule or {}).get("target") == SUBMITTED_AT_RULE_TARGET
+        for rule in setup.get("priority") or []
+    )
+
+
 def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) -> Tuple[Dict[str, Any], int]:
     """What the mapping screen needs to render: the columns, some values, and the targets."""
     error, headers, rows = parse_csv(csv_content)
@@ -417,6 +486,10 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
         "restoredTargetsMissingColumns": unresolved,
         "newHeaders": new_headers,
         "hasSavedMapping": bool(saved.get("targets")),
+        # True when this market orders vendors by when they applied. The ledger warns if that rule
+        # exists and no column feeds it: mapping nothing is legal, but then the rule decides
+        # nothing, which is the silent no-op this story exists to end wearing a different hat.
+        "ordersBySubmittedAt": orders_by_submitted_at(market_doc),
     }, 200
 
 
@@ -562,10 +635,19 @@ def _assembled_rows(
                 value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
             form_data[key] = value
 
+        # Normalised here, at the boundary, so every reader downstream compares one shape. A value
+        # that is not a time is carried as the sentinel below and refused by ``_row_faults`` with
+        # its line number, rather than silently becoming "no timestamp".
+        raw_submitted = str(cell(SUBMITTED_AT_TARGET) or "").strip()
+        try:
+            submitted_at = normalized_submitted_at(raw_submitted) or ""
+        except ValueError:
+            submitted_at = _UNREADABLE_TIMESTAMP + raw_submitted
+
         assembled.append((
             offset + 2,
             str(cell(APPLICANT_EMAIL_TARGET) or "").strip().lower(),
-            str(cell(SUBMITTED_AT_TARGET) or "").strip(),
+            submitted_at,
             form_data,
         ))
     return assembled
@@ -576,9 +658,16 @@ def _row_faults(
 ) -> List[Dict[str, Any]]:
     """Rows that would be refused, each with the reason and its line in the organizer's file."""
     faults = []
-    for line, email, _submitted_at, form_data in assembled:
+    for line, email, submitted_at, form_data in assembled:
         if not email:
             faults.append({"row": line, "email": "", "error": "No email address."})
+            continue
+        if submitted_at.startswith(_UNREADABLE_TIMESTAMP):
+            raw = submitted_at[len(_UNREADABLE_TIMESTAMP):]
+            faults.append({
+                "row": line, "email": email,
+                "error": f"{raw!r} is not a date and time this import can read.",
+            })
             continue
         error = validate_application_answers(market_doc, form_data)
         if error:
