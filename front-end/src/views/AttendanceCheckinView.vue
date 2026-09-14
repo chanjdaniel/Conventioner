@@ -312,4 +312,42 @@ async function checkIn(date: string): Promise<void> {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
 }
+
+/* Check-in is laptop-primary, but it is the one surface a volunteer may hold at a door, so it has
+   to work one-handed (E08/F03). Below this width the two-up detail grid and the input-beside-button
+   row both stop fitting: the email truncates mid-address, which is the one field someone types. */
+@media (max-width: 520px) {
+  .attendance-view {
+    padding: 12px;
+  }
+
+  .attendance-body {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .lookup-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lookup-row input {
+    min-width: 0;
+    font-size: 16px; /* iOS zooms the page in on a focused input below 16px. */
+  }
+
+  .lookup-row .primary-button,
+  .assignment-action .primary-button {
+    width: 100%;
+    min-height: 44px; /* A comfortable touch target. */
+  }
+
+  .assignment-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-action {
+    justify-content: stretch;
+  }
+}
 </style>
