@@ -69,6 +69,7 @@ from utils.secret_key import (
     SecretKeyNotConfiguredError,
     signing_secret,
 )
+from utils.identity import authenticated_email
 from utils.session_storage import (
     ON_DISK,
     SESSION_FOLDER,
@@ -331,19 +332,6 @@ def get_user(email: str) -> Any:
     return UsersApi.get_user(email)
 
 
-def authenticated_email() -> str:
-    """Who the caller is, as the session proves it.
-
-    This is the single seam supplying a caller identity, and it reads the session and nothing else.
-    Every organizer route used to take this from an ``X-Owner-Email`` request header instead, which
-    is a value the *caller* sets: ``@login_required`` proves someone is signed in, never that they
-    are who the header says. A second account with no relationship to a market could therefore read
-    and write it by naming its owner in that header.
-
-    Only call this from a route carrying ``@login_required``. Under that decorator ``current_user``
-    is always a real user, so this never returns None and callers need no "identity missing" branch.
-    """
-    return current_user.email
 
 # curl -k -X POST https://127.0.0.1:5000/register-user \
 #   -H "Content-Type: application/json" \
@@ -696,9 +684,7 @@ def update_market_role(market_id: str, user_id: str) -> Response:
 def get_market(market_id: str) -> Response:
     """Get a market by its ID. Uses permission checks."""
     try:
-        user_email = authenticated_email()  # Reusing header name for user email
-        if not user_email:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        user_email = authenticated_email()
 
         # Check that user exists
         user = UsersApi.get_user(user_email)
@@ -719,9 +705,7 @@ def get_market(market_id: str) -> Response:
 def get_markets_by_owner_email() -> Response:
     """Get all markets for user (via explicit role or organization)."""
     try:
-        user_email = authenticated_email()  # Reusing header name for user email
-        if not user_email:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        user_email = authenticated_email()
         
         user = UsersApi.get_user(user_email)
         if not user:
@@ -1396,15 +1380,15 @@ def review_application(market_id: str, application_id: str) -> Response:
         return jsonify({"error": "Internal server error"}), 500
 
 
-def _import_context(market_id: str, requesting_user: Optional[str]):
+def _import_context(market_id: str, requesting_user: str):
     """Load the market and check ADMIN for both import endpoints.
 
     Returns ``(market_doc, error_response, status)``; the market document is the raw stored one,
     because that is what the essential-offering derivation and the shared write path both read.
-    """
-    if not requesting_user:
-        return None, {"error": "User email not provided in headers"}, 400
 
+    ``requesting_user`` is the session's identity, so it is always present - every caller passes
+    ``authenticated_email()`` from behind ``@login_required``.
+    """
     context = MarketsApi.load_market_context(market_id)
     if context is None:
         return None, {"error": "Market not found"}, 404

@@ -33,7 +33,23 @@ import api.users as UsersApi
 from datatypes import MarketPhase
 
 
-APP_PY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py")
+BACK_END = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+APP_PY = os.path.join(BACK_END, "app.py")
+
+
+def _server_sources():
+    """Every module that serves a request: app.py and the blueprints under api/.
+
+    Not just app.py. The first pass at this fixed app.py's 33 routes and left
+    api/floorplans_save.py and api/floorplans_templates.py reading the header, because a test that
+    greps one file cannot see the module next to it.
+    """
+    paths = [APP_PY]
+    api_dir = os.path.join(BACK_END, "api")
+    for name in sorted(os.listdir(api_dir)):
+        if name.endswith(".py"):
+            paths.append(os.path.join(api_dir, name))
+    return paths
 
 OWNER = "owner@example.com"
 OWNER_ID = "id-owner"
@@ -47,26 +63,36 @@ class TestNoRouteAuthorizesOnAHeader:
     """The regression guard. Nothing in app.py may read a caller identity off the wire."""
 
     def test_no_identity_header_is_read_anywhere(self):
-        source = open(APP_PY, encoding="utf-8").read()
-
-        offenders = re.findall(
-            r"request\.headers\.get\(\s*['\"](X-Owner-Email|X-User-Email)['\"]", source
-        )
+        offenders = []
+        for path in _server_sources():
+            source = open(path, encoding="utf-8").read()
+            for match in re.findall(
+                r"request\.headers\.get\(\s*['\"](X-Owner-Email|X-User-Email)['\"]", source
+            ):
+                offenders.append(f"{os.path.basename(path)}: {match}")
 
         assert offenders == [], (
-            f"{len(offenders)} route(s) still take the caller's identity from a request header. "
-            "Use authenticated_email(); the header is not an authorization input."
+            f"{len(offenders)} place(s) still take the caller's identity from a request header "
+            f"({', '.join(offenders)}). Use authenticated_email(); a header is not an "
+            "authorization input."
         )
 
     def test_the_seam_that_replaced_them_exists_and_reads_the_session(self):
         """If this is ever reimplemented to read a header, the test above stops meaning anything."""
-        source = open(APP_PY, encoding="utf-8").read()
+        source = open(os.path.join(BACK_END, "utils", "identity.py"), encoding="utf-8").read()
 
-        seam = re.search(r"def authenticated_email\(\).*?\n(?=\n@|\ndef |\n# )", source, re.S)
+        seam = re.search(r"def authenticated_email\(\).*", source, re.S)
 
         assert seam, "authenticated_email() is the one seam supplying a verified identity"
         assert "current_user" in seam.group(0)
-        assert "headers" not in seam.group(0)
+        assert "request.headers" not in seam.group(0)
+
+    def test_the_seam_lives_where_the_blueprints_can_import_it(self):
+        """It was in app.py, which the blueprints cannot import - so they kept their own answer."""
+        from utils.identity import authenticated_email as seam
+        import app as app_module
+
+        assert app_module.authenticated_email is seam
 
 
 def _market_doc():
@@ -117,7 +143,16 @@ def client(monkeypatch):
         ApplicantsApi, "list_market_applications",
         lambda market_id: ({"applications": [{"applicantEmail": "vendor@example.com"}]}, 200),
     )
-    return app_module.app.test_client()
+    reviewed = []
+    monkeypatch.setattr(
+        ApplicantsApi, "review_application",
+        lambda market_id, application_id, status: (
+            reviewed.append((application_id, status)) or ({"application": {"id": application_id}}, 200)
+        ),
+    )
+    client = app_module.app.test_client()
+    client.reviewed = reviewed
+    return client
 
 
 def _signed_in_as(client, email):
@@ -172,3 +207,39 @@ class TestTheProvenAttack:
         response = _list_applications(client, header_email=OWNER)
 
         assert response.status_code == 401
+
+
+class TestTheWriteHalfOfTheAttack:
+    """The epic records an application actually rejected on someone else's market."""
+
+    def _review(self, client, header_email=None):
+        headers = {"X-Owner-Email": header_email} if header_email else {}
+        return client.put(
+            f"/markets/{MARKET_ID}/applications/app-1/review",
+            json={"status": "reviewer_rejected"},
+            headers=headers,
+        )
+
+    def test_a_stranger_naming_the_owner_cannot_reject(self, client):
+        _signed_in_as(client, OUTSIDER)
+
+        response = self._review(client, header_email=OWNER)
+
+        assert response.status_code == 403
+        assert client.reviewed == [], "nothing may be written on a refused request"
+
+    def test_a_stranger_asking_honestly_cannot_reject(self, client):
+        _signed_in_as(client, OUTSIDER)
+
+        assert self._review(client, header_email=OUTSIDER).status_code == 403
+
+    def test_the_owner_can_still_review_their_own_market(self, client):
+        _signed_in_as(client, OWNER)
+
+        response = self._review(client)
+
+        assert response.status_code == 200
+        assert client.reviewed, "the owner's review must actually be recorded"
+
+    def test_no_session_cannot_reject(self, client):
+        assert self._review(client, header_email=OWNER).status_code == 401

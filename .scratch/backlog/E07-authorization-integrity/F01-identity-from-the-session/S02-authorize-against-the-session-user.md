@@ -21,7 +21,7 @@ the misconception that produced every instance.
 
 ## Acceptance criteria
 
-- [ ] No route decides permissions from a request header.
-- [ ] A test covers the proven attack: account A, authenticated, with `X-Owner-Email` set to organizer B, is refused both the read and the write on B's market.
-- [ ] The honest-header 403 that already works still works, so the fix is not "trust the header less" but "do not read it".
-- [ ] A grep for `X-Owner-Email` in an authorization position returns nothing.
+- [x] No route decides permissions from a request header.
+- [x] A test covers the proven attack: account A, authenticated, with `X-Owner-Email` set to organizer B, is refused both the read and the write on B's market.
+- [x] The honest-header 403 that already works still works, so the fix is not "trust the header less" but "do not read it".
+- [x] A grep for `X-Owner-Email` in an authorization position returns nothing.

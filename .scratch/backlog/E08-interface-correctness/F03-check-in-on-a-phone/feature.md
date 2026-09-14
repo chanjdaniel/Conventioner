@@ -4,7 +4,7 @@ title: Check-in works on a phone
 type: feature
 status: done
 blocked_by: []
-pr: []
+pr: [2923d27c]
 ---
 
 ## Outcome
@@ -24,6 +24,6 @@ work below laptop widths; do not widen this feature into a general responsive pa
 
 ## Acceptance criteria
 
-- [ ] The check-in page has no horizontal overflow at 390x844.
-- [ ] Email entry, lookup, the assignment card and the check-in action are all reachable and legible one-handed.
-- [ ] The laptop rendering is unchanged or better.
+- [x] The check-in page has no horizontal overflow at 390x844.
+- [x] Email entry, lookup, the assignment card and the check-in action are all reachable and legible one-handed.
+- [x] The laptop rendering is unchanged or better.

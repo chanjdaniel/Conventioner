@@ -4,7 +4,7 @@ title: Layout holds at every window size
 type: feature
 status: done
 blocked_by: []
-pr: []
+pr: [04215fc0]
 ---
 
 ## Outcome

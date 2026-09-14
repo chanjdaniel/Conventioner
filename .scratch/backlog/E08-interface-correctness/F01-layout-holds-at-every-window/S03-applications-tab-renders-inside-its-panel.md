@@ -4,7 +4,7 @@ title: The Applications tab renders inside its panel
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [04215fc0]
 ---
 
 ## What to build
@@ -18,6 +18,6 @@ The other two tabs render their content inside the panel. This one should too.
 
 ## Acceptance criteria
 
-- [ ] The Applications tab's content is inside the same bordered panel as the other two tabs.
-- [ ] No empty panel renders above it.
-- [ ] The heading, the Import from CSV button and the list share one alignment.
+- [x] The Applications tab's content is inside the same bordered panel as the other two tabs.
+- [x] No empty panel renders above it.
+- [x] The heading, the Import from CSV button and the list share one alignment.

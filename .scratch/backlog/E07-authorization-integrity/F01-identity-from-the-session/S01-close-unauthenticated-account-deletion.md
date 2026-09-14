@@ -20,7 +20,7 @@ Taken first because it is the only one of the two reachable with no account at a
 
 ## Acceptance criteria
 
-- [ ] A request with no session cannot delete any account, verified or not.
-- [ ] An authenticated caller cannot delete an account other than their own, whatever headers they send.
-- [ ] A test covers the exact proven attack: no cookie, `X-Owner-Email` and body both naming a verified victim.
-- [ ] Deleting an account that owns an organization does not silently strand it; the behaviour is decided and tested rather than left to the existing comment.
+- [x] A request with no session cannot delete any account, verified or not.
+- [x] An authenticated caller cannot delete an account other than their own, whatever headers they send.
+- [x] A test covers the exact proven attack: no cookie, `X-Owner-Email` and body both naming a verified victim.
+- [x] Deleting an account that owns an organization does not silently strand it; the behaviour is decided and tested rather than left to the existing comment.

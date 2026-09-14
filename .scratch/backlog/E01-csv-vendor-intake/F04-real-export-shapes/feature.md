@@ -4,7 +4,7 @@ title: Real export shapes import
 type: feature
 status: done
 blocked_by: []
-pr: []
+pr: [60c177f5]
 ---
 
 ## Outcome

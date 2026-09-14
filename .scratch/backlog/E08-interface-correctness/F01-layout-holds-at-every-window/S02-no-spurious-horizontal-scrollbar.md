@@ -4,7 +4,7 @@ title: No page scrolls horizontally because it scrolls vertically
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [04215fc0]
 ---
 
 ## What to build
@@ -18,5 +18,5 @@ Four declarations in `front-end/src/App.vue` (lines 92, 111, 136, 146) and one `
 
 ## Acceptance criteria
 
-- [ ] No organizer page has `scrollWidth > clientWidth` at any size from 1280x720 up.
-- [ ] Full-bleed elements still reach both edges.
+- [x] No organizer page has `scrollWidth > clientWidth` at any size from 1280x720 up.
+- [x] Full-bleed elements still reach both edges.

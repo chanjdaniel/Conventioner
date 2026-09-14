@@ -4,7 +4,7 @@ title: Detect a grid whose question spans several lines
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [60c177f5]
 ---
 
 ## What to build
@@ -23,7 +23,7 @@ by re-uploading the same rows with only the header newlines removed.
 
 ## Acceptance criteria
 
-- [ ] A grid whose stem spans several lines is detected as one question.
-- [ ] The group's stem is readable when shown to the organizer - the newlines collapse to spaces rather than appearing raw in the ledger label.
-- [ ] A single bracketed column is still not a group, multi-line or not.
-- [ ] A back-end test asserts this against `tests/test_data/google_forms_export.csv`, not a hand-written header. Every existing test used a short single-line stem, which is exactly why this shipped.
+- [x] A grid whose stem spans several lines is detected as one question.
+- [x] The group's stem is readable when shown to the organizer - the newlines collapse to spaces rather than appearing raw in the ledger label.
+- [x] A single bracketed column is still not a group, multi-line or not.
+- [x] A back-end test asserts this against `tests/test_data/google_forms_export.csv`, not a hand-written header. Every existing test used a short single-line stem, which is exactly why this shipped.
