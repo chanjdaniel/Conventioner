@@ -113,6 +113,11 @@ test.describe('CSV vendor import', () => {
     const importPage = new CsvImportPage(page);
 
     await openImport(importPage, request, seed.marketId);
+
+    // An import writes applications into one market, and the page used to name none of them.
+    await expect(importPage.targetMarket).toContainText(seed.marketName);
+    await expect(importPage.dropZone).toBeVisible();
+
     await importPage.chooseFile(CSV);
 
     // Every column in the file is listed, in file order.
@@ -134,6 +139,13 @@ test.describe('CSV vendor import', () => {
     // rows, with the third named and its reason given.
     await importPage.clickPreview();
     await expect(importPage.previewCounts).toContainText('2 of 3 rows');
+
+    // The step is called Preview, so it shows the organizer's own rows read through the mapping
+    // they just chose - not a second recap of the mapping itself. This is the only place the
+    // mapping can be checked against real data before 232 applications are written.
+    await expect(importPage.sampleRows.first()).toContainText('Ember Ceramics');
+    await expect(importPage.sampleRows.first()).toContainText('nadia@ember.test');
+
     await expect(importPage.previewFailureRows).toHaveCount(1);
     await expect(importPage.previewFailureRows.first()).toContainText('Row 4');
     await expect(importPage.confirmButton).toContainText('Import 2 rows');

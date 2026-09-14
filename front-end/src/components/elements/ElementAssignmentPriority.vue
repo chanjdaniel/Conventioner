@@ -367,6 +367,10 @@ h3 {
 }
 
 .container {
+  /* Four columns, one per control in a rule row: rank, question, how to order it, remove. It used
+     to declare five, so the headings sat one column left of what they named. The question and the
+     ordering hold sentences and take the width; the other two need only their own content. */
+  --priority-columns: 3rem minmax(0, 1.4fr) minmax(0, 1.6fr) 2rem;
   width: 100%;
   height: 100%;
 
@@ -380,20 +384,24 @@ h3 {
 }
 
 .input-container {
-  width: 80%;
+  /* Was 80%. A priority rule names a question and how to order it, and both are sentences - at
+     80% the question select clipped to "When the application" and the direction to "Earliest",
+     which is the half of each that carries no meaning. */
+  width: 100%;
   height: 100%;
   box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
   border-radius: 8px;
 }
 
+/* One template, shared, so a heading always sits over the control it names. */
 .column-titles {
   display: grid;
-  grid-template-columns: 10% 30% 15% 40% 5%;
+  grid-template-columns: var(--priority-columns);
 }
 
 .priority-row {
   display: grid;
-  grid-template-columns: 10% 30% 15% 40% 5%;
+  grid-template-columns: var(--priority-columns);
   padding-top: 5px;
   padding-bottom: 5px;
   min-height: 48px;
@@ -481,6 +489,8 @@ h3 {
   font-size: 14px;
   padding-right: 5px;
   background-color: white;
+  /* A label that still will not fit says so, rather than stopping mid-word. */
+  text-overflow: ellipsis;
 }
 
 .click-item {
@@ -560,7 +570,10 @@ h3 {
   height: 30px;
 }
 
+/* Dimmed, not hidden. Removing a row has no other control, and one that only exists while the
+   pointer happens to be over its row cannot be found by looking - the setup screens each read as
+   though only the last row, the one under the cursor, could be removed. */
 .hidden-icon {
-  visibility: hidden;
+  opacity: 0.35;
 }
 </style>

@@ -226,6 +226,54 @@ function sourceLabelFor(key: string): string {
   return index === undefined ? '' : (headers.value[Number(index)] ?? '');
 }
 
+/**
+ * The first few rows as the applications they will become: each mapped question and the answer
+ * this file gives it.
+ *
+ * The step is called Preview, and until now it previewed only the mapping - the same recap the
+ * previous step already showed, with no cell of the organizer's own data anywhere in it. Deciding
+ * to write 232 applications on a restated mapping means trusting that the mapping means what you
+ * think it means, which is the one thing a preview exists to check.
+ *
+ * A grid target is spelled out per option, because that is the shape the answer takes: the cell
+ * under "Saturday" is the answer for Saturday, and a joined list would hide which is which.
+ */
+const SAMPLE_ROWS = 3;
+
+const sampleApplications = computed(() => {
+  const depth = Math.min(
+    SAMPLE_ROWS,
+    ...sampleValues.value.filter((column) => column.length).map((column) => column.length),
+  );
+  if (!Number.isFinite(depth) || depth < 1) return [];
+
+  const cell = (column: number, row: number) => (sampleValues.value[column]?.[row] ?? '').trim();
+
+  const rows = [];
+  for (let row = 0; row < depth; row += 1) {
+    const answers = targets.value
+      .filter((target) => mappedKeys.value.has(target.key))
+      .map((target) => {
+        const group = activeGroups.value.find((g) => groupTarget.value[g.stem] === target.key);
+        if (group) {
+          const perOption = group.columns
+            .map((column, position) => [group.options[position] ?? '', cell(column, row)] as const)
+            .filter(([, value]) => value !== '')
+            .map(([option, value]) => `${option}: ${value}`);
+          return { key: target.key, label: target.label, value: perOption.join(' · ') };
+        }
+        const index = Object.entries(columnTarget.value).find(([, k]) => k === target.key)?.[0];
+        return {
+          key: target.key,
+          label: target.label,
+          value: index === undefined ? '' : cell(Number(index), row),
+        };
+      });
+    rows.push({ row, answers });
+  }
+  return rows;
+});
+
 function isNewHeader(index: number): boolean {
   return newHeaders.value.includes((headers.value[index] ?? '').trim());
 }
@@ -281,8 +329,30 @@ function takenBy(key: string, columnIndex: number | null, stem: string | null): 
 }
 
 async function onFileChosen(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
+  await acceptFile((event.target as HTMLInputElement).files?.[0]);
+}
+
+/** True while a file is over the drop zone, so the zone can say it will take it. */
+const dragging = ref(false);
+
+async function onFileDropped(event: DragEvent) {
+  dragging.value = false;
+  await acceptFile(event.dataTransfer?.files?.[0]);
+}
+
+/**
+ * Take one file, whichever way it arrived.
+ *
+ * A file picked and a file dragged land here alike; anything that is not a CSV is refused by name
+ * rather than parsed into a wall of nonsense columns. The picker accepts only `.csv`, but a drop
+ * has no such filter, so this is where the check belongs.
+ */
+async function acceptFile(file: File | undefined) {
   if (!file) return;
+  if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
+    error.value = `${file.name} is not a CSV. Export your form responses as CSV and try again.`;
+    return;
+  }
   error.value = '';
   fileName.value = file.name;
   csvContent.value = await file.text();
@@ -478,17 +548,35 @@ function startOver() {
       data-testid="import-upload"
     >
       <h2>Choose the CSV your form produced</h2>
-      <p class="import-help">
-        Export your Google Form responses as CSV and choose the file here. Nothing is written until
-        you confirm.
+      <!-- Which market this writes into. The organizer reached this page from one market's
+           Applications tab, but the page itself said nothing about which, and an import is
+           232 applications landing somewhere. -->
+      <p v-if="market" class="import-help" data-testid="import-target-market">
+        Importing into <strong>{{ market.name }}</strong
+        >. Nothing is written until you confirm.
       </p>
-      <input
-        type="file"
-        accept=".csv,text/csv"
-        :disabled="busy"
-        data-testid="import-file-input"
-        @change="onFileChosen"
-      />
+      <label
+        class="drop-zone"
+        :class="{ dragging, busy }"
+        data-testid="import-drop-zone"
+        @dragover.prevent="dragging = true"
+        @dragenter.prevent="dragging = true"
+        @dragleave="dragging = false"
+        @drop.prevent="onFileDropped"
+      >
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          :disabled="busy"
+          data-testid="import-file-input"
+          @change="onFileChosen"
+        />
+        <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
+        <span class="drop-zone-hint">
+          Export your Google Form responses as CSV. Every column comes across; you decide which ones
+          mean something on the next step.
+        </span>
+      </label>
     </section>
 
     <!-- 2. Map columns -->
@@ -868,6 +956,32 @@ function startOver() {
           </li>
         </ul>
       </div>
+      <!-- The organizer's own data, read through the mapping they just chose. Without a cell of
+           it on screen, "Preview" only restates the previous step. -->
+      <div v-if="sampleApplications.length" class="preview-samples" data-testid="import-samples">
+        <h3>
+          The first
+          {{ sampleApplications.length === 1 ? 'row' : sampleApplications.length + ' rows' }}, as
+          {{ sampleApplications.length === 1 ? 'it' : 'they' }} will be imported
+        </h3>
+        <div class="sample-grid">
+          <article
+            v-for="sample in sampleApplications"
+            :key="sample.row"
+            class="sample-card"
+            data-testid="import-sample-row"
+          >
+            <dl>
+              <template v-for="answer in sample.answers" :key="answer.key">
+                <dt>{{ answer.label }}</dt>
+                <dd :class="{ blank: !answer.value }">{{ answer.value || 'no answer' }}</dd>
+              </template>
+            </dl>
+          </article>
+        </div>
+      </div>
+
+      <h3 class="preview-mapping-heading">Where each answer comes from</h3>
       <ul class="preview-mapping">
         <li v-for="target in targets" :key="target.key" v-show="mappedKeys.has(target.key)">
           <strong>{{ target.label }}</strong>
@@ -1256,6 +1370,109 @@ function startOver() {
   margin: 0;
   font-size: 13px;
   color: var(--mm-red, #cc0000);
+}
+
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 36px 24px;
+  margin-top: 8px;
+  border: 2px dashed var(--mm-grey, #ccc);
+  border-radius: 10px;
+  background: #fbfbfb;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.drop-zone:hover,
+.drop-zone.dragging {
+  border-color: var(--mm-green);
+  background: #f1faf7;
+}
+
+.drop-zone.busy {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+/* The input still does the work; it is the zone the organizer sees and drops onto. */
+.drop-zone input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.drop-zone-main {
+  font-family: 'Merge One', sans-serif;
+  font-size: 16px;
+  color: var(--mm-black);
+}
+
+.drop-zone-hint {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 13px;
+  color: rgba(39, 35, 35, 0.6);
+  max-width: 42ch;
+  line-height: 1.5;
+}
+
+.preview-samples {
+  margin-top: 20px;
+}
+
+.preview-samples h3,
+.preview-mapping-heading {
+  font-family: 'Merge One', sans-serif;
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+.preview-mapping-heading {
+  margin-top: 20px;
+}
+
+.sample-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+}
+
+.sample-card {
+  border: 1px solid #eee;
+  border-radius: 5px;
+  background: white;
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+.sample-card dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.sample-card dt {
+  color: rgba(39, 35, 35, 0.55);
+}
+
+.sample-card dd {
+  margin: 0 0 8px;
+  color: var(--mm-black);
+  overflow-wrap: anywhere;
+}
+
+.sample-card dd.blank {
+  color: rgba(39, 35, 35, 0.4);
+  font-style: italic;
 }
 
 .preview-mapping {
