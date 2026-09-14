@@ -373,8 +373,11 @@ const handleDone = async () => {
     return;
   }
   try {
+    // Publishing lands in `market_days`, the phase that means "this market is running"
+    // (E03/F03). It used to fire `archived`, which also means "this market is over" - and the
+    // check-in URL this button puts on the air is served to a running market only.
     const response = await api.post(`/markets/${encodeURIComponent(market.id)}/transition`, {
-      toPhase: 'archived',
+      toPhase: 'market_days',
     });
     // Update localStorage with the new phase so future reads reflect the advance.
     market = { ...market, phase: response.data.phase as MarketPhase };

@@ -22,6 +22,17 @@ _Avoid_: Event, show, convention
 Where a market is in its lifecycle: `draft`, `applications_open`, `applications_closed`, `review`, `assignment`, `offers`, `market_days`, `archived`. The single source of truth for a market's state.
 _Avoid_: Status, stage, state (all used for other things; `isDraft` in particular is derived from phase, never set)
 
+**Publish**:
+To put a market's check-in page on the air: the `assignment` -> `market_days` transition, taken once the assignment has been computed. A published market is running, not finished.
+_Avoid_: Archive (that is the opposite), go live, release
+
+**Market days**:
+The phase a market is in while it is running - published, and serving check-in. Not every market reaches it: one abandoned before it runs goes straight to `archived`.
+
+**Archived**:
+Finished. A market that has run and is over, or one abandoned before it ever ran. It means one thing, in one direction, whichever phase it came from; it used to double as "just published", which is what made `phase` ambiguous.
+_Avoid_: Published, closed
+
 **Intake mode**:
 How a market receives its vendors - by importing a CSV, or through the public application form. Exactly one, chosen while the market is a draft and frozen thereafter. It decides whether the public applicant surface answers, but never gates check-in, and never gates authoring the form itself: a CSV market still has an application form, because the essential questions define the offering the CSV maps onto.
 

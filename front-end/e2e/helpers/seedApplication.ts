@@ -80,7 +80,12 @@ export function seedApprovedVendor(
     form_data: {
       essential_available_dates: answers.dates,
       essential_max_dates: answers.maxDates ?? answers.dates.length,
-      essential_tier_preference: answers.tiers,
+      // Tier is answered PER DATE (E01/F05), because a tier is a hard filter that sets the
+      // price. A flat `tiers` here means the same tiers on every date - the common case, and what
+      // the old single-set answer meant.
+      essential_tier_preference: Object.fromEntries(
+        answers.dates.map((date) => [date, answers.tiers]),
+      ),
       essential_table_choice: answers.tableChoice ?? 'full',
       essential_table_share_email: answers.shareWith ?? '',
       essential_section_ranking: answers.sections ?? [],

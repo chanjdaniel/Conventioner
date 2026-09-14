@@ -267,8 +267,9 @@ test.describe('Essential form fields', () => {
 
     // Tier: a hard filter, so a subset is a complete answer. Refusing Silver means the solver
     // may leave them unplaced rather than seat them there.
-    await expect(apply.tierCheckbox('Silver')).toBeVisible();
-    await apply.tierCheckbox('Gold').check();
+    await expect(apply.tierCheckbox('2026-08-01', 'Silver')).toBeVisible();
+    await apply.tierCheckbox('2026-08-01', 'Gold').check();
+    await apply.tierCheckbox('2026-08-08', 'Gold').check();
 
     // Table choice: sharing, and with someone specific in mind.
     await apply.tableChoiceRadio('half').check();
@@ -343,7 +344,7 @@ test.describe('Essential form fields', () => {
       essential_available_dates: ['2026-08-01', '2026-08-08'],
       essential_max_dates: 2,
       // Only Gold was ticked: an accepted SET, so Silver's absence is the answer, not an omission.
-      essential_tier_preference: ['Gold'],
+      essential_tier_preference: { '2026-08-01': ['Gold'], '2026-08-08': ['Gold'] },
       essential_table_choice: 'half',
       essential_table_share_email: 'buddy@example.com',
       essential_section_ranking: ['Garden', 'Main Hall'],
@@ -381,7 +382,9 @@ test.describe('Essential form fields', () => {
             product_type: 'Pottery',
             essential_available_dates: ['2026-08-01'],
             essential_max_dates: 1,
-            essential_tier_preference: ['Gold'],
+            // Tiers for exactly the dates named above: the validator refuses an available date
+            // with no tiers, and tiers for a date not available (E01/F05).
+            essential_tier_preference: { '2026-08-01': ['Gold'] },
             essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
           },
@@ -422,7 +425,7 @@ test.describe('Essential form fields', () => {
             product_type: 'Pottery',
             essential_available_dates: ['2026-08-22'],
             essential_max_dates: 1,
-            essential_tier_preference: ['Gold'],
+            essential_tier_preference: { '2026-08-01': ['Gold'], '2026-08-08': ['Gold'] },
             essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
           },

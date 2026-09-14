@@ -157,3 +157,41 @@ export async function seedFormlessPhaseMarket(
 
   return { marketId, marketName, orgId, userId };
 }
+
+/**
+ * Store a computed assignment on a market, so it may enter `market_days`.
+ *
+ * `market_days` means the market is RUNNING, and its entry invariant is that an assignment exists
+ * (E03/F03): publishing is what puts the check-in page on the air, and a market with no placements
+ * serves a page that can tell nobody where to stand. A phase walk that reaches market days without
+ * one is walking into a state the product forbids, so the seed provides it rather than the guard
+ * being loosened.
+ *
+ * Written straight into Mongo because computing a real assignment needs a whole market plan, and
+ * these tests are about the phase machine rather than about placement.
+ */
+export function seedStoredAssignment(marketId: string, emails: string[] = ['walk-a@example.com']) {
+  const vendorAssignments = emails.map((email, index) => ({
+    email,
+    date: '2026-08-01',
+    tableCode: `A${index + 1}`,
+    tableChoice: 'Full Table',
+    section: 'Main Hall',
+    tier: 'Standard',
+    location: 'Hall',
+  }));
+
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      mongoContainer(),
+      'mongosh',
+      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
+      '--quiet',
+      '--eval',
+      `db.markets.updateOne({id:${JSON.stringify(marketId)}}, {$set:{"assignmentObject.vendorAssignments": ${JSON.stringify(vendorAssignments)}}})`,
+    ],
+    { encoding: 'utf-8' },
+  );
+}

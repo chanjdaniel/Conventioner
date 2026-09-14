@@ -55,9 +55,12 @@ export class ApplyPage {
     return this.page.getByTestId(`apply-essential-date-${date}`);
   }
 
-  /** Tier is a hard filter, so it is a checkbox per offered tier, not a ranking. */
-  tierCheckbox(tier: string): Locator {
-    return this.page.getByTestId(`apply-essential-tier-${tier}`);
+  /**
+   * Tier is a hard filter AND it sets the price, so it is answered per date (E01/F05): a checkbox
+   * per (date, tier), in a row for each date the applicant ticked above.
+   */
+  tierCheckbox(date: string, tier: string): Locator {
+    return this.page.getByTestId(`apply-essential-tier-${date}-${tier}`);
   }
 
   /** Table choice is a radio over the three fixed ways a table can be occupied. */

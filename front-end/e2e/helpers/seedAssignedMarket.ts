@@ -105,6 +105,23 @@ export async function seedAssignedMarket(
     throw new Error(`Assignment store failed: ${storeRes.status()} ${await storeRes.text()}`);
   }
 
+  // Leave the market where an organizer looking at the results screen actually is: `assignment`.
+  // Publishing is `assignment -> market_days` (E03/F03), so the Done button on that screen is only
+  // meaningful from there. It used to fire `archived`, which was reachable from every phase - which
+  // is precisely why `archived` meant both "just published" and "over".
+  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+    const res = await request.post(
+      `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/transition`,
+      {
+        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+        data: { toPhase },
+      },
+    );
+    if (!res.ok()) {
+      throw new Error(`Transition to ${toPhase} failed: ${res.status()} ${await res.text()}`);
+    }
+  }
+
   const slug = marketNameToSlug(seed.marketName);
 
   return { ...seed, slug, assignmentObject: storedAssignment };

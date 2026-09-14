@@ -160,14 +160,20 @@ test.describe('CSV vendor import', () => {
       product_type: 'Pottery',
       essential_available_dates: ['2026-08-01', '2026-08-08'],
       essential_max_dates: 2,
-      essential_tier_preference: [PLAN_TIERS[0]],
+      // Per date (E01/F05); this row answered once, so it applies to every date it can attend.
+      essential_tier_preference: {
+        '2026-08-01': [PLAN_TIERS[0]],
+        '2026-08-08': [PLAN_TIERS[0]],
+      },
       essential_table_choice: 'half',
       essential_table_share_email: '',
       essential_section_ranking: ['Garden', 'Main Hall'],
     });
     // Their own submission time, not the moment of import - a first-come-first-served priority
     // rule reads this, and one shared timestamp would make it meaningless.
-    expect(nadia!.submittedAt).toBe('2026/05/02 9:14:03');
+    // Stored as a moment, not as the text the form wrote (E01/F04/S02): every reader - the
+    // solver's priority rule and the review queue's sort - compares this one stored value.
+    expect(nadia!.submittedAt).toBe('2026-05-02T09:14:03');
   });
 
   test('an unmapped required question imports nothing', async ({
@@ -330,7 +336,12 @@ test.describe('CSV vendor import', () => {
     const applications = await listApplications(request, seed.marketId);
     expect(applications).toHaveLength(2);
     for (const app of applications) {
-      expect(app.formData.essential_tier_preference).toEqual(['Gold']);
+      // Per date (E01/F05). This row answered once, so Gold applies to every date it can attend.
+      expect(app.formData.essential_tier_preference).toEqual(
+        Object.fromEntries(
+          (app.formData.essential_available_dates as string[]).map((d) => [d, ['Gold']]),
+        ),
+      );
     }
   });
 

@@ -90,6 +90,22 @@ interface AnswerRow {
  * are asked first), then the organizer's questions in form order, then anything the form no
  * longer names, so no stored answer is ever silently dropped.
  */
+/**
+ * One stored answer, as a person reads it.
+ *
+ * Tier preference is a map of date -> tiers (E01/F05), so `String(value)` renders "[object
+ * Object]". Every other answer is a scalar or a list.
+ */
+function displayAnswer(value: unknown): string {
+  if (Array.isArray(value)) return value.join(', ');
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, inner]) => `${key}: ${Array.isArray(inner) ? inner.join(', ') : String(inner)}`)
+      .join(' · ');
+  }
+  return String(value);
+}
+
 const answerRows = computed<AnswerRow[]>(() => {
   const data = application.value?.formData ?? {};
   const rows: AnswerRow[] = [];
@@ -101,7 +117,7 @@ const answerRows = computed<AnswerRow[]>(() => {
     rows.push({
       key,
       label,
-      value: Array.isArray(value) ? value.join(', ') : String(value),
+      value: displayAnswer(value),
     });
   };
 
