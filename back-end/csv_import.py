@@ -524,6 +524,44 @@ def _grid_values(
     return [option for _index, option, _value in chosen]
 
 
+def _whole_number_text(text: str) -> str:
+    """A count as the form wrote it, reduced to the number in it.
+
+    A real form asks "maximum number of days you wish to booth" with a dropdown reading "2 days",
+    so the cell is never a bare integer. Normalised at the boundary for the same reason the
+    timestamp is: the alternative is every reader knowing about the word.
+
+    Deliberately narrow - the number must START the value, so "2 days" is 2 and "about two" stays
+    exactly as written and is refused by validation. Guessing at prose would be worse than
+    refusing it.
+    """
+    match = re.match(r"^\s*(\d+)\s*[a-zA-Z]*\s*$", text)
+    return match.group(1) if match else text
+
+
+def _tier_grid(
+    headers: Sequence[str], row: Sequence[str], columns: Sequence[int],
+) -> Dict[str, List[str]]:
+    """A per-date tier answer, which is the shape a real form's day grid already has.
+
+    One column per market date, and the CELL holds the tiers accepted on that date - "Gold,
+    Silver", or "None" when the vendor is not available. So the bracketed option is the date and
+    the value is the answer, which is the reverse of every other grid: elsewhere a non-empty cell
+    means "this option was selected" and the option itself is the answer.
+
+    That reversal is why tier gets its own reader. It is also why tier can be per-date at all
+    (E01/F05): the form was always asking it that way.
+    """
+    per_date: Dict[str, List[str]] = {}
+    for index in columns:
+        date = _grid_option(headers[index])
+        cell = str(row[index]).strip() if index < len(row) else ""
+        tiers = [name for name in _split_multi(cell) if name.lower() != "none"]
+        if tiers:
+            per_date[date] = tiers
+    return per_date
+
+
 def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> Any:
     """One cell, as the answer shape its target expects.
 
@@ -534,7 +572,7 @@ def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> 
     if target.key in _MULTI_VALUE_ESSENTIALS:
         return _split_multi(text)
     if target.key == EssentialFields.MAX_DATES_KEY:
-        return text
+        return _whole_number_text(text)
     if target.kind == "custom" and field:
         field_type = field.get("type", "text")
         if field_type == "multi_select":
@@ -555,10 +593,51 @@ def _raw_values(
 ) -> Any:
     """A target's answer for one row, before its values are matched against the market."""
     if len(indexes) > 1:
+        if target.key == EssentialFields.TIER_PREFERENCE_KEY:
+            return _tier_grid(headers, row, indexes)
         return _grid_values(target, headers, row, indexes)
     index = indexes[0]
     cell = row[index] if index < len(row) else ""
     return _coerce(target, cell, field)
+
+
+def unserved_required(targets: Sequence[ImportTarget], resolved: Dict[str, Any]) -> List[ImportTarget]:
+    """Required targets this mapping does not answer.
+
+    One statement, because there were two: ``preview_values`` and ``import_applications`` each
+    decided it, and only one of them knew that a per-date tier grid answers availability as well
+    (``_assembled_rows`` reads the dates from it). The other refused the very shape a real form has.
+    """
+    satisfied = set(resolved)
+    if len(resolved.get(EssentialFields.TIER_PREFERENCE_KEY) or []) > 1:
+        satisfied.add(EssentialFields.AVAILABLE_DATES_KEY)
+    return [t for t in targets if t.required and t.key not in satisfied]
+
+
+def _matched_tiers_by_date(
+    value: Any, options: Any, resolutions: Dict[str, Optional[str]],
+) -> Tuple[Any, List[str]]:
+    """Match a per-date tier answer, whose keys and values are drawn from different offerings.
+
+    A tier grid is the one answer with two vocabularies in it: the KEYS are market dates, spelled
+    however the form's column headings spelled them ("Monday, November 17"), and the VALUES are
+    tier names. Each half is matched against its own offering, so the organizer resolves a date
+    heading once and a tier name once - not once per row, and never the two confused for each
+    other.
+    """
+    if not isinstance(value, dict):
+        return _matched(value, list(options.tiers or []), resolutions)
+
+    kept: Dict[str, List[str]] = {}
+    unmatched: List[str] = []
+    for raw_date, raw_tiers in value.items():
+        date, date_unmatched = _matched(raw_date, list(options.dates or []), resolutions)
+        tiers, tier_unmatched = _matched(list(raw_tiers or []), list(options.tiers or []), resolutions)
+        unmatched.extend(date_unmatched)
+        unmatched.extend(tier_unmatched)
+        if date and tiers:
+            kept[date] = tiers
+    return kept, unmatched
 
 
 def _matched(
@@ -621,10 +700,37 @@ def _assembled_rows(
                 continue
             field = fields_by_key.get(key)
             value = _raw_values(target, headers, row, indexes, field)
-            offered = offered_values(target, options, field)
-            if offered is not None:
-                value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
+            if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(value, dict):
+                value, _unmatched = _matched_tiers_by_date(
+                    value, options, resolutions.get(key, {}),
+                )
+            else:
+                offered = offered_values(target, options, field)
+                if offered is not None:
+                    value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
             form_data[key] = value
+
+        # Tier is answered PER DATE (E01/F05). A grid already says it that way - one column per
+        # date, tiers in the cell - but a form that asked once ("which tiers will you accept?")
+        # gives a flat list, which means those tiers on every date the vendor is available. Expanded
+        # here rather than in ``_coerce`` because only the assembled row knows both answers.
+        tier_answer = form_data.get(EssentialFields.TIER_PREFERENCE_KEY)
+        if isinstance(tier_answer, list):
+            dates = form_data.get(EssentialFields.AVAILABLE_DATES_KEY) or []
+            form_data[EssentialFields.TIER_PREFERENCE_KEY] = {
+                date: list(tier_answer) for date in dates
+            }
+        elif isinstance(tier_answer, dict) and not form_data.get(
+            EssentialFields.AVAILABLE_DATES_KEY
+        ):
+            # A real form asks one question per day whose cell carries the tiers, or "None" when
+            # the vendor cannot attend. That single grid answers BOTH questions, so availability is
+            # read from it rather than demanding a second column the form never had: the dates you
+            # named tiers for are the dates you are available. The two are still stored separately
+            # and still have to agree - this is what makes them agree by construction.
+            form_data[EssentialFields.AVAILABLE_DATES_KEY] = [
+                date for date, names in tier_answer.items() if names
+            ]
 
         # Normalised here, at the boundary, so every reader downstream compares one shape. A value
         # that is not a time is carried as the sentinel below and refused by ``_row_faults`` with
@@ -701,7 +807,10 @@ def preview_values(
             if offered is None:
                 continue
             raw = _raw_values(target, headers, row, indexes, fields_by_key.get(key))
-            _kept, unmatched = _matched(raw, offered, resolutions.get(key, {}))
+            if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(raw, dict):
+                _kept, unmatched = _matched_tiers_by_date(raw, options, resolutions.get(key, {}))
+            else:
+                _kept, unmatched = _matched(raw, offered, resolutions.get(key, {}))
             for item in unmatched:
                 slot = (key, item)
                 if slot not in tally:
@@ -735,7 +844,7 @@ def preview_values(
         for key, value in mapping.items()
         if isinstance(value, (int, list)) and not isinstance(value, bool)
     }
-    unserved = [t for t in targets.values() if t.required and t.key not in resolved]
+    unserved = unserved_required(list(targets.values()), resolved)
     if unmatched_payload or unserved:
         return result, 200
 
@@ -876,12 +985,12 @@ def import_applications(
             "error": f"Mapped column is not in this file: {', '.join(sorted(out_of_range))}.",
         }, 400
 
-    missing = [t.label for t in targets if t.required and t.key not in resolved]
+    missing = [t.label for t in unserved_required(targets, resolved)]
     if missing:
         return {
             "error": "Every required question needs a column before anything can be imported. "
                      f"Still unmapped: {', '.join(missing)}.",
-            "unmappedRequired": [t.key for t in targets if t.required and t.key not in resolved],
+            "unmappedRequired": [t.key for t in unserved_required(targets, resolved)],
         }, 422
 
     resolutions = resolutions or {}

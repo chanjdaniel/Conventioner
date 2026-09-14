@@ -103,7 +103,8 @@ class TestOnlyARankingMayBeDeclared:
 ANSWERS_WITHOUT_A_SECTION_RANKING = {
     EF.AVAILABLE_DATES_KEY: ["2025-11-17"],
     EF.MAX_DATES_KEY: 1,
-    EF.TIER_PREFERENCE_KEY: ["Gold"],
+    # Tier is answered per date (E01/F05).
+    EF.TIER_PREFERENCE_KEY: {"2025-11-17": ["Gold"]},
     EF.TABLE_CHOICE_KEY: "full",
 }
 

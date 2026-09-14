@@ -58,7 +58,7 @@ application never answered at all. That is an incomplete record rather than a st
 plan edit can produce it.
 """
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, Iterable, List, Mapping, Optional, Tuple
 
 import api.applications as ApplicationsApi
 import essential_fields as EF
@@ -82,7 +82,10 @@ class SolverVendor:
     email: str
     available_dates: FrozenSet[str]
     max_dates: Optional[int]
-    accepted_tiers: FrozenSet[str]
+    # Which tiers this vendor accepts ON EACH DATE. Tier is a hard filter and it sets the price,
+    # so it is per-date: a single set for the whole application would let a vendor be placed at a
+    # tier they offered on one day, and charged for it, on another (E01/F05).
+    accepted_tiers_by_date: Mapping[str, FrozenSet[str]]
     table_choice: Optional[str]
     table_share_email: Optional[str]
     section_ranking: Tuple[str, ...]
@@ -94,6 +97,26 @@ class SolverVendor:
     # Real submission time, used by a first-come-first-served priority rule.
     submitted_at: Optional[str] = None
     application_type: Optional[str] = None
+
+    def accepts_tier_on(self, date: str, tier_name: Optional[str]) -> bool:
+        """Does this vendor accept that tier ON THAT DATE?
+
+        Per-date because tier is a hard filter and it sets the price: a vendor who offered Gold on
+        Monday and Bronze on Friday must not be placed at Gold on Friday and charged for it
+        (E01/F05). One set for the whole application could not express the difference.
+
+        Set membership, not a substring test. The CSV-era check was
+        ``table.tier.name in <the vendor's answer string>``, in which a tier named 'A' matched an
+        answer of 'AB'.
+
+        A table with no tier constrains nothing, which is what a market offering no tiers produces.
+        That is deliberately not the same as a vendor who accepts no tier on that date: they belong
+        at no table that day, which is how "the organizer dropped that tier after applications were
+        in" should read - the applicant goes unassigned rather than the market going unassignable.
+        """
+        if tier_name is None:
+            return True
+        return tier_name in self.accepted_tiers_by_date.get(date, frozenset())
 
 
 @dataclass(frozen=True)
@@ -165,6 +188,43 @@ def approved_solver_vendors(
     )
 
 
+def _tiers_by_date(
+    raw: Any,
+    options: EssentialFormOptions,
+    asked: FrozenSet[str],
+    missing: List[str],
+) -> Mapping[str, FrozenSet[str]]:
+    """A stored per-date tier answer as the solver reads it.
+
+    Values the market no longer offers are dropped rather than refused, for the same reason the
+    other translations drop them: an organizer may edit the plan after applications are in, and the
+    applicant did nothing wrong. A vendor left accepting nothing on a date is simply unplaceable
+    there, which is how "the organizer dropped that tier" should read.
+    """
+    if EF.TIER_PREFERENCE_KEY not in asked:
+        return {}
+    if not isinstance(raw, dict) or not raw:
+        missing.append(EF.TIER_PREFERENCE_LABEL)
+        return {}
+
+    answered = {str(date): EF.normalized_names(names) for date, names in raw.items()}
+    if not any(answered.values()):
+        # The applicant answered nothing. That is incomplete, and the run refuses rather than
+        # placing them somewhere they never agreed to.
+        missing.append(EF.TIER_PREFERENCE_LABEL)
+        return {}
+
+    # Names the market no longer offers are DROPPED, not refused - the same rule the other
+    # translations follow. An organizer may edit the plan after applications are in, and the
+    # applicant did nothing wrong; a vendor left accepting nothing on a date is unplaceable there,
+    # which is how "the organizer dropped that tier" should read. Unplaceable, not unassignable.
+    offered = set(options.tiers or [])
+    return {
+        date: frozenset(name for name in names if not offered or name in offered)
+        for date, names in answered.items()
+    }
+
+
 def _solver_vendor(
     application: Application, options: EssentialFormOptions,
 ) -> Tuple[Optional[SolverVendor], Optional[IncompleteApplication]]:
@@ -193,7 +253,9 @@ def _solver_vendor(
         return [name for name in names if name in offered] if offered else names
 
     available_dates = answer(EF.AVAILABLE_DATES_KEY, EF.AVAILABLE_DATES_LABEL)
-    accepted_tiers = answer(EF.TIER_PREFERENCE_KEY, EF.TIER_PREFERENCE_LABEL)
+    accepted_tiers_by_date = _tiers_by_date(
+        answers.get(EF.TIER_PREFERENCE_KEY), options, asked, missing,
+    )
     section_ranking = answer(EF.SECTION_RANKING_KEY, EF.SECTION_RANKING_LABEL)
     table_type_ranking = answer(EF.TABLE_TYPE_RANKING_KEY, EF.TABLE_TYPE_RANKING_LABEL)
 
@@ -220,7 +282,7 @@ def _solver_vendor(
             email=email,
             available_dates=frozenset(available_dates),
             max_dates=max_dates,
-            accepted_tiers=frozenset(accepted_tiers),
+            accepted_tiers_by_date=accepted_tiers_by_date,
             table_choice=table_choice or None,
             # Naming nobody is the normal case, and absent says that more honestly than an
             # empty string a caller has to remember to test for.

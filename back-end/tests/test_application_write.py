@@ -41,7 +41,8 @@ ANSWERS = {
     "business_name": "Vermilion Ceramics",
     "essential_available_dates": ["2026-08-08", "2026-08-01"],
     "essential_max_dates": 2,
-    "essential_tier_preference": ["Gold"],
+    # Per date (E01/F05): the same tiers on both dates this applicant can attend.
+    "essential_tier_preference": {"2026-08-08": ["Gold"], "2026-08-01": ["Gold"]},
     "essential_table_choice": "half",
     "essential_table_share_email": "buddy@example.com",
     "essential_section_ranking": ["Garden", "Main Hall"],
@@ -93,7 +94,9 @@ class TestRecordApplicationAnswers:
         _, app = record_application_answers(markets, markets.doc, _app_doc(), ANSWERS)
 
         assert app.form_data["essential_available_dates"] == DATES
-        assert app.form_data["essential_tier_preference"] == ["Gold"]
+        assert app.form_data["essential_tier_preference"] == {
+            "2026-08-08": ["Gold"], "2026-08-01": ["Gold"],
+        }
         assert app.form_data["essential_table_choice"] == "half"
 
     def test_an_application_with_no_status_becomes_open(self, markets, applications):
@@ -127,7 +130,7 @@ class TestRecordApplicationAnswers:
 
     def test_a_refused_answer_writes_nothing(self, markets, applications):
         applications.insert_one(_app_doc())
-        bad = {**ANSWERS, "essential_tier_preference": ["Platinum"]}
+        bad = {**ANSWERS, "essential_tier_preference": {"2026-08-01": ["Platinum"]}}
 
         error, app = record_application_answers(markets, markets.doc, _app_doc(), bad)
 

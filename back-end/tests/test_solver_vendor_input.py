@@ -24,12 +24,20 @@ FULL_OFFERING = EssentialFormOptions(
 )
 
 
+DATES = ["2026-06-01", "2026-06-02"]
+
+
+def tiers_every_day(*names):
+    """Tier is answered per date (E01/F05); most vendors accept the same tiers every day."""
+    return {date: list(names) for date in DATES}
+
+
 def answers(**overrides):
     """A complete set of essential answers against ``FULL_OFFERING``."""
     base = {
-        EF.AVAILABLE_DATES_KEY: ["2026-06-01", "2026-06-02"],
+        EF.AVAILABLE_DATES_KEY: list(DATES),
         EF.MAX_DATES_KEY: 2,
-        EF.TIER_PREFERENCE_KEY: ["A", "B"],
+        EF.TIER_PREFERENCE_KEY: tiers_every_day("A", "B"),
         EF.TABLE_CHOICE_KEY: EF.TABLE_CHOICE_HALF,
         EF.TABLE_SHARE_EMAIL_KEY: "partner@example.com",
         EF.SECTION_RANKING_KEY: ["Food", "Artisan", "Vintage"],
@@ -60,7 +68,7 @@ class TestBuildingAVendor:
         assert vendor.email == "vendor@example.com"
         assert vendor.available_dates == frozenset({"2026-06-01", "2026-06-02"})
         assert vendor.max_dates == 2
-        assert vendor.accepted_tiers == frozenset({"A", "B"})
+        assert vendor.accepted_tiers_by_date == {d: frozenset({"A", "B"}) for d in DATES}
         assert vendor.table_choice == EF.TABLE_CHOICE_HALF
         assert vendor.table_share_email == "partner@example.com"
         assert vendor.section_ranking == ("Food", "Artisan", "Vintage")
@@ -122,8 +130,8 @@ class TestTypesTheCsvEraGotWrong:
         """'A' used to match an answer of 'AB' under the old substring test."""
         vendors, _ = solver_vendors_from_applications([application()], FULL_OFFERING)
 
-        assert "AB" not in vendors[0].accepted_tiers
-        assert "A" in vendors[0].accepted_tiers
+        assert not vendors[0].accepts_tier_on(DATES[0], "AB")
+        assert vendors[0].accepts_tier_on(DATES[0], "A")
 
 
 class TestTheOptionalPartner:
@@ -232,12 +240,12 @@ class TestAnAnswerTheMarketNoLongerOffers:
         assert vendors[0].available_dates == frozenset({"2026-06-01"})
 
     def test_a_tier_the_market_does_not_offer_is_dropped(self):
-        app = application(**{EF.TIER_PREFERENCE_KEY: ["A", "Platinum"]})
+        app = application(**{EF.TIER_PREFERENCE_KEY: tiers_every_day("A", "Platinum")})
 
         vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
 
         assert incomplete == []
-        assert vendors[0].accepted_tiers == frozenset({"A"})
+        assert vendors[0].accepted_tiers_by_date == {d: frozenset({"A"}) for d in DATES}
 
     def test_a_section_the_market_does_not_offer_is_dropped_from_the_ranking(self):
         app = application(
@@ -251,12 +259,12 @@ class TestAnAnswerTheMarketNoLongerOffers:
 
     def test_a_vendor_left_with_no_acceptable_tier_is_built_but_unplaceable(self):
         """Unplaceable, not unassignable: they show up as an unassigned vendor afterwards."""
-        app = application(**{EF.TIER_PREFERENCE_KEY: ["Platinum"]})
+        app = application(**{EF.TIER_PREFERENCE_KEY: tiers_every_day("Platinum")})
 
         vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
 
         assert incomplete == []
-        assert vendors[0].accepted_tiers == frozenset()
+        assert all(not tiers for tiers in vendors[0].accepted_tiers_by_date.values())
 
     def test_a_vendor_left_with_no_available_date_is_built_but_unplaceable(self):
         app = application(**{EF.AVAILABLE_DATES_KEY: ["2026-12-25"]})
@@ -268,7 +276,7 @@ class TestAnAnswerTheMarketNoLongerOffers:
 
     def test_answering_nothing_at_all_is_still_missing(self):
         """The distinction that matters: no plan edit can produce an unanswered question."""
-        app = application(**{EF.TIER_PREFERENCE_KEY: []})
+        app = application(**{EF.TIER_PREFERENCE_KEY: {}})
 
         vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
 
@@ -335,12 +343,12 @@ class TestWhatTheMarketDidNotAsk:
             table_types=[EF.STUB_TABLE_TYPE],
             tiers=[],
         )
-        app = application(**{EF.TIER_PREFERENCE_KEY: []})
+        app = application(**{EF.TIER_PREFERENCE_KEY: {}})
 
         vendors, incomplete = solver_vendors_from_applications([app], offering)
 
         assert incomplete == []
-        assert vendors[0].accepted_tiers == frozenset()
+        assert all(not tiers for tiers in vendors[0].accepted_tiers_by_date.values())
 
 
 class TestOnlyApprovedApplicationsFeedTheSolver:

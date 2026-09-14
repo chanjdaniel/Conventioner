@@ -410,9 +410,7 @@ def validated_essential_answers(
     if error:
         return error, {}
 
-    error = _validate_accepted_subset(
-        incoming, TIER_PREFERENCE_KEY, TIER_PREFERENCE_LABEL, "tier", options.tiers, stored,
-    )
+    error = _validate_tiers_per_date(incoming, options, stored)
     if error:
         return error, {}
 
@@ -443,6 +441,71 @@ def validated_essential_answers(
         return error, {}
 
     return None, stored
+
+
+def _validate_tiers_per_date(
+    incoming: Dict[str, Any], options: EssentialFormOptions, stored: Dict[str, Any],
+) -> Optional[str]:
+    """Which tiers the applicant accepts, ON EACH DATE they can attend.
+
+    Tier is a hard filter and it sets the price, so this is answered per date rather than once for
+    the whole application. A single set for the market would let the solver place someone at a tier
+    they offered on one day and charge them for it on another - and a real form promises the
+    opposite, in writing, to the applicant.
+
+    Availability is still its own answer, so the two have to agree: every available date needs
+    tiers, and no other date may carry any. Disagreement is refused rather than reconciled, because
+    either reconciliation invents an answer - dropping a date the applicant ticked, or adding one
+    they did not.
+    """
+    if not options.tiers:
+        stored[TIER_PREFERENCE_KEY] = {}
+        return None
+
+    available = list(stored.get(AVAILABLE_DATES_KEY) or [])
+    raw = incoming.get(TIER_PREFERENCE_KEY)
+
+    if not isinstance(raw, dict):
+        return (
+            f"'{TIER_PREFERENCE_LABEL}' is required. Choose the tiers you would accept on each "
+            "date you are available."
+        )
+
+    per_date: Dict[str, List[str]] = {}
+    for date in available:
+        given = raw.get(date)
+        if not isinstance(given, list) or not given:
+            return (
+                f"'{TIER_PREFERENCE_LABEL}' is missing for {date}. Choose at least one tier for "
+                "every date you are available, or remove that date."
+            )
+        names = [str(name).strip() for name in given if str(name).strip()]
+        if not names:
+            return (
+                f"'{TIER_PREFERENCE_LABEL}' is missing for {date}. Choose at least one tier for "
+                "every date you are available, or remove that date."
+            )
+        invalid = [name for name in names if name not in options.tiers]
+        if invalid:
+            return (
+                f"'{TIER_PREFERENCE_LABEL}' for {date} contains a tier this market does not "
+                f"offer: {invalid[0]}"
+            )
+        if len(set(names)) != len(names):
+            return f"'{TIER_PREFERENCE_LABEL}' repeats a tier for {date}."
+        # Stored in the market plan's order, so every consumer reads one canonical ordering - the
+        # same rule the flat answer followed before it became per-date.
+        per_date[date] = [tier for tier in options.tiers if tier in set(names)]
+
+    extra = [date for date in raw if date not in available and _unique_names(raw.get(date))]
+    if extra:
+        return (
+            f"'{TIER_PREFERENCE_LABEL}' names tiers for {', '.join(sorted(extra))}, which is not "
+            "among the dates you said you are available."
+        )
+
+    stored[TIER_PREFERENCE_KEY] = per_date
+    return None
 
 
 def _validate_accepted_subset(
