@@ -43,6 +43,8 @@ First-contact damage, all of it cheap, all of it found by walking the journey on
   they just chose, rather than a second recap of the mapping. Confirming 232 writes on a restated
   mapping means trusting that the mapping means what you think it means, which is the one thing a
   preview exists to check. The mapping recap stays, under a heading that says what it is.
+  A form with no responses yet exports a header row and nothing under it, which parses and maps
+  like any other file; it previews no rows, and an e2e case pins that.
 - **Upload is a drop zone that names the market it writes into.** It was a bare file input on a
   page that never said which market an import lands in. A file dragged and a file picked now take
   the same path, and anything that is not a CSV is refused by name.
@@ -53,6 +55,11 @@ First-contact damage, all of it cheap, all of it found by walking the journey on
 - **Section Setup rows fit their own content.** The name field was a fifth narrower than its
   column and the location dropdown truncated "Nest Ballroom"; the columns now follow what each
   holds, and a value that still will not fit ends in an ellipsis rather than mid-word.
+  The fourth defect in that bullet - **column headers not aligning with their fields - did not
+  reproduce**: measured at 1440px, every heading already sat exactly over its field. The headings
+  and the rows now share one column definition, so they cannot drift apart, but nothing was
+  observed to be wrong and something else may have been (a narrower window, or one of the sibling
+  cards that share these class names). Worth re-checking against whatever produced the finding.
 - **A row's remove control is visible.** It was hidden until the pointer happened to be over its
   row, so every setup screen read as though only the last row could be removed. It is dimmed now,
   in all six places that shared the rule.

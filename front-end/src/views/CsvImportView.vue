@@ -210,20 +210,33 @@ function labelForTarget(key: string): string {
   return targets.value.find((t) => t.key === key)?.label ?? key;
 }
 
+/** Where a target's answer comes from: a whole grid, one column, or nothing yet. */
+type TargetSource =
+  { kind: 'group'; group: ColumnGroup } | { kind: 'column'; index: number } | { kind: 'none' };
+
 /**
- * Which column, or columns, a target is being read from - said the way the ledger said it.
+ * Which column, or columns, a target is being read from.
  *
- * The preview used to look only in `columnTarget`, so a target fed by a grid showed nothing at all
- * while every single-column target named its source. A blank reads as "not mapped" at the exact
- * moment the organizer is confirming that rows will be written.
+ * One statement of it, because two readers need the answer and they must not disagree: the recap
+ * names the source, and the sample rows read cells out of it. The recap used to look only in
+ * `columnTarget`, so a target fed by a grid showed nothing at all while every single-column
+ * target named its source - a blank reads as "not mapped" at the exact moment the organizer is
+ * confirming that rows will be written.
  */
-function sourceLabelFor(key: string): string {
+function sourceFor(key: string): TargetSource {
   const group = activeGroups.value.find((g) => groupTarget.value[g.stem] === key);
-  if (group) {
-    return `${group.stem} (${group.columns.length} columns)`;
-  }
+  if (group) return { kind: 'group', group };
   const index = Object.entries(columnTarget.value).find(([, k]) => k === key)?.[0];
-  return index === undefined ? '' : (headers.value[Number(index)] ?? '');
+  return index === undefined ? { kind: 'none' } : { kind: 'column', index: Number(index) };
+}
+
+/** That source, said the way the ledger said it. */
+function sourceLabelFor(key: string): string {
+  const source = sourceFor(key);
+  if (source.kind === 'group') {
+    return `${source.group.stem} (${source.group.columns.length} columns)`;
+  }
+  return source.kind === 'column' ? (headers.value[source.index] ?? '') : '';
 }
 
 /**
@@ -240,12 +253,18 @@ function sourceLabelFor(key: string): string {
  */
 const SAMPLE_ROWS = 3;
 
-const sampleApplications = computed(() => {
-  const depth = Math.min(
-    SAMPLE_ROWS,
-    ...sampleValues.value.filter((column) => column.length).map((column) => column.length),
-  );
-  if (!Number.isFinite(depth) || depth < 1) return [];
+interface SampleAnswer {
+  key: string;
+  label: string;
+  value: string;
+}
+
+const sampleApplications = computed<Array<{ row: number; answers: SampleAnswer[] }>>(() => {
+  // How many rows there are to show. `Math.max(0, ...)` rather than a spread alone: a file of
+  // headers and nothing else parses fine, and an empty spread would have left the default,
+  // previewing three rows a file with no rows in it does not have.
+  const depth = Math.min(SAMPLE_ROWS, Math.max(0, ...sampleValues.value.map((c) => c.length)));
+  if (depth < 1) return [];
 
   const cell = (column: number, row: number) => (sampleValues.value[column]?.[row] ?? '').trim();
 
@@ -254,19 +273,21 @@ const sampleApplications = computed(() => {
     const answers = targets.value
       .filter((target) => mappedKeys.value.has(target.key))
       .map((target) => {
-        const group = activeGroups.value.find((g) => groupTarget.value[g.stem] === target.key);
-        if (group) {
-          const perOption = group.columns
-            .map((column, position) => [group.options[position] ?? '', cell(column, row)] as const)
+        const source = sourceFor(target.key);
+        if (source.kind === 'group') {
+          const perOption = source.group.columns
+            .map(
+              (column, position) =>
+                [source.group.options[position] ?? '', cell(column, row)] as const,
+            )
             .filter(([, value]) => value !== '')
             .map(([option, value]) => `${option}: ${value}`);
           return { key: target.key, label: target.label, value: perOption.join(' · ') };
         }
-        const index = Object.entries(columnTarget.value).find(([, k]) => k === target.key)?.[0];
         return {
           key: target.key,
           label: target.label,
-          value: index === undefined ? '' : cell(Number(index), row),
+          value: source.kind === 'column' ? cell(source.index, row) : '',
         };
       });
     rows.push({ row, answers });
@@ -1406,6 +1427,12 @@ function startOver() {
   width: 1px;
   height: 1px;
   opacity: 0;
+  pointer-events: none;
+}
+
+/* The zone is one drop target. Without this the label's own children are targets too, so
+   crossing onto the text fires `dragleave` and the zone flickers out from under the file. */
+.drop-zone > * {
   pointer-events: none;
 }
 

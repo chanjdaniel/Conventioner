@@ -192,13 +192,6 @@ input[type='number'] {
   -moz-appearance: textfield;
 }
 
-/* Dimmed, not hidden. Removing a row has no other control, and one that only exists while the
-   pointer happens to be over its row cannot be found by looking - the setup screens each read as
-   though only the last row, the one under the cursor, could be removed. */
-.hidden-icon {
-  opacity: 0.35;
-}
-
 .icon-add-round {
   width: 40px;
   height: 40px;
