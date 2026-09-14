@@ -24,7 +24,9 @@ const user = inject<string | null>('user');
            Four of six used to point at /vendors - "View Tables", "Discord Tools" and "View Change
            Log" all landed on the vendors page, and "Manage Tables" opened /init, which is the
            new-or-existing market chooser. Discord tools and a change log do not exist as pages at
-           all. Nothing replaced them, because inventing a destination is how they got here. -->
+           all, so those two are simply gone - inventing a destination is how they got here.
+           Organizations is not a replacement for them: it is a real page that was reachable only
+           from the dashboard. -->
       <ElementNavigationItem to="/markets" @menuClose="$emit('menuClose')">
         <template #icon>
           <IconMarkets class="nav-icon" />

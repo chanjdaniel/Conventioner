@@ -114,7 +114,8 @@ cd front-end
 npm run test:unit
 ```
 
-Tests cover the API client interceptor (automatic `X-Owner-Email` header injection) and
+Tests cover the API client (it sends credentials and attaches no request interceptor, so no
+identity can be smuggled onto a request) and
 `parseMarketFromApi()` (`market.test.ts`), which round-trips the market `phase`,
 application form, review config, and Discord guild id, and leaves them undefined when the
 API omits them. The same suite covers `pathAfterLoadingMarket()`, which routes every pre-archive phase to the
@@ -365,11 +366,24 @@ Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
   use `curl -k` to skip certificate validation. Playwright accepts the cert via
   `ignoreHTTPSErrors: true` in `playwright.config.ts`, so browser navigation and
   the `APIRequestContext`-based seed helpers work against the self-signed backend.
-- **X-Owner-Email header**: Set automatically by the axios interceptor in
-  `front-end/src/utils/api.ts`. New API calls using the shared `api` instance
-  do not need to set it manually.
+- **Identity comes from the session, never a header**: the session cookie says who the
+  caller is, and the back end reads it through `authenticated_email()`
+  (`back-end/utils/identity.py`) and nothing else.
+  The client used to attach an `X-Owner-Email` header from localStorage and the back end
+  authorized against it, so any signed-in user could act as any other by changing a value their
+  own browser owned (E07/F01/S02).
+  Do not reintroduce it, and do not add another header like it - `test_session_is_the_identity.py`
+  fails the build if one appears in `app.py` or any blueprint under `api/`.
+  Several e2e specs still pass the header on their own request contexts; it is inert, and those
+  helpers authenticate properly by logging in.
 - **Email verification**: The seed fixture creates users with `email_verified=true`
   via `back-end/create_test_user.py` so they can log in immediately.
+- **The Google Forms fixture**: `back-end/tests/test_data/google_forms_export.csv` is a real
+  response export with the people replaced, built by `back-end/tests/fixtures/anonymise_form_export.py`.
+  It exists because three MVP blockers came from the *shape* of a real export and every CSV test
+  before it wrote its own short single-line headers.
+  `back-end/tests/test_data/README.md` lists the six properties it must preserve, and
+  `test_real_export_shapes.py` asserts those before it asserts anything else.
 - **Playwright browsers**: If `npx playwright install chromium` fails inside the
   Alpine Docker container, install Playwright and browsers on the host instead.
 - **Driving the Konva floorplan canvas**: `FloorplanWorkflowPage` calibrates the

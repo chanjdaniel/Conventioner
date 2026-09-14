@@ -100,6 +100,17 @@ _MULTI_VALUE_ESSENTIALS = (
 )
 
 
+def collapse_header(header: Any) -> str:
+    """A header as one line of single-spaced text.
+
+    A real Google Forms header carries its instructions above the question, so it arrives with
+    newlines and runs of spaces in it. Two places compare header text - grouping a grid, and
+    restoring a saved mapping onto a fresh export - and they must agree, or a re-export that
+    re-wraps a header silently fails to restore.
+    """
+    return " ".join(str(header).split())
+
+
 # "Which days can you attend? [Saturday July 4]" - the shape Google Forms gives every grid column.
 #
 # DOTALL because a real grid question carries its instructions above the bracketed option, so the
@@ -134,10 +145,9 @@ def column_groups(headers: Sequence[str]) -> List[ColumnGroup]:
         match = _GRID_HEADER.match(str(header).strip())
         if not match:
             continue
-        # The stem labels the group in the organizer's ledger and keys the saved mapping, so it is
-        # collapsed to one line. A real grid header is mostly instructions, several lines of them.
-        stem = " ".join(match.group("stem").split())
-        option = " ".join(match.group("option").split())
+        # The stem labels the group in the organizer's ledger, so it is collapsed to one line.
+        stem = collapse_header(match.group("stem"))
+        option = collapse_header(match.group("option"))
         if stem not in found:
             found[stem] = ColumnGroup(stem, [], [])
             order.append(stem)
@@ -344,7 +354,7 @@ def restore_mapping(
     """
     positions: Dict[str, List[int]] = {}
     for index, header in enumerate(headers):
-        positions.setdefault(str(header).strip(), []).append(index)
+        positions.setdefault(collapse_header(header), []).append(index)
 
     known = {target.key for target in targets}
     restored: Dict[str, List[int]] = {}
@@ -354,7 +364,7 @@ def restore_mapping(
     for key, saved_headers in (saved.get("targets") or {}).items():
         if key not in known:
             continue
-        wanted = [str(header).strip() for header in saved_headers or []]
+        wanted = [collapse_header(header) for header in saved_headers or []]
         indexes: List[int] = []
         missing: List[str] = []
         taken: Dict[str, int] = {}
@@ -372,10 +382,10 @@ def restore_mapping(
         restored[key] = indexes
         used.extend(wanted)
 
-    previous = {str(header).strip() for header in saved.get("headers") or []}
+    previous = {collapse_header(header) for header in saved.get("headers") or []}
     new_headers = [
-        str(header).strip() for header in headers
-        if previous and str(header).strip() not in previous
+        collapse_header(header) for header in headers
+        if previous and collapse_header(header) not in previous
     ]
     return restored, unresolved, new_headers
 

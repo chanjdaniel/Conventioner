@@ -509,7 +509,8 @@ def delete_user(request, authenticated_email: str):
     on the organization pointed at a user that no longer existed, stranding every market in it with
     nobody able to administer them. Ownership transfer is available while the account still exists
     (``POST /organizations/<id>/transfer-ownership``), so refusing here keeps the only ordering that
-    leaves the data consistent.
+    leaves the data consistent. An owner with nobody to transfer to is not trapped either: deleting
+    the organization is something its owner may do, and then this succeeds.
     """
     data = request.json or {}
     email_to_delete = data.get("email")
