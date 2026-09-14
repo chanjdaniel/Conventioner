@@ -19,7 +19,7 @@ a door, and it is the last step of the journey. Today at 390x844 the page has 62
 overflow and a fixed-width layout.
 
 This is the **only** carve-out from the desktop-only stance settled on
-[Map: Real-market readiness](../../wayfinding/real-market-readiness/map.md). Nothing else needs to
+[Map: Real-market readiness](../../../wayfinding/real-market-readiness/map.md). Nothing else needs to
 work below laptop widths; do not widen this feature into a general responsive pass.
 
 ## Acceptance criteria

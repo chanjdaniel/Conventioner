@@ -1,7 +1,7 @@
 # 03: What happens when the CSV cannot answer a question the market asks?
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by:
 
 ## Question
@@ -54,3 +54,47 @@ round is closed.
   existing applications never answered. Recording it on the mapping would hide it from
   `asked_essential_keys()`, which is the single statement of requiredness both the applicant
   validator and the solver read.
+
+## Answer
+
+**A required question can be declared "not asked", and only a ranking may be.**
+
+### The rule
+
+When a market's plan asks a question the intake cannot answer, the organizer may declare that
+question not asked and a default is stored. **This is offerable for the rankings only** - section
+preference and table type preference.
+
+They qualify because the solver treats a ranking as a soft preference and never filters on it, so a
+uniform default changes nothing but the tie-break. It must **never** be offerable for available
+dates, tier preference, or table choice, where a default silently invents a commitment the applicant
+never made and the solver then acts on it.
+
+That limit is **one rule living beside `asked_essential_keys()`**, not a flag per question.
+`essential_fields.py` is the single statement of what a market asks, and a second place deciding
+requiredness is the drift its docstring warns about - drift that surfaces as the solver rejecting
+answers the form just accepted.
+
+### Deriving silently was rejected
+
+Giving every applicant the same ranking without recording that nobody was asked puts a fabricated
+answer into `form_data`, where an applicant's own answer lives. That is precisely what
+`IncompleteApplicationsError` exists to prevent.
+
+### Where it is recorded
+
+**On the market's application form**, beside `essentialOptions` - not on the import mapping.
+
+"Does this market ask applicants to rank sections?" is a fact about the market, not about a
+spreadsheet, and it has to hold for the **native** form too: a CSV market that later switched to
+form intake would otherwise start asking a question its existing applications never answered.
+Recording it on the mapping would also hide it from `asked_essential_keys()`, which both the
+applicant validator and the solver's translation read.
+
+### Note on what this does not fix
+
+Tier remains a property of a section, so a market offering three tiers still needs three sections
+and still asks the question. This answer makes that answerable; it does not decouple them. Doing so
+was considered and left alone as much larger than the problem.
+
+Buildable work: `.scratch/backlog/E01-csv-vendor-intake/F06-a-question-not-asked/`.

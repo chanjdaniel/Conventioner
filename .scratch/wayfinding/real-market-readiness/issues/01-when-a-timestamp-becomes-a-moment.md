@@ -1,7 +1,7 @@
 # 01: Where does a submission timestamp stop being text and become a moment?
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by:
 
 ## Question
@@ -63,3 +63,43 @@ round is closed, because a later answer can still reshape it.
 - **Migrate with a plain script, no boot marker.** The marker pattern exists for hazards that are
   *invisible* (an unmigrated market simply does not appear). A raw timestamp misorders visibly, so
   paying a boot refusal for it teaches operators the refusal is noise.
+
+## Answer
+
+**A submission timestamp becomes a moment at import.** It is normalised to ISO-8601 on the way into
+the document, and every reader downstream compares one shape.
+
+### Why there, not at read
+
+The public applicant form **already writes ISO** (`application_write.py:124`). Only the CSV path
+stored the form's raw `M/D/YYYY H:MM:SS`. So this was never "pick a format" - it was "make the CSV
+path agree with the path that was already right". Converting at read would mean maintaining two
+stored shapes for the life of the product and trusting every future reader to know.
+
+It also fixes more than the solver. `api/applications.py:166` sorts the review queue by the same raw
+string, so the order an organizer reviewed 232 applications in was wrong too. One conversion at the
+boundary fixes both; teaching `_as_moment` would have fixed only the reader someone remembered.
+
+### What happens to a value that will not parse
+
+**The row is refused and named**, the way `IncompleteApplicationsError` refuses rather than quietly
+placing someone. Silently scoring `math.inf` - today's behaviour - is what made this invisible.
+
+**The refusal applies only when the column is mapped.** `submitted_at` stays an optional target
+(`csv_import.py:195`): a market with no time-based priority genuinely does not need it. The import
+validates what it was given and does not reach into the setup object to discover whether a rule
+cares - coupling them would let a priority rule added later retroactively invalidate an import that
+had already succeeded.
+
+**But say something** when no timestamp column is mapped *and* a `submitted_at` priority rule
+exists. That combination is the original silent no-op wearing a different hat, and the ledger is
+where it is visible.
+
+### Migration
+
+A plain script, no boot marker. The marker pattern (`migrate_market_keys.py`) exists for a hazard
+that is *invisible* - an unmigrated market simply does not appear anywhere. A raw timestamp
+misorders in plain sight. Paying a boot refusal for a loud failure teaches operators that the
+refusal is noise.
+
+Buildable work: `.scratch/backlog/E01-csv-vendor-intake/F04-real-export-shapes/`.

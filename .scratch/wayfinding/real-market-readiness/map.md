@@ -60,10 +60,24 @@ What that leaves for this map is what it was always for: the five decisions belo
 
 - [04: What must a reviewer see to decide on an application?](issues/04-what-a-reviewer-needs-to-decide.md): triage - one application at a time carrying every answer it holds, keyboard verdicts, progress counted, and **no bulk action at all**, so no application is ever approved without having been looked at. This also settles the superseded v0.1.0 bulk-approve ticket: no selection model, nothing bulk, no confirmation needed. Its cost is 232 deliberate decisions, which makes [05](issues/05-how-custom-fields-reach-a-frozen-form.md) load-bearing - an essential-only form makes every card identical, so triage must not be built before 05 is answered.
 
-<!-- Tickets 01, 02, 03 and 06 are part-grilled: two rounds settled eight decisions, recorded under
-     "## Settled so far" in each ticket, and a third round is unanswered. Nothing is resolved until
-     a round closes, because a later answer can still reshape an earlier one - so those notes are
-     the record of what was decided, not the answer to the question. -->
+- [01: Where does a submission timestamp stop being text and become a moment?](issues/01-when-a-timestamp-becomes-a-moment.md): at import, normalised to ISO - the public form already wrote ISO, so only the CSV path disagreed, and one conversion at the boundary fixes the solver and the review-queue sort together. An unreadable value refuses the row rather than scoring `inf` in silence, but only when the column is mapped; a mapped-nothing plus a `submitted_at` priority rule is surfaced instead.
+- [02: How does a market express a tier preference that differs per day?](issues/02-how-a-market-expresses-tier-per-day.md): per-date, same key, new shape - because tier is a hard filter that *sets the price*, so a union places someone at a tier they declined for that day and charges them for it. Availability stays its own answer; validation refuses a ticked date with no tiers; and `essential_tier_preference` stops being offerable as a priority-rule target, since a map has no ordering.
+- [03: What happens when the CSV cannot answer a question the market asks?](issues/03-when-the-csv-cannot-answer.md): a required question may be declared "not asked" with a default, and **only a ranking may be** - rankings are soft preferences the solver never filters on. Recorded on the market's form, not the import mapping, so `asked_essential_keys()` stays the single statement of requiredness.
+- [05: How do the fields a reviewer needs reach a form that is already frozen?](issues/05-how-custom-fields-reach-a-frozen-form.md): a market returns to `draft` while no application exists, and the form is corrected there. Creating fields inside the import wizard lost on a fact: submission is gated to `applications_open`, so the D9 count is only race-free in `draft` - the phase gate is load-bearing, not belt-and-braces.
+- [06: Is "published" a phase, or is `archived` doing double duty?](issues/06-is-published-a-phase.md): publishing becomes `assignment -> market_days`, a phase that already existed and was stranded behind the deadlocked `assignment -> offers`. `archived` means finished everywhere, including from `draft` where it means abandoned - which makes the red Archive Market button correct. Check-in serves `market_days`, applicant intake narrows to `applications_open`, and the new edge carries an assignment-computed entry invariant.
+
+## Reaching the destination
+
+**The way is clear.** All six tickets are resolved; nothing remains to decide before the journey can
+be built. What the map produced is in `.scratch/backlog/` - E01/F04-F06, E03/F03-F04, E08/F04 - plus
+the work already shipped while charting (E07, E08/F01-F03, E01/F04/S01, E06/F04).
+
+Two things the resolutions changed about each other, worth carrying forward:
+
+- **04 and 05 inverted.** 05 was blocked behind 04; now 04's answer (triage, no bulk action) cannot
+  be *built* until 05 is, because an essential-only form makes every triage card identical.
+- **01's migration carries 02's and 06's.** Three shape changes land together and none of them is the
+  invisible hazard the boot-marker pattern exists for, so all three are plain scripts.
 
 ## Not yet specified
 

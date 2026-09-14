@@ -1,7 +1,7 @@
 # 02: How does a market express a tier preference that differs per day?
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by:
 
 ## Question
@@ -61,3 +61,45 @@ round is closed.
 - **Consequence:** `essential_tier_preference` stops being usable as a **priority-rule target** - a
   map has no ordering. The rule builder must stop offering it rather than score every vendor
   identically, which is the C1 failure mode in a new costume.
+
+## Answer
+
+**Tier preference becomes per-date, like availability.** `essential_tier_preference` stops being one
+set for the whole application and becomes an answer per market date.
+
+### Why not the union
+
+The cheap option was to let the grid feed two targets, deriving availability from "cell is non-empty
+and not `None`" and tier from the union of the cells. It was rejected because **tier is a hard
+filter and it sets the price**. A vendor who offered Gold on Monday and Bronze on Friday would,
+under a union, be placeable at Gold on Friday and charged for it, or at Bronze on Monday when Monday
+was the day they wanted. The real form promises "the highest tier available among the selections
+made" **per day**, in writing, to the applicant - so a union breaks a promise the organizer has
+already made.
+
+### Availability stays its own answer
+
+Collapsing availability into tier would match the real form exactly and delete a field, and it was
+still rejected: "who could come on Tuesday" is a planning question that survives a market having no
+tiers at all, which `asked_essential_keys()` already treats as legitimate. Collapsing them leaves
+availability undefined in that case.
+
+Both are stored, and **validation refuses a ticked date with no tiers**, so the two can never
+disagree.
+
+### Shape
+
+**The same key, with a new shape** (date -> list), plus the migration from ticket 01's answer.
+Accepting either shape at read was the option to actively avoid, for the reason `AGENTS.md` already
+gives about market documents: a read-time fallback that accepts two spellings leaves a stale value
+alive forever. A second key would double the vocabulary permanently to dodge a migration that costs
+nothing while there is no production data.
+
+### Consequence
+
+`essential_tier_preference` **stops being usable as a priority-rule target** - a map has no
+ordering. The rule builder must stop offering it, rather than accept it and score every vendor
+identically, which is exactly the C1 failure mode in a new costume. A stored rule already targeting
+it must be stripped by the migration, not left dangling.
+
+Buildable work: `.scratch/backlog/E01-csv-vendor-intake/F05-tier-per-date/`.

@@ -20,4 +20,4 @@ The phase cannot tell the two intakes apart, which is the gap this feature fills
 
 ## Decisions
 
-Settled by [06: Intake mode on Market](../../wayfinding/v0-1-0/issues/06-intake-mode-semantics.md) (values, what is and is not gated, the single lookup helper, the freeze, the fail-closed default) and [07: What does the public slug route render?](../../wayfinding/v0-1-0/issues/07-public-slug-route-disposition.md) (a gated market answers as a nonexistent one does).
+Settled by [06: Intake mode on Market](../../../wayfinding/v0-1-0/issues/06-intake-mode-semantics.md) (values, what is and is not gated, the single lookup helper, the freeze, the fail-closed default) and [07: What does the public slug route render?](../../../wayfinding/v0-1-0/issues/07-public-slug-route-disposition.md) (a gated market answers as a nonexistent one does).

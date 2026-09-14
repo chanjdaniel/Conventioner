@@ -1,7 +1,7 @@
 # 06: Is "published" a phase, or is `archived` doing double duty?
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by:
 
 ## Question
@@ -69,3 +69,66 @@ round is closed.
   reachable directly and a hidden button is not a rule. Caution from a live precedent: `offers` has
   an entry invariant and is deadlocked *because nothing satisfies it*, so whatever this guard
   checks must be something the solver actually writes.
+
+## Answer
+
+**`market_days` is the published phase. `archived` goes back to meaning one thing: finished.**
+
+Publishing becomes `assignment -> market_days`, fired by the Done button. `archived` stops doing
+double duty.
+
+### Why not a new phase, and why not a rename
+
+`market_days` already exists in the phase list and already means exactly this. It was unreachable in
+practice: the only route to it runs `assignment -> offers`, which
+`.scratch/backlog/E05-post-mvp-offers/epic.md` records as **deadlocked** - `NoApprovedApplicationsGuard`
+blocks that edge while any application is `reviewer_approved`, and nothing in `back-end/` ever
+writes `assigned` or `unassigned` to clear it. So the phase was stranded behind out-of-scope work
+rather than missing.
+
+Adding `assignment -> market_days` is one row in `VALID_TRANSITIONS`: no migration of the phase
+vocabulary, no new guard table, and `_validate_registry()` catches a mistake at import. Adding a
+*new* phase would be the expensive version of the same idea. Renaming the button would leave the
+lifecycle lying about itself and force `CONTEXT.md` to define "publish" as a synonym for "archive",
+which no reader would believe.
+
+### `draft -> archived` is kept, and it means abandonment
+
+Every `* -> archived` edge now means "this market is over", including from `draft`, where it means
+"over without ever having run". That is what makes `archived` mean one thing everywhere - and it
+makes the red destructive styling on the **Archive Market** button *correct* rather than a defect,
+which retires the polish-table item that started this ticket.
+
+### Each public surface names its own phases
+
+- **Check-in** (`published_market_by_slug`) serves `market_days`. A market abandoned from draft must
+  not serve a public check-in URL.
+- **Applicant intake** (`applicant_intake_market_by_slug`) narrows to `applications_open`.
+
+"Non-draft" stops being a useful rule for either. `AGENTS.md` already said the intake gate could not
+move into `published_market_by_slug` because check-in must stay open to every published market; this
+answer just makes "every published market" mean something specific, and the honest consequence is
+that both lookups now name their own phases. Note the applicant gate becomes **stricter** than
+today - a stranger applying to a market that has already assigned is current behaviour, and it is
+wrong.
+
+### The new edge carries a guard
+
+An **assignment-computed entry invariant** on `market_days`, in `PHASE_ENTRY_INVARIANTS` rather than
+on the edge, so a second route to the phase later cannot bypass it. The transition endpoint is
+reachable directly and a hidden button is not a rule.
+
+One caution, from a live precedent in this same file: `offers` has an entry invariant and is
+deadlocked *because nothing satisfies it*. Whatever this guard checks must be something the solver
+actually writes - `assignmentObject.vendorAssignments` - not a status nothing sets.
+
+### Migration
+
+A plain script moving already-published markets from `archived` to `market_days`, so they keep their
+check-in URL. No boot marker: an `archived` market that should be `market_days` fails check-in
+loudly, which is not the invisible hazard the marker pattern exists for.
+
+Expected to add **publish** to `CONTEXT.md` as the `assignment -> market_days` transition, and
+`market_days` as the phase a market is in while it is running.
+
+Buildable work: `.scratch/backlog/E03-mvp-market-lifecycle/F03-publishing-lands-in-market-days/`.
