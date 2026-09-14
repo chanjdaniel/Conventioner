@@ -22,8 +22,14 @@ SLUG = market_name_slug("Test Market")
 TOKEN = {"application_id": "app-1", "market_id": "market-123", "email": "vendor@example.com"}
 
 
-def _market(intake_mode="form", **overrides):
-    doc = stored_market(phase=MarketPhase.ARCHIVED, **overrides)
+def _market(intake_mode="form", phase=MarketPhase.APPLICATIONS_OPEN, **overrides):
+    """A market whose applicant surface is live.
+
+    Since E03/F03 that is `applications_open`, not "any non-draft phase": each public surface names
+    its own phases, and intake stops when applications close. Check-in serves `market_days`, so the
+    two tests about it pass that explicitly.
+    """
+    doc = stored_market(phase=phase, **overrides)
     if intake_mode is not None:
         doc["intakeMode"] = intake_mode
     return doc
@@ -76,8 +82,10 @@ class TestTheLookupItself:
         assert found is not None
 
     def test_published_market_by_slug_still_serves_a_csv_market(self):
-        """Check-in shares that lookup, which is why the requirement could not live inside it."""
-        collection = FakeSlugMarketsCollection(_market("csv"))
+        """Check-in has its own lookup, which is why the requirement could not live inside it."""
+        collection = FakeSlugMarketsCollection(
+            _market("csv", phase=MarketPhase.MARKET_DAYS),
+        )
         assert published_market_by_slug(collection, SLUG) is not None
 
 
@@ -231,7 +239,9 @@ class TestCheckInIsNotGated:
 
     @pytest.mark.parametrize("intake_mode", ["csv", "form", None])
     def test_the_check_in_lookup_serves_a_market_in_any_intake_mode(self, monkeypatch, intake_mode):
-        collection = FakeSlugMarketsCollection(_market(intake_mode=intake_mode))
+        collection = FakeSlugMarketsCollection(
+            _market(intake_mode=intake_mode, phase=MarketPhase.MARKET_DAYS),
+        )
         monkeypatch.setattr(AttendanceApi, "markets_collection", collection)
         assert AttendanceApi.get_published_market_by_slug(SLUG) is not None
 

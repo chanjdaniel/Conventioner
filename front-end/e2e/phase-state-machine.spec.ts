@@ -6,6 +6,7 @@ import {
   seedPhaseMarket,
   seedFormlessPhaseMarket,
   seedApplicationWithStatus,
+  seedStoredAssignment,
   type PhaseMarketSeed,
 } from './helpers/seedPhaseMarket';
 
@@ -154,6 +155,10 @@ test.describe('Phase state machine - full walk', () => {
     });
     await page.screenshot({ path: `${SCREENSHOT_DIR}/06-offers.png`, fullPage: true });
 
+    // market_days means the market is RUNNING, and its entry invariant is that an assignment
+    // exists (E03/F03) - publishing puts the check-in page on the air, and a market with no
+    // placements serves a page that can tell nobody where to stand.
+    seedStoredAssignment(seed.marketId);
     await page.getByTestId('phase-transition-market_days').click();
     // Sweep confirmation dialog should appear
     const sweepDialog = page.getByTestId('sweep-confirm-dialog');
@@ -288,6 +293,10 @@ test.describe('Phase state machine - sweep', () => {
     await page.screenshot({ path: `${SCREENSHOT_DIR}/11a-sweep-before.png`, fullPage: true });
 
     // Perform the sweep transition
+    // market_days means the market is RUNNING, and its entry invariant is that an assignment
+    // exists (E03/F03) - publishing puts the check-in page on the air, and a market with no
+    // placements serves a page that can tell nobody where to stand.
+    seedStoredAssignment(seed.marketId);
     await transitionViaPage(page, seed.marketId, 'market_days');
 
     const afterSent = queryStatus(sentEmail);

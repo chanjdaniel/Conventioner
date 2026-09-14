@@ -42,7 +42,7 @@ const TRANSITION_LABELS: Record<string, string> = {
   [MarketPhase.Review]: 'Begin Review',
   [MarketPhase.Assignment]: 'Begin Assignment',
   [MarketPhase.Offers]: 'Send Offers',
-  [MarketPhase.MarketDays]: 'Begin Market Days',
+  [MarketPhase.MarketDays]: 'Publish Market',
   [MarketPhase.Archived]: 'Archive Market',
 };
 
@@ -60,6 +60,8 @@ const VALID_TRANSITIONS: Array<[string, string]> = [
   ['applications_closed', 'archived'],
   ['review', 'applications_closed'],
   ['review', 'assignment'],
+  // Publishing (E03/F03): market_days means the market is running.
+  ['assignment', 'market_days'],
   ['review', 'archived'],
   ['assignment', 'offers'],
   ['assignment', 'archived'],
