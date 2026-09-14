@@ -2,7 +2,7 @@
 id: E06/F04
 title: A real-shaped acceptance fixture
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
