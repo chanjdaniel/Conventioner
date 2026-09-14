@@ -19,6 +19,7 @@ import type { Market } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
+  TABLE_CHOICES,
   TABLE_TYPE_RANKING_KEY,
   TIER_PREFERENCE_KEY,
 } from '@/utils/essentialFields';
@@ -182,8 +183,35 @@ function isRestored(key: string | undefined): boolean {
   return !!key && restoredTargets.value.has(key);
 }
 
+/**
+ * A value to resolve an unmatched cell to, as a person would say it.
+ *
+ * Dates, tiers and sections are the organizer's own names and read fine as they are. Table choice is
+ * the exception: it is stored as `full` / `half` / `either`, which is the contract's vocabulary, not
+ * anybody's - and that is what the resolution dropdown was offering.
+ */
+function choiceLabel(value: string): string {
+  return TABLE_CHOICES.find((c) => c.value === value)?.label ?? value;
+}
+
 function labelForTarget(key: string): string {
   return targets.value.find((t) => t.key === key)?.label ?? key;
+}
+
+/**
+ * Which column, or columns, a target is being read from - said the way the ledger said it.
+ *
+ * The preview used to look only in `columnTarget`, so a target fed by a grid showed nothing at all
+ * while every single-column target named its source. A blank reads as "not mapped" at the exact
+ * moment the organizer is confirming that rows will be written.
+ */
+function sourceLabelFor(key: string): string {
+  const group = activeGroups.value.find((g) => groupTarget.value[g.stem] === key);
+  if (group) {
+    return `${group.stem} (${group.columns.length} columns)`;
+  }
+  const index = Object.entries(columnTarget.value).find(([, k]) => k === key)?.[0];
+  return index === undefined ? '' : (headers.value[Number(index)] ?? '');
 }
 
 function isNewHeader(index: number): boolean {
@@ -548,7 +576,7 @@ function startOver() {
                         >
                           <option value="">Choose…</option>
                           <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                            {{ choice }}
+                            {{ choiceLabel(choice) }}
                           </option>
                           <option :value="IGNORE_VALUE">Ignore this value</option>
                         </select>
@@ -659,7 +687,7 @@ function startOver() {
                       >
                         <option value="">Choose…</option>
                         <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                          {{ choice }}
+                          {{ choiceLabel(choice) }}
                         </option>
                         <option :value="IGNORE_VALUE">Ignore this value</option>
                       </select>
@@ -694,7 +722,14 @@ function startOver() {
           }}
           a match.
         </p>
-        <p v-else class="rail-warning" data-testid="import-unmapped-warning">
+        <!-- Only when something actually is unmapped. This was `v-else` on the unresolved-values
+             warning above, so a fully mapped file showed a red "Still unmapped:" with an empty list
+             directly under the green "All required questions are mapped." -->
+        <p
+          v-else-if="unservedRequired.length"
+          class="rail-warning"
+          data-testid="import-unmapped-warning"
+        >
           Still unmapped: {{ unservedRequired.map((t) => t.label).join(', ') }}
         </p>
       </aside>
@@ -760,11 +795,7 @@ function startOver() {
       <ul class="preview-mapping">
         <li v-for="target in targets" :key="target.key" v-show="mappedKeys.has(target.key)">
           <strong>{{ target.label }}</strong>
-          <span>
-            {{
-              headers[Number(Object.entries(columnTarget).find(([, k]) => k === target.key)?.[0])]
-            }}
-          </span>
+          <span data-testid="import-preview-source">{{ sourceLabelFor(target.key) }}</span>
         </li>
       </ul>
     </section>

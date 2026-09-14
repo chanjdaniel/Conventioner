@@ -351,7 +351,9 @@ watch(pageIdx, (newIdx) => {
     <div class="market-setup-body">
       <div class="settings-container">
         <div class="settings-header">
-          <h1>Settings</h1>
+          <!-- The market's own name, so the page says which market this is. It read "Settings" on
+               every market, and the route (/market-setup) carries no id to tell them apart. -->
+          <h1 data-testid="market-setup-title">{{ market?.name || 'Settings' }}</h1>
           <div class="tab-bar">
             <button
               :class="['tab-button', { active: activeTab === 'form' }]"
@@ -574,6 +576,25 @@ watch(pageIdx, (newIdx) => {
             <h1>Something went wrong!</h1>
           </template>
         </div>
+
+        <!-- Applications Tab -->
+        <!-- `settings-body` lays its children out in a row, which is right for the two-card tabs
+             but put the import button in a dead column beside the list. This one stacks. -->
+        <div v-if="activeTab === 'applications'" class="settings-body settings-body-stacked">
+          <div class="applications-toolbar">
+            <button
+              class="import-entry-button"
+              data-testid="market-setup-import-button"
+              @click="router.push({ name: 'import-applications' })"
+            >
+              Import from CSV
+            </button>
+            <span class="import-entry-hint">
+              Bring in the responses your Google Form collected.
+            </span>
+          </div>
+          <ApplicationMonitor :market="market" :visible="activeTab === 'applications'" />
+        </div>
       </div>
       <div v-if="activeTab === 'setup'" class="discord-webhook-row">
         <label class="discord-webhook-label" for="discord-webhook-url">Discord webhook URL</label>
@@ -618,8 +639,11 @@ watch(pageIdx, (newIdx) => {
           >
             Assign
           </button>
+          <!-- The hint explains the disabled Assign button beside it, so it belongs to the same
+               page. Without the page guard it also appeared on the dates and sections pages,
+               pointing at assignment options that are not on screen until this one. -->
           <p
-            v-if="!assignmentOptionsComplete"
+            v-if="pageIdx === maxPageIdx && !assignmentOptionsComplete"
             class="assign-disabled-hint"
             data-testid="market-setup-assign-hint"
           >
@@ -632,8 +656,11 @@ watch(pageIdx, (newIdx) => {
           >
             <span>{{ assignError }}</span>
           </div>
+          <!-- Next advances the wizard, so it shows on every page that has a next one. It used to
+               be `v-else` on the error banner above, which made it render beside Assign on the
+               last page - two buttons overlapping - and vanish whenever an assignment failed. -->
           <button
-            v-else
+            v-if="pageIdx !== maxPageIdx"
             class="done-button"
             @click="handleNext"
             data-testid="market-setup-next-button"
@@ -642,28 +669,16 @@ watch(pageIdx, (newIdx) => {
           </button>
         </div>
       </div>
-
-      <!-- Applications Tab -->
-      <div v-if="activeTab === 'applications'" class="settings-body">
-        <div class="applications-toolbar">
-          <button
-            class="import-entry-button"
-            data-testid="market-setup-import-button"
-            @click="router.push({ name: 'import-applications' })"
-          >
-            Import from CSV
-          </button>
-          <span class="import-entry-hint">
-            Bring in the responses your Google Form collected.
-          </span>
-        </div>
-        <ApplicationMonitor :market="market" :visible="activeTab === 'applications'" />
-      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.settings-body-stacked {
+  flex-direction: column;
+  gap: 0;
+}
+
 .applications-toolbar {
   display: flex;
   flex-wrap: wrap;
