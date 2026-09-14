@@ -19,6 +19,19 @@ a {
   cursor: pointer;
 }
 
+/**
+ * A row's remove control, waiting to be noticed.
+ *
+ * Global rather than repeated in each setup element's scoped block: the six that use it are the
+ * six rows of the market wizard, and a rule that means "this control is quiet until you want it"
+ * must mean the same thing in all of them. It was `visibility: hidden` until the pointer happened
+ * to be over the row, so every one of those screens read as though only the last row - the one
+ * under the cursor - could be removed.
+ */
+.hidden-icon {
+  opacity: 0.35;
+}
+
 a {
   text-decoration: none;
   transition: 0.4s;

@@ -188,6 +188,25 @@ test.describe('CSV vendor import', () => {
     expect(nadia!.submittedAt).toBe('2026-05-02T09:14:03');
   });
 
+  test('a file of headers and nothing else previews no rows, rather than three empty ones', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // A Google Form with no responses yet exports exactly this: the question row, and nothing
+    // under it. It parses fine and maps fine, so it reaches the preview like any other file.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(HEADERS.join(','));
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+
+    await expect(importPage.previewCounts).toContainText('0 of 0 rows');
+    // Not three cards of "no answer" under "The first 3 rows, as they will be imported".
+    await expect(importPage.sampleRows).toHaveCount(0);
+  });
+
   test('an unmapped required question imports nothing', async ({
     authenticatedPage: page,
     request,
