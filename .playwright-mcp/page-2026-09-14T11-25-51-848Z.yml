@@ -1,0 +1,44 @@
+- generic [active] [ref=f7e1]:
+  - generic [ref=f7e2]:
+    - banner [ref=f7e3]:
+      - button [ref=f7e5] [cursor=pointer]:
+        - img "Conventioner logo" [ref=f7e6]
+    - generic [ref=f7e8]:
+      - generic [ref=f7e9]:
+        - button "Login" [ref=f7e10] [cursor=pointer]
+        - button "Register" [ref=f7e11] [cursor=pointer]
+        - button "Use OTP" [ref=f7e12] [cursor=pointer]
+      - generic [ref=f7e13]:
+        - heading "Sign in" [level=1] [ref=f7e14]
+        - generic [ref=f7e15]:
+          - textbox "Email" [ref=f7e17]
+          - generic [ref=f7e18]:
+            - textbox "Password" [ref=f7e19]
+            - button "Show" [ref=f7e20] [cursor=pointer]
+          - button "Login" [ref=f7e21] [cursor=pointer]
+          - link "Forgot password?" [ref=f7e23] [cursor=pointer]:
+            - /url: "#"
+    - generic [ref=f7e24]:
+      - button [ref=f7e25] [cursor=pointer]
+      - heading "explore@example.com" [level=2] [ref=f7e29]
+      - generic [ref=f7e30]:
+        - link [ref=f7e31] [cursor=pointer]:
+          - /url: /vendors
+          - heading "View Vendors" [level=3] [ref=f7e36]
+        - link [ref=f7e37] [cursor=pointer]:
+          - /url: /vendors
+          - heading "View Tables" [level=3] [ref=f7e42]
+        - link [ref=f7e43] [cursor=pointer]:
+          - /url: /markets
+          - heading "Manage markets" [level=3] [ref=f7e49]
+        - link [ref=f7e50] [cursor=pointer]:
+          - /url: /init
+          - heading "Manage Tables" [level=3] [ref=f7e54]
+        - link [ref=f7e55] [cursor=pointer]:
+          - /url: /vendors
+          - heading "Discord Tools" [level=3] [ref=f7e60]
+        - link [ref=f7e61] [cursor=pointer]:
+          - /url: /vendors
+          - heading "View Change Log" [level=3] [ref=f7e65]
+        - heading "Sign Out" [level=3] [ref=f7e71] [cursor=pointer]
+  - generic "Toggle devtools panel" [ref=f7e73] [cursor=pointer]

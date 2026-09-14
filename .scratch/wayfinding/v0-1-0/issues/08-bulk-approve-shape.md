@@ -1,7 +1,7 @@
 # 08: What shape does bulk-approve take in the application monitor?
 
 Type: prototype
-Status: open
+Status: resolved
 Blocked by:
 
 ## Question
@@ -28,3 +28,20 @@ Decide, by building a throwaway prototype to react to:
 
 The answer must say what the organizer sees and does, not how it is implemented.
 Buildable work goes to `.scratch/backlog/E04-v0-1-0-release/`.
+
+## Answer
+
+**Superseded, not answered.** Closed 2026-09-14 while charting
+[Map: Real-market readiness](../../real-market-readiness/map.md).
+
+A Playwright walk of the journey against a real 232-row export showed this ticket asks a narrower
+question than the evidence supports. Click count is not the queue's worst problem: the card shows
+`email, status, date, Approve, Reject` and nothing else, so the organizer is asked to approve or
+reject 232 people with nothing to decide on. There is also no count, search, filter, sort or paging,
+and every click re-fetches all 232 rows.
+
+The selection/confirmation/scale questions above are carried forward intact into
+[04: What must a reviewer see to decide on an application?](../../real-market-readiness/issues/04-what-a-reviewer-needs-to-decide.md),
+which adds "what is on a row" as the question they hang off.
+
+Evidence: `.lavish/mvp-findings.html`, finding W2.
