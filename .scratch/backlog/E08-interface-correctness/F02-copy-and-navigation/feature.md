@@ -4,7 +4,7 @@ title: Copy and navigation tell the truth
 type: feature
 status: in-progress
 blocked_by: []
-pr: [04215fc0]
+pr: [04215fc0, bd30cd68]
 ---
 
 ## Outcome
