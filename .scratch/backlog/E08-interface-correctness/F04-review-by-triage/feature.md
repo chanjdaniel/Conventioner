@@ -2,7 +2,7 @@
 id: E08/F04
 title: Review by triage
 type: feature
-status: blocked
+status: ready
 blocked_by: [E03/F04]
 pr: []
 ---
@@ -29,7 +29,12 @@ against a three-variant prototype (`prototype/04-review-queue`): **variant B, tr
 - **No bulk action, no selection model, no "approve the rest".** This was offered and declined. No
   application is approved without having been looked at.
 
-## Blocked, deliberately
+## Unblocked 2026-09-14
+
+E03/F04 shipped, so a form can be corrected before anyone applies and triage cards can differ.
+The original warning, kept because it is still the reason this order matters:
+
+### Why it was blocked
 
 **Do not start this until
 [ticket 05](../../../wayfinding/real-market-readiness/issues/05-how-custom-fields-reach-a-frozen-form.md)

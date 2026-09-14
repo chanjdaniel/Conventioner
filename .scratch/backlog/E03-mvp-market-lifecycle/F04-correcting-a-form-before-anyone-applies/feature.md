@@ -2,9 +2,9 @@
 id: E03/F04
 title: Correcting a form before anyone has applied
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [pending]
 ---
 
 ## Outcome
@@ -35,3 +35,15 @@ Decided by
 
 `E08/F04` (review by triage) cannot be built until this is, because an essential-only form makes
 every triage card identical.
+
+## Verified
+
+Walked against the running stack:
+
+1. Form edit while applications are open -> **409** (locked, as before).
+2. `applications_open -> draft` with nobody applied -> **200**.
+3. Form edit in draft -> **200**. The field the reviewer needs is now addable.
+4. One application seeded, `applications_open -> draft` again -> **409**, blocker `no_applications_yet`:
+   *"1 application has already been submitted, so this market cannot return to draft."*
+
+D9 is intact: the door opens only while nobody has answered the form.

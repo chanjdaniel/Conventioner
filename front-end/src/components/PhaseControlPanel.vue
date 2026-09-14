@@ -36,6 +36,7 @@ const PHASE_LABELS: Record<string, string> = {
 };
 
 const TRANSITION_LABELS: Record<string, string> = {
+  [MarketPhase.Draft]: 'Reopen for Editing',
   [MarketPhase.ApplicationsOpen]: 'Open Applications',
   [MarketPhase.ApplicationsClosed]: 'Close Applications',
   [MarketPhase.Review]: 'Begin Review',
@@ -49,6 +50,9 @@ const TRANSITION_LABELS: Record<string, string> = {
 const VALID_TRANSITIONS: Array<[string, string]> = [
   ['draft', 'applications_open'],
   ['draft', 'archived'],
+  // The way back, so a form can be corrected before anyone has answered it (E03/F04). Guarded
+  // server-side on no application existing; the button is offered and the guard decides.
+  ['applications_open', 'draft'],
   ['applications_open', 'applications_closed'],
   ['applications_open', 'archived'],
   ['applications_closed', 'applications_open'],
@@ -78,6 +82,9 @@ const isTerminal = computed(() => currentPhase.value === MarketPhase.Archived);
 
 function transitionLabel(toPhase: string): string {
   if (toPhase === MarketPhase.Archived) return 'Archive Market';
+  // Named for what the organizer wants to do, not for the phase. Going back to draft exists so
+  // the application form becomes editable again.
+  if (toPhase === MarketPhase.Draft) return 'Reopen for Editing';
 
   if (toPhase === MarketPhase.ApplicationsOpen) {
     return currentPhase.value === MarketPhase.Draft ? 'Open Applications' : 'Reopen Applications';
