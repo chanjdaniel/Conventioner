@@ -99,6 +99,8 @@ const restoredTargets = ref<Set<string>>(new Set());
 const restoredMissing = ref<Array<{ target: string; missingHeaders: string[] }>>([]);
 const newHeaders = ref<string[]>([]);
 const hasSavedMapping = ref(false);
+/** Does this market order vendors by when they applied? Decides the warning below. */
+const ordersBySubmittedAt = ref(false);
 /** Group stem -> target key: a grid is mapped once, for all of its columns at a time. */
 const groupTarget = ref<Record<string, string>>({});
 /** Stems the organizer has broken apart, when the detection guessed wrong. */
@@ -290,6 +292,7 @@ async function inspect() {
     // A previous import's decisions win over the auto-detected two: the organizer already said
     // what these columns mean, and re-asking is the friction this remembers them to avoid.
     hasSavedMapping.value = data.hasSavedMapping === true;
+    ordersBySubmittedAt.value = data.ordersBySubmittedAt === true;
     restoredMissing.value = data.restoredTargetsMissingColumns ?? [];
     newHeaders.value = data.newHeaders ?? [];
     restoredTargets.value = new Set(Object.keys(data.restoredMapping ?? {}));
@@ -715,6 +718,18 @@ function startOver() {
         </ul>
         <p v-if="canPreview" class="rail-ok" data-testid="import-all-mapped">
           All required questions are mapped.
+        </p>
+        <!-- Mapping no timestamp is legal - a market with no time-based priority does not need one.
+             But this market has a rule that orders by when the application arrived, and with
+             nothing feeding it that rule decides nothing. Saying so here is the point: it used to
+             fail silently. -->
+        <p
+          v-if="ordersBySubmittedAt && !mappedKeys.has('submitted_at')"
+          class="rail-warning"
+          data-testid="import-no-submitted-at-warning"
+        >
+          This market orders vendors by when they applied, but no column is mapped to “Submitted
+          at”. That rule will order nothing.
         </p>
         <p v-if="unresolvedCount" class="rail-warning" data-testid="import-unresolved-warning">
           {{
