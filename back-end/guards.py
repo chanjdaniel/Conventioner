@@ -89,6 +89,43 @@ class FormHasFieldsGuard:
         return PreconditionResult(id=self.id, passed=True, message="")
 
 
+class NoApplicationsYetGuard:
+    """A market may return to draft only while nobody has applied.
+
+    The form is editable in ``draft`` alone, importing is permitted only in ``applications_open``,
+    and nothing returned to ``draft`` - so every custom field had to be anticipated before the
+    organizer had ever seen their own columns, and opening applications froze the form for good.
+    This edge is the way back, and this guard is what keeps it from being a hole in D9.
+
+    It is not redundant with the D9 check in ``application_form_lock_reason``. That check runs when
+    the form is written; this one runs when the market moves. Applicant submission is gated to
+    ``applications_open``, so a count of zero is *stable* in ``draft`` and a read-then-write race
+    while applications are open - going back is what makes the form check race-free, so the going
+    back is what has to be gated.
+
+    Once one application exists the market cannot return, and the form is frozen for good exactly
+    as it was before this edge existed.
+    """
+
+    id: str = "no_applications_yet"
+    description: str = "No applications have been submitted yet"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        count = ApplicationsApi.count_applications_for_market(market.id)
+        if count > 0:
+            app_word = "application has" if count == 1 else "applications have"
+            return PreconditionResult(
+                id=self.id,
+                passed=False,
+                message=(
+                    f"{count} {app_word} already been submitted, so this market cannot return to "
+                    "draft. The application form is frozen once anyone has answered it."
+                ),
+                resolution_link=None,
+            )
+        return PreconditionResult(id=self.id, passed=True, message="")
+
+
 class AllApplicationsReviewedGuard:
     """Every application must be approved or rejected before assignment can begin.
 
@@ -173,6 +210,10 @@ class NoApprovedApplicationsGuard:
 VALID_TRANSITIONS: set[tuple[str, str]] = {
     # Pre-assignment back edges
     ("draft", "applications_open"),
+    # The way back, so a form can be corrected before anyone has answered it (E03/F04). Guarded on
+    # no application existing; only this phase may return, because a market that has closed
+    # applications or begun review has moved past the point where its form is a draft of anything.
+    ("applications_open", "draft"),
     ("applications_open", "applications_closed"),
     ("applications_closed", "applications_open"),
     ("applications_closed", "review"),
@@ -194,6 +235,7 @@ VALID_TRANSITIONS: set[tuple[str, str]] = {
 # Guards are stateless, so one instance is shared by every edge that enforces it.
 _FORM_HAS_FIELDS = FormHasFieldsGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
+_NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
 
 # Entry invariants: what must hold of a market SITTING IN a phase, regardless of the
@@ -226,6 +268,7 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # TODO: Add _PRIORITY_CONFIGURED guard here (append to list) once it exists.
     # The guard should verify that the market's setup_object has at least one
     # priority entry before assignment can begin.
+    ("applications_open", "draft"): [_NO_APPLICATIONS_YET],
     ("review", "assignment"): [_ALL_REVIEWED],
     ("assignment", "offers"): [_NO_APPROVED],
 }

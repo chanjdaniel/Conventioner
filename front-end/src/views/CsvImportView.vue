@@ -37,6 +37,13 @@ type Step = 'upload' | 'map' | 'preview' | 'done';
 /** Sentinel for "this value means nothing; leave it out" - distinct from "not yet decided". */
 const IGNORE_VALUE = '__ignore__';
 
+/**
+ * Sentinel for "I want this column and there is no target for it". Not a mapping - it never
+ * reaches the server - it is the ledger's way of explaining the dead end rather than leaving the
+ * organizer to conclude the import is broken.
+ */
+const NEEDS_A_FIELD = '__needs_a_field__';
+
 interface ImportTarget {
   key: string;
   label: string;
@@ -158,7 +165,9 @@ const mappedKeys = computed(
       [
         ...Object.entries(columnTarget.value)
           .filter(([index]) => !groupedColumns.value.has(Number(index)))
-          .map(([, key]) => key),
+          .map(([, key]) => key)
+          // The ledger's dead-end sentinel is not a target; it must not satisfy a required question.
+          .filter((key) => key !== NEEDS_A_FIELD),
         ...activeGroups.value.map((g) => groupTarget.value[g.stem]),
       ].filter(Boolean),
     ),
@@ -330,7 +339,8 @@ async function inspect() {
 function currentMapping(): Record<string, number | number[]> {
   const mapping: Record<string, number | number[]> = {};
   for (const [index, key] of Object.entries(columnTarget.value)) {
-    if (key && !groupedColumns.value.has(Number(index))) mapping[key] = Number(index);
+    if (!key || key === NEEDS_A_FIELD) continue;
+    if (!groupedColumns.value.has(Number(index))) mapping[key] = Number(index);
   }
   for (const group of activeGroups.value) {
     const key = groupTarget.value[group.stem];
@@ -653,7 +663,24 @@ function startOver() {
                     >
                       {{ target.label }}{{ target.required ? ' *' : '' }}
                     </option>
+                    <option :value="NEEDS_A_FIELD">This column has nowhere to go…</option>
                   </select>
+
+                  <!-- The dead end (E03/F04). A column the organizer wants to keep, with no target
+                       to map it to, needs a custom form field - and the form is editable only in
+                       draft, by its only writer. So this says where to go rather than creating a
+                       field from here: writing the form from the import screen would bypass
+                       PUT /markets/<id>/application-form, which is what makes the D9 lock
+                       unbypassable. -->
+                  <p
+                    v-if="columnTarget[row.index] === NEEDS_A_FIELD"
+                    class="ledger-deadend"
+                    data-testid="import-needs-a-field"
+                  >
+                    Nothing here answers this column. To keep it, reopen the market for editing and
+                    add a form field for it, then import again. The form can only be changed while
+                    nobody has applied.
+                  </p>
 
                   <!-- Values the market does not recognise, fixed in the row that owns them. -->
                   <div
@@ -1110,6 +1137,15 @@ function startOver() {
   color: var(--mm-grey, #666);
   text-decoration: underline;
   cursor: pointer;
+}
+
+.ledger-deadend {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--mm-yellow, #e4a629);
+  background: #fdf7ec;
+  font-size: 13px;
+  max-width: 42ch;
 }
 
 .ledger-select {
