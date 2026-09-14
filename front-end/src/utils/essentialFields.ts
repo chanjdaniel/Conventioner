@@ -1,4 +1,4 @@
-import type { EssentialFormOptions, SetupObject } from '@/assets/types/datatypes';
+import type { EssentialFormOptions, FormField, SetupObject } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 
 /**
@@ -108,6 +108,114 @@ export function formattedEssentialDate(date: string): string {
   if (!formatted) return date;
   const year = date.slice(0, 4);
   return /^\d{4}$/.test(year) ? `${formatted}, ${year}` : formatted;
+}
+
+/** One answer of an application, as a person reads it. */
+export interface AnswerRow {
+  key: string;
+  label: string;
+  value: string;
+  /** The organizer's own question, rather than one of the essential ones. */
+  custom: boolean;
+}
+
+/** The order the form asks the essential questions, so answers read back the way they were given. */
+const ESSENTIAL_ORDER: ReadonlyArray<[string, string, (value: unknown) => unknown]> = [
+  [
+    AVAILABLE_DATES_KEY,
+    AVAILABLE_DATES_LABEL,
+    (v) => (Array.isArray(v) ? v.map((d) => formattedEssentialDate(String(d))) : v),
+  ],
+  [MAX_DATES_KEY, MAX_DATES_LABEL, (v) => v],
+  // Tier is an accepted set per date, not a ranking, so each date's tiers are listed unnumbered.
+  [TIER_PREFERENCE_KEY, TIER_PREFERENCE_LABEL, (v) => v],
+  // Stored as a code; a reader should see the sentence the applicant picked, not `half`.
+  [
+    TABLE_CHOICE_KEY,
+    TABLE_CHOICE_LABEL,
+    (v) => TABLE_CHOICES.find((c) => c.value === v)?.label ?? v,
+  ],
+  [TABLE_SHARE_EMAIL_KEY, TABLE_SHARE_EMAIL_LABEL, (v) => v],
+  [
+    SECTION_RANKING_KEY,
+    SECTION_RANKING_LABEL,
+    (v) => (Array.isArray(v) ? v.map((s, i) => `${i + 1}. ${s}`) : v),
+  ],
+  [
+    TABLE_TYPE_RANKING_KEY,
+    TABLE_TYPE_RANKING_LABEL,
+    (v) => (Array.isArray(v) ? v.map((t, i) => `${i + 1}. ${t}`) : v),
+  ],
+];
+
+/** One stored answer as text. A map is keyed by date (the tier answer), so its keys are dates. */
+function answerText(value: unknown): string {
+  if (Array.isArray(value)) return value.join(', ');
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([date, inner]) => {
+        const listed = Array.isArray(inner) ? inner.join(', ') : String(inner);
+        return `${formattedEssentialDate(date)}: ${listed}`;
+      })
+      .join(' · ');
+  }
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
+
+/**
+ * Everything an application answered, as a person reads it.
+ *
+ * This lives here, with the contract it renders, because two surfaces show the same answers back:
+ * the applicant's own dashboard and the organizer's review card. They order the rows differently -
+ * the applicant reads the form's own order, the reviewer reads the organizer's own questions first,
+ * because those are what tell applicants apart - so ordering stays with each caller and only the
+ * content is shared. A second copy of the rendering drifted within one change: a table choice read
+ * back as `half`, and a ranking lost its numbering.
+ *
+ * A blank answer is dropped rather than shown empty: an unanswered optional question is not
+ * information. An answer whose question the form no longer names is still shown, under its key.
+ */
+export function applicationAnswerRows(
+  formData: Record<string, unknown>,
+  fields: readonly FormField[] = [],
+): { essential: AnswerRow[]; custom: AnswerRow[] } {
+  const essential: AnswerRow[] = [];
+  const custom: AnswerRow[] = [];
+  const seen = new Set<string>();
+
+  const push = (
+    rows: AnswerRow[],
+    key: string,
+    label: string,
+    value: unknown,
+    isCustom: boolean,
+  ) => {
+    seen.add(key);
+    const text = answerText(value).trim();
+    if (text) rows.push({ key, label, value: text, custom: isCustom });
+  };
+
+  for (const [key, label, present] of ESSENTIAL_ORDER) {
+    if (key in formData) push(essential, key, label, present(formData[key]), false);
+  }
+
+  // The form's declared order, so every card lists the same questions the same way round.
+  for (const field of [...fields].sort((a, b) => a.order - b.order)) {
+    if (field.key in formData && !seen.has(field.key)) {
+      push(custom, field.key, field.label || field.key, formData[field.key], true);
+    }
+  }
+
+  // Anything left: an answer to a question the form has since dropped, or an essential question
+  // this build does not know about. Shown under its key rather than silently withheld.
+  for (const [key, value] of Object.entries(formData)) {
+    if (seen.has(key)) continue;
+    const isEssential = key.startsWith(ESSENTIAL_KEY_PREFIX);
+    push(isEssential ? essential : custom, key, key.replace(/_/g, ' '), value, !isEssential);
+  }
+
+  return { essential, custom };
 }
 
 /**

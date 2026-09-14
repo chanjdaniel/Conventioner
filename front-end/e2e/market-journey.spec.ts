@@ -139,16 +139,20 @@ test.describe('The MVP journey', () => {
     await setup.goto();
     await setup.openApplicationsTab();
     await monitor.waitForLoaded();
-    await expect(monitor.cards).toHaveCount(3);
 
-    // They arrive awaiting a decision. Nobody is assignable yet.
-    for (const applicant of [WANTED, ALSO_WANTED, REJECTED]) {
-      await expect(monitor.statusOf(applicant)).toHaveText('Open');
-    }
+    // They arrive awaiting a decision. Nobody is assignable yet, and the queue is one card at a
+    // time, so the count of work left is the assertion - there is no list of all three to count.
+    await expect(monitor.progress).toContainText('of 3 to review');
+    await expect(monitor.tally).toContainText('0 reviewed');
+    // The card carries the answers the verdict is supposed to rest on, not just an address.
+    await expect(monitor.answers).toBeVisible();
+    expect((await monitor.queuedEmails()).sort()).toEqual([WANTED, ALSO_WANTED, REJECTED].sort());
 
     await monitor.approve(WANTED);
     await monitor.approve(ALSO_WANTED);
     await monitor.reject(REJECTED);
+    await expect(monitor.done).toBeVisible();
+    await expect(monitor.tally).toContainText('3 reviewed · 2 approved · 1 rejected');
     await page.screenshot({ path: testInfo.outputPath('03-reviewed.png'), fullPage: true });
 
     // --- 6. Assign ------------------------------------------------------------------------
