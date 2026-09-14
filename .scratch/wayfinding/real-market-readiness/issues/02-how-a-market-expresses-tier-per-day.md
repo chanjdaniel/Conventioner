@@ -1,7 +1,7 @@
 # 02: How does a market express a tier preference that differs per day?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by:
 
 ## Question

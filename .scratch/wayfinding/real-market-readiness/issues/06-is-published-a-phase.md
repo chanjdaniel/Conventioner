@@ -1,7 +1,7 @@
 # 06: Is "published" a phase, or is `archived` doing double duty?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by:
 
 ## Question

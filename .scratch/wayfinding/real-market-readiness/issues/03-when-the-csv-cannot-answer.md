@@ -1,7 +1,7 @@
 # 03: What happens when the CSV cannot answer a question the market asks?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by:
 
 ## Question

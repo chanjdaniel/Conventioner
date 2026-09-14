@@ -1,7 +1,7 @@
 # 01: Where does a submission timestamp stop being text and become a moment?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by:
 
 ## Question
