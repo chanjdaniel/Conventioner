@@ -18,6 +18,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
+import PageNotFound from '@/components/PageNotFound.vue';
 
 const route = useRoute();
 const marketSlug = computed(() => String(route.params.marketSlug ?? ''));
@@ -45,9 +46,8 @@ onMounted(load);
       Loading...
     </div>
 
-    <div v-else-if="missing" class="market-home-missing" data-testid="market-home-not-found">
-      <h1>Page not found</h1>
-      <p>There is nothing to see at this address.</p>
+    <div v-else-if="missing" data-testid="market-home-not-found">
+      <PageNotFound />
     </div>
 
     <div v-else-if="!found" class="market-home-missing" data-testid="market-home-load-failed">

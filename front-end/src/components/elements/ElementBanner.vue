@@ -1,14 +1,26 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import IconMenu from '../icons/IconMenu.vue';
 
-defineProps({
+const props = defineProps({
   isLogin: Boolean,
+  /**
+   * Whether a navigation drawer exists to open. `App.vue` renders the drawer only for the
+   * organizer app, but this button drew itself on every page that was not the sign-in screen -
+   * so on the public check-in page a signed-out vendor got a hamburger that opened nothing,
+   * with no nav element in the DOM at all.
+   */
+  hasMenu: { type: Boolean, default: true },
 });
 
 const router = useRouter();
 
+/** The logo goes to the dashboard, which is an organizer route; off the organizer app it is a mark. */
+const logoIsLink = computed(() => props.hasMenu && !props.isLogin);
+
 function goToDashboard() {
+  if (!logoIsLink.value) return;
   router.push({ name: 'dashboard' });
 }
 </script>
@@ -16,21 +28,31 @@ function goToDashboard() {
 <template>
   <div class="banner">
     <button
+      v-if="hasMenu"
       class="menu-button"
       @click="$emit('menuOpen')"
+      aria-label="Open navigation"
       :style="{ visibility: isLogin ? 'hidden' : 'visible' }"
       :aria-hidden="isLogin"
       :tabindex="isLogin ? -1 : 0"
     >
       <IconMenu class="menu-icon" />
     </button>
-    <button class="logo-button" @click="goToDashboard" type="button">
+    <!-- Keeps the logo's left offset when there is no menu button beside it. -->
+    <span v-else class="menu-spacer" aria-hidden="true"></span>
+    <component
+      :is="logoIsLink ? 'button' : 'div'"
+      class="logo-button"
+      :class="{ 'logo-button--static': !logoIsLink }"
+      v-bind="logoIsLink ? { type: 'button' } : {}"
+      @click="goToDashboard"
+    >
       <img
         alt="Conventioner logo"
         class="conventioner-logo"
         src="@/assets/icons/conventioner-logo.svg"
       />
-    </button>
+    </component>
   </div>
 </template>
 
@@ -101,6 +123,20 @@ function goToDashboard() {
 
 .logo-button:hover {
   opacity: 0.8;
+}
+
+.logo-button--static {
+  cursor: default;
+}
+
+.logo-button--static:hover {
+  opacity: 1;
+}
+
+.menu-spacer {
+  height: 100%;
+  aspect-ratio: 1;
+  flex: none;
 }
 
 .conventioner-logo {
