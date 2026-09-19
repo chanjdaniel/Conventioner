@@ -203,6 +203,11 @@ class FakeMarketsCollection:
         self.inserted = document
         return SimpleNamespace(inserted_id="mongo-id")
 
+    def delete_one(self, _filter):
+        deleted = self.doc is not None
+        self.doc = None
+        return SimpleNamespace(deleted_count=1 if deleted else 0)
+
 
 class FakeSlugMarketsCollection:
     """Stand-in for the markets collection, matching filters and projections the way Mongo does.

@@ -26,6 +26,7 @@ import {
   type VendorNames,
 } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
+import PlacementHistory from '@/components/PlacementHistory.vue';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -530,6 +531,17 @@ function handleBack(): void {
               @place="goToTables(date.date)"
             />
           </ul>
+        </section>
+
+        <!-- Who moved this vendor, and when. A placement that differs from what the solver
+             produced is a fact someone will later ask about (E11/F04/S01). -->
+        <section class="detail-section">
+          <h3 class="detail-section-title">Placement history</h3>
+          <PlacementHistory
+            v-if="market?.id"
+            :marketId="market.id"
+            :vendor="selectedVendor.email"
+          />
         </section>
       </div>
     </aside>

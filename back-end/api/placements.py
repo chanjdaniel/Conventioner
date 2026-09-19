@@ -34,6 +34,7 @@ from datatypes import (
     table_code_for,
 )
 import api.markets as MarketsApi
+import placement_history as PlacementHistory
 
 # The three seats a table holds. A table holds two, and a placement therefore always names a
 # side: "the vendor at Front Row 1" is not an address anyone can stand at.
@@ -189,6 +190,12 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     _store_vendor_assignments(
         market_id, assignment.vendor_assignments, assignment.assignment_date
     )
+    PlacementHistory.record_assignment_run(
+        market_id,
+        requesting_user,
+        placements_written=len(assignment.vendor_assignments),
+        pins_preserved=sum(1 for row in assignment.vendor_assignments if row.hand_placed),
+    )
 
     # The same shape ``GET /markets/<id>/assignment`` returns, so a caller swapping to this one
     # reads the result the same way - the organization's display name included, because the
@@ -242,6 +249,7 @@ def write_placement(
     kept.append(placement)
 
     _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
+    PlacementHistory.record_placed(market_id, requesting_user, placement)
 
     return {"placement": convert_keys_to_camel_case(placement.model_dump())}, 200
 
@@ -271,11 +279,19 @@ def remove_placement(
         for existing in market.assignment_object.vendor_assignments
         if not (existing.email == email and existing.date == date)
     ]
-    removed = len(market.assignment_object.vendor_assignments) - len(kept)
-    if removed:
+    freed = [
+        existing
+        for existing in market.assignment_object.vendor_assignments
+        if existing.email == email and existing.date == date
+    ]
+    if freed:
         _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
+        for placement in freed:
+            PlacementHistory.record_freed(
+                market_id, requesting_user, email, date, placement.table_code
+            )
 
-    return {"removed": removed}, 200
+    return {"removed": len(freed)}, 200
 
 
 def swap_placements(
@@ -323,6 +339,15 @@ def swap_placements(
     })
 
     _store_vendor_assignments(market_id, placements, market.assignment_object.assignment_date)
+    # One entry, because it was one action: a trade recorded as two placements reads as two
+    # unrelated decisions a week later.
+    PlacementHistory.record_swapped(
+        market_id,
+        requesting_user,
+        date,
+        placements[held[first_email]],
+        placements[held[second_email]],
+    )
 
     return {
         "placements": [

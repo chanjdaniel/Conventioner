@@ -37,6 +37,7 @@ from market_documents import (
     market_from_document,
 )
 import api.permissions as PermissionsApi
+import placement_history as PlacementHistory
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import traceback
@@ -917,6 +918,34 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         }, 500
 
 
+def get_placement_history(
+    market_id: str, requesting_user: str, vendor: Optional[str] = None
+) -> tuple[Dict[str, Any], int]:
+    """This market's placement trail, newest first. Requires VIEW permission.
+
+    Read at VIEWER, written at EDITOR: the trail describes the market, and anyone who may look at
+    where vendors are sitting may look at how they came to be sitting there.
+    """
+    context = load_market_context(market_id)
+    if context is None:
+        return {"error": "Market not found"}, 404
+    if context.market is None:
+        return {"error": "Invalid market data"}, 400
+
+    if not PermissionsApi.user_has_permission(
+        requesting_user, context.market, MarketRole.VIEWER, context.organization
+    ):
+        return {"error": "User does not have permission to view this market"}, 403
+
+    entries = PlacementHistory.entries_for_market(market_id, vendor)
+    return {
+        "entries": [convert_keys_to_camel_case(entry) for entry in entries],
+        # Names against addresses, as every other vendor surface gets them, so the log reads as
+        # people rather than as a column of email.
+        "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
+    }, 200
+
+
 def _market_csv_filename(market_name: Optional[str], market_id: str) -> str:
     """Build a deterministic, filesystem-safe CSV filename for assignment downloads."""
     name = (market_name or market_id or "market").strip() or "market"
@@ -1292,6 +1321,13 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
             )
         except Exception as e:
             logger.warning(f"Failed to remove market from organization: {e}")
+
+    # The placement trail is kept WITH the market, not beyond it (E11/F04/S01). It names the
+    # organizers who made each change, so leaving it behind would outlive the thing it describes.
+    try:
+        PlacementHistory.delete_for_market(market_id)
+    except Exception as e:
+        logger.warning(f"Failed to delete placement history for market {market_id}: {e}")
 
     return markets_collection.delete_one({"id": market_id})
 

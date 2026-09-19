@@ -1165,6 +1165,28 @@ def write_placement(market_id: str) -> Response:
         }), 500
 
 
+@app.route('/markets/<market_id>/placement-history', methods=['GET'])
+@login_required
+def get_placement_history(market_id: str) -> Response:
+    """Who changed a placement, to what, and when. Requires VIEW permission.
+
+    ``?vendor=`` narrows it to the entries about one person, for their detail panel.
+    """
+    try:
+        result, status_code = MarketsApi.get_placement_history(
+            market_id, authenticated_email(), request.args.get("vendor"),
+        )
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in get_placement_history for {market_id}: {str(e)}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_id}/placement-history",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
 @app.route('/markets/<market_id>/placements/swap', methods=['POST'])
 @login_required
 def swap_placements(market_id: str) -> Response:
