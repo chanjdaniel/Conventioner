@@ -1165,6 +1165,38 @@ def write_placement(market_id: str) -> Response:
         }), 500
 
 
+@app.route('/markets/<market_id>/placements/swap', methods=['POST'])
+@login_required
+def swap_placements(market_id: str) -> Response:
+    """Trade two vendors' seats on one date, atomically. Requires EDIT permission."""
+    try:
+        data = request.json or {}
+        emails = data.get("emails") or []
+        result, status_code = PlacementsApi.swap_placements(
+            market_id,
+            str(data.get("date") or ""),
+            str(emails[0]) if len(emails) > 0 else "",
+            str(emails[1]) if len(emails) > 1 else "",
+            authenticated_email(),
+        )
+        return jsonify(result), status_code
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except PlacementsApi.PlacementError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in swap_placements for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_id}/placements/swap",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
 @app.route('/markets/<market_id>/placements', methods=['DELETE'])
 @login_required
 def remove_placement(market_id: str) -> Response:

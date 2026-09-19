@@ -74,6 +74,14 @@ test.describe('Vendor browsing and search', () => {
       data: market,
     });
 
+    // Assign again against the smaller plan. Shrinking it is not on its own enough: every view
+    // describes the STORED assignment now (E11/F03/S01), so nobody is unplaced until the run
+    // that leaves them unplaced actually happens.
+    const rerun = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    expect(rerun.ok(), await rerun.text()).toBeTruthy();
+
     await page.evaluate((m) => {
       localStorage.setItem('market', JSON.stringify(m));
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));

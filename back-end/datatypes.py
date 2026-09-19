@@ -166,8 +166,19 @@ class VendorAssignmentResult(BaseModel):
 
 
 class MarketTableRow(BaseModel):
+    """One table on one date, and who is at it.
+
+    ``assignment`` is the occupants and nothing else, so its length is how many seats are taken.
+    ``assignment_slots`` is the same table seat by seat - ``[left, right]``, ``None`` for vacant -
+    because which side is free is a fact the occupant list cannot carry: one email in a list of
+    one says somebody is here, not which half of the table they are sitting at. Nothing could put
+    a vendor on the right with the left empty until pins could (E11), and then the grid drew them
+    on the left.
+    """
+
     date: str
     assignment: List[str]
+    assignment_slots: List[Optional[str]] = [None, None]
     location: str
     section: str
     table_choice: str
@@ -590,6 +601,7 @@ class VendorAssignmentResultContract(ContractModel):
 
 class MarketTableRowContract(ContractModel):
     assignment: List[str]
+    assignment_slots: List[Optional[str]]
     date: str
     location: str
     section: str

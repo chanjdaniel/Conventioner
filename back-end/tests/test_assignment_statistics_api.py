@@ -245,7 +245,8 @@ def test_get_market_tables_returns_camel_case_rows(monkeypatch):
         lambda query: _sample_market_doc_with_setup(),
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda market: SimpleNamespace())
+    monkeypatch.setattr(MarketsApi, "assign_market", lambda market, vendors=None: SimpleNamespace())
+    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [])
     monkeypatch.setattr(
         MarketsApi,
         "derive_market_table_rows",
@@ -370,7 +371,7 @@ def test_get_assignment_csv_returns_csv_string(monkeypatch):
     monkeypatch.setattr(
         MarketsApi,
         "assign_market",
-        lambda market: SimpleNamespace(model_dump=lambda: {}),
+        lambda market, vendors=None: SimpleNamespace(model_dump=lambda: {}),
     )
     monkeypatch.setattr(
         MarketsApi,
@@ -397,7 +398,7 @@ def test_get_assignment_csv_surfaces_csv_value_error(monkeypatch):
     monkeypatch.setattr(
         MarketsApi,
         "assign_market",
-        lambda market: SimpleNamespace(model_dump=lambda: {}),
+        lambda market, vendors=None: SimpleNamespace(model_dump=lambda: {}),
     )
 
     def _raise_value_error(*_args, **_kwargs):
@@ -502,7 +503,9 @@ def test_post_assignment_to_discord_success(monkeypatch):
         lambda query: _sample_market_doc_with_webhook(),
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda m: _assigned_market_for_discord())
+    monkeypatch.setattr(
+        MarketsApi, "assign_market", lambda m, vendors=None: _assigned_market_for_discord()
+    )
 
     captured = {}
 
@@ -531,7 +534,9 @@ def test_post_assignment_to_discord_returns_502_on_discord_error_status(monkeypa
         lambda query: _sample_market_doc_with_webhook(),
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda m: _assigned_market_for_discord())
+    monkeypatch.setattr(
+        MarketsApi, "assign_market", lambda m, vendors=None: _assigned_market_for_discord()
+    )
     monkeypatch.setattr(
         MarketsApi.requests,
         "post",
@@ -551,7 +556,9 @@ def test_post_assignment_to_discord_returns_502_on_connection_error(monkeypatch)
         lambda query: _sample_market_doc_with_webhook(),
     )
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda m: _assigned_market_for_discord())
+    monkeypatch.setattr(
+        MarketsApi, "assign_market", lambda m, vendors=None: _assigned_market_for_discord()
+    )
 
     def _raise_conn_error(url, json=None, timeout=None):
         raise MarketsApi.requests.ConnectionError("boom")

@@ -24,6 +24,7 @@ from assignment.assignment import (
     NOTHING_TO_ASSIGN,
     IncompleteApplicationsError,
     assign_market,
+    describe_stored_assignment,
     solver_vendors_for,
 )
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case, snake_to_camel
@@ -356,6 +357,20 @@ def _preserve_server_owned_fields(
         )
 
 
+def assignment_to_show(market: Market, vendors=None) -> Market:
+    """The assignment every read-only view should describe: the stored one, when there is one.
+
+    A market that has never been assigned has nothing stored, and showing it the run it would get
+    is the only useful thing to show - the statistics screen exists to be looked at before Assign
+    is pressed. A market that HAS been assigned is shown what it stored, because that is what
+    check-in reads and what the organizer has been editing (E11/F03/S01). Deciding this once, in
+    one function, is what stops the payoff screen and the tables grid describing different markets.
+    """
+    if market.assignment_object.vendor_assignments:
+        return describe_stored_assignment(market, vendors)
+    return assign_market(market, vendors)
+
+
 def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
     """Derive one row per table/date with assignment slots."""
     setup_object = assigned_market.setup_object
@@ -431,6 +446,10 @@ def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
         rows.append(MarketTableRow(
             date=row["date"],
             assignment=assignment,
+            # Seat by seat, so "the right half is free" is answerable. ``assignment`` above keeps
+            # its meaning - the occupants, and nothing else - because its LENGTH is what
+            # ``derive_unassigned_tables_from_rows`` reads to count spare capacity.
+            assignment_slots=[left_slot, right_slot],
             location=row["location"],
             section=row["section"],
             table_choice=table_choice,
@@ -846,7 +865,7 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
             # reasons below are computed against the same set, so the two can never disagree
             # about who applied.
             vendors = solver_vendors_for(market)
-            assigned_market = assign_market(market, vendors)
+            assigned_market = assignment_to_show(market, vendors)
         except IncompleteApplicationsError as incomplete:
             # The organizer has to go and fix something, so say who.
             return {"error": incomplete.message()}, 400
@@ -930,7 +949,7 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
 
         market.assignment_object.assignment_statistics = None
         try:
-            assigned_market = assign_market(market)
+            assigned_market = assignment_to_show(market)
         except IncompleteApplicationsError as incomplete:
             # The organizer has to go and fix something, so say who.
             return {"error": incomplete.message()}, 400
@@ -974,10 +993,18 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
 
         market.assignment_object.assignment_statistics = None
         try:
-            assigned_market = assign_market(market)
+            vendors = solver_vendors_for(market)
         except IncompleteApplicationsError as incomplete:
             # The organizer has to go and fix something, so say who.
             return {"error": incomplete.message()}, 400
+
+        # The STORED assignment, when the market has one. This is the screen an organizer edits
+        # placements on, and `assignmentObject.vendorAssignments` is what check-in reads at the
+        # door - a grid drawn from a fresh solver run would be a picture of what WOULD happen if
+        # they pressed Assign, and every seat they moved a vendor into would be a seat they had
+        # never actually seen. A market with nothing stored still shows the run it would get.
+        assigned_market = assignment_to_show(market, vendors)
+
         rows = derive_market_table_rows(assigned_market)
         return {
             "rows": [convert_keys_to_camel_case(row.model_dump()) for row in rows],
@@ -985,6 +1012,17 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             # the rows rather than fetched separately so the grid and its occupants' names can
             # never be a request apart.
             "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
+            # Who may be put in a seat, and what they asked for. Sent with the grid because the
+            # view has to warn - before the change, not after - when a placement would alter a
+            # vendor's table choice away from their own answer (E11/F03/S01).
+            "vendors": [
+                {
+                    "email": vendor.email,
+                    "tableChoice": vendor.table_choice,
+                    "availableDates": sorted(vendor.available_dates),
+                }
+                for vendor in vendors
+            ],
         }, 200
     except Exception as e:
         logger.error(f"Unexpected error in get_market_tables: {str(e)}")
@@ -1077,7 +1115,7 @@ def post_assignment_to_discord(market_id: str, requesting_user: str) -> tuple[Di
 
         market.assignment_object.assignment_statistics = None
         try:
-            assigned_market = assign_market(market)
+            assigned_market = assignment_to_show(market)
         except IncompleteApplicationsError as incomplete:
             # The organizer has to go and fix something, so say who.
             return {"error": incomplete.message()}, 400

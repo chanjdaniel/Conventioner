@@ -276,3 +276,57 @@ def remove_placement(
         _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
 
     return {"removed": removed}, 200
+
+
+def swap_placements(
+    market_id: str, date: str, first_email: str, second_email: str, requesting_user: str
+) -> Tuple[Dict[str, Any], int]:
+    """Trade two vendors' seats on one date. Either both change or neither does.
+
+    Atomic because two vendors trading is common enough that doing it as three separate
+    operations - free one, move the other, place the first - invites a half-finished state, and
+    the half-finished state is a vendor standing at no table on market day. One document update
+    writes both rows, so there is no window in which one has moved and the other has not.
+
+    This exists instead of a "move" that displaces whoever is already there. A move is how a
+    vendor is silently unassigned; a swap says out loud that two people are changing places.
+    """
+    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+
+    date = (date or "").strip()
+    first_email = (first_email or "").strip()
+    second_email = (second_email or "").strip()
+    if not date or not first_email or not second_email:
+        raise PlacementError("A swap must name a date and two vendors.")
+    if first_email == second_email:
+        raise PlacementError("A vendor cannot swap seats with themselves.")
+
+    placements = list(market.assignment_object.vendor_assignments)
+    held = {
+        placement.email: index
+        for index, placement in enumerate(placements)
+        if placement.date == date
+    }
+    for email in (first_email, second_email):
+        if email not in held:
+            raise PlacementError(f"{email} holds no table on {date}, so there is nothing to swap.")
+
+    first, second = placements[held[first_email]], placements[held[second_email]]
+    # The seat is everything about where they sit; only the vendor stays put. Flagged hand-placed
+    # on both sides, because a swap is two deliberate placements.
+    seat_fields = ("table_code", "table_choice", "section", "tier", "location")
+    placements[held[first_email]] = first.model_copy(update={
+        **{field: getattr(second, field) for field in seat_fields}, "hand_placed": True,
+    })
+    placements[held[second_email]] = second.model_copy(update={
+        **{field: getattr(first, field) for field in seat_fields}, "hand_placed": True,
+    })
+
+    _store_vendor_assignments(market_id, placements, market.assignment_object.assignment_date)
+
+    return {
+        "placements": [
+            convert_keys_to_camel_case(placements[held[first_email]].model_dump()),
+            convert_keys_to_camel_case(placements[held[second_email]].model_dump()),
+        ]
+    }, 200

@@ -6,10 +6,21 @@ import { api } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
+import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
+import {
+  FULL_TABLE,
+  HALF_TABLE_LEFT,
+  HALF_TABLE_RIGHT,
+  type PlaceableVendor,
+  type Seat,
+} from '@/utils/placementChange';
 
 interface MarketTableRow {
   date: string;
   assignment: string[];
+  /** The table seat by seat - `[left, right]`, null for vacant. Which side is free is a fact
+      the occupant list cannot carry, and every placement names a side. */
+  assignmentSlots: (string | null)[];
   location: string;
   section: string;
   tableChoice: string;
@@ -32,6 +43,7 @@ interface DateGroup {
 }
 
 type ChoiceFilter = 'full' | 'half' | '';
+type FilterName = 'date' | 'section' | 'tier' | 'choice';
 
 const route = useRoute();
 const router = useRouter();
@@ -40,6 +52,9 @@ const marketId = computed(() => String(route.params.marketId ?? ''));
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
 const vendorNames = ref<VendorNames>({});
+/** Who may be put in a seat, and what they asked for - so a change that alters their table
+    choice can be said out loud before it is made. */
+const vendors = ref<PlaceableVendor[]>([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
 
@@ -147,19 +162,21 @@ interface RowStatus {
 
 function rowStatus(row: MarketTableRow): RowStatus {
   const isFull = row.tableChoice.toLowerCase().includes('full');
-  const assignment = row.assignment;
+  // Seat by seat, not the occupant list: a lone occupant on the RIGHT used to draw on the left,
+  // because a list of one cannot say which half of the table it means. Nothing could produce that
+  // until a pin could (E11).
+  const left = row.assignmentSlots?.[0] ?? null;
+  const right = row.assignmentSlots?.[1] ?? null;
 
-  if (!assignment || assignment.length === 0) {
+  if (!left && !right) {
     return { label: 'empty', leftEmail: null, rightEmail: null, isFull };
   }
 
   if (isFull) {
-    const email = assignment[0] ?? null;
+    const email = left ?? right;
     return { label: 'assigned', leftEmail: email, rightEmail: email, isFull };
   }
 
-  const left = assignment[0] ?? null;
-  const right = assignment[1] ?? null;
   const filled = (left ? 1 : 0) + (right ? 1 : 0);
   return {
     label: filled === 2 ? 'assigned' : 'partial',
@@ -182,11 +199,37 @@ const statusCounts = computed(() => {
   return { assigned, partial, empty };
 });
 
-function clearFilter(name: 'date' | 'section' | 'tier' | 'choice'): void {
+function clearFilter(name: FilterName): void {
+  setFilter(name, '');
+}
+
+/**
+ * Set one filter, from the page.
+ *
+ * The filter system was complete and unreachable: every filter is computed from `route.query`,
+ * the chips could clear one, and nothing in the product ever set one - so an organizer could
+ * only narrow this view by editing the address bar (`E09/F02/S01`, `E11/F03/S02`).
+ */
+function setFilter(name: FilterName, value: string): void {
   const nextQuery = { ...route.query };
-  delete nextQuery[name];
+  if (value) nextQuery[name] = value;
+  else delete nextQuery[name];
   router.replace({ query: nextQuery });
 }
+
+/** Every distinct value the loaded rows offer for one filter, so the picker offers only what exists. */
+function optionsFor(pick: (row: MarketTableRow) => string): string[] {
+  const seen = new Set<string>();
+  for (const row of allRows.value) {
+    const value = pick(row);
+    if (value) seen.add(value);
+  }
+  return Array.from(seen).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+const dateOptions = computed(() => optionsFor((row) => row.date));
+const sectionOptions = computed(() => optionsFor((row) => row.section));
+const tierOptions = computed(() => optionsFor((row) => row.tier));
 
 function clearAllFilters(): void {
   router.replace({ query: {} });
@@ -198,7 +241,19 @@ function choiceFilterLabel(filter: ChoiceFilter): string {
   return '';
 }
 
+/**
+ * Back to wherever the organizer came from.
+ *
+ * A vendor named in the query means they arrived from that vendor's panel, on their way to
+ * change one person's placement. Returning them to the results tab instead would lose the
+ * context they were working in and make them find that vendor again (`E11/F03/S02`).
+ */
 function goBack(): void {
+  const vendor = normalizeQuery(route.query.vendor);
+  if (vendor) {
+    router.push({ path: '/vendors', query: { vendor } });
+    return;
+  }
   router.push({ path: '/market-setup', query: { tab: 'assignment' } });
 }
 
@@ -215,11 +270,14 @@ async function loadTables(): Promise<void> {
   }
   isLoading.value = true;
   try {
-    const resp = await api.get<{ rows: MarketTableRow[]; vendorNames: VendorNames }>(
-      `/markets/${encodeURIComponent(marketId.value)}/tables`,
-    );
+    const resp = await api.get<{
+      rows: MarketTableRow[];
+      vendorNames: VendorNames;
+      vendors?: PlaceableVendor[];
+    }>(`/markets/${encodeURIComponent(marketId.value)}/tables`);
     allRows.value = Array.isArray(resp.data?.rows) ? resp.data.rows : [];
     vendorNames.value = resp.data?.vendorNames ?? {};
+    vendors.value = Array.isArray(resp.data?.vendors) ? resp.data.vendors : [];
   } catch (err: unknown) {
     const data =
       err && typeof err === 'object' && 'response' in err
@@ -228,6 +286,7 @@ async function loadTables(): Promise<void> {
     errorMessage.value = data?.error || 'Failed to load tables.';
     allRows.value = [];
     vendorNames.value = {};
+    vendors.value = [];
   } finally {
     isLoading.value = false;
   }
@@ -236,6 +295,138 @@ async function loadTables(): Promise<void> {
 watch(() => marketId.value, loadTables);
 
 onMounted(loadTables);
+
+// ── Changing a placement (E11/F03/S01) ─────────────────────────────────────────
+//
+// Two operations and no third: fill a seat, or trade two vendors' seats atomically. A "move"
+// that displaces whoever is already there does not exist, because that is how a vendor is
+// silently unassigned on market day. Freeing a seat first is safe and mirrors what an organizer
+// physically does, so it is the third control on an occupied seat rather than a hidden effect of
+// the first.
+
+interface OpenSeat {
+  mode: 'place' | 'occupied';
+  row: MarketTableRow;
+  /** Fixed when only one side is free; null when the whole table is, and the seat is a choice. */
+  seat: Seat | null;
+  occupantEmail: string | null;
+}
+
+const openSeat = ref<OpenSeat | null>(null);
+const placementBusy = ref(false);
+const placementError = ref('');
+
+function openPlace(row: MarketTableRow, seat: Seat | null): void {
+  placementError.value = '';
+  openSeat.value = { mode: 'place', row, seat, occupantEmail: null };
+}
+
+function openOccupied(row: MarketTableRow, email: string): void {
+  placementError.value = '';
+  openSeat.value = { mode: 'occupied', row, seat: null, occupantEmail: email };
+}
+
+function closePlacement(): void {
+  openSeat.value = null;
+  placementError.value = '';
+}
+
+/** Who already holds a table on one date - the people who cannot be placed again that day. */
+function seatedOn(date: string): Set<string> {
+  const seated = new Set<string>();
+  for (const row of allRows.value) {
+    if (row.date !== date) continue;
+    for (const email of row.assignmentSlots ?? []) {
+      if (email) seated.add(email.toLowerCase());
+    }
+  }
+  return seated;
+}
+
+const placementCandidates = computed((): PlaceableVendor[] => {
+  const seat = openSeat.value;
+  if (!seat || seat.mode !== 'place') return [];
+  const seated = seatedOn(seat.row.date);
+  return vendors.value.filter((vendor) => !seated.has(vendor.email.toLowerCase()));
+});
+
+const swapTargets = computed((): SwapTarget[] => {
+  const seat = openSeat.value;
+  if (!seat || seat.mode !== 'occupied') return [];
+  const targets: SwapTarget[] = [];
+  for (const row of allRows.value) {
+    if (row.date !== seat.row.date) continue;
+    const status = rowStatus(row);
+    const seen = new Set<string>();
+    for (const [index, email] of (row.assignmentSlots ?? []).entries()) {
+      if (!email || email === seat.occupantEmail || seen.has(email)) continue;
+      seen.add(email);
+      targets.push({
+        email,
+        tableCode: row.tableCode,
+        seat: status.isFull ? FULL_TABLE : index === 0 ? HALF_TABLE_LEFT : HALF_TABLE_RIGHT,
+      });
+    }
+  }
+  return targets;
+});
+
+async function runPlacementChange(change: () => Promise<unknown>): Promise<void> {
+  placementBusy.value = true;
+  placementError.value = '';
+  try {
+    await change();
+    closePlacement();
+    // Re-read rather than patch the grid in place: the solver places everyone else around a pin,
+    // so one change can move other vendors, and a locally patched grid would show a floor plan
+    // nobody is standing on.
+    await loadTables();
+  } catch (err: unknown) {
+    const data =
+      err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { error?: string } } }).response?.data
+        : undefined;
+    placementError.value = data?.error || 'That change could not be saved.';
+  } finally {
+    placementBusy.value = false;
+  }
+}
+
+function placementsUrl(): string {
+  return `/markets/${encodeURIComponent(marketId.value)}/placements`;
+}
+
+function placeVendor(payload: { email: string; seat: Seat }): void {
+  const seat = openSeat.value;
+  if (!seat) return;
+  void runPlacementChange(() =>
+    api.put(placementsUrl(), {
+      email: payload.email,
+      date: seat.row.date,
+      tableCode: seat.row.tableCode,
+      tableChoice: payload.seat,
+    }),
+  );
+}
+
+function freeSeat(): void {
+  const seat = openSeat.value;
+  if (!seat?.occupantEmail) return;
+  void runPlacementChange(() =>
+    api.delete(placementsUrl(), { data: { email: seat.occupantEmail, date: seat.row.date } }),
+  );
+}
+
+function swapSeats(withEmail: string): void {
+  const seat = openSeat.value;
+  if (!seat?.occupantEmail) return;
+  void runPlacementChange(() =>
+    api.post(`${placementsUrl()}/swap`, {
+      date: seat.row.date,
+      emails: [seat.occupantEmail, withEmail],
+    }),
+  );
+}
 </script>
 
 <template>
@@ -258,6 +449,62 @@ onMounted(loadTables);
 
         <template v-else-if="allRows.length > 0">
           <div class="filter-bar">
+            <!-- The filters were computed from the URL and could only be cleared: nothing in the
+                 product ever set one (E09/F02/S01, E11/F03/S02). -->
+            <div class="filter-pickers">
+              <label class="filter-picker">
+                <span class="filter-picker-label">Date</span>
+                <select
+                  :value="dateFilter"
+                  data-testid="tables-filter-date"
+                  @change="setFilter('date', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">All dates</option>
+                  <option v-for="option in dateOptions" :key="option" :value="option">
+                    {{ formatDisplayDate(option) }}
+                  </option>
+                </select>
+              </label>
+              <label class="filter-picker">
+                <span class="filter-picker-label">Section</span>
+                <select
+                  :value="sectionFilter"
+                  data-testid="tables-filter-section"
+                  @change="setFilter('section', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">All sections</option>
+                  <option v-for="option in sectionOptions" :key="option" :value="option">
+                    {{ option }}
+                  </option>
+                </select>
+              </label>
+              <label class="filter-picker">
+                <span class="filter-picker-label">Tier</span>
+                <select
+                  :value="tierFilter"
+                  data-testid="tables-filter-tier"
+                  @change="setFilter('tier', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">All tiers</option>
+                  <option v-for="option in tierOptions" :key="option" :value="option">
+                    {{ option }}
+                  </option>
+                </select>
+              </label>
+              <label class="filter-picker">
+                <span class="filter-picker-label">Table</span>
+                <select
+                  :value="choiceFilter"
+                  data-testid="tables-filter-choice"
+                  @change="setFilter('choice', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">Any size</option>
+                  <option value="full">Full Tables</option>
+                  <option value="half">Half Tables</option>
+                </select>
+              </label>
+            </div>
+
             <div class="filter-chips" v-if="hasActiveFilters">
               <span class="filter-chips-label">Filters:</span>
               <button
@@ -388,41 +635,93 @@ onMounted(loadTables);
                       <span v-if="row.location" class="meta-tag">{{ row.location }}</span>
                     </div>
 
+                    <!-- Every seat is a control: an empty one is filled, an occupied one is
+                         freed or traded. A table holds two seats, so a seat - not a table - is
+                         what a placement names (E11/F03/S01). -->
                     <div class="table-row-assignment">
                       <template v-if="rowStatus(row).label === 'empty'">
-                        <span class="assignment-empty">Unassigned</span>
+                        <button
+                          type="button"
+                          class="seat-button seat-button--vacant"
+                          data-testid="tables-seat-empty"
+                          @click="openPlace(row, null)"
+                        >
+                          <span class="assignment-empty">Unassigned</span>
+                          <span class="seat-button-hint">Place someone</span>
+                        </button>
                       </template>
                       <template v-else-if="rowStatus(row).isFull">
-                        <VendorIdentity
-                          class="assignment-email assignment-email--full"
-                          :email="rowStatus(row).leftEmail"
-                          :names="vendorNames"
-                        />
+                        <button
+                          type="button"
+                          class="seat-button"
+                          data-testid="tables-seat-occupied"
+                          :data-vendor-email="rowStatus(row).leftEmail"
+                          @click="openOccupied(row, rowStatus(row).leftEmail!)"
+                        >
+                          <VendorIdentity
+                            class="assignment-email assignment-email--full"
+                            :email="rowStatus(row).leftEmail"
+                            :names="vendorNames"
+                          />
+                          <span class="seat-button-hint">Change</span>
+                        </button>
                       </template>
                       <template v-else>
                         <div class="half-slot">
                           <span class="half-slot-label">Left</span>
-                          <VendorIdentity
+                          <button
                             v-if="rowStatus(row).leftEmail"
-                            class="assignment-email"
-                            :email="rowStatus(row).leftEmail"
-                            :names="vendorNames"
-                          />
-                          <span v-else class="assignment-email assignment-email--vacant">
-                            Vacant
-                          </span>
+                            type="button"
+                            class="seat-button"
+                            data-testid="tables-seat-occupied"
+                            :data-vendor-email="rowStatus(row).leftEmail"
+                            @click="openOccupied(row, rowStatus(row).leftEmail!)"
+                          >
+                            <VendorIdentity
+                              class="assignment-email"
+                              :email="rowStatus(row).leftEmail"
+                              :names="vendorNames"
+                            />
+                            <span class="seat-button-hint">Change</span>
+                          </button>
+                          <button
+                            v-else
+                            type="button"
+                            class="seat-button seat-button--vacant"
+                            data-testid="tables-seat-empty"
+                            @click="openPlace(row, HALF_TABLE_LEFT)"
+                          >
+                            <span class="assignment-email assignment-email--vacant">Vacant</span>
+                            <span class="seat-button-hint">Place someone</span>
+                          </button>
                         </div>
                         <div class="half-slot">
                           <span class="half-slot-label">Right</span>
-                          <VendorIdentity
+                          <button
                             v-if="rowStatus(row).rightEmail"
-                            class="assignment-email"
-                            :email="rowStatus(row).rightEmail"
-                            :names="vendorNames"
-                          />
-                          <span v-else class="assignment-email assignment-email--vacant">
-                            Vacant
-                          </span>
+                            type="button"
+                            class="seat-button"
+                            data-testid="tables-seat-occupied"
+                            :data-vendor-email="rowStatus(row).rightEmail"
+                            @click="openOccupied(row, rowStatus(row).rightEmail!)"
+                          >
+                            <VendorIdentity
+                              class="assignment-email"
+                              :email="rowStatus(row).rightEmail"
+                              :names="vendorNames"
+                            />
+                            <span class="seat-button-hint">Change</span>
+                          </button>
+                          <button
+                            v-else
+                            type="button"
+                            class="seat-button seat-button--vacant"
+                            data-testid="tables-seat-empty"
+                            @click="openPlace(row, HALF_TABLE_RIGHT)"
+                          >
+                            <span class="assignment-email assignment-email--vacant">Vacant</span>
+                            <span class="seat-button-hint">Place someone</span>
+                          </button>
                         </div>
                       </template>
                     </div>
@@ -445,6 +744,28 @@ onMounted(loadTables);
         </button>
       </div>
     </div>
+
+    <PlacementDialog
+      v-if="openSeat"
+      :open="true"
+      :mode="openSeat.mode"
+      :date="openSeat.row.date"
+      :dateLabel="formatDisplayDate(openSeat.row.date)"
+      :tableCode="openSeat.row.tableCode"
+      :section="openSeat.row.section"
+      :tier="openSeat.row.tier"
+      :seat="openSeat.seat"
+      :occupantEmail="openSeat.occupantEmail"
+      :candidates="placementCandidates"
+      :swapTargets="swapTargets"
+      :vendorNames="vendorNames"
+      :busy="placementBusy"
+      :errorMessage="placementError"
+      @place="placeVendor"
+      @free="freeSeat"
+      @swap="swapSeats"
+      @close="closePlacement"
+    />
   </div>
 </template>
 
@@ -797,6 +1118,98 @@ onMounted(loadTables);
   gap: 2px;
   min-width: 0;
   flex: 1;
+}
+
+/* A seat is a control, so it looks like one: bordered, hovering, focusable. It stays quiet at
+   rest because a page of twenty-four tables is a page of forty-eight of these, and a grid of
+   buttons shouting at once is harder to read than the list it replaced. */
+.seat-button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  /* Sized to its occupant, not to the row. A full-width button lit the whole row on hover, which
+     reads as "this table" rather than "this seat" - and a table holds two of them. */
+  align-self: flex-start;
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Bordered at rest, not only on hover. A vendor's name with no box around it does not look like
+   anything you can press, and an organizer who cannot tell a seat is a control has no way to
+   reach the change they came for (E09/F03). */
+.seat-button {
+  border-color: var(--mm-border);
+}
+
+.seat-button:hover {
+  border-color: var(--mm-green);
+  background: #f6f7f9;
+}
+
+.seat-button:focus-visible {
+  outline: 2px solid var(--mm-green);
+  outline-offset: 1px;
+}
+
+/* Dashed for a seat with nobody in it, solid for one with somebody: the difference between an
+   opening and a person is worth reading before any of the text is. */
+.seat-button--vacant {
+  border-style: dashed;
+}
+
+/* Shown only on hover or focus: at rest the word "Vacant" is the whole message, and repeating
+   "Place someone" on every empty seat turns a floor plan into a wall of instructions. */
+/* Shown on hover or focus, but its space is reserved always: a hint that appears and pushes the
+   row taller makes the grid jump under the pointer. `nowrap` keeps it beside the label rather
+   than below it, so a vacant seat is exactly as tall as an occupied one. */
+.seat-button-hint {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--mm-text-link);
+  opacity: 0;
+}
+
+.seat-button:hover .seat-button-hint,
+.seat-button:focus-visible .seat-button-hint {
+  opacity: 1;
+}
+
+.filter-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.filter-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.filter-picker-label {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 12px;
+  color: var(--mm-text-muted);
+}
+
+.filter-picker select {
+  padding: 6px 8px;
+  border: 1px solid var(--mm-border);
+  border-radius: 6px;
+  background: white;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 13px;
+  color: var(--mm-black);
+  max-width: 100%;
 }
 
 .half-slot-label {

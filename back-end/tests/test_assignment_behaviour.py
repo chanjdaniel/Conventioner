@@ -13,7 +13,7 @@ the commit message makes.
 """
 import pytest
 
-from assignment.assignment import assign_market
+from assignment.assignment import assign_market, describe_stored_assignment
 from assignment.vendor_input import SolverVendor
 from datatypes import (
     AssignmentObject,
@@ -1306,3 +1306,76 @@ class TestTheSolverWorksAroundPins:
             f"Section {GOLD} 1",
             "Full Table",
         )
+
+
+class TestDescribingWhatIsStored:
+    """Read-only views describe the STORED assignment, never a fresh run (E11/F03/S01).
+
+    Every one of them used to run the solver again. That was harmless while the browser stored
+    whatever it had been handed; it is not harmless once an organizer edits one seat at a time,
+    because a grid drawn from a fresh run is a picture of what WOULD happen if they pressed
+    Assign, and every seat they moved a vendor into would be a seat they had never seen.
+    """
+
+    def _market_with(self, wants, placements, **kwargs):
+        market = market_for(wants, **kwargs)
+        market.assignment_object = AssignmentObject(vendor_assignments=list(placements))
+        return market
+
+    def test_the_stored_rows_are_what_comes_back(self):
+        wants = [VendorWant("ana@example.com", available=DATES, tiers=[GOLD])]
+        stored = pin("ana@example.com", DATES[0], f"Section {GOLD} 2")
+        market = self._market_with(wants, [stored])
+
+        described = describe_stored_assignment(
+            market, [want.as_solver_vendor() for want in wants]
+        )
+
+        assert described.assignment_object.vendor_assignments == [stored]
+
+    def test_the_solver_is_not_run(self):
+        """A vendor the solver would have placed stays unplaced if the stored run did not."""
+        wants = [
+            VendorWant("ana@example.com", available=[DATES[0]], tiers=[GOLD]),
+            VendorWant("ben@example.com", available=[DATES[0]], tiers=[GOLD]),
+        ]
+        market = self._market_with(wants, [pin("ana@example.com", DATES[0], f"Section {GOLD} 1")])
+
+        described = describe_stored_assignment(
+            market, [want.as_solver_vendor() for want in wants]
+        )
+
+        assert [p[0] for p in placements(described)] == ["ana@example.com"]
+
+    def test_the_statistics_describe_the_stored_rows(self):
+        wants = [
+            VendorWant("ana@example.com", available=[DATES[0]], tiers=[GOLD]),
+            VendorWant("ben@example.com", available=[DATES[0]], tiers=[GOLD]),
+        ]
+        market = self._market_with(
+            wants,
+            [pin("ana@example.com", DATES[0], f"Section {GOLD} 1")],
+            dates=[DATES[0]],
+        )
+
+        stats = describe_stored_assignment(
+            market, [want.as_solver_vendor() for want in wants]
+        ).assignment_object.assignment_statistics
+
+        assert stats.total_assignments == 1
+        assert stats.total_assigned_vendors == 1
+        assert stats.unassigned_vendors == ["ben@example.com"]
+
+    def test_a_stored_assignment_survives_a_plan_that_shrank_under_it(self):
+        """Shrinking the plan does not unassign anybody: only assigning again does that."""
+        wants = [VendorWant("ana@example.com", available=[DATES[0]], tiers=[GOLD])]
+        stored = pin("ana@example.com", DATES[0], f"Section {GOLD} 2")
+        market = self._market_with(
+            wants, [stored], section_counts=((GOLD, 1),), dates=[DATES[0]]
+        )
+
+        described = describe_stored_assignment(
+            market, [want.as_solver_vendor() for want in wants]
+        )
+
+        assert described.assignment_object.vendor_assignments == [stored]

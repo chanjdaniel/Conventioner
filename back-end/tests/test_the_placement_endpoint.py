@@ -437,3 +437,89 @@ class TestFreeingASeat:
     def test_removing_must_name_a_vendor_and_a_date(self, collection):
         with pytest.raises(PlacementsApi.PlacementError):
             PlacementsApi.remove_placement("market-123", "", "2026-08-01", "user-1")
+
+
+class TestSwappingTwoVendors:
+    """One action, both rows, or neither (E11/F03/S01)."""
+
+    def _two_seated(self, collection):
+        collection.doc["assignmentObject"]["vendorAssignments"] = [
+            {
+                "email": "ana@example.com", "date": "2026-08-01", "tableCode": "Hall A 1",
+                "tableChoice": "Full Table", "section": "Hall A", "tier": "Gold",
+                "location": "Main Hall", "handPlaced": False,
+            },
+            {
+                "email": "ben@example.com", "date": "2026-08-01", "tableCode": "Garden 1",
+                "tableChoice": "Half Table (Left)", "section": "Garden", "tier": "Silver",
+                "location": "Main Hall", "handPlaced": False,
+            },
+        ]
+
+    def test_the_two_vendors_trade_seats(self, collection):
+        self._two_seated(collection)
+
+        _result, status = PlacementsApi.swap_placements(
+            "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1"
+        )
+
+        assert status == 200
+        seats = {row["email"]: (row["tableCode"], row["tableChoice"], row["tier"])
+                 for row in written_placements(collection)}
+        assert seats["ana@example.com"] == ("Garden 1", "Half Table (Left)", "Silver")
+        assert seats["ben@example.com"] == ("Hall A 1", "Full Table", "Gold")
+
+    def test_both_sides_of_a_swap_are_hand_placed(self, collection):
+        """A swap is two deliberate placements, so the solver must work around both."""
+        self._two_seated(collection)
+
+        PlacementsApi.swap_placements(
+            "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1"
+        )
+
+        assert all(row["handPlaced"] for row in written_placements(collection))
+
+    def test_a_vendor_holding_no_table_that_day_cannot_be_swapped(self, collection):
+        """Nothing is written, so there is no half-finished state to recover from."""
+        self._two_seated(collection)
+
+        with pytest.raises(PlacementsApi.PlacementError) as refusal:
+            PlacementsApi.swap_placements(
+                "market-123", "2026-08-01", "ana@example.com", "nobody@example.com", "user-1"
+            )
+
+        assert "nobody@example.com" in str(refusal.value)
+        assert collection.last_update is None
+
+    def test_a_vendor_cannot_swap_with_themselves(self, collection):
+        self._two_seated(collection)
+
+        with pytest.raises(PlacementsApi.PlacementError):
+            PlacementsApi.swap_placements(
+                "market-123", "2026-08-01", "ana@example.com", "ana@example.com", "user-1"
+            )
+
+    def test_placements_on_other_dates_are_untouched(self, collection):
+        self._two_seated(collection)
+        collection.doc["assignmentObject"]["vendorAssignments"].append({
+            "email": "ana@example.com", "date": "2026-08-02", "tableCode": "Hall A 2",
+            "tableChoice": "Full Table", "section": "Hall A", "tier": "Gold",
+            "location": "Main Hall", "handPlaced": False,
+        })
+
+        PlacementsApi.swap_placements(
+            "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1"
+        )
+
+        other_day = [row for row in written_placements(collection) if row["date"] == "2026-08-02"]
+        assert [row["tableCode"] for row in other_day] == ["Hall A 2"]
+
+    def test_swapping_needs_edit_permission(self, monkeypatch):
+        fake = FakeMarketsCollection(stored_market(setupObject=SETUP_OBJECT))
+        monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
+
+        with pytest.raises(PermissionError):
+            PlacementsApi.swap_placements(
+                "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1"
+            )

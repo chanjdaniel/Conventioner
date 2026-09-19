@@ -106,12 +106,27 @@ describe('a free table is actionable, the other reasons are reports', () => {
     },
   );
 
-  it('offers nothing on a placed date, whatever reason is passed', () => {
+  it('leads to the Tables view from a placed date too, to change it', () => {
+    // The trigger for every change is a person, and this panel is where the organizer is looking
+    // at one; only the Tables view can answer "where can they go" (E11/F03/S02).
     const wrapper = card({
       placement: 'Hall A 1',
-      reason: 'free',
       placeHref: '/markets/m/tables',
     });
+
+    expect(wrapper.get('[data-testid="vendor-date-card-place-link"]').text()).toBe(
+      'Change placement',
+    );
+  });
+
+  it('says place, not change, when there is nobody there yet', () => {
+    const wrapper = card({ placement: null, reason: 'free', placeHref: '/markets/m/tables' });
+
+    expect(wrapper.get('[data-testid="vendor-date-card-place-link"]').text()).toBe('Place them');
+  });
+
+  it('offers nothing without somewhere to send them', () => {
+    const wrapper = card({ placement: 'Hall A 1', placeHref: null });
 
     expect(wrapper.find('[data-testid="vendor-date-card-place-link"]').exists()).toBe(false);
   });

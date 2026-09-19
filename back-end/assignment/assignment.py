@@ -804,6 +804,40 @@ def solver_vendors_for(market: Market) -> List[SolverVendor]:
     return vendors
 
 
+def describe_stored_assignment(
+    market: Market, vendors: Optional[List[SolverVendor]] = None
+) -> Market:
+    """Describe the market's STORED assignment, recomputing nothing about it.
+
+    Every read-only view - the statistics, the tables grid, the CSV, the Discord summary - used to
+    run the solver afresh. That was harmless while the browser stored whatever it had been handed,
+    and it is not harmless now: ``assignmentObject.vendorAssignments`` is what check-in reads at
+    the door and what an organizer edits one seat at a time, so a screen drawn from a fresh run is
+    a picture of what WOULD happen if they pressed Assign, and every seat they moved a vendor into
+    would be a seat they had never actually seen.
+
+    The stored rows are seated into a ``MarketAssignment`` and it is asked for statistics, without
+    ``assign()`` ever running. One function therefore describes a run whether the solver has just
+    produced it or it has been read back from the database, which is what keeps the payoff screen,
+    the grid and the CSV from disagreeing about the same market.
+    """
+    if not market.setup_object:
+        raise ValueError("Market must have setup data to describe an assignment")
+
+    if vendors is None:
+        vendors = solver_vendors_for(market)
+
+    stored = list(market.assignment_object.vendor_assignments or [])
+    seated = MarketAssignment(market.setup_object, vendors, stored)
+
+    market.assignment_object = AssignmentObject(
+        vendor_assignments=stored,
+        assignment_date=market.assignment_object.assignment_date,
+        assignment_statistics=seated.get_assignment_statistics(),
+    )
+    return market
+
+
 def assign_market(market: Market, vendors: Optional[List[SolverVendor]] = None) -> Market:
     """Assign vendors to tables for a market.
 
