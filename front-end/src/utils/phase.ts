@@ -73,3 +73,67 @@ export function isReversible(phase: string, table = VALID_TRANSITIONS): boolean 
 export function transitionNeedsConfirmation(toPhase: string, table = VALID_TRANSITIONS): boolean {
   return !isReversible(toPhase, table);
 }
+
+/**
+ * Phases that exist in the machine but are not stages of the lifecycle the rail draws.
+ *
+ * `offers` is out of MVP scope - nothing in the product ever sets `assignment_sent`, so the
+ * `assignment -> offers` edge is real in the table and dead in practice. Drawing it on the spine
+ * would show an organizer a stage no market of theirs will ever reach.
+ */
+export const OFF_SPINE_PHASES: readonly string[] = [MarketPhase.Offers];
+
+/**
+ * The lifecycle in order, derived from the transition table rather than listed beside it.
+ *
+ * Listed, it would be a second source of truth: adding a phase to `VALID_TRANSITIONS` and
+ * forgetting the list is exactly the drift `_validate_registry()` refuses on the server. Walked
+ * forward from `draft`, taking at each step the one edge that leads somewhere new and is not the
+ * terminal state, the chain is unambiguous - every phase has exactly one such edge - and
+ * `archived` is appended as the end it always is.
+ */
+export function phaseSpine(table = VALID_TRANSITIONS): string[] {
+  const spine: string[] = [MarketPhase.Draft];
+  const seen = new Set<string>(spine);
+
+  for (;;) {
+    const from = spine[spine.length - 1];
+    const onward = table
+      .filter(
+        ([a, b]) =>
+          a === from && b !== MarketPhase.Archived && !OFF_SPINE_PHASES.includes(b) && !seen.has(b),
+      )
+      .map(([, b]) => b);
+    // Not exactly one: either the chain has ended, or the table has grown a fork this cannot
+    // read. Stopping is right in both cases - a guessed order is worse than a short spine.
+    if (onward.length !== 1) break;
+    spine.push(onward[0]);
+    seen.add(onward[0]);
+  }
+
+  spine.push(MarketPhase.Archived);
+  return spine;
+}
+
+/** Which way a transition moves along the spine. */
+export type TransitionDirection = 'forward' | 'back' | 'end' | 'aside';
+
+/**
+ * Forward, backward, or out of the lifecycle entirely.
+ *
+ * Read off the spine rather than special-cased per phase. The special cases had a hole in them:
+ * `applications_open -> draft` - the one unambiguously backwards edge in the machine, offered so
+ * a form can be corrected before anyone has answered it - fell through to `advance` and was drawn
+ * as the way onward.
+ */
+export function transitionDirection(
+  fromPhase: string,
+  toPhase: string,
+  spine = phaseSpine(),
+): TransitionDirection {
+  if (toPhase === MarketPhase.Archived) return 'end';
+  const from = spine.indexOf(fromPhase);
+  const to = spine.indexOf(toPhase);
+  if (to === -1 || from === -1) return 'aside';
+  return to > from ? 'forward' : 'back';
+}

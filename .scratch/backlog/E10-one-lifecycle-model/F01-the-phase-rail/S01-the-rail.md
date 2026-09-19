@@ -2,9 +2,9 @@
 id: E10/F01/S01
 title: The rail
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build
@@ -33,12 +33,12 @@ the same defect and should be closed by this if it lands first.
 
 ## Acceptance criteria
 
-- [ ] The rail appears below the header on every market screen, in every phase.
-- [ ] At 1920x1080 with a 60+ character check-in URL, no two adjacent phase labels overlap.
+- [x] The rail appears below the header on every market screen, in every phase.
+- [x] At 1920x1080 with a 60+ character check-in URL, no two adjacent phase labels overlap.
       Test by comparing adjacent label bounding boxes: container overflow does **not** detect this,
       because the step boxes shrink below their labels.
-- [ ] Forward, backward and destructive are distinguishable, and `Reopen for Editing` is not
+- [x] Forward, backward and destructive are distinguishable, and `Reopen for Editing` is not
       presented as an advance.
-- [ ] An archived market's rail states in words that the market is over, and why where known.
-- [ ] Every label on it is legible per `E09/F01/S01`.
-- [ ] The phase strip that floats above the card is gone, not merely restyled.
+- [x] An archived market's rail states in words that the market is over, and why where known.
+- [x] Every label on it is legible per `E09/F01/S01`.
+- [x] The phase strip that floats above the card is gone, not merely restyled.

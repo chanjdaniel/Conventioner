@@ -5,7 +5,7 @@ from conftest import FakeMarketsCollection, client_market, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
-from datatypes import ApplicationForm, FormField, MarketPhase
+from datatypes import ApplicationForm, AssignmentObject, FormField, MarketPhase
 
 
 @pytest.fixture
@@ -111,6 +111,70 @@ def test_update_never_takes_the_application_form_from_the_body(collection):
     MarketsApi.update_market("market-123", client_market(application_form=form), "user-1")
 
     assert collection.last_update["$set"]["applicationForm"] is None
+
+
+def test_update_never_takes_the_assignment_from_the_body(monkeypatch):
+    """A stale client copy must not overwrite where vendors were placed.
+
+    ``assignmentObject.vendorAssignments`` is what check-in reads at the door, so this is the
+    field on the server-owned list with the sharpest consequence: a market PUT carrying an older
+    copy used to move vendors on market day, with no manual editing involved at all.
+    """
+    stored_placement = {
+        "email": "ana@example.com",
+        "date": "2026-08-01",
+        "tableCode": "Hall A 1",
+        "tableChoice": "Full Table",
+        "section": "Hall A",
+        "tier": "Gold",
+        "location": "Main Hall",
+        "handPlaced": False,
+    }
+    fake = FakeMarketsCollection(
+        stored_market(
+            assignmentObject={"vendorAssignments": [stored_placement], "assignmentDate": "then"}
+        )
+    )
+    monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
+
+    MarketsApi.update_market(
+        "market-123", client_market(assignment_object=AssignmentObject()), "user-1"
+    )
+
+    written = fake.last_update["$set"]["assignmentObject"]
+    assert written["vendorAssignments"] == [stored_placement]
+    assert written["assignmentDate"] == "then"
+
+
+def test_update_does_not_persist_assignment_statistics(monkeypatch):
+    """Statistics stay derived at read-time, even when carried over with the assignment."""
+    fake = FakeMarketsCollection(
+        stored_market(
+            assignmentObject={
+                "vendorAssignments": [],
+                "assignmentDate": "then",
+                "assignmentStatistics": {
+                    "totalVendors": 3,
+                    "totalTables": 5,
+                    "totalAssignments": 3,
+                    "totalAssignedVendors": 3,
+                    "totalAssignedTables": 3,
+                    "unassignedVendors": [],
+                    "unassignedTables": {},
+                    "assignmentsPerDate": {},
+                    "assignmentsPerTier": {},
+                    "assignmentsPerSection": {},
+                },
+            }
+        )
+    )
+    monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
+
+    MarketsApi.update_market("market-123", client_market(), "user-1")
+
+    assert "assignmentStatistics" not in fake.last_update["$set"]["assignmentObject"]
 
 
 def test_create_pins_phase_to_draft_regardless_of_the_client_body(monkeypatch):

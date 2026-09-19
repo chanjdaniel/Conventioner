@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
-import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
+import PhaseRail from '@/components/PhaseRail.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
@@ -89,9 +89,7 @@ async function savedPayloadAfterAdvancing() {
       },
     },
   });
-  wrapper
-    .findComponent(PhaseControlPanel)
-    .vm.$emit('phase-advanced', SERVER_MARKET_AFTER_TRANSITION);
+  wrapper.findComponent(PhaseRail).vm.$emit('phase-advanced', SERVER_MARKET_AFTER_TRANSITION);
   await wrapper.vm.$nextTick();
 
   api.put.mockClear();
@@ -130,9 +128,7 @@ describe('advancing a phase does not discard the organizer\u2019s unsaved plan',
     storePlannedMarket();
     const wrapper = mount(MarketSetupView, { shallow: true });
 
-    wrapper
-      .findComponent(PhaseControlPanel)
-      .vm.$emit('phase-advanced', SERVER_MARKET_AFTER_TRANSITION);
+    wrapper.findComponent(PhaseRail).vm.$emit('phase-advanced', SERVER_MARKET_AFTER_TRANSITION);
     await wrapper.vm.$nextTick();
 
     const stored = JSON.parse(localStorage.getItem('market') ?? '{}');

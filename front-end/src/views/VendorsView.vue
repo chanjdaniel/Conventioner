@@ -9,7 +9,14 @@ import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import VendorDateCard from '@/components/VendorDateCard.vue';
-import { reasonIndex, type PlacementReason, type UnplacedDate } from '@/utils/placementReason';
+import {
+  overrideIndex,
+  reasonIndex,
+  type OverriddenPlacement,
+  type PlacementOverride,
+  type PlacementReason,
+  type UnplacedDate,
+} from '@/utils/placementReason';
 import type { Application, Market, MarketDateObject } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 import {
@@ -19,6 +26,8 @@ import {
   type VendorNames,
 } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
+import PlacementHistory from '@/components/PlacementHistory.vue';
+import PhaseRail from '@/components/PhaseRail.vue';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -26,6 +35,7 @@ interface AssignmentStatisticsResponse {
   unassignedVendors?: unknown[];
   unassigned_vendors?: unknown[];
   unplacedDates?: UnplacedDate[];
+  overriddenPlacements?: OverriddenPlacement[];
 }
 
 interface MarketTableRowResponse {
@@ -81,6 +91,7 @@ const tableRows = ref<MarketTableRowResponse[]>([]);
 const vendorNames = ref<VendorNames>({});
 /** Email + date to the reason there is no table, from the statistics (E12/F01/S01). */
 const unplacedReasons = ref<Map<string, PlacementReason>>(new Map());
+const placementOverrides = ref<Map<string, PlacementOverride[]>>(new Map());
 const unassignedEmails = ref<Set<string>>(new Set());
 
 const isLoading = ref(false);
@@ -144,6 +155,7 @@ async function loadVendors(): Promise<void> {
     applications.value = Array.isArray(applicationList) ? applicationList : [];
 
     unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
+    placementOverrides.value = overrideIndex(statsResp.data?.overriddenPlacements ?? []);
 
     const statsList = statsResp.data?.unassignedVendors ?? statsResp.data?.unassigned_vendors ?? [];
     const unassigned = new Set<string>();
@@ -316,10 +328,25 @@ function reasonFor(email: string, date: string): PlacementReason | undefined {
   return unplacedReasons.value.get(`${email.trim().toLowerCase()}|${date}`);
 }
 
-/** The Tables view, filtered to the day the organizer would be placing them on. */
+/** What their placement that day overrides, when it was made by hand and contradicts them. */
+function overridesFor(email: string, date: string): PlacementOverride[] | undefined {
+  return placementOverrides.value.get(`${email.trim().toLowerCase()}|${date}`);
+}
+
+/**
+ * The Tables view, filtered to the day the organizer would be placing them on.
+ *
+ * This is the story that makes those filters reachable: `dateFilter` and its three neighbours
+ * were computed from `route.query` and set by nothing, so a complete filter system existed that
+ * no organizer could invoke (`E11/F03/S02`). The vendor rides along so the Tables view can send
+ * them back to this panel rather than to the results tab.
+ */
 function tablesLinkFor(date: string): string | null {
-  if (!market.value?.id) return null;
-  return `/markets/${encodeURIComponent(market.value.id)}/tables?date=${encodeURIComponent(date)}`;
+  const id = market.value?.id;
+  const vendor = selectedVendor.value?.email;
+  if (!id || !vendor) return null;
+  const query = new URLSearchParams({ date, vendor });
+  return `/markets/${encodeURIComponent(id)}/tables?${query.toString()}`;
 }
 
 function goToTables(date: string): void {
@@ -352,6 +379,8 @@ function handleBack(): void {
       <header class="vendors-header">
         <h1>{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
       </header>
+
+      <PhaseRail :market="market" @phase-advanced="(m) => (market = m)" />
 
       <div class="vendors-body">
         <NoMarketLoaded v-if="!market" shows="the vendors" />
@@ -500,10 +529,22 @@ function handleBack(): void {
               :label="formatDateLabel(date.date)"
               :placement="placementOn(selectedVendor, date.date)"
               :reason="reasonFor(selectedVendor.email, date.date)"
+              :overrides="overridesFor(selectedVendor.email, date.date)"
               :placeHref="tablesLinkFor(date.date)"
               @place="goToTables(date.date)"
             />
           </ul>
+        </section>
+
+        <!-- Who moved this vendor, and when. A placement that differs from what the solver
+             produced is a fact someone will later ask about (E11/F04/S01). -->
+        <section class="detail-section">
+          <h3 class="detail-section-title">Placement history</h3>
+          <PlacementHistory
+            v-if="market?.id"
+            :marketId="market.id"
+            :vendor="selectedVendor.email"
+          />
         </section>
       </div>
     </aside>

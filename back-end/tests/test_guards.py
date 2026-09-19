@@ -10,10 +10,12 @@ import guards
 from datatypes import (
     ApplicationForm, AssignmentOptionObject, AssignmentObject, EssentialFormOptions, FormField,
     Market, MarketDateObject, MarketPhase, MarketRole, SectionObject, SetupObject, TierObject,
+    VendorAssignmentResult,
 )
 from guards import (
     AllApplicationsReviewedGuard,
     NoAskedForTierWithoutTablesGuard,
+    NoOrphanedPinGuard,
     FormHasFieldsGuard,
     NoApprovedApplicationsGuard,
     PreconditionResult,
@@ -491,6 +493,7 @@ class TestAssignmentEntryInvariants:
         kinds = {type(guard) for guard in guards}
         assert AllApplicationsReviewedGuard in kinds
         assert NoAskedForTierWithoutTablesGuard in kinds
+        assert NoOrphanedPinGuard in kinds
 
 
 class TestOffersEntryInvariants:
@@ -613,3 +616,90 @@ class TestNoAskedForTierWithoutTablesGuard:
         )
 
         assert result.passed is True
+
+
+class TestNoOrphanedPinGuard:
+    """A pin outlives the plan that held it, and the reckoning is deferred to here (E11/F02/S02).
+
+    Deleting the section a pinned seat belongs to, or dropping the section's count below it,
+    leaves the pin in place rather than deleting it. Silent deletion loses a deliberate
+    guarantee; refusing the plan edit makes pins a lock on the floor plan.
+    """
+
+    def _market(self, placements=(), count=2):
+        return _make_market(
+            phase=MarketPhase.REVIEW,
+            setup_object=SetupObject(
+                priority=[],
+                market_dates=[MarketDateObject(date="2026-08-01")],
+                tiers=[TierObject(id=1, name="Gold")],
+                locations=[],
+                sections=[
+                    SectionObject(name="Front", tier=TierObject(id=1, name="Gold"), count=count)
+                ],
+                assignment_options=AssignmentOptionObject(),
+            ),
+            assignment_object=AssignmentObject(vendor_assignments=list(placements)),
+        )
+
+    def _placement(self, table_code="Front 1", date="2026-08-01", hand_placed=True):
+        return VendorAssignmentResult(
+            email="nadia@ember.test",
+            date=date,
+            table_code=table_code,
+            table_choice="Full Table",
+            section="Front",
+            tier="Gold",
+            location="",
+            hand_placed=hand_placed,
+        )
+
+    def test_a_market_with_no_pins_passes(self):
+        assert NoOrphanedPinGuard().evaluate(self._market(), None).passed is True
+
+    def test_a_pin_the_plan_still_holds_passes(self):
+        market = self._market([self._placement("Front 2")])
+
+        assert NoOrphanedPinGuard().evaluate(market, None).passed is True
+
+    def test_dropping_the_table_count_below_a_pin_blocks(self):
+        market = self._market([self._placement("Front 2")], count=1)
+
+        result = NoOrphanedPinGuard().evaluate(market, None)
+
+        assert result.passed is False
+        assert result.id == "no_orphaned_pin"
+
+    def test_the_message_names_the_vendor_and_the_seat(self):
+        """Both ways out are things the organizer does to a named thing."""
+        market = self._market([self._placement("Front 9")], count=1)
+
+        message = NoOrphanedPinGuard().evaluate(market, None).message
+
+        assert "nadia@ember.test" in message
+        assert "Front 9" in message
+        assert "2026-08-01" in message
+
+    def test_a_solver_placement_at_a_vanished_seat_does_not_block(self):
+        """Only a pin is a promise; stale solver output is recomputed by the next run."""
+        market = self._market([self._placement("Front 9", hand_placed=False)], count=1)
+
+        assert NoOrphanedPinGuard().evaluate(market, None).passed is True
+
+    def test_re_placing_the_pin_clears_the_blocker(self):
+        blocked = self._market([self._placement("Front 9")], count=1)
+        assert NoOrphanedPinGuard().evaluate(blocked, None).passed is False
+
+        re_placed = self._market([self._placement("Front 1")], count=1)
+        assert NoOrphanedPinGuard().evaluate(re_placed, None).passed is True
+
+    def test_removing_the_pin_clears_the_blocker(self):
+        assert NoOrphanedPinGuard().evaluate(self._market([], count=1), None).passed is True
+
+    def test_a_market_with_no_plan_reports_its_pins_rather_than_passing(self):
+        market = _make_market(
+            phase=MarketPhase.REVIEW,
+            assignment_object=AssignmentObject(vendor_assignments=[self._placement()]),
+        )
+
+        assert NoOrphanedPinGuard().evaluate(market, None).passed is False

@@ -2,9 +2,9 @@
 id: E11/F03/S02
 title: The vendor panel opens the Tables view where the change happens
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build
@@ -22,6 +22,6 @@ Whichever lands second should find it already done.
 
 ## Acceptance criteria
 
-- [ ] "Change placement" on a vendor opens the Tables view scoped to the relevant date.
-- [ ] The filters can be set from the page, not only cleared.
-- [ ] Returning from the Tables view does not lose the vendor panel's context.
+- [x] "Change placement" on a vendor opens the Tables view scoped to the relevant date.
+- [x] The filters can be set from the page, not only cleared.
+- [x] Returning from the Tables view does not lose the vendor panel's context.

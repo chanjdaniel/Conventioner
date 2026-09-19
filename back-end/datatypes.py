@@ -146,6 +146,15 @@ class ThemeObject(BaseModel):
     logo_url: Optional[str] = None
 
 class VendorAssignmentResult(BaseModel):
+    """One vendor in one seat on one date - the whole of what a placement is.
+
+    ``hand_placed`` is the pin. A pin is not a separate constraint object alongside the
+    assignment: it IS this row, flagged, which is why pinning before any solver run works with
+    no extra machinery - it writes a row early, and the solver places everyone else around it.
+    Two records could disagree, and the failure mode of disagreement is a vendor pinned to one
+    table and placed at another, which is the exact bug pins exist to prevent.
+    """
+
     email: str
     date: str
     table_code: str
@@ -153,11 +162,23 @@ class VendorAssignmentResult(BaseModel):
     section: str
     tier: str
     location: str
+    hand_placed: bool = False
 
 
 class MarketTableRow(BaseModel):
+    """One table on one date, and who is at it.
+
+    ``assignment`` is the occupants and nothing else, so its length is how many seats are taken.
+    ``assignment_slots`` is the same table seat by seat - ``[left, right]``, ``None`` for vacant -
+    because which side is free is a fact the occupant list cannot carry: one email in a list of
+    one says somebody is here, not which half of the table they are sitting at. Nothing could put
+    a vendor on the right with the left empty until pins could (E11), and then the grid drew them
+    on the left.
+    """
+
     date: str
     assignment: List[str]
+    assignment_slots: List[Optional[str]] = [None, None]
     location: str
     section: str
     table_choice: str
@@ -570,6 +591,7 @@ class AssignmentOptionContract(AssignmentOptionObject, ContractModel):
 class VendorAssignmentResultContract(ContractModel):
     date: str
     email: str
+    hand_placed: bool
     location: str
     section: str
     table_choice: str
@@ -579,6 +601,7 @@ class VendorAssignmentResultContract(ContractModel):
 
 class MarketTableRowContract(ContractModel):
     assignment: List[str]
+    assignment_slots: List[Optional[str]]
     date: str
     location: str
     section: str

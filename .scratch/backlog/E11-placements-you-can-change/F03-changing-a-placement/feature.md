@@ -2,9 +2,9 @@
 id: E11/F03
 title: Changing a placement
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## Outcome

@@ -2,9 +2,9 @@
 id: E11/F01/S01
 title: The placement endpoint, and assignment_object becomes server-owned
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build
@@ -24,9 +24,9 @@ helper.
 
 ## Acceptance criteria
 
-- [ ] One endpoint writes one placement; a VIEWER is refused and an EDITOR is not.
-- [ ] A market PUT carrying a stale `assignmentObject` no longer changes the stored assignment, and
+- [x] One endpoint writes one placement; a VIEWER is refused and an EDITOR is not.
+- [x] A market PUT carrying a stale `assignmentObject` no longer changes the stored assignment, and
       a test pins that.
-- [ ] `seedPublishedMarketWithAssignments()` and `seedAssignedMarket()` use the new path, and the
+- [x] `seedPublishedMarketWithAssignments()` and `seedAssignedMarket()` use the new path, and the
       e2e suite passes unchanged otherwise.
-- [ ] The `AGENTS.md` seeding note matches what the helpers now do.
+- [x] The `AGENTS.md` seeding note matches what the helpers now do.

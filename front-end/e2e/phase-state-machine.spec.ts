@@ -13,6 +13,17 @@ import {
 const SCREENSHOT_DIR = 'e2e-screenshots/phase-state-machine';
 const MONGO_URI = 'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin';
 
+/**
+ * Fire a transition that is not the one step onward.
+ *
+ * The rail carries a single forward action; back, destructive and off-spine edges are behind the
+ * overflow menu (E10/F01/S01).
+ */
+async function openRailMenu(page: Page, toPhase: string): Promise<void> {
+  await page.getByTestId('phase-rail-menu-button').click();
+  await page.getByTestId(`phase-transition-${toPhase}`).click();
+}
+
 async function transitionViaPage(page: Page, marketId: string, toPhase: string): Promise<void> {
   const res = await page.request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
@@ -113,25 +124,24 @@ test.describe('Phase state machine - full walk', () => {
     await page.goto('/market-setup');
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
 
-    await expect(page.getByTestId('phase-control-panel')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Draft');
+    await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft');
     await page.screenshot({ path: `${SCREENSHOT_DIR}/01-draft.png`, fullPage: true });
 
     await page.getByTestId('phase-transition-applications_open').click();
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Applications Open', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
       timeout: 10000,
     });
     await page.screenshot({ path: `${SCREENSHOT_DIR}/02-applications-open.png`, fullPage: true });
 
     await page.getByTestId('phase-transition-applications_closed').click();
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText(
-      'Applications Closed',
-      { timeout: 10000 },
-    );
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Closed', {
+      timeout: 10000,
+    });
     await page.screenshot({ path: `${SCREENSHOT_DIR}/03-applications-closed.png`, fullPage: true });
 
     await page.getByTestId('phase-transition-review').click();
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Review', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Review', {
       timeout: 10000,
     });
     await page.screenshot({ path: `${SCREENSHOT_DIR}/04-review.png`, fullPage: true });
@@ -140,7 +150,7 @@ test.describe('Phase state machine - full walk', () => {
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'walk-b@example.com');
 
     await page.getByTestId('phase-transition-assignment').click();
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Assignment', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Assignment', {
       timeout: 10000,
     });
     await page.screenshot({ path: `${SCREENSHOT_DIR}/05-assignment.png`, fullPage: true });
@@ -149,8 +159,8 @@ test.describe('Phase state machine - full walk', () => {
       `db.applications.updateMany({market_id: ${JSON.stringify(seed.marketId)}, status: "reviewer_approved"}, {$set: {status: "assigned"}})`,
     );
 
-    await page.getByTestId('phase-transition-offers').click();
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Offers', {
+    await openRailMenu(page, 'offers');
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Offers', {
       timeout: 10000,
     });
     await page.screenshot({ path: `${SCREENSHOT_DIR}/06-offers.png`, fullPage: true });
@@ -174,11 +184,13 @@ test.describe('Phase state machine - full walk', () => {
       fullPage: true,
     });
     await page.getByTestId('sweep-confirm-confirm').click();
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Market Days', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days', {
       timeout: 10000,
     });
     await page.screenshot({ path: `${SCREENSHOT_DIR}/07-market-days.png`, fullPage: true });
 
+    // Archiving is behind the overflow menu, never presented as the way onward (E10/F01/S01).
+    await page.getByTestId('phase-rail-menu-button').click();
     await expect(page.getByTestId('phase-transition-archived')).toBeVisible();
     await page.screenshot({ path: `${SCREENSHOT_DIR}/08-ready-to-archive.png`, fullPage: true });
   });
@@ -205,16 +217,16 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     await setMarketInPage(page, marketBody);
     await page.goto('/market-setup');
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Review', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Review', {
       timeout: 10000,
     });
 
     await page.getByTestId('phase-transition-assignment').click();
 
-    const blockers = page.getByTestId('phase-control-blockers');
+    const blockers = page.getByTestId('phase-rail-blockers');
     await expect(blockers).toBeVisible({ timeout: 10000 });
     await expect(blockers).toContainText('still awaiting review');
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Review');
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/09-blocked-assignment.png`, fullPage: true });
   });
@@ -243,16 +255,16 @@ test.describe('Phase state machine - guard: offers blocked by leftover approved'
     await setMarketInPage(page, marketBody);
     await page.goto('/market-setup');
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Assignment', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Assignment', {
       timeout: 10000,
     });
 
-    await page.getByTestId('phase-transition-offers').click();
+    await openRailMenu(page, 'offers');
 
-    const blockers = page.getByTestId('phase-control-blockers');
+    const blockers = page.getByTestId('phase-rail-blockers');
     await expect(blockers).toBeVisible({ timeout: 10000 });
     await expect(blockers).toContainText('still approved');
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Assignment');
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Assignment');
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/10-blocked-offers.png`, fullPage: true });
   });
@@ -339,7 +351,7 @@ test.describe('Phase state machine - sweep', () => {
     const marketBody = await loadMarket(page, seed.marketId);
     await setMarketInPage(page, marketBody);
     await page.goto('/market-setup');
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Market Days', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days', {
       timeout: 10000,
     });
     await page.screenshot({
@@ -366,10 +378,11 @@ test.describe('Phase state machine - archive confirmation', () => {
 
     await page.goto('/market-setup');
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Applications Open', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
       timeout: 10000,
     });
 
+    await page.getByTestId('phase-rail-menu-button').click();
     const archiveBtn = page.getByTestId('phase-transition-archived');
     await expect(archiveBtn).toBeVisible();
     await archiveBtn.click();
@@ -386,17 +399,19 @@ test.describe('Phase state machine - archive confirmation', () => {
     // Cancel
     await page.getByTestId('archive-confirm-cancel').click();
     await expect(dialog).not.toBeVisible({ timeout: 3000 });
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Applications Open');
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open');
 
-    // Confirm
+    // Confirm. The menu closes when a transition is chosen, so archiving again reopens it -
+    // which is the point of putting a destructive edge behind one.
+    await page.getByTestId('phase-rail-menu-button').click();
     await archiveBtn.click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await page.getByTestId('archive-confirm-confirm').click();
     await expect(dialog).not.toBeVisible({ timeout: 3000 });
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Archived', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Archived', {
       timeout: 10000,
     });
-    await expect(page.getByTestId('phase-control-terminal')).toBeVisible();
+    await expect(page.getByTestId('phase-rail-frozen')).toBeVisible();
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/13-archived.png`, fullPage: true });
   });
@@ -419,16 +434,16 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
     await setMarketInPage(page, marketBody);
     await page.goto('/market-setup');
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Draft', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', {
       timeout: 10000,
     });
 
     await page.getByTestId('phase-transition-applications_open').click();
 
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Applications Open', {
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
       timeout: 10000,
     });
-    await expect(page.getByTestId('phase-control-blockers')).toBeHidden();
+    await expect(page.getByTestId('phase-rail-blockers')).toBeHidden();
 
     await page.screenshot({
       path: `${SCREENSHOT_DIR}/11-essential-only-form-opens.png`,
@@ -455,11 +470,11 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
 
     await page.getByTestId('phase-transition-applications_open').click();
 
-    const blockers = page.getByTestId('phase-control-blockers');
+    const blockers = page.getByTestId('phase-rail-blockers');
     await expect(blockers).toBeVisible({ timeout: 10000 });
     await expect(blockers).toContainText('asks nothing');
     await expect(blockers).toContainText('dates');
-    await expect(page.getByTestId('phase-control-current-phase')).toHaveText('Draft');
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft');
 
     await page.screenshot({
       path: `${SCREENSHOT_DIR}/12-empty-plan-blocked.png`,

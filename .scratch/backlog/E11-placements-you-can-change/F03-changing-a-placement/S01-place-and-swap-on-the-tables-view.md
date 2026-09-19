@@ -2,9 +2,9 @@
 id: E11/F03/S01
 title: Place and swap on the Tables view
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build
@@ -30,9 +30,9 @@ Every placement made here is flagged hand-placed, which is what makes it a pin (
 
 ## Acceptance criteria
 
-- [ ] An empty seat can be filled from the Tables view, naming the side.
-- [ ] Two occupied seats can be swapped in one action, and either both change or neither does.
-- [ ] There is no control that displaces a vendor without placing them.
-- [ ] A change that alters a vendor's `table_choice` says so before it is made.
-- [ ] Every change made here writes through `E11/F01/S01`'s endpoint.
-- [ ] The view still holds all its content, per `E09/F02/S01`.
+- [x] An empty seat can be filled from the Tables view, naming the side.
+- [x] Two occupied seats can be swapped in one action, and either both change or neither does.
+- [x] There is no control that displaces a vendor without placing them.
+- [x] A change that alters a vendor's `table_choice` says so before it is made.
+- [x] Every change made here writes through `E11/F01/S01`'s endpoint.
+- [x] The view still holds all its content, per `E09/F02/S01`.

@@ -2,9 +2,9 @@
 id: E10/F01/S02
 title: The check-in URL is on the rail
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build
@@ -19,10 +19,10 @@ the URL, and a control that copies it.
 
 ## Acceptance criteria
 
-- [ ] A market in `market_days` shows its check-in URL on the rail.
-- [ ] The URL can be copied in one action.
-- [ ] A market not yet published shows no chip - it would be a link to a 404.
-- [ ] With a 60+ character URL at 1920x1080, the chip does not push the spine into overlap.
+- [x] A market in `market_days` shows its check-in URL on the rail.
+- [x] The URL can be copied in one action.
+- [x] A market not yet published shows no chip - it would be a link to a 404.
+- [x] With a 60+ character URL at 1920x1080, the chip does not push the spine into overlap.
 
 ## Notes
 

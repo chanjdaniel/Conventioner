@@ -124,6 +124,9 @@ export interface VendorAssignmentResult {
   section: string;
   tier: string;
   location: string;
+  // A pin: this seat was chosen by hand, and the solver places everyone else around it rather
+  // than recomputing it. There is no separate constraint object - the pin IS this row, flagged.
+  handPlaced?: boolean;
 }
 
 export interface AssignmentStatistics {
@@ -169,6 +172,9 @@ export enum IntakeMode {
 export interface Market {
   id: string;
   name: string;
+  /** The market's public identifier, computed and persisted server-side from the name. Every
+   *  public URL names it - `/<slug>/check-in` is the page publishing puts on the air. */
+  slug?: string;
   creationDate: string;
   /** Derived server-side from phase: true when phase is ``draft``, false otherwise. The
    * server overwrites whatever a PUT body carries; the field is never independently writable. */

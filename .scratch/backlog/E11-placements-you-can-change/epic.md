@@ -2,9 +2,9 @@
 id: E11
 title: Placements you can change
 type: epic
-status: proposed
+status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## Outcome

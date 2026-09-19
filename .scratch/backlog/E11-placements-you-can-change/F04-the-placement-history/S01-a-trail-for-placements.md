@@ -2,9 +2,9 @@
 id: E11/F04/S01
 title: A trail for placements
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build
@@ -26,10 +26,10 @@ in the application's status.
 
 ## Acceptance criteria
 
-- [ ] A hand placement, a swap and a solver run each produce exactly one entry.
-- [ ] Each entry names the organizer, the change and the time.
-- [ ] The vendor panel shows that vendor's entries; the market shows all of them.
-- [ ] Deleting a market takes its history with it.
+- [x] A hand placement, a swap and a solver run each produce exactly one entry.
+- [x] Each entry names the organizer, the change and the time.
+- [x] The vendor panel shows that vendor's entries; the market shows all of them.
+- [x] Deleting a market takes its history with it.
 
 ## Notes
 
