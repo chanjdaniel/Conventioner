@@ -2,7 +2,7 @@
 id: E11/F02
 title: A pin the solver honours
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

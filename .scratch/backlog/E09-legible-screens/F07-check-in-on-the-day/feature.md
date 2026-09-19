@@ -2,7 +2,7 @@
 id: E09/F07
 title: Check-in on the day
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

@@ -2,7 +2,7 @@
 id: E12/F02/S01
 title: Three states, one card
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [72]
 ---

@@ -2,7 +2,7 @@
 id: E10/F03
 title: Assignment lives in its phase
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [71]
 ---

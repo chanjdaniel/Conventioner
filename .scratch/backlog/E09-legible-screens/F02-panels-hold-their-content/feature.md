@@ -2,7 +2,7 @@
 id: E09/F02
 title: Panels hold their content
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

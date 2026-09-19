@@ -2,7 +2,7 @@
 id: E09/F03
 title: Controls look and behave like controls
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

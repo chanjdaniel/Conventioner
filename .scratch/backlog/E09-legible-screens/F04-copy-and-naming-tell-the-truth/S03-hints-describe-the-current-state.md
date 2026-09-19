@@ -2,7 +2,7 @@
 id: E09/F04/S03
 title: Hints describe the state the market is actually in
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

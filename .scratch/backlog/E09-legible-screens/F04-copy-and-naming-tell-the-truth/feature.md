@@ -2,7 +2,7 @@
 id: E09/F04
 title: Copy and naming tell the truth
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

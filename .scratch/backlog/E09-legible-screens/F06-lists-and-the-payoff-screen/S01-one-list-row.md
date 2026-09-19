@@ -2,7 +2,7 @@
 id: E09/F06/S01
 title: One list row component
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

@@ -2,7 +2,7 @@
 id: E10/F01/S01
 title: The rail
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

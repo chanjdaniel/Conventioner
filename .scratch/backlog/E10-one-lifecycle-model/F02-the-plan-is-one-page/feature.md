@@ -2,7 +2,7 @@
 id: E10/F02
 title: The plan is one page
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [71]
 ---

@@ -2,7 +2,7 @@
 id: E11/F03/S01
 title: Place and swap on the Tables view
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

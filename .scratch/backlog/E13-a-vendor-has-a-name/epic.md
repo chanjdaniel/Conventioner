@@ -2,7 +2,7 @@
 id: E13
 title: A vendor has a name
 type: epic
-status: in-progress
+status: done
 blocked_by: []
 pr: [70]
 ---

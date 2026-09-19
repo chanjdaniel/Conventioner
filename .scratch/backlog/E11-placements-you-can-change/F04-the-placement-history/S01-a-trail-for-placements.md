@@ -2,7 +2,7 @@
 id: E11/F04/S01
 title: A trail for placements
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

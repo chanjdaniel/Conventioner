@@ -2,7 +2,7 @@
 id: E11/F04
 title: The placement history
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---
