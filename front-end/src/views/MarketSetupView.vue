@@ -19,13 +19,14 @@ import {
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import { importRefusal } from '@/utils/importPhase';
+import { assignRefusal } from '@/utils/assignPhase';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import AssignmentResults from '@/components/AssignmentResults.vue';
-import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
+import PhaseRail from '@/components/PhaseRail.vue';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 
 const router = useRouter();
@@ -237,6 +238,16 @@ async function loadApplicationForm() {
 /** Why importing is refused in this market's phase, or null. Mirrors the server's own rule. */
 const importRefusalReason = computed(() => importRefusal(market.value?.phase));
 
+/**
+ * Why the assignment cannot be run in this market's phase, or null (`E10/F03/S02`).
+ *
+ * The same arrangement as importing: the server enforces it, and this lets the button say no
+ * before it is pressed rather than after. Safe to freeze now that a placement can be changed by
+ * hand from the Tables view - shipping the freeze first would have stranded an organizer on
+ * market day with archiving a running market as their only move.
+ */
+const assignRefusalReason = computed(() => assignRefusal(market.value?.phase));
+
 /** Guidance for a form the organizer has not finished starting; not a mistake to flag in red. */
 const formIncompleteHint = computed(() => applicationFormHint(applicationForm.value));
 
@@ -429,18 +440,21 @@ const assignError = ref('');
  * sat there.
  */
 const handleAssign = async () => {
-  if (!assignmentOptionsComplete.value) {
+  if (!assignmentOptionsComplete.value || assignRefusalReason.value) {
     return;
   }
   assignError.value = '';
   try {
     await updateMarket();
 
-    const response = await api.get('/markets/' + market.value!.id + '/assignment');
+    // POST, not GET-then-PUT. `assignmentObject` is server-owned (E11/F01/S01), so a market PUT
+    // no longer stores an assignment the browser was handed - and never should have: a stale
+    // copy in one tab could overwrite what another had just saved.
+    const response = await api.post('/markets/' + market.value!.id + '/assignment');
 
     const assignedMarket: Market = response.data;
     market.value = assignedMarket;
-    await updateMarket();
+    localStorage.setItem('market', JSON.stringify(market.value));
 
     showTab('assignment');
   } catch (err: unknown) {
@@ -478,11 +492,6 @@ const sectionsUndescribed = computed(
 <template>
   <NoMarketLoaded v-if="!market" shows="a market's plan and application form" />
   <div v-else class="market-setup-view">
-    <PhaseControlPanel
-      :market="market"
-      :beforeTransition="flushPlanSave"
-      @phase-advanced="handlePhaseAdvanced"
-    />
     <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
     <div class="market-setup-body">
       <div class="settings-container">
@@ -521,6 +530,14 @@ const sectionsUndescribed = computed(
             </button>
           </div>
         </div>
+
+        <!-- The lifecycle, directly below the market header and inside the card (E10/F01/S01).
+             It used to float above the card as a strip of coloured pills. -->
+        <PhaseRail
+          :market="market"
+          :beforeTransition="flushPlanSave"
+          @phase-advanced="handlePhaseAdvanced"
+        />
 
         <!-- Application Form Tab -->
         <div v-if="activeTab === 'form'" class="settings-body">
@@ -826,14 +843,23 @@ const sectionsUndescribed = computed(
         <button
           type="button"
           class="done-button"
-          :disabled="!assignmentOptionsComplete"
+          :disabled="!assignmentOptionsComplete || !!assignRefusalReason"
           @click="handleAssign"
           data-testid="market-setup-assign-button"
         >
           Assign
         </button>
+        <!-- The phase comes first: a market that may not be assigned at all is not waiting on
+             two numbers, and saying so would send the organizer to fix the wrong thing. -->
         <p
-          v-if="!assignmentOptionsComplete"
+          v-if="assignRefusalReason"
+          class="assign-disabled-hint"
+          data-testid="market-setup-assign-phase-hint"
+        >
+          {{ assignRefusalReason }}
+        </p>
+        <p
+          v-else-if="!assignmentOptionsComplete"
           class="assign-disabled-hint"
           data-testid="market-setup-assign-hint"
         >

@@ -1,5 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { VendorsPage } from './pages/VendorsPage';
 
 test.describe('Vendor browsing and search', () => {
@@ -55,7 +56,12 @@ test.describe('Vendor browsing and search', () => {
   }) => {
     // The finding: the payoff screen listed unassigned vendors by email under a heading and said
     // nothing else, beside a summary reporting nineteen free tables (E12).
-    const seed = await seedPublishedMarketWithAssignments(
+    //
+    // A market left in `assignment`, not a published one: Assign is an operation of that phase
+    // and refuses everywhere else (E10/F03/S02), and this test needs to run it again against a
+    // smaller plan. A published market is past the point where re-running is the right move -
+    // the answer there is to change one placement from the Tables view.
+    const seed = await seedAssignedMarket(
       request,
       BACKEND_URL,
       TEST_USER.email,
@@ -73,6 +79,14 @@ test.describe('Vendor browsing and search', () => {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: market,
     });
+
+    // Assign again against the smaller plan. Shrinking it is not on its own enough: every view
+    // describes the STORED assignment now (E11/F03/S01), so nobody is unplaced until the run
+    // that leaves them unplaced actually happens.
+    const rerun = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    expect(rerun.ok(), await rerun.text()).toBeTruthy();
 
     await page.evaluate((m) => {
       localStorage.setItem('market', JSON.stringify(m));

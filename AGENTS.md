@@ -133,9 +133,70 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   published market with vendor assignments ready for check-in, vendor browsing, and table filtering tests.
 - Publishing is `POST /markets/{id}/transition` with `{ toPhase: 'archived' }`, never a PUT of
   `isDraft: false` - `isDraft` is derived from `phase` and a PUT body cannot set it.
-- After publishing, with a configured `setup_object`, you must fetch the
-  computed assignment via `GET /markets/{id}/assignment` and store it back via PUT.
-  The stored `assignmentObject.vendorAssignments` is what `record_attendance` reads at check-in time.
+- **An assignment is stored by `POST /markets/{id}/assignment`, and by nothing else.**
+  That one call runs the solver and persists what it produced.
+  It used to be `GET /markets/{id}/assignment` (which only computes) followed by a whole-market PUT carrying the result, and that PUT now stores nothing: `assignmentObject` is server-owned like `applicationForm` and `importMapping`, because it is what `record_attendance` reads at check-in time and a stale client copy overwriting it moves vendors on market day (E11/F01/S01).
+  `back-end/api/placements.py` is the single writer - a solver run, or `PUT /markets/{id}/placements` for one vendor in one seat on one date, both gated on `MarketRole.EDITOR`.
+  Run the assignment *before* publishing: `market_days` has an entry invariant that one exists.
+
+## The Phase Rail (Conventioner sharp edge)
+
+- **`PhaseRail.vue` is the market lifecycle, on every market screen**, as a band below that
+  screen's header. It replaced `PhaseControlPanel`, which floated above the card.
+- **The spine is derived, never listed.** `phaseSpine()` (`front-end/src/utils/phase.ts`) walks
+  `VALID_TRANSITIONS` forward from `draft`; a second list beside the table is the drift
+  `_validate_registry()` refuses on the server. `offers` is off it (nothing sets
+  `assignment_sent`) *except* for a market actually in that phase, which gets its stage back so
+  the rail can still say where it stands.
+- **Forward / back / destructive is read off the spine** (`transitionDirection`), not
+  special-cased per phase. Only the one forward step is on the rail; everything else is behind
+  `phase-rail-menu-button`. A spec that clicks `phase-transition-<phase>` for a back or
+  destructive edge must open that menu first.
+- **A terminal state is stated in words.** Strikethrough alone reads as *stopped*, not as
+  *archived* - the prototype proved it. There is no record of which phases a market passed
+  through, so an archived market's frozen stage is read off evidence it holds (a stored
+  assignment, a published application form), never off history it does not.
+- Screens routed by market id (Tables, Attendance) get their `Market` from `useRailMarket`
+  (`front-end/src/utils/railMarket.ts`); the rail never fails a screen that cannot load one.
+
+## Placements, Pins and the Trail (Conventioner sharp edge)
+
+- **Assign runs in the `assignment` phase and nowhere else** (`assign_phase_refusal` in
+  `api/placements.py`, mirrored by `front-end/src/utils/assignPhase.ts`). A seed or a spec that
+  wants an assignment must walk the market to `assignment` first - assigning from `draft` is a
+  409. It deliberately does not repeat `_ALL_REVIEWED` or `_ASSIGNMENT_COMPUTED`, which
+  `guards.py` already says once each.
+- **`back-end/api/placements.py` is the only writer of `assignmentObject`.**
+  `POST /markets/{id}/assignment` runs the solver and stores the result; `PUT`/`DELETE
+  /markets/{id}/placements` writes or frees one seat; `POST /markets/{id}/placements/swap`
+  trades two atomically.
+  All four are gated on `MarketRole.EDITOR` - the same bar as every other market write, and
+  deliberately not stricter, since an EDITOR already owns the tiers, sections and counts the
+  whole assignment is computed from.
+  `update_market()` re-applies the stored `assignment_object` like `application_form`: a market
+  PUT stores nothing, because a stale client copy moving vendors is a stale client copy moving
+  them on market day.
+- **A pin IS a placement row, flagged `hand_placed`.** There is no separate constraint object;
+  two records could disagree, and a vendor pinned to one table and placed at another is the exact
+  bug pins exist to prevent.
+  `assign_market` reads the market's own stored rows for flagged ones and seats them before
+  anyone else, so the ordinary loop sees those tables occupied.
+  A pin the plan can no longer hold is **orphaned, never deleted**, and `NoOrphanedPinGuard`
+  blocks `-> assignment` until it is re-placed or freed.
+- **Read-only views describe the STORED assignment, never a fresh run.**
+  `assignment_to_show()` (`api/markets.py`) picks: `describe_stored_assignment()` when the market
+  has placements, `assign_market()` when it has none. The statistics, the tables grid, the CSV
+  and the Discord summary all go through it.
+  Consequence: **shrinking the plan does not unassign anybody** - only assigning again does. A
+  test that expects an edit to the plan to change who is placed must re-run the assignment.
+  `GET /markets/{id}/assignment` is the exception and stays a preview: it computes without storing.
+- **`MarketTableRow.assignment` is the occupants and nothing else** - its LENGTH is what
+  `derive_unassigned_tables_from_rows` reads to count spare capacity. Which side of a table is
+  free lives in `assignment_slots` (`[left, right]`, null for vacant). Do not conflate them.
+- **`back-end/placement_history.py` owns the `placement_history` collection**: who changed a
+  placement, to what, when. Placements only - phase transitions, plan edits and form edits are
+  out. **A solver run is one entry**, not one per placement. Entries are stored structured and
+  worded by `front-end/src/utils/placementHistory.ts`. Deleted with the market.
 
 ## The Solver Reads Applications (Conventioner sharp edge)
 

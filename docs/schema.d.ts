@@ -29,6 +29,7 @@ export interface MarketSchema {
     vendorAssignments: {
       date: string;
       email: string;
+      handPlaced: boolean;
       location: string;
       section: string;
       tableChoice: string;

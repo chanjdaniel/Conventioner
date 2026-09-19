@@ -5,11 +5,15 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/utils/api';
 import type { VendorAttendance } from '@/assets/types/datatypes';
 import { getShortDate, getTimestampTime } from '@/utils/utils';
+import PhaseRail from '@/components/PhaseRail.vue';
+import { useRailMarket } from '@/utils/railMarket';
 
 const route = useRoute();
 const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
+/** The lifecycle band below this screen's header (E10/F01/S01). */
+const { market: railMarket, adopt: adoptRailMarket } = useRailMarket(marketId);
 const attendance = ref<VendorAttendance[]>([]);
 const errorMessage = ref('');
 const isLoading = ref(false);
@@ -86,6 +90,8 @@ onMounted(loadAttendance);
       <header class="attendance-status-header">
         <h1>Attendance Status</h1>
       </header>
+
+      <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />
       <div class="attendance-status-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
         <p v-if="isLoading">Loading…</p>

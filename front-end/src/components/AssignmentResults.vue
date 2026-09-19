@@ -9,6 +9,7 @@ import {
 } from '@/assets/types/datatypes';
 import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
+import PlacementHistory from '@/components/PlacementHistory.vue';
 import IconAttendance from '@/components/icons/IconAttendance.vue';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import VendorIdentity from '@/components/VendorIdentity.vue';
@@ -608,6 +609,14 @@ const handleSendToDiscord = async () => {
               </div>
             </template>
           </div>
+
+          <!-- Who changed what, and when. A placement that differs from what the solver produced
+               is a fact someone will later ask about, and a flag saying "hand-placed" cannot
+               answer it (E11/F04/S01). -->
+          <div class="stat-card placement-history-card">
+            <h3>Placement history</h3>
+            <PlacementHistory v-if="market?.id" :marketId="market.id" />
+          </div>
         </div>
         <div v-else class="no-data-message">
           <p>No assignment statistics available.</p>
@@ -903,6 +912,12 @@ const handleSendToDiscord = async () => {
   justify-content: flex-start;
   padding: 36px 20px;
   gap: 0;
+}
+
+/* Full width beneath the grid: a log is a column of sentences, and squeezing it into a
+   statistics cell would wrap every one of them. */
+.placement-history-card {
+  margin-top: 16px;
 }
 
 .summary-card {

@@ -163,6 +163,16 @@ test.describe('The MVP journey', () => {
     // persists them when it saves, and the organizer left for the import flow in between.
     await setup.setMaxAssignmentsPerVendor(2);
     await setup.setMaxHalfTableProportion(100);
+
+    // Assign is an operation of the `assignment` phase and refuses everywhere else
+    // (E10/F03/S02), so the organizer walks there. This spec is the one that goes the whole way,
+    // so the walk belongs here rather than being skipped past by a seed.
+    await expect(setup.assignPhaseHint).toBeVisible();
+    await setup.advancePhaseTo('applications_closed', 'Applications Closed');
+    await setup.advancePhaseTo('review', 'Review');
+    await setup.advancePhaseTo('assignment', 'Assignment');
+    await expect(setup.assignPhaseHint).toBeHidden();
+
     await setup.waitForAssignEnabled();
     await setup.clickAssign();
     // A refused run says why, so a failure here reads as the reason and not as a timeout.

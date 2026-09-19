@@ -154,6 +154,13 @@ test.describe('Market pipeline E2E', () => {
     await setupPage.setMaxAssignmentsPerVendor(1);
     await setupPage.setMaxHalfTableProportion(100);
 
+    // Assign is an operation of the `assignment` phase and refuses everywhere else
+    // (E10/F03/S02). These vendors arrive already approved, so the walk is three transitions.
+    await setupPage.advancePhaseTo('applications_open', 'Applications Open');
+    await setupPage.advancePhaseTo('applications_closed', 'Applications Closed');
+    await setupPage.advancePhaseTo('review', 'Review');
+    await setupPage.advancePhaseTo('assignment', 'Assignment');
+
     // Verify the Assign button is enabled and click it
     await setupPage.waitForAssignEnabled();
     await setupPage.clickAssign();
@@ -199,25 +206,14 @@ test.describe('Market pipeline E2E', () => {
 
     expect(marketId).toBeTruthy();
 
-    // Publishing is `assignment -> market_days` (E03/F03), so the market has to BE in assignment.
-    // It used to be `archived`, which was reachable from every phase - which is exactly why
-    // `archived` meant both "just published" and "over". The vendors seeded above are already
-    // approved, so the review guard passes.
-    for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
-      const res = await page.request.post(
-        `${BACKEND_URL}/markets/${encodeURIComponent(marketId)}/transition`,
-        {
-          headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-          data: { toPhase },
-        },
-      );
-      expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
-    }
-
+    // Publishing is `assignment -> market_days` (E03/F03), so the market has to BE in assignment -
+    // and it is, because Assign only runs from there (E10/F03/S02) and this spec walked the
+    // phases through the UI above. It used to be `archived`, which was reachable from every phase,
+    // which is exactly why `archived` meant both "just published" and "over".
+    //
     // Publishing is a step on the phase strip, not a Done button on the results screen
     // (E10/F03/S01): that button posted a transition invalid from the phase the organizer was
-    // standing in, and failed with a raw enum error. The phases above were walked over the API,
-    // so the open market has to be re-read before the strip can offer the next step.
+    // standing in, and failed with a raw enum error.
     const afterWalk = await page.request.get(`${BACKEND_URL}/markets/${marketId}`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });

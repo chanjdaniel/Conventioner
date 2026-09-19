@@ -15,8 +15,9 @@ export interface AssignedSeedResult extends SeedResult {
  * Create a market with vendor data, setup configuration, and computed assignments.
  *
  * Uses seedMarketWithVendors for the base market (application-based path), then
- * attaches a setupObject, computes the assignment, and stores it back on the
- * market. The assignment is both persisted and returned in the result.
+ * attaches a setupObject and runs the assignment through `POST /markets/{id}/assignment`,
+ * which computes it and stores it in one call. The assignment is both persisted and
+ * returned in the result.
  *
  * The D9 lock ordering (form finalized + applications opened before any
  * Application document exists) is enforced by seedMarketWithVendors.
@@ -72,43 +73,9 @@ export async function seedAssignedMarket(
     throw new Error(`Market PUT failed: ${putRes.status()} ${await putRes.text()}`);
   }
 
-  const assignRes = await request.get(
-    `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/assignment`,
-    {
-      headers: { 'X-Owner-Email': email },
-    },
-  );
-  if (!assignRes.ok()) {
-    throw new Error(`Assignment GET failed: ${assignRes.status()} ${await assignRes.text()}`);
-  }
-  const assignedMarket = (await assignRes.json()) as Record<string, unknown>;
-
-  const storedAssignment = (assignedMarket.assignmentObject || {}) as Record<string, unknown>;
-
-  const storeRes = await request.put(`${baseURL}/markets/${encodeURIComponent(seed.marketId)}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Owner-Email': email,
-    },
-    data: {
-      id: seed.marketId,
-      name: seed.marketName,
-      creationDate: new Date().toISOString(),
-      organizationId: seed.orgId,
-      roles: { [seed.userId]: 'owner' },
-      modificationList: [],
-      setupObject,
-      assignmentObject: storedAssignment,
-    },
-  });
-  if (!storeRes.ok()) {
-    throw new Error(`Assignment store failed: ${storeRes.status()} ${await storeRes.text()}`);
-  }
-
-  // Leave the market where an organizer looking at the results screen actually is: `assignment`.
-  // Publishing is `assignment -> market_days` (E03/F03), so the Done button on that screen is only
-  // meaningful from there. It used to fire `archived`, which was reachable from every phase - which
-  // is precisely why `archived` meant both "just published" and "over".
+  // Walk to `assignment` first. It is where an organizer looking at the results screen actually
+  // is - publishing is `assignment -> market_days` (E03/F03) - and it is the one phase the solver
+  // runs in (E10/F03/S02), so the walk has to come before the run rather than after it.
   for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
     const res = await request.post(
       `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/transition`,
@@ -121,6 +88,22 @@ export async function seedAssignedMarket(
       throw new Error(`Transition to ${toPhase} failed: ${res.status()} ${await res.text()}`);
     }
   }
+
+  // One call runs the solver and stores what it produced. `assignmentObject` is server-owned
+  // (E11/F01/S01), so the old `GET /assignment` followed by a whole-market PUT would compute an
+  // assignment and then throw it away.
+  const assignRes = await request.post(
+    `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/assignment`,
+    {
+      headers: { 'X-Owner-Email': email },
+    },
+  );
+  if (!assignRes.ok()) {
+    throw new Error(`Assignment run failed: ${assignRes.status()} ${await assignRes.text()}`);
+  }
+  const assignedMarket = (await assignRes.json()) as Record<string, unknown>;
+
+  const storedAssignment = (assignedMarket.assignmentObject || {}) as Record<string, unknown>;
 
   const slug = marketNameToSlug(seed.marketName);
 
