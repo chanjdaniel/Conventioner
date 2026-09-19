@@ -2,7 +2,7 @@
 id: E09/F04/S01
 title: One name per concept
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

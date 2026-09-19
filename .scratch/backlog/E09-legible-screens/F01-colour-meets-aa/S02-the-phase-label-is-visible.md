@@ -2,7 +2,7 @@
 id: E09/F01/S02
 title: The phase label is visible
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

@@ -2,7 +2,7 @@
 id: E09/F01/S03
 title: The contrast contract
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

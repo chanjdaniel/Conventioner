@@ -2,7 +2,7 @@
 id: E09/F01/S01
 title: The palette meets AA
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

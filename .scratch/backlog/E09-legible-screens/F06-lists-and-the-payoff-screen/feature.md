@@ -2,7 +2,7 @@
 id: E09/F06
 title: The lists and the payoff screen
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

@@ -2,7 +2,7 @@
 id: E09/F05/S02
 title: A screen without a market says so instead of pretending
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
