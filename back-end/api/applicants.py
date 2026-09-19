@@ -26,6 +26,7 @@ from application_write import record_application_answers
 from market_documents import (
     applicant_intake_market_by_slug,
     market_doc_field,
+    market_serves_applicants,
 )
 from datatypes import (
     Application,
@@ -358,6 +359,11 @@ def publish_results(market_id: str) -> Tuple[Dict[str, Any], int]:
     visible to the applicants who hold them. Before this call, every approved and rejected
     application reads as ``under_review`` to its applicant. After it, applicants see their
     actual outcome.
+
+    Refused on a CSV market, because on one the flag has no reader: every endpoint that consults
+    it goes through ``applicant_intake_market_by_slug``, which serves form-intake markets only. The
+    button is hidden there too, but a hidden button is not a rule - the endpoint is reachable
+    directly.
     """
     from db_config import get_database
     db = get_database()
@@ -365,6 +371,14 @@ def publish_results(market_id: str) -> Tuple[Dict[str, Any], int]:
     doc = db["markets"].find_one({"id": market_id})
     if not doc:
         return {"error": "Market not found."}, 404
+
+    if not market_serves_applicants(doc):
+        return {
+            "error": (
+                "This market takes its vendors by import, so it has no applicants to publish "
+                "results to."
+            )
+        }, 409
 
     phase = phase_from_market_document(doc)
     if phase == MarketPhase.DRAFT:

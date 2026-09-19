@@ -2,9 +2,9 @@
 id: E10
 title: One lifecycle model
 type: epic
-status: proposed
+status: in-progress
 blocked_by: []
-pr: []
+pr: [71]
 ---
 
 ## Outcome

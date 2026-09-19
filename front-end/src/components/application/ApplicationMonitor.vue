@@ -15,7 +15,7 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
-import { ApplicationStatus } from '@/assets/types/datatypes';
+import { ApplicationStatus, IntakeMode } from '@/assets/types/datatypes';
 import {
   fetchMarketApplications,
   reviewApplication,
@@ -93,6 +93,23 @@ const undecided = computed(() => applications.value.filter((a) => AWAITING.inclu
  * does this one.
  */
 const decided = computed(() => applications.value.filter((a) => !AWAITING.includes(a.status)));
+
+/**
+ * Does publishing results mean anything on this market?
+ *
+ * `resultsPublished` is what makes a reviewer's verdict visible to the applicant instead of
+ * `under_review` - and every endpoint that reads it goes through
+ * `applicant_intake_market_by_slug`, which serves form-intake markets only. On a CSV market the
+ * flag has no reader at all, so the button was a no-op with a confident label. It is absent
+ * there, and the endpoint refuses too, because a hidden button is not a rule.
+ *
+ * Intake mode has no organizer control yet, so in practice this removes the button from MVP -
+ * which is the honest outcome, and the code keeps the concept rather than losing it.
+ */
+const marketHasApplicants = computed(() => props.market?.intakeMode === IntakeMode.Form);
+
+/** Publishing verdicts nobody has reached yet would publish nothing. */
+const hasVerdictToPublish = computed(() => decided.value.length > 0);
 /** Re-deciding is the reviewer's own verdict to change; a published application has moved on. */
 function reDecidable(app: Application): boolean {
   return (
@@ -226,16 +243,23 @@ function submittedOn(app: Application): string {
   <div v-if="visible && market" class="monitor-panel" data-testid="app-monitor-panel">
     <div class="monitor-header">
       <h2>Applications</h2>
-      <div class="monitor-actions">
+      <div v-if="marketHasApplicants" class="monitor-actions">
         <button
           v-if="!resultsPublished"
           class="publish-button"
-          :disabled="publishLoading"
+          :disabled="publishLoading || !hasVerdictToPublish"
           @click="handlePublish"
           data-testid="app-monitor-publish-button"
         >
           {{ publishLoading ? 'Publishing...' : 'Publish Results' }}
         </button>
+        <span
+          v-if="!resultsPublished && !hasVerdictToPublish"
+          class="publish-hint"
+          data-testid="app-monitor-publish-hint"
+        >
+          Review an application first; there is nothing to publish yet.
+        </span>
         <span
           v-if="resultsPublished"
           class="published-badge"
@@ -422,6 +446,13 @@ function submittedOn(app: Application): string {
 .publish-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.publish-hint {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 12px;
+  color: var(--mm-text-muted);
+  max-width: 24ch;
 }
 
 .published-badge {

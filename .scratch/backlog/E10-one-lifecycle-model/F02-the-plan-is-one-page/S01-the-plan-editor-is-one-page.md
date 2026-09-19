@@ -2,9 +2,9 @@
 id: E10/F02/S01
 title: The plan editor is one page
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [71]
 ---
 
 ## What to build

@@ -99,9 +99,8 @@ test.describe('Floorplan workflow E2E', () => {
     const setupPage = new MarketSetupPage(page);
     await setupPage.waitForWizard();
 
-    // No Manage Columns step: the first page of the wizard is just the market's dates.
+    // No Manage Columns step, and no paging: the plan is one page (E10/F02/S01).
     await setupPage.addMarketDate('2026-07-15', 0);
-    await setupPage.clickNext();
 
     const floorplanPage = new FloorplanWorkflowPage(page);
     await floorplanPage.selectFloorplanPath();
@@ -116,7 +115,7 @@ test.describe('Floorplan workflow E2E', () => {
     expect(survivingTables.length).toBeGreaterThan(0);
 
     // The wizard's tier/location/section page is reachable.
-    await expect(page.locator('.triple-column-body')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.plan-row--triple')).toBeVisible({ timeout: 5000 });
 
     // The floorplan's own sections and locations reached the market plan, which is the "verify
     // save" this test is named for. It used to assert that rows were RENDERED on that page,

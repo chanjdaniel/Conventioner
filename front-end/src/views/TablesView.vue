@@ -199,7 +199,7 @@ function choiceFilterLabel(filter: ChoiceFilter): string {
 }
 
 function goBack(): void {
-  router.push('/assignment-results');
+  router.push({ path: '/market-setup', query: { tab: 'assignment' } });
 }
 
 async function loadTables(): Promise<void> {

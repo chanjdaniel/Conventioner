@@ -68,7 +68,6 @@ async function createMarketWithPlan(
     ({ m, user }) => {
       localStorage.setItem('market', JSON.stringify(m));
       localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('setupPageIdx', '0');
     },
     { m: market, user: TEST_USER.email },
   );
@@ -193,15 +192,14 @@ test.describe('Essential form fields', () => {
     await page.getByTestId('setup-dates-add-button').click();
     await page.getByTestId('setup-dates-date-input-1').fill('2026-08-08');
 
-    // ...and sections on the next wizard page (Next also persists the plan).
-    await page.getByTestId('market-setup-next-button').click();
+    // ...and sections, further down the same page (E10/F02/S01). The plan saves itself.
     await page.getByTestId('setup-section-add-button').click();
     await page.getByTestId('setup-section-name-input-0').fill('Main Hall');
     await page.getByTestId('setup-section-count-input-0').fill('4');
     await page.getByTestId('setup-section-add-button').click();
     await page.getByTestId('setup-section-name-input-1').fill('Garden');
     await page.getByTestId('setup-section-count-input-1').fill('2');
-    await page.getByTestId('market-setup-back-button').click();
+    await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible({ timeout: 5000 });
 
     // The essential questions now offer exactly what the plan defines.
     await formPage.openFormTab();
@@ -313,8 +311,10 @@ test.describe('Essential form fields', () => {
     await page.setViewportSize({ width: 1280, height: 720 });
 
     await apply.submit();
+    // 10s, not 5: a submit that validates, freezes the offering and writes is the slowest step in
+    // this spec, and the tighter budget flaked under a full-suite run.
     await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`), {
-      timeout: 5000,
+      timeout: 10000,
     });
 
     // The dashboard reads the answers back with the questions' own labels.
@@ -463,7 +463,6 @@ test.describe('Essential form fields', () => {
       ({ m, user }) => {
         localStorage.setItem('market', JSON.stringify(m));
         localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('setupPageIdx', '0');
       },
       { m: marketDoc, user: TEST_USER.email },
     );

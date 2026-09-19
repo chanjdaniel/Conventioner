@@ -6,7 +6,6 @@ import {
   type AssignmentStatistics,
   type Market,
   type UnassignedTableEntry,
-  MarketPhase,
 } from '@/assets/types/datatypes';
 import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
@@ -18,7 +17,6 @@ import IconTables from '@/components/icons/IconTables.vue';
 import IconVendors from '@/components/icons/IconVendors.vue';
 import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
-import { publishedMarketDestination } from '@/utils/marketSlug';
 import { getFormattedDate, getShortDate } from '@/utils/utils';
 
 const router = useRouter();
@@ -225,10 +223,6 @@ const closeVendorsModal = () => {
   showVendorsModal.value = false;
 };
 
-const handleBack = () => {
-  router.push('/market-setup');
-};
-
 const goToAttendance = () => {
   if (!market.value?.id) return;
   router.push(`/markets/${encodeURIComponent(market.value.id)}/attendance`);
@@ -263,7 +257,6 @@ function formatDateLabel(dateKey: string): string {
   return getShortDate(dateKey);
 }
 
-const doneError = ref('');
 const downloadError = ref('');
 const isDownloading = ref(false);
 const discordError = ref('');
@@ -375,336 +368,265 @@ const handleSendToDiscord = async () => {
     isPostingDiscord.value = false;
   }
 };
-
-const handleDone = async () => {
-  doneError.value = '';
-  const raw = localStorage.getItem('market');
-  if (!raw) {
-    doneError.value = 'No market loaded.';
-    return;
-  }
-  let market: Market;
-  try {
-    market = JSON.parse(raw) as Market;
-  } catch {
-    doneError.value = 'Invalid market data.';
-    return;
-  }
-  try {
-    // Publishing lands in `market_days`, the phase that means "this market is running"
-    // (E03/F03). It used to fire `archived`, which also means "this market is over" - and the
-    // check-in URL this button puts on the air is served to a running market only.
-    const response = await api.post(`/markets/${encodeURIComponent(market.id)}/transition`, {
-      toPhase: 'market_days',
-    });
-    // Update localStorage with the new phase so future reads reflect the advance.
-    market = { ...market, phase: response.data.phase as MarketPhase };
-    localStorage.setItem('market', JSON.stringify(market));
-    // Also persist via PUT so the full market body stays in sync (isDraft is server-derived now).
-    await api.put(`/markets/${encodeURIComponent(market.id)}`, market);
-    router.push(publishedMarketDestination(market.name, market.intakeMode));
-  } catch (err: unknown) {
-    const response =
-      err && typeof err === 'object' && 'response' in err
-        ? (
-            err as {
-              response?: {
-                status?: number;
-                data?: { error?: string; blockers?: Array<{ message: string }> };
-              };
-            }
-          ).response
-        : undefined;
-    if (response?.status === 409 && response.data?.blockers) {
-      doneError.value = response.data.blockers.map((b: { message: string }) => b.message).join(' ');
-    } else {
-      const msg = response?.data?.error;
-      doneError.value = msg || 'Failed to publish market.';
-    }
-  }
-};
 </script>
 
 <template>
   <NoMarketLoaded v-if="!market" shows="the assignment" />
   <template v-else>
     <VendorsModal :open="showVendorsModal" :market="market" @close="closeVendorsModal" />
-    <div class="generate-assignment-view">
-      <div class="generate-assignment-window">
-        <div class="generate-assignment-container">
-          <div class="generate-assignment-header">
-            <h1>Assignment Results</h1>
-          </div>
-          <div class="generate-assignment-body">
-            <div v-if="assignmentStatistics" class="statistics-layout">
-              <div class="statistics-header-row">
-                <div class="stat-card summary-card">
-                  <h3>Summary</h3>
-                  <div class="stat-grid">
-                    <div class="stat-item">
-                      <span class="stat-label">Assignments</span>
-                      <span class="stat-value">{{ assignmentStatistics.totalAssignments }}</span>
-                    </div>
-                    <div class="stat-item">
-                      <span class="stat-label">Assigned Tables</span>
-                      <span class="stat-value"
-                        >{{ assignmentStatistics.totalAssignedTables }} /
-                        {{ assignmentStatistics.totalTables }}</span
-                      >
-                    </div>
-                    <div class="stat-item">
-                      <span class="stat-label">Assigned Vendors</span>
-                      <span class="stat-value"
-                        >{{ assignmentStatistics.totalAssignedVendors }} /
-                        {{ assignmentStatistics.totalVendors }}</span
-                      >
-                    </div>
-                    <div class="stat-item">
-                      <span class="stat-label">Satisfaction</span>
-                      <span class="stat-value" data-testid="assignment-satisfaction-score">{{
-                        satisfactionDisplay
-                      }}</span>
-                    </div>
-                  </div>
-                  <!-- The number had no definition, no breakdown and no tooltip anywhere in the
-                       product, and read 0.0% on a run with nothing in it. -->
-                  <p class="stat-note">
-                    Satisfaction is the share of the dates vendors asked for, and could have had,
-                    that they got.
-                  </p>
+    <!-- A tab's content, not a page: the market's name and its tab bar are drawn above this, so
+         the card, the centring and the second "Assignment Results" heading this used to carry are
+         gone with the route (E10/F03/S01). -->
+    <div class="assignment-results">
+      <div class="assignment-results-body">
+        <div v-if="assignmentStatistics" class="statistics-layout">
+          <div class="statistics-header-row">
+            <div class="stat-card summary-card">
+              <h3>Summary</h3>
+              <div class="stat-grid">
+                <div class="stat-item">
+                  <span class="stat-label">Assignments</span>
+                  <span class="stat-value">{{ assignmentStatistics.totalAssignments }}</span>
                 </div>
-                <nav class="stat-card assignment-quick-nav" aria-label="Assignment shortcuts">
-                  <div class="assignment-quick-nav-list">
-                    <button
-                      type="button"
-                      class="assignment-quick-nav-row"
-                      @click="openVendorsModal"
-                      data-testid="assignment-results-view-vendors-button"
-                    >
-                      <IconVendors class="assignment-quick-nav-icon" />
-                      <span class="assignment-quick-nav-label">
-                        <span>View </span>
-                        <span>Vendors</span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      class="assignment-quick-nav-row"
-                      @click="goToTables"
-                      data-testid="assignment-results-view-tables-button"
-                    >
-                      <IconTables class="assignment-quick-nav-icon" />
-                      <span class="assignment-quick-nav-label">
-                        <span>View </span>
-                        <span>Tables</span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      class="assignment-quick-nav-row"
-                      @click="goToAttendance"
-                      data-testid="assignment-results-view-attendance-button"
-                    >
-                      <IconAttendance class="assignment-quick-nav-icon" />
-                      <span class="assignment-quick-nav-label">
-                        <span>View </span>
-                        <span>Attendance</span>
-                      </span>
-                    </button>
+                <div class="stat-item">
+                  <span class="stat-label">Assigned Tables</span>
+                  <span class="stat-value"
+                    >{{ assignmentStatistics.totalAssignedTables }} /
+                    {{ assignmentStatistics.totalTables }}</span
+                  >
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Assigned Vendors</span>
+                  <span class="stat-value"
+                    >{{ assignmentStatistics.totalAssignedVendors }} /
+                    {{ assignmentStatistics.totalVendors }}</span
+                  >
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Satisfaction</span>
+                  <span class="stat-value" data-testid="assignment-satisfaction-score">{{
+                    satisfactionDisplay
+                  }}</span>
+                </div>
+              </div>
+              <!-- The number had no definition, no breakdown and no tooltip anywhere in the
+                       product, and read 0.0% on a run with nothing in it. -->
+              <p class="stat-note">
+                Satisfaction is the share of the dates vendors asked for, and could have had, that
+                they got.
+              </p>
+            </div>
+            <nav class="stat-card assignment-quick-nav" aria-label="Assignment shortcuts">
+              <div class="assignment-quick-nav-list">
+                <button
+                  type="button"
+                  class="assignment-quick-nav-row"
+                  @click="openVendorsModal"
+                  data-testid="assignment-results-view-vendors-button"
+                >
+                  <IconVendors class="assignment-quick-nav-icon" />
+                  <span class="assignment-quick-nav-label">
+                    <span>View </span>
+                    <span>Vendors</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="assignment-quick-nav-row"
+                  @click="goToTables"
+                  data-testid="assignment-results-view-tables-button"
+                >
+                  <IconTables class="assignment-quick-nav-icon" />
+                  <span class="assignment-quick-nav-label">
+                    <span>View </span>
+                    <span>Tables</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="assignment-quick-nav-row"
+                  @click="goToAttendance"
+                  data-testid="assignment-results-view-attendance-button"
+                >
+                  <IconAttendance class="assignment-quick-nav-icon" />
+                  <span class="assignment-quick-nav-label">
+                    <span>View </span>
+                    <span>Attendance</span>
+                  </span>
+                </button>
+              </div>
+            </nav>
+          </div>
+
+          <div
+            class="statistics-body-grid"
+            :class="
+              showUnassignedColumn
+                ? 'statistics-body-grid--with-unassigned'
+                : 'statistics-body-grid--four-cards'
+            "
+          >
+            <div class="stat-card body-grid-date">
+              <h3>Per Date</h3>
+              <div class="stat-list">
+                <AssignmentStatListItem
+                  v-for="(count, date) in assignmentStatistics.assignmentsPerDate"
+                  :key="date"
+                  :label="formatDateLabel(String(date))"
+                  :value="count"
+                  :to="tablesLinkForFilter('date', String(date))"
+                />
+              </div>
+            </div>
+
+            <div class="stat-card body-grid-section">
+              <h3>Per Section</h3>
+              <div class="stat-list">
+                <AssignmentStatListItem
+                  v-for="(count, section) in assignmentStatistics.assignmentsPerSection"
+                  :key="section"
+                  :label="String(section)"
+                  :value="count"
+                  :to="tablesLinkForFilter('section', String(section))"
+                />
+              </div>
+            </div>
+
+            <div class="stat-card body-grid-tier">
+              <h3>Per Tier</h3>
+              <div class="stat-list">
+                <AssignmentStatListItem
+                  v-for="(count, tier) in assignmentStatistics.assignmentsPerTier"
+                  :key="tier"
+                  :label="String(tier)"
+                  :value="count"
+                  :to="tablesLinkForFilter('tier', String(tier))"
+                />
+              </div>
+            </div>
+
+            <div
+              v-if="assignmentStatistics.assignmentsPerTableChoice"
+              class="stat-card body-grid-table-choice"
+            >
+              <h3>Per Table Choice</h3>
+              <!-- The only list here that is not seeded from the plan: what vendors were
+                       given is not something the market declares in advance. With no placements
+                       it is empty, and an empty card with a heading and a rule says nothing. -->
+              <p v-if="!Object.keys(processedTableChoices).length" class="stat-empty">
+                Nothing was placed, so there is nothing to break down.
+              </p>
+              <div v-else class="stat-list">
+                <AssignmentStatListItem
+                  v-for="(count, choice) in processedTableChoices"
+                  :key="choice"
+                  :label="String(choice)"
+                  :value="count"
+                  :to="tablesLinkForFilter('choice', tableChoiceToFilterValue(String(choice)))"
+                />
+              </div>
+            </div>
+
+            <template v-if="showUnassignedColumn">
+              <div
+                v-if="hasUnassignedVendors"
+                class="stat-card unassigned-card body-grid-unassigned-vendors"
+                :class="{ 'body-grid-span-two-rows': !hasUnassignedTables }"
+              >
+                <h3>Unassigned Vendors ({{ unassignedVendorList.length }})</h3>
+                <div class="unassigned-list">
+                  <div
+                    v-for="(vendor, index) in unassignedVendorList"
+                    :key="index"
+                    class="unassigned-item"
+                  >
+                    <!-- The panel was a list of bare addresses; on a market of 232 vendors
+                             that is 232 gmail addresses and no way to recognise anyone. -->
+                    <VendorIdentity
+                      v-if="unassignedEntryEmail(vendor)"
+                      class="unassigned-text"
+                      :email="unassignedEntryEmail(vendor)"
+                      :names="vendorNames"
+                    />
+                    <span v-else class="unassigned-text">
+                      {{ displayUnassignedEntry(vendor) }}
+                    </span>
                   </div>
-                </nav>
+                </div>
               </div>
 
               <div
-                class="statistics-body-grid"
-                :class="
-                  showUnassignedColumn
-                    ? 'statistics-body-grid--with-unassigned'
-                    : 'statistics-body-grid--four-cards'
-                "
+                v-if="hasUnassignedTables"
+                class="stat-card unassigned-card body-grid-unassigned-tables"
+                :class="{ 'body-grid-span-two-rows': !hasUnassignedVendors }"
               >
-                <div class="stat-card body-grid-date">
-                  <h3>Per Date</h3>
-                  <div class="stat-list">
-                    <AssignmentStatListItem
-                      v-for="(count, date) in assignmentStatistics.assignmentsPerDate"
-                      :key="date"
-                      :label="formatDateLabel(String(date))"
-                      :value="count"
-                      :to="tablesLinkForFilter('date', String(date))"
-                    />
-                  </div>
-                </div>
-
-                <div class="stat-card body-grid-section">
-                  <h3>Per Section</h3>
-                  <div class="stat-list">
-                    <AssignmentStatListItem
-                      v-for="(count, section) in assignmentStatistics.assignmentsPerSection"
-                      :key="section"
-                      :label="String(section)"
-                      :value="count"
-                      :to="tablesLinkForFilter('section', String(section))"
-                    />
-                  </div>
-                </div>
-
-                <div class="stat-card body-grid-tier">
-                  <h3>Per Tier</h3>
-                  <div class="stat-list">
-                    <AssignmentStatListItem
-                      v-for="(count, tier) in assignmentStatistics.assignmentsPerTier"
-                      :key="tier"
-                      :label="String(tier)"
-                      :value="count"
-                      :to="tablesLinkForFilter('tier', String(tier))"
-                    />
-                  </div>
-                </div>
-
-                <div
-                  v-if="assignmentStatistics.assignmentsPerTableChoice"
-                  class="stat-card body-grid-table-choice"
-                >
-                  <h3>Per Table Choice</h3>
-                  <!-- The only list here that is not seeded from the plan: what vendors were
-                       given is not something the market declares in advance. With no placements
-                       it is empty, and an empty card with a heading and a rule says nothing. -->
-                  <p v-if="!Object.keys(processedTableChoices).length" class="stat-empty">
-                    Nothing was placed, so there is nothing to break down.
-                  </p>
-                  <div v-else class="stat-list">
-                    <AssignmentStatListItem
-                      v-for="(count, choice) in processedTableChoices"
-                      :key="choice"
-                      :label="String(choice)"
-                      :value="count"
-                      :to="tablesLinkForFilter('choice', tableChoiceToFilterValue(String(choice)))"
-                    />
-                  </div>
-                </div>
-
-                <template v-if="showUnassignedColumn">
+                <h3>Unassigned Tables</h3>
+                <div class="unassigned-list">
                   <div
-                    v-if="hasUnassignedVendors"
-                    class="stat-card unassigned-card body-grid-unassigned-vendors"
-                    :class="{ 'body-grid-span-two-rows': !hasUnassignedTables }"
+                    v-for="group in unassignedTableGroups"
+                    :key="group.dateRaw"
+                    class="unassigned-date-group"
                   >
-                    <h3>Unassigned Vendors ({{ unassignedVendorList.length }})</h3>
-                    <div class="unassigned-list">
+                    <div class="unassigned-date-header">{{ group.dateDisplay }}</div>
+                    <div class="unassigned-tables-list">
                       <div
-                        v-for="(vendor, index) in unassignedVendorList"
-                        :key="index"
-                        class="unassigned-item"
+                        v-for="(row, tableIndex) in group.rows"
+                        :key="`${group.dateRaw}-${row.tableCode}-${tableIndex}`"
+                        class="unassigned-item unassigned-item--table"
                       >
-                        <!-- The panel was a list of bare addresses; on a market of 232 vendors
-                             that is 232 gmail addresses and no way to recognise anyone. -->
-                        <VendorIdentity
-                          v-if="unassignedEntryEmail(vendor)"
-                          class="unassigned-text"
-                          :email="unassignedEntryEmail(vendor)"
-                          :names="vendorNames"
-                        />
-                        <span v-else class="unassigned-text">
-                          {{ displayUnassignedEntry(vendor) }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    v-if="hasUnassignedTables"
-                    class="stat-card unassigned-card body-grid-unassigned-tables"
-                    :class="{ 'body-grid-span-two-rows': !hasUnassignedVendors }"
-                  >
-                    <h3>Unassigned Tables</h3>
-                    <div class="unassigned-list">
-                      <div
-                        v-for="group in unassignedTableGroups"
-                        :key="group.dateRaw"
-                        class="unassigned-date-group"
-                      >
-                        <div class="unassigned-date-header">{{ group.dateDisplay }}</div>
-                        <div class="unassigned-tables-list">
-                          <div
-                            v-for="(row, tableIndex) in group.rows"
-                            :key="`${group.dateRaw}-${row.tableCode}-${tableIndex}`"
-                            class="unassigned-item unassigned-item--table"
-                          >
-                            <!-- The date is the group heading above; it used to be repeated on
+                        <!-- The date is the group heading above; it used to be repeated on
                                every row underneath it as well. -->
-                            <span class="unassigned-text unassigned-table-label"
-                              >{{ row.tableCode }} - {{ row.tableChoice }}</span
-                            >
-                          </div>
-                        </div>
+                        <span class="unassigned-text unassigned-table-label"
+                          >{{ row.tableCode }} - {{ row.tableChoice }}</span
+                        >
                       </div>
                     </div>
                   </div>
-                </template>
+                </div>
               </div>
-            </div>
-            <div v-else class="no-data-message">
-              <p>No assignment statistics available.</p>
-            </div>
+            </template>
           </div>
         </div>
-        <p v-if="doneError" class="done-error">{{ doneError }}</p>
-        <p v-if="downloadError" class="done-error">{{ downloadError }}</p>
-        <p v-if="discordError" class="done-error" data-testid="assignment-results-discord-error">
-          {{ discordError }}
-        </p>
-        <p v-if="discordToast" class="discord-toast" data-testid="assignment-results-discord-toast">
-          {{ discordToast }}
-        </p>
-        <div class="assignment-actions-row">
-          <div>
-            <button
-              class="done-button"
-              @click="handleBack"
-              data-testid="assignment-results-back-button"
-            >
-              Back
-            </button>
-          </div>
-          <div>
-            <button
-              class="done-button download-button"
-              :disabled="isDownloading || !assignmentStatistics"
-              @click="handleDownloadCsv"
-              data-testid="assignment-results-download-csv-button"
-            >
-              {{ isDownloading ? 'Downloading…' : 'Download CSV' }}
-            </button>
-          </div>
-          <div class="discord-action">
-            <!-- The reason used to live in a `title`, which is invisible on touch and slow
+        <div v-else class="no-data-message">
+          <p>No assignment statistics available.</p>
+        </div>
+      </div>
+      <p v-if="downloadError" class="done-error">{{ downloadError }}</p>
+      <p v-if="discordError" class="done-error" data-testid="assignment-results-discord-error">
+        {{ discordError }}
+      </p>
+      <p v-if="discordToast" class="discord-toast" data-testid="assignment-results-discord-toast">
+        {{ discordToast }}
+      </p>
+      <div class="assignment-actions-row">
+        <div>
+          <button
+            class="done-button download-button"
+            :disabled="isDownloading || !assignmentStatistics"
+            @click="handleDownloadCsv"
+            data-testid="assignment-results-download-csv-button"
+          >
+            {{ isDownloading ? 'Downloading…' : 'Download CSV' }}
+          </button>
+        </div>
+        <div class="discord-action">
+          <!-- The reason used to live in a `title`, which is invisible on touch and slow
                everywhere else, so the button just read as broken. -->
-            <p
-              v-if="!hasDiscordWebhook"
-              class="action-blocked-reason"
-              data-testid="assignment-results-discord-blocked-reason"
-            >
-              Add a Discord webhook URL in Market Setup to enable this.
-            </p>
-            <button
-              class="done-button discord-button"
-              :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
-              @click="handleSendToDiscord"
-              data-testid="assignment-results-send-discord-button"
-            >
-              {{ isPostingDiscord ? 'Sending…' : 'Send to Discord' }}
-            </button>
-          </div>
-          <div>
-            <button
-              class="done-button"
-              @click="handleDone"
-              data-testid="assignment-results-done-button"
-            >
-              Done
-            </button>
-          </div>
+          <p
+            v-if="!hasDiscordWebhook"
+            class="action-blocked-reason"
+            data-testid="assignment-results-discord-blocked-reason"
+          >
+            Add a Discord webhook URL in Market Setup to enable this.
+          </p>
+          <button
+            class="done-button discord-button"
+            :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
+            @click="handleSendToDiscord"
+            data-testid="assignment-results-send-discord-button"
+          >
+            {{ isPostingDiscord ? 'Sending…' : 'Send to Discord' }}
+          </button>
         </div>
       </div>
     </div>
@@ -712,60 +634,22 @@ const handleDone = async () => {
 </template>
 
 <style scoped>
-.generate-assignment-view {
+/* A flex item of the tab body, so it takes the height the card has rather than collapsing to
+   nothing and painting its content below the card. */
+.assignment-results {
   width: 100%;
-  min-width: 1000px;
   flex: 1;
   min-height: 0;
-
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
 }
 
 /* Match `.market-setup-body` on Market Setup (Assignment Priority / Assignment options): 80% × 80% centered card.
    Do not set overflow:hidden here - it clips the white card's box-shadow (same shadow as `.settings-container`). */
-/* Height follows the content, and the page scrolls when there is more of it than fits.
-   This used to be `height: 80%; max-height: 80%`, pinning the whole card to a fraction of the
-   viewport. Everything inside it is a flex/grid chain ending in `.stat-list { flex: 1 }`, so the
-   lists got whatever was left over - 16px of 266px at 1366x768, the most common laptop size, and
-   only usable above about 1400px tall. The statistics were correct and present in the DOM the
-   whole time; there was simply nowhere to draw them (E08/F01/S01). */
-.generate-assignment-window {
-  width: 80%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.generate-assignment-container {
+/* The one scroll container on this tab. Extra inset so centred box-shadows are not clipped. */
+.assignment-results-body {
   align-self: stretch;
-  flex: 1;
-  min-height: 0;
-  background-color: white;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.generate-assignment-header {
-  align-self: stretch;
-  height: 50px;
-  background-color: var(--mm-black);
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-}
-
-.generate-assignment-body {
-  align-self: stretch;
-  flex-grow: 1;
-  /* Extra top/side inset so centered box-shadows (e.g. quick-nav) are not clipped by overflow */
-  padding: 36px 36px 30px 36px;
+  padding: 24px 36px 30px 36px;
   min-height: 0;
   flex: 1;
   overflow-y: auto;
@@ -779,7 +663,7 @@ const handleDone = async () => {
   flex-direction: column;
   gap: 25px;
   width: 100%;
-  /* Never shrink below the content. `.generate-assignment-body` is the one scroll container, so
+  /* Never shrink below the content. `.assignment-results-body` is the one scroll container, so
      anything taller than the window scrolls there rather than being squeezed here. This used to be
      `flex: 1; min-height: 0; overflow: hidden`, which let every descendant be compressed and then
      clipped what did not fit. Padding gives the card box-shadows their clearance. */
@@ -860,7 +744,10 @@ const handleDone = async () => {
   color: var(--mm-black);
   margin: 0;
   min-width: 0;
-  overflow-wrap: break-word;
+  /* Wrap between the two words, never inside one: at the width a tab gives this, `break-word`
+     rendered "View Attendanc / e" (E09/F02/S03's rule, reached here by a narrower column). */
+  overflow-wrap: normal;
+  text-align: center;
 }
 
 .statistics-body-grid {

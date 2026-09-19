@@ -2,9 +2,9 @@
 id: E10/F03/S01
 title: Assignment Results is a tab, and Done is gone
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [71]
 ---
 
 ## What to build

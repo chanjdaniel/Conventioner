@@ -9,10 +9,8 @@ export class AssignmentResultsPage {
   readonly page: Page;
 
   // Action buttons
-  readonly backButton: Locator;
   readonly downloadCsvButton: Locator;
   readonly sendToDiscordButton: Locator;
-  readonly doneButton: Locator;
 
   // Quick nav buttons
   readonly viewVendorsButton: Locator;
@@ -32,10 +30,8 @@ export class AssignmentResultsPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.backButton = page.getByTestId('assignment-results-back-button');
     this.downloadCsvButton = page.getByTestId('assignment-results-download-csv-button');
     this.sendToDiscordButton = page.getByTestId('assignment-results-send-discord-button');
-    this.doneButton = page.getByTestId('assignment-results-done-button');
 
     this.viewVendorsButton = page.getByTestId('assignment-results-view-vendors-button');
     this.viewTablesButton = page.getByTestId('assignment-results-view-tables-button');
@@ -72,12 +68,9 @@ export class AssignmentResultsPage {
       .filter((cell) => cell.length > 0);
   }
 
+  /** The results are a tab on the market, not a route of their own (E10/F03/S01). */
   async goto(): Promise<void> {
-    await this.page.goto('/assignment-results');
-  }
-
-  async clickBack(): Promise<void> {
-    await this.backButton.click();
+    await this.page.goto('/market-setup?tab=assignment');
   }
 
   async clickDownloadCsv(): Promise<void> {
@@ -86,10 +79,6 @@ export class AssignmentResultsPage {
 
   async clickSendToDiscord(): Promise<void> {
     await this.sendToDiscordButton.click();
-  }
-
-  async clickDone(): Promise<void> {
-    await this.doneButton.click();
   }
 
   async clickViewVendors(): Promise<void> {

@@ -8,7 +8,9 @@ import type { ApplicationForm } from '@/assets/types/datatypes';
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  // The open tab lives in the URL now (E10/F03/S01).
+  useRoute: () => ({ query: {} }),
 }));
 
 vi.mock('@/utils/api', async (importOriginal) => {
