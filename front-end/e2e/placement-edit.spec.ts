@@ -1,6 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { TablesPage } from './pages/TablesPage';
 import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssignedMarket';
+import { loginViaApi } from './helpers/seeds';
 
 /**
  * Changing a placement from the Tables view (E11/F03/S01).
@@ -122,6 +123,90 @@ test.describe('Changing a placement on the Tables view', () => {
     await tables.clickBack();
     await page.waitForURL(/\/vendors\?vendor=/, { timeout: 10000 });
     await expect(page.getByTestId('vendors-detail-assignment-item').first()).toBeVisible();
+  });
+
+  test('a hand placement, a swap and a solver run each leave one entry', async ({
+    authenticatedPage: page,
+  }) => {
+    // A placement that differs from what the solver produced is a fact someone will later ask
+    // about, and a flag saying "hand-placed" cannot answer it (E11/F04/S01).
+    const tables = new TablesPage(page);
+    await tables.goto(seed.marketId);
+    await expect(tables.tableRows.first()).toBeVisible({ timeout: 15000 });
+
+    interface Entry {
+      kind: string;
+      actor: string;
+      at: string;
+      vendors: string[];
+    }
+    const trail = async (vendor?: string): Promise<Entry[]> => {
+      const query = vendor ? `?vendor=${encodeURIComponent(vendor)}` : '';
+      const res = await page.request.get(
+        `${BACKEND_URL}/markets/${seed.marketId}/placement-history${query}`,
+        { headers: { 'X-Owner-Email': TEST_USER.email } },
+      );
+      return ((await res.json()) as { entries: Entry[] }).entries;
+    };
+
+    // A delta, because the specs above share this market and have already changed placements on
+    // it. What is being pinned is that ONE action leaves ONE entry.
+    const before = await trail();
+
+    const seats = page.getByTestId('tables-seat-occupied');
+    const first = await tables.occupantOf(seats.nth(0));
+    const second = await tables.occupantOf(seats.nth(1));
+
+    await seats.nth(0).click();
+    await tables.swapWith(second);
+    await expect(tables.dialog).toBeHidden();
+
+    const entries = await trail();
+    expect(entries).toHaveLength(before.length + 1);
+    expect(entries[0].kind).toBe('swapped');
+    // The run that seeded this market is one entry too, not one per placement written.
+    expect(entries.filter((entry) => entry.kind === 'assigned')).toHaveLength(1);
+
+    // Each entry names the organizer, the change and the time.
+    for (const entry of entries) {
+      expect(entry.actor).toBe(TEST_USER.email);
+      expect(entry.at).toBeTruthy();
+    }
+
+    // The vendor panel shows that vendor's entries; the market shows all of them.
+    const theirs = await trail(first);
+    expect(theirs.length).toBeGreaterThan(0);
+    expect(theirs.length).toBeLessThan(entries.length);
+    for (const entry of theirs) {
+      expect(entry.vendors).toContain(first);
+    }
+  });
+
+  test('deleting a market takes its placement history with it', async ({ request }) => {
+    // The trail names the organizers who made each change, so it must not outlive the market.
+    await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const doomed = await seedAssignedMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    const before = await request.get(
+      `${BACKEND_URL}/markets/${doomed.marketId}/placement-history`,
+      { headers: { 'X-Owner-Email': TEST_USER.email } },
+    );
+    expect(((await before.json()) as { entries: unknown[] }).entries.length).toBeGreaterThan(0);
+
+    const deleted = await request.delete(`${BACKEND_URL}/markets/${doomed.marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    expect(deleted.ok(), await deleted.text()).toBeTruthy();
+
+    const after = await request.get(`${BACKEND_URL}/markets/${doomed.marketId}/placement-history`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    expect(after.status()).toBe(404);
   });
 
   test('the filters can be set from the page, not only cleared', async ({
