@@ -3,10 +3,9 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes.ts';
 import { api } from '@/utils/api';
-import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market';
-import { getRoleDisplayName } from '@/utils/permissions';
+import { openMarket, parseMarketFromApi } from '@/utils/market';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { getTimestampDate } from '@/utils/utils';
+import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 
 const props = defineProps<{
   loadOpen: boolean;
@@ -32,13 +31,7 @@ onMounted(async () => {
   }
 });
 
-const handleLoadMarket = async (market: Market) => {
-  localStorage.removeItem('market');
-  localStorage.setItem('market', JSON.stringify(market));
-  router.push(pathAfterLoadingMarket(market));
-};
-
-const formatDate = (dateString: string) => getTimestampDate(dateString);
+const handleLoadMarket = (market: Market) => openMarket(router, market);
 </script>
 
 <template>
@@ -55,41 +48,13 @@ const formatDate = (dateString: string) => getTimestampDate(dateString);
         <p v-if="markets.length === 0" class="empty-state">No markets found</p>
       </div>
       <div class="markets-container">
-        <div v-for="market in markets" :key="market.id" class="market-card">
-          <div class="card-header">
-            <h3>{{ market.name }}</h3>
-          </div>
-          <div class="card-content">
-            <div class="info-group">
-              <div class="info-row">
-                <span class="info-label">Created:</span>
-                <span class="info-value">{{ formatDate(market.creationDate) }}</span>
-              </div>
-              <div v-if="market.organizationName" class="info-row">
-                <span class="info-label">Organization:</span>
-                <span class="info-value">{{ market.organizationName }}</span>
-              </div>
-              <div v-if="market.userRole" class="info-row">
-                <span class="info-label">Your role:</span>
-                <span
-                  class="info-value role-badge"
-                  :class="`role-${market.userRole.toLowerCase()}`"
-                >
-                  {{ getRoleDisplayName(market.userRole) }}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div class="card-footer">
-            <button
-              @click="handleLoadMarket(market)"
-              class="load-button"
-              data-testid="load-market-card-button"
-            >
-              Load Market
-            </button>
-          </div>
-        </div>
+        <MarketSummaryCard
+          v-for="market in markets"
+          :key="market.id"
+          :market="market"
+          data-testid="load-market-card-button"
+          @open="handleLoadMarket(market)"
+        />
       </div>
     </div>
   </div>
@@ -163,128 +128,6 @@ const formatDate = (dateString: string) => getTimestampDate(dateString);
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-.market-card {
-  width: 100%;
-  padding: 16px 24px;
-  border: 1.5px solid var(--mm-border);
-  border-radius: 10px;
-  background: white;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.market-card:hover {
-  border-color: var(--mm-green);
-  box-shadow: 0 4px 12px rgba(73, 176, 150, 0.15);
-  transform: translateY(-2px);
-}
-
-.card-header {
-  flex-shrink: 0;
-  min-width: 200px;
-}
-
-.card-header h3 {
-  margin: 0;
-  color: var(--mm-black);
-  font-size: 18px;
-  font-weight: 600;
-  font-family: 'Outfit Regular', sans-serif;
-}
-
-.card-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-
-.info-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.info-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-.info-label {
-  font-weight: 500;
-  color: #666;
-  font-size: 13px;
-  min-width: 70px;
-}
-
-.info-value {
-  color: var(--mm-black);
-  font-size: 14px;
-}
-
-.role-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-  font-size: 12px;
-}
-
-.role-owner {
-  background: #e3f2fd;
-  color: var(--mm-text-link);
-}
-
-.role-admin {
-  background: #f3e5f5;
-  color: #7b1fa2;
-}
-
-.role-editor {
-  background: #e8f5e9;
-  color: #388e3c;
-}
-
-.role-viewer {
-  background: #fff3e0;
-  color: #f57c00;
-}
-
-.card-footer {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.load-button {
-  padding: 8px 20px;
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: 'Outfit Regular', sans-serif;
-  box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
-  white-space: nowrap;
-}
-
-.load-button:hover {
-  background: #3a9a82;
-  box-shadow: 0 4px 8px rgba(73, 176, 150, 0.3);
-  transform: translateY(-1px);
-}
-
-.load-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
 }
 
 /* Scrollbar styling */

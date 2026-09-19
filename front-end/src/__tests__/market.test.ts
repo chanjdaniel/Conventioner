@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import type { Router } from 'vue-router';
+import { MARKET_HOME_PATH, openMarket, parseMarketFromApi } from '@/utils/market';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 
 const apiMarket = {
@@ -53,51 +54,50 @@ describe('parseMarketFromApi', () => {
   });
 });
 
-describe('pathAfterLoadingMarket', () => {
+describe('openMarket', () => {
   const market = (fields: Partial<Market>): Market =>
     ({ id: 'market-123', name: 'Test Market', ...fields }) as Market;
 
-  it('sends a draft to the setup wizard', () => {
-    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Draft, isDraft: true }))).toBe(
-      '/market-setup',
-    );
+  function opened(m: Market) {
+    const push = vi.fn();
+    openMarket({ push } as unknown as Router, m);
+    return { push, stored: JSON.parse(localStorage.getItem('market') ?? 'null') };
+  }
+
+  beforeEach(() => localStorage.clear());
+
+  /**
+   * Every phase lands on the market's own screens. This used to branch: `market_days` and
+   * `archived` were sent to `/<slug>`, the market's public page - which the intake-mode gate
+   * serves only to form-intake markets, and every MVP market is CSV. So Open on a published
+   * market landed on "Page not found".
+   */
+  it.each([
+    MarketPhase.Draft,
+    MarketPhase.ApplicationsOpen,
+    MarketPhase.ApplicationsClosed,
+    MarketPhase.Review,
+    MarketPhase.Assignment,
+    MarketPhase.Offers,
+    MarketPhase.MarketDays,
+    MarketPhase.Archived,
+  ])('opens a market in %s on its own screens', (phase) => {
+    expect(opened(market({ phase })).push).toHaveBeenCalledWith(MARKET_HOME_PATH);
   });
 
-  it('routes archived markets to their public slug', () => {
-    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Archived, isDraft: false }))).toBe(
+  it('opens a stored market that predates the phase field the same way', () => {
+    expect(opened(market({ isDraft: false })).push).toHaveBeenCalledWith(MARKET_HOME_PATH);
+    expect(opened(market({ isDraft: true })).push).toHaveBeenCalledWith(MARKET_HOME_PATH);
+  });
+
+  it('never sends anyone to a public slug, which a CSV market does not serve', () => {
+    expect(MARKET_HOME_PATH).toBe('/market-setup');
+    expect(opened(market({ phase: MarketPhase.MarketDays })).push).not.toHaveBeenCalledWith(
       '/test-market',
     );
   });
 
-  it('routes pre-archive phases to /market-setup so phase controls are reachable', () => {
-    expect(
-      pathAfterLoadingMarket(market({ phase: MarketPhase.ApplicationsOpen, isDraft: false })),
-    ).toBe('/market-setup');
-    expect(
-      pathAfterLoadingMarket(market({ phase: MarketPhase.ApplicationsClosed, isDraft: false })),
-    ).toBe('/market-setup');
-    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Review, isDraft: false }))).toBe(
-      '/market-setup',
-    );
-    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Assignment, isDraft: false }))).toBe(
-      '/market-setup',
-    );
-    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Offers, isDraft: false }))).toBe(
-      '/market-setup',
-    );
-  });
-
-  it('routes a published market to the public page it serves', () => {
-    // market_days means the market is RUNNING (E03/F03), so there is nothing left to set up and
-    // the organizer wants the page their vendors use. This used to land in the wizard, because
-    // only `archived` counted as published.
-    expect(pathAfterLoadingMarket(market({ phase: MarketPhase.MarketDays, isDraft: false }))).toBe(
-      '/test-market',
-    );
-  });
-
-  it('falls back to isDraft for a stored market that predates the phase field', () => {
-    expect(pathAfterLoadingMarket(market({ isDraft: false }))).toBe('/test-market');
-    expect(pathAfterLoadingMarket(market({ isDraft: true }))).toBe('/market-setup');
+  it('makes the chosen market the open one', () => {
+    expect(opened(market({ phase: MarketPhase.Draft })).stored.id).toBe('market-123');
   });
 });
