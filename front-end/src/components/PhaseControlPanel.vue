@@ -6,7 +6,7 @@ import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import PhaseBadge from '@/components/PhaseBadge.vue';
-import { phaseLabel } from '@/utils/phase';
+import { VALID_TRANSITIONS, phaseLabel, transitionNeedsConfirmation } from '@/utils/phase';
 
 const props = defineProps<{
   market: Market | null;
@@ -27,10 +27,8 @@ const emit = defineEmits<{
 
 const showingArchiveConfirm = ref(false);
 const archiveTargetPhase = ref('');
-const showingSweepConfirm = ref(false);
-const sweepPendingCount = ref(0);
-const sweepCountUnknown = ref(false);
-const sweepConfirmLoading = ref(false);
+const showingPublishConfirm = ref(false);
+const publishTargetPhase = ref('');
 const transitionError = ref('');
 const transitionBlockers = ref<PreconditionResult[]>([]);
 const transitioning = ref(false);
@@ -45,30 +43,6 @@ const TRANSITION_LABELS: Record<string, string> = {
   [MarketPhase.MarketDays]: 'Publish Market',
   [MarketPhase.Archived]: 'Archive Market',
 };
-
-/** Frontend mirror of guards.py VALID_TRANSITIONS -- single source of truth for UI routing. */
-const VALID_TRANSITIONS: Array<[string, string]> = [
-  ['draft', 'applications_open'],
-  ['draft', 'archived'],
-  // The way back, so a form can be corrected before anyone has answered it (E03/F04). Guarded
-  // server-side on no application existing; the button is offered and the guard decides.
-  ['applications_open', 'draft'],
-  ['applications_open', 'applications_closed'],
-  ['applications_open', 'archived'],
-  ['applications_closed', 'applications_open'],
-  ['applications_closed', 'review'],
-  ['applications_closed', 'archived'],
-  ['review', 'applications_closed'],
-  ['review', 'assignment'],
-  // Publishing (E03/F03): market_days means the market is running.
-  ['assignment', 'market_days'],
-  ['review', 'archived'],
-  ['assignment', 'offers'],
-  ['assignment', 'archived'],
-  ['offers', 'market_days'],
-  ['offers', 'archived'],
-  ['market_days', 'archived'],
-];
 
 const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
 
@@ -160,43 +134,27 @@ async function doTransition(toPhase: string) {
 }
 
 function handleTransitionClick(toPhase: string) {
+  if (!transitionNeedsConfirmation(toPhase)) {
+    doTransition(toPhase);
+    return;
+  }
   if (toPhase === MarketPhase.Archived) {
     archiveTargetPhase.value = toPhase;
     showingArchiveConfirm.value = true;
-  } else if (toPhase === MarketPhase.MarketDays) {
-    openSweepConfirm();
-  } else {
-    doTransition(toPhase);
+    return;
   }
+  publishTargetPhase.value = toPhase;
+  showingPublishConfirm.value = true;
 }
 
-async function openSweepConfirm() {
-  if (!props.market) return;
-  sweepConfirmLoading.value = true;
-  sweepCountUnknown.value = false;
-  showingSweepConfirm.value = true;
-  try {
-    const res = await api.get(
-      `/markets/${encodeURIComponent(props.market.id)}/pending-offers-count`,
-    );
-    sweepPendingCount.value = res.data.count ?? 0;
-  } catch {
-    sweepPendingCount.value = 0;
-    sweepCountUnknown.value = true;
-  } finally {
-    sweepConfirmLoading.value = false;
-  }
+function confirmPublish() {
+  showingPublishConfirm.value = false;
+  doTransition(publishTargetPhase.value);
 }
 
-function confirmSweep() {
-  showingSweepConfirm.value = false;
-  doTransition(MarketPhase.MarketDays);
-}
-
-function cancelSweep() {
-  showingSweepConfirm.value = false;
-  sweepPendingCount.value = 0;
-  sweepCountUnknown.value = false;
+function cancelPublish() {
+  showingPublishConfirm.value = false;
+  publishTargetPhase.value = '';
 }
 
 function confirmArchive() {
@@ -250,43 +208,39 @@ function cancelArchive() {
     />
   </div>
 
-  <!-- Sweep confirmation dialog -->
+  <!-- Publishing. It asked "Begin Market Days? No offers are pending - no vendors will be marked
+       refused", counted from an endpoint whose answer is always 0 because offers are out of MVP
+       scope: a dialog answering a question the organizer has never asked, about a feature the
+       product does not have. It says what publishing actually does, and what cannot be taken
+       back. One verb across the button that opens it, the title, and the button that confirms it;
+       and the confirm is not styled as destructive, because publishing is a forward step. -->
   <Teleport to="body">
     <div
-      v-if="showingSweepConfirm"
+      v-if="showingPublishConfirm"
       class="archive-confirm-overlay"
       data-testid="sweep-confirm-overlay"
     >
       <div class="archive-confirm-dialog" data-testid="sweep-confirm-dialog">
-        <h3>Begin Market Days?</h3>
-        <p v-if="sweepConfirmLoading">Checking pending offers...</p>
-        <p v-else>
-          <template v-if="sweepCountUnknown">
-            Could not determine how many offers are still pending. Any pending offers will be marked
-            as refused. This cannot be undone.
-          </template>
-          <template v-else-if="sweepPendingCount === 0">
-            No offers are pending, so no vendors will be marked refused.
-          </template>
-          <template v-else>
-            {{ sweepPendingCount }} offer{{ sweepPendingCount === 1 ? '' : 's' }}
-            will be marked as refused. This cannot be undone.
-          </template>
+        <h3>Publish Market?</h3>
+        <p>
+          Publishing puts this market's check-in page on the air: every vendor you placed can look
+          themselves up and check in on the day. The assignment they see is the one you have now.
         </p>
+        <p>A published market cannot be returned to an earlier phase.</p>
         <div class="archive-confirm-buttons">
           <button
-            class="confirm-archive-button"
-            :disabled="transitioning || sweepConfirmLoading"
+            class="confirm-publish-button"
+            :disabled="transitioning"
             data-testid="sweep-confirm-confirm"
-            @click="confirmSweep"
+            @click="confirmPublish"
           >
-            Begin Market Days
+            Publish Market
           </button>
           <button
             class="cancel-archive-button"
             :disabled="transitioning"
             data-testid="sweep-confirm-cancel"
-            @click="cancelSweep"
+            @click="cancelPublish"
           >
             Cancel
           </button>
@@ -491,6 +445,29 @@ function cancelArchive() {
 
 .confirm-archive-button:hover:not(:disabled) {
   background: #b91c1c;
+}
+
+/* Green, not the archive dialog's red: publishing cannot be undone, but it is the step the
+   organizer has been working towards, not a destruction. */
+.confirm-publish-button {
+  padding: 8px 20px;
+  font-size: 14px;
+  background: var(--mm-green);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Outfit Regular', sans-serif;
+  font-weight: 500;
+}
+
+.confirm-publish-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.confirm-publish-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .confirm-archive-button:disabled {
