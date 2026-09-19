@@ -11,6 +11,7 @@ import {
 import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
 import IconAttendance from '@/components/icons/IconAttendance.vue';
+import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import IconTables from '@/components/icons/IconTables.vue';
 import IconVendors from '@/components/icons/IconVendors.vue';
 import { api } from '@/utils/api';
@@ -21,7 +22,21 @@ import { getFormattedDate, getShortDate } from '@/utils/utils';
 const router = useRouter();
 
 const assignmentStatistics = ref<AssignmentStatistics | null>(null);
-const market = ref<Market | null>(null);
+/**
+ * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
+ * value that only arrives a tick later would flash that message on every page that does have one.
+ */
+function marketFromStorage(): Market | null {
+  const raw = localStorage.getItem('market');
+  if (!raw) return null;
+  try {
+    return parseMarketFromApi(JSON.parse(raw) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+const market = ref<Market | null>(marketFromStorage());
 const showVendorsModal = ref(false);
 
 /** API / localStorage may use camelCase or snake_case; statistics lists must match backend field names. */
@@ -168,26 +183,18 @@ const processedTableChoices = computed(() => {
 });
 
 onMounted(() => {
-  const raw = localStorage.getItem('market');
-  if (!raw) return;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    market.value = parseMarketFromApi(parsed);
-    assignmentStatistics.value = null;
-    const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
-    if (!market.value?.id || !userEmail) return;
+  assignmentStatistics.value = null;
+  const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
+  if (!market.value?.id || !userEmail) return;
 
-    api
-      .get(`/markets/${encodeURIComponent(market.value.id)}/assignment-statistics`)
-      .then((response) => {
-        assignmentStatistics.value = response.data as AssignmentStatistics;
-      })
-      .catch(() => {
-        assignmentStatistics.value = null;
-      });
-  } catch {
-    market.value = null;
-  }
+  api
+    .get(`/markets/${encodeURIComponent(market.value.id)}/assignment-statistics`)
+    .then((response) => {
+      assignmentStatistics.value = response.data as AssignmentStatistics;
+    })
+    .catch(() => {
+      assignmentStatistics.value = null;
+    });
 });
 
 const openVendorsModal = () => {
@@ -399,264 +406,267 @@ const handleDone = async () => {
 </script>
 
 <template>
-  <VendorsModal :open="showVendorsModal" :market="market" @close="closeVendorsModal" />
-  <div class="generate-assignment-view">
-    <div class="generate-assignment-window">
-      <div class="generate-assignment-container">
-        <div class="generate-assignment-header">
-          <h1>Assignment Results</h1>
-        </div>
-        <div class="generate-assignment-body">
-          <div v-if="assignmentStatistics" class="statistics-layout">
-            <div class="statistics-header-row">
-              <div class="stat-card summary-card">
-                <h3>Summary</h3>
-                <div class="stat-grid">
-                  <div class="stat-item">
-                    <span class="stat-label">Assignments</span>
-                    <span class="stat-value">{{ assignmentStatistics.totalAssignments }}</span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-label">Assigned Tables</span>
-                    <span class="stat-value"
-                      >{{ assignmentStatistics.totalAssignedTables }} /
-                      {{ assignmentStatistics.totalTables }}</span
-                    >
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-label">Assigned Vendors</span>
-                    <span class="stat-value"
-                      >{{ assignmentStatistics.totalAssignedVendors }} /
-                      {{ assignmentStatistics.totalVendors }}</span
-                    >
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-label">Satisfaction Score</span>
-                    <span class="stat-value"
-                      >{{ (assignmentStatistics.satisfactionScore * 100).toFixed(1) }}%</span
-                    >
-                  </div>
-                </div>
-              </div>
-              <nav class="stat-card assignment-quick-nav" aria-label="Assignment shortcuts">
-                <div class="assignment-quick-nav-list">
-                  <button
-                    type="button"
-                    class="assignment-quick-nav-row"
-                    @click="openVendorsModal"
-                    data-testid="assignment-results-view-vendors-button"
-                  >
-                    <IconVendors class="assignment-quick-nav-icon" />
-                    <span class="assignment-quick-nav-label">
-                      <span>View </span>
-                      <span>Vendors</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    class="assignment-quick-nav-row"
-                    @click="goToTables"
-                    data-testid="assignment-results-view-tables-button"
-                  >
-                    <IconTables class="assignment-quick-nav-icon" />
-                    <span class="assignment-quick-nav-label">
-                      <span>View </span>
-                      <span>Tables</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    class="assignment-quick-nav-row"
-                    @click="goToAttendance"
-                    data-testid="assignment-results-view-attendance-button"
-                  >
-                    <IconAttendance class="assignment-quick-nav-icon" />
-                    <span class="assignment-quick-nav-label">
-                      <span>View </span>
-                      <span>Attendance</span>
-                    </span>
-                  </button>
-                </div>
-              </nav>
-            </div>
-
-            <div
-              class="statistics-body-grid"
-              :class="
-                showUnassignedColumn
-                  ? 'statistics-body-grid--with-unassigned'
-                  : 'statistics-body-grid--four-cards'
-              "
-            >
-              <div class="stat-card body-grid-date">
-                <h3>Per Date</h3>
-                <div class="stat-list">
-                  <AssignmentStatListItem
-                    v-for="(count, date) in assignmentStatistics.assignmentsPerDate"
-                    :key="date"
-                    :label="formatDateLabel(String(date))"
-                    :value="count"
-                    :to="tablesLinkForFilter('date', String(date))"
-                  />
-                </div>
-              </div>
-
-              <div class="stat-card body-grid-section">
-                <h3>Per Section</h3>
-                <div class="stat-list">
-                  <AssignmentStatListItem
-                    v-for="(count, section) in assignmentStatistics.assignmentsPerSection"
-                    :key="section"
-                    :label="String(section)"
-                    :value="count"
-                    :to="tablesLinkForFilter('section', String(section))"
-                  />
-                </div>
-              </div>
-
-              <div class="stat-card body-grid-tier">
-                <h3>Per Tier</h3>
-                <div class="stat-list">
-                  <AssignmentStatListItem
-                    v-for="(count, tier) in assignmentStatistics.assignmentsPerTier"
-                    :key="tier"
-                    :label="String(tier)"
-                    :value="count"
-                    :to="tablesLinkForFilter('tier', String(tier))"
-                  />
-                </div>
-              </div>
-
-              <div
-                v-if="assignmentStatistics.assignmentsPerTableChoice"
-                class="stat-card body-grid-table-choice"
-              >
-                <h3>Per Table Choice</h3>
-                <div class="stat-list">
-                  <AssignmentStatListItem
-                    v-for="(count, choice) in processedTableChoices"
-                    :key="choice"
-                    :label="String(choice)"
-                    :value="count"
-                    :to="tablesLinkForFilter('choice', tableChoiceToFilterValue(String(choice)))"
-                  />
-                </div>
-              </div>
-
-              <template v-if="showUnassignedColumn">
-                <div
-                  v-if="hasUnassignedVendors"
-                  class="stat-card unassigned-card body-grid-unassigned-vendors"
-                  :class="{ 'body-grid-span-two-rows': !hasUnassignedTables }"
-                >
-                  <h3>Unassigned Vendors ({{ unassignedVendorList.length }})</h3>
-                  <div class="unassigned-list">
-                    <div
-                      v-for="(vendor, index) in unassignedVendorList"
-                      :key="index"
-                      class="unassigned-item"
-                    >
-                      <span class="unassigned-text">{{ displayUnassignedEntry(vendor) }}</span>
+  <NoMarketLoaded v-if="!market" shows="the assignment" />
+  <template v-else>
+    <VendorsModal :open="showVendorsModal" :market="market" @close="closeVendorsModal" />
+    <div class="generate-assignment-view">
+      <div class="generate-assignment-window">
+        <div class="generate-assignment-container">
+          <div class="generate-assignment-header">
+            <h1>Assignment Results</h1>
+          </div>
+          <div class="generate-assignment-body">
+            <div v-if="assignmentStatistics" class="statistics-layout">
+              <div class="statistics-header-row">
+                <div class="stat-card summary-card">
+                  <h3>Summary</h3>
+                  <div class="stat-grid">
+                    <div class="stat-item">
+                      <span class="stat-label">Assignments</span>
+                      <span class="stat-value">{{ assignmentStatistics.totalAssignments }}</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">Assigned Tables</span>
+                      <span class="stat-value"
+                        >{{ assignmentStatistics.totalAssignedTables }} /
+                        {{ assignmentStatistics.totalTables }}</span
+                      >
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">Assigned Vendors</span>
+                      <span class="stat-value"
+                        >{{ assignmentStatistics.totalAssignedVendors }} /
+                        {{ assignmentStatistics.totalVendors }}</span
+                      >
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">Satisfaction Score</span>
+                      <span class="stat-value"
+                        >{{ (assignmentStatistics.satisfactionScore * 100).toFixed(1) }}%</span
+                      >
                     </div>
                   </div>
                 </div>
+                <nav class="stat-card assignment-quick-nav" aria-label="Assignment shortcuts">
+                  <div class="assignment-quick-nav-list">
+                    <button
+                      type="button"
+                      class="assignment-quick-nav-row"
+                      @click="openVendorsModal"
+                      data-testid="assignment-results-view-vendors-button"
+                    >
+                      <IconVendors class="assignment-quick-nav-icon" />
+                      <span class="assignment-quick-nav-label">
+                        <span>View </span>
+                        <span>Vendors</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      class="assignment-quick-nav-row"
+                      @click="goToTables"
+                      data-testid="assignment-results-view-tables-button"
+                    >
+                      <IconTables class="assignment-quick-nav-icon" />
+                      <span class="assignment-quick-nav-label">
+                        <span>View </span>
+                        <span>Tables</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      class="assignment-quick-nav-row"
+                      @click="goToAttendance"
+                      data-testid="assignment-results-view-attendance-button"
+                    >
+                      <IconAttendance class="assignment-quick-nav-icon" />
+                      <span class="assignment-quick-nav-label">
+                        <span>View </span>
+                        <span>Attendance</span>
+                      </span>
+                    </button>
+                  </div>
+                </nav>
+              </div>
+
+              <div
+                class="statistics-body-grid"
+                :class="
+                  showUnassignedColumn
+                    ? 'statistics-body-grid--with-unassigned'
+                    : 'statistics-body-grid--four-cards'
+                "
+              >
+                <div class="stat-card body-grid-date">
+                  <h3>Per Date</h3>
+                  <div class="stat-list">
+                    <AssignmentStatListItem
+                      v-for="(count, date) in assignmentStatistics.assignmentsPerDate"
+                      :key="date"
+                      :label="formatDateLabel(String(date))"
+                      :value="count"
+                      :to="tablesLinkForFilter('date', String(date))"
+                    />
+                  </div>
+                </div>
+
+                <div class="stat-card body-grid-section">
+                  <h3>Per Section</h3>
+                  <div class="stat-list">
+                    <AssignmentStatListItem
+                      v-for="(count, section) in assignmentStatistics.assignmentsPerSection"
+                      :key="section"
+                      :label="String(section)"
+                      :value="count"
+                      :to="tablesLinkForFilter('section', String(section))"
+                    />
+                  </div>
+                </div>
+
+                <div class="stat-card body-grid-tier">
+                  <h3>Per Tier</h3>
+                  <div class="stat-list">
+                    <AssignmentStatListItem
+                      v-for="(count, tier) in assignmentStatistics.assignmentsPerTier"
+                      :key="tier"
+                      :label="String(tier)"
+                      :value="count"
+                      :to="tablesLinkForFilter('tier', String(tier))"
+                    />
+                  </div>
+                </div>
 
                 <div
-                  v-if="hasUnassignedTables"
-                  class="stat-card unassigned-card body-grid-unassigned-tables"
-                  :class="{ 'body-grid-span-two-rows': !hasUnassignedVendors }"
+                  v-if="assignmentStatistics.assignmentsPerTableChoice"
+                  class="stat-card body-grid-table-choice"
                 >
-                  <h3>Unassigned Tables</h3>
-                  <div class="unassigned-list">
-                    <div
-                      v-for="group in unassignedTableGroups"
-                      :key="group.dateRaw"
-                      class="unassigned-date-group"
-                    >
-                      <div class="unassigned-date-header">{{ group.dateDisplay }}</div>
-                      <div class="unassigned-tables-list">
-                        <div
-                          v-for="(row, tableIndex) in group.rows"
-                          :key="`${group.dateRaw}-${row.tableCode}-${tableIndex}`"
-                          class="unassigned-item unassigned-item--table"
-                        >
-                          <!-- The date is the group heading above; it used to be repeated on
-                               every row underneath it as well. -->
-                          <span class="unassigned-text unassigned-table-label"
-                            >{{ row.tableCode }} - {{ row.tableChoice }}</span
+                  <h3>Per Table Choice</h3>
+                  <div class="stat-list">
+                    <AssignmentStatListItem
+                      v-for="(count, choice) in processedTableChoices"
+                      :key="choice"
+                      :label="String(choice)"
+                      :value="count"
+                      :to="tablesLinkForFilter('choice', tableChoiceToFilterValue(String(choice)))"
+                    />
+                  </div>
+                </div>
+
+                <template v-if="showUnassignedColumn">
+                  <div
+                    v-if="hasUnassignedVendors"
+                    class="stat-card unassigned-card body-grid-unassigned-vendors"
+                    :class="{ 'body-grid-span-two-rows': !hasUnassignedTables }"
+                  >
+                    <h3>Unassigned Vendors ({{ unassignedVendorList.length }})</h3>
+                    <div class="unassigned-list">
+                      <div
+                        v-for="(vendor, index) in unassignedVendorList"
+                        :key="index"
+                        class="unassigned-item"
+                      >
+                        <span class="unassigned-text">{{ displayUnassignedEntry(vendor) }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="hasUnassignedTables"
+                    class="stat-card unassigned-card body-grid-unassigned-tables"
+                    :class="{ 'body-grid-span-two-rows': !hasUnassignedVendors }"
+                  >
+                    <h3>Unassigned Tables</h3>
+                    <div class="unassigned-list">
+                      <div
+                        v-for="group in unassignedTableGroups"
+                        :key="group.dateRaw"
+                        class="unassigned-date-group"
+                      >
+                        <div class="unassigned-date-header">{{ group.dateDisplay }}</div>
+                        <div class="unassigned-tables-list">
+                          <div
+                            v-for="(row, tableIndex) in group.rows"
+                            :key="`${group.dateRaw}-${row.tableCode}-${tableIndex}`"
+                            class="unassigned-item unassigned-item--table"
                           >
+                            <!-- The date is the group heading above; it used to be repeated on
+                               every row underneath it as well. -->
+                            <span class="unassigned-text unassigned-table-label"
+                              >{{ row.tableCode }} - {{ row.tableChoice }}</span
+                            >
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </template>
+                </template>
+              </div>
+            </div>
+            <div v-else class="no-data-message">
+              <p>No assignment statistics available.</p>
             </div>
           </div>
-          <div v-else class="no-data-message">
-            <p>No assignment statistics available.</p>
+        </div>
+        <p v-if="doneError" class="done-error">{{ doneError }}</p>
+        <p v-if="downloadError" class="done-error">{{ downloadError }}</p>
+        <p v-if="discordError" class="done-error" data-testid="assignment-results-discord-error">
+          {{ discordError }}
+        </p>
+        <p v-if="discordToast" class="discord-toast" data-testid="assignment-results-discord-toast">
+          {{ discordToast }}
+        </p>
+        <div class="assignment-actions-row">
+          <div>
+            <button
+              class="done-button"
+              @click="handleBack"
+              data-testid="assignment-results-back-button"
+            >
+              Back
+            </button>
           </div>
-        </div>
-      </div>
-      <p v-if="doneError" class="done-error">{{ doneError }}</p>
-      <p v-if="downloadError" class="done-error">{{ downloadError }}</p>
-      <p v-if="discordError" class="done-error" data-testid="assignment-results-discord-error">
-        {{ discordError }}
-      </p>
-      <p v-if="discordToast" class="discord-toast" data-testid="assignment-results-discord-toast">
-        {{ discordToast }}
-      </p>
-      <div class="assignment-actions-row">
-        <div>
-          <button
-            class="done-button"
-            @click="handleBack"
-            data-testid="assignment-results-back-button"
-          >
-            Back
-          </button>
-        </div>
-        <div>
-          <button
-            class="done-button download-button"
-            :disabled="isDownloading || !assignmentStatistics"
-            @click="handleDownloadCsv"
-            data-testid="assignment-results-download-csv-button"
-          >
-            {{ isDownloading ? 'Downloading…' : 'Download CSV' }}
-          </button>
-        </div>
-        <div class="discord-action">
-          <!-- The reason used to live in a `title`, which is invisible on touch and slow
+          <div>
+            <button
+              class="done-button download-button"
+              :disabled="isDownloading || !assignmentStatistics"
+              @click="handleDownloadCsv"
+              data-testid="assignment-results-download-csv-button"
+            >
+              {{ isDownloading ? 'Downloading…' : 'Download CSV' }}
+            </button>
+          </div>
+          <div class="discord-action">
+            <!-- The reason used to live in a `title`, which is invisible on touch and slow
                everywhere else, so the button just read as broken. -->
-          <p
-            v-if="!hasDiscordWebhook"
-            class="action-blocked-reason"
-            data-testid="assignment-results-discord-blocked-reason"
-          >
-            Add a Discord webhook URL in Market Setup to enable this.
-          </p>
-          <button
-            class="done-button discord-button"
-            :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
-            @click="handleSendToDiscord"
-            data-testid="assignment-results-send-discord-button"
-          >
-            {{ isPostingDiscord ? 'Sending…' : 'Send to Discord' }}
-          </button>
-        </div>
-        <div>
-          <button
-            class="done-button"
-            @click="handleDone"
-            data-testid="assignment-results-done-button"
-          >
-            Done
-          </button>
+            <p
+              v-if="!hasDiscordWebhook"
+              class="action-blocked-reason"
+              data-testid="assignment-results-discord-blocked-reason"
+            >
+              Add a Discord webhook URL in Market Setup to enable this.
+            </p>
+            <button
+              class="done-button discord-button"
+              :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
+              @click="handleSendToDiscord"
+              data-testid="assignment-results-send-discord-button"
+            >
+              {{ isPostingDiscord ? 'Sending…' : 'Send to Discord' }}
+            </button>
+          </div>
+          <div>
+            <button
+              class="done-button"
+              @click="handleDone"
+              data-testid="assignment-results-done-button"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </template>
 </template>
 
 <style scoped>

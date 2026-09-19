@@ -25,13 +25,18 @@ import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
+import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 
 const router = useRouter();
 
 const showPathChoice = ref(false);
 const activeTab = ref<'form' | 'setup' | 'applications'>('setup');
 
-const market = ref<Market | null>(null);
+/**
+ * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
+ * value that only arrives a tick later would flash that message on every page that does have one.
+ */
+const market = ref<Market | null>(JSON.parse(localStorage.getItem('market') || 'null'));
 const applicationForm = ref<ApplicationForm | null>(null);
 /**
  * Per-field "the organizer typed this key themselves" flags, positionally aligned with the
@@ -145,17 +150,40 @@ const assignmentOptionsComplete = computed(() => {
   return true;
 });
 
+/**
+ * Where the organizer last stood in THIS market's plan wizard.
+ *
+ * It was a single global key with no market id in it, so opening a second market resumed wherever
+ * the first was left - and the step it skipped was Market Dates, which is what the solver assigns
+ * across and what generates the "which dates can you attend" question. A market whose plan has no
+ * dates yet always opens at the first step regardless, because a remembered step further in is
+ * remembered from a different market.
+ *
+ * `E10/F02/S01` makes the plan editor one page and deletes this outright.
+ */
+function pageIdxKey(): string {
+  return `setupPageIdx:${market.value?.id ?? ''}`;
+}
+
+function rememberPageIdx() {
+  localStorage.setItem(pageIdxKey(), JSON.stringify(pageIdx.value));
+}
+
+function storedPageIdx(): number {
+  if (!(market.value?.setupObject?.marketDates ?? []).length) return 0;
+  const stored = JSON.parse(localStorage.getItem(pageIdxKey()) || 'null');
+  if (typeof stored !== 'number' || !Number.isInteger(stored)) return 0;
+  return Math.min(Math.max(stored, 0), maxPageIdx);
+}
+
 onMounted(() => {
   // create setup object
 
-  market.value = JSON.parse(localStorage.getItem('market') || 'null');
   if (market.value && market.value.setupObject) {
     Object.assign(setupObject, market.value.setupObject);
   }
 
-  // retrieve view state
-  const setupPageIdx = JSON.parse(localStorage.getItem('setupPageIdx') || 'null');
-  pageIdx.value = setupPageIdx === null ? 0 : setupPageIdx;
+  pageIdx.value = storedPageIdx();
 
   // Paint the cached form immediately, then reconcile with the server, which also
   // tells us whether the form is still editable.
@@ -328,12 +356,12 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
 
 const handleNext = async () => {
   pageIdx.value = pageIdx.value === maxPageIdx ? maxPageIdx : pageIdx.value + 1;
-  localStorage.setItem('setupPageIdx', JSON.stringify(pageIdx.value));
+  rememberPageIdx();
   await updateMarket();
 };
 const handleBack = async () => {
   pageIdx.value = pageIdx.value === 0 ? 0 : pageIdx.value - 1;
-  localStorage.setItem('setupPageIdx', JSON.stringify(pageIdx.value));
+  rememberPageIdx();
   await updateMarket();
 };
 const assignError = ref('');
@@ -392,7 +420,8 @@ watch(pageIdx, (newIdx) => {
 </script>
 
 <template>
-  <div class="market-setup-view">
+  <NoMarketLoaded v-if="!market" shows="a market's plan and application form" />
+  <div v-else class="market-setup-view">
     <PhaseControlPanel :market="market" @phase-advanced="handlePhaseAdvanced" />
     <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
     <div class="market-setup-body">
@@ -400,7 +429,7 @@ watch(pageIdx, (newIdx) => {
         <div class="settings-header">
           <!-- The market's own name, so the page says which market this is. It read "Settings" on
                every market, and the route (/market-setup) carries no id to tell them apart. -->
-          <h1 data-testid="market-setup-title">{{ market?.name || 'Settings' }}</h1>
+          <h1 data-testid="market-setup-title">{{ market.name }}</h1>
           <div class="tab-bar">
             <button
               :class="['tab-button', { active: activeTab === 'form' }]"

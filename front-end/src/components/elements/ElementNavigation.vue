@@ -45,7 +45,8 @@ const user = inject<string | null>('user');
         <template #icon>
           <IconVendors class="nav-icon" />
         </template>
-        <h3>Vendors</h3>
+        <!-- Scoped, and says so: this is the vendors of the market that is open, not a directory. -->
+        <h3>Market vendors</h3>
       </ElementNavigationItem>
 
       <ElementSignoutButton>

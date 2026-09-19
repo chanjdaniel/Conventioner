@@ -18,6 +18,7 @@ import { api, getApiErrorMessage } from '@/utils/api';
 import type { Market } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 import { canImportInto, importRefusal } from '@/utils/importPhase';
+import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
@@ -78,7 +79,11 @@ interface ImportFailure {
 const router = useRouter();
 
 /** The market in play, carried in localStorage the way every other organizer view reads it. */
-const market = ref<Market | null>(null);
+/**
+ * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
+ * value that only arrives a tick later would flash that message on every page that does have one.
+ */
+const market = ref<Market | null>(JSON.parse(localStorage.getItem('market') || 'null'));
 const marketId = computed(() => market.value?.id ?? '');
 
 /**
@@ -149,7 +154,6 @@ const returningToReview = ref(0);
 const returningEmails = ref<string[]>([]);
 
 onMounted(() => {
-  market.value = JSON.parse(localStorage.getItem('market') || 'null');
   if (!marketId.value) {
     error.value = 'No market is open. Open a market first, then import into it.';
   }
@@ -567,7 +571,8 @@ function startOver() {
 </script>
 
 <template>
-  <div class="import-view" data-testid="import-view">
+  <NoMarketLoaded v-if="!marketId" shows="an import into a market" />
+  <div v-else class="import-view" data-testid="import-view">
     <header class="import-header">
       <div>
         <h1>Import applications</h1>
