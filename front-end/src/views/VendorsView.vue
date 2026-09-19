@@ -437,7 +437,11 @@ function goToDashboard(): void {
 <style scoped>
 .vendors-view {
   width: 100%;
-  min-height: 100vh;
+  /* Sized from the flex parent, not the viewport: .router-view is already flex:1 inside a
+     100vh column, so `min-height: 100vh` here double-counted the 5vh banner and left the page
+     scrolling 45px behind a list that was scrolling too. */
+  height: 100%;
+  min-height: 0;
   padding: 40px 20px;
   display: flex;
   justify-content: center;
@@ -455,6 +459,7 @@ function goToDashboard(): void {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  max-height: 100%;
 }
 
 .vendors-header {
@@ -476,7 +481,9 @@ function goToDashboard(): void {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  min-height: 320px;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
   font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
 }
@@ -589,8 +596,9 @@ function goToDashboard(): void {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 60vh;
-  overflow-y: auto;
+  /* No max-height and no overflow of its own: .vendors-body is the one scroller on this page.
+     Two nested scrollers meant the wheel did different things depending on where the pointer
+     was - the page scrolled 945/900 while the list scrolled 14,374/540. */
   padding-right: 4px;
 }
 

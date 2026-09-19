@@ -443,10 +443,17 @@ onMounted(loadTables);
 <style scoped>
 .tables-view {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   padding: 40px 20px;
   display: flex;
   justify-content: center;
+  /* flex-start, not the default `stretch`: a stretched card is forced to the height of this
+     container (100vh minus padding) regardless of what it holds. Combined with the card's
+     `overflow: hidden` that clipped 1,942px of the 2,762px of table rows with no scrollbar
+     anywhere - six of twenty-four tables visible, the second market date unreachable - and it is
+     the same reason the Attendance card was an 820px slab holding 200px of content. */
+  align-items: flex-start;
   background-color: #f6f7f9;
 }
 
@@ -459,7 +466,9 @@ onMounted(loadTables);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 60vh;
+  /* Grow with the content, then cap at the viewport and let the body scroll, so the header and
+     the actions row stay put on a long list. Same shape as the assignment results page. */
+  max-height: 100%;
 }
 
 .tables-header {
@@ -484,6 +493,7 @@ onMounted(loadTables);
   flex-direction: column;
   gap: 20px;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .filter-bar {
