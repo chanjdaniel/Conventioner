@@ -263,11 +263,12 @@ input[type='number'] {
   cursor: pointer;
 }
 
+/* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -
+   the same icon that came out 24x24 in Section Setup, side by side on one screen. */
 .icon-close-round {
-  max-width: 20px;
-  max-height: 20px;
-  width: 80%;
-  height: 80%;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
   cursor: pointer;
 }
 </style>
