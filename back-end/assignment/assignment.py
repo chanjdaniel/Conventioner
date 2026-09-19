@@ -209,11 +209,21 @@ class DateAssignment:
 
 
 class MarketAssignment:
-    def __init__(self, setup_object: SetupObject, vendors: List[SolverVendor]):
+    def __init__(
+        self,
+        setup_object: SetupObject,
+        vendors: List[SolverVendor],
+        pinned: Optional[List[VendorAssignmentResult]] = None,
+    ):
         self.setup_object = setup_object
         self.table_sharing = []
         self.date_assignments = {}
         self.half_tables = {}
+        # Pins this plan can no longer hold: the vendor is no longer applying, the section was
+        # deleted, the table count dropped below it, or the seat is already taken. Kept rather
+        # than dropped - a pin is a deliberate guarantee, and losing one silently loses it for
+        # good (E11/F02/S02 turns these into a blocker before the next assignment).
+        self.orphaned_pins: List[VendorAssignmentResult] = []
 
         for market_date in setup_object.market_dates:
             self.date_assignments[market_date.date] = DateAssignment(
@@ -229,6 +239,47 @@ class MarketAssignment:
             self.half_tables[market_date.date] = {
                 section.name: 0 for section in setup_object.sections
             }
+
+        self._seat_pins(pinned or [])
+
+
+    def _seat_pins(self, pinned: List[VendorAssignmentResult]) -> None:
+        """Put the hand-placed vendors in their seats before anyone else is placed.
+
+        Seating them first is the whole of "the solver works around pins": their seats are then
+        occupied and their vendors already placed, so the ordinary loop below sees a floor with
+        those tables taken and nothing else changes. A pinned vendor counts against their own
+        assignment ceiling and against the section's half-table proportion, because they occupy
+        a real seat on a real date.
+        """
+        for pin in pinned:
+            date_assignment = self.date_assignments.get(pin.date)
+            vendor = self.get_vendor_by_email(pin.email)
+            table = (
+                self.get_table_by_code(date_assignment.market_date, pin.table_code)
+                if date_assignment is not None else None
+            )
+            # A whole table needs both seats; a half needs one. Checked rather than assumed,
+            # because seating a full-table pin over a half-table occupant would evict them.
+            seats_needed = 2 if pin.table_choice == FULL_TABLE_LABEL else 1
+            if vendor is None or table is None or table.availability() < seats_needed:
+                self.orphaned_pins.append(pin)
+                # The vendor keeps the date the pin claimed, seated nowhere. Placing them
+                # somewhere else instead would quietly answer the question the orphan asks -
+                # the organizer promised this vendor that seat, and the plan no longer has it -
+                # and would leave the vendor holding two rows for one date.
+                if vendor is not None and date_assignment is not None:
+                    vendor.assign(date_assignment.market_date, pin)
+                continue
+
+            vendor.assign(date_assignment.market_date, pin)
+            if pin.table_choice == FULL_TABLE_LABEL:
+                table.assign([vendor, vendor])
+            else:
+                table.assign(list(table.assignment) + [vendor])
+                self.half_tables[pin.date][table.section.name] = (
+                    self.half_tables[pin.date].get(table.section.name, 0) + 1
+                )
 
 
     def __repr__(self):
@@ -430,15 +481,28 @@ class MarketAssignment:
                 # Unranked sorts behind everything ranked, never out of consideration.
                 return len(ranking)
 
+        def has_room(table) -> bool:
+            """Whether this vendor could sit here at all.
+
+            An empty table suits anyone. A table holding one vendor has one seat left, and it
+            suits anyone who did not ask for a whole table to themselves - that case only arises
+            from a pin, because the ordinary loop fills both halves of a table in one step.
+            Leaving it out would strand the open half of every half-table pin for the whole run.
+            """
+            if not table.assignment:
+                return True
+            return table.availability() == 1 and not self._is_full_table_only(vendor)
+
         candidates = [
             table for table in self.date_assignments[market_date.date].tables
-            if not table.assignment and self.is_valid_vendor(vendor, market_date, table)
+            if has_room(table) and self.is_valid_vendor(vendor, market_date, table)
         ]
         if not candidates:
             return None
         # Stable within a rank, so the table order still decides among equally-preferred tables
-        # and a re-run of the same market produces the same assignment.
-        return min(candidates, key=rank)
+        # and a re-run of the same market produces the same assignment. A half-empty table sorts
+        # ahead of an empty one of equal rank: the room is already paid for.
+        return min(candidates, key=lambda table: (rank(table), 0 if table.assignment else 1))
 
 
     def get_valid_vendor(self, market_date: MarketDateObject, table):
@@ -458,6 +522,11 @@ class MarketAssignment:
         the table was then chosen to suit THEM. Picking the lead here, from the table, is what
         made a vendor's own section ranking unable to influence anything.
         """
+        # The open half of a table someone already holds takes exactly one vendor: who they
+        # share with was decided when the other half was filled.
+        if table.assignment:
+            return [next_vendor]
+
         # check for valid table sharing partner
         table_share_email = self._vendor_table_share_email_str(next_vendor)
         if table_share_email != "" and not self._is_full_table_only(next_vendor):
@@ -497,7 +566,30 @@ class MarketAssignment:
         return self.half_tables[date_key][section] / section_object.count >= MAX_HALF_TABLES_PER_SECTION
 
     def assign_table(self, market_date: MarketDateObject, vendor_list, table):
-        
+
+        # Filling the seat left open beside someone already at this table. The side is whichever
+        # one they did not take, and the occupant keeps theirs - this appends rather than
+        # replaces, because ``table.assign`` overwrites and overwriting would evict them.
+        if table.assignment:
+            vendor = vendor_list[0]
+            free_side = table.available_table_choice()
+            if free_side not in (HALF_TABLE_LEFT_LABEL, HALF_TABLE_RIGHT_LABEL):
+                free_side = HALF_TABLE_RIGHT_LABEL
+            vendor.assign(market_date, VendorAssignmentResult(
+                email=self.vendor_email(vendor),
+                date=market_date.date,
+                table_code=table.table_code,
+                table_choice=free_side,
+                section=table.section.name,
+                tier=table.tier.name,
+                location=table.location.name
+            ))
+            self.half_tables[market_date.date][table.section.name] = (
+                self.half_tables[market_date.date].get(table.section.name, 0) + 1
+            )
+            table.assign(list(table.assignment) + [vendor])
+            return
+
         # full table assignment
         if len(vendor_list) < 2 or self.vendor_email(vendor_list[0]) == self.vendor_email(vendor_list[1]):
             assignment = VendorAssignmentResult(
@@ -526,20 +618,6 @@ class MarketAssignment:
                 vendor.assign(market_date, assignment)
                 self.half_tables[market_date.date][table.section.name] = self.half_tables[market_date.date].get(table.section.name, 0) + 1
         
-        table.assign(vendor_list)
-
-    def manually_assign(self, market_date: MarketDateObject, vendor, table_code):
-        table = self.get_table_by_code(market_date, table_code)
-        vendor_list = [vendor, vendor]
-        vendor.assign(market_date, VendorAssignmentResult(
-            email=self.vendor_email(vendor),
-            date=market_date.date,
-            table_code=table_code,
-            table_choice=FULL_TABLE_LABEL,
-            section=table.section.name,
-            tier=table.tier.name,
-            location=table.location.name
-        ))
         table.assign(vendor_list)
 
     def get_assignment_statistics(self) -> AssignmentStatistics:
@@ -739,8 +817,17 @@ def assign_market(market: Market, vendors: Optional[List[SolverVendor]] = None) 
     if vendors is None:
         vendors = solver_vendors_for(market)
 
+    # A pin is a hand-placed row on the market's own stored assignment, so a re-run reads the
+    # guarantees the organizer already made and places everyone else around them. Without this
+    # the solver recomputes wholesale and a pin lasts until the next press of Assign.
+    pinned = [
+        placement
+        for placement in (market.assignment_object.vendor_assignments or [])
+        if placement.hand_placed
+    ]
+
     # Create market assignment instance
-    market_assignment = MarketAssignment(market.setup_object, vendors)
+    market_assignment = MarketAssignment(market.setup_object, vendors, pinned)
     # Run the assignment algorithm
     market_assignment.assign()
     # logger.info(f"Market assigned: {market_assignment}")
@@ -756,6 +843,15 @@ def assign_market(market: Market, vendors: Optional[List[SolverVendor]] = None) 
             if assignment is not None:
                 vendor_assignments.append(assignment)
     
+    # A pin this plan can no longer hold is kept, not deleted: it is a deliberate guarantee, and
+    # dropping it here would lose it with nobody told. E11/F02/S02 raises them as a blocker.
+    # Most are already here, held by the vendor whose date they claimed; the rest belong to
+    # vendors this market no longer has, or to dates the plan no longer runs.
+    vendor_assignments.extend(
+        orphan for orphan in market_assignment.orphaned_pins
+        if orphan not in vendor_assignments
+    )
+
     # Create assignment object with results
     assignment_result = AssignmentObject(
         vendor_assignments=vendor_assignments,

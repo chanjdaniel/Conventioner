@@ -128,6 +128,7 @@ def test_update_never_takes_the_assignment_from_the_body(monkeypatch):
         "section": "Hall A",
         "tier": "Gold",
         "location": "Main Hall",
+        "handPlaced": False,
     }
     fake = FakeMarketsCollection(
         stored_market(

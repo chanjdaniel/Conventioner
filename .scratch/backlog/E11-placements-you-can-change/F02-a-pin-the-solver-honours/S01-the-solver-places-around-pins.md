@@ -2,7 +2,7 @@
 id: E11/F02/S01
 title: The solver places around pinned vendors
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -22,8 +22,8 @@ machinery: it writes a row early.
 
 ## Acceptance criteria
 
-- [ ] A pinned placement survives a re-run unchanged, in `back-end/tests/test_assignment_behaviour.py`.
-- [ ] The vendors placed around a pin are placed as the solver would have placed them with that seat
+- [x] A pinned placement survives a re-run unchanged, in `back-end/tests/test_assignment_behaviour.py`.
+- [x] The vendors placed around a pin are placed as the solver would have placed them with that seat
       simply occupied - no special case beyond availability.
-- [ ] A pinned vendor counts toward their own assignment ceiling and the section proportion.
-- [ ] Pinning with no assignment computed yet produces a valid assignment when Assign is first run.
+- [x] A pinned vendor counts toward their own assignment ceiling and the section proportion.
+- [x] Pinning with no assignment computed yet produces a valid assignment when Assign is first run.

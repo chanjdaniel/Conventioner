@@ -25,6 +25,7 @@ from datatypes import (
     SectionObject,
     SetupObject,
     TierObject,
+    VendorAssignmentResult,
 )
 
 DATES = ["2025-03-17", "2025-03-18"]
@@ -113,9 +114,33 @@ def placements(market):
     ]
 
 
-def assign(wants, **kwargs):
+def assign(wants, pins=(), **kwargs):
     market = market_for(wants, **kwargs)
+    market.assignment_object = AssignmentObject(vendor_assignments=list(pins))
     return assign_market(market, [want.as_solver_vendor() for want in wants])
+
+
+def pin(email, date, table_code, table_choice="Full Table",
+        section=f"Section {GOLD}", tier=GOLD):
+    """A hand-placed row on the market's stored assignment - which is all a pin is."""
+    return VendorAssignmentResult(
+        email=email,
+        date=date,
+        table_code=table_code,
+        table_choice=table_choice,
+        section=section,
+        tier=tier,
+        location="Main Hall",
+        hand_placed=True,
+    )
+
+
+def seat_of(market, email, date):
+    """Where one vendor sits on one date, as ``(table_code, table_choice)``, or None."""
+    for placement in market.assignment_object.vendor_assignments or []:
+        if placement.email == email and placement.date == date:
+            return (placement.table_code, placement.table_choice)
+    return None
 
 
 def dates_for(market, email):
@@ -1068,3 +1093,216 @@ class TestTheSameMarketAssignsTheSameWayTwice:
         backwards = self._assign_one_table(list(reversed(self._contenders())), submitted)
 
         assert [p[0] for p in placements(forwards)] == [p[0] for p in placements(backwards)]
+
+
+class TestTheSolverWorksAroundPins:
+    """A pin is a guarantee, not a preference (E11/F02/S01).
+
+    A hand-placed row survives a re-run untouched, and everyone else is placed around it as
+    though that seat were simply occupied.
+    """
+
+    def test_a_pinned_placement_survives_a_re_run_unchanged(self):
+        market = assign(
+            [
+                VendorWant("pinned@example.com", available=DATES, tiers=[GOLD]),
+                VendorWant("other@example.com", available=DATES, tiers=[GOLD]),
+            ],
+            pins=[pin("pinned@example.com", DATES[0], f"Section {GOLD} 2")],
+        )
+
+        assert seat_of(market, "pinned@example.com", DATES[0]) == (
+            f"Section {GOLD} 2",
+            "Full Table",
+        )
+
+    def test_a_pin_is_still_a_pin_after_the_run(self):
+        """The flag has to survive, or the next re-run treats the seat as the solver's to move."""
+        market = assign(
+            [VendorWant("pinned@example.com", available=DATES, tiers=[GOLD])],
+            pins=[pin("pinned@example.com", DATES[0], f"Section {GOLD} 1")],
+        )
+
+        pinned_rows = [
+            row
+            for row in market.assignment_object.vendor_assignments
+            if row.hand_placed
+        ]
+        assert [(row.email, row.date) for row in pinned_rows] == [
+            ("pinned@example.com", DATES[0])
+        ]
+
+    def test_nobody_else_is_given_the_pinned_seat(self):
+        """Two vendors, one Gold table on the day: the pin takes it and the other goes elsewhere."""
+        market = assign(
+            [
+                VendorWant("pinned@example.com", available=[DATES[0]], tiers=[GOLD]),
+                VendorWant("other@example.com", available=[DATES[0]], tiers=[GOLD, SILVER]),
+            ],
+            pins=[pin("pinned@example.com", DATES[0], f"Section {GOLD} 1")],
+            section_counts=((GOLD, 1), (SILVER, 1)),
+        )
+
+        assert seat_of(market, "pinned@example.com", DATES[0]) == (
+            f"Section {GOLD} 1",
+            "Full Table",
+        )
+        assert seat_of(market, "other@example.com", DATES[0]) == (
+            f"Section {SILVER} 1",
+            "Full Table",
+        )
+
+    def test_everyone_else_is_placed_as_if_the_seat_were_simply_occupied(self):
+        """The pin's only effect is availability - no special case beyond that.
+
+        Pinning the vendor the solver would have placed there anyway must produce exactly the
+        assignment the solver produces on its own.
+        """
+        wants = [
+            VendorWant("a@example.com", available=DATES, tiers=[GOLD, SILVER]),
+            VendorWant("b@example.com", available=DATES, tiers=[GOLD, SILVER]),
+            VendorWant("c@example.com", available=DATES, tiers=[GOLD, SILVER]),
+        ]
+        unpinned = assign(wants)
+        seat = seat_of(unpinned, "a@example.com", DATES[0])
+        assert seat is not None
+
+        pinned = assign(
+            wants,
+            pins=[
+                pin("a@example.com", DATES[0], seat[0], seat[1],
+                    section=f"Section {GOLD}", tier=GOLD)
+            ],
+        )
+
+        assert sorted(placements(pinned)) == sorted(placements(unpinned))
+
+    def test_a_pinned_vendor_counts_against_their_own_ceiling(self):
+        """The pinned date is a date they took, so a one-date ceiling is already spent."""
+        market = assign(
+            [VendorWant("pinned@example.com", available=DATES, tiers=[GOLD], max_days=1)],
+            pins=[pin("pinned@example.com", DATES[0], f"Section {GOLD} 1")],
+        )
+
+        assert dates_for(market, "pinned@example.com") == [DATES[0]]
+
+    def test_a_half_table_pin_counts_against_the_sections_half_table_proportion(self):
+        """A pinned half is a real half on a real date, so the cap has to see it."""
+        market = assign(
+            [
+                VendorWant("pinned@example.com", available=[DATES[0]], tiers=[GOLD],
+                           table_choice="half"),
+                VendorWant("either@example.com", available=[DATES[0]], tiers=[GOLD],
+                           table_choice="either"),
+            ],
+            pins=[
+                pin("pinned@example.com", DATES[0], f"Section {GOLD} 1", "Half Table (Left)")
+            ],
+            section_counts=((GOLD, 3),),
+            half_proportion=100,
+        )
+
+        # The pinned half is one of the section's half tables; with the cap already met by it,
+        # the "either" vendor is given a whole table rather than another half.
+        assert seat_of(market, "pinned@example.com", DATES[0]) == (
+            f"Section {GOLD} 1",
+            "Half Table (Left)",
+        )
+
+    def test_the_open_half_of_a_pinned_table_can_still_be_filled(self):
+        """A pin takes one seat, not the table. The other half must stay usable.
+
+        The ordinary loop fills both halves of a table in one step, so before pins existed a
+        half-occupied table never occurred; leaving it out of consideration would strand the
+        open half of every half-table pin for the whole run.
+        """
+        market = assign(
+            [
+                VendorWant("pinned@example.com", available=[DATES[0]], tiers=[GOLD],
+                           table_choice="half"),
+                VendorWant("sharer@example.com", available=[DATES[0]], tiers=[GOLD],
+                           table_choice="half"),
+            ],
+            pins=[
+                pin("pinned@example.com", DATES[0], f"Section {GOLD} 1", "Half Table (Left)")
+            ],
+            section_counts=((GOLD, 2),),
+        )
+
+        assert seat_of(market, "sharer@example.com", DATES[0]) == (
+            f"Section {GOLD} 1",
+            "Half Table (Right)",
+        )
+
+    def test_a_full_table_vendor_is_not_squeezed_into_a_pinned_half(self):
+        market = assign(
+            [
+                VendorWant("pinned@example.com", available=[DATES[0]], tiers=[GOLD],
+                           table_choice="half"),
+                VendorWant("whole@example.com", available=[DATES[0]], tiers=[GOLD],
+                           table_choice="full"),
+            ],
+            pins=[
+                pin("pinned@example.com", DATES[0], f"Section {GOLD} 1", "Half Table (Left)")
+            ],
+            section_counts=((GOLD, 2),),
+        )
+
+        assert seat_of(market, "whole@example.com", DATES[0]) == (
+            f"Section {GOLD} 2",
+            "Full Table",
+        )
+
+    def test_pinning_before_any_solver_run_produces_a_valid_assignment(self):
+        """Pinning with nothing assigned yet is just writing a row early - no extra machinery."""
+        market = assign(
+            [
+                VendorWant("early@example.com", available=[DATES[0]], tiers=[GOLD]),
+                VendorWant("later@example.com", available=[DATES[0]], tiers=[GOLD]),
+            ],
+            pins=[pin("early@example.com", DATES[0], f"Section {GOLD} 2")],
+            section_counts=((GOLD, 2),),
+        )
+
+        assert sorted(placements(market)) == sorted([
+            ("early@example.com", DATES[0], f"Section {GOLD} 2", "Full Table",
+             f"Section {GOLD}", GOLD),
+            ("later@example.com", DATES[0], f"Section {GOLD} 1", "Full Table",
+             f"Section {GOLD}", GOLD),
+        ])
+
+    def test_a_pin_the_plan_can_no_longer_hold_is_kept_rather_than_dropped(self):
+        """Dropping the section a pin sits in orphans it; it is not deleted (E11/F02/S02)."""
+        market = assign(
+            [VendorWant("pinned@example.com", available=[DATES[0]], tiers=[GOLD])],
+            pins=[pin("pinned@example.com", DATES[0], f"Section {GOLD} 9")],
+            section_counts=((GOLD, 1),),
+        )
+
+        assert seat_of(market, "pinned@example.com", DATES[0]) == (
+            f"Section {GOLD} 9",
+            "Full Table",
+        )
+
+    def test_a_vendor_whose_pin_is_orphaned_is_not_quietly_moved_elsewhere(self):
+        """One date, one row. Re-placing them would answer the orphan's question by itself."""
+        market = assign(
+            [VendorWant("pinned@example.com", available=[DATES[0]], tiers=[GOLD])],
+            pins=[pin("pinned@example.com", DATES[0], f"Section {GOLD} 9")],
+            section_counts=((GOLD, 1),),
+        )
+
+        rows = [p for p in placements(market) if p[0] == "pinned@example.com"]
+        assert len(rows) == 1
+
+    def test_a_pin_for_a_vendor_this_market_no_longer_has_is_still_kept(self):
+        market = assign(
+            [VendorWant("still-here@example.com", available=[DATES[0]], tiers=[GOLD])],
+            pins=[pin("withdrawn@example.com", DATES[0], f"Section {GOLD} 1")],
+            section_counts=((GOLD, 2),),
+        )
+
+        assert seat_of(market, "withdrawn@example.com", DATES[0]) == (
+            f"Section {GOLD} 1",
+            "Full Table",
+        )

@@ -146,6 +146,15 @@ class ThemeObject(BaseModel):
     logo_url: Optional[str] = None
 
 class VendorAssignmentResult(BaseModel):
+    """One vendor in one seat on one date - the whole of what a placement is.
+
+    ``hand_placed`` is the pin. A pin is not a separate constraint object alongside the
+    assignment: it IS this row, flagged, which is why pinning before any solver run works with
+    no extra machinery - it writes a row early, and the solver places everyone else around it.
+    Two records could disagree, and the failure mode of disagreement is a vendor pinned to one
+    table and placed at another, which is the exact bug pins exist to prevent.
+    """
+
     email: str
     date: str
     table_code: str
@@ -153,6 +162,7 @@ class VendorAssignmentResult(BaseModel):
     section: str
     tier: str
     location: str
+    hand_placed: bool = False
 
 
 class MarketTableRow(BaseModel):
@@ -570,6 +580,7 @@ class AssignmentOptionContract(AssignmentOptionObject, ContractModel):
 class VendorAssignmentResultContract(ContractModel):
     date: str
     email: str
+    hand_placed: bool
     location: str
     section: str
     table_choice: str
