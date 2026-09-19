@@ -4,7 +4,7 @@ title: Assign runs in the assignment phase and nowhere else
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build

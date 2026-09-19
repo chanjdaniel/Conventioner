@@ -4,7 +4,7 @@ title: The vendor panel opens the Tables view where the change happens
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build

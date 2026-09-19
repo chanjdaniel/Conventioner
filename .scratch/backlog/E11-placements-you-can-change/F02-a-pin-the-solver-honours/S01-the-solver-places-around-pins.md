@@ -4,7 +4,7 @@ title: The solver places around pinned vendors
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build

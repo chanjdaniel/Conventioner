@@ -4,7 +4,7 @@ title: The check-in URL is on the rail
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build

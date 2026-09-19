@@ -4,7 +4,7 @@ title: A placement has one writer
 type: feature
 status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## Outcome

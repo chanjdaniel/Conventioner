@@ -4,7 +4,7 @@ title: A trail for placements
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [73]
 ---
 
 ## What to build

@@ -4,7 +4,7 @@ title: One lifecycle model
 type: epic
 status: in-progress
 blocked_by: []
-pr: [71]
+pr: [71, 73]
 ---
 
 ## Outcome
