@@ -27,6 +27,7 @@ from assignment.assignment import (
 from assignment.utils import convert_keys_to_camel_case
 from datatypes import (
     Market,
+    MarketPhase,
     MarketRole,
     SectionObject,
     SetupObject,
@@ -49,6 +50,14 @@ class PlacementError(ValueError):
 
     A dedicated type rather than a bare ``ValueError``: anything else escaping a placement write
     is a bug, and reporting a bug to the client as a bad request hides it.
+    """
+
+
+class AssignPhaseError(ValueError):
+    """The assignment may not be run in this market's phase. Callers map this to 409.
+
+    A conflict with the market's state rather than a malformed request: the same call is correct
+    one transition earlier or later.
     """
 
 
@@ -159,6 +168,50 @@ def _store_vendor_assignments(
     )
 
 
+# The one phase the assignment runs in, and the whole of what this rule says (E10/F03/S02).
+#
+# It deliberately does not repeat the rules around it: `assignment` carries the entry invariant
+# `_ALL_REVIEWED`, so "review everyone first" is already said once in ``guards.py``, and
+# `market_days` carries `_ASSIGNMENT_COMPUTED`, so "run it before publishing" is said there too.
+# Repeating either here would give the product two places to change when one of them moves.
+#
+# Server-side and not only in the UI, because the endpoint is reachable directly and a hidden
+# button is not a rule. Re-running INSIDE `assignment` stays allowed: an organizer who changes the
+# plan or approves a late application needs a fresh answer, and there is nothing to protect yet.
+ASSIGN_PHASE = MarketPhase.ASSIGNMENT
+
+
+def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
+    """Why the assignment cannot be run in this phase, or None.
+
+    Mirrored by ``front-end/src/utils/assignPhase.ts``, which lets the button say no before it is
+    pressed. Each message names an action available from the phase the organizer is actually in.
+    """
+    if phase is ASSIGN_PHASE:
+        return None
+    if phase is MarketPhase.DRAFT:
+        return (
+            "This market is still a draft. Plan it, open applications and review them - the "
+            "assignment runs once the market reaches the assignment phase."
+        )
+    if phase in (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED):
+        return (
+            "Applications are still being collected. Close them and review them first - the "
+            "assignment runs once the market reaches the assignment phase."
+        )
+    if phase is MarketPhase.REVIEW:
+        return (
+            "This market is still in review. Move it to the assignment phase to run the "
+            "assignment."
+        )
+    # Past assignment, the answer is settled and the vendors have been told. Changing one
+    # placement is what is wanted here, and that is what the Tables view is for (E11/F03).
+    return (
+        "The assignment for this market is settled. Change a single placement from the Tables "
+        "view instead of re-running it."
+    )
+
+
 def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any], int]:
     """Run the solver over this market's approved applications and store what it produced.
 
@@ -168,6 +221,10 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     and it should never have been the client's job to decide what the solver said.
     """
     market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+
+    refusal = assign_phase_refusal(market.phase)
+    if refusal is not None:
+        raise AssignPhaseError(refusal)
 
     if market.setup_object is None:
         return {"error": "Market has no setup configured"}, 400

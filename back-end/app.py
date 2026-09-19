@@ -1114,6 +1114,8 @@ def run_assignment(market_id: str) -> Response:
     try:
         result, status_code = PlacementsApi.run_assignment(market_id, authenticated_email())
         return jsonify(result), status_code
+    except PlacementsApi.AssignPhaseError as e:
+        return jsonify({"error": str(e)}), 409
     except MarketsApi.MarketNotFoundError as e:
         return jsonify({"error": str(e)}), 404
     except PermissionError as e:

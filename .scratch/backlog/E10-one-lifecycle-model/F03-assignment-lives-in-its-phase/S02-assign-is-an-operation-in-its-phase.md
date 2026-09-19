@@ -2,7 +2,7 @@
 id: E10/F03/S02
 title: Assign runs in the assignment phase and nowhere else
 type: story
-status: blocked
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -21,18 +21,14 @@ as in the UI - the endpoint is reachable directly and a hidden button is not a r
 
 ## Acceptance criteria
 
-- [ ] `Assign` is offered only in `assignment`, and says why when it is not.
-- [ ] The assignment endpoint refuses outside `assignment`, with a message naming what to do.
-- [ ] Re-running inside `assignment` is allowed and produces a fresh assignment.
-- [ ] No duplication of `_ALL_REVIEWED` or `_ASSIGNMENT_COMPUTED` in the new condition.
+- [x] `Assign` is offered only in `assignment`, and says why when it is not.
+- [x] The assignment endpoint refuses outside `assignment`, with a message naming what to do.
+- [x] Re-running inside `assignment` is allowed and produces a fresh assignment.
+- [x] No duplication of `_ALL_REVIEWED` or `_ASSIGNMENT_COMPUTED` in the new condition.
 
-## Blocked
+## Unblocked
 
-On **`E11` Placements you can change** - specifically `E11/F01/S01` (the placement endpoint) and
-`E11/F03/S01` (place and swap on the Tables view).
-The decision is settled;
-[ticket 08](../../../wayfinding/readable-journey/issues/08-where-a-manual-placement-lives.md) is
-resolved.
-What remains is the build: shipping the freeze before an organizer can hand-fix a placement strands
-them on market day with archiving a running market as their only move.
-This is the whole reason the story is `blocked` rather than `ready`.
+`E11/F01/S01` (the placement endpoint) and `E11/F03/S01` (place and swap on the Tables view) have
+both landed, so an organizer whose vendors drop out on the morning of the market changes a
+placement by hand instead of archiving a running market.
+The freeze shipped with them.

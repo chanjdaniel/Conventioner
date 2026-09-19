@@ -313,15 +313,28 @@ export async function seedPublishedMarketWithAssignments(
 
   const marketSlug = marketNameToSlug(marketName);
 
-  // Step 4: Run the assignment and store it, in one call.
+  // Step 4: Publish, by walking the edges a real organizer walks, running the assignment from the
+  // phase that runs it. `market_days` means "this market is running" and is the only phase
+  // check-in serves; its entry invariant is that an assignment exists, because a market with no
+  // placements would serve a check-in page that can tell nobody where to stand.
   //
-  // BEFORE publishing, not after. Publishing lands in `market_days` (E03/F03), whose entry
-  // invariant is that an assignment exists - a market with no placements would serve a check-in
-  // page that can tell nobody where to stand. The old order published first and stored second,
-  // which is also what left a window where a published market had no assignment.
-  //
-  // This used to be `GET /assignment` followed by a whole-market PUT carrying the result.
-  // `assignmentObject` is server-owned now (E11/F01/S01), so that PUT stores nothing.
+  // The assignment used to be run first, from `draft`. Assign is an operation of the `assignment`
+  // phase and refuses everywhere else (E10/F03/S02), so the seed now walks the journey rather
+  // than taking a shortcut through it.
+  const transitionTo = async (toPhase: string) => {
+    const res = await request.post(`${baseURL}/markets/${marketId}/transition`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+      data: { toPhase },
+    });
+    if (!res.ok()) {
+      throw new Error(`Transition to ${toPhase} failed: ${res.status()} ${await res.text()}`);
+    }
+  };
+
+  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+    await transitionTo(toPhase);
+  }
+
   const assignRes = await request.post(`${baseURL}/markets/${marketId}/assignment`, {
     headers: { 'X-Owner-Email': email },
   });
@@ -329,25 +342,7 @@ export async function seedPublishedMarketWithAssignments(
     throw new Error(`Assignment run failed: ${assignRes.status()} ${await assignRes.text()}`);
   }
 
-  // Step 5: Publish, by walking the edges a real organizer walks. `market_days` is the phase that
-  // means "this market is running", and it is the only phase check-in serves.
-  for (const toPhase of [
-    'applications_open',
-    'applications_closed',
-    'review',
-    'assignment',
-    'market_days',
-  ]) {
-    const transRes = await request.post(`${baseURL}/markets/${marketId}/transition`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
-      data: { toPhase },
-    });
-    if (!transRes.ok()) {
-      throw new Error(
-        `Transition to ${toPhase} failed: ${transRes.status()} ${await transRes.text()}`,
-      );
-    }
-  }
+  await transitionTo('market_days');
 
   return { marketId, userId, marketName, orgId, marketSlug };
 }

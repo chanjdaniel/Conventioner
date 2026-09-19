@@ -73,6 +73,22 @@ export async function seedAssignedMarket(
     throw new Error(`Market PUT failed: ${putRes.status()} ${await putRes.text()}`);
   }
 
+  // Walk to `assignment` first. It is where an organizer looking at the results screen actually
+  // is - publishing is `assignment -> market_days` (E03/F03) - and it is the one phase the solver
+  // runs in (E10/F03/S02), so the walk has to come before the run rather than after it.
+  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+    const res = await request.post(
+      `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/transition`,
+      {
+        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+        data: { toPhase },
+      },
+    );
+    if (!res.ok()) {
+      throw new Error(`Transition to ${toPhase} failed: ${res.status()} ${await res.text()}`);
+    }
+  }
+
   // One call runs the solver and stores what it produced. `assignmentObject` is server-owned
   // (E11/F01/S01), so the old `GET /assignment` followed by a whole-market PUT would compute an
   // assignment and then throw it away.
@@ -88,23 +104,6 @@ export async function seedAssignedMarket(
   const assignedMarket = (await assignRes.json()) as Record<string, unknown>;
 
   const storedAssignment = (assignedMarket.assignmentObject || {}) as Record<string, unknown>;
-
-  // Leave the market where an organizer looking at the results screen actually is: `assignment`.
-  // Publishing is `assignment -> market_days` (E03/F03), so the Done button on that screen is only
-  // meaningful from there. It used to fire `archived`, which was reachable from every phase - which
-  // is precisely why `archived` meant both "just published" and "over".
-  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
-    const res = await request.post(
-      `${baseURL}/markets/${encodeURIComponent(seed.marketId)}/transition`,
-      {
-        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
-        data: { toPhase },
-      },
-    );
-    if (!res.ok()) {
-      throw new Error(`Transition to ${toPhase} failed: ${res.status()} ${await res.text()}`);
-    }
-  }
 
   const slug = marketNameToSlug(seed.marketName);
 
