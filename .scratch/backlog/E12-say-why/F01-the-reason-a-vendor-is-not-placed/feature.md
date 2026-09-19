@@ -4,7 +4,7 @@ title: The reason a vendor is not placed
 type: feature
 status: in-progress
 blocked_by: []
-pr: []
+pr: [72]
 ---
 
 ## Outcome

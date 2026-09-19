@@ -4,7 +4,7 @@ title: Unassigned Vendors leads somewhere
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [72]
 ---
 
 ## What to build

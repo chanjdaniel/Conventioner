@@ -4,7 +4,7 @@ title: The vendor date card
 type: feature
 status: in-progress
 blocked_by: []
-pr: []
+pr: [72]
 ---
 
 ## Outcome

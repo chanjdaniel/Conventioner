@@ -4,7 +4,7 @@ title: A tier with no tables
 type: feature
 status: in-progress
 blocked_by: []
-pr: []
+pr: [72]
 ---
 
 ## Outcome
