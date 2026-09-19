@@ -635,14 +635,31 @@ watch(pageIdx, (newIdx) => {
               Import from CSV
             </button>
             <span class="import-entry-hint">
-              Bring in the responses your Google Form collected.
+              Bring in the responses you already collected, as a CSV from any form tool or
+              spreadsheet.
             </span>
           </div>
-          <ApplicationMonitor :market="market" :visible="activeTab === 'applications'" />
+          <ApplicationMonitor
+            :market="market"
+            :visible="activeTab === 'applications'"
+            :formEditable="formEditable"
+          />
         </div>
       </div>
+      <!-- A real, wired feature that sat here as a bare URL box between Back and Next, saying
+           nothing about what it sends, when, or that it is optional. Silence about a working
+           feature is worse than silence about a stub: the organizer who skips it never learns
+           what they skipped, and the one who fills it in does not know what they just armed. -->
       <div v-if="activeTab === 'setup'" class="discord-webhook-row">
-        <label class="discord-webhook-label" for="discord-webhook-url">Discord webhook URL</label>
+        <div class="discord-webhook-heading">
+          <label class="discord-webhook-label" for="discord-webhook-url">
+            Discord webhook URL <span class="discord-webhook-optional">optional</span>
+          </label>
+          <p class="discord-webhook-help">
+            Paste one and a Send to Discord button on the results screen will post the finished
+            assignment to that channel. Nothing is sent until you press it.
+          </p>
+        </div>
         <input
           id="discord-webhook-url"
           type="url"
@@ -674,11 +691,6 @@ watch(pageIdx, (newIdx) => {
             type="button"
             class="done-button"
             :disabled="!assignmentOptionsComplete"
-            :title="
-              assignmentOptionsComplete
-                ? ''
-                : 'Complete the required assignment options: max assignments per vendor, and max half-table proportion'
-            "
             @click="handleAssign"
             data-testid="market-setup-assign-button"
           >
@@ -942,16 +954,33 @@ h2 {
   width: 100%;
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   margin-top: 15px;
+}
+
+.discord-webhook-heading {
+  max-width: 420px;
 }
 
 .discord-webhook-label {
   font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
-  white-space: nowrap;
+}
+
+.discord-webhook-optional {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mm-text-muted);
+}
+
+.discord-webhook-help {
+  margin: 2px 0 0;
+  font-family: 'Outfit Regular';
+  font-size: 12px;
+  color: var(--mm-text-muted);
 }
 
 .discord-webhook-input {

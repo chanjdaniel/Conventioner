@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Importing vendors from the CSV a Google Form produced.
+ * Importing vendors from a CSV of responses the organizer already collected.
  *
  * A full-width flow rather than a dialog: mapping a dozen columns against a target list is too
  * dense for one, and Market Setup already carries dates, sections, tiers, priorities and the form
@@ -602,8 +602,8 @@ function startOver() {
         />
         <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
         <span class="drop-zone-hint">
-          Export your Google Form responses as CSV. Every column comes across; you decide which ones
-          mean something on the next step.
+          Any form tool or spreadsheet that exports CSV will do. Every column comes across; you
+          decide which ones mean something on the next step.
         </span>
       </label>
     </section>

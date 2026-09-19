@@ -28,6 +28,13 @@ import { getTimestampDate } from '@/utils/utils';
 const props = defineProps<{
   market: Market | null;
   visible: boolean;
+  /**
+   * Whether the application form can still be changed, as the server answered it - not as this
+   * component guesses. The advisory below used to tell every organizer that adding a question was
+   * "possible while the market is a draft and nobody has applied", which is a description of the
+   * rule rather than of their market: five people had applied and the form was frozen.
+   */
+  formEditable: boolean;
 }>();
 
 const applications = ref<Application[]>([]);
@@ -267,8 +274,14 @@ function submittedOn(app: Application): string {
 
       <p v-if="nothingToJudge" class="advisory" data-testid="app-monitor-advisory">
         This market's form asks only the essential questions, so every application reads alike and
-        there is nothing here to tell applicants apart. Adding a question of your own is possible
-        while the market is a draft and nobody has applied.
+        there is nothing here to tell applicants apart.
+        <template v-if="formEditable">
+          Add a question of your own on the Application Form tab. The form freezes as soon as the
+          first applicant submits.
+        </template>
+        <template v-else>
+          The form is frozen for this market, so nothing can be added to it now.
+        </template>
       </p>
 
       <div v-if="current" class="review-card" data-testid="app-monitor-card">
