@@ -250,6 +250,25 @@ def table_code_for(section_name: str, index: int) -> str:
     return f"{section_name} {index}"
 
 
+def table_code_sort_key(table_code: str) -> Tuple[str, int, str]:
+    """Order table codes the way a person counts, not the way a string sorts.
+
+    Lexicographic order put "Front Row 10", "Front Row 11" and "Front Row 12" between 1 and 2, so
+    table 2 was fifth in the list. Splitting the trailing number out and sorting it as a number
+    fixes the order without needing to know how the code was built.
+
+    A code with no trailing number sorts by its text alone, after the numbered ones in its group,
+    rather than raising: anything that reaches a list of tables has to be listed somewhere.
+    """
+    text = str(table_code or "")
+    digits = len(text)
+    while digits > 0 and text[digits - 1].isdigit():
+        digits -= 1
+    if digits == len(text):
+        return (text, 0, text)
+    return (text[:digits], int(text[digits:]), text)
+
+
 class AssignmentOptionObject(BaseModel):
     # None = the organizer named no ceiling, so each vendor is bounded by their own answer and by
     # how many dates they can attend. There is no hidden default standing in for the four-day
@@ -289,7 +308,10 @@ class AssignmentStatistics(BaseModel):
     assignments_per_tier: Dict[str, int]
     assignments_per_section: Dict[str, int]
     assignments_per_table_choice: Optional[Dict[str, int]] = None
-    satisfaction_score: float
+    # None when nobody could be scored - no vendors, or none with a date they could attend. A
+    # float there would read as "satisfied nobody" rather than "nothing to satisfy", which is what
+    # made an empty run report 0.0% as though it were a bad result.
+    satisfaction_score: Optional[float] = None
 
     @field_validator("unassigned_tables", mode="before")
     @classmethod
@@ -611,7 +633,7 @@ class AssignmentStatisticsContract(ContractModel):
     assignments_per_date: Dict[str, int]
     assignments_per_section: Dict[str, int]
     assignments_per_tier: Dict[str, int]
-    satisfaction_score: float
+    satisfaction_score: Optional[float]
     total_assigned_tables: int
     total_assigned_vendors: int
     total_assignments: int

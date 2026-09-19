@@ -7,6 +7,7 @@ which.
 import copy
 from types import SimpleNamespace
 
+from datatypes import table_code_sort_key
 from migrate_table_code_separator import migrate, rewritten_code
 
 
@@ -105,3 +106,28 @@ class TestMigratingAMarket:
         db = FakeDatabase([market([], ["Front Row1"])])
         migrate(db)
         assert codes(db) == ["Front Row1"]
+
+
+class TestOrderingTableCodes:
+    """Lexicographic order put 10, 11 and 12 between 1 and 2, so table 2 was fifth in the list."""
+
+    def test_counts_the_way_a_person_counts(self):
+        codes = ["Front Row 1", "Front Row 10", "Front Row 11", "Front Row 2", "Front Row 3"]
+
+        assert sorted(codes, key=table_code_sort_key) == [
+            "Front Row 1", "Front Row 2", "Front Row 3", "Front Row 10", "Front Row 11",
+        ]
+
+    def test_keeps_sections_apart(self):
+        codes = ["Garden 2", "Front Row 10", "Garden 1", "Front Row 2"]
+
+        assert sorted(codes, key=table_code_sort_key) == [
+            "Front Row 2", "Front Row 10", "Garden 1", "Garden 2",
+        ]
+
+    def test_lists_a_code_with_no_number_rather_than_refusing_it(self):
+        assert sorted(["Stage", "Front Row 2"], key=table_code_sort_key) == ["Front Row 2", "Stage"]
+
+    def test_handles_a_section_name_that_ends_in_a_digit(self):
+        # The digits are split off the END, so "Hall 2 10" is table 10 of "Hall 2".
+        assert sorted(["Hall 2 10", "Hall 2 2"], key=table_code_sort_key) == ["Hall 2 2", "Hall 2 10"]
