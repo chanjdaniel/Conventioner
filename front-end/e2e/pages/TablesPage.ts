@@ -14,6 +14,9 @@ export class TablesPage {
   readonly backButton: Locator;
   readonly tableRows: Locator;
   readonly dateGroups: Locator;
+  readonly dialog: Locator;
+  readonly dialogWarning: Locator;
+  readonly dialogError: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -26,6 +29,9 @@ export class TablesPage {
     this.backButton = page.getByTestId('tables-back-button');
     this.tableRows = page.locator('.table-row');
     this.dateGroups = page.locator('.date-group');
+    this.dialog = page.getByTestId('placement-dialog');
+    this.dialogWarning = page.getByTestId('placement-dialog-warning');
+    this.dialogError = page.getByTestId('placement-dialog-error');
   }
 
   async goto(marketId: string): Promise<void> {
@@ -43,5 +49,54 @@ export class TablesPage {
 
   async clickBack(): Promise<void> {
     await this.backButton.click();
+  }
+
+  // ── Changing a placement (E11/F03/S01) ───────────────────────────────────────
+
+  /** One table's row, by the code printed on it. */
+  row(tableCode: string): Locator {
+    return this.page.locator(`[data-testid="tables-table-row"][data-table-code="${tableCode}"]`);
+  }
+
+  /** A free seat at one table. `nth` picks the side when the table has two. */
+  vacantSeat(tableCode: string, nth = 0): Locator {
+    return this.row(tableCode).getByTestId('tables-seat-empty').nth(nth);
+  }
+
+  /** A seat somebody holds. */
+  occupiedSeat(tableCode: string, nth = 0): Locator {
+    return this.row(tableCode).getByTestId('tables-seat-occupied').nth(nth);
+  }
+
+  /** Who holds a seat, read from the seat itself rather than from the text drawn on it. */
+  async occupantOf(seat: Locator): Promise<string> {
+    return (await seat.getAttribute('data-vendor-email')) ?? '';
+  }
+
+  /** The table code the row around a seat carries. */
+  async tableCodeOf(seat: Locator): Promise<string> {
+    return (
+      (await seat
+        .locator('xpath=ancestor::*[@data-testid="tables-table-row"]')
+        .getAttribute('data-table-code')) ?? ''
+    );
+  }
+
+  async setFilter(name: 'date' | 'section' | 'tier' | 'choice', value: string): Promise<void> {
+    await this.page.getByTestId(`tables-filter-${name}`).selectOption(value);
+  }
+
+  async placeVendor(email: string): Promise<void> {
+    await this.dialog.getByTestId('placement-dialog-vendor').selectOption(email);
+    await this.dialog.getByTestId('placement-dialog-confirm').click();
+  }
+
+  async swapWith(email: string): Promise<void> {
+    await this.dialog.getByTestId('placement-dialog-swap-target').selectOption(email);
+    await this.dialog.getByTestId('placement-dialog-swap').click();
+  }
+
+  async freeSeat(): Promise<void> {
+    await this.dialog.getByTestId('placement-dialog-free').click();
   }
 }

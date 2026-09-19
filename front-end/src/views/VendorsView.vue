@@ -331,10 +331,20 @@ function overridesFor(email: string, date: string): PlacementOverride[] | undefi
   return placementOverrides.value.get(`${email.trim().toLowerCase()}|${date}`);
 }
 
-/** The Tables view, filtered to the day the organizer would be placing them on. */
+/**
+ * The Tables view, filtered to the day the organizer would be placing them on.
+ *
+ * This is the story that makes those filters reachable: `dateFilter` and its three neighbours
+ * were computed from `route.query` and set by nothing, so a complete filter system existed that
+ * no organizer could invoke (`E11/F03/S02`). The vendor rides along so the Tables view can send
+ * them back to this panel rather than to the results tab.
+ */
 function tablesLinkFor(date: string): string | null {
-  if (!market.value?.id) return null;
-  return `/markets/${encodeURIComponent(market.value.id)}/tables?date=${encodeURIComponent(date)}`;
+  const id = market.value?.id;
+  const vendor = selectedVendor.value?.email;
+  if (!id || !vendor) return null;
+  const query = new URLSearchParams({ date, vendor });
+  return `/markets/${encodeURIComponent(id)}/tables?${query.toString()}`;
 }
 
 function goToTables(date: string): void {

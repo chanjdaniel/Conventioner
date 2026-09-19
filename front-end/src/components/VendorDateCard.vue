@@ -46,7 +46,17 @@ const state = computed(() => {
   if (!placed.value) return 'unplaced';
   return overridden.value ? 'overridden' : 'placed';
 });
-const canPlace = computed(() => !placed.value && reasonIsActionable(props.reason));
+/**
+ * The way from this card to the screen that can change it (`E11/F03/S02`).
+ *
+ * Offered on a placed date too, not only on a free seat. The trigger for every change is a
+ * person - a vendor drops out, a vendor must move - and this panel is where an organizer is
+ * looking at that person; the Tables view is the only screen that can answer "where can they go".
+ * An unplaced date offers it only when a seat is actually free, because the other three reasons
+ * are answered in the plan or in the vendor's own answers, never at a table.
+ */
+const actionLabel = computed(() => (placed.value ? 'Change placement' : 'Place them'));
+const canPlace = computed(() => placed.value || reasonIsActionable(props.reason));
 </script>
 
 <template>
@@ -60,6 +70,15 @@ const canPlace = computed(() => !placed.value && reasonIsActionable(props.reason
 
     <div v-if="placed" class="vendor-date-card-detail">
       {{ placement }}
+      <a
+        v-if="canPlace && placeHref"
+        class="vendor-date-card-action"
+        :href="placeHref"
+        data-testid="vendor-date-card-place-link"
+        @click.prevent="$emit('place')"
+      >
+        {{ actionLabel }}
+      </a>
       <span v-if="overridden" class="vendor-date-card-flag" data-testid="vendor-date-card-override">
         {{ overrideText(overrides) }}
       </span>
@@ -76,7 +95,7 @@ const canPlace = computed(() => !placed.value && reasonIsActionable(props.reason
         data-testid="vendor-date-card-place-link"
         @click.prevent="$emit('place')"
       >
-        Place them
+        {{ actionLabel }}
       </a>
     </div>
   </li>
