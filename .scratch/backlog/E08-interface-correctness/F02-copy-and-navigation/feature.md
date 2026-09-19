@@ -2,7 +2,7 @@
 id: E08/F02
 title: Copy and navigation tell the truth
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [04215fc0, bd30cd68, b1c3ed34]
 ---
@@ -85,3 +85,15 @@ First-contact damage, all of it cheap, all of it found by walking the journey on
   settle it by accident. The business name half is the same shape of question: a name lives in a
   custom field the market may not ask, and which field holds it is a decision, not a lookup. The
   Fall 2025 import mapped no custom fields at all, so there would be nothing to show.
+
+  **Split 2026-09-15.** These were bundled because they are one table column, but they are two
+  questions and only one of them is still live. The **business name** half graduated to
+  [readable-journey ticket 02](../../../wayfinding/readable-journey/issues/02-which-answer-names-a-vendor.md),
+  because every vendor surface in the product shows a gmail address and that is a readability
+  failure inside that map's destination. The **price** half is now ruled **out of scope**: whether
+  a price belongs on a tier is a billing question, and billing was already out of scope. The Cost
+  column stays an em-dash, and `E09/F04/S01` makes it say why rather than leaving it looking
+  broken. This feature stays open until ticket 02 resolves.
+
+  **Closed 2026-09-19.** Ticket 02 resolved: a vendor's name is `essential_full_name`, an essential
+  question, not a custom field. The work is `E13-a-vendor-has-a-name/`. Nothing remains here.

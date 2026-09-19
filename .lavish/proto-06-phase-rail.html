@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ticket 06 - the phase rail, three variants</title>
+<style>
+  @font-face { font-family:'Merge One'; src:url('MergeOne-Regular.ttf') format('truetype'); font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Regular.ttf') format('truetype'); font-weight:400; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Medium.ttf') format('truetype'); font-weight:500; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Bold.ttf') format('truetype'); font-weight:700; font-display:swap; }
+
+  :root{
+    --black:#272323;
+    --green:#49b096;
+    --green-d:#2f7f6a;
+    --yellow:#e4a629;
+    --beige:#e9e6e1;
+    --grey:rgba(39,35,35,.25);
+    --paper:#fbfaf9;
+    --card:#ffffff;
+    --red:#c0392b;
+    --red-bg:#fdf1ef;
+    --amber-bg:#fdf7ec;
+    --green-bg:#eef8f5;
+    --ink-2:rgba(39,35,35,.66);
+    --ink-3:rgba(39,35,35,.45);
+    --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--paper); color:var(--black);
+    font-family:'Outfit',system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:16px; line-height:1.6;
+  }
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 20px 96px; }
+  /* Merge One has deep descenders; a tight line box clips them. Give headings room. */
+  h1,h2,h3,h4{
+    font-family:'Merge One','Outfit',system-ui,sans-serif; font-weight:400;
+    line-height:1.34; margin:0; padding-bottom:.08em; overflow-wrap:break-word;
+  }
+
+  /* ---------- masthead ---------- */
+  header.top{
+    background:var(--black); color:#fff; padding:52px 0 44px; margin-bottom:44px;
+    border-bottom:5px solid var(--green);
+  }
+  header.top .wrap{ padding-bottom:0; }
+  .eyebrow{ font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--green); margin-bottom:14px; }
+  header.top h1{ font-size:clamp(30px,4.6vw,50px); color:#fff; margin-bottom:16px; }
+  header.top p.lede{ font-size:clamp(16px,1.7vw,19px); color:rgba(255,255,255,.82); max-width:66ch; margin:0; }
+  .runmeta{ margin-top:28px; display:flex; flex-wrap:wrap; gap:10px 26px; font-size:13px; color:rgba(255,255,255,.6); }
+  .runmeta b{ color:rgba(255,255,255,.92); font-weight:500; }
+
+  /* ---------- verdict ---------- */
+  .verdict{
+    background:var(--card); border:1px solid var(--grey); border-left:6px solid var(--yellow);
+    border-radius:var(--radius); padding:26px 28px; margin-bottom:40px;
+    box-shadow:0 1px 3px rgba(39,35,35,.05);
+  }
+  .verdict h2{ font-size:23px; margin-bottom:10px; }
+  .verdict p{ margin:0 0 12px; max-width:86ch; }
+  .verdict p:last-child{ margin-bottom:0; }
+
+  /* ---------- score strip ---------- */
+  .scores{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr)); gap:14px; margin-bottom:48px; }
+  .score{ background:var(--card); border:1px solid var(--grey); border-radius:var(--radius); padding:18px 20px; min-width:0; }
+  .score .n{ font-family:'Merge One',sans-serif; font-size:30px; line-height:1.34; padding-bottom:.08em; display:block; overflow-wrap:break-word; }
+  .score .l{ font-size:12.5px; color:var(--ink-2); letter-spacing:.03em; margin-top:4px; display:block; }
+  .score.bad .n{ color:var(--red); } .score.ok .n{ color:var(--green-d); } .score.warn .n{ color:var(--yellow); }
+
+  /* ---------- sections ---------- */
+  section{ margin-bottom:56px; scroll-margin-top:20px; }
+  .sec-head{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; border-bottom:2px solid var(--black); padding-bottom:10px; margin-bottom:24px; }
+  .sec-head h2{ font-size:26px; }
+  .sec-head .count{ font-size:13px; color:var(--ink-3); }
+
+  /* ---------- finding cards ---------- */
+  .finding{
+    background:var(--card); border:1px solid var(--grey); border-radius:var(--radius);
+    margin-bottom:20px; overflow:hidden;
+  }
+  .finding > .fh{
+    display:flex; gap:14px; align-items:flex-start; padding:18px 22px;
+    border-bottom:1px solid var(--beige); flex-wrap:wrap;
+  }
+  .finding.crit > .fh{ background:var(--red-bg); }
+  .finding.block > .fh{ background:var(--red-bg); }
+  .finding.high > .fh{ background:var(--amber-bg); }
+  .finding.med  > .fh{ background:#f7f6f4; }
+  .fid{
+    font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:.04em;
+    background:var(--black); color:#fff; border-radius:6px; padding:4px 9px; flex:0 0 auto; margin-top:2px;
+  }
+  .finding.crit .fid,.finding.block .fid{ background:var(--red); }
+  .finding.high .fid{ background:var(--yellow); color:var(--black); }
+  .ftitle{ flex:1 1 340px; min-width:0; }
+  .ftitle h3{ font-size:19px; margin-bottom:3px; }
+  .ftitle .sub{ font-size:13.5px; color:var(--ink-2); }
+  .sev{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:5px 10px; border-radius:20px; flex:0 0 auto; margin-top:2px; }
+  .sev.crit{ background:var(--red); color:#fff; }
+  .sev.block{ background:var(--red); color:#fff; }
+  .sev.high{ background:var(--yellow); color:var(--black); }
+  .sev.med{ background:var(--beige); color:var(--black); }
+  .fb{ padding:20px 22px; }
+  .fb > *:first-child{ margin-top:0; }
+  .fb > *:last-child{ margin-bottom:0; }
+  .fb p{ margin:0 0 12px; max-width:88ch; }
+  .fb ul,.fb ol{ margin:0 0 12px; padding-left:22px; max-width:88ch; }
+  .fb li{ margin-bottom:6px; }
+  .lbl{ font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); font-weight:700; margin:20px 0 8px; }
+
+  code{ font-family:var(--mono); font-size:.875em; background:var(--beige); padding:1.5px 5px; border-radius:4px; overflow-wrap:anywhere; }
+  pre{
+    background:#26221f; color:#e8e3dd; border-radius:10px; padding:15px 17px; overflow-x:auto;
+    font-family:var(--mono); font-size:12.5px; line-height:1.62; margin:0 0 14px;
+  }
+  pre code{ background:none; padding:0; font-size:inherit; color:inherit; }
+  pre .c{ color:#8d857c; } pre .r{ color:#ff9d8f; } pre .g{ color:#87d7bd; } pre .y{ color:#f0c274; }
+  .path{ font-family:var(--mono); font-size:12.5px; color:var(--green-d); overflow-wrap:anywhere; }
+
+  .proof{ background:var(--green-bg); border-left:4px solid var(--green); border-radius:0 8px 8px 0; padding:13px 17px; margin:0 0 14px; font-size:14.5px; }
+  .proof strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--green-d); margin-bottom:5px; }
+  .impact{ background:var(--red-bg); border-left:4px solid var(--red); border-radius:0 8px 8px 0; padding:13px 17px; margin:0 0 14px; font-size:14.5px; }
+  .impact strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--red); margin-bottom:5px; }
+  .fix{ background:#f7f6f4; border-left:4px solid var(--black); border-radius:0 8px 8px 0; padding:13px 17px; font-size:14.5px; }
+  .fix strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-2); margin-bottom:5px; }
+
+  figure{ margin:0 0 14px; }
+  figure img{ display:block; width:100%; height:auto; border:1px solid var(--grey); border-radius:10px; background:#fff; }
+  figcaption{ font-size:12.5px; color:var(--ink-3); margin-top:7px; }
+  .shots{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); gap:16px; margin-bottom:14px; }
+  .shots figure{ margin:0; min-width:0; }
+
+  .tablewrap{ overflow-x:auto; border:1px solid var(--grey); border-radius:var(--radius); background:var(--card); margin-bottom:14px; }
+  table{ border-collapse:collapse; width:100%; font-size:14px; }
+  th,td{ text-align:left; padding:11px 15px; border-bottom:1px solid var(--beige); vertical-align:top; }
+  th{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2); font-weight:700; background:#faf9f8; white-space:nowrap; }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.num{ font-family:var(--mono); font-size:13px; white-space:nowrap; }
+  tr.bad td{ background:var(--red-bg); } tr.good td{ background:var(--green-bg); }
+  .pill{ display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .pill.no{ background:var(--red); color:#fff; } .pill.yes{ background:var(--green); color:#fff; } .pill.part{ background:var(--yellow); color:var(--black); }
+
+  .worked{ background:var(--green-bg); border:1px solid rgba(73,176,150,.35); border-radius:var(--radius); padding:22px 26px; }
+  .worked ul{ margin:0; padding-left:22px; columns:2; column-gap:34px; }
+  .worked li{ margin-bottom:9px; break-inside:avoid; max-width:48ch; }
+  @media (max-width:760px){ .worked ul{ columns:1; } }
+
+  ol.priority{ counter-reset:p; list-style:none; padding:0; margin:0; }
+  ol.priority > li{
+    counter-increment:p; position:relative; padding:16px 20px 16px 62px; background:var(--card);
+    border:1px solid var(--grey); border-radius:var(--radius); margin-bottom:12px; min-width:0;
+  }
+  ol.priority > li::before{
+    content:counter(p); position:absolute; left:18px; top:16px;
+    width:28px; height:28px; border-radius:50%; background:var(--black); color:#fff;
+    display:grid; place-items:center; font-size:13px; font-weight:700; font-family:var(--mono);
+  }
+  ol.priority > li b{ display:block; margin-bottom:3px; }
+  ol.priority > li span{ font-size:14px; color:var(--ink-2); }
+  ol.priority .tag{ font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+
+  .note{ font-size:13.5px; color:var(--ink-2); font-style:italic; }
+  hr.soft{ border:none; border-top:1px solid var(--beige); margin:26px 0; }
+</style>
+</head>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Prototype · readable-journey ticket 06 · live on /market-setup</div>
+    <h1>The phase rail: does the spine survive, and does a frozen rail read as finished?</h1>
+    <p class="lede">Three variants mounted on the real Market Setup route, at 1280x720, against the real header and the real market. Flip them yourself with <code>?variant=A|B|C</code>; <code>&amp;phase=</code> fakes any phase and <code>&amp;frozen=1</code> shows a market abandoned in draft. Both questions got an answer, and one of them is a no.</p>
+    <div class="runmeta">
+      <span><b>Try it</b> localhost:5273/market-setup?variant=A&amp;phase=assignment</span>
+      <span><b>Width</b> 1280x720</span>
+      <span><b>Date</b> 19 Sep 2026</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="verdict" style="border-left-color:#49b096;">
+    <h2>Second pass, 19 Sep: target moved to 1920x1080, and A holds</h2>
+    <p><b>Variant A is comfortable at 1920x1080</b>, and the earlier collision does not occur there. Measured with a deliberately long market name - <code>portland-holiday-makers-market-december-2026</code>, a 69-character URL, longer than anything in the repo's fixtures:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Viewport</th><th>Rail</th><th>Smallest gap between labels</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr class="good"><td class="num">1920 x 1080</td><td class="num">1536</td><td class="num">+31px</td><td><span class="pill yes">Clean</span> spine at natural width, 24px clear of the actions</td></tr>
+          <tr class="good"><td class="num">1600</td><td class="num">1280</td><td class="num">-</td><td><span class="pill yes">Clean</span></td></tr>
+          <tr class="good"><td class="num">1440</td><td class="num">1152</td><td class="num">-</td><td><span class="pill yes">Clean</span></td></tr>
+          <tr class="bad"><td class="num">1366 x 768</td><td class="num">1093</td><td class="num">-59px</td><td><span class="pill no">Five labels overlap</span></td></tr>
+          <tr class="bad"><td class="num">1280 x 720</td><td class="num">1024</td><td class="num">-67px</td><td><span class="pill no">Five labels overlap</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><b>The break is between 1366 and 1440.</b> At and above 1440 the spine sits at its natural width and never competes with the URL; below it, the spine is the flexible element, absorbs the shortfall, and the labels paint over each other.</p>
+    <p><b>Still true from the first pass:</b> A's frozen rail reads as <i>stopped</i> but not as <i>archived</i>. Strikethrough alone does not say the market is over. That is a words fix, cheap, and it is the one change A needs regardless of target width.</p>
+    <p class="note">No new screenshots this pass: capture stopped completing against the running stack partway through, and the harness timeout is not adjustable. The numbers above are live <code>getBoundingClientRect</code> measurements taken at each width, which settle "does it fit" more exactly than an image would. The 1280 images below are from the first pass and still show what breaking looks like.</p>
+  </div>
+
+  <div class="verdict">
+    <h2>First pass, at 1280x720</h2>
+    <p><b>The seven-phase spine fits at 1280x720 - on its own.</b> With the primary action and the overflow menu there is about 30px of slack. Ticket 01's fear was unfounded, as far as it went.</p>
+    <p><b>It does not survive the check-in URL.</b> The moment the URL chip shares the row, the spine compresses below its content width and the labels collide into an unreadable smear. That is not a styling bug I should fix in the prototype - it is the answer. A labelled spine and the check-in URL cannot occupy one row at laptop width.</p>
+    <p><b>A frozen rail reads as stopped, but not as archived</b> - unless words say so. Strikethrough alone communicates "these did not happen"; it does not communicate "this market is over". Both variants that state it in words read correctly.</p>
+  </div>
+
+  <!-- ============ THE COLLISION ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>The finding</h2>
+      <span class="count">Variant A, published</span>
+    </div>
+
+    <div class="shots">
+      <figure>
+        <img src="shots-proto/A-assignment.png" alt="Variant A in the assignment phase: seven labelled phases across the rail, a green Publish market button and an overflow button, all fitting comfortably." />
+        <figcaption><b>A, in <code>assignment</code>.</b> Seven labels, the action, the menu. Fits, with slack.</figcaption>
+      </figure>
+      <figure>
+        <img src="shots-proto/A-marketdays.png" alt="Variant A published: the phase labels have collapsed on top of each other into an unreadable smear beside the check-in URL chip." />
+        <figcaption><b>A, in <code>market_days</code>.</b> The same spine, plus the URL. <span class="path">ApplicatioApplicatiRevieAssignmMarket day</span></figcaption>
+      </figure>
+    </div>
+
+    <div class="impact"><strong>Why it happens, and why it is not fixable by tweaking</strong>
+      The spine is the flexible element on the row, so it absorbs every pixel the URL takes. Shortening the labels, shrinking the font or truncating the slug all buy a little room and then fail on the next longer market name - and the market name is organizer-supplied. Two variable-width things cannot share one fixed row.
+    </div>
+  </section>
+
+  <!-- ============ THE THREE ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>The three variants, published</h2>
+      <span class="count">The state that breaks A is the state that distinguishes them</span>
+    </div>
+
+    <figure>
+      <img src="shots-proto/B-marketdays.png" alt="Variant B published: a Market days pill, the sentence Running. Vendors can check in, the check-in URL chip, and an Archive market button." />
+      <figcaption><b>B - status line.</b> No spine. A state pill, a sentence, the URL, the action. Comfortable, and it says what the state <i>means</i> rather than where it sits.</figcaption>
+    </figure>
+
+    <figure>
+      <img src="shots-proto/C-marketdays.png" alt="Variant C published: left panel reads THIS MARKET IS market days above a row of small dots; right panel is a labelled CHECK-IN PAGE IS LIVE block with the URL and a Copy link action; Archive market at the far right." />
+      <figcaption><b>C - split.</b> A dots-only spine carries position, the words carry the name, and the URL becomes a labelled fact rather than a chip squeezed into a toolbar. The most prominence the check-in page gets in any variant.</figcaption>
+    </figure>
+
+    <figure>
+      <img src="shots-proto/B-assignment.png" alt="Variant B mid-lifecycle: an Assignment pill, the text Step 5 of 6, a Publish market button and an overflow button." />
+      <figcaption><b>B, mid-lifecycle.</b> "Step 5 of 6" is doing the spine's job in four words. Whether that is enough progress-sense to replace the wizard's is the open question.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ FROZEN ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>The frozen rail</h2>
+      <span class="count">A market abandoned in draft, then archived</span>
+    </div>
+
+    <div class="shots">
+      <figure>
+        <img src="shots-proto/A-frozen.png" alt="Variant A frozen: Draft is the current position and the six later phases are struck through and faded." />
+        <figcaption><b>A.</b> Reads as <i>stopped</i>. Nothing on it says archived, or over, or why. A reader who does not already know the lifecycle sees a market stuck.</figcaption>
+      </figure>
+      <figure>
+        <img src="shots-proto/C-frozen.png" alt="Variant C frozen: THIS MARKET IS archived above hollow dots, beside ABANDONED BEFORE IT RAN and No check-in page was ever published." />
+        <figcaption><b>C.</b> "This market is archived", "Abandoned before it ran", "No check-in page was ever published." Unambiguous, and it answers the question a reader of the A rail would have to ask someone.</figcaption>
+      </figure>
+    </div>
+
+    <div class="proof"><strong>What this tells us</strong>
+      The strikethrough is fine as <i>reinforcement</i> and useless as the only signal. Whatever ships, the terminal state has to be stated in words. That is cheap in all three variants.
+    </div>
+  </section>
+
+  <!-- ============ WHERE THAT LEAVES IT ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>Where that leaves the decision</h2>
+      <span class="count">Ticket 01 chose the spine; the spine has a condition on it</span>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Option</th><th>Spine</th><th>Check-in URL</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr><td><b>A as drawn</b></td><td>Labelled, 7 phases</td><td class="num">Collides</td><td>Not viable at 1280 as one row</td></tr>
+          <tr class="good"><td><b>A, URL on a second row</b></td><td>Labelled, 7 phases</td><td>Own row when published</td><td>Rail height changes between phases</td></tr>
+          <tr class="good"><td><b>B</b></td><td>None - "Step 5 of 6"</td><td>Comfortable</td><td>Loses the at-a-glance lifecycle 01 wanted</td></tr>
+          <tr class="good"><td><b>C</b></td><td>Dots only</td><td>Best placed of the three</td><td>Two rows tall always; dots alone name nothing</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">My reading: <b>C</b>, because it is the only one where the check-in URL is a stated fact rather than a chip in a toolbar - and that URL is the entire reason this ticket exists. Its dots-only spine is weaker than A's labels, but the words beside it carry the naming that A's labels were for, so little is actually lost. <b>B</b> is the safer, cheaper answer if the lifecycle-at-a-glance turns out not to matter once the rail is always present.</p>
+  </section>
+
+  <hr class="soft" />
+  <p class="note">Throwaway prototype: <code>front-end/src/components/PrototypePhaseRail.vue</code>, mounted in <code>MarketSetupView.vue</code> behind <code>?variant=</code>. It is in the working tree so you can flip through it; it goes to a throwaway branch and comes out of main once a variant wins. The real <code>PhaseControlPanel</code> still renders when no <code>?variant=</code> is present, so nothing is broken meanwhile.</p>
+
+</div>
+</body>
+</html>
