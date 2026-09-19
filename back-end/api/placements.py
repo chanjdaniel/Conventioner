@@ -87,6 +87,9 @@ def _placement_for(
             f"{table_choice!r} is not a seat. Expected one of: {', '.join(TABLE_CHOICES)}."
         )
 
+    # Flagged hand-placed, which is what makes it a pin: the solver treats a flagged row as
+    # fixed and places everyone else around it (E11/F02/S01). There is no separate constraint
+    # object to write - pinning before any solver run is just writing this row early.
     return VendorAssignmentResult(
         email=email,
         date=date,
@@ -95,6 +98,7 @@ def _placement_for(
         section=section.name,
         tier=section.tier.name if section.tier else "",
         location=section.location.name if section.location else "",
+        hand_placed=True,
     )
 
 

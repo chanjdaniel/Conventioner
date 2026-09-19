@@ -124,6 +124,9 @@ export interface VendorAssignmentResult {
   section: string;
   tier: string;
   location: string;
+  // A pin: this seat was chosen by hand, and the solver places everyone else around it rather
+  // than recomputing it. There is no separate constraint object - the pin IS this row, flagged.
+  handPlaced?: boolean;
 }
 
 export interface AssignmentStatistics {

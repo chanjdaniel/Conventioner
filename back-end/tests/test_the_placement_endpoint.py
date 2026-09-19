@@ -90,6 +90,7 @@ def test_a_placement_is_written(collection):
             "section": "Hall A",
             "tier": "Gold",
             "location": "Main Hall",
+            "handPlaced": True,
         }
     ]
     assert result["placement"]["tableCode"] == "Hall A 1"
