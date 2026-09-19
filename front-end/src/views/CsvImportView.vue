@@ -16,10 +16,10 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, getApiErrorMessage } from '@/utils/api';
 import type { Market } from '@/assets/types/datatypes';
+import { getFormattedDate } from '@/utils/utils';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
-  TABLE_CHOICES,
   TABLE_TYPE_RANKING_KEY,
   TIER_PREFERENCE_KEY,
   UNASKABLE_ESSENTIAL_KEYS,
@@ -198,12 +198,14 @@ function isRestored(key: string | undefined): boolean {
 /**
  * A value to resolve an unmatched cell to, as a person would say it.
  *
- * Dates, tiers and sections are the organizer's own names and read fine as they are. Table choice is
- * the exception: it is stored as `full` / `half` / `either`, which is the contract's vocabulary, not
- * anybody's - and that is what the resolution dropdown was offering.
+ * Tiers and sections are the organizer's own names and read fine as they are. Dates are not: they
+ * are stored as `2026-11-21`, a format shown nowhere else in the product, on the path every CSV
+ * market walks. The option's value stays the stored date - that is what the import writes - and
+ * only its text changes.
  */
-function choiceLabel(value: string): string {
-  return TABLE_CHOICES.find((c) => c.value === value)?.label ?? value;
+function offeredLabel(target: string, value: string): string {
+  if (target === AVAILABLE_DATES_KEY) return getFormattedDate(value) ?? value;
+  return value;
 }
 
 function labelForTarget(key: string): string {
@@ -717,7 +719,7 @@ function startOver() {
                         >
                           <option value="">Choose…</option>
                           <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                            {{ choiceLabel(choice) }}
+                            {{ offeredLabel(entry.target, choice) }}
                           </option>
                           <option :value="IGNORE_VALUE">Ignore this value</option>
                         </select>
@@ -845,7 +847,7 @@ function startOver() {
                       >
                         <option value="">Choose…</option>
                         <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                          {{ choiceLabel(choice) }}
+                          {{ offeredLabel(entry.target, choice) }}
                         </option>
                         <option :value="IGNORE_VALUE">Ignore this value</option>
                       </select>

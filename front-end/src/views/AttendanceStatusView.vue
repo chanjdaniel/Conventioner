@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
 import type { VendorAttendance } from '@/assets/types/datatypes';
+import { getShortDate, getTimestampTime } from '@/utils/utils';
 
 const route = useRoute();
 const router = useRouter();
@@ -36,15 +37,12 @@ const lookup = computed(() => {
 function cellFor(vendor: string, date: string): string {
   const value = lookup.value.get(`${vendor}|${date}`);
   if (!value) return '-';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString();
+  // The column already names the day; the cell answers what time they arrived.
+  return getTimestampTime(value);
 }
 
 function formatHeaderDate(d: string): string {
-  const parsed = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return d;
-  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return getShortDate(d);
 }
 
 async function loadAttendance(): Promise<void> {

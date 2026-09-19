@@ -16,6 +16,7 @@ import IconVendors from '@/components/icons/IconVendors.vue';
 import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { publishedMarketDestination } from '@/utils/marketSlug';
+import { getFormattedDate, getShortDate } from '@/utils/utils';
 
 const router = useRouter();
 
@@ -47,7 +48,6 @@ interface UnassignedTableDisplayRow {
   tableCode: string;
   tableChoice: string;
   dateRaw: string;
-  dateDisplay: string;
 }
 
 interface UnassignedTableDateGroup {
@@ -57,13 +57,7 @@ interface UnassignedTableDateGroup {
 }
 
 function formatDisplayDate(date: string): string {
-  const d = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return date;
-  return d.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return getFormattedDate(date) ?? date;
 }
 
 function toComparableDate(date: string): number {
@@ -115,7 +109,6 @@ const unassignedTableGroups = computed((): UnassignedTableDateGroup[] => {
           tableCode: normalized.tableCode,
           tableChoice: normalized.tableChoice,
           dateRaw,
-          dateDisplay,
         };
       });
       return { dateRaw, dateDisplay, rows };
@@ -240,9 +233,7 @@ function tableChoiceToFilterValue(label: string): string {
 }
 
 function formatDateLabel(dateKey: string): string {
-  const parsed = new Date(`${dateKey}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return dateKey;
-  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return getShortDate(dateKey);
 }
 
 const doneError = ref('');
@@ -589,10 +580,11 @@ const handleDone = async () => {
                           :key="`${group.dateRaw}-${row.tableCode}-${tableIndex}`"
                           class="unassigned-item unassigned-item--table"
                         >
+                          <!-- The date is the group heading above; it used to be repeated on
+                               every row underneath it as well. -->
                           <span class="unassigned-text unassigned-table-label"
                             >{{ row.tableCode }} - {{ row.tableChoice }}</span
                           >
-                          <span class="unassigned-table-date">{{ row.dateDisplay }}</span>
                         </div>
                       </div>
                     </div>
@@ -1059,16 +1051,6 @@ const handleDone = async () => {
 .unassigned-table-label {
   flex: 1;
   min-width: 0;
-}
-
-.unassigned-table-date {
-  flex-shrink: 0;
-  font-family: 'Outfit Regular';
-  font-size: 12px;
-  color: var(--mm-text-muted);
-  text-align: right;
-  white-space: nowrap;
-  line-height: 1.3;
 }
 
 .unassigned-date-group {

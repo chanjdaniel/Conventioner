@@ -23,6 +23,7 @@ import {
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import { asksNothingDistinguishing, reviewAnswers } from '@/utils/reviewQueue';
+import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
   market: Market | null;
@@ -210,7 +211,7 @@ function statusColor(status: string): string {
 }
 
 function submittedOn(app: Application): string {
-  return app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '';
+  return getTimestampDate(app.submittedAt);
 }
 </script>
 

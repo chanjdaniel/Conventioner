@@ -20,7 +20,7 @@ import type { APIRequestContext } from '@playwright/test';
  */
 
 const MARKET_DATE = '2026-07-31';
-const EXPECTED_LABEL = 'Friday, July 31';
+const EXPECTED_LABEL = 'Friday, July 31, 2026';
 const TIMEZONES = ['Pacific/Honolulu', 'America/Los_Angeles', 'Asia/Tokyo'];
 
 /**

@@ -5,6 +5,7 @@ import { api } from '@/utils/api';
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import type { FloorplanTemplate } from '@/assets/types/datatypes';
+import { getTimestampDate } from '@/utils/utils';
 
 const store = useFloorplanStore();
 
@@ -134,13 +135,7 @@ function closeLoadDialog() {
 
 // ── Date formatting ─────────────────────────────────────────
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return getTimestampDate(dateStr);
 }
 </script>
 

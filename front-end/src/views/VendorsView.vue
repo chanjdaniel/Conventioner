@@ -8,6 +8,7 @@ import { parseMarketFromApi } from '@/utils/market';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import type { Application, Market, MarketDateObject } from '@/assets/types/datatypes';
+import { getFormattedDate } from '@/utils/utils';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -238,9 +239,7 @@ const detailFields = computed(() => {
 });
 
 function formatDateLabel(date: string): string {
-  const parsed = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return getFormattedDate(date) ?? date;
 }
 
 function assignmentSummary(assignment: VendorTableAssignment | undefined): string {
