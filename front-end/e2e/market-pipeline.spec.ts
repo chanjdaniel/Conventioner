@@ -178,7 +178,10 @@ test.describe('Market pipeline E2E', () => {
     expect(summaryText).toContain('Assignments');
     expect(summaryText).toContain('Assigned Tables');
     expect(summaryText).toContain('Assigned Vendors');
-    expect(summaryText).toContain('Satisfaction Score');
+    // Named and defined where it is shown: it used to be a bare "Satisfaction Score" with no
+    // definition, no breakdown and no tooltip anywhere in the product.
+    expect(summaryText).toContain('Satisfaction');
+    expect(summaryText).toContain('share of the dates vendors asked for');
 
     await expect(resultsPage.doneButton).toBeVisible();
     await expect(resultsPage.downloadCsvButton).toBeVisible();

@@ -197,6 +197,19 @@ onMounted(() => {
     });
 });
 
+/**
+ * The satisfaction score, or a statement that there was nothing to score.
+ *
+ * `null` from the server means no vendor could be scored - none at all, or none with a date they
+ * could attend. It used to arrive as 0.0 and render "0.0%", which reads as a run that satisfied
+ * nobody rather than a run with nothing to satisfy.
+ */
+const satisfactionDisplay = computed(() => {
+  const score = assignmentStatistics.value?.satisfactionScore;
+  if (score === null || score === undefined) return 'Not applicable';
+  return `${(score * 100).toFixed(1)}%`;
+});
+
 const openVendorsModal = () => {
   showVendorsModal.value = true;
 };
@@ -440,12 +453,18 @@ const handleDone = async () => {
                       >
                     </div>
                     <div class="stat-item">
-                      <span class="stat-label">Satisfaction Score</span>
-                      <span class="stat-value"
-                        >{{ (assignmentStatistics.satisfactionScore * 100).toFixed(1) }}%</span
-                      >
+                      <span class="stat-label">Satisfaction</span>
+                      <span class="stat-value" data-testid="assignment-satisfaction-score">{{
+                        satisfactionDisplay
+                      }}</span>
                     </div>
                   </div>
+                  <!-- The number had no definition, no breakdown and no tooltip anywhere in the
+                       product, and read 0.0% on a run with nothing in it. -->
+                  <p class="stat-note">
+                    Satisfaction is the share of the dates vendors asked for, and could have had,
+                    that they got.
+                  </p>
                 </div>
                 <nav class="stat-card assignment-quick-nav" aria-label="Assignment shortcuts">
                   <div class="assignment-quick-nav-list">
@@ -541,7 +560,13 @@ const handleDone = async () => {
                   class="stat-card body-grid-table-choice"
                 >
                   <h3>Per Table Choice</h3>
-                  <div class="stat-list">
+                  <!-- The only list here that is not seeded from the plan: what vendors were
+                       given is not something the market declares in advance. With no placements
+                       it is empty, and an empty card with a heading and a rule says nothing. -->
+                  <p v-if="!Object.keys(processedTableChoices).length" class="stat-empty">
+                    Nothing was placed, so there is nothing to break down.
+                  </p>
+                  <div v-else class="stat-list">
                     <AssignmentStatListItem
                       v-for="(count, choice) in processedTableChoices"
                       :key="choice"
@@ -831,12 +856,16 @@ const handleDone = async () => {
   overflow: visible;
 }
 
+/* `align-items: start`, not `stretch`: a card in a row was sized to the tallest card beside it,
+   so Per Date and Per Section were stretched to the height of Unassigned Tables and the organizer
+   scrolled roughly 1,300px of blank white to reach the bottom. Each card sizes to its own content;
+   the one that spans both rows stretches for itself below. */
 .statistics-body-grid--with-unassigned {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   grid-template-rows: auto auto;
   gap: 25px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .statistics-body-grid--four-cards {
@@ -844,18 +873,18 @@ const handleDone = async () => {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: auto auto;
   gap: 25px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .statistics-body-grid > .stat-card {
   min-height: 0;
 }
 
-/* An intrinsic height, so a list never depends on how tall the window happens to be.
-   `min-height` is what it always shows; past `max-height` it scrolls within its own card. */
+/* An intrinsic height, so a list never depends on how tall the window happens to be. Past
+   `max-height` it scrolls within its own card. There is no `min-height`: an empty list reserved
+   11rem of nothing, which is what made a run with no applications four empty slabs. */
 .statistics-body-grid > .stat-card .stat-list {
   flex: 1 1 auto;
-  min-height: 11rem;
   max-height: 20rem;
   overflow-y: auto;
   /* Inset so `.assignment-stat-list-item` box-shadows are not clipped by the scrollport */
@@ -918,6 +947,21 @@ const handleDone = async () => {
 }
 
 /* Match `.settings-container` / quick-nav: white panel + soft outer shadow */
+.stat-note {
+  margin: 0;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.stat-empty {
+  margin: 0;
+  padding: 8px 10px;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 13px;
+  color: var(--mm-text-muted);
+}
+
 .stat-card {
   background-color: white;
   border-radius: 10px;
@@ -942,6 +986,13 @@ const handleDone = async () => {
 .summary-card h3,
 .summary-card .stat-label,
 .summary-card .stat-value {
+  color: white;
+}
+
+/* Full white, not the muted-on-dark token: that token is tuned against `--mm-black` and reaches
+   only 3.8:1 on this card's green, which is below AA for text this size. The size carries the
+   hierarchy instead of the colour. */
+.summary-card .stat-note {
   color: white;
 }
 
@@ -1022,13 +1073,9 @@ const handleDone = async () => {
   overflow: hidden;
 }
 
-.statistics-body-grid .unassigned-card .unassigned-list {
-  flex: 1;
-  min-height: 0;
-  max-height: none;
-  overflow-y: auto;
-}
-
+/* Capped and scrolling in its own card. The grid used to lift the cap so this list could fill a
+   stretched row; now that each card sizes to its own content, an uncapped list of 80 unassigned
+   tables is a 1,900px card and the same long scroll in a different place. */
 .unassigned-list {
   display: flex;
   flex-direction: column;
