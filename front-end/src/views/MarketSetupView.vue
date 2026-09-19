@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
@@ -24,13 +24,41 @@ import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
+import AssignmentResults from '@/components/AssignmentResults.vue';
 import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 
 const router = useRouter();
 
 const showPathChoice = ref(false);
-const activeTab = ref<'form' | 'setup' | 'applications'>('setup');
+/**
+ * Which of the market's four screens is open.
+ *
+ * In the URL, so a tab can be linked to and returned to: Assign lands on the assignment tab, and
+ * the Tables and Vendors screens come back to it. It used to be a route the organizer was pushed
+ * to, which is how `Done` came to sit on it posting a phase transition (E10/F03/S01).
+ */
+type MarketTab = 'form' | 'setup' | 'applications' | 'assignment';
+const MARKET_TABS: MarketTab[] = ['form', 'setup', 'applications', 'assignment'];
+
+const route = useRoute();
+
+function tabFromRoute(): MarketTab {
+  const asked = String(route.query.tab ?? '');
+  return (MARKET_TABS as string[]).includes(asked) ? (asked as MarketTab) : 'setup';
+}
+
+const activeTab = ref<MarketTab>(tabFromRoute());
+
+function showTab(tab: MarketTab) {
+  activeTab.value = tab;
+  router.replace({ query: { ...route.query, tab } });
+}
+
+watch(
+  () => route.query.tab,
+  () => (activeTab.value = tabFromRoute()),
+);
 
 /**
  * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
@@ -76,9 +104,6 @@ const setupObject = reactive<SetupObject>({
     maxHalfTableProportionPerSection: null,
   },
 });
-
-const pageIdx = ref(0);
-const maxPageIdx = 2;
 
 /**
  * The essential questions' offering as the server reports it: the frozen snapshot once an
@@ -150,40 +175,12 @@ const assignmentOptionsComplete = computed(() => {
   return true;
 });
 
-/**
- * Where the organizer last stood in THIS market's plan wizard.
- *
- * It was a single global key with no market id in it, so opening a second market resumed wherever
- * the first was left - and the step it skipped was Market Dates, which is what the solver assigns
- * across and what generates the "which dates can you attend" question. A market whose plan has no
- * dates yet always opens at the first step regardless, because a remembered step further in is
- * remembered from a different market.
- *
- * `E10/F02/S01` makes the plan editor one page and deletes this outright.
- */
-function pageIdxKey(): string {
-  return `setupPageIdx:${market.value?.id ?? ''}`;
-}
-
-function rememberPageIdx() {
-  localStorage.setItem(pageIdxKey(), JSON.stringify(pageIdx.value));
-}
-
-function storedPageIdx(): number {
-  if (!(market.value?.setupObject?.marketDates ?? []).length) return 0;
-  const stored = JSON.parse(localStorage.getItem(pageIdxKey()) || 'null');
-  if (typeof stored !== 'number' || !Number.isInteger(stored)) return 0;
-  return Math.min(Math.max(stored, 0), maxPageIdx);
-}
-
 onMounted(() => {
   // create setup object
 
   if (market.value && market.value.setupObject) {
     Object.assign(setupObject, market.value.setupObject);
   }
-
-  pageIdx.value = storedPageIdx();
 
   // Paint the cached form immediately, then reconcile with the server, which also
   // tells us whether the form is still editable.
@@ -344,26 +341,82 @@ const handleDiscordWebhookInput = (event: Event) => {
   localStorage.setItem('market', JSON.stringify(market.value));
 };
 
+/**
+ * The plan saves itself as it is edited.
+ *
+ * It used to be saved by the wizard's Back and Next, which were the only routine writes of the
+ * plan to the server - everything else only touched localStorage. With the paging gone
+ * (E10/F02/S01) those buttons are gone too, so an organizer who planned a market and then opened
+ * applications without assigning would have had a plan that existed on their machine and nowhere
+ * else. Autosave rather than a Save button: there is no step to press it on any more, and the
+ * status below is what makes the writing visible (E09/F03/S05).
+ *
+ * Debounced, because every keystroke in a section name emits an update.
+ */
+const planSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
+const planSaveError = ref('');
+const planSaveTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+const planSavedTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+
+async function savePlan() {
+  if (!market.value?.id) return;
+  planSaveStatus.value = 'saving';
+  planSaveError.value = '';
+  try {
+    await updateMarket();
+    planSaveStatus.value = 'saved';
+    if (planSavedTimer.value !== null) clearTimeout(planSavedTimer.value);
+    planSavedTimer.value = setTimeout(() => {
+      planSavedTimer.value = null;
+      if (planSaveStatus.value === 'saved') planSaveStatus.value = 'idle';
+    }, 2000);
+  } catch (err: unknown) {
+    planSaveStatus.value = 'error';
+    planSaveError.value = getApiErrorMessage(err, 'Could not save the plan. Retry in a moment.');
+  }
+}
+
+function schedulePlanSave() {
+  if (planSaveTimer.value !== null) clearTimeout(planSaveTimer.value);
+  planSaveTimer.value = setTimeout(() => {
+    planSaveTimer.value = null;
+    void savePlan();
+  }, 600);
+}
+
+/**
+ * Write any pending plan edit NOW, and wait for it.
+ *
+ * Every phase guard reads the market as the server holds it, so a transition fired while an edit
+ * is still sitting in the debounce would be judged against a plan the organizer has already
+ * changed - refused by their own unsaved work.
+ */
+async function flushPlanSave(): Promise<void> {
+  if (planSaveTimer.value === null) return;
+  clearTimeout(planSaveTimer.value);
+  planSaveTimer.value = null;
+  await savePlan();
+}
+
+/** A pending edit must not be lost to leaving the page, so it is sent without waiting. */
+onUnmounted(() => {
+  if (planSaveTimer.value === null) return;
+  clearTimeout(planSaveTimer.value);
+  planSaveTimer.value = null;
+  void savePlan();
+});
+
 const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
   nextTick(() => {
     if (market.value) {
       Object.assign(setupObject, newSetupObject);
       market.value.setupObject = newSetupObject;
       localStorage.setItem('market', JSON.stringify(market.value));
+      schedulePlanSave();
     }
   });
 };
 
-const handleNext = async () => {
-  pageIdx.value = pageIdx.value === maxPageIdx ? maxPageIdx : pageIdx.value + 1;
-  rememberPageIdx();
-  await updateMarket();
-};
-const handleBack = async () => {
-  pageIdx.value = pageIdx.value === 0 ? 0 : pageIdx.value - 1;
-  rememberPageIdx();
-  await updateMarket();
-};
 const assignError = ref('');
 
 /**
@@ -389,7 +442,7 @@ const handleAssign = async () => {
     market.value = assignedMarket;
     await updateMarket();
 
-    router.push('/assignment-results');
+    showTab('assignment');
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
     assignError.value = detail || 'Assignment failed. Please try again.';
@@ -407,22 +460,29 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   // For 'manual': just hide overlay, existing text-based UI is already underneath
 }
 
-// Show path choice overlay when entering sections page with empty sections
-watch(pageIdx, (newIdx) => {
-  if (
-    newIdx === 1 &&
+/**
+ * Whether the organizer has yet said how this market's sections are described.
+ *
+ * The floorplan-or-by-hand choice used to interrupt: it opened by itself on arriving at the
+ * wizard's sections page. That page is gone, and on one page an overlay that opens by itself
+ * covers the dates the organizer is in the middle of typing. It is offered from the Section Setup
+ * card instead - the place it is a question about - and opened when they ask for it.
+ */
+const sectionsUndescribed = computed(
+  () =>
     setupObject.sections.length === 0 &&
-    (!setupObject.floorplans || setupObject.floorplans.length === 0)
-  ) {
-    showPathChoice.value = true;
-  }
-});
+    !(setupObject.floorplans && setupObject.floorplans.length > 0),
+);
 </script>
 
 <template>
   <NoMarketLoaded v-if="!market" shows="a market's plan and application form" />
   <div v-else class="market-setup-view">
-    <PhaseControlPanel :market="market" @phase-advanced="handlePhaseAdvanced" />
+    <PhaseControlPanel
+      :market="market"
+      :beforeTransition="flushPlanSave"
+      @phase-advanced="handlePhaseAdvanced"
+    />
     <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
     <div class="market-setup-body">
       <div class="settings-container">
@@ -433,24 +493,31 @@ watch(pageIdx, (newIdx) => {
           <div class="tab-bar">
             <button
               :class="['tab-button', { active: activeTab === 'form' }]"
-              @click="activeTab = 'form'"
+              @click="showTab('form')"
               data-testid="market-setup-form-tab"
             >
               Application Form
             </button>
             <button
               :class="['tab-button', { active: activeTab === 'setup' }]"
-              @click="activeTab = 'setup'"
+              @click="showTab('setup')"
               data-testid="market-setup-setup-tab"
             >
               Market Setup
             </button>
             <button
               :class="['tab-button', { active: activeTab === 'applications' }]"
-              @click="activeTab = 'applications'"
+              @click="showTab('applications')"
               data-testid="market-setup-applications-tab"
             >
               Applications
+            </button>
+            <button
+              :class="['tab-button', { active: activeTab === 'assignment' }]"
+              @click="showTab('assignment')"
+              data-testid="market-setup-assignment-tab"
+            >
+              Assignment Results
             </button>
           </div>
         </div>
@@ -566,93 +633,99 @@ watch(pageIdx, (newIdx) => {
           </div>
         </div>
 
-        <!-- Market Setup Tab (existing wizard) -->
-        <div v-if="activeTab === 'setup'" class="settings-body">
-          <template v-if="pageIdx === 0">
-            <div class="double-column-body">
-              <ElementSettingContainer>
-                <template #setting-title>
-                  <h2>Market Dates</h2>
-                </template>
-                <template #setting-content>
-                  <ElementMarketDates
-                    :setupObject="setupObject"
-                    @update:setupObject="handleUpdateSetupObject"
-                  />
-                </template>
-              </ElementSettingContainer>
-            </div>
-          </template>
+        <!-- Market Setup Tab: the whole plan, one page.
+             It was three wizard pages, which implied an ordering the data does not have. The only
+             dependency worth respecting - tiers and locations before a section can reference one -
+             lives entirely within the second row, and the only cross-row one is that the market's
+             dates bound the max-assignments clamp, which the organizer can now see move. Paging it
+             was the same mistake as the wizard pretending to be the lifecycle, one level down. -->
+        <div v-if="activeTab === 'setup'" class="settings-body settings-body-plan">
+          <section class="plan-row plan-row--single">
+            <ElementSettingContainer>
+              <template #setting-title>
+                <h2>Market Dates</h2>
+              </template>
+              <template #setting-content>
+                <ElementMarketDates
+                  :setupObject="setupObject"
+                  @update:setupObject="handleUpdateSetupObject"
+                />
+              </template>
+            </ElementSettingContainer>
+          </section>
 
-          <template v-else-if="pageIdx === 1">
-            <div class="triple-column-body">
-              <ElementSettingContainer>
-                <template #setting-title>
-                  <h2>Tier Setup</h2>
-                </template>
-                <template #setting-content>
-                  <ElementTierSetup
-                    :setupObject="setupObject"
-                    @update:setupObject="handleUpdateSetupObject"
-                  />
-                </template>
-              </ElementSettingContainer>
-              <ElementSettingContainer>
-                <template #setting-title>
-                  <h2>Location Setup</h2>
-                </template>
-                <template #setting-content>
-                  <ElementLocationSetup
-                    :setupObject="setupObject"
-                    @update:setupObject="handleUpdateSetupObject"
-                  />
-                </template>
-              </ElementSettingContainer>
-              <ElementSettingContainer>
-                <template #setting-title>
-                  <h2>Section Setup</h2>
-                </template>
-                <template #setting-content>
-                  <ElementSectionSetup
-                    :setupObject="setupObject"
-                    @update:setupObject="handleUpdateSetupObject"
-                  />
-                </template>
-              </ElementSettingContainer>
-            </div>
-          </template>
+          <section class="plan-row plan-row--triple">
+            <ElementSettingContainer>
+              <template #setting-title>
+                <h2>Tier Setup</h2>
+              </template>
+              <template #setting-content>
+                <ElementTierSetup
+                  :setupObject="setupObject"
+                  @update:setupObject="handleUpdateSetupObject"
+                />
+              </template>
+            </ElementSettingContainer>
+            <ElementSettingContainer>
+              <template #setting-title>
+                <h2>Location Setup</h2>
+              </template>
+              <template #setting-content>
+                <ElementLocationSetup
+                  :setupObject="setupObject"
+                  @update:setupObject="handleUpdateSetupObject"
+                />
+              </template>
+            </ElementSettingContainer>
+            <ElementSettingContainer>
+              <template #setting-title>
+                <h2>Section Setup</h2>
+              </template>
+              <template #setting-content>
+                <!-- The choice belongs here, where sections are described, rather than over the
+                     whole page - and it is offered rather than imposed. -->
+                <button
+                  v-if="sectionsUndescribed"
+                  type="button"
+                  class="section-path-button"
+                  @click="showPathChoice = true"
+                  data-testid="market-setup-choose-path-button"
+                >
+                  Set up sections from a floorplan instead
+                </button>
+                <ElementSectionSetup
+                  :setupObject="setupObject"
+                  @update:setupObject="handleUpdateSetupObject"
+                />
+              </template>
+            </ElementSettingContainer>
+          </section>
 
-          <template v-else-if="pageIdx === 2">
-            <div class="double-column-body-asymmetric">
-              <ElementSettingContainer>
-                <template #setting-title>
-                  <h2>Assignment Priority</h2>
-                </template>
-                <template #setting-content>
-                  <ElementAssignmentPriority
-                    :setupObject="setupObject"
-                    :formFields="applicationForm?.fields ?? []"
-                    @update:setupObject="handleUpdateSetupObject"
-                  />
-                </template>
-              </ElementSettingContainer>
-              <ElementSettingContainer>
-                <template #setting-title>
-                  <h2>Assignment Options</h2>
-                </template>
-                <template #setting-content>
-                  <ElementAssignmentOptions
-                    :setupObject="setupObject"
-                    @update:setupObject="handleUpdateSetupObject"
-                  />
-                </template>
-              </ElementSettingContainer>
-            </div>
-          </template>
-
-          <template v-else>
-            <h1>Something went wrong!</h1>
-          </template>
+          <section class="plan-row plan-row--asymmetric">
+            <ElementSettingContainer>
+              <template #setting-title>
+                <h2>Assignment Priority</h2>
+              </template>
+              <template #setting-content>
+                <ElementAssignmentPriority
+                  :setupObject="setupObject"
+                  :formFields="applicationForm?.fields ?? []"
+                  @update:setupObject="handleUpdateSetupObject"
+                />
+              </template>
+            </ElementSettingContainer>
+            <ElementSettingContainer>
+              <template #setting-title>
+                <h2>Assignment Options</h2>
+              </template>
+              <template #setting-content>
+                <ElementAssignmentOptions
+                  :setupObject="setupObject"
+                  @update:setupObject="handleUpdateSetupObject"
+                />
+              </template>
+            </ElementSettingContainer>
+          </section>
         </div>
 
         <!-- Applications Tab -->
@@ -689,6 +762,14 @@ watch(pageIdx, (newIdx) => {
             :formEditable="formEditable"
           />
         </div>
+
+        <!-- Assignment Results, a tab rather than a place the organizer is pushed to. Reachable
+             in every phase, and nothing on it posts a transition: publishing is a step on the
+             phase strip above, and "I have finished looking at this" is what leaving a page
+             already is. -->
+        <div v-if="activeTab === 'assignment'" class="settings-body settings-body-stacked">
+          <AssignmentResults />
+        </div>
       </div>
       <!-- A real, wired feature that sat here as a bare URL box between Back and Next, saying
            nothing about what it sends, when, or that it is optional. Silence about a working
@@ -715,59 +796,55 @@ watch(pageIdx, (newIdx) => {
           data-testid="market-setup-discord-webhook-input"
         />
       </div>
-      <div
-        v-if="activeTab === 'setup'"
-        style="width: 100%; display: flex; flex-direction: row; justify-content: space-between"
-      >
-        <div>
-          <button
-            v-if="pageIdx !== 0"
-            class="done-button"
-            @click="handleBack"
-            data-testid="market-setup-back-button"
-          >
-            Back
-          </button>
-        </div>
-        <div>
-          <button
-            v-if="pageIdx === maxPageIdx"
-            type="button"
-            class="done-button"
-            :disabled="!assignmentOptionsComplete"
-            @click="handleAssign"
-            data-testid="market-setup-assign-button"
-          >
-            Assign
-          </button>
-          <!-- The hint explains the disabled Assign button beside it, so it belongs to the same
-               page. Without the page guard it also appeared on the dates and sections pages,
-               pointing at assignment options that are not on screen until this one. -->
-          <p
-            v-if="pageIdx === maxPageIdx && !assignmentOptionsComplete"
-            class="assign-disabled-hint"
-            data-testid="market-setup-assign-hint"
-          >
-            Set both assignment options above to run the assignment.
-          </p>
-          <div
-            v-if="assignError"
-            class="form-load-error-banner assign-error-banner"
-            data-testid="market-setup-assign-error"
-          >
-            <span>{{ assignError }}</span>
-          </div>
-          <!-- Next advances the wizard, so it shows on every page that has a next one. It used to
-               be `v-else` on the error banner above, which made it render beside Assign on the
-               last page - two buttons overlapping - and vanish whenever an assignment failed. -->
-          <button
-            v-if="pageIdx !== maxPageIdx"
-            class="done-button"
-            @click="handleNext"
-            data-testid="market-setup-next-button"
-          >
-            Next
-          </button>
+      <!-- Back and Next are gone with the paging: the plan is one page, so there is nowhere to
+           page to. Assign is the only action here, and it no longer needs to say which page it
+           belongs to. -->
+      <div v-if="activeTab === 'setup'" class="plan-actions">
+        <!-- Whether what the organizer just typed is on the server. Nothing else on this page
+             says so now that Next is gone. -->
+        <span
+          v-if="planSaveStatus === 'saving'"
+          class="plan-save-status"
+          data-testid="market-setup-plan-saving"
+        >
+          Saving…
+        </span>
+        <span
+          v-else-if="planSaveStatus === 'saved'"
+          class="plan-save-status plan-save-status--saved"
+          data-testid="market-setup-plan-saved"
+        >
+          Plan saved
+        </span>
+        <span
+          v-else-if="planSaveStatus === 'error'"
+          class="plan-save-status plan-save-status--error"
+          data-testid="market-setup-plan-save-error"
+        >
+          {{ planSaveError }}
+        </span>
+        <button
+          type="button"
+          class="done-button"
+          :disabled="!assignmentOptionsComplete"
+          @click="handleAssign"
+          data-testid="market-setup-assign-button"
+        >
+          Assign
+        </button>
+        <p
+          v-if="!assignmentOptionsComplete"
+          class="assign-disabled-hint"
+          data-testid="market-setup-assign-hint"
+        >
+          Set both assignment options above to run the assignment.
+        </p>
+        <div
+          v-if="assignError"
+          class="form-load-error-banner assign-error-banner"
+          data-testid="market-setup-assign-error"
+        >
+          <span>{{ assignError }}</span>
         </div>
       </div>
     </div>
@@ -775,6 +852,74 @@ watch(pageIdx, (newIdx) => {
 </template>
 
 <style scoped>
+/* The plan is one scrolling page of rows rather than a row of cards, so it overrides
+   `.settings-body`'s single-row flex. */
+.settings-body-plan {
+  flex-direction: column;
+  gap: 30px;
+  overflow-y: auto;
+}
+
+.plan-row {
+  display: grid;
+  gap: 30px;
+  align-items: stretch;
+  /* Each row sizes to its own content; the page scrolls, not the rows. */
+  flex: 0 0 auto;
+  min-height: 320px;
+}
+
+.plan-row--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.plan-row--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.plan-row--asymmetric {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.plan-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.section-path-button {
+  align-self: flex-start;
+  margin-bottom: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--mm-border);
+  background: white;
+  font-family: 'Outfit Regular';
+  font-size: 13px;
+  color: var(--mm-text-link);
+  cursor: pointer;
+}
+
+.section-path-button:hover {
+  border-color: var(--mm-text-link);
+}
+
+.plan-save-status {
+  font-family: 'Outfit Regular';
+  font-size: 13px;
+  color: var(--mm-text-muted);
+}
+
+.plan-save-status--saved {
+  color: var(--mm-green);
+}
+
+.plan-save-status--error {
+  color: var(--mm-text-yellow);
+}
+
 .settings-body-stacked {
   flex-direction: column;
   gap: 0;
@@ -932,28 +1077,6 @@ watch(pageIdx, (newIdx) => {
   flex-grow: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 30px;
-  min-height: 0;
-  flex: 1;
-}
-
-.double-column-body-asymmetric {
-  align-self: stretch;
-  flex-grow: 1;
-  display: grid;
-  grid-template-columns: 3fr 2fr;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 30px;
-  min-height: 0;
-  flex: 1;
-}
-
-.triple-column-body {
-  align-self: stretch;
-  flex-grow: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr 2fr;
   grid-template-rows: minmax(0, 1fr);
   gap: 30px;
   min-height: 0;

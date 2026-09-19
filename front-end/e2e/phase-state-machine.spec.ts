@@ -160,12 +160,17 @@ test.describe('Phase state machine - full walk', () => {
     // placements serves a page that can tell nobody where to stand.
     seedStoredAssignment(seed.marketId);
     await page.getByTestId('phase-transition-market_days').click();
-    // Sweep confirmation dialog should appear
-    const sweepDialog = page.getByTestId('sweep-confirm-dialog');
-    await expect(sweepDialog).toBeVisible({ timeout: 5000 });
-    await expect(sweepDialog).toContainText('Begin Market Days');
+
+    // Publishing confirms, because it is one of the two edges with no route back - derived from
+    // the transition table, not listed in the panel (E10/F04/S01). The dialog used to ask "Begin
+    // Market Days? No offers are pending - no vendors will be marked refused", which answered a
+    // question about a feature MVP does not have; it names the consequence now (E10/F04/S02).
+    const publishDialog = page.getByTestId('sweep-confirm-dialog');
+    await expect(publishDialog).toBeVisible({ timeout: 5000 });
+    await expect(publishDialog).toContainText('Publish Market');
+    await expect(publishDialog).toContainText('check-in page on the air');
     await page.screenshot({
-      path: `${SCREENSHOT_DIR}/06b-sweep-confirmation.png`,
+      path: `${SCREENSHOT_DIR}/06b-publish-confirmation.png`,
       fullPage: true,
     });
     await page.getByTestId('sweep-confirm-confirm').click();

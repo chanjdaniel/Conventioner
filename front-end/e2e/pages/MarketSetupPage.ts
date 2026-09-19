@@ -9,8 +9,6 @@ export class MarketSetupPage {
   readonly page: Page;
 
   // Wizard navigation
-  readonly backButton: Locator;
-  readonly nextButton: Locator;
   readonly assignButton: Locator;
 
   // Discord webhook
@@ -20,6 +18,7 @@ export class MarketSetupPage {
   readonly datesAddButton: Locator;
 
   // Page 1: Path choice overlay
+  readonly choosePathButton: Locator;
   readonly choosePathManualCard: Locator;
 
   // Page 1: Locations
@@ -48,14 +47,13 @@ export class MarketSetupPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.backButton = page.getByTestId('market-setup-back-button');
-    this.nextButton = page.getByTestId('market-setup-next-button');
     this.assignButton = page.getByTestId('market-setup-assign-button');
 
     this.discordWebhookInput = page.getByTestId('market-setup-discord-webhook-input');
 
     this.datesAddButton = page.getByTestId('setup-dates-add-button');
 
+    this.choosePathButton = page.getByTestId('market-setup-choose-path-button');
     this.choosePathManualCard = page.getByTestId('choose-path-manual');
 
     this.locationAddButton = page.getByTestId('setup-location-add-button');
@@ -103,6 +101,14 @@ export class MarketSetupPage {
    */
   async advancePhaseTo(toPhase: string, expectedLabel: string): Promise<void> {
     await this.page.getByTestId(`phase-transition-${toPhase}`).click();
+
+    // Publishing confirms, because it is one of the two edges with no route back: it puts a
+    // public check-in page on the air.
+    const publishConfirm = this.page.getByTestId('sweep-confirm-confirm');
+    if (await publishConfirm.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await publishConfirm.click();
+    }
+
     await this.page.getByTestId('phase-control-current-phase').waitFor({ state: 'visible' });
     await this.page
       .getByTestId('phase-control-current-phase')
@@ -112,14 +118,6 @@ export class MarketSetupPage {
 
   async goto(): Promise<void> {
     await this.page.goto('/market-setup');
-  }
-
-  async clickNext(): Promise<void> {
-    await this.nextButton.click();
-  }
-
-  async clickBack(): Promise<void> {
-    await this.backButton.click();
   }
 
   async clickAssign(): Promise<void> {
@@ -158,7 +156,18 @@ export class MarketSetupPage {
   // --- Page 1: Path choice ---
 
   /** Select the Manual Setup path from the ChoosePathOverlay. */
+  /**
+   * Say that this market's sections are described by hand.
+   *
+   * The overlay used to open by itself on the wizard's sections page. On the one-page plan
+   * editor (E10/F02/S01) it is offered from the Section Setup card instead, because an overlay
+   * that opens by itself covers the dates the organizer is in the middle of typing. Describing
+   * them by hand is what happens if nobody opens it at all, so this is a no-op when the offer is
+   * already gone.
+   */
   async selectManualPath(): Promise<void> {
+    if (!(await this.choosePathButton.isVisible().catch(() => false))) return;
+    await this.choosePathButton.click();
     await this.choosePathManualCard.click();
     await this.choosePathManualCard.waitFor({ state: 'hidden' }).catch(() => {});
   }
@@ -259,11 +268,16 @@ export class MarketSetupPage {
     await this.optionsMaxProportionInput.fill(String(value));
   }
 
-  // --- Wizard flow helpers ---
+  // --- Plan editor helpers ---
 
-  /** Wait for the setup wizard to be visible. */
+  /**
+   * Wait for the plan editor to be on screen.
+   *
+   * It used to wait for the wizard's Next button; the plan is one page now (E10/F02/S01), so the
+   * thing to wait for is the one action it has.
+   */
   async waitForWizard(): Promise<void> {
-    await this.nextButton.waitFor({ state: 'visible', timeout: 10000 });
+    await this.assignButton.waitFor({ state: 'visible', timeout: 10000 });
   }
 
   /** Wait for the Assign button to become enabled (all required options configured). */

@@ -1037,7 +1037,16 @@ def transition_market(market_id: str) -> Response:
 def pending_offers_count(market_id: str) -> Response:
     """Return how many applications are still in ``assignment_sent`` - the count of
     offers that will be swept to ``vendor_refused`` when the market advances from
-    ``offers`` to ``market_days``. Drives the sweep confirmation dialog in the UI.
+    ``offers`` to ``market_days``.
+
+    Nothing in the front end reads this today (E10/F04/S02). It drove the publish confirmation,
+    which asked "how many offers will be refused?" - a question whose answer is always zero,
+    because offers are out of MVP scope and nothing ever sets ``assignment_sent``. A dialog
+    answering it was answering a question the organizer had never asked, about a feature the
+    product does not have; publishing now says what publishing actually does.
+
+    The sweep it counts is real and still happens server-side on that edge, so the count is kept
+    for the offers phase rather than deleted with the dialog that misused it.
     """
     try:
         user_email = authenticated_email()

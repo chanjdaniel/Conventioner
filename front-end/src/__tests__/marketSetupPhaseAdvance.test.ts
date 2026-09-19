@@ -3,10 +3,15 @@ import { mount } from '@vue/test-utils';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
 import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
+import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 
-vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  // The open tab lives in the URL now (E10/F03/S01).
+  useRoute: () => ({ query: {} }),
+}));
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
   return { ...actual, api };
@@ -66,17 +71,35 @@ beforeEach(() => {
  * Asserting on local storage alone would be vacuous: the old handler never wrote there, so the
  * untouched original still carried the options and the assertion passed while the defect stood.
  * What the next save sends is the thing that actually reaches the server.
+ *
+ * The save used to be the wizard's Next button. The plan is one page now (E10/F02/S01), so it is
+ * a plan edit that saves - debounced, hence the timers.
  */
 async function savedPayloadAfterAdvancing() {
-  const wrapper = mount(MarketSetupView, { shallow: true });
+  vi.useFakeTimers();
+  // The setting container has to render its slots, or the plan's editors never mount and there is
+  // nothing to emit an edit from.
+  const wrapper = mount(MarketSetupView, {
+    shallow: true,
+    global: {
+      stubs: {
+        ElementSettingContainer: {
+          template: '<div><slot name="setting-title" /><slot name="setting-content" /></div>',
+        },
+      },
+    },
+  });
   wrapper
     .findComponent(PhaseControlPanel)
     .vm.$emit('phase-advanced', SERVER_MARKET_AFTER_TRANSITION);
   await wrapper.vm.$nextTick();
 
   api.put.mockClear();
-  await wrapper.get('[data-testid="market-setup-next-button"]').trigger('click');
+  // Any plan edit; the payload is what matters, not which field moved.
+  wrapper.findComponent(ElementMarketDates).vm.$emit('update:setupObject', PLANNED_SETUP);
   await wrapper.vm.$nextTick();
+  await vi.advanceTimersByTimeAsync(1000);
+  vi.useRealTimers();
 
   expect(api.put).toHaveBeenCalled();
   return api.put.mock.calls[0][1];
