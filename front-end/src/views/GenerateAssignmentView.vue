@@ -810,7 +810,7 @@ const handleDone = async () => {
   color: var(--mm-black);
   margin: 0;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .statistics-body-grid {
@@ -949,14 +949,14 @@ const handleDone = async () => {
 .summary-card .stat-label {
   font-size: 13px;
   text-align: center;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .summary-card .stat-value {
   font-size: clamp(18px, 2.2vw, 24px);
   line-height: 1.15;
   text-align: center;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .stat-card h3 {
