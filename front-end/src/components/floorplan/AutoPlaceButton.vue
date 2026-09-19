@@ -222,7 +222,9 @@ async function triggerAutoPlace() {
 .auto-place-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: var(--mm-grey);
+  background: var(--mm-border);
+  /* White on this fill is 1.67. --mm-black on it is 9.31. */
+  color: var(--mm-black);
 }
 
 /* ── Icon ────────────────────────────────────────────────────── */

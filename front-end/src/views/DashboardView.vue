@@ -2,8 +2,8 @@
 import { inject, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes';
-import { pathAfterLoadingMarket } from '@/utils/market';
-import { getRoleDisplayName } from '@/utils/permissions';
+import { openMarket } from '@/utils/market';
+import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 
 const setUser: (user: unknown) => void = inject('setUser')!;
 const hostname = import.meta.env.VITE_FLASK_HOST;
@@ -40,20 +40,9 @@ onMounted(() => {
   }
 });
 
-function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
 const handleLoadLastMarket = () => {
   if (!lastMarket.value) return;
-  localStorage.removeItem('market');
-  localStorage.setItem('market', JSON.stringify(lastMarket.value));
-  router.push(pathAfterLoadingMarket(lastMarket.value));
+  openMarket(router, lastMarket.value);
 };
 
 const handleMarkets = () => {
@@ -85,42 +74,13 @@ const handleSignOut = async () => {
     <div class="main-buttons">
       <div class="last-market-section">
         <span v-if="lastMarket || everOpenedOne" class="last-market-label">Previously opened</span>
-        <div
+        <MarketSummaryCard
           v-if="lastMarket"
-          class="last-market-card"
-          role="button"
-          tabindex="0"
-          @click="handleLoadLastMarket"
-          @keydown.enter="handleLoadLastMarket"
+          class="last-market-row"
+          :market="lastMarket"
           data-testid="dashboard-last-market-card"
-        >
-          <div class="card-header">
-            <h3>{{ lastMarket.name }}</h3>
-          </div>
-          <div class="card-content">
-            <div class="info-group">
-              <div class="info-row">
-                <span class="info-label">Created:</span>
-                <span class="info-value">{{
-                  lastMarket.creationDate ? formatDate(lastMarket.creationDate) : '-'
-                }}</span>
-              </div>
-              <div v-if="lastMarket.organizationName" class="info-row">
-                <span class="info-label">Organization:</span>
-                <span class="info-value">{{ lastMarket.organizationName }}</span>
-              </div>
-              <div v-if="lastMarket.userRole" class="info-row">
-                <span class="info-label">Your role:</span>
-                <span
-                  class="info-value role-badge"
-                  :class="`role-${lastMarket.userRole.toLowerCase()}`"
-                >
-                  {{ getRoleDisplayName(lastMarket.userRole) }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+          @open="handleLoadLastMarket"
+        />
         <div
           v-else-if="everOpenedOne"
           class="last-market-card last-market-card--disabled"
@@ -252,7 +212,7 @@ const handleSignOut = async () => {
 .last-market-card {
   width: 716px;
   padding: 16px 24px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 10px;
   background: white;
   display: flex;
@@ -271,6 +231,11 @@ const handleSignOut = async () => {
   border-color: var(--mm-green);
   box-shadow: 0 4px 12px rgba(73, 176, 150, 0.15);
   transform: translateY(-2px);
+}
+
+/* The dashboard shows one row at the width of the two buttons beside it, not the full page. */
+.last-market-row {
+  width: 716px;
 }
 
 .last-market-card--welcome {
@@ -313,114 +278,15 @@ const handleSignOut = async () => {
 }
 
 .last-market-card--disabled:hover {
-  border-color: var(--mm-grey);
+  border-color: var(--mm-border);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transform: none;
 }
 
 .disabled-text {
-  color: #999;
+  color: var(--mm-text-muted);
   font-size: 16px;
   font-family: 'Outfit Regular', sans-serif;
-}
-
-.last-market-card .card-header {
-  flex-shrink: 0;
-  min-width: 200px;
-}
-
-.last-market-card .card-header h3 {
-  margin: 0;
-  color: var(--mm-black);
-  font-size: 18px;
-  font-weight: 600;
-  font-family: 'Outfit Regular', sans-serif;
-}
-
-.last-market-card .card-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.last-market-card .info-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.last-market-card .info-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-.last-market-card .info-label {
-  font-weight: 500;
-  color: #666;
-  font-size: 13px;
-  min-width: 70px;
-}
-
-.last-market-card .info-value {
-  color: var(--mm-black);
-  font-size: 14px;
-}
-
-.last-market-card .role-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-  font-size: 12px;
-}
-
-.last-market-card .role-owner {
-  background: #e3f2fd;
-  color: #1976d2;
-}
-
-.last-market-card .role-admin {
-  background: #f3e5f5;
-  color: #7b1fa2;
-}
-
-.last-market-card .role-editor {
-  background: #e8f5e9;
-  color: #388e3c;
-}
-
-.last-market-card .role-viewer {
-  background: #fff3e0;
-  color: #f57c00;
-}
-
-.last-market-card .card-footer {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.last-market-card .open-button {
-  padding: 8px 20px;
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: 'Outfit Regular', sans-serif;
-  box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
-  white-space: nowrap;
-}
-
-.last-market-card .open-button:hover {
-  background: #3a9a82;
-  box-shadow: 0 4px 8px rgba(73, 176, 150, 0.3);
-  transform: translateY(-1px);
 }
 
 /* Signing out is not a destination the organizer came here for. It was a black slab the size of
@@ -440,7 +306,7 @@ const handleSignOut = async () => {
 }
 
 .button-small h4 {
-  color: rgba(39, 35, 35, 0.6);
+  color: var(--mm-text-muted);
   text-decoration: underline;
 }
 

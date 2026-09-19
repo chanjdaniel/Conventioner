@@ -2,9 +2,9 @@
 id: E09/F03/S01
 title: Setup row controls are the size and shape they claim
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

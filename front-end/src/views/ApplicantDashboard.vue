@@ -6,6 +6,7 @@ import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
 import type { Application, FormField } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
+import { getTimestampDate } from '@/utils/utils';
 
 const route = useRoute();
 const router = useRouter();
@@ -112,7 +113,7 @@ function logout() {
           {{ statusLabels[application.status] ?? application.status }}
         </span>
         <span v-if="application.submittedAt" class="status-date">
-          Submitted {{ new Date(application.submittedAt).toLocaleDateString() }}
+          Submitted {{ getTimestampDate(application.submittedAt) }}
         </span>
       </div>
 
@@ -148,7 +149,7 @@ function logout() {
         @click="logout"
         data-testid="applicant-dashboard-logout-btn"
       >
-        Sign Out
+        Sign out
       </button>
     </div>
   </div>
@@ -179,7 +180,7 @@ function logout() {
 .dash-market {
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   margin: 0 0 8px;
 }
 
@@ -195,7 +196,7 @@ function logout() {
   padding: 40px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
 }
 
 .dash-info {
@@ -270,7 +271,7 @@ function logout() {
 
 .answer-row {
   padding: 10px 14px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
   background: #fafafa;
 }
@@ -280,7 +281,7 @@ function logout() {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   margin-bottom: 2px;
 }
 
@@ -294,7 +295,7 @@ function logout() {
 .dash-no-answers {
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   padding: 20px;
   text-align: center;
 }
@@ -317,7 +318,7 @@ function logout() {
 
 .dash-btn-secondary {
   background: transparent;
-  color: var(--mm-grey, #666);
-  border: 1px solid var(--mm-grey, #ccc);
+  color: var(--mm-text-muted);
+  border: 1px solid var(--mm-border);
 }
 </style>

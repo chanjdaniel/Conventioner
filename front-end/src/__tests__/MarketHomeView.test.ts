@@ -12,6 +12,8 @@ vi.mock('@/utils/publicApplicationForm', () => ({
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({ params: { marketSlug: 'spring-market' } }),
+  // The not-found branch renders the shared PageNotFound, which offers a way onward.
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 function served(marketName: string) {

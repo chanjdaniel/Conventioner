@@ -1,33 +1,31 @@
+import type { Router } from 'vue-router';
 import {
   type ApplicationForm,
   type Market,
   MarketPhase,
   MarketRole,
 } from '@/assets/types/datatypes';
-import { marketNameToKebabSlug } from '@/utils/marketSlug';
 
 /**
- * Where to send the user after choosing a market.
+ * Where a market opens: its own screens, in every phase.
  *
- * Every pre-archive phase routes to the setup wizard so the phase controls are reachable.
- * ``isDraft`` is only consulted for a market with no phase at all - one left in localStorage
- * by a build that predates the field.
+ * This used to branch. A market in `market_days` or `archived` was sent to `/<slug>`, "the public
+ * page it serves" - except that `/<slug>` is gated by `applicant_intake_market_by_slug` to
+ * form-intake markets only, and every MVP market is CSV. So Open on a published market landed on
+ * "Page not found", while its check-in page - the thing the organizer was trying to reach - was
+ * working the whole time. The gate exists precisely so a CSV market serves no public page; the
+ * branch described one that does not exist.
+ *
+ * There is nothing to branch on. A published market has plenty to show on its own screens, the
+ * check-in URL among it, and sending every phase to the same place is one fewer thing that can be
+ * wrong about a phase.
  */
-export function pathAfterLoadingMarket(market: Market): string {
-  // A market still being SET UP opens the wizard. A published one (market_days) opens the public
-  // page it serves, and a finished one (archived) has nothing left to configure. This used to test
-  // `!== Archived` alone, because archived was both "just published" and "over" (E03/F03).
-  const noLongerBeingSetUp: MarketPhase[] = [MarketPhase.MarketDays, MarketPhase.Archived];
-  if (market.phase && !noLongerBeingSetUp.includes(market.phase)) {
-    return '/market-setup';
-  }
-  if (!market.phase) {
-    const interpretedAsDraft = market.isDraft !== false;
-    if (interpretedAsDraft) return '/market-setup';
-  }
-  const slug = marketNameToKebabSlug(market.name);
-  if (slug) return `/${slug}`;
-  return '/market-setup';
+export const MARKET_HOME_PATH = '/market-setup';
+
+/** Make this the open market and go to it. The three lists that open a market all did this by hand. */
+export function openMarket(router: Router, market: Market): void {
+  localStorage.setItem('market', JSON.stringify(market));
+  router.push(MARKET_HOME_PATH);
 }
 
 /**

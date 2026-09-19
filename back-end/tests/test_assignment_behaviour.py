@@ -285,6 +285,85 @@ class TestTheStatisticsTheOrganizerSees:
         statistics = market.assignment_object.assignment_statistics
         assert statistics.total_vendors == 1
 
+    def test_a_tier_that_took_nobody_is_reported_at_zero(self):
+        """The row that explains a failed run was the row that was missing.
+
+        "Silver: 0" says the run placed nobody who wanted Silver; no Silver row at all says
+        nothing, and the organizer cannot tell it from a market with no Silver in it.
+        """
+        market = assign([VendorWant("a@example.com", available=[DATES[0]], tiers=[GOLD])])
+
+        statistics = market.assignment_object.assignment_statistics
+        assert statistics.assignments_per_tier[SILVER] == 0
+        assert statistics.assignments_per_tier[GOLD] == 1
+
+    def test_a_section_that_took_nobody_is_reported_at_zero(self):
+        market = assign([VendorWant("a@example.com", available=[DATES[0]], tiers=[GOLD])])
+
+        statistics = market.assignment_object.assignment_statistics
+        assert statistics.assignments_per_section[f"Section {SILVER}"] == 0
+
+    def test_a_date_that_took_nobody_is_reported_at_zero(self):
+        market = assign([VendorWant("a@example.com", available=[DATES[0]], tiers=[GOLD])])
+
+        statistics = market.assignment_object.assignment_statistics
+        assert statistics.assignments_per_date[DATES[1]] == 0
+
+    def test_the_counts_are_of_the_plan_not_of_what_landed(self):
+        """Every tier and section the plan declares appears, whatever the run did."""
+        market = assign([VendorWant("a@example.com", available=[DATES[0]], tiers=[GOLD])])
+
+        statistics = market.assignment_object.assignment_statistics
+        assert set(statistics.assignments_per_tier) == {GOLD, SILVER}
+        assert set(statistics.assignments_per_section) == {f"Section {GOLD}", f"Section {SILVER}"}
+
+
+class TestTheSatisfactionScore:
+    """How much of what the vendors asked for they got.
+
+    It used to be 0.0 when there was nobody to score, so an empty run reported "0.0%" - which
+    reads as a run that satisfied nobody rather than a run with nothing to satisfy.
+    """
+
+    def test_a_vendor_who_got_everything_they_asked_for_scores_one(self):
+        market = assign([VendorWant("a@example.com", available=[DATES[0]], tiers=[GOLD])])
+
+        assert market.assignment_object.assignment_statistics.satisfaction_score == 1.0
+
+    def test_a_vendor_who_got_half_of_what_they_asked_for_scores_a_half(self):
+        market = assign(
+            [
+                VendorWant("a@example.com", available=DATES, tiers=[GOLD]),
+                VendorWant("b@example.com", available=[DATES[0]], tiers=[GOLD]),
+                VendorWant("c@example.com", available=[DATES[0]], tiers=[GOLD]),
+            ],
+            section_counts=((GOLD, 1),),
+        )
+
+        # One Gold table per date. On DATES[0] one of the three is placed; on DATES[1] only "a"
+        # is available, so "a" takes it.
+        assert 0 < market.assignment_object.assignment_statistics.satisfaction_score < 1
+
+    def test_a_run_with_no_vendors_has_no_score_rather_than_a_score_of_zero(self):
+        market = assign([])
+
+        assert market.assignment_object.assignment_statistics.satisfaction_score is None
+
+    def test_a_vendor_who_could_attend_no_date_is_left_out_of_the_average(self):
+        """They asked for nothing this market could give, so the solver neither satisfied nor
+        failed them. Counting them as a zero understated every real run they appeared in."""
+        market = assign([
+            VendorWant("placed@example.com", available=[DATES[0]], tiers=[GOLD]),
+            VendorWant("elsewhere@example.com", available=["2099-01-01"], tiers=[GOLD]),
+        ])
+
+        assert market.assignment_object.assignment_statistics.satisfaction_score == 1.0
+
+    def test_a_run_where_nobody_could_be_scored_has_no_score(self):
+        market = assign([VendorWant("elsewhere@example.com", available=["2099-01-01"], tiers=[GOLD])])
+
+        assert market.assignment_object.assignment_statistics.satisfaction_score is None
+
 
 class TestAssigningFromTheMarketsOwnApplications:
     """The end of the facade: a market reaches assignment through its applications.

@@ -6,7 +6,10 @@ import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 import { parseMarketFromApi } from '@/utils/market';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
+import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import type { Application, Market, MarketDateObject } from '@/assets/types/datatypes';
+import { getFormattedDate } from '@/utils/utils';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -46,7 +49,22 @@ interface VendorRow {
 
 const router = useRouter();
 
-const market = ref<Market | null>(null);
+function readMarketFromStorage(): Market | null {
+  const raw = localStorage.getItem('market');
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parseMarketFromApi(parsed);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
+ * value that only arrives a tick later would flash that message on every page that does have one.
+ */
+const market = ref<Market | null>(readMarketFromStorage());
 const applications = ref<Application[]>([]);
 const tableRows = ref<MarketTableRowResponse[]>([]);
 const unassignedEmails = ref<Set<string>>(new Set());
@@ -63,17 +81,6 @@ function extractEmail(raw: unknown): string {
   const candidate = obj.email ?? obj.vendorEmail ?? obj.vendor_email;
   if (typeof candidate === 'string') return candidate.trim();
   return '';
-}
-
-function readMarketFromStorage(): Market | null {
-  const raw = localStorage.getItem('market');
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return parseMarketFromApi(parsed);
-  } catch {
-    return null;
-  }
 }
 
 function readUserEmail(): string | null {
@@ -232,27 +239,25 @@ const detailFields = computed(() => {
   if (!vendor) return [];
   return customFields.value.map((field) => ({
     label: field.label || field.key,
-    value: answerText(vendor.answers[field.key]) || '—',
+    value: answerText(vendor.answers[field.key]) || 'Not answered',
   }));
 });
 
 function formatDateLabel(date: string): string {
-  const parsed = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return getFormattedDate(date) ?? date;
 }
 
 function assignmentSummary(assignment: VendorTableAssignment | undefined): string {
-  if (!assignment) return '—';
+  if (!assignment) return 'Not assigned';
   const parts: string[] = [];
-  const codePart = assignment.tableCode || '—';
+  const codePart = assignment.tableCode || 'No table';
   const choice = assignment.tableChoice ? ` (${assignment.tableChoice})` : '';
   parts.push(`${codePart}${choice}`);
   const meta = [assignment.section, assignment.tier, assignment.location]
     .filter((s) => !!s && s.trim().length > 0)
     .join(', ');
   if (meta) parts.push(meta);
-  return parts.join(' — ');
+  return parts.join(' - ');
 }
 
 function selectVendor(rowIndex: number): void {
@@ -263,6 +268,8 @@ function closeDetail(): void {
   selectedRowIndex.value = null;
 }
 
+useEscapeToClose(() => selectedVendor.value !== null, closeDetail);
+
 function handleBack(): void {
   if (market.value?.id) {
     router.push('/assignment-results');
@@ -270,26 +277,17 @@ function handleBack(): void {
     router.push('/dashboard');
   }
 }
-
-function goToDashboard(): void {
-  router.push('/dashboard');
-}
 </script>
 
 <template>
   <div class="vendors-view">
     <div class="vendors-card">
       <header class="vendors-header">
-        <h1>{{ market ? `Vendors — ${market.name}` : 'Vendors' }}</h1>
+        <h1>{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
       </header>
 
       <div class="vendors-body">
-        <div v-if="!market" class="empty-state">
-          <p>No market loaded. Go back to the dashboard to choose one.</p>
-          <button type="button" class="primary-button" @click="goToDashboard">
-            Back to Dashboard
-          </button>
-        </div>
+        <NoMarketLoaded v-if="!market" shows="the vendors" />
 
         <template v-else>
           <div class="vendors-toolbar">
@@ -437,7 +435,11 @@ function goToDashboard(): void {
 <style scoped>
 .vendors-view {
   width: 100%;
-  min-height: 100vh;
+  /* Sized from the flex parent, not the viewport: .router-view is already flex:1 inside a
+     100vh column, so `min-height: 100vh` here double-counted the 5vh banner and left the page
+     scrolling 45px behind a list that was scrolling too. */
+  height: 100%;
+  min-height: 0;
   padding: 40px 20px;
   display: flex;
   justify-content: center;
@@ -455,10 +457,11 @@ function goToDashboard(): void {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  max-height: 100%;
 }
 
 .vendors-header {
-  background-color: var(--mm-black, #272323);
+  background-color: var(--mm-black);
   padding: 18px 24px;
 }
 
@@ -476,9 +479,11 @@ function goToDashboard(): void {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  min-height: 320px;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
   font-family: 'Outfit Regular', sans-serif;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
 }
 
 .vendors-toolbar {
@@ -497,7 +502,7 @@ function goToDashboard(): void {
 .filter-label {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
   opacity: 0.75;
 }
 
@@ -515,14 +520,14 @@ function goToDashboard(): void {
 
 .filter-input:focus {
   outline: none;
-  border-color: var(--mm-green, #49b096);
+  border-color: var(--mm-green);
   box-shadow: 0 0 0 3px rgba(73, 176, 150, 0.18);
 }
 
 .summary-line {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
   opacity: 0.8;
   white-space: nowrap;
 }
@@ -530,7 +535,7 @@ function goToDashboard(): void {
 .summary-strong {
   font-family: 'Merge One', sans-serif;
   font-size: 15px;
-  color: var(--mm-green, #49b096);
+  color: var(--mm-green);
   margin: 0 2px;
 }
 
@@ -546,7 +551,7 @@ function goToDashboard(): void {
   justify-content: center;
   gap: 12px;
   padding: 60px 0;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
   opacity: 0.75;
   font-family: 'Outfit Regular', sans-serif;
 }
@@ -555,8 +560,8 @@ function goToDashboard(): void {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 3px solid var(--mm-grey, rgba(39, 35, 35, 0.25));
-  border-top-color: var(--mm-green, #49b096);
+  border: 3px solid var(--mm-border);
+  border-top-color: var(--mm-green);
   animation: spinner-spin 0.9s linear infinite;
 }
 
@@ -574,7 +579,7 @@ function goToDashboard(): void {
   gap: 16px;
   padding: 48px 16px;
   text-align: center;
-  color: #7f8791;
+  color: var(--mm-text-muted);
   font-family: 'Outfit Regular', sans-serif;
 }
 
@@ -589,8 +594,9 @@ function goToDashboard(): void {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 60vh;
-  overflow-y: auto;
+  /* No max-height and no overflow of its own: .vendors-body is the one scroller on this page.
+     Two nested scrollers meant the wheel did different things depending on where the pointer
+     was - the page scrolled 945/900 while the list scrolled 14,374/540. */
   padding-right: 4px;
 }
 
@@ -611,7 +617,7 @@ function goToDashboard(): void {
   cursor: pointer;
   text-align: left;
   font-family: 'Outfit Regular', sans-serif;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition:
     border-color 0.15s ease-in-out,
@@ -620,7 +626,7 @@ function goToDashboard(): void {
 }
 
 .vendor-row-button:hover {
-  border-color: var(--mm-green, #49b096);
+  border-color: var(--mm-green);
   box-shadow: 0 2px 8px rgba(73, 176, 150, 0.18);
 }
 
@@ -629,7 +635,7 @@ function goToDashboard(): void {
 }
 
 .vendor-row--active .vendor-row-button {
-  border-color: var(--mm-green, #49b096);
+  border-color: var(--mm-green);
   box-shadow: 0 0 0 2px rgba(73, 176, 150, 0.35);
 }
 
@@ -670,7 +676,7 @@ function goToDashboard(): void {
 
 .vendor-date-count {
   font-size: 13px;
-  color: #7f8791;
+  color: var(--mm-text-muted);
   white-space: nowrap;
 }
 
@@ -682,7 +688,7 @@ function goToDashboard(): void {
 }
 
 .primary-button {
-  background: var(--mm-green, #49b096);
+  background: var(--mm-green);
   color: white;
   border: none;
   border-radius: 5px;
@@ -744,7 +750,7 @@ function goToDashboard(): void {
 .detail-header {
   position: sticky;
   top: 0;
-  background: var(--mm-black, #272323);
+  background: var(--mm-black);
   color: white;
   padding: 20px 22px;
   display: flex;
@@ -809,9 +815,9 @@ function goToDashboard(): void {
   margin: 0;
   font-family: 'Merge One', sans-serif;
   font-size: 16px;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
   padding-bottom: 8px;
-  border-bottom: 2px solid var(--mm-grey, rgba(39, 35, 35, 0.25));
+  border-bottom: 2px solid var(--mm-border);
 }
 
 .detail-grid {
@@ -821,13 +827,13 @@ function goToDashboard(): void {
   gap: 8px 16px;
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
 }
 
 .detail-grid dt {
   font-family: 'Merge One', sans-serif;
   font-size: 13px;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
   opacity: 0.75;
   align-self: start;
   padding-top: 2px;
@@ -840,7 +846,7 @@ function goToDashboard(): void {
 
 .detail-empty {
   font-family: 'Outfit Regular', sans-serif;
-  color: #7f8791;
+  color: var(--mm-text-muted);
   font-size: 14px;
 }
 
@@ -855,7 +861,7 @@ function goToDashboard(): void {
 
 .assignment-item {
   border: 1px solid #e1e4e8;
-  border-left: 4px solid var(--mm-green, #49b096);
+  border-left: 4px solid var(--mm-green);
   border-radius: 8px;
   padding: 12px 14px;
   background: white;
@@ -865,14 +871,14 @@ function goToDashboard(): void {
 .assignment-date {
   font-family: 'Merge One', sans-serif;
   font-size: 15px;
-  color: var(--mm-green, #49b096);
+  color: var(--mm-green);
   margin-bottom: 4px;
 }
 
 .assignment-detail {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
   overflow-wrap: anywhere;
 }
 

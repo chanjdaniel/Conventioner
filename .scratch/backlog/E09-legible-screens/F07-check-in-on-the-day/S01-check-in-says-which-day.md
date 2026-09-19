@@ -2,9 +2,9 @@
 id: E09/F07/S01
 title: Check-in names the market and says which day
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

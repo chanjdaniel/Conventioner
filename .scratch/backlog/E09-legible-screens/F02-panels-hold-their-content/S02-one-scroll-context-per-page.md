@@ -2,9 +2,9 @@
 id: E09/F02/S02
 title: One scroll context per page
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

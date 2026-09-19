@@ -277,7 +277,7 @@ async function handleSave() {
             <div v-if="sectionSummary.length > 0" class="save-section">
               <h3 class="save-section-title">
                 Sections
-                <span class="save-section-subtitle">— click to edit names &amp; locations</span>
+                <span class="save-section-subtitle">Click to edit names and locations</span>
               </h3>
               <div class="save-sections-grid">
                 <div v-for="section in sectionSummary" :key="section.id" class="save-section-card">
@@ -402,10 +402,12 @@ async function handleSave() {
 
 .save-button.is-disabled,
 .save-button:disabled {
-  background: var(--mm-grey);
+  background: var(--mm-border);
   cursor: not-allowed;
   opacity: 0.55;
   box-shadow: none;
+  /* White on this fill is 1.67. --mm-black on it is 9.31. */
+  color: var(--mm-black);
 }
 
 /* ── Toast ──────────────────────────────────────────────────── */
@@ -623,7 +625,7 @@ async function handleSave() {
 }
 
 .save-stat--warn .save-stat-value {
-  color: var(--mm-yellow);
+  color: var(--mm-text-yellow);
 }
 
 /* ── Section blocks ─────────────────────────────────────────── */
@@ -638,7 +640,7 @@ async function handleSave() {
   font-family: 'Merge One', sans-serif;
   font-size: 16px;
   color: var(--mm-black);
-  border-bottom: 2px solid var(--mm-grey);
+  border-bottom: 2px solid var(--mm-border);
   padding-bottom: 6px;
 }
 
@@ -646,7 +648,7 @@ async function handleSave() {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   font-weight: 400;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   letter-spacing: 0.01em;
 }
 
@@ -690,7 +692,7 @@ async function handleSave() {
 }
 
 .save-section-card:hover {
-  border-color: var(--mm-grey);
+  border-color: var(--mm-border);
 }
 
 .save-section-card-field {
@@ -716,7 +718,7 @@ async function handleSave() {
   height: 34px;
   padding: 0 10px;
   background: #ffffff;
-  border: 1px solid var(--mm-grey);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
 
   font-family: 'Outfit Regular', sans-serif;
@@ -764,7 +766,7 @@ async function handleSave() {
   margin: 0;
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   text-align: center;
 }
 
@@ -776,7 +778,7 @@ async function handleSave() {
   gap: 10px;
   padding: 14px 22px 18px;
   background: #fff;
-  border-top: 1px solid var(--mm-grey);
+  border-top: 1px solid var(--mm-border);
 }
 
 .save-dialog-btn {

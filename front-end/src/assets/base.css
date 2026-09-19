@@ -1,62 +1,54 @@
-/* color palette from <https://github.com/vuejs/theme> */
+/*
+ * The palette. Every value here is measured against the surface it is used on, and
+ * `src/__tests__/contrast.test.ts` asserts it: a token whose NAME says it carries text must
+ * reach WCAG AA (4.5:1) on the grounds it appears on. The name is the declaration - there is no
+ * sidecar map to fall out of step with this file.
+ *
+ * Four text colours failed before this: --mm-yellow as text at 2.15, --mm-grey at 1.67,
+ * --mm-green at 2.65, and a hardcoded #2196F3 link at 3.12.
+ */
 :root {
-  --mm-black: #272323;
-  --mm-green: #49b096;
-  --mm-yellow: #e4a629;
-  --mm-beige: #e9e6e1;
-  --mm-black: #272323;
-  --mm-grey: rgba(39, 35, 35, 0.25);
+  /* ---- Ink. Text on a light ground (white or --mm-beige). ---- */
+  --mm-black: #272323; /* 15.54 on white, 12.49 on beige */
+  /* Secondary text. Was --mm-grey at alpha .25, which rendered 1.67 - the hint, empty-state and
+     helper colour across the product, and effectively unreadable. The .25 value was never wrong
+     as a BORDER, which is what --mm-border below keeps it for. */
+  --mm-text-muted: rgba(39, 35, 35, 0.63); /* #777474, 4.63 on white */
+  /* Yellow as TEXT needs its own value; the yellow fill below is far too light to read on white.
+     Green does not: --mm-green reaches 4.59 both as ink on white and as a fill under white text,
+     so it is one colour doing both jobs rather than two that must be kept in step. */
+  --mm-text-yellow: #996f1b; /* 4.52 on white */
+  --mm-text-link: #1a6f8b; /* 5.69 on white. Replaces a hardcoded #2196F3 at 3.12. */
+
+  /* ---- Ink on a dark ground (--mm-black). Its own family, because one muted grey cannot serve
+     both grounds - and pretending it could is how the phase panel came to paint
+     rgba(255,255,255,.7) on a white page. Plain `white` covers the primary case. ---- */
+  --mm-text-muted-on-dark: rgba(255, 255, 255, 0.72); /* 8.62 on --mm-black */
+
+  /* ---- Paint. Fills, and what each is legible under. ---- */
+  /* Darkened from #49b096, which gave white labels 2.65 on every primary button in the product,
+     including the one a vendor taps at a market entrance. It doubles as ink on white at the same 4.59, so the
+     brand reads as one colour whether it is ink or paint. */
+  --mm-green: #36826f; /* white text on it: 4.59 */
+  /* Unchanged: yellow is a BLACK-text fill and always was. Black on it is 7.24; white would be
+     2.15, so never put white on this. */
+  --mm-yellow: #e4a629; /* --mm-black on it: 7.24 */
+  --mm-beige: #e9e6e1; /* --mm-black on it: 12.49 */
+
+  /* ---- Lines and states. Never carry text, so exempt from the contrast rule. ---- */
+  --mm-border: rgba(39, 35, 35, 0.25);
   --hover-grey: rgba(192, 192, 192, 0.486);
-
-  --vt-c-white: #ffffff;
-  --vt-c-white-soft: #f8f8f8;
-  --vt-c-white-mute: #f2f2f2;
-
-  --vt-c-black: #181818;
-  --vt-c-black-soft: #222222;
-  --vt-c-black-mute: #282828;
-
-  --vt-c-indigo: #2c3e50;
-
-  --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
-  --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
-  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
-  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
-
-  --vt-c-text-light-1: var(--vt-c-indigo);
-  --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
-  --vt-c-text-dark-1: var(--vt-c-white);
-  --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
 }
 
-/* semantic color variables for this project */
+/*
+ * What `body` sets. The rest of the inherited vuejs-theme palette (--vt-c-*, --color-border,
+ * --color-heading, --section-gap) had zero references outside this file and is gone, along with
+ * the commented-out dark-mode block that was its only other reader.
+ */
 :root {
-  --color-background: var(--vt-c-white);
-  --color-background-soft: var(--vt-c-white-soft);
-  --color-background-mute: var(--vt-c-white-mute);
-
-  --color-border: var(--vt-c-divider-light-2);
-  --color-border-hover: var(--vt-c-divider-light-1);
-
-  --color-heading: var(--vt-c-text-light-1);
-  --color-text: var(--vt-c-text-light-1);
-
-  --section-gap: 160px;
+  --color-background: #ffffff;
+  --color-text: #2c3e50; /* 10.35 on white */
 }
-
-/* @media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: var(--vt-c-black);
-    --color-background-soft: var(--vt-c-black-soft);
-    --color-background-mute: var(--vt-c-black-mute);
-
-    --color-border: var(--vt-c-divider-dark-2);
-    --color-border-hover: var(--vt-c-divider-dark-1);
-
-    --color-heading: var(--vt-c-text-dark-1);
-    --color-text: var(--vt-c-text-dark-2);
-  }
-} */
 
 *,
 *::before,

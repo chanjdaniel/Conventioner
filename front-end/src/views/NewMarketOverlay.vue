@@ -5,10 +5,20 @@ import { useRouter } from 'vue-router';
 import { type Market, MarketRole } from '@/assets/types/datatypes.ts';
 import axios from 'axios';
 import { api } from '@/utils/api';
+import { useEscapeToClose } from '@/utils/useEscapeToClose';
 
-defineProps<{
+const props = defineProps<{
   newOpen: boolean;
 }>();
+
+const emit = defineEmits<{
+  newClose: [];
+}>();
+
+useEscapeToClose(
+  () => props.newOpen,
+  () => emit('newClose'),
+);
 
 const router = useRouter();
 const marketName = ref('');
@@ -89,39 +99,44 @@ const handleSubmit = async () => {
       data-testid="new-market-overlay-background"
     ></div>
     <div v-if="newOpen" class="window">
+      <button
+        type="button"
+        class="dialog-close"
+        aria-label="Close"
+        @click="emit('newClose')"
+        data-testid="new-market-close-button"
+      >
+        &times;
+      </button>
       <h2>Create new market</h2>
       <div class="org-select-container">
         <label class="org-select-label">Organization</label>
         <ElementOrgSelect v-model="selectedOrgId" />
       </div>
       <div class="input-wrapper">
-        <div style="width: 100%; height: 30px; display: grid; grid-template-columns: 1fr 3fr 1fr">
-          <div></div>
-          <div class="text-input-container">
-            <input
-              type="text"
-              v-model="marketName"
-              @keydown.enter="handleSubmit"
-              @input="errorMessage = ''"
-              style="all: unset; font-size: 14px; width: 100%; text-align: center"
-              placeholder="Market name"
-              data-testid="new-market-name-input"
-            />
-          </div>
-          <div style="padding-left: 10px">
-            <button
-              @click="handleSubmit"
-              :disabled="!selectedOrgId"
-              style="all: unset; height: 100%; width: 100%; cursor: pointer"
-              :style="{
-                opacity: selectedOrgId ? '75%' : '30%',
-                cursor: selectedOrgId ? 'pointer' : 'not-allowed',
-              }"
-              data-testid="new-market-submit-button"
-            >
-              Submit
-            </button>
-          </div>
+        <label class="field-label" for="new-market-name">Market name</label>
+        <div class="text-input-container">
+          <input
+            id="new-market-name"
+            type="text"
+            v-model="marketName"
+            @keydown.enter="handleSubmit"
+            @input="errorMessage = ''"
+            placeholder="Winter Market 2026"
+            data-testid="new-market-name-input"
+          />
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" @click="emit('newClose')">Cancel</button>
+          <button
+            type="button"
+            class="primary-button"
+            @click="handleSubmit"
+            :disabled="!selectedOrgId || !marketName.trim()"
+            data-testid="new-market-submit-button"
+          >
+            Create market
+          </button>
         </div>
         <p v-show="errorMessage" class="error-message">{{ errorMessage }}</p>
       </div>
@@ -196,7 +211,73 @@ h3 {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.field-label {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mm-text-muted);
+}
+
+.text-input-container input {
+  all: unset;
+  width: 100%;
+  font-size: 14px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* Was `all: unset` - no background, no border, no padding, and enabled/disabled differed only by
+   opacity, so the dialog's primary action read as a word rather than a button. */
+.primary-button {
+  background: var(--mm-green);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 18px;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.primary-button:disabled {
+  background: var(--mm-border);
+  color: var(--mm-black);
+  cursor: not-allowed;
+}
+
+.secondary-button {
+  background: none;
+  color: var(--mm-black);
+  border: 1px solid var(--mm-border);
+  border-radius: 6px;
+  padding: 9px 18px;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Every overlay in the product ignored Escape and two had no visible way out at all. */
+.dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: var(--mm-text-muted);
+  cursor: pointer;
 }
 
 .text-input-container {

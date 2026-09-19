@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+/**
+ * The vendor-facing check-in page: the one surface a stranger meets, used one-handed at a door.
+ *
+ * Three things it did not do. It did not name the market until after a lookup, so a vendor handed
+ * a QR code had to type their address to find out whether they were in the right place. It offered
+ * an identical "Check in" button for every market date with nothing marking today, so on a two-day
+ * market one mis-tap recorded them present on a day they were not. And there was no undo.
+ */
+import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { api } from '@/utils/api';
+import { getFormattedDate, getFormattedTimestamp } from '@/utils/utils';
 
 interface AssignmentRow {
   date: string;
@@ -30,23 +39,61 @@ const lookupError = ref('');
 const isLoading = ref(false);
 const checkinError = ref('');
 const checkingInDate = ref<string | null>(null);
+const undoingDate = ref<string | null>(null);
+
+/** Named from the slug alone, so the page says where the vendor is before they do anything. */
+const marketName = ref('');
+
+onMounted(async () => {
+  if (!marketSlug.value) return;
+  try {
+    const resp = await api.get<{ marketName: string }>(
+      `/public/markets/${encodeURIComponent(marketSlug.value)}/check-in`,
+    );
+    marketName.value = resp.data.marketName ?? '';
+  } catch {
+    // A market that does not answer is not worth an error here: the lookup below says so, in the
+    // one message a vendor at a door can act on.
+    marketName.value = '';
+  }
+});
+
+/**
+ * Today, as a calendar day in the reader's own timezone.
+ *
+ * A market date is a calendar day, and so is "today" for someone standing at the door - the
+ * comparison has to be made in their day, not in UTC.
+ *
+ * A ref re-read on every lookup, not a computed: a computed with no reactive dependency is
+ * evaluated once and cached for the life of the page, and this page is the one that sits open on
+ * a phone at a door all day. Across midnight it would keep marking yesterday as today.
+ */
+function calendarToday(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+const today = ref(calendarToday());
+
+/** Is today one of the days this vendor is placed on? Decides whether anything is primary. */
+const todayIsAMarketDay = computed(() =>
+  (summary.value?.assignments ?? []).some((row) => row.date === today.value),
+);
 
 function formatDate(d: string): string {
-  const parsed = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return d;
-  return parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return getFormattedDate(d) ?? d;
 }
 
 function formatTimestamp(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return getFormattedTimestamp(iso);
 }
 
 async function fetchSummary(): Promise<void> {
   lookupError.value = '';
   checkinError.value = '';
+  today.value = calendarToday();
   if (!email.value.trim()) {
     lookupError.value = 'Please enter your email.';
     return;
@@ -97,17 +144,41 @@ async function checkIn(date: string): Promise<void> {
     checkingInDate.value = null;
   }
 }
+
+async function undoCheckIn(date: string): Promise<void> {
+  if (!summary.value) return;
+  checkinError.value = '';
+  undoingDate.value = date;
+  try {
+    await api.delete(`/public/markets/${encodeURIComponent(marketSlug.value)}/attendance/checkin`, {
+      data: { vendorEmail: summary.value.vendorEmail, date },
+    });
+    await fetchSummary();
+  } catch (err: unknown) {
+    const data =
+      err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { error?: string } } }).response?.data
+        : undefined;
+    checkinError.value = data?.error || 'Failed to undo the check-in. Please try again.';
+  } finally {
+    undoingDate.value = null;
+  }
+}
 </script>
 
 <template>
   <div class="attendance-view">
     <div class="attendance-card">
       <header class="attendance-header">
-        <h1>{{ summary ? `Check in for ${summary.marketName}` : 'Vendor Check-in' }}</h1>
+        <p class="attendance-eyebrow">Vendor check-in</p>
+        <h1 data-testid="attendance-checkin-market-name">
+          {{ marketName || summary?.marketName || 'Vendor Check-in' }}
+        </h1>
       </header>
       <div class="attendance-body">
         <form class="lookup-form" @submit.prevent="fetchSummary">
           <label for="vendor-email">Your email</label>
+          <p class="field-help">Use the address you applied with.</p>
           <div class="lookup-row">
             <input
               id="vendor-email"
@@ -131,12 +202,25 @@ async function checkIn(date: string): Promise<void> {
 
         <div v-if="summary" class="assignments-list">
           <p v-if="checkinError" class="error-text">{{ checkinError }}</p>
+          <!-- Today is the one a vendor at the door means. It is not merely styled differently:
+               every other day's button is secondary, so a mis-tap takes a deliberate press on a
+               control that does not look like the primary one. -->
+          <p v-if="!todayIsAMarketDay" class="not-today-note" data-testid="attendance-not-today">
+            Today is not one of your days at this market. You can still check in for a day below.
+          </p>
           <article
             v-for="row in summary.assignments"
             :key="row.date + row.tableCode"
             class="assignment-card"
+            :class="{ 'assignment-card--today': row.date === today }"
+            :data-testid="
+              row.date === today ? 'attendance-today-card' : 'attendance-other-day-card'
+            "
           >
-            <div class="assignment-date">{{ formatDate(row.date) }}</div>
+            <div class="assignment-date">
+              <span>{{ formatDate(row.date) }}</span>
+              <span v-if="row.date === today" class="today-pill">Today</span>
+            </div>
             <div class="assignment-meta">
               <div><strong>Table:</strong> {{ row.tableCode }} ({{ row.tableChoice }})</div>
               <div><strong>Section:</strong> {{ row.section }}</div>
@@ -147,20 +231,29 @@ async function checkIn(date: string): Promise<void> {
               <button
                 v-if="!row.checkedInAt"
                 type="button"
-                class="primary-button"
+                :class="row.date === today ? 'primary-button' : 'secondary-button'"
                 :disabled="checkingInDate === row.date"
                 @click="checkIn(row.date)"
                 data-testid="attendance-checkin-checkin-button"
               >
                 {{ checkingInDate === row.date ? 'Checking in…' : 'Check in' }}
               </button>
-              <span
-                v-else
-                class="checked-in-pill"
-                data-testid="attendance-checkin-confirmation-pill"
-              >
-                Checked in &#10003; at {{ formatTimestamp(row.checkedInAt) }}
-              </span>
+              <template v-else>
+                <span class="checked-in-pill" data-testid="attendance-checkin-confirmation-pill">
+                  Checked in &#10003; {{ formatTimestamp(row.checkedInAt) }}
+                </span>
+                <!-- A mis-tap on a two-day market recorded a vendor present on a day they were
+                     not, and there was no way back. -->
+                <button
+                  type="button"
+                  class="undo-button"
+                  :disabled="undoingDate === row.date"
+                  @click="undoCheckIn(row.date)"
+                  data-testid="attendance-checkin-undo-button"
+                >
+                  {{ undoingDate === row.date ? 'Undoing…' : 'Undo' }}
+                </button>
+              </template>
             </div>
           </article>
         </div>
@@ -192,8 +285,18 @@ async function checkIn(date: string): Promise<void> {
 }
 
 .attendance-header {
-  background-color: var(--mm-black, #2a2a2a);
+  background-color: var(--mm-black);
   padding: 18px 24px;
+}
+
+.attendance-eyebrow {
+  margin: 0 0 2px;
+  color: var(--mm-text-muted-on-dark);
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
 }
 
 .attendance-header h1 {
@@ -202,6 +305,21 @@ async function checkIn(date: string): Promise<void> {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 26px;
   text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.field-help {
+  margin: 0;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 13px;
+  color: var(--mm-text-muted);
+}
+
+.not-today-note {
+  margin: 0;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 14px;
+  color: var(--mm-text-yellow);
 }
 
 .attendance-body {
@@ -220,7 +338,7 @@ async function checkIn(date: string): Promise<void> {
 .lookup-form label {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: var(--mm-black, #2a2a2a);
+  color: var(--mm-black);
 }
 
 .lookup-row {
@@ -240,7 +358,7 @@ async function checkIn(date: string): Promise<void> {
 }
 
 .primary-button {
-  background: var(--mm-green, #4cae9c);
+  background: var(--mm-green);
   color: white;
   border: none;
   border-radius: 5px;
@@ -256,9 +374,38 @@ async function checkIn(date: string): Promise<void> {
   opacity: 0.9;
 }
 
-.primary-button:disabled {
+.primary-button:disabled,
+.secondary-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Every day that is not today. Reachable, but it does not look like the thing to press. */
+.secondary-button {
+  background: white;
+  color: var(--mm-black);
+  border: 1px solid var(--mm-border);
+  border-radius: 5px;
+  padding: 0 16px;
+  height: 40px;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--mm-black);
+}
+
+.undo-button {
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 14px;
+  color: var(--mm-text-link);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .error-text {
@@ -284,16 +431,37 @@ async function checkIn(date: string): Promise<void> {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+.assignment-card--today {
+  border-color: var(--mm-green);
+  border-width: 2px;
+  box-shadow: 0 2px 8px rgba(54, 130, 111, 0.18);
+}
+
 .assignment-date {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   font-family: 'Merge One', sans-serif;
   font-size: 18px;
-  color: var(--mm-green, #4cae9c);
+  color: var(--mm-green);
+}
+
+.today-pill {
+  background: var(--mm-green);
+  color: white;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .assignment-meta {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
-  color: var(--mm-black, #2a2a2a);
+  color: var(--mm-black);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px 16px;
@@ -301,7 +469,10 @@ async function checkIn(date: string): Promise<void> {
 
 .assignment-action {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .checked-in-pill {
@@ -337,9 +508,15 @@ async function checkIn(date: string): Promise<void> {
   }
 
   .lookup-row .primary-button,
-  .assignment-action .primary-button {
+  .assignment-action .primary-button,
+  .assignment-action .secondary-button {
     width: 100%;
     min-height: 44px; /* A comfortable touch target. */
+  }
+
+  .assignment-action .undo-button {
+    min-height: 44px;
+    width: 100%;
   }
 
   .assignment-meta {

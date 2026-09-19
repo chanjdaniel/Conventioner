@@ -170,7 +170,7 @@ const fieldCount = computed(() => fields.value.length);
 .field-count {
   font-family: 'Outfit Regular';
   font-size: 13px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .add-field-btn {
@@ -192,7 +192,7 @@ const fieldCount = computed(() => fields.value.length);
   padding: 40px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
 }
 
 .field-item {
@@ -206,7 +206,7 @@ const fieldCount = computed(() => fields.value.length);
 .drag-handle {
   cursor: grab;
   padding: 10px 4px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   display: flex;
   align-items: center;
 }

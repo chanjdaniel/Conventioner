@@ -27,12 +27,14 @@ const logout = async () => {
 </script>
 
 <template>
-  <div class="signout-button" @click="logout">
+  <!-- A real <button>. This was a clickable <div> with tabIndex -1, so a keyboard user could not
+       sign out from the drawer at all, and its label was an <h3> sitting in the heading outline. -->
+  <button type="button" class="signout-button" @click="logout" data-testid="nav-sign-out-button">
     <div class="item">
       <slot name="icon"></slot>
       <slot></slot>
     </div>
-  </div>
+  </button>
 </template>
 
 <style scoped>
@@ -40,6 +42,11 @@ const logout = async () => {
   border: none;
   background-color: transparent;
   cursor: pointer;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
 }
 
 .item {
@@ -64,7 +71,7 @@ const logout = async () => {
   box-shadow: 0px -1.5px 5px 1.5px var(--hover-grey);
 }
 
-h3 {
+.signout-button :deep(.signout-label) {
   font-size: 1.2rem;
   font-weight: 500;
   margin-bottom: 0.4rem;

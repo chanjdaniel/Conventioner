@@ -2,9 +2,9 @@
 id: E09/F02/S03
 title: Labels do not break mid-word
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

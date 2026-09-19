@@ -77,6 +77,38 @@ TABLE_CHOICE_HALF = "half"
 TABLE_CHOICE_EITHER = "either"
 TABLE_CHOICES = (TABLE_CHOICE_FULL, TABLE_CHOICE_HALF, TABLE_CHOICE_EITHER)
 
+# The sentence the applicant read beside each choice, mirrored by ``TABLE_CHOICES`` in
+# ``front-end/src/utils/essentialFields.ts``. Storage keeps the code; this is the one name the
+# answer has wherever a human reads it back.
+#
+# The CSV importer needs it most. It used to match an imported cell against the code, so a column
+# exported from the very form this product publishes - full of "A whole table to myself" - was
+# reported as not matching the market, and the only correction on offer was ``full``: a word the
+# applicant never saw and the organizer had no reason to connect to the sentence in front of them.
+TABLE_CHOICE_LABELS = {
+    TABLE_CHOICE_FULL: "A whole table to myself",
+    TABLE_CHOICE_HALF: "Half a table, shared",
+    TABLE_CHOICE_EITHER: "Either is fine",
+}
+
+
+def table_choice_labels() -> List[str]:
+    """Every table choice as the applicant saw it, in the order the form offers them."""
+    return [TABLE_CHOICE_LABELS[choice] for choice in TABLE_CHOICES]
+
+
+def table_choice_for_label(text: Any) -> Optional[str]:
+    """The stored code for a choice named as the applicant saw it, or None for anything else.
+
+    The code is accepted too, so a file that already holds ``full`` is not sent round the
+    reconciliation screen to be told it means ``full``.
+    """
+    normalized = str(text or "").strip().casefold()
+    for code, label in TABLE_CHOICE_LABELS.items():
+        if normalized in (code, label.casefold()):
+            return code
+    return None
+
 # STUB until the floorplan ships. Table type is a property of an individual TABLE, not of its
 # section - any table in any section may be any type - so only a floorplan can truly describe it,
 # and the floorplan GUI is out of MVP scope. Until then every market offers exactly one type, so

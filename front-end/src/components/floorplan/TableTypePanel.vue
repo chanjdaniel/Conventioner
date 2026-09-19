@@ -622,7 +622,7 @@ const selectOptions = [
 .tt-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: var(--mm-beige);
   font-family: 'Outfit Regular', sans-serif;
@@ -713,7 +713,7 @@ const selectOptions = [
 }
 
 .tt-btn--secondary {
-  background: var(--mm-grey);
+  background: var(--mm-border);
   color: var(--mm-black);
 }
 

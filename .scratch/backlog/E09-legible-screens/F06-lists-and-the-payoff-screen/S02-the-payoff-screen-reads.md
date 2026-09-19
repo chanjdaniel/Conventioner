@@ -2,9 +2,9 @@
 id: E09/F06/S02
 title: The payoff screen reads
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

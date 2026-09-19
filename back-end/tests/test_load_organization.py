@@ -135,10 +135,12 @@ class TestGetAssignedMarketOrganizationName:
 
         monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda _q: _market_doc())
         monkeypatch.setattr(MarketsApi.OrgsApi, "get_organization", _get_organization)
+        # One approved vendor, because asking for an assignment with none is refused.
+        monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [object()])
         monkeypatch.setattr(
             MarketsApi,
             "assign_market",
-            lambda _market: SimpleNamespace(model_dump=lambda: {}),
+            lambda _market, _vendors: SimpleNamespace(model_dump=lambda: {}),
         )
 
         result, status = MarketsApi.get_assigned_market("market-123")

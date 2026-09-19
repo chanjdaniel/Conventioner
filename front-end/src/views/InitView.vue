@@ -68,7 +68,7 @@ h3 {
 }
 
 .text-existing {
-  color: var(--mm-yellow);
+  color: var(--mm-text-yellow);
 }
 
 .nav-icon {

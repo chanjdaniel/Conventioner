@@ -432,7 +432,7 @@ h3 {
 
   position: relative;
 
-  border-right: 3px solid var(--mm-grey);
+  border-right: 3px solid var(--mm-border);
 }
 
 .row-item:last-of-type {

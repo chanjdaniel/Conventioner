@@ -138,7 +138,8 @@ export interface AssignmentStatistics {
   assignmentsPerTableChoice?: Record<string, number>;
   unassignedVendors: Record<string, unknown>[];
   unassignedTables: Record<string, UnassignedTableEntry[]>;
-  satisfactionScore: number;
+  /** null when nobody could be scored: no vendors, or none with a date they could attend. */
+  satisfactionScore: number | null;
 }
 
 export interface UnassignedTableEntry {

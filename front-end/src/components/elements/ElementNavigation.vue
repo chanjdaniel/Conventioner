@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { inject } from 'vue';
 import ElementNavigationItem from './ElementNavigationItem.vue';
-import IconCommunity from '../icons/IconCommunity.vue';
+import IconOrganizations from '../icons/IconOrganizations.vue';
 import IconVendors from '../icons/IconVendors.vue';
 import IconMarkets from '../icons/IconMarkets.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
@@ -31,12 +31,12 @@ const user = inject<string | null>('user');
         <template #icon>
           <IconMarkets class="nav-icon" />
         </template>
-        <h3>Manage markets</h3>
+        <h3>Markets</h3>
       </ElementNavigationItem>
 
       <ElementNavigationItem to="/organizations" @menuClose="$emit('menuClose')">
         <template #icon>
-          <IconCommunity class="nav-icon" />
+          <IconOrganizations class="nav-icon" />
         </template>
         <h3>Organizations</h3>
       </ElementNavigationItem>
@@ -45,17 +45,15 @@ const user = inject<string | null>('user');
         <template #icon>
           <IconVendors class="nav-icon" />
         </template>
-        <h3>
-          <span>View </span>
-          <span class="vendors-1">Vendors</span>
-        </h3>
+        <!-- Scoped, and says so: this is the vendors of the market that is open, not a directory. -->
+        <h3>Market vendors</h3>
       </ElementNavigationItem>
 
       <ElementSignoutButton>
         <template #icon>
           <IconSignOutSquare class="nav-icon" />
         </template>
-        <h3>Sign Out</h3>
+        <span class="signout-label">Sign out</span>
       </ElementSignoutButton>
     </div>
   </div>
@@ -124,14 +122,6 @@ h3 {
   top: 30px;
   align-self: stretch;
   gap: 10px;
-}
-
-.vendors-1 {
-  color: var(--mm-black);
-}
-
-.tables-1 {
-  color: var(--mm-black);
 }
 
 .nav-icon {

@@ -178,7 +178,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 .form-help {
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   margin: 0;
 }
 
@@ -187,7 +187,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   padding: 4px 10px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
 }
@@ -212,7 +212,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   flex-direction: column;
   gap: 6px;
   padding: 10px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
 }

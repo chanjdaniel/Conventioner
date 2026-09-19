@@ -5,6 +5,7 @@ import { api } from '@/utils/api';
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import type { FloorplanTemplate } from '@/assets/types/datatypes';
+import { getTimestampDate } from '@/utils/utils';
 
 const store = useFloorplanStore();
 
@@ -134,13 +135,7 @@ function closeLoadDialog() {
 
 // ── Date formatting ─────────────────────────────────────────
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return getTimestampDate(dateStr);
 }
 </script>
 
@@ -348,7 +343,7 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-btn--secondary {
-  background: var(--mm-grey);
+  background: var(--mm-border);
   color: var(--mm-black);
 }
 
@@ -480,7 +475,7 @@ function formatDate(dateStr: string): string {
 :deep(.tp-input.p-inputtext) {
   width: 100%;
   padding: 10px 14px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: var(--mm-beige);
   font-family: 'Outfit Regular', sans-serif;
@@ -529,7 +524,7 @@ function formatDate(dateStr: string): string {
   margin: 0;
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   text-align: center;
   padding: 24px 0;
 }
@@ -641,7 +636,7 @@ function formatDate(dateStr: string): string {
 .tp-template-arrow {
   flex-shrink: 0;
   font-size: 18px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   transition:
     color 0.15s ease-in-out,
     transform 0.15s ease-in-out;

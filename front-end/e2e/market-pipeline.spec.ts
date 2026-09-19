@@ -178,7 +178,10 @@ test.describe('Market pipeline E2E', () => {
     expect(summaryText).toContain('Assignments');
     expect(summaryText).toContain('Assigned Tables');
     expect(summaryText).toContain('Assigned Vendors');
-    expect(summaryText).toContain('Satisfaction Score');
+    // Named and defined where it is shown: it used to be a bare "Satisfaction Score" with no
+    // definition, no breakdown and no tooltip anywhere in the product.
+    expect(summaryText).toContain('Satisfaction');
+    expect(summaryText).toContain('share of the dates vendors asked for');
 
     await expect(resultsPage.doneButton).toBeVisible();
     await expect(resultsPage.downloadCsvButton).toBeVisible();
@@ -241,14 +244,16 @@ test.describe('Market pipeline E2E', () => {
     expect(storedMarket.phase).toBe('market_days');
     expect(storedMarket.isDraft).toBe(false);
 
-    // Reopening the published market from the markets list routes on phase.
+    // Reopening the published market from the markets list lands on the market's own screens.
+    // This used to route on phase and send a published market to `/<slug>`, its public page -
+    // which the intake-mode gate serves only to form-intake markets, so every MVP market landed
+    // on "Page not found". The old assertion here waited for that URL and passed, because the URL
+    // was right and only the page was wrong; this asserts what rendered.
     await page.goto('/markets');
-    await page
-      .getByTestId('market-card')
-      .filter({ hasText: marketName })
-      .getByTestId('market-card-open-button')
-      .click();
-    await page.waitForURL(`**/${slug}`, { timeout: 10000 });
+    await page.getByTestId('market-card').filter({ hasText: marketName }).first().click();
+    await page.waitForURL('**/market-setup', { timeout: 10000 });
+    await expect(page.getByTestId('page-not-found')).toHaveCount(0);
+    await expect(page.getByTestId('market-setup-title')).toHaveText(marketName, { timeout: 10000 });
 
     // Phase 5: A vendor can now check in
     const anonymous = await playwright.request.newContext({ ignoreHTTPSErrors: true });

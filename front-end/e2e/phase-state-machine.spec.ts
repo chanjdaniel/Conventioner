@@ -281,7 +281,7 @@ test.describe('Phase state machine - sweep', () => {
     // Render a status page that proves the before/after states
     await page.setContent(`
       <html><body style="font-family:monospace;font-size:16px;padding:40px;background:#fff">
-        <h1>Sweep test — application states</h1>
+        <h1>Sweep test - application states</h1>
         <h2>Before transition (offers phase)</h2>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
           <tr><th>Email</th><th>Status</th></tr>
@@ -307,7 +307,7 @@ test.describe('Phase state machine - sweep', () => {
 
     await page.setContent(`
       <html><body style="font-family:monospace;font-size:16px;padding:40px;background:#fff">
-        <h1>Sweep test — application states</h1>
+        <h1>Sweep test - application states</h1>
         <h2>After transition to market_days</h2>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
           <tr><th>Email</th><th>Status</th><th>Expected?</th></tr>

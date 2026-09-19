@@ -2,9 +2,9 @@
 id: E09/F03/S03
 title: Dialogs have a primary action that looks like one, and a way out
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

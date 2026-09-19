@@ -187,7 +187,7 @@ function updateOption(idx: number, value: string) {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
   background: #fafafa;
 }
@@ -218,14 +218,14 @@ function updateOption(idx: number, value: string) {
   padding: 2px 8px;
   font-family: 'Outfit Regular';
   font-size: 13px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 4px;
 }
 
 .field-input:disabled,
 .field-input[disabled] {
   background: #f0f0f0;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   cursor: not-allowed;
 }
 
@@ -267,7 +267,7 @@ function updateOption(idx: number, value: string) {
   align-items: center;
   gap: 4px;
   background: none;
-  border: 1px dashed var(--mm-grey, #b0b0b0);
+  border: 1px dashed var(--mm-border);
   border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;

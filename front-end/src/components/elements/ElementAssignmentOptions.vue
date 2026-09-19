@@ -11,6 +11,10 @@ const assignmentOptions = toRef(setupObject.value, 'assignmentOptions');
 const container = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
 
+/** What the product changed about what the organizer typed, and why. Cleared on the next edit. */
+const daysNote = ref('');
+const proportionNote = ref('');
+
 watch(
   () => setupObject.value.assignmentOptions,
   () => {
@@ -36,8 +40,10 @@ const handleDaysInput = (value: number) => {
   const MAX_DAYS = setupObject.value.marketDates.length;
   if (value > MAX_DAYS) {
     assignmentOptions.value.maxAssignmentsPerVendor = MAX_DAYS;
+    daysNote.value = `Capped at ${MAX_DAYS}, the number of dates this market runs.`;
   } else {
     assignmentOptions.value.maxAssignmentsPerVendor = Math.floor(value); // Ensure integer
+    daysNote.value = '';
   }
 };
 
@@ -51,8 +57,10 @@ const handleProportionInput = (value: number) => {
   const MAX_PROPORTION = 100; // Backend expects percentage as integer (0-100)
   if (value > MAX_PROPORTION) {
     assignmentOptions.value.maxHalfTableProportionPerSection = MAX_PROPORTION;
+    proportionNote.value = 'Capped at 100%.';
   } else {
     assignmentOptions.value.maxHalfTableProportionPerSection = Math.floor(value); // Ensure integer percentage
+    proportionNote.value = '';
   }
 };
 </script>
@@ -60,34 +68,48 @@ const handleProportionInput = (value: number) => {
 <template>
   <div class="container" ref="container">
     <div class="rows" ref="rows">
-      <div class="mapping-heading">
-        <h3 class="mapping-title">Assignment options</h3>
-      </div>
-
       <div class="row-container row">
         <div class="row-item">
           <h3>Max assignments per vendor</h3>
+          <p class="option-help">
+            The most dates any one vendor can be given. Leave blank for no ceiling.
+          </p>
         </div>
         <div class="row-item">
           <div class="input-container">
             <input
-              type="text"
+              type="number"
+              min="1"
+              :max="setupObject.marketDates.length"
+              step="1"
+              inputmode="numeric"
               v-model="assignmentOptions.maxAssignmentsPerVendor"
               @input="handleDaysInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
               style="all: unset; font-size: 14px; width: 100%"
               data-testid="setup-options-max-assignments-input"
             />
           </div>
+          <p v-if="daysNote" class="option-note" data-testid="setup-options-max-assignments-note">
+            {{ daysNote }}
+          </p>
         </div>
       </div>
       <div class="row-container row">
         <div class="row-item">
           <h3>Max half table proportion per section (%)</h3>
+          <p class="option-help">
+            A table seats two vendors side by side. This is the most of a section's tables that may
+            be split in half rather than given to one vendor each.
+          </p>
         </div>
         <div class="row-item">
           <div class="input-container">
             <input
-              type="text"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              inputmode="numeric"
               v-model="assignmentOptions.maxHalfTableProportionPerSection"
               @blur="
                 handleProportionInput(Number(($event.target as HTMLInputElement)?.value || NaN))
@@ -96,6 +118,13 @@ const handleProportionInput = (value: number) => {
               data-testid="setup-options-max-proportion-input"
             />
           </div>
+          <p
+            v-if="proportionNote"
+            class="option-note"
+            data-testid="setup-options-max-proportion-note"
+          >
+            {{ proportionNote }}
+          </p>
         </div>
       </div>
     </div>
@@ -103,6 +132,21 @@ const handleProportionInput = (value: number) => {
 </template>
 
 <style scoped>
+.option-help {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 12px;
+  color: var(--mm-text-muted);
+  margin: 4px 0 0;
+  text-align: left;
+}
+
+.option-note {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 12px;
+  color: var(--mm-text-yellow);
+  margin: 4px 0 0;
+}
+
 /* Match ElementMarketDates.vue select behavior: left-aligned text, ellipsis for overflow */
 option {
   text-align: left;
@@ -132,7 +176,7 @@ select.datatype-dropdown {
   flex-direction: column;
   width: 100%;
 
-  align-items: center;
+  align-items: stretch;
 
   gap: 8px;
   padding-top: 0;
@@ -151,7 +195,7 @@ select.datatype-dropdown {
 .mapping-title {
   margin: 0;
   font-size: 16px;
-  color: var(--mm-black, #222);
+  color: var(--mm-black);
 }
 
 .optional-label {
@@ -167,22 +211,32 @@ select.datatype-dropdown {
 
 .row {
   display: grid;
-  grid-template-columns: 40% 60%;
+  grid-template-columns: 60% 40%;
   padding-top: 5px;
   padding-bottom: 5px;
 }
 
 .row-item {
   display: flex;
-  flex-direction: row;
+  /* column, not row: the help text under each label competed with it for width and wrapped to one
+     word per line. Each cell stacks its own content. */
+  flex-direction: column;
   position: relative;
 
   padding-left: 10px;
   padding-right: 10px;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  gap: 2px;
 
-  border-right: 3px solid var(--mm-grey);
+  border-right: 3px solid var(--mm-border);
+}
+
+.row-item h3 {
+  margin: 0;
+  /* Left, like every other label on the page. The default centring only showed on the one label
+     long enough to wrap, so the two options sat side by side aligned differently. */
+  text-align: left;
 }
 
 .row-item:last-of-type {
@@ -242,7 +296,10 @@ select.datatype-dropdown {
   align-items: center;
   justify-content: center;
   width: 80%;
-  height: 100%;
+  /* A field, not a panel. `height: 100%` grew it to whatever the label cell beside it needed,
+     so a one-line number box rendered as a five-line empty square. */
+  height: 34px;
+  flex: 0 0 auto;
   box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
   border-radius: 8px;
 }
@@ -263,11 +320,12 @@ input[type='number'] {
   cursor: pointer;
 }
 
+/* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -
+   the same icon that came out 24x24 in Section Setup, side by side on one screen. */
 .icon-close-round {
-  max-width: 20px;
-  max-height: 20px;
-  width: 80%;
-  height: 80%;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
   cursor: pointer;
 }
 </style>

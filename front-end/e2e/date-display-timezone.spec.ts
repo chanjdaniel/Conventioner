@@ -14,13 +14,13 @@ import type { APIRequestContext } from '@playwright/test';
  * These tests render the same stored date in browser contexts fixed to three
  * timezones spanning the bug boundary and assert every viewer sees the same
  * calendar day:
- *   - Pacific/Honolulu    (UTC-10: west of the pin — where the bug bit)
- *   - America/Los_Angeles (UTC-8:  at the pin — where the bug hid)
- *   - Asia/Tokyo          (UTC+9:  far east — always looked correct)
+ *   - Pacific/Honolulu    (UTC-10: west of the pin - where the bug bit)
+ *   - America/Los_Angeles (UTC-8:  at the pin - where the bug hid)
+ *   - Asia/Tokyo          (UTC+9:  far east - always looked correct)
  */
 
 const MARKET_DATE = '2026-07-31';
-const EXPECTED_LABEL = 'Friday, July 31';
+const EXPECTED_LABEL = 'Friday, July 31, 2026';
 const TIMEZONES = ['Pacific/Honolulu', 'America/Los_Angeles', 'Asia/Tokyo'];
 
 /**

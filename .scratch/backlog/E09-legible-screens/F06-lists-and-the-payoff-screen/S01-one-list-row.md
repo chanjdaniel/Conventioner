@@ -2,9 +2,9 @@
 id: E09/F06/S01
 title: One list row component
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build
