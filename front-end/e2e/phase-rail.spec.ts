@@ -73,7 +73,9 @@ test.describe('The phase rail', () => {
     expect(url.length).toBeGreaterThan(60);
 
     const smallestGap = await page.evaluate(() => {
-      const boxes = [...document.querySelectorAll('.phase-step-label')].map((el) =>
+      // `Array.from`, not a spread: this runs inside the page under the e2e tsconfig, where a
+      // `NodeListOf<Element>` is not iterable.
+      const boxes = Array.from(document.querySelectorAll('.phase-step-label')).map((el) =>
         el.getBoundingClientRect(),
       );
       let smallest = Infinity;
