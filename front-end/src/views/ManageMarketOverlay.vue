@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { type Market, MarketRole } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
+import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -18,6 +19,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   manageClose: [];
 }>();
+
+useEscapeToClose(
+  () => props.manageOpen,
+  () => emit('manageClose'),
+);
 
 const marketData = ref<Market | null>(null);
 const loading = ref(false);
@@ -240,6 +246,15 @@ function handleClose() {
       data-testid="manage-market-overlay-background"
     />
     <div v-if="manageOpen && market" class="window">
+      <button
+        type="button"
+        class="dialog-close"
+        aria-label="Close"
+        @click="emit('manageClose')"
+        data-testid="manage-market-close-button"
+      >
+        &times;
+      </button>
       <div class="header">
         <h2>Manage market</h2>
         <p v-if="marketData" class="market-name">{{ marketData.name }}</p>
@@ -832,5 +847,20 @@ function handleClose() {
 .content::-webkit-scrollbar-thumb {
   background: var(--mm-border);
   border-radius: 4px;
+}
+/* This dialog had no X and no Cancel, and the last control in its scrolling body is a red
+   Delete. Clicking the scrim did close it, but nothing said so, and Escape did nothing. */
+.dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: var(--mm-text-muted);
+  cursor: pointer;
+  z-index: 2;
 }
 </style>

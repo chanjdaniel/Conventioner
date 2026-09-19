@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
+import { useEscapeToClose } from '@/utils/useEscapeToClose';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -11,6 +12,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   manageClose: [];
 }>();
+
+useEscapeToClose(
+  () => props.manageOpen,
+  () => emit('manageClose'),
+);
 
 const orgData = ref<Organization | null>(null);
 const errorMessage = ref('');
@@ -146,6 +152,15 @@ function handleClose() {
       data-testid="manage-org-overlay-background"
     />
     <div v-if="manageOpen && org" class="window">
+      <button
+        type="button"
+        class="dialog-close"
+        aria-label="Close"
+        @click="emit('manageClose')"
+        data-testid="manage-org-close-button"
+      >
+        &times;
+      </button>
       <div class="header">
         <h2>Manage organization</h2>
         <p v-if="orgData" class="org-name">{{ orgData.name }}</p>
@@ -635,5 +650,20 @@ function handleClose() {
 .content::-webkit-scrollbar-thumb {
   background: var(--mm-border);
   border-radius: 4px;
+}
+/* This dialog had no X and no Cancel, and the last control in its scrolling body is a red
+   Delete. Clicking the scrim did close it, but nothing said so, and Escape did nothing. */
+.dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: var(--mm-text-muted);
+  cursor: pointer;
+  z-index: 2;
 }
 </style>
