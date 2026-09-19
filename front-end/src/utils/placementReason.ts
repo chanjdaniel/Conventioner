@@ -51,3 +51,48 @@ export function reasonIndex(unplaced: readonly UnplacedDate[]): Map<string, Plac
   }
   return index;
 }
+
+/** Mirrors `PlacementOverride` in `back-end/placement_reasons.py`. */
+export type PlacementOverride = 'tier' | 'date' | 'table_choice';
+
+/** One hand placement that contradicts the vendor's answer, as the statistics report it. */
+export interface OverriddenPlacement {
+  email: string;
+  date: string;
+  tableCode: string;
+  overrides: PlacementOverride[];
+}
+
+const OVERRIDE_WORDING: Record<PlacementOverride, string> = {
+  // Named first and worded hardest: tier sets the price, so this one costs the vendor money.
+  tier: 'a tier they did not accept, which sets their price',
+  date: 'a date they did not offer',
+  table_choice: 'a table size they did not ask for',
+};
+
+const OVERRIDE_ORDER: PlacementOverride[] = ['tier', 'date', 'table_choice'];
+
+/**
+ * What this placement overrides, in words.
+ *
+ * A pin that breaks a filter is legitimate - a sponsor, a late deal, an accessibility need - and
+ * admins edit without restriction. It must never be silent, though, which is what this says.
+ */
+export function overrideText(overrides: readonly PlacementOverride[] | undefined): string {
+  const named = OVERRIDE_ORDER.filter((o) => overrides?.includes(o)).map(
+    (o) => OVERRIDE_WORDING[o],
+  );
+  if (named.length === 0) return '';
+  return `Placed by hand against their answer: ${named.join('; ')}`;
+}
+
+/** Email and date to what that placement overrides, for a quick lookup per card. */
+export function overrideIndex(
+  overridden: readonly OverriddenPlacement[],
+): Map<string, PlacementOverride[]> {
+  const index = new Map<string, PlacementOverride[]>();
+  for (const entry of overridden) {
+    index.set(`${entry.email.trim().toLowerCase()}|${entry.date}`, entry.overrides ?? []);
+  }
+  return index;
+}

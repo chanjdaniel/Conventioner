@@ -12,8 +12,10 @@
  */
 import { computed } from 'vue';
 import {
+  overrideText,
   placementReasonText,
   reasonIsActionable,
+  type PlacementOverride,
   type PlacementReason,
 } from '@/utils/placementReason';
 
@@ -25,10 +27,13 @@ const props = defineProps<{
   /** Why they were not, when they were not. */
   reason?: PlacementReason;
   /**
-   * The placement overrides what this vendor asked for - a hand-placement at a tier or section
-   * they did not name. `E11/F02/S02` sets this; nothing does yet.
+   * What this placement overrides about the vendor's own answer, when it overrides anything.
+   *
+   * A pin that breaks a filter stands - admins edit without restriction - but never silently:
+   * tier sets the price, so someone will be charged for a table they did not choose
+   * (`E11/F02/S02`).
    */
-  againstPreference?: boolean;
+  overrides?: PlacementOverride[];
   /** Where the organizer can go to act on a `free` reason. */
   placeHref?: string | null;
 }>();
@@ -36,9 +41,10 @@ const props = defineProps<{
 defineEmits<{ place: [] }>();
 
 const placed = computed(() => !!props.placement);
+const overridden = computed(() => (props.overrides?.length ?? 0) > 0);
 const state = computed(() => {
   if (!placed.value) return 'unplaced';
-  return props.againstPreference ? 'overridden' : 'placed';
+  return overridden.value ? 'overridden' : 'placed';
 });
 const canPlace = computed(() => !placed.value && reasonIsActionable(props.reason));
 </script>
@@ -54,12 +60,8 @@ const canPlace = computed(() => !placed.value && reasonIsActionable(props.reason
 
     <div v-if="placed" class="vendor-date-card-detail">
       {{ placement }}
-      <span
-        v-if="againstPreference"
-        class="vendor-date-card-flag"
-        data-testid="vendor-date-card-override"
-      >
-        Placed against their stated preference
+      <span v-if="overridden" class="vendor-date-card-flag" data-testid="vendor-date-card-override">
+        {{ overrideText(overrides) }}
       </span>
     </div>
 

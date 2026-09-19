@@ -22,13 +22,33 @@ describe('the three states read differently', () => {
     expect(wrapper.text()).toContain('Hall A 1');
   });
 
-  it('a placement against the vendor own answer is marked as such', () => {
+  it('a placement against the vendor own answer names what it overrides', () => {
     // Tier sets the price, so a vendor charged for a table they did not choose has to be visible.
-    const wrapper = card({ placement: 'Hall A 1 (Full Table)', againstPreference: true });
+    const wrapper = card({ placement: 'Hall A 1 (Full Table)', overrides: ['tier'] });
 
     expect(wrapper.attributes('data-state')).toBe('overridden');
     expect(wrapper.get('[data-testid="vendor-date-card-override"]').text()).toContain(
-      'against their stated preference',
+      'a tier they did not accept',
+    );
+  });
+
+  it('a placement that overrides nothing is an ordinary placed date', () => {
+    const wrapper = card({ placement: 'Hall A 1 (Full Table)', overrides: [] });
+
+    expect(wrapper.attributes('data-state')).toBe('placed');
+    expect(wrapper.find('[data-testid="vendor-date-card-override"]').exists()).toBe(false);
+  });
+
+  it('every contradiction is named, not just the first', () => {
+    const wrapper = card({
+      placement: 'Hall A 1 (Full Table)',
+      overrides: ['table_choice', 'tier'],
+    });
+
+    const text = wrapper.get('[data-testid="vendor-date-card-override"]').text();
+    // Tier first whatever order they arrive in: it is the one that costs money.
+    expect(text.indexOf('tier they did not accept')).toBeLessThan(
+      text.indexOf('table size they did not ask for'),
     );
   });
 

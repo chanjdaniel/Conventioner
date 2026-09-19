@@ -51,6 +51,14 @@ class PlacementError(ValueError):
     """
 
 
+class SeatTakenError(PlacementError):
+    """Someone else already holds the seat. Callers map this to 409.
+
+    Separate from its parent because it is a conflict rather than a malformed request: the
+    placement describes a real seat, and would have been written a moment earlier.
+    """
+
+
 def _seat_section(setup_object: SetupObject, table_code: str) -> Optional[SectionObject]:
     """The section a table code belongs to, or None when the plan holds no such table.
 
@@ -61,6 +69,30 @@ def _seat_section(setup_object: SetupObject, table_code: str) -> Optional[Sectio
         for index in range(section.count):
             if table_code_for(section.name, index + 1) == table_code:
                 return section
+    return None
+
+
+def _seat_taken_by(
+    market: Market, placement: VendorAssignmentResult
+) -> Optional[VendorAssignmentResult]:
+    """Who already holds the seat this placement names, if anyone.
+
+    A whole table needs both seats, so any occupant is in the way; a half needs the side it
+    names, and the other side is somebody else's business. The vendor's own row does not count:
+    a placement replaces whatever they held on that date.
+    """
+    wants_whole_table = placement.table_choice == FULL_TABLE
+    for existing in market.assignment_object.vendor_assignments:
+        if existing.email == placement.email:
+            continue
+        if existing.date != placement.date or existing.table_code != placement.table_code:
+            continue
+        if (
+            wants_whole_table
+            or existing.table_choice == FULL_TABLE
+            or existing.table_choice == placement.table_choice
+        ):
+            return existing
     return None
 
 
@@ -191,6 +223,17 @@ def write_placement(
         table_choice=str(placement_data.get("table_choice") or "").strip(),
     )
 
+    # Two vendors pinned to the same seat on the same date is a contradiction rather than a
+    # preference the solver can weigh, and the moment to refuse it is now, while the organizer
+    # can see both. Naming the occupant is the point: "that seat is taken" leaves them hunting.
+    occupant = _seat_taken_by(market, placement)
+    if occupant is not None:
+        raise SeatTakenError(
+            f"{occupant.email} already holds {placement.table_code} "
+            f"({occupant.table_choice}) on {placement.date}. "
+            "Free that seat first, or swap the two vendors."
+        )
+
     kept = [
         existing
         for existing in market.assignment_object.vendor_assignments
@@ -201,3 +244,35 @@ def write_placement(
     _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
 
     return {"placement": convert_keys_to_camel_case(placement.model_dump())}, 200
+
+
+def remove_placement(
+    market_id: str, email: str, date: str, requesting_user: str
+) -> Tuple[Dict[str, Any], int]:
+    """Free the seat one vendor holds on one date.
+
+    The counterpart of writing a placement, and the reason the product needs no "move" that
+    displaces an occupant: freeing a seat first is safe, and mirrors what an organizer
+    physically does. It is also how an orphaned pin is cleared, when the plan no longer has the
+    seat it was promised and the organizer decides not to re-place it.
+
+    Removing a placement nobody holds is not an error: the caller asked for that seat to be
+    empty, and it is.
+    """
+    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+
+    email = (email or "").strip()
+    date = (date or "").strip()
+    if not email or not date:
+        raise PlacementError("Removing a placement must name the vendor and the date.")
+
+    kept = [
+        existing
+        for existing in market.assignment_object.vendor_assignments
+        if not (existing.email == email and existing.date == date)
+    ]
+    removed = len(market.assignment_object.vendor_assignments) - len(kept)
+    if removed:
+        _store_vendor_assignments(market_id, kept, market.assignment_object.assignment_date)
+
+    return {"removed": removed}, 200

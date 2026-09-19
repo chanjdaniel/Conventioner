@@ -42,7 +42,7 @@ import traceback
 import logging
 import requests
 from assignment.csv_output import market_csv_to_string
-from placement_reasons import unplaced_dates
+from placement_reasons import overridden_placements, unplaced_dates
 from db_config import get_database
 
 logging.basicConfig(level=logging.INFO)
@@ -861,13 +861,26 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         # Why each vendor holds no table, computed from the plan, the applications and the
         # assignment as they stand (E12/F01/S01). Sent with the statistics that report the
         # unplaced, so the panel listing them can say why without a second request.
+        placed_rows = assigned_market.assignment_object.vendor_assignments or []
         payload["unplacedDates"] = [
             {"email": entry.email, "date": entry.date, "reason": entry.reason.value}
             for entry in unplaced_dates(
-                assigned_market.setup_object,
-                vendors,
-                assigned_market.assignment_object.vendor_assignments or [],
+                assigned_market.setup_object, vendors, placed_rows,
             )
+        ]
+        # A hand placement that contradicts what the vendor asked for stands - admins edit
+        # without restriction - but it is never silent: tier sets the price, and someone will be
+        # charged for a table they did not choose (E11/F02/S02). Computed on read beside the
+        # reasons above, because "why is this vendor here" and "why is this vendor nowhere" are
+        # one question asked twice.
+        payload["overriddenPlacements"] = [
+            {
+                "email": entry.email,
+                "date": entry.date,
+                "tableCode": entry.table_code,
+                "overrides": [override.value for override in entry.overrides],
+            }
+            for entry in overridden_placements(vendors, placed_rows)
         ]
         # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
         # name them. A vendor with no stored name has no entry and renders as they did before.
