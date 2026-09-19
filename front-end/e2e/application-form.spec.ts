@@ -74,7 +74,9 @@ test.describe('Application form builder', () => {
     await expect(formPage.builderEmpty).toBeVisible();
     await expect(formPage.previewEmpty).toBeVisible();
     await expect(formPage.saveButton).toBeDisabled();
-    await expect(formPage.saveHint).toHaveText('Add at least one field to save this form.');
+    await expect(formPage.saveHint).toHaveText(
+      'This form already asks the essential questions. Add a field to save one of your own.',
+    );
     await page.screenshot({
       path: testInfo.outputPath('01-empty-form-builder.png'),
       fullPage: true,

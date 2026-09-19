@@ -311,21 +311,14 @@ export async function seedPublishedMarketWithAssignments(
     throw new Error(`Market setup put failed: ${setupRes.status()} ${await setupRes.text()}`);
   }
 
-  // Step 4: Publish via the transition endpoint (draft -> archived).
-  const transRes = await request.post(`${baseURL}/markets/${marketId}/transition`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Owner-Email': email,
-    },
-    data: { toPhase: 'archived' },
-  });
-  if (!transRes.ok()) {
-    throw new Error(`Market transition failed: ${transRes.status()} ${await transRes.text()}`);
-  }
-
   const marketSlug = marketNameToSlug(marketName);
 
-  // Step 5: Fetch computed assignment and store it on the market.
+  // Step 4: Fetch computed assignment and store it on the market.
+  //
+  // BEFORE publishing, not after. Publishing lands in `market_days` (E03/F03), whose entry
+  // invariant is that an assignment exists - a market with no placements would serve a check-in
+  // page that can tell nobody where to stand. The old order published first and stored second,
+  // which is also what left a window where a published market had no assignment.
   const assignRes = await request.get(`${baseURL}/markets/${marketId}/assignment`, {
     headers: { 'X-Owner-Email': email },
   });
@@ -347,6 +340,26 @@ export async function seedPublishedMarketWithAssignments(
   });
   if (!storeRes.ok()) {
     throw new Error(`Assignment store failed: ${storeRes.status()} ${await storeRes.text()}`);
+  }
+
+  // Step 5: Publish, by walking the edges a real organizer walks. `market_days` is the phase that
+  // means "this market is running", and it is the only phase check-in serves.
+  for (const toPhase of [
+    'applications_open',
+    'applications_closed',
+    'review',
+    'assignment',
+    'market_days',
+  ]) {
+    const transRes = await request.post(`${baseURL}/markets/${marketId}/transition`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+      data: { toPhase },
+    });
+    if (!transRes.ok()) {
+      throw new Error(
+        `Transition to ${toPhase} failed: ${transRes.status()} ${await transRes.text()}`,
+      );
+    }
   }
 
   return { marketId, userId, marketName, orgId, marketSlug };

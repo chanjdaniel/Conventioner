@@ -32,6 +32,7 @@ import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
 from application_write import record_application_answers, validate_application_answers
 from datatypes import (
+    SUBMITTED_AT_RULE_TARGET,
     Application,
     ApplicationStatus,
     ImportMapping,
@@ -71,6 +72,65 @@ def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
     )
 
 
+# The shapes a form export actually writes a timestamp in. Google Forms emits the spreadsheet's
+# locale, and a sheet exports unpadded, so a single-digit month or hour is the norm rather than the
+# exception - which is exactly what made text ordering wrong.
+_SUBMITTED_AT_FORMATS = (
+    "%m/%d/%Y %H:%M:%S",
+    "%m/%d/%Y %I:%M:%S %p",
+    "%m/%d/%Y %H:%M",
+    "%m/%d/%Y %I:%M %p",
+    "%m/%d/%Y",
+    "%d/%m/%Y %H:%M:%S",
+    "%Y/%m/%d %H:%M:%S",
+)
+
+
+def normalized_submitted_at(raw: Any) -> Optional[str]:
+    """A submission timestamp as ISO-8601, or None when the row carries none.
+
+    Every reader of ``submitted_at`` compares the STORED value: the solver's priority rule through
+    ``_as_magnitude``, and the organizer's review queue through a Mongo sort. Both were wrong on a
+    form export, in the same way and for the same reason - ``9/27/2025 9:04:01`` is neither
+    parseable by ``datetime.fromisoformat`` nor orderable as text against ``9/27/2025 23:49:25``.
+
+    The public applicant form already writes ISO, so normalising here is not a new format: it is
+    the CSV path agreeing with the path that was already right. Converting at read instead would
+    leave two stored shapes alive for the life of the product and fix only the reader someone
+    remembered to teach.
+
+    Raises ``ValueError`` on a value that is not a time at all. Refusing is deliberate: scoring an
+    unreadable timestamp as ``math.inf`` alongside everybody else is how this stayed invisible.
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+
+    try:
+        # Already ISO - the public form's shape. Returned untouched so a round-trip is a no-op.
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return text
+    except ValueError:
+        pass
+
+    for fmt in _SUBMITTED_AT_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).isoformat()
+        except ValueError:
+            continue
+
+    raise ValueError(
+        f"{text!r} is not a date and time this import can read. "
+        "Expected something like 9/12/2025 18:22:56 or 2025-09-12T18:22:56."
+    )
+
+
+# A row whose mapped timestamp will not parse. Prefixed rather than dropped, so the refusal can
+# quote what the organizer actually typed.
+_UNREADABLE_TIMESTAMP = "\x00unreadable:"
+
 APPLICANT_EMAIL_TARGET = "applicant_email"
 APPLICANT_EMAIL_LABEL = "Applicant email"
 
@@ -100,8 +160,25 @@ _MULTI_VALUE_ESSENTIALS = (
 )
 
 
+def collapse_header(header: Any) -> str:
+    """A header as one line of single-spaced text.
+
+    A real Google Forms header carries its instructions above the question, so it arrives with
+    newlines and runs of spaces in it. Two places compare header text - grouping a grid, and
+    restoring a saved mapping onto a fresh export - and they must agree, or a re-export that
+    re-wraps a header silently fails to restore.
+    """
+    return " ".join(str(header).split())
+
+
 # "Which days can you attend? [Saturday July 4]" - the shape Google Forms gives every grid column.
-_GRID_HEADER = re.compile(r"^(?P<stem>.+?)\s*\[(?P<option>.+)\]$")
+#
+# DOTALL because a real grid question carries its instructions above the bracketed option, so the
+# header spans lines. Without it this matched only headers short enough to fit on one - which is
+# every header the tests used to write, and no header a real form produces. The five day columns of
+# a real export arrived as five unrelated columns, each competing for the same single target, and
+# the import could not be completed at all.
+_GRID_HEADER = re.compile(r"^(?P<stem>.+?)\s*\[(?P<option>.+)\]$", re.DOTALL)
 
 
 class ColumnGroup:
@@ -128,8 +205,9 @@ def column_groups(headers: Sequence[str]) -> List[ColumnGroup]:
         match = _GRID_HEADER.match(str(header).strip())
         if not match:
             continue
-        stem = match.group("stem").strip()
-        option = match.group("option").strip()
+        # The stem labels the group in the organizer's ledger, so it is collapsed to one line.
+        stem = collapse_header(match.group("stem"))
+        option = collapse_header(match.group("option"))
         if stem not in found:
             found[stem] = ColumnGroup(stem, [], [])
             order.append(stem)
@@ -172,42 +250,33 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     it would invite the organizer to map a column that would then be discarded.
     """
     options = EssentialFields.effective_essential_options(market_doc)
+    asked = EssentialFields.asked_essential_keys(options)
+
+    # One entry per essential question, in the order the form asks them. Which of these are
+    # actually offered is NOT decided here: ``asked_essential_keys`` is the single statement of
+    # that rule, and this used to re-implement it (``options.dates``, ``len(options.sections) > 1``)
+    # - a second copy that could not see a market's declaration that it does not ask a question,
+    # and that would have drifted from the applicant validator and the solver the moment either
+    # moved.
+    essential_order = (
+        (EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL),
+        (EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL),
+        (EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL),
+        (EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_EMAIL_LABEL),
+        (EssentialFields.TIER_PREFERENCE_KEY, EssentialFields.TIER_PREFERENCE_LABEL),
+        (EssentialFields.SECTION_RANKING_KEY, EssentialFields.SECTION_RANKING_LABEL),
+        (EssentialFields.TABLE_TYPE_RANKING_KEY, EssentialFields.TABLE_TYPE_RANKING_LABEL),
+    )
+
     targets = [
         ImportTarget(APPLICANT_EMAIL_TARGET, APPLICANT_EMAIL_LABEL, True, "identity"),
         ImportTarget(SUBMITTED_AT_TARGET, SUBMITTED_AT_LABEL, False, "meta"),
     ]
-
-    if options.dates:
-        targets.append(ImportTarget(
-            EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL,
-            True, "essential",
-        ))
-        targets.append(ImportTarget(
-            EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL, True, "essential",
-        ))
-        targets.append(ImportTarget(
-            EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL,
-            True, "essential",
-        ))
-        targets.append(ImportTarget(
-            EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_EMAIL_LABEL,
-            False, "essential",
-        ))
-    if options.tiers:
-        targets.append(ImportTarget(
-            EssentialFields.TIER_PREFERENCE_KEY, EssentialFields.TIER_PREFERENCE_LABEL,
-            True, "essential",
-        ))
-    if len(options.sections) > 1:
-        targets.append(ImportTarget(
-            EssentialFields.SECTION_RANKING_KEY, EssentialFields.SECTION_RANKING_LABEL,
-            True, "essential",
-        ))
-    if len(options.table_types) > 1:
-        targets.append(ImportTarget(
-            EssentialFields.TABLE_TYPE_RANKING_KEY, EssentialFields.TABLE_TYPE_RANKING_LABEL,
-            True, "essential",
-        ))
+    targets += [
+        ImportTarget(key, label, key in EssentialFields.REQUIRED_ESSENTIAL_KEYS, "essential")
+        for key, label in essential_order
+        if key in asked
+    ]
 
     form = market_doc_field(market_doc, "application_form") or {}
     for field in form.get("fields") or []:
@@ -336,7 +405,7 @@ def restore_mapping(
     """
     positions: Dict[str, List[int]] = {}
     for index, header in enumerate(headers):
-        positions.setdefault(str(header).strip(), []).append(index)
+        positions.setdefault(collapse_header(header), []).append(index)
 
     known = {target.key for target in targets}
     restored: Dict[str, List[int]] = {}
@@ -346,7 +415,7 @@ def restore_mapping(
     for key, saved_headers in (saved.get("targets") or {}).items():
         if key not in known:
             continue
-        wanted = [str(header).strip() for header in saved_headers or []]
+        wanted = [collapse_header(header) for header in saved_headers or []]
         indexes: List[int] = []
         missing: List[str] = []
         taken: Dict[str, int] = {}
@@ -364,12 +433,21 @@ def restore_mapping(
         restored[key] = indexes
         used.extend(wanted)
 
-    previous = {str(header).strip() for header in saved.get("headers") or []}
+    previous = {collapse_header(header) for header in saved.get("headers") or []}
     new_headers = [
-        str(header).strip() for header in headers
-        if previous and str(header).strip() not in previous
+        collapse_header(header) for header in headers
+        if previous and collapse_header(header) not in previous
     ]
     return restored, unresolved, new_headers
+
+
+def orders_by_submitted_at(market_doc: Dict[str, Any]) -> bool:
+    """Does this market have a priority rule that reads when the application arrived?"""
+    setup = market_doc_field(market_doc, "setup_object") or {}
+    return any(
+        (rule or {}).get("target") == SUBMITTED_AT_RULE_TARGET
+        for rule in setup.get("priority") or []
+    )
 
 
 def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) -> Tuple[Dict[str, Any], int]:
@@ -399,6 +477,10 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
         "restoredTargetsMissingColumns": unresolved,
         "newHeaders": new_headers,
         "hasSavedMapping": bool(saved.get("targets")),
+        # True when this market orders vendors by when they applied. The ledger warns if that rule
+        # exists and no column feeds it: mapping nothing is legal, but then the rule decides
+        # nothing, which is the silent no-op this story exists to end wearing a different hat.
+        "ordersBySubmittedAt": orders_by_submitted_at(market_doc),
     }, 200
 
 
@@ -442,6 +524,44 @@ def _grid_values(
     return [option for _index, option, _value in chosen]
 
 
+def _whole_number_text(text: str) -> str:
+    """A count as the form wrote it, reduced to the number in it.
+
+    A real form asks "maximum number of days you wish to booth" with a dropdown reading "2 days",
+    so the cell is never a bare integer. Normalised at the boundary for the same reason the
+    timestamp is: the alternative is every reader knowing about the word.
+
+    Deliberately narrow - the number must START the value, so "2 days" is 2 and "about two" stays
+    exactly as written and is refused by validation. Guessing at prose would be worse than
+    refusing it.
+    """
+    match = re.match(r"^\s*(\d+)\s*[a-zA-Z]*\s*$", text)
+    return match.group(1) if match else text
+
+
+def _tier_grid(
+    headers: Sequence[str], row: Sequence[str], columns: Sequence[int],
+) -> Dict[str, List[str]]:
+    """A per-date tier answer, which is the shape a real form's day grid already has.
+
+    One column per market date, and the CELL holds the tiers accepted on that date - "Gold,
+    Silver", or "None" when the vendor is not available. So the bracketed option is the date and
+    the value is the answer, which is the reverse of every other grid: elsewhere a non-empty cell
+    means "this option was selected" and the option itself is the answer.
+
+    That reversal is why tier gets its own reader. It is also why tier can be per-date at all
+    (E01/F05): the form was always asking it that way.
+    """
+    per_date: Dict[str, List[str]] = {}
+    for index in columns:
+        date = _grid_option(headers[index])
+        cell = str(row[index]).strip() if index < len(row) else ""
+        tiers = [name for name in _split_multi(cell) if name.lower() != "none"]
+        if tiers:
+            per_date[date] = tiers
+    return per_date
+
+
 def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> Any:
     """One cell, as the answer shape its target expects.
 
@@ -452,7 +572,7 @@ def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> 
     if target.key in _MULTI_VALUE_ESSENTIALS:
         return _split_multi(text)
     if target.key == EssentialFields.MAX_DATES_KEY:
-        return text
+        return _whole_number_text(text)
     if target.kind == "custom" and field:
         field_type = field.get("type", "text")
         if field_type == "multi_select":
@@ -473,10 +593,51 @@ def _raw_values(
 ) -> Any:
     """A target's answer for one row, before its values are matched against the market."""
     if len(indexes) > 1:
+        if target.key == EssentialFields.TIER_PREFERENCE_KEY:
+            return _tier_grid(headers, row, indexes)
         return _grid_values(target, headers, row, indexes)
     index = indexes[0]
     cell = row[index] if index < len(row) else ""
     return _coerce(target, cell, field)
+
+
+def unserved_required(targets: Sequence[ImportTarget], resolved: Dict[str, Any]) -> List[ImportTarget]:
+    """Required targets this mapping does not answer.
+
+    One statement, because there were two: ``preview_values`` and ``import_applications`` each
+    decided it, and only one of them knew that a per-date tier grid answers availability as well
+    (``_assembled_rows`` reads the dates from it). The other refused the very shape a real form has.
+    """
+    satisfied = set(resolved)
+    if len(resolved.get(EssentialFields.TIER_PREFERENCE_KEY) or []) > 1:
+        satisfied.add(EssentialFields.AVAILABLE_DATES_KEY)
+    return [t for t in targets if t.required and t.key not in satisfied]
+
+
+def _matched_tiers_by_date(
+    value: Any, options: Any, resolutions: Dict[str, Optional[str]],
+) -> Tuple[Any, List[str]]:
+    """Match a per-date tier answer, whose keys and values are drawn from different offerings.
+
+    A tier grid is the one answer with two vocabularies in it: the KEYS are market dates, spelled
+    however the form's column headings spelled them ("Monday, November 17"), and the VALUES are
+    tier names. Each half is matched against its own offering, so the organizer resolves a date
+    heading once and a tier name once - not once per row, and never the two confused for each
+    other.
+    """
+    if not isinstance(value, dict):
+        return _matched(value, list(options.tiers or []), resolutions)
+
+    kept: Dict[str, List[str]] = {}
+    unmatched: List[str] = []
+    for raw_date, raw_tiers in value.items():
+        date, date_unmatched = _matched(raw_date, list(options.dates or []), resolutions)
+        tiers, tier_unmatched = _matched(list(raw_tiers or []), list(options.tiers or []), resolutions)
+        unmatched.extend(date_unmatched)
+        unmatched.extend(tier_unmatched)
+        if date and tiers:
+            kept[date] = tiers
+    return kept, unmatched
 
 
 def _matched(
@@ -539,15 +700,51 @@ def _assembled_rows(
                 continue
             field = fields_by_key.get(key)
             value = _raw_values(target, headers, row, indexes, field)
-            offered = offered_values(target, options, field)
-            if offered is not None:
-                value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
+            if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(value, dict):
+                value, _unmatched = _matched_tiers_by_date(
+                    value, options, resolutions.get(key, {}),
+                )
+            else:
+                offered = offered_values(target, options, field)
+                if offered is not None:
+                    value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
             form_data[key] = value
+
+        # Tier is answered PER DATE (E01/F05). A grid already says it that way - one column per
+        # date, tiers in the cell - but a form that asked once ("which tiers will you accept?")
+        # gives a flat list, which means those tiers on every date the vendor is available. Expanded
+        # here rather than in ``_coerce`` because only the assembled row knows both answers.
+        tier_answer = form_data.get(EssentialFields.TIER_PREFERENCE_KEY)
+        if isinstance(tier_answer, list):
+            dates = form_data.get(EssentialFields.AVAILABLE_DATES_KEY) or []
+            form_data[EssentialFields.TIER_PREFERENCE_KEY] = {
+                date: list(tier_answer) for date in dates
+            }
+        elif isinstance(tier_answer, dict) and not form_data.get(
+            EssentialFields.AVAILABLE_DATES_KEY
+        ):
+            # A real form asks one question per day whose cell carries the tiers, or "None" when
+            # the vendor cannot attend. That single grid answers BOTH questions, so availability is
+            # read from it rather than demanding a second column the form never had: the dates you
+            # named tiers for are the dates you are available. The two are still stored separately
+            # and still have to agree - this is what makes them agree by construction.
+            form_data[EssentialFields.AVAILABLE_DATES_KEY] = [
+                date for date, names in tier_answer.items() if names
+            ]
+
+        # Normalised here, at the boundary, so every reader downstream compares one shape. A value
+        # that is not a time is carried as the sentinel below and refused by ``_row_faults`` with
+        # its line number, rather than silently becoming "no timestamp".
+        raw_submitted = str(cell(SUBMITTED_AT_TARGET) or "").strip()
+        try:
+            submitted_at = normalized_submitted_at(raw_submitted) or ""
+        except ValueError:
+            submitted_at = _UNREADABLE_TIMESTAMP + raw_submitted
 
         assembled.append((
             offset + 2,
             str(cell(APPLICANT_EMAIL_TARGET) or "").strip().lower(),
-            str(cell(SUBMITTED_AT_TARGET) or "").strip(),
+            submitted_at,
             form_data,
         ))
     return assembled
@@ -558,9 +755,16 @@ def _row_faults(
 ) -> List[Dict[str, Any]]:
     """Rows that would be refused, each with the reason and its line in the organizer's file."""
     faults = []
-    for line, email, _submitted_at, form_data in assembled:
+    for line, email, submitted_at, form_data in assembled:
         if not email:
             faults.append({"row": line, "email": "", "error": "No email address."})
+            continue
+        if submitted_at.startswith(_UNREADABLE_TIMESTAMP):
+            raw = submitted_at[len(_UNREADABLE_TIMESTAMP):]
+            faults.append({
+                "row": line, "email": email,
+                "error": f"{raw!r} is not a date and time this import can read.",
+            })
             continue
         error = validate_application_answers(market_doc, form_data)
         if error:
@@ -603,7 +807,10 @@ def preview_values(
             if offered is None:
                 continue
             raw = _raw_values(target, headers, row, indexes, fields_by_key.get(key))
-            _kept, unmatched = _matched(raw, offered, resolutions.get(key, {}))
+            if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(raw, dict):
+                _kept, unmatched = _matched_tiers_by_date(raw, options, resolutions.get(key, {}))
+            else:
+                _kept, unmatched = _matched(raw, offered, resolutions.get(key, {}))
             for item in unmatched:
                 slot = (key, item)
                 if slot not in tally:
@@ -637,7 +844,7 @@ def preview_values(
         for key, value in mapping.items()
         if isinstance(value, (int, list)) and not isinstance(value, bool)
     }
-    unserved = [t for t in targets.values() if t.required and t.key not in resolved]
+    unserved = unserved_required(list(targets.values()), resolved)
     if unmatched_payload or unserved:
         return result, 200
 
@@ -778,12 +985,12 @@ def import_applications(
             "error": f"Mapped column is not in this file: {', '.join(sorted(out_of_range))}.",
         }, 400
 
-    missing = [t.label for t in targets if t.required and t.key not in resolved]
+    missing = [t.label for t in unserved_required(targets, resolved)]
     if missing:
         return {
             "error": "Every required question needs a column before anything can be imported. "
                      f"Still unmapped: {', '.join(missing)}.",
-            "unmappedRequired": [t.key for t in targets if t.required and t.key not in resolved],
+            "unmappedRequired": [t.key for t in unserved_required(targets, resolved)],
         }, 422
 
     resolutions = resolutions or {}

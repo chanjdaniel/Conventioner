@@ -5,24 +5,7 @@ import { useApplicationStore } from '@/stores/application';
 import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
 import type { Application, FormField } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
-import {
-  AVAILABLE_DATES_KEY,
-  AVAILABLE_DATES_LABEL,
-  MAX_DATES_KEY,
-  MAX_DATES_LABEL,
-  SECTION_RANKING_KEY,
-  SECTION_RANKING_LABEL,
-  TABLE_TYPE_RANKING_KEY,
-  TABLE_TYPE_RANKING_LABEL,
-  TABLE_CHOICES,
-  TABLE_CHOICE_KEY,
-  TABLE_CHOICE_LABEL,
-  TABLE_SHARE_EMAIL_KEY,
-  TABLE_SHARE_EMAIL_LABEL,
-  TIER_PREFERENCE_KEY,
-  TIER_PREFERENCE_LABEL,
-  formattedEssentialDate,
-} from '@/utils/essentialFields';
+import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
 
 const route = useRoute();
 const router = useRouter();
@@ -79,78 +62,17 @@ onMounted(async () => {
   loading.value = false;
 });
 
-interface AnswerRow {
-  key: string;
-  label: string;
-  value: string;
-}
-
 /**
- * The applicant's answers with the questions' own labels: the essential answers first (they
- * are asked first), then the organizer's questions in form order, then anything the form no
- * longer names, so no stored answer is ever silently dropped.
+ * What the applicant answered, in the order the form asked: the essential questions first, then
+ * the organizer's own. The rendering itself belongs to the essential-fields contract, which the
+ * organizer's review card reads back through the same function.
  */
 const answerRows = computed<AnswerRow[]>(() => {
-  const data = application.value?.formData ?? {};
-  const rows: AnswerRow[] = [];
-  const seen = new Set<string>();
-
-  const push = (key: string, label: string, value: unknown) => {
-    if (value === null || value === undefined || value === '') return;
-    if (Array.isArray(value) && value.length === 0) return;
-    rows.push({
-      key,
-      label,
-      value: Array.isArray(value) ? value.join(', ') : String(value),
-    });
-  };
-
-  const essentialRows: Array<[string, string, (v: unknown) => unknown]> = [
-    [
-      AVAILABLE_DATES_KEY,
-      AVAILABLE_DATES_LABEL,
-      (v) => (Array.isArray(v) ? v.map((d) => formattedEssentialDate(String(d))) : v),
-    ],
-    [MAX_DATES_KEY, MAX_DATES_LABEL, (v) => v],
-    // Tier is an accepted set, not a ranking, so it is listed unnumbered.
-    [TIER_PREFERENCE_KEY, TIER_PREFERENCE_LABEL, (v) => v],
-    // Stored as a code; the applicant should read back the sentence they picked.
-    [
-      TABLE_CHOICE_KEY,
-      TABLE_CHOICE_LABEL,
-      (v) => TABLE_CHOICES.find((c) => c.value === v)?.label ?? v,
-    ],
-    [TABLE_SHARE_EMAIL_KEY, TABLE_SHARE_EMAIL_LABEL, (v) => v],
-    [
-      SECTION_RANKING_KEY,
-      SECTION_RANKING_LABEL,
-      (v) => (Array.isArray(v) ? v.map((s, i) => `${i + 1}. ${s}`) : v),
-    ],
-    [
-      TABLE_TYPE_RANKING_KEY,
-      TABLE_TYPE_RANKING_LABEL,
-      (v) => (Array.isArray(v) ? v.map((t, i) => `${i + 1}. ${t}`) : v),
-    ],
-  ];
-  for (const [key, label, present] of essentialRows) {
-    if (key in data) {
-      seen.add(key);
-      push(key, label, present(data[key]));
-    }
-  }
-
-  for (const field of formFields.value) {
-    if (field.key in data && !seen.has(field.key)) {
-      seen.add(field.key);
-      push(field.key, field.label, data[field.key]);
-    }
-  }
-
-  for (const [key, value] of Object.entries(data)) {
-    if (!seen.has(key)) push(key, key, value);
-  }
-
-  return rows;
+  const { essential, custom } = applicationAnswerRows(
+    application.value?.formData ?? {},
+    formFields.value,
+  );
+  return [...essential, ...custom];
 });
 
 function logout() {

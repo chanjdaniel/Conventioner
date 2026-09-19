@@ -20,7 +20,12 @@ export function isUntouchedField(field: FormField): boolean {
 export function applicationFormHint(form: ApplicationForm | null): string | null {
   const fields = form?.fields ?? [];
   if (fields.length === 0) {
-    return 'Add at least one field to save this form.';
+    // Not "add at least one field to save this form", which read as "your form is incomplete" -
+    // and it is not. A form is its custom fields PLUS the essential questions the plan asks, and
+    // either half alone is a form: a market whose form is exactly the essential questions opens
+    // applications and receives them. Save writes the custom half, so with none there is simply
+    // nothing for it to write.
+    return 'This form already asks the essential questions. Add a field to save one of your own.';
   }
   if (fields.some(isUntouchedField)) {
     return 'Give every field a label to save this form.';

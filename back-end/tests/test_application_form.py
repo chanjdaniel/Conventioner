@@ -219,9 +219,17 @@ class TestFieldValidation:
     def _save(self, fields):
         return MarketsApi.save_application_form("market-123", {"fields": fields}, "user-1")
 
-    def test_empty_form_is_refused(self, markets, applications):
-        with pytest.raises(ValueError, match="at least one field"):
-            self._save([])
+    def test_a_form_with_no_custom_fields_is_accepted(self, markets, applications):
+        """A form is its custom fields PLUS the essential questions the plan asks (AGENTS.md).
+
+        This used to refuse an empty field list. That made a market whose intake is the essential
+        questions alone - the common case - unable to record anything about its own form, including
+        which questions it does not ask (E01/F06). Whether a form asks enough to OPEN applications
+        is FormHasFieldsGuard's decision, and it counts both halves.
+        """
+        saved = self._save([])
+
+        assert saved["fields"] == []
 
     def test_unrecognized_type_is_refused(self, markets, applications):
         with pytest.raises(ValueError, match="Unrecognized field type"):

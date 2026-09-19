@@ -10,6 +10,7 @@ export interface MarketSchema {
       sections?: string[];
       tableTypes?: string[];
       tiers?: string[];
+      unasked?: string[];
     };
     fields: {
       helpText?: string;
@@ -21,6 +22,7 @@ export interface MarketSchema {
       type: string;
     }[];
     publishedAt?: string;
+    unaskedEssentials?: string[];
   };
   assignmentObject: {
     assignmentDate: string;

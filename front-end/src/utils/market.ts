@@ -14,7 +14,11 @@ import { marketNameToKebabSlug } from '@/utils/marketSlug';
  * by a build that predates the field.
  */
 export function pathAfterLoadingMarket(market: Market): string {
-  if (market.phase && market.phase !== MarketPhase.Archived) {
+  // A market still being SET UP opens the wizard. A published one (market_days) opens the public
+  // page it serves, and a finished one (archived) has nothing left to configure. This used to test
+  // `!== Archived` alone, because archived was both "just published" and "over" (E03/F03).
+  const noLongerBeingSetUp: MarketPhase[] = [MarketPhase.MarketDays, MarketPhase.Archived];
+  if (market.phase && !noLongerBeingSetUp.includes(market.phase)) {
     return '/market-setup';
   }
   if (!market.phase) {

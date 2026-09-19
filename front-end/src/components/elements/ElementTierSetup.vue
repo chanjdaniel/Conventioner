@@ -401,8 +401,4 @@ h3 {
   width: 16px;
   height: 30px;
 }
-
-.hidden-icon {
-  visibility: hidden;
-}
 </style>

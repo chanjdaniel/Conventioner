@@ -1,4 +1,7 @@
 import './assets/main.css';
+// The icon font the `pi pi-*` classes name. It was never imported, so every one of those icons
+// rendered as nothing - the setup-path modal showed two grey circles where its icons belong.
+import 'primeicons/primeicons.css';
 
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';

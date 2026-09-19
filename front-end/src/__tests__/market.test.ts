@@ -85,8 +85,14 @@ describe('pathAfterLoadingMarket', () => {
     expect(pathAfterLoadingMarket(market({ phase: MarketPhase.Offers, isDraft: false }))).toBe(
       '/market-setup',
     );
+  });
+
+  it('routes a published market to the public page it serves', () => {
+    // market_days means the market is RUNNING (E03/F03), so there is nothing left to set up and
+    // the organizer wants the page their vendors use. This used to land in the wizard, because
+    // only `archived` counted as published.
     expect(pathAfterLoadingMarket(market({ phase: MarketPhase.MarketDays, isDraft: false }))).toBe(
-      '/market-setup',
+      '/test-market',
     );
   });
 

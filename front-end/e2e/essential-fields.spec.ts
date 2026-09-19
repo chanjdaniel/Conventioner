@@ -110,11 +110,23 @@ async function signInApplicant(page: Page, marketId: string, marketSlug: string)
   // loading before asserting what it shows.
   await expect(page.getByTestId('apply-loading')).toBeHidden({ timeout: 30000 });
 
-  // That fetch occasionally stalls past its timeout under a full-suite run, and the page then
-  // offers a retry - so take it, exactly as an applicant would. This is a workaround, not a fix:
-  // the stall itself is tracked as E06/F01/S02, with the evidence that the request hangs rather
-  // than errors. If this retry ever starts firing routinely, that story is overdue.
-  await expect(page.getByTestId('apply-load-failed')).toHaveCount(0);
+  // That fetch occasionally stalls past its 15s timeout under a full-suite run, and the page then
+  // offers a retry - so take it, exactly as an applicant would.
+  //
+  // This is what the comment here always described and the code never did: it asserted the
+  // failure was absent and failed the run when it was not. CI counts a recovered flake as a
+  // failure (`retries: 2` reports it, the workflow fails the job on it), which is the right
+  // policy and which this was tripping. Taking the retry is faithful to the product, because the
+  // product offers the applicant that same button.
+  //
+  // Still a workaround, not a fix: the stall itself is E06/F01/S02, with the evidence that the
+  // request hangs rather than errors. If this retry starts firing routinely, that story is overdue.
+  const loadFailed = page.getByTestId('apply-load-failed');
+  for (let attempt = 0; attempt < 3 && (await loadFailed.count()) > 0; attempt += 1) {
+    await page.getByTestId('apply-retry-button').click();
+    await expect(page.getByTestId('apply-loading')).toBeHidden({ timeout: 30000 });
+  }
+  await expect(loadFailed).toHaveCount(0);
 }
 
 /** An applicant JWT obtained through the real login endpoints, for API-level saves. */
@@ -267,8 +279,9 @@ test.describe('Essential form fields', () => {
 
     // Tier: a hard filter, so a subset is a complete answer. Refusing Silver means the solver
     // may leave them unplaced rather than seat them there.
-    await expect(apply.tierCheckbox('Silver')).toBeVisible();
-    await apply.tierCheckbox('Gold').check();
+    await expect(apply.tierCheckbox('2026-08-01', 'Silver')).toBeVisible();
+    await apply.tierCheckbox('2026-08-01', 'Gold').check();
+    await apply.tierCheckbox('2026-08-08', 'Gold').check();
 
     // Table choice: sharing, and with someone specific in mind.
     await apply.tableChoiceRadio('half').check();
@@ -343,7 +356,7 @@ test.describe('Essential form fields', () => {
       essential_available_dates: ['2026-08-01', '2026-08-08'],
       essential_max_dates: 2,
       // Only Gold was ticked: an accepted SET, so Silver's absence is the answer, not an omission.
-      essential_tier_preference: ['Gold'],
+      essential_tier_preference: { '2026-08-01': ['Gold'], '2026-08-08': ['Gold'] },
       essential_table_choice: 'half',
       essential_table_share_email: 'buddy@example.com',
       essential_section_ranking: ['Garden', 'Main Hall'],
@@ -381,7 +394,9 @@ test.describe('Essential form fields', () => {
             product_type: 'Pottery',
             essential_available_dates: ['2026-08-01'],
             essential_max_dates: 1,
-            essential_tier_preference: ['Gold'],
+            // Tiers for exactly the dates named above: the validator refuses an available date
+            // with no tiers, and tiers for a date not available (E01/F05).
+            essential_tier_preference: { '2026-08-01': ['Gold'] },
             essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
           },
@@ -422,7 +437,7 @@ test.describe('Essential form fields', () => {
             product_type: 'Pottery',
             essential_available_dates: ['2026-08-22'],
             essential_max_dates: 1,
-            essential_tier_preference: ['Gold'],
+            essential_tier_preference: { '2026-08-01': ['Gold'], '2026-08-08': ['Gold'] },
             essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
           },

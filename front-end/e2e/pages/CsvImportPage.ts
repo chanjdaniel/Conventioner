@@ -45,6 +45,9 @@ export class CsvImportPage {
   // The dry run
   readonly previewButton: Locator;
   readonly previewCounts: Locator;
+  readonly sampleRows: Locator;
+  readonly targetMarket: Locator;
+  readonly dropZone: Locator;
   readonly previewMerge: Locator;
   readonly previewFailureRows: Locator;
   readonly absentNote: Locator;
@@ -85,6 +88,9 @@ export class CsvImportPage {
 
     this.previewButton = page.getByTestId('import-preview-button');
     this.previewCounts = page.getByTestId('import-preview-counts');
+    this.sampleRows = page.getByTestId('import-sample-row');
+    this.targetMarket = page.getByTestId('import-target-market');
+    this.dropZone = page.getByTestId('import-drop-zone');
     this.previewMerge = page.getByTestId('import-preview-merge');
     this.previewFailureRows = page.getByTestId('import-preview-failure-row');
     this.absentNote = page.getByTestId('import-absent-note');

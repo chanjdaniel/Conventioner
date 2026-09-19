@@ -274,10 +274,6 @@ h4 {
   cursor: pointer;
 }
 
-.hidden-icon {
-  visibility: hidden;
-}
-
 .icon-close-round {
   width: 20px;
   height: 20px;

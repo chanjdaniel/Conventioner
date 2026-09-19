@@ -37,17 +37,26 @@ class VendorWant:
 
     ``available`` is which dates they can attend and ``tiers`` which tiers they accept - the
     split E02 makes explicit and the CSV encoding conflated into one answer per date.
+
+    ``tiers`` may be a flat list, meaning the same tiers on every available date (the common case),
+    or a ``{date: [tier]}`` mapping when a test is about tiers differing per day (E01/F05).
     """
 
     def __init__(self, email, available, tiers, table_choice="full",
                  share_with="", max_days=None, sections=()):
         self.email = email
         self.available = list(available)
-        self.tiers = list(tiers)
+        self.tiers = tiers
         self.table_choice = table_choice
         self.share_with = share_with
         self.max_days = max_days
         self.sections = tuple(sections)
+
+    def tiers_by_date(self):
+        """Tier is answered per date. A flat list means the same answer on every available date."""
+        if isinstance(self.tiers, dict):
+            return {date: frozenset(names) for date, names in self.tiers.items()}
+        return {date: frozenset(self.tiers) for date in self.available}
 
     def as_solver_vendor(self):
         return SolverVendor(
@@ -55,7 +64,7 @@ class VendorWant:
             email=self.email,
             available_dates=frozenset(self.available),
             max_dates=self.max_days,
-            accepted_tiers=frozenset(self.tiers),
+            accepted_tiers_by_date=self.tiers_by_date(),
             table_choice=self.table_choice,
             table_share_email=self.share_with or None,
             section_ranking=self.sections,
@@ -297,7 +306,8 @@ class TestAssigningFromTheMarketsOwnApplications:
                 form_data={
                     EF.AVAILABLE_DATES_KEY: want.available,
                     EF.MAX_DATES_KEY: want.max_days or len(DATES),
-                    EF.TIER_PREFERENCE_KEY: want.tiers,
+                    # Stored per date (E01/F05); a flat `tiers` means the same answer every day.
+                    EF.TIER_PREFERENCE_KEY: {d: list(t) for d, t in want.tiers_by_date().items()},
                     EF.TABLE_CHOICE_KEY: want.table_choice,
                     EF.TABLE_SHARE_EMAIL_KEY: want.share_with,
                     EF.SECTION_RANKING_KEY: [
@@ -399,7 +409,7 @@ class TestAnIncompleteApplicationStopsTheRun:
                 form_data={
                     EF.AVAILABLE_DATES_KEY: [],
                     EF.MAX_DATES_KEY: None,
-                    EF.TIER_PREFERENCE_KEY: [GOLD],
+                    EF.TIER_PREFERENCE_KEY: {date: [GOLD] for date in DATES},
                     EF.TABLE_CHOICE_KEY: "full",
                     EF.TABLE_SHARE_EMAIL_KEY: "",
                     EF.SECTION_RANKING_KEY: [],

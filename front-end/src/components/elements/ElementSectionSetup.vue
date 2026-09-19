@@ -191,6 +191,10 @@ const countTables = () => {
 
 <style scoped>
 .container {
+  /* A section's name and its location are the organizer's own words and need room for them; a
+     count is at most three digits, and the remove control is an icon. The even quarters clipped
+     a name to about eight characters and truncated "Nest Ballroom" to "Nest Ballrc". */
+  --section-columns: minmax(0, 1.5fr) minmax(0, 1.3fr) minmax(0, 1fr) 4.5rem 2rem;
   width: 100%;
   height: 100%;
 
@@ -202,9 +206,11 @@ const countTables = () => {
   /* gap: 15px; */
 }
 
+/* One template, shared, so a heading always sits over the control it names. */
 .column-titles {
   display: grid;
-  grid-template-columns: 23.75% 23.75% 23.75% 23.75% 5%;
+  grid-template-columns: var(--section-columns);
+  width: 100%;
   margin-bottom: 15px;
 }
 
@@ -226,7 +232,8 @@ const countTables = () => {
 
 .row {
   display: grid;
-  grid-template-columns: 23.75% 23.75% 23.75% 23.75% 5%;
+  grid-template-columns: var(--section-columns);
+  width: 100%;
   padding-top: 5px;
   padding-bottom: 5px;
 }
@@ -236,7 +243,7 @@ const countTables = () => {
   flex-direction: row;
   position: relative;
 
-  padding-left: 10px;
+  padding-left: 6px;
   padding-right: 5px;
   justify-content: center;
   align-items: center;
@@ -249,7 +256,8 @@ const countTables = () => {
 }
 
 .input-container {
-  width: 80%;
+  /* The column already decides how much room this field gets; 80% of it threw a fifth away. */
+  width: 100%;
   height: 100%;
   box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
   border-radius: 8px;
@@ -263,10 +271,6 @@ input::-webkit-inner-spin-button {
 
 input[type='number'] {
   -moz-appearance: textfield;
-}
-
-.hidden-icon {
-  visibility: hidden;
 }
 
 .icon-add-round {
@@ -298,6 +302,8 @@ input[type='number'] {
   font-size: 14px;
   padding-right: 5px;
   background-color: white;
+  /* A location name that still will not fit says so, rather than stopping mid-word. */
+  text-overflow: ellipsis;
 }
 
 .number-input {

@@ -8,6 +8,7 @@ import {
 } from './fixtures';
 import { execSync } from 'child_process';
 import { mongoContainer } from './helpers/containerNames';
+import { deleteUser } from './helpers/deleteUser';
 
 const REGISTER_PASSWORD = 'E2eRegister123!';
 const NEW_PASSWORD = 'E2eNewPass456!';
@@ -179,10 +180,7 @@ test.describe('Authentication journeys', () => {
         expect(resetPayload!.token).toBe(token);
         expect(resetPayload!.new_password).toBe(NEW_PASSWORD);
       } finally {
-        await request.post('/api/delete-user', {
-          data: { email },
-          headers: { 'Content-Type': 'application/json' },
-        });
+        deleteUser(email);
       }
     });
   });

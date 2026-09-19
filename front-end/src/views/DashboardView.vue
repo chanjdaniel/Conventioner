@@ -128,16 +128,25 @@ const handleSignOut = async () => {
         >
           <span class="disabled-text">The market you last opened is no longer available</span>
         </div>
+        <!-- First sign-in. It used to read "Open a market to get started" on a page offering no
+             way to make one, which is an instruction the organizer cannot follow: there is no
+             market to open yet. Say what is true and hand them the step that starts it. -->
         <div
           v-else
           class="last-market-card last-market-card--welcome"
-          role="button"
-          tabindex="0"
-          @click="handleMarkets"
-          @keydown.enter="handleMarkets"
           data-testid="dashboard-no-market-yet"
         >
-          <span class="welcome-text">Open a market to get started</span>
+          <span class="welcome-text">
+            You have not set up a market yet. A market belongs to an organization, and the next
+            screen will make one with you as its owner if you have none.
+          </span>
+          <button
+            class="welcome-action"
+            @click="handleMarkets"
+            data-testid="dashboard-create-market-button"
+          >
+            Set up your first market
+          </button>
         </div>
       </div>
 
@@ -266,13 +275,33 @@ const handleSignOut = async () => {
 
 .last-market-card--welcome {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  gap: 14px;
+  text-align: center;
+  padding: 22px 24px;
 }
 
 .welcome-text {
   color: rgba(39, 35, 35, 0.7);
+  max-width: 52ch;
+  line-height: 1.5;
+}
+
+.welcome-action {
+  background: var(--mm-green);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: 'Merge One', sans-serif;
+  font-size: 15px;
+}
+
+.welcome-action:hover {
+  opacity: 0.9;
 }
 
 .last-market-card--disabled {
@@ -394,10 +423,25 @@ const handleSignOut = async () => {
   transform: translateY(-1px);
 }
 
+/* Signing out is not a destination the organizer came here for. It was a black slab the size of
+   Markets and Organizations, which put "leave" beside the only two places to go. */
 .button-small {
-  width: 346px;
-  height: 50px;
-  padding: 12px 24px;
+  width: auto;
+  height: auto;
+  padding: 6px 12px;
+  background: none;
+  box-shadow: none;
+  border-radius: 5px;
+}
+
+.button-small:hover {
+  background: rgba(39, 35, 35, 0.06);
+  opacity: 1;
+}
+
+.button-small h4 {
+  color: rgba(39, 35, 35, 0.6);
+  text-decoration: underline;
 }
 
 h3 {

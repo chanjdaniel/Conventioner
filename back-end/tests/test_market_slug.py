@@ -21,7 +21,7 @@ from market_documents import market_from_document, published_market_by_slug
 
 @pytest.fixture
 def collection(monkeypatch):
-    fake = FakeMarketsCollection(stored_market(phase=MarketPhase.ARCHIVED))
+    fake = FakeMarketsCollection(stored_market(phase=MarketPhase.MARKET_DAYS))
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
     return fake
@@ -56,7 +56,7 @@ class TestTheSlugIsDerivedFromTheName:
 
     def test_parsing_a_stored_market_recomputes_it(self):
         """The stored value is a cache of the rule, never an authority over it."""
-        doc = stored_market(phase=MarketPhase.ARCHIVED, name="Spring Market", slug="stale-slug")
+        doc = stored_market(phase=MarketPhase.MARKET_DAYS, name="Spring Market", slug="stale-slug")
 
         assert market_from_document(doc).slug == "spring-market"
 
@@ -113,7 +113,7 @@ class TestTheLookupUsesTheStoredSlug:
 
     def test_the_market_is_found_by_its_stored_slug(self):
         collection = self._Collection([
-            stored_market(phase=MarketPhase.ARCHIVED, name="Café Market"),
+            stored_market(phase=MarketPhase.MARKET_DAYS, name="Café Market"),
         ])
 
         found = published_market_by_slug(collection, "cafe-market")
@@ -125,7 +125,7 @@ class TestTheLookupUsesTheStoredSlug:
         """One rule, one function: a second copy that skipped the accent fold would store
         ``caf-market`` under a link that says ``cafe-market``, and every lookup behind it would
         404."""
-        doc = stored_market(phase=MarketPhase.ARCHIVED, name="Café Market")
+        doc = stored_market(phase=MarketPhase.MARKET_DAYS, name="Café Market")
 
         assert doc["slug"] == market_name_slug("Café Market")
 
@@ -137,7 +137,7 @@ class TestThePublicLookupFetchesOnlyWhatItServes:
 
     def _collection(self):
         return TestTheLookupUsesTheStoredSlug._Collection([
-            stored_market(phase=MarketPhase.ARCHIVED, name="Spring Market"),
+            stored_market(phase=MarketPhase.MARKET_DAYS, name="Spring Market"),
         ])
 
     def test_a_caller_gets_the_fields_it_asked_for(self):

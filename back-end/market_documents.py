@@ -228,6 +228,17 @@ def market_doc_projection(fields: Sequence[str]) -> Dict[str, Any]:
 _SLUG_LOOKUP_FIELDS: Tuple[str, ...] = ("name", "phase", "is_draft")
 
 
+# Which phases each public surface serves. They answer different questions, so each names its own
+# (E03/F03). "Non-draft" stopped being a useful rule for either once `market_days` became the
+# published phase: an ABANDONED market (archived from draft, never run) is non-draft too, and has
+# no assignment to check anyone in against.
+CHECK_IN_PHASES = (MarketPhase.MARKET_DAYS,)
+
+# Stricter than it was, and the safe direction: a stranger applying to a market that has already
+# closed applications - or already assigned - was the old behaviour, and it was wrong.
+APPLICANT_INTAKE_PHASES = (MarketPhase.APPLICATIONS_OPEN,)
+
+
 def non_draft_market_prefilter() -> Dict[str, Any]:
     """Mongo filter over every market that could possibly be non-draft.
 
@@ -290,10 +301,37 @@ def published_market_by_slug(
     projection = (
         None if fields is None else market_doc_projection((*_SLUG_LOOKUP_FIELDS, *fields))
     )
+    return _market_by_slug(collection, market_slug, CHECK_IN_PHASES, fields)
+
+
+def _market_by_slug(
+    collection: Any,
+    market_slug: str,
+    serving_phases: Sequence[MarketPhase],
+    fields: Optional[Sequence[str]] = None,
+) -> Optional[Dict[str, Any]]:
+    """The market a public URL names, if it is in a phase that surface serves.
+
+    One lookup, parameterised by the phases, because the two public surfaces answer different
+    questions and now name different phases (E03/F03). Applicant intake used to be layered on top
+    of the check-in lookup; it cannot be any more, since check-in serves a RUNNING market and intake
+    serves one still TAKING APPLICATIONS - and neither set contains the other.
+
+    The Mongo filter only prunes. A filter cannot decide a phase, because a legacy document carries
+    none at all; ``phase_from_market_document`` is the one authority, so the decision is made here
+    in Python.
+    """
+    if not market_slug:
+        return None
+    target = market_slug.strip().lower()
+    query = {**non_draft_market_prefilter(), **market_doc_filter("slug", target)}
+    projection = (
+        None if fields is None else market_doc_projection((*_SLUG_LOOKUP_FIELDS, *fields))
+    )
     for candidate in collection.find(query, projection):
         if market_name_slug(candidate.get("name", "")) != target:
             continue
-        if phase_from_market_document(candidate) == MarketPhase.DRAFT:
+        if phase_from_market_document(candidate) not in serving_phases:
             continue
         return candidate
     return None
@@ -331,7 +369,9 @@ def applicant_intake_market_by_slug(
     CSV, so every form market would look gated.
     """
     projected = None if fields is None else (*fields, "intake_mode")
-    market_doc = published_market_by_slug(collection, market_slug, fields=projected)
+    market_doc = _market_by_slug(
+        collection, market_slug, APPLICANT_INTAKE_PHASES, fields=projected,
+    )
     if market_doc is None:
         return None
     if intake_mode_from_market_document(market_doc) is not IntakeMode.FORM:

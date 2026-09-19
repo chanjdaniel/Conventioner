@@ -85,8 +85,14 @@ const serverEssentialOptions = ref<EssentialFormOptions | null>(null);
  * is locked it is the server's frozen offering, which local plan edits can no longer move.
  */
 const essentialOptions = computed<EssentialFormOptions>(() => {
-  if (formLocked.value) return serverEssentialOptions.value ?? EMPTY_ESSENTIAL_OPTIONS;
-  return essentialOptionsFromSetup(setupObject);
+  // The declaration of which questions this market asks lives on the FORM, and the offering is
+  // derived or frozen - so it has to be carried across, or an unasked question reappears the
+  // moment the offering is recomputed. Mirrors `_with_unasked` in back-end/essential_fields.py.
+  const unasked = applicationForm.value?.unaskedEssentials ?? [];
+  const base = formLocked.value
+    ? (serverEssentialOptions.value ?? EMPTY_ESSENTIAL_OPTIONS)
+    : essentialOptionsFromSetup(setupObject);
+  return unasked.length ? { ...base, unasked } : base;
 });
 
 function parseFiniteInt(v: unknown): number | null {
@@ -226,6 +232,32 @@ function clearSavedStatusTimer() {
 
 onUnmounted(clearSavedStatusTimer);
 
+/**
+ * Switch a preference ordering on or off for this market (E01/F06).
+ *
+ * Saved immediately rather than on the form's Save button: it is a property of what the market
+ * asks, not of the custom fields being edited, and Save is disabled until a custom field exists.
+ * The back end refuses anything but a ranking, so this cannot turn off a constraint.
+ */
+async function handleToggleUnasked(key: string, unasked: boolean) {
+  if (!market.value?.id || !formEditable.value) return;
+  const current = applicationForm.value ?? { fields: [] };
+  const next = new Set(current.unaskedEssentials ?? []);
+  if (unasked) {
+    next.add(key);
+  } else {
+    next.delete(key);
+  }
+  const updated = { ...current, unaskedEssentials: [...next] };
+  formErrorMessage.value = null;
+  try {
+    const response = await api.put(`/markets/${market.value.id}/application-form`, updated);
+    adoptApplicationForm(response.data?.application_form ?? updated);
+  } catch (err: unknown) {
+    formErrorMessage.value = getApiErrorMessage(err, 'Could not update the form.');
+  }
+}
+
 async function saveApplicationForm() {
   if (!market.value?.id || !canSaveForm.value) return;
   clearSavedStatusTimer();
@@ -351,7 +383,9 @@ watch(pageIdx, (newIdx) => {
     <div class="market-setup-body">
       <div class="settings-container">
         <div class="settings-header">
-          <h1>Settings</h1>
+          <!-- The market's own name, so the page says which market this is. It read "Settings" on
+               every market, and the route (/market-setup) carries no id to tell them apart. -->
+          <h1 data-testid="market-setup-title">{{ market?.name || 'Settings' }}</h1>
           <div class="tab-bar">
             <button
               :class="['tab-button', { active: activeTab === 'form' }]"
@@ -418,6 +452,8 @@ watch(pageIdx, (newIdx) => {
                     v-if="!formStateUnknown"
                     :options="essentialOptions"
                     :locked="formLocked"
+                    :editable="formEditable"
+                    @toggleUnasked="handleToggleUnasked"
                   />
                   <FormBuilder
                     v-if="!formStateUnknown"
@@ -574,6 +610,25 @@ watch(pageIdx, (newIdx) => {
             <h1>Something went wrong!</h1>
           </template>
         </div>
+
+        <!-- Applications Tab -->
+        <!-- `settings-body` lays its children out in a row, which is right for the two-card tabs
+             but put the import button in a dead column beside the list. This one stacks. -->
+        <div v-if="activeTab === 'applications'" class="settings-body settings-body-stacked">
+          <div class="applications-toolbar">
+            <button
+              class="import-entry-button"
+              data-testid="market-setup-import-button"
+              @click="router.push({ name: 'import-applications' })"
+            >
+              Import from CSV
+            </button>
+            <span class="import-entry-hint">
+              Bring in the responses your Google Form collected.
+            </span>
+          </div>
+          <ApplicationMonitor :market="market" :visible="activeTab === 'applications'" />
+        </div>
       </div>
       <div v-if="activeTab === 'setup'" class="discord-webhook-row">
         <label class="discord-webhook-label" for="discord-webhook-url">Discord webhook URL</label>
@@ -618,8 +673,11 @@ watch(pageIdx, (newIdx) => {
           >
             Assign
           </button>
+          <!-- The hint explains the disabled Assign button beside it, so it belongs to the same
+               page. Without the page guard it also appeared on the dates and sections pages,
+               pointing at assignment options that are not on screen until this one. -->
           <p
-            v-if="!assignmentOptionsComplete"
+            v-if="pageIdx === maxPageIdx && !assignmentOptionsComplete"
             class="assign-disabled-hint"
             data-testid="market-setup-assign-hint"
           >
@@ -632,8 +690,11 @@ watch(pageIdx, (newIdx) => {
           >
             <span>{{ assignError }}</span>
           </div>
+          <!-- Next advances the wizard, so it shows on every page that has a next one. It used to
+               be `v-else` on the error banner above, which made it render beside Assign on the
+               last page - two buttons overlapping - and vanish whenever an assignment failed. -->
           <button
-            v-else
+            v-if="pageIdx !== maxPageIdx"
             class="done-button"
             @click="handleNext"
             data-testid="market-setup-next-button"
@@ -642,28 +703,21 @@ watch(pageIdx, (newIdx) => {
           </button>
         </div>
       </div>
-
-      <!-- Applications Tab -->
-      <div v-if="activeTab === 'applications'" class="settings-body">
-        <div class="applications-toolbar">
-          <button
-            class="import-entry-button"
-            data-testid="market-setup-import-button"
-            @click="router.push({ name: 'import-applications' })"
-          >
-            Import from CSV
-          </button>
-          <span class="import-entry-hint">
-            Bring in the responses your Google Form collected.
-          </span>
-        </div>
-        <ApplicationMonitor :market="market" :visible="activeTab === 'applications'" />
-      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.settings-body-stacked {
+  flex-direction: column;
+  gap: 0;
+  /* The review queue grows with the application in front of the organizer, and the reviewed list
+     grows with the market. Without its own scroll the content spilled out past the white panel,
+     where it was unreachable. The other tabs each scroll inside their own card; this one has no
+     card to scroll inside. */
+  overflow-y: auto;
+}
+
 .applications-toolbar {
   display: flex;
   flex-wrap: wrap;

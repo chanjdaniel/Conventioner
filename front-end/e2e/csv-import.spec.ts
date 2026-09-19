@@ -113,6 +113,11 @@ test.describe('CSV vendor import', () => {
     const importPage = new CsvImportPage(page);
 
     await openImport(importPage, request, seed.marketId);
+
+    // An import writes applications into one market, and the page used to name none of them.
+    await expect(importPage.targetMarket).toContainText(seed.marketName);
+    await expect(importPage.dropZone).toBeVisible();
+
     await importPage.chooseFile(CSV);
 
     // Every column in the file is listed, in file order.
@@ -134,6 +139,13 @@ test.describe('CSV vendor import', () => {
     // rows, with the third named and its reason given.
     await importPage.clickPreview();
     await expect(importPage.previewCounts).toContainText('2 of 3 rows');
+
+    // The step is called Preview, so it shows the organizer's own rows read through the mapping
+    // they just chose - not a second recap of the mapping itself. This is the only place the
+    // mapping can be checked against real data before 232 applications are written.
+    await expect(importPage.sampleRows.first()).toContainText('Ember Ceramics');
+    await expect(importPage.sampleRows.first()).toContainText('nadia@ember.test');
+
     await expect(importPage.previewFailureRows).toHaveCount(1);
     await expect(importPage.previewFailureRows.first()).toContainText('Row 4');
     await expect(importPage.confirmButton).toContainText('Import 2 rows');
@@ -160,14 +172,39 @@ test.describe('CSV vendor import', () => {
       product_type: 'Pottery',
       essential_available_dates: ['2026-08-01', '2026-08-08'],
       essential_max_dates: 2,
-      essential_tier_preference: [PLAN_TIERS[0]],
+      // Per date (E01/F05); this row answered once, so it applies to every date it can attend.
+      essential_tier_preference: {
+        '2026-08-01': [PLAN_TIERS[0]],
+        '2026-08-08': [PLAN_TIERS[0]],
+      },
       essential_table_choice: 'half',
       essential_table_share_email: '',
       essential_section_ranking: ['Garden', 'Main Hall'],
     });
     // Their own submission time, not the moment of import - a first-come-first-served priority
     // rule reads this, and one shared timestamp would make it meaningless.
-    expect(nadia!.submittedAt).toBe('2026/05/02 9:14:03');
+    // Stored as a moment, not as the text the form wrote (E01/F04/S02): every reader - the
+    // solver's priority rule and the review queue's sort - compares this one stored value.
+    expect(nadia!.submittedAt).toBe('2026-05-02T09:14:03');
+  });
+
+  test('a file of headers and nothing else previews no rows, rather than three empty ones', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // A Google Form with no responses yet exports exactly this: the question row, and nothing
+    // under it. It parses fine and maps fine, so it reaches the preview like any other file.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(HEADERS.join(','));
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+
+    await expect(importPage.previewCounts).toContainText('0 of 0 rows');
+    // Not three cards of "no answer" under "The first 3 rows, as they will be imported".
+    await expect(importPage.sampleRows).toHaveCount(0);
   });
 
   test('an unmapped required question imports nothing', async ({
@@ -330,7 +367,12 @@ test.describe('CSV vendor import', () => {
     const applications = await listApplications(request, seed.marketId);
     expect(applications).toHaveLength(2);
     for (const app of applications) {
-      expect(app.formData.essential_tier_preference).toEqual(['Gold']);
+      // Per date (E01/F05). This row answered once, so Gold applies to every date it can attend.
+      expect(app.formData.essential_tier_preference).toEqual(
+        Object.fromEntries(
+          (app.formData.essential_available_dates as string[]).map((d) => [d, ['Gold']]),
+        ),
+      );
     }
   });
 
