@@ -1,12 +1,31 @@
 <script setup lang="ts">
-defineEmits<{
+import { ref } from 'vue';
+import { useEscapeToClose } from '@/utils/useEscapeToClose';
+
+const emit = defineEmits<{
   select: [path: 'manual' | 'floorplan'];
 }>();
+
+/* Dismissing this IS choosing manual: the text-based setup UI is already rendered underneath, and
+   `handlePathChoice('manual')` does nothing but hide the overlay. So a way out costs nothing and
+   the alternative was a blocking dialog with no dismiss, on a market the organizer could not look
+   at until they had chosen. */
+const open = ref(true);
+useEscapeToClose(open, () => emit('select', 'manual'));
 </script>
 
 <template>
   <div class="overlay-backdrop">
     <div class="overlay-panel">
+      <button
+        type="button"
+        class="overlay-close"
+        aria-label="Close and set this market up manually"
+        @click="emit('select', 'manual')"
+        data-testid="choose-path-close"
+      >
+        &times;
+      </button>
       <h2 class="overlay-heading">Choose your setup path</h2>
       <p class="overlay-subtitle">How would you like to describe what this market has to offer?</p>
 
@@ -116,6 +135,7 @@ defineEmits<{
 
 /* ── Panel ────────────────────────────────────────────────────── */
 .overlay-panel {
+  position: relative;
   width: min(90vw, 880px);
   max-height: 90vh;
   display: flex;
@@ -371,5 +391,17 @@ defineEmits<{
     grid-template-columns: 1fr;
     gap: 20px;
   }
+}
+.overlay-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: var(--mm-text-muted);
+  cursor: pointer;
 }
 </style>

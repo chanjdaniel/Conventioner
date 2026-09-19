@@ -5,10 +5,20 @@ import { type Market } from '@/assets/types/datatypes.ts';
 import { api } from '@/utils/api';
 import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market';
 import { getRoleDisplayName } from '@/utils/permissions';
+import { useEscapeToClose } from '@/utils/useEscapeToClose';
 
-defineProps<{
+const props = defineProps<{
   loadOpen: boolean;
 }>();
+
+const emit = defineEmits<{
+  loadClose: [];
+}>();
+
+useEscapeToClose(
+  () => props.loadOpen,
+  () => emit('loadClose'),
+);
 
 const router = useRouter();
 const markets = ref<Market[]>([]);

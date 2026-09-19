@@ -6,6 +6,7 @@ import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 import { parseMarketFromApi } from '@/utils/market';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
+import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import type { Application, Market, MarketDateObject } from '@/assets/types/datatypes';
 
 interface AssignmentStatisticsResponse {
@@ -262,6 +263,8 @@ function selectVendor(rowIndex: number): void {
 function closeDetail(): void {
   selectedRowIndex.value = null;
 }
+
+useEscapeToClose(() => selectedVendor.value !== null, closeDetail);
 
 function handleBack(): void {
   if (market.value?.id) {
