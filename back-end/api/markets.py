@@ -17,8 +17,15 @@ from datatypes import (
     UnassignedTableEntry,
     intake_mode_from_market_document,
     phase_from_market_document,
+    table_code_for,
+    table_code_sort_key,
 )
-from assignment.assignment import IncompleteApplicationsError, assign_market
+from assignment.assignment import (
+    NOTHING_TO_ASSIGN,
+    IncompleteApplicationsError,
+    assign_market,
+    solver_vendors_for,
+)
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case, snake_to_camel
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
@@ -350,7 +357,7 @@ def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
     for market_date in setup_object.market_dates:
         for section in setup_object.sections:
             for idx in range(section.count):
-                table_code = f"{section.name}{idx + 1}"
+                table_code = table_code_for(section.name, idx + 1)
                 rows_by_key[(market_date.date, table_code)] = {
                     "date": market_date.date,
                     "assignment_slots": [None, None],
@@ -421,7 +428,10 @@ def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
             tier=row["tier"],
         ))
 
-    return sorted(rows, key=lambda row: (row.date, row.location, row.section, row.table_code))
+    return sorted(
+        rows,
+        key=lambda row: (row.date, row.location, row.section, table_code_sort_key(row.table_code)),
+    )
 
 
 def derive_unassigned_tables_from_rows(rows: List[MarketTableRow]) -> Dict[str, List[UnassignedTableEntry]]:
@@ -748,10 +758,21 @@ def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -
         try:
             market = market_from_document(context.document, market_dict)
             try:
-                assigned_market = assign_market(market)
+                vendors = solver_vendors_for(market)
             except IncompleteApplicationsError as incomplete:
                 # The organizer has to go and fix something, so say who.
                 return {"error": incomplete.message()}, 400
+
+            # Running the solver over nobody produced a screen that looked exactly like a
+            # completed run - 0 assignments, 0/24 tables, 0/0 vendors - which reads as a market
+            # that failed rather than one that was never asked anything. Refused HERE rather than
+            # inside the solver, because the read-only views of an assignment (statistics, the
+            # tables grid, the CSV) are right to show an empty market's empty picture; it is
+            # *asking for an assignment* that has nothing to do.
+            if not vendors:
+                return {"error": NOTHING_TO_ASSIGN}, 400
+
+            assigned_market = assign_market(market, vendors)
             assigned_market_dict = assigned_market.model_dump()
 
             assigned_market_dict = convert_keys_to_camel_case(assigned_market_dict)

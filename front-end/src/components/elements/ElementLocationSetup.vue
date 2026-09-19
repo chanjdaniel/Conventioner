@@ -89,21 +89,17 @@ const removeRow = (index: number | null) => {
             />
           </div>
         </div>
-        <div
-          style="
-            padding: none;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-          "
+        <button
+          type="button"
+          class="row-remove-button"
+          :aria-label="`Remove location ${index + 1}`"
+          @click="removeRow(index)"
         >
           <IconCloseRound
             :class="{ 'hidden-icon': hoverIndex !== index }"
             class="icon-close-round"
-            @click="removeRow(index)"
           />
-        </div>
+        </button>
       </div>
       <div class="add-container">
         <IconAddRound
@@ -131,7 +127,7 @@ const removeRow = (index: number | null) => {
 
 .column-titles {
   display: grid;
-  grid-template-columns: 95% 5%;
+  grid-template-columns: minmax(0, 1fr) 2rem;
   margin-bottom: 15px;
 }
 
@@ -153,7 +149,7 @@ const removeRow = (index: number | null) => {
 
 .row {
   display: grid;
-  grid-template-columns: 95% 5%;
+  grid-template-columns: minmax(0, 1fr) 2rem;
   padding-top: 5px;
   padding-bottom: 5px;
 }
@@ -168,7 +164,7 @@ const removeRow = (index: number | null) => {
   justify-content: center;
   align-items: center;
 
-  border-right: 3px solid var(--mm-grey);
+  border-right: 3px solid var(--mm-border);
 }
 
 .row-item:last-of-type {
@@ -198,11 +194,27 @@ input[type='number'] {
   cursor: pointer;
 }
 
+/* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -
+   the same icon that came out 24x24 in Section Setup, side by side on one screen. */
+/* A real button: the control was a <div> with cursor:auto, tabIndex -1, no role and no
+   accessible name, in a 10px-wide hit target. Keyboard users could not remove a row at all. */
+.row-remove-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
 .icon-close-round {
-  max-width: 20px;
-  max-height: 20px;
-  width: 80%;
-  height: 80%;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
   cursor: pointer;
 }
 </style>

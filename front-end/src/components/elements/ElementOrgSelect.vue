@@ -69,7 +69,7 @@ onMounted(() => {
 .org-select {
   width: 100%;
   padding: 8px 12px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 6px;
   font-size: 14px;
   font-family: 'Outfit Regular', sans-serif;

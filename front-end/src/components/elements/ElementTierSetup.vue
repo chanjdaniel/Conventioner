@@ -134,25 +134,21 @@ const dragOptions = computed(() => ({
                 />
               </div>
             </div>
-            <div
-              style="
-                padding: none;
-                display: flex;
-                flex-direction: row;
-                align-items: center;
-                justify-content: center;
+            <button
+              type="button"
+              class="row-remove-button"
+              :aria-label="`Remove tier ${parentIndex + 1}`"
+              @click="
+                () => {
+                  removeTierRow(parentIndex);
+                }
               "
             >
               <IconCloseRound
                 :class="{ 'hidden-icon': hoverParentIndex !== parentIndex }"
                 class="icon-close-round"
-                @click="
-                  () => {
-                    removeTierRow(parentIndex);
-                  }
-                "
               />
-            </div>
+            </button>
           </div>
         </template>
       </draggable>
@@ -207,12 +203,12 @@ h3 {
 
 .column-titles {
   display: grid;
-  grid-template-columns: 15% 80% 5%;
+  grid-template-columns: 15% minmax(0, 1fr) 2rem;
 }
 
 .priority-row {
   display: grid;
-  grid-template-columns: 15% 80% 5%;
+  grid-template-columns: 15% minmax(0, 1fr) 2rem;
   padding-top: 5px;
   padding-bottom: 5px;
   min-height: 48px;
@@ -243,7 +239,7 @@ h3 {
 
     position: relative;
 
-    border-right: 3px solid var(--mm-grey);
+    border-right: 3px solid var(--mm-border);
 } */
 
 .row-item {
@@ -256,7 +252,7 @@ h3 {
   justify-content: center;
   align-items: center;
 
-  border-right: 3px solid var(--mm-grey);
+  border-right: 3px solid var(--mm-border);
 }
 
 .row-item:last-of-type {
@@ -344,18 +340,36 @@ h3 {
   cursor: grabbing;
 }
 
+/* Was `height: 56px` inside a 48px row, absolutely positioned, so the grip lines were painted
+   outside the row and read as a rendering error rather than a handle. */
 .click-drag {
   width: 16px;
-  height: 56px;
+  height: 24px;
   position: absolute;
   left: 0;
 }
 
+/* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -
+   the same icon that came out 24x24 in Section Setup, side by side on one screen. */
+/* A real button: the control was a <div> with cursor:auto, tabIndex -1, no role and no
+   accessible name, in a 10px-wide hit target. Keyboard users could not remove a row at all. */
+.row-remove-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
 .icon-close-round {
-  max-width: 20px;
-  max-height: 20px;
-  width: 80%;
-  height: 80%;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
   cursor: pointer;
 }
 

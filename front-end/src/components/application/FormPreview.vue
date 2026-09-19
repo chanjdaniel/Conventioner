@@ -151,7 +151,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   border-bottom: 1px solid #e5e5e5;
   padding-bottom: 4px;
 }
@@ -161,7 +161,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   padding: 40px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
 }
 
 .preview-form {
@@ -190,7 +190,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 .preview-help {
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   margin: 0;
 }
 
@@ -199,7 +199,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   padding: 4px 10px;
   font-family: 'Outfit Regular';
   font-size: 13px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: #f8f8f8;
 }
@@ -225,7 +225,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   flex-direction: column;
   gap: 4px;
   padding: 8px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: #f8f8f8;
 }

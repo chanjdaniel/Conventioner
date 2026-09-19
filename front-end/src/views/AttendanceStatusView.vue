@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
 import type { VendorAttendance } from '@/assets/types/datatypes';
+import { getShortDate, getTimestampTime } from '@/utils/utils';
 
 const route = useRoute();
 const router = useRouter();
@@ -35,16 +36,13 @@ const lookup = computed(() => {
 
 function cellFor(vendor: string, date: string): string {
   const value = lookup.value.get(`${vendor}|${date}`);
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString();
+  if (!value) return '-';
+  // The column already names the day; the cell answers what time they arrived.
+  return getTimestampTime(value);
 }
 
 function formatHeaderDate(d: string): string {
-  const parsed = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return d;
-  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return getShortDate(d);
 }
 
 async function loadAttendance(): Promise<void> {
@@ -137,10 +135,17 @@ onMounted(loadAttendance);
 <style scoped>
 .attendance-status-view {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   padding: 40px 20px;
   display: flex;
   justify-content: center;
+  /* flex-start, not the default `stretch`: a stretched card is forced to the height of this
+     container (100vh minus padding) regardless of what it holds. Combined with the card's
+     `overflow: hidden` that clipped 1,942px of the 2,762px of table rows with no scrollbar
+     anywhere - six of twenty-four tables visible, the second market date unreachable - and it is
+     the same reason the Attendance card was an 820px slab holding 200px of content. */
+  align-items: flex-start;
   background-color: #f6f7f9;
 }
 
@@ -153,10 +158,11 @@ onMounted(loadAttendance);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  max-height: 100%;
 }
 
 .attendance-status-header {
-  background-color: var(--mm-black, #2a2a2a);
+  background-color: var(--mm-black);
   padding: 18px 24px;
 }
 
@@ -171,8 +177,9 @@ onMounted(loadAttendance);
 .attendance-status-body {
   padding: 24px;
   min-height: 200px;
+  overflow-y: auto;
   font-family: 'Outfit Regular', sans-serif;
-  color: var(--mm-black, #2a2a2a);
+  color: var(--mm-black);
 }
 
 .table-wrapper {
@@ -211,7 +218,7 @@ onMounted(loadAttendance);
 }
 
 .primary-button {
-  background: var(--mm-green, #4cae9c);
+  background: var(--mm-green);
   color: white;
   border: none;
   border-radius: 5px;
@@ -234,7 +241,7 @@ onMounted(loadAttendance);
 
 .empty-state {
   text-align: center;
-  color: #7f8791;
+  color: var(--mm-text-muted);
   padding: 30px 0;
 }
 </style>

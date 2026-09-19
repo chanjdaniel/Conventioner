@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
+import { getFormattedDate } from '@/utils/utils';
 
 interface MarketTableRow {
   date: string;
@@ -64,14 +65,7 @@ function normalizeQuery(raw: unknown): string {
 }
 
 function formatDisplayDate(date: string): string {
-  const d = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return date;
-  return d.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return getFormattedDate(date) ?? date;
 }
 
 function rowMatchesChoice(row: MarketTableRow, filter: ChoiceFilter): boolean {
@@ -351,7 +345,7 @@ onMounted(loadTables);
                 class="section-group"
               >
                 <h3 class="section-heading">
-                  <span class="section-heading-name">Section {{ sectionGroup.section }}</span>
+                  <span class="section-heading-name">{{ sectionGroup.section }}</span>
                   <span v-if="sectionGroup.location" class="section-heading-meta">{{
                     sectionGroup.location
                   }}</span>
@@ -390,7 +384,7 @@ onMounted(loadTables);
 
                     <div class="table-row-assignment">
                       <template v-if="rowStatus(row).label === 'empty'">
-                        <span class="assignment-empty">— Unassigned —</span>
+                        <span class="assignment-empty">Unassigned</span>
                       </template>
                       <template v-else-if="rowStatus(row).isFull">
                         <span class="assignment-email assignment-email--full">{{
@@ -404,7 +398,7 @@ onMounted(loadTables);
                             class="assignment-email"
                             :class="{ 'assignment-email--vacant': !rowStatus(row).leftEmail }"
                           >
-                            {{ rowStatus(row).leftEmail || '— vacant —' }}
+                            {{ rowStatus(row).leftEmail || 'Vacant' }}
                           </span>
                         </div>
                         <div class="half-slot">
@@ -413,7 +407,7 @@ onMounted(loadTables);
                             class="assignment-email"
                             :class="{ 'assignment-email--vacant': !rowStatus(row).rightEmail }"
                           >
-                            {{ rowStatus(row).rightEmail || '— vacant —' }}
+                            {{ rowStatus(row).rightEmail || 'Vacant' }}
                           </span>
                         </div>
                       </template>
@@ -443,10 +437,17 @@ onMounted(loadTables);
 <style scoped>
 .tables-view {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   padding: 40px 20px;
   display: flex;
   justify-content: center;
+  /* flex-start, not the default `stretch`: a stretched card is forced to the height of this
+     container (100vh minus padding) regardless of what it holds. Combined with the card's
+     `overflow: hidden` that clipped 1,942px of the 2,762px of table rows with no scrollbar
+     anywhere - six of twenty-four tables visible, the second market date unreachable - and it is
+     the same reason the Attendance card was an 820px slab holding 200px of content. */
+  align-items: flex-start;
   background-color: #f6f7f9;
 }
 
@@ -459,7 +460,9 @@ onMounted(loadTables);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 60vh;
+  /* Grow with the content, then cap at the viewport and let the body scroll, so the header and
+     the actions row stay put on a long list. Same shape as the assignment results page. */
+  max-height: 100%;
 }
 
 .tables-header {
@@ -484,6 +487,7 @@ onMounted(loadTables);
   flex-direction: column;
   gap: 20px;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .filter-bar {
@@ -492,7 +496,7 @@ onMounted(loadTables);
   z-index: 2;
   background-color: white;
   padding: 12px 0;
-  border-bottom: 1px solid var(--mm-grey);
+  border-bottom: 1px solid var(--mm-border);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -517,7 +521,7 @@ onMounted(loadTables);
   gap: 6px;
   padding: 4px 10px;
   background-color: var(--mm-beige);
-  border: 1px solid var(--mm-grey);
+  border: 1px solid var(--mm-border);
   border-radius: 20px;
   font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
@@ -587,7 +591,7 @@ onMounted(loadTables);
 .count-badge--empty {
   background-color: var(--mm-beige);
   color: var(--mm-black);
-  border: 1px solid var(--mm-grey);
+  border: 1px solid var(--mm-border);
 }
 
 .status-message {
@@ -730,7 +734,7 @@ onMounted(loadTables);
 .choice-badge--half {
   background-color: var(--mm-beige);
   color: var(--mm-black);
-  border: 1px solid var(--mm-grey);
+  border: 1px solid var(--mm-border);
 }
 
 .meta-tag {
@@ -745,7 +749,7 @@ onMounted(loadTables);
   flex-wrap: wrap;
   gap: 14px;
   padding-top: 4px;
-  border-top: 1px dashed var(--mm-grey);
+  border-top: 1px dashed var(--mm-border);
 }
 
 .assignment-email {

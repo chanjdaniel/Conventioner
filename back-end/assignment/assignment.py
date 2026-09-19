@@ -4,7 +4,7 @@ from datatypes import (
     Market, SetupObject, MarketDateObject, TierObject, SectionObject,
     ALL_OTHERS, APPLICATION_TYPE_RULE_TARGET, BUILT_IN_TARGET_PREFIX, SUBMITTED_AT_RULE_TARGET,
     AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityDirection,
-    PriorityObject, LocationObject
+    PriorityObject, LocationObject, table_code_for
 )
 from essential_fields import (
     TABLE_CHOICE_EITHER,
@@ -200,7 +200,7 @@ class DateAssignment:
         # initialize tables from SectionObjects
         for section in sections:
             for i in range(section.count):
-                table = Table(market_date, section.name + f"{i + 1}", section, section.tier, section.location)
+                table = Table(market_date, table_code_for(section.name, i + 1), section, section.tier, section.location)
                 self.tables.append(table)
 
     def __repr__(self):
@@ -574,11 +574,20 @@ class MarketAssignment:
                         "table_choice": table.available_table_choice(),
                     })
 
-        # Count assignments by category using defaultdict for cleaner code
-        assignments_per_tier = defaultdict(int)
-        assignments_per_section = defaultdict(int)
+        # Seeded from the PLAN, not from what landed. A tier or a section that took nobody was
+        # simply absent from these counts, which is exactly the row that explains a failed run:
+        # "Gold: 0" says the run refused everyone who wanted Gold, while a missing Gold row says
+        # nothing at all. Dates likewise.
+        assignments_per_tier = defaultdict(int, {tier.name: 0 for tier in self.setup_object.tiers})
+        assignments_per_section = defaultdict(
+            int, {section.name: 0 for section in self.setup_object.sections}
+        )
+        assignments_per_date = defaultdict(
+            int, {market_date.date: 0 for market_date in self.setup_object.market_dates}
+        )
+        # Table choice is not plan-derived - it is what vendors asked for - so it stays a tally of
+        # what happened.
         assignments_per_table_choice = defaultdict(int)
-        assignments_per_date = defaultdict(int)
 
         # Every assignment result now carries the market date itself, so there is nothing to
         # translate: a date had two names only while a spreadsheet column heading stood in for it.
@@ -589,10 +598,21 @@ class MarketAssignment:
             assignments_per_table_choice[assignment.table_choice] += 1
             assignments_per_date[assignment.date] += 1
 
-        # Calculate satisfaction score (average ratio of actual to potential assignments)
+        # How much of what the vendors asked for they got, averaged over the vendors it was
+        # possible to say that about.
+        #
+        # ``None`` when nobody could be scored - no vendors at all, or none with a single date
+        # they could attend. It used to be 0.0 there, which reads as a run that satisfied nobody
+        # rather than a run with nothing to satisfy, and an empty run reported "0.0%" as if it
+        # were a bad result.
+        #
+        # A vendor with no potential assignment is left out of the average rather than counted as
+        # a zero. They asked for nothing this market could give, so the solver neither satisfied
+        # nor failed them, and counting them as a failure understates every real run they appear in.
         satisfaction_score_sum = 0.0
+        scored_vendors = 0
         total_vendors = len(self.vendors)
-        
+
         for vendor in self.vendors:
             # What this vendor could have had: every date they said they can attend, bounded by
             # the global ceiling and by the number of dates they actually asked for.
@@ -606,15 +626,13 @@ class MarketAssignment:
             if cap is not None:
                 caps.append(cap)
             num_potential_assignments = min(caps)
-            
-            # Avoid division by zero
+
             if num_potential_assignments > 0:
                 satisfaction_score_sum += vendor.num_assignments / num_potential_assignments
-        
-        # Calculate average satisfaction score, handling empty vendor list
+                scored_vendors += 1
+
         satisfaction_score = (
-            satisfaction_score_sum / total_vendors 
-            if total_vendors > 0 else 0.0
+            satisfaction_score_sum / scored_vendors if scored_vendors > 0 else None
         )
 
         statistics = AssignmentStatistics(
@@ -690,6 +708,12 @@ class IncompleteApplicationsError(ValueError):
             f"{len(self.incomplete)} approved application(s) cannot be assigned until their "
             f"answers are complete: {applicants}"
         )
+
+
+NOTHING_TO_ASSIGN = (
+    "No applications have been approved for this market yet, so there is nothing to assign. "
+    "Approve applications on the Applications tab, then assign."
+)
 
 
 def solver_vendors_for(market: Market) -> List[SolverVendor]:

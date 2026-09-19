@@ -23,10 +23,18 @@ import {
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import { asksNothingDistinguishing, reviewAnswers } from '@/utils/reviewQueue';
+import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
   market: Market | null;
   visible: boolean;
+  /**
+   * Whether the application form can still be changed, as the server answered it - not as this
+   * component guesses. The advisory below used to tell every organizer that adding a question was
+   * "possible while the market is a draft and nobody has applied", which is a description of the
+   * rule rather than of their market: five people had applied and the form was frozen.
+   */
+  formEditable: boolean;
 }>();
 
 const applications = ref<Application[]>([]);
@@ -53,17 +61,21 @@ const statusLabels: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
+// These are fills carrying white text (`.app-status` sets `color: white`), so each must reach
+// WCAG AA against white. The Material 500 shades they were taken from do not: blue was 3.12,
+// orange 2.16, green 2.78, red 3.68 and grey 2.68. Darkened to the lightest shade of the same hue
+// that passes, so the palette still reads as itself. Purple was already 6.3 and is unchanged.
 const statusColors: Record<string, string> = {
-  open: '#2196f3',
-  under_review: '#ff9800',
-  reviewer_approved: '#4caf50',
-  reviewer_rejected: '#f44336',
-  unassigned: '#9e9e9e',
-  assigned: '#2196f3',
+  open: '#1b7ac5',
+  under_review: '#ab6600',
+  reviewer_approved: '#3a853d',
+  reviewer_rejected: '#d93c30',
+  unassigned: '#767676',
+  assigned: '#1b7ac5',
   assignment_sent: '#9c27b0',
-  vendor_accepted: '#4caf50',
-  vendor_refused: '#f44336',
-  cancelled: '#9e9e9e',
+  vendor_accepted: '#3a853d',
+  vendor_refused: '#d93c30',
+  cancelled: '#767676',
 };
 
 /** Awaiting a verdict. Anything else has been reviewed, and does not come back to the queue. */
@@ -202,11 +214,11 @@ function statusLabel(status: string): string {
 }
 
 function statusColor(status: string): string {
-  return statusColors[status] ?? '#9e9e9e';
+  return statusColors[status] ?? '#767676';
 }
 
 function submittedOn(app: Application): string {
-  return app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '';
+  return getTimestampDate(app.submittedAt);
 }
 </script>
 
@@ -262,8 +274,14 @@ function submittedOn(app: Application): string {
 
       <p v-if="nothingToJudge" class="advisory" data-testid="app-monitor-advisory">
         This market's form asks only the essential questions, so every application reads alike and
-        there is nothing here to tell applicants apart. Adding a question of your own is possible
-        while the market is a draft and nobody has applied.
+        there is nothing here to tell applicants apart.
+        <template v-if="formEditable">
+          Add a question of your own on the Application Form tab. The form freezes as soon as the
+          first applicant submits.
+        </template>
+        <template v-else>
+          The form is frozen for this market, so nothing can be added to it now.
+        </template>
       </p>
 
       <div v-if="current" class="review-card" data-testid="app-monitor-card">
@@ -421,7 +439,7 @@ function submittedOn(app: Application): string {
 .done-state {
   text-align: center;
   padding: 40px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   font-family: 'Outfit Regular';
   font-size: 14px;
 }
@@ -450,12 +468,12 @@ function submittedOn(app: Application): string {
 
 .tally {
   font-size: 13px;
-  color: rgba(39, 35, 35, 0.6);
+  color: var(--mm-text-muted);
 }
 
 .advisory {
   background: #fdf7ec;
-  border: 1px solid var(--mm-yellow, #e4a629);
+  border: 1px solid var(--mm-yellow);
   border-radius: 8px;
   padding: 10px 14px;
   font-family: 'Outfit Regular';
@@ -465,7 +483,7 @@ function submittedOn(app: Application): string {
 }
 
 .review-card {
-  border: 1.5px solid var(--mm-grey, #ddd);
+  border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: #fafafa;
   padding: 18px;
@@ -500,7 +518,7 @@ function submittedOn(app: Application): string {
 .app-date {
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
 }
 
 .answers {
@@ -513,7 +531,7 @@ function submittedOn(app: Application): string {
 }
 
 .answers dt {
-  color: rgba(39, 35, 35, 0.6);
+  color: var(--mm-text-muted);
   overflow-wrap: anywhere;
 }
 
@@ -532,7 +550,7 @@ function submittedOn(app: Application): string {
 .no-answers {
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   margin: 0 0 18px;
 }
 
@@ -558,12 +576,13 @@ function submittedOn(app: Application): string {
   color: white;
 }
 
+/* White text on #4caf50 was 2.78. Same passing green as the approved status badge. */
 .approve-button {
-  background: #4caf50;
+  background: #3a853d;
 }
 
 .approve-button:hover:not(:disabled) {
-  background: #43a047;
+  background: #306e33;
 }
 
 .reject-button {
@@ -575,7 +594,7 @@ function submittedOn(app: Application): string {
 }
 
 .skip-button {
-  background: var(--mm-grey, #9e9e9e);
+  background: var(--mm-border);
 }
 
 .approve-button:disabled,
@@ -624,7 +643,7 @@ function submittedOn(app: Application): string {
   gap: 12px;
   flex-wrap: wrap;
   padding: 8px 14px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
 }
 

@@ -39,7 +39,7 @@ export class OrganizationsPage {
 
     // OrganizationsView
     this.createButton = page.getByTestId('organizations-create-button');
-    this.orgCards = page.locator('.org-card');
+    this.orgCards = page.getByTestId('organization-card');
     this.manageButtons = page.getByTestId('organizations-manage-button');
 
     // Create org overlay

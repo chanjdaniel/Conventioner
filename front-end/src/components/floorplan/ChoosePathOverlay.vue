@@ -1,12 +1,31 @@
 <script setup lang="ts">
-defineEmits<{
+import { ref } from 'vue';
+import { useEscapeToClose } from '@/utils/useEscapeToClose';
+
+const emit = defineEmits<{
   select: [path: 'manual' | 'floorplan'];
 }>();
+
+/* Dismissing this IS choosing manual: the text-based setup UI is already rendered underneath, and
+   `handlePathChoice('manual')` does nothing but hide the overlay. So a way out costs nothing and
+   the alternative was a blocking dialog with no dismiss, on a market the organizer could not look
+   at until they had chosen. */
+const open = ref(true);
+useEscapeToClose(open, () => emit('select', 'manual'));
 </script>
 
 <template>
   <div class="overlay-backdrop">
     <div class="overlay-panel">
+      <button
+        type="button"
+        class="overlay-close"
+        aria-label="Close and set this market up manually"
+        @click="emit('select', 'manual')"
+        data-testid="choose-path-close"
+      >
+        &times;
+      </button>
       <h2 class="overlay-heading">Choose your setup path</h2>
       <p class="overlay-subtitle">How would you like to describe what this market has to offer?</p>
 
@@ -116,6 +135,7 @@ defineEmits<{
 
 /* ── Panel ────────────────────────────────────────────────────── */
 .overlay-panel {
+  position: relative;
   width: min(90vw, 880px);
   max-height: 90vh;
   display: flex;
@@ -153,7 +173,7 @@ defineEmits<{
 .overlay-subtitle {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   text-align: center;
   margin: 0;
 }
@@ -175,7 +195,7 @@ defineEmits<{
   gap: 12px;
   padding: 28px 22px 24px;
   background: #ffffff;
-  border: 2px solid var(--mm-grey);
+  border: 2px solid var(--mm-border);
   border-radius: 10px;
   cursor: pointer;
   transition:
@@ -226,7 +246,7 @@ defineEmits<{
   font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   line-height: 1.45;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   text-align: center;
   margin: 4px 0 0;
 }
@@ -250,7 +270,7 @@ defineEmits<{
 
 /* Floorplan card icon accent */
 .card-floorplan .card-icon {
-  color: var(--mm-yellow);
+  color: var(--mm-text-yellow);
 }
 
 /* ── Card Title ───────────────────────────────────────────────── */
@@ -266,7 +286,7 @@ defineEmits<{
 .card-desc {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   text-align: center;
   line-height: 1.5;
   margin: 0;
@@ -302,7 +322,7 @@ defineEmits<{
 }
 
 .card-floorplan .feature-check {
-  color: var(--mm-yellow);
+  color: var(--mm-text-yellow);
 }
 
 /* ── Action Button ────────────────────────────────────────────── */
@@ -329,7 +349,7 @@ defineEmits<{
 
 .card-action--quiet {
   background: transparent;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   color: var(--mm-black);
 }
 
@@ -371,5 +391,17 @@ defineEmits<{
     grid-template-columns: 1fr;
     gap: 20px;
   }
+}
+.overlay-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: var(--mm-text-muted);
+  cursor: pointer;
 }
 </style>

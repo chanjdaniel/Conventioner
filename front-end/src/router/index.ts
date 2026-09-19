@@ -123,6 +123,14 @@ const router = createRouter({
       component: () => import('@/views/ApplicantDashboard.vue'),
       meta: { public: true },
     },
+    // Anything deeper than one segment matched no route at all, so the app rendered a blank
+    // page. `/:marketSlug` catches single-segment addresses and answers for itself.
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/components/PageNotFound.vue'),
+      meta: { public: true },
+    },
   ],
 });
 

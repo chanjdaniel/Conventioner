@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Importing vendors from the CSV a Google Form produced.
+ * Importing vendors from a CSV of responses the organizer already collected.
  *
  * A full-width flow rather than a dialog: mapping a dozen columns against a target list is too
  * dense for one, and Market Setup already carries dates, sections, tiers, priorities and the form
@@ -16,10 +16,12 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, getApiErrorMessage } from '@/utils/api';
 import type { Market } from '@/assets/types/datatypes';
+import { getFormattedDate } from '@/utils/utils';
+import { canImportInto, importRefusal } from '@/utils/importPhase';
+import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
-  TABLE_CHOICES,
   TABLE_TYPE_RANKING_KEY,
   TIER_PREFERENCE_KEY,
   UNASKABLE_ESSENTIAL_KEYS,
@@ -77,7 +79,11 @@ interface ImportFailure {
 const router = useRouter();
 
 /** The market in play, carried in localStorage the way every other organizer view reads it. */
-const market = ref<Market | null>(null);
+/**
+ * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
+ * value that only arrives a tick later would flash that message on every page that does have one.
+ */
+const market = ref<Market | null>(JSON.parse(localStorage.getItem('market') || 'null'));
 const marketId = computed(() => market.value?.id ?? '');
 
 /**
@@ -85,11 +91,16 @@ const marketId = computed(() => market.value?.id ?? '');
  * import endpoints are reachable directly, and a hidden button is not a rule - but saying so
  * before the organizer picks a file beats letting them choose one and then refusing it.
  */
-const INTAKE_PHASES = ['applications_open', 'applications_closed'];
 const marketPhase = computed(() => String((market.value as { phase?: string })?.phase ?? ''));
-const takingApplications = computed(() => INTAKE_PHASES.includes(marketPhase.value));
+const takingApplications = computed(() => canImportInto(marketPhase.value));
+const phaseRefusal = computed(() => importRefusal(marketPhase.value));
 
 const step = ref<Step>('upload');
+
+/** Leave the wizard for the market it belongs to. Nothing is written until the final confirm. */
+function leaveImport() {
+  router.push({ name: 'market-setup' });
+}
 const busy = ref(false);
 const error = ref('');
 const fileName = ref('');
@@ -109,6 +120,16 @@ const newHeaders = ref<string[]>([]);
 const hasSavedMapping = ref(false);
 /** Does this market order vendors by when they applied? Decides the warning below. */
 const ordersBySubmittedAt = ref(false);
+/**
+ * Targets whose own option labels contain commas, as the server reports them.
+ *
+ * A checkbox question exports one column holding the selected labels comma-joined, and throws the
+ * separator information away before writing the file. When the labels themselves contain commas,
+ * nothing can recover which separator was which - so a single column mapped to one of these
+ * produces fragments, and the organizer is owed the reason rather than a list of values that
+ * "did not match your market".
+ */
+const commaBearingTargets = ref<Set<string>>(new Set());
 /** Group stem -> target key: a grid is mapped once, for all of its columns at a time. */
 const groupTarget = ref<Record<string, string>>({});
 /** Stems the organizer has broken apart, when the detection guessed wrong. */
@@ -133,7 +154,6 @@ const returningToReview = ref(0);
 const returningEmails = ref<string[]>([]);
 
 onMounted(() => {
-  market.value = JSON.parse(localStorage.getItem('market') || 'null');
   if (!marketId.value) {
     error.value = 'No market is open. Open a market first, then import into it.';
   }
@@ -198,12 +218,24 @@ function isRestored(key: string | undefined): boolean {
 /**
  * A value to resolve an unmatched cell to, as a person would say it.
  *
- * Dates, tiers and sections are the organizer's own names and read fine as they are. Table choice is
- * the exception: it is stored as `full` / `half` / `either`, which is the contract's vocabulary, not
- * anybody's - and that is what the resolution dropdown was offering.
+ * Tiers and sections are the organizer's own names and read fine as they are. Dates are not: they
+ * are stored as `2026-11-21`, a format shown nowhere else in the product, on the path every CSV
+ * market walks. The option's value stays the stored date - that is what the import writes - and
+ * only its text changes.
  */
-function choiceLabel(value: string): string {
-  return TABLE_CHOICES.find((c) => c.value === value)?.label ?? value;
+function offeredLabel(target: string, value: string): string {
+  if (target === AVAILABLE_DATES_KEY) return getFormattedDate(value) ?? value;
+  return value;
+}
+
+/**
+ * Whether one column mapped to this target cannot be split reliably.
+ *
+ * A **grid** mapping is silent: its option comes from the column header and nothing is split, and
+ * that is the shape a real export of this question has. Only the single-column case is ambiguous.
+ */
+function cannotSplitReliably(key: string | undefined): boolean {
+  return !!key && commaBearingTargets.value.has(key);
 }
 
 function labelForTarget(key: string): string {
@@ -398,6 +430,12 @@ async function inspect() {
     groupTarget.value = {};
     unmatched.value = [];
     resolutions.value = {};
+    // Seed every column with '' - the "Ignore this column" option's value. Left undefined, the
+    // select matches no option, reports selectedIndex -1 and renders completely blank, so an
+    // unmapped column is indistinguishable from one that has not loaded.
+    headers.value.forEach((_header, index) => {
+      columnTarget.value[index] = '';
+    });
     for (const [key, index] of Object.entries(data.suggestedMapping ?? {})) {
       columnTarget.value[Number(index)] = key;
     }
@@ -406,6 +444,7 @@ async function inspect() {
     // what these columns mean, and re-asking is the friction this remembers them to avoid.
     hasSavedMapping.value = data.hasSavedMapping === true;
     ordersBySubmittedAt.value = data.ordersBySubmittedAt === true;
+    commaBearingTargets.value = new Set<string>(data.commaBearingTargets ?? []);
     restoredMissing.value = data.restoredTargetsMissingColumns ?? [];
     newHeaders.value = data.newHeaders ?? [];
     restoredTargets.value = new Set(Object.keys(data.restoredMapping ?? {}));
@@ -532,7 +571,8 @@ function startOver() {
 </script>
 
 <template>
-  <div class="import-view" data-testid="import-view">
+  <NoMarketLoaded v-if="!marketId" shows="an import into a market" />
+  <div v-else class="import-view" data-testid="import-view">
     <header class="import-header">
       <div>
         <h1>Import applications</h1>
@@ -555,11 +595,10 @@ function startOver() {
       data-testid="import-wrong-phase"
     >
       <h2>This market is not taking applications right now</h2>
-      <p class="import-help">
-        Importing changes who has applied, so it belongs to the phases where the market is open to
-        applications. Move the market back to
-        <strong>applications closed</strong> and you can import again.
-      </p>
+      <p class="import-help">{{ phaseRefusal }}</p>
+      <button type="button" class="button-secondary" @click="leaveImport">
+        Back to the market
+      </button>
     </section>
 
     <!-- 1. Upload -->
@@ -594,8 +633,8 @@ function startOver() {
         />
         <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
         <span class="drop-zone-hint">
-          Export your Google Form responses as CSV. Every column comes across; you decide which ones
-          mean something on the next step.
+          Any form tool or spreadsheet that exports CSV will do. Every column comes across; you
+          decide which ones mean something on the next step.
         </span>
       </label>
     </section>
@@ -711,7 +750,7 @@ function startOver() {
                         >
                           <option value="">Choose…</option>
                           <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                            {{ choiceLabel(choice) }}
+                            {{ offeredLabel(entry.target, choice) }}
                           </option>
                           <option :value="IGNORE_VALUE">Ignore this value</option>
                         </select>
@@ -804,6 +843,22 @@ function startOver() {
                     nobody has applied.
                   </p>
 
+                  <!-- Warn, do not block: the reconciliation screen below already refuses to
+                       advance until every unmatched value is spoken for, so nothing wrong imports
+                       silently either way, and blocking would strand an organizer whose only copy
+                       of the data is this file. -->
+                  <p
+                    v-if="cannotSplitReliably(columnTarget[row.index])"
+                    class="ledger-deadend"
+                    data-testid="import-cannot-split"
+                  >
+                    One column cannot answer
+                    <strong>{{ labelForTarget(columnTarget[row.index]) }}</strong> reliably: some of
+                    its options have commas in their own names, and this column separates answers
+                    with commas too, so there is no way to tell which comma is which. Re-export this
+                    question as a grid, one column per option, or rename the options without commas.
+                  </p>
+
                   <!-- Values the market does not recognise, fixed in the row that owns them. -->
                   <div
                     v-if="unmatchedFor(columnTarget[row.index]).length"
@@ -839,7 +894,7 @@ function startOver() {
                       >
                         <option value="">Choose…</option>
                         <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                          {{ choiceLabel(choice) }}
+                          {{ offeredLabel(entry.target, choice) }}
                         </option>
                         <option :value="IGNORE_VALUE">Ignore this value</option>
                       </select>
@@ -1033,8 +1088,20 @@ function startOver() {
     </section>
 
     <footer class="import-actions">
+      <!-- The way out. Upload, Map columns, Preview and the value reconciliation had none at all -
+           no Cancel, no breadcrumb - so an organizer who opened this by mistake, or hit a file the
+           product could not read, had the browser's back button and nothing else. Nothing is
+           written until the final confirm, so leaving costs only the mapping. -->
       <button
-        v-if="step !== 'upload'"
+        v-if="step !== 'done'"
+        class="button-secondary"
+        data-testid="import-leave-button"
+        @click="leaveImport"
+      >
+        Cancel import
+      </button>
+      <button
+        v-if="step !== 'upload' && step !== 'done'"
         class="button-secondary"
         data-testid="import-back-button"
         @click="step === 'map' ? startOver() : (step = step === 'preview' ? 'map' : 'preview')"
@@ -1087,7 +1154,7 @@ function startOver() {
   gap: 16px;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 1px solid var(--mm-grey, #ddd);
+  border-bottom: 1px solid var(--mm-border);
   padding-bottom: 16px;
 }
 
@@ -1099,7 +1166,7 @@ function startOver() {
 .import-subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .import-steps {
@@ -1110,7 +1177,7 @@ function startOver() {
   margin: 0;
   padding: 0;
   font-size: 13px;
-  color: var(--mm-grey, #888);
+  color: var(--mm-text-muted);
 }
 
 .import-steps .current {
@@ -1142,7 +1209,7 @@ function startOver() {
 .import-help {
   margin: 0;
   font-size: 13px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .import-map {
@@ -1169,9 +1236,9 @@ function startOver() {
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--mm-grey, #888);
+  color: var(--mm-text-muted);
   padding: 8px 10px;
-  border-bottom: 1px solid var(--mm-grey, #ddd);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .ledger-table td {
@@ -1187,11 +1254,11 @@ function startOver() {
 
 .ledger-samples.empty {
   font-style: italic;
-  color: var(--mm-grey, #aaa);
+  color: var(--mm-text-muted);
 }
 
 .ledger-samples {
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   font-size: 13px;
   max-width: 240px;
   overflow: hidden;
@@ -1208,7 +1275,7 @@ function startOver() {
   margin-top: 2px;
   font-weight: normal;
   font-size: 12px;
-  color: var(--mm-green, #2e7d4f);
+  color: var(--mm-green);
 }
 
 .ledger-member td {
@@ -1217,12 +1284,12 @@ function startOver() {
 
 .ledger-member {
   padding-left: 26px !important;
-  color: var(--mm-grey, #444);
+  color: var(--mm-text-muted);
 }
 
 .ledger-member-note {
   font-size: 12px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
 }
 
 .import-restored {
@@ -1243,7 +1310,7 @@ function startOver() {
   padding: 1px 6px;
   border-radius: 999px;
   background: #e8f3ec;
-  color: var(--mm-green, #2e7d4f);
+  color: var(--mm-green);
   font-size: 11px;
   font-weight: normal;
 }
@@ -1284,7 +1351,7 @@ function startOver() {
 
 .ledger-fix-rows {
   font-size: 11px;
-  color: var(--mm-grey, #888);
+  color: var(--mm-text-muted);
 }
 
 .ledger-fix-select {
@@ -1292,7 +1359,7 @@ function startOver() {
   padding: 2px 6px;
   font-family: 'Outfit Regular';
   font-size: 13px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
 }
@@ -1303,7 +1370,7 @@ function startOver() {
   padding: 0;
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -1311,7 +1378,7 @@ function startOver() {
 .ledger-deadend {
   margin: 8px 0 0;
   padding: 8px 10px;
-  border-left: 3px solid var(--mm-yellow, #e4a629);
+  border-left: 3px solid var(--mm-yellow);
   background: #fdf7ec;
   font-size: 13px;
   max-width: 42ch;
@@ -1324,13 +1391,13 @@ function startOver() {
   padding: 4px 8px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
 }
 
 .import-rail {
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 8px;
   padding: 16px;
   background: #fafafa;
@@ -1354,23 +1421,23 @@ function startOver() {
 .rail-tick {
   display: inline-block;
   width: 16px;
-  color: var(--mm-grey, #aaa);
+  color: var(--mm-text-muted);
 }
 
 .rail-list .served .rail-tick {
-  color: var(--mm-green, #2e7d4f);
+  color: var(--mm-green);
 }
 
 .rail-ok {
   margin: 0;
   font-size: 13px;
-  color: var(--mm-green, #2e7d4f);
+  color: var(--mm-green);
 }
 
 .rail-unasked {
   margin-top: 12px;
   padding: 10px 12px;
-  border-left: 3px solid var(--mm-green, #49b096);
+  border-left: 3px solid var(--mm-green);
   background: #eef8f5;
   font-size: 13px;
 }
@@ -1401,7 +1468,7 @@ function startOver() {
   text-align: center;
   padding: 36px 24px;
   margin-top: 8px;
-  border: 2px dashed var(--mm-grey, #ccc);
+  border: 2px dashed var(--mm-border);
   border-radius: 10px;
   background: #fbfbfb;
   cursor: pointer;
@@ -1445,7 +1512,7 @@ function startOver() {
 .drop-zone-hint {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
-  color: rgba(39, 35, 35, 0.6);
+  color: var(--mm-text-muted);
   max-width: 42ch;
   line-height: 1.5;
 }
@@ -1523,7 +1590,7 @@ function startOver() {
 }
 
 .preview-mapping span {
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .import-note.warn {
@@ -1535,11 +1602,11 @@ function startOver() {
 .import-note {
   margin: 0;
   padding: 10px 14px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
   background: #fafafa;
   font-size: 13px;
-  color: var(--mm-grey, #555);
+  color: var(--mm-text-muted);
 }
 
 .import-failures {
@@ -1568,7 +1635,7 @@ function startOver() {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  border-top: 1px solid var(--mm-grey, #ddd);
+  border-top: 1px solid var(--mm-border);
   padding-top: 16px;
 }
 
@@ -1580,13 +1647,13 @@ function startOver() {
   font-family: 'Outfit Regular';
   font-size: 14px;
   cursor: pointer;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   background: white;
 }
 
 .button-primary {
-  background: var(--mm-green, #2e7d4f);
-  border-color: var(--mm-green, #2e7d4f);
+  background: var(--mm-green);
+  border-color: var(--mm-green);
   color: white;
 }
 

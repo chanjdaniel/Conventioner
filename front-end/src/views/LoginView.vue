@@ -67,7 +67,9 @@ const submitLogin = async () => {
     // Handle axios errors (including 401 responses)
     if (error.response) {
       // Server responded with error status
-      errorMessage.value = error.response.data?.message || 'Invalid credentials';
+      errorMessage.value =
+        error.response.data?.message ||
+        'That email and password do not match. Try again, or reset your password below.';
     } else if (error.request) {
       // Request was made but no response received
       errorMessage.value = 'Unable to connect to server. Please try again.';
@@ -247,7 +249,7 @@ const submitOTPLogin = async () => {
           "
           data-testid="login-tab-login"
         >
-          Login
+          Sign in
         </button>
         <button
           class="mode-tab"
@@ -274,7 +276,7 @@ const submitOTPLogin = async () => {
           "
           data-testid="login-tab-otp"
         >
-          Use OTP
+          Sign-in code
         </button>
       </div>
 
@@ -287,23 +289,25 @@ const submitOTPLogin = async () => {
           @submit.prevent="submitLogin"
           data-testid="login-form"
         >
+          <label class="field-label" for="email">Email</label>
           <div class="login-input">
             <input
               id="email"
               type="email"
               v-model="email"
-              placeholder="Email"
+              placeholder="you@example.com"
               class="email-input"
               required
               data-testid="login-email-input"
             />
           </div>
+          <label class="field-label" for="password">Password</label>
           <div class="login-input">
             <input
               id="password"
               :type="showPassword ? 'text' : 'password'"
               v-model="password"
-              placeholder="Password"
+              placeholder=""
               class="password-input"
               required
               data-testid="login-password-input"
@@ -318,11 +322,16 @@ const submitOTPLogin = async () => {
               {{ showPassword ? 'Hide' : 'Show' }}
             </button>
           </div>
-          <h3 class="error-message" v-show="errorMessage" data-testid="login-error-message">
+          <p
+            class="error-message"
+            role="alert"
+            v-show="errorMessage"
+            data-testid="login-error-message"
+          >
             {{ errorMessage }}
-          </h3>
+          </p>
           <button type="submit" class="submit-button" data-testid="login-submit-button">
-            Login
+            Sign in
           </button>
           <div class="form-links">
             <a
@@ -345,23 +354,25 @@ const submitOTPLogin = async () => {
           @submit.prevent="submitRegister"
           data-testid="login-register-form"
         >
+          <label class="field-label" for="register-email">Email</label>
           <div class="login-input">
             <input
               id="register-email"
               type="email"
               v-model="registerEmail"
-              placeholder="Email"
+              placeholder="you@example.com"
               class="email-input"
               required
               data-testid="login-register-email-input"
             />
           </div>
+          <label class="field-label" for="register-password">Password</label>
           <div class="login-input">
             <input
               id="register-password"
               :type="showRegisterPassword ? 'text' : 'password'"
               v-model="registerPassword"
-              placeholder="Password (min 8 characters)"
+              placeholder=""
               class="password-input"
               required
               data-testid="login-register-password-input"
@@ -375,40 +386,48 @@ const submitOTPLogin = async () => {
               {{ showRegisterPassword ? 'Hide' : 'Show' }}
             </button>
           </div>
+          <p class="field-help">At least 8 characters.</p>
+          <label class="field-label" for="register-password-confirm">Confirm password</label>
           <div class="login-input">
             <input
               id="register-password-confirm"
               :type="showRegisterPassword ? 'text' : 'password'"
               v-model="registerPasswordConfirm"
-              placeholder="Confirm password"
+              placeholder=""
               class="password-input"
               required
               data-testid="login-register-password-confirm-input"
             />
           </div>
-          <h3
+          <p
             class="error-message"
+            role="alert"
             v-show="registerErrorMessage"
             data-testid="login-register-error-message"
           >
             {{ registerErrorMessage }}
-          </h3>
-          <h3
+          </p>
+          <p
             class="success-message"
+            role="status"
             v-show="registerSuccessMessage"
             data-testid="login-register-success-message"
           >
             {{ registerSuccessMessage }}
-          </h3>
+          </p>
           <button type="submit" class="submit-button" data-testid="login-register-submit-button">
-            Register
+            Create account
           </button>
+          <p class="field-help">
+            We will email you a link to verify this address. You cannot sign in until you have
+            followed it.
+          </p>
         </form>
       </div>
 
       <!-- OTP Login Form -->
       <div v-if="mode === 'otp'" class="form-container">
-        <h1>Login with OTP</h1>
+        <h1>Sign in with a code</h1>
         <form
           id="otp-form"
           class="login-form"
@@ -515,8 +534,8 @@ const submitOTPLogin = async () => {
 }
 
 .mode-tab.active {
-  color: var(--mm-green, #4caf50);
-  border-bottom-color: var(--mm-green, #4caf50);
+  color: var(--mm-green);
+  border-bottom-color: var(--mm-green);
   font-weight: bold;
 }
 
@@ -529,6 +548,23 @@ const submitOTPLogin = async () => {
   display: flex;
   flex-direction: column;
   padding-top: 20px;
+}
+
+/* Persistent labels. Every field was placeholder-only, so its identity - and the password rule -
+   vanished the moment the organizer started typing. */
+.field-label {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 13px;
+  color: var(--mm-black);
+  margin-top: 22px;
+  margin-bottom: -22px;
+}
+
+.field-help {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 13px;
+  color: var(--mm-text-muted);
+  margin: 8px 0 0;
 }
 
 .login-input {
@@ -557,7 +593,7 @@ const submitOTPLogin = async () => {
   background-color: transparent;
   width: fit-content;
   padding-right: 20px;
-  color: grey;
+  color: var(--mm-text-muted);
   font-size: 14px;
   cursor: pointer;
   outline: none;
@@ -579,9 +615,11 @@ const submitOTPLogin = async () => {
   outline: none;
 }
 
+/* Left-aligned with the form it belongs to. It was right-aligned against a left-aligned form,
+   so the eye had to hunt for it. `red` is also not a token; #c0392b reaches AA on white. */
 .error-message {
-  color: red;
-  text-align: right;
+  color: #c0392b;
+  text-align: left;
   font-size: 14px;
   margin-top: 10px;
   margin-bottom: 0;
@@ -595,11 +633,13 @@ const submitOTPLogin = async () => {
   margin-bottom: 0;
 }
 
+/* 8px, not a 30px pill: every other button in the product is a rounded rectangle, and the fields
+   directly above this one are 8px. */
 .submit-button {
   height: 60px;
-  border-radius: 30px;
+  border-radius: 8px;
   margin-top: 40px;
-  background-color: var(--mm-green, #4caf50);
+  background-color: var(--mm-green);
   font-family: 'Outfit Regular';
   color: white;
   font-size: 20px;
@@ -617,7 +657,7 @@ const submitOTPLogin = async () => {
 }
 
 .link {
-  color: #2196f3;
+  color: var(--mm-text-link);
   text-decoration: none;
   font-size: 14px;
 }

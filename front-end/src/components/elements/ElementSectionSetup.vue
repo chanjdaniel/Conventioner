@@ -117,7 +117,9 @@ const countTables = () => {
             v-model="sections[index].location"
             :data-testid="'setup-section-location-select-' + index"
           >
-            <option disabled value="">{{ 'Select a location' }}</option>
+            <!-- :value="null", not value="": a new row's location IS null, and a string ""
+                 placeholder never matches it, which left the select rendering blank. -->
+            <option disabled :value="null">{{ 'Location' }}</option>
             <option
               class="display-list"
               v-for="(value, index) in locations"
@@ -134,7 +136,7 @@ const countTables = () => {
             v-model="sections[index].tier"
             :data-testid="'setup-section-tier-select-' + index"
           >
-            <option disabled value="">{{ 'Select a tier' }}</option>
+            <option disabled :value="null">{{ 'Tier' }}</option>
             <option
               class="display-list"
               v-for="(value, index) in tiers"
@@ -159,21 +161,17 @@ const countTables = () => {
             />
           </div>
         </div>
-        <div
-          style="
-            padding: none;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-          "
+        <button
+          type="button"
+          class="row-remove-button"
+          :aria-label="`Remove section ${index + 1}`"
+          @click="removeRow(index)"
         >
           <IconCloseRound
             :class="{ 'hidden-icon': hoverIndex !== index }"
             class="icon-close-round"
-            @click="removeRow(index)"
           />
-        </div>
+        </button>
       </div>
       <div class="add-container">
         <IconAddRound
@@ -248,7 +246,7 @@ const countTables = () => {
   justify-content: center;
   align-items: center;
 
-  border-right: 3px solid var(--mm-grey);
+  border-right: 3px solid var(--mm-border);
 }
 
 .row-item:last-of-type {
@@ -279,11 +277,27 @@ input[type='number'] {
   cursor: pointer;
 }
 
+/* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -
+   the same icon that came out 24x24 in Section Setup, side by side on one screen. */
+/* A real button: the control was a <div> with cursor:auto, tabIndex -1, no role and no
+   accessible name, in a 10px-wide hit target. Keyboard users could not remove a row at all. */
+.row-remove-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
 .icon-close-round {
-  max-width: 20px;
-  max-height: 20px;
-  width: 80%;
-  height: 80%;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
   cursor: pointer;
 }
 
@@ -296,7 +310,11 @@ input[type='number'] {
   height: 100%;
   display: flex;
   align-items: center;
-  border: none;
+  /* Bordered like the name and count fields beside it. With `border: none` it read as bare text
+     with a stray chevron rather than as something you could operate. */
+  border: 1px solid var(--mm-border);
+  border-radius: 20px;
+  padding-left: 8px;
   outline: none;
   cursor: pointer;
   font-size: 14px;

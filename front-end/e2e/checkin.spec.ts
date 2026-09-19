@@ -40,4 +40,70 @@ test.describe('Public vendor check-in', () => {
     );
     expect(timestampCells.length).toBeGreaterThan(0);
   });
+
+  test('names the market before the vendor types anything', async ({ page, request }) => {
+    // The page read "Vendor Check-in" until after a lookup, so a vendor handed a QR code at a
+    // door had to enter their address to find out whether they were in the right place.
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    const checkinPage = new CheckinPage(page);
+    await checkinPage.goto(seed.marketSlug);
+
+    await expect(checkinPage.marketName).toHaveText(seed.marketName, { timeout: 10000 });
+    await expect(checkinPage.emailInput).toHaveValue('');
+  });
+
+  test('a check-in on the wrong day can be undone', async ({ page, request }) => {
+    // Every date offered an identical button with nothing marking today, so on a multi-day market
+    // one mis-tap recorded a vendor present on a day they were not - and there was no way back.
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    const checkinPage = new CheckinPage(page);
+    await checkinPage.goto(seed.marketSlug);
+    await checkinPage.fillEmail('alice@example.com');
+    await checkinPage.clickLookup();
+
+    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
+    await checkinPage.clickCheckIn();
+    await expect(checkinPage.confirmationPills.first()).toBeVisible({ timeout: 10000 });
+
+    await checkinPage.clickUndo();
+
+    await expect(checkinPage.confirmationPills).toHaveCount(0, { timeout: 10000 });
+    await expect(checkinPage.checkinButtons.first()).toBeVisible();
+  });
+
+  test('the confirmation states a time a person would say aloud', async ({ page, request }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    const checkinPage = new CheckinPage(page);
+    await checkinPage.goto(seed.marketSlug);
+    await checkinPage.fillEmail('alice@example.com');
+    await checkinPage.clickLookup();
+    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
+    await checkinPage.clickCheckIn();
+
+    const pill = checkinPage.confirmationPills.first();
+    await expect(pill).toBeVisible({ timeout: 10000 });
+
+    // "9/15/2026, 7:20:18 AM" was a machine's idea of a time. No seconds, and a named month.
+    await expect(pill).toHaveText(
+      /Checked in .* [A-Z][a-z]{2} \d{1,2}, \d{4} at \d{1,2}:\d{2} (AM|PM)/,
+    );
+  });
 });

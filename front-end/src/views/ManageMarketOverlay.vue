@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { type Market, MarketRole } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
+import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -18,6 +19,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   manageClose: [];
 }>();
+
+useEscapeToClose(
+  () => props.manageOpen,
+  () => emit('manageClose'),
+);
 
 const marketData = ref<Market | null>(null);
 const loading = ref(false);
@@ -240,6 +246,15 @@ function handleClose() {
       data-testid="manage-market-overlay-background"
     />
     <div v-if="manageOpen && market" class="window">
+      <button
+        type="button"
+        class="dialog-close"
+        aria-label="Close"
+        @click="emit('manageClose')"
+        data-testid="manage-market-close-button"
+      >
+        &times;
+      </button>
       <div class="header">
         <h2>Manage market</h2>
         <p v-if="marketData" class="market-name">{{ marketData.name }}</p>
@@ -499,7 +514,7 @@ function handleClose() {
 
 .header {
   padding: 32px 40px 24px;
-  border-bottom: 1px solid var(--mm-grey);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .header h2 {
@@ -557,7 +572,7 @@ function handleClose() {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: #fafafa;
 }
@@ -617,7 +632,7 @@ function handleClose() {
 
 .role-owner {
   background: #e3f2fd;
-  color: #1976d2;
+  color: var(--mm-text-link);
 }
 
 .role-admin {
@@ -686,7 +701,7 @@ function handleClose() {
 
 .form-input {
   padding: 8px 12px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 6px;
   font-size: 14px;
   font-family: 'Outfit Regular', sans-serif;
@@ -695,7 +710,7 @@ function handleClose() {
 
 .form-select {
   padding: 8px 12px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 6px;
   font-size: 14px;
   font-family: 'Outfit Regular', sans-serif;
@@ -755,7 +770,7 @@ function handleClose() {
 
 .danger-section {
   padding-top: 20px;
-  border-top: 1px solid var(--mm-grey);
+  border-top: 1px solid var(--mm-border);
 }
 
 .delete-button {
@@ -830,7 +845,22 @@ function handleClose() {
 }
 
 .content::-webkit-scrollbar-thumb {
-  background: var(--mm-grey);
+  background: var(--mm-border);
   border-radius: 4px;
+}
+/* This dialog had no X and no Cancel, and the last control in its scrolling body is a red
+   Delete. Clicking the scrim did close it, but nothing said so, and Escape did nothing. */
+.dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: var(--mm-text-muted);
+  cursor: pointer;
+  z-index: 2;
 }
 </style>

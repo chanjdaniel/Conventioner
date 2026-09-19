@@ -70,10 +70,13 @@ GOOD_ROW = (
 )
 
 
-def _market_doc(setup=None, **overrides):
+def _market_doc(setup=None, fields=None, **overrides):
     return stored_market(
         setupObject=setup or SETUP_CAMEL,
-        applicationForm={"fields": FORM_FIELDS, "essentialOptions": None},
+        applicationForm={
+            "fields": FORM_FIELDS if fields is None else fields,
+            "essentialOptions": None,
+        },
         **overrides,
     )
 
@@ -327,6 +330,79 @@ GRID_ROW = (
 )
 
 
+class TestWhatASingleColumnCannotSay:
+    """A checkbox question's export is ambiguous when its own labels contain commas.
+
+    Google joins the selected labels with commas and throws the separator information away, so
+    "Saturday, November 21, 2026" comes back indistinguishable from three separate answers. The
+    product cannot recover it, and says so rather than producing fragments in silence.
+    """
+
+    def test_a_market_whose_every_label_is_comma_free_names_nothing(self, markets):
+        # Tiers are "Gold" and "Silver", sections "Main Hall" and "Garden", and a market date is
+        # offered as the stored "2026-08-01" - splitting any of those columns on commas is exact.
+        body, status = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
+
+        assert status == 200
+        assert body["commaBearingTargets"] == []
+
+    def test_dates_are_not_named_because_the_offering_is_the_stored_day(self, markets):
+        """A market date is offered as "2026-08-01", not as the sentence an applicant read.
+
+        This is the one the finding named, and it is wrong about it: the long spelling with its
+        two commas is how the *applicant form* renders a date, while what a column is matched
+        against is the stored day. A heading the organizer wrote themselves still has to be
+        resolved by hand, which is the reconciliation screen's job, not this warning's.
+        """
+        body, _ = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
+
+        assert EssentialFields.AVAILABLE_DATES_KEY not in body["commaBearingTargets"]
+
+    def test_a_single_value_target_is_never_named(self, markets):
+        """Its answer is the whole cell, so a comma in a label costs nothing.
+
+        Table choice earns this twice over: "A whole table to myself" holds no comma, but "Half a
+        table, shared" does, and it still must not warn.
+        """
+        body, _ = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
+
+        assert EssentialFields.TABLE_CHOICE_KEY not in body["commaBearingTargets"]
+        assert CsvImport.APPLICANT_EMAIL_TARGET not in body["commaBearingTargets"]
+
+    def test_a_section_the_organizer_named_with_a_comma_is_named_too(self, markets):
+        """The rule follows the market's own words, not a fixed list of targets."""
+        doc = _market_doc(setup={**SETUP_CAMEL, "sections": [
+            {"name": "Hall A, west end", "count": 4},
+            {"name": "Garden", "count": 4},
+        ]})
+
+        body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
+
+        assert EssentialFields.SECTION_RANKING_KEY in body["commaBearingTargets"]
+
+    def test_the_organizers_own_multi_select_question_is_named_too(self):
+        doc = _market_doc(fields=[{
+            "key": "craft", "label": "What do you make?", "type": "multi_select",
+            "required": False, "order": 0,
+            "options": ["Ceramics", "Jewellery, fine", "Prints"],
+        }])
+
+        body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
+
+        assert "craft" in body["commaBearingTargets"]
+
+    def test_a_single_select_question_is_not_named_however_its_options_read(self):
+        doc = _market_doc(fields=[{
+            "key": "craft", "label": "What do you make?", "type": "select",
+            "required": False, "order": 0,
+            "options": ["Ceramics", "Jewellery, fine"],
+        }])
+
+        body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
+
+        assert "craft" not in body["commaBearingTargets"]
+
+
 class TestColumnGroups:
     def test_a_grid_is_detected_as_one_question(self, markets):
         body, _ = CsvImport.inspect(markets.doc, _grid_csv(GRID_ROW))
@@ -495,6 +571,58 @@ class TestMatchingCellValues:
         assert status == 200, body
         data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
         assert data["essential_table_choice"] == "half"
+
+    def test_table_choice_matches_the_sentence_the_applicant_read(self, markets, applications):
+        """A column exported from this product's own form matched nothing at all.
+
+        Table choice was matched against the code it is stored as, so every cell of "A whole
+        table to myself" was reported as not matching the market - and the correction offered was
+        ``full``, a word no applicant ever saw.
+        """
+        row = GOOD_ROW.replace(",half,", ",A whole table to myself,")
+
+        body, status = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+
+        assert status == 200, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_table_choice"] == "full"
+
+    def test_a_table_choice_still_resolves_by_the_sentence(self, markets, applications):
+        """The reconciliation screen offers the sentences, so a resolution names one."""
+        resolutions = {
+            EssentialFields.TABLE_CHOICE_KEY: {"Sharing is fine": "Half a table, shared"},
+        }
+        row = GOOD_ROW.replace(",half,", ",Sharing is fine,")
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(row), MAPPING, resolutions,
+        )
+
+        assert status == 200, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_table_choice"] == "half"
+
+    def test_an_unmatched_table_choice_is_offered_the_sentences_to_pick_from(self, markets):
+        row = GOOD_ROW.replace(",half,", ",No preference really,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
+
+        [entry] = [u for u in body["unmatched"] if u["target"] == EssentialFields.TABLE_CHOICE_KEY]
+        assert entry["offered"] == [
+            "A whole table to myself",
+            "Half a table, shared",
+            "Either is fine",
+        ]
+
+    def test_a_file_already_holding_the_stored_code_still_matches(self, markets, applications):
+        """The old spelling is not sent round reconciliation to be told that ``full`` is ``full``."""
+        row = GOOD_ROW.replace(",half,", ",full,")
+
+        body, status = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+
+        assert status == 200, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_table_choice"] == "full"
 
 
 class TestPreviewingRowValidity:

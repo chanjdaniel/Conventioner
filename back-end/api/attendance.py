@@ -20,6 +20,63 @@ def get_published_market_by_slug(market_slug: str) -> Optional[Dict[str, Any]]:
     return published_market_by_slug(markets_collection, market_slug)
 
 
+def get_checkin_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
+    """What the check-in page can say before the vendor types anything: which market this is.
+
+    The page used to read "Vendor Check-in" until after a lookup, so a vendor handed a URL or a QR
+    code at a door had to enter their address to find out whether they were at the right market's
+    page - the confirmation arriving after the work rather than before it.
+
+    Open to every published market, like the rest of check-in and unlike the applicant-intake
+    surface: how a vendor entered a market has no bearing on whether they can scan in on the day.
+    It answers only for a market that is published and reachable at this slug, which is the same
+    fact an accepted lookup already reveals.
+    """
+    if not isinstance(market_slug, str) or not market_slug.strip():
+        return {"error": "market slug is required"}, 400
+
+    market_doc = get_published_market_by_slug(market_slug)
+    if not market_doc:
+        return {"error": "Market not found"}, 404
+
+    setup = market_doc.get("setupObject") or {}
+    dates = [
+        str(entry.get("date"))
+        for entry in (setup.get("marketDates") or [])
+        if isinstance(entry, dict) and entry.get("date")
+    ]
+    return {
+        "marketName": market_doc.get("name", ""),
+        "marketSlug": market_slug,
+        "marketDates": sorted(dates),
+    }, 200
+
+
+def undo_attendance(market_id: str, vendor_email: str, date: str) -> Tuple[Dict[str, Any], int]:
+    """Remove a check-in a vendor made on the wrong day.
+
+    A two-day market offered an identical button per date and no undo, so one mis-tap recorded a
+    vendor as present on a day they were not. Deleting the record is the whole operation: a
+    check-in is a single document keyed by (market, vendor, date), and there is nothing else it
+    changed.
+    """
+    if not isinstance(market_id, str) or not market_id.strip():
+        return {"error": "market_id is required"}, 400
+    if not isinstance(vendor_email, str) or not vendor_email.strip():
+        return {"error": "vendorEmail is required"}, 400
+    if not isinstance(date, str) or not date.strip():
+        return {"error": "date is required"}, 400
+
+    result = attendance_collection.delete_one({
+        "market_id": market_id,
+        "vendor_email": _normalize_email(vendor_email),
+        "date": date.strip(),
+    })
+    if result.deleted_count == 0:
+        return {"error": "No check-in found for this vendor on this date"}, 404
+    return {"message": "Check-in undone"}, 200
+
+
 def record_attendance(market_id: str, vendor_email: str, date: str) -> Tuple[Dict[str, Any], int]:
     """Upsert an attendance record for (market_id, vendor_email, date)."""
     if not isinstance(market_id, str) or not market_id.strip():

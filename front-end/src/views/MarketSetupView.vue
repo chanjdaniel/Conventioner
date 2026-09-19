@@ -18,19 +18,25 @@ import {
 } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
+import { importRefusal } from '@/utils/importPhase';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
+import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 
 const router = useRouter();
 
 const showPathChoice = ref(false);
 const activeTab = ref<'form' | 'setup' | 'applications'>('setup');
 
-const market = ref<Market | null>(null);
+/**
+ * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
+ * value that only arrives a tick later would flash that message on every page that does have one.
+ */
+const market = ref<Market | null>(JSON.parse(localStorage.getItem('market') || 'null'));
 const applicationForm = ref<ApplicationForm | null>(null);
 /**
  * Per-field "the organizer typed this key themselves" flags, positionally aligned with the
@@ -144,17 +150,40 @@ const assignmentOptionsComplete = computed(() => {
   return true;
 });
 
+/**
+ * Where the organizer last stood in THIS market's plan wizard.
+ *
+ * It was a single global key with no market id in it, so opening a second market resumed wherever
+ * the first was left - and the step it skipped was Market Dates, which is what the solver assigns
+ * across and what generates the "which dates can you attend" question. A market whose plan has no
+ * dates yet always opens at the first step regardless, because a remembered step further in is
+ * remembered from a different market.
+ *
+ * `E10/F02/S01` makes the plan editor one page and deletes this outright.
+ */
+function pageIdxKey(): string {
+  return `setupPageIdx:${market.value?.id ?? ''}`;
+}
+
+function rememberPageIdx() {
+  localStorage.setItem(pageIdxKey(), JSON.stringify(pageIdx.value));
+}
+
+function storedPageIdx(): number {
+  if (!(market.value?.setupObject?.marketDates ?? []).length) return 0;
+  const stored = JSON.parse(localStorage.getItem(pageIdxKey()) || 'null');
+  if (typeof stored !== 'number' || !Number.isInteger(stored)) return 0;
+  return Math.min(Math.max(stored, 0), maxPageIdx);
+}
+
 onMounted(() => {
   // create setup object
 
-  market.value = JSON.parse(localStorage.getItem('market') || 'null');
   if (market.value && market.value.setupObject) {
     Object.assign(setupObject, market.value.setupObject);
   }
 
-  // retrieve view state
-  const setupPageIdx = JSON.parse(localStorage.getItem('setupPageIdx') || 'null');
-  pageIdx.value = setupPageIdx === null ? 0 : setupPageIdx;
+  pageIdx.value = storedPageIdx();
 
   // Paint the cached form immediately, then reconcile with the server, which also
   // tells us whether the form is still editable.
@@ -208,6 +237,9 @@ async function loadApplicationForm() {
   }
 }
 
+/** Why importing is refused in this market's phase, or null. Mirrors the server's own rule. */
+const importRefusalReason = computed(() => importRefusal(market.value?.phase));
+
 /** Guidance for a form the organizer has not finished starting; not a mistake to flag in red. */
 const formIncompleteHint = computed(() => applicationFormHint(applicationForm.value));
 
@@ -250,10 +282,21 @@ async function handleToggleUnasked(key: string, unasked: boolean) {
   }
   const updated = { ...current, unaskedEssentials: [...next] };
   formErrorMessage.value = null;
+  // This writes immediately through its own endpoint, unlike the custom fields beside it which
+  // wait for Save Form. Reporting through the same status is what tells the organizer which of
+  // their changes are already persisted; it used to save in complete silence.
+  clearSavedStatusTimer();
+  formSaveStatus.value = 'saving';
   try {
     const response = await api.put(`/markets/${market.value.id}/application-form`, updated);
     adoptApplicationForm(response.data?.application_form ?? updated);
+    formSaveStatus.value = 'saved';
+    savedStatusTimer.value = setTimeout(() => {
+      savedStatusTimer.value = null;
+      if (formSaveStatus.value === 'saved') formSaveStatus.value = 'idle';
+    }, 2000);
   } catch (err: unknown) {
+    formSaveStatus.value = 'error';
     formErrorMessage.value = getApiErrorMessage(err, 'Could not update the form.');
   }
 }
@@ -313,12 +356,12 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
 
 const handleNext = async () => {
   pageIdx.value = pageIdx.value === maxPageIdx ? maxPageIdx : pageIdx.value + 1;
-  localStorage.setItem('setupPageIdx', JSON.stringify(pageIdx.value));
+  rememberPageIdx();
   await updateMarket();
 };
 const handleBack = async () => {
   pageIdx.value = pageIdx.value === 0 ? 0 : pageIdx.value - 1;
-  localStorage.setItem('setupPageIdx', JSON.stringify(pageIdx.value));
+  rememberPageIdx();
   await updateMarket();
 };
 const assignError = ref('');
@@ -377,7 +420,8 @@ watch(pageIdx, (newIdx) => {
 </script>
 
 <template>
-  <div class="market-setup-view">
+  <NoMarketLoaded v-if="!market" shows="a market's plan and application form" />
+  <div v-else class="market-setup-view">
     <PhaseControlPanel :market="market" @phase-advanced="handlePhaseAdvanced" />
     <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
     <div class="market-setup-body">
@@ -385,7 +429,7 @@ watch(pageIdx, (newIdx) => {
         <div class="settings-header">
           <!-- The market's own name, so the page says which market this is. It read "Settings" on
                every market, and the route (/market-setup) carries no id to tell them apart. -->
-          <h1 data-testid="market-setup-title">{{ market?.name || 'Settings' }}</h1>
+          <h1 data-testid="market-setup-title">{{ market.name }}</h1>
           <div class="tab-bar">
             <button
               :class="['tab-button', { active: activeTab === 'form' }]"
@@ -473,21 +517,7 @@ watch(pageIdx, (newIdx) => {
                       {{ formSaveStatus === 'saving' ? 'Saving...' : 'Save Form' }}
                     </button>
                     <span
-                      v-if="formValidationError"
-                      class="save-status error"
-                      data-testid="form-builder-validation-error"
-                    >
-                      {{ formValidationError }}
-                    </span>
-                    <span
-                      v-else-if="formIncompleteHint"
-                      class="save-status hint"
-                      data-testid="form-builder-save-hint"
-                    >
-                      {{ formIncompleteHint }}
-                    </span>
-                    <span
-                      v-else-if="formSaveStatus === 'saved'"
+                      v-if="formSaveStatus === 'saved'"
                       class="save-status success"
                       data-testid="form-builder-save-success"
                     >
@@ -499,6 +529,20 @@ watch(pageIdx, (newIdx) => {
                       data-testid="form-builder-save-error"
                     >
                       {{ formErrorMessage }}
+                    </span>
+                    <span
+                      v-else-if="formValidationError"
+                      class="save-status error"
+                      data-testid="form-builder-validation-error"
+                    >
+                      {{ formValidationError }}
+                    </span>
+                    <span
+                      v-else-if="formIncompleteHint"
+                      class="save-status hint"
+                      data-testid="form-builder-save-hint"
+                    >
+                      {{ formIncompleteHint }}
                     </span>
                   </div>
                 </div>
@@ -615,23 +659,51 @@ watch(pageIdx, (newIdx) => {
         <!-- `settings-body` lays its children out in a row, which is right for the two-card tabs
              but put the import button in a dead column beside the list. This one stacks. -->
         <div v-if="activeTab === 'applications'" class="settings-body settings-body-stacked">
+          <!-- The button used to be live in every phase and navigate to a page whose only
+               content was the refusal. The gate is right; being told before the click is the
+               part that was missing. -->
           <div class="applications-toolbar">
             <button
               class="import-entry-button"
+              :disabled="importRefusalReason !== null"
               data-testid="market-setup-import-button"
               @click="router.push({ name: 'import-applications' })"
             >
               Import from CSV
             </button>
-            <span class="import-entry-hint">
-              Bring in the responses your Google Form collected.
+            <span
+              v-if="importRefusalReason"
+              class="import-entry-hint import-entry-hint--blocked"
+              data-testid="market-setup-import-blocked-reason"
+            >
+              {{ importRefusalReason }}
+            </span>
+            <span v-else class="import-entry-hint">
+              Bring in the responses you already collected, as a CSV from any form tool or
+              spreadsheet.
             </span>
           </div>
-          <ApplicationMonitor :market="market" :visible="activeTab === 'applications'" />
+          <ApplicationMonitor
+            :market="market"
+            :visible="activeTab === 'applications'"
+            :formEditable="formEditable"
+          />
         </div>
       </div>
+      <!-- A real, wired feature that sat here as a bare URL box between Back and Next, saying
+           nothing about what it sends, when, or that it is optional. Silence about a working
+           feature is worse than silence about a stub: the organizer who skips it never learns
+           what they skipped, and the one who fills it in does not know what they just armed. -->
       <div v-if="activeTab === 'setup'" class="discord-webhook-row">
-        <label class="discord-webhook-label" for="discord-webhook-url">Discord webhook URL</label>
+        <div class="discord-webhook-heading">
+          <label class="discord-webhook-label" for="discord-webhook-url">
+            Discord webhook URL <span class="discord-webhook-optional">optional</span>
+          </label>
+          <p class="discord-webhook-help">
+            Paste one and a Send to Discord button on the results screen will post the finished
+            assignment to that channel. Nothing is sent until you press it.
+          </p>
+        </div>
         <input
           id="discord-webhook-url"
           type="url"
@@ -663,11 +735,6 @@ watch(pageIdx, (newIdx) => {
             type="button"
             class="done-button"
             :disabled="!assignmentOptionsComplete"
-            :title="
-              assignmentOptionsComplete
-                ? ''
-                : 'Complete the required assignment options: max assignments per vendor, and max half-table proportion'
-            "
             @click="handleAssign"
             data-testid="market-setup-assign-button"
           >
@@ -730,18 +797,30 @@ watch(pageIdx, (newIdx) => {
   height: 36px;
   padding: 0 16px;
   border-radius: 6px;
-  border: 1px solid var(--mm-green, #2e7d4f);
-  background: var(--mm-green, #2e7d4f);
+  border: 1px solid var(--mm-green);
+  background: var(--mm-green);
   color: white;
   font-family: 'Outfit Regular';
   font-size: 14px;
   cursor: pointer;
 }
 
+.import-entry-button:disabled {
+  background: var(--mm-border);
+  border-color: var(--mm-border);
+  color: var(--mm-black);
+  cursor: not-allowed;
+}
+
 .import-entry-hint {
   font-family: 'Outfit Regular';
   font-size: 13px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
+}
+
+.import-entry-hint--blocked {
+  color: var(--mm-text-yellow);
+  max-width: 60ch;
 }
 
 .market-setup-view {
@@ -808,7 +887,7 @@ watch(pageIdx, (newIdx) => {
   border-bottom: 2px solid transparent;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: #999;
+  color: var(--mm-text-muted-on-dark);
   cursor: pointer;
   transition:
     color 0.15s,
@@ -931,16 +1010,33 @@ h2 {
   width: 100%;
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   margin-top: 15px;
+}
+
+.discord-webhook-heading {
+  max-width: 420px;
 }
 
 .discord-webhook-label {
   font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
-  white-space: nowrap;
+}
+
+.discord-webhook-optional {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mm-text-muted);
+}
+
+.discord-webhook-help {
+  margin: 2px 0 0;
+  font-family: 'Outfit Regular';
+  font-size: 12px;
+  color: var(--mm-text-muted);
 }
 
 .discord-webhook-input {
@@ -949,7 +1045,7 @@ h2 {
   padding: 4px 10px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background-color: white;
 }
@@ -969,7 +1065,7 @@ h2 {
   gap: 12px;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--mm-grey, #eee);
+  border-top: 1px solid var(--mm-border);
 }
 
 .form-lock-banner {
@@ -987,7 +1083,7 @@ h2 {
   font-family: 'Outfit Regular';
   font-size: 13px;
   line-height: 1.4;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   background: #f4f4f4;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
@@ -1052,13 +1148,13 @@ h2 {
 }
 
 .save-status.hint {
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .preview-unavailable {
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   text-align: center;
   padding: 40px;
 }
