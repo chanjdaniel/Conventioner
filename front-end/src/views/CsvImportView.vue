@@ -109,6 +109,16 @@ const newHeaders = ref<string[]>([]);
 const hasSavedMapping = ref(false);
 /** Does this market order vendors by when they applied? Decides the warning below. */
 const ordersBySubmittedAt = ref(false);
+/**
+ * Targets whose own option labels contain commas, as the server reports them.
+ *
+ * A checkbox question exports one column holding the selected labels comma-joined, and throws the
+ * separator information away before writing the file. When the labels themselves contain commas,
+ * nothing can recover which separator was which - so a single column mapped to one of these
+ * produces fragments, and the organizer is owed the reason rather than a list of values that
+ * "did not match your market".
+ */
+const commaBearingTargets = ref<Set<string>>(new Set());
 /** Group stem -> target key: a grid is mapped once, for all of its columns at a time. */
 const groupTarget = ref<Record<string, string>>({});
 /** Stems the organizer has broken apart, when the detection guessed wrong. */
@@ -206,6 +216,16 @@ function isRestored(key: string | undefined): boolean {
 function offeredLabel(target: string, value: string): string {
   if (target === AVAILABLE_DATES_KEY) return getFormattedDate(value) ?? value;
   return value;
+}
+
+/**
+ * Whether one column mapped to this target cannot be split reliably.
+ *
+ * A **grid** mapping is silent: its option comes from the column header and nothing is split, and
+ * that is the shape a real export of this question has. Only the single-column case is ambiguous.
+ */
+function cannotSplitReliably(key: string | undefined): boolean {
+  return !!key && commaBearingTargets.value.has(key);
 }
 
 function labelForTarget(key: string): string {
@@ -414,6 +434,7 @@ async function inspect() {
     // what these columns mean, and re-asking is the friction this remembers them to avoid.
     hasSavedMapping.value = data.hasSavedMapping === true;
     ordersBySubmittedAt.value = data.ordersBySubmittedAt === true;
+    commaBearingTargets.value = new Set<string>(data.commaBearingTargets ?? []);
     restoredMissing.value = data.restoredTargetsMissingColumns ?? [];
     newHeaders.value = data.newHeaders ?? [];
     restoredTargets.value = new Set(Object.keys(data.restoredMapping ?? {}));
@@ -810,6 +831,22 @@ function startOver() {
                     Nothing here answers this column. To keep it, reopen the market for editing and
                     add a form field for it, then import again. The form can only be changed while
                     nobody has applied.
+                  </p>
+
+                  <!-- Warn, do not block: the reconciliation screen below already refuses to
+                       advance until every unmatched value is spoken for, so nothing wrong imports
+                       silently either way, and blocking would strand an organizer whose only copy
+                       of the data is this file. -->
+                  <p
+                    v-if="cannotSplitReliably(columnTarget[row.index])"
+                    class="ledger-deadend"
+                    data-testid="import-cannot-split"
+                  >
+                    One column cannot answer
+                    <strong>{{ labelForTarget(columnTarget[row.index]) }}</strong> reliably: some of
+                    its options have commas in their own names, and this column separates answers
+                    with commas too, so there is no way to tell which comma is which. Re-export this
+                    question as a grid, one column per option, or rename the options without commas.
                   </p>
 
                   <!-- Values the market does not recognise, fixed in the row that owns them. -->

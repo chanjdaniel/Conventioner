@@ -10,12 +10,19 @@ pr: []
 ## What to build
 
 A Google Forms **checkbox question** exports one column with the selected option labels
-**comma-joined**. When those labels themselves contain commas - and a date label like
-`Saturday, November 21, 2026` does - the export is ambiguous to any reader, because Google threw the
+**comma-joined**. When those labels themselves contain commas - and an organizer is free to name a
+section "Hall A, west end" - the export is ambiguous to any reader, because Google threw the
 separator information away.
 
-Today the product splits on commas anyway and produces fragments: one cell became
-`Saturday`, `November 21`, `2026; Sunday`, `November 22`, `2026`, `Sunday`, all six reported as
+> **Correction, found while building this.** The ticket claimed a market *date* label
+> (`Saturday, November 21, 2026`) is such a label. It is not: the long spelling with its two commas
+> is how the **applicant form** renders a date, while what an imported column is matched against is
+> the stored `2026-08-01`. Dates therefore never trigger this warning, and the targets that do are
+> the ones the organizer names themselves - sections, tiers, and their own multi-select questions.
+> A date heading the organizer wrote by hand is still resolved on the reconciliation screen, which
+> is that screen's job rather than this warning's.
+
+Today the product splits on commas anyway and produces fragments, every one of them reported as
 "did not match your market" with no explanation of why.
 
 **At the mapping step, when a target's offering contains any label with a comma and a single
