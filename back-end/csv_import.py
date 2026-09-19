@@ -259,6 +259,9 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     # and that would have drifted from the applicant validator and the solver the moment either
     # moved.
     essential_order = (
+        # First, and asked by every market: a column of names maps straight across, which is what
+        # the Fall 2025 export's "Full Legal Name" had nowhere to go before.
+        (EssentialFields.FULL_NAME_KEY, EssentialFields.FULL_NAME_LABEL),
         (EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL),
         (EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL),
         (EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL),

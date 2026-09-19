@@ -27,6 +27,8 @@ interface SummaryResponse {
   marketName: string;
   marketSlug: string;
   vendorEmail: string;
+  /** Empty for an application written before names existed; the page then shows the address. */
+  vendorName: string;
   assignments: AssignmentRow[];
 }
 
@@ -201,6 +203,13 @@ async function undoCheckIn(date: string): Promise<void> {
         </form>
 
         <div v-if="summary" class="assignments-list">
+          <!-- Who the product thinks looked themselves up. The address is always shown beside the
+               name: it is what this lookup matched on, and it is how a vendor spots that they
+               typed someone else's. -->
+          <p class="looked-up-as" data-testid="attendance-checkin-vendor">
+            <strong>{{ summary.vendorName || summary.vendorEmail }}</strong>
+            <span v-if="summary.vendorName" class="looked-up-email">{{ summary.vendorEmail }}</span>
+          </p>
           <p v-if="checkinError" class="error-text">{{ checkinError }}</p>
           <!-- Today is the one a vendor at the door means. It is not merely styled differently:
                every other day's button is secondary, so a mis-tap takes a deliberate press on a
@@ -419,6 +428,21 @@ async function undoCheckIn(date: string): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.looked-up-as {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 16px;
+  color: var(--mm-black);
+}
+
+.looked-up-email {
+  font-size: 13px;
+  color: var(--mm-text-muted);
+  overflow-wrap: anywhere;
 }
 
 .assignment-card {

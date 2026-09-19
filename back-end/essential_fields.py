@@ -51,6 +51,17 @@ from market_documents import market_doc_field, market_doc_key
 # the solver reads.
 ESSENTIAL_KEY_PREFIX = "essential_"
 
+# Identity, and the one essential question that is not a solver input. Every market needs to know
+# who it is placing, and every organizer's form already asks: the committed Fall 2025 export
+# carries "Full Legal Name" and "Preferred Name" as columns 4 and 5, and this product used to drop
+# both because it had nowhere to put them.
+#
+# ONE field, never first + last. Both of those columns hold WHOLE names, so a required first-name
+# field would receive "Ana Rivera" for all 232 rows, and splitting on whitespace is a guess the
+# product would make 232 times and get wrong on every "van der Berg", "Maria del Carmen" and
+# mononym. This is identity; being confidently wrong is worse than being incomplete.
+FULL_NAME_KEY = "essential_full_name"
+
 AVAILABLE_DATES_KEY = "essential_available_dates"
 MAX_DATES_KEY = "essential_max_dates"
 TIER_PREFERENCE_KEY = "essential_tier_preference"
@@ -61,6 +72,7 @@ TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 
 # The labels the applicant sees, shared with error messages so a validation failure names the
 # question exactly as the form asked it.
+FULL_NAME_LABEL = "Full name"
 EMAIL_LABEL = "Email address"
 AVAILABLE_DATES_LABEL = "Available dates"
 MAX_DATES_LABEL = "Number of dates you want"
@@ -139,8 +151,19 @@ SOLVER_RELEVANT_KEYS = (
 # Every essential question except the table-share partner, which is optional by design: most
 # applicants have nobody in mind, and one who names nobody is paired with whoever else wants a
 # half table.
-REQUIRED_ESSENTIAL_KEYS = tuple(
-    key for key in SOLVER_RELEVANT_KEYS if key != TABLE_SHARE_EMAIL_KEY
+#
+# Stated in full rather than derived from ``SOLVER_RELEVANT_KEYS``. It used to be
+# ``tuple(key for key in SOLVER_RELEVANT_KEYS if key != TABLE_SHARE_EMAIL_KEY)`` - required-ness
+# DEFINED AS solver-relevance-minus-one - and the name broke that: it is required because identity
+# is, and it is not solver-read, so correcting a spelling must not invalidate a review.
+REQUIRED_ESSENTIAL_KEYS = (
+    FULL_NAME_KEY,
+    AVAILABLE_DATES_KEY,
+    MAX_DATES_KEY,
+    TIER_PREFERENCE_KEY,
+    TABLE_CHOICE_KEY,
+    SECTION_RANKING_KEY,
+    TABLE_TYPE_RANKING_KEY,
 )
 
 
@@ -196,7 +219,11 @@ def asked_essential_keys(options: EssentialFormOptions) -> frozenset:
     questions about how many dates the applicant wants and how they want to occupy a table are
     not questions either.
     """
-    asked = set()
+    # The name is the one question with NO condition, and that is deliberate rather than an
+    # oversight: every other essential question is gated on the plan offering something to answer
+    # about, and identity does not depend on the plan. A market with no dates, no tiers and no
+    # sections still needs to know who is applying.
+    asked = {FULL_NAME_KEY}
     if options.dates:
         asked.update({
             AVAILABLE_DATES_KEY,
@@ -215,6 +242,21 @@ def asked_essential_keys(options: EssentialFormOptions) -> frozenset:
     # (``unaskable_essential_error`` is what enforces that on the way in), so removing one can
     # never drop a constraint the solver relies on.
     return frozenset(asked - set(options.unasked or []))
+
+
+def plan_derived_asked_keys(options: EssentialFormOptions) -> frozenset:
+    """The asked questions that depend on the market plan offering something.
+
+    Identity does not, which is why the name is excluded here and only here.
+
+    Two readers, and they must stay the same two: ``FormHasFieldsGuard``, which blocks a market
+    from opening applications when its form asks nothing, and ``application_write._asks_nothing``,
+    which refuses an application to such a market. What both are really asking is whether the
+    market plan offers anything to apply *for*. A name asked unconditionally means the essential
+    count is never zero, so reading ``asked_essential_keys`` here would make both of them unable
+    to say no - silently, with their docstrings still claiming otherwise.
+    """
+    return asked_essential_keys(options) - {FULL_NAME_KEY}
 
 
 def offering_for_key(key: str, options: EssentialFormOptions) -> List[str]:
@@ -432,6 +474,10 @@ def validated_essential_answers(
     """
     stored: Dict[str, Any] = {}
 
+    error = _validate_full_name(incoming, stored)
+    if error:
+        return error, {}
+
     error = _validate_accepted_subset(
         incoming, AVAILABLE_DATES_KEY, AVAILABLE_DATES_LABEL, "date", options.dates, stored,
     )
@@ -473,6 +519,26 @@ def validated_essential_answers(
         return error, {}
 
     return None, stored
+
+
+def _validate_full_name(incoming: Dict[str, Any], stored: Dict[str, Any]) -> Optional[str]:
+    """The applicant's name, required on every save because identity does not depend on the plan.
+
+    Stored stripped and otherwise exactly as written: a name is not a value drawn from an offering
+    and there is nothing to match it against, so there is nothing here to normalize beyond the
+    whitespace a form adds.
+
+    Only NEW saves are held to this. Stored applications are not re-validated, and the solver names
+    the keys it reads explicitly rather than looping over everything the form asks - so an
+    application written before the name existed still assigns, which is what makes this need no
+    migration.
+    """
+    raw = incoming.get(FULL_NAME_KEY)
+    value = str(raw).strip() if raw is not None else ""
+    if not value:
+        return f"'{FULL_NAME_LABEL}' is required."
+    stored[FULL_NAME_KEY] = value
+    return None
 
 
 def _validate_tiers_per_date(

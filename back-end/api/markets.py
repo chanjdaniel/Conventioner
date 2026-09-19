@@ -843,7 +843,11 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         rows = derive_market_table_rows(assigned_market)
         stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
 
-        return convert_keys_to_camel_case(stats.model_dump()), 200
+        payload = convert_keys_to_camel_case(stats.model_dump())
+        # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
+        # name them. A vendor with no stored name has no entry and renders as they did before.
+        payload["vendorNames"] = ApplicationsApi.vendor_names_for_market(market_id)
+        return payload, 200
     except Exception as e:
         logger.error(f"Unexpected error in get_assignment_statistics: {str(e)}")
         logger.error(f"Error type: {type(e)}")
@@ -895,7 +899,9 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
         assigned_market_dict = assigned_market.model_dump()
 
         try:
-            csv_content = market_csv_to_string(assigned_market_dict)
+            csv_content = market_csv_to_string(
+                assigned_market_dict, ApplicationsApi.vendor_names_for_market(market_id),
+            )
         except ValueError as e:
             return {"error": str(e)}, 400
 
@@ -935,7 +941,13 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             # The organizer has to go and fix something, so say who.
             return {"error": incomplete.message()}, 400
         rows = derive_market_table_rows(assigned_market)
-        return [convert_keys_to_camel_case(row.model_dump()) for row in rows], 200
+        return {
+            "rows": [convert_keys_to_camel_case(row.model_dump()) for row in rows],
+            # Name against address, for the surfaces that only ever knew the address. Sent with
+            # the rows rather than fetched separately so the grid and its occupants' names can
+            # never be a request apart.
+            "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
+        }, 200
     except Exception as e:
         logger.error(f"Unexpected error in get_market_tables: {str(e)}")
         logger.error(f"Error type: {type(e)}")

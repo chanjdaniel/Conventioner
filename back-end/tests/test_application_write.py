@@ -39,6 +39,7 @@ FORM_FIELDS = [
 
 ANSWERS = {
     "business_name": "Vermilion Ceramics",
+    "essential_full_name": "Ana Rivera",
     "essential_available_dates": ["2026-08-08", "2026-08-01"],
     "essential_max_dates": 2,
     # Per date (E01/F05): the same tiers on both dates this applicant can attend.
