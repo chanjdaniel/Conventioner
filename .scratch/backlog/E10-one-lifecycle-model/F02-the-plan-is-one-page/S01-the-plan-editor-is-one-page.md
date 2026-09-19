@@ -4,7 +4,7 @@ title: The plan editor is one page
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [71]
 ---
 
 ## What to build

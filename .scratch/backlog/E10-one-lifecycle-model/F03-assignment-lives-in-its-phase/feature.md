@@ -4,7 +4,7 @@ title: Assignment lives in its phase
 type: feature
 status: in-progress
 blocked_by: []
-pr: []
+pr: [71]
 ---
 
 ## Outcome

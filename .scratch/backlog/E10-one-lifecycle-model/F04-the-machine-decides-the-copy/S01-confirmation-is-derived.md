@@ -4,7 +4,7 @@ title: Confirmation is derived from the transition table
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [71]
 ---
 
 ## What to build
