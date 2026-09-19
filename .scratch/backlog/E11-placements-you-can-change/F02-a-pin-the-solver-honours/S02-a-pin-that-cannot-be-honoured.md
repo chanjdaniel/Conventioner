@@ -2,7 +2,7 @@
 id: E11/F02/S02
 title: A pin that cannot be honoured
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -31,11 +31,11 @@ The mechanism exists - `assignment` has an entry invariant and blockers render g
 
 ## Acceptance criteria
 
-- [ ] A second pin to an occupied seat is refused, naming the vendor already there.
-- [ ] A filter-breaking pin succeeds and is marked as overriding the vendor's answer.
-- [ ] Deleting a section with a pin in it does not delete the pin.
-- [ ] An orphaned pin blocks `-> assignment` with a message naming the vendor and the missing seat.
-- [ ] Removing or re-placing the orphaned pin clears the blocker.
+- [x] A second pin to an occupied seat is refused, naming the vendor already there.
+- [x] A filter-breaking pin succeeds and is marked as overriding the vendor's answer.
+- [x] Deleting a section with a pin in it does not delete the pin.
+- [x] An orphaned pin blocks `-> assignment` with a message naming the vendor and the missing seat.
+- [x] Removing or re-placing the orphaned pin clears the blocker.
 
 ## Notes
 

@@ -28,6 +28,7 @@ from essential_fields import (
     effective_essential_options_for_market,
     plan_derived_asked_keys,
 )
+from placement_reasons import orphaned_pins
 
 
 # ── Wire shape (backend/frontend contract) ──────────────────────────────
@@ -348,6 +349,47 @@ class NoAskedForTierWithoutTablesGuard:
         )
 
 
+class NoOrphanedPinGuard:
+    """No hand placement may name a seat the plan no longer has.
+
+    A pin is a deliberate guarantee - "this vendor gets that spot" - and the plan can outlive it:
+    delete the section, or drop its table count below the pinned number, and the seat is gone.
+    Three answers were possible and two are worse. Deleting the pin loses the guarantee with
+    nobody told. Refusing the plan edit makes pins a lock on the floor plan, and an organizer
+    rearranging their room should not be blocked by a decision they can revisit. So the pin is
+    orphaned and the reckoning is deferred to the next assignment - the moment they were going to
+    look anyway, and a moment that already renders blockers generically.
+
+    The message names the vendor and the seat, because both ways out are things the organizer
+    does to a named thing: put the seat back in the plan, move the vendor, or free their seat.
+    """
+
+    id: str = "no_orphaned_pin"
+    description: str = "Every hand-placed vendor's seat still exists in the plan"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        orphans = orphaned_pins(
+            market.setup_object, market.assignment_object.vendor_assignments or [],
+        )
+        if not orphans:
+            return PreconditionResult(id=self.id, passed=True, message="")
+
+        named = "; ".join(
+            f"{pin.email} at {pin.table_code} on {pin.date}"
+            for pin in sorted(orphans, key=lambda pin: (pin.date, pin.table_code, pin.email))
+        )
+        pin_word = "placement names a seat" if len(orphans) == 1 else "placements name seats"
+        return PreconditionResult(
+            id=self.id,
+            passed=False,
+            message=(
+                f"{len(orphans)} hand {pin_word} the plan no longer has: {named}. "
+                "Restore the seat in the plan, or move those vendors, before assigning."
+            ),
+            resolution_link="/market-setup?tab=assignment",
+        )
+
+
 def _tiers_named_by(answers: Dict[str, Any]) -> set:
     """Every tier this application accepts, across every date it names.
 
@@ -372,6 +414,7 @@ _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
 _NO_EMPTY_TIER_ASKED_FOR = NoAskedForTierWithoutTablesGuard()
+_NO_ORPHANED_PIN = NoOrphanedPinGuard()
 
 # Entry invariants: what must hold of a market SITTING IN a phase, regardless of the
 # route it took to get there. Every inbound edge to the phase must enforce these, so
@@ -382,7 +425,7 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
     # have any priority rule at all. A rule now names a form question and carries its own
     # ordering, so the check would be that every rule has a target and a non-empty ordering -
     # a half-built rule scores every vendor alike, which is silent rather than wrong.
-    "assignment": [_ALL_REVIEWED],
+    "assignment": [_ALL_REVIEWED, _NO_ORPHANED_PIN],
     "offers": [_NO_APPROVED],
     "market_days": [_ASSIGNMENT_COMPUTED],
 }
@@ -405,7 +448,7 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # The guard should verify that the market's setup_object has at least one
     # priority entry before assignment can begin.
     ("applications_open", "draft"): [_NO_APPLICATIONS_YET],
-    ("review", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR],
+    ("review", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR, _NO_ORPHANED_PIN],
     ("assignment", "offers"): [_NO_APPROVED],
     ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED],
     ("offers", "market_days"): [_ASSIGNMENT_COMPUTED],

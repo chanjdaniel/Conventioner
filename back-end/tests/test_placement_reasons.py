@@ -15,7 +15,13 @@ from datatypes import (
     TierObject,
     AssignmentOptionObject,
 )
-from placement_reasons import PlacementReason, unplaced_dates
+from placement_reasons import (
+    PlacementOverride,
+    PlacementReason,
+    orphaned_pins,
+    overridden_placements,
+    unplaced_dates,
+)
 
 
 DATES = ["2026-08-01", "2026-08-08"]
@@ -195,3 +201,138 @@ class TestTheEdges:
         ]
 
         assert unplaced_dates(setup, [vendor()], placed) == []
+
+
+def pinned(email, date, table_code, table_choice="Full Table", tier="Gold"):
+    return {
+        "email": email,
+        "date": date,
+        "table_code": table_code,
+        "table_choice": table_choice,
+        "tier": tier,
+        "hand_placed": True,
+    }
+
+
+class TestAPinThatOverridesTheVendorsAnswer:
+    """It stands, and it is marked. Tier sets the price (E11/F02/S02)."""
+
+    def test_a_tier_they_did_not_accept_is_marked(self):
+        result = overridden_placements(
+            [vendor(tiers=("Silver",))],
+            [pinned("nadia@ember.test", DATES[0], "Section Gold 1", tier="Gold")],
+        )
+
+        assert [(o.email, o.overrides) for o in result] == [
+            ("nadia@ember.test", (PlacementOverride.TIER,))
+        ]
+
+    def test_a_date_they_did_not_offer_is_marked(self):
+        result = overridden_placements(
+            [vendor(available=[DATES[0]])],
+            [pinned("nadia@ember.test", DATES[1], "Section Gold 1")],
+        )
+
+        assert [o.overrides for o in result] == [(PlacementOverride.DATE,)]
+
+    def test_a_whole_table_for_someone_who_asked_to_share_is_marked(self):
+        result = overridden_placements(
+            [vendor(table_choice="half")],
+            [pinned("nadia@ember.test", DATES[0], "Section Gold 1", "Full Table")],
+        )
+
+        assert [o.overrides for o in result] == [(PlacementOverride.TABLE_CHOICE,)]
+
+    def test_half_a_table_for_someone_who_asked_for_a_whole_one_is_marked(self):
+        result = overridden_placements(
+            [vendor(table_choice="full")],
+            [pinned("nadia@ember.test", DATES[0], "Section Gold 1", "Half Table (Left)")],
+        )
+
+        assert [o.overrides for o in result] == [(PlacementOverride.TABLE_CHOICE,)]
+
+    def test_either_is_never_an_override(self):
+        """"Either is fine" is satisfied by both, so neither contradicts it."""
+        result = overridden_placements(
+            [vendor(table_choice="either")],
+            [pinned("nadia@ember.test", DATES[0], "Section Gold 1", "Half Table (Left)")],
+        )
+
+        assert result == []
+
+    def test_a_placement_that_matches_the_answer_is_not_marked(self):
+        result = overridden_placements(
+            [vendor()], [pinned("nadia@ember.test", DATES[0], "Section Gold 1")]
+        )
+
+        assert result == []
+
+    def test_a_solver_placement_is_never_marked(self):
+        """The solver does not contradict answers; a row from it appearing here would be a bug."""
+        result = overridden_placements(
+            [vendor(tiers=("Silver",))],
+            [placement("nadia@ember.test", DATES[0], "Section Gold 1")],
+        )
+
+        assert result == []
+
+    def test_every_contradiction_is_reported_not_just_the_first(self):
+        result = overridden_placements(
+            [vendor(available=DATES, tiers=("Silver",), table_choice="half")],
+            [pinned("nadia@ember.test", DATES[0], "Section Gold 1", "Full Table")],
+        )
+
+        assert set(result[0].overrides) == {
+            PlacementOverride.TIER,
+            PlacementOverride.TABLE_CHOICE,
+        }
+
+    def test_a_date_they_never_offered_carries_no_tier_answer_to_contradict(self):
+        """Tier is answered per date. A price warning on a date with no answer is noise."""
+        result = overridden_placements(
+            [vendor(available=[DATES[0]], tiers=("Silver",))],
+            [pinned("nadia@ember.test", DATES[1], "Section Gold 1", tier="Gold")],
+        )
+
+        assert [o.overrides for o in result] == [(PlacementOverride.DATE,)]
+
+
+class TestAPinThePlanNoLongerHolds:
+    """Orphaned, not deleted: a deliberate guarantee is never lost silently."""
+
+    def test_a_seat_the_plan_still_has_is_not_an_orphan(self):
+        assert orphaned_pins(
+            plan(), [pinned("nadia@ember.test", DATES[0], "Section Gold 1")]
+        ) == []
+
+    def test_a_table_number_beyond_the_sections_count_is_an_orphan(self):
+        """Dropping a section's count below a pinned seat leaves the pin behind."""
+        orphans = orphaned_pins(
+            plan(section_counts=((GOLD, 1),)),
+            [pinned("nadia@ember.test", DATES[0], "Section Gold 2")],
+        )
+
+        assert [p["table_code"] for p in orphans] == ["Section Gold 2"]
+
+    def test_a_deleted_section_leaves_its_pins_behind(self):
+        orphans = orphaned_pins(
+            plan(section_counts=((GOLD, 2),)),
+            [pinned("nadia@ember.test", DATES[0], "Section Silver 1")],
+        )
+
+        assert len(orphans) == 1
+
+    def test_a_date_the_plan_no_longer_runs_is_an_orphan(self):
+        orphans = orphaned_pins(
+            plan(dates=[DATES[0]]),
+            [pinned("nadia@ember.test", DATES[1], "Section Gold 1")],
+        )
+
+        assert len(orphans) == 1
+
+    def test_a_solver_placement_is_never_an_orphan(self):
+        """Only a pin is a promise. A solver row at a vanished seat is simply stale output."""
+        assert orphaned_pins(
+            plan(section_counts=((GOLD, 1),)),
+            [placement("nadia@ember.test", DATES[0], "Section Gold 9")],
+        ) == []

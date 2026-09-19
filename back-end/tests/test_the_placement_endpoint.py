@@ -320,3 +320,120 @@ def test_a_solver_run_carries_the_organization_name(collection, monkeypatch):
     result, _status = PlacementsApi.run_assignment("market-123", "user-1")
 
     assert result["organizationName"] == "Seed Test Org"
+
+
+class TestASecondPinToAnOccupiedSeat:
+    """A contradiction, not a preference the solver can weigh - refused while both are visible."""
+
+    def test_the_refusal_names_the_vendor_already_there(self, collection):
+        already_placed(collection, ("ana@example.com", "2026-08-01", "Hall A 1"))
+
+        with pytest.raises(PlacementsApi.SeatTakenError) as refusal:
+            PlacementsApi.write_placement(
+                "market-123", placement(email="ben@example.com"), "user-1"
+            )
+
+        assert "ana@example.com" in str(refusal.value)
+        assert "Hall A 1" in str(refusal.value)
+        assert collection.last_update is None
+
+    def test_the_vendor_already_there_may_still_be_moved_within_their_own_seat(self, collection):
+        """Their own row is replaced, not collided with."""
+        already_placed(collection, ("ana@example.com", "2026-08-01", "Hall A 1"))
+
+        _result, status = PlacementsApi.write_placement(
+            "market-123", placement(table_choice="Half Table (Left)"), "user-1"
+        )
+
+        assert status == 200
+
+    def test_the_other_half_of_a_shared_table_is_somebody_elses_business(self, collection):
+        collection.doc["assignmentObject"]["vendorAssignments"] = [
+            {
+                "email": "ana@example.com", "date": "2026-08-01", "tableCode": "Hall A 1",
+                "tableChoice": "Half Table (Left)", "section": "Hall A", "tier": "Gold",
+                "location": "Main Hall", "handPlaced": True,
+            }
+        ]
+
+        _result, status = PlacementsApi.write_placement(
+            "market-123",
+            placement(email="ben@example.com", table_choice="Half Table (Right)"),
+            "user-1",
+        )
+
+        assert status == 200
+
+    def test_a_whole_table_needs_both_seats(self, collection):
+        collection.doc["assignmentObject"]["vendorAssignments"] = [
+            {
+                "email": "ana@example.com", "date": "2026-08-01", "tableCode": "Hall A 1",
+                "tableChoice": "Half Table (Left)", "section": "Hall A", "tier": "Gold",
+                "location": "Main Hall", "handPlaced": True,
+            }
+        ]
+
+        with pytest.raises(PlacementsApi.SeatTakenError):
+            PlacementsApi.write_placement(
+                "market-123", placement(email="ben@example.com"), "user-1"
+            )
+
+    def test_a_half_cannot_be_squeezed_beside_a_whole_table(self, collection):
+        already_placed(collection, ("ana@example.com", "2026-08-01", "Hall A 1"))
+
+        with pytest.raises(PlacementsApi.SeatTakenError):
+            PlacementsApi.write_placement(
+                "market-123",
+                placement(email="ben@example.com", table_choice="Half Table (Right)"),
+                "user-1",
+            )
+
+    def test_the_same_seat_on_another_date_is_another_seat(self, collection):
+        already_placed(collection, ("ana@example.com", "2026-08-01", "Hall A 1"))
+
+        _result, status = PlacementsApi.write_placement(
+            "market-123", placement(email="ben@example.com", date="2026-08-02"), "user-1"
+        )
+
+        assert status == 200
+
+
+class TestFreeingASeat:
+    """The operation every safe change is built on: no move displaces an occupant."""
+
+    def test_a_placement_is_removed(self, collection):
+        already_placed(
+            collection,
+            ("ana@example.com", "2026-08-01", "Hall A 1"),
+            ("ben@example.com", "2026-08-01", "Hall A 2"),
+        )
+
+        result, status = PlacementsApi.remove_placement(
+            "market-123", "ana@example.com", "2026-08-01", "user-1"
+        )
+
+        assert (status, result) == (200, {"removed": 1})
+        assert [row["email"] for row in written_placements(collection)] == ["ben@example.com"]
+
+    def test_removing_a_seat_nobody_holds_is_not_an_error(self, collection):
+        """The caller asked for that seat to be empty, and it is."""
+        result, status = PlacementsApi.remove_placement(
+            "market-123", "nobody@example.com", "2026-08-01", "user-1"
+        )
+
+        assert (status, result) == (200, {"removed": 0})
+        assert collection.last_update is None
+
+    def test_removing_needs_edit_permission(self, monkeypatch):
+        fake = FakeMarketsCollection(stored_market(setupObject=SETUP_OBJECT))
+        monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
+
+        with pytest.raises(PermissionError):
+            PlacementsApi.remove_placement(
+                "market-123", "ana@example.com", "2026-08-01", "user-1"
+            )
+
+    def test_removing_must_name_a_vendor_and_a_date(self, collection):
+        with pytest.raises(PlacementsApi.PlacementError):
+            PlacementsApi.remove_placement("market-123", "", "2026-08-01", "user-1")

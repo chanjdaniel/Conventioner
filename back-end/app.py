@@ -1150,10 +1150,46 @@ def write_placement(market_id: str) -> Response:
         return jsonify({"error": str(e)}), 404
     except PermissionError as e:
         return jsonify({"error": str(e)}), 403
+    except PlacementsApi.SeatTakenError as e:
+        return jsonify({"error": str(e)}), 409
     except PlacementsApi.PlacementError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         logger.error(f"Error in write_placement for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_id}/placements",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@app.route('/markets/<market_id>/placements', methods=['DELETE'])
+@login_required
+def remove_placement(market_id: str) -> Response:
+    """Free the seat one vendor holds on one date. Requires EDIT permission.
+
+    The counterpart of the PUT above, and the reason no operation displaces an occupant:
+    freeing a seat first is safe, and mirrors what an organizer physically does.
+    """
+    try:
+        data = request.json or {}
+        result, status_code = PlacementsApi.remove_placement(
+            market_id,
+            str(data.get("email") or ""),
+            str(data.get("date") or ""),
+            authenticated_email(),
+        )
+        return jsonify(result), status_code
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except PlacementsApi.PlacementError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in remove_placement for {market_id}: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({
             "error": "Internal server error",
