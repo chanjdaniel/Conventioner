@@ -265,15 +265,22 @@ def test_get_market_tables_returns_camel_case_rows(monkeypatch):
         ],
     )
 
+    monkeypatch.setattr(
+        MarketsApi.ApplicationsApi, "vendor_names_for_market",
+        lambda _id: {"a@example.com": "Ana Rivera"},
+    )
+
     result, status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
 
     assert status == 200
-    assert isinstance(result, list)
-    assert result[0]["assignment"] == ["a@example.com", "a@example.com"]
-    assert result[0]["tableChoice"] == "Full Table"
-    assert result[0]["tableCode"] == "A1"
-    assert result[1]["assignment"] == []
-    assert result[1]["tableCode"] == "A2"
+    rows = result["rows"]
+    assert rows[0]["assignment"] == ["a@example.com", "a@example.com"]
+    assert rows[0]["tableChoice"] == "Full Table"
+    assert rows[0]["tableCode"] == "A1"
+    assert rows[1]["assignment"] == []
+    assert rows[1]["tableCode"] == "A2"
+    # The grid and its occupants' names arrive together, so they can never be a request apart.
+    assert result["vendorNames"] == {"a@example.com": "Ana Rivera"}
 
 
 def test_derive_market_table_rows_includes_unassigned_tables():
@@ -362,14 +369,14 @@ def test_get_assignment_csv_returns_csv_string(monkeypatch):
     monkeypatch.setattr(
         MarketsApi,
         "market_csv_to_string",
-        lambda market_dict: "Email,Day 1\nvendor@example.com,A1 - Full Table\n",
+        lambda market_dict, vendor_names: "Name,Email,Day 1\nAna Rivera,vendor@example.com,A1 - Full Table\n",
     )
 
     result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
 
     assert status == 200
     assert result["filename"] == "Test_Market_assigned.csv"
-    assert result["csv_content"].startswith("Email,Day 1")
+    assert result["csv_content"].startswith("Name,Email,Day 1")
     assert "vendor@example.com" in result["csv_content"]
     assert result["market_id"] == "market-123"
 

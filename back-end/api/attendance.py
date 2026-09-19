@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+import api.applications as ApplicationsApi
 from assignment.assignment import assign_market
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from db_config import get_database
@@ -214,10 +215,16 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
 
     matched.sort(key=lambda r: r["date"])
 
+    # The vendor's own name, so the page they look themselves up on greets them rather than
+    # their address. Absent for an application written before names existed, and the page falls
+    # back to the address exactly as it did then.
+    names = ApplicationsApi.vendor_names_for_market(market_id)
+
     payload = {
         "market_name": market_doc.get("name", ""),
         "market_slug": market_slug,
         "vendor_email": target_email,
+        "vendor_name": names.get(target_email, ""),
         "assignments": matched,
     }
     return convert_keys_to_camel_case(payload), 200

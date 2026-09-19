@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
+import { type VendorNames } from '@/utils/vendorIdentity';
+import VendorIdentity from '@/components/VendorIdentity.vue';
 
 interface MarketTableRow {
   date: string;
@@ -36,6 +38,8 @@ const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 const allRows = ref<MarketTableRow[]>([]);
+/** Email to name, from the same response as the rows, so a table and its occupant agree. */
+const vendorNames = ref<VendorNames>({});
 const isLoading = ref(false);
 const errorMessage = ref('');
 
@@ -211,10 +215,11 @@ async function loadTables(): Promise<void> {
   }
   isLoading.value = true;
   try {
-    const resp = await api.get<MarketTableRow[]>(
+    const resp = await api.get<{ rows: MarketTableRow[]; vendorNames: VendorNames }>(
       `/markets/${encodeURIComponent(marketId.value)}/tables`,
     );
-    allRows.value = Array.isArray(resp.data) ? resp.data : [];
+    allRows.value = Array.isArray(resp.data?.rows) ? resp.data.rows : [];
+    vendorNames.value = resp.data?.vendorNames ?? {};
   } catch (err: unknown) {
     const data =
       err && typeof err === 'object' && 'response' in err
@@ -222,6 +227,7 @@ async function loadTables(): Promise<void> {
         : undefined;
     errorMessage.value = data?.error || 'Failed to load tables.';
     allRows.value = [];
+    vendorNames.value = {};
   } finally {
     isLoading.value = false;
   }
@@ -387,27 +393,35 @@ onMounted(loadTables);
                         <span class="assignment-empty">Unassigned</span>
                       </template>
                       <template v-else-if="rowStatus(row).isFull">
-                        <span class="assignment-email assignment-email--full">{{
-                          rowStatus(row).leftEmail
-                        }}</span>
+                        <VendorIdentity
+                          class="assignment-email assignment-email--full"
+                          :email="rowStatus(row).leftEmail"
+                          :names="vendorNames"
+                        />
                       </template>
                       <template v-else>
                         <div class="half-slot">
                           <span class="half-slot-label">Left</span>
-                          <span
+                          <VendorIdentity
+                            v-if="rowStatus(row).leftEmail"
                             class="assignment-email"
-                            :class="{ 'assignment-email--vacant': !rowStatus(row).leftEmail }"
-                          >
-                            {{ rowStatus(row).leftEmail || 'Vacant' }}
+                            :email="rowStatus(row).leftEmail"
+                            :names="vendorNames"
+                          />
+                          <span v-else class="assignment-email assignment-email--vacant">
+                            Vacant
                           </span>
                         </div>
                         <div class="half-slot">
                           <span class="half-slot-label">Right</span>
-                          <span
+                          <VendorIdentity
+                            v-if="rowStatus(row).rightEmail"
                             class="assignment-email"
-                            :class="{ 'assignment-email--vacant': !rowStatus(row).rightEmail }"
-                          >
-                            {{ rowStatus(row).rightEmail || 'Vacant' }}
+                            :email="rowStatus(row).rightEmail"
+                            :names="vendorNames"
+                          />
+                          <span v-else class="assignment-email assignment-email--vacant">
+                            Vacant
                           </span>
                         </div>
                       </template>
