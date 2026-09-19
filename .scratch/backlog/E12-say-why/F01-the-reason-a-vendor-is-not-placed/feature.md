@@ -2,9 +2,9 @@
 id: E12/F01
 title: The reason a vendor is not placed
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [72]
 ---
 
 ## Outcome

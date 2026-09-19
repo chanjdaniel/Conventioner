@@ -2,9 +2,9 @@
 id: E12/F03
 title: A tier with no tables
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [72]
 ---
 
 ## Outcome

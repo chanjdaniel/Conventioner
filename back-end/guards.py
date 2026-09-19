@@ -19,11 +19,15 @@ Phase 2 guards implemented (conv-market-state-machine-t7):
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import api.applications as ApplicationsApi
 from datatypes import ApplicationStatus, Market, MarketPhase
-from essential_fields import effective_essential_options_for_market, plan_derived_asked_keys
+from essential_fields import (
+    TIER_PREFERENCE_KEY,
+    effective_essential_options_for_market,
+    plan_derived_asked_keys,
+)
 
 
 # ── Wire shape (backend/frontend contract) ──────────────────────────────
@@ -275,12 +279,99 @@ VALID_TRANSITIONS: set[tuple[str, str]] = {
     ("market_days", "archived"),
 }
 
+class NoAskedForTierWithoutTablesGuard:
+    """No approved applicant may be waiting on a tier the plan gives no tables to.
+
+    Tables are generated from sections and a section carries one tier, so a tier with no section
+    has no tables on any date. An approved application naming that tier is a guaranteed rejection:
+    the solver will refuse to place them, correctly, and the organizer finds out afterwards from a
+    payoff screen reporting free tables beside unplaced vendors. That is the finding E12 exists to
+    answer, and this is the half of it that stops it happening rather than explaining it.
+
+    **An empty tier nobody asked for does not block.** A tier the organizer declared and has not
+    built out yet is harmless - the plan editor marks it, and that is the right weight for it. What
+    is not harmless is five approved applicants waiting on it.
+
+    The message names the tier and the applicants, because both fixes are things the organizer does
+    to a named thing: add a section at that tier, or reject those applications. A count alone tells
+    them neither.
+    """
+
+    id: str = "no_asked_for_tier_without_tables"
+    description: str = "Every tier an approved applicant named has tables"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        setup = market.setup_object
+        if setup is None:
+            return PreconditionResult(id=self.id, passed=True, message="")
+
+        with_tables = {
+            section.tier.name
+            for section in setup.sections
+            if section.count > 0 and section.tier and section.tier.name
+        }
+        empty_tiers = {
+            tier.name for tier in setup.tiers if tier.name and tier.name not in with_tables
+        }
+        if not empty_tiers:
+            return PreconditionResult(id=self.id, passed=True, message="")
+
+        # Who is waiting on one, read from the approved applications themselves.
+        waiting: Dict[str, List[str]] = {}
+        approved = ApplicationsApi.list_applications_with_status(
+            market.id, ApplicationStatus.REVIEWER_APPROVED.value,
+        )
+        for document in approved:
+            answers = document.get("form_data") or {}
+            named = _tiers_named_by(answers)
+            email = str(document.get("applicant_email") or "").strip()
+            for tier in sorted(named & empty_tiers):
+                waiting.setdefault(tier, []).append(email or "(no email)")
+
+        if not waiting:
+            return PreconditionResult(id=self.id, passed=True, message="")
+
+        parts = [
+            f"{tier} ({', '.join(sorted(set(applicants)))})"
+            for tier, applicants in sorted(waiting.items())
+        ]
+        tier_word = "tier has" if len(parts) == 1 else "tiers have"
+        return PreconditionResult(
+            id=self.id,
+            passed=False,
+            message=(
+                f"{len(parts)} {tier_word} no tables, and approved applicants are waiting on "
+                f"them: {'; '.join(parts)}. Add a section at that tier, or reject those "
+                f"applications, before assigning."
+            ),
+            resolution_link="/market-setup",
+        )
+
+
+def _tiers_named_by(answers: Dict[str, Any]) -> set:
+    """Every tier this application accepts, across every date it names.
+
+    The answer is stored per date (E01/F05), so this flattens it: a tier with no tables is a
+    problem on whichever day they offered it.
+    """
+    stored = answers.get(TIER_PREFERENCE_KEY)
+    if isinstance(stored, dict):
+        named = set()
+        for tiers in stored.values():
+            named.update(str(tier) for tier in (tiers or []))
+        return named
+    if isinstance(stored, list):
+        return {str(tier) for tier in stored}
+    return set()
+
+
 # Guards are stateless, so one instance is shared by every edge that enforces it.
 _FORM_HAS_FIELDS = FormHasFieldsGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
+_NO_EMPTY_TIER_ASKED_FOR = NoAskedForTierWithoutTablesGuard()
 
 # Entry invariants: what must hold of a market SITTING IN a phase, regardless of the
 # route it took to get there. Every inbound edge to the phase must enforce these, so
@@ -314,7 +405,7 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # The guard should verify that the market's setup_object has at least one
     # priority entry before assignment can begin.
     ("applications_open", "draft"): [_NO_APPLICATIONS_YET],
-    ("review", "assignment"): [_ALL_REVIEWED],
+    ("review", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR],
     ("assignment", "offers"): [_NO_APPROVED],
     ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED],
     ("offers", "market_days"): [_ASSIGNMENT_COMPUTED],

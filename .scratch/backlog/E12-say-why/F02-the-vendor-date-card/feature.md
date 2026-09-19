@@ -2,9 +2,9 @@
 id: E12/F02
 title: The vendor date card
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [72]
 ---
 
 ## Outcome

@@ -2,9 +2,9 @@
 id: E12/F02/S01
 title: Three states, one card
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [72]
 ---
 
 ## What to build

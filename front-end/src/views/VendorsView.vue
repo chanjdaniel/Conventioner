@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
@@ -8,6 +8,8 @@ import { parseMarketFromApi } from '@/utils/market';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
+import VendorDateCard from '@/components/VendorDateCard.vue';
+import { reasonIndex, type PlacementReason, type UnplacedDate } from '@/utils/placementReason';
 import type { Application, Market, MarketDateObject } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 import {
@@ -23,6 +25,7 @@ interface AssignmentStatisticsResponse {
   totalAssignedVendors?: number;
   unassignedVendors?: unknown[];
   unassigned_vendors?: unknown[];
+  unplacedDates?: UnplacedDate[];
 }
 
 interface MarketTableRowResponse {
@@ -55,6 +58,7 @@ interface VendorRow {
 }
 
 const router = useRouter();
+const route = useRoute();
 
 function readMarketFromStorage(): Market | null {
   const raw = localStorage.getItem('market');
@@ -75,6 +79,8 @@ const market = ref<Market | null>(readMarketFromStorage());
 const applications = ref<Application[]>([]);
 const tableRows = ref<MarketTableRowResponse[]>([]);
 const vendorNames = ref<VendorNames>({});
+/** Email + date to the reason there is no table, from the statistics (E12/F01/S01). */
+const unplacedReasons = ref<Map<string, PlacementReason>>(new Map());
 const unassignedEmails = ref<Set<string>>(new Set());
 
 const isLoading = ref(false);
@@ -137,6 +143,8 @@ async function loadVendors(): Promise<void> {
 
     applications.value = Array.isArray(applicationList) ? applicationList : [];
 
+    unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
+
     const statsList = statsResp.data?.unassignedVendors ?? statsResp.data?.unassigned_vendors ?? [];
     const unassigned = new Set<string>();
     for (const item of statsList) {
@@ -152,13 +160,33 @@ async function loadVendors(): Promise<void> {
     applications.value = [];
     tableRows.value = [];
     vendorNames.value = {};
+    unplacedReasons.value = new Map();
     unassignedEmails.value = new Set();
   } finally {
     isLoading.value = false;
   }
 }
 
-onMounted(loadVendors);
+/**
+ * Open the vendor the URL names, once the list is loaded.
+ *
+ * The payoff screen's Unassigned Vendors panel links here (E12/F02/S02): an entry that merely
+ * reported an address was the finding. Silently ignored when that address is not in this market's
+ * list, which is what a stale link looks like.
+ */
+function openVendorFromRoute() {
+  const asked = String(route.query.vendor ?? '')
+    .trim()
+    .toLowerCase();
+  if (!asked) return;
+  const row = vendors.value.find((v) => v.email === asked);
+  if (row) selectedRowIndex.value = row.rowIndex;
+}
+
+onMounted(async () => {
+  await loadVendors();
+  openVendorFromRoute();
+});
 
 const setup = computed(() => market.value?.setupObject ?? null);
 const marketDates = computed<MarketDateObject[]>(() => setup.value?.marketDates ?? []);
@@ -272,6 +300,31 @@ function assignmentSummary(assignment: VendorTableAssignment | undefined): strin
     .join(', ');
   if (meta) parts.push(meta);
   return parts.join(' - ');
+}
+
+/** Where they were placed on this date, or null - which is what makes the card's state. */
+function placementOn(row: VendorRow, date: string): string | null {
+  const assignment = row.assignmentsByDate.get(date);
+  return assignment ? assignmentSummary(assignment) : null;
+}
+
+/**
+ * Why they hold no table that day, as the server computed it against the current plan and
+ * assignment. Absent for a date they were placed on, which is how the card knows.
+ */
+function reasonFor(email: string, date: string): PlacementReason | undefined {
+  return unplacedReasons.value.get(`${email.trim().toLowerCase()}|${date}`);
+}
+
+/** The Tables view, filtered to the day the organizer would be placing them on. */
+function tablesLinkFor(date: string): string | null {
+  if (!market.value?.id) return null;
+  return `/markets/${encodeURIComponent(market.value.id)}/tables?date=${encodeURIComponent(date)}`;
+}
+
+function goToTables(date: string): void {
+  const href = tablesLinkFor(date);
+  if (href) router.push(href);
 }
 
 function selectVendor(rowIndex: number): void {
@@ -440,18 +493,16 @@ function handleBack(): void {
             No market dates configured.
           </div>
           <ul v-else class="assignment-list">
-            <li
+            <VendorDateCard
               v-for="date in marketDates"
               :key="date.date"
-              class="assignment-item"
               :data-date="date.date"
-              data-testid="vendors-detail-assignment-item"
-            >
-              <div class="assignment-date">{{ formatDateLabel(date.date) }}</div>
-              <div class="assignment-detail">
-                {{ assignmentSummary(selectedVendor.assignmentsByDate.get(date.date)) }}
-              </div>
-            </li>
+              :label="formatDateLabel(date.date)"
+              :placement="placementOn(selectedVendor, date.date)"
+              :reason="reasonFor(selectedVendor.email, date.date)"
+              :placeHref="tablesLinkFor(date.date)"
+              @place="goToTables(date.date)"
+            />
           </ul>
         </section>
       </div>
