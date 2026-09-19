@@ -250,10 +250,21 @@ async function handleToggleUnasked(key: string, unasked: boolean) {
   }
   const updated = { ...current, unaskedEssentials: [...next] };
   formErrorMessage.value = null;
+  // This writes immediately through its own endpoint, unlike the custom fields beside it which
+  // wait for Save Form. Reporting through the same status is what tells the organizer which of
+  // their changes are already persisted; it used to save in complete silence.
+  clearSavedStatusTimer();
+  formSaveStatus.value = 'saving';
   try {
     const response = await api.put(`/markets/${market.value.id}/application-form`, updated);
     adoptApplicationForm(response.data?.application_form ?? updated);
+    formSaveStatus.value = 'saved';
+    savedStatusTimer.value = setTimeout(() => {
+      savedStatusTimer.value = null;
+      if (formSaveStatus.value === 'saved') formSaveStatus.value = 'idle';
+    }, 2000);
   } catch (err: unknown) {
+    formSaveStatus.value = 'error';
     formErrorMessage.value = getApiErrorMessage(err, 'Could not update the form.');
   }
 }
@@ -473,21 +484,7 @@ watch(pageIdx, (newIdx) => {
                       {{ formSaveStatus === 'saving' ? 'Saving...' : 'Save Form' }}
                     </button>
                     <span
-                      v-if="formValidationError"
-                      class="save-status error"
-                      data-testid="form-builder-validation-error"
-                    >
-                      {{ formValidationError }}
-                    </span>
-                    <span
-                      v-else-if="formIncompleteHint"
-                      class="save-status hint"
-                      data-testid="form-builder-save-hint"
-                    >
-                      {{ formIncompleteHint }}
-                    </span>
-                    <span
-                      v-else-if="formSaveStatus === 'saved'"
+                      v-if="formSaveStatus === 'saved'"
                       class="save-status success"
                       data-testid="form-builder-save-success"
                     >
@@ -499,6 +496,20 @@ watch(pageIdx, (newIdx) => {
                       data-testid="form-builder-save-error"
                     >
                       {{ formErrorMessage }}
+                    </span>
+                    <span
+                      v-else-if="formValidationError"
+                      class="save-status error"
+                      data-testid="form-builder-validation-error"
+                    >
+                      {{ formValidationError }}
+                    </span>
+                    <span
+                      v-else-if="formIncompleteHint"
+                      class="save-status hint"
+                      data-testid="form-builder-save-hint"
+                    >
+                      {{ formIncompleteHint }}
                     </span>
                   </div>
                 </div>
