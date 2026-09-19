@@ -125,7 +125,7 @@ const columnHeaders = computed(() => {
   for (const md of s.marketDates ?? []) {
     headers.push(assignmentHeaderLabel(md));
   }
-  headers.push('Cost');
+  headers.push('Cost (not set)');
   return headers;
 });
 
@@ -186,7 +186,7 @@ const bodyRows = computed(() => {
       cells.push(rowAssign?.get(md.date) ?? '');
     }
 
-    cells.push('—');
+    cells.push('');
     return cells;
   });
 });

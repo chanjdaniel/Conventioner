@@ -233,7 +233,7 @@ const detailFields = computed(() => {
   if (!vendor) return [];
   return customFields.value.map((field) => ({
     label: field.label || field.key,
-    value: answerText(vendor.answers[field.key]) || '—',
+    value: answerText(vendor.answers[field.key]) || 'Not answered',
   }));
 });
 
@@ -244,16 +244,16 @@ function formatDateLabel(date: string): string {
 }
 
 function assignmentSummary(assignment: VendorTableAssignment | undefined): string {
-  if (!assignment) return '—';
+  if (!assignment) return 'Not assigned';
   const parts: string[] = [];
-  const codePart = assignment.tableCode || '—';
+  const codePart = assignment.tableCode || 'No table';
   const choice = assignment.tableChoice ? ` (${assignment.tableChoice})` : '';
   parts.push(`${codePart}${choice}`);
   const meta = [assignment.section, assignment.tier, assignment.location]
     .filter((s) => !!s && s.trim().length > 0)
     .join(', ');
   if (meta) parts.push(meta);
-  return parts.join(' — ');
+  return parts.join(' - ');
 }
 
 function selectVendor(rowIndex: number): void {
@@ -283,7 +283,7 @@ function goToDashboard(): void {
   <div class="vendors-view">
     <div class="vendors-card">
       <header class="vendors-header">
-        <h1>{{ market ? `Vendors — ${market.name}` : 'Vendors' }}</h1>
+        <h1>{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
       </header>
 
       <div class="vendors-body">

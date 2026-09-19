@@ -294,7 +294,7 @@ def test_derive_market_table_rows_includes_unassigned_tables():
                 SimpleNamespace(
                     email="full@example.com",
                     date="2026-01-01",
-                    table_code="A1",
+                    table_code="A 1",
                     table_choice="Full Table",
                     section="A",
                     tier="Gold",
@@ -308,11 +308,11 @@ def test_derive_market_table_rows_includes_unassigned_tables():
 
     assert len(rows) == 2
     rows_by_code = {row.table_code: row for row in rows}
-    assert rows_by_code["A1"].date == "2026-01-01"
-    assert rows_by_code["A1"].assignment == ["full@example.com", "full@example.com"]
-    assert rows_by_code["A1"].table_choice == "Full Table"
-    assert rows_by_code["A2"].assignment == []
-    assert rows_by_code["A2"].table_choice == "Full Table"
+    assert rows_by_code["A 1"].date == "2026-01-01"
+    assert rows_by_code["A 1"].assignment == ["full@example.com", "full@example.com"]
+    assert rows_by_code["A 1"].table_choice == "Full Table"
+    assert rows_by_code["A 2"].assignment == []
+    assert rows_by_code["A 2"].table_choice == "Full Table"
 
 
 def test_get_assignment_csv_returns_404_when_market_missing(monkeypatch):
@@ -569,7 +569,7 @@ def test_derive_market_table_rows_builds_half_table_assignments():
                 SimpleNamespace(
                     email="left@example.com",
                     date="2026-01-01",
-                    table_code="A1",
+                    table_code="A 1",
                     table_choice="Half Table (Left)",
                     section="A",
                     tier="Gold",
@@ -578,7 +578,7 @@ def test_derive_market_table_rows_builds_half_table_assignments():
                 SimpleNamespace(
                     email="right@example.com",
                     date="2026-01-01",
-                    table_code="A1",
+                    table_code="A 1",
                     table_choice="Half Table (Right)",
                     section="A",
                     tier="Gold",

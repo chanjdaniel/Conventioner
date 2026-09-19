@@ -35,7 +35,7 @@ const lookup = computed(() => {
 
 function cellFor(vendor: string, date: string): string {
   const value = lookup.value.get(`${vendor}|${date}`);
-  if (!value) return '—';
+  if (!value) return '-';
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleString();

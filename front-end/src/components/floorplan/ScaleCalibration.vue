@@ -389,7 +389,7 @@ function acceptCalibration() {
 // ── Stage mouse leave (cancel drawing if pointer leaves) ────────────
 function handleStageMouseLeave() {
   if (isDrawing.value) {
-    // Keep drawing — user might come back; mouseup will finalize.
+    // Keep drawing - user might come back; mouseup will finalize.
     // If they release outside, the stage won't fire mouseup.
     // We handle that case by finalizing on next mouseup anywhere.
   }

@@ -9,7 +9,7 @@ import type { PlacedTableObject, FloorplanSectionObject } from '@/assets/types/d
 const store = useFloorplanStore();
 
 // ══════════════════════════════════════════════════════════════════
-//  Section colour palette — distinct from table-type colours
+//  Section colour palette - distinct from table-type colours
 // ══════════════════════════════════════════════════════════════════
 const SECTION_PALETTE = [
   { fill: 'rgba(65, 105, 225, 0.28)', stroke: '#4169E1' }, // royal blue
@@ -559,7 +559,7 @@ onUnmounted(() => {
 
 <style scoped>
 /* ═══════════════════════════════════════════════════════════════════
-   Root — positioned absolutely by parent container
+   Root - positioned absolutely by parent container
    ═══════════════════════════════════════════════════════════════════ */
 .section-grouping {
   position: absolute;

@@ -309,7 +309,11 @@ def offered_values(
     if target.key == EssentialFields.TABLE_TYPE_RANKING_KEY:
         return list(options.table_types)
     if target.key == EssentialFields.TABLE_CHOICE_KEY:
-        return list(EssentialFields.TABLE_CHOICES)
+        # The sentences the applicant read, not the codes they are stored as. This target is the
+        # one whose offering is not the organizer's own words, so it is the one where matching on
+        # storage was invisible: a column of "A whole table to myself" did not match, and the
+        # correction offered was ``full``. ``_stored_answer`` puts the code back afterwards.
+        return EssentialFields.table_choice_labels()
     if target.kind == "custom" and field and field.get("type") in ("select", "multi_select"):
         return list(field.get("options") or [])
     return None
@@ -569,6 +573,12 @@ def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> 
     checkbox question exports. The grid shape - one column per option - is the next story.
     """
     text = str(raw or "").strip()
+    if target.key == EssentialFields.TABLE_CHOICE_KEY:
+        # Spoken in the applicant's words, which is what this target's offering is now made of.
+        # A file that already holds the stored code says the same thing, so it is translated here
+        # rather than sent round the reconciliation screen to be told that ``full`` means ``full``.
+        code = EssentialFields.table_choice_for_label(text)
+        return EssentialFields.TABLE_CHOICE_LABELS[code] if code else text
     if target.key in _MULTI_VALUE_ESSENTIALS:
         return _split_multi(text)
     if target.key == EssentialFields.MAX_DATES_KEY:
@@ -665,6 +675,18 @@ def _matched(
     return (resolved if resolved is not None else ""), []
 
 
+def _stored_answer(key: str, value: Any) -> Any:
+    """A matched answer in the spelling storage keeps, where the two differ.
+
+    Only table choice differs: it is matched against the sentence the applicant read and stored
+    as a code, because a stored sentence would be a copy of the form's wording frozen into every
+    application. Everything else is matched against the market's own names and stored as them.
+    """
+    if key != EssentialFields.TABLE_CHOICE_KEY or not isinstance(value, str):
+        return value
+    return EssentialFields.table_choice_for_label(value) or value
+
+
 def _assembled_rows(
     market_doc: Dict[str, Any],
     headers: Sequence[str],
@@ -708,7 +730,7 @@ def _assembled_rows(
                 offered = offered_values(target, options, field)
                 if offered is not None:
                     value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
-            form_data[key] = value
+            form_data[key] = _stored_answer(key, value)
 
         # Tier is answered PER DATE (E01/F05). A grid already says it that way - one column per
         # date, tiers in the cell - but a form that asked once ("which tiers will you accept?")

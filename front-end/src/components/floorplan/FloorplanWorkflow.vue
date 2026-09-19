@@ -83,7 +83,7 @@ function onPlaced(_count: number) {
   // AutoPlaceButton already calls store.setPlacedTables() internally
 }
 
-/** No-op — SectionGrouping writes directly to store.setSections(). */
+/** No-op - SectionGrouping writes directly to store.setSections(). */
 function onSectionsUpdated() {
   // store.sections is already updated reactively
 }

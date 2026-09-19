@@ -12,8 +12,8 @@ import {
  *   What is being pinned here is the anti-oracle behavior mandated by the
  * security design:
  *
- *   a) Requesting a code returns the exact same response for any email —
- *      known applicant, stranger, nonexistent address — so an attacker cannot
+ *   a) Requesting a code returns the exact same response for any email -
+ *      known applicant, stranger, nonexistent address - so an attacker cannot
  *      enumerate valid applicants.
  *
  *   b) Every verify-code failure (wrong code, already consumed, expired, no
@@ -22,11 +22,11 @@ import {
  *
  *   c) A challenge is consumed by its first verification attempt regardless
  *      of whether the code was correct. After one failure the same code
- *      cannot succeed — and the failure message does not change.
+ *      cannot succeed - and the failure message does not change.
  *
  * All assertions are made through the real back end. No mocking of the
  * login endpoints. The one thing injected is a known-code challenge when
- * the test needs to verify the successful path — the 5d back end hashes
+ * the test needs to verify the successful path - the 5d back end hashes
  * codes immediately on generation, so the test cannot read them from the
  * database after requesting one.
  */
@@ -47,7 +47,7 @@ function dashboardUrl(slug: string): RegExp {
   return new RegExp(`/${slug}/applicant/dashboard`);
 }
 
-test.describe('Public applicant login — anti-oracle', () => {
+test.describe('Public applicant login - anti-oracle', () => {
   let market: ApplicantMarketSeed;
 
   test.beforeEach(async ({ request }) => {
@@ -87,7 +87,7 @@ test.describe('Public applicant login — anti-oracle', () => {
   test('(b) verify-code returns an identical 401 regardless of the failure reason', async ({
     request,
   }) => {
-    // Request a code for the applicant email — this creates a challenge.
+    // Request a code for the applicant email - this creates a challenge.
     await request.post(
       `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant-login/request-code`,
       { data: { email: APPLICANT_EMAIL } },
@@ -114,7 +114,7 @@ test.describe('Public applicant login — anti-oracle', () => {
     expect(consumedBody).toEqual(wrongBody);
   });
 
-  test('(c) a consumed code cannot be reused — even the correct code fails after a wrong attempt', async ({
+  test('(c) a consumed code cannot be reused - even the correct code fails after a wrong attempt', async ({
     request,
   }) => {
     // Insert a challenge with a known code directly so we control the code.
@@ -130,7 +130,7 @@ test.describe('Public applicant login — anti-oracle', () => {
     expect(wrongBody).toEqual(VERIFY_FAILURE_MESSAGE);
 
     // Second attempt: the *correct* code. The back end consumed the challenge
-    // on the first attempt — wrong or right — so this also fails with the
+    // on the first attempt - wrong or right - so this also fails with the
     // identical 401. No "try again" path exists.
     const correctRes = await request.post(
       `${BACKEND_URL}/public/markets/${market.marketSlug}/applicant-login/verify-code`,
@@ -170,7 +170,7 @@ test.describe('Public applicant login — anti-oracle', () => {
     await expect(login.error).toBeVisible({ timeout: 5000 });
     await expect(login.error).toHaveText('Invalid or expired code.');
 
-    // Enter another wrong code. The error is identical — the front end
+    // Enter another wrong code. The error is identical - the front end
     // renders whatever the back end sent back, which is always the same.
     await login.enterCode('111111');
     await expect(login.error).toBeVisible({ timeout: 5000 });

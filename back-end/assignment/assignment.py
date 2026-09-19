@@ -4,7 +4,7 @@ from datatypes import (
     Market, SetupObject, MarketDateObject, TierObject, SectionObject,
     ALL_OTHERS, APPLICATION_TYPE_RULE_TARGET, BUILT_IN_TARGET_PREFIX, SUBMITTED_AT_RULE_TARGET,
     AssignmentObject, AssignmentStatistics, VendorAssignmentResult, PriorityDirection,
-    PriorityObject, LocationObject
+    PriorityObject, LocationObject, table_code_for
 )
 from essential_fields import (
     TABLE_CHOICE_EITHER,
@@ -200,7 +200,7 @@ class DateAssignment:
         # initialize tables from SectionObjects
         for section in sections:
             for i in range(section.count):
-                table = Table(market_date, section.name + f"{i + 1}", section, section.tier, section.location)
+                table = Table(market_date, table_code_for(section.name, i + 1), section, section.tier, section.location)
                 self.tables.append(table)
 
     def __repr__(self):

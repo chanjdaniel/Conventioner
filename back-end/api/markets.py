@@ -17,6 +17,7 @@ from datatypes import (
     UnassignedTableEntry,
     intake_mode_from_market_document,
     phase_from_market_document,
+    table_code_for,
 )
 from assignment.assignment import IncompleteApplicationsError, assign_market
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case, snake_to_camel
@@ -350,7 +351,7 @@ def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
     for market_date in setup_object.market_dates:
         for section in setup_object.sections:
             for idx in range(section.count):
-                table_code = f"{section.name}{idx + 1}"
+                table_code = table_code_for(section.name, idx + 1)
                 rows_by_key[(market_date.date, table_code)] = {
                     "date": market_date.date,
                     "assignment_slots": [None, None],

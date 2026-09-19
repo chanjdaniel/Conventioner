@@ -273,7 +273,7 @@ function cancelArchive() {
             as refused. This cannot be undone.
           </template>
           <template v-else-if="sweepPendingCount === 0">
-            No offers are pending — no vendors will be marked refused.
+            No offers are pending, so no vendors will be marked refused.
           </template>
           <template v-else>
             {{ sweepPendingCount }} offer{{ sweepPendingCount === 1 ? '' : 's' }}

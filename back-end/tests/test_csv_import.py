@@ -496,6 +496,58 @@ class TestMatchingCellValues:
         data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
         assert data["essential_table_choice"] == "half"
 
+    def test_table_choice_matches_the_sentence_the_applicant_read(self, markets, applications):
+        """A column exported from this product's own form matched nothing at all.
+
+        Table choice was matched against the code it is stored as, so every cell of "A whole
+        table to myself" was reported as not matching the market - and the correction offered was
+        ``full``, a word no applicant ever saw.
+        """
+        row = GOOD_ROW.replace(",half,", ",A whole table to myself,")
+
+        body, status = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+
+        assert status == 200, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_table_choice"] == "full"
+
+    def test_a_table_choice_still_resolves_by_the_sentence(self, markets, applications):
+        """The reconciliation screen offers the sentences, so a resolution names one."""
+        resolutions = {
+            EssentialFields.TABLE_CHOICE_KEY: {"Sharing is fine": "Half a table, shared"},
+        }
+        row = GOOD_ROW.replace(",half,", ",Sharing is fine,")
+
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(row), MAPPING, resolutions,
+        )
+
+        assert status == 200, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_table_choice"] == "half"
+
+    def test_an_unmatched_table_choice_is_offered_the_sentences_to_pick_from(self, markets):
+        row = GOOD_ROW.replace(",half,", ",No preference really,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
+
+        [entry] = [u for u in body["unmatched"] if u["target"] == EssentialFields.TABLE_CHOICE_KEY]
+        assert entry["offered"] == [
+            "A whole table to myself",
+            "Half a table, shared",
+            "Either is fine",
+        ]
+
+    def test_a_file_already_holding_the_stored_code_still_matches(self, markets, applications):
+        """The old spelling is not sent round reconciliation to be told that ``full`` is ``full``."""
+        row = GOOD_ROW.replace(",half,", ",full,")
+
+        body, status = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+
+        assert status == 200, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_table_choice"] == "full"
+
 
 class TestPreviewingRowValidity:
     """What will and will not import, said before anything is written.

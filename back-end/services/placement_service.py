@@ -1,7 +1,7 @@
 """
 Placement engine for auto-placing tables within a floorplan.
 
-No Flask dependency — pure geometry logic using Shapely and pyckingsolver.
+No Flask dependency - pure geometry logic using Shapely and pyckingsolver.
 Works entirely in millimetre coordinates.
 """
 
@@ -426,7 +426,7 @@ def auto_place_tables(
     zone = _compute_placement_zone(room, obstacle_objects, wall_buffer)
 
     if zone.is_empty or zone.area <= 0:
-        logger.warning("Placement zone is empty — returning 0 placed tables")
+        logger.warning("Placement zone is empty - returning 0 placed tables")
         return []
 
     # ── primary: pyckingsolver ────────────────────────────────────────────

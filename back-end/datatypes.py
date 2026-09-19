@@ -239,6 +239,17 @@ class SectionObject(BaseModel):
     count: int
 
 
+def table_code_for(section_name: str, index: int) -> str:
+    """The organizer-facing name of one table: its section and its number within that section.
+
+    One function because there were two, spelled the same way and both wrong: the solver and the
+    tables endpoint each built ``section.name + str(n)``, which reads "Front Row1" wherever a
+    table is named. The code is also the key the two sides match on, so a separator added in one
+    place and not the other would silently unassign every table.
+    """
+    return f"{section_name} {index}"
+
+
 class AssignmentOptionObject(BaseModel):
     # None = the organizer named no ceiling, so each vendor is bounded by their own answer and by
     # how many dates they can attend. There is no hidden default standing in for the four-day

@@ -78,13 +78,25 @@ Where a section sits in the venue. Descriptive; the solver does not filter on it
 **Table**:
 One physical table on one market date. Holds either one full-table vendor or two half-table vendors.
 
+**Table code**:
+A table's name: its section, a space, then its number within that section - "Front Row 1".
+Built in exactly one place (`table_code_for` in `back-end/datatypes.py`), because it is both the label an organizer reads and the key a stored placement is matched against.
+_Avoid_: Table number, table ID, "Front Row1"
+
 **Table type**:
 The physical kind of a table, such as its size. A property of an **individual table, not of its section** - any table in any section may be any type - so only a floorplan can describe it. Stubbed to a single type until the floorplan ships.
 _Avoid_: Table choice (a different concept, below)
 
 **Table choice**:
 Whether a vendor wants a full table, a half table, or either. Not a preference about table *type*.
-_Avoid_: Table size, table preference
+Stored as a code (`full`, `half`, `either`) and read back to a human as the sentence the applicant chose: "A whole table to myself", "Half a table, shared", "Either is fine".
+Those sentences are the name of the thing - the CSV importer matches an imported column against them, and the review queue prints them - so the pairing lives in one place per side (`TABLE_CHOICE_LABELS` in `back-end/essential_fields.py`, `TABLE_CHOICES` in `front-end/src/utils/essentialFields.ts`) and the two must stay in step.
+_Avoid_: Table size, table preference, showing the stored code to anyone
+
+**Placed as**:
+What a vendor actually got: "Full Table", "Half Table (Left)", "Half Table (Right)".
+A different concept from **table choice**, which is what they asked for - an "Either is fine" applicant is placed as one or the other.
+_Avoid_: Using the applicant's sentence for an outcome, or "table choice" for either one alone
 
 **Table sharing**:
 Two half-table vendors placed at the same table. A vendor may name a preferred partner by email; one who names nobody may be paired with a stranger.

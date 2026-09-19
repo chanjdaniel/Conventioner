@@ -37,6 +37,12 @@ export const TABLE_SHARE_EMAIL_LABEL = 'Table-share partner';
  */
 export const STUB_TABLE_TYPE = 'Standard';
 
+/**
+ * The value stored, and the sentence the applicant reads beside it. Mirrors
+ * `TABLE_CHOICE_LABELS` in `back-end/essential_fields.py`, which is the same pairing and must
+ * stay in step: the CSV importer matches an imported column against the label, so a label that
+ * differs by a word here is a column that no longer matches there.
+ */
 export const TABLE_CHOICES: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'full', label: 'A whole table to myself' },
   { value: 'half', label: 'Half a table, shared' },

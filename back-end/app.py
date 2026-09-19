@@ -1035,7 +1035,7 @@ def transition_market(market_id: str) -> Response:
 @app.route('/markets/<market_id>/pending-offers-count', methods=['GET'])
 @login_required
 def pending_offers_count(market_id: str) -> Response:
-    """Return how many applications are still in ``assignment_sent`` — the count of
+    """Return how many applications are still in ``assignment_sent`` - the count of
     offers that will be swept to ``vendor_refused`` when the market advances from
     ``offers`` to ``market_days``. Drives the sweep confirmation dialog in the UI.
     """
