@@ -128,10 +128,13 @@ class FakeMarketsDb:
     """Simulates the markets collection for the publish-results endpoint."""
 
     def __init__(self, doc=None):
+        # `intakeMode: form`, because the flag has no reader on a CSV market: every endpoint that
+        # consults it is behind the applicant-intake gate (E10/F04/S03).
         self._doc = dict(doc) if doc else {
             "id": "market-1",
             "phase": MarketPhase.APPLICATIONS_CLOSED.value,
             "isDraft": False,
+            "intakeMode": "form",
             "resultsPublished": False,
         }
         self.updates = []
@@ -166,6 +169,7 @@ def test_publish_results_refuses_when_already_published(monkeypatch):
         "id": "market-1",
         "phase": MarketPhase.APPLICATIONS_CLOSED.value,
         "isDraft": False,
+        "intakeMode": "form",
         "resultsPublished": True,
     })
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
@@ -192,6 +196,7 @@ def test_publish_results_refuses_on_draft_market(monkeypatch):
         "id": "market-1",
         "phase": MarketPhase.DRAFT.value,
         "isDraft": True,
+        "intakeMode": "form",
         "resultsPublished": False,
     })
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
@@ -308,3 +313,49 @@ def test_review_application_rejects_app_from_different_market(monkeypatch):
         "market-1", "app-1", ApplicationStatus.REVIEWER_APPROVED,
     )
     assert status == 404
+
+
+class TestPublishingResultsOnAMarketWithNoApplicants:
+    """`resultsPublished` is read only by endpoints behind the applicant-intake gate.
+
+    On a CSV market - which is every market this product can currently create - the flag has no
+    reader at all, so flipping it changed nothing anyone could see: a control with a confident
+    label and no effect.
+    """
+
+    def _csv_market(self, monkeypatch):
+        fake = FakeMarketsDb({
+            "id": "market-1",
+            "phase": MarketPhase.APPLICATIONS_CLOSED.value,
+            "isDraft": False,
+            "resultsPublished": False,
+        })
+        monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
+            "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
+        }))
+        return fake
+
+    def test_a_csv_market_is_refused(self, monkeypatch):
+        fake = self._csv_market(monkeypatch)
+
+        result, status = publish_results("market-1")
+
+        assert status == 409
+        assert "takes its vendors by import" in result["error"]
+        assert fake._doc.get("resultsPublished") is False
+
+    def test_the_refusal_is_the_endpoint_not_a_hidden_button(self, monkeypatch):
+        """The button is conditioned on intake mode too, but the endpoint is reachable directly."""
+        self._csv_market(monkeypatch)
+
+        _result, status = publish_results("market-1")
+
+        assert status == 409
+
+    def test_absence_of_an_intake_mode_reads_as_csv(self, monkeypatch):
+        """The default fails closed, which is what `intake_mode_from_market_document` guarantees."""
+        self._csv_market(monkeypatch)
+
+        _result, status = publish_results("market-1")
+
+        assert status == 409

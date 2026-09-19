@@ -342,6 +342,22 @@ def _market_by_slug(
 _DOCUMENT_READ_FIELDS = ("phase", "intake_mode")
 
 
+def market_serves_applicants(market_doc: Dict[str, Any]) -> bool:
+    """Does this market have an applicant-facing surface at all?
+
+    Its intake mode is ``form``. A CSV market's vendors never see this product: they are imported
+    from a file the organizer already collected, and every applicant endpoint answers for their
+    market exactly as it answers for a market that does not exist.
+
+    The question is asked in two places and stated once here, which is the same reason
+    ``applicant_intake_market_by_slug`` below is one lookup rather than a check in each of five
+    endpoints. The other caller is ``publish_results``: that flag is read only by endpoints behind
+    this gate, so flipping it on a CSV market changes nothing anyone can see - a control with a
+    confident label and no effect.
+    """
+    return intake_mode_from_market_document(market_doc) is IntakeMode.FORM
+
+
 def applicant_intake_market_by_slug(
     collection: Any, market_slug: str, fields: Optional[Sequence[str]] = None,
 ) -> Optional[Dict[str, Any]]:
@@ -374,7 +390,7 @@ def applicant_intake_market_by_slug(
     )
     if market_doc is None:
         return None
-    if intake_mode_from_market_document(market_doc) is not IntakeMode.FORM:
+    if not market_serves_applicants(market_doc):
         return None
     return market_doc
 
