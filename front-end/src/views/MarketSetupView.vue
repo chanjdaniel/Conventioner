@@ -18,6 +18,7 @@ import {
 } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
+import { importRefusal } from '@/utils/importPhase';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
@@ -207,6 +208,9 @@ async function loadApplicationForm() {
     );
   }
 }
+
+/** Why importing is refused in this market's phase, or null. Mirrors the server's own rule. */
+const importRefusalReason = computed(() => importRefusal(market.value?.phase));
 
 /** Guidance for a form the organizer has not finished starting; not a mistake to flag in red. */
 const formIncompleteHint = computed(() => applicationFormHint(applicationForm.value));
@@ -626,15 +630,26 @@ watch(pageIdx, (newIdx) => {
         <!-- `settings-body` lays its children out in a row, which is right for the two-card tabs
              but put the import button in a dead column beside the list. This one stacks. -->
         <div v-if="activeTab === 'applications'" class="settings-body settings-body-stacked">
+          <!-- The button used to be live in every phase and navigate to a page whose only
+               content was the refusal. The gate is right; being told before the click is the
+               part that was missing. -->
           <div class="applications-toolbar">
             <button
               class="import-entry-button"
+              :disabled="importRefusalReason !== null"
               data-testid="market-setup-import-button"
               @click="router.push({ name: 'import-applications' })"
             >
               Import from CSV
             </button>
-            <span class="import-entry-hint">
+            <span
+              v-if="importRefusalReason"
+              class="import-entry-hint import-entry-hint--blocked"
+              data-testid="market-setup-import-blocked-reason"
+            >
+              {{ importRefusalReason }}
+            </span>
+            <span v-else class="import-entry-hint">
               Bring in the responses you already collected, as a CSV from any form tool or
               spreadsheet.
             </span>
@@ -761,10 +776,22 @@ watch(pageIdx, (newIdx) => {
   cursor: pointer;
 }
 
+.import-entry-button:disabled {
+  background: var(--mm-border);
+  border-color: var(--mm-border);
+  color: var(--mm-black);
+  cursor: not-allowed;
+}
+
 .import-entry-hint {
   font-family: 'Outfit Regular';
   font-size: 13px;
   color: var(--mm-text-muted);
+}
+
+.import-entry-hint--blocked {
+  color: var(--mm-text-yellow);
+  max-width: 60ch;
 }
 
 .market-setup-view {

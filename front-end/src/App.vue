@@ -63,7 +63,7 @@ watch(isLogin, (newValue) => {
 <template>
   <div class="app-container" :class="{ 'app-public': isPublicPage }">
     <header>
-      <ElementBanner @menuOpen="navOpen = true" :isLogin="isLogin" />
+      <ElementBanner @menuOpen="navOpen = true" :isLogin="isLogin" :hasMenu="!isPublicPage" />
     </header>
 
     <RouterView class="router-view" :class="{ 'router-view-public': isPublicPage }" />

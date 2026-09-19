@@ -17,6 +17,7 @@ import { useRouter } from 'vue-router';
 import { api, getApiErrorMessage } from '@/utils/api';
 import type { Market } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
+import { canImportInto, importRefusal } from '@/utils/importPhase';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
@@ -85,11 +86,16 @@ const marketId = computed(() => market.value?.id ?? '');
  * import endpoints are reachable directly, and a hidden button is not a rule - but saying so
  * before the organizer picks a file beats letting them choose one and then refusing it.
  */
-const INTAKE_PHASES = ['applications_open', 'applications_closed'];
 const marketPhase = computed(() => String((market.value as { phase?: string })?.phase ?? ''));
-const takingApplications = computed(() => INTAKE_PHASES.includes(marketPhase.value));
+const takingApplications = computed(() => canImportInto(marketPhase.value));
+const phaseRefusal = computed(() => importRefusal(marketPhase.value));
 
 const step = ref<Step>('upload');
+
+/** Leave the wizard for the market it belongs to. Nothing is written until the final confirm. */
+function leaveImport() {
+  router.push({ name: 'market-setup' });
+}
 const busy = ref(false);
 const error = ref('');
 const fileName = ref('');
@@ -584,11 +590,10 @@ function startOver() {
       data-testid="import-wrong-phase"
     >
       <h2>This market is not taking applications right now</h2>
-      <p class="import-help">
-        Importing changes who has applied, so it belongs to the phases where the market is open to
-        applications. Move the market back to
-        <strong>applications closed</strong> and you can import again.
-      </p>
+      <p class="import-help">{{ phaseRefusal }}</p>
+      <button type="button" class="button-secondary" @click="leaveImport">
+        Back to the market
+      </button>
     </section>
 
     <!-- 1. Upload -->
@@ -1078,8 +1083,20 @@ function startOver() {
     </section>
 
     <footer class="import-actions">
+      <!-- The way out. Upload, Map columns, Preview and the value reconciliation had none at all -
+           no Cancel, no breadcrumb - so an organizer who opened this by mistake, or hit a file the
+           product could not read, had the browser's back button and nothing else. Nothing is
+           written until the final confirm, so leaving costs only the mapping. -->
       <button
-        v-if="step !== 'upload'"
+        v-if="step !== 'done'"
+        class="button-secondary"
+        data-testid="import-leave-button"
+        @click="leaveImport"
+      >
+        Cancel import
+      </button>
+      <button
+        v-if="step !== 'upload' && step !== 'done'"
         class="button-secondary"
         data-testid="import-back-button"
         @click="step === 'map' ? startOver() : (step = step === 'preview' ? 'map' : 'preview')"
