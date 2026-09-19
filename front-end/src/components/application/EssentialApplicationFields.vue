@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * The essential questions every applicant answers: available dates, how many dates they want,
- * which tiers they accept, and ranked section and table type preferences. Their answers are what
- * the assignment solver reads, so the shape is fixed - the market plan only decides what they
- * offer.
+ * The essential questions every applicant answers: their name, available dates, how many dates
+ * they want, which tiers they accept, and ranked section and table type preferences. Most are
+ * what the assignment solver reads, so the shape is fixed - the market plan only decides what
+ * they offer. The name is the exception: it is asked whatever the plan offers, because identity
+ * does not depend on it, and the solver never reads it (E13/F01/S01).
  *
  * Tier and section are asked differently on purpose. Tier is a hard filter - it sets what the
  * applicant pays for a table, and they are never placed at one they did not accept - so it is a
@@ -19,6 +20,8 @@ import { getFormattedDate } from '@/utils/utils';
 import {
   AVAILABLE_DATES_KEY,
   AVAILABLE_DATES_LABEL,
+  FULL_NAME_KEY,
+  FULL_NAME_LABEL,
   MAX_DATES_KEY,
   MAX_DATES_LABEL,
   SECTION_RANKING_KEY,
@@ -116,6 +119,12 @@ function toggleTier(date: string, tier: string, checked: boolean) {
   setAnswer(TIER_PREFERENCE_KEY, all);
 }
 
+const fullName = computed(() => (props.modelValue[FULL_NAME_KEY] as string) ?? '');
+
+function onFullNameInput(event: Event) {
+  setAnswer(FULL_NAME_KEY, (event.target as HTMLInputElement).value);
+}
+
 const tableChoice = computed(() => (props.modelValue[TABLE_CHOICE_KEY] as string) ?? '');
 const tableShareEmail = computed(() => (props.modelValue[TABLE_SHARE_EMAIL_KEY] as string) ?? '');
 
@@ -139,6 +148,36 @@ function errorFor(key: string): string {
       <span class="essential-email-label">Email</span>
       <span class="essential-email-value">{{ email }}</span>
       <span class="essential-email-note">You signed in with it; every update goes there.</span>
+    </div>
+
+    <!-- Full name. No `v-if`: unlike every other question here it is not gated on the plan
+         offering anything, because who you are does not depend on the plan. -->
+    <div class="essential-field" :data-testid="`${prefix}-essential-full-name`">
+      <label class="essential-label" :for="`${prefix}-essential-full-name-input`">
+        {{ FULL_NAME_LABEL }}
+        <span class="essential-required">*</span>
+      </label>
+      <p class="essential-help">
+        Your name as you would like it read out. One field: write it however you write it.
+      </p>
+      <input
+        :id="`${prefix}-essential-full-name-input`"
+        class="essential-text-input"
+        :class="{ error: errorFor(FULL_NAME_KEY) }"
+        type="text"
+        autocomplete="name"
+        :value="fullName"
+        :disabled="disabled"
+        :data-testid="`${prefix}-essential-full-name-input`"
+        @input="onFullNameInput"
+      />
+      <p
+        v-if="errorFor(FULL_NAME_KEY)"
+        class="essential-error"
+        :data-testid="`${prefix}-essential-error-full-name`"
+      >
+        {{ errorFor(FULL_NAME_KEY) }}
+      </p>
     </div>
 
     <!-- Available dates -->
@@ -492,6 +531,10 @@ function errorFor(key: string): string {
   border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
+}
+
+.essential-text-input.error {
+  border-color: var(--mm-red, #cc0000);
 }
 
 .essential-max-input {

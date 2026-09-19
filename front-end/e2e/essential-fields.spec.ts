@@ -257,6 +257,9 @@ test.describe('Essential form fields', () => {
     // Identity is settled before the form: the email rides along read-only.
     await expect(apply.essentialEmail).toContainText(APPLICANT_EMAIL);
 
+    // Identity: asked whatever the plan offers, and never split (E13/F01/S01).
+    await apply.fullNameInput.fill('Jan van der Berg');
+
     // Available dates: capability.
     await expect(apply.dateCheckbox(PLAN_DATES[0])).toBeVisible();
     await apply.dateCheckbox('2026-08-01').check();
@@ -305,6 +308,9 @@ test.describe('Essential form fields', () => {
     // The dashboard reads the answers back with the questions' own labels.
     const answers = page.getByTestId('applicant-dashboard-answers');
     await expect(
+      answers.getByTestId('applicant-dashboard-answer-essential_full_name'),
+    ).toContainText('Jan van der Berg');
+    await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_available_dates'),
     ).toContainText('August 1, 2026');
     await expect(
@@ -341,6 +347,8 @@ test.describe('Essential form fields', () => {
     expect(app!.formData).toEqual({
       business_name: 'Vermilion Ceramics',
       product_type: 'Hand-thrown pottery',
+      // One field, stored whole: splitting it would guess wrong on exactly this name.
+      essential_full_name: 'Jan van der Berg',
       essential_available_dates: ['2026-08-01', '2026-08-08'],
       essential_max_dates: 2,
       // Only Gold was ticked: an accepted SET, so Silver's absence is the answer, not an omission.
@@ -380,6 +388,7 @@ test.describe('Essential form fields', () => {
           formData: {
             business_name: 'Vermilion Ceramics',
             product_type: 'Pottery',
+            essential_full_name: 'Nadia Okonkwo',
             essential_available_dates: ['2026-08-01'],
             essential_max_dates: 1,
             // Tiers for exactly the dates named above: the validator refuses an available date
@@ -423,6 +432,7 @@ test.describe('Essential form fields', () => {
           formData: {
             business_name: 'Vermilion Ceramics',
             product_type: 'Pottery',
+            essential_full_name: 'Nadia Okonkwo',
             essential_available_dates: ['2026-08-22'],
             essential_max_dates: 1,
             essential_tier_preference: { '2026-08-01': ['Gold'], '2026-08-08': ['Gold'] },

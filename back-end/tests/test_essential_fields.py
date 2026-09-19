@@ -65,7 +65,11 @@ SETUP_CAMEL = {
     ],
 }
 
+# Identity is asked unconditionally, so every valid answer set carries one (E13/F01/S01).
+A_NAME = {"essential_full_name": "Ana Rivera"}
+
 VALID_ANSWERS = {
+    **A_NAME,
     "essential_available_dates": ["2026-08-08", "2026-08-01"],
     "essential_max_dates": 2,
     # Per date (E01/F05). Given out of plan order on purpose: storage canonicalizes it.
@@ -238,10 +242,11 @@ class TestValidatedEssentialAnswers:
     def test_questions_with_an_empty_offering_are_not_asked(self):
         """A plan with no sections or table types yet omits those questions; their answers
         store empty. Dates likewise."""
-        error, stored = EssentialFields.validated_essential_answers({}, EssentialFormOptions())
+        error, stored = EssentialFields.validated_essential_answers(A_NAME, EssentialFormOptions())
 
         assert error is None
         assert stored == {
+            "essential_full_name": "Ana Rivera",
             "essential_available_dates": [],
             "essential_max_dates": None,
             "essential_tier_preference": {},
@@ -291,6 +296,7 @@ class TestTierPreference:
         """
         options = EssentialFormOptions(dates=DATES, tiers=["A"])
         answers = {
+            **A_NAME,
             "essential_available_dates": ["2026-08-01"],
             "essential_max_dates": 1,
             "essential_tier_preference": {"2026-08-01": ["AB"]},
@@ -320,6 +326,7 @@ class TestTierPreference:
     def test_a_market_with_no_tiers_does_not_ask(self):
         options = EssentialFormOptions(dates=DATES)
         answers = {
+            **A_NAME,
             "essential_available_dates": ["2026-08-01"],
             "essential_max_dates": 1,
             "essential_table_choice": "half",
@@ -344,6 +351,7 @@ class TestRankingSuppression:
     def test_a_single_option_ranking_is_not_asked(self):
         options = EssentialFormOptions(dates=DATES, sections=["Main Hall"], table_types=["Standard"])
         answers = {
+            **A_NAME,
             "essential_available_dates": ["2026-08-01"],
             "essential_max_dates": 1,
             "essential_table_choice": "half",
@@ -359,14 +367,14 @@ class TestRankingSuppression:
         """Not a ranking: the applicant may simply not be available that day."""
         options = EssentialFormOptions(dates=["2026-08-01"])
 
-        error, _ = EssentialFields.validated_essential_answers({}, options)
+        error, _ = EssentialFields.validated_essential_answers(A_NAME, options)
 
         assert error is not None and "'Available dates' is required" in error
 
     def test_a_single_offered_tier_is_still_asked(self):
         """Not a ranking: accepting the only tier is a real commitment about what they pay."""
         options = EssentialFormOptions(dates=["2026-08-01"], tiers=["Gold"])
-        answers = {"essential_available_dates": ["2026-08-01"], "essential_max_dates": 1}
+        answers = {**A_NAME, "essential_available_dates": ["2026-08-01"], "essential_max_dates": 1}
 
         error, _ = EssentialFields.validated_essential_answers(answers, options)
 
@@ -425,7 +433,7 @@ class TestTableChoiceAndSharePartner:
 
     def test_a_market_with_no_plan_asks_neither(self):
         """Both follow max_dates: with no dates offered there is nothing to be assigned to."""
-        error, stored = EssentialFields.validated_essential_answers({}, EssentialFormOptions())
+        error, stored = EssentialFields.validated_essential_answers(A_NAME, EssentialFormOptions())
 
         assert error is None
         assert stored["essential_table_choice"] is None
@@ -559,7 +567,7 @@ class TestApplicantSave:
         _seed_application(applications)
 
         body, status = save_applicant_application(
-            "test-market", _token(), {"business_name": "Acme"},
+            "test-market", _token(), {**A_NAME, "business_name": "Acme"},
         )
 
         assert status == 422
@@ -717,6 +725,19 @@ class TestWhichQuestionsAnOfferingAsks:
 
     def test_the_table_share_partner_is_never_required(self):
         assert EssentialFields.TABLE_SHARE_EMAIL_KEY not in EssentialFields.REQUIRED_ESSENTIAL_KEYS
-        assert set(EssentialFields.REQUIRED_ESSENTIAL_KEYS) | {EssentialFields.TABLE_SHARE_EMAIL_KEY} == set(
-            EssentialFields.SOLVER_RELEVANT_KEYS
-        )
+
+    def test_required_is_no_longer_solver_relevance_minus_one(self):
+        """The two lists separated when the name arrived (E13/F01/S01).
+
+        It used to be `tuple(key for key in SOLVER_RELEVANT_KEYS if key != TABLE_SHARE_EMAIL_KEY)`
+        - required-ness DEFINED AS solver-relevance-minus-one. The name is required because
+        identity is, and is deliberately not solver-read, so the derivation had to go.
+        """
+        required = set(EssentialFields.REQUIRED_ESSENTIAL_KEYS)
+        solver = set(EssentialFields.SOLVER_RELEVANT_KEYS)
+
+        assert EssentialFields.FULL_NAME_KEY in required
+        assert EssentialFields.FULL_NAME_KEY not in solver
+        assert required | {EssentialFields.TABLE_SHARE_EMAIL_KEY} == solver | {
+            EssentialFields.FULL_NAME_KEY
+        }
