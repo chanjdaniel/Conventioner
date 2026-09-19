@@ -125,22 +125,18 @@ test.describe('Market pipeline E2E', () => {
     const setupPage = new MarketSetupPage(page);
     await setupPage.waitForWizard();
 
-    // --- Page 0: Market Dates ---
-    // There is no Manage Columns step any more: a market describes no spreadsheet, so the only
-    // thing this page asks for is the days the market runs.
+    // --- The plan, one page (E10/F02/S01) ---
+    // There is no Manage Columns step any more: a market describes no spreadsheet, so the plan is
+    // the days it runs, what it offers, and how the solver should order applicants.
     await setupPage.addMarketDate(MARKET_DATE, 0);
     await expect(setupPage.getDateInput(0)).toHaveValue(MARKET_DATE);
 
-    // Advance to page 1
-    await setupPage.clickNext();
-
-    // --- Page 1: Tiers + Locations + Sections ---
     await setupPage.selectManualPath();
 
     // Tiers are no longer pre-filled from an uploaded spreadsheet's cell values, so the
     // organizer names the one this market runs.
     await setupPage.addTier('Gold', 0);
-    await expect(page.locator('.triple-column-body .priority-row').first()).toBeVisible({
+    await expect(page.locator('.plan-row--triple .priority-row').first()).toBeVisible({
       timeout: 5000,
     });
 
@@ -152,10 +148,7 @@ test.describe('Market pipeline E2E', () => {
     // vendors won a single seat, rather than testing the pipeline.
     await setupPage.addSection('Gold Tables', 'Main Hall', 'Gold', 5, 0);
 
-    // Advance to page 2
-    await setupPage.clickNext();
-
-    // --- Page 2: Assignment Priority + Assignment Options ---
+    // --- Assignment Priority + Assignment Options, further down the same page ---
     // No column mapping to choose: the application form supplies the vendor's address, their
     // table choice and their sharing partner.
     await setupPage.setMaxAssignmentsPerVendor(1);

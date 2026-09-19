@@ -182,6 +182,9 @@ export class FloorplanWorkflowPage {
 
   /** Select the Floorplan AI path from the ChoosePathOverlay. */
   async selectFloorplanPath(): Promise<void> {
+    // The choice is offered from the Section Setup card now, not opened over the page
+    // (E10/F02/S01).
+    await this.page.getByTestId('market-setup-choose-path-button').click();
     await this.choosePathFloorplanCard.click();
     // Expect navigation to /floorplan-editor
     await this.page.waitForURL('**/floorplan-editor**', { timeout: 10000 });
