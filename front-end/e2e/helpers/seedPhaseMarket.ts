@@ -20,7 +20,7 @@ const TWO_FIELDS = [
 
 /**
  * Create a draft market with an application form (two fields).
- * Does NOT transition — leaves the market in draft.
+ * Does NOT transition - leaves the market in draft.
  */
 export async function seedPhaseMarket(
   request: APIRequestContext,

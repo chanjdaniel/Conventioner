@@ -372,7 +372,7 @@ export function useTableInteraction(
 
     if (shift) {
       // Shift+click: always add (range-select helper).
-      // Use the store's toggle method — because the table is guaranteed
+      // Use the store's toggle method - because the table is guaranteed
       // NOT to be in the selection (we checked above), the toggle will
       // unconditionally add it.
       if (!store.selectedTableIds.includes(table.id)) {

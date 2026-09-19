@@ -116,7 +116,7 @@ def upload_floorplan():
 def get_floorplan(gridfs_id: str):
     """Retrieve a floorplan image by its GridFS ObjectId.
 
-    No authentication required — images are referenced by opaque ID.
+    No authentication required - images are referenced by opaque ID.
     """
     try:
         image_data = get_image(gridfs_id)

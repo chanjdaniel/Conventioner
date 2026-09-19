@@ -74,8 +74,12 @@ export function getRolesForChange(
 }
 
 /**
- * Get role display name.
+ * A role as a human reads it.
+ *
+ * Takes a plain string, not a `MarketRole`: organization roles are a different enum with the
+ * same spelling problem, and Organizations printed the stored lower-case value beside a Markets
+ * page that capitalized it. One rule, both callers.
  */
-export function getRoleDisplayName(role: MarketRole): string {
+export function getRoleDisplayName(role: string): string {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }

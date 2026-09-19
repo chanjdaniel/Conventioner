@@ -148,7 +148,7 @@ function logout() {
         @click="logout"
         data-testid="applicant-dashboard-logout-btn"
       >
-        Sign Out
+        Sign out
       </button>
     </div>
   </div>

@@ -351,7 +351,7 @@ onMounted(loadTables);
                 class="section-group"
               >
                 <h3 class="section-heading">
-                  <span class="section-heading-name">Section {{ sectionGroup.section }}</span>
+                  <span class="section-heading-name">{{ sectionGroup.section }}</span>
                   <span v-if="sectionGroup.location" class="section-heading-meta">{{
                     sectionGroup.location
                   }}</span>
@@ -390,7 +390,7 @@ onMounted(loadTables);
 
                     <div class="table-row-assignment">
                       <template v-if="rowStatus(row).label === 'empty'">
-                        <span class="assignment-empty">— Unassigned —</span>
+                        <span class="assignment-empty">Unassigned</span>
                       </template>
                       <template v-else-if="rowStatus(row).isFull">
                         <span class="assignment-email assignment-email--full">{{
@@ -404,7 +404,7 @@ onMounted(loadTables);
                             class="assignment-email"
                             :class="{ 'assignment-email--vacant': !rowStatus(row).leftEmail }"
                           >
-                            {{ rowStatus(row).leftEmail || '— vacant —' }}
+                            {{ rowStatus(row).leftEmail || 'Vacant' }}
                           </span>
                         </div>
                         <div class="half-slot">
@@ -413,7 +413,7 @@ onMounted(loadTables);
                             class="assignment-email"
                             :class="{ 'assignment-email--vacant': !rowStatus(row).rightEmail }"
                           >
-                            {{ rowStatus(row).rightEmail || '— vacant —' }}
+                            {{ rowStatus(row).rightEmail || 'Vacant' }}
                           </span>
                         </div>
                       </template>

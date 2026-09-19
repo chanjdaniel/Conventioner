@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue';
 import { type Organization } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
+import { getRoleDisplayName } from '@/utils/permissions';
 import ManageOrgOverlay from './ManageOrgOverlay.vue';
 
 const organizations = ref<Organization[]>([]);
@@ -98,7 +99,7 @@ function canManage(org: Organization): boolean {
               <div v-if="org.userRole" class="info-row">
                 <span class="info-label">Your role:</span>
                 <span class="info-value role-badge" :class="`role-${org.userRole}`">
-                  {{ org.userRole }}
+                  {{ getRoleDisplayName(org.userRole) }}
                 </span>
               </div>
             </div>

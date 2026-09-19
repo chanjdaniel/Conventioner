@@ -31,7 +31,7 @@ def _validate_reference_line(ref_line: dict, width: int, height: int):
     for key in required_keys:
         if key not in ref_line:
             errors.append(f"reference_line.{key} is required")
-            return errors, 0, 0, 0, 0  # bail early — not all coords present
+            return errors, 0, 0, 0, 0  # bail early - not all coords present
 
     try:
         start_x = float(ref_line["start_x"])

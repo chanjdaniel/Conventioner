@@ -10,7 +10,7 @@ import {
 } from '@/assets/types/datatypes';
 import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
-import IconSettings from '@/components/icons/IconSettings.vue';
+import IconAttendance from '@/components/icons/IconAttendance.vue';
 import IconTables from '@/components/icons/IconTables.vue';
 import IconVendors from '@/components/icons/IconVendors.vue';
 import { api } from '@/utils/api';
@@ -479,7 +479,7 @@ const handleDone = async () => {
                     @click="goToAttendance"
                     data-testid="assignment-results-view-attendance-button"
                   >
-                    <IconSettings class="assignment-quick-nav-icon" />
+                    <IconAttendance class="assignment-quick-nav-icon" />
                     <span class="assignment-quick-nav-label">
                       <span>View </span>
                       <span>Attendance</span>
@@ -516,7 +516,7 @@ const handleDone = async () => {
                   <AssignmentStatListItem
                     v-for="(count, section) in assignmentStatistics.assignmentsPerSection"
                     :key="section"
-                    :label="`Section ${section}`"
+                    :label="String(section)"
                     :value="count"
                     :to="tablesLinkForFilter('section', String(section))"
                   />
@@ -675,7 +675,7 @@ const handleDone = async () => {
 }
 
 /* Match `.market-setup-body` on Market Setup (Assignment Priority / Assignment options): 80% × 80% centered card.
-   Do not set overflow:hidden here — it clips the white card's box-shadow (same shadow as `.settings-container`). */
+   Do not set overflow:hidden here - it clips the white card's box-shadow (same shadow as `.settings-container`). */
 /* Height follows the content, and the page scrolls when there is more of it than fits.
    This used to be `height: 80%; max-height: 80%`, pinning the whole card to a fraction of the
    viewport. Everything inside it is a flex/grid chain ending in `.stat-list { flex: 1 }`, so the
@@ -817,7 +817,7 @@ const handleDone = async () => {
   /* A shrinkable flex item with `min-height: 0` compresses below its own content, which is what
      squeezed the auto rows below the height of the cards in them. */
   flex-shrink: 0;
-  /* Do not add horizontal padding here — it misaligns grid cards vs `.statistics-header-row`.
+  /* Do not add horizontal padding here - it misaligns grid cards vs `.statistics-header-row`.
        Shadow clearance comes from `.statistics-layout` padding; avoid `overflow:hidden` here
        or it clips card shadows at the grid box without matching the header inset. */
   overflow: visible;

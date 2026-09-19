@@ -2,7 +2,7 @@
  * Single source of truth for stack identity.
  *
  * Detects the treehouse worktree slot and derives every port, container name,
- * and URL from it — exactly matching the conventions in `scripts/th-compose.sh`
+ * and URL from it - exactly matching the conventions in `scripts/th-compose.sh`
  * and `docker-compose.worktree.yml`.
  *
  * Three consumers import from here instead of maintaining their own detection
@@ -14,10 +14,10 @@
  * ## Detection order
  *
  * 1. `TH_BACKEND_PORT` / `COMPOSE_PROJECT_NAME` from `th-compose.sh`
- *    — authoritative for treehouse worktree stacks.
- * 2. `.treehouse` CWD regex — slot-based worktree detection (fallback when
+ *    - authoritative for treehouse worktree stacks.
+ * 2. `.treehouse` CWD regex - slot-based worktree detection (fallback when
  *    th-compose.sh vars are not exported to the current shell).
- * 3. `CI=true` — CI is genuinely single-stack; project name derived from
+ * 3. `CI=true` - CI is genuinely single-stack; project name derived from
  *    `COMPOSE_PROJECT_NAME` or CWD basename (same default Docker Compose uses).
  *
  * If NONE of these identify the stack, `detectStack()` throws with a clear
@@ -81,7 +81,7 @@ function worktreeIdentity(slot: number): StackIdentity {
   };
 }
 
-/** Derive Compose project name from env or project root — same default Docker Compose uses. */
+/** Derive Compose project name from env or project root - same default Docker Compose uses. */
 function deriveProjectName(): string {
   if (process.env.COMPOSE_PROJECT_NAME) {
     return process.env.COMPOSE_PROJECT_NAME;
@@ -116,7 +116,7 @@ function ciIdentity(): StackIdentity {
 }
 
 const FAIL_LOUD_MESSAGE =
-  'E2E stack identity could not be determined — refusing to guess.\n' +
+  'E2E stack identity could not be determined - refusing to guess.\n' +
   'In a treehouse worktree, run tests via `scripts/th-compose.sh` which\n' +
   'exports TH_BACKEND_PORT, TH_FRONTEND_PORT, and COMPOSE_PROJECT_NAME.\n' +
   'Otherwise, set FRONTEND_PORT, BACKEND_URL (e.g. https://localhost:5173,\n' +
@@ -160,11 +160,11 @@ export function detectStack(): StackIdentity {
     return ciIdentity();
   }
 
-  // 4. Ambiguous — refuse to guess.
+  // 4. Ambiguous - refuse to guess.
   throw new Error(FAIL_LOUD_MESSAGE);
 }
 
-/** Singleton — compute once per process. */
+/** Singleton - compute once per process. */
 let _cached: StackIdentity | null = null;
 
 export function stack(): StackIdentity {

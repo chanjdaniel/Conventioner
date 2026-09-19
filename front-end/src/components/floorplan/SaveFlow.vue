@@ -277,7 +277,7 @@ async function handleSave() {
             <div v-if="sectionSummary.length > 0" class="save-section">
               <h3 class="save-section-title">
                 Sections
-                <span class="save-section-subtitle">— click to edit names &amp; locations</span>
+                <span class="save-section-subtitle">Click to edit names and locations</span>
               </h3>
               <div class="save-sections-grid">
                 <div v-for="section in sectionSummary" :key="section.id" class="save-section-card">

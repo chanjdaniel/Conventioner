@@ -21,7 +21,7 @@ export interface ApplicantMarketSeed {
 
 const MONGO_URI = 'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin';
 
-/** Two fields typical of an application form — required, so a save that skipped
+/** Two fields typical of an application form - required, so a save that skipped
  *  validation would be noticeable. */
 export const APPLICATION_FIELDS = [
   {
@@ -125,7 +125,7 @@ export async function seedApplicantMarket(
   }
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-  // Write the application form — this is what the guards check before
+  // Write the application form - this is what the guards check before
   // accepting a transition into `applications_open`.
   const formRes = await request.put(`${baseURL}/markets/${marketId}/application-form`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
@@ -135,7 +135,7 @@ export async function seedApplicantMarket(
     throw new Error(`Application form save failed: ${formRes.status()} ${await formRes.text()}`);
   }
 
-  // Transition to applications_open — the guards require the form to exist.
+  // Transition to applications_open - the guards require the form to exist.
   const transitionRes = await request.post(`${baseURL}/markets/${marketId}/transition`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
     data: { toPhase: 'applications_open' },

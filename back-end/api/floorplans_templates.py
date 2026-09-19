@@ -137,7 +137,7 @@ def list_templates():
     """List templates accessible to the current user.
 
     Query params:
-    - **organizationId** — filter by organization ID (requires org membership)
+    - **organizationId** - filter by organization ID (requires org membership)
     """
     try:
         user = _get_request_user()
