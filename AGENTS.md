@@ -133,9 +133,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   published market with vendor assignments ready for check-in, vendor browsing, and table filtering tests.
 - Publishing is `POST /markets/{id}/transition` with `{ toPhase: 'archived' }`, never a PUT of
   `isDraft: false` - `isDraft` is derived from `phase` and a PUT body cannot set it.
-- After publishing, with a configured `setup_object`, you must fetch the
-  computed assignment via `GET /markets/{id}/assignment` and store it back via PUT.
-  The stored `assignmentObject.vendorAssignments` is what `record_attendance` reads at check-in time.
+- **An assignment is stored by `POST /markets/{id}/assignment`, and by nothing else.**
+  That one call runs the solver and persists what it produced.
+  It used to be `GET /markets/{id}/assignment` (which only computes) followed by a whole-market PUT carrying the result, and that PUT now stores nothing: `assignmentObject` is server-owned like `applicationForm` and `importMapping`, because it is what `record_attendance` reads at check-in time and a stale client copy overwriting it moves vendors on market day (E11/F01/S01).
+  `back-end/api/placements.py` is the single writer - a solver run, or `PUT /markets/{id}/placements` for one vendor in one seat on one date, both gated on `MarketRole.EDITOR`.
+  Run the assignment *before* publishing: `market_days` has an entry invariant that one exists.
 
 ## The Solver Reads Applications (Conventioner sharp edge)
 

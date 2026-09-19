@@ -316,6 +316,10 @@ def _preserve_server_owned_fields(
     and a fallback that disagrees with the phase is worse than no fallback: it answers
     confidently and wrongly.
 
+    `assignment_object` is written only by ``api/placements.py`` - a solver run or a single
+    placement - for the same single-writer reason, and for a sharper one: it is what check-in
+    reads at the door, so a stale copy overwriting it moves vendors on market day.
+
     `intake_mode` is the one field here the client may write, and only while the market is still a
     draft -- see ``_intake_mode_for_update``.
 
@@ -334,6 +338,11 @@ def _preserve_server_owned_fields(
         existing_market.import_mapping.model_dump()
         if existing_market.import_mapping is not None else None
     )
+    # assignment_object is written only by api/placements.py. It is what check-in reads at the
+    # door, and it was the one field on this list that was missing: a market PUT carrying a stale
+    # client copy could overwrite a whole assignment, with no manual editing involved at all.
+    market_dict["assignment_object"] = existing_market.assignment_object.model_dump()
+    _strip_persisted_assignment_statistics(market_dict)
     for field in ("review_config", "discord_guild_id"):
         if field in market.model_fields_set:
             continue
