@@ -15,7 +15,13 @@ function goToDashboard() {
 
 <template>
   <div class="banner">
-    <button class="menu-button" @click="$emit('menuOpen')" v-show="!isLogin">
+    <button
+      class="menu-button"
+      @click="$emit('menuOpen')"
+      :style="{ visibility: isLogin ? 'hidden' : 'visible' }"
+      :aria-hidden="isLogin"
+      :tabindex="isLogin ? -1 : 0"
+    >
       <IconMenu class="menu-icon" />
     </button>
     <button class="logo-button" @click="goToDashboard" type="button">

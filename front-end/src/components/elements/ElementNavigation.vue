@@ -55,7 +55,7 @@ const user = inject<string | null>('user');
         <template #icon>
           <IconSignOutSquare class="nav-icon" />
         </template>
-        <h3>Sign Out</h3>
+        <span class="signout-label">Sign out</span>
       </ElementSignoutButton>
     </div>
   </div>
