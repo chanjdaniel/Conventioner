@@ -13,6 +13,7 @@ from datatypes import (
 )
 from guards import (
     AllApplicationsReviewedGuard,
+    NoAskedForTierWithoutTablesGuard,
     FormHasFieldsGuard,
     NoApprovedApplicationsGuard,
     PreconditionResult,
@@ -483,12 +484,13 @@ class TestNoApprovedApplicationsGuard:
 
 class TestAssignmentEntryInvariants:
     """Every edge into assignment (currently only review -> assignment) must carry the
-    reviewed-every-application guard."""
+    reviewed-every-application guard, and the no-guaranteed-rejections one (E12/F03/S02)."""
 
     def test_review_to_assignment_is_guarded(self):
         guards = TRANSITION_GUARDS.get(("review", "assignment"), [])
-        assert len(guards) == 1
-        assert isinstance(guards[0], AllApplicationsReviewedGuard)
+        kinds = {type(guard) for guard in guards}
+        assert AllApplicationsReviewedGuard in kinds
+        assert NoAskedForTierWithoutTablesGuard in kinds
 
 
 class TestOffersEntryInvariants:
@@ -499,3 +501,115 @@ class TestOffersEntryInvariants:
         guards = TRANSITION_GUARDS.get(("assignment", "offers"), [])
         assert len(guards) == 1
         assert isinstance(guards[0], NoApprovedApplicationsGuard)
+
+
+class TestNoAskedForTierWithoutTablesGuard:
+    """A tier the plan gives no tables to, that an approved applicant is waiting on.
+
+    This is the finding E12 answers, caught before the run rather than explained after it: two
+    vendors unplaced beside nineteen free tables, because both had asked for a tier the market had
+    no sections at. Without this the organizer presses Assign and learns it from the payoff screen.
+    """
+
+    def _market(self, tiers=("Gold", "Silver"), sections=(("Front", "Gold", 2),)):
+        return _make_market(
+            phase=MarketPhase.REVIEW,
+            setup_object=SetupObject(
+                priority=[],
+                market_dates=[MarketDateObject(date="2026-08-01")],
+                tiers=[TierObject(id=i, name=name) for i, name in enumerate(tiers)],
+                locations=[],
+                sections=[
+                    SectionObject(name=name, tier=TierObject(id=0, name=tier), count=count)
+                    for name, tier, count in sections
+                ],
+                assignment_options=AssignmentOptionObject(),
+            ),
+        )
+
+    def _approved(self, monkeypatch, applications):
+        monkeypatch.setattr(
+            guards.ApplicationsApi, "list_applications_with_status",
+            lambda _market_id, _status: applications,
+        )
+
+    def _application(self, email, tiers_by_date):
+        return {
+            "applicant_email": email,
+            "form_data": {"essential_tier_preference": tiers_by_date},
+        }
+
+    def test_an_approved_applicant_waiting_on_an_empty_tier_blocks(self, monkeypatch):
+        self._approved(monkeypatch, [
+            self._application("nadia@ember.test", {"2026-08-01": ["Silver"]}),
+        ])
+
+        result = NoAskedForTierWithoutTablesGuard().evaluate(self._market(), None)
+
+        assert result.passed is False
+
+    def test_the_message_names_the_tier_and_the_applicants_not_a_count(self, monkeypatch):
+        self._approved(monkeypatch, [
+            self._application("nadia@ember.test", {"2026-08-01": ["Silver"]}),
+            self._application("theo@thistle.test", {"2026-08-01": ["Silver"]}),
+        ])
+
+        message = NoAskedForTierWithoutTablesGuard().evaluate(self._market(), None).message
+
+        assert "Silver" in message
+        assert "nadia@ember.test" in message
+        assert "theo@thistle.test" in message
+
+    def test_an_empty_tier_nobody_asked_for_does_not_block(self, monkeypatch):
+        """A tier the organizer declared and has not built out is harmless; the plan editor
+        marks it, and that is the right weight for it."""
+        self._approved(monkeypatch, [
+            self._application("nadia@ember.test", {"2026-08-01": ["Gold"]}),
+        ])
+
+        result = NoAskedForTierWithoutTablesGuard().evaluate(self._market(), None)
+
+        assert result.passed is True
+
+    def test_adding_a_section_at_that_tier_clears_it(self, monkeypatch):
+        self._approved(monkeypatch, [
+            self._application("nadia@ember.test", {"2026-08-01": ["Silver"]}),
+        ])
+        market = self._market(sections=(("Front", "Gold", 2), ("Back", "Silver", 1)))
+
+        assert NoAskedForTierWithoutTablesGuard().evaluate(market, None).passed is True
+
+    def test_rejecting_those_applications_clears_it(self, monkeypatch):
+        """Only approved applications are read, which is what the solver reads too."""
+        self._approved(monkeypatch, [])
+
+        result = NoAskedForTierWithoutTablesGuard().evaluate(self._market(), None)
+
+        assert result.passed is True
+
+    def test_a_section_with_no_tables_is_no_tables(self, monkeypatch):
+        self._approved(monkeypatch, [
+            self._application("nadia@ember.test", {"2026-08-01": ["Silver"]}),
+        ])
+        market = self._market(sections=(("Front", "Gold", 2), ("Back", "Silver", 0)))
+
+        assert NoAskedForTierWithoutTablesGuard().evaluate(market, None).passed is False
+
+    def test_a_tier_named_on_any_date_counts(self, monkeypatch):
+        """The answer is stored per date, and a tier with no tables is a problem on every one."""
+        self._approved(monkeypatch, [
+            self._application(
+                "nadia@ember.test", {"2026-08-01": ["Gold"], "2026-08-08": ["Silver"]},
+            ),
+        ])
+
+        assert NoAskedForTierWithoutTablesGuard().evaluate(self._market(), None).passed is False
+
+    def test_a_market_with_no_plan_does_not_block(self, monkeypatch):
+        self._approved(monkeypatch, [])
+
+        result = NoAskedForTierWithoutTablesGuard().evaluate(
+            _make_market(phase=MarketPhase.REVIEW, setup_object=None), None,
+        )
+
+        assert result.passed is True

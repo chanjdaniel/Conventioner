@@ -13,6 +13,31 @@ const emit = defineEmits(['update:setupObject']);
 const setupObject = toRef(props, 'setupObject');
 const tierObjects = toRef(setupObject.value, 'tiers');
 
+/**
+ * Tiers this plan declares and gives no tables to.
+ *
+ * Tables are generated from sections and a section carries one tier, so a tier with no section has
+ * no tables on any date - a property of the plan alone, detectable with no applications and no
+ * assignment. It is what produced the finding this epic answers: two vendors unplaced beside
+ * nineteen free tables, because both had asked for a tier the market had no sections at.
+ *
+ * A warning, not an error: an organizer mid-build has one constantly, and a tier nobody has asked
+ * for is harmless. `E12/F03/S02` is what refuses the assignment, and only when somebody has
+ * actually asked for it.
+ */
+const tiersWithNoTables = computed(() => {
+  const withTables = new Set(
+    (setupObject.value.sections ?? [])
+      .filter((section) => (section.count ?? 0) > 0 && section.tier?.name)
+      .map((section) => section.tier!.name),
+  );
+  return new Set(
+    (setupObject.value.tiers ?? [])
+      .map((tier) => tier.name)
+      .filter((name) => name.trim() && !withTables.has(name)),
+  );
+});
+
 watch(
   () => setupObject.value.tiers,
   () => {
@@ -133,6 +158,14 @@ const dragOptions = computed(() => ({
                   "
                 />
               </div>
+              <span
+                v-if="tiersWithNoTables.has(tierObjects[parentIndex].name)"
+                class="tier-no-tables"
+                :data-testid="'setup-tier-no-tables-' + parentIndex"
+                title="Add a section at this tier to give it tables."
+              >
+                No tables
+              </span>
             </div>
             <button
               type="button"
@@ -241,6 +274,20 @@ h3 {
 
     border-right: 3px solid var(--mm-border);
 } */
+
+/* A warning, not a failure: amber on the market's own beige, at the size of a note rather than
+   an error. An organizer mid-build has one constantly. */
+.tier-no-tables {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--mm-yellow);
+  color: var(--mm-black);
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 11px;
+  white-space: nowrap;
+}
 
 .row-item {
   display: flex;

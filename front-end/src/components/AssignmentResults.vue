@@ -215,6 +215,17 @@ const satisfactionDisplay = computed(() => {
   return `${(score * 100).toFixed(1)}%`;
 });
 
+/**
+ * Open one vendor, where their date cards say why they hold no table (E12/F02/S01).
+ *
+ * The vendor list reads the address off the URL and opens that panel, so the entry leads somewhere
+ * rather than merely reporting.
+ */
+function openVendor(email: string) {
+  if (!email || !market.value?.id) return;
+  router.push({ path: '/vendors', query: { vendor: email } });
+}
+
 const openVendorsModal = () => {
   showVendorsModal.value = true;
 };
@@ -535,10 +546,21 @@ const handleSendToDiscord = async () => {
               >
                 <h3>Unassigned Vendors ({{ unassignedVendorList.length }})</h3>
                 <div class="unassigned-list">
-                  <div
+                  <!-- The panel listed bare addresses under a heading and said nothing else. An
+                       entry now opens that vendor, where their date cards say why (E12/F02/S02). -->
+                  <component
+                    :is="unassignedEntryEmail(vendor) ? 'button' : 'div'"
                     v-for="(vendor, index) in unassignedVendorList"
                     :key="index"
                     class="unassigned-item"
+                    :class="{ 'unassigned-item--openable': !!unassignedEntryEmail(vendor) }"
+                    v-bind="unassignedEntryEmail(vendor) ? { type: 'button' } : {}"
+                    :data-testid="
+                      unassignedEntryEmail(vendor)
+                        ? 'assignment-results-unassigned-vendor'
+                        : undefined
+                    "
+                    @click="openVendor(unassignedEntryEmail(vendor))"
                   >
                     <!-- The panel was a list of bare addresses; on a market of 232 vendors
                              that is 232 gmail addresses and no way to recognise anyone. -->
@@ -551,7 +573,7 @@ const handleSendToDiscord = async () => {
                     <span v-else class="unassigned-text">
                       {{ displayUnassignedEntry(vendor) }}
                     </span>
-                  </div>
+                  </component>
                 </div>
               </div>
 
@@ -988,6 +1010,18 @@ const handleSendToDiscord = async () => {
   overflow-y: auto;
   /* Match `.stat-list`: inset so row box-shadows are not clipped by the scrollport */
   padding: 8px 10px;
+}
+
+.unassigned-item--openable {
+  width: 100%;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.unassigned-item--openable:hover {
+  border-left-color: var(--mm-green);
 }
 
 .unassigned-item {
