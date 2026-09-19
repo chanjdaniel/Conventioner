@@ -398,6 +398,12 @@ async function inspect() {
     groupTarget.value = {};
     unmatched.value = [];
     resolutions.value = {};
+    // Seed every column with '' - the "Ignore this column" option's value. Left undefined, the
+    // select matches no option, reports selectedIndex -1 and renders completely blank, so an
+    // unmapped column is indistinguishable from one that has not loaded.
+    headers.value.forEach((_header, index) => {
+      columnTarget.value[index] = '';
+    });
     for (const [key, index] of Object.entries(data.suggestedMapping ?? {})) {
       columnTarget.value[Number(index)] = key;
     }

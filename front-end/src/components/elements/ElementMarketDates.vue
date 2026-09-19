@@ -86,21 +86,17 @@ const addRow = () => {
             :data-testid="'setup-dates-date-input-' + index"
           />
         </div>
-        <div
-          style="
-            padding: none;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-          "
+        <button
+          type="button"
+          class="row-remove-button"
+          :aria-label="`Remove date ${index + 1}`"
+          @click="removeRow(index)"
         >
           <IconCloseRound
             :class="{ 'hidden-icon': hoverIndex !== index }"
             class="icon-close-round"
-            @click="removeRow(index)"
           />
-        </div>
+        </button>
       </div>
       <div class="add-container">
         <IconAddRound class="icon-add-round" @click="addRow" data-testid="setup-dates-add-button" />
@@ -183,7 +179,7 @@ h4 {
 
 .column-titles {
   display: grid;
-  grid-template-columns: 95% 5%;
+  grid-template-columns: minmax(0, 1fr) 2rem;
 }
 
 .rows {
@@ -204,7 +200,7 @@ h4 {
 
 .setup-row {
   display: grid;
-  grid-template-columns: 95% 5%;
+  grid-template-columns: minmax(0, 1fr) 2rem;
   padding-top: 5px;
   padding-bottom: 5px;
 }
@@ -271,6 +267,21 @@ h4 {
 .icon-add-round {
   width: 40px;
   height: 40px;
+  cursor: pointer;
+}
+
+/* A real button: the control was a <div> with cursor:auto, tabIndex -1, no role and no
+   accessible name, in a 10px-wide hit target. Keyboard users could not remove a row at all. */
+.row-remove-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
   cursor: pointer;
 }
 
