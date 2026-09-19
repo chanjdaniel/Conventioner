@@ -4,7 +4,7 @@ title: A vendor has a name
 type: epic
 status: in-progress
 blocked_by: []
-pr: []
+pr: [70]
 ---
 
 ## Outcome
