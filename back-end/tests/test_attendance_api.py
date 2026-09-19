@@ -32,6 +32,13 @@ class FakeAttendanceCollection:
         self.docs.append(dict(set_doc))
         return SimpleNamespace(matched_count=0, modified_count=0, upserted_id="x")
 
+    def delete_one(self, filter_query):
+        for index, d in enumerate(self.docs):
+            if all(d.get(k) == v for k, v in filter_query.items()):
+                self.docs.pop(index)
+                return SimpleNamespace(deleted_count=1)
+        return SimpleNamespace(deleted_count=0)
+
 
 def _market_with_assignment():
     return {
@@ -452,3 +459,95 @@ class TestSlugLookupQueriesTheStoredSlug:
         found = AttendanceApi.get_published_market_by_slug("live-market")
 
         assert found["name"] == "Live Market"
+
+
+class TestNamingTheMarketBeforeAnythingIsTyped:
+    """The page read "Vendor Check-in" until after a lookup.
+
+    A vendor handed a URL or a QR code at a door had to enter their address to find out whether
+    they were at the right market's page - the confirmation arriving after the work.
+    """
+
+    def test_names_a_published_market_from_its_slug_alone(self, monkeypatch):
+        monkeypatch.setattr(
+            AttendanceApi, "get_published_market_by_slug",
+            lambda _slug: {
+                "id": "market-123",
+                "name": "Winter Market 2026",
+                "setupObject": {"marketDates": [{"date": "2026-11-22"}, {"date": "2026-11-21"}]},
+            },
+        )
+
+        result, status = AttendanceApi.get_checkin_page("winter-market-2026")
+
+        assert status == 200
+        assert result["marketName"] == "Winter Market 2026"
+        assert result["marketDates"] == ["2026-11-21", "2026-11-22"]
+
+    def test_answers_nothing_for_a_market_that_is_not_published(self, monkeypatch):
+        monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda _slug: None)
+
+        result, status = AttendanceApi.get_checkin_page("no-such-market")
+
+        assert status == 404
+        assert result["error"] == "Market not found"
+
+    def test_a_market_with_no_plan_still_names_itself(self, monkeypatch):
+        monkeypatch.setattr(
+            AttendanceApi, "get_published_market_by_slug",
+            lambda _slug: {"id": "m", "name": "Bare Market"},
+        )
+
+        result, status = AttendanceApi.get_checkin_page("bare-market")
+
+        assert status == 200
+        assert result["marketDates"] == []
+
+    def test_a_blank_slug_is_refused_rather_than_looked_up(self):
+        _result, status = AttendanceApi.get_checkin_page("   ")
+
+        assert status == 400
+
+
+class TestUndoingACheckInOnTheWrongDay:
+    """A two-day market offered an identical button per date and no way back from a mis-tap."""
+
+    def _collection(self, monkeypatch, docs):
+        collection = FakeAttendanceCollection()
+        collection.docs = list(docs)
+        monkeypatch.setattr(AttendanceApi, "attendance_collection", collection)
+        return collection
+
+    def test_removes_the_record_for_that_vendor_on_that_day(self, monkeypatch):
+        collection = self._collection(monkeypatch, [
+            {"market_id": "m", "vendor_email": "v@example.com", "date": "2026-05-01",
+             "checked_in_at": "2026-05-01T10:00:00Z"},
+            {"market_id": "m", "vendor_email": "v@example.com", "date": "2026-05-02",
+             "checked_in_at": "2026-05-02T10:00:00Z"},
+        ])
+
+        result, status = AttendanceApi.undo_attendance("m", "V@Example.com", "2026-05-01")
+
+        assert status == 200
+        assert result["message"] == "Check-in undone"
+        assert [d["date"] for d in collection.docs] == ["2026-05-02"]
+
+    def test_says_so_when_there_was_no_check_in_to_undo(self, monkeypatch):
+        self._collection(monkeypatch, [])
+
+        result, status = AttendanceApi.undo_attendance("m", "v@example.com", "2026-05-01")
+
+        assert status == 404
+        assert "No check-in found" in result["error"]
+
+    @pytest.mark.parametrize("market_id,email,date", [
+        ("", "v@example.com", "2026-05-01"),
+        ("m", "", "2026-05-01"),
+        ("m", "v@example.com", ""),
+    ])
+    def test_refuses_an_incomplete_request(self, monkeypatch, market_id, email, date):
+        self._collection(monkeypatch, [])
+
+        _result, status = AttendanceApi.undo_attendance(market_id, email, date)
+
+        assert status == 400
