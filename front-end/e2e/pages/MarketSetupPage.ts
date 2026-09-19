@@ -69,9 +69,9 @@ export class MarketSetupPage {
     this.applicationsTab = page.getByTestId('market-setup-applications-tab');
     this.importButton = page.getByTestId('market-setup-import-button');
 
-    this.phaseControlPanel = page.getByTestId('phase-control-panel');
-    this.currentPhase = page.getByTestId('phase-control-current-phase');
-    this.phaseBlockers = page.getByTestId('phase-control-blockers');
+    this.phaseControlPanel = page.getByTestId('phase-rail');
+    this.currentPhase = page.getByTestId('phase-rail-current');
+    this.phaseBlockers = page.getByTestId('phase-rail-blockers');
 
     this.assignError = page.getByTestId('market-setup-assign-error');
     this.assignPhaseHint = page.getByTestId('market-setup-assign-phase-hint');
@@ -102,8 +102,22 @@ export class MarketSetupPage {
    * is what turns a refused transition into a failure that names the phase rather than a timeout
    * somewhere later.
    */
+  /**
+   * Fire a transition from the rail.
+   *
+   * Only the one step onward sits on the rail itself; back and destructive edges are behind the
+   * overflow menu (E10/F01/S01), so this opens it when the step it wants is not on show.
+   */
+  async clickTransition(toPhase: string): Promise<void> {
+    const action = this.page.getByTestId(`phase-transition-${toPhase}`);
+    if (!(await action.isVisible().catch(() => false))) {
+      await this.page.getByTestId('phase-rail-menu-button').click();
+    }
+    await action.click();
+  }
+
   async advancePhaseTo(toPhase: string, expectedLabel: string): Promise<void> {
-    await this.page.getByTestId(`phase-transition-${toPhase}`).click();
+    await this.clickTransition(toPhase);
 
     // Publishing confirms, because it is one of the two edges with no route back: it puts a
     // public check-in page on the air.
@@ -112,9 +126,9 @@ export class MarketSetupPage {
       await publishConfirm.click();
     }
 
-    await this.page.getByTestId('phase-control-current-phase').waitFor({ state: 'visible' });
+    await this.page.getByTestId('phase-rail-current').waitFor({ state: 'visible' });
     await this.page
-      .getByTestId('phase-control-current-phase')
+      .getByTestId('phase-rail-current')
       .filter({ hasText: expectedLabel })
       .waitFor({ timeout: 10000 });
   }

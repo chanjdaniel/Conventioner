@@ -27,6 +27,7 @@ import {
 } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
+import PhaseRail from '@/components/PhaseRail.vue';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -378,6 +379,8 @@ function handleBack(): void {
       <header class="vendors-header">
         <h1>{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
       </header>
+
+      <PhaseRail :market="market" @phase-advanced="(m) => (market = m)" />
 
       <div class="vendors-body">
         <NoMarketLoaded v-if="!market" shows="the vendors" />

@@ -26,7 +26,7 @@ import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import AssignmentResults from '@/components/AssignmentResults.vue';
-import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
+import PhaseRail from '@/components/PhaseRail.vue';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 
 const router = useRouter();
@@ -492,11 +492,6 @@ const sectionsUndescribed = computed(
 <template>
   <NoMarketLoaded v-if="!market" shows="a market's plan and application form" />
   <div v-else class="market-setup-view">
-    <PhaseControlPanel
-      :market="market"
-      :beforeTransition="flushPlanSave"
-      @phase-advanced="handlePhaseAdvanced"
-    />
     <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
     <div class="market-setup-body">
       <div class="settings-container">
@@ -535,6 +530,14 @@ const sectionsUndescribed = computed(
             </button>
           </div>
         </div>
+
+        <!-- The lifecycle, directly below the market header and inside the card (E10/F01/S01).
+             It used to float above the card as a strip of coloured pills. -->
+        <PhaseRail
+          :market="market"
+          :beforeTransition="flushPlanSave"
+          @phase-advanced="handlePhaseAdvanced"
+        />
 
         <!-- Application Form Tab -->
         <div v-if="activeTab === 'form'" class="settings-body">

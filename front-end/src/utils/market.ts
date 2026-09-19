@@ -49,6 +49,10 @@ export function parseMarketFromApi(market: any): Market {
   return {
     id: market.id,
     name: market.name,
+    // The market's public identifier, computed and persisted server-side (`Market.slug`). Kept
+    // rather than recomputed from the name, so the rail's check-in URL is the URL the server
+    // would actually serve (E10/F01/S02).
+    slug: market.slug ?? undefined,
     creationDate,
     roles,
     roleEmails,
