@@ -105,9 +105,15 @@ def test_get_assignment_statistics_returns_derived_statistics(monkeypatch):
             }
 
     assigned_market = SimpleNamespace(
-        assignment_object=SimpleNamespace(assignment_statistics=DummyStats())
+        setup_object=None,
+        assignment_object=SimpleNamespace(
+            assignment_statistics=DummyStats(), vendor_assignments=[]
+        ),
     )
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda market: assigned_market)
+    # The vendors are read once and handed to both the solver and the reason derivation
+    # (E12/F01/S01), so the two can never disagree about who applied.
+    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda market: [])
+    monkeypatch.setattr(MarketsApi, "assign_market", lambda market, vendors: assigned_market)
     monkeypatch.setattr(
         MarketsApi,
         "derive_market_table_rows",

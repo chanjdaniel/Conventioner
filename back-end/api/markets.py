@@ -42,6 +42,7 @@ import traceback
 import logging
 import requests
 from assignment.csv_output import market_csv_to_string
+from placement_reasons import unplaced_dates
 from db_config import get_database
 
 logging.basicConfig(level=logging.INFO)
@@ -832,7 +833,11 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         # Keep persisted schema free of assignment statistics, then derive fresh.
         market.assignment_object.assignment_statistics = None
         try:
-            assigned_market = assign_market(market)
+            # The vendors are read once and handed to both: the solver places them, and the
+            # reasons below are computed against the same set, so the two can never disagree
+            # about who applied.
+            vendors = solver_vendors_for(market)
+            assigned_market = assign_market(market, vendors)
         except IncompleteApplicationsError as incomplete:
             # The organizer has to go and fix something, so say who.
             return {"error": incomplete.message()}, 400
@@ -844,6 +849,17 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
         stats.unassigned_tables = derive_unassigned_tables_from_rows(rows)
 
         payload = convert_keys_to_camel_case(stats.model_dump())
+        # Why each vendor holds no table, computed from the plan, the applications and the
+        # assignment as they stand (E12/F01/S01). Sent with the statistics that report the
+        # unplaced, so the panel listing them can say why without a second request.
+        payload["unplacedDates"] = [
+            {"email": entry.email, "date": entry.date, "reason": entry.reason.value}
+            for entry in unplaced_dates(
+                assigned_market.setup_object,
+                vendors,
+                assigned_market.assignment_object.vendor_assignments or [],
+            )
+        ]
         # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
         # name them. A vendor with no stored name has no entry and renders as they did before.
         payload["vendorNames"] = ApplicationsApi.vendor_names_for_market(market_id)

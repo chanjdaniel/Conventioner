@@ -19,7 +19,7 @@ export class VendorsPage {
     this.vendorListItems = page.getByTestId('vendors-list-item');
     this.backButton = page.getByTestId('vendors-back-button');
     this.detailCloseButton = page.getByTestId('vendors-detail-close');
-    this.detailAssignmentItems = page.locator('.assignment-item');
+    this.detailAssignmentItems = page.getByTestId('vendors-detail-assignment-item');
   }
 
   async goto(): Promise<void> {
