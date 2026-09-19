@@ -5,6 +5,8 @@ import { MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
+import PhaseBadge from '@/components/PhaseBadge.vue';
+import { phaseLabel } from '@/utils/phase';
 
 const props = defineProps<{
   market: Market | null;
@@ -23,17 +25,6 @@ const sweepConfirmLoading = ref(false);
 const transitionError = ref('');
 const transitionBlockers = ref<PreconditionResult[]>([]);
 const transitioning = ref(false);
-
-const PHASE_LABELS: Record<string, string> = {
-  [MarketPhase.Draft]: 'Draft',
-  [MarketPhase.ApplicationsOpen]: 'Applications Open',
-  [MarketPhase.ApplicationsClosed]: 'Applications Closed',
-  [MarketPhase.Review]: 'Review',
-  [MarketPhase.Assignment]: 'Assignment',
-  [MarketPhase.Offers]: 'Offers',
-  [MarketPhase.MarketDays]: 'Market Days',
-  [MarketPhase.Archived]: 'Archived',
-};
 
 const TRANSITION_LABELS: Record<string, string> = {
   [MarketPhase.Draft]: 'Reopen for Editing',
@@ -72,8 +63,6 @@ const VALID_TRANSITIONS: Array<[string, string]> = [
 
 const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
 
-const phaseLabel = computed(() => PHASE_LABELS[currentPhase.value] ?? currentPhase.value);
-
 const availableTransitions = computed(() => {
   if (!props.market) return [];
   const fromPhase = currentPhase.value;
@@ -96,7 +85,7 @@ function transitionLabel(toPhase: string): string {
       ? 'Close Applications'
       : 'Return to Applications Closed';
   }
-  return TRANSITION_LABELS[toPhase] ?? `Move to ${PHASE_LABELS[toPhase] ?? toPhase}`;
+  return TRANSITION_LABELS[toPhase] ?? `Move to ${phaseLabel(toPhase)}`;
 }
 
 function transitionVariant(toPhase: string): string {
@@ -216,13 +205,7 @@ function cancelArchive() {
     <div class="phase-control-row">
       <div class="phase-info">
         <span class="phase-label-text">Current Phase:</span>
-        <span
-          class="phase-badge"
-          :class="`phase-${currentPhase}`"
-          data-testid="phase-control-current-phase"
-        >
-          {{ phaseLabel }}
-        </span>
+        <PhaseBadge :phase="currentPhase" data-testid="phase-control-current-phase" />
       </div>
 
       <div v-if="!isTerminal && availableTransitions.length > 0" class="phase-actions">
@@ -373,41 +356,6 @@ function cancelArchive() {
    against white: applications_open 3.68, applications_closed 2.15, review 4.23, assignment 2.43,
    offers 3.53, market_days 2.54. Darkened to the lightest shade of the same hue that passes, so
    each phase still reads as its own colour. draft (4.83) and archived (10.31) are unchanged. */
-.phase-badge {
-  padding: 4px 14px;
-  border-radius: 20px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  color: white;
-  text-transform: capitalize;
-}
-
-.phase-draft {
-  background: #6b7280;
-}
-.phase-applications_open {
-  background: #3472d8;
-}
-.phase-applications_closed {
-  background: #a46a07;
-}
-.phase-review {
-  background: #8558ec;
-}
-.phase-assignment {
-  background: #048197;
-}
-.phase-offers {
-  background: #cd3f85;
-}
-.phase-market_days {
-  background: #0c875e;
-}
-.phase-archived {
-  background: #374151;
-}
-
 .phase-actions {
   display: flex;
   align-items: center;
