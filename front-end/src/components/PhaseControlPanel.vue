@@ -10,6 +10,15 @@ import { phaseLabel } from '@/utils/phase';
 
 const props = defineProps<{
   market: Market | null;
+  /**
+   * Run before any transition is posted, and awaited.
+   *
+   * Every guard reads the market as the SERVER holds it. The plan editor saves itself on a
+   * debounce (E10/F02/S01), so an organizer who types a date and immediately presses Open
+   * Applications would be refused by `FormHasFieldsGuard` reading a plan that has not landed yet
+   * - blocked by their own unsaved work.
+   */
+  beforeTransition?: () => Promise<void> | void;
 }>();
 
 const emit = defineEmits<{
@@ -107,6 +116,7 @@ async function doTransition(toPhase: string) {
   transitionBlockers.value = [];
 
   try {
+    await props.beforeTransition?.();
     const response = await api.post(`/markets/${encodeURIComponent(props.market.id)}/transition`, {
       toPhase,
     });

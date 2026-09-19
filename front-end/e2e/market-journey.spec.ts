@@ -104,14 +104,14 @@ test.describe('The MVP journey', () => {
     await setup.addMarketDate(MARKET_DATES[0], 0);
     await setup.addMarketDate(MARKET_DATES[1], 1);
     await expect(setup.getDateInput(1)).toHaveValue(MARKET_DATES[1]);
-    await setup.clickNext();
 
+    // One page, no paging (E10/F02/S01): dates, then tiers and sections, then the options, all in
+    // view at once.
     await setup.selectManualPath();
     await setup.addTier(TIER, 0);
     await setup.addLocation(LOCATION, 0);
     await setup.addSection(SECTIONS[0], LOCATION, TIER, 2, 0);
     await setup.addSection(SECTIONS[1], LOCATION, TIER, 2, 1);
-    await setup.clickNext();
     await page.screenshot({ path: testInfo.outputPath('01-market-planned.png'), fullPage: true });
 
     // --- 3. Open applications ------------------------------------------------------------
