@@ -436,11 +436,14 @@ const handleAssign = async () => {
   try {
     await updateMarket();
 
-    const response = await api.get('/markets/' + market.value!.id + '/assignment');
+    // POST, not GET-then-PUT. `assignmentObject` is server-owned (E11/F01/S01), so a market PUT
+    // no longer stores an assignment the browser was handed - and never should have: a stale
+    // copy in one tab could overwrite what another had just saved.
+    const response = await api.post('/markets/' + market.value!.id + '/assignment');
 
     const assignedMarket: Market = response.data;
     market.value = assignedMarket;
-    await updateMarket();
+    localStorage.setItem('market', JSON.stringify(market.value));
 
     showTab('assignment');
   } catch (err: unknown) {

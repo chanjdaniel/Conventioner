@@ -313,33 +313,20 @@ export async function seedPublishedMarketWithAssignments(
 
   const marketSlug = marketNameToSlug(marketName);
 
-  // Step 4: Fetch computed assignment and store it on the market.
+  // Step 4: Run the assignment and store it, in one call.
   //
   // BEFORE publishing, not after. Publishing lands in `market_days` (E03/F03), whose entry
   // invariant is that an assignment exists - a market with no placements would serve a check-in
   // page that can tell nobody where to stand. The old order published first and stored second,
   // which is also what left a window where a published market had no assignment.
-  const assignRes = await request.get(`${baseURL}/markets/${marketId}/assignment`, {
+  //
+  // This used to be `GET /assignment` followed by a whole-market PUT carrying the result.
+  // `assignmentObject` is server-owned now (E11/F01/S01), so that PUT stores nothing.
+  const assignRes = await request.post(`${baseURL}/markets/${marketId}/assignment`, {
     headers: { 'X-Owner-Email': email },
   });
   if (!assignRes.ok()) {
-    throw new Error(`Assignment fetch failed: ${assignRes.status()} ${await assignRes.text()}`);
-  }
-  const assignedMarket = (await assignRes.json()) as Record<string, unknown>;
-
-  const storeRes = await request.put(`${baseURL}/markets/${marketId}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Owner-Email': email,
-    },
-    data: {
-      ...market,
-      setupObject,
-      assignmentObject: assignedMarket.assignmentObject || {},
-    },
-  });
-  if (!storeRes.ok()) {
-    throw new Error(`Assignment store failed: ${storeRes.status()} ${await storeRes.text()}`);
+    throw new Error(`Assignment run failed: ${assignRes.status()} ${await assignRes.text()}`);
   }
 
   // Step 5: Publish, by walking the edges a real organizer walks. `market_days` is the phase that

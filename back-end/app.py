@@ -9,6 +9,7 @@ load_env_file()
 import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
+import api.placements as PlacementsApi
 import csv_import as CsvImport
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
@@ -1097,6 +1098,67 @@ def get_assigned_market(market_id: str) -> Response:
             "error": "Internal server error",
             "message": str(e),
             "endpoint": f"/markets/{market_id}/assignment",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@app.route('/markets/<market_id>/assignment', methods=['POST'])
+@login_required
+def run_assignment(market_id: str) -> Response:
+    """Run the solver and store what it produced. Requires EDIT permission.
+
+    The write half of the GET above. The browser used to do this itself, by PUTting the market
+    back with the assignment it had just been handed; ``assignmentObject`` is server-owned now,
+    so a PUT stores nothing and this is the only way a solver run is kept.
+    """
+    try:
+        result, status_code = PlacementsApi.run_assignment(market_id, authenticated_email())
+        return jsonify(result), status_code
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        logger.error(f"Error in run_assignment for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_id}/assignment",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 500
+
+
+@app.route('/markets/<market_id>/placements', methods=['PUT'])
+@login_required
+def write_placement(market_id: str) -> Response:
+    """Place one vendor in one seat on one date. Requires EDIT permission.
+
+    The same bar as every other market write: an EDITOR can already rewrite the tiers, sections
+    and table counts the whole assignment is computed from.
+    """
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        result, status_code = PlacementsApi.write_placement(
+            market_id, convert_keys_to_snake_case(data), authenticated_email()
+        )
+        return jsonify(result), status_code
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except PlacementsApi.PlacementError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in write_placement for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": "Internal server error",
+            "message": str(e),
+            "endpoint": f"/markets/{market_id}/placements",
             "timestamp": datetime.now(timezone.utc).isoformat()
         }), 500
 
