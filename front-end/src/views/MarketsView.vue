@@ -7,6 +7,7 @@ import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market';
 import { getRoleDisplayName } from '@/utils/permissions';
 import NewMarketOverlay from './NewMarketOverlay.vue';
 import ManageMarketOverlay from './ManageMarketOverlay.vue';
+import { getTimestampDate } from '@/utils/utils';
 
 const router = useRouter();
 const markets = ref<Market[]>([]);
@@ -56,12 +57,7 @@ function canManage(userRole?: MarketRole): boolean {
 }
 
 function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  return getTimestampDate(dateString);
 }
 
 function handleNewClose() {

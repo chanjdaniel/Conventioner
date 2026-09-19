@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { api } from '@/utils/api';
+import { getFormattedDate, getFormattedTimestamp } from '@/utils/utils';
 
 interface AssignmentRow {
   date: string;
@@ -32,16 +33,11 @@ const checkinError = ref('');
 const checkingInDate = ref<string | null>(null);
 
 function formatDate(d: string): string {
-  const parsed = new Date(`${d}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return d;
-  return parsed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return getFormattedDate(d) ?? d;
 }
 
 function formatTimestamp(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return getFormattedTimestamp(iso);
 }
 
 async function fetchSummary(): Promise<void> {

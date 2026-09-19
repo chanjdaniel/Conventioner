@@ -6,6 +6,7 @@ import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
 import type { Application, FormField } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
+import { getTimestampDate } from '@/utils/utils';
 
 const route = useRoute();
 const router = useRouter();
@@ -112,7 +113,7 @@ function logout() {
           {{ statusLabels[application.status] ?? application.status }}
         </span>
         <span v-if="application.submittedAt" class="status-date">
-          Submitted {{ new Date(application.submittedAt).toLocaleDateString() }}
+          Submitted {{ getTimestampDate(application.submittedAt) }}
         </span>
       </div>
 

@@ -9,6 +9,7 @@ import {
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
+import { getShortDate } from '@/utils/utils';
 
 const props = defineProps<{
   open: boolean;
@@ -23,13 +24,8 @@ const loadError = ref<string | null>(null);
 const applications = ref<Application[] | null>(null);
 
 function assignmentHeaderLabel(marketDate: MarketDateObject): string {
-  const d = new Date(marketDate.date + 'T12:00:00');
-  if (Number.isNaN(d.getTime())) {
-    return 'Assignment';
-  }
-  /* Match Figma-style labels e.g. "Nov. 14 assignment" */
-  const short = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return `${short.replace(',', '')} assignment`;
+  if (!marketDate.date) return 'Assignment';
+  return `${getShortDate(marketDate.date)} assignment`;
 }
 
 function normalizeVendorAssignment(raw: Record<string, unknown>): VendorAssignmentResult {

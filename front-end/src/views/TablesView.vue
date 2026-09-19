@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
+import { getFormattedDate } from '@/utils/utils';
 
 interface MarketTableRow {
   date: string;
@@ -64,14 +65,7 @@ function normalizeQuery(raw: unknown): string {
 }
 
 function formatDisplayDate(date: string): string {
-  const d = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return date;
-  return d.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return getFormattedDate(date) ?? date;
 }
 
 function rowMatchesChoice(row: MarketTableRow, filter: ChoiceFilter): boolean {

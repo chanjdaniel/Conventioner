@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes';
 import { pathAfterLoadingMarket } from '@/utils/market';
 import { getRoleDisplayName } from '@/utils/permissions';
+import { getTimestampDate } from '@/utils/utils';
 
 const setUser: (user: unknown) => void = inject('setUser')!;
 const hostname = import.meta.env.VITE_FLASK_HOST;
@@ -41,12 +42,7 @@ onMounted(() => {
 });
 
 function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  return getTimestampDate(dateString);
 }
 
 const handleLoadLastMarket = () => {

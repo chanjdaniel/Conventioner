@@ -6,6 +6,7 @@ import { api } from '@/utils/api';
 import { parseMarketFromApi, pathAfterLoadingMarket } from '@/utils/market';
 import { getRoleDisplayName } from '@/utils/permissions';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
   loadOpen: boolean;
@@ -37,14 +38,7 @@ const handleLoadMarket = async (market: Market) => {
   router.push(pathAfterLoadingMarket(market));
 };
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-};
+const formatDate = (dateString: string) => getTimestampDate(dateString);
 </script>
 
 <template>
