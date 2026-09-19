@@ -8,7 +8,7 @@ import {
 } from '@/assets/types/datatypes';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { fetchMarketApplications } from '@/utils/applicantApi';
-import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
+import { ESSENTIAL_KEY_PREFIX, FULL_NAME_KEY } from '@/utils/essentialFields';
 import { getShortDate } from '@/utils/utils';
 
 const props = defineProps<{
@@ -114,7 +114,9 @@ const customFields = computed(() =>
 const columnHeaders = computed(() => {
   const s = setup.value;
   if (!s) return [] as string[];
-  const headers: string[] = ['Email'];
+  // Name and address, the way the assignment CSV this mirrors is written. The name comes off the
+  // application's own answer rather than a lookup, because this grid already holds them.
+  const headers: string[] = ['Name', 'Email'];
   for (const field of customFields.value) {
     headers.push(field.label || field.key);
   }
@@ -169,7 +171,8 @@ const bodyRows = computed(() => {
   return list.map((application) => {
     const emailRaw = (application.applicantEmail ?? '').trim();
     const answers = (application.formData ?? {}) as Record<string, unknown>;
-    const cells: string[] = [emailRaw];
+    const name = String(answers[FULL_NAME_KEY] ?? '').trim();
+    const cells: string[] = [name, emailRaw];
 
     for (const field of customFields.value) {
       cells.push(answerText(answers[field.key]));

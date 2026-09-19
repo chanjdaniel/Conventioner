@@ -2,9 +2,9 @@
 id: E13/F02/S01
 title: Every vendor surface shows the name
 type: story
-status: ready
+status: in-progress
 blocked_by: []
-pr: []
+pr: [70]
 ---
 
 ## What to build

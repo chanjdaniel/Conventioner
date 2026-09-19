@@ -12,6 +12,8 @@ import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
 import IconAttendance from '@/components/icons/IconAttendance.vue';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
+import VendorIdentity from '@/components/VendorIdentity.vue';
+import { type VendorNames } from '@/utils/vendorIdentity';
 import IconTables from '@/components/icons/IconTables.vue';
 import IconVendors from '@/components/icons/IconVendors.vue';
 import { api } from '@/utils/api';
@@ -22,6 +24,8 @@ import { getFormattedDate, getShortDate } from '@/utils/utils';
 const router = useRouter();
 
 const assignmentStatistics = ref<AssignmentStatistics | null>(null);
+/** Email to name, arriving with the statistics that carry the bare addresses. */
+const vendorNames = ref<VendorNames>({});
 /**
  * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
  * value that only arrives a tick later would flash that message on every page that does have one.
@@ -141,15 +145,16 @@ const showUnassignedColumn = computed(
 // from the application itself, and there is no column mapping left to get wrong.
 const NO_EMAIL_HINT = '(no email recorded on this assignment)';
 
+/** The address on an unassigned-vendor entry, whatever shape the statistics carried it in. */
+function unassignedEntryEmail(vendor: unknown): string {
+  if (vendor == null) return '';
+  if (typeof vendor === 'string') return vendor.trim();
+  const entry = vendor as { email?: string; name?: string };
+  return String(entry.email || entry.name || '').trim();
+}
+
 function displayUnassignedEntry(vendor: unknown): string {
-  if (vendor == null) return '(unknown)';
-  if (typeof vendor === 'string') {
-    return vendor.trim() || NO_EMAIL_HINT;
-  }
-  const o = vendor as { email?: string; name?: string };
-  const t = o.email || o.name;
-  if (t && String(t).trim()) return String(t);
-  return NO_EMAIL_HINT;
+  return unassignedEntryEmail(vendor) || NO_EMAIL_HINT;
 }
 
 const processedTableChoices = computed(() => {
@@ -191,9 +196,11 @@ onMounted(() => {
     .get(`/markets/${encodeURIComponent(market.value.id)}/assignment-statistics`)
     .then((response) => {
       assignmentStatistics.value = response.data as AssignmentStatistics;
+      vendorNames.value = (response.data as { vendorNames?: VendorNames }).vendorNames ?? {};
     })
     .catch(() => {
       assignmentStatistics.value = null;
+      vendorNames.value = {};
     });
 });
 
@@ -590,7 +597,17 @@ const handleDone = async () => {
                         :key="index"
                         class="unassigned-item"
                       >
-                        <span class="unassigned-text">{{ displayUnassignedEntry(vendor) }}</span>
+                        <!-- The panel was a list of bare addresses; on a market of 232 vendors
+                             that is 232 gmail addresses and no way to recognise anyone. -->
+                        <VendorIdentity
+                          v-if="unassignedEntryEmail(vendor)"
+                          class="unassigned-text"
+                          :email="unassignedEntryEmail(vendor)"
+                          :names="vendorNames"
+                        />
+                        <span v-else class="unassigned-text">
+                          {{ displayUnassignedEntry(vendor) }}
+                        </span>
                       </div>
                     </div>
                   </div>

@@ -23,7 +23,7 @@ from typing import Optional
 
 import api.applications as ApplicationsApi
 from datatypes import ApplicationStatus, Market, MarketPhase
-from essential_fields import asked_essential_keys, effective_essential_options_for_market
+from essential_fields import effective_essential_options_for_market, plan_derived_asked_keys
 
 
 # ── Wire shape (backend/frontend contract) ──────────────────────────────
@@ -64,6 +64,12 @@ class FormHasFieldsGuard:
     the same rule that decides what an applicant is shown and what the solver requires of them.
     A question with nothing to offer is not asked, so a market with no dates, no tiers and fewer
     than two sections genuinely asks nothing, and is genuinely blocked.
+
+    It counts the PLAN-DERIVED questions only (``plan_derived_asked_keys``), which excludes the
+    applicant's name. The name is asked unconditionally, so counting it would mean the essential
+    count is never zero and this guard could never fail again -- and what it is holding is the last
+    thing stopping an organizer collecting applications for a market that cannot place anyone.
+    Excluding identity keeps it meaning exactly what the paragraph above says it means.
     """
 
     id: str = "form_has_fields"
@@ -73,7 +79,7 @@ class FormHasFieldsGuard:
         form = market.application_form
         custom_fields = 0 if form is None else len(form.fields)
         essential_questions = len(
-            asked_essential_keys(effective_essential_options_for_market(market))
+            plan_derived_asked_keys(effective_essential_options_for_market(market))
         )
         if custom_fields == 0 and essential_questions == 0:
             return PreconditionResult(

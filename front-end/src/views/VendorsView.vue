@@ -10,6 +10,13 @@ import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import type { Application, Market, MarketDateObject } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
+import {
+  vendorHeadline,
+  vendorMatches,
+  vendorName,
+  type VendorNames,
+} from '@/utils/vendorIdentity';
+import VendorIdentity from '@/components/VendorIdentity.vue';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -67,6 +74,7 @@ function readMarketFromStorage(): Market | null {
 const market = ref<Market | null>(readMarketFromStorage());
 const applications = ref<Application[]>([]);
 const tableRows = ref<MarketTableRowResponse[]>([]);
+const vendorNames = ref<VendorNames>({});
 const unassignedEmails = ref<Set<string>>(new Set());
 
 const isLoading = ref(false);
@@ -122,7 +130,9 @@ async function loadVendors(): Promise<void> {
     const [applicationList, statsResp, tablesResp] = await Promise.all([
       fetchMarketApplications(loaded.id),
       api.get<AssignmentStatisticsResponse>(`/markets/${marketId}/assignment-statistics`),
-      api.get<MarketTableRowResponse[]>(`/markets/${marketId}/tables`),
+      api.get<{ rows: MarketTableRowResponse[]; vendorNames: VendorNames }>(
+        `/markets/${marketId}/tables`,
+      ),
     ]);
 
     applications.value = Array.isArray(applicationList) ? applicationList : [];
@@ -135,11 +145,13 @@ async function loadVendors(): Promise<void> {
     }
     unassignedEmails.value = unassigned;
 
-    tableRows.value = Array.isArray(tablesResp.data) ? tablesResp.data : [];
+    tableRows.value = Array.isArray(tablesResp.data?.rows) ? tablesResp.data.rows : [];
+    vendorNames.value = tablesResp.data?.vendorNames ?? {};
   } catch (err: unknown) {
     loadError.value = extractErrorMessage(err, 'Failed to load vendors.');
     applications.value = [];
     tableRows.value = [];
+    vendorNames.value = {};
     unassignedEmails.value = new Set();
   } finally {
     isLoading.value = false;
@@ -213,9 +225,11 @@ const vendors = computed<VendorRow[]>(() =>
 );
 
 const filteredVendors = computed(() => {
-  const term = filterText.value.trim().toLowerCase();
+  const term = filterText.value.trim();
   if (!term) return vendors.value;
-  return vendors.value.filter((v) => v.displayEmail.toLowerCase().includes(term));
+  // Name AND address. The box used to read "Filter by email" and match only that, which on a
+  // market of 232 vendors meant knowing someone's address to find them by name.
+  return vendors.value.filter((v) => vendorMatches(term, v.email, vendorNames.value));
 });
 
 const totalVendorCount = computed(() => vendors.value.length);
@@ -296,7 +310,7 @@ function handleBack(): void {
               id="vendor-filter"
               v-model="filterText"
               type="search"
-              placeholder="Filter by email…"
+              placeholder="Filter by name or email…"
               autocomplete="off"
               class="filter-input"
               data-testid="vendors-search-input"
@@ -334,7 +348,11 @@ function handleBack(): void {
                 @click="selectVendor(vendor.rowIndex)"
                 data-testid="vendors-list-item"
               >
-                <span class="vendor-email">{{ vendor.displayEmail }}</span>
+                <VendorIdentity
+                  class="vendor-email"
+                  :email="vendor.displayEmail"
+                  :names="vendorNames"
+                />
                 <span class="vendor-meta">
                   <span
                     class="vendor-badge"
@@ -384,7 +402,16 @@ function handleBack(): void {
         <div class="detail-header">
           <div class="detail-title-wrap">
             <span class="detail-eyebrow">Vendor detail</span>
-            <h2 class="detail-title">{{ selectedVendor.displayEmail }}</h2>
+            <h2 class="detail-title">{{ vendorHeadline(selectedVendor.email, vendorNames) }}</h2>
+            <!-- The address always, beneath the name: it is what ties this panel to a check-in,
+                 a CSV row and an application, and two vendors can share a name. -->
+            <p
+              v-if="vendorName(selectedVendor.email, vendorNames)"
+              class="detail-subtitle"
+              data-testid="vendors-detail-email"
+            >
+              {{ selectedVendor.displayEmail }}
+            </p>
           </div>
           <button
             type="button"
@@ -780,6 +807,15 @@ function handleBack(): void {
   font-family: 'Merge One', sans-serif;
   font-size: 22px;
   color: white;
+  overflow-wrap: anywhere;
+}
+
+/* The panel head is dark, so the muted-on-dark token rather than the on-white one. */
+.detail-subtitle {
+  margin: 2px 0 0;
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 13px;
+  color: var(--mm-text-muted-on-dark);
   overflow-wrap: anywhere;
 }
 

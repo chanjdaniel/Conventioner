@@ -83,6 +83,30 @@ test.describe('Public vendor check-in', () => {
     await expect(checkinPage.checkinButtons.first()).toBeVisible();
   });
 
+  test('the vendor is greeted by name, with the address they matched on', async ({
+    page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    const checkinPage = new CheckinPage(page);
+    await checkinPage.goto(seed.marketSlug);
+    await checkinPage.fillEmail('alice@example.com');
+    await checkinPage.clickLookup();
+
+    const vendor = page.getByTestId('attendance-checkin-vendor');
+    await expect(vendor).toBeVisible({ timeout: 10000 });
+    await expect(vendor).toContainText('Alice Example');
+    // The address stays: it is what this lookup matched on, and how a vendor spots that they
+    // typed someone else's.
+    await expect(vendor).toContainText('alice@example.com');
+  });
+
   test('the confirmation states a time a person would say aloud', async ({ page, request }) => {
     const seed = await seedPublishedMarketWithAssignments(
       request,

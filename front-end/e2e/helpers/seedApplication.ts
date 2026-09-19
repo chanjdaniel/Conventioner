@@ -14,6 +14,15 @@ import { mongoContainer } from './containerNames';
  * Runs `mongosh` inside the stack's Mongo container, which the e2e suite already assumes
  * is running (`auth.spec.ts` reads reset tokens the same way).
  */
+/** "nadia@ember.test" -> "Nadia Ember", so a seeded vendor has a name and no two share one. */
+function nameFromEmail(email: string): string {
+  const [local, domain = ''] = email.split('@');
+  const capitalize = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
+  const given = capitalize(local.replace(/[^a-zA-Z]/g, '') || 'Vendor');
+  const family = capitalize(domain.split('.')[0]?.replace(/[^a-zA-Z]/g, '') || 'Applicant');
+  return `${given} ${family}`;
+}
+
 export function seedApplication(
   marketId: string,
   applicantEmail = 'applicant@example.com',
@@ -69,6 +78,7 @@ export function seedApprovedVendor(
     maxDates?: number;
     tableChoice?: string;
     shareWith?: string;
+    fullName?: string;
     extra?: Record<string, unknown>;
   },
 ): string {
@@ -78,6 +88,9 @@ export function seedApprovedVendor(
     market_id: marketId,
     applicant_email: applicantEmail,
     form_data: {
+      // Identity is asked of every market (E13/F01/S01). Derived from the address so two seeded
+      // applicants never share a name, which is what the surfaces have to keep apart.
+      essential_full_name: answers.fullName ?? nameFromEmail(applicantEmail),
       essential_available_dates: answers.dates,
       essential_max_dates: answers.maxDates ?? answers.dates.length,
       // Tier is answered PER DATE (E01/F05), because a tier is a hard filter that sets the

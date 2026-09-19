@@ -2,14 +2,26 @@ import type { EssentialFormOptions, FormField, SetupObject } from '@/assets/type
 import { getFormattedDate } from '@/utils/utils';
 
 /**
- * The essential form questions: the answers the assignment solver reads directly, present in
- * every application form. This mirrors the back-end contract in `back-end/essential_fields.py`,
- * which is the single owner of it - the reserved keys, labels, offering derivation, and
- * validation here must say what the back end will say, only sooner.
+ * The essential form questions: the ones the product owns and every application form asks. This
+ * mirrors the back-end contract in `back-end/essential_fields.py`, which is the single owner of
+ * it - the reserved keys, labels, offering derivation, and validation here must say what the back
+ * end will say, only sooner.
+ *
+ * Most are answers the solver reads directly, which is why they cannot be removed. The name is
+ * the one that is essential because identity is, not because the solver needs it (E13/F01/S01).
  */
 
 /** Custom builder fields may never use this prefix; the keys belong to the essential answers. */
 export const ESSENTIAL_KEY_PREFIX = 'essential_';
+
+/**
+ * Identity, and the one essential question asked unconditionally: every other is gated on the
+ * market plan offering something to answer about, and who you are does not depend on the plan.
+ *
+ * ONE field, never first + last - the names organizers already collect arrive whole, and
+ * splitting on whitespace guesses wrong on every "van der Berg" and mononym.
+ */
+export const FULL_NAME_KEY = 'essential_full_name';
 
 export const AVAILABLE_DATES_KEY = 'essential_available_dates';
 export const MAX_DATES_KEY = 'essential_max_dates';
@@ -19,6 +31,7 @@ export const TABLE_SHARE_EMAIL_KEY = 'essential_table_share_email';
 export const SECTION_RANKING_KEY = 'essential_section_ranking';
 export const TABLE_TYPE_RANKING_KEY = 'essential_table_type_ranking';
 
+export const FULL_NAME_LABEL = 'Full name';
 export const AVAILABLE_DATES_LABEL = 'Available dates';
 export const MAX_DATES_LABEL = 'Number of dates you want';
 export const TIER_PREFERENCE_LABEL = 'Tier preference';
@@ -127,6 +140,7 @@ export interface AnswerRow {
 
 /** The order the form asks the essential questions, so answers read back the way they were given. */
 const ESSENTIAL_ORDER: ReadonlyArray<[string, string, (value: unknown) => unknown]> = [
+  [FULL_NAME_KEY, FULL_NAME_LABEL, (v) => v],
   [
     AVAILABLE_DATES_KEY,
     AVAILABLE_DATES_LABEL,
@@ -238,6 +252,12 @@ export function essentialValidationErrors(
   formData: Record<string, unknown>,
 ): Record<string, string> {
   const errors: Record<string, string> = {};
+
+  // Asked of every applicant, whatever the plan offers, because identity does not depend on it.
+  const name = formData[FULL_NAME_KEY];
+  if (typeof name !== 'string' || !name.trim()) {
+    errors[FULL_NAME_KEY] = `'${FULL_NAME_LABEL}' is required.`;
+  }
 
   if (options.dates.length > 0) {
     const dates = formData[AVAILABLE_DATES_KEY];

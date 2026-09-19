@@ -40,14 +40,19 @@ def _asks_nothing(market_doc: Dict[str, Any], fields: List[Dict[str, Any]]) -> b
     open applications - ``FormHasFieldsGuard`` says such a form asks something - and then refuse
     every application it received, by import and by applicant alike.
 
-    ``asked_essential_keys`` is deliberately the same function the guard and the solver's input
-    translation read. Three copies of "what does this market ask" would drift, and the drift shows
-    up as one layer refusing what another just accepted, which is exactly the bug this replaces.
+    ``plan_derived_asked_keys`` is deliberately the same function ``FormHasFieldsGuard`` reads.
+    Two copies of "what does this market ask" would drift, and the drift shows up as one layer
+    refusing what another just accepted, which is exactly the bug this replaces.
+
+    Plan-derived, so identity is excluded. The applicant's name is asked unconditionally
+    (E13/F01/S01), so counting it would make this - and the guard with it - unable to say no, and
+    a market with no dates, no tiers and fewer than two sections would start collecting
+    applications it can never place.
     """
     if fields:
         return False
     options = EssentialFields.effective_essential_options(market_doc)
-    return not EssentialFields.asked_essential_keys(options)
+    return not EssentialFields.plan_derived_asked_keys(options)
 
 
 NO_FORM_ERROR = "This market does not have an application form configured."
