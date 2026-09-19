@@ -286,7 +286,7 @@ useEscapeToClose(() => selectedVendor.value !== null, closeDetail);
 
 function handleBack(): void {
   if (market.value?.id) {
-    router.push('/assignment-results');
+    router.push({ path: '/market-setup', query: { tab: 'assignment' } });
   } else {
     router.push('/dashboard');
   }

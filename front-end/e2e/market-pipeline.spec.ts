@@ -176,9 +176,12 @@ test.describe('Market pipeline E2E', () => {
     expect(summaryText).toContain('Satisfaction');
     expect(summaryText).toContain('share of the dates vendors asked for');
 
-    await expect(resultsPage.doneButton).toBeVisible();
+    // Download CSV and Send to Discord are the two things here that are actually actions. Done
+    // and Back are gone: publishing is a step on the phase strip, and "I have finished looking at
+    // this" is what leaving a page already is (E10/F03/S01).
     await expect(resultsPage.downloadCsvButton).toBeVisible();
-    await expect(resultsPage.backButton).toBeVisible();
+    await expect(page.getByTestId('assignment-results-done-button')).toHaveCount(0);
+    await expect(page.getByTestId('assignment-results-back-button')).toHaveCount(0);
 
     await expect(page.locator('.body-grid-date .stat-list')).toBeVisible();
     await expect(page.locator('.body-grid-section .stat-list')).toBeVisible();
@@ -188,7 +191,7 @@ test.describe('Market pipeline E2E', () => {
     await expect(resultsPage.viewTablesButton).toBeVisible();
     await expect(resultsPage.viewAttendanceButton).toBeVisible();
 
-    // Phase 4: Publish with Done
+    // Phase 4: Publish
     await page.screenshot({
       path: testInfo.outputPath('01-assignment-results-before-publish.png'),
       fullPage: true,
@@ -211,13 +214,25 @@ test.describe('Market pipeline E2E', () => {
       expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
     }
 
-    await resultsPage.clickDone();
+    // Publishing is a step on the phase strip, not a Done button on the results screen
+    // (E10/F03/S01): that button posted a transition invalid from the phase the organizer was
+    // standing in, and failed with a raw enum error. The phases above were walked over the API,
+    // so the open market has to be re-read before the strip can offer the next step.
+    const afterWalk = await page.request.get(`${BACKEND_URL}/markets/${marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    const { market: walkedMarket } = (await afterWalk.json()) as {
+      market: Record<string, unknown>;
+    };
+    await page.evaluate((m) => localStorage.setItem('market', JSON.stringify(m)), walkedMarket);
 
-    // A published market lands on the public page it actually serves, not back in the wizard.
-    // This market takes its vendors by CSV import, so that is check-in rather than the market
-    // home, which answers a stranger as a market that does not exist.
+    await page.goto('/market-setup');
+    await setupPage.advancePhaseTo('market_days', 'Market Days');
+
+    // Its vendors reach check-in on the URL publishing put on the air. This market takes its
+    // vendors by CSV import, so its market home answers as a market that does not exist.
     const slug = marketNameToSlug(marketName);
-    await page.waitForURL(`**/${slug}/check-in`, { timeout: 10000 });
+    await page.goto(`/${slug}/check-in`);
     await expect(page.locator('.attendance-view')).toBeVisible({ timeout: 10000 });
     await page.screenshot({
       path: testInfo.outputPath('02-published-market-checkin.png'),

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, nextTick, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
@@ -24,13 +24,41 @@ import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
+import AssignmentResults from '@/components/AssignmentResults.vue';
 import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 
 const router = useRouter();
 
 const showPathChoice = ref(false);
-const activeTab = ref<'form' | 'setup' | 'applications'>('setup');
+/**
+ * Which of the market's four screens is open.
+ *
+ * In the URL, so a tab can be linked to and returned to: Assign lands on the assignment tab, and
+ * the Tables and Vendors screens come back to it. It used to be a route the organizer was pushed
+ * to, which is how `Done` came to sit on it posting a phase transition (E10/F03/S01).
+ */
+type MarketTab = 'form' | 'setup' | 'applications' | 'assignment';
+const MARKET_TABS: MarketTab[] = ['form', 'setup', 'applications', 'assignment'];
+
+const route = useRoute();
+
+function tabFromRoute(): MarketTab {
+  const asked = String(route.query.tab ?? '');
+  return (MARKET_TABS as string[]).includes(asked) ? (asked as MarketTab) : 'setup';
+}
+
+const activeTab = ref<MarketTab>(tabFromRoute());
+
+function showTab(tab: MarketTab) {
+  activeTab.value = tab;
+  router.replace({ query: { ...route.query, tab } });
+}
+
+watch(
+  () => route.query.tab,
+  () => (activeTab.value = tabFromRoute()),
+);
 
 /**
  * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
@@ -414,7 +442,7 @@ const handleAssign = async () => {
     market.value = assignedMarket;
     await updateMarket();
 
-    router.push('/assignment-results');
+    showTab('assignment');
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
     assignError.value = detail || 'Assignment failed. Please try again.';
@@ -465,24 +493,31 @@ const sectionsUndescribed = computed(
           <div class="tab-bar">
             <button
               :class="['tab-button', { active: activeTab === 'form' }]"
-              @click="activeTab = 'form'"
+              @click="showTab('form')"
               data-testid="market-setup-form-tab"
             >
               Application Form
             </button>
             <button
               :class="['tab-button', { active: activeTab === 'setup' }]"
-              @click="activeTab = 'setup'"
+              @click="showTab('setup')"
               data-testid="market-setup-setup-tab"
             >
               Market Setup
             </button>
             <button
               :class="['tab-button', { active: activeTab === 'applications' }]"
-              @click="activeTab = 'applications'"
+              @click="showTab('applications')"
               data-testid="market-setup-applications-tab"
             >
               Applications
+            </button>
+            <button
+              :class="['tab-button', { active: activeTab === 'assignment' }]"
+              @click="showTab('assignment')"
+              data-testid="market-setup-assignment-tab"
+            >
+              Assignment Results
             </button>
           </div>
         </div>
@@ -726,6 +761,14 @@ const sectionsUndescribed = computed(
             :visible="activeTab === 'applications'"
             :formEditable="formEditable"
           />
+        </div>
+
+        <!-- Assignment Results, a tab rather than a place the organizer is pushed to. Reachable
+             in every phase, and nothing on it posts a transition: publishing is a step on the
+             phase strip above, and "I have finished looking at this" is what leaving a page
+             already is. -->
+        <div v-if="activeTab === 'assignment'" class="settings-body settings-body-stacked">
+          <AssignmentResults />
         </div>
       </div>
       <!-- A real, wired feature that sat here as a bare URL box between Back and Next, saying

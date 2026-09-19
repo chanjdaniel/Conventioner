@@ -101,6 +101,14 @@ export class MarketSetupPage {
    */
   async advancePhaseTo(toPhase: string, expectedLabel: string): Promise<void> {
     await this.page.getByTestId(`phase-transition-${toPhase}`).click();
+
+    // Publishing confirms, because it is one of the two edges with no route back: it puts a
+    // public check-in page on the air.
+    const publishConfirm = this.page.getByTestId('sweep-confirm-confirm');
+    if (await publishConfirm.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await publishConfirm.click();
+    }
+
     await this.page.getByTestId('phase-control-current-phase').waitFor({ state: 'visible' });
     await this.page
       .getByTestId('phase-control-current-phase')

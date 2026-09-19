@@ -2,6 +2,7 @@ import {
   test,
   expect,
   TEST_USER,
+  MarketSetupPage,
   OrganizationsPage,
   ManageMarketPage,
   BACKEND_URL,
@@ -210,8 +211,10 @@ test.describe('Tier 2 - Assignment CSV export', () => {
       { market: marketData, user: TEST_USER.email },
     );
 
+    // Assignment Results is a tab on the market now (E10/F03/S01); the old route redirects to it.
     await page.goto('/assignment-results');
-    await expect(page.locator('.generate-assignment-view')).toBeVisible({ timeout: 15000 });
+    await page.waitForURL('**/market-setup**', { timeout: 10000 });
+    await expect(page.locator('.assignment-results')).toBeVisible({ timeout: 15000 });
 
     const downloadButton = page.getByTestId('assignment-results-download-csv-button');
     await expect(downloadButton).toBeEnabled({ timeout: 15000 });
@@ -279,18 +282,39 @@ test.describe('Tier 2 - Publish market', () => {
       { market: marketData, user: TEST_USER.email },
     );
 
-    await page.goto('/assignment-results');
-    await expect(page.locator('.generate-assignment-view')).toBeVisible({ timeout: 15000 });
+    // Publishing is a step on the phase strip, not a Done button on the results screen
+    // (E10/F03/S01): that button posted a transition invalid from the phase the organizer was
+    // standing in, and failed with a raw enum error.
+    // Publishing is `assignment -> market_days`, so the market has to BE in assignment. The seed
+    // is shared across this file's tests, so walk only the steps still ahead of it. Its vendors
+    // are already approved, so the review guard passes.
+    const PATH_TO_ASSIGNMENT = [
+      'draft',
+      'applications_open',
+      'applications_closed',
+      'review',
+      'assignment',
+    ];
+    const startAt = PATH_TO_ASSIGNMENT.indexOf(String(marketData.phase ?? 'draft'));
+    for (const toPhase of PATH_TO_ASSIGNMENT.slice(startAt + 1)) {
+      const res = await page.request.post(
+        `${BACKEND_URL}/markets/${encodeURIComponent(marketId)}/transition`,
+        {
+          headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+          data: { toPhase },
+        },
+      );
+      expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
+    }
 
-    const doneButton = page.getByTestId('assignment-results-done-button');
-    await doneButton.click();
+    await page.goto('/market-setup');
+    const setupPage = new MarketSetupPage(page);
+    await setupPage.advancePhaseTo('market_days', 'Market Days');
 
-    // A published market's organizer is sent to the public page their market actually serves.
-    // This one takes its vendors by CSV import, so that is check-in: its market home answers as a
-    // market that does not exist, and landing there would tell the organizer their own market
-    // cannot be found.
-    await page.waitForURL(`**/${slug}/check-in`, { timeout: 10000 });
-
+    // Its vendors reach check-in on the URL publishing put on the air. This market takes its
+    // vendors by CSV import, so its market home answers as a market that does not exist; check-in
+    // is open to every published market regardless.
+    await page.goto(`/${slug}/check-in`);
     await expect(page.locator('.attendance-view')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('attendance-checkin-email-input')).toBeVisible({ timeout: 5000 });
     await expect(page.getByTestId('market-home-not-found')).toHaveCount(0);
