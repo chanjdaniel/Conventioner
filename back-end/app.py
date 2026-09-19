@@ -1193,6 +1193,40 @@ def public_get_vendor_assignments(market_slug: str, vendor_email: str) -> Respon
         return jsonify({"error": "Internal server error"}), 500
 
 
+@app.route('/public/markets/<market_slug>/check-in', methods=['GET'])
+def public_checkin_page(market_slug: str) -> Response:
+    """What the check-in page can say before a vendor types anything: which market this is."""
+    try:
+        result, status_code = AttendanceApi.get_checkin_page(market_slug)
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in public_checkin_page {market_slug}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/public/markets/<market_slug>/attendance/checkin', methods=['DELETE'])
+def public_attendance_undo(market_slug: str) -> Response:
+    """Undo a check-in made on the wrong day, by slug + vendor email + date."""
+    try:
+        data = request.json or {}
+        vendor_email = data.get('vendorEmail') or data.get('vendor_email') or ''
+        date = data.get('date') or ''
+
+        market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
+        if not market_doc:
+            return jsonify({"error": "Market not found"}), 404
+
+        result, status_code = AttendanceApi.undo_attendance(
+            market_doc.get("id", ""), vendor_email, date,
+        )
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in public_attendance_undo {market_slug}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @app.route('/public/markets/<market_slug>/attendance/checkin', methods=['POST'])
 def public_attendance_checkin(market_slug: str) -> Response:
     """Public attendance check-in by slug + vendor email + date."""
