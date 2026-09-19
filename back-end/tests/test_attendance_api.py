@@ -267,13 +267,19 @@ def test_get_published_market_by_slug_skips_legacy_draft_without_phase(monkeypat
     assert AttendanceApi.get_published_market_by_slug("legacy-draft") is None
 
 
-def test_get_published_market_by_slug_finds_legacy_published_without_phase(monkeypatch):
-    """The other half of the legacy mapping: no phase + isDraft false is published."""
+def test_a_legacy_published_market_is_not_served_until_it_is_migrated(monkeypatch):
+    """The other half of the legacy mapping: no phase + isDraft false maps to ARCHIVED.
+
+    Since E03/F03 that is "finished", not "live", so check-in does not serve it. The fix is the
+    migration, not a redefined fallback: `migrate_phase.py` gives a legacy document a phase and
+    `migrate_publishing_to_market_days.py` moves a published one to `market_days`. Failing here is
+    loud - the check-in URL 404s - which is why this is not a boot-refusing migration.
+    """
     fake = FakeSlugMarketsCollection([_slug_market("Legacy Published", isDraft=False)])
     monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
-    found = AttendanceApi.get_published_market_by_slug("legacy-published")
-    assert found is not None and found["name"] == "Legacy Published"
+    assert AttendanceApi.get_published_market_by_slug("legacy-published") is None
+    assert fake.scanned == ["Legacy Published"], "the prefilter must still let Python judge it"
 
 
 def test_get_published_market_by_slug_skips_draft_phase(monkeypatch):
@@ -286,7 +292,7 @@ def test_get_published_market_by_slug_skips_draft_phase(monkeypatch):
 def test_get_published_market_by_slug_finds_archived_phase(monkeypatch):
     fake = FakeSlugMarketsCollection([
         _slug_market("Draft Market", phase="draft", isDraft=True),
-        _slug_market("Live Market", phase="archived", isDraft=False),
+        _slug_market("Live Market", phase="market_days", isDraft=False),
     ])
     monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
@@ -306,7 +312,7 @@ class TestSlugLookupPrunesInMongo:
         fake = FakeSlugMarketsCollection([
             _slug_market("Phase Draft", phase="draft", isDraft=True),
             _slug_market("Legacy Draft", isDraft=True),
-            _slug_market("Live Market", phase="archived", isDraft=False),
+            _slug_market("Live Market", phase="market_days", isDraft=False),
         ])
         monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
@@ -325,19 +331,27 @@ class TestSlugLookupPrunesInMongo:
     @pytest.mark.parametrize(
         "overrides",
         [
-            {"phase": "archived", "isDraft": False},
+            {"phase": "market_days", "isDraft": False},
             {"phase": "applications_open", "isDraft": True},
             {"isDraft": False},
             {"phase": "phase_from_a_future_build", "isDraft": False},
         ],
     )
-    def test_the_prune_never_hides_a_published_market(self, monkeypatch, overrides):
+    def test_the_prune_never_hides_a_market_python_must_judge(self, monkeypatch, overrides):
+        """The prefilter prunes; it does not judge.
+
+        Every encoding here is one a Mongo filter cannot resolve on its own, so the document has to
+        REACH the Python decision. Whether it is then served is a separate question - since
+        E03/F03 check-in serves `market_days` only - and that decision is
+        `phase_from_market_document`'s to make, which it cannot make on a document the filter
+        already dropped.
+        """
         fake = FakeSlugMarketsCollection([_slug_market("Live Market", **overrides)])
         monkeypatch.setattr(AttendanceApi, "markets_collection", fake)
 
-        found = AttendanceApi.get_published_market_by_slug("live-market")
+        AttendanceApi.get_published_market_by_slug("live-market")
 
-        assert found is not None and found["name"] == "Live Market"
+        assert fake.scanned == ["Live Market"], "the prefilter hid a document Python had to judge"
 
 
 class TestSlugLookupQueriesTheStoredSlug:
@@ -359,8 +373,8 @@ class TestSlugLookupQueriesTheStoredSlug:
     def test_the_query_names_the_slug(self, monkeypatch):
         fake = self._fake(
             monkeypatch,
-            _slug_market("Other Market", phase="archived", isDraft=False, setupObject={"big": 1}),
-            _slug_market("Live Market", phase="archived", isDraft=False, setupObject={"big": 1}),
+            _slug_market("Other Market", phase="market_days", isDraft=False, setupObject={"big": 1}),
+            _slug_market("Live Market", phase="market_days", isDraft=False, setupObject={"big": 1}),
         )
 
         AttendanceApi.get_published_market_by_slug("live-market")
@@ -371,7 +385,7 @@ class TestSlugLookupQueriesTheStoredSlug:
     def test_a_slug_that_matches_nothing_fetches_nothing(self, monkeypatch):
         fake = self._fake(
             monkeypatch,
-            _slug_market("Live Market", phase="archived", isDraft=False),
+            _slug_market("Live Market", phase="market_days", isDraft=False),
         )
 
         assert AttendanceApi.get_published_market_by_slug("no-such-market") is None
@@ -383,7 +397,7 @@ class TestSlugLookupQueriesTheStoredSlug:
             monkeypatch,
             _slug_market(
                 "Live Market",
-                phase="archived",
+                phase="market_days",
                 isDraft=False,
                 setupObject={"marketDates": [{"date": "2026-05-01"}]},
                 assignmentObject={"vendorAssignments": []},
@@ -403,7 +417,7 @@ class TestSlugLookupQueriesTheStoredSlug:
         (``assert_market_key_migration_recorded``). Softening this into a read-time fallback would
         put the O(markets) scan back on the miss path, where an attacker lives.
         """
-        doc = _slug_market("Live Market", phase="archived", isDraft=False)
+        doc = _slug_market("Live Market", phase="market_days", isDraft=False)
         del doc["slug"]
         self._fake(monkeypatch, doc)
 
@@ -418,7 +432,7 @@ class TestSlugLookupQueriesTheStoredSlug:
         """
         self._fake(
             monkeypatch,
-            _slug_market("Live Market", phase="archived", isDraft=False, slug="other-market"),
+            _slug_market("Live Market", phase="market_days", isDraft=False, slug="other-market"),
         )
 
         assert AttendanceApi.get_published_market_by_slug("other-market") is None
@@ -431,7 +445,7 @@ class TestSlugLookupQueriesTheStoredSlug:
         decision made about the version before it. The window is gone because the read is one.
         """
         fake = self._fake(
-            monkeypatch, _slug_market("Live Market", phase="archived", isDraft=False)
+            monkeypatch, _slug_market("Live Market", phase="market_days", isDraft=False)
         )
         fake.find_one = lambda query: pytest.fail("the lookup must not re-fetch the market")
 

@@ -236,8 +236,18 @@ class TestValidTransitions:
         assert ("offers", "market_days") in VALID_TRANSITIONS
         assert ("market_days", "archived") in VALID_TRANSITIONS
 
-    def test_reverse_draft_not_registered(self):
-        assert ("applications_open", "draft") not in VALID_TRANSITIONS
+    def test_only_applications_open_may_return_to_draft(self):
+        """The reverse edge exists now (E03/F04), and only from the phase right after draft.
+
+        This used to assert no edge returned to draft at all. That made the application form
+        unfixable: it is editable only in draft, importing is permitted only once applications are
+        open, so every custom field had to be anticipated before the organizer had seen their own
+        columns. The edge is guarded on no application existing, which is what keeps D9 intact -
+        see tests/test_returning_to_draft.py.
+        """
+        into_draft = {frm for frm, to in VALID_TRANSITIONS if to == "draft"}
+
+        assert into_draft == {"applications_open"}
 
     def test_archive_from_every_phase_is_registered(self):
         phases = [p.value for p in MarketPhase if p != MarketPhase.ARCHIVED]

@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conventioner MVP — end-to-end findings</title>
+<style>
+  @font-face { font-family:'Merge One'; src:url('MergeOne-Regular.ttf') format('truetype'); font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Regular.ttf') format('truetype'); font-weight:400; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Medium.ttf') format('truetype'); font-weight:500; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Bold.ttf') format('truetype'); font-weight:700; font-display:swap; }
+
+  :root{
+    --black:#272323;
+    --green:#49b096;
+    --green-d:#2f7f6a;
+    --yellow:#e4a629;
+    --beige:#e9e6e1;
+    --grey:rgba(39,35,35,.25);
+    --paper:#fbfaf9;
+    --card:#ffffff;
+    --red:#c0392b;
+    --red-bg:#fdf1ef;
+    --amber-bg:#fdf7ec;
+    --green-bg:#eef8f5;
+    --ink-2:rgba(39,35,35,.66);
+    --ink-3:rgba(39,35,35,.45);
+    --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--paper); color:var(--black);
+    font-family:'Outfit',system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:16px; line-height:1.6;
+  }
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 20px 96px; }
+  /* Merge One has deep descenders; a tight line box clips them. Give headings room. */
+  h1,h2,h3,h4{
+    font-family:'Merge One','Outfit',system-ui,sans-serif; font-weight:400;
+    line-height:1.34; margin:0; padding-bottom:.08em; overflow-wrap:break-word;
+  }
+
+  /* ---------- masthead ---------- */
+  header.top{
+    background:var(--black); color:#fff; padding:52px 0 44px; margin-bottom:44px;
+    border-bottom:5px solid var(--green);
+  }
+  header.top .wrap{ padding-bottom:0; }
+  .eyebrow{ font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--green); margin-bottom:14px; }
+  header.top h1{ font-size:clamp(30px,4.6vw,50px); color:#fff; margin-bottom:16px; }
+  header.top p.lede{ font-size:clamp(16px,1.7vw,19px); color:rgba(255,255,255,.82); max-width:66ch; margin:0; }
+  .runmeta{ margin-top:28px; display:flex; flex-wrap:wrap; gap:10px 26px; font-size:13px; color:rgba(255,255,255,.6); }
+  .runmeta b{ color:rgba(255,255,255,.92); font-weight:500; }
+
+  /* ---------- verdict ---------- */
+  .verdict{
+    background:var(--card); border:1px solid var(--grey); border-left:6px solid var(--yellow);
+    border-radius:var(--radius); padding:26px 28px; margin-bottom:40px;
+    box-shadow:0 1px 3px rgba(39,35,35,.05);
+  }
+  .verdict h2{ font-size:23px; margin-bottom:10px; }
+  .verdict p{ margin:0 0 12px; max-width:86ch; }
+  .verdict p:last-child{ margin-bottom:0; }
+
+  /* ---------- score strip ---------- */
+  .scores{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr)); gap:14px; margin-bottom:48px; }
+  .score{ background:var(--card); border:1px solid var(--grey); border-radius:var(--radius); padding:18px 20px; min-width:0; }
+  .score .n{ font-family:'Merge One',sans-serif; font-size:30px; line-height:1.34; padding-bottom:.08em; display:block; overflow-wrap:break-word; }
+  .score .l{ font-size:12.5px; color:var(--ink-2); letter-spacing:.03em; margin-top:4px; display:block; }
+  .score.bad .n{ color:var(--red); } .score.ok .n{ color:var(--green-d); } .score.warn .n{ color:var(--yellow); }
+
+  /* ---------- sections ---------- */
+  section{ margin-bottom:56px; scroll-margin-top:20px; }
+  .sec-head{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; border-bottom:2px solid var(--black); padding-bottom:10px; margin-bottom:24px; }
+  .sec-head h2{ font-size:26px; }
+  .sec-head .count{ font-size:13px; color:var(--ink-3); }
+
+  /* ---------- finding cards ---------- */
+  .finding{
+    background:var(--card); border:1px solid var(--grey); border-radius:var(--radius);
+    margin-bottom:20px; overflow:hidden;
+  }
+  .finding > .fh{
+    display:flex; gap:14px; align-items:flex-start; padding:18px 22px;
+    border-bottom:1px solid var(--beige); flex-wrap:wrap;
+  }
+  .finding.crit > .fh{ background:var(--red-bg); }
+  .finding.block > .fh{ background:var(--red-bg); }
+  .finding.high > .fh{ background:var(--amber-bg); }
+  .finding.med  > .fh{ background:#f7f6f4; }
+  .fid{
+    font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:.04em;
+    background:var(--black); color:#fff; border-radius:6px; padding:4px 9px; flex:0 0 auto; margin-top:2px;
+  }
+  .finding.crit .fid,.finding.block .fid{ background:var(--red); }
+  .finding.high .fid{ background:var(--yellow); color:var(--black); }
+  .ftitle{ flex:1 1 340px; min-width:0; }
+  .ftitle h3{ font-size:19px; margin-bottom:3px; }
+  .ftitle .sub{ font-size:13.5px; color:var(--ink-2); }
+  .sev{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:5px 10px; border-radius:20px; flex:0 0 auto; margin-top:2px; }
+  .sev.crit{ background:var(--red); color:#fff; }
+  .sev.block{ background:var(--red); color:#fff; }
+  .sev.high{ background:var(--yellow); color:var(--black); }
+  .sev.med{ background:var(--beige); color:var(--black); }
+  .fb{ padding:20px 22px; }
+  .fb > *:first-child{ margin-top:0; }
+  .fb > *:last-child{ margin-bottom:0; }
+  .fb p{ margin:0 0 12px; max-width:88ch; }
+  .fb ul,.fb ol{ margin:0 0 12px; padding-left:22px; max-width:88ch; }
+  .fb li{ margin-bottom:6px; }
+  .lbl{ font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); font-weight:700; margin:20px 0 8px; }
+
+  code{ font-family:var(--mono); font-size:.875em; background:var(--beige); padding:1.5px 5px; border-radius:4px; overflow-wrap:anywhere; }
+  pre{
+    background:#26221f; color:#e8e3dd; border-radius:10px; padding:15px 17px; overflow-x:auto;
+    font-family:var(--mono); font-size:12.5px; line-height:1.62; margin:0 0 14px;
+  }
+  pre code{ background:none; padding:0; font-size:inherit; color:inherit; }
+  pre .c{ color:#8d857c; } pre .r{ color:#ff9d8f; } pre .g{ color:#87d7bd; } pre .y{ color:#f0c274; }
+  .path{ font-family:var(--mono); font-size:12.5px; color:var(--green-d); overflow-wrap:anywhere; }
+
+  .proof{ background:var(--green-bg); border-left:4px solid var(--green); border-radius:0 8px 8px 0; padding:13px 17px; margin:0 0 14px; font-size:14.5px; }
+  .proof strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--green-d); margin-bottom:5px; }
+  .impact{ background:var(--red-bg); border-left:4px solid var(--red); border-radius:0 8px 8px 0; padding:13px 17px; margin:0 0 14px; font-size:14.5px; }
+  .impact strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--red); margin-bottom:5px; }
+  .fix{ background:#f7f6f4; border-left:4px solid var(--black); border-radius:0 8px 8px 0; padding:13px 17px; font-size:14.5px; }
+  .fix strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-2); margin-bottom:5px; }
+
+  figure{ margin:0 0 14px; }
+  figure img{ display:block; width:100%; height:auto; border:1px solid var(--grey); border-radius:10px; background:#fff; }
+  figcaption{ font-size:12.5px; color:var(--ink-3); margin-top:7px; }
+  .shots{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); gap:16px; margin-bottom:14px; }
+  .shots figure{ margin:0; min-width:0; }
+
+  .tablewrap{ overflow-x:auto; border:1px solid var(--grey); border-radius:var(--radius); background:var(--card); margin-bottom:14px; }
+  table{ border-collapse:collapse; width:100%; font-size:14px; }
+  th,td{ text-align:left; padding:11px 15px; border-bottom:1px solid var(--beige); vertical-align:top; }
+  th{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2); font-weight:700; background:#faf9f8; white-space:nowrap; }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.num{ font-family:var(--mono); font-size:13px; white-space:nowrap; }
+  tr.bad td{ background:var(--red-bg); } tr.good td{ background:var(--green-bg); }
+  .pill{ display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .pill.no{ background:var(--red); color:#fff; } .pill.yes{ background:var(--green); color:#fff; } .pill.part{ background:var(--yellow); color:var(--black); }
+
+  .worked{ background:var(--green-bg); border:1px solid rgba(73,176,150,.35); border-radius:var(--radius); padding:22px 26px; }
+  .worked ul{ margin:0; padding-left:22px; columns:2; column-gap:34px; }
+  .worked li{ margin-bottom:9px; break-inside:avoid; max-width:48ch; }
+  @media (max-width:760px){ .worked ul{ columns:1; } }
+
+  ol.priority{ counter-reset:p; list-style:none; padding:0; margin:0; }
+  ol.priority > li{
+    counter-increment:p; position:relative; padding:16px 20px 16px 62px; background:var(--card);
+    border:1px solid var(--grey); border-radius:var(--radius); margin-bottom:12px; min-width:0;
+  }
+  ol.priority > li::before{
+    content:counter(p); position:absolute; left:18px; top:16px;
+    width:28px; height:28px; border-radius:50%; background:var(--black); color:#fff;
+    display:grid; place-items:center; font-size:13px; font-weight:700; font-family:var(--mono);
+  }
+  ol.priority > li b{ display:block; margin-bottom:3px; }
+  ol.priority > li span{ font-size:14px; color:var(--ink-2); }
+  ol.priority .tag{ font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+
+  .note{ font-size:13.5px; color:var(--ink-2); font-style:italic; }
+  hr.soft{ border:none; border-top:1px solid var(--beige); margin:26px 0; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Exploratory QA · Playwright · real applicant data</div>
+    <h1>Conventioner MVP: what happens when you feed it a real market</h1>
+    <p class="lede">I walked the whole organizer journey in a browser — sign up, plan a market, import vendors, review, assign, publish, check in — using the 232-row UBC Makers Market Fall 2025 response sheet. The pipeline works. The file doesn't get through it.</p>
+    <div class="runmeta">
+      <span><b>Build</b> dev @ e480ef1a</span>
+      <span><b>Data</b> 232 applications, 31 columns</span>
+      <span><b>Market</b> Nov 17–21 2025 · Gold/Silver/Bronze · 50 tables/day</span>
+      <span><b>Date</b> 14 Sep 2026</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="verdict">
+    <h2>The short version</h2>
+    <p><b>The machine is sound.</b> Once data is in the shape the product expects, everything downstream works and works well: the solver placed 199 of 232 vendors across 333 assignments and filled all 250 tables, the phase machine held, publishing landed on a live check-in page, and a vendor looked themselves up and checked in. That is a real product doing real work.</p>
+    <p><b>The file you gave me cannot be imported.</b> Three independent blockers stop it at the mapping step, and the “Preview import” button is permanently disabled. One is a one-line bug; two are modelling gaps between what a Google Form asks and what the market plan requires.</p>
+    <p><b>Two defects would produce wrong answers even after it imports.</b> The “earliest application first” priority rule is a silent no-op on any CSV-imported market, and the fallback ordering compares timestamps as raw text. Both were verified against the live build, not inferred.</p>
+    <p><b>Two security holes need attention before anything is deployed.</b> Any signed-up user can read and modify every other organization's markets and applicant PII; and any unauthenticated caller can delete any verified account. Both proven by request, both one-line causes.</p>
+  </div>
+
+  <div class="scores">
+    <div class="score ok"><span class="n">199 / 232</span><span class="l">vendors assigned by the solver</span></div>
+    <div class="score ok"><span class="n">250 / 250</span><span class="l">tables filled</span></div>
+    <div class="score bad"><span class="n">0</span><span class="l">rows of your CSV importable</span></div>
+    <div class="score bad"><span class="n">111 / 232</span><span class="l">applications mis-ordered by the tiebreak</span></div>
+    <div class="score bad"><span class="n">2</span><span class="l">proven auth vulnerabilities</span></div>
+  </div>
+
+  <!-- ============ BLOCKERS ============ -->
+  <section id="blockers">
+    <div class="sec-head">
+      <h2>Blockers on the real file</h2>
+      <span class="count">Three reasons the Fall 2025 sheet stops at “Map columns”</span>
+    </div>
+
+    <figure>
+      <img src="shots/20-after-dates-map.png" alt="The column ledger showing the real CSV: 31 separate rows, each day column listed independently with its full multi-line Google Forms question text." />
+      <figcaption>The real file in the ledger. The five day columns appear as five independent rows, each carrying ~450 characters of question text. Only one of them can claim “Available dates”; the rest are stranded.</figcaption>
+    </figure>
+
+    <div class="finding block">
+      <div class="fh">
+        <span class="fid">B1</span>
+        <div class="ftitle">
+          <h3>Grid detection misses every real Google Forms grid</h3>
+          <div class="sub">A one-character regex flag. Fixing it turns 31 unusable rows into a clean 14-row ledger.</div>
+        </div>
+        <span class="sev block">Blocker</span>
+      </div>
+      <div class="fb">
+        <p>Google Forms exports a checkbox grid as one column per option, with the option in trailing brackets: <code>Which days? [Monday, November 17]</code>. Conventioner detects that and folds the columns back into one question. The detector is:</p>
+        <pre><code><span class="c"># back-end/csv_import.py:105</span>
+_GRID_HEADER = re.compile(r<span class="g">"^(?P&lt;stem&gt;.+?)\s*\[(?P&lt;option&gt;.+)\]$"</span>)</code></pre>
+        <p><code>.</code> does not match a newline, and there is no <code>re.DOTALL</code>. Your form's grid question carries five lines of instructions (“NOTE: Your booth must be active for at least 5 hours…”) before the bracketed date — so the pattern fails and each day becomes an unrelated column.</p>
+        <div class="proof"><strong>Verified</strong>
+          <pre style="margin:8px 0 0"><code>col 20 newlines: 5 -> match: <span class="r">False</span>
+       DOTALL match: <span class="g">True</span>
+col 24 newlines: 5 -> match: <span class="r">False</span>
+       DOTALL match: <span class="g">True</span></code></pre>
+        </div>
+        <p class="lbl">Proof by contrast</p>
+        <p>I rebuilt the same 232 rows changing <em>only</em> the header whitespace. Grid detection fired immediately, the ledger collapsed from 31 rows to 14, and the wizard behaved exactly as designed:</p>
+        <div class="shots">
+          <figure>
+            <img src="shots/21-derived-ledger.png" alt="Ledger with single-line stems: Available days detected as one question spanning 5 columns, with indented child rows." />
+            <figcaption>Same data, single-line stems. “Available days · 5 columns · one per option”, child rows indented and labelled “part of the question above”, with a “Not one question – split” escape hatch.</figcaption>
+          </figure>
+          <figure>
+            <img src="shots/23-preview.png" alt="Unmatched value resolution: Full table 85 rows and Half table 62 rows with Choose dropdowns." />
+            <figcaption>And the unmatched-value step works nicely: it counted 85 “Full table” and 62 “Half table” rows and asked once per value, not once per row.</figcaption>
+          </figure>
+        </div>
+        <div class="impact"><strong>Impact</strong>Every market whose Google Form has help text on a grid question — which is most of them — silently loses grid detection and becomes unimportable.</div>
+        <div class="fix"><strong>Fix</strong>Add <code>re.DOTALL</code> to <span class="path">back-end/csv_import.py:105</span>, and normalise whitespace in the stem so the group label stays readable. The existing tests all use short single-line stems (<code>"Which days can you attend?"</code>), which is why this survived — <span class="path">back-end/tests/test_csv_import.py:325</span> needs a realistic multi-line header case.</div>
+      </div>
+    </div>
+
+    <div class="finding block">
+      <div class="fh">
+        <span class="fid">B2</span>
+        <div class="ftitle">
+          <h3>The form asks tier <em>per day</em>; the model stores one tier set for the whole application</h3>
+          <div class="sub">No mapping can express the real question, even with B1 fixed.</div>
+        </div>
+        <span class="sev block">Blocker</span>
+      </div>
+      <div class="fb">
+        <p>Your form asks one question per day whose answer is a <em>set of tiers</em> — <code>Gold, Silver, Bronze</code>, or <code>None</code> meaning unavailable. So one cell carries two facts: whether the vendor can attend that day, and which tiers they'd accept that day.</p>
+        <p>The contract splits those apart (a decision recorded in the v0.1.0 map, ticket 01): <code>essential_available_dates</code> is a list of dates, and <code>essential_tier_preference</code> is a <em>single</em> set of accepted tiers for the whole application. There is nowhere to put “Gold on Monday, Bronze on Friday”.</p>
+        <p>The ledger enforces one column per target, so mapping the Monday column to “Available dates” greys that target out everywhere else — and tier has no column left that isn't already spoken for.</p>
+        <div class="impact"><strong>Impact</strong>The organizer's actual policy — “you'll be given the highest tier available among the selections made <em>for that day</em>” — cannot be represented. Collapsing to a union of tiers silently promises Gold on days the vendor only offered Bronze.</div>
+        <div class="fix"><strong>Fix</strong>A decision, not a patch. Either (a) allow a grid to map to two targets, deriving availability from “cell is non-empty and not <code>None</code>” and tier from the cell contents, or (b) make tier preference per-date like availability. (a) is far cheaper and covers this form exactly. Worth a wayfinder ticket.</div>
+      </div>
+    </div>
+
+    <div class="finding block">
+      <div class="fh">
+        <span class="fid">B3</span>
+        <div class="ftitle">
+          <h3>Section preference is mandatory, unanswerable, and unavoidable</h3>
+          <div class="sub">More than one tier forces more than one section, which forces a question the form never asked.</div>
+        </div>
+        <span class="sev block">Blocker</span>
+      </div>
+      <div class="fb">
+        <p>Tier is a property of a <em>section</em> in the setup model — a section row is <code>name · location · tier · count</code>. So a market with Gold, Silver and Bronze needs at least three sections.</p>
+        <p>And <code>asks_ranking()</code> makes section preference a required question as soon as there are two or more sections:</p>
+        <pre><code><span class="c"># back-end/essential_fields.py:149</span>
+<span class="y">if</span> asks_ranking(options.sections):
+    asked.add(SECTION_RANKING_KEY)</code></pre>
+        <p>Your form never mentions sections — vendors have no idea the room is divided. So the import requires an answer that does not exist in the file, and cannot be made optional by simplifying the plan, because collapsing to one section would collapse to one tier.</p>
+        <div class="proof"><strong>Observed</strong>With everything else mapped, the rail read <code>Still unmapped: Tier preference, Section preference</code> and <b>Preview import stayed disabled</b>. There is no “this question wasn't asked — use a default” option anywhere in the wizard.</div>
+        <div class="fix"><strong>Fix</strong>Let the organizer mark a required essential question as “not asked” at import time and supply a default (e.g. all sections equally preferred). Section ranking is explicitly a soft preference in the solver, never a filter, so a uniform default is harmless — which makes this the cheapest of the three to unblock.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CORRECTNESS ============ -->
+  <section id="correctness">
+    <div class="sec-head">
+      <h2>Correctness: the assignment is not first-come-first-served</h2>
+      <span class="count">Both verified against the running build</span>
+    </div>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">C1</span>
+        <div class="ftitle">
+          <h3>“When the application arrived → Earliest first” does nothing on a CSV market</h3>
+          <div class="sub">Every imported applicant scores <code>math.inf</code>. The rule contributes zero to the ordering.</div>
+        </div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <p>The rule scores a vendor by turning their answer into a magnitude:</p>
+        <pre><code><span class="c"># back-end/assignment/assignment.py:23 — "an ISO timestamp sorts correctly as text"</span>
+<span class="y">def</span> _as_magnitude(answer):
+    <span class="y">try</span>: <span class="y">return</span> float(answer)          <span class="c"># not a number</span>
+    <span class="y">except</span> ValueError: <span class="y">pass</span>
+    ...                                  <span class="c"># not yes/no</span>
+    <span class="y">return</span> _as_moment(answer)            <span class="c"># datetime.fromisoformat(...)</span>
+
+<span class="c"># assignment.py:348</span>
+magnitude = _as_magnitude(...)
+<span class="y">if</span> magnitude <span class="y">is</span> <span class="y">None</span>: <span class="y">return</span> <span class="r">math.inf</span></code></pre>
+        <p>The docstring assumes an ISO timestamp. Google Forms writes <code>M/D/YYYY H:MM:SS</code>, which <code>datetime.fromisoformat</code> cannot parse — so <code>_as_magnitude</code> returns <code>None</code> and every single vendor scores <code>math.inf</code>, identically.</p>
+        <div class="proof"><strong>Run inside the live container</strong>
+          <pre style="margin:8px 0 0"><code>$ docker exec conventioner-dev-backend python -c "from assignment.assignment import _as_magnitude; ..."
+'9/12/2025 18:22:56' -> <span class="r">None</span>
+'9/27/2025 23:49:25' -> <span class="r">None</span>
+'9/27/2025 9:04:01'  -> <span class="r">None</span>
+
+ISO control: '2025-09-12T18:22:56' -> <span class="g">1757701376.0</span></code></pre>
+        </div>
+        <div class="impact"><strong>Impact</strong>The organizer configures first-come-first-served, sees the rule saved, runs the assignment, and gets an ordering the rule never touched. Nothing warns them. <code>AGENTS.md</code> already states the invariant — “a CSV-imported row must carry its own <code>submitted_at</code>, or first-come-first-served decides nothing” — the row does carry it, in a format the scorer can't read, so it decides nothing anyway.</div>
+        <div class="fix"><strong>Fix</strong>Parse the timestamp at <em>import</em> time and store ISO-8601, so everything downstream compares one shape. Failing that, teach <code>_as_moment</code> the Google Forms format. Either way, a target that yields <code>inf</code> for every vendor should be surfaced, not swallowed.</div>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">C2</span>
+        <div class="ftitle">
+          <h3>The submission tiebreak compares timestamps as raw text</h3>
+          <div class="sub">48% of your applications sort into the wrong position.</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>With C1 neutralising the priority rule, ordering falls through to the tiebreak chain — where <code>submitted_at</code> is compared as a plain string:</p>
+        <pre><code><span class="c"># back-end/assignment/assignment.py:386</span>
+<span class="y">return</span> (
+    vendor.num_assignments,
+    self._calculate_priority_score(vendor),   <span class="c"># inf for everyone (C1)</span>
+    vendor.date_flexibility,
+    <span class="r">vendor.want.submitted_at or ""</span>,          <span class="c"># "9/27/2025 9:04:01"</span>
+    vendor.want.email,
+)</code></pre>
+        <p>Unpadded hours are the killer: <code>"9/27/2025 9:04:01"</code> sorts <em>after</em> <code>"9/27/2025 23:49:25"</code> because <code>"9" &gt; "2"</code>. Unpadded months would do the same across an October boundary.</p>
+        <div class="proof"><strong>Measured on your 232 rows</strong>
+          <pre style="margin:8px 0 0"><code>true latest 3  : 9/27 23:21:21 · 9/27 23:47:06 · 9/27 23:49:25
+string latest 3: <span class="r">9/27 2:11:48 · 9/27 3:19:10 · 9/27 9:04:01</span>
+
+positions where string order != real order: <span class="r">111 of 232</span></code></pre>
+        </div>
+        <p class="lbl">What that looked like in the actual assignment</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Applicant</th><th>Submitted</th><th>True rank</th><th>Tier wanted</th><th>Outcome</th></tr></thead>
+            <tbody>
+              <tr class="bad"><td>eun2.studio@gmail.com</td><td class="num">9/12/2025 18:22:56</td><td class="num">1st of 232</td><td>Gold only</td><td><span class="pill no">Unassigned</span></td></tr>
+              <tr class="good"><td>kaymstahler@gmail.com</td><td class="num">9/27/2025 23:21:21</td><td class="num">227th of 232</td><td>Gold accepted</td><td><span class="pill yes">Got Gold</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Gold is also a hard filter over only 65 slots, so eun2.studio was always at risk — but the ordering that was supposed to protect the earliest applicant demonstrably did not run. Across the 30 genuinely-earliest Gold seekers 13 got Gold; across the 30 genuinely-latest, 7 did. That is close to noise, which is what “no effective ordering” looks like.</p>
+        <div class="fix"><strong>Fix</strong>Falls out of C1 — store ISO and both the rule and the tiebreak become chronological.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SECURITY ============ -->
+  <section id="security">
+    <div class="sec-head">
+      <h2>Security</h2>
+      <span class="count">Both proven by request against the running stack</span>
+    </div>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">S1</span>
+        <div class="ftitle">
+          <h3>Any signed-up user can read and modify every other organization's market</h3>
+          <div class="sub">Authorization trusts a client-supplied <code>X-Owner-Email</code> header as the caller's identity.</div>
+        </div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <p>Endpoints are session-guarded with <code>@login_required</code>, but the permission check runs against an email the <em>client</em> sends:</p>
+        <pre><code><span class="c"># back-end/app.py:1395 — and 32 other routes</span>
+requesting_user = request.headers.get(<span class="g">'X-Owner-Email'</span>)
+...
+<span class="y">if</span> <span class="y">not</span> PermissionsApi.user_has_permission(requesting_user, context.market, MarketRole.ADMIN, ...)</code></pre>
+        <p><code>@login_required</code> only proves you are <em>some</em> authenticated user. It never constrains <em>which</em> user the header may claim to be.</p>
+        <div class="proof"><strong>Proven — second account, no relationship to the market</strong>
+          <pre style="margin:8px 0 0"><code><span class="c">A: attacker, honest header (own identity)</span>
+HTTP <span class="g">403</span>  {"error":"User does not have permission to view this market"}
+
+<span class="c">B: attacker, spoofed header (victim's identity)</span>
+HTTP <span class="r">200</span>  applications returned: <span class="r">232</span>
+        sample applicant email: elenazzi.0623@gmail.com
+
+<span class="c">C: attacker writes — rejects one of the victim's applications</span>
+HTTP <span class="r">200</span>  resulting status: <span class="r">reviewer_rejected</span></code></pre>
+        </div>
+        <div class="impact"><strong>Impact</strong>Full cross-tenant read and write. 232 real names and email addresses read by an unrelated account, and an application rejected on someone else's market. Registration is open, so the only prerequisite is signing up and knowing an organizer's email address.</div>
+        <div class="fix"><strong>Fix</strong>Derive identity from the session — <code>current_user.email</code> — and never from a request header. The comment at <span class="path">back-end/app.py:385</span> says the header is “set by login_required decorator”; it is not, and that misconception is the root of all 33 occurrences.</div>
+      </div>
+    </div>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">S2</span>
+        <div class="ftitle">
+          <h3>Any unauthenticated caller can delete any verified account</h3>
+          <div class="sub">No session, no password — two attacker-controlled values that are compared to each other.</div>
+        </div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <p><code>/delete-user</code> is the one route reading <code>X-Owner-Email</code> with no <code>@login_required</code> at all. The ownership check compares the header against the request body:</p>
+        <pre><code><span class="c"># back-end/api/users.py:523</span>
+is_own_account = requesting_user_email <span class="y">and</span> email_to_delete == requesting_user_email
+<span class="y">if</span> <span class="y">not</span> is_own_account <span class="y">and</span> <span class="y">not</span> is_unverified:
+    <span class="y">return</span> jsonify(...), 403</code></pre>
+        <p>Both sides come from the attacker, so the equality always holds.</p>
+        <div class="proof"><strong>Proven — verified account, no cookie jar</strong>
+          <pre style="margin:8px 0 0"><code>$ curl -X POST https://localhost:5090/delete-user \
+    -H 'X-Owner-Email: attacker@example.com' \
+    -d '{"email":"attacker@example.com"}'
+
+{"msg":"User deleted successfully"}   HTTP <span class="r">200</span>
+login now: <span class="r">401</span></code></pre>
+        </div>
+        <div class="impact"><strong>Impact</strong>Account takeover-by-destruction against any known email address. Worse, the handler notes “We don't transfer ownership here” — deleting an organization's owner strands the organization and every market in it.</div>
+        <div class="fix"><strong>Fix</strong>Require <code>@login_required</code> and take the identity from <code>current_user</code>. The unverified-cleanup path should be a scheduled job, not an anonymous endpoint.</div>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">S3</span>
+        <div class="ftitle">
+          <h3>Vendor check-in is unauthenticated and enumerable</h3>
+          <div class="sub">Probably deliberate for a market day. Worth stating rather than discovering.</div>
+        </div>
+        <span class="sev med">Note</span>
+      </div>
+      <div class="fb">
+        <p>The public check-in page takes an email and returns that vendor's table, section, tier and location with no verification. Anyone with the market slug can confirm whether a given email is vending and where they will be standing.</p>
+        <figure><img src="shots/34-checkin-found.png" alt="Vendor check-in page showing table, section, tier and location for an email with no authentication." /></figure>
+        <div class="fix"><strong>Consider</strong>Rate-limit the lookup and decide explicitly whether a stranger should be able to confirm a vendor's presence and position. If the answer is “yes, that's the point on market day”, record it.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WORKFLOW ============ -->
+  <section id="workflow">
+    <div class="sec-head">
+      <h2>Workflow traps</h2>
+      <span class="count">Not bugs — but they make the product unusable at 232 applications</span>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">W1</span>
+        <div class="ftitle">
+          <h3>The form freezes forever before you can ever see a CSV, and there is no way back</h3>
+          <div class="sub">The one-way door is invisible and unlabelled.</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>Three rules combine into a trap:</p>
+        <ol>
+          <li>The application form is editable <b>only in <code>draft</code></b>.</li>
+          <li>CSV import is allowed <b>only in <code>applications_open</code> / <code>applications_closed</code></b>.</li>
+          <li><b>No transition returns to <code>draft</code></b> — <span class="path">back-end/guards.py:174</span> lists every edge, and nothing points back.</li>
+        </ol>
+        <p>So the organizer must define every custom field they will ever want <em>before</em> clicking “Open Applications”, having never seen the import screen. One click later the form is frozen permanently.</p>
+        <div class="shots">
+          <figure><img src="shots/27-form-locked.png" alt="Form builder showing: Application form can only be edited while the market is in draft phase. Current phase: applications_open." /><figcaption>One click after “Open Applications”, before a single applicant exists.</figcaption></figure>
+          <figure><img src="shots/26-review-queue.png" alt="Review queue showing 232 application cards with only an email address, a status pill, a date, and Approve/Reject." /><figcaption>The consequence: 232 decisions to make, with nothing to make them on.</figcaption></figure>
+        </div>
+        <div class="impact"><strong>Impact</strong>For your file, everything an organizer actually reviews on — Business Name, what they're selling, portfolio link, UBC affiliation, club membership, Discord handle — is unrecoverable. The reviewer sees an email address and is asked to approve or reject.</div>
+        <div class="fix"><strong>Fix</strong>Either allow an <code>applications_open → draft</code> edge while no application exists, or allow the import wizard to create a custom field from an unmapped column on the spot. The second is better: it's where the organizer is actually looking at their columns.</div>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">W2</span>
+        <div class="ftitle">
+          <h3>The review queue has no bulk action, no counts, no search, no sort, no paging</h3>
+          <div class="sub">232 cards in one list, each with two identical buttons.</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>Every card is <code>email · status · date · Approve · Reject</code>. There is no “Approve all”, no “232 applications · 232 awaiting review”, no filter, no ordering control, and every click re-fetches the entire list of 232 from the server.</p>
+        <p>Approving is also not visibly terminal — after approving, both buttons remain, unchanged, with only a small pill to distinguish the row.</p>
+        <p class="note">Bulk approve is the one still-open ticket on the v0.1.0 map (<span class="path">.scratch/wayfinding/v0-1-0/issues/08-bulk-approve-shape.md</span>). This run is evidence for how it should be shaped: the counts, the sort and the “what am I deciding on” problem are the same ticket.</p>
+        <div class="fix"><strong>Fix</strong>Resolve ticket 08 with the whole queue in scope, not just the bulk button.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LAYOUT ============ -->
+  <section id="layout">
+    <div class="sec-head">
+      <h2>Layout &amp; window sizes</h2>
+      <span class="count">You asked for this explicitly — it is worse than it looks at one size</span>
+    </div>
+
+    <p style="max-width:88ch">I measured the assignment results page at eleven window sizes. The statistics cards use <code>flex:1 / min-height:0</code> inside grid rows of <code>minmax(0,1fr)</code>, which assumes a definite height flows down from an ancestor. It doesn't — so the lists collapse toward zero and the shorter the window, the less you see. There is nothing wrong with the data; it is all in the DOM.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Window</th><th>Context</th><th>Stats list height</th><th>Horizontal overflow</th><th>Usable?</th></tr></thead>
+        <tbody>
+          <tr class="bad"><td class="num">1280 × 720</td><td>Common laptop</td><td class="num">16px of 266px</td><td class="num">0</td><td><span class="pill no">No</span></td></tr>
+          <tr class="bad"><td class="num">1366 × 768</td><td>Most common laptop</td><td class="num">16px of 266px</td><td class="num">0</td><td><span class="pill no">No</span></td></tr>
+          <tr class="bad"><td class="num">1440 × 900</td><td>MacBook Air</td><td class="num">21px of 266px</td><td class="num">0</td><td><span class="pill no">No</span></td></tr>
+          <tr class="bad"><td class="num">1600 × 900</td><td>Common desktop</td><td class="num">35px of 266px</td><td class="num">0</td><td><span class="pill no">No</span></td></tr>
+          <tr class="bad"><td class="num">1512 × 982</td><td>MacBook Pro 14"</td><td class="num">66px of 266px</td><td class="num">0</td><td><span class="pill part">Barely</span></td></tr>
+          <tr><td class="num">1920 × 1080</td><td>Most common desktop</td><td class="num">103px of 266px</td><td class="num">0</td><td><span class="pill part">Partial</span></td></tr>
+          <tr><td class="num">1920 × 1200</td><td>16:10 desktop</td><td class="num">149px of 266px</td><td class="num">0</td><td><span class="pill part">Partial</span></td></tr>
+          <tr class="good"><td class="num">2560 × 1440</td><td>QHD</td><td class="num">240px of 266px</td><td class="num">0</td><td><span class="pill yes">Yes</span></td></tr>
+          <tr class="bad"><td class="num">1024 × 768</td><td>Small laptop / iPad landscape</td><td class="num">16px of 348px</td><td class="num">0</td><td><span class="pill no">No</span></td></tr>
+          <tr class="bad"><td class="num">834 × 1112</td><td>iPad portrait</td><td class="num">97px of 348px</td><td class="num">181px</td><td><span class="pill no">No</span></td></tr>
+          <tr class="bad"><td class="num">390 × 844</td><td>iPhone</td><td class="num">16px of 348px</td><td class="num">625px</td><td><span class="pill no">No</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="shots">
+      <figure>
+        <img src="shots/30-results-1366.png" alt="Assignment results at 1366x768: four statistics cards showing only titles, with content spilling outside the card borders and overlapping the cards below." />
+        <figcaption><b>1366×768 — the most common laptop resolution.</b> All four statistics cards show a title and a sliver of clipped content bleeding <em>outside</em> the card border and overlapping the card below. The unassigned list is cut mid-email.</figcaption>
+      </figure>
+      <figure>
+        <img src="shots/31-results-mobile.png" alt="Assignment results at 390x844: fixed-width layout, horizontal scrollbar, text broken mid-word." />
+        <figcaption><b>390×844.</b> No mobile handling at all — fixed layout, 625px of horizontal scroll, “Assignme / nts” broken mid-word.</figcaption>
+      </figure>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">L1</span>
+        <div class="ftitle">
+          <h3>Statistics cards collapse on every common laptop</h3>
+          <div class="sub">The payoff screen of the whole product.</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>The content is present and correct — <code>Nov 17: 66, Nov 18: 64, Nov 19: 66…</code> — in a container 16px tall holding 266px of content. <span class="path">front-end/src/views/GenerateAssignmentView.vue:808–845</span>.</p>
+        <div class="fix"><strong>Fix</strong>Give the card bodies an intrinsic <code>min-height</code> (or drop the height-constrained grid and let the page scroll) so the lists never depend on viewport height. Then re-check at 1280×720 as the floor.</div>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">L2</span>
+        <div class="ftitle">
+          <h3>Every scrollable page gets a spurious horizontal scrollbar</h3>
+          <div class="sub"><code>width:100vw</code> includes the vertical scrollbar.</div>
+        </div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>Four rules in <span class="path">front-end/src/assets/…</span> and <span class="path">front-end/src/App.vue:92,111,136,146</span> set <code>width:100vw</code>. When the page is tall enough to scroll, <code>documentElement.clientWidth</code> is 1425 while those elements are 1440 — so a horizontal scrollbar appears on the results page, the review queue and the check-in page.</p>
+        <div class="fix"><strong>Fix</strong>Use <code>width:100%</code> (or <code>100dvw</code> where full-bleed is genuinely wanted).</div>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">L3</span>
+        <div class="ftitle">
+          <h3>The Applications tab renders its content outside the panel</h3>
+          <div class="sub">An empty 302px card, then unaligned content floating below it.</div>
+        </div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p><code>.settings-container</code> contains only the header and tabs; <code>.applications-toolbar</code> is a <em>sibling</em>, outside the bordered panel. The result is an empty card taking the top third of the screen, then three elements at three different alignments with no container.</p>
+        <figure><img src="shots/17-applications-tab.png" alt="Applications tab: an empty bordered Settings panel, with the Applications heading, Import from CSV button, and empty-state text scattered below it at three different alignments." /></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ POLISH ============ -->
+  <section id="polish">
+    <div class="sec-head">
+      <h2>Polish &amp; copy</h2>
+      <span class="count">Individually small; together they read as unfinished</span>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Where</th><th>What</th><th>Why it matters</th></tr></thead>
+        <tbody>
+          <tr><td>Sidebar (every page)</td><td>Four of six links point at <code>/vendors</code> — “View Tables”, “Discord Tools”, “View Change Log” all land on the same wrong page</td><td>Vestigial navigation from an earlier product. First thing a new user opens.</td></tr>
+          <tr><td>Phase controls</td><td>A red <b>“Archive Market”</b> button is how you <em>publish</em> a market (<code>draft → archived</code>)</td><td>Destructive styling on a constructive action. Organizers will avoid the button they need.</td></tr>
+          <tr><td>Market Setup, steps 1&nbsp;&amp;&nbsp;2</td><td>“Set both assignment options above to run the assignment” shown when no assignment options are on screen</td><td>Refers to controls that only exist on step 3.</td></tr>
+          <tr><td>Market Setup (all steps)</td><td>The market's name appears nowhere; the page is titled “Settings”</td><td>No way to confirm which market you are editing.</td></tr>
+          <tr><td>Form Builder</td><td>“Save Form” permanently disabled with “Add at least one field to save this form” on an essential-only form</td><td>Contradicts the backend, which correctly accepts an essential-only form — the phase transition succeeded. <span class="path">front-end/src/utils/applicationForm.ts:23</span></td></tr>
+          <tr><td>Import rail</td><td>Green “All required questions are mapped.” followed immediately by red “Still unmapped:” with an empty list</td><td>Two contradictory messages at the decision point.</td></tr>
+          <tr><td>Import preview</td><td>Grid-mapped targets show a blank source column while every other row names its column</td><td>Reads as “not mapped” at the moment you confirm writing 232 records.</td></tr>
+          <tr><td>Import preview</td><td>Step is called “Preview” but shows only the mapping recap — no sample rows</td><td>You confirm 232 writes without seeing one applicant's parsed data.</td></tr>
+          <tr><td>Unmatched values</td><td>Choices offered as raw contract values <code>full</code> / <code>half</code> / <code>either</code></td><td>Internal vocabulary surfaced to the organizer.</td></tr>
+          <tr><td>Section Setup</td><td>Name inputs ~92px wide clip their content; location dropdown truncates to “Nest Ballrc”; column headers don't align with their fields; delete × only on the last row</td><td>See screenshot below.</td></tr>
+          <tr><td>Market Setup step 3</td><td>“Assign” and “Next” buttons overlap; priority selects truncate to “When the application” and “Earliest”</td><td>Overlapping controls.</td></tr>
+          <tr><td>Setup path modal</td><td>Two grey circles where icons should be</td><td>Missing assets.</td></tr>
+          <tr><td>Setup path modal</td><td>“Floorplan AI — Try Beta” offered prominently, though the floorplan is explicitly out of MVP scope and table type is stubbed to one type</td><td>Routes new organizers toward a dead end.</td></tr>
+          <tr><td>Vendors table</td><td>“Cost” column is “—” for all 199 vendors; vendors identified by email only, no business name</td><td>Tier is supposed to set price; there is nowhere to enter one. Half tables at 50% is your actual pricing model.</td></tr>
+          <tr><td>Dashboard (first run)</td><td>“Open a market to get started” with no market and no create action; “Sign out” given equal weight to the two real destinations</td><td>First screen after signup.</td></tr>
+          <tr><td>Import step 1</td><td>Raw unstyled <code>&lt;input type="file"&gt;</code>; no drag-and-drop; market name not shown</td><td>Jarring against otherwise-designed UI.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <img src="shots/11-sections-filled.png" alt="Section Setup: narrow name inputs clipping Front Row and Back Wall, location dropdowns truncated to Nest Ballrc, headers misaligned with fields, delete button only on the last row." />
+      <figcaption>Section Setup with three sections filled in. “Total tables: 50” is correct; everything around it is misaligned or clipped.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ WORKED ============ -->
+  <section id="worked">
+    <div class="sec-head"><h2>What worked, and worked well</h2></div>
+    <div class="worked">
+      <ul>
+        <li><b>The solver, at real scale.</b> 232 applications → 333 assignments, 250/250 tables, 61.8% satisfaction, in seconds.</li>
+        <li><b>The essential-questions contract.</b> Dates, tiers and sections derived live from the market plan into the form and its preview, with no duplication to keep in step.</li>
+        <li><b>Honest copy about the stub.</b> “Every table is the same type for now, so applicants are not asked to rank them.” Exactly right.</li>
+        <li><b>The import ledger design</b> — once grid detection fires. Every column in file order, shape labelled in words, a “Not one question – split” escape hatch, and a live required-questions rail.</li>
+        <li><b>Unmatched-value resolution.</b> Asked once per distinct value with row counts, not once per row.</li>
+        <li><b>“Nothing is written until you confirm.”</b> And it wasn't.</li>
+        <li><b>The phase machine.</b> Every transition behaved, the blocked ones stayed blocked, and the essential-only form correctly passed <code>FormHasFieldsGuard</code>.</li>
+        <li><b>Zero-org fallback.</b> New user with no organization got a clear explanation and a link instead of an empty dropdown.</li>
+        <li><b>Assignment options persisted</b> across tab changes and phase transitions.</li>
+        <li><b>Publishing landed on a page the market serves</b>, and a real vendor looked themselves up and checked in.</li>
+        <li><b>The vendors table</b> — per-date grid with table codes and search — is the genuinely useful output.</li>
+        <li><b>Zero server errors</b> across the entire run. One 401 on <code>check-session</code> before login, which is correct.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ ORDER ============ -->
+  <section id="order">
+    <div class="sec-head"><h2>Suggested order</h2></div>
+    <ol class="priority">
+      <li><b>S1 + S2 — the two auth holes</b><span>Cross-tenant read/write and unauthenticated account deletion. Nothing should be deployed until identity comes from the session. <span class="tag">back-end/app.py · back-end/api/users.py</span></span></li>
+      <li><b>C1 — parse <code>submitted_at</code> to ISO at import</b><span>One change fixes both the silent no-op rule and the string tiebreak, and makes first-come-first-served actually mean something. <span class="tag">back-end/csv_import.py</span></span></li>
+      <li><b>B1 — <code>re.DOTALL</code> on the grid header regex</b><span>One flag, plus a test with a realistic multi-line Google Forms header. Unblocks most real files. <span class="tag">back-end/csv_import.py:105</span></span></li>
+      <li><b>B3 — let a required essential question be declared “not asked”</b><span>Cheapest of the three blockers; section ranking is a soft preference, so a uniform default is safe.</span></li>
+      <li><b>L1 + L2 — the results page and the <code>100vw</code> overflow</b><span>The payoff screen is unreadable on the most common laptop resolutions. Then verify the whole app across the size table above. <span class="tag">GenerateAssignmentView.vue · App.vue</span></span></li>
+      <li><b>W1 — a way back to <code>draft</code>, or field creation inside the import wizard</b><span>Without it the organizer reviews 232 people by email address alone.</span></li>
+      <li><b>B2 — per-day tier: a wayfinder decision, not a patch</b><span>Grid mapping to two targets, or per-date tier preference. Needs deciding before it's built.</span></li>
+      <li><b>W2 — resolve bulk-approve (ticket 08) with the whole queue in scope</b><span>Counts, sort, search and “what am I deciding on” are the same problem.</span></li>
+      <li><b>Polish pass</b><span>Starting with the dead sidebar links and the red “Archive Market” that publishes.</span></li>
+    </ol>
+  </section>
+
+  <section id="method">
+    <div class="sec-head"><h2>How this was run</h2></div>
+    <p style="max-width:88ch">Playwright against the local <code>conventioner-dev</code> stack on <code>dev</code> @ <code>e480ef1a</code>, driving the UI as a first-time organizer: register → create organization → create market → five dates → three tiers → one location → three sections → priority rule → assignment options → open applications → import → review → close → review phase → assign → publish → check in.</p>
+    <p style="max-width:88ch">Two CSVs were used. <b>The real file</b> — <code>Copy of Application - Fall 2025 (Responses) - Sheet1.csv</code>, 232 rows, 31 columns — established B1, B2 and B3 and got no further than a disabled “Preview import”. <b>A derived file</b> carrying the same 232 applicants with single-line grid stems, a tier column and a fabricated section ranking was then used to exercise everything downstream. Only the section ranking is invented; every timestamp, email, availability, tier set, day count and table choice is real, which is what makes C1 and C2 measurable.</p>
+    <p class="note">Anything rejected or modified during the security checks was restored. The throwaway <code>attacker@example.com</code> account was deleted as part of proving S2.</p>
+  </section>
+
+</div>
+</body>
+</html>

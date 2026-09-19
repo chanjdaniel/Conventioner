@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conventioner MVP - UX/UI quality pass, 15 Sep 2026</title>
+<style>
+  @font-face { font-family:'Merge One'; src:url('MergeOne-Regular.ttf') format('truetype'); font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Regular.ttf') format('truetype'); font-weight:400; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Medium.ttf') format('truetype'); font-weight:500; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Bold.ttf') format('truetype'); font-weight:700; font-display:swap; }
+
+  :root{
+    --black:#272323;
+    --green:#49b096;
+    --green-d:#2f7f6a;
+    --yellow:#e4a629;
+    --beige:#e9e6e1;
+    --grey:rgba(39,35,35,.25);
+    --paper:#fbfaf9;
+    --card:#ffffff;
+    --red:#c0392b;
+    --red-bg:#fdf1ef;
+    --amber-bg:#fdf7ec;
+    --green-bg:#eef8f5;
+    --ink-2:rgba(39,35,35,.66);
+    --ink-3:rgba(39,35,35,.45);
+    --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--paper); color:var(--black);
+    font-family:'Outfit',system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:16px; line-height:1.6;
+  }
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 20px 96px; }
+  /* Merge One has deep descenders; a tight line box clips them. Give headings room. */
+  h1,h2,h3,h4{
+    font-family:'Merge One','Outfit',system-ui,sans-serif; font-weight:400;
+    line-height:1.34; margin:0; padding-bottom:.08em; overflow-wrap:break-word;
+  }
+
+  /* ---------- masthead ---------- */
+  header.top{
+    background:var(--black); color:#fff; padding:52px 0 44px; margin-bottom:44px;
+    border-bottom:5px solid var(--green);
+  }
+  header.top .wrap{ padding-bottom:0; }
+  .eyebrow{ font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--green); margin-bottom:14px; }
+  header.top h1{ font-size:clamp(30px,4.6vw,50px); color:#fff; margin-bottom:16px; }
+  header.top p.lede{ font-size:clamp(16px,1.7vw,19px); color:rgba(255,255,255,.82); max-width:66ch; margin:0; }
+  .runmeta{ margin-top:28px; display:flex; flex-wrap:wrap; gap:10px 26px; font-size:13px; color:rgba(255,255,255,.6); }
+  .runmeta b{ color:rgba(255,255,255,.92); font-weight:500; }
+
+  /* ---------- verdict ---------- */
+  .verdict{
+    background:var(--card); border:1px solid var(--grey); border-left:6px solid var(--yellow);
+    border-radius:var(--radius); padding:26px 28px; margin-bottom:40px;
+    box-shadow:0 1px 3px rgba(39,35,35,.05);
+  }
+  .verdict h2{ font-size:23px; margin-bottom:10px; }
+  .verdict p{ margin:0 0 12px; max-width:86ch; }
+  .verdict p:last-child{ margin-bottom:0; }
+
+  /* ---------- score strip ---------- */
+  .scores{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr)); gap:14px; margin-bottom:48px; }
+  .score{ background:var(--card); border:1px solid var(--grey); border-radius:var(--radius); padding:18px 20px; min-width:0; }
+  .score .n{ font-family:'Merge One',sans-serif; font-size:30px; line-height:1.34; padding-bottom:.08em; display:block; overflow-wrap:break-word; }
+  .score .l{ font-size:12.5px; color:var(--ink-2); letter-spacing:.03em; margin-top:4px; display:block; }
+  .score.bad .n{ color:var(--red); } .score.ok .n{ color:var(--green-d); } .score.warn .n{ color:var(--yellow); }
+
+  /* ---------- sections ---------- */
+  section{ margin-bottom:56px; scroll-margin-top:20px; }
+  .sec-head{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; border-bottom:2px solid var(--black); padding-bottom:10px; margin-bottom:24px; }
+  .sec-head h2{ font-size:26px; }
+  .sec-head .count{ font-size:13px; color:var(--ink-3); }
+
+  /* ---------- finding cards ---------- */
+  .finding{
+    background:var(--card); border:1px solid var(--grey); border-radius:var(--radius);
+    margin-bottom:20px; overflow:hidden;
+  }
+  .finding > .fh{
+    display:flex; gap:14px; align-items:flex-start; padding:18px 22px;
+    border-bottom:1px solid var(--beige); flex-wrap:wrap;
+  }
+  .finding.crit > .fh{ background:var(--red-bg); }
+  .finding.block > .fh{ background:var(--red-bg); }
+  .finding.high > .fh{ background:var(--amber-bg); }
+  .finding.med  > .fh{ background:#f7f6f4; }
+  .fid{
+    font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:.04em;
+    background:var(--black); color:#fff; border-radius:6px; padding:4px 9px; flex:0 0 auto; margin-top:2px;
+  }
+  .finding.crit .fid,.finding.block .fid{ background:var(--red); }
+  .finding.high .fid{ background:var(--yellow); color:var(--black); }
+  .ftitle{ flex:1 1 340px; min-width:0; }
+  .ftitle h3{ font-size:19px; margin-bottom:3px; }
+  .ftitle .sub{ font-size:13.5px; color:var(--ink-2); }
+  .sev{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:5px 10px; border-radius:20px; flex:0 0 auto; margin-top:2px; }
+  .sev.crit{ background:var(--red); color:#fff; }
+  .sev.block{ background:var(--red); color:#fff; }
+  .sev.high{ background:var(--yellow); color:var(--black); }
+  .sev.med{ background:var(--beige); color:var(--black); }
+  .fb{ padding:20px 22px; }
+  .fb > *:first-child{ margin-top:0; }
+  .fb > *:last-child{ margin-bottom:0; }
+  .fb p{ margin:0 0 12px; max-width:88ch; }
+  .fb ul,.fb ol{ margin:0 0 12px; padding-left:22px; max-width:88ch; }
+  .fb li{ margin-bottom:6px; }
+  .lbl{ font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); font-weight:700; margin:20px 0 8px; }
+
+  code{ font-family:var(--mono); font-size:.875em; background:var(--beige); padding:1.5px 5px; border-radius:4px; overflow-wrap:anywhere; }
+  pre{
+    background:#26221f; color:#e8e3dd; border-radius:10px; padding:15px 17px; overflow-x:auto;
+    font-family:var(--mono); font-size:12.5px; line-height:1.62; margin:0 0 14px;
+  }
+  pre code{ background:none; padding:0; font-size:inherit; color:inherit; }
+  pre .c{ color:#8d857c; } pre .r{ color:#ff9d8f; } pre .g{ color:#87d7bd; } pre .y{ color:#f0c274; }
+  .path{ font-family:var(--mono); font-size:12.5px; color:var(--green-d); overflow-wrap:anywhere; }
+
+  .proof{ background:var(--green-bg); border-left:4px solid var(--green); border-radius:0 8px 8px 0; padding:13px 17px; margin:0 0 14px; font-size:14.5px; }
+  .proof strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--green-d); margin-bottom:5px; }
+  .impact{ background:var(--red-bg); border-left:4px solid var(--red); border-radius:0 8px 8px 0; padding:13px 17px; margin:0 0 14px; font-size:14.5px; }
+  .impact strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--red); margin-bottom:5px; }
+  .fix{ background:#f7f6f4; border-left:4px solid var(--black); border-radius:0 8px 8px 0; padding:13px 17px; font-size:14.5px; }
+  .fix strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-2); margin-bottom:5px; }
+
+  figure{ margin:0 0 14px; }
+  figure img{ display:block; width:100%; height:auto; border:1px solid var(--grey); border-radius:10px; background:#fff; }
+  figcaption{ font-size:12.5px; color:var(--ink-3); margin-top:7px; }
+  .shots{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); gap:16px; margin-bottom:14px; }
+  .shots figure{ margin:0; min-width:0; }
+
+  .tablewrap{ overflow-x:auto; border:1px solid var(--grey); border-radius:var(--radius); background:var(--card); margin-bottom:14px; }
+  table{ border-collapse:collapse; width:100%; font-size:14px; }
+  th,td{ text-align:left; padding:11px 15px; border-bottom:1px solid var(--beige); vertical-align:top; }
+  th{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2); font-weight:700; background:#faf9f8; white-space:nowrap; }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.num{ font-family:var(--mono); font-size:13px; white-space:nowrap; }
+  tr.bad td{ background:var(--red-bg); } tr.good td{ background:var(--green-bg); }
+  .pill{ display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .pill.no{ background:var(--red); color:#fff; } .pill.yes{ background:var(--green); color:#fff; } .pill.part{ background:var(--yellow); color:var(--black); }
+
+  .worked{ background:var(--green-bg); border:1px solid rgba(73,176,150,.35); border-radius:var(--radius); padding:22px 26px; }
+  .worked ul{ margin:0; padding-left:22px; columns:2; column-gap:34px; }
+  .worked li{ margin-bottom:9px; break-inside:avoid; max-width:48ch; }
+  @media (max-width:760px){ .worked ul{ columns:1; } }
+
+  ol.priority{ counter-reset:p; list-style:none; padding:0; margin:0; }
+  ol.priority > li{
+    counter-increment:p; position:relative; padding:16px 20px 16px 62px; background:var(--card);
+    border:1px solid var(--grey); border-radius:var(--radius); margin-bottom:12px; min-width:0;
+  }
+  ol.priority > li::before{
+    content:counter(p); position:absolute; left:18px; top:16px;
+    width:28px; height:28px; border-radius:50%; background:var(--black); color:#fff;
+    display:grid; place-items:center; font-size:13px; font-weight:700; font-family:var(--mono);
+  }
+  ol.priority > li b{ display:block; margin-bottom:3px; }
+  ol.priority > li span{ font-size:14px; color:var(--ink-2); }
+  ol.priority .tag{ font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+
+  .note{ font-size:13.5px; color:var(--ink-2); font-style:italic; }
+  hr.soft{ border:none; border-top:1px solid var(--beige); margin:26px 0; }
+</style>
+</head>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">UX / UI quality pass · Playwright · full MVP journey</div>
+    <h1>Conventioner MVP: the journey completes, but the product will not let you read it</h1>
+    <p class="lede">A second full walk of the organizer journey - create, plan, import, review, assign, publish, check in - plus the public vendor surface and the signed-out screens. The pipeline is sound and the new triage and import screens are good work. What stops this being shippable is a handful of layout and colour defects that make finished screens unreadable, and a publish model expressed by five different labels that disagree with each other.</p>
+    <div class="runmeta">
+      <span><b>Build</b> fix/authorization-integrity @ 29b1a632</span>
+      <span><b>Stack</b> conventioner-dev (fe :5273 / be :5090)</span>
+      <span><b>Market</b> QC Winter Market 2026 · Nov 21-22 · Gold/Silver · 12 tables/day</span>
+      <span><b>Widths</b> 1440x900, 1280x720, 390x844</span>
+      <span><b>Date</b> 15 Sep 2026</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="verdict">
+    <h2>The short version</h2>
+    <p><b>The journey completes end to end.</b> I created a market through the UI, planned dates / tiers / locations / sections, built the application form, imported a five-row CSV, triaged every application, ran the solver, published, and checked a vendor in on a phone. Every step worked. The import reconciliation screen and the one-at-a-time review queue are genuinely well designed.</p>
+    <p><b>One screen is functionally broken.</b> The Tables view - the thing an organizer reads on market day - clips 1,942px of its 2,762px of content inside an <code>overflow:hidden</code> box that does not scroll. On my two-day, 24-table market you can see six tables. The second day is unreachable.</p>
+    <p><b>Two design-system colours fail WCAG AA, and one renders white on white.</b> <code>--mm-grey</code>, the hint-text colour, renders at <b>1.66:1</b>. <code>--mm-green</code>, on every primary button in the product, renders at <b>2.65:1</b>. And the phase panel's "Current Phase:" label is <code>rgba(255,255,255,.7)</code> on a white page - invisible, which is why the phase strip reads as four unlabelled pills.</p>
+    <p><b>Publishing is five different words.</b> "Done", "Publish Results", "Publish Market", "Begin Market Days" and "Archive Market" all appear in the flow. Two of them are the same transition under different names; one of them - the primary CTA on the payoff screen - fails with a raw enum error in the phase the organizer is actually in when they reach it.</p>
+    <p class="note">Everything below was verified in the running build with measurements or a reproduction, not inferred from source. Where I checked a suspicion and it turned out to be correct behaviour, I have said so rather than reporting it.</p>
+  </div>
+
+  <div class="scores">
+    <div class="score ok"><span class="n">5 / 5</span><span class="l">CSV rows imported, reviewed, assigned</span></div>
+    <div class="score bad"><span class="n">6 / 24</span><span class="l">tables visible on the Tables view</span></div>
+    <div class="score bad"><span class="n">1.66 : 1</span><span class="l">contrast of the hint-text colour (AA needs 4.5)</span></div>
+    <div class="score bad"><span class="n">2.65 : 1</span><span class="l">contrast of every primary button label</span></div>
+    <div class="score warn"><span class="n">5</span><span class="l">different names for "publish this market"</span></div>
+  </div>
+
+  <!-- ============ BLOCKERS ============ -->
+  <section id="blockers">
+    <div class="sec-head">
+      <h2>Blocking defects</h2>
+      <span class="count">Ship-stoppers: a screen that cannot be read, and a primary action that fails</span>
+    </div>
+
+    <div class="finding block">
+      <div class="fh">
+        <span class="fid">B1</span>
+        <div class="ftitle">
+          <h3>The Tables view clips 70% of its content and cannot be scrolled</h3>
+          <div class="sub">TablesView.vue · <span class="path">/markets/:marketId/tables</span></div>
+        </div>
+        <span class="sev block">Blocker</span>
+      </div>
+      <div class="fb">
+        <p><code>.tables-card</code> is <code>overflow:hidden</code> with a fixed height, and <code>.tables-body</code> inside it is <code>overflow:visible</code>. Nothing scrolls. The document itself scrolls 45px and stops. On a two-date market with 12 tables per day, the organizer sees Front Row 1 through 6 of day one and nothing else - the whole of 22 November is rendered into the DOM and painted outside the clip.</p>
+        <div class="proof"><strong>Measured in the running build</strong>
+          <code>.tables-card</code> clientHeight <b>820</b>, scrollHeight <b>2762</b>, <code>overflow-y: hidden</code> · <code>.tables-body</code> clientHeight <b>671</b>, scrollHeight <b>2684</b>, <code>overflow-y: visible</code> · <code>document.scrollHeight</code> 945 vs clientHeight 900.
+        </div>
+        <figure>
+          <img src="shots-qc/43-tables-clipped.png" alt="The Tables view scrolled to the very bottom of the document, still showing only Front Row 1 to 6, with the Back button drawn on top of the Front Row 6 card." />
+          <figcaption>Scrolled to the absolute bottom of the page. Six of twenty-four tables. The green Back button is painted over the Front Row 6 card because the list has overflowed its container onto the action row.</figcaption>
+        </figure>
+        <div class="impact"><strong>Why it matters</strong>
+          This is the screen an organizer opens at the door on market day to find out who sits where. It is also the only place the per-table assignment is visible in the product. On any market larger than a handful of tables it shows the wrong answer by omission, silently.
+        </div>
+        <div class="fix"><strong>Fix</strong>
+          Move the scroll to <code>.tables-body</code> (<code>overflow-y:auto; min-height:0</code>) and let <code>.tables-card</code> be a flex column with the header and actions row fixed. The same fixed-viewport-height card pattern is what leaves <b>Attendance Status</b> as a 820px white slab holding 200px of content, so fix both together.
+        </div>
+      </div>
+    </div>
+
+    <div class="finding block">
+      <div class="fh">
+        <span class="fid">B2</span>
+        <div class="ftitle">
+          <h3>"Done" - the primary CTA on the payoff screen - fails with a raw enum error</h3>
+          <div class="sub">GenerateAssignmentView.vue <span class="path">handleDone()</span> · guards.py <span class="path">VALID_TRANSITIONS</span></div>
+        </div>
+        <span class="sev block">Blocker</span>
+      </div>
+      <div class="fb">
+        <p>The natural journey is: open applications, import, review, click <b>Assign</b> on the setup screen, land on Assignment Results, click <b>Done</b>. <code>handleDone()</code> posts <code>toPhase: 'market_days'</code>. But <code>Assign</code> never moves the phase, so the market is still <code>applications_open</code>, and <code>market_days</code> is only reachable from <code>assignment</code> or <code>offers</code>. The request 400s.</p>
+        <figure>
+          <img src="shots-qc/45-done-blocked.png" alt="Assignment Results screen with a red error above the button row reading: Transition from 'applications_open' to 'market_days' is not available in the current phase." />
+          <figcaption>The error the organizer is shown. It names two internal enum values, neither of which appears anywhere in the UI, and its advice is circular: the "current phase" it refers to is the phase it just named.</figcaption>
+        </figure>
+        <p>The real route is <code>applications_closed</code> &rarr; <code>review</code> &rarr; <code>assignment</code> &rarr; <code>market_days</code>, four manual clicks in the unlabelled phase strip at the top of the page. Nothing in the wizard mentions the phase strip; nothing in the phase strip mentions the wizard. They are two parallel, unconnected models of "where am I in this market".</p>
+        <div class="impact"><strong>Why it matters</strong>
+          The first-time organizer follows the wizard to its last button and is told no, in language written for the database. There is no recovery instruction on screen.
+        </div>
+        <div class="fix"><strong>Fix</strong>
+          Two parts. (a) Make <code>Assign</code> advance the phase, or have <code>handleDone()</code> walk the intervening transitions itself. (b) Never render a raw phase key: the transition endpoint already knows the display labels the phase strip uses ("Applications Open", "Begin Assignment") - use them, and say what to do next.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SYSTEMIC ============ -->
+  <section id="systemic">
+    <div class="sec-head">
+      <h2>Systemic: three colour values that break the whole product</h2>
+      <span class="count">Each is a one-line change with product-wide reach</span>
+    </div>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">S1</span>
+        <div class="ftitle">
+          <h3>The hint-text colour renders at 1.66:1 - every helper line in the product is illegible</h3>
+          <div class="sub"><span class="path">front-end/src/assets/base.css:8</span> · <code>--mm-grey: rgba(39,35,35,.25)</code></div>
+        </div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <p>On white, <code>rgba(39,35,35,.25)</code> composites to roughly <code>#C9C9C9</code>. Contrast against the page: <b>1.66:1</b>. WCAG AA requires 4.5:1 for body text and 3:1 even for large text. The token is used as a <code>color:</code> value in <b>18 places</b> across the app, and as a border or background in <b>57</b>. <em>Corrected 19 Sep: this first read “65 places”, a count that matched <code>border-color:</code> and <code>background-color:</code> too. The token is overwhelmingly a border colour that 18 sites borrow as text, which is what makes the fix cheap: the border uses keep their value.</em></p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Where</th><th>What is in that colour</th><th>Consequence</th></tr></thead>
+            <tbody>
+              <tr class="bad"><td>CSV import, step 2</td><td>The <b>FIRST ROWS</b> sample values</td><td>The data you must read to decide the mapping</td></tr>
+              <tr class="bad"><td>CSV import, step 1</td><td>"Nothing is written until you confirm."</td><td>The reassurance that makes the step safe to take</td></tr>
+              <tr class="bad"><td>CSV import, step 3</td><td>The CSV header names in "Where each answer comes from"</td><td>Half of a two-column mapping table</td></tr>
+              <tr class="bad"><td>Applications tab</td><td>"No applications received yet."</td><td>The only content on an empty screen</td></tr>
+              <tr class="bad"><td>Attendance</td><td>"No check-ins recorded yet."</td><td>Ditto</td></tr>
+              <tr class="bad"><td>Import gate</td><td>The entire explanation of why import is blocked</td><td>The only thing on the page</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <figure>
+          <img src="shots-qc/27-csv-import.png" alt="The CSV import blocked-state page, where the heading is dark and every line of explanatory text below it is barely visible pale grey." />
+          <figcaption>The import gate. The heading is readable; the two sentences telling you what to do about it are at 1.66:1. This is what the colour looks like in practice.</figcaption>
+        </figure>
+        <div class="fix"><strong>Fix</strong>
+          One line. The alpha must reach about <b>0.64</b> for the composite to hit #767676, the standard AA-passing grey on white: <code>--mm-grey: rgba(39,35,35,.64)</code>. Keep the 0.25 value under a separate token for borders and dividers, which is the other half of its 160 usages and where it is perfectly fine.
+          <br><br>(Also at that line: <code>--mm-black</code> is declared twice in the same block, lines 3 and 6.)
+        </div>
+      </div>
+    </div>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">S2</span>
+        <div class="ftitle">
+          <h3>Every primary button's label is white on brand green at 2.65:1</h3>
+          <div class="sub"><code>--mm-green: #49b096</code> · every <code>.primary-button</code>, every CTA, the check-in button vendors tap</div>
+        </div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <p>Measured on the live <b>Check in</b> button: foreground <code>rgb(255,255,255)</code>, background <code>rgb(73,176,150)</code>, 16px - <b>2.65:1</b>. The same green is also used as a text colour on white (the date headings on the check-in cards, 18px), where it is the same 2.65:1.</p>
+        <figure>
+          <img src="shots-qc/50-checkin-found.png" alt="Vendor check-in result cards with pale green date headings and white-on-green Check in buttons." />
+          <figcaption>The public vendor surface. The date headings and the button labels are the two most important things on the card and both sit at 2.65:1 - outdoors, on a phone, at a market entrance.</figcaption>
+        </figure>
+        <div class="fix"><strong>Fix</strong>
+          Keep <code>#49b096</code> as the brand fill, but darken the variant used behind white text and as text on white. <code>--mm-green-dark: #2f7f6a</code> already exists in these review artifacts and lands at 4.6:1 for white text. Two token additions, no layout change.
+        </div>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">S3</span>
+        <div class="ftitle">
+          <h3>"Current Phase:" is white text on a white page</h3>
+          <div class="sub">PhaseControlPanel.vue · the label is rendered, positioned and invisible</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>The phase strip has a label. It is at <code>x:40, y:117, 93x22px</code>, in <code>rgba(255,255,255,.7)</code>. <code>.phase-control-panel</code> is <code>background: transparent</code> and its nearest painted ancestor is <code>rgb(255,255,255)</code>. The panel was styled for a dark surface and is rendered on a light one.</p>
+        <div class="proof"><strong>Why I went looking</strong>
+          I read the panel's <code>textContent</code> and it said <code>"Current Phase:Applications ClosedReopen ApplicationsBegin ReviewArchive Market"</code> - but no screenshot at any width showed the words "Current Phase". That is what led to the measurement.
+        </div>
+        <figure>
+          <img src="shots-qc/28-phase-open.png" alt="The market setup screen showing four unlabelled coloured pills floating above the page card with no heading." />
+          <figcaption>What the organizer sees: four pills with no label. The blue one is state; the three next to it are actions. Nothing distinguishes them but colour, and green is used for both a forward step and a backward one.</figcaption>
+        </figure>
+        <div class="fix"><strong>Fix</strong>
+          Give the label an ink colour. While you are in there, the panel needs to separate state from action - the current-phase pill should not be the same shape and size as the buttons beside it - and the three transition buttons need consistent colour semantics: green currently means both "Close Applications" (forward) and "Reopen for Editing" (backward).
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HIGH ============ -->
+  <section id="high">
+    <div class="sec-head">
+      <h2>High: defects that cost the organizer real work</h2>
+      <span class="count">Six issues found by walking, each reproduced</span>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H1</span>
+        <div class="ftitle">
+          <h3>A new market skips the Market Dates step entirely</h3>
+          <div class="sub">MarketSetupView.vue:157 · <code>localStorage.getItem('setupPageIdx')</code></div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>I created a market, chose "Manual setup", and landed on <b>Tier Setup</b> - step 2. Step 1, <b>Market Dates</b>, was never shown. I only found it by pressing Back twice.</p>
+        <p>The cause: <code>setupPageIdx</code> is a single global localStorage key with no market id in it. Whatever step you last stood on in <i>any</i> market becomes the opening step of the <i>next</i> one. The first market an organizer ever makes is fine; every market after it opens wherever they left off.</p>
+        <div class="impact"><strong>Why it matters</strong>
+          Market dates are the foundation of everything downstream - the solver assigns per date, the essential question "which dates can you attend" is generated from them, and the import's date reconciliation offers them as its only valid values. A market that quietly has none produces an assignment of zero.
+        </div>
+        <div class="fix"><strong>Fix</strong>
+          Key the stored step by market id, or simply always open at step 0 for a market whose <code>setupObject.marketDates</code> is empty.
+        </div>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H2</span>
+        <div class="ftitle">
+          <h3>Organizer screens are keyed on a localStorage "current market", not the URL</h3>
+          <div class="sub"><span class="path">/market-setup</span>, <span class="path">/import-applications</span>, <span class="path">/assignment-results</span>, <span class="path">/vendors</span> - none carries a market id</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>Four of the six organizer routes take no parameters. They read <code>localStorage.getItem('market')</code>. Three observable consequences, all reproduced:</p>
+        <ul>
+          <li><b>Deep links and refreshes break.</b> After signing out and back in I loaded <code>/market-setup</code> directly. It rendered a page titled <b>"Settings"</b> with an empty Market Dates panel, a live <b>Next</b> button, and no phase strip - an editable setup wizard attached to no market.</li>
+          <li><b>The drawer's "View Vendors" lies.</b> It reads as a global vendor directory. It renders the vendors of whichever market you last opened, and its heading names that market. From a fresh session it shows "No market loaded."</li>
+          <li><b>Two tabs interfere.</b> Opening a second market in a second tab moves the first tab's market under it.</li>
+        </ul>
+        <figure>
+          <img src="shots-qc/62-setup-1280.png" alt="The market setup route loaded directly, showing the title Settings, an empty Market Dates panel and an enabled Next button." />
+          <figcaption><code>/market-setup</code> with no current market. The title falls back to "Settings" and the wizard is fully interactive.</figcaption>
+        </figure>
+        <div class="fix"><strong>Fix</strong>
+          Put the market id in the path, as <code>/markets/:marketId/tables</code> and <code>/markets/:marketId/attendance</code> already do. If that is too large for this release, at minimum guard the no-market case: redirect to <code>/markets</code> rather than rendering an editable empty wizard.
+        </div>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H3</span>
+        <div class="ftitle">
+          <h3>The importer asks you to map the product's own values to themselves</h3>
+          <div class="sub">csv_import.py · value reconciliation compares against stored keys, not displayed labels</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>My CSV carried <code>A whole table to myself</code>, <code>Half a table, shared</code> and <code>Either is fine</code> in the Table choice column. Those are <b>verbatim the three options the product's own form preview shows the applicant</b>. The importer reported all three as "did not match your market" and offered, as the resolution for each, the identical string.</p>
+        <figure>
+          <img src="shots-qc/32-csv-preview.png" alt="The import value reconciliation screen showing three Table choice values flagged as unmatched, each needing to be mapped to an identical-looking option." />
+          <figcaption>Three values flagged as unmatched. The dropdown beside each one contains the same three strings. The cause is that <code>table_choice</code> is stored as <code>full</code> / <code>half</code> / <code>either</code> and the comparison is against the key, not the label.</figcaption>
+        </figure>
+        <p>The same screen shows a second instance. A single column mapped to a multi-value target is split on commas, with no way to change the delimiter - and Google Forms date labels <i>contain commas</i>. <code>"Saturday, November 21, 2026; Sunday, November 22, 2026"</code> became six fragments: <code>Saturday</code>, <code>November 21</code>, <code>2026; Sunday</code>, <code>November 22</code>, <code>2026</code>, <code>Sunday</code>. Meanwhile the values it offers as the valid targets are <code>2026-11-21</code> and <code>2026-11-22</code>, which is a format the product shows the organizer nowhere else.</p>
+        <div class="proof"><strong>Corrected 19 Sep, after tracing the importer</strong>
+          The splitting half of this was largely my fixture's doing. The importer has two shapes, and it only splits when a <b>single</b> column is mapped to a target; a <b>grid</b> - several columns, one per option, with the option in the header - is never split. <b>The real Fall 2025 export uses the grid</b> (columns 20-24, one per date), so the organizer's actual file never hits this. I wrote a single column holding semicolon-separated long-form dates, which is not a shape Google Forms produces for that question. The case is still producible by a checkbox question whose option labels contain commas, and Google's own export is genuinely ambiguous there, so it earns a warning rather than a parser - but it is not on the common path. <b>The ISO-vs-label half stands untouched</b>, and so does the table-choice key mismatch above it.
+        </div>
+        <div class="impact"><strong>Why it matters</strong>
+          The import screen says "Bring in the responses your Google Form collected." A multi-date checkbox column from a Google Form is the single most likely thing to arrive here, and it is guaranteed to shred.
+        </div>
+        <div class="fix"><strong>Fix</strong>
+          Three separate things: compare against the label as well as the key; offer market dates by their display label, not ISO; and let the organizer choose the split delimiter (or detect semicolons, which is what Google Forms actually emits between checkbox answers when the answers themselves contain commas).
+        </div>
+        <p class="note">I checked two adjacent suspicions and both turned out to be correct behaviour, so I am not reporting them: the limited auto-mapping is a documented decision in <code>suggested_mapping()</code> with a stated rationale, and "Section preference" is correctly absent as a target because a ranking of one section is not asked.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H4</span>
+        <div class="ftitle">
+          <h3>"Publish" is five different words, and the market list never says a market is live</h3>
+          <div class="sub">Five controls, two of which are the same transition</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Label</th><th>Where</th><th>What it actually does</th><th>Confirms?</th></tr></thead>
+            <tbody>
+              <tr><td><b>Done</b></td><td>Assignment Results, bottom right</td><td><code>&rarr; market_days</code></td><td><span class="pill no">No</span></td></tr>
+              <tr><td><b>Publish Market</b></td><td>Phase strip, in <code>assignment</code></td><td><code>&rarr; market_days</code> (the same thing)</td><td><span class="pill yes">Yes</span></td></tr>
+              <tr><td><b>Begin Market Days</b></td><td>The dialog that "Publish Market" opens</td><td>The confirm button for the above</td><td>-</td></tr>
+              <tr><td><b>Publish Results</b></td><td>Applications tab, top right</td><td>A different endpoint entirely</td><td><span class="pill no">No</span></td></tr>
+              <tr><td><b>Archive Market</b></td><td>Phase strip, red, every phase</td><td><code>&rarr; archived</code></td><td><span class="pill no">No</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>"Done" reads like "I have finished looking at this screen" and is styled identically to "Back" beside it; it is in fact the publish action, unconfirmed. "Publish Results" is enabled on a market with zero applications and zero assignment, and nothing on screen says what "results" means. The one control that <i>does</i> confirm opens a dialog whose copy is about pending offers and refusals - a concept the MVP organizer has never met - and whose confirm button is styled red, as though publishing were destructive.</p>
+        <p>And after all that, <b>the Markets list does not show that a market is live</b>. My published market renders identically to a draft: <code>Created | Organization | Your role | Open | Manage</code>. No phase, no badge. The one fact that matters most about a market is the one the list omits.</p>
+        <figure>
+          <img src="shots-qc/47-published.png" alt="The market setup screen after publishing, showing only a Market Days pill and an Archive Market button, with no mention of a public URL." />
+          <figcaption>Immediately after publishing. The market now serves a public check-in page at <code>/qc-winter-market-2026/check-in</code> and <b>nothing in the product tells the organizer that URL exists</b>, let alone shows it to them to share with their door staff.</figcaption>
+        </figure>
+        <div class="fix"><strong>Fix</strong>
+          Pick one verb. Confirm every transition or none. Put a phase badge on the market list row. And on publish, show the check-in URL with a copy button - that is the entire point of the action.
+        </div>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H5</span>
+        <div class="ftitle">
+          <h3>The payoff screen does not say why two vendors went unassigned</h3>
+          <div class="sub">GenerateAssignmentView.vue · "Unassigned Vendors (2)"</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>My run: 5 applications, 5 approved, 3 assigned, <b>19 of 24 table-slots free</b>, two vendors unplaced. The screen lists the two email addresses under a heading and says nothing else. The reason is that both asked for <b>Silver</b> and my only section is <b>Gold</b> - which is knowable, and is exactly the kind of mistake an organizer makes when planning tiers.</p>
+        <figure>
+          <img src="shots-qc/39-assignment-real.png" alt="Assignment Results showing Summary 5 assignments, 5 of 24 tables, 3 of 5 vendors, 60 percent satisfaction, with an Unassigned Vendors panel listing two bare email addresses." />
+          <figcaption>Two unassigned vendors and nineteen empty tables, with no explanation of the contradiction. Note also that "Per Tier" lists only Gold - the tier that caused the failure is absent rather than shown at zero.</figcaption>
+        </figure>
+        <p>Three smaller things on the same screen:</p>
+        <ul>
+          <li><b>Two columns are empty and stretched.</b> Per Date and Per Section are sized to the height of Unassigned Tables, so the organizer scrolls through roughly 1,300px of blank white to reach the bottom of the page.</li>
+          <li><b>Tables sort lexicographically.</b> Front Row1, Front Row10, Front Row11, Front Row12, Front Row2, Front Row3 ... Table 2 is fifth in the list.</li>
+          <li><b>"Satisfaction Score 60.0%"</b> has no definition, no breakdown and no tooltip anywhere in the product. On a run with no applications it reads 0.0%, which looks like a bad result rather than no result.</li>
+        </ul>
+        <div class="fix"><strong>Fix</strong>
+          The solver already knows why each vendor failed - surface it per row ("no Silver table on any date they chose"). Give each statistics column its own scroll or let it size to content. Sort table names naturally.
+        </div>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H6</span>
+        <div class="ftitle">
+          <h3>Bulk approve is absent, and the review panel resizes under the cursor as you work</h3>
+          <div class="sub">ApplicationMonitor.vue · the triage queue</div>
+        </div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>The one-at-a-time triage queue is good: keyboard shortcuts, a running tally, an honest amber note, and a "Show N reviewed" list with a working reversal. But there is no bulk approve control, which was named in E04's scope, and its absence bites hardest in exactly the case the amber note describes - "every application reads alike and there is nothing here to tell applicants apart". The seeded 232-vendor market would be 232 clicks.</p>
+        <figure>
+          <img src="shots-qc/36-triage-2.png" alt="The triage queue with the Reject, Skip and Approve buttons, and a Show 1 reviewed link that has just appeared." />
+          <figcaption>The moment the first decision lands, "Show 1 reviewed" appears, the panel exceeds its container, a scrollbar appears, and everything narrows by ~15px - including the Reject / Skip / Approve row the cursor is sitting on.</figcaption>
+        </figure>
+        <p>Reject is also full-width-third, the same visual weight as Approve, and positioned first in reading order. On a repetitive click task with a panel that jumps 15px on the first action, that is a misclick waiting to happen.</p>
+        <div class="fix"><strong>Fix</strong>
+          Reserve the scrollbar gutter so the panel width never changes. Add the bulk action. Consider making Reject secondary-weight.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MEDIUM ============ -->
+  <section id="medium">
+    <div class="sec-head">
+      <h2>Medium: polish, consistency and dead ends</h2>
+      <span class="count">Grouped by kind</span>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M1</span>
+        <div class="ftitle"><h3>Setup rows: a squashed delete icon, an overflowing drag handle, and selects that render blank</h3>
+        <div class="sub">ElementTierSetup / ElementLocationSetup vs ElementSectionSetup</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>Three defects visible in one screenshot, on the rows an organizer uses to build every tier, location and section.</p>
+        <div class="shots">
+          <figure><img src="shots-qc/12-tier-row.png" alt="A single tier row, magnified: faint vertical lines clipped at top and bottom on the left, a text field, and a tiny squashed x on the right." /><figcaption>A tier row at device scale.</figcaption></figure>
+          <figure><img src="shots-qc/14-section-row.png" alt="A section row, magnified: a bordered name field, two borderless chevrons with no visible text, a count pill and a correctly sized x." /><figcaption>A section row, same screen.</figcaption></figure>
+        </div>
+        <ul>
+          <li><b>The delete icon is crushed.</b> <code>icon-close-round</code> declares 24x24 and renders <b>8x20</b> inside a 10px flex cell on tier and location rows. The <i>same</i> icon on a section row renders correctly at 24x24 - the two sit side by side on one screen.</li>
+          <li><b>The drag handle overflows.</b> Its SVG is 16x56 inside a 29x38 container, so the grip lines are clipped top and bottom and read as a rendering error.</li>
+          <li><b>Selects render completely blank.</b> A fresh section row's Location and Tier dropdowns have <code>selectedIndex: -1</code> - the "Select a location" placeholder option exists but is not selected, so the control shows nothing at all, has no border, and does not read as a control.</li>
+          <li><b>It is not a button.</b> The delete control is a <code>&lt;div&gt;</code> with <code>cursor:auto</code>, <code>tabIndex -1</code>, no role and no accessible name, in a 10px-wide hit target.</li>
+        </ul>
+        <p>The identical <code>selectedIndex: -1</code> bug appears on the CSV import mapping screen: every unmapped column's "MAPS TO" select is blank rather than showing "Ignore this column", because <code>columnTarget[index]</code> is <code>undefined</code> rather than <code>''</code>.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M2</span>
+        <div class="ftitle"><h3>List rows have no column grid - the metadata jitters up to 104px row to row</h3>
+        <div class="sub">MarketsView, OrganizationsView, DashboardView, LoadMarketOverlay - four copies of the same markup</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>The "Created: / Organization: / Your role:" block is laid out after the market name rather than in a fixed column, so its left edge follows the name's width. Measured x of the "Created:" label down the Markets list: <b>289, 339, 345, 393, 336, 327, 327, 323</b>.</p>
+        <figure>
+          <img src="shots-qc/05-markets.png" alt="The markets list, where each row's Created / Organization / Your role block starts at a visibly different horizontal position." />
+          <figcaption>Also visible here: row 5 has lost its Organization line entirely (its org was deleted) rather than saying so, which contributes to the misalignment.</figcaption>
+        </figure>
+        <p>The Organizations list has the same jitter, and between the two lists the role badge is capitalised differently - <b>Owner</b> on Markets, <b>owner</b> on Organizations, <b>Owner</b> again inside the Manage dialog.</p>
+        <div class="fix"><strong>Fix</strong>
+          One <code>MarketSummaryRow</code> component with a real grid, used by all four call sites. That also settles the casing.
+        </div>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M3</span>
+        <div class="ftitle"><h3>No overlay in the product closes on Escape, and two have no visible close control</h3>
+        <div class="sub">Vendor detail panel, Manage organization, Create new market, Choose your setup path</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <ul>
+          <li><b>Vendor detail panel</b> - Escape leaves <code>.detail-panel--open</code> in place. Has an X.</li>
+          <li><b>Manage organization</b> - Escape does nothing. No X, no Cancel. Clicking the scrim does work, but nothing says so, and the last control in the scrolling body is a red <b>Delete organization</b>.</li>
+          <li><b>Create new market</b> - no Cancel, and its primary action is a bare text "Submit": transparent background, no border, <code>padding: 0</code>, visually identical enabled and disabled.</li>
+          <li><b>Choose your setup path</b> - blocking, with no way to dismiss and look at the market first.</li>
+        </ul>
+        <div class="shots">
+          <figure><img src="shots-qc/07-new-market-filled.png" alt="The Create new market dialog with an organization selected and a name typed, where Submit is plain grey text with no button styling." /><figcaption>"Submit" here is enabled. It looks the same disabled.</figcaption></figure>
+          <figure><img src="shots-qc/57-org-modal-bottom.png" alt="The Manage organization dialog scrolled to its bottom, where the last element is a red Delete organization button and there is no close or cancel control." /><figcaption>The bottom of Manage organization. No way out but Delete or the scrim.</figcaption></figure>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M4</span>
+        <div class="ftitle"><h3>Dead ends and dead controls</h3>
+        <div class="sub">Import gate, 404 page, public header</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <ul>
+          <li><b>The import button on a draft market leads to a wall.</b> The Applications tab offers a prominent "Import from CSV" on a draft market; clicking it navigates to a page that only says no. The gate is correct - the button should have been disabled with the reason, before the click.</li>
+          <li><b>And the wall's advice is wrong for the state that reaches it.</b> "Move the market back to <b>applications closed</b> and you can import again." From <code>draft</code> the organizer needs to move <i>forward</i>, and <code>applications_closed</code> is not among the two transitions the phase strip offers them. The message is written for one direction and shown for both.</li>
+          <li><b>The import wizard has no exit.</b> No Cancel, no "back to market", no breadcrumb at any of its four steps until the final confirmation. The only way out is the browser or the hamburger.</li>
+          <li><b>The 404 has no way home.</b> "Page not found. There is nothing to see at this address." - no link, and the organizer hamburger still in the header.</li>
+          <li><b>The public header's hamburger is a dead control.</b> Signed out, on the vendor check-in page, the menu button renders and is clickable and there is no nav element in the DOM at all. It does nothing.</li>
+        </ul>
+        <p class="note">I verified that <code>/qc-winter-market-2026</code> returning "Page not found" for a live CSV-intake market is the documented intake-mode gate working correctly, not a bug. It is worth noting as a UX consequence though: a vendor who trims <code>/check-in</code> off the URL they were given is told the market does not exist.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M5</span>
+        <div class="ftitle"><h3>The same date is written five different ways</h3>
+        <div class="sub">Across six screens</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Screen</th><th>Rendering</th></tr></thead>
+            <tbody>
+              <tr class="bad"><td>Market Dates editor</td><td class="num">Saturday, November 21 <b>&larr; no year</b></td></tr>
+              <tr><td>Import preview, applicant card</td><td class="num">Saturday, November 21, 2026</td></tr>
+              <tr><td>Import value reconciliation</td><td class="num">2026-11-21</td></tr>
+              <tr><td>Assignment Results, Per Date</td><td class="num">Nov 21, 2026</td></tr>
+              <tr><td>Assignment Results, Unassigned Tables</td><td class="num">November 21, 2026 <span class="note">(300px away from the line above)</span></td></tr>
+              <tr><td>Triage card, submitted</td><td class="num">9/3/2026</td></tr>
+              <tr class="bad"><td>Check-in confirmation</td><td class="num">9/15/2026, 7:20:18 AM <b>&larr; seconds</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The first row is the defect: a market date in the editor shows no year, so a 2026 market and a 2025 market are indistinguishable at the point where you type them in. The rest is consistency.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M6</span>
+        <div class="ftitle"><h3>Silent value clamping, and a percentage with no ceiling on the way in</h3>
+        <div class="sub">ElementAssignmentOptions.vue</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>I typed <b>99</b> into "Max assignments per vendor" and it became <b>2</b> - the number of market dates - with no message. I typed <b>150</b> into "Max half table proportion per section (%)" and it became <b>100</b> on blur, also silently. Both fields are <code>type="text"</code> with no <code>min</code>/<code>max</code>, so there is no numeric keyboard on a phone and no browser-level validation either.</p>
+        <p>Neither field has help text, a placeholder, a default, or an explanation of what a "half table proportion" is - and the Assign button is disabled until both are filled, so the organizer must guess at two undefined numbers before they can proceed.</p>
+        <figure>
+          <img src="shots-qc/21-assign-options.png" alt="The Assignment Options panel with two unlabelled numeric fields and a hint reading Set both assignment options above to run the assignment." />
+          <figcaption>The panel title says "Assignment Options" and the first thing inside it is a subheading reading "Assignment options".</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M7</span>
+        <div class="ftitle"><h3>Two save models on one panel, one of them silent</h3>
+        <div class="sub">MarketSetupView.vue &rarr; EssentialFieldsPanel</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>Unticking "Ask this" on Section preference fires <code>PUT /markets/:id/application-form</code> immediately. I confirmed the 200 in the network log. Nothing on screen acknowledged it - no "Saved", no spinner, no change of state. Six inches away, custom fields require an explicit <b>Save Form</b> click with a status message.</p>
+        <p>The organizer has no way to know which of their changes are already persisted. (I initially read the disabled Save Form button as "this change cannot be saved" - it can, by a different path, which is precisely the problem.)</p>
+        <p>The Form Builder is otherwise the best-designed screen in the product: the essential-questions explanation, the live applicant preview and the amber note about table types are all excellent. Its two panels are 484px and 519px tall inside a 900px window with 300px of empty page below them, though, so both scroll when they need not.</p>
+        <figure>
+          <img src="shots-qc/24-app-form.png" alt="The Application Form tab showing the Form Builder and a live applicant preview side by side, each with its own scrollbar, and empty page below." />
+        </figure>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M8</span>
+        <div class="ftitle"><h3>Sign-in screen: three words for one action, and a sign-out that keyboards cannot reach</h3>
+        <div class="sub">LoginView.vue, NavBar</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <div class="shots">
+          <figure><img src="shots-qc/58-login-1280.png" alt="The login screen: tabs reading Login, Register, Use OTP; a heading reading Sign in; placeholder-only fields; a fully rounded pill Login button; and a blue Forgot password link." /></figure>
+          <figure><img src="shots-qc/60-login-error.png" alt="The same screen after a failed login, with the words Invalid credentials in red, right-aligned under the password field." /></figure>
+        </div>
+        <ul>
+          <li><b>Login / Sign in / Login</b> - tab, heading and button, three labels for one action on one screen, in a product that says "Sign out" elsewhere.</li>
+          <li><b>Placeholder-only labels</b>, including Register's "Password (min 8 characters)" - the rule vanishes the moment you start typing it.</li>
+          <li><b>The submit button is a full pill</b> while every other button in the product is a rounded rectangle, and the fields between them are square.</li>
+          <li><b>"Forgot password?" is Material blue</b> <code>#2196F3</code>, the only blue in the product, at 3.14:1 on white.</li>
+          <li><b>"Invalid credentials"</b> is developer language, right-aligned against a left-aligned form, with no <code>role="alert"</code> and no pointer to the reset link directly below it.</li>
+          <li><b>Confirm password has no Show toggle</b> though Password does.</li>
+          <li><b>The drawer's "Sign Out" is a bare <code>&lt;h3&gt;</code></b> in a <code>&lt;div&gt;</code> with <code>tabIndex -1</code> - not a button, not a link, not focusable. A keyboard user cannot sign out from the drawer. (The dashboard's is inside a real button, but is labelled "Sign out" - different casing.)</li>
+          <li><b>Nothing tells a new user they must verify by email</b> before their account works.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M9</span>
+        <div class="ftitle"><h3>Nested scroll containers, and a word broken in half at 1280px</h3>
+        <div class="sub">Assignment Results, Vendors, Markets, Organizations</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>At 1280x720 - the width E08/F01 targeted - the "View Attendance" label breaks mid-word into <b>"View Attendan / ce"</b>. Its container sets <code>overflow-wrap: anywhere</code>, which is the wrong property for a two-word English label.</p>
+        <figure>
+          <img src="shots-qc/53-assignment-1280.png" alt="Assignment Results at 1280 by 720, where the third action in the top-right card reads View Attendan, then ce on the next line." />
+        </figure>
+        <p>Several screens also stack scroll contexts: on <b>Vendors</b> the page scrolls 945/900 while the list inside it scrolls 14,374/540, so the wheel does different things depending on where the pointer is. Markets and Organizations do the same. The Assignment Results single inner scroller is the right pattern - apply it consistently.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M10</span>
+        <div class="ftitle"><h3>Vendor identity is an email address, and an unassigned date is a bare dash</h3>
+        <div class="sub">VendorsView.vue</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>Every row in the vendor list, every unassigned-vendor entry on the payoff screen, and every occupied table on the Tables view identifies the vendor by email address alone. The search box is "Filter by email...". My CSV carried a Business Name column and there is nowhere to map it, so a market of 232 vendors is a list of 232 gmail addresses.</p>
+        <figure>
+          <img src="shots-qc/04-vendor-detail.png" alt="The vendor detail panel showing four date cards, each with an identical green left border, where the fourth reads only an em dash under its date." />
+          <figcaption>Four dates, four identical green cards. The fourth is <i>not</i> assigned - it says so with a bare dash, in the same treatment as the three that are.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">M11</span>
+        <div class="ftitle"><h3>Copy that assumes, repeats, or leaks</h3>
+        <div class="sub">Assorted</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <ul>
+          <li><b>"Bring in the responses your Google Form collected."</b> Appears twice. A Jotform or Typeform user reads it as a restriction.</li>
+          <li><b>"Section Front Row"</b> - the word "Section" is prefixed to the section's name on the payoff screen and the Tables view, where every card <i>also</i> repeats its tier and location, which are already in the group header above it.</li>
+          <li><b>"Front Row1"</b> - no separator between section name and table index, everywhere.</li>
+          <li><b>Three names for one concept</b>: "A whole table to myself" (form), "Full Table" (payoff screen, check-in), <code>full</code> (storage).</li>
+          <li><b>Every date is repeated on every row</b> in the Unassigned Tables list, under a heading that already states it - and it is the widest text in the row, so it wraps the table name onto two lines.</li>
+          <li><b>"Use OTP"</b> as a tab label on a consumer sign-in screen.</li>
+          <li><b>"Send to Discord" is disabled with no visible reason</b> - the explanation is in a <code>title</code> attribute, invisible on touch.</li>
+          <li><b>The Discord webhook field</b> sits at the same level as Back/Next on the setup wizard with no label beyond its name, no "optional" marker and no statement of what it sends or when.</li>
+          <li><b>The amber triage note does not adapt.</b> It still advises "adding a question of your own is possible while the market is a draft and nobody has applied" after five people have applied and the form is locked.</li>
+          <li><b>Em dashes appear throughout the UI</b> ("Vendors — Triage Check Fall 2025", "Front Row1 (Full Table) — Front Row, Gold, Hall", "— Unassigned —"), against the project's stated house style.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WHAT WORKED ============ -->
+  <section id="worked">
+    <div class="sec-head">
+      <h2>What is working, and working well</h2>
+      <span class="count">Verified, not assumed</span>
+    </div>
+    <div class="worked">
+      <ul>
+        <li><b>The import value-reconciliation screen.</b> Naming every unmatched value, counting the rows that carry it, and refusing to advance until each is resolved is exactly right. The "Required questions" checklist that turns green as you map is the best single piece of feedback in the product.</li>
+        <li><b>"Nothing is written until you confirm"</b> - and it means it. The dry run, the per-row preview cards and the "Where each answer comes from" table make a risky step safe.</li>
+        <li><b>The one-at-a-time triage queue</b> with R / S / A shortcuts, a live tally, and a reversible "Show N reviewed" list.</li>
+        <li><b>The Form Builder and its live applicant preview.</b> The essential-questions explanation and the amber note about table types are honest, specific and well written.</li>
+        <li><b>The setup-path chooser.</b> A clear recommendation, an honest BETA badge, and a caveat that says exactly what the beta does not do yet.</li>
+        <li><b>Phone check-in.</b> Stacked cleanly at 390px, full-width targets, readable. E08/F03 landed.</li>
+        <li><b>The intake-mode gate.</b> A CSV market's public applicant surface answers exactly as a nonexistent one does. I tried to catch it out and could not.</li>
+        <li><b>The solver.</b> Correct placements, correct per-date tier handling, correct refusal to place vendors whose tier does not exist.</li>
+        <li><b>Zero console errors</b> across the entire authenticated journey except the two deliberate 4xx responses.</li>
+        <li><b>"Total tables" updates live</b> as you edit section counts.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ ORDER ============ -->
+  <section id="order">
+    <div class="sec-head">
+      <h2>Suggested order</h2>
+      <span class="count">Cheapest high-reach work first</span>
+    </div>
+    <ol class="priority">
+      <li><b>Three colour values</b> <span>S1, S2, S3 - one line each, and between them they fix legibility on every screen in the product including the public one. Do these first; they are the highest ratio of reach to effort in the list.</span> <span class="tag">base.css, PhaseControlPanel.vue</span></li>
+      <li><b>Make the Tables view scroll</b> <span>B1 - a functional blocker on the market-day screen, and the same fix covers Attendance Status.</span> <span class="tag">TablesView.vue, AttendanceStatusView.vue</span></li>
+      <li><b>Fix the "Done" dead end and name publishing once</b> <span>B2, H4 - the last click of the happy path currently fails, and after it succeeds nothing tells the organizer the check-in URL exists.</span> <span class="tag">GenerateAssignmentView.vue, PhaseControlPanel.vue, MarketsView.vue</span></li>
+      <li><b>Key the wizard step and the current market properly</b> <span>H1, H2 - a market that silently has no dates assigns nobody, and an editable wizard attached to no market is a data hazard.</span> <span class="tag">MarketSetupView.vue, router</span></li>
+      <li><b>Match import values on labels, not keys</b> <span>H3 - and let the delimiter be chosen. The flagship intake path currently cannot take its flagship input without hand-mapping values to themselves.</span> <span class="tag">csv_import.py</span></li>
+      <li><b>Say why a vendor went unassigned</b> <span>H5 - the solver knows; the screen does not say.</span> <span class="tag">GenerateAssignmentView.vue</span></li>
+      <li><b>The setup-row control defects and the blank selects</b> <span>M1 - small, visible on the first screen of every new market, and the blank-select bug is the same root cause in two places.</span> <span class="tag">Element*Setup.vue, CsvImportView.vue</span></li>
+      <li><b>One list-row component; Escape closes overlays</b> <span>M2, M3 - both are consistency debt that four separate copies of the same markup keep re-creating.</span> <span class="tag">shared components</span></li>
+    </ol>
+  </section>
+
+  <hr class="soft" />
+  <p class="note">Method: Playwright MCP against the running <code>conventioner-dev</code> stack on branch <code>fix/authorization-integrity</code>. One market built from scratch through the UI, five applications imported from a hand-written CSV, full triage, solve, publish and check-in. Screens checked at 1440x900, 1280x720 and 390x844. Contrast figures computed from live <code>getComputedStyle</code> values using the WCAG 2.x relative-luminance formula. Every measurement quoted above was taken from the running build. The dev database was not reset, so pre-existing e2e fixture markets remain in the lists shown in some screenshots.</p>
+
+</div>
+</body>
+</html>

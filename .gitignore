@@ -9,7 +9,11 @@ users.json
 /back-end/docker-compose.yml
 /back-end/error.log
 /back-end/logs
-/back-end/tests/test_data
+# Generated dev artifacts live here, but the anonymised Google Forms export and its README are
+# fixtures the suite asserts against - tests/test_real_export_shapes.py cannot run without them.
+/back-end/tests/test_data/*
+!/back-end/tests/test_data/google_forms_export.csv
+!/back-end/tests/test_data/README.md
 # Playwright writes into front-end/, which front-end/.gitignore covers. These two guard the
 # repo root, where a stale .last-run.json was tracked from PR #33 and shipped in v0.1.0.
 /test-results
@@ -26,3 +30,9 @@ users.json
 tmux-*.log
 flask_session/
 /.stack-logs
+
+# Lavish review artifacts. The published report is committed because the backlog cites it as the
+# evidence for E07/E08/E01-F04; its fonts are copies of front-end/public/fonts and the MCP session
+# dumps are throwaway.
+/.playwright-mcp
+/.lavish/*.ttf

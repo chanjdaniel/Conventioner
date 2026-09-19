@@ -185,8 +185,22 @@ def _normalized_application_form(
     for the same reason: it is stamped by the first recorded applicant answer
     (``essential_fields.freeze_essential_options``) and any value in a payload is discarded.
     """
-    if not application_form.fields:
-        raise ValueError("Application form must include at least one field")
+    # A form with no custom fields is a form. AGENTS.md states the rule this used to contradict:
+    # "a form is its custom fields PLUS the essential questions the plan asks, and either half
+    # alone is a form". Refusing to persist a zero-field form meant a market whose intake is the
+    # essential questions - the common case - could not record anything ABOUT its form, including
+    # which questions it does not ask (E01/F06). Whether a form asks enough to open applications is
+    # FormHasFieldsGuard's decision, and it counts both halves; this is not the place for a third
+    # copy of that rule.
+
+    # Which essential questions this market declares it does not ask (E01/F06). Unlike
+    # ``essential_options`` this IS the organizer's to set, so it is validated rather than
+    # discarded: only a ranking may be declared, because only a ranking is a preference the solver
+    # never filters on.
+    unasked = [str(key).strip() for key in application_form.unasked_essentials or [] if str(key).strip()]
+    unaskable_error = EssentialFields.unaskable_essential_error(unasked)
+    if unaskable_error:
+        raise ValueError(unaskable_error)
 
     fields: List[FormField] = []
     seen_keys = set()
@@ -238,6 +252,7 @@ def _normalized_application_form(
         "fields": fields,
         "published_at": published_at,
         "essential_options": essential_options,
+        "unasked_essentials": unasked,
     })
 
 

@@ -21,8 +21,12 @@ function form(...fields: FormField[]): ApplicationForm {
 
 describe('applicationFormHint', () => {
   it('explains why Save is disabled on a form with no fields', () => {
-    expect(applicationFormHint(null)).toBe('Add at least one field to save this form.');
-    expect(applicationFormHint(form())).toBe('Add at least one field to save this form.');
+    expect(applicationFormHint(null)).toBe(
+      'This form already asks the essential questions. Add a field to save one of your own.',
+    );
+    expect(applicationFormHint(form())).toBe(
+      'This form already asks the essential questions. Add a field to save one of your own.',
+    );
   });
 
   it('explains why Save is disabled while a just-added field is untouched', () => {

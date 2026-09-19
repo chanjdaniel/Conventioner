@@ -69,6 +69,7 @@ from utils.secret_key import (
     SecretKeyNotConfiguredError,
     signing_secret,
 )
+from utils.identity import authenticated_email
 from utils.session_storage import (
     ON_DISK,
     SESSION_FOLDER,
@@ -330,6 +331,8 @@ app.register_blueprint(floorplans_save_bp, url_prefix="/floorplans")
 def get_user(email: str) -> Any:
     return UsersApi.get_user(email)
 
+
+
 # curl -k -X POST https://127.0.0.1:5000/register-user \
 #   -H "Content-Type: application/json" \
 #   -d '{"email": "testemail@test.com", "password": "testpassword", "organizations": []}'
@@ -380,17 +383,19 @@ def login_otp() -> Response:
     return UsersApi.login_with_otp(login_user, request)
 
 @app.route('/delete-user', methods=['POST'])
+@login_required
 def delete_user() -> Response:
-    """Delete a user account. Requires login for verified accounts."""
-    # Get requesting user email from headers (set by login_required decorator)
-    requesting_user_email = request.headers.get('X-Owner-Email') or (current_user.email if current_user.is_authenticated else None)
-    
-    if not requesting_user_email:
-        # Allow deletion of unverified accounts without login (for cleanup)
-        # But require email in request body
-        return UsersApi.delete_user(request, None)
-    
-    return UsersApi.delete_user(request, requesting_user_email)
+    """Delete the signed-in user's own account.
+
+    The identity comes from the session and from nowhere else. This endpoint used to take it from
+    the ``X-Owner-Email`` header, with no ``@login_required`` at all, and compare that header to the
+    email in the request body - two values the caller controls, so the ownership check always passed
+    and an anonymous ``curl`` could delete any verified account.
+
+    There is deliberately no anonymous cleanup path for unverified accounts any more. Cleaning up
+    orphaned registrations is maintenance work, not something a stranger may ask for.
+    """
+    return UsersApi.delete_user(request, current_user.email)
 
 # organizations
 
@@ -399,9 +404,7 @@ def delete_user() -> Response:
 def get_organizations() -> Response:
     """Get all organizations for the current user."""
     try:
-        user_email = request.headers.get('X-Owner-Email')
-        if not user_email:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        user_email = authenticated_email()
         
         organizations = OrgsApi.get_organizations_for_user(user_email)
         return jsonify({"organizations": organizations}), 200
@@ -421,9 +424,7 @@ def create_organization() -> Response:
         if not name:
             return jsonify({"error": "Organization name required"}), 400
         
-        owner_email = request.headers.get('X-Owner-Email')
-        if not owner_email:
-            return jsonify({"error": "Owner email not provided in headers"}), 400
+        owner_email = authenticated_email()
         
         org_id = OrgsApi.create_organization(owner_email, name)
         return jsonify({
@@ -457,9 +458,7 @@ def update_organization(org_id: str) -> Response:
         if not data:
             return jsonify({"error": "No data provided"}), 400
         
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
         
         result = OrgsApi.update_organization(org_id, requesting_user, data)
         return jsonify({
@@ -478,9 +477,7 @@ def update_organization(org_id: str) -> Response:
 def delete_organization(org_id: str) -> Response:
     """Delete an organization. Only owner can delete."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
         
         result = OrgsApi.delete_organization(org_id, requesting_user)
         if result.deleted_count > 0:
@@ -507,9 +504,7 @@ def add_org_admin(org_id: str) -> Response:
         if not user_email:
             return jsonify({"error": "user_email required"}), 400
         
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
         
         success = OrgsApi.add_org_admin(org_id, user_email, requesting_user)
         if success:
@@ -536,9 +531,7 @@ def add_org_member(org_id: str) -> Response:
         if not user_email:
             return jsonify({"error": "user_email required"}), 400
         
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
         
         success = OrgsApi.add_org_member(org_id, user_email, requesting_user)
         if success:
@@ -557,9 +550,7 @@ def add_org_member(org_id: str) -> Response:
 def remove_org_user(org_id: str, user_id: str) -> Response:
     """Remove a user from an organization."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
         
         success = OrgsApi.remove_org_user(org_id, user_id, requesting_user)
         if success:
@@ -586,9 +577,7 @@ def transfer_org_ownership(org_id: str) -> Response:
         if not new_owner_email:
             return jsonify({"error": "new_owner_email required"}), 400
         
-        current_owner = request.headers.get('X-Owner-Email')
-        if not current_owner:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        current_owner = authenticated_email()
         
         success = OrgsApi.transfer_org_ownership(org_id, current_owner, new_owner_email)
         if success:
@@ -623,11 +612,7 @@ def add_market_role(market_id: str) -> Response:
         except ValueError:
             return jsonify({"error": f"Invalid role: {role_str}"}), 400
         
-        owner_email = request.headers.get('X-Owner-Email')
-        if not owner_email:
-            return jsonify({"error": "Owner email not provided in headers"}), 400
-        
-        requesting_user = request.headers.get('X-User-Email', owner_email)
+        requesting_user = authenticated_email()
         
         success = MarketsApi.add_market_role(market_id, user_email, role, requesting_user)
         if success:
@@ -646,9 +631,7 @@ def add_market_role(market_id: str) -> Response:
 def remove_market_role(market_id: str, user_id: str) -> Response:
     """Remove a user role from a market."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
         
         success = MarketsApi.remove_market_role(market_id, user_id, requesting_user)
         if success:
@@ -680,9 +663,7 @@ def update_market_role(market_id: str, user_id: str) -> Response:
         except ValueError:
             return jsonify({"error": f"Invalid role: {role_str}"}), 400
         
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
         
         success = MarketsApi.update_market_role(market_id, user_id, role, requesting_user)
         if success:
@@ -703,9 +684,7 @@ def update_market_role(market_id: str, user_id: str) -> Response:
 def get_market(market_id: str) -> Response:
     """Get a market by its ID. Uses permission checks."""
     try:
-        user_email = request.headers.get('X-Owner-Email')  # Reusing header name for user email
-        if not user_email:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        user_email = authenticated_email()
 
         # Check that user exists
         user = UsersApi.get_user(user_email)
@@ -726,9 +705,7 @@ def get_market(market_id: str) -> Response:
 def get_markets_by_owner_email() -> Response:
     """Get all markets for user (via explicit role or organization)."""
     try:
-        user_email = request.headers.get('X-Owner-Email')  # Reusing header name for user email
-        if not user_email:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        user_email = authenticated_email()
         
         user = UsersApi.get_user(user_email)
         if not user:
@@ -758,9 +735,7 @@ def create_market() -> Response:
         data = convert_keys_to_snake_case(data)
         market = Market(**data)
 
-        owner_email = request.headers.get('X-Owner-Email')
-        if not owner_email:
-            return jsonify({"error": "Owner email not provided in headers"}), 400
+        owner_email = authenticated_email()
 
         # Check that owner exists
         owner = UsersApi.get_user(owner_email)
@@ -816,9 +791,7 @@ def update_market(market_id: str) -> Response:
                 print(f"Validation errors: {validation_error.errors()}")
             raise validation_error
 
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         # Check that user exists
         user = UsersApi.get_user(requesting_user)
@@ -859,9 +832,7 @@ def save_application_form(market_id: str) -> Response:
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         user = UsersApi.get_user(requesting_user)
         if not user:
@@ -892,9 +863,7 @@ def save_application_form(market_id: str) -> Response:
 def get_application_form(market_id: str) -> Response:
     """Retrieve the application form for a market."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         user = UsersApi.get_user(requesting_user)
         if not user:
@@ -917,9 +886,7 @@ def get_application_form(market_id: str) -> Response:
 def delete_market(market_id: str) -> Response:
     """Delete a market. Only owner can delete."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         result = MarketsApi.delete_market(market_id, requesting_user)
         if result.deleted_count > 0:
@@ -964,9 +931,7 @@ def transition_market(market_id: str) -> Response:
                 "error": f"Unknown phase: '{to_phase_raw}'. Valid phases: {', '.join(valid)}"
             }), 400
 
-        user_email = request.headers.get("X-Owner-Email")
-        if not user_email:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        user_email = authenticated_email()
 
         if not UsersApi.get_user(user_email):
             return jsonify({"error": "User not found"}), 404
@@ -1075,9 +1040,7 @@ def pending_offers_count(market_id: str) -> Response:
     ``offers`` to ``market_days``. Drives the sweep confirmation dialog in the UI.
     """
     try:
-        user_email = request.headers.get("X-Owner-Email")
-        if not user_email:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        user_email = authenticated_email()
 
         if not UsersApi.get_user(user_email):
             return jsonify({"error": "User not found"}), 404
@@ -1109,9 +1072,7 @@ def pending_offers_count(market_id: str) -> Response:
 def get_assigned_market(market_id: str) -> Response:
     """Get an assigned market. Requires VIEW permission."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         result, status_code = MarketsApi.get_assigned_market(market_id, requesting_user)
         
@@ -1136,9 +1097,7 @@ def get_assigned_market(market_id: str) -> Response:
 def get_assignment_statistics(market_id: str) -> Response:
     """Get assignment statistics derived on-demand. Requires VIEW permission."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         result, status_code = MarketsApi.get_assignment_statistics(market_id, requesting_user)
         return jsonify(result), status_code
@@ -1159,9 +1118,7 @@ def get_assignment_statistics(market_id: str) -> Response:
 def get_assignment_csv(market_id: str) -> Response:
     """Download assignment results as a CSV file. Requires VIEW permission."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         result, status_code = MarketsApi.get_assignment_csv(market_id, requesting_user)
         if status_code == 200:
@@ -1187,9 +1144,7 @@ def get_assignment_csv(market_id: str) -> Response:
 def post_assignment_to_discord(market_id: str) -> Response:
     """Send the assignment summary to the market's configured Discord webhook. Owner only."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         result, status_code = MarketsApi.post_assignment_to_discord(market_id, requesting_user)
         return jsonify(result), status_code
@@ -1209,9 +1164,7 @@ def post_assignment_to_discord(market_id: str) -> Response:
 def get_market_tables(market_id: str) -> Response:
     """Get table-level assignments derived on-demand. Requires VIEW permission."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         result, status_code = MarketsApi.get_market_tables(market_id, requesting_user)
         return jsonify(result), status_code
@@ -1365,9 +1318,7 @@ def public_save_applicant_application(market_slug: str) -> Response:
 def list_market_applications(market_id: str) -> Response:
     """List all applications for a market. Requires VIEWER+ permission."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         context = MarketsApi.load_market_context(market_id)
         if context is None:
@@ -1393,9 +1344,7 @@ def list_market_applications(market_id: str) -> Response:
 def review_application(market_id: str, application_id: str) -> Response:
     """Record a review verdict (approved/rejected) on an application. Requires ADMIN+."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         context = MarketsApi.load_market_context(market_id)
         if context is None:
@@ -1431,15 +1380,15 @@ def review_application(market_id: str, application_id: str) -> Response:
         return jsonify({"error": "Internal server error"}), 500
 
 
-def _import_context(market_id: str, requesting_user: Optional[str]):
+def _import_context(market_id: str, requesting_user: str):
     """Load the market and check ADMIN for both import endpoints.
 
     Returns ``(market_doc, error_response, status)``; the market document is the raw stored one,
     because that is what the essential-offering derivation and the shared write path both read.
-    """
-    if not requesting_user:
-        return None, {"error": "User email not provided in headers"}, 400
 
+    ``requesting_user`` is the session's identity, so it is always present - every caller passes
+    ``authenticated_email()`` from behind ``@login_required``.
+    """
     context = MarketsApi.load_market_context(market_id)
     if context is None:
         return None, {"error": "Market not found"}, 404
@@ -1468,7 +1417,7 @@ def inspect_application_import(market_id: str) -> Response:
     """Read a CSV's columns and say what they can be mapped to. Writes nothing. Requires ADMIN+."""
     try:
         market_doc, error, status_code = _import_context(
-            market_id, request.headers.get('X-Owner-Email'),
+            market_id, authenticated_email(),
         )
         if error:
             return jsonify(error), status_code
@@ -1491,7 +1440,7 @@ def preview_application_import(market_id: str) -> Response:
     """Report cell values that name nothing this market offers. Writes nothing. Requires ADMIN+."""
     try:
         market_doc, error, status_code = _import_context(
-            market_id, request.headers.get('X-Owner-Email'),
+            market_id, authenticated_email(),
         )
         if error:
             return jsonify(error), status_code
@@ -1522,7 +1471,7 @@ def import_applications(market_id: str) -> Response:
     """Import the mapped CSV rows as applications awaiting review. Requires ADMIN+."""
     try:
         market_doc, error, status_code = _import_context(
-            market_id, request.headers.get('X-Owner-Email'),
+            market_id, authenticated_email(),
         )
         if error:
             return jsonify(error), status_code
@@ -1553,9 +1502,7 @@ def import_applications(market_id: str) -> Response:
 def publish_market_results(market_id: str) -> Response:
     """Publish review results, making verdicts visible to applicants. Requires ADMIN+."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         context = MarketsApi.load_market_context(market_id)
         if context is None:
@@ -1581,9 +1528,7 @@ def publish_market_results(market_id: str) -> Response:
 def get_market_attendance(market_id: str) -> Response:
     """Owner-facing attendance status for a market. Requires VIEWER permission."""
     try:
-        requesting_user = request.headers.get('X-Owner-Email')
-        if not requesting_user:
-            return jsonify({"error": "User email not provided in headers"}), 400
+        requesting_user = authenticated_email()
 
         context = MarketsApi.load_market_context(market_id)
         if context is None:

@@ -1,23 +1,17 @@
 import axios from 'axios';
 
+/**
+ * `withCredentials` is the whole of the client's side of authentication: the session cookie says
+ * who the caller is, and the back end reads it and nothing else.
+ *
+ * This used to also send an `X-Owner-Email` header read from localStorage, and the back end
+ * authorized against *that* (E07/F01/S02). A value the browser sets cannot prove identity, so any
+ * signed-in user could act as any other by changing it. The header is no longer read by anything;
+ * do not reintroduce it, and do not add another one like it.
+ */
 export const api = axios.create({
   baseURL: import.meta.env.VITE_FLASK_HOST,
   withCredentials: true,
-});
-
-api.interceptors.request.use((config) => {
-  const raw = localStorage.getItem('user');
-  if (raw) {
-    try {
-      const userEmail = JSON.parse(raw);
-      if (typeof userEmail === 'string' && userEmail.length > 0) {
-        config.headers.set('X-Owner-Email', userEmail);
-      }
-    } catch {
-      // Ignore parse errors — user data may not be set yet
-    }
-  }
-  return config;
 });
 
 /**

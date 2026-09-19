@@ -200,6 +200,21 @@ test.describe('Market pipeline E2E', () => {
 
     expect(marketId).toBeTruthy();
 
+    // Publishing is `assignment -> market_days` (E03/F03), so the market has to BE in assignment.
+    // It used to be `archived`, which was reachable from every phase - which is exactly why
+    // `archived` meant both "just published" and "over". The vendors seeded above are already
+    // approved, so the review guard passes.
+    for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+      const res = await page.request.post(
+        `${BACKEND_URL}/markets/${encodeURIComponent(marketId)}/transition`,
+        {
+          headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+          data: { toPhase },
+        },
+      );
+      expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
+    }
+
     await resultsPage.clickDone();
 
     // A published market lands on the public page it actually serves, not back in the wizard.
@@ -221,7 +236,9 @@ test.describe('Market pipeline E2E', () => {
     const { market: storedMarket } = (await storedRes.json()) as {
       market: { phase: string; isDraft: boolean };
     };
-    expect(storedMarket.phase).toBe('archived');
+    // A published market is RUNNING, so its phase is market_days (E03/F03). `archived` now means
+    // finished - a market that has run and is over, or one abandoned before it ever ran.
+    expect(storedMarket.phase).toBe('market_days');
     expect(storedMarket.isDraft).toBe(false);
 
     // Reopening the published market from the markets list routes on phase.

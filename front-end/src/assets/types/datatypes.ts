@@ -261,6 +261,11 @@ export interface EssentialFormOptions {
   sections: string[];
   tableTypes: string[];
   tiers: string[];
+  /**
+   * Essential questions this market has declared it does not ask (E01/F06). Only rankings may
+   * appear; see `UNASKABLE_ESSENTIAL_KEYS` in `essentialFields.ts`.
+   */
+  unasked?: string[];
 }
 
 export interface ApplicationForm {
@@ -268,6 +273,8 @@ export interface ApplicationForm {
   publishedAt?: string;
   /** Server-owned frozen offering; null/undefined until the first applicant answer. */
   essentialOptions?: EssentialFormOptions | null;
+  /** The organizer's declaration, durable and settable - unlike the derived `essentialOptions`. */
+  unaskedEssentials?: string[];
 }
 
 export interface Application {

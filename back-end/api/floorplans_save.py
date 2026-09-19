@@ -14,6 +14,8 @@ import traceback
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
+from utils.identity import authenticated_email
+
 from db_config import get_database
 from datatypes import MarketRole
 import api.markets as MarketsApi
@@ -43,7 +45,7 @@ def save_floorplan_to_market():
 
     Algorithm:
       1. Look up the Market document by ``market_id`` (404 if not found).
-      2. Resolve the requesting user from the ``X-Owner-Email`` header and
+      2. Resolve the requesting user from the session and
          verify they hold EDITOR+ permission on the market (403 if not).
       3. Walk ``floorplan.sections``, extracting ``SectionObject`` entries
          (name, location name, tier id, count = len(tableIds)) and
@@ -82,9 +84,7 @@ def save_floorplan_to_market():
         market_doc = context.document
 
         # ── 2. Permission check ────────────────────────────────────────────
-        user_email = request.headers.get("X-Owner-Email")
-        if not user_email:
-            return jsonify({"error": "User email not provided in headers"}), 401
+        user_email = authenticated_email()
 
         if context.market is None:
             return jsonify({"error": "Invalid market data"}), 400

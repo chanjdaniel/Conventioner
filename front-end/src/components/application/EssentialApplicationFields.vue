@@ -15,6 +15,7 @@
  */
 import { computed, watch } from 'vue';
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
+import { getFormattedDate } from '@/utils/utils';
 import {
   AVAILABLE_DATES_KEY,
   AVAILABLE_DATES_LABEL,
@@ -53,7 +54,18 @@ const emit = defineEmits<{
 }>();
 
 const selectedDates = computed(() => (props.modelValue[AVAILABLE_DATES_KEY] as string[]) ?? []);
-const selectedTiers = computed(() => (props.modelValue[TIER_PREFERENCE_KEY] as string[]) ?? []);
+/**
+ * Tier is answered per date (E01/F05), because a tier is a hard filter and it sets the price: one
+ * set for the whole application would let someone be placed at a tier they offered on one day, and
+ * charged for it, on another. So this is a grid - one row per date the applicant ticked.
+ */
+const tiersByDate = computed(
+  () => (props.modelValue[TIER_PREFERENCE_KEY] as Record<string, string[]>) ?? {},
+);
+
+function tiersOn(date: string): string[] {
+  return tiersByDate.value[date] ?? [];
+}
 
 const sectionRanking = computed(
   () => (props.modelValue[SECTION_RANKING_KEY] as string[]) ?? props.options.sections,
@@ -95,9 +107,13 @@ function toggleDate(date: string, checked: boolean) {
   setAnswer(AVAILABLE_DATES_KEY, checked ? [...current, date] : current.filter((d) => d !== date));
 }
 
-function toggleTier(tier: string, checked: boolean) {
-  const current = selectedTiers.value;
-  setAnswer(TIER_PREFERENCE_KEY, checked ? [...current, tier] : current.filter((t) => t !== tier));
+function toggleTier(date: string, tier: string, checked: boolean) {
+  const current = tiersOn(date);
+  const next = checked ? [...current, tier] : current.filter((t) => t !== tier);
+  const all = { ...tiersByDate.value };
+  if (next.length) all[date] = next;
+  else delete all[date];
+  setAnswer(TIER_PREFERENCE_KEY, all);
 }
 
 const tableChoice = computed(() => (props.modelValue[TABLE_CHOICE_KEY] as string) ?? '');
@@ -209,25 +225,42 @@ function errorFor(key: string): string {
         <span class="essential-required">*</span>
       </span>
       <p class="essential-help">
-        Tick every tier you would accept. You will never be placed in one you leave unticked, even
-        if it means going unplaced.
+        For each date you can attend, tick every tier you would accept that day. You will never be
+        placed in one you leave unticked, even if it means going unplaced.
       </p>
-      <div class="essential-choice-list" :class="{ error: errorFor(TIER_PREFERENCE_KEY) }">
-        <label
-          v-for="tier in options.tiers"
-          :key="tier"
-          class="essential-choice"
-          :class="{ checked: selectedTiers.includes(tier) }"
-        >
-          <input
-            type="checkbox"
-            :checked="selectedTiers.includes(tier)"
-            :disabled="disabled"
-            :data-testid="`${prefix}-essential-tier-${tier}`"
-            @change="toggleTier(tier, ($event.target as HTMLInputElement).checked)"
-          />
-          <span>{{ tier }}</span>
-        </label>
+      <p
+        v-if="!selectedDates.length"
+        class="essential-help"
+        :data-testid="`${prefix}-tier-no-dates`"
+      >
+        Pick your available dates above first.
+      </p>
+      <!-- One row per date the applicant ticked above, so the two answers cannot disagree: the
+           back end refuses an available date with no tiers, and tiers for a date not ticked. -->
+      <div
+        v-for="date in selectedDates"
+        :key="date"
+        class="essential-tier-day"
+        :data-testid="`${prefix}-essential-tier-day-${date}`"
+      >
+        <span class="essential-tier-day-label">{{ getFormattedDate(date) }}</span>
+        <div class="essential-choice-list" :class="{ error: errorFor(TIER_PREFERENCE_KEY) }">
+          <label
+            v-for="tier in options.tiers"
+            :key="tier"
+            class="essential-choice"
+            :class="{ checked: tiersOn(date).includes(tier) }"
+          >
+            <input
+              type="checkbox"
+              :checked="tiersOn(date).includes(tier)"
+              :disabled="disabled"
+              :data-testid="`${prefix}-essential-tier-${date}-${tier}`"
+              @change="toggleTier(date, tier, ($event.target as HTMLInputElement).checked)"
+            />
+            <span>{{ tier }}</span>
+          </label>
+        </div>
       </div>
       <p
         v-if="errorFor(TIER_PREFERENCE_KEY)"
@@ -481,5 +514,15 @@ function errorFor(key: string): string {
   font-size: 12px;
   color: var(--mm-red, #cc0000);
   margin: 2px 0 0;
+}
+.essential-tier-day {
+  margin-bottom: 10px;
+}
+
+.essential-tier-day-label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--mm-black, #272323);
 }
 </style>

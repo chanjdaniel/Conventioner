@@ -192,10 +192,6 @@ input[type='number'] {
   -moz-appearance: textfield;
 }
 
-.hidden-icon {
-  visibility: hidden;
-}
-
 .icon-add-round {
   width: 40px;
   height: 40px;

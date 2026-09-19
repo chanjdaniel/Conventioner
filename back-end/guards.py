@@ -89,6 +89,77 @@ class FormHasFieldsGuard:
         return PreconditionResult(id=self.id, passed=True, message="")
 
 
+class NoApplicationsYetGuard:
+    """A market may return to draft only while nobody has applied.
+
+    The form is editable in ``draft`` alone, importing is permitted only in ``applications_open``,
+    and nothing returned to ``draft`` - so every custom field had to be anticipated before the
+    organizer had ever seen their own columns, and opening applications froze the form for good.
+    This edge is the way back, and this guard is what keeps it from being a hole in D9.
+
+    It is not redundant with the D9 check in ``application_form_lock_reason``. That check runs when
+    the form is written; this one runs when the market moves. Applicant submission is gated to
+    ``applications_open``, so a count of zero is *stable* in ``draft`` and a read-then-write race
+    while applications are open - going back is what makes the form check race-free, so the going
+    back is what has to be gated.
+
+    Once one application exists the market cannot return, and the form is frozen for good exactly
+    as it was before this edge existed.
+    """
+
+    id: str = "no_applications_yet"
+    description: str = "No applications have been submitted yet"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        count = ApplicationsApi.count_applications_for_market(market.id)
+        if count > 0:
+            app_word = "application has" if count == 1 else "applications have"
+            return PreconditionResult(
+                id=self.id,
+                passed=False,
+                message=(
+                    f"{count} {app_word} already been submitted, so this market cannot return to "
+                    "draft. The application form is frozen once anyone has answered it."
+                ),
+                resolution_link=None,
+            )
+        return PreconditionResult(id=self.id, passed=True, message="")
+
+
+class AssignmentComputedGuard:
+    """A market cannot go live until the solver has actually placed someone.
+
+    Publishing is what puts the public check-in URL on the air, and a market with no computed
+    assignment serves a page that can tell nobody where to stand.
+
+    This is an ENTRY INVARIANT on ``market_days`` rather than a guard on one edge: it is a property
+    of sitting in the phase, whatever route got you there, so a second route added later cannot
+    bypass it.
+
+    It reads ``assignmentObject.vendorAssignments`` because that is what the solver actually writes.
+    The cautionary example is in this same file: ``offers`` has an entry invariant and is deadlocked
+    precisely because that invariant waits on statuses nothing ever sets.
+    """
+
+    id: str = "assignment_computed"
+    description: str = "An assignment has been computed"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        assignment = market.assignment_object
+        placements = getattr(assignment, "vendor_assignments", None) or []
+        if not placements:
+            return PreconditionResult(
+                id=self.id,
+                passed=False,
+                message=(
+                    "No assignment has been computed for this market, so its check-in page could "
+                    "not tell anyone where to stand. Run the assignment first."
+                ),
+                resolution_link="/assignment-results",
+            )
+        return PreconditionResult(id=self.id, passed=True, message="")
+
+
 class AllApplicationsReviewedGuard:
     """Every application must be approved or rejected before assignment can begin.
 
@@ -173,6 +244,10 @@ class NoApprovedApplicationsGuard:
 VALID_TRANSITIONS: set[tuple[str, str]] = {
     # Pre-assignment back edges
     ("draft", "applications_open"),
+    # The way back, so a form can be corrected before anyone has answered it (E03/F04). Guarded on
+    # no application existing; only this phase may return, because a market that has closed
+    # applications or begun review has moved past the point where its form is a draft of anything.
+    ("applications_open", "draft"),
     ("applications_open", "applications_closed"),
     ("applications_closed", "applications_open"),
     ("applications_closed", "review"),
@@ -180,6 +255,9 @@ VALID_TRANSITIONS: set[tuple[str, str]] = {
     # Assignment and forward
     ("review", "assignment"),
     ("assignment", "offers"),
+    # Publishing (E03/F03). market_days already meant "the market is running" and was stranded
+    # behind the deadlocked assignment -> offers; this is the route that reaches it.
+    ("assignment", "market_days"),
     ("offers", "market_days"),
     # Archive from anywhere
     ("draft", "archived"),
@@ -194,6 +272,8 @@ VALID_TRANSITIONS: set[tuple[str, str]] = {
 # Guards are stateless, so one instance is shared by every edge that enforces it.
 _FORM_HAS_FIELDS = FormHasFieldsGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
+_NO_APPLICATIONS_YET = NoApplicationsYetGuard()
+_ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
 
 # Entry invariants: what must hold of a market SITTING IN a phase, regardless of the
@@ -207,6 +287,7 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
     # a half-built rule scores every vendor alike, which is silent rather than wrong.
     "assignment": [_ALL_REVIEWED],
     "offers": [_NO_APPROVED],
+    "market_days": [_ASSIGNMENT_COMPUTED],
 }
 
 # (from_phase, to_phase) -> list of guard instances. This is the table evaluate_transition
@@ -226,8 +307,11 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # TODO: Add _PRIORITY_CONFIGURED guard here (append to list) once it exists.
     # The guard should verify that the market's setup_object has at least one
     # priority entry before assignment can begin.
+    ("applications_open", "draft"): [_NO_APPLICATIONS_YET],
     ("review", "assignment"): [_ALL_REVIEWED],
     ("assignment", "offers"): [_NO_APPROVED],
+    ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED],
+    ("offers", "market_days"): [_ASSIGNMENT_COMPUTED],
 }
 
 

@@ -78,12 +78,26 @@ class FakeMarketsCollection:
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setitem(app_module.app.config, "LOGIN_DISABLED", True)
+    """Signed in as the owner, for real.
+
+    This used to set ``LOGIN_DISABLED`` and pass the caller's identity in an ``X-Owner-Email``
+    header, which is exactly the hole E07/F01/S02 closed: the header is not an authorization input
+    any more, so a test that supplies identity that way is testing nothing. The session is the
+    identity here as it is in production.
+    """
+    monkeypatch.setattr(app_module.login_manager, "session_protection", None)
     monkeypatch.setattr(
         UsersApi, "get_user",
-        lambda email: SimpleNamespace(id=OWNER_ID, email=email) if email == OWNER_EMAIL else None,
+        lambda email: SimpleNamespace(
+            id=OWNER_ID, email=email, is_active=True, is_authenticated=True,
+            is_anonymous=False, get_id=lambda e=email: e,
+        ) if email == OWNER_EMAIL else None,
     )
-    return app_module.app.test_client()
+    client = app_module.app.test_client()
+    with client.session_transaction() as session:
+        session["_user_id"] = OWNER_EMAIL
+        session["_fresh"] = True
+    return client
 
 
 @pytest.fixture
@@ -96,11 +110,12 @@ def markets(monkeypatch):
 
 
 def _post(client, body, email=OWNER_EMAIL):
-    return client.post(
-        "/markets/market-1/transition",
-        json=body,
-        headers={"X-Owner-Email": email},
-    )
+    """Post as whoever the session says; ``email`` re-signs the client when it is someone else."""
+    if email != OWNER_EMAIL:
+        with client.session_transaction() as session:
+            session["_user_id"] = email
+            session["_fresh"] = True
+    return client.post("/markets/market-1/transition", json=body)
 
 
 class TestTransitionSuccess:
@@ -331,7 +346,10 @@ class TestTransitionRejected:
         markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
         monkeypatch.setattr(
             UsersApi, "get_user",
-            lambda email: SimpleNamespace(id="stranger", email=email),
+            lambda email: SimpleNamespace(
+                id="stranger", email=email, is_active=True, is_authenticated=True,
+                is_anonymous=False, get_id=lambda e=email: e,
+            ),
         )
 
         response = _post(client, {"toPhase": "applications_open"}, email="stranger@example.com")

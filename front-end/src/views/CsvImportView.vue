@@ -19,8 +19,10 @@ import type { Market } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
+  TABLE_CHOICES,
   TABLE_TYPE_RANKING_KEY,
   TIER_PREFERENCE_KEY,
+  UNASKABLE_ESSENTIAL_KEYS,
 } from '@/utils/essentialFields';
 
 /** Targets whose answer is several values, so one column holds a comma-separated list. */
@@ -35,6 +37,13 @@ type Step = 'upload' | 'map' | 'preview' | 'done';
 
 /** Sentinel for "this value means nothing; leave it out" - distinct from "not yet decided". */
 const IGNORE_VALUE = '__ignore__';
+
+/**
+ * Sentinel for "I want this column and there is no target for it". Not a mapping - it never
+ * reaches the server - it is the ledger's way of explaining the dead end rather than leaving the
+ * organizer to conclude the import is broken.
+ */
+const NEEDS_A_FIELD = '__needs_a_field__';
 
 interface ImportTarget {
   key: string;
@@ -98,6 +107,8 @@ const restoredTargets = ref<Set<string>>(new Set());
 const restoredMissing = ref<Array<{ target: string; missingHeaders: string[] }>>([]);
 const newHeaders = ref<string[]>([]);
 const hasSavedMapping = ref(false);
+/** Does this market order vendors by when they applied? Decides the warning below. */
+const ordersBySubmittedAt = ref(false);
 /** Group stem -> target key: a grid is mapped once, for all of its columns at a time. */
 const groupTarget = ref<Record<string, string>>({});
 /** Stems the organizer has broken apart, when the detection guessed wrong. */
@@ -155,7 +166,9 @@ const mappedKeys = computed(
       [
         ...Object.entries(columnTarget.value)
           .filter(([index]) => !groupedColumns.value.has(Number(index)))
-          .map(([, key]) => key),
+          .map(([, key]) => key)
+          // The ledger's dead-end sentinel is not a target; it must not satisfy a required question.
+          .filter((key) => key !== NEEDS_A_FIELD),
         ...activeGroups.value.map((g) => groupTarget.value[g.stem]),
       ].filter(Boolean),
     ),
@@ -182,9 +195,105 @@ function isRestored(key: string | undefined): boolean {
   return !!key && restoredTargets.value.has(key);
 }
 
+/**
+ * A value to resolve an unmatched cell to, as a person would say it.
+ *
+ * Dates, tiers and sections are the organizer's own names and read fine as they are. Table choice is
+ * the exception: it is stored as `full` / `half` / `either`, which is the contract's vocabulary, not
+ * anybody's - and that is what the resolution dropdown was offering.
+ */
+function choiceLabel(value: string): string {
+  return TABLE_CHOICES.find((c) => c.value === value)?.label ?? value;
+}
+
 function labelForTarget(key: string): string {
   return targets.value.find((t) => t.key === key)?.label ?? key;
 }
+
+/** Where a target's answer comes from: a whole grid, one column, or nothing yet. */
+type TargetSource =
+  { kind: 'group'; group: ColumnGroup } | { kind: 'column'; index: number } | { kind: 'none' };
+
+/**
+ * Which column, or columns, a target is being read from.
+ *
+ * One statement of it, because two readers need the answer and they must not disagree: the recap
+ * names the source, and the sample rows read cells out of it. The recap used to look only in
+ * `columnTarget`, so a target fed by a grid showed nothing at all while every single-column
+ * target named its source - a blank reads as "not mapped" at the exact moment the organizer is
+ * confirming that rows will be written.
+ */
+function sourceFor(key: string): TargetSource {
+  const group = activeGroups.value.find((g) => groupTarget.value[g.stem] === key);
+  if (group) return { kind: 'group', group };
+  const index = Object.entries(columnTarget.value).find(([, k]) => k === key)?.[0];
+  return index === undefined ? { kind: 'none' } : { kind: 'column', index: Number(index) };
+}
+
+/** That source, said the way the ledger said it. */
+function sourceLabelFor(key: string): string {
+  const source = sourceFor(key);
+  if (source.kind === 'group') {
+    return `${source.group.stem} (${source.group.columns.length} columns)`;
+  }
+  return source.kind === 'column' ? (headers.value[source.index] ?? '') : '';
+}
+
+/**
+ * The first few rows as the applications they will become: each mapped question and the answer
+ * this file gives it.
+ *
+ * The step is called Preview, and until now it previewed only the mapping - the same recap the
+ * previous step already showed, with no cell of the organizer's own data anywhere in it. Deciding
+ * to write 232 applications on a restated mapping means trusting that the mapping means what you
+ * think it means, which is the one thing a preview exists to check.
+ *
+ * A grid target is spelled out per option, because that is the shape the answer takes: the cell
+ * under "Saturday" is the answer for Saturday, and a joined list would hide which is which.
+ */
+const SAMPLE_ROWS = 3;
+
+interface SampleAnswer {
+  key: string;
+  label: string;
+  value: string;
+}
+
+const sampleApplications = computed<Array<{ row: number; answers: SampleAnswer[] }>>(() => {
+  // How many rows there are to show. `Math.max(0, ...)` rather than a spread alone: a file of
+  // headers and nothing else parses fine, and an empty spread would have left the default,
+  // previewing three rows a file with no rows in it does not have.
+  const depth = Math.min(SAMPLE_ROWS, Math.max(0, ...sampleValues.value.map((c) => c.length)));
+  if (depth < 1) return [];
+
+  const cell = (column: number, row: number) => (sampleValues.value[column]?.[row] ?? '').trim();
+
+  const rows = [];
+  for (let row = 0; row < depth; row += 1) {
+    const answers = targets.value
+      .filter((target) => mappedKeys.value.has(target.key))
+      .map((target) => {
+        const source = sourceFor(target.key);
+        if (source.kind === 'group') {
+          const perOption = source.group.columns
+            .map(
+              (column, position) =>
+                [source.group.options[position] ?? '', cell(column, row)] as const,
+            )
+            .filter(([, value]) => value !== '')
+            .map(([option, value]) => `${option}: ${value}`);
+          return { key: target.key, label: target.label, value: perOption.join(' · ') };
+        }
+        return {
+          key: target.key,
+          label: target.label,
+          value: source.kind === 'column' ? cell(source.index, row) : '',
+        };
+      });
+    rows.push({ row, answers });
+  }
+  return rows;
+});
 
 function isNewHeader(index: number): boolean {
   return newHeaders.value.includes((headers.value[index] ?? '').trim());
@@ -214,6 +323,18 @@ function splitGroup(stem: string) {
 const unservedRequired = computed(() =>
   requiredTargets.value.filter((t) => !mappedKeys.value.has(t.key)),
 );
+/**
+ * Required questions this file cannot answer that the market may simply stop asking (E01/F06).
+ *
+ * Only preference orderings appear, and that is the whole rule: the solver gives a vendor their
+ * best-ranked option still open and never excludes anyone for a ranking, so treating every
+ * applicant equally on it changes nothing but the tie-break. The same offer for dates or tiers
+ * would let a default invent a commitment the applicant never made.
+ */
+const declarableUnasked = computed(() =>
+  unservedRequired.value.filter((t) => UNASKABLE_ESSENTIAL_KEYS.includes(t.key)),
+);
+
 const canPreview = computed(() => unservedRequired.value.length === 0);
 
 /** A target already taken elsewhere, so the ledger can grey it out. */
@@ -229,8 +350,30 @@ function takenBy(key: string, columnIndex: number | null, stem: string | null): 
 }
 
 async function onFileChosen(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
+  await acceptFile((event.target as HTMLInputElement).files?.[0]);
+}
+
+/** True while a file is over the drop zone, so the zone can say it will take it. */
+const dragging = ref(false);
+
+async function onFileDropped(event: DragEvent) {
+  dragging.value = false;
+  await acceptFile(event.dataTransfer?.files?.[0]);
+}
+
+/**
+ * Take one file, whichever way it arrived.
+ *
+ * A file picked and a file dragged land here alike; anything that is not a CSV is refused by name
+ * rather than parsed into a wall of nonsense columns. The picker accepts only `.csv`, but a drop
+ * has no such filter, so this is where the check belongs.
+ */
+async function acceptFile(file: File | undefined) {
   if (!file) return;
+  if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
+    error.value = `${file.name} is not a CSV. Export your form responses as CSV and try again.`;
+    return;
+  }
   error.value = '';
   fileName.value = file.name;
   csvContent.value = await file.text();
@@ -262,6 +405,7 @@ async function inspect() {
     // A previous import's decisions win over the auto-detected two: the organizer already said
     // what these columns mean, and re-asking is the friction this remembers them to avoid.
     hasSavedMapping.value = data.hasSavedMapping === true;
+    ordersBySubmittedAt.value = data.ordersBySubmittedAt === true;
     restoredMissing.value = data.restoredTargetsMissingColumns ?? [];
     newHeaders.value = data.newHeaders ?? [];
     restoredTargets.value = new Set(Object.keys(data.restoredMapping ?? {}));
@@ -299,7 +443,8 @@ async function inspect() {
 function currentMapping(): Record<string, number | number[]> {
   const mapping: Record<string, number | number[]> = {};
   for (const [index, key] of Object.entries(columnTarget.value)) {
-    if (key && !groupedColumns.value.has(Number(index))) mapping[key] = Number(index);
+    if (!key || key === NEEDS_A_FIELD) continue;
+    if (!groupedColumns.value.has(Number(index))) mapping[key] = Number(index);
   }
   for (const group of activeGroups.value) {
     const key = groupTarget.value[group.stem];
@@ -424,17 +569,35 @@ function startOver() {
       data-testid="import-upload"
     >
       <h2>Choose the CSV your form produced</h2>
-      <p class="import-help">
-        Export your Google Form responses as CSV and choose the file here. Nothing is written until
-        you confirm.
+      <!-- Which market this writes into. The organizer reached this page from one market's
+           Applications tab, but the page itself said nothing about which, and an import is
+           232 applications landing somewhere. -->
+      <p v-if="market" class="import-help" data-testid="import-target-market">
+        Importing into <strong>{{ market.name }}</strong
+        >. Nothing is written until you confirm.
       </p>
-      <input
-        type="file"
-        accept=".csv,text/csv"
-        :disabled="busy"
-        data-testid="import-file-input"
-        @change="onFileChosen"
-      />
+      <label
+        class="drop-zone"
+        :class="{ dragging, busy }"
+        data-testid="import-drop-zone"
+        @dragover.prevent="dragging = true"
+        @dragenter.prevent="dragging = true"
+        @dragleave="dragging = false"
+        @drop.prevent="onFileDropped"
+      >
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          :disabled="busy"
+          data-testid="import-file-input"
+          @change="onFileChosen"
+        />
+        <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
+        <span class="drop-zone-hint">
+          Export your Google Form responses as CSV. Every column comes across; you decide which ones
+          mean something on the next step.
+        </span>
+      </label>
     </section>
 
     <!-- 2. Map columns -->
@@ -548,7 +711,7 @@ function startOver() {
                         >
                           <option value="">Choose…</option>
                           <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                            {{ choice }}
+                            {{ choiceLabel(choice) }}
                           </option>
                           <option :value="IGNORE_VALUE">Ignore this value</option>
                         </select>
@@ -622,7 +785,24 @@ function startOver() {
                     >
                       {{ target.label }}{{ target.required ? ' *' : '' }}
                     </option>
+                    <option :value="NEEDS_A_FIELD">This column has nowhere to go…</option>
                   </select>
+
+                  <!-- The dead end (E03/F04). A column the organizer wants to keep, with no target
+                       to map it to, needs a custom form field - and the form is editable only in
+                       draft, by its only writer. So this says where to go rather than creating a
+                       field from here: writing the form from the import screen would bypass
+                       PUT /markets/<id>/application-form, which is what makes the D9 lock
+                       unbypassable. -->
+                  <p
+                    v-if="columnTarget[row.index] === NEEDS_A_FIELD"
+                    class="ledger-deadend"
+                    data-testid="import-needs-a-field"
+                  >
+                    Nothing here answers this column. To keep it, reopen the market for editing and
+                    add a form field for it, then import again. The form can only be changed while
+                    nobody has applied.
+                  </p>
 
                   <!-- Values the market does not recognise, fixed in the row that owns them. -->
                   <div
@@ -659,7 +839,7 @@ function startOver() {
                       >
                         <option value="">Choose…</option>
                         <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                          {{ choice }}
+                          {{ choiceLabel(choice) }}
                         </option>
                         <option :value="IGNORE_VALUE">Ignore this value</option>
                       </select>
@@ -688,15 +868,55 @@ function startOver() {
         <p v-if="canPreview" class="rail-ok" data-testid="import-all-mapped">
           All required questions are mapped.
         </p>
+        <!-- Mapping no timestamp is legal - a market with no time-based priority does not need one.
+             But this market has a rule that orders by when the application arrived, and with
+             nothing feeding it that rule decides nothing. Saying so here is the point: it used to
+             fail silently. -->
+        <p
+          v-if="ordersBySubmittedAt && !mappedKeys.has('submitted_at')"
+          class="rail-warning"
+          data-testid="import-no-submitted-at-warning"
+        >
+          This market orders vendors by when they applied, but no column is mapped to “Submitted
+          at”. That rule will order nothing.
+        </p>
         <p v-if="unresolvedCount" class="rail-warning" data-testid="import-unresolved-warning">
           {{
             unresolvedCount === 1 ? '1 value still needs' : `${unresolvedCount} values still need`
           }}
           a match.
         </p>
-        <p v-else class="rail-warning" data-testid="import-unmapped-warning">
+        <!-- Only when something actually is unmapped. This was `v-else` on the unresolved-values
+             warning above, so a fully mapped file showed a red "Still unmapped:" with an empty list
+             directly under the green "All required questions are mapped." -->
+        <p
+          v-else-if="unservedRequired.length"
+          class="rail-warning"
+          data-testid="import-unmapped-warning"
+        >
           Still unmapped: {{ unservedRequired.map((t) => t.label).join(', ') }}
         </p>
+
+        <!-- Turning a question off is a change to the FORM, and a form is editable only in draft
+             (D9). This wizard only ever runs in applications_open, so it points at where to do it
+             rather than offering a button that would be refused here - the same shape as the
+             unmapped-column dead end in the ledger. -->
+        <div
+          v-for="target in declarableUnasked"
+          :key="target.key"
+          class="rail-unasked"
+          data-testid="import-declare-unasked"
+        >
+          <p>
+            Your form never asked <strong>{{ target.label }}</strong
+            >. It is a preference, not a constraint, so this market can stop asking it and treat
+            every applicant equally.
+          </p>
+          <p class="rail-unasked-how">
+            Reopen the market for editing, turn it off in the form builder, then open applications
+            and import again.
+          </p>
+        </div>
       </aside>
     </section>
 
@@ -757,14 +977,36 @@ function startOver() {
           </li>
         </ul>
       </div>
+      <!-- The organizer's own data, read through the mapping they just chose. Without a cell of
+           it on screen, "Preview" only restates the previous step. -->
+      <div v-if="sampleApplications.length" class="preview-samples" data-testid="import-samples">
+        <h3>
+          The first
+          {{ sampleApplications.length === 1 ? 'row' : sampleApplications.length + ' rows' }}, as
+          {{ sampleApplications.length === 1 ? 'it' : 'they' }} will be imported
+        </h3>
+        <div class="sample-grid">
+          <article
+            v-for="sample in sampleApplications"
+            :key="sample.row"
+            class="sample-card"
+            data-testid="import-sample-row"
+          >
+            <dl>
+              <template v-for="answer in sample.answers" :key="answer.key">
+                <dt>{{ answer.label }}</dt>
+                <dd :class="{ blank: !answer.value }">{{ answer.value || 'no answer' }}</dd>
+              </template>
+            </dl>
+          </article>
+        </div>
+      </div>
+
+      <h3 class="preview-mapping-heading">Where each answer comes from</h3>
       <ul class="preview-mapping">
         <li v-for="target in targets" :key="target.key" v-show="mappedKeys.has(target.key)">
           <strong>{{ target.label }}</strong>
-          <span>
-            {{
-              headers[Number(Object.entries(columnTarget).find(([, k]) => k === target.key)?.[0])]
-            }}
-          </span>
+          <span data-testid="import-preview-source">{{ sourceLabelFor(target.key) }}</span>
         </li>
       </ul>
     </section>
@@ -1066,6 +1308,15 @@ function startOver() {
   cursor: pointer;
 }
 
+.ledger-deadend {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--mm-yellow, #e4a629);
+  background: #fdf7ec;
+  font-size: 13px;
+  max-width: 42ch;
+}
+
 .ledger-select {
   width: 100%;
   max-width: 260px;
@@ -1116,10 +1367,139 @@ function startOver() {
   color: var(--mm-green, #2e7d4f);
 }
 
+.rail-unasked {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--mm-green, #49b096);
+  background: #eef8f5;
+  font-size: 13px;
+}
+
+.rail-unasked p {
+  margin: 0 0 6px;
+}
+
+.rail-unasked p:last-child {
+  margin-bottom: 0;
+}
+
+.rail-unasked-how {
+  color: rgba(39, 35, 35, 0.66);
+}
+
 .rail-warning {
   margin: 0;
   font-size: 13px;
   color: var(--mm-red, #cc0000);
+}
+
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 36px 24px;
+  margin-top: 8px;
+  border: 2px dashed var(--mm-grey, #ccc);
+  border-radius: 10px;
+  background: #fbfbfb;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.drop-zone:hover,
+.drop-zone.dragging {
+  border-color: var(--mm-green);
+  background: #f1faf7;
+}
+
+.drop-zone.busy {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+/* The input still does the work; it is the zone the organizer sees and drops onto. */
+.drop-zone input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The zone is one drop target. Without this the label's own children are targets too, so
+   crossing onto the text fires `dragleave` and the zone flickers out from under the file. */
+.drop-zone > * {
+  pointer-events: none;
+}
+
+.drop-zone-main {
+  font-family: 'Merge One', sans-serif;
+  font-size: 16px;
+  color: var(--mm-black);
+}
+
+.drop-zone-hint {
+  font-family: 'Outfit Regular', sans-serif;
+  font-size: 13px;
+  color: rgba(39, 35, 35, 0.6);
+  max-width: 42ch;
+  line-height: 1.5;
+}
+
+.preview-samples {
+  margin-top: 20px;
+}
+
+.preview-samples h3,
+.preview-mapping-heading {
+  font-family: 'Merge One', sans-serif;
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+.preview-mapping-heading {
+  margin-top: 20px;
+}
+
+.sample-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+}
+
+.sample-card {
+  border: 1px solid #eee;
+  border-radius: 5px;
+  background: white;
+  padding: 12px 14px;
+  min-width: 0;
+}
+
+.sample-card dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.sample-card dt {
+  color: rgba(39, 35, 35, 0.55);
+}
+
+.sample-card dd {
+  margin: 0 0 8px;
+  color: var(--mm-black);
+  overflow-wrap: anywhere;
+}
+
+.sample-card dd.blank {
+  color: rgba(39, 35, 35, 0.4);
+  font-style: italic;
 }
 
 .preview-mapping {

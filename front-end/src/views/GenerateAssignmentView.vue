@@ -373,8 +373,11 @@ const handleDone = async () => {
     return;
   }
   try {
+    // Publishing lands in `market_days`, the phase that means "this market is running"
+    // (E03/F03). It used to fire `archived`, which also means "this market is over" - and the
+    // check-in URL this button puts on the air is served to a running market only.
     const response = await api.post(`/markets/${encodeURIComponent(market.id)}/transition`, {
-      toPhase: 'archived',
+      toPhase: 'market_days',
     });
     // Update localStorage with the new phase so future reads reflect the advance.
     market = { ...market, phase: response.data.phase as MarketPhase };
@@ -673,14 +676,17 @@ const handleDone = async () => {
 
 /* Match `.market-setup-body` on Market Setup (Assignment Priority / Assignment options): 80% × 80% centered card.
    Do not set overflow:hidden here — it clips the white card's box-shadow (same shadow as `.settings-container`). */
+/* Height follows the content, and the page scrolls when there is more of it than fits.
+   This used to be `height: 80%; max-height: 80%`, pinning the whole card to a fraction of the
+   viewport. Everything inside it is a flex/grid chain ending in `.stat-list { flex: 1 }`, so the
+   lists got whatever was left over - 16px of 266px at 1366x768, the most common laptop size, and
+   only usable above about 1400px tall. The statistics were correct and present in the DOM the
+   whole time; there was simply nowhere to draw them (E08/F01/S01). */
 .generate-assignment-window {
   width: 80%;
-  height: 80%;
-  max-height: 80%;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
 }
 
@@ -722,12 +728,14 @@ const handleDone = async () => {
   display: flex;
   flex-direction: column;
   gap: 25px;
-  flex: 1;
-  min-height: 0;
   width: 100%;
-  /* Inset so stat-card / quick-nav box-shadows stay inside the overflow clip (large spread needs ≥~16px) */
+  /* Never shrink below the content. `.generate-assignment-body` is the one scroll container, so
+     anything taller than the window scrolls there rather than being squeezed here. This used to be
+     `flex: 1; min-height: 0; overflow: hidden`, which let every descendant be compressed and then
+     clipped what did not fit. Padding gives the card box-shadows their clearance. */
+  flex-shrink: 0;
   padding: 18px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .statistics-header-row {
@@ -806,7 +814,9 @@ const handleDone = async () => {
 }
 
 .statistics-body-grid {
-  min-height: 0;
+  /* A shrinkable flex item with `min-height: 0` compresses below its own content, which is what
+     squeezed the auto rows below the height of the cards in them. */
+  flex-shrink: 0;
   /* Do not add horizontal padding here — it misaligns grid cards vs `.statistics-header-row`.
        Shadow clearance comes from `.statistics-layout` padding; avoid `overflow:hidden` here
        or it clips card shadows at the grid box without matching the header inset. */
@@ -816,19 +826,16 @@ const handleDone = async () => {
 .statistics-body-grid--with-unassigned {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: 25px;
-  flex: 1;
   align-items: stretch;
 }
 
 .statistics-body-grid--four-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto auto;
   gap: 25px;
-  flex: 1;
-  min-height: 0;
   align-items: stretch;
 }
 
@@ -836,9 +843,12 @@ const handleDone = async () => {
   min-height: 0;
 }
 
+/* An intrinsic height, so a list never depends on how tall the window happens to be.
+   `min-height` is what it always shows; past `max-height` it scrolls within its own card. */
 .statistics-body-grid > .stat-card .stat-list {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 11rem;
+  max-height: 20rem;
   overflow-y: auto;
   /* Inset so `.assignment-stat-list-item` box-shadows are not clipped by the scrollport */
   padding: 8px 10px;

@@ -12,6 +12,8 @@ from datetime import datetime
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
+
+from utils.identity import authenticated_email
 from bson import ObjectId
 
 from db_config import get_database
@@ -27,13 +29,12 @@ floorplans_templates_bp = Blueprint("floorplans_templates", __name__)
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _get_request_user():
-    """Resolve the authenticated user from the X-Owner-Email header.
+    """Resolve the signed-in user from the session.
 
-    Returns a dict with user info or None.
+    Returns their user document, or None when no such user exists. Every route that calls this
+    carries ``@login_required``, so the session is always present by the time it runs.
     """
-    email = request.headers.get("X-Owner-Email")
-    if not email:
-        return None
+    email = authenticated_email()
     users_collection = db["users"]
     user_doc = users_collection.find_one({"email": email})
     if user_doc:

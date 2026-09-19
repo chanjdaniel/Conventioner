@@ -42,7 +42,13 @@ describe('DashboardView, the first screen after signing in', () => {
       const wrapper = await mountDashboard();
 
       expect(wrapper.find('[data-testid="dashboard-no-market-yet"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('Open a market to get started');
+      expect(wrapper.text()).toContain('You have not set up a market yet');
+    });
+
+    it('is offered the step that starts it, not only told to open something that does not exist', async () => {
+      const wrapper = await mountDashboard();
+
+      expect(wrapper.find('[data-testid="dashboard-create-market-button"]').exists()).toBe(true);
     });
 
     it('sees no "Previously opened" heading over a card for nothing', async () => {
@@ -54,7 +60,7 @@ describe('DashboardView, the first screen after signing in', () => {
     it('reaches the markets list from that card, so the invitation goes somewhere', async () => {
       const wrapper = await mountDashboard();
 
-      await wrapper.find('[data-testid="dashboard-no-market-yet"]').trigger('click');
+      await wrapper.find('[data-testid="dashboard-create-market-button"]').trigger('click');
 
       expect(push).toHaveBeenCalledWith('/markets');
     });

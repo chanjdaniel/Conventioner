@@ -1,5 +1,19 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+/**
+ * Review, one application at a time.
+ *
+ * The queue used to be a list of rows carrying an email address, a status pill and two buttons -
+ * so an organizer facing a real market (232 applications) was asked to accept or refuse people
+ * with nothing in front of them to decide on. Wayfinder ticket 04 prototyped three answers and
+ * this is the one chosen: triage. One application, every answer it holds, a verdict by keyboard
+ * or click, and a count of what is left.
+ *
+ * **There is deliberately no control that decides more than one application at once.** Not a
+ * select-all, not an "approve all matching". A bulk verdict is a verdict nobody read, and the
+ * approved set is the solver's entire input - `assign_market` reads `reviewer_approved` and
+ * nothing else. An escape hatch here would be the feature everyone uses.
+ */
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
 import {
@@ -8,6 +22,7 @@ import {
   publishResults as publishResultsApi,
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
+import { asksNothingDistinguishing, reviewAnswers } from '@/utils/reviewQueue';
 
 const props = defineProps<{
   market: Market | null;
@@ -20,6 +35,10 @@ const errorMessage = ref('');
 const publishLoading = ref(false);
 const publishError = ref('');
 const resultsPublished = ref(false);
+const saving = ref(false);
+/** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
+const cursor = ref(0);
+const showDecided = ref(false);
 
 const statusLabels: Record<string, string> = {
   open: 'Open',
@@ -47,6 +66,43 @@ const statusColors: Record<string, string> = {
   cancelled: '#9e9e9e',
 };
 
+/** Awaiting a verdict. Anything else has been reviewed, and does not come back to the queue. */
+const AWAITING = [ApplicationStatus.Open, ApplicationStatus.UnderReview] as string[];
+
+const undecided = computed(() => applications.value.filter((a) => AWAITING.includes(a.status)));
+/**
+ * Reviewed: everything the queue is done with, whatever became of it since.
+ *
+ * Deliberately "not awaiting" rather than "approved or rejected". An application does not stay at
+ * its reviewer verdict: assignment carries it to `assigned` or `unassigned`, offers to
+ * `assignment_sent`, and the sweep into market days to `vendor_accepted` or `vendor_refused`. A
+ * list of the two reviewer verdicts alone would drop each application the moment the market moved
+ * on, until the tab showed nothing at all. The list this replaces rendered every status, and so
+ * does this one.
+ */
+const decided = computed(() => applications.value.filter((a) => !AWAITING.includes(a.status)));
+/** Re-deciding is the reviewer's own verdict to change; a published application has moved on. */
+function reDecidable(app: Application): boolean {
+  return (
+    app.status === ApplicationStatus.ReviewerApproved ||
+    app.status === ApplicationStatus.ReviewerRejected
+  );
+}
+const approvedCount = computed(
+  () => applications.value.filter((a) => a.status === ApplicationStatus.ReviewerApproved).length,
+);
+const rejectedCount = computed(
+  () => applications.value.filter((a) => a.status === ApplicationStatus.ReviewerRejected).length,
+);
+/** The verdict split is only legible while the verdicts are still on the applications. */
+const verdictsStillLegible = computed(() => approvedCount.value + rejectedCount.value > 0);
+
+const current = computed<Application | undefined>(() => undecided.value[cursor.value]);
+const answers = computed(() =>
+  current.value ? reviewAnswers(current.value, props.market?.applicationForm) : [],
+);
+const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.applicationForm));
+
 watch(
   () => [props.visible, props.market] as const,
   async ([visible]) => {
@@ -63,8 +119,8 @@ async function loadApplications() {
   loading.value = true;
   errorMessage.value = '';
   try {
-    const apps = await fetchMarketApplications(props.market.id);
-    applications.value = apps;
+    applications.value = await fetchMarketApplications(props.market.id);
+    cursor.value = 0;
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
   } finally {
@@ -72,15 +128,60 @@ async function loadApplications() {
   }
 }
 
-async function handleReview(app: Application, newStatus: ApplicationStatus) {
-  if (!props.market) return;
+/**
+ * Record one verdict, and keep the local list in step with the answer rather than refetching.
+ *
+ * A refetch per verdict is 232 fetches of 232 applications across one review session; on the real
+ * export that was the whole difference between a queue that keeps up with typing and one that
+ * does not. The endpoint returns the application it wrote, so the list already has the truth.
+ */
+async function decide(app: Application, status: ApplicationStatus) {
+  if (!props.market || saving.value) return;
+  saving.value = true;
+  errorMessage.value = '';
   try {
-    await reviewApplication(props.market.id, app.id, newStatus);
-    await loadApplications();
+    const updated = await reviewApplication(props.market.id, app.id, status);
+    const index = applications.value.findIndex((a) => a.id === app.id);
+    if (index !== -1) applications.value[index] = updated;
+    // The verdict removed this one from the queue, so the cursor already points at the next.
+    // It can only sit past the end when the reviewer had skipped to the last card.
+    if (cursor.value >= undecided.value.length) {
+      cursor.value = Math.max(undecided.value.length - 1, 0);
+    }
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to update application');
+  } finally {
+    saving.value = false;
   }
 }
+
+function decideCurrent(status: ApplicationStatus) {
+  if (current.value) void decide(current.value, status);
+}
+
+/** Leave this one for later. It stays in the queue, so the count of work left does not lie. */
+function skip() {
+  if (undecided.value.length === 0) return;
+  cursor.value = (cursor.value + 1) % undecided.value.length;
+}
+
+function onKey(event: KeyboardEvent) {
+  if (!props.visible || !current.value) return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const target = event.target as HTMLElement | null;
+  if (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable)) {
+    return;
+  }
+  const key = event.key.toLowerCase();
+  if (key !== 'a' && key !== 'r' && key !== 's') return;
+  event.preventDefault();
+  if (key === 'a') decideCurrent(ApplicationStatus.ReviewerApproved);
+  if (key === 'r') decideCurrent(ApplicationStatus.ReviewerRejected);
+  if (key === 's') skip();
+}
+
+onMounted(() => window.addEventListener('keydown', onKey));
+onUnmounted(() => window.removeEventListener('keydown', onKey));
 
 async function handlePublish() {
   if (!props.market) return;
@@ -102,6 +203,10 @@ function statusLabel(status: string): string {
 
 function statusColor(status: string): string {
   return statusColors[status] ?? '#9e9e9e';
+}
+
+function submittedOn(app: Application): string {
+  return app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : '';
 }
 </script>
 
@@ -140,57 +245,123 @@ function statusColor(status: string): string {
       No applications received yet.
     </div>
 
-    <div v-else class="applications-list" data-testid="app-monitor-list">
-      <div
-        v-for="app in applications"
-        :key="app.id"
-        class="application-card"
-        data-testid="app-monitor-card"
-      >
-        <div class="app-info">
-          <span class="app-email" data-testid="app-monitor-email">{{ app.applicantEmail }}</span>
+    <template v-else>
+      <div class="progress-row">
+        <span class="progress" data-testid="app-monitor-progress">
+          <template v-if="undecided.length">
+            {{ cursor + 1 }} of {{ undecided.length }} to review
+          </template>
+          <template v-else>All {{ applications.length }} reviewed</template>
+        </span>
+        <span class="tally" data-testid="app-monitor-tally">
+          {{ decided.length }} reviewed<template v-if="verdictsStillLegible">
+            · {{ approvedCount }} approved · {{ rejectedCount }} rejected</template
+          >
+        </span>
+      </div>
+
+      <p v-if="nothingToJudge" class="advisory" data-testid="app-monitor-advisory">
+        This market's form asks only the essential questions, so every application reads alike and
+        there is nothing here to tell applicants apart. Adding a question of your own is possible
+        while the market is a draft and nobody has applied.
+      </p>
+
+      <div v-if="current" class="review-card" data-testid="app-monitor-card">
+        <div class="card-head">
+          <span class="app-email" data-testid="app-monitor-email">
+            {{ current.applicantEmail }}
+          </span>
           <span
             class="app-status"
-            :style="{ background: statusColor(app.status) }"
+            :style="{ background: statusColor(current.status) }"
             data-testid="app-monitor-status"
           >
-            {{ statusLabel(app.status) }}
+            {{ statusLabel(current.status) }}
           </span>
-          <span v-if="app.submittedAt" class="app-date">
-            {{ new Date(app.submittedAt).toLocaleDateString() }}
-          </span>
+          <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
 
-        <div class="app-actions">
+        <dl v-if="answers.length" class="answers" data-testid="app-monitor-answers">
+          <template v-for="answer in answers" :key="answer.key">
+            <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
+            <dd>{{ answer.value }}</dd>
+          </template>
+        </dl>
+        <p v-else class="no-answers">This application carries no answers.</p>
+
+        <div class="card-actions">
           <button
-            v-if="
-              app.status === ApplicationStatus.Open ||
-              app.status === ApplicationStatus.UnderReview ||
-              app.status === ApplicationStatus.ReviewerApproved ||
-              app.status === ApplicationStatus.ReviewerRejected
-            "
-            class="approve-button"
-            @click="handleReview(app, ApplicationStatus.ReviewerApproved)"
-            data-testid="app-monitor-approve-button"
-          >
-            Approve
-          </button>
-          <button
-            v-if="
-              app.status === ApplicationStatus.Open ||
-              app.status === ApplicationStatus.UnderReview ||
-              app.status === ApplicationStatus.ReviewerApproved ||
-              app.status === ApplicationStatus.ReviewerRejected
-            "
             class="reject-button"
-            @click="handleReview(app, ApplicationStatus.ReviewerRejected)"
+            :disabled="saving"
+            @click="decideCurrent(ApplicationStatus.ReviewerRejected)"
             data-testid="app-monitor-reject-button"
           >
-            Reject
+            Reject <kbd>R</kbd>
+          </button>
+          <button
+            class="skip-button"
+            :disabled="saving || undecided.length < 2"
+            @click="skip"
+            data-testid="app-monitor-skip-button"
+          >
+            Skip <kbd>S</kbd>
+          </button>
+          <button
+            class="approve-button"
+            :disabled="saving"
+            @click="decideCurrent(ApplicationStatus.ReviewerApproved)"
+            data-testid="app-monitor-approve-button"
+          >
+            Approve <kbd>A</kbd>
           </button>
         </div>
       </div>
-    </div>
+
+      <p v-else class="done-state" data-testid="app-monitor-done">Nothing left to review.</p>
+
+      <!-- Decided applications, so a verdict can be read back and corrected - one at a time. -->
+      <div v-if="decided.length" class="decided">
+        <button
+          class="decided-toggle"
+          @click="showDecided = !showDecided"
+          data-testid="app-monitor-decided-toggle"
+        >
+          {{ showDecided ? 'Hide' : 'Show' }} {{ decided.length }} reviewed
+        </button>
+        <ul v-if="showDecided" class="decided-list" data-testid="app-monitor-decided-list">
+          <li v-for="app in decided" :key="app.id" data-testid="app-monitor-decided-row">
+            <span class="app-email" data-testid="app-monitor-decided-email">
+              {{ app.applicantEmail }}
+            </span>
+            <span
+              class="app-status"
+              :style="{ background: statusColor(app.status) }"
+              data-testid="app-monitor-decided-status"
+            >
+              {{ statusLabel(app.status) }}
+            </span>
+            <button
+              v-if="app.status === ApplicationStatus.ReviewerRejected"
+              class="approve-button small"
+              :disabled="saving"
+              @click="decide(app, ApplicationStatus.ReviewerApproved)"
+              data-testid="app-monitor-decided-approve-button"
+            >
+              Approve instead
+            </button>
+            <button
+              v-else-if="reDecidable(app)"
+              class="reject-button small"
+              :disabled="saving"
+              @click="decide(app, ApplicationStatus.ReviewerRejected)"
+              data-testid="app-monitor-decided-reject-button"
+            >
+              Reject instead
+            </button>
+          </li>
+        </ul>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -246,7 +417,8 @@ function statusColor(status: string): string {
 }
 
 .loading-state,
-.empty-state {
+.empty-state,
+.done-state {
   text-align: center;
   padding: 40px;
   color: var(--mm-grey, #999);
@@ -260,33 +432,58 @@ function statusColor(status: string): string {
   margin-bottom: 12px;
 }
 
-.applications-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.application-card {
+.progress-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-family: 'Outfit Regular';
+}
+
+.progress {
+  font-family: 'Merge One', sans-serif;
+  font-size: 18px;
+  color: var(--mm-black);
+}
+
+.tally {
+  font-size: 13px;
+  color: rgba(39, 35, 35, 0.6);
+}
+
+.advisory {
+  background: #fdf7ec;
+  border: 1px solid var(--mm-yellow, #e4a629);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: 'Outfit Regular';
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.review-card {
   border: 1.5px solid var(--mm-grey, #ddd);
   border-radius: 8px;
   background: #fafafa;
+  padding: 18px;
 }
 
-.app-info {
+.card-head {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 14px;
 }
 
 .app-email {
   font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: 15px;
   color: var(--mm-black);
+  word-break: break-all;
 }
 
 .app-status {
@@ -297,6 +494,7 @@ function statusColor(status: string): string {
   padding: 2px 8px;
   border-radius: 4px;
   text-transform: capitalize;
+  white-space: nowrap;
 }
 
 .app-date {
@@ -305,38 +503,150 @@ function statusColor(status: string): string {
   color: var(--mm-grey, #999);
 }
 
-.app-actions {
+.answers {
+  display: grid;
+  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0 0 18px;
+  font-family: 'Outfit Regular';
+  font-size: 14px;
+}
+
+.answers dt {
+  color: rgba(39, 35, 35, 0.6);
+  overflow-wrap: anywhere;
+}
+
+.answers dt.custom {
+  color: var(--mm-black);
+  font-weight: 500;
+}
+
+.answers dd {
+  margin: 0;
+  color: var(--mm-black);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.no-answers {
+  font-family: 'Outfit Regular';
+  font-size: 14px;
+  color: var(--mm-grey, #999);
+  margin: 0 0 18px;
+}
+
+.card-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.card-actions button {
+  flex: 1 1 8rem;
+}
+
+.approve-button,
+.reject-button,
+.skip-button {
+  border: none;
+  border-radius: 4px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-family: 'Outfit Regular';
+  font-size: 14px;
+  color: white;
 }
 
 .approve-button {
   background: #4caf50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 6px 14px;
-  cursor: pointer;
-  font-family: 'Outfit Regular';
-  font-size: 13px;
 }
 
-.approve-button:hover {
+.approve-button:hover:not(:disabled) {
   background: #43a047;
 }
 
 .reject-button {
   background: #f44336;
-  color: white;
+}
+
+.reject-button:hover:not(:disabled) {
+  background: #e53935;
+}
+
+.skip-button {
+  background: var(--mm-grey, #9e9e9e);
+}
+
+.approve-button:disabled,
+.reject-button:disabled,
+.skip-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card-actions kbd {
+  font-family: monospace;
+  font-size: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: 6px;
+}
+
+.decided {
+  margin-top: 20px;
+}
+
+.decided-toggle {
+  background: none;
   border: none;
-  border-radius: 4px;
-  padding: 6px 14px;
+  padding: 0;
   cursor: pointer;
   font-family: 'Outfit Regular';
   font-size: 13px;
+  color: var(--mm-green);
+  text-decoration: underline;
 }
 
-.reject-button:hover {
-  background: #e53935;
+.decided-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.decided-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border: 1px solid var(--mm-grey, #ddd);
+  border-radius: 6px;
+}
+
+.decided-list .app-email {
+  flex: 1 1 12rem;
+  font-size: 14px;
+}
+
+.approve-button.small,
+.reject-button.small {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .answers {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px 0;
+  }
+
+  .answers dd {
+    margin-bottom: 10px;
+  }
 }
 </style>

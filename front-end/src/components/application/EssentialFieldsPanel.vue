@@ -13,6 +13,7 @@ import type { EssentialFormOptions } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_LABEL,
   MAX_DATES_LABEL,
+  SECTION_RANKING_KEY,
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_LABEL,
   TABLE_CHOICES,
@@ -22,11 +23,26 @@ import {
   formattedEssentialDate,
 } from '@/utils/essentialFields';
 
-defineProps<{
+const props = defineProps<{
   options: EssentialFormOptions;
   /** True once the offering is frozen (an application exists); the hints change tense. */
   locked?: boolean;
+  /** False while the form cannot be edited at all (wrong phase, or an applicant has answered). */
+  editable?: boolean;
 }>();
+
+const emit = defineEmits<{ (e: 'toggleUnasked', key: string, unasked: boolean): void }>();
+
+/**
+ * Whether this market asks a given preference ordering (E01/F06).
+ *
+ * A ranking is the only kind of essential question a market may switch off, because the solver
+ * never filters on one: every applicant getting the same answer changes nothing but the tie-break.
+ * The rule itself lives in `UNASKABLE_ESSENTIAL_KEYS`; this is just the view of it.
+ */
+function asks(key: string): boolean {
+  return !(props.options.unasked ?? []).includes(key);
+}
 </script>
 
 <template>
@@ -145,8 +161,26 @@ defineProps<{
       <div class="essential-item-header">
         <span class="essential-item-label">{{ SECTION_RANKING_LABEL }}</span>
         <span class="essential-type-badge">ranking</span>
+        <!-- Only a ranking gets this switch. Turning off a constraint - dates, tiers, table
+             choice - would let a default answer for the applicant, so those have none. -->
+        <label v-if="editable" class="essential-asks-toggle" data-testid="essential-asks-section">
+          <input
+            type="checkbox"
+            :checked="asks(SECTION_RANKING_KEY)"
+            @change="emit('toggleUnasked', SECTION_RANKING_KEY, asks(SECTION_RANKING_KEY))"
+          />
+          Ask this
+        </label>
       </div>
-      <div v-if="options.sections.length" class="essential-chips">
+      <p
+        v-if="!asks(SECTION_RANKING_KEY)"
+        class="essential-item-hint"
+        data-testid="essential-section-not-asked"
+      >
+        This market does not ask applicants to rank sections, so every applicant is treated equally
+        on it. Vendors are still placed in sections; nobody states a preference.
+      </p>
+      <div v-else-if="options.sections.length" class="essential-chips">
         <span
           v-for="(section, index) in options.sections"
           :key="section"
@@ -157,7 +191,11 @@ defineProps<{
           {{ section }}
         </span>
       </div>
-      <p v-else class="essential-item-warning" data-testid="essential-sections-empty">
+      <p
+        v-else-if="asks(SECTION_RANKING_KEY)"
+        class="essential-item-warning"
+        data-testid="essential-sections-empty"
+      >
         No sections yet - this question is hidden from applicants until your market plan defines
         sections (Market Setup or the floorplan editor).
       </p>
@@ -316,5 +354,13 @@ defineProps<{
   border-radius: 5px;
   padding: 6px 9px;
   margin: 0;
+}
+.essential-asks-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: rgba(39, 35, 35, 0.66);
 }
 </style>
