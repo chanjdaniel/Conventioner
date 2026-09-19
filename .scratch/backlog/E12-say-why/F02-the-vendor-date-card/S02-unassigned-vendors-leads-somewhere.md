@@ -2,7 +2,7 @@
 id: E12/F02/S02
 title: Unassigned Vendors leads somewhere
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
