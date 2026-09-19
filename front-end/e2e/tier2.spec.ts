@@ -43,12 +43,12 @@ test.describe('Tier 2 - Organization CRUD', () => {
     const orgName = `E2E Org ${Date.now()}`;
 
     await orgsPage.createOrg(orgName);
-    await expect(page.locator('.org-card').filter({ hasText: orgName })).toBeVisible({
+    await expect(page.getByTestId('organization-card').filter({ hasText: orgName })).toBeVisible({
       timeout: 10000,
     });
 
     const manageButton = page
-      .locator('.org-card')
+      .getByTestId('organization-card')
       .filter({ hasText: orgName })
       .getByTestId('organizations-manage-button');
 
@@ -78,7 +78,9 @@ test.describe('Tier 2 - Organization CRUD', () => {
     await orgsPage.deleteOrg();
     await page.waitForTimeout(500);
 
-    await expect(page.locator('.org-card').filter({ hasText: newName })).not.toBeVisible({
+    await expect(
+      page.getByTestId('organization-card').filter({ hasText: newName }),
+    ).not.toBeVisible({
       timeout: 5000,
     });
   });
@@ -134,7 +136,7 @@ test.describe('Tier 2 - Market role management', () => {
     await page.goto('/markets');
     await expect(page.locator('.markets-view')).toBeVisible({ timeout: 10000 });
 
-    const marketCard = page.locator('.market-card').filter({ hasText: marketName });
+    const marketCard = page.getByTestId('market-card').filter({ hasText: marketName });
     await expect(marketCard).toBeVisible({ timeout: 10000 });
 
     const manageButton = marketCard.getByTestId('market-card-manage-button');

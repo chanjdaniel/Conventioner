@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  getDateRange,
   getFormattedDate,
   getFormattedTimestamp,
   getShortDate,
@@ -115,5 +116,44 @@ describe('timestamps', () => {
     expect(getTimestampDate(null)).toBe('');
     expect(getTimestampTime(undefined)).toBe('');
     expect(getFormattedTimestamp('')).toBe('');
+  });
+});
+
+describe('getDateRange', () => {
+  it('collapses the day when both ends share a month and a year', () => {
+    expect(getDateRange(['2026-11-21', '2026-11-22'])).toBe('Nov 21-22, 2026');
+  });
+
+  it('names both months when the market crosses one', () => {
+    expect(getDateRange(['2026-11-30', '2026-12-01'])).toBe('Nov 30 - Dec 1, 2026');
+  });
+
+  it('names both years when the market crosses one', () => {
+    expect(getDateRange(['2026-12-31', '2027-01-01'])).toBe('Dec 31, 2026 - Jan 1, 2027');
+  });
+
+  it('is one day when there is one day', () => {
+    expect(getDateRange(['2026-11-21'])).toBe('Nov 21, 2026');
+  });
+
+  it('counts the days when a range would hide how many there are', () => {
+    expect(getDateRange(['2026-11-21', '2026-11-22', '2026-11-23'])).toBe(
+      'Nov 21-23, 2026 (3 days)',
+    );
+  });
+
+  it('reads the ends off the dates rather than trusting their order', () => {
+    expect(getDateRange(['2026-11-22', '2026-11-21'])).toBe('Nov 21-22, 2026');
+  });
+
+  it('says a market has no dates rather than rendering an empty range', () => {
+    expect(getDateRange([])).toBe('Not set');
+    expect(getDateRange(undefined)).toBe('Not set');
+  });
+
+  it('is a calendar range, so it does not move with the viewer', () => {
+    inEveryTimezone((tz) => {
+      expect(getDateRange(['2026-11-21', '2026-11-22']), `in ${tz}`).toBe('Nov 21-22, 2026');
+    });
   });
 });

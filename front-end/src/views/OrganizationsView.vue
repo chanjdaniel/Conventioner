@@ -4,6 +4,8 @@ import { type Organization } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import { getRoleDisplayName } from '@/utils/permissions';
+import type { SummaryFact } from '@/utils/summary';
+import SummaryCard from '@/components/SummaryCard.vue';
 import ManageOrgOverlay from './ManageOrgOverlay.vue';
 
 const organizations = ref<Organization[]>([]);
@@ -31,6 +33,15 @@ async function loadOrganizations() {
 onMounted(() => {
   loadOrganizations();
 });
+
+function factsFor(org: Organization): SummaryFact[] {
+  return [
+    { label: 'Markets', value: String(org.markets?.length ?? 0) },
+    org.ownerEmail
+      ? { label: 'Owner', value: org.ownerEmail }
+      : { label: 'Owner', value: 'Not known', missing: true },
+  ];
+}
 
 async function handleCreateOrg() {
   if (!newOrgName.value.trim()) return;
@@ -82,29 +93,26 @@ function canManage(org: Organization): boolean {
       <p v-else-if="errorMessage" class="error-state">{{ errorMessage }}</p>
       <p v-else-if="organizations.length === 0" class="empty-state">No organizations found</p>
       <div v-else class="cards-container">
-        <div v-for="org in organizations" :key="org.id" class="org-card">
-          <div class="card-header">
+        <SummaryCard
+          v-for="org in organizations"
+          :key="org.id"
+          :facts="factsFor(org)"
+          data-testid="organization-card"
+        >
+          <template #name>
             <h3>{{ org.name }}</h3>
-          </div>
-          <div class="card-content">
-            <div class="info-group">
-              <div class="info-row">
-                <span class="info-label">Markets:</span>
-                <span class="info-value">{{ org.markets?.length ?? 0 }}</span>
-              </div>
-              <div v-if="org.ownerEmail" class="info-row">
-                <span class="info-label">Owner:</span>
-                <span class="info-value">{{ org.ownerEmail }}</span>
-              </div>
-              <div v-if="org.userRole" class="info-row">
-                <span class="info-label">Your role:</span>
-                <span class="info-value role-badge" :class="`role-${org.userRole}`">
-                  {{ getRoleDisplayName(org.userRole) }}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div class="card-footer">
+          </template>
+          <template #badge>
+            <span
+              v-if="org.userRole"
+              class="role-badge"
+              :class="`role-${org.userRole}`"
+              :title="`Your role in this organization`"
+            >
+              {{ getRoleDisplayName(org.userRole) }}
+            </span>
+          </template>
+          <template #actions>
             <button
               v-if="canManage(org)"
               @click="handleManage(org)"
@@ -113,8 +121,8 @@ function canManage(org: Organization): boolean {
             >
               Manage
             </button>
-          </div>
-        </div>
+          </template>
+        </SummaryCard>
       </div>
     </div>
 
@@ -219,67 +227,6 @@ function canManage(org: Organization): boolean {
   gap: 20px;
 }
 
-.org-card {
-  width: 100%;
-  padding: 16px 24px;
-  border: 1.5px solid var(--mm-border);
-  border-radius: 10px;
-  background: white;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.org-card:hover {
-  border-color: var(--mm-green);
-  box-shadow: 0 4px 12px rgba(73, 176, 150, 0.15);
-  transform: translateY(-2px);
-}
-
-.card-header {
-  flex-shrink: 0;
-  min-width: 200px;
-}
-
-.card-header h3 {
-  margin: 0;
-  color: var(--mm-black);
-  font-size: 18px;
-  font-weight: 600;
-  font-family: 'Outfit Regular', sans-serif;
-}
-
-.card-content {
-  flex: 1;
-}
-
-.info-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.info-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-.info-label {
-  font-weight: 500;
-  color: #666;
-  font-size: 13px;
-  min-width: 70px;
-}
-
-.info-value {
-  color: var(--mm-black);
-  font-size: 14px;
-}
-
 .role-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -301,13 +248,6 @@ function canManage(org: Organization): boolean {
 .role-member {
   background: #e8f5e9;
   color: #388e3c;
-}
-
-.card-footer {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
 }
 
 .manage-button {

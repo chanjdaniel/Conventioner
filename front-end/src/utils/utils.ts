@@ -67,6 +67,48 @@ export function getShortDate(dateString: string): string {
   return `${month} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
 }
 
+/**
+ * When a market runs, in one line: "Nov 21-22, 2026".
+ *
+ * An organizer identifies a market by when it *runs*, which is why this is on the market row
+ * where the creation date used to be. It is a range of the earliest and latest day, in the same
+ * family as the short form above rather than a fourth spelling of a date: month abbreviated, year
+ * always present, day-of-month collapsed when the two ends share a month and a year.
+ */
+export function getDateRange(dates: readonly string[] | undefined | null): string {
+  const days = (dates ?? [])
+    .map((date) => calendarDay(date))
+    .filter((day): day is Date => day !== null)
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (days.length === 0) return 'Not set';
+
+  const first = days[0];
+  const last = days[days.length - 1];
+  const extra = days.length > 2 ? ` (${days.length} days)` : '';
+
+  const month = (day: Date) => MONTHS[day.getUTCMonth()].slice(0, 3);
+  if (first.getTime() === last.getTime()) {
+    return `${month(first)} ${first.getUTCDate()}, ${first.getUTCFullYear()}`;
+  }
+  if (first.getUTCFullYear() !== last.getUTCFullYear()) {
+    return (
+      `${month(first)} ${first.getUTCDate()}, ${first.getUTCFullYear()} - ` +
+      `${month(last)} ${last.getUTCDate()}, ${last.getUTCFullYear()}${extra}`
+    );
+  }
+  if (first.getUTCMonth() !== last.getUTCMonth()) {
+    return (
+      `${month(first)} ${first.getUTCDate()} - ` +
+      `${month(last)} ${last.getUTCDate()}, ${last.getUTCFullYear()}${extra}`
+    );
+  }
+  return (
+    `${month(first)} ${first.getUTCDate()}-${last.getUTCDate()}, ` +
+    `${first.getUTCFullYear()}${extra}`
+  );
+}
+
 /** An instant as a Date, or null when it is not one. */
 function instant(iso: string | null | undefined): Date | null {
   if (!iso) return null;
