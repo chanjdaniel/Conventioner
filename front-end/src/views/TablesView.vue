@@ -7,6 +7,8 @@ import { getFormattedDate } from '@/utils/utils';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
+import PhaseRail from '@/components/PhaseRail.vue';
+import { useRailMarket } from '@/utils/railMarket';
 import {
   FULL_TABLE,
   HALF_TABLE_LEFT,
@@ -49,6 +51,8 @@ const route = useRoute();
 const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
+/** The lifecycle band below this screen's header (E10/F01/S01). */
+const { market: railMarket, adopt: adoptRailMarket } = useRailMarket(marketId);
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
 const vendorNames = ref<VendorNames>({});
@@ -435,6 +439,8 @@ function swapSeats(withEmail: string): void {
       <header class="tables-header">
         <h1>Tables</h1>
       </header>
+
+      <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />
 
       <div class="tables-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>

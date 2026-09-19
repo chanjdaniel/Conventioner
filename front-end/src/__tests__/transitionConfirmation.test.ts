@@ -10,7 +10,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 
-import PhaseControlPanel from '@/components/PhaseControlPanel.vue';
+import PhaseRail from '@/components/PhaseRail.vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import { VALID_TRANSITIONS, transitionNeedsConfirmation } from '@/utils/phase';
 
@@ -30,10 +30,17 @@ async function clickTransition(phase: MarketPhase, toPhase: string) {
   api.post.mockResolvedValue({ data: { phase: toPhase } });
   api.get.mockResolvedValue({ data: { market: {} } });
 
-  const wrapper = mount(PhaseControlPanel, {
+  const wrapper = mount(PhaseRail, {
     props: { market: marketIn(phase) },
     global: { stubs: { Teleport: true, BlockerPanel: true, PhaseBadge: true } },
   });
+  // Back and destructive edges live behind the menu; only the one step onward is on the rail
+  // itself (E10/F01/S01).
+  const action = wrapper.find(`[data-testid="phase-transition-${toPhase}"]`);
+  if (!action.exists()) {
+    await wrapper.get('[data-testid="phase-rail-menu-button"]').trigger('click');
+    await wrapper.vm.$nextTick();
+  }
   await wrapper.get(`[data-testid="phase-transition-${toPhase}"]`).trigger('click');
   await wrapper.vm.$nextTick();
   return wrapper;

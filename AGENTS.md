@@ -139,6 +139,26 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `back-end/api/placements.py` is the single writer - a solver run, or `PUT /markets/{id}/placements` for one vendor in one seat on one date, both gated on `MarketRole.EDITOR`.
   Run the assignment *before* publishing: `market_days` has an entry invariant that one exists.
 
+## The Phase Rail (Conventioner sharp edge)
+
+- **`PhaseRail.vue` is the market lifecycle, on every market screen**, as a band below that
+  screen's header. It replaced `PhaseControlPanel`, which floated above the card.
+- **The spine is derived, never listed.** `phaseSpine()` (`front-end/src/utils/phase.ts`) walks
+  `VALID_TRANSITIONS` forward from `draft`; a second list beside the table is the drift
+  `_validate_registry()` refuses on the server. `offers` is off it (nothing sets
+  `assignment_sent`) *except* for a market actually in that phase, which gets its stage back so
+  the rail can still say where it stands.
+- **Forward / back / destructive is read off the spine** (`transitionDirection`), not
+  special-cased per phase. Only the one forward step is on the rail; everything else is behind
+  `phase-rail-menu-button`. A spec that clicks `phase-transition-<phase>` for a back or
+  destructive edge must open that menu first.
+- **A terminal state is stated in words.** Strikethrough alone reads as *stopped*, not as
+  *archived* - the prototype proved it. There is no record of which phases a market passed
+  through, so an archived market's frozen stage is read off evidence it holds (a stored
+  assignment, a published application form), never off history it does not.
+- Screens routed by market id (Tables, Attendance) get their `Market` from `useRailMarket`
+  (`front-end/src/utils/railMarket.ts`); the rail never fails a screen that cannot load one.
+
 ## Placements, Pins and the Trail (Conventioner sharp edge)
 
 - **Assign runs in the `assignment` phase and nowhere else** (`assign_phase_refusal` in

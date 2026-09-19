@@ -172,6 +172,9 @@ export enum IntakeMode {
 export interface Market {
   id: string;
   name: string;
+  /** The market's public identifier, computed and persisted server-side from the name. Every
+   *  public URL names it - `/<slug>/check-in` is the page publishing puts on the air. */
+  slug?: string;
   creationDate: string;
   /** Derived server-side from phase: true when phase is ``draft``, false otherwise. The
    * server overwrites whatever a PUT body carries; the field is never independently writable. */
