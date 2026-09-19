@@ -776,9 +776,9 @@ watch(
   height: 100%;
   min-height: 360px;
   overflow: hidden;
-  background: var(--mm-beige, #e9e6e1);
+  background: var(--mm-beige);
   border-radius: 10px;
-  border: 2px solid var(--mm-grey, rgba(39, 35, 35, 0.25));
+  border: 2px solid var(--mm-border);
   transition: opacity 0.2s ease-in-out;
 }
 
@@ -807,7 +807,7 @@ watch(
   width: 1px;
   height: 22px;
   margin: 0 4px;
-  background: var(--mm-grey, rgba(39, 35, 35, 0.2));
+  background: var(--mm-border);
   border-radius: 1px;
 }
 
@@ -820,7 +820,7 @@ watch(
   padding: 0 8px;
 
   background: transparent;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
   border: none;
   border-radius: 5px;
 
@@ -835,7 +835,7 @@ watch(
 }
 
 .toolbar-btn:hover:not(:disabled) {
-  background: var(--mm-beige, #e9e6e1);
+  background: var(--mm-beige);
 }
 
 .toolbar-btn:disabled {
@@ -844,12 +844,12 @@ watch(
 }
 
 .toolbar-btn.is-active {
-  background: var(--mm-green, #49b096);
+  background: var(--mm-green);
   color: #ffffff;
 }
 
 .toolbar-btn.is-active:hover {
-  background: color-mix(in srgb, var(--mm-green, #49b096) 85%, black);
+  background: color-mix(in srgb, var(--mm-green) 85%, black);
 }
 
 .toolbar-btn--danger:hover:not(:disabled) {
@@ -875,7 +875,7 @@ watch(
   border-radius: 6px;
   font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
   box-shadow: 0 1px 6px rgba(39, 35, 35, 0.08);
   z-index: 10;
 }
@@ -885,14 +885,14 @@ watch(
 }
 
 .status-sep {
-  color: var(--mm-grey, rgba(39, 35, 35, 0.35));
+  color: var(--mm-text-muted);
 }
 
 .status-hint {
   margin-left: 6px;
   padding-left: 8px;
-  border-left: 1px solid var(--mm-grey, rgba(39, 35, 35, 0.2));
-  color: var(--mm-yellow, #e4a629);
+  border-left: 1px solid var(--mm-border);
+  color: var(--mm-text-yellow);
   font-style: italic;
   white-space: nowrap;
 }

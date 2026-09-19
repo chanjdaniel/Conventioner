@@ -360,12 +360,19 @@ function cancelArchive() {
   flex-shrink: 0;
 }
 
+/* This was rgba(255, 255, 255, 0.7) on a transparent panel over a white page: rendered,
+   positioned, 93x22px, and invisible. The panel was styled for a dark surface and is drawn on a
+   light one, which is why the strip read as unlabelled pills. */
 .phase-label-text {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--mm-text-muted);
 }
 
+/* These fills carry white text. Six of the eight were Tailwind 500 shades and did not reach AA
+   against white: applications_open 3.68, applications_closed 2.15, review 4.23, assignment 2.43,
+   offers 3.53, market_days 2.54. Darkened to the lightest shade of the same hue that passes, so
+   each phase still reads as its own colour. draft (4.83) and archived (10.31) are unchanged. */
 .phase-badge {
   padding: 4px 14px;
   border-radius: 20px;
@@ -380,22 +387,22 @@ function cancelArchive() {
   background: #6b7280;
 }
 .phase-applications_open {
-  background: #3b82f6;
+  background: #3472d8;
 }
 .phase-applications_closed {
-  background: #f59e0b;
+  background: #a46a07;
 }
 .phase-review {
-  background: #8b5cf6;
+  background: #8558ec;
 }
 .phase-assignment {
-  background: #06b6d4;
+  background: #048197;
 }
 .phase-offers {
-  background: #ec4899;
+  background: #cd3f85;
 }
 .phase-market_days {
-  background: #10b981;
+  background: #0c875e;
 }
 .phase-archived {
   background: #374151;
@@ -431,7 +438,7 @@ function cancelArchive() {
 }
 
 .variant-advance {
-  background: var(--mm-green, #48ab91);
+  background: var(--mm-green);
 }
 .variant-advance:hover:not(:disabled) {
   background: #3a9a82;
@@ -451,10 +458,11 @@ function cancelArchive() {
   background: #b91c1c;
 }
 
+/* Same mistake as .phase-label-text: white on a white page. */
 .terminal-note {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--mm-text-muted);
   margin: 0;
 }
 
@@ -494,7 +502,7 @@ function cancelArchive() {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 20px;
   font-weight: 600;
-  color: var(--mm-black, #1a1a1a);
+  color: var(--mm-black);
 }
 
 .archive-confirm-dialog p {

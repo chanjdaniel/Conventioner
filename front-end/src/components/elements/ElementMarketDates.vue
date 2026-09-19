@@ -164,7 +164,7 @@ h4 {
 }
 
 .edit-icon {
-  color: grey;
+  color: var(--mm-text-muted);
   min-width: 24px;
   min-height: 24px;
   margin-left: 5px;
@@ -224,7 +224,7 @@ h4 {
   justify-content: space-between;
   align-items: center;
 
-  border-right: 3px solid var(--mm-grey);
+  border-right: 3px solid var(--mm-border);
 }
 
 .row-item:last-of-type {

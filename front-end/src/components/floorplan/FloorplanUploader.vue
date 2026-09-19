@@ -175,7 +175,7 @@ onUnmounted(() => {
   align-items: center;
 
   background: var(--mm-beige);
-  border: 2px dashed var(--mm-grey);
+  border: 2px dashed var(--mm-border);
   border-radius: 10px;
   transition:
     border-color 0.15s ease-in-out,
@@ -208,7 +208,7 @@ onUnmounted(() => {
 
 .drop-zone-icon {
   font-size: 48px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   margin-bottom: 4px;
 }
 
@@ -221,7 +221,7 @@ onUnmounted(() => {
 
 .drop-zone-subtitle {
   font-size: 13px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   margin: 0;
 }
 
@@ -254,7 +254,7 @@ onUnmounted(() => {
 
 .drop-zone-formats {
   font-size: 12px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   margin: 0;
 }
 

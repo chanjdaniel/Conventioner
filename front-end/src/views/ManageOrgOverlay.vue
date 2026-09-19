@@ -365,7 +365,7 @@ function handleClose() {
 
 .header {
   padding: 32px 40px 24px;
-  border-bottom: 1px solid var(--mm-grey);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .header h2 {
@@ -417,7 +417,7 @@ function handleClose() {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: #fafafa;
 }
@@ -438,7 +438,7 @@ function handleClose() {
 
 .role-owner {
   background: #e3f2fd;
-  color: #1976d2;
+  color: var(--mm-text-link);
 }
 
 .role-admin {
@@ -503,7 +503,7 @@ function handleClose() {
 .form-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 6px;
   font-size: 14px;
   font-family: 'Outfit Regular', sans-serif;
@@ -558,7 +558,7 @@ function handleClose() {
 
 .danger-section {
   padding-top: 20px;
-  border-top: 1px solid var(--mm-grey);
+  border-top: 1px solid var(--mm-border);
 }
 
 .delete-button {
@@ -633,7 +633,7 @@ function handleClose() {
 }
 
 .content::-webkit-scrollbar-thumb {
-  background: var(--mm-grey);
+  background: var(--mm-border);
   border-radius: 4px;
 }
 </style>

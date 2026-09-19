@@ -243,7 +243,7 @@ h3 {
 
     position: relative;
 
-    border-right: 3px solid var(--mm-grey);
+    border-right: 3px solid var(--mm-border);
 } */
 
 .row-item {
@@ -256,7 +256,7 @@ h3 {
   justify-content: center;
   align-items: center;
 
-  border-right: 3px solid var(--mm-grey);
+  border-right: 3px solid var(--mm-border);
 }
 
 .row-item:last-of-type {

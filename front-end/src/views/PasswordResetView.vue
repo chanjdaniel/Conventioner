@@ -225,7 +225,7 @@ const submitReset = async () => {
   background-color: transparent;
   width: fit-content;
   padding-right: 20px;
-  color: grey;
+  color: var(--mm-text-muted);
   font-size: 14px;
   cursor: pointer;
   outline: none;
@@ -251,7 +251,7 @@ const submitReset = async () => {
   height: 60px;
   border-radius: 30px;
   margin-top: 40px;
-  background-color: var(--mm-green, #4caf50);
+  background-color: var(--mm-green);
   font-family: 'Outfit Regular';
   color: white;
   font-size: 20px;
@@ -274,7 +274,7 @@ const submitReset = async () => {
 }
 
 .link {
-  color: #2196f3;
+  color: var(--mm-text-link);
   text-decoration: none;
   font-size: 14px;
 }

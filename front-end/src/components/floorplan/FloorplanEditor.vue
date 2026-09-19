@@ -256,7 +256,7 @@ function handleStageMouseUp() {
 // ── Table helpers ──────────────────────────────────────────────────
 function getTableColor(table: PlacedTableObject): string {
   const tt = store.tableTypes.find((t) => t.id === table.tableTypeId);
-  return tt?.color || '#49B096';
+  return tt?.color || 'var(--mm-green)';
 }
 
 function tableRectConfig(table: PlacedTableObject) {
@@ -632,7 +632,7 @@ watch(
   overflow: hidden;
   background: var(--mm-beige);
   border-radius: 10px;
-  border: 2px solid var(--mm-grey);
+  border: 2px solid var(--mm-border);
 }
 
 /* ── Toolbar overlay ──────────────────────────────────────────── */

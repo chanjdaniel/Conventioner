@@ -492,7 +492,7 @@ onMounted(loadTables);
   z-index: 2;
   background-color: white;
   padding: 12px 0;
-  border-bottom: 1px solid var(--mm-grey);
+  border-bottom: 1px solid var(--mm-border);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -517,7 +517,7 @@ onMounted(loadTables);
   gap: 6px;
   padding: 4px 10px;
   background-color: var(--mm-beige);
-  border: 1px solid var(--mm-grey);
+  border: 1px solid var(--mm-border);
   border-radius: 20px;
   font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
@@ -587,7 +587,7 @@ onMounted(loadTables);
 .count-badge--empty {
   background-color: var(--mm-beige);
   color: var(--mm-black);
-  border: 1px solid var(--mm-grey);
+  border: 1px solid var(--mm-border);
 }
 
 .status-message {
@@ -730,7 +730,7 @@ onMounted(loadTables);
 .choice-badge--half {
   background-color: var(--mm-beige);
   color: var(--mm-black);
-  border: 1px solid var(--mm-grey);
+  border: 1px solid var(--mm-border);
 }
 
 .meta-tag {
@@ -745,7 +745,7 @@ onMounted(loadTables);
   flex-wrap: wrap;
   gap: 14px;
   padding-top: 4px;
-  border-top: 1px dashed var(--mm-grey);
+  border-top: 1px dashed var(--mm-border);
 }
 
 .assignment-email {

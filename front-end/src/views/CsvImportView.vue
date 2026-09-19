@@ -1087,7 +1087,7 @@ function startOver() {
   gap: 16px;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 1px solid var(--mm-grey, #ddd);
+  border-bottom: 1px solid var(--mm-border);
   padding-bottom: 16px;
 }
 
@@ -1099,7 +1099,7 @@ function startOver() {
 .import-subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .import-steps {
@@ -1110,7 +1110,7 @@ function startOver() {
   margin: 0;
   padding: 0;
   font-size: 13px;
-  color: var(--mm-grey, #888);
+  color: var(--mm-text-muted);
 }
 
 .import-steps .current {
@@ -1142,7 +1142,7 @@ function startOver() {
 .import-help {
   margin: 0;
   font-size: 13px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .import-map {
@@ -1169,9 +1169,9 @@ function startOver() {
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--mm-grey, #888);
+  color: var(--mm-text-muted);
   padding: 8px 10px;
-  border-bottom: 1px solid var(--mm-grey, #ddd);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .ledger-table td {
@@ -1187,11 +1187,11 @@ function startOver() {
 
 .ledger-samples.empty {
   font-style: italic;
-  color: var(--mm-grey, #aaa);
+  color: var(--mm-text-muted);
 }
 
 .ledger-samples {
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   font-size: 13px;
   max-width: 240px;
   overflow: hidden;
@@ -1208,7 +1208,7 @@ function startOver() {
   margin-top: 2px;
   font-weight: normal;
   font-size: 12px;
-  color: var(--mm-green, #2e7d4f);
+  color: var(--mm-green);
 }
 
 .ledger-member td {
@@ -1217,12 +1217,12 @@ function startOver() {
 
 .ledger-member {
   padding-left: 26px !important;
-  color: var(--mm-grey, #444);
+  color: var(--mm-text-muted);
 }
 
 .ledger-member-note {
   font-size: 12px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
 }
 
 .import-restored {
@@ -1243,7 +1243,7 @@ function startOver() {
   padding: 1px 6px;
   border-radius: 999px;
   background: #e8f3ec;
-  color: var(--mm-green, #2e7d4f);
+  color: var(--mm-green);
   font-size: 11px;
   font-weight: normal;
 }
@@ -1284,7 +1284,7 @@ function startOver() {
 
 .ledger-fix-rows {
   font-size: 11px;
-  color: var(--mm-grey, #888);
+  color: var(--mm-text-muted);
 }
 
 .ledger-fix-select {
@@ -1292,7 +1292,7 @@ function startOver() {
   padding: 2px 6px;
   font-family: 'Outfit Regular';
   font-size: 13px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
 }
@@ -1303,7 +1303,7 @@ function startOver() {
   padding: 0;
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -1311,7 +1311,7 @@ function startOver() {
 .ledger-deadend {
   margin: 8px 0 0;
   padding: 8px 10px;
-  border-left: 3px solid var(--mm-yellow, #e4a629);
+  border-left: 3px solid var(--mm-yellow);
   background: #fdf7ec;
   font-size: 13px;
   max-width: 42ch;
@@ -1324,13 +1324,13 @@ function startOver() {
   padding: 4px 8px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
 }
 
 .import-rail {
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 8px;
   padding: 16px;
   background: #fafafa;
@@ -1354,23 +1354,23 @@ function startOver() {
 .rail-tick {
   display: inline-block;
   width: 16px;
-  color: var(--mm-grey, #aaa);
+  color: var(--mm-text-muted);
 }
 
 .rail-list .served .rail-tick {
-  color: var(--mm-green, #2e7d4f);
+  color: var(--mm-green);
 }
 
 .rail-ok {
   margin: 0;
   font-size: 13px;
-  color: var(--mm-green, #2e7d4f);
+  color: var(--mm-green);
 }
 
 .rail-unasked {
   margin-top: 12px;
   padding: 10px 12px;
-  border-left: 3px solid var(--mm-green, #49b096);
+  border-left: 3px solid var(--mm-green);
   background: #eef8f5;
   font-size: 13px;
 }
@@ -1401,7 +1401,7 @@ function startOver() {
   text-align: center;
   padding: 36px 24px;
   margin-top: 8px;
-  border: 2px dashed var(--mm-grey, #ccc);
+  border: 2px dashed var(--mm-border);
   border-radius: 10px;
   background: #fbfbfb;
   cursor: pointer;
@@ -1445,7 +1445,7 @@ function startOver() {
 .drop-zone-hint {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
-  color: rgba(39, 35, 35, 0.6);
+  color: var(--mm-text-muted);
   max-width: 42ch;
   line-height: 1.5;
 }
@@ -1523,7 +1523,7 @@ function startOver() {
 }
 
 .preview-mapping span {
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .import-note.warn {
@@ -1535,11 +1535,11 @@ function startOver() {
 .import-note {
   margin: 0;
   padding: 10px 14px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
   background: #fafafa;
   font-size: 13px;
-  color: var(--mm-grey, #555);
+  color: var(--mm-text-muted);
 }
 
 .import-failures {
@@ -1568,7 +1568,7 @@ function startOver() {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  border-top: 1px solid var(--mm-grey, #ddd);
+  border-top: 1px solid var(--mm-border);
   padding-top: 16px;
 }
 
@@ -1580,13 +1580,13 @@ function startOver() {
   font-family: 'Outfit Regular';
   font-size: 14px;
   cursor: pointer;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   background: white;
 }
 
 .button-primary {
-  background: var(--mm-green, #2e7d4f);
-  border-color: var(--mm-green, #2e7d4f);
+  background: var(--mm-green);
+  border-color: var(--mm-green);
   color: white;
 }
 

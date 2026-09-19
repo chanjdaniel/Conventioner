@@ -184,7 +184,7 @@ async function submitForm() {
   height: 36px;
   padding: 0 16px;
   border-radius: 6px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   background: white;
   font-family: 'Outfit Regular';
   font-size: 14px;
@@ -195,7 +195,7 @@ async function submitForm() {
   text-align: center;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   padding: 40px;
 }
 
@@ -222,7 +222,7 @@ async function submitForm() {
   border-radius: 4px;
   padding: 4px 10px;
   background: #f0f0f0;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .phase-badge.open {
@@ -246,7 +246,7 @@ async function submitForm() {
   padding: 40px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
 }
 
 .apply-form {
@@ -261,7 +261,7 @@ async function submitForm() {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   border-bottom: 1px solid #e5e5e5;
   padding-bottom: 4px;
   margin-top: 8px;

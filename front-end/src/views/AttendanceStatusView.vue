@@ -156,7 +156,7 @@ onMounted(loadAttendance);
 }
 
 .attendance-status-header {
-  background-color: var(--mm-black, #2a2a2a);
+  background-color: var(--mm-black);
   padding: 18px 24px;
 }
 
@@ -172,7 +172,7 @@ onMounted(loadAttendance);
   padding: 24px;
   min-height: 200px;
   font-family: 'Outfit Regular', sans-serif;
-  color: var(--mm-black, #2a2a2a);
+  color: var(--mm-black);
 }
 
 .table-wrapper {
@@ -211,7 +211,7 @@ onMounted(loadAttendance);
 }
 
 .primary-button {
-  background: var(--mm-green, #4cae9c);
+  background: var(--mm-green);
   color: white;
   border: none;
   border-radius: 5px;
@@ -234,7 +234,7 @@ onMounted(loadAttendance);
 
 .empty-state {
   text-align: center;
-  color: #7f8791;
+  color: var(--mm-text-muted);
   padding: 30px 0;
 }
 </style>

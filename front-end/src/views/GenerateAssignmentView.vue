@@ -964,7 +964,7 @@ const handleDone = async () => {
   font-size: 22px;
   color: var(--mm-black);
   margin: 0;
-  border-bottom: 2px solid var(--mm-grey);
+  border-bottom: 2px solid var(--mm-border);
   padding-bottom: 10px;
 }
 
@@ -1065,7 +1065,7 @@ const handleDone = async () => {
   flex-shrink: 0;
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: #7f8791;
+  color: var(--mm-text-muted);
   text-align: right;
   white-space: nowrap;
   line-height: 1.3;
@@ -1082,7 +1082,7 @@ const handleDone = async () => {
   color: var(--mm-black);
   margin-bottom: 8px;
   padding-bottom: 5px;
-  border-bottom: 2px solid var(--mm-grey);
+  border-bottom: 2px solid var(--mm-border);
 }
 
 .unassigned-tables-list {
@@ -1100,7 +1100,7 @@ const handleDone = async () => {
   min-height: 0;
   font-family: 'Outfit Regular';
   font-size: 18px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
 }
 
 h1 {
@@ -1160,9 +1160,11 @@ h2 {
 }
 
 .done-button:disabled {
-  background: var(--mm-grey, #b0b0b0);
+  background: var(--mm-border);
   cursor: not-allowed;
   opacity: 0.6;
+  /* White on this fill is 1.67. --mm-black on it is 9.31. */
+  color: var(--mm-black);
 }
 
 .download-button {

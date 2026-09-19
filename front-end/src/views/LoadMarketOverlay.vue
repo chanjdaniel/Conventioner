@@ -135,7 +135,7 @@ const formatDate = (dateString: string) => {
 
 .header {
   padding: 32px 40px 24px;
-  border-bottom: 1px solid var(--mm-grey);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .header h2 {
@@ -164,7 +164,7 @@ const formatDate = (dateString: string) => {
 .market-card {
   width: 100%;
   padding: 16px 24px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 10px;
   background: white;
   display: flex;
@@ -234,7 +234,7 @@ const formatDate = (dateString: string) => {
 
 .role-owner {
   background: #e3f2fd;
-  color: #1976d2;
+  color: var(--mm-text-link);
 }
 
 .role-admin {
@@ -294,7 +294,7 @@ const formatDate = (dateString: string) => {
 }
 
 .markets-container::-webkit-scrollbar-thumb {
-  background: var(--mm-grey);
+  background: var(--mm-border);
   border-radius: 4px;
 }
 

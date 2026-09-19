@@ -187,7 +187,7 @@ function onSaved(payload: { market_id: string }) {
   gap: 8px;
   padding: 16px 24px;
   background: var(--mm-beige);
-  border-bottom: 1.5px solid var(--mm-grey);
+  border-bottom: 1.5px solid var(--mm-border);
   flex-shrink: 0;
 }
 
@@ -246,7 +246,7 @@ function onSaved(payload: { market_id: string }) {
   gap: 12px;
   padding: 8px 16px;
   background: var(--mm-beige);
-  border-bottom: 1px solid var(--mm-grey);
+  border-bottom: 1px solid var(--mm-border);
   flex-shrink: 0;
 }
 
@@ -290,7 +290,7 @@ function onSaved(payload: { market_id: string }) {
   justify-content: space-between;
   padding: 14px 24px;
   background: #ffffff;
-  border-top: 1.5px solid var(--mm-grey);
+  border-top: 1.5px solid var(--mm-border);
   flex-shrink: 0;
 }
 
@@ -323,7 +323,7 @@ function onSaved(payload: { market_id: string }) {
 .nav-btn--back {
   background: transparent;
   color: var(--mm-black);
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
 }
 
 .nav-btn--next {

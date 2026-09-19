@@ -730,8 +730,8 @@ watch(pageIdx, (newIdx) => {
   height: 36px;
   padding: 0 16px;
   border-radius: 6px;
-  border: 1px solid var(--mm-green, #2e7d4f);
-  background: var(--mm-green, #2e7d4f);
+  border: 1px solid var(--mm-green);
+  background: var(--mm-green);
   color: white;
   font-family: 'Outfit Regular';
   font-size: 14px;
@@ -741,7 +741,7 @@ watch(pageIdx, (newIdx) => {
 .import-entry-hint {
   font-family: 'Outfit Regular';
   font-size: 13px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .market-setup-view {
@@ -808,7 +808,7 @@ watch(pageIdx, (newIdx) => {
   border-bottom: 2px solid transparent;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: #999;
+  color: var(--mm-text-muted-on-dark);
   cursor: pointer;
   transition:
     color 0.15s,
@@ -949,7 +949,7 @@ h2 {
   padding: 4px 10px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background-color: white;
 }
@@ -969,7 +969,7 @@ h2 {
   gap: 12px;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--mm-grey, #eee);
+  border-top: 1px solid var(--mm-border);
 }
 
 .form-lock-banner {
@@ -987,7 +987,7 @@ h2 {
   font-family: 'Outfit Regular';
   font-size: 13px;
   line-height: 1.4;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   background: #f4f4f4;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
@@ -1052,13 +1052,13 @@ h2 {
 }
 
 .save-status.hint {
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .preview-unavailable {
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   text-align: center;
   padding: 40px;
 }

@@ -153,7 +153,7 @@ defineEmits<{
 .overlay-subtitle {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   text-align: center;
   margin: 0;
 }
@@ -175,7 +175,7 @@ defineEmits<{
   gap: 12px;
   padding: 28px 22px 24px;
   background: #ffffff;
-  border: 2px solid var(--mm-grey);
+  border: 2px solid var(--mm-border);
   border-radius: 10px;
   cursor: pointer;
   transition:
@@ -226,7 +226,7 @@ defineEmits<{
   font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   line-height: 1.45;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   text-align: center;
   margin: 4px 0 0;
 }
@@ -250,7 +250,7 @@ defineEmits<{
 
 /* Floorplan card icon accent */
 .card-floorplan .card-icon {
-  color: var(--mm-yellow);
+  color: var(--mm-text-yellow);
 }
 
 /* ── Card Title ───────────────────────────────────────────────── */
@@ -266,7 +266,7 @@ defineEmits<{
 .card-desc {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   text-align: center;
   line-height: 1.5;
   margin: 0;
@@ -302,7 +302,7 @@ defineEmits<{
 }
 
 .card-floorplan .feature-check {
-  color: var(--mm-yellow);
+  color: var(--mm-text-yellow);
 }
 
 /* ── Action Button ────────────────────────────────────────────── */
@@ -329,7 +329,7 @@ defineEmits<{
 
 .card-action--quiet {
   background: transparent;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   color: var(--mm-black);
 }
 

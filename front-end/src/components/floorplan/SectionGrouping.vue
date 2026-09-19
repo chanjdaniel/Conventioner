@@ -752,7 +752,7 @@ onUnmounted(() => {
 
 .sg-item-meta {
   font-size: 12px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
 }
 
 .sg-delete-btn {
@@ -766,7 +766,7 @@ onUnmounted(() => {
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -784,7 +784,7 @@ onUnmounted(() => {
   margin: 0;
   padding: 12px 16px;
   font-size: 13px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   text-align: center;
 }
 
@@ -840,7 +840,7 @@ onUnmounted(() => {
   margin: 0 0 20px;
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
 }
 
 /* ── Form fields ────────────────────────────────────────────────── */
@@ -861,7 +861,7 @@ onUnmounted(() => {
 .sg-optional {
   font-style: normal;
   font-weight: 400;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   font-size: 12px;
 }
 
