@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conventioner - UX/UI pass over E09-E13, 20 Sep 2026</title>
+<style>
+
+  @font-face { font-family:'Merge One'; src:url('MergeOne-Regular.ttf') format('truetype'); font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Regular.ttf') format('truetype'); font-weight:400; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Medium.ttf') format('truetype'); font-weight:500; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Bold.ttf') format('truetype'); font-weight:700; font-display:swap; }
+
+  :root{
+    --black:#272323;
+    --green:#49b096;
+    --green-d:#2f7f6a;
+    --yellow:#e4a629;
+    --beige:#e9e6e1;
+    --grey:rgba(39,35,35,.25);
+    --paper:#fbfaf9;
+    --card:#ffffff;
+    --red:#c0392b;
+    --red-bg:#fdf1ef;
+    --amber-bg:#fdf7ec;
+    --green-bg:#eef8f5;
+    --ink-2:rgba(39,35,35,.66);
+    --ink-3:rgba(39,35,35,.45);
+    --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--paper); color:var(--black);
+    font-family:'Outfit',system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:16px; line-height:1.6;
+  }
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 20px 96px; }
+  /* Merge One has deep descenders; a tight line box clips them. Give headings room. */
+  h1,h2,h3,h4{
+    font-family:'Merge One','Outfit',system-ui,sans-serif; font-weight:400;
+    line-height:1.34; margin:0; padding-bottom:.08em; overflow-wrap:break-word;
+  }
+
+  /* ---------- masthead ---------- */
+  header.top{
+    background:var(--black); color:#fff; padding:52px 0 44px; margin-bottom:44px;
+    border-bottom:5px solid var(--green);
+  }
+  header.top .wrap{ padding-bottom:0; }
+  .eyebrow{ font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--green); margin-bottom:14px; }
+  header.top h1{ font-size:clamp(30px,4.6vw,50px); color:#fff; margin-bottom:16px; }
+  header.top p.lede{ font-size:clamp(16px,1.7vw,19px); color:rgba(255,255,255,.82); max-width:66ch; margin:0; }
+  .runmeta{ margin-top:28px; display:flex; flex-wrap:wrap; gap:10px 26px; font-size:13px; color:rgba(255,255,255,.6); }
+  .runmeta b{ color:rgba(255,255,255,.92); font-weight:500; }
+
+  /* ---------- verdict ---------- */
+  .verdict{
+    background:var(--card); border:1px solid var(--grey); border-left:6px solid var(--yellow);
+    border-radius:var(--radius); padding:26px 28px; margin-bottom:40px;
+    box-shadow:0 1px 3px rgba(39,35,35,.05);
+  }
+  .verdict h2{ font-size:23px; margin-bottom:10px; }
+  .verdict p{ margin:0 0 12px; max-width:86ch; }
+  .verdict p:last-child{ margin-bottom:0; }
+
+  /* ---------- score strip ---------- */
+  .scores{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr)); gap:14px; margin-bottom:48px; }
+  .score{ background:var(--card); border:1px solid var(--grey); border-radius:var(--radius); padding:18px 20px; min-width:0; }
+  .score .n{ font-family:'Merge One',sans-serif; font-size:30px; line-height:1.34; padding-bottom:.08em; display:block; overflow-wrap:break-word; }
+  .score .l{ font-size:12.5px; color:var(--ink-2); letter-spacing:.03em; margin-top:4px; display:block; }
+  .score.bad .n{ color:var(--red); } .score.ok .n{ color:var(--green-d); } .score.warn .n{ color:var(--yellow); }
+
+  /* ---------- sections ---------- */
+  section{ margin-bottom:56px; scroll-margin-top:20px; }
+  .sec-head{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; border-bottom:2px solid var(--black); padding-bottom:10px; margin-bottom:24px; }
+  .sec-head h2{ font-size:26px; }
+  .sec-head .count{ font-size:13px; color:var(--ink-3); }
+
+  /* ---------- finding cards ---------- */
+  .finding{
+    background:var(--card); border:1px solid var(--grey); border-radius:var(--radius);
+    margin-bottom:20px; overflow:hidden;
+  }
+  .finding > .fh{
+    display:flex; gap:14px; align-items:flex-start; padding:18px 22px;
+    border-bottom:1px solid var(--beige); flex-wrap:wrap;
+  }
+  .finding.crit > .fh{ background:var(--red-bg); }
+  .finding.block > .fh{ background:var(--red-bg); }
+  .finding.high > .fh{ background:var(--amber-bg); }
+  .finding.med  > .fh{ background:#f7f6f4; }
+  .fid{
+    font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:.04em;
+    background:var(--black); color:#fff; border-radius:6px; padding:4px 9px; flex:0 0 auto; margin-top:2px;
+  }
+  .finding.crit .fid,.finding.block .fid{ background:var(--red); }
+  .finding.high .fid{ background:var(--yellow); color:var(--black); }
+  .ftitle{ flex:1 1 340px; min-width:0; }
+  .ftitle h3{ font-size:19px; margin-bottom:3px; }
+  .ftitle .sub{ font-size:13.5px; color:var(--ink-2); }
+  .sev{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:5px 10px; border-radius:20px; flex:0 0 auto; margin-top:2px; }
+  .sev.crit{ background:var(--red); color:#fff; }
+  .sev.block{ background:var(--red); color:#fff; }
+  .sev.high{ background:var(--yellow); color:var(--black); }
+  .sev.med{ background:var(--beige); color:var(--black); }
+  .fb{ padding:20px 22px; }
+  .fb > *:first-child{ margin-top:0; }
+  .fb > *:last-child{ margin-bottom:0; }
+  .fb p{ margin:0 0 12px; max-width:88ch; }
+  .fb ul,.fb ol{ margin:0 0 12px; padding-left:22px; max-width:88ch; }
+  .fb li{ margin-bottom:6px; }
+  .lbl{ font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); font-weight:700; margin:20px 0 8px; }
+
+  code{ font-family:var(--mono); font-size:.875em; background:var(--beige); padding:1.5px 5px; border-radius:4px; overflow-wrap:anywhere; }
+  pre{
+    background:#26221f; color:#e8e3dd; border-radius:10px; padding:15px 17px; overflow-x:auto;
+    font-family:var(--mono); font-size:12.5px; line-height:1.62; margin:0 0 14px;
+  }
+  pre code{ background:none; padding:0; font-size:inherit; color:inherit; }
+  pre .c{ color:#8d857c; } pre .r{ color:#ff9d8f; } pre .g{ color:#87d7bd; } pre .y{ color:#f0c274; }
+  .path{ font-family:var(--mono); font-size:12.5px; color:var(--green-d); overflow-wrap:anywhere; }
+
+  .proof{ background:var(--green-bg); border-left:4px solid var(--green); border-radius:0 8px 8px 0; padding:13px 17px; margin:0 0 14px; font-size:14.5px; }
+  .proof strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--green-d); margin-bottom:5px; }
+  .impact{ background:var(--red-bg); border-left:4px solid var(--red); border-radius:0 8px 8px 0; padding:13px 17px; margin:0 0 14px; font-size:14.5px; }
+  .impact strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--red); margin-bottom:5px; }
+  .fix{ background:#f7f6f4; border-left:4px solid var(--black); border-radius:0 8px 8px 0; padding:13px 17px; font-size:14.5px; }
+  .fix strong{ display:block; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-2); margin-bottom:5px; }
+
+  figure{ margin:0 0 14px; }
+  figure img{ display:block; width:100%; height:auto; border:1px solid var(--grey); border-radius:10px; background:#fff; }
+  figcaption{ font-size:12.5px; color:var(--ink-3); margin-top:7px; }
+  .shots{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr)); gap:16px; margin-bottom:14px; }
+  .shots figure{ margin:0; min-width:0; }
+
+  .tablewrap{ overflow-x:auto; border:1px solid var(--grey); border-radius:var(--radius); background:var(--card); margin-bottom:14px; }
+  table{ border-collapse:collapse; width:100%; font-size:14px; }
+  th,td{ text-align:left; padding:11px 15px; border-bottom:1px solid var(--beige); vertical-align:top; }
+  th{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2); font-weight:700; background:#faf9f8; white-space:nowrap; }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.num{ font-family:var(--mono); font-size:13px; white-space:nowrap; }
+  tr.bad td{ background:var(--red-bg); } tr.good td{ background:var(--green-bg); }
+  .pill{ display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .pill.no{ background:var(--red); color:#fff; } .pill.yes{ background:var(--green); color:#fff; } .pill.part{ background:var(--yellow); color:var(--black); }
+
+  .worked{ background:var(--green-bg); border:1px solid rgba(73,176,150,.35); border-radius:var(--radius); padding:22px 26px; }
+  .worked ul{ margin:0; padding-left:22px; columns:2; column-gap:34px; }
+  .worked li{ margin-bottom:9px; break-inside:avoid; max-width:48ch; }
+  @media (max-width:760px){ .worked ul{ columns:1; } }
+
+  ol.priority{ counter-reset:p; list-style:none; padding:0; margin:0; }
+  ol.priority > li{
+    counter-increment:p; position:relative; padding:16px 20px 16px 62px; background:var(--card);
+    border:1px solid var(--grey); border-radius:var(--radius); margin-bottom:12px; min-width:0;
+  }
+  ol.priority > li::before{
+    content:counter(p); position:absolute; left:18px; top:16px;
+    width:28px; height:28px; border-radius:50%; background:var(--black); color:#fff;
+    display:grid; place-items:center; font-size:13px; font-weight:700; font-family:var(--mono);
+  }
+  ol.priority > li b{ display:block; margin-bottom:3px; }
+  ol.priority > li span{ font-size:14px; color:var(--ink-2); }
+  ol.priority .tag{ font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+
+  .note{ font-size:13.5px; color:var(--ink-2); font-style:italic; }
+  hr.soft{ border:none; border-top:1px solid var(--beige); margin:26px 0; }
+
+  /* additions for this pass */
+  .lane{ display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:14px; margin:22px 0 34px; }
+  .lane .card{ background:var(--card); border:1px solid var(--grey); border-radius:var(--radius); padding:16px 18px; }
+  /* Merge One has deep descenders; a 1.1 line box clipped these by 4px. Same rule the
+     headings above already carry. */
+  .lane .card .n{ font-family:'Merge One',sans-serif; font-size:30px; line-height:1.34;
+                  padding-bottom:.08em; }
+  .lane .card .k{ font-size:12.5px; color:var(--ink-2); margin-top:4px; }
+  .lane .card.bad .n{ color:var(--red); }
+  .lane .card.warn .n{ color:var(--yellow); }
+  .lane .card.good .n{ color:var(--green-d); }
+  .epicgrid{ width:100%; border-collapse:collapse; font-size:14.5px; }
+  .epicgrid th,.epicgrid td{ text-align:left; padding:10px 12px; border-bottom:1px solid var(--grey); vertical-align:top; }
+  .epicgrid th{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-2); font-weight:500; }
+  .epicgrid td.v{ white-space:nowrap; }
+  .dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:middle; }
+  .dot.g{ background:var(--green); } .dot.y{ background:var(--yellow); } .dot.r{ background:var(--red); }
+  .mine{ display:inline-block; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+         background:var(--red-bg); color:var(--red); border:1px solid rgba(192,57,43,.3);
+         border-radius:99px; padding:2px 9px; margin-left:8px; vertical-align:middle; }
+  figure{ margin:18px 0 0; }
+  figure img{ width:100%; display:block; border:1px solid var(--grey); border-radius:10px; }
+  figcaption{ font-size:13px; color:var(--ink-2); margin-top:9px; }
+  .twoup{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media(max-width:720px){ .twoup{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Quality pass · epics E09 – E13</div>
+    <h1>The five epics, walked end to end</h1>
+    <p class="lede">Every organizer flow the five merged epics touch, driven in a real browser against
+      <code>dev</code> at the design target. Fourteen findings, four of them regressions introduced by
+      the epics themselves, and a longer list of things that work exactly as they were specified to.</p>
+    <div class="runmeta">
+      <span>Build <b>dev @ 45f15e00</b></span>
+      <span>Viewport <b>1920 × 1080</b></span>
+      <span>Date <b>20 Sep 2026</b></span>
+      <span>Method <b>Playwright, live stack, clean database</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="verdict">
+  <h2>The short version</h2>
+  <p><strong>The features work. The frames around them do not.</strong> Nearly every acceptance criterion
+  I could exercise held up - the pins, the swap, the override marking, the placement trail, the reasons,
+  the names, the rail's spine and its menu, the publish dialog, the check-in URL. What the walk turned up
+  instead falls into three clusters, and each cluster crosses several epics at once.</p>
+  <p><strong>One:</strong> the market workspace is pinned to 80% of the viewport and hides half of itself.
+  <strong>Two:</strong> four screens state things that are not true - a dashboard that denies your markets
+  exist, an importer that sends you to a control that was never built, a rail that reports two different
+  phases at once, and an archived market that says its check-in page never went live when it did.
+  <strong>Three:</strong> four small regressions the epics introduced into their own territory.</p>
+  <p>Nothing here is a data-loss risk and nothing blocks a release outright. Two findings would embarrass
+  the product in front of a real organizer on their first run.</p>
+</div>
+
+<div class="lane">
+  <div class="card bad"><div class="n">2</div><div class="k">say something false to the organizer</div></div>
+  <div class="card warn"><div class="n">4</div><div class="k">regressions from these epics</div></div>
+  <div class="card warn"><div class="n">5</div><div class="k">layout &amp; legibility</div></div>
+  <div class="card good"><div class="n">24</div><div class="k">criteria verified working</div></div>
+</div>
+
+<h2 class="sec-head">Where each epic stands</h2>
+<div class="tablewrap">
+<table class="epicgrid">
+  <thead><tr><th>Epic</th><th>Verdict</th><th class="v">Findings</th></tr></thead>
+  <tbody>
+    <tr><td><b>E09</b> legible screens</td>
+        <td><span class="dot y"></span>Holds on colour and controls; the scroll-context story did not reach the market workspace, and it introduced the duplicated-year bug</td>
+        <td class="v">F2, F3, F4, F5, F12</td></tr>
+    <tr><td><b>E10</b> one lifecycle model</td>
+        <td><span class="dot y"></span>The rail is a clear improvement on the strip. Two defects: it can state the wrong phase, and it asserts a history it cannot know</td>
+        <td class="v">F7, F13, F14</td></tr>
+    <tr><td><b>E11</b> placements you can change</td>
+        <td><span class="dot g"></span>Every acceptance criterion I exercised held. Two gaps at the edges, neither in the stated scope</td>
+        <td class="v">F9, F10</td></tr>
+    <tr><td><b>E12</b> say why</td>
+        <td><span class="dot g"></span>Reasons, the tier guard and the card states all work. One population falls through the net</td>
+        <td class="v">F8, F11</td></tr>
+    <tr><td><b>E13</b> a vendor has a name</td>
+        <td><span class="dot g"></span>Names lead on every surface I could find. No findings</td>
+        <td class="v">—</td></tr>
+  </tbody>
+</table>
+</div>
+<h2 class="sec-head">Screens that say something untrue</h2>
+
+<div class="finding block">
+  <div class="fh">
+    <span class="fid">F6</span>
+    <div class="ftitle">
+      <h3>The importer's remedy names a control that does not exist</h3>
+      <div class="sub">ImportApplicationsView + EssentialFieldsPanel · <span class="path">/import-applications</span></div>
+    </div>
+    <span class="sev block">Blocker</span>
+  </div>
+  <div class="fb">
+    <p>Import an ordinary form export into a market whose plan has two or more sections and the wizard
+    stops at step 2 of 4. Six of seven required questions map cleanly; <b>Section preference</b> has no
+    column to map, so <code>Preview import</code> is hard-disabled. The advisory beside it is well
+    written and tells the organizer exactly what to do:</p>
+    <p class="note">“Your form never asked Section preference. It is a preference, not a constraint, so
+    this market can stop asking it and treat every applicant equally. <b>Reopen the market for editing,
+    turn it off in the form builder</b>, then open applications and import again.”</p>
+    <p>I followed it. The essential-questions panel in the form builder is badged <b>“Always included”</b>,
+    reads “…the table assignment reads them directly, <b>so they cannot be removed</b>”, and contains no
+    interactive elements whatsoever. The advisory and the panel contradict each other, and the step the
+    advisory names cannot be taken.</p>
+    <div class="proof"><strong>Measured in the running build</strong>
+      <code>button[Preview import].disabled === true</code> ·
+      <code>document.querySelector('[data-testid=essential-fields-panel]').querySelectorAll('button,input,select,textarea,a,[role=switch],[role=button],[contenteditable]')</code>
+      returns <b>[]</b> · the real rule is <code>asks_ranking()</code> in <code>essential_fields.py:198</code>:
+      a section ranking is asked whenever the plan offers <b>≥ 2 sections</b>.
+    </div>
+    <p>So the only way to stop asking the question is to cut the plan below two sections — destroying the
+    market's floor plan, not toggling a form question. An organizer with a normal room and a normal
+    Google Forms export is sent on an errand that dead-ends.</p>
+    <div class="fix"><strong>Worth deciding</strong> Either build the toggle the advisory promises, or
+    rewrite the advisory to name the real remedy, or let an unmapped section ranking import as "no
+    preference" — which is what the advisory itself argues the answer means.</div>
+    <div class="twoup">
+      <figure>
+        <img src="shots-qc2/11-import-mapped.png" alt="The import mapping screen with six of seven required questions ticked, Section preference still unmapped in red, and the Preview import button greyed out." />
+        <figcaption>Six of seven mapped. “Still unmapped: Section preference”, and <code>Preview import</code> is dead.</figcaption>
+      </figure>
+      <figure>
+        <img src="shots-qc2/07-form-builder.png" alt="The form builder's essential questions panel badged Always included, with read-only entries and no toggles." />
+        <figcaption>The panel the advisory sends you to: “Always included”, “cannot be removed”, no controls.</figcaption>
+      </figure>
+    </div>
+  </div>
+</div>
+
+<div class="finding high">
+  <div class="fh">
+    <span class="fid">F14</span>
+    <div class="ftitle">
+      <h3>The archived rail says the check-in page never went live, for a market whose check-in page I had just used</h3>
+      <div class="sub">PhaseRail.vue · every market screen<span class="mine">regression · E10/F01/S01</span></div>
+    </div>
+    <span class="sev high">High</span>
+  </div>
+  <div class="fb">
+    <p>This market walked the whole lifecycle — draft through assignment to <b>market_days</b>, where I
+    looked Ana Rivera up on the public check-in page and saw her table — and was then archived. The
+    frozen rail reports:</p>
+    <p class="note">“This market is archived. <b>It was assigned but never published, so no check-in page
+    went on the air.</b>”</p>
+    <p>The spine agrees with the false claim: Market Days is struck through, Assignment is the last filled
+    stage.</p>
+    <div class="proof"><strong>Measured in the running build</strong>
+      <code>market.phase === 'archived'</code> · steps read
+      <code>assignment=done, market_days=frozen, archived=current</code> ·
+      the market holds <b>8</b> placements and its check-in page served a lookup minutes earlier.
+    </div>
+    <p>The cause is in the design of the frozen state. There is no record of which phases a market passed
+    through, so the rail infers the furthest stage from evidence the market still holds — a stored
+    assignment, a published form. No evidence distinguishes “assigned, then archived” from “assigned,
+    published, then archived”, so it always stops at <i>assignment</i> — and then the copy asserts the
+    stronger claim anyway.</p>
+    <p>The story asked for “why <b>where known</b>”, and the prototype's finding was that the words are
+    what carry the meaning once the strikethrough proved ambiguous. A wrong word is therefore the worst
+    available outcome here.</p>
+    <div class="fix"><strong>Fix</strong> Either say only “This market is archived.” unless there is real
+    evidence for more, or record the furthest phase reached on the market document when a transition
+    fires — which would also give the spine an honest freeze point.</div>
+    <figure>
+      <img src="shots-qc2/25-rail-archived.png" alt="The archived phase rail with Market Days struck through and the sentence claiming the market was never published." />
+      <figcaption>Market Days struck through and declared never to have happened. It happened.</figcaption>
+    </figure>
+  </div>
+</div>
+
+<div class="finding high">
+  <div class="fh">
+    <span class="fid">F7</span>
+    <div class="ftitle">
+      <h3>Two screens show the same market in two different phases at the same moment</h3>
+      <div class="sub">MarketSetupView / VendorsView vs TablesView / AttendanceStatusView<span class="mine">regression · E10/F01/S01</span></div>
+    </div>
+    <span class="sev high">High</span>
+  </div>
+  <div class="fb">
+    <p>With the server holding <code>applications_open</code> and the browser's cached copy holding
+    <code>draft</code>, the plan editor's rail reads <b>“Draft”</b> and the Tables view's rail reads
+    <b>“Applications Open”</b>. Same market, same browser, same second, and it survives a full page
+    navigation.</p>
+    <div class="proof"><strong>Measured in the running build</strong>
+      <code>phaseOnServer: "applications_open"</code> · <code>phaseInLocalStorage: "draft"</code> ·
+      <code>/market-setup</code> rail <b>“Draft”</b> · <code>/markets/:id/tables</code> rail
+      <b>“Applications Open”</b>.
+    </div>
+    <p>The two halves of the rail story read the market differently. Tables and Attendance use
+    <code>useRailMarket</code>, which fetches it; the plan editor and the vendor list read
+    <code>localStorage</code> and never re-fetch on mount. Everything derived from the phase inherits the
+    staleness: the import banner says “This market is still a draft, so it is not taking applications
+    yet” about a market that is taking applications, and the Assign hint names the wrong next step.</p>
+    <p>Any second tab, second device or co-organizer hits this — and markets carry owner/admin/editor
+    roles, so more than one person editing is a supported case. It became load-bearing with this epic:
+    before the rail, the phase appeared on one screen; now a stale copy is stated on four.</p>
+    <div class="fix"><strong>Fix</strong> Point all four screens at <code>useRailMarket</code>, or have
+    the setup and vendor views refresh the stored market on mount.</div>
+  </div>
+</div>
+
+<div class="finding high">
+  <div class="fh">
+    <span class="fid">F1</span>
+    <div class="ftitle">
+      <h3>The dashboard tells a returning organizer they have no market</h3>
+      <div class="sub">DashboardView.vue · <span class="path">/dashboard</span> — the first screen after sign-in</div>
+    </div>
+    <span class="sev high">High</span>
+  </div>
+  <div class="fb">
+    <p>Sign in on a browser that has not opened a market before and the first thing the product says is
+    “You have not set up a market yet”, with a button offering to make one — while
+    <code>GET /markets</code> returns the market you already own. It persists across a hard reload.</p>
+    <div class="proof"><strong>Measured in the running build</strong>
+      <code>GET /markets</code> → <b>1</b> market (“Seed Market 012000”, draft) ·
+      page renders <code>[data-testid=dashboard-no-market-yet]</code>.
+    </div>
+    <p>The empty state is derived from <code>localStorage.getItem('market')</code> — the last market opened
+    <i>in this browser</i> — rather than from whether the account has any. A new browser, a second device
+    or cleared site data all produce it. The statement is false and the offered action invites a duplicate
+    instead of opening what they have.</p>
+    <div class="fix"><strong>Fix</strong> Ask the server. The dashboard already has the session.</div>
+    <figure>
+      <img src="shots-qc2/02-dashboard.png" alt="The dashboard saying the organizer has not set up a market yet." />
+      <figcaption>Said to an organizer who owns a market.</figcaption>
+    </figure>
+  </div>
+</div>
+<h2 class="sec-head">The market workspace shows half of itself</h2>
+
+<div class="finding high">
+  <div class="fh">
+    <span class="fid">F2</span>
+    <div class="ftitle">
+      <h3>Every tab is capped at 80% of the viewport and scrolls inside a page that cannot scroll</h3>
+      <div class="sub">MarketSetupView.vue · all four tabs<span class="mine">regression · E10/F02/S01</span></div>
+    </div>
+    <span class="sev high">High</span>
+  </div>
+  <div class="fb">
+    <p><code>.market-setup-body</code> is <code>width:80%; height:80%</code> — pinned to 80% of the
+    viewport whatever it contains. So roughly 190px above and 190px below stay permanently empty while
+    the content is squeezed into an inner scroller, and the outer page cannot be scrolled to reach what
+    is hidden.</p>
+    <div class="proof"><strong>Measured in the running build, 1920 × 1080</strong>
+      Plan tab: <code>.settings-body-plan</code> clientHeight <b>548</b>, scrollHeight <b>1100</b> —
+      <b>552px hidden</b>, plus a nested scroller inside Section Setup hiding another 38px ·
+      Assignment tab: <code>.assignment-results-body</code> clientHeight <b>537</b>, scrollHeight
+      <b>1058</b> — <b>521px hidden</b>, plus a nested scroller inside Unassigned Tables hiding 311px ·
+      <code>document.scrollHeight === clientHeight</code> on both.
+    </div>
+    <p>E10/F02/S01's stated outcome was that the plan is one page — “dates, then tiers and sections, then
+    the options, all in view at once”. At the design target, half of it is out of view. On the payoff
+    screen, three of seven cards — <b>Per Tier</b>, <b>Per Table Choice</b> and the new
+    <b>Placement history</b> — are below the fold on arrival.</p>
+    <p>A contributing factor is <b>F3</b>: <code>.setting-container { min-height: 320px }</code> gives
+    Market Dates ~300px of empty space under a single date row, inside a card that is already capped.
+    It is the largest consumer of the 548px the plan gets.</p>
+    <div class="fix"><strong>Fix</strong> Let the card take the height it needs and let the page scroll,
+    the way E09/F02 resolved this for Tables and Attendance. The same story's rule — one scroll context
+    per page — was never applied to the workspace itself.</div>
+    <figure>
+      <img src="shots-qc2/05-plan-filled.png" alt="The plan editor with two dates filled in, the setup panels cut off mid-row at the bottom of an inner scroller." />
+      <figcaption>Two dates and three setup panels. Section Setup's second row is cut mid-height; the
+      Assignment Priority and Assignment Options panels are entirely below the fold. The page behind the
+      card cannot scroll.</figcaption>
+    </figure>
+  </div>
+</div>
+
+<div class="finding med">
+  <div class="fh">
+    <span class="fid">F4</span>
+    <div class="ftitle">
+      <h3>Section rows truncate the tier that sets their price</h3>
+      <div class="sub">ElementSectionSetup · Market Setup tab</div>
+    </div>
+    <span class="sev med">Medium</span>
+  </div>
+  <div class="fb">
+    <p>The Section Setup rows render <b>“Sil…”</b> where the value is <i>Silver</i> and <b>“Garde…”</b>
+    where it is <i>Garden Room</i>. Three of the six dropdowns in a three-section plan are truncated.</p>
+    <div class="proof"><strong>Measured in the running build</strong>
+      Tier select <b>69px</b> wide, ~38px available for text; “Bronze” needs <b>44.4px</b> ·
+      Location select <b>94px</b> wide, ~63px available; “Garden Room” needs <b>87.9px</b> ·
+      <code>plan-row--triple</code> resolves to <code>460.3px 460.3px 460.3px</code>.
+    </div>
+    <p>The row gives three equal columns. Tier Setup needs about 250px and gets 460; Section Setup packs
+    four columns and a delete control into the same 460. A section's tier is what sets its price, and on
+    the one screen where the organizer assigns tiers to sections it reads “Sil…”. Two tiers beginning
+    “Sil” would be indistinguishable.</p>
+    <div class="fix"><strong>Fix</strong> Size the three columns by what they hold rather than equally.</div>
+    <figure>
+      <img src="shots-qc2/06-plan-sections-truncated.png" alt="Section setup rows showing Sil... and Garde... truncated in their dropdowns, next to a Tier Setup panel with spare width." />
+      <figcaption>“Sil…”, “Sil…”, “Garde…”. Bronze's amber “No tables” pill, working correctly, sits in
+      the panel with the spare width.</figcaption>
+    </figure>
+  </div>
+</div>
+
+<div class="finding med">
+  <div class="fh">
+    <span class="fid">F12</span>
+    <div class="ftitle">
+      <h3>The public check-in page always scrolls by 54px</h3>
+      <div class="sub">AttendanceCheckinView.vue · <span class="path">/:slug/check-in</span></div>
+    </div>
+    <span class="sev med">Medium</span>
+  </div>
+  <div class="fb">
+    <p>Roughly 350px of content in a 1080px viewport, and a scrollbar on every load.
+    <code>.attendance-view { min-height: 100vh }</code> sits inside a layout that already has a 54px
+    header, so the view's bottom lands at 1134.</p>
+    <div class="proof"><strong>Measured in the running build</strong>
+      <code>documentElement.scrollHeight</code> <b>1134</b> vs <code>clientHeight</code> <b>1080</b> ·
+      overflowing element <code>.attendance-view</code>, height 1080, top 54.
+    </div>
+    <p>The identical bug was found and fixed in <code>VendorsView.vue</code>, which still carries the
+    comment explaining it — “<code>min-height: 100vh</code> here double-counted the 5vh banner”. The
+    check-in view was not updated. This is the vendor-facing page on market day, usually on a phone,
+    where a phantom scroll is felt most.</p>
+    <div class="fix"><strong>Fix</strong> One line, and the fix is already written down next door.</div>
+  </div>
+</div>
+<h2 class="sec-head">Regressions the epics introduced into their own territory</h2>
+
+<div class="finding med">
+  <div class="fh">
+    <span class="fid">F5</span>
+    <div class="ftitle">
+      <h3>Every market date on the applicant surfaces prints its year twice</h3>
+      <div class="sub">utils/essentialFields.ts:125<span class="mine">regression · E09/F04/S02</span></div>
+    </div>
+    <span class="sev med">Medium</span>
+  </div>
+  <div class="fb">
+    <p><b>“Saturday, November 21, 2026, 2026.”</b> In the form builder's chips, in the applicant preview,
+    and — worst — in the review queue, where an applicant's available dates read
+    “Saturday, November 21, 2026, 2026, Sunday, November 22, 2026, 2026” and the tier answers repeat the
+    trick on every line.</p>
+    <p><code>formattedEssentialDate()</code> appends the year to <code>getFormattedDate(date)</code>. Its
+    own docstring explains why it had to: the old <code>getFormattedDate</code> carried no year.
+    E09/F04/S02 — <i>the “one date format” story</i> — rewrote <code>getFormattedDate</code> to include
+    the year and did not update this caller.</p>
+    <div class="proof"><strong>Blast radius</strong>
+      four call sites — the applicant's available-dates checkboxes, the organizer's essential-fields
+      panel, and the stored-answer rendering that the review queue and vendor panel read back.
+    </div>
+    <div class="fix"><strong>Fix</strong> Delete the year-appending branch. One line.</div>
+    <figure>
+      <img src="shots-qc2/13-review-queue.png" alt="The review queue card showing available dates with the year printed twice on each date." />
+      <figcaption>The review queue, where the organizer decides. Every date carries its year twice.</figcaption>
+    </figure>
+  </div>
+</div>
+
+<div class="finding med">
+  <div class="fh">
+    <span class="fid">F11</span>
+    <div class="ftitle">
+      <h3>A rejected applicant's date cards say “Not placed” and nothing else</h3>
+      <div class="sub">VendorsView + placement_reasons<span class="mine">gap · E12/F01/S01</span></div>
+    </div>
+    <span class="sev med">Medium</span>
+  </div>
+  <div class="fb">
+    <p>The Vendors view lists every applicant, rejected ones included. Eli Moreau — status
+    <code>reviewer_rejected</code>, badged <b>“Unassigned”</b>, counted in “5 of 6 vendors assigned” —
+    has two date cards that read <b>“Not placed”</b> and nothing more.</p>
+    <p>That is <code>placementReasonText(undefined)</code>, the fallback. E12's reasons are computed over
+    the solver's vendors, which are the approved applications only, so a rejected applicant never appears
+    in <code>unplacedDates</code>. The card looks identical to a genuinely unplaceable approved vendor.</p>
+    <p>It is the one case where “said nothing else” is exactly the finding E12 set out to fix — and the
+    reason is the simplest one there is: <i>their application was rejected</i>.</p>
+    <div class="fix"><strong>Worth deciding</strong> Give rejected applicants a card state of their own,
+    or leave them out of the Vendors list. Listing them with an “Unassigned” badge and counting them in
+    the denominator implies they were considered for a table.</div>
+  </div>
+</div>
+
+<div class="finding med">
+  <div class="fh">
+    <span class="fid">F9</span>
+    <div class="ftitle">
+      <h3>A hand placement can exceed the vendor's own date ceiling, silently</h3>
+      <div class="sub">utils/placementChange.ts + GET /markets/:id/tables<span class="mine">gap · E11/F03/S01</span></div>
+    </div>
+    <span class="sev med">Medium</span>
+  </div>
+  <div class="fb">
+    <p>Dev Patel's application says available on 22 November only, and “Number of dates you want: 1”.
+    I placed him by hand into Front Row 3 on <b>21</b> November. The dialog warned about two things and
+    not the third:</p>
+    <table class="epicgrid" style="margin-top:6px">
+      <tbody>
+        <tr><td>“They did not say they were available on this date.”</td><td class="v"><span class="dot g"></span>warned</td></tr>
+        <tr><td>“They asked for a whole table. This gives them half of one.”</td><td class="v"><span class="dot g"></span>warned</td></tr>
+        <tr><td>Dev now holds <b>two</b> seats against a stated ceiling of one</td><td class="v"><span class="dot r"></span>silent</td></tr>
+      </tbody>
+    </table>
+    <p>Overriding is allowed by design — admins edit without restriction. Saying nothing is the gap.
+    <code>placementWarnings()</code> could not write the warning even if it wanted to: the
+    <code>/tables</code> payload sends <code>{email, availableDates, tableChoice}</code> per vendor and
+    leaves <code>maxDates</code> out.</p>
+    <div class="fix"><strong>Fix</strong> Add <code>maxDates</code> to the vendor payload and a third
+    warning beside the two that already fire.</div>
+    <figure>
+      <img src="shots-qc2/19-vendor-panel.png" alt="Dev Patel's vendor panel showing the amber override card and the placement history." />
+      <figcaption>The override marking and the per-vendor trail, both working. Neither mentions that Dev
+      now has two dates against a ceiling of one.</figcaption>
+    </figure>
+  </div>
+</div>
+
+<h2 class="sec-head">Smaller things</h2>
+
+<div class="finding soft">
+  <div class="fh"><span class="fid">F10</span>
+    <div class="ftitle"><h3>The placement dialog does not separate “can come” from “said no”</h3>
+    <div class="sub">PlacementDialog.vue</div></div><span class="sev soft">Low</span></div>
+  <div class="fb"><p>On Saturday 21 November the only candidate the dropdown offered was Dev Patel — the
+  one applicant who had said he could not attend that day. Every vendor who <i>was</i> available was
+  correctly excluded for already holding a seat. The list is “applicants minus those already seated on
+  this date”; availability only appears afterwards, as a warning. On a market of 200 vendors the two
+  kinds are mixed freely. Mark them rather than hide them — overriding is meant to be possible.</p></div>
+</div>
+
+<div class="finding soft">
+  <div class="fh"><span class="fid">F8</span>
+    <div class="ftitle"><h3>“Fix this →” links to the page you are already on</h3>
+    <div class="sub">BlockerPanel · resolution links</div></div><span class="sev soft">Low</span></div>
+  <div class="fb"><p>Every blocker so far is raised from <code>/market-setup</code> and the resolution
+  link is <code>/market-setup</code>, so the one actionable control on the error panel does nothing
+  visible. The two fixes the message names live in different places — add a section at that tier (Market
+  Setup) or reject those applications (Applications) — and the link points at neither.</p></div>
+</div>
+
+<div class="finding soft">
+  <div class="fh"><span class="fid">F13</span>
+    <div class="ftitle"><h3>The rail stays lit behind the vendor drawer</h3>
+    <div class="sub">VendorsView · <code>.detail-overlay--open</code></div></div><span class="sev soft">Low</span></div>
+  <div class="fb"><p>With the drawer open the scrim intercepts pointer events over the whole page. “Publish
+  Market” keeps its full green and looks live; clicking it closes the drawer instead. Correct modal
+  behaviour, wrong affordance.</p></div>
+</div>
+
+<div class="finding soft">
+  <div class="fh"><span class="fid">F3</span>
+    <div class="ftitle"><h3>Market Dates reserves 320px for one row</h3>
+    <div class="sub">.setting-container min-height</div></div><span class="sev soft">Low</span></div>
+  <div class="fb"><p>~300px of empty space under a single date row, inside a card already capped by F2.
+  Folded into F2 because it is the largest consumer of the height that story leaves.</p></div>
+</div>
+
+<div class="note" style="margin-top:26px">
+  <strong>An observation, not a finding.</strong> Once a market is published, the rail wraps to two rows on
+  the Tables, Vendors and Attendance cards — they are 1100px wide, against Market Setup's 1536px, so the
+  check-in chip pushes the actions down even with a 48-character URL. This is the designed fallback and
+  the acceptance criterion holds (no two adjacent labels overlap). Worth knowing that the prototype's
+  “clean at 1440 and above” was measured against the wider card.
+</div>
+<h2 class="sec-head">What works</h2>
+<p style="max-width:70ch;color:var(--ink-2);margin:0 0 24px">Verified by driving it, not by reading the
+code. These are the acceptance criteria the five epics set themselves, exercised against a real market
+with six applicants, two dates, three sections and three tiers.</p>
+
+<div class="worked">
+<table class="epicgrid">
+  <thead><tr><th>Story</th><th>What I saw</th></tr></thead>
+  <tbody>
+    <tr><td><b>E11/F03/S01</b><br>place &amp; swap</td>
+        <td>The dialog names the table, date, section and tier; offers whole table / left half / right
+        half; and warns <i>before</i> the change. Both overrides fired together: “They did not say they
+        were available on this date.” and “They asked for a whole table. This gives them half of one.”
+        No control anywhere displaces an occupant.</td></tr>
+    <tr><td><b>E11/F02/S02</b><br>the marked override</td>
+        <td>The vendor's date card turns amber and reads “Placed by hand against their answer: a date
+        they did not offer; a table size they did not ask for.”</td></tr>
+    <tr><td><b>E11/F04/S01</b><br>the trail</td>
+        <td>Per-vendor: “Placed Dev Patel at Front Row 3 (Half Table (Left)) — e2e@example.com · Sep 20,
+        2026 at 1:40 AM · for Nov 21, 2026”. Per-market: the solver run as <i>one</i> entry, “Ran the
+        assignment: 7 placements written”.</td></tr>
+    <tr><td><b>E11/F03/S02</b><br>the door</td>
+        <td>“Change placement” appears on placed dates as well as unplaced ones, and the Tables view's
+        four filters are settable from the page at last.</td></tr>
+    <tr><td><b>E12/F03</b><br>the empty tier</td>
+        <td>Bronze, with no section, carries the amber “No tables” pill in the plan editor; and
+        <code>review → assignment</code> is blocked with “1 tier has no tables, and approved applicants
+        are waiting on them: Bronze (eli@moreau.test).”</td></tr>
+    <tr><td><b>E12/F01/S01</b><br>the reasons</td>
+        <td><code>not_available</code> computed and reported for the two approved vendors unplaced on the
+        second date.</td></tr>
+    <tr><td><b>E13/F01 + F02</b><br>the name</td>
+        <td>Full name is an essential question with good helper text (“One field: write it however you
+        write it”), and the name leads on the vendor list, the detail panel, the Tables seats, the
+        placement history and the check-in greeting.</td></tr>
+    <tr><td><b>E10/F01/S01</b><br>the rail</td>
+        <td>Seven stages in order, position marked, completed stages filled. One forward action; the back
+        edge renders as “← Reopen for Editing” and archiving is red and behind the menu — the old
+        “everything is an advance” bug is gone.</td></tr>
+    <tr><td><b>E10/F01/S02</b><br>the check-in URL</td>
+        <td>Absent in every phase before publishing; appears on publish with a Copy control; the URL
+        resolves to a working check-in page.</td></tr>
+    <tr><td><b>E10/F03/S02</b><br>Assign in its phase</td>
+        <td>Disabled outside <code>assignment</code>, with a different sentence per phase naming the next
+        step — draft, applications open and review each get their own.</td></tr>
+    <tr><td><b>E10/F04/S02</b><br>the publish dialog</td>
+        <td>“Publish Market?”, names the consequence, says it cannot be undone, confirms in green rather
+        than red.</td></tr>
+    <tr><td><b>E09/F04/S04</b><br>the importer's honesty</td>
+        <td>The grid is auto-detected (“2 columns · one per option”) with a split escape hatch; the
+        required-question checklist ticks live; the advisory explains what the form never asked. The
+        writing is the best in the product — see F6 for where it points.</td></tr>
+    <tr><td><b>E09/F04/S03</b><br>hints describe the state</td>
+        <td>“Import from CSV” disabled in draft with an amber reason; “Send to Discord” disabled with
+        “Add a Discord webhook URL in Market Setup to enable this.”</td></tr>
+    <tr><td><b>E09/F06</b><br>list rows &amp; payoff</td>
+        <td>One list row per market and per vendor, phase badge, Assigned/Unassigned, “x / 2 dates”.
+        Satisfaction is named and defined where it is shown. Per-tier counts are seeded from the plan, so
+        “Bronze 0” appears rather than vanishing.</td></tr>
+    <tr><td><b>E09/F07/S01</b><br>check-in on the day</td>
+        <td>Names the market before anything is typed; greets by name with the address beneath; “Today is
+        not one of your days at this market. You can still check in for a day below.”</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 class="sec-head">If you fix five things</h2>
+<div class="priority">
+  <ol>
+    <li><b>F5</b> — the duplicated year. One line, and it is on the screen where the organizer makes
+      decisions about applicants.</li>
+    <li><b>F14</b> — the archived rail's false claim. Say less, or record the phase reached.</li>
+    <li><b>F1</b> — the dashboard's false empty state. Ask the server.</li>
+    <li><b>F2</b> — unpin the workspace from 80% of the viewport. It is one CSS rule and it is currently
+      hiding half of two screens, including the placement history that E11 just built.</li>
+    <li><b>F6</b> — decide what the importer's advisory should say, since what it says today cannot be
+      done.</li>
+  </ol>
+  <p style="margin:14px 0 0;color:var(--ink-2);font-size:14px">F7 is the one I would want a decision on
+  rather than a quick fix: it is a question about whether the browser's cached market is allowed to be the
+  source of truth for a lifecycle that four screens now display.</p>
+</div>
+
+<div class="note" style="margin-top:30px">
+  <strong>Method.</strong> A clean database, the fixture user, and one market built through the UI:
+  two dates, three tiers (one deliberately with no tables), three sections across two locations, six
+  applicants with conflicting availability, tier, table-choice and sharing answers. Every flow the five
+  epics touch was driven in a real browser at 1920 × 1080 against <code>dev @ 45f15e00</code>. Numbers in
+  the proof panels are live <code>getBoundingClientRect</code> and DOM measurements taken in the running
+  build, not estimates. Screenshots are unretouched; the small chevron at the foot of some of them is the
+  Vue devtools overlay, not product UI.
+</div>
+
+</div>
+</body>
+</html>
