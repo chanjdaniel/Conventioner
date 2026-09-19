@@ -20,6 +20,7 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from datatypes import Application, ApplicationStatus, ApplicationType
 from db_config import get_database
+import essential_fields as EssentialFields
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +173,36 @@ def _newest_first(query: Dict[str, Any]) -> List[Dict[str, Any]]:
 def list_applications_for_market(market_id: str) -> List[Dict[str, Any]]:
     """Return every application belonging to one market, newest first."""
     return _newest_first(market_filter(market_id))
+
+
+def vendor_names_for_market(market_id: str) -> Dict[str, str]:
+    """Every applicant's name in one market, keyed by the address that identifies them.
+
+    ``{email: name}``, and only for applications that stored one - an application written before
+    ``essential_full_name`` existed simply has no entry, which is what lets every surface fall
+    back to the email and render exactly as the product did before.
+
+    Lowercased keys, because that is the form every other reader matches on: ``record_attendance``
+    normalizes, the importer lowercases on the way in, and a map whose keys did not would miss
+    the one vendor whose form capitalized their address.
+
+    A projection, not the whole application: the surfaces that need this - the tables grid, the
+    payoff screen - want a name against an address and nothing else, and 232 applications' worth
+    of ``form_data`` is not a thing to ship in order to read one key from each.
+    """
+    ensure_application_indexes()
+    projection = {
+        "_id": 0,
+        APPLICANT_EMAIL_FIELD: 1,
+        f"form_data.{EssentialFields.FULL_NAME_KEY}": 1,
+    }
+    names: Dict[str, str] = {}
+    for doc in applications_collection.find(market_filter(market_id), projection):
+        email = str(doc.get(APPLICANT_EMAIL_FIELD) or "").strip().lower()
+        name = str((doc.get("form_data") or {}).get(EssentialFields.FULL_NAME_KEY) or "").strip()
+        if email and name:
+            names[email] = name
+    return names
 
 
 def find_application_by_id(app_id: str) -> Optional[Dict[str, Any]]:

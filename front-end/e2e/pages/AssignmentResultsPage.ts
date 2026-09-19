@@ -64,9 +64,10 @@ export class AssignmentResultsPage {
     const cells = await this.vendorRow(applicantEmail)
       .getByTestId('vendors-modal-cell')
       .allTextContents();
-    // The first cell is the address and the last is cost; the dates are the ones between.
+    // The first two cells are the vendor's name and address (E13/F02/S01) and the last is cost;
+    // the dates are the ones between.
     return cells
-      .slice(1, -1)
+      .slice(2, -1)
       .map((cell) => cell.trim())
       .filter((cell) => cell.length > 0);
   }
