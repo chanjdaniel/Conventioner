@@ -41,6 +41,7 @@ const SECTIONS = ['Riverside', 'Courtyard'];
 const CSV_HEADERS = [
   'Timestamp',
   'Email Address',
+  'Full Legal Name',
   'Which days can you attend?',
   'How many days do you want?',
   'Which tiers will you accept?',
@@ -50,6 +51,7 @@ const CSV_HEADERS = [
 ];
 
 const CSV_MAPPING: Record<string, string> = {
+  'Full Legal Name': 'essential_full_name',
   'Which days can you attend?': 'essential_available_dates',
   'How many days do you want?': 'essential_max_dates',
   'Which tiers will you accept?': 'essential_tier_preference',
@@ -65,9 +67,9 @@ const REJECTED = 'drew@offcuts.test';
 
 const CSV = [
   CSV_HEADERS.join(','),
-  `2026/05/02 9:14:03,${WANTED},"2026-08-01, 2026-08-08",2,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
-  `2026/05/02 10:02:51,${ALSO_WANTED},2026-08-01,1,${TIER},full,,"${SECTIONS[1]}, ${SECTIONS[0]}"`,
-  `2026/05/03 8:40:12,${REJECTED},2026-08-08,1,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
+  `2026/05/02 9:14:03,${WANTED},Mira Kaplan,"2026-08-01, 2026-08-08",2,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
+  `2026/05/02 10:02:51,${ALSO_WANTED},Sam Oyelaran,2026-08-01,1,${TIER},full,,"${SECTIONS[1]}, ${SECTIONS[0]}"`,
+  `2026/05/03 8:40:12,${REJECTED},Drew Whitfield,2026-08-08,1,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
 ].join('\n');
 
 test.describe('The MVP journey', () => {

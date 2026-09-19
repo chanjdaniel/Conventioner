@@ -101,6 +101,7 @@ class TestOnlyARankingMayBeDeclared:
 
 
 ANSWERS_WITHOUT_A_SECTION_RANKING = {
+    EF.FULL_NAME_KEY: "Ana Rivera",
     EF.AVAILABLE_DATES_KEY: ["2025-11-17"],
     EF.MAX_DATES_KEY: 1,
     # Tier is answered per date (E01/F05).

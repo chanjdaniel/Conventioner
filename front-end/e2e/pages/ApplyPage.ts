@@ -50,6 +50,11 @@ export class ApplyPage {
     return this.page.getByTestId('apply-essential-email');
   }
 
+  /** Identity, asked of every applicant whatever the market plan offers (E13/F01/S01). */
+  get fullNameInput(): Locator {
+    return this.page.getByTestId('apply-essential-full-name-input');
+  }
+
   /** The checkbox for one offered market date (ISO string). */
   dateCheckbox(date: string): Locator {
     return this.page.getByTestId(`apply-essential-date-${date}`);

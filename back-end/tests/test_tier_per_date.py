@@ -38,6 +38,7 @@ def _options(**overrides):
 
 def _answers(tier_preference, dates=(MON, TUE, FRI)):
     return {
+        EF.FULL_NAME_KEY: "Ana Rivera",
         EF.AVAILABLE_DATES_KEY: list(dates),
         EF.MAX_DATES_KEY: 3,
         EF.TABLE_CHOICE_KEY: "full",

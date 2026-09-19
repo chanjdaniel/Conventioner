@@ -15,6 +15,7 @@ import { seedApplicantMarket, planSetupObject, PLAN_TIERS } from './helpers/seed
 const HEADERS = [
   'Timestamp',
   'Email Address',
+  'Full Legal Name',
   'Business name',
   'Which days can you attend?',
   'How many days do you want?',
@@ -26,10 +27,10 @@ const HEADERS = [
 ];
 
 const ROWS = [
-  '2026/05/02 9:14:03,nadia@ember.test,Ember Ceramics,"2026-08-01, 2026-08-08",2,Gold,half,,"Garden, Main Hall",Pottery',
-  '2026/05/02 11:40:22,theo@thistle.test,Thorn & Thistle,2026-08-01,1,Silver,full,,"Main Hall, Garden",Dried flowers',
+  '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,"2026-08-01, 2026-08-08",2,Gold,half,,"Garden, Main Hall",Pottery',
+  '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,Thorn & Thistle,2026-08-01,1,Silver,full,,"Main Hall, Garden",Dried flowers',
   // Deliberately broken: no email, so it must be skipped and named rather than silently dropped.
-  '2026/05/03 8:02:10,,Driftwood Prints,2026-08-08,1,Gold,either,,"Garden, Main Hall",Linocuts',
+  '2026/05/03 8:02:10,,Jan van der Berg,Driftwood Prints,2026-08-08,1,Gold,either,,"Garden, Main Hall",Linocuts',
 ];
 
 const CSV = [HEADERS.join(','), ...ROWS].join('\n');
@@ -41,6 +42,7 @@ const CSV = [HEADERS.join(','), ...ROWS].join('\n');
  * two are offered without asking and are absent here.
  */
 const FULL_MAPPING: Record<string, string> = {
+  'Full Legal Name': 'essential_full_name',
   'Which days can you attend?': 'essential_available_dates',
   'How many days do you want?': 'essential_max_dates',
   'Which tiers will you accept?': 'essential_tier_preference',
@@ -239,6 +241,7 @@ test.describe('CSV vendor import', () => {
     const gridHeaders = [
       'Timestamp',
       'Email Address',
+      'Full Legal Name',
       'Business name',
       'Which days can you attend? [2026-08-01]',
       'Which days can you attend? [2026-08-08]',
@@ -251,7 +254,7 @@ test.describe('CSV vendor import', () => {
     ];
     const gridCsv = [
       gridHeaders.join(','),
-      '2026/05/02 9:14:03,nadia@ember.test,Ember Ceramics,Yes,Yes,2,Gold,half,2nd choice,1st choice,Pottery',
+      '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,Yes,Yes,2,Gold,half,2nd choice,1st choice,Pottery',
     ].join('\n');
 
     const seed = await seedPlannedMarket(request);
@@ -278,6 +281,7 @@ test.describe('CSV vendor import', () => {
       'essential_section_ranking',
     );
     await importPage.mapColumns(gridHeaders, {
+      'Full Legal Name': 'essential_full_name',
       'How many days do you want?': 'essential_max_dates',
       'Which tiers will you accept?': 'essential_tier_preference',
       'Full or half table?': 'essential_table_choice',
@@ -333,8 +337,8 @@ test.describe('CSV vendor import', () => {
     // The organizer's form said "Gold Tier"; the market's tier is called "Gold".
     const rows = [
       HEADERS.join(','),
-      '2026/05/02 9:14:03,nadia@ember.test,Ember Ceramics,"2026-08-01, 2026-08-08",2,Gold Tier,half,,"Garden, Main Hall",Pottery',
-      '2026/05/02 11:40:22,theo@thistle.test,Thorn & Thistle,2026-08-01,1,Gold Tier,full,,"Main Hall, Garden",Dried flowers',
+      '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,"2026-08-01, 2026-08-08",2,Gold Tier,half,,"Garden, Main Hall",Pottery',
+      '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,Thorn & Thistle,2026-08-01,1,Gold Tier,full,,"Main Hall, Garden",Dried flowers',
     ].join('\n');
 
     const seed = await seedPlannedMarket(request);

@@ -38,6 +38,7 @@ FORM_FIELDS = [
 HEADERS = [
     "Timestamp",
     "Email Address",
+    "Full Legal Name",
     "Business name",
     "Which days can you attend?",
     "How many days do you want?",
@@ -50,13 +51,14 @@ HEADERS = [
 MAPPING = {
     CsvImport.SUBMITTED_AT_TARGET: 0,
     CsvImport.APPLICANT_EMAIL_TARGET: 1,
-    "business_name": 2,
-    EssentialFields.AVAILABLE_DATES_KEY: 3,
-    EssentialFields.MAX_DATES_KEY: 4,
-    EssentialFields.TIER_PREFERENCE_KEY: 5,
-    EssentialFields.TABLE_CHOICE_KEY: 6,
-    EssentialFields.TABLE_SHARE_EMAIL_KEY: 7,
-    EssentialFields.SECTION_RANKING_KEY: 8,
+    EssentialFields.FULL_NAME_KEY: 2,
+    "business_name": 3,
+    EssentialFields.AVAILABLE_DATES_KEY: 4,
+    EssentialFields.MAX_DATES_KEY: 5,
+    EssentialFields.TIER_PREFERENCE_KEY: 6,
+    EssentialFields.TABLE_CHOICE_KEY: 7,
+    EssentialFields.TABLE_SHARE_EMAIL_KEY: 8,
+    EssentialFields.SECTION_RANKING_KEY: 9,
 }
 
 
@@ -65,7 +67,7 @@ def _csv(*rows: str) -> str:
 
 
 GOOD_ROW = (
-    '2026/05/02 9:14:03,nadia@ember.ca,Ember Ceramics,'
+    '2026/05/02 9:14:03,nadia@ember.ca,Nadia Okonkwo,Ember Ceramics,'
     '"2026-08-01, 2026-08-08",2,Gold,half,buddy@ember.ca,"Garden, Main Hall"'
 )
 
@@ -147,7 +149,7 @@ class TestInspect:
         """A Google Forms answer routinely contains a comma."""
         body, _ = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
 
-        assert body["sampleValues"][3] == ["2026-08-01, 2026-08-08"]
+        assert body["sampleValues"][4] == ["2026-08-01, 2026-08-08"]
 
 
 class TestImportApplications:
@@ -244,7 +246,7 @@ class TestImportApplications:
         assert applications.documents == []
 
     def test_a_row_with_no_email_is_skipped_and_named(self, markets, applications):
-        blank = GOOD_ROW.replace("nadia@ember.ca,Ember Ceramics", ",Ember Ceramics")
+        blank = GOOD_ROW.replace("nadia@ember.ca,Nadia Okonkwo", ",Nadia Okonkwo")
 
         body, _ = CsvImport.import_applications(
             markets, markets.doc, _csv(blank, GOOD_ROW), MAPPING,
@@ -296,6 +298,7 @@ class TestImportApplications:
 GRID_HEADERS = [
     "Timestamp",
     "Email Address",
+    "Full Legal Name",
     "Business name",
     "Which days can you attend? [2026-08-01]",
     "Which days can you attend? [2026-08-08]",
@@ -310,13 +313,14 @@ GRID_HEADERS = [
 GRID_MAPPING = {
     CsvImport.SUBMITTED_AT_TARGET: 0,
     CsvImport.APPLICANT_EMAIL_TARGET: 1,
-    "business_name": 2,
-    EssentialFields.AVAILABLE_DATES_KEY: [3, 4],
-    EssentialFields.MAX_DATES_KEY: 5,
-    EssentialFields.TIER_PREFERENCE_KEY: 6,
-    EssentialFields.TABLE_CHOICE_KEY: 7,
-    EssentialFields.TABLE_SHARE_EMAIL_KEY: 8,
-    EssentialFields.SECTION_RANKING_KEY: [9, 10],
+    EssentialFields.FULL_NAME_KEY: 2,
+    "business_name": 3,
+    EssentialFields.AVAILABLE_DATES_KEY: [4, 5],
+    EssentialFields.MAX_DATES_KEY: 6,
+    EssentialFields.TIER_PREFERENCE_KEY: 7,
+    EssentialFields.TABLE_CHOICE_KEY: 8,
+    EssentialFields.TABLE_SHARE_EMAIL_KEY: 9,
+    EssentialFields.SECTION_RANKING_KEY: [10, 11],
 }
 
 
@@ -326,8 +330,57 @@ def _grid_csv(*rows: str) -> str:
 
 # Ticked on both days; ranks Garden first by saying so in the grid's own cells.
 GRID_ROW = (
-    "2026/05/02 9:14:03,nadia@ember.ca,Ember Ceramics,Yes,Yes,2,Gold,half,,2nd choice,1st choice"
+    "2026/05/02 9:14:03,nadia@ember.ca,Nadia Okonkwo,Ember Ceramics,"
+    "Yes,Yes,2,Gold,half,,2nd choice,1st choice"
 )
+
+
+class TestTheNameIsAnImportTarget:
+    """The Fall 2025 export's "Full Legal Name" had nowhere to go, so the import dropped it."""
+
+    def test_full_name_is_offered_as_a_target(self, markets):
+        targets = {t.key: t for t in CsvImport.import_targets(markets.doc)}
+
+        assert EssentialFields.FULL_NAME_KEY in targets
+        assert targets[EssentialFields.FULL_NAME_KEY].label == "Full name"
+        assert targets[EssentialFields.FULL_NAME_KEY].required is True
+
+    def test_it_is_offered_even_by_a_market_whose_plan_offers_nothing(self):
+        bare = _market_doc(setup={
+            "priority": [], "marketDates": [], "tiers": [], "locations": [],
+            "sections": [], "assignmentOptions": {}, "floorplans": [],
+        })
+
+        keys = [t.key for t in CsvImport.import_targets(bare)]
+
+        assert EssentialFields.FULL_NAME_KEY in keys
+
+    def test_a_name_column_lands_on_the_application(self, markets, applications):
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW), MAPPING,
+        )
+
+        assert status == 200, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data[EssentialFields.FULL_NAME_KEY] == "Nadia Okonkwo"
+
+    def test_a_whole_name_is_never_split(self, markets, applications):
+        row = GOOD_ROW.replace("Nadia Okonkwo", "Jan van der Berg")
+
+        CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data[EssentialFields.FULL_NAME_KEY] == "Jan van der Berg"
+
+    def test_a_row_with_no_name_is_refused_with_its_line_number(self, markets, applications):
+        nameless = GOOD_ROW.replace(",Nadia Okonkwo,", ",,")
+
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(nameless), MAPPING,
+        )
+
+        assert body["created"] == 0
+        assert "Full name" in body["failures"][0]["error"]
 
 
 class TestWhatASingleColumnCannotSay:
@@ -409,7 +462,7 @@ class TestColumnGroups:
 
         stems = {group["stem"]: group for group in body["groups"]}
         assert "Which days can you attend?" in stems
-        assert stems["Which days can you attend?"]["columns"] == [3, 4]
+        assert stems["Which days can you attend?"]["columns"] == [4, 5]
         assert stems["Which days can you attend?"]["options"] == ["2026-08-01", "2026-08-08"]
 
     def test_a_lone_bracketed_column_is_not_a_group(self, markets):
