@@ -234,6 +234,9 @@ select.datatype-dropdown {
 
 .row-item h3 {
   margin: 0;
+  /* Left, like every other label on the page. The default centring only showed on the one label
+     long enough to wrap, so the two options sat side by side aligned differently. */
+  text-align: left;
 }
 
 .row-item:last-of-type {
@@ -293,7 +296,10 @@ select.datatype-dropdown {
   align-items: center;
   justify-content: center;
   width: 80%;
-  height: 100%;
+  /* A field, not a panel. `height: 100%` grew it to whatever the label cell beside it needed,
+     so a one-line number box rendered as a five-line empty square. */
+  height: 34px;
+  flex: 0 0 auto;
   box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
   border-radius: 8px;
 }

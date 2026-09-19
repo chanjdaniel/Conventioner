@@ -626,13 +626,19 @@ const handleDone = async () => {
             {{ isDownloading ? 'Downloading…' : 'Download CSV' }}
           </button>
         </div>
-        <div>
+        <div class="discord-action">
+          <!-- The reason used to live in a `title`, which is invisible on touch and slow
+               everywhere else, so the button just read as broken. -->
+          <p
+            v-if="!hasDiscordWebhook"
+            class="action-blocked-reason"
+            data-testid="assignment-results-discord-blocked-reason"
+          >
+            Add a Discord webhook URL in Market Setup to enable this.
+          </p>
           <button
             class="done-button discord-button"
             :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
-            :title="
-              hasDiscordWebhook ? '' : 'Configure a Discord webhook URL in Market Setup to enable.'
-            "
             @click="handleSendToDiscord"
             data-testid="assignment-results-send-discord-button"
           >
@@ -1152,6 +1158,22 @@ h2 {
 .download-button {
   width: 180px;
   font-size: 18px;
+}
+
+.discord-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.action-blocked-reason {
+  margin: 0;
+  font-family: 'Outfit Regular';
+  font-size: 12px;
+  color: var(--mm-text-yellow);
+  text-align: center;
+  max-width: 220px;
 }
 
 .discord-button {
