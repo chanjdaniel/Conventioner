@@ -74,7 +74,7 @@ async function loadAttendance(): Promise<void> {
 }
 
 function goBack(): void {
-  router.push('/assignment-results');
+  router.push({ path: '/market-setup', query: { tab: 'assignment' } });
 }
 
 onMounted(loadAttendance);

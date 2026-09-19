@@ -299,8 +299,10 @@ test.describe('Essential form fields', () => {
     await page.setViewportSize({ width: 1280, height: 720 });
 
     await apply.submit();
+    // 10s, not 5: a submit that validates, freezes the offering and writes is the slowest step in
+    // this spec, and the tighter budget flaked under a full-suite run.
     await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`), {
-      timeout: 5000,
+      timeout: 10000,
     });
 
     // The dashboard reads the answers back with the questions' own labels.

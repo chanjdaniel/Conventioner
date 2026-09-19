@@ -78,10 +78,13 @@ const router = createRouter({
       name: 'floorplan-editor',
       component: () => import('@/views/FloorplanEditorView.vue'),
     },
+    // Assignment Results is a tab on the market now, not a place the organizer is pushed to
+    // (E10/F03/S01). The old route is kept as a redirect, because it is what every screen that
+    // came back to the results used to push.
     {
       path: '/assignment-results',
       name: 'assignment-results',
-      component: () => import('@/views/GenerateAssignmentView.vue'),
+      redirect: { path: '/market-setup', query: { tab: 'assignment' } },
     },
     {
       path: '/markets/:marketId/attendance',
