@@ -7,6 +7,7 @@ import { fetchMarketApplications } from '@/utils/applicantApi';
 import { parseMarketFromApi } from '@/utils/market';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import type { Application, Market, MarketDateObject } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 
@@ -48,7 +49,22 @@ interface VendorRow {
 
 const router = useRouter();
 
-const market = ref<Market | null>(null);
+function readMarketFromStorage(): Market | null {
+  const raw = localStorage.getItem('market');
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parseMarketFromApi(parsed);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
+ * value that only arrives a tick later would flash that message on every page that does have one.
+ */
+const market = ref<Market | null>(readMarketFromStorage());
 const applications = ref<Application[]>([]);
 const tableRows = ref<MarketTableRowResponse[]>([]);
 const unassignedEmails = ref<Set<string>>(new Set());
@@ -65,17 +81,6 @@ function extractEmail(raw: unknown): string {
   const candidate = obj.email ?? obj.vendorEmail ?? obj.vendor_email;
   if (typeof candidate === 'string') return candidate.trim();
   return '';
-}
-
-function readMarketFromStorage(): Market | null {
-  const raw = localStorage.getItem('market');
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return parseMarketFromApi(parsed);
-  } catch {
-    return null;
-  }
 }
 
 function readUserEmail(): string | null {
@@ -272,10 +277,6 @@ function handleBack(): void {
     router.push('/dashboard');
   }
 }
-
-function goToDashboard(): void {
-  router.push('/dashboard');
-}
 </script>
 
 <template>
@@ -286,12 +287,7 @@ function goToDashboard(): void {
       </header>
 
       <div class="vendors-body">
-        <div v-if="!market" class="empty-state">
-          <p>No market loaded. Go back to the dashboard to choose one.</p>
-          <button type="button" class="primary-button" @click="goToDashboard">
-            Back to Dashboard
-          </button>
-        </div>
+        <NoMarketLoaded v-if="!market" shows="the vendors" />
 
         <template v-else>
           <div class="vendors-toolbar">
