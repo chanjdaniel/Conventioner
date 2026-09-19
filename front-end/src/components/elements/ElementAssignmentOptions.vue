@@ -151,7 +151,7 @@ select.datatype-dropdown {
 .mapping-title {
   margin: 0;
   font-size: 16px;
-  color: var(--mm-black, #222);
+  color: var(--mm-black);
 }
 
 .optional-label {
@@ -182,7 +182,7 @@ select.datatype-dropdown {
   justify-content: center;
   align-items: center;
 
-  border-right: 3px solid var(--mm-grey);
+  border-right: 3px solid var(--mm-border);
 }
 
 .row-item:last-of-type {

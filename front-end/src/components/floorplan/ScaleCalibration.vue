@@ -597,7 +597,7 @@ onUnmounted(() => {
   min-height: 400px;
   background: var(--mm-beige);
   border-radius: 10px;
-  border: 2px solid var(--mm-grey);
+  border: 2px solid var(--mm-border);
   overflow: hidden;
 }
 
@@ -738,7 +738,7 @@ onUnmounted(() => {
   height: 40px;
   padding: 0 12px;
   background: var(--mm-beige);
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 6px;
   font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
@@ -752,7 +752,7 @@ onUnmounted(() => {
 }
 
 .cal-input::placeholder {
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
 }
 
 /* ── Unit selector ─────────────────────────────────────────────── */
@@ -854,7 +854,7 @@ onUnmounted(() => {
 .cal-btn--secondary {
   background: var(--mm-beige);
   color: var(--mm-black);
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
 }
 
 .cal-btn--secondary:hover:not(:disabled) {
@@ -893,7 +893,7 @@ onUnmounted(() => {
 .cal-result-label {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
-  color: var(--mm-grey);
+  color: var(--mm-text-muted);
   flex-shrink: 0;
 }
 

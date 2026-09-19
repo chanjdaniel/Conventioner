@@ -167,7 +167,7 @@ function canManage(org: Organization): boolean {
   justify-content: space-between;
   align-items: center;
   padding-bottom: 24px;
-  border-bottom: 1px solid var(--mm-grey);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .header h1 {
@@ -221,7 +221,7 @@ function canManage(org: Organization): boolean {
 .org-card {
   width: 100%;
   padding: 16px 24px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 10px;
   background: white;
   display: flex;
@@ -289,7 +289,7 @@ function canManage(org: Organization): boolean {
 
 .role-owner {
   background: #e3f2fd;
-  color: #1976d2;
+  color: var(--mm-text-link);
 }
 
 .role-admin {
@@ -364,7 +364,7 @@ function canManage(org: Organization): boolean {
 .form-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid var(--mm-grey);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
   font-size: 14px;
 }
@@ -395,7 +395,7 @@ function canManage(org: Organization): boolean {
 }
 
 .content-block::-webkit-scrollbar-thumb {
-  background: var(--mm-grey);
+  background: var(--mm-border);
   border-radius: 4px;
 }
 </style>

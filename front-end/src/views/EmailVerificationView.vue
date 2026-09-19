@@ -182,12 +182,12 @@ const resendVerification = async () => {
 }
 
 .resend-button {
-  background-color: var(--mm-green, #4caf50);
+  background-color: var(--mm-green);
   color: white;
 }
 
 .link-button {
-  background-color: #2196f3;
+  background-color: var(--mm-text-link);
   color: white;
 }
 

@@ -515,8 +515,8 @@ const submitOTPLogin = async () => {
 }
 
 .mode-tab.active {
-  color: var(--mm-green, #4caf50);
-  border-bottom-color: var(--mm-green, #4caf50);
+  color: var(--mm-green);
+  border-bottom-color: var(--mm-green);
   font-weight: bold;
 }
 
@@ -557,7 +557,7 @@ const submitOTPLogin = async () => {
   background-color: transparent;
   width: fit-content;
   padding-right: 20px;
-  color: grey;
+  color: var(--mm-text-muted);
   font-size: 14px;
   cursor: pointer;
   outline: none;
@@ -599,7 +599,7 @@ const submitOTPLogin = async () => {
   height: 60px;
   border-radius: 30px;
   margin-top: 40px;
-  background-color: var(--mm-green, #4caf50);
+  background-color: var(--mm-green);
   font-family: 'Outfit Regular';
   color: white;
   font-size: 20px;
@@ -617,7 +617,7 @@ const submitOTPLogin = async () => {
 }
 
 .link {
-  color: #2196f3;
+  color: var(--mm-text-link);
   text-decoration: none;
   font-size: 14px;
 }

@@ -161,7 +161,7 @@ function handleNewClose() {
   justify-content: space-between;
   align-items: center;
   padding-bottom: 24px;
-  border-bottom: 1px solid var(--mm-grey);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .header h1 {
@@ -215,7 +215,7 @@ function handleNewClose() {
 .market-card {
   width: 100%;
   padding: 16px 24px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 10px;
   background: white;
   display: flex;
@@ -285,7 +285,7 @@ function handleNewClose() {
 
 .role-owner {
   background: #e3f2fd;
-  color: #1976d2;
+  color: var(--mm-text-link);
 }
 
 .role-admin {
@@ -358,7 +358,7 @@ function handleNewClose() {
 }
 
 .markets-block::-webkit-scrollbar-thumb {
-  background: var(--mm-grey);
+  background: var(--mm-border);
   border-radius: 4px;
 }
 

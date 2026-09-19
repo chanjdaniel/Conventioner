@@ -390,7 +390,7 @@ function errorFor(key: string): string {
   flex-direction: column;
   gap: 2px;
   padding: 10px 14px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
   background: #fafafa;
 }
@@ -411,7 +411,7 @@ function errorFor(key: string): string {
 .essential-email-note {
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
 }
 
 .essential-field {
@@ -434,7 +434,7 @@ function errorFor(key: string): string {
 .essential-help {
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   margin: 0;
 }
 
@@ -443,7 +443,7 @@ function errorFor(key: string): string {
   flex-direction: column;
   gap: 2px;
   padding: 6px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
 }
@@ -489,7 +489,7 @@ function errorFor(key: string): string {
   padding: 4px 10px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
 }
@@ -500,7 +500,7 @@ function errorFor(key: string): string {
   padding: 4px 10px;
   font-family: 'Outfit Regular';
   font-size: 14px;
-  border: 1px solid var(--mm-grey, #b0b0b0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
 }
@@ -523,6 +523,6 @@ function errorFor(key: string): string {
   display: block;
   font-size: 13px;
   margin-bottom: 4px;
-  color: var(--mm-black, #272323);
+  color: var(--mm-black);
 }
 </style>

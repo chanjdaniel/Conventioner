@@ -192,7 +192,7 @@ async function checkIn(date: string): Promise<void> {
 }
 
 .attendance-header {
-  background-color: var(--mm-black, #2a2a2a);
+  background-color: var(--mm-black);
   padding: 18px 24px;
 }
 
@@ -220,7 +220,7 @@ async function checkIn(date: string): Promise<void> {
 .lookup-form label {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
-  color: var(--mm-black, #2a2a2a);
+  color: var(--mm-black);
 }
 
 .lookup-row {
@@ -240,7 +240,7 @@ async function checkIn(date: string): Promise<void> {
 }
 
 .primary-button {
-  background: var(--mm-green, #4cae9c);
+  background: var(--mm-green);
   color: white;
   border: none;
   border-radius: 5px;
@@ -287,13 +287,13 @@ async function checkIn(date: string): Promise<void> {
 .assignment-date {
   font-family: 'Merge One', sans-serif;
   font-size: 18px;
-  color: var(--mm-green, #4cae9c);
+  color: var(--mm-green);
 }
 
 .assignment-meta {
   font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
-  color: var(--mm-black, #2a2a2a);
+  color: var(--mm-black);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px 16px;

@@ -308,7 +308,7 @@ function asks(key: string): boolean {
 .essential-item-detail {
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: var(--mm-grey, #666);
+  color: var(--mm-text-muted);
   margin: 0;
 }
 

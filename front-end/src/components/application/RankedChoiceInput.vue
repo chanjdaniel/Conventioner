@@ -84,7 +84,7 @@ function move(index: number, delta: number) {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
   background: white;
 }
@@ -131,7 +131,7 @@ function move(index: number, delta: number) {
 .ranked-btn {
   width: 30px;
   height: 30px;
-  border: 1px solid var(--mm-grey, #ccc);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
   color: var(--mm-black);

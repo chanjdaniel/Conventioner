@@ -53,17 +53,21 @@ const statusLabels: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
+// These are fills carrying white text (`.app-status` sets `color: white`), so each must reach
+// WCAG AA against white. The Material 500 shades they were taken from do not: blue was 3.12,
+// orange 2.16, green 2.78, red 3.68 and grey 2.68. Darkened to the lightest shade of the same hue
+// that passes, so the palette still reads as itself. Purple was already 6.3 and is unchanged.
 const statusColors: Record<string, string> = {
-  open: '#2196f3',
-  under_review: '#ff9800',
-  reviewer_approved: '#4caf50',
-  reviewer_rejected: '#f44336',
-  unassigned: '#9e9e9e',
-  assigned: '#2196f3',
+  open: '#1b7ac5',
+  under_review: '#ab6600',
+  reviewer_approved: '#3a853d',
+  reviewer_rejected: '#d93c30',
+  unassigned: '#767676',
+  assigned: '#1b7ac5',
   assignment_sent: '#9c27b0',
-  vendor_accepted: '#4caf50',
-  vendor_refused: '#f44336',
-  cancelled: '#9e9e9e',
+  vendor_accepted: '#3a853d',
+  vendor_refused: '#d93c30',
+  cancelled: '#767676',
 };
 
 /** Awaiting a verdict. Anything else has been reviewed, and does not come back to the queue. */
@@ -202,7 +206,7 @@ function statusLabel(status: string): string {
 }
 
 function statusColor(status: string): string {
-  return statusColors[status] ?? '#9e9e9e';
+  return statusColors[status] ?? '#767676';
 }
 
 function submittedOn(app: Application): string {
@@ -421,7 +425,7 @@ function submittedOn(app: Application): string {
 .done-state {
   text-align: center;
   padding: 40px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   font-family: 'Outfit Regular';
   font-size: 14px;
 }
@@ -450,12 +454,12 @@ function submittedOn(app: Application): string {
 
 .tally {
   font-size: 13px;
-  color: rgba(39, 35, 35, 0.6);
+  color: var(--mm-text-muted);
 }
 
 .advisory {
   background: #fdf7ec;
-  border: 1px solid var(--mm-yellow, #e4a629);
+  border: 1px solid var(--mm-yellow);
   border-radius: 8px;
   padding: 10px 14px;
   font-family: 'Outfit Regular';
@@ -465,7 +469,7 @@ function submittedOn(app: Application): string {
 }
 
 .review-card {
-  border: 1.5px solid var(--mm-grey, #ddd);
+  border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: #fafafa;
   padding: 18px;
@@ -500,7 +504,7 @@ function submittedOn(app: Application): string {
 .app-date {
   font-family: 'Outfit Regular';
   font-size: 12px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
 }
 
 .answers {
@@ -513,7 +517,7 @@ function submittedOn(app: Application): string {
 }
 
 .answers dt {
-  color: rgba(39, 35, 35, 0.6);
+  color: var(--mm-text-muted);
   overflow-wrap: anywhere;
 }
 
@@ -532,7 +536,7 @@ function submittedOn(app: Application): string {
 .no-answers {
   font-family: 'Outfit Regular';
   font-size: 14px;
-  color: var(--mm-grey, #999);
+  color: var(--mm-text-muted);
   margin: 0 0 18px;
 }
 
@@ -558,12 +562,13 @@ function submittedOn(app: Application): string {
   color: white;
 }
 
+/* White text on #4caf50 was 2.78. Same passing green as the approved status badge. */
 .approve-button {
-  background: #4caf50;
+  background: #3a853d;
 }
 
 .approve-button:hover:not(:disabled) {
-  background: #43a047;
+  background: #306e33;
 }
 
 .reject-button {
@@ -575,7 +580,7 @@ function submittedOn(app: Application): string {
 }
 
 .skip-button {
-  background: var(--mm-grey, #9e9e9e);
+  background: var(--mm-border);
 }
 
 .approve-button:disabled,
@@ -624,7 +629,7 @@ function submittedOn(app: Application): string {
   gap: 12px;
   flex-wrap: wrap;
   padding: 8px 14px;
-  border: 1px solid var(--mm-grey, #ddd);
+  border: 1px solid var(--mm-border);
   border-radius: 6px;
 }
 

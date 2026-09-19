@@ -252,7 +252,7 @@ const handleSignOut = async () => {
 .last-market-card {
   width: 716px;
   padding: 16px 24px;
-  border: 1.5px solid var(--mm-grey);
+  border: 1.5px solid var(--mm-border);
   border-radius: 10px;
   background: white;
   display: flex;
@@ -313,13 +313,13 @@ const handleSignOut = async () => {
 }
 
 .last-market-card--disabled:hover {
-  border-color: var(--mm-grey);
+  border-color: var(--mm-border);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transform: none;
 }
 
 .disabled-text {
-  color: #999;
+  color: var(--mm-text-muted);
   font-size: 16px;
   font-family: 'Outfit Regular', sans-serif;
 }
@@ -379,7 +379,7 @@ const handleSignOut = async () => {
 
 .last-market-card .role-owner {
   background: #e3f2fd;
-  color: #1976d2;
+  color: var(--mm-text-link);
 }
 
 .last-market-card .role-admin {
@@ -440,7 +440,7 @@ const handleSignOut = async () => {
 }
 
 .button-small h4 {
-  color: rgba(39, 35, 35, 0.6);
+  color: var(--mm-text-muted);
   text-decoration: underline;
 }
 

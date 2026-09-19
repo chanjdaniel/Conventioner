@@ -207,7 +207,7 @@ const submitRequest = async () => {
   height: 60px;
   border-radius: 30px;
   margin-top: 40px;
-  background-color: var(--mm-green, #4caf50);
+  background-color: var(--mm-green);
   font-family: 'Outfit Regular';
   color: white;
   font-size: 20px;
@@ -230,7 +230,7 @@ const submitRequest = async () => {
 }
 
 .link {
-  color: #2196f3;
+  color: var(--mm-text-link);
   text-decoration: none;
   font-size: 14px;
 }
