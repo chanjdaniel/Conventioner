@@ -4,7 +4,7 @@ title: The importer says what it cannot know
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

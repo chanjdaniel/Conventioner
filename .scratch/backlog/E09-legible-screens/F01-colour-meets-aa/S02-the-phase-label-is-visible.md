@@ -4,7 +4,7 @@ title: The phase label is visible
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

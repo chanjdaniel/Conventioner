@@ -4,7 +4,7 @@ title: Hints describe the state the market is actually in
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

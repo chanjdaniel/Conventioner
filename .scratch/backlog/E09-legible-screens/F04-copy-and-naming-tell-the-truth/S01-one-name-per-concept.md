@@ -4,7 +4,7 @@ title: One name per concept
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

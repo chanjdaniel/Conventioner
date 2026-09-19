@@ -4,7 +4,7 @@ title: Controls look and behave like controls
 type: feature
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## Outcome

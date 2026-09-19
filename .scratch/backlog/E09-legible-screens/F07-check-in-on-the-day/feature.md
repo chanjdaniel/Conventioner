@@ -4,7 +4,7 @@ title: Check-in on the day
 type: feature
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## Outcome

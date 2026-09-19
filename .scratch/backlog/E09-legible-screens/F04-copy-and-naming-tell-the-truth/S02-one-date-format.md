@@ -4,7 +4,7 @@ title: One date format, and it includes the year
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

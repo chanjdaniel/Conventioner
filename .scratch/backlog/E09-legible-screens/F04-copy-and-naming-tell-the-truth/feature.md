@@ -4,7 +4,7 @@ title: Copy and naming tell the truth
 type: feature
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## Outcome

@@ -4,7 +4,7 @@ title: Legible screens
 type: epic
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## Outcome

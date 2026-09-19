@@ -4,7 +4,7 @@ title: Setup row controls are the size and shape they claim
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build

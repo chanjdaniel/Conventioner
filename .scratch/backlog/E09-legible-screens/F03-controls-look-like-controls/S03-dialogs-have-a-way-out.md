@@ -4,7 +4,7 @@ title: Dialogs have a primary action that looks like one, and a way out
 type: story
 status: in-progress
 blocked_by: []
-pr: []
+pr: [69]
 ---
 
 ## What to build
