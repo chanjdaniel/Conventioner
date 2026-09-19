@@ -11,7 +11,7 @@ from conftest import FakeMarketsCollection, stored_market
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
-from datatypes import MarketRole
+from datatypes import MarketPhase, MarketRole
 
 
 SETUP_OBJECT = {
@@ -50,7 +50,12 @@ def placement(**overrides) -> dict:
 
 @pytest.fixture
 def collection(monkeypatch):
-    fake = FakeMarketsCollection(stored_market(setupObject=SETUP_OBJECT))
+    # `assignment`, because that is the one phase the solver runs in (E10/F03/S02). Placements
+    # themselves are not phase-gated - admins edit without restriction - so the stories about
+    # them are unaffected by which phase this market sits in.
+    fake = FakeMarketsCollection(
+        stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
+    )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
     return fake
@@ -187,7 +192,9 @@ def test_a_market_with_no_plan_has_no_seats(monkeypatch):
 
 def test_a_viewer_is_refused_and_an_editor_is_not(monkeypatch):
     """The same bar as every other market write - an EDITOR already owns the whole plan."""
-    fake = FakeMarketsCollection(stored_market(setupObject=SETUP_OBJECT))
+    fake = FakeMarketsCollection(
+        stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
+    )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
 
     asked_for = []
@@ -285,7 +292,9 @@ def test_a_solver_run_names_the_applicants_whose_answers_are_missing(collection,
 
 
 def test_a_solver_run_needs_edit_permission(monkeypatch):
-    fake = FakeMarketsCollection(stored_market(setupObject=SETUP_OBJECT))
+    fake = FakeMarketsCollection(
+        stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
+    )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
 
@@ -294,7 +303,7 @@ def test_a_solver_run_needs_edit_permission(monkeypatch):
 
 
 def test_a_solver_run_needs_a_plan(monkeypatch):
-    fake = FakeMarketsCollection(stored_market())
+    fake = FakeMarketsCollection(stored_market(phase=MarketPhase.ASSIGNMENT))
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
 
@@ -425,7 +434,9 @@ class TestFreeingASeat:
         assert collection.last_update is None
 
     def test_removing_needs_edit_permission(self, monkeypatch):
-        fake = FakeMarketsCollection(stored_market(setupObject=SETUP_OBJECT))
+        fake = FakeMarketsCollection(
+        stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
+    )
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
 
@@ -515,7 +526,9 @@ class TestSwappingTwoVendors:
         assert [row["tableCode"] for row in other_day] == ["Hall A 2"]
 
     def test_swapping_needs_edit_permission(self, monkeypatch):
-        fake = FakeMarketsCollection(stored_market(setupObject=SETUP_OBJECT))
+        fake = FakeMarketsCollection(
+        stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
+    )
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: False)
 
@@ -523,3 +536,68 @@ class TestSwappingTwoVendors:
             PlacementsApi.swap_placements(
                 "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1"
             )
+
+
+class TestAssignRunsInItsPhaseAndNowhereElse:
+    """E10/F03/S02, unblocked by E11: a frozen solver strands nobody now that a placement can be
+    hand-changed from the Tables view."""
+
+    def _market(self, monkeypatch, phase):
+        fake = FakeMarketsCollection(stored_market(phase=phase, setupObject=SETUP_OBJECT))
+        monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+        monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
+        monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _m: ["a vendor"])
+        monkeypatch.setattr(PlacementsApi, "assign_market", lambda m, _v=None: m)
+        return fake
+
+    @pytest.mark.parametrize("phase", [
+        MarketPhase.DRAFT,
+        MarketPhase.APPLICATIONS_OPEN,
+        MarketPhase.APPLICATIONS_CLOSED,
+        MarketPhase.REVIEW,
+        MarketPhase.OFFERS,
+        MarketPhase.MARKET_DAYS,
+        MarketPhase.ARCHIVED,
+    ])
+    def test_the_endpoint_refuses_outside_assignment(self, monkeypatch, phase):
+        """The endpoint is reachable directly, so a hidden button is not the rule."""
+        fake = self._market(monkeypatch, phase)
+
+        with pytest.raises(PlacementsApi.AssignPhaseError):
+            PlacementsApi.run_assignment("market-123", "user-1")
+
+        assert fake.last_update is None
+
+    def test_it_runs_in_assignment(self, monkeypatch):
+        self._market(monkeypatch, MarketPhase.ASSIGNMENT)
+
+        _result, status = PlacementsApi.run_assignment("market-123", "user-1")
+
+        assert status == 200
+
+    def test_re_running_inside_assignment_is_allowed(self, monkeypatch):
+        """An organizer who changes the plan or approves a late application needs a fresh answer,
+        and there is nothing to protect yet."""
+        self._market(monkeypatch, MarketPhase.ASSIGNMENT)
+
+        first = PlacementsApi.run_assignment("market-123", "user-1")
+        second = PlacementsApi.run_assignment("market-123", "user-1")
+
+        assert (first[1], second[1]) == (200, 200)
+
+    @pytest.mark.parametrize("phase, names", [
+        (MarketPhase.DRAFT, "draft"),
+        (MarketPhase.APPLICATIONS_OPEN, "Close them"),
+        (MarketPhase.REVIEW, "review"),
+        (MarketPhase.MARKET_DAYS, "Tables view"),
+    ])
+    def test_the_refusal_names_an_action_available_from_that_phase(self, phase, names):
+        assert names in PlacementsApi.assign_phase_refusal(phase)
+
+    def test_the_rule_does_not_repeat_the_guards_around_it(self):
+        """`_ALL_REVIEWED` and `_ASSIGNMENT_COMPUTED` are said once each, in guards.py."""
+        import inspect
+
+        source = inspect.getsource(PlacementsApi.assign_phase_refusal)
+        assert "ApplicationStatus" not in source
+        assert "vendor_assignments" not in source

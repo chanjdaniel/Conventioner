@@ -43,6 +43,8 @@ export class MarketSetupPage {
   readonly phaseBlockers: Locator;
 
   readonly assignError: Locator;
+  /** Why Assign is unavailable in this market's phase (E10/F03/S02). */
+  readonly assignPhaseHint: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -72,6 +74,7 @@ export class MarketSetupPage {
     this.phaseBlockers = page.getByTestId('phase-control-blockers');
 
     this.assignError = page.getByTestId('market-setup-assign-error');
+    this.assignPhaseHint = page.getByTestId('market-setup-assign-phase-hint');
   }
 
   // --- Tabs ---

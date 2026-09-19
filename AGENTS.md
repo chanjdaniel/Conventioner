@@ -141,6 +141,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Placements, Pins and the Trail (Conventioner sharp edge)
 
+- **Assign runs in the `assignment` phase and nowhere else** (`assign_phase_refusal` in
+  `api/placements.py`, mirrored by `front-end/src/utils/assignPhase.ts`). A seed or a spec that
+  wants an assignment must walk the market to `assignment` first - assigning from `draft` is a
+  409. It deliberately does not repeat `_ALL_REVIEWED` or `_ASSIGNMENT_COMPUTED`, which
+  `guards.py` already says once each.
 - **`back-end/api/placements.py` is the only writer of `assignmentObject`.**
   `POST /markets/{id}/assignment` runs the solver and stores the result; `PUT`/`DELETE
   /markets/{id}/placements` writes or frees one seat; `POST /markets/{id}/placements/swap`

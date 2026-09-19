@@ -11,6 +11,7 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import api.placements as PlacementsApi
 import placement_history as PlacementHistory
+from datatypes import MarketPhase
 from test_the_placement_endpoint import SETUP_OBJECT, placement
 
 
@@ -47,7 +48,9 @@ def history(monkeypatch):
 
 @pytest.fixture
 def collection(monkeypatch):
-    fake = FakeMarketsCollection(stored_market(setupObject=SETUP_OBJECT))
+    fake = FakeMarketsCollection(
+        stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
+    )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     return fake

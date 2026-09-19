@@ -1,5 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { VendorsPage } from './pages/VendorsPage';
 
 test.describe('Vendor browsing and search', () => {
@@ -55,7 +56,12 @@ test.describe('Vendor browsing and search', () => {
   }) => {
     // The finding: the payoff screen listed unassigned vendors by email under a heading and said
     // nothing else, beside a summary reporting nineteen free tables (E12).
-    const seed = await seedPublishedMarketWithAssignments(
+    //
+    // A market left in `assignment`, not a published one: Assign is an operation of that phase
+    // and refuses everywhere else (E10/F03/S02), and this test needs to run it again against a
+    // smaller plan. A published market is past the point where re-running is the right move -
+    // the answer there is to change one placement from the Tables view.
+    const seed = await seedAssignedMarket(
       request,
       BACKEND_URL,
       TEST_USER.email,
