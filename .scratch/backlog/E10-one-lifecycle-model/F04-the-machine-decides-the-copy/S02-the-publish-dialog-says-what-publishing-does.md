@@ -2,7 +2,7 @@
 id: E10/F04/S02
 title: The publish dialog says what publishing does
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
