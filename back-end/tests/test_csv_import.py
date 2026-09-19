@@ -70,10 +70,13 @@ GOOD_ROW = (
 )
 
 
-def _market_doc(setup=None, **overrides):
+def _market_doc(setup=None, fields=None, **overrides):
     return stored_market(
         setupObject=setup or SETUP_CAMEL,
-        applicationForm={"fields": FORM_FIELDS, "essentialOptions": None},
+        applicationForm={
+            "fields": FORM_FIELDS if fields is None else fields,
+            "essentialOptions": None,
+        },
         **overrides,
     )
 
@@ -325,6 +328,79 @@ def _grid_csv(*rows: str) -> str:
 GRID_ROW = (
     "2026/05/02 9:14:03,nadia@ember.ca,Ember Ceramics,Yes,Yes,2,Gold,half,,2nd choice,1st choice"
 )
+
+
+class TestWhatASingleColumnCannotSay:
+    """A checkbox question's export is ambiguous when its own labels contain commas.
+
+    Google joins the selected labels with commas and throws the separator information away, so
+    "Saturday, November 21, 2026" comes back indistinguishable from three separate answers. The
+    product cannot recover it, and says so rather than producing fragments in silence.
+    """
+
+    def test_a_market_whose_every_label_is_comma_free_names_nothing(self, markets):
+        # Tiers are "Gold" and "Silver", sections "Main Hall" and "Garden", and a market date is
+        # offered as the stored "2026-08-01" - splitting any of those columns on commas is exact.
+        body, status = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
+
+        assert status == 200
+        assert body["commaBearingTargets"] == []
+
+    def test_dates_are_not_named_because_the_offering_is_the_stored_day(self, markets):
+        """A market date is offered as "2026-08-01", not as the sentence an applicant read.
+
+        This is the one the finding named, and it is wrong about it: the long spelling with its
+        two commas is how the *applicant form* renders a date, while what a column is matched
+        against is the stored day. A heading the organizer wrote themselves still has to be
+        resolved by hand, which is the reconciliation screen's job, not this warning's.
+        """
+        body, _ = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
+
+        assert EssentialFields.AVAILABLE_DATES_KEY not in body["commaBearingTargets"]
+
+    def test_a_single_value_target_is_never_named(self, markets):
+        """Its answer is the whole cell, so a comma in a label costs nothing.
+
+        Table choice earns this twice over: "A whole table to myself" holds no comma, but "Half a
+        table, shared" does, and it still must not warn.
+        """
+        body, _ = CsvImport.inspect(markets.doc, _csv(GOOD_ROW))
+
+        assert EssentialFields.TABLE_CHOICE_KEY not in body["commaBearingTargets"]
+        assert CsvImport.APPLICANT_EMAIL_TARGET not in body["commaBearingTargets"]
+
+    def test_a_section_the_organizer_named_with_a_comma_is_named_too(self, markets):
+        """The rule follows the market's own words, not a fixed list of targets."""
+        doc = _market_doc(setup={**SETUP_CAMEL, "sections": [
+            {"name": "Hall A, west end", "count": 4},
+            {"name": "Garden", "count": 4},
+        ]})
+
+        body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
+
+        assert EssentialFields.SECTION_RANKING_KEY in body["commaBearingTargets"]
+
+    def test_the_organizers_own_multi_select_question_is_named_too(self):
+        doc = _market_doc(fields=[{
+            "key": "craft", "label": "What do you make?", "type": "multi_select",
+            "required": False, "order": 0,
+            "options": ["Ceramics", "Jewellery, fine", "Prints"],
+        }])
+
+        body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
+
+        assert "craft" in body["commaBearingTargets"]
+
+    def test_a_single_select_question_is_not_named_however_its_options_read(self):
+        doc = _market_doc(fields=[{
+            "key": "craft", "label": "What do you make?", "type": "select",
+            "required": False, "order": 0,
+            "options": ["Ceramics", "Jewellery, fine"],
+        }])
+
+        body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
+
+        assert "craft" not in body["commaBearingTargets"]
 
 
 class TestColumnGroups:

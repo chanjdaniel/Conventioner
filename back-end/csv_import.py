@@ -454,6 +454,44 @@ def orders_by_submitted_at(market_doc: Dict[str, Any]) -> bool:
     )
 
 
+def comma_bearing_targets(market_doc: Dict[str, Any]) -> List[str]:
+    """Targets a single comma-split column cannot answer reliably.
+
+    A checkbox question exports one column holding the selected option labels **comma-joined**.
+    When the labels themselves contain commas - and a date label like "Saturday, November 21,
+    2026" does - the export is ambiguous to any reader, because the separator information was
+    thrown away before the file was written. Splitting on commas anyway turns one answer into six
+    fragments, every one of them reported as not matching the market with no word about why.
+
+    Only multi-value targets are listed: a single-value answer is the whole cell and is never
+    split, so a comma in one of its labels costs nothing.
+
+    This says the offering *contains* such a label. Whether a single column is mapped to it is a
+    question about the organizer's mapping, which changes without a round trip, so the mapping
+    screen decides that half and this decides the half only the market knows.
+
+    Note what is deliberately NOT here: any attempt to parse the cell. Greedy matching of the
+    offering's labels against the raw text was considered and rejected - organizers name tiers and
+    sections freely, so "Gold" inside "Gold Plus" breaks longest-match, and that failure is silent
+    and wrong rather than loud and right.
+    """
+    options = EssentialFields.effective_essential_options(market_doc)
+    form = market_doc_field(market_doc, "application_form") or {}
+    fields_by_key = {f.get("key"): f for f in form.get("fields") or [] if f.get("key")}
+
+    bearing = []
+    for target in import_targets(market_doc):
+        if target.key not in _MULTI_VALUE_ESSENTIALS and not (
+            target.kind == "custom"
+            and (fields_by_key.get(target.key) or {}).get("type") == "multi_select"
+        ):
+            continue
+        offered = offered_values(target, options, fields_by_key.get(target.key)) or []
+        if any("," in str(label) for label in offered):
+            bearing.append(target.key)
+    return bearing
+
+
 def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) -> Tuple[Dict[str, Any], int]:
     """What the mapping screen needs to render: the columns, some values, and the targets."""
     error, headers, rows = parse_csv(csv_content)
@@ -485,6 +523,10 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
         # exists and no column feeds it: mapping nothing is legal, but then the rule decides
         # nothing, which is the silent no-op this story exists to end wearing a different hat.
         "ordersBySubmittedAt": orders_by_submitted_at(market_doc),
+        # Targets whose own option labels contain commas, so one comma-split column cannot be
+        # read reliably. The mapping screen warns when one is mapped that way; a grid mapping is
+        # silent, because the option comes from the header and nothing is split.
+        "commaBearingTargets": comma_bearing_targets(market_doc),
     }, 200
 
 
