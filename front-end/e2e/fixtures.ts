@@ -7,6 +7,16 @@ export const TEST_USER = {
   password: 'e2epassword123',
 };
 
+/**
+ * Verified, and deliberately in no organization - therefore reaching no market. Created by
+ * `scripts/seed_fixture.sh` alongside `TEST_USER`, so the zero-market states have a real account
+ * to be shown on rather than a mocked one.
+ */
+export const NO_ORG_USER = {
+  email: 'e2e-noorg@example.com',
+  password: 'e2enoorg123',
+};
+
 export const BACKEND_URL = process.env.BACKEND_URL || stack().backendURL;
 
 async function login(page: Page, email: string, password: string) {

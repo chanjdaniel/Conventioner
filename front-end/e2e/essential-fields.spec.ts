@@ -204,7 +204,7 @@ test.describe('Essential form fields', () => {
     // The essential questions now offer exactly what the plan defines.
     await formPage.openFormTab();
     await expect(formPage.essentialDateChips).toHaveCount(2);
-    await expect(formPage.essentialDateChips.nth(0)).toContainText('August 1, 2026');
+    await expect(formPage.essentialDateChips.nth(0)).toHaveText('Saturday, August 1, 2026');
     await expect(formPage.essentialSectionChips).toHaveCount(2);
     await expect(formPage.essentialSectionChips.nth(0)).toContainText('Main Hall');
     await expect(formPage.essentialSectionChips.nth(1)).toContainText('Garden');
@@ -270,8 +270,10 @@ test.describe('Essential form fields', () => {
     // Identity: asked whatever the plan offers, and never split (E13/F01/S01).
     await apply.fullNameInput.fill('Jan van der Berg');
 
-    // Available dates: capability.
+    // Available dates: capability. The label is asserted whole, not by substring - the product has
+    // one date format and an essential question shows it unaltered (E14/F01/S01).
     await expect(apply.dateCheckbox(PLAN_DATES[0])).toBeVisible();
+    await expect(apply.dateLabel('2026-08-01')).toHaveText('Saturday, August 1, 2026');
     await apply.dateCheckbox('2026-08-01').check();
     await apply.dateCheckbox('2026-08-08').check();
 
@@ -322,15 +324,17 @@ test.describe('Essential form fields', () => {
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_full_name'),
     ).toContainText('Jan van der Berg');
+    // Read back whole: a formatted date carries two commas of its own, so the entries are
+    // separated by a middot and each prints its year once (E14/F01/S01).
     await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_available_dates'),
-    ).toContainText('August 1, 2026');
+      answers.getByTestId('applicant-dashboard-answer-essential_available_dates').locator('dd'),
+    ).toHaveText('Saturday, August 1, 2026 · Saturday, August 8, 2026');
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_max_dates'),
     ).toContainText('2');
     await expect(
-      answers.getByTestId('applicant-dashboard-answer-essential_tier_preference'),
-    ).toContainText('Gold');
+      answers.getByTestId('applicant-dashboard-answer-essential_tier_preference').locator('dd'),
+    ).toHaveText('Saturday, August 1, 2026: Gold · Saturday, August 8, 2026: Gold');
     // Stored as a code, read back as the sentence the applicant picked.
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_table_choice'),

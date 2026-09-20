@@ -301,7 +301,8 @@ export interface PreconditionResult {
   id: string;
   passed: boolean;
   message: string;
-  resolutionLink?: string;
+  /** Null, not absent, when a guard's remedy spans two places: the server always sends the key. */
+  resolutionLink?: string | null;
 }
 
 export interface TransitionRequest {

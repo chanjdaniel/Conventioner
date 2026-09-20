@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useModalRoot } from '@/utils/useModalRoot';
 
 const emit = defineEmits<{
   select: [path: 'manual' | 'floorplan'];
@@ -12,10 +13,13 @@ const emit = defineEmits<{
    at until they had chosen. */
 const open = ref(true);
 useEscapeToClose(open, () => emit('select', 'manual'));
+
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(open);
 </script>
 
 <template>
-  <div class="overlay-backdrop">
+  <div ref="modalRoot" class="overlay-backdrop">
     <div class="overlay-panel">
       <button
         type="button"

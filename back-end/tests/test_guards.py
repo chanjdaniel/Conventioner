@@ -1,5 +1,7 @@
 """Unit tests for the guard registry and phase transition evaluation (PR 2)."""
+import ast
 import os
+import pathlib
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -147,7 +149,17 @@ class TestFormHasFieldsGuard:
         market = _make_market(application_form=None, setup_object=None)
         result = FormHasFieldsGuard().evaluate(market, None)
         assert result.passed is False
-        assert result.resolution_link is not None
+
+    def test_offers_no_link_because_its_two_remedies_sit_in_two_tabs(self):
+        """Add dates to the plan is Market Setup; add a custom field is Application Form.
+
+        A link can only name one of the two, which would quietly recommend it over the other. The
+        message names both instead (E14/F01/S03).
+        """
+        market = _make_market(application_form=None, setup_object=None)
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.resolution_link is None
+        assert "dates" in result.message and "custom field" in result.message
 
     def test_fails_when_an_empty_form_meets_an_empty_plan(self):
         market = _make_market(application_form=ApplicationForm(fields=[]), setup_object=None)
@@ -696,6 +708,19 @@ class TestNoOrphanedPinGuard:
     def test_removing_the_pin_clears_the_blocker(self):
         assert NoOrphanedPinGuard().evaluate(self._market([], count=1), None).passed is True
 
+    def test_it_points_nowhere_because_its_two_remedies_are_in_two_places(self):
+        """Restore the seat is the plan; move the vendor is the Tables view (E14/F01/S03).
+
+        The Tables view is routed by market id, so no fixed string in this file could name it even
+        if there were only one remedy. It used to say ``?tab=assignment``, which holds neither -
+        that tab reports the assignment rather than editing it.
+        """
+        result = NoOrphanedPinGuard().evaluate(self._market([self._placement("Front 9")], count=1), None)
+
+        assert result.passed is False
+        assert result.resolution_link is None
+        assert "Restore the seat" in result.message and "move those vendors" in result.message
+
     def test_a_market_with_no_plan_reports_its_pins_rather_than_passing(self):
         market = _make_market(
             phase=MarketPhase.REVIEW,
@@ -703,3 +728,80 @@ class TestNoOrphanedPinGuard:
         )
 
         assert NoOrphanedPinGuard().evaluate(market, None).passed is False
+
+
+class TestEveryResolutionLinkPointsAtItsFix:
+    """A blocker's "Fix this" must go somewhere, and somewhere specific (E14/F01/S03).
+
+    The rail carries ``BlockerPanel`` onto four organizer screens, so a bare ``/market-setup`` is
+    usually the page the blocker is already displayed on: the link rendered as a control and did
+    nothing when clicked. Every link that exists must therefore name the TAB holding the remedy.
+
+    Read out of the source with ``ast`` rather than by evaluating each guard, so the rule covers
+    the next guard someone writes without that guard needing a test of its own - which is how the
+    original ``/market-setup`` spread to four call sites. It is a test rather than a check in
+    ``PreconditionResult.__post_init__`` because a guard builds its result while answering a
+    transition request: a raise there would turn a mistyped link into a 500 for the organizer,
+    where this turns it into a red build for whoever typed it.
+    """
+
+    #: Routes a link may name. Only tabs the URL actually distinguishes: ``?tab=setup`` is NOT
+    #: here, because ``tabFromRoute()`` renders the setup tab for a bare ``/market-setup`` too, so
+    #: a link to it would read as leading elsewhere from the very page it lands on - the dead link
+    #: this story removes. A guard that needs to point at the plan has to wait for the market
+    #: screen to put its default tab in the URL.
+    ALLOWED = {
+        "/market-setup?tab=applications",
+        "/market-setup?tab=assignment",
+    }
+    #: A bare page (every screen shows the rail) or a redirect (the panel cannot follow a hop).
+    REFUSED = {"/market-setup", "/assignment-results", "/market-setup?tab=setup"}
+
+    def _link_nodes(self):
+        """Every ``resolution_link`` argument in the module, keyword or positional."""
+        source = pathlib.Path(guards.__file__).read_text()
+        found = []
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, ast.Call):
+                continue
+            called = node.func.id if isinstance(node.func, ast.Name) else None
+            for kw in node.keywords:
+                if kw.arg == "resolution_link":
+                    found.append(kw.value)
+            # ``resolution_link`` is the fourth field, so a positional call reaches it at index 3.
+            # None exists today; catching it keeps the scan from quietly skipping the first one.
+            if called == "PreconditionResult" and len(node.args) >= 4:
+                found.append(node.args[3])
+        return found
+
+    def _links(self):
+        return [n.value for n in self._link_nodes() if isinstance(n, ast.Constant)]
+
+    def test_the_guards_declare_some_links(self):
+        """Guards against the scan silently finding nothing and passing everything below."""
+        assert len([link for link in self._links() if link is not None]) >= 2
+
+    def test_every_link_is_a_literal_this_test_can_read(self):
+        """A computed link would slip past the scan, so it is refused rather than skipped."""
+        unreadable = [ast.dump(n) for n in self._link_nodes() if not isinstance(n, ast.Constant)]
+        assert unreadable == [], (
+            "resolution_link must be a literal so this rule can check it; "
+            f"found {unreadable}"
+        )
+
+    def test_no_link_names_a_bare_page_or_a_redirect(self):
+        offenders = [link for link in self._links() if link in self.REFUSED]
+        assert offenders == [], (
+            f"resolution_link must name the tab holding the fix, not {sorted(set(offenders))}. "
+            "A bare page is the one the blocker is usually displayed on, a redirect cannot be "
+            "resolved by the panel's own-page check, and ?tab=setup is indistinguishable from a "
+            "bare /market-setup."
+        )
+
+    def test_every_link_names_a_known_destination(self):
+        unknown = [
+            link
+            for link in self._links()
+            if link is not None and link not in self.ALLOWED
+        ]
+        assert unknown == [], f"unrecognized resolution_link: {sorted(set(unknown))}"

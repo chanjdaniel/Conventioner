@@ -27,6 +27,7 @@ import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useModalRoot } from '@/utils/useModalRoot';
 import {
   VALID_TRANSITIONS,
   phaseLabel,
@@ -205,6 +206,16 @@ function directionOf(toPhase: string): string {
 
 const showingArchiveConfirm = ref(false);
 const showingPublishConfirm = ref(false);
+
+/**
+ * Modal: the page behind goes out of the tab order, not just out of reach of the mouse.
+ *
+ * One call each rather than one call over both. They are mutually exclusive today, but a single
+ * call would only say so in a comment - and its watcher, seeing the same `true` either side of a
+ * swap, would not re-run. `useInertBehind` counts its marks, so two live calls cost nothing.
+ */
+const publishConfirmRoot = useModalRoot(showingPublishConfirm);
+const archiveConfirmRoot = useModalRoot(showingArchiveConfirm);
 const pendingPhase = ref('');
 const transitionError = ref('');
 const transitionBlockers = ref<PreconditionResult[]>([]);
@@ -381,6 +392,7 @@ function cancelPending() {
          question the organizer never asked, about a feature the product does not have. -->
     <div
       v-if="showingPublishConfirm"
+      ref="publishConfirmRoot"
       class="rail-confirm-overlay"
       data-testid="sweep-confirm-overlay"
     >
@@ -414,6 +426,7 @@ function cancelPending() {
 
     <div
       v-if="showingArchiveConfirm"
+      ref="archiveConfirmRoot"
       class="rail-confirm-overlay"
       data-testid="archive-confirm-overlay"
     >

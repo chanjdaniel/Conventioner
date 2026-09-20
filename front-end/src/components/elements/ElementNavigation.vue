@@ -1,4 +1,17 @@
 <script setup lang="ts">
+import { ref } from 'vue';
+
+/**
+ * The drawer's own element, named for the app shell.
+ *
+ * While the drawer is open the rest of the page is inert, and the walk that marks it has to be
+ * able to tell the drawer apart from everything it marks. Exposed rather than read off `$el`,
+ * which Vue types as `any`: the cast checked nothing, and a root that ever became a fragment
+ * would hand back a comment node, putting the drawer itself among the marked (E14/F02/S04).
+ */
+const root = ref<HTMLElement | null>(null);
+defineExpose({ root });
+
 import { inject } from 'vue';
 import ElementNavigationItem from './ElementNavigationItem.vue';
 import IconOrganizations from '../icons/IconOrganizations.vue';
@@ -12,7 +25,7 @@ const user = inject<string | null>('user');
 </script>
 
 <template>
-  <div class="nav-bar" ref="nav-bar">
+  <div class="nav-bar" ref="root" data-testid="app-nav">
     <button class="close-button" @click="$emit('menuClose')">
       <IconCloseRound class="close-icon" />
     </button>

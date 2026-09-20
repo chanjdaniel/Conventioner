@@ -4,6 +4,7 @@ import { type Market, MarketRole } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useModalRoot } from '@/utils/useModalRoot';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -24,6 +25,9 @@ useEscapeToClose(
   () => props.manageOpen,
   () => emit('manageClose'),
 );
+
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(() => props.manageOpen);
 
 const marketData = ref<Market | null>(null);
 const loading = ref(false);
@@ -238,7 +242,7 @@ function handleClose() {
 </script>
 
 <template>
-  <div class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
+  <div ref="modalRoot" class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
     <div
       class="background"
       @click="handleClose"

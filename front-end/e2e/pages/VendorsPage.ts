@@ -10,6 +10,8 @@ export class VendorsPage {
   readonly vendorListItems: Locator;
   readonly backButton: Locator;
   readonly detailCloseButton: Locator;
+  readonly detailPanel: Locator;
+  readonly detailOverlay: Locator;
   readonly detailAssignmentItems: Locator;
 
   constructor(page: Page) {
@@ -19,6 +21,9 @@ export class VendorsPage {
     this.vendorListItems = page.getByTestId('vendors-list-item');
     this.backButton = page.getByTestId('vendors-back-button');
     this.detailCloseButton = page.getByTestId('vendors-detail-close');
+    this.detailPanel = page.getByTestId('vendors-detail-panel');
+    /** The scrim. Clicking it dismisses the drawer, and it is what holds the mouse out. */
+    this.detailOverlay = page.getByTestId('vendors-detail-overlay');
     this.detailAssignmentItems = page.getByTestId('vendors-detail-assignment-item');
   }
 

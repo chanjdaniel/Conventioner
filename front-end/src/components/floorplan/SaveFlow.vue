@@ -3,6 +3,7 @@ import { ref, computed, watch, onUnmounted } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
+import { useModalRoot } from '@/utils/useModalRoot';
 
 // ── Props ────────────────────────────────────────────────────────────
 const props = defineProps<{
@@ -19,6 +20,9 @@ const store = useFloorplanStore();
 
 // ── Dialog state ──────────────────────────────────────────────────────
 const dialogOpen = ref(false);
+
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(dialogOpen);
 const saving = ref(false);
 const error = ref('');
 const successMessage = ref('');
@@ -199,6 +203,7 @@ async function handleSave() {
     <!-- Dialog -->
     <Teleport to="body">
       <div
+        ref="modalRoot"
         class="save-dialog-root"
         :class="{ 'save-dialog-root--open': dialogOpen }"
         :aria-hidden="!dialogOpen"
