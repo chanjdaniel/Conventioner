@@ -21,13 +21,16 @@ Ask the server. The dashboard already has the session.
 ## Acceptance criteria
 
 - [x] An organizer who owns a market is never told they have none, on any browser.
-      The count comes from `GET /markets`. A fresh browser context is exactly the "never opened one"
-      case, which is why `dashboard-market-count.spec.ts` reproduces it by simply signing in.
+      The count comes from `GET /markets`.
+      A fresh browser context is exactly the "never opened one" case, which is why
+      `dashboard-market-count.spec.ts` reproduces it by simply signing in.
 - [x] An organizer who genuinely owns none still gets the welcome and the "set up your first market" action - that copy is good and should survive.
-      Unchanged, and now reached only when the server says zero.
+      Unchanged, and now reached only when the server says zero AND this browser never opened one.
 - [x] The "last market opened" convenience keeps working where the cache has one.
-      Better than before: the cache supplies the market *id*, and the card is drawn from the server's
-      answer, so a market renamed on another device no longer reads back here under its old name.
+      Better than before: the card is drawn from the server's answer, so a market renamed on another
+      device no longer reads back here under its old name.
+      Where the server cannot be reached the cached copy still draws the card, because it never
+      needed the network and losing it would trade one regression for another.
 
 ## Notes
 
@@ -39,13 +42,21 @@ If ticket 02 lands first and makes fetching uniform, this gets easier, but it do
 
 ## Notes on the shape
 
-`localStorage` is still read, and should be: which market this browser last opened is a fact about
-the browser, and nothing else records it.
-What moved to the server is the *account's* market count, which the cache was never able to answer.
+`localStorage` is still read, and should be.
+Which market this browser last opened is a fact about the browser, and nothing else records it.
+What moved to the server is the market *count*, which the cache was never able to answer.
 
 Four states, because they are four different truths and three of them were previously collapsed:
-the remembered market (drawn fresh from the server), a remembered market that has since been
-deleted, markets owned but none opened here, and genuinely none.
+the remembered market, a remembered market that has since been deleted, markets reachable but none
+opened here, and none at all.
+The deleted case splits again on whether any others survive, because "set up your first market" is
+false for someone who had one - the same falsehood this story removes, worn the other way round.
 
-A failed request is a fifth case, and it renders no claim at all - answering "you have none" when
-the question could not be asked is the same falsehood by a different road.
+A failed request is a fifth case.
+It makes no claim about the count, because answering "you have none" when the question could not be
+asked is the same falsehood by a different road.
+It still draws the remembered card, because that never depended on the request.
+
+The copy says markets are "open to you" rather than owned.
+`GET /markets` answers what the account can reach, which includes markets reached through an
+organization as a viewer.

@@ -2,8 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes.ts';
-import { api } from '@/utils/api';
-import { openMarket, parseMarketFromApi } from '@/utils/market';
+import { fetchMarkets, openMarket } from '@/utils/market';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 
@@ -24,11 +23,7 @@ const router = useRouter();
 const markets = ref<Market[]>([]);
 
 onMounted(async () => {
-  const response = await api.get('/markets');
-
-  for (const market of response.data.markets) {
-    markets.value.push(parseMarketFromApi(market));
-  }
+  markets.value = await fetchMarkets();
 });
 
 const handleLoadMarket = (market: Market) => openMarket(router, market);

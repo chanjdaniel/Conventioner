@@ -9,11 +9,10 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
 }));
 
-const get = vi.fn();
-vi.mock('@/utils/api', () => ({
-  api: {
-    get: (...args: unknown[]) => get(...args),
-  },
+const fetchMarkets = vi.fn();
+vi.mock('@/utils/market', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/utils/market')>()),
+  fetchMarkets: () => fetchMarkets(),
 }));
 
 const A_MARKET = {
@@ -27,9 +26,9 @@ const ANOTHER_MARKET = {
   creationDate: '2026-04-02T00:00:00Z',
 };
 
-/** What `GET /markets` answers for an account owning these. */
+/** What the server answers for an account that can reach these. */
 function serverHas(...markets: unknown[]) {
-  get.mockResolvedValue({ data: { markets } });
+  fetchMarkets.mockResolvedValue(markets);
 }
 
 async function mountDashboard() {
@@ -50,7 +49,7 @@ describe('DashboardView, the first screen after signing in', () => {
   beforeEach(() => {
     localStorage.clear();
     push.mockClear();
-    get.mockReset();
+    fetchMarkets.mockReset();
     serverHas();
   });
 
@@ -110,17 +109,29 @@ describe('DashboardView, the first screen after signing in', () => {
 
       const wrapper = await mountDashboard();
 
-      expect(wrapper.text()).toContain('You have 2 markets');
+      expect(wrapper.text()).toContain('2 markets are open to you');
       await wrapper.find('[data-testid="dashboard-open-market-button"]').trigger('click');
       expect(push).toHaveBeenCalledWith('/markets');
     });
 
-    it('is not told they have "1 markets"', async () => {
+    it('is not told about "1 markets"', async () => {
       serverHas(A_MARKET);
 
       const wrapper = await mountDashboard();
 
-      expect(wrapper.text()).toContain('You have one market');
+      expect(wrapper.text()).toContain('1 market is open to you');
+    });
+
+    /**
+     * `GET /markets` answers what the account can REACH, which includes markets reached through an
+     * organization as a viewer, so the copy must not claim ownership of them.
+     */
+    it('does not claim they own what they may only be able to view', async () => {
+      serverHas(A_MARKET, ANOTHER_MARKET);
+
+      const wrapper = await mountDashboard();
+
+      expect(wrapper.text()).not.toMatch(/you (have|own) \d+ markets/i);
     });
   });
 
@@ -145,13 +156,20 @@ describe('DashboardView, the first screen after signing in', () => {
       expect(wrapper.find('[data-testid="dashboard-last-market-unavailable"]').exists()).toBe(true);
     });
 
-    it('falls to the welcome when it was their only one, because now they really have none', async () => {
+    /**
+     * They had one, so "set up your FIRST market" would be the falsehood this story removes, worn
+     * the other way round. They are still told where they stand, and still offered the step.
+     */
+    it('is not greeted as a first-time organizer when it was their only one', async () => {
       browserRemembers(A_MARKET);
       serverHas();
 
       const wrapper = await mountDashboard();
 
-      expect(wrapper.find('[data-testid="dashboard-no-market-yet"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="dashboard-no-market-yet"]').exists()).toBe(false);
+      expect(wrapper.text()).toContain('no longer available');
+      expect(wrapper.text()).not.toContain('your first market');
+      expect(wrapper.find('[data-testid="dashboard-create-market-button"]').exists()).toBe(true);
     });
   });
 
@@ -192,8 +210,7 @@ describe('DashboardView, the first screen after signing in', () => {
    */
   describe('when the server cannot be reached', () => {
     it('makes no claim about the account either way', async () => {
-      browserRemembers(A_MARKET);
-      get.mockRejectedValue(new Error('offline'));
+      fetchMarkets.mockRejectedValue(new Error('offline'));
 
       const wrapper = await mountDashboard();
 
@@ -203,6 +220,21 @@ describe('DashboardView, the first screen after signing in', () => {
         false,
       );
       expect(wrapper.text()).not.toContain('You have not set up a market yet');
+    });
+
+    /**
+     * The card costs nothing to draw and never needed the network: this browser rendered it from
+     * the cache alone before the screen made any request. Losing it offline would trade one
+     * regression for another.
+     */
+    it('still offers the market this browser remembers', async () => {
+      browserRemembers(A_MARKET);
+      fetchMarkets.mockRejectedValue(new Error('offline'));
+
+      const wrapper = await mountDashboard();
+
+      expect(wrapper.find('[data-testid="dashboard-last-market-card"]').exists()).toBe(true);
+      expect(wrapper.text()).toContain('Riverside Spring Market');
     });
   });
 });
