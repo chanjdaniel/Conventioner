@@ -2,7 +2,7 @@
 id: E12
 title: Say why
 type: epic
-status: in-progress
+status: done
 blocked_by: []
 pr: [72]
 ---

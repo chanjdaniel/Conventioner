@@ -2,7 +2,7 @@
 id: E12/F01/S01
 title: Four reasons, computed on read
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [72]
 ---

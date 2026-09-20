@@ -2,7 +2,7 @@
 id: E10/F04/S03
 title: Publish Results follows intake mode
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [71]
 ---

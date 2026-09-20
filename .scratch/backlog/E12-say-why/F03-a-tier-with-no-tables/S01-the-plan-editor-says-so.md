@@ -2,7 +2,7 @@
 id: E12/F03/S01
 title: The plan editor says a tier has no tables
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [72]
 ---

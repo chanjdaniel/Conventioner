@@ -2,7 +2,7 @@
 id: E11/F03
 title: Changing a placement
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

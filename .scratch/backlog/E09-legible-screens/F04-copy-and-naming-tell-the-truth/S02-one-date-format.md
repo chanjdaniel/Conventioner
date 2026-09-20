@@ -2,7 +2,7 @@
 id: E09/F04/S02
 title: One date format, and it includes the year
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

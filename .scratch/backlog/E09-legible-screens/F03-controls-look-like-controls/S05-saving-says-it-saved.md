@@ -2,7 +2,7 @@
 id: E09/F03/S05
 title: Saving says it saved
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

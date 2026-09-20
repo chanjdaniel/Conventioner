@@ -2,7 +2,7 @@
 id: E11/F01
 title: A placement has one writer
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

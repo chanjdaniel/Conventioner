@@ -2,7 +2,7 @@
 id: E09/F06/S03
 title: The row's actions, and Open stops landing on a 404
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

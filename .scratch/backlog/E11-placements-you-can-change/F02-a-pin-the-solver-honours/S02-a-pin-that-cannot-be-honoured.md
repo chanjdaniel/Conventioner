@@ -2,7 +2,7 @@
 id: E11/F02/S02
 title: A pin that cannot be honoured
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

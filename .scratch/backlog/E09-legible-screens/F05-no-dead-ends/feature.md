@@ -2,7 +2,7 @@
 id: E09/F05
 title: No dead ends, and always a market
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

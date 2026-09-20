@@ -2,7 +2,7 @@
 id: E10/F01/S02
 title: The check-in URL is on the rail
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---
