@@ -533,7 +533,23 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   4.43:1 on the phase rail's `#FBFBFA`.
 - **Form controls do not inherit `font-family`.** Setting `font: inherit` on them alone is wrong while
   `body` declares Inter - it makes every control Inter while the 274 Outfit rules around them stay
-  Outfit. `body` becomes Outfit first (`E15/F01/S01`).
+  Outfit. `body` becomes Outfit first (`E15/F01/S01`). And `font` is a SHORTHAND: it carries
+  `line-height` too, and a control's height is its line box, so the reset pairs it with
+  `line-height: normal`.
+- **`front-end/src/assets/primitives.css` owns every control.** `.btn`, `.field` and `.chip` carry
+  height, padding, radius, type, focus and the disabled state, because a token cannot stop a file
+  writing `height: 45px` - and that was the damage: ten control heights on one screen, four disabled
+  treatments, sixty button-ish class names. Reach for a primitive rather than deciding again;
+  `src/__tests__/primitives.test.ts` is the contract.
+- **`npm run lint:css` is the design-language gate**, and it is **warnings globally, errors per
+  migrated file** (`.stylelintrc.json` `overrides`). A rule that fails the build on a pre-existing
+  backlog gets switched off, so a slice adds its files to that list when it lands. Everything MVP
+  serves is on the list; the 174 remaining warnings are the floorplan GUI and the applicant views,
+  both switched off in MVP.
+- **A screen is one of two widths and never caps its own height.** `--workspace-max` (1440) or
+  `--list-max` (1100); the PAGE scrolls. `.app-container` used to be `position: absolute;
+  height: 100vh`, which is why no screen could scroll the page and every tall screen grew its own
+  nested scrollers. Do not reintroduce a viewport-height shell.
 
 ## Agent skills
 
