@@ -1,42 +1,74 @@
 <script setup lang="ts">
-import { inject, ref, onMounted } from 'vue';
+import { inject, ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes';
-import { openMarket } from '@/utils/market';
+import { api } from '@/utils/api';
+import { openMarket, parseMarketFromApi } from '@/utils/market';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 
 const setUser: (user: unknown) => void = inject('setUser')!;
 const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
 
-const lastMarket = ref<Market | null>(null);
 /**
- * Whether a market was ever opened in this browser.
+ * The account's markets, or null while that is still unknown.
  *
- * Two very different situations used to render the same greyed "Last market not found" card: an
- * organizer who has never opened one, and an organizer whose remembered market can no longer be
- * read. Only the second is a failure, and the first is what EVERY organizer sees on their first
- * sign-in - so the product's opening words were a report that something was missing.
+ * Whether the account has any market is a fact about the ACCOUNT, and only the server holds it.
+ * This screen used to answer it from `localStorage`, which holds a fact about the BROWSER - the
+ * market last opened here - so a fresh sign-in, a second device or cleared site data all produced
+ * "You have not set up a market yet" for an organizer who owned several, over a button that makes
+ * a duplicate rather than opening what they have (E14/F01/S02).
+ *
+ * Null is a third state on purpose, and the template renders no claim while it holds: a failed
+ * request must not be able to say "you have none" either, which is the same falsehood arriving by
+ * a different road.
  */
+const markets = ref<Market[] | null>(null);
+
+/**
+ * What this browser remembers, which is still the only place the LAST market opened is recorded.
+ * The id alone: the market itself is taken from the server's answer below, so the card cannot show
+ * a stale name for a market that has since been renamed.
+ */
+const rememberedMarketId = ref<string | null>(null);
+/** Whether this browser ever opened one - true even if what it stored can no longer be read. */
 const everOpenedOne = ref(false);
 
-function isValidMarket(obj: unknown): obj is Market {
-  if (!obj || typeof obj !== 'object') return false;
-  const m = obj as Record<string, unknown>;
-  return typeof m.id === 'string' && typeof m.name === 'string';
-}
+/** The remembered market as the server has it now, or null if it is gone or was never there. */
+const lastMarket = computed(
+  () => markets.value?.find((m) => m.id === rememberedMarketId.value) ?? null,
+);
+const hasAnyMarket = computed(() => (markets.value?.length ?? 0) > 0);
+/**
+ * Distinct from having none, and still worth saying: an organizer whose remembered market has been
+ * deleted is not a first-time organizer, and telling them to set up their first market would be
+ * the same kind of falsehood this story exists to remove.
+ */
+const lastMarketIsGone = computed(() => everOpenedOne.value && lastMarket.value === null);
 
-onMounted(() => {
+function readRememberedMarket() {
+  const stored = localStorage.getItem('market');
+  if (!stored) return;
+  everOpenedOne.value = true;
   try {
-    const stored = localStorage.getItem('market');
-    if (!stored) return;
-    everOpenedOne.value = true;
     const parsed = JSON.parse(stored) as unknown;
-    if (isValidMarket(parsed)) {
-      lastMarket.value = parsed;
+    if (parsed && typeof parsed === 'object') {
+      const id = (parsed as Record<string, unknown>).id;
+      if (typeof id === 'string') rememberedMarketId.value = id;
     }
   } catch {
-    lastMarket.value = null;
+    // Unreadable: this browser opened something, but cannot say what. `lastMarketIsGone` covers it.
+  }
+}
+
+onMounted(async () => {
+  readRememberedMarket();
+  try {
+    const response = await api.get('/markets');
+    markets.value = (response.data.markets || []).map(parseMarketFromApi);
+  } catch {
+    // Leave it unknown rather than guessing at zero; the template says nothing either way.
+    markets.value = null;
   }
 });
 
@@ -72,8 +104,10 @@ const handleSignOut = async () => {
 <template>
   <div class="dashboard-view">
     <div class="main-buttons">
-      <div class="last-market-section">
-        <span v-if="lastMarket || everOpenedOne" class="last-market-label">Previously opened</span>
+      <!-- Nothing is claimed until the server has answered: every branch below is a statement
+           about the account, and this screen cannot make one from what the browser remembers. -->
+      <div class="last-market-section" v-if="markets !== null">
+        <span v-if="lastMarket" class="last-market-label">Previously opened</span>
         <MarketSummaryCard
           v-if="lastMarket"
           class="last-market-row"
@@ -82,11 +116,41 @@ const handleSignOut = async () => {
           @open="handleLoadLastMarket"
         />
         <div
-          v-else-if="everOpenedOne"
-          class="last-market-card last-market-card--disabled"
+          v-else-if="lastMarketIsGone && hasAnyMarket"
+          class="last-market-card last-market-card--welcome"
           data-testid="dashboard-last-market-unavailable"
         >
-          <span class="disabled-text">The market you last opened is no longer available</span>
+          <span class="welcome-text">
+            The market you last opened is no longer available. Your other markets are still here.
+          </span>
+          <button
+            class="welcome-action"
+            @click="handleMarkets"
+            data-testid="dashboard-open-market-button"
+          >
+            Open a market
+          </button>
+        </div>
+        <!-- They own markets; this browser just has not opened one. The old screen said they had
+             none, which was false, and offered to make another. -->
+        <div
+          v-else-if="hasAnyMarket"
+          class="last-market-card last-market-card--welcome"
+          data-testid="dashboard-has-markets"
+        >
+          <span class="welcome-text">
+            {{
+              markets.length === 1 ? 'You have one market.' : `You have ${markets.length} markets.`
+            }}
+            This browser has not opened one yet.
+          </span>
+          <button
+            class="welcome-action"
+            @click="handleMarkets"
+            data-testid="dashboard-open-market-button"
+          >
+            Open a market
+          </button>
         </div>
         <!-- First sign-in. It used to read "Open a market to get started" on a page offering no
              way to make one, which is an instruction the organizer cannot follow: there is no
@@ -267,26 +331,6 @@ const handleSignOut = async () => {
 
 .welcome-action:hover {
   opacity: 0.9;
-}
-
-.last-market-card--disabled {
-  cursor: default;
-  opacity: 0.6;
-  background: #f5f5f5;
-  justify-content: center;
-  min-height: 95px;
-}
-
-.last-market-card--disabled:hover {
-  border-color: var(--mm-border);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transform: none;
-}
-
-.disabled-text {
-  color: var(--mm-text-muted);
-  font-size: 16px;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 /* Signing out is not a destination the organizer came here for. It was a black slab the size of

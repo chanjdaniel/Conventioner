@@ -36,3 +36,7 @@ flask_session/
 # dumps are throwaway.
 /.playwright-mcp
 /.lavish/*.ttf
+
+# Verification screenshots taken through the Playwright MCP browser, which resolves relative paths
+# against the repo root rather than front-end/ (where an identical rule already lives).
+/e2e-screenshots
