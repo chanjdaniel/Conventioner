@@ -362,7 +362,7 @@ function label(email: string | null | undefined): string {
 
 .placement-error {
   margin: 0;
-  color: var(--mm-text-red);
+  color: var(--mm-red);
   font-size: 13px;
 }
 
@@ -389,8 +389,8 @@ function label(email: string | null | undefined): string {
 }
 
 .ghost-button--danger {
-  color: var(--mm-text-red);
-  border-color: var(--mm-text-red);
+  color: var(--mm-red);
+  border-color: var(--mm-red);
 }
 
 .confirm-button {

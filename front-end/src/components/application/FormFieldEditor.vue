@@ -257,7 +257,7 @@ function updateOption(idx: number, value: string) {
 }
 
 .icon-remove {
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .add-option-btn {

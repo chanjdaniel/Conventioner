@@ -139,6 +139,11 @@ describe('the palette carries a contrast contract', () => {
     ['--mm-green', 'white'],
     ['--mm-yellow', '--mm-black'],
     ['--mm-beige', '--mm-black'],
+    // Added by E16/F01, and declared as fills here on purpose. Three of the nine reds they retired
+    // could not carry white text at all - #f44336, the Reject button, was 3.68 - and that went
+    // unnoticed because a hardcoded colour has no name to hold to a contract.
+    ['--mm-red', 'white'],
+    ['--mm-blue', 'white'],
   ];
 
   for (const [fill, ink] of FILLS) {

@@ -462,7 +462,7 @@ function errorFor(key: string): string {
 }
 
 .essential-required {
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .essential-help {
@@ -482,7 +482,7 @@ function errorFor(key: string): string {
 }
 
 .essential-choice-list.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .essential-choice {
@@ -526,7 +526,7 @@ function errorFor(key: string): string {
 }
 
 .essential-text-input.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .essential-max-input {
@@ -540,12 +540,12 @@ function errorFor(key: string): string {
 }
 
 .essential-max-input.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .essential-error {
   font-size: 12px;
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
   margin: 2px 0 0;
 }
 .essential-tier-day {

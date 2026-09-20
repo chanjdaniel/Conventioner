@@ -285,7 +285,7 @@ async function submitForm() {
 .apply-error {
   margin-top: 4px;
   background: #f8d7da;
-  border: 1px solid var(--mm-red, #cc0000);
+  border: 1px solid var(--mm-red);
   border-radius: 6px;
   padding: 12px 16px;
   font-size: 14px;

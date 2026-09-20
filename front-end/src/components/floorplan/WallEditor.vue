@@ -854,7 +854,7 @@ watch(
 
 .toolbar-btn--danger:hover:not(:disabled) {
   background: rgba(220, 80, 80, 0.12);
-  color: #c0392b;
+  color: var(--mm-red);
 }
 
 .toolbar-btn svg {

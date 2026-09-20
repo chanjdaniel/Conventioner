@@ -614,9 +614,9 @@ const submitOTPLogin = async () => {
 }
 
 /* Left-aligned with the form it belongs to. It was right-aligned against a left-aligned form,
-   so the eye had to hunt for it. `red` is also not a token; #c0392b reaches AA on white. */
+   so the eye had to hunt for it. `red` is also not a token; var(--mm-red) reaches AA on white. */
 .error-message {
-  color: #c0392b;
+  color: var(--mm-red);
   text-align: left;
   font-size: 14px;
   margin-top: 10px;

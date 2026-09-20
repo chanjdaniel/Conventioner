@@ -652,7 +652,7 @@ function handleBack(): void {
 .filter-input:focus {
   outline: none;
   border-color: var(--mm-green);
-  box-shadow: 0 0 0 3px rgba(73, 176, 150, 0.18);
+  box-shadow: 0 0 0 3px rgba(54, 130, 111, 0.18);
 }
 
 .summary-line {
@@ -671,7 +671,7 @@ function handleBack(): void {
 
 .error-text {
   margin: 0;
-  color: #c62828;
+  color: var(--mm-red);
   font-size: 14px;
 }
 
@@ -754,7 +754,7 @@ function handleBack(): void {
 
 .vendor-row-button:hover {
   border-color: var(--mm-green);
-  box-shadow: 0 2px 8px rgba(73, 176, 150, 0.18);
+  box-shadow: 0 2px 8px rgba(54, 130, 111, 0.18);
 }
 
 .vendor-row-button:active {
@@ -763,7 +763,7 @@ function handleBack(): void {
 
 .vendor-row--active .vendor-row-button {
   border-color: var(--mm-green);
-  box-shadow: 0 0 0 2px rgba(73, 176, 150, 0.35);
+  box-shadow: 0 0 0 2px rgba(54, 130, 111, 0.35);
 }
 
 .vendor-email {
@@ -792,8 +792,11 @@ function handleBack(): void {
 }
 
 .vendor-badge--assigned {
-  background: rgba(73, 176, 150, 0.16);
-  color: #1e7a4f;
+  background: rgba(54, 130, 111, 0.16);
+  /* Darkened from #1e7a4f, which measured 4.35 on this tint - the rendered-usage sweep in
+     E16/F01/S05 is what found it. A tinted chip is its own ground, and neither the token test nor
+     the eye catches a miss of 0.15. */
+  color: #2a6858; /* 5.34 on rgba(54,130,111,.16) over white */
 }
 
 .vendor-badge--unassigned {

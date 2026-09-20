@@ -241,7 +241,7 @@ onMounted(loadAttendance);
 
 .error-text {
   margin: 0 0 12px;
-  color: #c62828;
+  color: var(--mm-red);
   font-size: 14px;
 }
 

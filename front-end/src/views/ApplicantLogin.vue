@@ -214,7 +214,7 @@ function goBack() {
 
 .login-error {
   background: #f8d7da;
-  border: 1px solid var(--mm-red, #cc0000);
+  border: 1px solid var(--mm-red);
   border-radius: 6px;
   padding: 12px 16px;
   margin-bottom: 16px;

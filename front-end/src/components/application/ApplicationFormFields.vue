@@ -171,7 +171,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-required {
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .form-help {
@@ -190,7 +190,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-input.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .form-checkbox-label {
@@ -214,18 +214,18 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-multiselect.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .form-field-error {
   font-size: 12px;
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
   margin: 2px 0 0;
 }
 
 .form-unsupported {
   font-size: 12px;
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
   font-style: italic;
 }
 </style>

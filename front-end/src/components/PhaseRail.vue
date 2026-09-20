@@ -465,7 +465,10 @@ function cancelPending() {
   width: 100%;
   padding: 12px 24px 14px;
   border-bottom: 1px solid var(--mm-border);
-  background: #fbfbfa;
+  /* White, not the #fbfbfa this used to be. --mm-green is measured at 4.59 on WHITE; on that
+     off-white it rendered 4.43, so the current-phase label failed AA on every market screen -
+     a token is only AA on the ground it was measured against (E16/F01/S03). */
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -650,7 +653,7 @@ function cancelPending() {
 /* Destructive reads as destructive wherever it appears, and going back does not read as going
    on: `Reopen for Editing` was drawn as an advance. */
 .rail-menu-item--end {
-  color: var(--mm-text-red);
+  color: var(--mm-red);
 }
 
 .rail-menu-item--back::before {
@@ -667,7 +670,7 @@ function cancelPending() {
 .phase-rail-error {
   margin: 0;
   font-size: 13px;
-  color: var(--mm-text-red);
+  color: var(--mm-red);
 }
 
 .rail-confirm-overlay {
@@ -695,7 +698,9 @@ function cancelPending() {
   margin: 0 0 10px;
   font-family: 'Merge One', sans-serif;
   font-size: 19px;
-  color: var(--mm-green);
+  /* Not --mm-green. This is the heading of a permanent, irreversible confirmation, and the
+     product's affirmative colour is the wrong thing to say over "cannot be undone" (E16/F01). */
+  color: var(--mm-black);
 }
 
 .rail-confirm-dialog p {
@@ -726,8 +731,8 @@ function cancelPending() {
 }
 
 .confirm-archive-button {
-  border: 1px solid var(--mm-text-red);
-  background: var(--mm-text-red);
+  border: 1px solid var(--mm-red);
+  background: var(--mm-red);
   color: white;
 }
 

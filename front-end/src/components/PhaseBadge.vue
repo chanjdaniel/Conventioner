@@ -31,7 +31,7 @@ const label = computed(() => phaseLabel(current.value));
   background: #6b7280;
 }
 .phase-applications_open {
-  background: #3472d8;
+  background: var(--mm-blue);
 }
 .phase-applications_closed {
   background: #a46a07;

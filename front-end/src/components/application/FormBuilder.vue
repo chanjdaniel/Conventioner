@@ -249,7 +249,7 @@ const fieldCount = computed(() => fields.value.length);
 
 .required-badge {
   font-size: 11px;
-  background: var(--mm-red, #cc0000);
+  background: var(--mm-red);
   color: white;
   border-radius: 3px;
   padding: 1px 6px;
@@ -257,8 +257,8 @@ const fieldCount = computed(() => fields.value.length);
 
 .remove-btn {
   background: none;
-  border: 1px solid var(--mm-red, #cc0000);
-  color: var(--mm-red, #cc0000);
+  border: 1px solid var(--mm-red);
+  color: var(--mm-red);
   border-radius: 4px;
   padding: 2px 8px;
   cursor: pointer;
@@ -266,7 +266,7 @@ const fieldCount = computed(() => fields.value.length);
 }
 
 .remove-btn:hover {
-  background: var(--mm-red, #cc0000);
+  background: var(--mm-red);
   color: white;
 }
 

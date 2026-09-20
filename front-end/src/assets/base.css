@@ -35,6 +35,21 @@
   --mm-yellow: #e4a629; /* --mm-black on it: 7.24 */
   --mm-beige: #e9e6e1; /* --mm-black on it: 12.49 */
 
+  /* Destructive, and informational. Both desaturated, which is what lets them sit beside
+     --mm-green; every saturated candidate (the Material reds, the two badge blues) looked
+     borrowed next to it.
+
+     --mm-red replaces NINE hardcoded reds across 77 occurrences, three of which could not carry
+     white text at all (#e74c3c 3.82, #f44336 3.68 on the Reject button, #e53935 4.23). The
+     most-used of them, #cc0000, was never chosen: it was the fallback beside this very token -
+     `var(--mm-red, #cc0000)` - standing in for a token nothing defined. See E16/F01.
+
+     --mm-blue is the same hue as --mm-text-link, so the palette gains one value rather than two.
+     It replaces the two different blues the product used for one state - "Applications Open" on
+     the markets list and "Open" on the triage card. */
+  --mm-red: #c0392b; /* white text on it: 5.44 */
+  --mm-blue: #1a6f8b; /* white text on it: 5.69 */
+
   /* ---- Lines and states. Never carry text, so exempt from the contrast rule. ---- */
   --mm-border: rgba(39, 35, 35, 0.25);
   --hover-grey: rgba(192, 192, 192, 0.486);

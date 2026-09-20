@@ -1117,7 +1117,7 @@ h2 {
 
 .done-error {
   margin: 8px 0 0;
-  color: #c62828;
+  color: var(--mm-red);
   font-size: 14px;
 }
 

@@ -1247,7 +1247,7 @@ h2 {
   gap: 12px;
   font-size: 13px;
   line-height: 1.4;
-  color: #8a1f1f;
+  color: var(--mm-red);
   background: #fdeaea;
   border: 1px solid #f0a9a9;
   border-radius: 6px;
@@ -1257,8 +1257,8 @@ h2 {
 .retry-button {
   flex-shrink: 0;
   background: none;
-  border: 1px solid #8a1f1f;
-  color: #8a1f1f;
+  border: 1px solid var(--mm-red);
+  color: var(--mm-red);
   border-radius: 4px;
   padding: 3px 12px;
   cursor: pointer;
@@ -1266,7 +1266,7 @@ h2 {
 }
 
 .retry-button:hover {
-  background: #8a1f1f;
+  background: var(--mm-red);
   color: white;
 }
 
@@ -1279,7 +1279,7 @@ h2 {
 }
 
 .save-status.error {
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .save-status.hint {

@@ -295,7 +295,7 @@ h3 {
   top: 35px;
   left: 50%;
   transform: translateX(-50%);
-  color: #d32f2f;
+  color: var(--mm-red);
   font-size: 13px;
   text-align: center;
   white-space: nowrap;
