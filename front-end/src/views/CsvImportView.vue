@@ -1188,7 +1188,7 @@ function startOver() {
   margin: 0;
   padding: 10px 14px;
   border: 1px solid var(--mm-red);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: var(--mm-red);
   font-size: var(--text-sm);
 }
@@ -1242,7 +1242,7 @@ function startOver() {
 
 .ledger-table td {
   padding: 10px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--mm-border);
   vertical-align: middle;
 }
 
@@ -1266,7 +1266,7 @@ function startOver() {
 }
 
 .ledger-group-row {
-  background: #f2f8f4;
+  background: rgba(54, 130, 111, 0.16);
 }
 
 .ledger-shape {
@@ -1298,8 +1298,8 @@ function startOver() {
   margin-bottom: 12px;
   padding: 10px 14px;
   border: 1px solid rgba(54, 130, 111, 0.16);
-  border-radius: 6px;
-  background: #f2f8f4;
+  border-radius: var(--radius-control);
+  background: rgba(54, 130, 111, 0.16);
   font-size: var(--text-xs);
 }
 
@@ -1307,24 +1307,24 @@ function startOver() {
   display: inline-block;
   margin-left: 8px;
   padding: 1px 6px;
-  border-radius: 999px;
-  background: #e8f3ec;
+  border-radius: var(--radius-pill);
+  background: rgba(54, 130, 111, 0.16);
   color: var(--mm-green);
   font-size: var(--text-xs);
   font-weight: 400;
 }
 
 .ledger-badge.new {
-  background: #fff4e5;
-  color: #a5670b;
+  background: rgba(228, 166, 41, 0.18);
+  color: var(--mm-text-yellow);
 }
 
 .ledger-fixes {
   margin-top: 10px;
   padding: 10px;
   border: 1px solid var(--mm-red);
-  border-radius: 6px;
-  background: #fff8f8;
+  border-radius: var(--radius-control);
+  background: rgba(192, 57, 43, 0.14);
 }
 
 .ledger-fixes-title {
@@ -1343,8 +1343,8 @@ function startOver() {
 
 .ledger-fix code {
   padding: 2px 6px;
-  border-radius: 4px;
-  background: #f2f2f2;
+  border-radius: var(--radius-control);
+  background: var(--mm-beige);
   font-size: var(--text-xs);
 }
 
@@ -1358,7 +1358,7 @@ function startOver() {
   padding: 2px 6px;
   font-size: var(--text-xs);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
@@ -1388,15 +1388,15 @@ function startOver() {
   padding: 4px 8px;
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
 .import-rail {
   border: 1px solid var(--mm-border);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   padding: 16px;
-  background: #fafafa;
+  background: var(--mm-beige);
 }
 
 .import-rail h3 {
@@ -1434,7 +1434,7 @@ function startOver() {
   margin-top: 12px;
   padding: 10px 12px;
   border-left: 3px solid var(--mm-green);
-  background: #eef8f5;
+  background: rgba(54, 130, 111, 0.16);
   font-size: var(--text-xs);
 }
 
@@ -1465,8 +1465,8 @@ function startOver() {
   padding: 36px 24px;
   margin-top: 8px;
   border: 2px dashed var(--mm-border);
-  border-radius: 10px;
-  background: #fbfbfb;
+  border-radius: var(--radius-card);
+  background: var(--mm-beige);
   cursor: pointer;
   transition:
     border-color 0.12s ease,
@@ -1476,7 +1476,7 @@ function startOver() {
 .drop-zone:hover,
 .drop-zone.dragging {
   border-color: var(--mm-green);
-  background: #f1faf7;
+  background: rgba(54, 130, 111, 0.16);
 }
 
 .drop-zone.busy {
@@ -1534,8 +1534,8 @@ function startOver() {
 }
 
 .sample-card {
-  border: 1px solid #eee;
-  border-radius: 5px;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
   background: white;
   padding: 12px 14px;
   min-width: 0;
@@ -1579,8 +1579,8 @@ function startOver() {
   justify-content: space-between;
   gap: 16px;
   padding: 8px 10px;
-  border: 1px solid #eee;
-  border-radius: 5px;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
   background: white;
 }
 
@@ -1589,17 +1589,17 @@ function startOver() {
 }
 
 .import-note.warn {
-  border-color: #e6c07a;
-  background: #fff8ea;
-  color: #7a5a12;
+  border-color: var(--mm-yellow);
+  background: rgba(228, 166, 41, 0.18);
+  color: var(--mm-text-yellow);
 }
 
 .import-note {
   margin: 0;
   padding: 10px 14px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
-  background: #fafafa;
+  border-radius: var(--radius-control);
+  background: var(--mm-beige);
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
@@ -1607,7 +1607,7 @@ function startOver() {
 .import-failures {
   margin-top: 8px;
   border: 1px solid var(--mm-red);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 12px 14px;
 }
 
@@ -1638,7 +1638,7 @@ function startOver() {
 .button-secondary {
   height: 38px;
   padding: 0 18px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: var(--text-sm);
   cursor: pointer;
   border: 1px solid var(--mm-border);

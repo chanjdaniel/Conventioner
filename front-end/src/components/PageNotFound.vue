@@ -45,7 +45,7 @@ p {
 .not-found-action {
   height: 38px;
   padding: 0 18px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--mm-green);
   background: var(--mm-green);
   color: white;

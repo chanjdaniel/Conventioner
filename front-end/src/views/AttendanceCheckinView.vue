@@ -287,15 +287,15 @@ async function undoCheckIn(date: string): Promise<void> {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  background-color: #f6f7f9;
+  background-color: var(--mm-beige);
 }
 
 .attendance-card {
   width: 100%;
   max-width: 720px;
   background-color: white;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.15);
-  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -368,15 +368,15 @@ async function undoCheckIn(date: string): Promise<void> {
   height: 40px;
   padding: 0 12px;
   font-size: var(--text-md);
-  border: 1px solid #cfd3d8;
-  border-radius: 6px;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
 }
 
 .primary-button {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 0 16px;
   height: 40px;
   font-family: 'Merge One', sans-serif;
@@ -400,7 +400,7 @@ async function undoCheckIn(date: string): Promise<void> {
   background: white;
   color: var(--mm-black);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 0 16px;
   height: 40px;
   font-size: var(--text-sm);
@@ -448,8 +448,8 @@ async function undoCheckIn(date: string): Promise<void> {
 }
 
 .assignment-card {
-  border: 1px solid #e1e4e8;
-  border-radius: 8px;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-card);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -477,7 +477,7 @@ async function undoCheckIn(date: string): Promise<void> {
   background: var(--mm-green);
   color: white;
   padding: 2px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -500,10 +500,10 @@ async function undoCheckIn(date: string): Promise<void> {
 }
 
 .checked-in-pill {
-  background: #e7f5ee;
-  color: #1e7a4f;
+  background: rgba(54, 130, 111, 0.16);
+  color: var(--mm-text-green);
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--text-sm);
 }
 
