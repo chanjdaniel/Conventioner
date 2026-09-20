@@ -1,4 +1,5 @@
 @import './base.css';
+@import './primitives.css';
 
 /*
  * The mount point holds no layout of its own: each screen owns its width and its gutter, from

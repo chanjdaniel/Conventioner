@@ -56,7 +56,9 @@ test.describe('Things meant to line up do', () => {
   }) => {
     await openTheSeededMarket(page);
     await page.goto('/vendors');
-    await expect(page.getByTestId('vendors-search-input')).toBeVisible({ timeout: 10000 });
+    // Wait for a ROW, not for the search box. The box renders before the list has loaded, so
+    // waiting on it measured an empty list and the assertion below passed or failed on timing.
+    await expect(page.locator('.vendor-date-count').first()).toBeVisible({ timeout: 15000 });
 
     const counts = await page.locator('.vendor-date-count').evaluateAll((nodes) =>
       nodes.map((n) => ({

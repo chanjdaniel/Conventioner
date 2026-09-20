@@ -142,13 +142,19 @@ The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#0
 
 Tokens alone cannot fix what is actually wrong. A `--radius-control` does not stop a file writing `height: 45px`, and the concentrated damage is exactly there: five control heights on the login screen, ten on Market Setup, four disabled treatments, two designs for the same `Manage` button.
 
-Three primitives own height, padding, radius, type, focus and the disabled state:
+Three primitives own height, padding, radius, type, focus and the disabled state. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
 
-- `.btn` with `--primary`, `--secondary`, `--destructive`, and one disabled state.
-- `.field` for input, select and textarea.
-- `.chip` for status badges and labels.
+| | Variants | Notes |
+| --- | --- | --- |
+| `.btn` | `--primary`, `--secondary`, `--destructive`, `--compact` | One standard height (36px) and one compact (28px), and no third. 36px was already the most-used height in the product; 34, 38 and 40 were the same button drawn by four people. |
+| `.field` | `--select`, `--textarea` | Left-aligned always - 18 of 27 controls on Market Setup were centred. `--select` carries `min-width: min-content`, which is what stops a grid track squeezing a select below its own longest option. |
+| `.chip` | `--neutral`, `--positive`, `--attention`, `--informational`, `--destructive` | One shape, one size, sentence case. Tint with coloured ink rather than a solid fill: a list of six solid pills competes with the content it labels. |
 
-They are built in `E16/F03`, deliberately **after** `claims-and-room` ticket 01 rewrites Market Setup, so they have a real consumer rather than a layout that is about to be replaced.
+**One disabled state**, and it does not rely on text contrast: the control keeps a readable foreground and loses its affordance, so it reads as unavailable rather than as unreadable. The product had four, one of which put white on `--mm-border` at 1.74:1.
+
+**A focus ring on every primitive**, in `--mm-black` rather than the brand green - it has to be visible against the control's own fill too, and a green ring on the green primary button is invisible. The product has 65 keyboard-reachable controls and had no consistent focus treatment at all.
+
+They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Setup, so they had a real consumer rather than a layout about to be replaced. **Nothing migrated onto them in that feature**: `E16/F05`-`F08` move one surface at a time.
 
 ## What keeps this true
 
