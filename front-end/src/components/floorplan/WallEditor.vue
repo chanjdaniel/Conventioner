@@ -825,7 +825,7 @@ watch(
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   line-height: 1;
   cursor: pointer;
 
@@ -873,7 +873,7 @@ watch(
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(6px);
   border-radius: 6px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   box-shadow: 0 1px 6px rgba(39, 35, 35, 0.08);
   z-index: 10;

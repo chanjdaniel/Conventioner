@@ -192,7 +192,7 @@ function onSaved(payload: { market_id: string }) {
 }
 
 .workflow-progress span {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: rgba(39, 35, 35, 0.35);
   padding: 6px 14px;
   border-radius: 20px;
@@ -253,7 +253,7 @@ function onSaved(payload: { market_id: string }) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   cursor: pointer;
   user-select: none;
@@ -299,7 +299,7 @@ function onSaved(payload: { market_id: string }) {
   height: 38px;
   padding: 0 20px;
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   border: none;
   border-radius: 8px;

@@ -172,19 +172,19 @@ function logout() {
 
 .dash-header h1 {
   font-family: 'Merge One';
-  font-size: 24px;
+  font-size: var(--text-xl);
   color: var(--mm-black);
   margin: 0;
 }
 
 .dash-market {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   margin: 0 0 8px;
 }
 
 .dash-email {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   margin: 0 0 24px;
 }
@@ -192,7 +192,7 @@ function logout() {
 .dash-loading {
   text-align: center;
   padding: 40px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
 
@@ -201,7 +201,7 @@ function logout() {
   border: 1px solid #86b7fe;
   border-radius: 6px;
   padding: 16px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: #084298;
 }
@@ -222,7 +222,7 @@ function logout() {
 }
 
 .dash-status-card.status-approved {
-  background: #e8f5e9;
+  background: rgba(54, 130, 111, 0.16);
   border: 1px solid #81c784;
   color: var(--mm-green);
 }
@@ -240,18 +240,18 @@ function logout() {
 }
 
 .status-label {
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 400;
   font-family: 'Merge One';
 }
 
 .status-date {
-  font-size: 13px;
+  font-size: var(--text-xs);
   opacity: 0.8;
 }
 
 .dash-form-answers h3 {
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
   margin: 0 0 12px;
 }
@@ -271,7 +271,7 @@ function logout() {
 }
 
 .answer-row dt {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   color: var(--mm-text-muted);
@@ -279,13 +279,13 @@ function logout() {
 }
 
 .answer-row dd {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   margin: 0;
 }
 
 .dash-no-answers {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   padding: 20px;
   text-align: center;
@@ -303,7 +303,7 @@ function logout() {
   border-radius: 5px;
   cursor: pointer;
   font-family: 'Merge One';
-  font-size: 14px;
+  font-size: var(--text-sm);
   border: none;
 }
 

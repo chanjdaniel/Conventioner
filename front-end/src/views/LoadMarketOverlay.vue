@@ -98,7 +98,7 @@ const handleLoadMarket = (market: Market) => openMarket(router, market);
   z-index: 1;
   padding: 0;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-card);
 }
 
 .header {
@@ -108,7 +108,7 @@ const handleLoadMarket = (market: Market) => openMarket(router, market);
 
 .header h2 {
   margin: 0;
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 600;
   color: var(--mm-black);
 }
@@ -116,7 +116,7 @@ const handleLoadMarket = (market: Market) => openMarket(router, market);
 .empty-state {
   margin-top: 12px;
   color: #666;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .markets-container {

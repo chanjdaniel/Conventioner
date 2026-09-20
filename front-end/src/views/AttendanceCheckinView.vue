@@ -309,7 +309,7 @@ async function undoCheckIn(date: string): Promise<void> {
 .attendance-eyebrow {
   margin: 0 0 2px;
   color: var(--mm-text-muted-on-dark);
-  font-size: 13px;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   text-align: center;
@@ -318,20 +318,20 @@ async function undoCheckIn(date: string): Promise<void> {
 .attendance-header h1 {
   margin: 0;
   color: white;
-  font-size: 26px;
+  font-size: var(--text-xl);
   text-align: center;
   overflow-wrap: anywhere;
 }
 
 .field-help {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
 .not-today-note {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-yellow);
 }
 
@@ -349,7 +349,7 @@ async function undoCheckIn(date: string): Promise<void> {
 }
 
 .lookup-form label {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
@@ -367,7 +367,7 @@ async function undoCheckIn(date: string): Promise<void> {
      (E15/F01/S03). */
   height: 40px;
   padding: 0 12px;
-  font-size: 16px;
+  font-size: var(--text-md);
   border: 1px solid #cfd3d8;
   border-radius: 6px;
 }
@@ -380,7 +380,7 @@ async function undoCheckIn(date: string): Promise<void> {
   padding: 0 16px;
   height: 40px;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   cursor: pointer;
   transition: opacity 0.15s ease-in-out;
 }
@@ -403,7 +403,7 @@ async function undoCheckIn(date: string): Promise<void> {
   border-radius: 5px;
   padding: 0 16px;
   height: 40px;
-  font-size: 15px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
@@ -415,7 +415,7 @@ async function undoCheckIn(date: string): Promise<void> {
   background: none;
   border: none;
   padding: 6px 8px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-link);
   text-decoration: underline;
   cursor: pointer;
@@ -424,7 +424,7 @@ async function undoCheckIn(date: string): Promise<void> {
 .error-text {
   margin: 0;
   color: var(--mm-red);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .assignments-list {
@@ -437,12 +437,12 @@ async function undoCheckIn(date: string): Promise<void> {
   margin: 0;
   display: flex;
   flex-direction: column;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
 }
 
 .looked-up-email {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   overflow-wrap: anywhere;
 }
@@ -454,13 +454,13 @@ async function undoCheckIn(date: string): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
 }
 
 .assignment-card--today {
   border-color: var(--mm-green);
   border-width: 2px;
-  box-shadow: 0 2px 8px rgba(54, 130, 111, 0.18);
+  box-shadow: var(--shadow-card);
 }
 
 .assignment-date {
@@ -469,7 +469,7 @@ async function undoCheckIn(date: string): Promise<void> {
   gap: 10px;
   flex-wrap: wrap;
   font-family: 'Merge One', sans-serif;
-  font-size: 18px;
+  font-size: var(--text-lg);
   color: var(--mm-green);
 }
 
@@ -478,13 +478,13 @@ async function undoCheckIn(date: string): Promise<void> {
   color: white;
   padding: 2px 10px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .assignment-meta {
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -504,7 +504,7 @@ async function undoCheckIn(date: string): Promise<void> {
   color: #1e7a4f;
   padding: 6px 12px;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 /* Check-in is laptop-primary, but it is the one surface a volunteer may hold at a door, so it has
@@ -527,7 +527,7 @@ async function undoCheckIn(date: string): Promise<void> {
 
   .lookup-row input {
     min-width: 0;
-    font-size: 16px; /* iOS zooms the page in on a focused input below 16px. */
+    font-size: var(--text-md); /* iOS zooms the page in on a focused input below 16px. */
   }
 
   .lookup-row .primary-button,

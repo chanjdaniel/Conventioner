@@ -68,12 +68,12 @@ const statusLabels: Record<string, string> = {
 const statusColors: Record<string, string> = {
   open: 'var(--mm-blue)',
   under_review: '#ab6600',
-  reviewer_approved: '#3a853d',
+  reviewer_approved: 'var(--mm-green)',
   reviewer_rejected: '#d93c30',
   unassigned: '#767676',
   assigned: 'var(--mm-blue)',
   assignment_sent: '#9c27b0',
-  vendor_accepted: '#3a853d',
+  vendor_accepted: 'var(--mm-green)',
   vendor_refused: '#d93c30',
   cancelled: '#767676',
 };
@@ -421,7 +421,7 @@ function submittedOn(app: Application): string {
 
 .monitor-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--text-lg);
   color: var(--mm-black);
 }
 
@@ -435,11 +435,11 @@ function submittedOn(app: Application): string {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 8px 16px;
   cursor: pointer;
   font-family: 'Merge One';
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .publish-button:disabled {
@@ -448,17 +448,17 @@ function submittedOn(app: Application): string {
 }
 
 .publish-hint {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   max-width: 24ch;
 }
 
 .published-badge {
-  background: #e8f5e9;
+  background: rgba(54, 130, 111, 0.16);
   color: var(--mm-green);
   padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 13px;
+  border-radius: var(--radius-control);
+  font-size: var(--text-xs);
   font-weight: 400;
 }
 
@@ -468,12 +468,12 @@ function submittedOn(app: Application): string {
   text-align: center;
   padding: 40px;
   color: var(--mm-text-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .error-state {
   color: var(--mm-red);
-  font-size: 14px;
+  font-size: var(--text-sm);
   margin-bottom: 12px;
 }
 
@@ -488,29 +488,29 @@ function submittedOn(app: Application): string {
 
 .progress {
   font-family: 'Merge One', sans-serif;
-  font-size: 18px;
+  font-size: var(--text-lg);
   color: var(--mm-black);
 }
 
 .tally {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
 .advisory {
-  background: #fdf7ec;
+  background: rgba(228, 166, 41, 0.18);
   border: 1px solid var(--mm-yellow);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   padding: 10px 14px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   line-height: 1.5;
   margin: 0 0 16px;
 }
 
 .review-card {
   border: 1.5px solid var(--mm-border);
-  border-radius: 8px;
-  background: #fafafa;
+  border-radius: var(--radius-card);
+  background: var(--mm-beige);
   padding: 18px;
 }
 
@@ -523,23 +523,23 @@ function submittedOn(app: Application): string {
 }
 
 .app-email {
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   word-break: break-all;
 }
 
 .app-status {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 400;
   color: white;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   text-transform: capitalize;
   white-space: nowrap;
 }
 
 .app-date {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -548,7 +548,7 @@ function submittedOn(app: Application): string {
   grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
   gap: 6px 16px;
   margin: 0 0 18px;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .answers dt {
@@ -569,7 +569,7 @@ function submittedOn(app: Application): string {
 }
 
 .no-answers {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   margin: 0 0 18px;
 }
@@ -588,10 +588,10 @@ function submittedOn(app: Application): string {
 .reject-button,
 .skip-button {
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 10px 16px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: white;
 }
 
@@ -599,7 +599,7 @@ function submittedOn(app: Application): string {
   border: 1px solid var(--mm-border);
 }
 
-/* The brand green, which is also the passing one: 4.59 under white text. It used to be #3a853d,
+/* The brand green, which is also the passing one: 4.59 under white text. It used to be var(--mm-green),
    which cleared AA by 0.06 - all three verdict buttons were coloured without the contrast contract
    in view and this is the one that happened to land on the right side of it (E16/F01/S03). */
 .approve-button {
@@ -639,9 +639,9 @@ function submittedOn(app: Application): string {
 
 .card-actions kbd {
   font-family: monospace;
-  font-size: 11px;
+  font-size: var(--text-xs);
   border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 3px;
+  border-radius: var(--radius-control);
   padding: 0 4px;
   margin-left: 6px;
 }
@@ -655,7 +655,7 @@ function submittedOn(app: Application): string {
   border: none;
   padding: 0;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-green);
   text-decoration: underline;
 }
@@ -676,18 +676,18 @@ function submittedOn(app: Application): string {
   flex-wrap: wrap;
   padding: 8px 14px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
 }
 
 .decided-list .app-email {
   flex: 1 1 12rem;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .approve-button.small,
 .reject-button.small {
   padding: 5px 12px;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 640px) {

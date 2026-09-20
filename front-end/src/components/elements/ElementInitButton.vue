@@ -19,8 +19,8 @@
   gap: 10px;
 
   /* MMBlack */
-  background: #272323;
-  box-shadow: 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 10px;
+  background: var(--mm-black);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
 }
 </style>

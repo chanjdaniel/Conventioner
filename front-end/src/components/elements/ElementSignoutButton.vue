@@ -58,7 +58,7 @@ const logout = async () => {
   width: 100%;
   height: 36px;
 
-  border-bottom: 1.75px solid #2723237c;
+  border-bottom: 1.75px solid rgba(39, 35, 35, 0.49);
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
   transition:
@@ -68,11 +68,11 @@ const logout = async () => {
 
 .item:hover {
   background-color: var(--hover-grey);
-  box-shadow: 0px -1.5px 5px 1.5px var(--hover-grey);
+  box-shadow: var(--shadow-card);
 }
 
 .signout-button :deep(.signout-label) {
-  font-size: 1.2rem;
+  font-size: var(--text-lg);
   font-weight: 400;
   margin-bottom: 0.4rem;
 }

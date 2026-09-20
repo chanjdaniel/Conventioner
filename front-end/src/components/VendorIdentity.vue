@@ -43,7 +43,7 @@ const named = computed(() => vendorName(props.email, props.names) !== '');
 }
 
 .vendor-identity-email {
-  font-size: 0.8em;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   overflow-wrap: anywhere;
 }

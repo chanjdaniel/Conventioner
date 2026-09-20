@@ -378,8 +378,7 @@ h3 {
      which is the half of each that carries no meaning. */
   width: 100%;
   height: 100%;
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
 }
 
 /* One template, shared, so a heading always sits over the control it names. */
@@ -398,7 +397,6 @@ h3 {
 }
 
 .sortable-ghost {
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
   opacity: 0.7;
 }
 
@@ -474,7 +472,7 @@ h3 {
   border: none;
   outline: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-sm);
   padding-right: 5px;
   background-color: white;
   /* A label that still will not fit says so, rather than stopping mid-word. */

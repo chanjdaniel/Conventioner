@@ -85,7 +85,7 @@ function move(index: number, delta: number) {
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
@@ -100,22 +100,22 @@ function move(index: number, delta: number) {
   align-items: center;
   justify-content: center;
   font-family: 'Merge One';
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .ranked-name {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   overflow-wrap: anywhere;
 }
 
 .ranked-first-badge {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--mm-green);
   border: 1px solid var(--mm-green);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 1px 8px;
   white-space: nowrap;
 }
@@ -130,10 +130,10 @@ function move(index: number, delta: number) {
   width: 30px;
   height: 30px;
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
   color: var(--mm-black);
-  font-size: 11px;
+  font-size: var(--text-xs);
   cursor: pointer;
   display: flex;
   align-items: center;

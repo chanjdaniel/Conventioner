@@ -664,7 +664,7 @@ watch(
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
 
@@ -699,7 +699,7 @@ watch(
   background: color-mix(in srgb, var(--mm-yellow) 22%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   text-align: center;
   max-width: 90%;

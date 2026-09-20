@@ -339,9 +339,9 @@ const gridTemplate = computed(() => {
   max-height: min(88vh, 820px);
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.28);
+  background: white;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   border: 1px solid rgba(39, 35, 35, 0.18);
 }
@@ -356,7 +356,7 @@ const gridTemplate = computed(() => {
   min-height: 56px;
   padding: 10px 16px 12px;
   background-color: var(--mm-black);
-  color: #fff;
+  color: white;
 }
 
 .vendors-modal-header-side {
@@ -382,9 +382,9 @@ const gridTemplate = computed(() => {
   margin: 0;
   padding: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   background: transparent;
-  color: #fff;
+  color: white;
   cursor: pointer;
 }
 
@@ -400,10 +400,10 @@ const gridTemplate = computed(() => {
 .vendors-modal-title {
   margin: 0;
   font-family: 'Merge One', 'Outfit', sans-serif;
-  font-size: 22px;
+  font-size: var(--text-lg);
   font-weight: 400;
   letter-spacing: 0.02em;
-  color: #fff;
+  color: white;
   text-align: center;
 }
 
@@ -428,14 +428,14 @@ const gridTemplate = computed(() => {
   width: min(220px, 38vw);
   padding: 9px 38px 9px 16px;
   border: none;
-  border-radius: 999px;
-  background: #fff;
+  border-radius: var(--radius-pill);
+  background: white;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: default;
   outline: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-card);
 }
 
 .vendors-modal-search::placeholder {
@@ -455,22 +455,22 @@ const gridTemplate = computed(() => {
   flex: 1;
   min-height: 0;
   padding: 20px 22px 24px;
-  background: #fff;
+  background: white;
   overflow: auto;
 }
 
 .vendors-modal-error,
 .vendors-modal-empty {
   margin: 0;
-  color: #555;
-  font-size: 15px;
+  color: var(--mm-text-muted);
+  font-size: var(--text-sm);
 }
 
 /* Outer list container: thin border like Figma vendor list panel */
 .vendors-modal-table-outer {
   border: 1px solid rgba(39, 35, 35, 0.14);
-  border-radius: 12px;
-  background: #fff;
+  border-radius: var(--radius-card);
+  background: white;
   padding: 14px 14px 16px;
   overflow-x: auto;
 }
@@ -486,8 +486,8 @@ const gridTemplate = computed(() => {
   display: grid;
   gap: 0;
   border: 1px solid rgba(39, 35, 35, 0.12);
-  border-radius: 10px;
-  background: #fff;
+  border-radius: var(--radius-card);
+  background: white;
   overflow: hidden;
 }
 
@@ -501,16 +501,16 @@ const gridTemplate = computed(() => {
   display: grid;
   gap: 0;
   border: 1px solid rgba(39, 35, 35, 0.12);
-  border-radius: 12px;
-  background: #fff;
+  border-radius: var(--radius-card);
+  background: white;
   overflow: hidden;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+  box-shadow: var(--shadow-card);
 }
 
 .vendors-modal-cell {
   padding: 12px 14px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1.45;
   color: var(--mm-black);
   border-right: 1px solid rgba(39, 35, 35, 0.1);
@@ -524,9 +524,9 @@ const gridTemplate = computed(() => {
 
 .vendors-modal-cell--header {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--text-xs);
   letter-spacing: 0.01em;
   color: rgba(39, 35, 35, 0.88);
-  background: #fafaf9;
+  background: var(--mm-beige);
 }
 </style>

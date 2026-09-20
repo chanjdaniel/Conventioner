@@ -213,13 +213,13 @@ onUnmounted(() => {
 }
 
 .drop-zone-text {
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
   margin: 0;
 }
 
 .drop-zone-subtitle {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   margin: 0;
 }
@@ -235,7 +235,7 @@ onUnmounted(() => {
   font-family: 'Merge One', sans-serif;
   font-style: normal;
   font-weight: 400;
-  font-size: 15px;
+  font-size: var(--text-sm);
   line-height: 15px;
   text-align: center;
   color: #ffffff;
@@ -252,7 +252,7 @@ onUnmounted(() => {
 }
 
 .drop-zone-formats {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   margin: 0;
 }
@@ -272,7 +272,7 @@ onUnmounted(() => {
   max-height: 400px;
   object-fit: contain;
   border-radius: 8px;
-  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-card);
 }
 
 /* ── Page Selector ──────────────────────────────────────── */
@@ -287,7 +287,7 @@ onUnmounted(() => {
 }
 
 .page-selector-label {
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 400;
   color: var(--mm-black);
 }
@@ -297,7 +297,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 
@@ -316,7 +316,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
@@ -344,7 +344,7 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--mm-yellow) 20%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   text-align: center;
 }

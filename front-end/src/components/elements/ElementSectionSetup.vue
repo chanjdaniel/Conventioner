@@ -80,7 +80,7 @@ const countTables = () => {
             <input
               type="text"
               v-model="sections[index].name"
-              style="all: unset; font-size: 14px; width: 100%"
+              style="all: unset; font-size: var(--text-sm); width: 100%"
               :data-testid="'setup-section-name-input-' + index"
             />
           </div>
@@ -129,7 +129,7 @@ const countTables = () => {
               @input="
                 handleCountInput(index, Number(($event.target as HTMLInputElement)?.value || NaN))
               "
-              style="font-size: 14px; width: 100%"
+              style="font-size: var(--text-sm); width: 100%"
               class="number-input"
               :data-testid="'setup-section-count-input-' + index"
             />
@@ -156,7 +156,7 @@ const countTables = () => {
       </div>
     </div>
     <div ref="tableCount" style="position: absolute; left: 5px; bottom: -10px">
-      <h3 style="font-size: 14px">Total tables: {{ countTables() }}</h3>
+      <h3 style="font-size: var(--text-sm)">Total tables: {{ countTables() }}</h3>
     </div>
   </div>
 </template>
@@ -230,8 +230,7 @@ const countTables = () => {
   /* The column already decides how much room this field gets; 80% of it threw a fifth away. */
   width: 100%;
   height: 100%;
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
 }
 
 input::-webkit-outer-spin-button,
@@ -286,11 +285,11 @@ input[type='number'] {
   /* Bordered like the name and count fields beside it. With `border: none` it read as bare text
      with a stray chevron rather than as something you could operate. */
   border: 1px solid var(--mm-border);
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   padding-left: 8px;
   outline: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-sm);
   padding-right: 5px;
   background-color: white;
   /* A location name that still will not fit says so, rather than stopping mid-word. */
@@ -299,7 +298,7 @@ input[type='number'] {
 
 .number-input {
   all: unset;
-  font-size: 14px;
+  font-size: var(--text-sm);
   width: 100%;
 }
 

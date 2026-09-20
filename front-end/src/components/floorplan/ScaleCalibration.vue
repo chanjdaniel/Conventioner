@@ -613,12 +613,12 @@ onUnmounted(() => {
 }
 
 .cal-state-text {
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
 .cal-error-text {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   text-align: center;
   margin: 0;
@@ -661,7 +661,7 @@ onUnmounted(() => {
   backdrop-filter: blur(6px);
   border-radius: 8px;
 
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: #ffffff;
   white-space: nowrap;
   pointer-events: none;
@@ -701,7 +701,7 @@ onUnmounted(() => {
 
 .cal-dialog-title {
   font-family: 'Merge One', sans-serif;
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--mm-black);
   margin: 0;
@@ -709,7 +709,7 @@ onUnmounted(() => {
 }
 
 .cal-dialog-desc {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   margin: 0;
   line-height: 1.4;
@@ -723,7 +723,7 @@ onUnmounted(() => {
 }
 
 .cal-input-label {
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--mm-black);
 }
@@ -735,7 +735,7 @@ onUnmounted(() => {
   background: var(--mm-beige);
   border: 1.5px solid var(--mm-border);
   border-radius: 6px;
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   outline: none;
   transition: border-color 0.15s ease-in-out;
@@ -759,7 +759,7 @@ onUnmounted(() => {
 }
 
 .cal-unit-legend {
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--mm-black);
   float: left;
@@ -784,7 +784,7 @@ onUnmounted(() => {
 }
 
 .cal-unit-label {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   user-select: none;
 }
@@ -796,7 +796,7 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 6px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 
@@ -820,7 +820,7 @@ onUnmounted(() => {
   border: none;
   border-radius: 5px;
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
   transition:
@@ -882,13 +882,13 @@ onUnmounted(() => {
 }
 
 .cal-result-label {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   flex-shrink: 0;
 }
 
 .cal-result-value {
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 400;
   color: var(--mm-black);
   text-align: right;

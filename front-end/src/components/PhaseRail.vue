@@ -465,10 +465,10 @@ function cancelPending() {
   width: 100%;
   padding: 12px 24px 14px;
   border-bottom: 1px solid var(--mm-border);
-  /* White, not the #fbfbfa this used to be. --mm-green is measured at 4.59 on WHITE; on that
+  /* White, not the white this used to be. --mm-green is measured at 4.59 on WHITE; on that
      off-white it rendered 4.43, so the current-phase label failed AA on every market screen -
      a token is only AA on the ground it was measured against (E16/F01/S03). */
-  background: #ffffff;
+  background: white;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -500,7 +500,7 @@ function cancelPending() {
   align-items: center;
   gap: 6px;
   padding: 2px 10px 2px 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   white-space: nowrap;
   color: var(--mm-text-muted);
 }
@@ -536,7 +536,8 @@ function cancelPending() {
 .phase-step--current .phase-step-dot {
   background: var(--mm-green);
   border-color: var(--mm-green);
-  box-shadow: 0 0 0 3px rgba(31, 90, 63, 0.18);
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
 }
 
 /* Reinforcement only: the sentence below the rail is what actually says the market is over. */
@@ -551,9 +552,9 @@ function cancelPending() {
   gap: 8px;
   padding: 4px 10px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: white;
-  font-size: 12px;
+  font-size: var(--text-xs);
   min-width: 0;
 }
 
@@ -570,7 +571,7 @@ function cancelPending() {
 .checkin-chip-copy {
   border: 1px solid var(--mm-border);
   background: white;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 2px 8px;
   font: inherit;
   color: var(--mm-black);
@@ -593,8 +594,8 @@ function cancelPending() {
 
 .rail-button {
   padding: 7px 14px;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -629,9 +630,9 @@ function cancelPending() {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: white;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -640,14 +641,14 @@ function cancelPending() {
   background: white;
   padding: 9px 12px;
   text-align: left;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .rail-menu-item:hover {
-  background: #f6f7f9;
+  background: var(--mm-beige);
 }
 
 /* Destructive reads as destructive wherever it appears, and going back does not read as going
@@ -663,13 +664,13 @@ function cancelPending() {
 
 .phase-rail-frozen {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 
 .phase-rail-error {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-red);
 }
 
@@ -688,16 +689,16 @@ function cancelPending() {
   width: 100%;
   max-width: 460px;
   background: white;
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   padding: 22px 24px 18px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-card);
   color: var(--mm-black);
 }
 
 .rail-confirm-dialog h3 {
   margin: 0 0 10px;
   font-family: 'Merge One', sans-serif;
-  font-size: 19px;
+  font-size: var(--text-lg);
   /* Not --mm-green. This is the heading of a permanent, irreversible confirmation, and the
      product's affirmative colour is the wrong thing to say over "cannot be undone" (E16/F01). */
   color: var(--mm-black);
@@ -705,7 +706,7 @@ function cancelPending() {
 
 .rail-confirm-dialog p {
   margin: 0 0 10px;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .rail-confirm-buttons {
@@ -719,8 +720,8 @@ function cancelPending() {
 .confirm-archive-button,
 .cancel-confirm-button {
   padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 

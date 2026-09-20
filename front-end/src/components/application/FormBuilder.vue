@@ -168,7 +168,7 @@ const fieldCount = computed(() => fields.value.length);
 }
 
 .field-count {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -179,17 +179,17 @@ const fieldCount = computed(() => fields.value.length);
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 6px 14px;
   cursor: pointer;
   font-family: 'Merge One';
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .empty-state {
   text-align: center;
   padding: 40px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
 
@@ -228,30 +228,30 @@ const fieldCount = computed(() => fields.value.length);
 }
 
 .field-ordinal {
-  font-size: 13px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--mm-black);
 }
 
 .field-label-preview {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   flex: 1;
 }
 
 .field-type-badge {
-  font-size: 11px;
-  background: #e8e8e8;
-  color: #555;
-  border-radius: 3px;
+  font-size: var(--text-xs);
+  background: var(--mm-border);
+  color: var(--mm-text-muted);
+  border-radius: var(--radius-control);
   padding: 1px 6px;
 }
 
 .required-badge {
-  font-size: 11px;
+  font-size: var(--text-xs);
   background: var(--mm-red);
   color: white;
-  border-radius: 3px;
+  border-radius: var(--radius-control);
   padding: 1px 6px;
 }
 
@@ -259,10 +259,10 @@ const fieldCount = computed(() => fields.value.length);
   background: none;
   border: 1px solid var(--mm-red);
   color: var(--mm-red);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 2px 8px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .remove-btn:hover {

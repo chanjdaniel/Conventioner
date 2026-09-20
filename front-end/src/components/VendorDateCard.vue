@@ -109,12 +109,12 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
   display: flex;
   flex-direction: column;
   gap: 4px;
-  border: 1px solid #e1e4e8;
+  border: 1px solid var(--mm-border);
   border-left: 4px solid var(--mm-border);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   padding: 12px 14px;
   background: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-card);
 }
 
 .vendor-date-card--placed {
@@ -128,12 +128,12 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 /* Not green, and not red either: an unplaced date is a fact to act on, not a failure. */
 .vendor-date-card--unplaced {
   border-left-color: var(--mm-text-muted);
-  background: #fbfbfa;
+  background: white;
 }
 
 .vendor-date-card-date {
   font-family: 'Merge One', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-green);
 }
 
@@ -142,7 +142,7 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 }
 
 .vendor-date-card-detail {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   overflow-wrap: anywhere;
 }
@@ -155,7 +155,7 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 .vendor-date-card-flag {
   display: block;
   margin-top: 2px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-style: italic;
   color: var(--mm-text-yellow);
 }
