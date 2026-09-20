@@ -180,7 +180,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 }
 
 .preview-required {
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .preview-help {
@@ -225,7 +225,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 
 .preview-unsupported {
   font-size: 12px;
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
   font-style: italic;
 }
 </style>

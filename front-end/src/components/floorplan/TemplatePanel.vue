@@ -348,11 +348,11 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-btn--danger {
-  background: #c0392b;
+  background: var(--mm-red);
 }
 
 .tp-btn--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, #c0392b 85%, black);
+  background: color-mix(in srgb, var(--mm-red) 85%, black);
 }
 
 /* ── Feedback toast ────────────────────────────────────────── */
@@ -377,7 +377,7 @@ function formatDate(dateStr: string): string {
 }
 
 .feedback-toast--error {
-  background: #c0392b;
+  background: var(--mm-red);
   color: #ffffff;
 }
 
@@ -590,7 +590,7 @@ function formatDate(dateStr: string): string {
 .tp-template-card:hover {
   border-color: var(--mm-green);
   background: #ffffff;
-  box-shadow: 0 2px 12px rgba(73, 176, 150, 0.12);
+  box-shadow: 0 2px 12px rgba(54, 130, 111, 0.12);
 }
 
 .tp-template-card:focus-visible {

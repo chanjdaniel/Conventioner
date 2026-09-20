@@ -2,7 +2,7 @@
 id: E16/F01/S05
 title: A reference to nothing fails the build
 type: story
-status: ready
+status: in-progress
 blocked_by: [E16/F01/S01]
 pr: []
 ---
@@ -23,10 +23,10 @@ Keep `contrast.test.ts` as well. It fails in milliseconds with a precise message
 
 ## Acceptance criteria
 
-- [ ] The resolution check fails on a deliberately undefined property, and passes on `dev` once `S01` and `S02` have landed.
-- [ ] The contrast sweep reproduces the H3 failures on a branch where they are reverted.
-- [ ] The sweep's state list includes at least: the phase-rail menu and its confirm dialog, the manage-market dialog, the new-market dialog, the placement dialog, and one empty state.
-- [ ] Both run in CI on the same job as the rest of the front-end checks.
+- [x] The resolution check fails on a deliberately undefined property, and passes on `dev` once `S01` and `S02` have landed.
+- [x] The contrast sweep reproduces the H3 failures on a branch where they are reverted.
+- [x] The sweep's state list includes at least: the phase-rail menu and its confirm dialog, the manage-market dialog, the new-market dialog, the placement dialog, and one empty state.
+- [x] Both run in CI on the same job as the rest of the front-end checks.
 
 ## Notes
 

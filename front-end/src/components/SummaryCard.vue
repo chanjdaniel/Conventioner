@@ -78,7 +78,7 @@ defineEmits<{ select: [] }>();
 .summary-card--selectable:hover,
 .summary-card--selectable:focus-visible {
   border-color: var(--mm-green);
-  box-shadow: 0 4px 12px rgba(73, 176, 150, 0.15);
+  box-shadow: 0 4px 12px rgba(54, 130, 111, 0.15);
   transform: translateY(-2px);
   outline: none;
 }

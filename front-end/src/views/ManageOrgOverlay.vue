@@ -402,7 +402,7 @@ function handleClose() {
 
 .error-state {
   margin-top: 12px;
-  color: #d32f2f;
+  color: var(--mm-red);
   font-size: 14px;
 }
 
@@ -472,8 +472,8 @@ function handleClose() {
   padding: 4px 12px;
   font-size: 12px;
   background: transparent;
-  color: #d32f2f;
-  border: 1px solid #d32f2f;
+  color: var(--mm-red);
+  border: 1px solid var(--mm-red);
   border-radius: 4px;
   cursor: pointer;
 }
@@ -564,7 +564,7 @@ function handleClose() {
 
 .form-error {
   margin: 8px 0 0;
-  color: #d32f2f;
+  color: var(--mm-red);
   font-size: 13px;
 }
 
@@ -576,7 +576,7 @@ function handleClose() {
 .delete-button {
   padding: 8px 20px;
   font-size: 14px;
-  background: #d32f2f;
+  background: var(--mm-red);
   color: white;
   border: none;
   border-radius: 6px;
@@ -584,7 +584,9 @@ function handleClose() {
 }
 
 .delete-button:hover {
-  background: #b71c1c;
+  /* One red for one meaning, so a hover cannot be a second red. The product already
+     answers the pointer this way on its other solid fills (E16/F01). */
+  opacity: 0.9;
 }
 
 .delete-confirm {
@@ -607,7 +609,7 @@ function handleClose() {
 .confirm-delete-button {
   padding: 8px 20px;
   font-size: 14px;
-  background: #d32f2f;
+  background: var(--mm-red);
   color: white;
   border: none;
   border-radius: 6px;
@@ -615,7 +617,9 @@ function handleClose() {
 }
 
 .confirm-delete-button:hover {
-  background: #b71c1c;
+  /* One red for one meaning, so a hover cannot be a second red. The product already
+     answers the pointer this way on its other solid fills (E16/F01). */
+  opacity: 0.9;
 }
 
 .cancel-button {

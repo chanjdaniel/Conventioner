@@ -218,7 +218,7 @@ function logout() {
 .dash-status-card.status-neutral {
   background: #e3f2fd;
   border: 1px solid #90caf9;
-  color: #1565c0;
+  color: var(--mm-blue);
 }
 
 .dash-status-card.status-approved {
@@ -230,7 +230,7 @@ function logout() {
 .dash-status-card.status-rejected {
   background: #ffebee;
   border: 1px solid #ef9a9a;
-  color: #c62828;
+  color: var(--mm-red);
 }
 
 .dash-status-card.status-review {

@@ -66,12 +66,12 @@ const statusLabels: Record<string, string> = {
 // orange 2.16, green 2.78, red 3.68 and grey 2.68. Darkened to the lightest shade of the same hue
 // that passes, so the palette still reads as itself. Purple was already 6.3 and is unchanged.
 const statusColors: Record<string, string> = {
-  open: '#1b7ac5',
+  open: 'var(--mm-blue)',
   under_review: '#ab6600',
   reviewer_approved: '#3a853d',
   reviewer_rejected: '#d93c30',
   unassigned: '#767676',
-  assigned: '#1b7ac5',
+  assigned: 'var(--mm-blue)',
   assignment_sent: '#9c27b0',
   vendor_accepted: '#3a853d',
   vendor_refused: '#d93c30',
@@ -472,7 +472,7 @@ function submittedOn(app: Application): string {
 }
 
 .error-state {
-  color: #d32f2f;
+  color: var(--mm-red);
   font-size: 14px;
   margin-bottom: 12px;
 }
@@ -595,25 +595,39 @@ function submittedOn(app: Application): string {
   color: white;
 }
 
-/* White text on #4caf50 was 2.78. Same passing green as the approved status badge. */
+.skip-button {
+  border: 1px solid var(--mm-border);
+}
+
+/* The brand green, which is also the passing one: 4.59 under white text. It used to be #3a853d,
+   which cleared AA by 0.06 - all three verdict buttons were coloured without the contrast contract
+   in view and this is the one that happened to land on the right side of it (E16/F01/S03). */
 .approve-button {
-  background: #3a853d;
+  background: var(--mm-green);
 }
 
 .approve-button:hover:not(:disabled) {
-  background: #306e33;
+  opacity: 0.9;
 }
 
 .reject-button {
-  background: #f44336;
+  background: var(--mm-red);
 }
 
 .reject-button:hover:not(:disabled) {
-  background: #e53935;
+  /* One red for one meaning, so a hover cannot be a second red. The product already
+     answers the pointer this way on its other solid fills (E16/F01). */
+  opacity: 0.9;
 }
 
+/* Not a verdict, and not a fill. White on --mm-border measured 1.74, and that token is declared a
+   line colour that never carries text - the contrast test exempts it on exactly that grounds, which
+   is why nothing caught this. An outline says "this decides nothing" and uses the token for its
+   own job (E16/F01/S03). */
 .skip-button {
-  background: var(--mm-border);
+  background: white;
+  color: var(--mm-black);
+  border: 1px solid var(--mm-border);
 }
 
 .approve-button:disabled,

@@ -314,7 +314,7 @@ const handleSignOut = async () => {
 
 .last-market-card:hover {
   border-color: var(--mm-green);
-  box-shadow: 0 4px 12px rgba(73, 176, 150, 0.15);
+  box-shadow: 0 4px 12px rgba(54, 130, 111, 0.15);
   transform: translateY(-2px);
 }
 

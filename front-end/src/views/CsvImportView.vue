@@ -1187,9 +1187,9 @@ function startOver() {
 .import-error {
   margin: 0;
   padding: 10px 14px;
-  border: 1px solid var(--mm-red, #cc0000);
+  border: 1px solid var(--mm-red);
   border-radius: 6px;
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
   font-size: 14px;
 }
 
@@ -1322,7 +1322,7 @@ function startOver() {
 .ledger-fixes {
   margin-top: 10px;
   padding: 10px;
-  border: 1px solid var(--mm-red, #cc0000);
+  border: 1px solid var(--mm-red);
   border-radius: 6px;
   background: #fff8f8;
 }
@@ -1330,7 +1330,7 @@ function startOver() {
 .ledger-fixes-title {
   margin: 0 0 6px;
   font-size: 12px;
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .ledger-fix {
@@ -1453,7 +1453,7 @@ function startOver() {
 .rail-warning {
   margin: 0;
   font-size: 13px;
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .drop-zone {
@@ -1606,7 +1606,7 @@ function startOver() {
 
 .import-failures {
   margin-top: 8px;
-  border: 1px solid var(--mm-red, #cc0000);
+  border: 1px solid var(--mm-red);
   border-radius: 6px;
   padding: 12px 14px;
 }
@@ -1614,7 +1614,7 @@ function startOver() {
 .import-failures h3 {
   margin: 0 0 4px;
   font-size: 14px;
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .import-failures ul {

@@ -2,7 +2,7 @@
 id: E16/F01/S01
 title: The Archive button is visible
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -30,11 +30,11 @@ Define `--mm-red: #c0392b` (white text on it: 5.44:1) in `base.css` and point th
 
 ## Acceptance criteria
 
-- [ ] The Archive confirmation button renders with a visible fill and readable label, asserted by computed style *and* by a pixel check that its box is not uniformly the dialog's background.
-- [ ] `Archive Market` in the rail menu renders in `--mm-red`, distinct from `body` colour.
-- [ ] `.phase-rail-error` and the three `PlacementDialog` usages resolve.
-- [ ] The confirm dialog's heading is not `--mm-green`.
-- [ ] An e2e test opens this dialog. It was missed by a twenty-screen walk because nobody opened it.
+- [x] The Archive confirmation button renders with a visible fill and readable label, asserted by computed style *and* by a pixel check that its box is not uniformly the dialog's background.
+- [x] `Archive Market` in the rail menu renders in `--mm-red`, distinct from `body` colour.
+- [x] `.phase-rail-error` and the three `PlacementDialog` usages resolve.
+- [x] The confirm dialog's heading is not `--mm-green`.
+- [x] An e2e test opens this dialog. It was missed by a twenty-screen walk because nobody opened it.
 
 ## Notes
 

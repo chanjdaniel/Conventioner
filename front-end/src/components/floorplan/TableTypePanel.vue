@@ -18,7 +18,7 @@ const emit = defineEmits<{
 // ── Color palette ──────────────────────────────────────────────────
 const PALETTE: string[] = [
   '#4A90D9',
-  '#E74C3C',
+  'var(--mm-red)',
   '#27AE60',
   '#F39C12',
   '#8E44AD',
@@ -476,7 +476,7 @@ const selectOptions = [
 .tt-type-card:hover {
   border-color: var(--mm-green);
   background: #ffffff;
-  box-shadow: 0 2px 12px rgba(73, 176, 150, 0.12);
+  box-shadow: 0 2px 12px rgba(54, 130, 111, 0.12);
 }
 
 .tt-color-swatch {
@@ -542,7 +542,7 @@ const selectOptions = [
 
 .tt-icon-btn--delete:hover {
   background: rgba(220, 80, 80, 0.12);
-  color: #c0392b;
+  color: var(--mm-red);
 }
 
 /* ── Empty state ─────────────────────────────────────────────── */
@@ -589,7 +589,7 @@ const selectOptions = [
   background: #ffffff;
   border: 1.5px solid var(--mm-green);
   border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(73, 176, 150, 0.1);
+  box-shadow: 0 2px 12px rgba(54, 130, 111, 0.1);
 }
 
 /* ── Form fields ─────────────────────────────────────────────── */
@@ -637,7 +637,7 @@ const selectOptions = [
 }
 
 .tt-input--error {
-  border-color: #c0392b;
+  border-color: var(--mm-red);
 }
 
 /* ── SelectButton overrides ──────────────────────────────────── */
@@ -658,11 +658,11 @@ const selectOptions = [
 .tt-error {
   margin: 0;
   padding: 8px 12px;
-  background: color-mix(in srgb, #c0392b 10%, transparent);
-  border: 1px solid #c0392b;
+  background: color-mix(in srgb, var(--mm-red) 10%, transparent);
+  border: 1px solid var(--mm-red);
   border-radius: 6px;
   font-size: 13px;
-  color: #c0392b;
+  color: var(--mm-red);
 }
 
 /* ── Form actions ────────────────────────────────────────────── */

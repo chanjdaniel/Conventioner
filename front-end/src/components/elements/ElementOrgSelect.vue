@@ -90,7 +90,7 @@ onMounted(() => {
 
 .org-select-error {
   font-size: 12px;
-  color: #d32f2f;
+  color: var(--mm-red);
   margin: 0;
   text-align: center;
 }

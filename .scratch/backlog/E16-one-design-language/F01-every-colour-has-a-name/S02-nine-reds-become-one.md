@@ -2,7 +2,7 @@
 id: E16/F01/S02
 title: Nine reds and two blues become two tokens
 type: story
-status: ready
+status: in-progress
 blocked_by: [E16/F01/S01]
 pr: []
 ---
@@ -31,9 +31,9 @@ Retire all of them onto `--mm-red` (`#c0392b`) and a new `--mm-blue` (`#1a6f8b`,
 
 ## Acceptance criteria
 
-- [ ] No hardcoded red or blue hex remains in `front-end/src` outside `base.css`.
-- [ ] No `var(--mm-*, <fallback>)` remains anywhere; a defined token needs no fallback and a fallback hides an undefined one.
-- [ ] The phase badges and the triage status badge use the same token for the same state.
+- [x] No hardcoded red or blue hex remains in `front-end/src` outside `base.css`.
+- [x] No `var(--mm-*, <fallback>)` remains anywhere; a defined token needs no fallback and a fallback hides an undefined one.
+- [x] The phase badges and the triage status badge use the same token for the same state.
 
 ## Notes
 

@@ -199,12 +199,12 @@ function canManage(org: Organization): boolean {
   cursor: pointer;
   font-size: 14px;
   font-weight: 400;
-  box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
+  box-shadow: 0 2px 4px rgba(54, 130, 111, 0.2);
 }
 
 .new-button:hover {
   background: #3a9a82;
-  box-shadow: 0 4px 8px rgba(73, 176, 150, 0.3);
+  box-shadow: 0 4px 8px rgba(54, 130, 111, 0.3);
 }
 
 .content-block {
@@ -220,7 +220,7 @@ function canManage(org: Organization): boolean {
 }
 
 .error-state {
-  color: #d32f2f;
+  color: var(--mm-red);
 }
 
 .cards-container {
@@ -323,7 +323,7 @@ function canManage(org: Organization): boolean {
 
 .form-error {
   margin: 8px 0 0;
-  color: #d32f2f;
+  color: var(--mm-red);
   font-size: 13px;
 }
 

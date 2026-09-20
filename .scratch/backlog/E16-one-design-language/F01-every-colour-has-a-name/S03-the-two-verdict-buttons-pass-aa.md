@@ -2,7 +2,7 @@
 id: E16/F01/S03
 title: The verdict buttons and the phase label pass AA
 type: story
-status: ready
+status: in-progress
 blocked_by: [E16/F01/S02]
 pr: []
 ---
@@ -27,10 +27,10 @@ Note that Approve clears the bar by 0.06: all three were coloured without the co
 
 ## Acceptance criteria
 
-- [ ] Every verdict button, its keyboard-shortcut chip, and the current-phase label reach 4.5:1 as rendered.
-- [ ] `--mm-border` is not used as a fill under text anywhere.
-- [ ] `base.css`'s comment about `--mm-border` is amended: "never carries text" is now enforced rather than assumed.
-- [ ] Disabled controls reach 4.5:1 too, or are given a treatment that does not rely on text contrast alone.
+- [x] Every verdict button, its keyboard-shortcut chip, and the current-phase label reach 4.5:1 as rendered.
+- [x] `--mm-border` is not used as a fill under text anywhere.
+- [x] `base.css`'s comment about `--mm-border` is amended: "never carries text" is now enforced rather than assumed.
+- [x] Disabled controls reach 4.5:1 too, or are given a treatment that does not rely on text contrast alone.
 
 ## Notes
 

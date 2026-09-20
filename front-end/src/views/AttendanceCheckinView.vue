@@ -423,7 +423,7 @@ async function undoCheckIn(date: string): Promise<void> {
 
 .error-text {
   margin: 0;
-  color: #c62828;
+  color: var(--mm-red);
   font-size: 14px;
 }
 
