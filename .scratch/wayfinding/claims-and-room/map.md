@@ -59,14 +59,26 @@ These frame every ticket and are not open for re-litigation without redrawing th
 
 <!-- one line per resolved ticket -->
 
-_None yet; charted 2026-09-20._
+- [01: How does an organizer screen size itself?](issues/01-how-an-organizer-screen-sizes-itself.md):
+  **two named widths, no height cap, no minimum row height, and plan columns sized by need.**
+  `--workspace-max: 1440px` for Market Setup and its tabs, `--list-max: 1100px` for Tables, Vendors,
+  Attendance, Markets and Organizations; a screen grows to its content while the page scrolls.
+  Measured by lifting every cap and asking each panel for its `max-content` width: the content
+  clusters into two groups and **nothing wants 1536**. 1440 rather than the content-only answer of
+  1360 because that is the rail's measured break, which
+  [readable-journey 06](../readable-journey/issues/06-where-the-check-in-url-lives.md) had already
+  put "between 1366 and 1440". `min-height: 320px` costs 268px of nothing on the emptiest possible
+  market and is not what keeps a row even - `align-items: stretch` is. Equal thirds is the sole cause
+  of the tier select being too narrow to show any of its own values, so **nothing else should fix
+  that select**. Buildable work is
+  [E16/F03](../../backlog/E16-one-design-language/F03-the-sizing-model/feature.md); it also closes
+  H1, H10, H13, O1 and O2 from `.lavish/aesthetics-2026-09-20.html` without separate work.
 
 ## Not yet specified
 
-- **How the rail behaves at whatever width ticket [01](issues/01-how-an-organizer-screen-sizes-itself.md) picks.**
-  Today it wraps to two rows on the three 1100px screens as soon as a market is published, because the check-in chip joins the row.
-  Pick 1536 and the wrap disappears; pick 1100 and it is permanent and should be designed for rather than tolerated.
-  Not ticketable until the width is chosen.
+_Empty._
+Its one patch - how the rail behaves at whatever width ticket 01 picks - graduated on 2026-09-20 when that ticket picked them.
+It is now ticket [07: Why is a published market's rail four times taller than a draft's?](issues/07-the-rails-second-row.md), which carries the measurement that made it ticketable: the check-in chip is the entire cause, and without it the rail is 27px at every width from 1100 to 1440.
 
 ## Out of scope
 

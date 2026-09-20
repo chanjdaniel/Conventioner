@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Conventioner - aesthetics and organization review, 20 Sep 2026</title>
+<style>
+  @font-face { font-family:'Merge One'; src:url('MergeOne-Regular.ttf') format('truetype'); font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Regular.ttf') format('truetype'); font-weight:400; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Medium.ttf') format('truetype'); font-weight:500; font-display:swap; }
+  @font-face { font-family:'Outfit'; src:url('Outfit-Bold.ttf') format('truetype'); font-weight:700; font-display:swap; }
+
+  :root{
+    --black:#272323;
+    --green:#36826f;          /* the CURRENT --mm-green, not the 2025 value */
+    --green-d:#2a6858;
+    --yellow:#e4a629;
+    --text-yellow:#996f1b;
+    --beige:#e9e6e1;
+    --grey:rgba(39,35,35,.25);
+    --paper:#fbfaf9;
+    --card:#ffffff;
+    --red:#c0392b;
+    --red-bg:#fdf1ef;
+    --amber-bg:#fdf7ec;
+    --green-bg:#eef8f5;
+    --ink-2:rgba(39,35,35,.66);
+    --ink-3:rgba(39,35,35,.45);
+    --radius:14px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--paper); color:var(--black);
+    font-family:'Outfit',system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:16px; line-height:1.6;
+  }
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 20px 96px; }
+  h1,h2,h3,h4{
+    font-family:'Merge One','Outfit',system-ui,sans-serif; font-weight:400;
+    line-height:1.34; margin:0; padding-bottom:.08em; overflow-wrap:break-word;
+  }
+
+  /* masthead */
+  header.top{ background:var(--black); color:#fff; padding:52px 0 44px; margin-bottom:44px; border-bottom:5px solid var(--green); }
+  header.top .wrap{ padding-bottom:0; }
+  .eyebrow{ font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:#57c9ab; margin-bottom:14px; }
+  header.top h1{ font-size:clamp(30px,4.6vw,50px); color:#fff; margin-bottom:16px; }
+  header.top p.lede{ font-size:clamp(16px,1.7vw,19px); color:rgba(255,255,255,.82); max-width:70ch; margin:0; }
+  .runmeta{ margin-top:28px; display:flex; flex-wrap:wrap; gap:10px 26px; font-size:13px; color:rgba(255,255,255,.6); }
+  .runmeta b{ color:rgba(255,255,255,.92); font-weight:500; }
+
+  /* verdict */
+  .verdict{ background:var(--card); border:1px solid var(--grey); border-left:6px solid var(--green); border-radius:var(--radius); padding:26px 28px; margin-bottom:34px; box-shadow:0 1px 3px rgba(39,35,35,.05); }
+  .verdict h2{ font-size:23px; margin-bottom:12px; }
+  .verdict p{ margin:0 0 13px; max-width:88ch; }
+  .verdict p:last-child{ margin-bottom:0; }
+  .verdict strong{ font-weight:500; }
+
+  /* score strip */
+  .scores{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr)); gap:14px; margin-bottom:48px; }
+  .score{ background:var(--card); border:1px solid var(--grey); border-radius:var(--radius); padding:18px 20px; min-width:0; }
+  .score .n{ font-family:'Merge One',sans-serif; font-size:30px; line-height:1.34; padding-bottom:.08em; display:block; overflow-wrap:break-word; }
+  .score .l{ font-size:12.5px; color:var(--ink-2); letter-spacing:.03em; margin-top:4px; display:block; }
+  .score.bad .n{ color:var(--red); } .score.ok .n{ color:var(--green-d); } .score.warn .n{ color:var(--text-yellow); }
+
+  /* sections */
+  section{ margin-bottom:56px; scroll-margin-top:20px; }
+  .sec-head{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; border-bottom:2px solid var(--black); padding-bottom:10px; margin-bottom:12px; }
+  .sec-head h2{ font-size:26px; }
+  .sec-head .count{ font-size:13px; color:var(--ink-3); }
+  .sec-intro{ font-size:15.5px; color:var(--ink-2); max-width:88ch; margin:0 0 26px; }
+
+  /* finding cards */
+  .finding{ background:var(--card); border:1px solid var(--grey); border-radius:var(--radius); margin-bottom:20px; overflow:hidden; }
+  .finding > .fh{ display:flex; gap:14px; align-items:flex-start; padding:18px 22px; border-bottom:1px solid var(--beige); flex-wrap:wrap; }
+  .finding.crit > .fh{ background:var(--red-bg); }
+  .finding.high > .fh{ background:var(--amber-bg); }
+  .finding.med  > .fh{ background:#f7f6f4; }
+  .finding.good > .fh{ background:var(--green-bg); }
+  .fid{ font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:.04em; background:var(--black); color:#fff; border-radius:6px; padding:4px 9px; flex:0 0 auto; margin-top:2px; }
+  .finding.crit .fid{ background:var(--red); }
+  .finding.high .fid{ background:var(--yellow); color:var(--black); }
+  .finding.good .fid{ background:var(--green); }
+  .ftitle{ flex:1 1 340px; min-width:0; }
+  .ftitle h3{ font-size:19px; margin-bottom:3px; }
+  .ftitle .sub{ font-size:13.5px; color:var(--ink-2); }
+  .sev{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:5px 10px; border-radius:20px; flex:0 0 auto; margin-top:2px; }
+  .sev.crit{ background:var(--red); color:#fff; }
+  .sev.high{ background:var(--yellow); color:var(--black); }
+  .sev.med{ background:var(--beige); color:var(--black); }
+  .sev.good{ background:var(--green); color:#fff; }
+  .fb{ padding:20px 22px; }
+  .fb > *:first-child{ margin-top:0; }
+  .fb > *:last-child{ margin-bottom:0; }
+  .fb p{ margin:0 0 12px; max-width:88ch; }
+  .fb ul,.fb ol{ margin:0 0 12px; padding-left:22px; max-width:88ch; }
+  .fb li{ margin-bottom:6px; }
+  .lbl{ font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); font-weight:700; margin:20px 0 8px; }
+
+  code{ font-family:var(--mono); font-size:.875em; background:var(--beige); padding:1.5px 5px; border-radius:4px; overflow-wrap:anywhere; }
+  pre{ background:#26221f; color:#e8e3dd; border-radius:10px; padding:15px 17px; overflow-x:auto; font-family:var(--mono); font-size:12.5px; line-height:1.62; margin:0 0 14px; }
+
+  /* figures */
+  figure{ margin:0 0 16px; }
+  figure img{ display:block; width:100%; height:auto; border:1px solid var(--grey); border-radius:8px; background:#fff; }
+  figure figcaption{ font-size:12.5px; color:var(--ink-3); margin-top:7px; }
+  .shot-tight img{ border-radius:6px; }
+
+  /* tables */
+  .tw{ overflow-x:auto; margin:0 0 16px; border:1px solid var(--grey); border-radius:10px; background:var(--card); }
+  table{ border-collapse:collapse; width:100%; font-size:14px; }
+  th,td{ text-align:left; padding:9px 13px; border-bottom:1px solid var(--beige); vertical-align:top; }
+  th{ font-weight:500; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); background:#faf9f8; white-space:nowrap; }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.num{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .swatch{ display:inline-block; width:13px; height:13px; border-radius:3px; border:1px solid rgba(0,0,0,.18); vertical-align:-2px; margin-right:6px; }
+
+  /* two-up */
+  .two{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr)); gap:18px; margin-bottom:16px; }
+  .two > *{ min-width:0; }
+
+  .callout{ background:var(--beige); border-radius:10px; padding:15px 18px; font-size:14.5px; margin:0 0 16px; }
+  .callout.warn{ background:var(--amber-bg); border-left:4px solid var(--yellow); }
+  .callout.ok{ background:var(--green-bg); border-left:4px solid var(--green); }
+
+  nav.toc{ background:var(--card); border:1px solid var(--grey); border-radius:var(--radius); padding:20px 24px; margin-bottom:48px; }
+  nav.toc h2{ font-size:15px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin-bottom:12px; font-family:'Outfit',sans-serif; font-weight:500; }
+  nav.toc ol{ margin:0; padding-left:20px; columns:2; column-gap:34px; font-size:14.5px; }
+  @media (max-width:700px){ nav.toc ol{ columns:1; } }
+  nav.toc li{ margin-bottom:6px; break-inside:avoid; }
+  nav.toc a{ color:var(--black); text-decoration:none; border-bottom:1px solid var(--grey); }
+  nav.toc a:hover{ border-bottom-color:var(--green); color:var(--green-d); }
+
+  footer.end{ border-top:2px solid var(--black); padding-top:22px; font-size:13.5px; color:var(--ink-2); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Playwright walk &middot; aesthetics and organization</div>
+    <h1>The product has two design languages</h1>
+    <p class="lede">A pass over every organizer screen, the public check-in page and the auth screens, asking three questions: is it easy to use, does it look good, does it follow design and UX practice. The short answer is that Conventioner already contains a good design language - it is just not the one most of the product is written in.</p>
+    <div class="runmeta">
+      <span><b>Date</b> 20 Sep 2026</span>
+      <span><b>Branch</b> dev @ 1aac84c6 (E14 merged)</span>
+      <span><b>Viewport</b> 1920&times;1080, plus 390&times;844 for check-in</span>
+      <span><b>Fixture</b> 2 orgs, 4 markets across every phase, 36 applications</span>
+      <span><b>Screens</b> 20 captured, 13 measured</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="verdict">
+    <h2>Verdict</h2>
+    <p>The individual screens the recent epics built are <strong>good</strong>. The application-form builder, the triage card, the assignment summary and the check-in page at phone width are well-designed work: clear hierarchy, honest information density, and the best interface writing I have read in a codebase this size.</p>
+    <p>What is wrong is not on any one screen. It is that <strong>there is no shared component layer</strong>. 12,211 lines of CSS live in 71 separate scoped <code>&lt;style&gt;</code> blocks, so every file re-decides its own radius, shadow, spacing, type size and colour from scratch. The recent work decided well and converged on something coherent - 6px radius, a three-layer shadow, 12px gaps. The older files decided differently. Both now render side by side on the same screen.</p>
+    <p>So the product does not need a designer to invent a look. <strong>It needs the look it already has, written down as tokens and applied to the files that predate it.</strong> Most of what follows is evidence for that one sentence.</p>
+    <p style="color:var(--ink-2);font-size:14.5px">Two of the findings below (screen width, who appears in the Vendors list) are already open tickets on <em>Claims we can support, and room to show them</em>, charted this morning. They are reported here with fresh measurements rather than as new discoveries.</p>
+    <p style="background:var(--red-bg);border-left:4px solid var(--red);border-radius:8px;padding:13px 16px;margin-top:18px;font-size:15px">
+      <strong>Added after the first draft, while grilling these findings.</strong> Chasing the colour inventory turned up two custom properties that are referenced but never defined. One of them makes the <strong>Archive Market</strong> confirmation button render as white text on a white dialog with no border - invisible, on the only irreversible action in the product. That is <a href="#hard">H0</a>, and it is now the most severe thing in this report.
+    </p>
+  </div>
+
+  <div class="scores">
+    <div class="score bad"><span class="n">17</span><span class="l">distinct border-radius declarations</span></div>
+    <div class="score bad"><span class="n">24</span><span class="l">distinct font-size declarations</span></div>
+    <div class="score bad"><span class="n">32</span><span class="l">distinct spacing values</span></div>
+    <div class="score bad"><span class="n">351</span><span class="l">hardcoded hex colours outside the palette</span></div>
+    <div class="score warn"><span class="n">5</span><span class="l">typefaces rendering at once</span></div>
+    <div class="score bad"><span class="n">65</span><span class="l">weights asked for that were never loaded</span></div>
+    <div class="score bad"><span class="n">1.74:1</span><span class="l">worst contrast, on a live button</span></div>
+    <div class="score bad"><span class="n">2</span><span class="l">tokens used but never defined</span></div>
+  </div>
+
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#root">The root cause, in one screen</a></li>
+      <li><a href="#hard">Hard defects</a> - wrong in any design language</li>
+      <li><a href="#system">No scale exists</a> - the inventory</li>
+      <li><a href="#org">Organization and hierarchy</a></li>
+      <li><a href="#good">What is already right</a></li>
+      <li><a href="#decided">What was decided</a></li>
+      <li><a href="#method">Method</a></li>
+    </ol>
+  </nav>
+
+  <!-- ====================================================== ROOT CAUSE -->
+  <section id="root">
+    <div class="sec-head"><h2>The root cause, in one screen</h2></div>
+    <p class="sec-intro">Assignment Results carries both design languages at the same moment. I counted them at runtime: <strong>77 elements</strong> painted with the modern three-layer shadow, and <strong>9</strong> painted with the legacy halo. Nothing tells the organizer which era they are looking at, but the eye registers it as the screen not quite holding together.</p>
+
+    <figure>
+      <img src="aes/07-assignment-results.png" alt="Assignment Results tab showing modern stat cards inside a legacy 80%-height card" />
+      <figcaption>Assignment Results, 1920&times;1080. The stat cards (6px radius, layered shadow, 12px gaps) are the new language. The card they sit in, its black header bar and its fixed 80% height are the old one. The footer buttons are 21px out of alignment with each other.</figcaption>
+    </figure>
+
+    <div class="two">
+      <div>
+        <div class="lbl">The newer language</div>
+        <div class="tw"><table>
+          <tbody>
+            <tr><th>Radius</th><td class="num">6px</td></tr>
+            <tr><th>Shadow</th><td><code>0 0 0 1px .07</code> + <code>0 2px 4px .07</code> + <code>0 6px 14px .08</code></td></tr>
+            <tr><th>Gap</th><td class="num">12px</td></tr>
+            <tr><th>Fields</th><td>Left-aligned, light border</td></tr>
+            <tr><th>Files</th><td><code>SummaryCard</code>, <code>AssignmentResults</code>, <code>AssignmentStatListItem</code>, <code>DashboardView</code>, <code>TablesView</code></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div>
+        <div class="lbl">The older language</div>
+        <div class="tw"><table>
+          <tbody>
+            <tr><th>Radius</th><td class="num">10px, 20px, 5px, 50%</td></tr>
+            <tr><th>Shadow</th><td><code>0 0 4px 5px rgba(0,0,0,.25)</code> and its inset twin</td></tr>
+            <tr><th>Gap</th><td class="num">2px, 6px, 15px, 30px</td></tr>
+            <tr><th>Fields</th><td>Centred text, inset "pressed" shadow</td></tr>
+            <tr><th>Files</th><td>every <code>elements/Element*Setup</code>, <code>NewMarketOverlay</code>, <code>ChoosePathOverlay</code>, <code>PasswordResetRequestView</code>, and 8 more</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Why the halo reads as wrong even to an untrained eye.</strong> <code>0 0 4px 5px</code> is a 5px <em>spread</em> with no offset. A shadow with no offset has no light source, and a spread larger than its blur is a ring, not a shadow. It is why the older cards look like they are outlined in grey fog rather than lifted off the page.
+    </div>
+  </section>
+
+  <!-- ====================================================== HARD -->
+  <section id="hard">
+    <div class="sec-head"><h2>Hard defects</h2><span class="count">16 findings &middot; wrong in any design language</span></div>
+    <p class="sec-intro">These are not matters of taste. Each is something no design system would accept: text that cannot fit its container, controls that disagree with their neighbours, raw data shown to a user, contrast below the standard this repo already enforces.</p>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">H0</span>
+        <div class="ftitle"><h3>The button that permanently archives a market is invisible</h3>
+        <div class="sub">Phase rail &rarr; More&hellip; &rarr; Archive Market &middot; found while grilling the report</div></div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <figure class="shot-tight"><img src="aes/crop-archive-confirm.png" alt="Archive confirmation dialog showing only a Cancel button" />
+        <figcaption>The confirmation dialog as it renders at 1920&times;1080. The Archive button is present and clickable at 75&times;36, immediately left of Cancel. Every pixel inside its box measures <code>(255,255,255)</code>.</figcaption></figure>
+        <p>The dialog says <em>"Archiving is permanent. Once archived, a market cannot be returned to an active phase. This action cannot be undone."</em> and then appears to offer exactly one option: <strong>Cancel</strong>.</p>
+        <div class="tw"><table>
+          <thead><tr><th>Declared in <code>PhaseRail.vue</code></th><th>Computed</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td><code>background: var(--mm-text-red)</code></td><td><code>rgba(0, 0, 0, 0)</code></td><td>invalid at computed-value time &rarr; resets to initial</td></tr>
+            <tr><td><code>border: 1px solid var(--mm-text-red)</code></td><td><code>0px</code></td><td>shorthand invalid &rarr; whole declaration dropped</td></tr>
+            <tr><td><code>color: white</code></td><td><code>rgb(255,255,255)</code></td><td>valid, so white text survives onto a white dialog</td></tr>
+          </tbody>
+        </table></div>
+        <p><strong><code>--mm-text-red</code> is never defined.</strong> It is not in <code>base.css</code>; <code>getPropertyValue('--mm-text-red')</code> on <code>:root</code> returns the empty string. Seven rules reference it with no fallback:</p>
+        <ul>
+          <li><code>.confirm-archive-button</code> - the invisible button above.</li>
+          <li><code>.rail-menu-item--end</code> - "Archive Market" in the menu renders <code>rgb(44,62,80)</code>, identical to <code>body</code> colour. The comment directly above that rule reads <em>"Destructive reads as destructive wherever it appears."</em> It does not.</li>
+          <li><code>.phase-rail-error</code> - rail errors render in body colour, not red.</li>
+          <li>Three more in <code>PlacementDialog.vue</code>.</li>
+        </ul>
+        <p>The sibling token <code>--mm-red</code> is also undefined, but its 24 usages all carry <code>var(--mm-red, #cc0000)</code>, so they render and nobody noticed the token was a phantom. That fallback is the source of the <code>#cc0000</code> &times;27 count in S5: the most-used red in the product is a default that stands in for a variable that was never written.</p>
+        <div class="callout warn"><strong>This is also the limit of the guard proposed in H3.</strong> A rendered-usage contrast sweep would catch this instantly - white on white is 1:1 - but only if it visits the dialog. My own sweep missed it because I never opened this dialog during the pass. A usage sweep is only worth the states it walks.</div>
+        <p style="color:var(--ink-2)">Also in this dialog: the heading "Archive this market?" is set in <code>--mm-green</code>, the product's affirmative colour, on a permanent destructive confirmation.</p>
+      </div>
+    </div>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">H1</span>
+        <div class="ftitle"><h3>The Tier select cannot display any of its own values</h3>
+        <div class="sub">Market Setup &rarr; Section Setup &middot; the field that sets a vendor's price</div></div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <p>The Tier <code>&lt;select&gt;</code> renders at <strong>65px wide</strong>, leaving 34px of text room after padding and the native arrow. Every option it offers is wider than that:</p>
+        <div class="tw"><table>
+          <thead><tr><th>Option</th><th>Needs</th><th>Has</th><th>Overflows by</th></tr></thead>
+          <tbody>
+            <tr><td>Premium</td><td class="num">56px</td><td class="num">34px</td><td class="num">22px</td></tr>
+            <tr><td>Standard</td><td class="num">57px</td><td class="num">34px</td><td class="num">23px</td></tr>
+            <tr><td>Community</td><td class="num">71px</td><td class="num">34px</td><td class="num">36px</td></tr>
+          </tbody>
+        </table></div>
+        <p>So the tier column reads <code>Pr&hellip;</code>, <code>St&hellip;</code>, <code>Co&hellip;</code> on every row, forever. The Location select is the same problem one notch less severe: at 89px it truncates "Mezzanine" by 10px.</p>
+        <figure class="shot-tight">
+          <img src="aes/crop-tier-select.png" alt="Section Setup rows with Tier values truncated to two letters" />
+          <figcaption>Section Setup at the 1920&times;1080 design target. Also visible: H10, the column headers styled identically to the editable pills beneath them.</figcaption>
+        </figure>
+        <p>The cause is the three setup panels being forced to equal thirds. Location Setup needs one column and gets 461px; Section Setup needs four columns plus a delete control and gets 460px.</p>
+      </div>
+    </div>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">H2</span>
+        <div class="ftitle"><h3>Every button and input renders in Arial</h3>
+        <div class="sub">Product-wide &middot; form controls do not inherit <code>font-family</code></div></div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <p><code>body</code> sets Inter; 354 component rules set Outfit or Merge One. But <code>&lt;button&gt;</code>, <code>&lt;input&gt;</code> and <code>&lt;select&gt;</code> do not inherit <code>font-family</code> from their ancestors - the user agent sets it. Only <strong>5 rules in the entire codebase</strong> say <code>font-family: inherit</code>. Everything else falls through to Arial.</p>
+        <p>Measured on the login screen, which is the first thing any organizer sees:</p>
+        <div class="tw"><table>
+          <thead><tr><th>Control</th><th>Typeface</th><th>Size</th><th>Height</th></tr></thead>
+          <tbody>
+            <tr><td>Sign in / Register / Sign-in code tabs</td><td><strong>Arial</strong></td><td class="num">16px</td><td class="num">45px</td></tr>
+            <tr><td>Email input</td><td><strong>Arial</strong></td><td class="num">20px</td><td class="num">54px</td></tr>
+            <tr><td>Password input</td><td><strong>Arial</strong></td><td class="num">20px</td><td class="num">54px</td></tr>
+            <tr><td>Show</td><td><strong>Arial</strong></td><td class="num">14px</td><td class="num">54px</td></tr>
+            <tr><td>Menu, Close</td><td><strong>Arial</strong></td><td class="num">13.33px</td><td class="num">54 / 30px</td></tr>
+            <tr><td>Sign in (submit)</td><td>Outfit Regular</td><td class="num">20px</td><td class="num">60px</td></tr>
+            <tr><td>Sign out</td><td>Inter</td><td class="num">14px</td><td class="num">36px</td></tr>
+          </tbody>
+        </table></div>
+        <p>Three typefaces and five control heights on one screen. The 13.33px size is the browser's own default, which is the tell: those controls have never been styled at all.</p>
+        <div class="callout warn"><strong>The one-line fix is wrong on its own.</strong> Adding <code>button, input, select, textarea { font: inherit }</code> would make every control render <strong>Inter</strong>, because that is what <code>body</code> declares - while the 274 Outfit rules around them stay Outfit. The fix is two lines: set <code>body</code> to Outfit (already the product's real UI face, 274 declarations against Inter's 2), then inherit on the controls. See also H16 below.</div>
+        <figure class="shot-tight">
+          <img src="aes/crop-login-controls.png" alt="Login form fields and buttons" />
+          <figcaption>The tab labels, field text and "Show" are Arial; the green submit button is Outfit. The mismatch is subtle individually and is why the screen reads as slightly generic.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">H16</span>
+        <div class="ftitle"><h3>Every bold in the product is a fake, and the real weights are already in the repo</h3>
+        <div class="sub">Product-wide &middot; found while grilling H2</div></div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <p><code>main.css</code> declares exactly two <code>@font-face</code> rules, one weight each, and neither carries a <code>font-weight</code> descriptor:</p>
+        <pre>@font-face { font-family:'Merge One';     src:url('/fonts/MergeOne-Regular.ttf'); }
+@font-face { font-family:'Outfit Regular'; src:url('/fonts/Outfit/static/Outfit-Regular.ttf'); }</pre>
+        <p>At runtime <code>document.fonts</code> confirms it: <strong>one face per family, both <code>weight: normal</code>.</strong> Meanwhile the source asks for a heavier weight <strong>65 times</strong>:</p>
+        <div class="tw"><table>
+          <thead><tr><th>Requested</th><th>Declarations</th><th>Face available?</th></tr></thead>
+          <tbody>
+            <tr><td><code>500</code> (Medium)</td><td class="num">27</td><td><strong style="color:var(--red)">no - synthesised</strong></td></tr>
+            <tr><td><code>600</code> (SemiBold)</td><td class="num">24</td><td><strong style="color:var(--red)">no - synthesised</strong></td></tr>
+            <tr><td><code>bold</code> / <code>700</code></td><td class="num">14</td><td><strong style="color:var(--red)">no - synthesised</strong></td></tr>
+            <tr><td><code>100</code> (Thin)</td><td class="num">2</td><td><strong style="color:var(--red)">no - renders as regular</strong></td></tr>
+            <tr><td><code>400</code> / <code>normal</code></td><td class="num">20</td><td>yes</td></tr>
+          </tbody>
+        </table></div>
+        <p>With no matching face, the browser <em>synthesises</em> the weight by smearing the regular outline. That is why emphasis across the product looks slightly muddy rather than crisp - it is not a real typeface, it is an algorithm thickening one.</p>
+        <div class="callout ok">
+          <strong>The fix is already sitting in the repository.</strong> <code>front-end/public/fonts/Outfit/static/</code> contains Medium, SemiBold and Bold, and <code>public/fonts/Outfit-VariableFont_wght.ttf</code> covers the whole axis. Nothing needs downloading or licensing - three <code>@font-face</code> rules with <code>font-weight</code> descriptors, or one variable-font rule with <code>font-weight: 100 900</code>, and 65 declarations start rendering the type that was shipped for them.
+        </div>
+        <p style="color:var(--ink-2)">The family name is part of the problem: calling the family <code>'Outfit Regular'</code> names a <em>weight</em> as if it were a <em>family</em>, which is what makes adding the other weights feel wrong. The family is <code>Outfit</code>; Regular is one of its weights.</p>
+      </div>
+    </div>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">H3</span>
+        <div class="ftitle"><h3>Two verdict buttons fail AA, on the highest-volume screen in the product</h3>
+        <div class="sub">Applications &rarr; triage queue</div></div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <p>A reviewer works this screen once per application - 232 times for the real UBC export. Two of its three verdict buttons put white text on a ground that cannot carry it:</p>
+        <div class="tw"><table>
+          <thead><tr><th>Control</th><th>Foreground</th><th>Background</th><th>Ratio</th><th>Needs</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Skip</strong></td><td>white</td><td><span class="swatch" style="background:#c5c4c4"></span><code>--mm-border</code> over white</td><td class="num"><strong style="color:var(--red)">1.74:1</strong></td><td class="num">4.5:1</td></tr>
+            <tr><td><strong>Reject</strong></td><td>white</td><td><span class="swatch" style="background:#f44336"></span><code>#F44336</code></td><td class="num"><strong style="color:var(--red)">3.68:1</strong></td><td class="num">4.5:1</td></tr>
+            <tr><td>Approve</td><td>white</td><td><span class="swatch" style="background:#3a853d"></span><code>#3A853D</code></td><td class="num">4.56:1</td><td class="num">4.5:1</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout warn">
+          <strong>This is a gap in the guard, not an oversight in the palette.</strong> <code>base.css</code> exempts <code>--mm-border</code> from the contrast contract on the stated grounds that it "never carries text", and <code>contrast.test.ts</code> asserts tokens rather than usages. The Skip button uses <code>--mm-border</code> as a <em>fill</em> with white text on it, which the test cannot see. The same <code>rgba(39,35,35,.25)</code>-with-white-text pattern is the disabled state of "Create market" in the new-market dialog.
+        </div>
+        <p>The keyboard-shortcut chips (<code>R</code>, <code>S</code>, <code>A</code>) inherit the same grounds and the same ratios, at 11px. Note that Approve clears the bar by <strong>0.06</strong>: all three verdict buttons were coloured without the contrast contract in view, and one of them happened to land on the right side of it.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H4</span>
+        <div class="ftitle"><h3>The phase label fails AA on every market screen</h3>
+        <div class="sub">PhaseRail &middot; reproduced on 4 of 4 screens carrying the rail</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p><code>--mm-green</code> is documented at 4.59:1 and measured on white. The phase rail's ground is <code>#FBFBFA</code>, not white, and the current phase label renders at <strong>4.43:1</strong> - just under the bar, on every market screen, every time.</p>
+        <p>It is a two-hundredths-of-a-shade miss, and worth fixing precisely because the contrast work was done deliberately: the token is right, the ground it was measured against is not the only ground it is used on.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H5</span>
+        <div class="ftitle"><h3>A checkbox answer is shown to the reviewer as <code>true</code></h3>
+        <div class="sub">Applications &rarr; triage card</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>"Do you need access to mains power at your table?" renders its answer as the raw boolean <code>true</code>. Every other answer on the card is rendered for a human - dates are spelled out, tier preference is joined per date, table choice reads "A whole table to myself".</p>
+        <figure><img src="aes/10-triage-queue.png" alt="Triage card showing a raw true value" /><figcaption>The triage card. <code>true</code> on row 4. Note also that the card's headline is an email address while the applicant's name and business are rows 6 and 1 of a 12-row list.</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H6</span>
+        <div class="ftitle"><h3><code>market_days</code> leaks into the form-lock banner</h3>
+        <div class="sub">Application Form tab</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>The banner reads <em>"Application form can only be edited while the market is in draft phase. Current phase: market_days."</em> Two inches above it, the phase rail names the same state <strong>Market Days</strong>. One screen, one state, two spellings, one of them snake_case.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H7</span>
+        <div class="ftitle"><h3>Two peer footer buttons are 21px out of vertical alignment</h3>
+        <div class="sub">Assignment Results</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>"Download CSV" sits at y=881, "Send to Discord" at y=902, both 35px tall, both in the same footer row. The gap comes from the Discord hint being stacked above its button while the CSV button has no hint, so nothing holds the row to a shared baseline.</p>
+        <figure class="shot-tight"><img src="aes/crop-footer-buttons.png" alt="Download CSV and Send to Discord buttons at different heights" /><figcaption>The two actions that finish the job, not sharing a line.</figcaption></figure>
+        <p>The hint also sits <em>above</em> the control it explains and clears the card above it by 3px.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H8</span>
+        <div class="ftitle"><h3>List columns are ragged because the numerals are not tabular</h3>
+        <div class="sub">Vendors, and the Markets / Organizations rows</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>Down the Vendors list, the right-hand metadata starts at three different x positions:</p>
+        <div class="tw"><table>
+          <thead><tr><th>Row</th><th>Badge ends</th><th>"N / 2 dates" starts</th></tr></thead>
+          <tbody>
+            <tr><td>Kwame Boateng - Unassigned, 0 / 2</td><td class="num">1375</td><td class="num">1387</td></tr>
+            <tr><td>Emil Novak - Assigned, 2 / 2</td><td class="num">1377</td><td class="num">1389</td></tr>
+            <tr><td>Cassandra Nwosu - Assigned, 1 / 2</td><td class="num">1379</td><td class="num">1391</td></tr>
+          </tbody>
+        </table></div>
+        <p>The group is right-aligned, so the jitter propagates leftward from the width of the digits themselves: in Outfit, <code>0</code>, <code>1</code> and <code>2</code> are different widths. <strong><code>font-variant-numeric: tabular-nums</code> on any column of figures fixes this class of defect everywhere at once.</strong> The previous walk recorded this jitter on Markets and Organizations without finding its cause; this is the cause.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H9</span>
+        <div class="ftitle"><h3>One dialog, two label alignments and two field designs</h3>
+        <div class="sub">New market overlay</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <figure class="shot-tight"><img src="aes/crop-dialog-labels.png" alt="Organization label centred, Market name label left aligned, with two differently styled fields" /></figure>
+        <div class="tw"><table>
+          <thead><tr><th></th><th>ORGANIZATION</th><th>MARKET NAME</th></tr></thead>
+          <tbody>
+            <tr><th>Label alignment</th><td>Centred (97px, shrink-wrapped)</td><td>Left (430px, full width)</td></tr>
+            <tr><th>Field shape</th><td>Bordered rect, 6px radius</td><td>Pill, grey fill, inset shadow</td></tr>
+            <tr><th>Field typeface</th><td>Outfit Regular</td><td>Inter</td></tr>
+            <tr><th>Field height</th><td class="num">38px</td><td class="num">22px + wrapper</td></tr>
+          </tbody>
+        </table></div>
+        <p>Both labels are uppercase, which nothing else in the product does - every other form uses sentence-case labels ("Your email", "Business name").</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">H10</span>
+        <div class="ftitle"><h3>Column headers are dressed as editable fields</h3>
+        <div class="sub">Market Setup, all four panels</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>"Date", "Priority / Tier Name", "Location Name" and "Section Name / Location / Tier / Count" are non-interactive headings rendered with the same rounded border, the same inset shadow and the same centred text as the input pills below them. A control's appearance is a promise about what it does; these break it on every row of the plan editor. See the H1 figure.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">H11</span>
+        <div class="ftitle"><h3>The heading "Priority" is clipped by 3px</h3>
+        <div class="sub">Market Setup &rarr; Tier Setup</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb"><p>51px of text in a 48px box, with <code>overflow</code> not set to scroll or auto - so the last glyph is simply cut. The only clipped text node found across 13 measured screens, which is a good result; it is listed because it is unambiguous.</p></div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">H12</span>
+        <div class="ftitle"><h3>Pure lime <code>#00ff00</code> is the floorplan editor's selection colour</h3>
+        <div class="sub">FloorplanEditor.vue, 5 occurrences</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>Selected tables, transformer anchors and drag handles all stroke <code>#00ff00</code> on a <code>--mm-beige</code> canvas. Pure primary green at full saturation appears nowhere else in the product and belongs to no palette; it is a placeholder that shipped.</p>
+        <p style="color:var(--ink-2)">Scoped low because the floorplan GUI is explicitly cut from MVP. It should be fixed when that surface is picked up, not before.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">H13</span>
+        <div class="ftitle"><h3>Every capped card cuts its content mid-row</h3>
+        <div class="sub">Market Setup, Assignment Results, Application Form</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>Because the card height is a percentage of the viewport rather than a function of its content, the clipping point lands wherever it lands: "Centre Aisle" is sliced through the middle of its row, "Window Wall" through its label, "Fixed options - a table seats two" through its descenders. A scroll boundary that falls mid-glyph reads as a rendering fault rather than as more content below.</p>
+        <p>This is the visible symptom of the sizing question already open as <a href="../.scratch/wayfinding/claims-and-room/issues/01-how-an-organizer-screen-sizes-itself.md">ticket 01</a>; see O1 for the fresh measurements.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">H14</span>
+        <div class="ftitle"><h3>A field and the button beside it differ by 2px</h3>
+        <div class="sub">Public check-in page, desktop</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb"><p>The email input is 42px tall, "Look up" is 40px, both starting at the same y. The button's bottom edge sits 2px proud of the field's. Trivial in isolation, listed because it is the same absent-shared-control-height that produces H2's five heights on one screen.</p></div>
+    </div>
+  </section>
+
+  <!-- ====================================================== SYSTEM -->
+  <section id="system">
+    <div class="sec-head"><h2>No scale exists</h2><span class="count">the inventory</span></div>
+    <p class="sec-intro">A design system's job is to make most decisions once. These counts are what it looks like when they are made 71 times instead. Every figure below is from the committed source, not from one screen.</p>
+
+    <div class="two">
+      <div>
+        <div class="lbl">S1 &middot; Border radius - 17 distinct declarations</div>
+        <div class="tw"><table>
+          <thead><tr><th>Value</th><th>Uses</th></tr></thead>
+          <tbody>
+            <tr><td><code>6px</code></td><td class="num">72</td></tr>
+            <tr><td><code>8px</code></td><td class="num">49</td></tr>
+            <tr><td><code>5px</code></td><td class="num">46</td></tr>
+            <tr><td><code>10px</code></td><td class="num">31</td></tr>
+            <tr><td><code>4px</code></td><td class="num">29</td></tr>
+            <tr><td><code>50%</code></td><td class="num">13</td></tr>
+            <tr><td><code>12px</code></td><td class="num">10</td></tr>
+            <tr><td><code>999px</code></td><td class="num">8</td></tr>
+            <tr><td><code>3px</code></td><td class="num">7</td></tr>
+            <tr><td><code>20px</code></td><td class="num">5</td></tr>
+            <tr><td colspan="2" style="color:var(--ink-3)">&hellip;plus <code>14px</code>, <code>30px</code>, <code>100px</code>, <code>1px</code>, <code>0</code>, <code>0px</code>, <code>0.5rem</code></td></tr>
+          </tbody>
+        </table></div>
+        <p style="font-size:14px;color:var(--ink-2)">Four values within 4px of each other (4, 5, 6, 8) account for 196 uses. "Fully rounded" is spelled four ways: <code>999px</code>, <code>100px</code>, <code>30px</code>, <code>20px</code>. <code>0.5rem</code> is <code>8px</code> written differently.</p>
+      </div>
+      <div>
+        <div class="lbl">S2 &middot; Type - 24 distinct sizes</div>
+        <div class="tw"><table>
+          <thead><tr><th>Value</th><th>Uses</th></tr></thead>
+          <tbody>
+            <tr><td><code>14px</code></td><td class="num">190</td></tr>
+            <tr><td><code>13px</code></td><td class="num">94</td></tr>
+            <tr><td><code>12px</code></td><td class="num">67</td></tr>
+            <tr><td><code>16px</code></td><td class="num">39</td></tr>
+            <tr><td><code>20px</code></td><td class="num">23</td></tr>
+            <tr><td><code>18px</code></td><td class="num">22</td></tr>
+            <tr><td><code>15px</code></td><td class="num">22</td></tr>
+            <tr><td><code>11px</code></td><td class="num">18</td></tr>
+            <tr><td><code>24px</code></td><td class="num">10</td></tr>
+            <tr><td colspan="2" style="color:var(--ink-3)">&hellip;plus 17, 19, 22, 26, 28, 30, 36, 48, 8, 10px, <code>1.2rem</code>, <code>0.8em</code>, <code>clamp()</code></td></tr>
+          </tbody>
+        </table></div>
+        <p style="font-size:14px;color:var(--ink-2)">Every integer from 11px to 20px is in use. A type scale has five to seven steps chosen to be distinguishable; adjacent 1px steps are not distinguishable, so they carry no meaning - they just make two screens disagree. <code>10px</code> and <code>8px</code> body text is below any readable minimum.</p>
+      </div>
+    </div>
+
+    <div class="lbl">S3 &middot; Spacing - 32 distinct px values</div>
+    <div class="tw"><table>
+      <thead><tr><th>Value</th><th class="num">8</th><th class="num">10</th><th class="num">12</th><th class="num">4</th><th class="num">6</th><th class="num">2</th><th class="num">16</th><th class="num">20</th><th class="num">24</th><th class="num">40</th><th class="num">14</th><th class="num">5</th><th class="num">3</th></tr></thead>
+      <tbody><tr><th>Uses</th><td class="num">118</td><td class="num">87</td><td class="num">58</td><td class="num">52</td><td class="num">51</td><td class="num">31</td><td class="num">30</td><td class="num">24</td><td class="num">23</td><td class="num">20</td><td class="num">17</td><td class="num">10</td><td class="num">9</td></tr></tbody>
+    </table></div>
+    <p style="font-size:14.5px;color:var(--ink-2);max-width:88ch">A 4px scale would be 4 / 8 / 12 / 16 / 24 / 32 / 40. The second most-used value in the product is <code>10px</code>, which is on no such grid, and <code>2</code>, <code>3</code>, <code>5</code>, <code>6</code>, <code>14</code> and <code>18</code> account for another 135 uses. This is why two panels that should look like siblings do not: their internal rhythms are a pixel or two apart everywhere.</p>
+
+    <div class="lbl" style="margin-top:34px">S4 &middot; Colour - one decision in three bypasses the palette</div>
+    <div class="two">
+      <div class="tw"><table>
+        <thead><tr><th>Source</th><th>Uses</th></tr></thead>
+        <tbody>
+          <tr><td><code>var(--mm-*)</code> tokens</td><td class="num">704</td></tr>
+          <tr><td><strong>Hardcoded hex</strong> (excl. pure black/white)</td><td class="num"><strong style="color:var(--red)">351</strong></td></tr>
+        </tbody>
+      </table></div>
+      <div class="tw"><table>
+        <thead><tr><th>Token</th><th>Uses</th></tr></thead>
+        <tbody>
+          <tr><td><code>--mm-black</code></td><td class="num">205</td></tr>
+          <tr><td><code>--mm-green</code></td><td class="num">163</td></tr>
+          <tr><td><code>--mm-border</code></td><td class="num">117</td></tr>
+          <tr><td><code>--mm-text-muted</code></td><td class="num">107</td></tr>
+          <tr><td><code>--mm-text-red</code> <strong style="color:var(--red)">(undefined)</strong></td><td class="num">7</td></tr>
+          <tr><td><code>--mm-red</code> <strong style="color:var(--red)">(undefined)</strong></td><td class="num">24</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="lbl">S5 &middot; Nine reds for one job</div>
+    <div class="tw"><table>
+      <thead><tr><th>Colour</th><th>Uses</th><th>Colour</th><th>Uses</th><th>Colour</th><th>Uses</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="swatch" style="background:#cc0000"></span><code>#cc0000</code></td><td class="num">27</td>
+          <td><span class="swatch" style="background:#d32f2f"></span><code>#d32f2f</code></td><td class="num">18</td>
+          <td><span class="swatch" style="background:#c0392b"></span><code>#c0392b</code></td><td class="num">11</td>
+        </tr>
+        <tr>
+          <td><span class="swatch" style="background:#c62828"></span><code>#c62828</code></td><td class="num">6</td>
+          <td><span class="swatch" style="background:#e74c3c"></span><code>#e74c3c</code></td><td class="num">5</td>
+          <td><span class="swatch" style="background:#b71c1c"></span><code>#b71c1c</code></td><td class="num">4</td>
+        </tr>
+        <tr>
+          <td><span class="swatch" style="background:#8a1f1f"></span><code>#8a1f1f</code></td><td class="num">4</td>
+          <td><span class="swatch" style="background:#f44336"></span><code>#f44336</code></td><td class="num">1</td>
+          <td><span class="swatch" style="background:#e53935"></span><code>#e53935</code></td><td class="num">1</td>
+        </tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:14.5px;color:var(--ink-2);max-width:88ch">77 occurrences for one semantic role. Two of them ship next to each other: "Delete market" is <code>#D32F2F</code> (4.98:1) and "Reject" is <code>#F44336</code> (3.68:1, failing). The most-used of them, <code>#cc0000</code>, is not a chosen colour at all - it is the fallback in <code>var(--mm-red, #cc0000)</code>, standing in for the undefined token of <a href="#hard">H0</a>. Three of the nine cannot carry white text at all: <code>#e74c3c</code>, <code>#f44336</code> and <code>#e53935</code>.</p>
+
+    <div class="lbl" style="margin-top:30px">S6 &middot; Eight greens beside the token - including the one that was removed for failing contrast</div>
+    <div class="tw"><table>
+      <thead><tr><th>Colour</th><th>Where</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td><span class="swatch" style="background:#36826f"></span><code>#36826F</code></td><td><code>--mm-green</code>, and once hardcoded</td><td>the intended brand green</td></tr>
+        <tr><td><span class="swatch" style="background:#00dc82"></span><code>#00DC82</code></td><td>the <strong>logo</strong>, on every screen</td><td>a vivid mint the rest of the product never uses</td></tr>
+        <tr><td><span class="swatch" style="background:#49b096"></span><code>#49B096</code></td><td>still in source, plus a tinted shadow</td><td><strong>the value <code>base.css</code> says was darkened away for failing contrast at 2.65:1</strong></td></tr>
+        <tr><td><span class="swatch" style="background:#0c875e"></span><code>#0C875E</code></td><td>"Market Days" phase badge</td><td rowspan="5">none of these are in <code>base.css</code></td></tr>
+        <tr><td><span class="swatch" style="background:#3a9a82"></span><code>#3A9A82</code></td><td>6 rules</td></tr>
+        <tr><td><span class="swatch" style="background:#3a853d"></span><code>#3A853D</code></td><td>Approve button</td></tr>
+        <tr><td><span class="swatch" style="background:#388e3c"></span><code>#388E3C</code></td><td>3 rules</td></tr>
+        <tr><td><span class="swatch" style="background:#2e7d32"></span><code>#2E7D32</code></td><td>3 rules</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout warn">
+      <strong>The wordmark and the brand colour are different greens.</strong> On the login screen the logo paints <code>#00DC82</code> and the Sign in button paints <code>#36826F</code>, 40px apart. <code>#00DC82</code> is a well-known framework's stock brand green; it reads as a template that was never replaced. Whatever the brand green is, the logo and the primary button should be the same one.
+    </div>
+
+    <div class="lbl" style="margin-top:30px">S7 &middot; Status chips - five designs, and two blues for one state</div>
+    <div class="tw"><table>
+      <thead><tr><th>Chip</th><th>Screen</th><th>Shape</th><th>Fill</th><th>Text</th></tr></thead>
+      <tbody>
+        <tr><td>Market Days</td><td>Markets</td><td>pill, r20</td><td><span class="swatch" style="background:#0c875e"></span>solid <code>#0C875E</code></td><td>white</td></tr>
+        <tr><td>Applications Open</td><td>Markets</td><td>pill, r20</td><td><span class="swatch" style="background:#3472d8"></span>solid <code>#3472D8</code></td><td>white</td></tr>
+        <tr><td>Open</td><td>Triage card</td><td>rect, r4</td><td><span class="swatch" style="background:#1b7ac5"></span>solid <code>#1B7AC5</code></td><td>white</td></tr>
+        <tr><td>Owner</td><td>Organizations</td><td>rect, r4</td><td><span class="swatch" style="background:#e3f2fd"></span>tint <code>#E3F2FD</code></td><td><code>--mm-text-link</code></td></tr>
+        <tr><td>Unassigned</td><td>Vendors</td><td>rect</td><td>amber tint</td><td>amber</td></tr>
+        <tr><td>FULL TABLE</td><td>Tables</td><td>pill, uppercase</td><td>solid green</td><td>white</td></tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:14.5px;color:var(--ink-2);max-width:88ch">"Applications Open" and "Open" are the same state seen from two screens, in two different blues, in two different shapes. Only one chip in the set - "Owner" - uses a palette token for its text.</p>
+
+    <div class="lbl" style="margin-top:30px">S8 &middot; Four disabled treatments</div>
+    <div class="tw"><table>
+      <thead><tr><th>Control</th><th>Screen</th><th>Treatment</th></tr></thead>
+      <tbody>
+        <tr><td>Assign</td><td>Market Setup</td><td>pale green fill, white text</td></tr>
+        <tr><td>Send to Discord</td><td>Assignment Results</td><td>grey fill, white text</td></tr>
+        <tr><td>Import from CSV</td><td>Applications</td><td>mid-grey fill, dark text</td></tr>
+        <tr><td>Create market</td><td>New market dialog</td><td><code>rgba(39,35,35,.25)</code>, white text (1.74:1)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ====================================================== ORGANIZATION -->
+  <section id="org">
+    <div class="sec-head"><h2>Organization and hierarchy</h2><span class="count">11 findings &middot; judged in Conventioner's own idiom</span></div>
+    <p class="sec-intro">These are the soft calls - how the screens are arranged, what they emphasise, and whether the arrangement helps. Where the product disagrees with itself I have said which side I think is right.</p>
+
+    <div class="finding crit">
+      <div class="fh">
+        <span class="fid">O1</span>
+        <div class="ftitle"><h3>Four page widths, four gutters, and scrollers that hide more than they show</h3>
+        <div class="sub">Corroborates <em>claims-and-room</em> ticket 01 with fresh numbers</div></div>
+        <span class="sev crit">Critical</span>
+      </div>
+      <div class="fb">
+        <div class="tw"><table>
+          <thead><tr><th>Screen</th><th>Content width</th><th>Gutter</th></tr></thead>
+          <tbody>
+            <tr><td>Market Setup / Application Form / Assignment Results</td><td class="num">1536px (80% of viewport, height pinned too)</td><td class="num">192px</td></tr>
+            <tr><td>Tables / Vendors / Attendance</td><td class="num">1100px</td><td class="num">410px</td></tr>
+            <tr><td>Markets / Organizations</td><td class="num">1840px</td><td class="num">40px</td></tr>
+            <tr><td>Import applications</td><td class="num">1854px</td><td class="num">32px</td></tr>
+          </tbody>
+        </table></div>
+        <p>Two screens of <em>the same market</em> differ by 436px. The consequence is measurable as hidden content:</p>
+        <div class="tw"><table>
+          <thead><tr><th>Scroller</th><th>Visible</th><th>Hidden</th><th>Shows</th></tr></thead>
+          <tbody>
+            <tr><td><code>settings-body-plan</code> (Market Setup)</td><td class="num">547px</td><td class="num">554px</td><td class="num">50%</td></tr>
+            <tr><td><code>assignment-results-body</code></td><td class="num">536px</td><td class="num">573px</td><td class="num">48%</td></tr>
+            <tr><td><code>form-builder-container</code></td><td class="num">559px</td><td class="num">1,935px</td><td class="num">22%</td></tr>
+            <tr><td><code>tables-body</code></td><td class="num">686px</td><td class="num">10,879px</td><td class="num"><strong style="color:var(--red)">6%</strong></td></tr>
+          </tbody>
+        </table></div>
+        <p>Market Setup nests <strong>six</strong> scrollers, three of which also scroll horizontally by 4-8px, which is what produces the tiny stub scrollbars inside the setup panels. The outer page cannot scroll at all, so the organizer scrolls inside a box on a screen that is 19% empty at the sides.</p>
+        <figure><img src="aes/06-market-setup.png" alt="Market Setup at 1920x1080 showing the 80% card and nested scrollbars" /><figcaption>Market Setup. Roughly 190px of dead page left and right, content sliced at the card's bottom edge, and the Discord row and Assign button living outside the card entirely.</figcaption></figure>
+        <p style="color:var(--ink-2)">The <code>height: 80%</code> dates to the first commit of this view in Feb 2025 and was never a decision. Ticket 01 already has the authority to delete it; these numbers are offered as evidence for that ticket, not as a competing proposal.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">O2</span>
+        <div class="ftitle"><h3>The Markets list gives a name 320px and leaves 1,455px empty</h3>
+        <div class="sub">Markets, Organizations</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <figure class="shot-tight"><img src="aes/crop-markets-row.png" alt="A market row with a wrapped title and vast empty space" /></figure>
+        <p>The name-and-badge cell is hard-capped at <strong>320px</strong> inside an <strong>1840px</strong> row. Two of four market names wrap to two lines as a result, while the last content on the row ("Vancouver Makers Collective") ends at x=718 and nothing occupies the 1,050px between it and the Manage button.</p>
+        <p>Wrapping also makes the rows unequal heights - 92, 92, 87, 87 - so a list of peers has a ragged vertical rhythm for no reason a reader can see.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">O3</span>
+        <div class="ftitle"><h3>The same "Manage" button has two designs on two sibling screens</h3>
+        <div class="sub">Markets vs Organizations - both rendering <code>.summary-card</code></div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <div class="two">
+          <figure><img src="aes/03-markets.png" alt="Markets list" /><figcaption>Markets: outline, white fill, weight 400, 85px.</figcaption></figure>
+          <figure><img src="aes/04-organizations.png" alt="Organizations list" /><figcaption>Organizations: solid <code>#272323</code>, white text, weight 500, 91px. Badge is a tinted rect, not a solid pill.</figcaption></figure>
+        </div>
+        <p>Same component, same label, same role, one screen apart. The Organizations treatment is the stronger of the two - a solid dark button reads as the row's action - but the badge treatment is better on Markets, where the phase deserves the colour. Either is defensible; having both is not.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">O4</span>
+        <div class="ftitle"><h3>The page whose job is checking in makes "Check in" its quietest control</h3>
+        <div class="sub">Public check-in, after lookup</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <div class="callout warn"><strong>Half of this finding was wrong, corrected 20 Sep while fixing it.</strong> <code>Check in</code> is already the primary button on the row whose date is <em>today</em>, and secondary on every other row - <code>:class="row.date === today ? 'primary-button' : 'secondary-button'"</code>. The walk measured a market whose dates were all in the future, so every row rendered secondary. That design is better than what this finding proposed: making every row primary would make a mis-tap on the wrong day exactly as easy as the right one.</div>
+        <p>What survives: <strong>"Look up" stays solid green after it has been used</strong>, so on the result view a spent control wears the only green on a page someone is holding at a door. It now demotes to secondary once a result is showing.</p>
+        <figure><img src="aes/15-checkin-result.png" alt="Check-in result showing outline Check in buttons" /></figure>
+        <p style="color:var(--ink-2)">The lesson is about the walk, not the screen: a surface whose behaviour depends on the date cannot be judged from a fixture dated in the future. The <em>Method</em> section's note on what a walk finds applies here too.</p>
+      </div>
+    </div>
+
+    <div class="finding high">
+      <div class="fh">
+        <span class="fid">O5</span>
+        <div class="ftitle"><h3>"Manage" on a market row does not open the market</h3>
+        <div class="sub">Markets</div></div>
+        <span class="sev high">High</span>
+      </div>
+      <div class="fb">
+        <p>The only button on a market row opens a dialog containing user permissions, organization access, rename and <strong>delete</strong>. Opening the market - the thing an organizer wants nineteen times out of twenty - is done by clicking the row body, which carries no affordance saying so.</p>
+        <figure><img src="aes/05-manage-market-overlay.png" alt="Manage market dialog" /></figure>
+        <p>Inside the dialog, "Add user", "Add organization", "Save" and "Delete market" are all 34px, weight 400, 6px radius. A destructive irreversible action is the exact visual weight of adding a collaborator, and the four sections have dividers on two of their three boundaries.</p>
+        <p><strong>Recommendation:</strong> the row's button says "Open"; administration moves behind a quiet secondary control or the existing "More&hellip;" menu.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">O6</span>
+        <div class="ftitle"><h3>Three sibling screens, three title conventions</h3>
+        <div class="sub">Vendors, Tables, Attendance</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <div class="tw"><table>
+          <thead><tr><th>Screen</th><th>Header reads</th><th>Names the market?</th></tr></thead>
+          <tbody>
+            <tr><td>Vendors</td><td>"Vendors: Spring Craft Fair 2027"</td><td>yes</td></tr>
+            <tr><td>Tables</td><td>"Tables"</td><td><strong style="color:var(--red)">no</strong></td></tr>
+            <tr><td>Attendance</td><td>"Attendance Status"</td><td><strong style="color:var(--red)">no</strong></td></tr>
+            <tr><td>Market Setup and its tabs</td><td>"Winter Artisan Market 2026"</td><td>yes, but drops the screen name</td></tr>
+          </tbody>
+        </table></div>
+        <p>An organizer running two markets in the same week can open Tables and have nothing on screen tell them which market's tables these are. The Vendors form is the right one.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">O7</span>
+        <div class="ftitle"><h3>The dashboard's primary action duplicates the card beneath it</h3>
+        <div class="sub">Dashboard</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <figure><img src="aes/02-dashboard.png" alt="Dashboard with three controls floating in a large empty page" /></figure>
+        <p>"Open a market" navigates to <code>/markets</code>. The "Markets" card directly below it navigates to <code>/markets</code>. Two controls, one destination, 60px apart.</p>
+        <p>The hierarchy is also inverted: the two largest, heaviest elements on the page are secondary navigation rendered as near-black filled blocks, while the primary action is a small green button above them. And "Sign out" is a text link floating in the middle of the page rather than in the header where account actions live.</p>
+        <p>Content occupies a 313px band of a 1080px viewport - the page is about 90% empty. Whatever this screen is for, it is currently a menu with three items, two of which are the same item.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">O8</span>
+        <div class="ftitle"><h3>Nine unreviewed applicants are listed as "Unassigned" vendors</h3>
+        <div class="sub">Vendors on an <code>applications_open</code> market</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>On a market with 9 open, 3 approved and 2 rejected applications, the Vendors screen reads "3 of 14 vendors assigned" and lists all 14, badging the eleven non-approved ones "Unassigned" - visually identical to an approved vendor the solver could not place.</p>
+        <figure><img src="aes/12-vendors.png" alt="Vendors list including unreviewed applicants" /></figure>
+        <div class="callout"><strong>Already open</strong> as <a href="../.scratch/wayfinding/claims-and-room/issues/04-who-is-in-the-vendors-list.md">claims-and-room ticket 04</a>, which found it with one rejected applicant. Recorded here because a realistic fixture makes it eleven out of fourteen rather than one out of six, which changes how urgent it looks.</div>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">O9</span>
+        <div class="ftitle"><h3>The triage card leads with an email address</h3>
+        <div class="sub">Applications</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>The two facts a reviewer decides on are who the applicant is and what they sell. The card's headline is <code>declan@peatsmoke.test</code> at 15px weight 400 - the same weight as body text - while "Peatsmoke Preserves" is row 1 and "Declan Murphy" is row 6 of a twelve-row list.</p>
+        <p>The label column also splits by colour: custom fields get near-black labels, essential fields get grey ones. That reads as "the essential questions matter less", which inverts their actual role, and nothing on screen explains the split.</p>
+        <p><strong>Recommendation:</strong> business name as the card's headline, applicant name beneath it, email as metadata beside the date. E13 gave vendors names; this card has not picked them up.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">O10</span>
+        <div class="ftitle"><h3>A third page chrome, and a stepper that is not one</h3>
+        <div class="sub">Import applications</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <figure><img src="aes/17-csv-import.png" alt="CSV import step 1" /></figure>
+        <p>The import wizard has no card, no black header, no phase rail and no market name in its chrome - the market is named in body prose. Its page title is 24px at x=32; the Markets title is 28px at x=40.</p>
+        <p>"1 Upload &middot; 2 Map columns &middot; 3 Preview &middot; 4 Confirm" is plain text with the current step bolded: no connectors, no markers, no progress. Two inches of product away, the phase rail is a properly drawn stepper. The wizard should borrow it.</p>
+        <p>The dropzone is 718px wide and left-aligned in an 1854px page, so the one thing the screen asks for sits alone with 1,130px of nothing beside it.</p>
+      </div>
+    </div>
+
+    <div class="finding med">
+      <div class="fh">
+        <span class="fid">O11</span>
+        <div class="ftitle"><h3>Empty states are a single grey sentence</h3>
+        <div class="sub">Attendance, Applications, and the floorplan editor's beige outlier</div></div>
+        <span class="sev med">Medium</span>
+      </div>
+      <div class="fb">
+        <p>"No check-ins recorded yet." "Nothing left to review." Both are one muted line centred in a large white void, with no indication of what will appear there, or what to do next. The Attendance empty state sits directly below a check-in URL it never mentions.</p>
+        <p>The floorplan editor's empty state is the best of them - it offers a button - but it is also the only screen in the product with a <code>--mm-beige</code> page background, and its voice ("Please start from the Market Setup page") is formal in a product that otherwise writes "Nothing left to review."</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== GOOD -->
+  <section id="good">
+    <div class="sec-head"><h2>What is already right</h2><span class="count">and should become the standard</span></div>
+    <p class="sec-intro">This section exists because the recommendation is not "redesign it". Five things in this product are good enough to be the reference the rest is brought up to.</p>
+
+    <div class="finding good">
+      <div class="fh"><span class="fid">G1</span><div class="ftitle"><h3>The application form builder</h3><div class="sub">Application Form tab</div></div><span class="sev good">Keep</span></div>
+      <div class="fb">
+        <figure><img src="aes/09-application-form.png" alt="Form builder and applicant preview side by side" /></figure>
+        <p>Builder and applicant preview side by side at equal width, field cards with type chips, helper text under every label, options shown as the applicant will read them. This is the clearest screen in the product and the one a new organizer would understand fastest. Its only defect is the <code>market_days</code> leak (H6).</p>
+      </div>
+    </div>
+
+    <div class="finding good">
+      <div class="fh"><span class="fid">G2</span><div class="ftitle"><h3>The assignment summary card</h3><div class="sub">Assignment Results</div></div><span class="sev good">Keep</span></div>
+      <div class="fb"><p>Four numbers at 30px on a green field with their labels above them, and one line of prose underneath explaining what "satisfaction" means. It answers "did this work" in one glance and then explains its own terms. The quick-nav card beside it - three icon links separated by hairlines - is the cleanest navigation in the product.</p></div>
+    </div>
+
+    <div class="finding good">
+      <div class="fh"><span class="fid">G3</span><div class="ftitle"><h3>Check-in at 390px</h3><div class="sub">Public check-in</div></div><span class="sev good">Keep</span></div>
+      <div class="fb">
+        <figure style="max-width:420px"><img src="aes/16-checkin-390.png" alt="Check-in page at phone width" /></figure>
+        <p>Measured at 390&times;844: <strong>no horizontal scroll, no overflowing element, no contrast failure</strong>, and every control at or above 40px. This is the one surface someone holds in their hand at a door and it is the best-executed surface in the product. Only O4's button hierarchy is wrong.</p>
+      </div>
+    </div>
+
+    <div class="finding good">
+      <div class="fh"><span class="fid">G4</span><div class="ftitle"><h3>The writing</h3><div class="sub">throughout</div></div><span class="sev good">Keep</span></div>
+      <div class="fb">
+        <p>"Nothing is written until you confirm." "Being available doesn't commit you: you'll be assigned at most this many of the dates you ticked above." "Your form never asked Section preference. It is a preference, not a constraint, so this market can stop asking it."</p>
+        <p>The interface prose is better than the interface. Several findings above are cases where good writing is attached to a control that undermines it - the import advisory beside a hard-disabled button, the Discord hint above a button it does not align with.</p>
+      </div>
+    </div>
+
+    <div class="finding good">
+      <div class="fh"><span class="fid">G5</span><div class="ftitle"><h3>The modal scrim</h3><div class="sub">verified by pixel sampling</div></div><span class="sev good">Keep</span></div>
+      <div class="fb"><p>I sampled eight points across the page behind an open dialog. Every one was dimmed to exactly 50% - header, list rows, empty page, all uniform. E14's modal work holds up. Noted because it is the kind of thing only a measurement confirms, and my first visual impression of it was wrong.</p></div>
+    </div>
+  </section>
+
+  <!-- ====================================================== METHOD -->
+  <section id="method">
+    <div class="sec-head"><h2>Method</h2></div>
+    <div class="fb" style="background:var(--card);border:1px solid var(--grey);border-radius:var(--radius);padding:22px">
+      <p><strong>Stack.</strong> <code>dev @ 1aac84c6</code>, the local docker stack, a fresh organizer account so every list started clean without touching the existing dev data.</p>
+      <p><strong>Fixture.</strong> Two organizations; four markets covering <code>draft</code> (empty and part-built), <code>applications_open</code> and <code>market_days</code>; 36 applications across 22 named vendors with realistic business names, varied availability, per-date tier preferences, half and full table choices, table sharing, and a mix of open, approved and rejected. Three dates, three tiers, four sections across two locations, 90 tables, a real solver run.</p>
+      <p><strong>Walk.</strong> 20 screens captured at 1920&times;1080 and check-in additionally at 390&times;844. On 13 of them I ran two instrumented passes in the page: a geometry and inventory sweep (overflow, clipped text nodes, nested scrollers, typefaces, sizes, radii, shadows, gaps, control variants) and a WCAG contrast sweep computing each text node's effective composited background through its ancestors.</p>
+      <p><strong>Source.</strong> Counts of radius, type, spacing, colour and font-family declarations are from <code>front-end/src</code>, not from any one screen.</p>
+      <p><strong>Two claims I withdrew.</strong> I thought the modal scrim was failing to cover the list rows - it was my sampling points landing inside the dialog, and the scrim is correct. I thought the form builder and preview panels were 7px apart - they are both exactly 713px, and the apparent difference was a shadow. Both are recorded here because a review is only worth what its retractions are.</p>
+      <p><strong>One correction after publishing.</strong> I had Approve at 5.06:1 from a hand calculation; measured, it is <strong>4.56:1</strong>. It still passes, by 0.06.</p>
+      <p><strong>H0 was found after the first draft</strong>, while grilling the colour inventory - by diffing the custom properties <em>defined</em> in <code>base.css</code> against those <em>referenced</em> across the source, which is a check no screenshot pass would ever run. It is the strongest argument in the report for the usage-level guard in H3, and the clearest evidence that a walk finds what it happens to open: I had visited the phase rail on four screens without ever opening its destructive confirmation.</p>
+      <p><strong>Excluded.</strong> The Vue DevTools overlay, which is injected by the dev server and is not product UI. The applicant-facing surfaces, which MVP never serves.</p>
+    </div>
+  </section>
+
+  <section id="decided">
+    <div class="sec-head"><h2>What was decided</h2><span class="count">20 Sep 2026, after grilling these findings</span></div>
+    <p class="sec-intro">No Wayfinder map was charted. Grilling the findings settled every question the destination contained - approach, mechanism, brand, scales, palette, enforcement, sequence - so there was no fog left to map. The decisions live in three places:</p>
+    <div class="tw"><table>
+      <thead><tr><th>Where</th><th>What it holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>docs/design-system.md</code></td><td>The stated visual language: two families and a six-step type scale, a 4px spacing grid, three radii, one shadow, <code>--mm-red: #c0392b</code> and <code>--mm-blue: #1a6f8b</code>, and the three checks that keep it true. S1-S8 resolve here.</td></tr>
+        <tr><td><code>.scratch/backlog/E15-corrections-the-third-walk-found/</code></td><td>The fixes that carry no decision: H2, H5, H6, H7, H8, H11, H14, H16, O4, O6. Startable now.</td></tr>
+        <tr><td><code>.scratch/backlog/E16-one-design-language/</code></td><td>The token layer and the migration, in eight features. <strong>F01 is the urgent one</strong> - it closes H0, H3, H4 and the colour inventory. <strong>F03 is the sizing model</strong>, the build of <em>claims-and-room</em> ticket 01, which closes H1, H10, H13, O1 and O2. Each slice is its own feature, reviewed and shipped alone.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout">
+      <strong>Ticket 01 resolved on 20 Sep</strong>, after this report was written: two page widths (<code>--workspace-max: 1440px</code>, <code>--list-max: 1100px</code>) replace the four, no screen caps its own height, and plan columns are sized by need. It also graduated one new ticket - a published market's phase rail is 111px where a draft's is 27px, and the check-in chip is the entire cause.<br><br><strong>Deliberately not started.</strong> O3, O5, O7, O9, O10 and O11 are genuine open decisions - what a market row's button should do, what the dashboard is for, what a triage card leads with, what an empty state is in this product. They are about what a screen <em>says and emphasises</em>, not what it looks like, and a token scale fixes none of them. They want their own map, charted after <em>claims-and-room</em> closes, since ticket 01 will already have answered part of it.
+    </div>
+  </section>
+
+  <footer class="end">
+    <p>Aesthetics and organization review &middot; 20 Sep 2026 &middot; <code>dev @ 1aac84c6</code> &middot; screenshots in <code>.lavish/aes/</code></p>
+    <p>Prior walks: <a href="mvp-findings.html">real-market readiness</a> &middot; <a href="qc-2026-09-15.html">15 Sep</a> &middot; <a href="qc-2026-09-20.html">20 Sep (E09-E13)</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, toRef, watch } from 'vue';
 import { type SetupObject } from '@/assets/types/datatypes';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
@@ -14,30 +14,6 @@ const locationObjects = toRef(setupObject.value, 'locations');
 const container = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
-
-const rowsMaxHeight = ref<string | null>(null);
-
-const setHeight = () => {
-  rowsMaxHeight.value = '0px';
-  nextTick(() => {
-    if (container.value && columnTitles.value && rows.value) {
-      rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
-    }
-  });
-};
-
-const resizeObserver = new ResizeObserver(setHeight);
-
-onMounted(() => {
-  setHeight();
-  nextTick(() => {
-    resizeObserver.observe(document.body);
-  });
-});
-
-onUnmounted(() => {
-  resizeObserver.disconnect();
-});
 
 watch(
   () => setupObject.value.locations,
@@ -54,14 +30,12 @@ const addRow = () => {
     name: '',
   };
   locationObjects.value.push(newLocation);
-  setHeight();
 };
 
 const removeRow = (index: number | null) => {
   if (index != null) {
     locationObjects.value.splice(index, 1);
   }
-  setHeight();
 };
 </script>
 
@@ -84,7 +58,7 @@ const removeRow = (index: number | null) => {
             <input
               type="text"
               v-model="locationObjects[index].name"
-              style="all: unset; font-size: 14px; width: 100%"
+              style="all: unset; font-size: var(--text-sm); width: 100%"
               :data-testid="'setup-location-name-input-' + index"
             />
           </div>
@@ -135,7 +109,6 @@ const removeRow = (index: number | null) => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: v-bind(rowsMaxHeight);
 
   align-items: center;
 
@@ -174,8 +147,7 @@ const removeRow = (index: number | null) => {
 .input-container {
   width: 80%;
   height: 100%;
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
 }
 
 input::-webkit-outer-spin-button,

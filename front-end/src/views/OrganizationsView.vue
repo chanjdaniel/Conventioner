@@ -164,14 +164,16 @@ function canManage(org: Organization): boolean {
 </template>
 
 <style scoped>
+/* A list column of the list width, centred, growing to its content while the page scrolls
+   (E16/F03). It was full-bleed, which is how a market name came to be capped at 320px inside an
+   1840px row with 1,455px of the row left empty. */
 .organizations-view {
-  flex-grow: 1;
   display: flex;
   flex-direction: column;
-  height: 100%;
   width: 100%;
+  max-width: var(--list-max);
+  margin: 0 auto;
   padding: 32px 40px;
-  overflow: hidden;
 }
 
 .header {
@@ -185,10 +187,9 @@ function canManage(org: Organization): boolean {
 
 .header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 600;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .new-button {
@@ -196,17 +197,17 @@ function canManage(org: Organization): boolean {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: 'Outfit Regular', sans-serif;
-  box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  box-shadow: var(--shadow-card);
 }
 
 .new-button:hover {
-  background: #3a9a82;
-  box-shadow: 0 4px 8px rgba(73, 176, 150, 0.3);
+  background: var(--mm-green);
+  opacity: 0.9;
+  box-shadow: var(--shadow-card);
 }
 
 .content-block {
@@ -217,12 +218,12 @@ function canManage(org: Organization): boolean {
 
 .empty-state,
 .error-state {
-  color: #666;
-  font-size: 14px;
+  color: var(--mm-text-muted);
+  font-size: var(--text-sm);
 }
 
 .error-state {
-  color: #d32f2f;
+  color: var(--mm-red);
 }
 
 .cards-container {
@@ -234,24 +235,24 @@ function canManage(org: Organization): boolean {
 .role-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-  font-size: 12px;
+  border-radius: var(--radius-control);
+  font-weight: 400;
+  font-size: var(--text-xs);
 }
 
 .role-owner {
-  background: #e3f2fd;
-  color: var(--mm-text-link);
+  background: rgba(26, 111, 139, 0.14);
+  color: var(--mm-blue);
 }
 
 .role-admin {
-  background: #f3e5f5;
-  color: #7b1fa2;
+  background: rgba(54, 130, 111, 0.16);
+  color: var(--mm-text-green);
 }
 
 .role-member {
-  background: #e8f5e9;
-  color: #388e3c;
+  background: rgba(54, 130, 111, 0.16);
+  color: var(--mm-green);
 }
 
 .manage-button {
@@ -259,11 +260,10 @@ function canManage(org: Organization): boolean {
   background: var(--mm-black);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: 'Outfit Regular', sans-serif;
+  font-size: var(--text-sm);
+  font-weight: 400;
   white-space: nowrap;
 }
 
@@ -290,14 +290,14 @@ function canManage(org: Organization): boolean {
   position: relative;
   padding: 25px;
   background: white;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   z-index: 1;
   min-width: 300px;
 }
 
 .overlay-window h2 {
   margin: 0 0 16px;
-  font-size: 20px;
+  font-size: var(--text-lg);
 }
 
 .form-row {
@@ -310,8 +310,8 @@ function canManage(org: Organization): boolean {
   flex: 1;
   padding: 8px 12px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
 }
 
 .submit-button {
@@ -319,15 +319,15 @@ function canManage(org: Organization): boolean {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .form-error {
   margin: 8px 0 0;
-  color: #d32f2f;
-  font-size: 13px;
+  color: var(--mm-red);
+  font-size: var(--text-xs);
 }
 
 .content-block::-webkit-scrollbar {
@@ -335,12 +335,12 @@ function canManage(org: Organization): boolean {
 }
 
 .content-block::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
+  background: var(--mm-beige);
+  border-radius: var(--radius-control);
 }
 
 .content-block::-webkit-scrollbar-thumb {
   background: var(--mm-border);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 </style>

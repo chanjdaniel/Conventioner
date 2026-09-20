@@ -123,20 +123,19 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #fff3cd;
-  border-radius: 4px;
-  font-family: 'Outfit Regular';
-  font-size: 12px;
-  color: #664d03;
+  background: rgba(228, 166, 41, 0.18);
+  border-radius: var(--radius-control);
+  font-size: var(--text-xs);
+  color: var(--mm-text-yellow);
 }
 
 .preview-badge {
-  background: #ffc107;
-  color: #000;
-  border-radius: 3px;
+  background: var(--mm-yellow);
+  color: black;
+  border-radius: var(--radius-control);
   padding: 1px 6px;
-  font-weight: bold;
-  font-size: 10px;
+  font-weight: 600;
+  font-size: var(--text-xs);
 }
 
 .preview-essential {
@@ -146,21 +145,19 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 }
 
 .preview-custom-divider {
-  font-family: 'Outfit Regular';
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--mm-text-muted);
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--mm-border);
   padding-bottom: 4px;
 }
 
 .preview-empty {
   text-align: center;
   padding: 40px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
 
@@ -177,19 +174,17 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 }
 
 .preview-label {
-  font-family: 'Outfit Regular';
-  font-size: 14px;
-  font-weight: bold;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--mm-black);
 }
 
 .preview-required {
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .preview-help {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   margin: 0;
 }
@@ -197,11 +192,10 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 .preview-input {
   height: 32px;
   padding: 4px 10px;
-  font-family: 'Outfit Regular';
-  font-size: 13px;
+  font-size: var(--text-xs);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
-  background: #f8f8f8;
+  border-radius: var(--radius-control);
+  background: var(--mm-beige);
 }
 
 .preview-checkbox {
@@ -215,8 +209,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  font-family: 'Outfit Regular';
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 
@@ -226,14 +219,13 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   gap: 4px;
   padding: 8px;
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
-  background: #f8f8f8;
+  border-radius: var(--radius-control);
+  background: var(--mm-beige);
 }
 
 .preview-unsupported {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
-  color: var(--mm-red, #cc0000);
+  font-size: var(--text-xs);
+  color: var(--mm-red);
   font-style: italic;
 }
 </style>

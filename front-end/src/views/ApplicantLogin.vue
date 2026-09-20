@@ -201,26 +201,24 @@ function goBack() {
 
 .login-header h1 {
   font-family: 'Merge One';
-  font-size: 24px;
+  font-size: var(--text-xl);
   color: var(--mm-black);
   margin: 0 0 4px;
 }
 
 .login-market {
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   margin: 0;
 }
 
 .login-error {
   background: #f8d7da;
-  border: 1px solid var(--mm-red, #cc0000);
+  border: 1px solid var(--mm-red);
   border-radius: 6px;
   padding: 12px 16px;
   margin-bottom: 16px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: #721c24;
 }
 
@@ -231,8 +229,7 @@ function goBack() {
 }
 
 .login-instruction {
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   margin: 0;
   line-height: 1.5;
@@ -241,8 +238,7 @@ function goBack() {
 .login-input {
   height: 44px;
   padding: 4px 12px;
-  font-family: 'Outfit Regular';
-  font-size: 16px;
+  font-size: var(--text-md);
   border: 1px solid var(--mm-border);
   border-radius: 5px;
 }
@@ -250,7 +246,7 @@ function goBack() {
 .login-code-input {
   letter-spacing: 12px;
   text-align: center;
-  font-size: 24px;
+  font-size: var(--text-xl);
 }
 
 .login-btn {
@@ -261,7 +257,7 @@ function goBack() {
   border-radius: 5px;
   cursor: pointer;
   font-family: 'Merge One';
-  font-size: 16px;
+  font-size: var(--text-md);
 }
 
 .login-btn:disabled {
@@ -283,8 +279,7 @@ function goBack() {
   border: none;
   color: var(--mm-text-muted);
   cursor: pointer;
-  font-family: 'Outfit Regular';
-  font-size: 13px;
+  font-size: var(--text-xs);
   text-decoration: underline;
   padding: 0;
 }

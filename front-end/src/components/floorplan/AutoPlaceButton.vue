@@ -205,7 +205,7 @@ async function triggerAutoPlace() {
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
 
@@ -267,8 +267,7 @@ async function triggerAutoPlace() {
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
 
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   line-height: 1.4;
 }

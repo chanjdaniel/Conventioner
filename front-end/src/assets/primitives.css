@@ -1,0 +1,235 @@
+/*
+ * The primitive layer (E16/F04).
+ *
+ * Tokens alone cannot fix what is actually wrong. A `--radius-control` does not stop a file writing
+ * `height: 45px`, and that is where the damage is concentrated: five control heights on the login
+ * screen, ten on Market Setup, four disabled treatments, two designs for the same `Manage` button,
+ * a 25px `Remove` beside 34px peers, and sixty distinct button-ish class names.
+ *
+ * So these three own height, padding, radius, type, focus and the disabled state, and a component
+ * that needs a control reaches for one of them rather than deciding again.
+ *
+ * NOTHING MIGRATES IN THIS FILE'S OWN FEATURE. `E16/F05`-`F08` move one surface at a time, each
+ * reviewed and shipped on its own, because a single diff across 71 files is unreviewable and
+ * migrating opportunistically leaves the two languages coexisting with no end date - which is the
+ * condition this epic exists to end.
+ *
+ * `src/__tests__/primitives.test.ts` is the reference the slices check against: it renders every
+ * variant and asserts the contract below. That is deliberately a test rather than a demo page -
+ * a page would be product surface nobody ships, and a test fails when the contract drifts.
+ */
+
+/* ============================================================================================
+   .btn
+   ============================================================================================ */
+
+/*
+ * One height for a standard control and one for a compact one. 36px is already the most common
+ * height in the product (16 uses); 34, 38 and 40 are the same button drawn by four people.
+ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+
+  height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: normal;
+  white-space: nowrap;
+
+  cursor: pointer;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.btn--compact {
+  height: 28px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+
+/*
+ * Three intents and no more. Weight reinforces the hierarchy the fill already sets, so the two
+ * that ask for a decision are 600 and the one that steps out of the way is 400.
+ */
+.btn--primary {
+  background: var(--mm-green);
+  color: white;
+  font-weight: 600;
+}
+
+.btn--secondary {
+  background: white;
+  color: var(--mm-black);
+  border-color: var(--mm-border);
+}
+
+/*
+ * Destructive is not a peer of an additive action. `Delete market` used to be the exact visual
+ * weight of `Add user`, on a dialog where one is irreversible.
+ */
+.btn--destructive {
+  background: var(--mm-red);
+  color: white;
+  font-weight: 600;
+}
+
+.btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+/*
+ * ONE disabled state. The product had four, and one of them - white on `--mm-border` - rendered at
+ * 1.74:1. This does not rely on text contrast at all: the control keeps its own foreground and
+ * loses its affordance, so it reads as unavailable rather than as unreadable.
+ */
+.btn:disabled {
+  background: var(--mm-beige);
+  color: var(--mm-text-muted);
+  border-color: var(--mm-border);
+  font-weight: 400;
+  cursor: not-allowed;
+}
+
+/* ============================================================================================
+   .field
+   ============================================================================================ */
+
+/*
+ * Left-aligned, always. 18 of 27 controls on Market Setup were centred, which is why a column of
+ * dates was hard to scan and why two adjacent fields in one dialog looked unrelated.
+ */
+.field {
+  display: block;
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-3);
+
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
+  background: white;
+  color: var(--mm-black);
+
+  font-family: inherit;
+  font-size: var(--text-sm);
+  line-height: normal;
+  text-align: left;
+}
+
+.field::placeholder {
+  color: var(--mm-text-muted);
+}
+
+/*
+ * A select is never narrower than its own longest option. The Tier select rendered 65px wide with
+ * 34px of text room while "Community" needs 71 - so every tier read "Co...", on the field that
+ * sets a vendor's price. `min-content` on a select resolves to its widest option, which is the
+ * one thing a grid track must not be allowed to squeeze below.
+ */
+.field--select {
+  min-width: min-content;
+}
+
+.field--textarea {
+  height: auto;
+  min-height: 72px;
+  padding: var(--space-2) var(--space-3);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.field:disabled {
+  background: var(--mm-beige);
+  color: var(--mm-text-muted);
+  cursor: not-allowed;
+}
+
+/*
+ * A label is a label. Market Setup's column headings wore the same border, radius and shadow as
+ * the editable pills beneath them - a promise with nothing behind it.
+ */
+.field-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+  text-align: left;
+}
+
+/* ============================================================================================
+   .chip
+   ============================================================================================ */
+
+/*
+ * One shape, one size, a small set of tones. Six treatments existed for one idea, across
+ * pill/rect, solid/tint and uppercase/sentence - and "Applications Open" and "Open" were the same
+ * state seen from two screens, in two blues and two shapes.
+ *
+ * Tint with coloured text rather than a solid fill: a list of six solid pills competes with the
+ * content it labels, and at this density the label should sit beside the row rather than shout
+ * over it. Sentence case, because `FULL TABLE` was the only uppercase one in the product.
+ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+
+  padding: var(--space-hairline) var(--space-2);
+  border-radius: var(--radius-pill);
+
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* Each tone is a token at 16% over white, with that token as the ink. Both are measured in
+   `contrast.test.ts`, and the rendered pairing is measured by `e2e/contrast-sweep.spec.ts`. */
+.chip--neutral {
+  background: var(--mm-beige);
+  color: var(--mm-black);
+}
+
+.chip--positive {
+  background: rgba(54, 130, 111, 0.16);
+  color: var(--mm-text-green); /* 5.34 on that tint */
+}
+
+.chip--attention {
+  background: rgba(228, 166, 41, 0.18);
+  color: var(--mm-text-yellow);
+}
+
+.chip--informational {
+  background: rgba(26, 111, 139, 0.14);
+  color: var(--mm-blue);
+}
+
+.chip--destructive {
+  background: rgba(192, 57, 43, 0.14);
+  color: var(--mm-red);
+}
+
+/* ============================================================================================
+   Focus
+   ============================================================================================ */
+
+/*
+ * A visible focus ring on every primitive, in this feature rather than a later one: the product
+ * has 65 keyboard-reachable controls and had no consistent focus treatment at all.
+ *
+ * `--mm-black` rather than the brand green, because the ring has to be visible against BOTH the
+ * page and the control's own fill - and a green ring on the green primary button is invisible.
+ * The offset is what keeps it clear of the fill.
+ */
+.btn:focus-visible,
+.field:focus-visible {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
+}

@@ -641,15 +641,6 @@ const handleSendToDiscord = async () => {
           </button>
         </div>
         <div class="discord-action">
-          <!-- The reason used to live in a `title`, which is invisible on touch and slow
-               everywhere else, so the button just read as broken. -->
-          <p
-            v-if="!hasDiscordWebhook"
-            class="action-blocked-reason"
-            data-testid="assignment-results-discord-blocked-reason"
-          >
-            Add a Discord webhook URL in Market Setup to enable this.
-          </p>
           <button
             class="done-button discord-button"
             :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
@@ -658,6 +649,17 @@ const handleSendToDiscord = async () => {
           >
             {{ isPostingDiscord ? 'Sending…' : 'Send to Discord' }}
           </button>
+          <!-- The reason used to live in a `title`, which is invisible on touch and slow
+               everywhere else, so the button just read as broken. It sits BELOW the button it
+               explains: above, it pushed the button down inside a centred column and the two
+               footer actions ended up 21px apart on a row meant to be one line (E15/F01/S03). -->
+          <p
+            v-if="!hasDiscordWebhook"
+            class="action-blocked-reason"
+            data-testid="assignment-results-discord-blocked-reason"
+          >
+            Add a Discord webhook URL in Market Setup to enable this.
+          </p>
         </div>
       </div>
     </div>
@@ -734,7 +736,7 @@ const handleSendToDiscord = async () => {
   min-width: 0;
   min-height: 36px;
   border: none;
-  border-right: 1.75px solid #2723237c;
+  border-right: 1.75px solid rgba(39, 35, 35, 0.49);
   border-radius: 0;
   background-color: transparent;
   cursor: pointer;
@@ -757,7 +759,7 @@ const handleSendToDiscord = async () => {
 
 .assignment-quick-nav-row:hover {
   background-color: var(--hover-grey);
-  box-shadow: 0px -1.5px 5px 1.5px var(--hover-grey);
+  box-shadow: var(--shadow-card);
 }
 
 .assignment-quick-nav-icon {
@@ -771,7 +773,7 @@ const handleSendToDiscord = async () => {
 .assignment-quick-nav-label {
   font-family: 'Merge One';
   font-style: normal;
-  font-size: 18px;
+  font-size: var(--text-lg);
   color: var(--mm-black);
   margin: 0;
   min-width: 0;
@@ -884,24 +886,22 @@ const handleSendToDiscord = async () => {
 /* Match `.settings-container` / quick-nav: white panel + soft outer shadow */
 .stat-note {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.3;
 }
 
 .stat-empty {
   margin: 0;
   padding: 8px 10px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
 .stat-card {
   background-color: white;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 20px;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   gap: 15px;
@@ -920,8 +920,20 @@ const handleSendToDiscord = async () => {
   margin-top: 16px;
 }
 
+/* Above `.summary-card h3`, not below it. Both selectors are (0,1,1), so the later one wins on
+   cascade order alone - and with this rule last, the summary card's heading took `--mm-black`
+   over its green and rendered at 3.39:1 despite asking for white two rules down. */
+.stat-card h3 {
+  font-family: 'Merge One';
+  font-size: var(--text-lg);
+  color: var(--mm-black);
+  margin: 0;
+  border-bottom: 2px solid var(--mm-border);
+  padding-bottom: 10px;
+}
+
 .summary-card {
-  background: linear-gradient(135deg, var(--mm-green) 0%, #3a9d82 100%);
+  background: linear-gradient(135deg, var(--mm-green) 0%, var(--mm-green) 100%);
 }
 
 .summary-card h3,
@@ -947,7 +959,7 @@ const handleSendToDiscord = async () => {
 }
 
 .summary-card .stat-label {
-  font-size: 13px;
+  font-size: var(--text-xs);
   text-align: center;
   overflow-wrap: break-word;
 }
@@ -957,15 +969,6 @@ const handleSendToDiscord = async () => {
   line-height: 1.15;
   text-align: center;
   overflow-wrap: break-word;
-}
-
-.stat-card h3 {
-  font-family: 'Merge One';
-  font-size: 22px;
-  color: var(--mm-black);
-  margin: 0;
-  border-bottom: 2px solid var(--mm-border);
-  padding-bottom: 10px;
 }
 
 .stat-row {
@@ -990,16 +993,19 @@ const handleSendToDiscord = async () => {
 }
 
 .stat-label {
-  font-family: 'Outfit Regular';
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
   opacity: 0.8;
 }
 
 .stat-value {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   font-family: 'Merge One';
-  font-size: 36px;
-  font-weight: bold;
+  font-size: var(--text-2xl);
+  font-weight: 400;
   color: var(--mm-green);
 }
 
@@ -1042,14 +1048,10 @@ const handleSendToDiscord = async () => {
 .unassigned-item {
   padding: 6px 12px;
   background-color: white;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border-left: 4px solid var(--mm-yellow);
-  font-family: 'Outfit Regular';
-  font-size: 15px;
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.07),
-    0 2px 4px rgba(0, 0, 0, 0.07),
-    0 6px 14px rgba(0, 0, 0, 0.08);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-card);
 }
 
 .unassigned-item--table {
@@ -1075,8 +1077,8 @@ const handleSendToDiscord = async () => {
 
 .unassigned-date-header {
   font-family: 'Merge One';
-  font-size: 16px;
-  font-weight: bold;
+  font-size: var(--text-md);
+  font-weight: 400;
   color: var(--mm-black);
   margin-bottom: 8px;
   padding-bottom: 5px;
@@ -1096,29 +1098,27 @@ const handleSendToDiscord = async () => {
   justify-content: center;
   flex: 1;
   min-height: 0;
-  font-family: 'Outfit Regular';
-  font-size: 18px;
+  font-size: var(--text-lg);
   color: var(--mm-text-muted);
 }
 
 h1 {
-  font-family: 'Outfit Regular';
   text-align: center;
-  font-size: 30px;
+  font-size: var(--text-2xl);
   color: white;
 }
 
 h2 {
   font-family: 'Merge One';
   text-align: left;
-  font-size: 26px;
+  font-size: var(--text-xl);
   color: white;
 }
 
 .done-error {
   margin: 8px 0 0;
-  color: #c62828;
-  font-size: 14px;
+  color: var(--mm-red);
+  font-size: var(--text-sm);
 }
 
 .assignment-actions-row {
@@ -1126,7 +1126,9 @@ h2 {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  align-items: center;
+  /* `start`, not `center`: the right-hand action carries an explanation under it, and centring
+     the two columns against each other is what put the buttons on different lines. */
+  align-items: start;
   gap: 12px;
 }
 
@@ -1136,17 +1138,17 @@ h2 {
   height: 35px;
 
   background: var(--mm-green);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   border: none;
 
   font-family: 'Merge One';
   font-style: normal;
   font-weight: 400;
-  font-size: 20px;
+  font-size: var(--text-lg);
   line-height: 15px;
   text-align: center;
 
-  color: #ffffff;
+  color: white;
   cursor: pointer;
   transition:
     opacity 0.15s ease-in-out,
@@ -1167,20 +1169,19 @@ h2 {
 
 .download-button {
   width: 180px;
-  font-size: 18px;
+  font-size: var(--text-lg);
 }
 
 .discord-action {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: end;
   gap: 4px;
 }
 
 .action-blocked-reason {
   margin: 0;
-  font-family: 'Outfit Regular';
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-yellow);
   text-align: center;
   max-width: 220px;
@@ -1188,7 +1189,10 @@ h2 {
 
 .discord-button {
   width: 200px;
-  font-size: 18px;
+  font-size: var(--text-lg);
+  /* stylelint-disable-next-line color-no-hex --
+     Discord's own brand colour. A button that posts to Discord wearing Conventioner's green
+     would say the wrong thing about where the message goes (E16/F07). */
   background: #5865f2;
 }
 
@@ -1198,7 +1202,7 @@ h2 {
 
 .discord-toast {
   margin: 8px 0 0;
-  color: #2e7d32;
-  font-size: 14px;
+  color: var(--mm-green);
+  font-size: var(--text-sm);
 }
 </style>

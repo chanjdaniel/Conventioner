@@ -621,7 +621,7 @@ onUnmounted(() => {
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
@@ -672,8 +672,7 @@ onUnmounted(() => {
   backdrop-filter: blur(6px);
   border-radius: 999px;
 
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: #ffffff;
 }
 
@@ -683,7 +682,7 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.18);
   border-radius: 4px;
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -711,7 +710,7 @@ onUnmounted(() => {
 .sg-panel-title {
   margin: 0 16px 10px;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   font-weight: 400;
   color: var(--mm-black);
 }
@@ -750,9 +749,8 @@ onUnmounted(() => {
 }
 
 .sg-item-name {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--mm-black);
   white-space: nowrap;
   overflow: hidden;
@@ -760,7 +758,7 @@ onUnmounted(() => {
 }
 
 .sg-item-meta {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -776,7 +774,7 @@ onUnmounted(() => {
   border-radius: 4px;
   background: transparent;
   color: var(--mm-text-muted);
-  font-size: 18px;
+  font-size: var(--text-lg);
   line-height: 1;
   cursor: pointer;
   transition:
@@ -792,7 +790,7 @@ onUnmounted(() => {
 .sg-empty {
   margin: 0;
   padding: 12px 16px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   text-align: center;
 }
@@ -840,15 +838,14 @@ onUnmounted(() => {
 .sg-dialog-title {
   margin: 0 0 6px;
   font-family: 'Merge One', sans-serif;
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--mm-black);
 }
 
 .sg-dialog-sub {
   margin: 0 0 20px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
 
@@ -861,9 +858,8 @@ onUnmounted(() => {
 }
 
 .sg-field-label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--mm-black);
 }
 
@@ -871,7 +867,7 @@ onUnmounted(() => {
   font-style: normal;
   font-weight: 400;
   color: var(--mm-text-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .sg-field-input {
@@ -883,8 +879,7 @@ onUnmounted(() => {
   border-radius: 8px;
   outline: none;
 
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   background: #ffffff;
 
@@ -902,8 +897,7 @@ onUnmounted(() => {
 /* ── Code preview ───────────────────────────────────────────────── */
 .sg-code-preview {
   margin: 0 0 18px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 
@@ -913,7 +907,7 @@ onUnmounted(() => {
   background: var(--mm-beige);
   border-radius: 4px;
   font-family: 'Courier New', monospace;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 
@@ -935,7 +929,7 @@ onUnmounted(() => {
   border-radius: 6px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
 

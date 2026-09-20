@@ -85,7 +85,7 @@ const handleProportionInput = (value: number) => {
               inputmode="numeric"
               v-model="assignmentOptions.maxAssignmentsPerVendor"
               @input="handleDaysInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
-              style="all: unset; font-size: 14px; width: 100%"
+              style="all: unset; font-size: var(--text-sm); width: 100%"
               data-testid="setup-options-max-assignments-input"
             />
           </div>
@@ -114,7 +114,7 @@ const handleProportionInput = (value: number) => {
               @blur="
                 handleProportionInput(Number(($event.target as HTMLInputElement)?.value || NaN))
               "
-              style="all: unset; font-size: 14px; width: 100%"
+              style="all: unset; font-size: var(--text-sm); width: 100%"
               data-testid="setup-options-max-proportion-input"
             />
           </div>
@@ -133,16 +133,14 @@ const handleProportionInput = (value: number) => {
 
 <style scoped>
 .option-help {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   margin: 4px 0 0;
   text-align: left;
 }
 
 .option-note {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-yellow);
   margin: 4px 0 0;
 }
@@ -194,13 +192,13 @@ select.datatype-dropdown {
 
 .mapping-title {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
 }
 
 .optional-label {
-  font-weight: normal;
-  font-size: 0.85em;
+  font-weight: 400;
+  font-size: var(--text-xs);
   opacity: 0.85;
 }
 
@@ -262,13 +260,12 @@ select.datatype-dropdown {
   border: none;
   outline: none;
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--text-md);
   padding-left: 8px;
   /* Text stops before icon; chevron sits inset from the right edge */
   padding-right: 1.5rem;
   box-sizing: border-box;
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
@@ -286,8 +283,8 @@ select.datatype-dropdown {
 .datatype-dropdown,
 .datatype-dropdown option {
   font-family: inherit;
-  font-size: 16px;
-  color: #333;
+  font-size: var(--text-md);
+  color: var(--mm-black);
 }
 
 .input-container {
@@ -300,8 +297,7 @@ select.datatype-dropdown {
      so a one-line number box rendered as a five-line empty square. */
   height: 34px;
   flex: 0 0 auto;
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
 }
 
 input::-webkit-outer-spin-button,

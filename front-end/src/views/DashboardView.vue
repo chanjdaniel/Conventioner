@@ -255,10 +255,9 @@ const handleSignOut = async () => {
 
 .last-market-label {
   width: 716px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #666;
-  font-family: 'Outfit Regular', sans-serif;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--mm-text-muted);
 }
 
 .button-row {
@@ -274,8 +273,8 @@ const handleSignOut = async () => {
   align-items: center;
   gap: 10px;
   background: var(--mm-black);
-  box-shadow: 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
   border: none;
   cursor: pointer;
   transition: opacity 0.2s ease-in-out;
@@ -299,13 +298,13 @@ const handleSignOut = async () => {
   width: 716px;
   padding: 16px 24px;
   border: 1.5px solid var(--mm-border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: white;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
   transition:
     border-color 0.2s ease,
@@ -315,7 +314,7 @@ const handleSignOut = async () => {
 
 .last-market-card:hover {
   border-color: var(--mm-green);
-  box-shadow: 0 4px 12px rgba(73, 176, 150, 0.15);
+  box-shadow: var(--shadow-card);
   transform: translateY(-2px);
 }
 
@@ -344,11 +343,11 @@ const handleSignOut = async () => {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 10px 20px;
   cursor: pointer;
   font-family: 'Merge One', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
 }
 
 .welcome-action:hover {
@@ -363,7 +362,7 @@ const handleSignOut = async () => {
   padding: 6px 12px;
   background: none;
   box-shadow: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
 }
 
 .button-small:hover {
@@ -379,18 +378,17 @@ const handleSignOut = async () => {
 h3 {
   font-family: 'Merge One';
   font-style: normal;
-  font-weight: 100;
-  font-size: 20px;
-  color: #ffffff;
+  font-weight: 400;
+  font-size: var(--text-lg);
+  color: white;
   margin: 0;
 }
 
 h4 {
-  font-family: 'Outfit Regular';
   font-style: normal;
   font-weight: 400;
-  font-size: 16px;
-  color: #ffffff;
+  font-size: var(--text-md);
+  color: white;
   margin: 0;
 }
 

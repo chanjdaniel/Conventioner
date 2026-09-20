@@ -16,6 +16,7 @@ from datatypes import (
     Organization,
     UnassignedTableEntry,
     intake_mode_from_market_document,
+    phase_label,
     phase_from_market_document,
     table_code_for,
     table_code_sort_key,
@@ -129,7 +130,7 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
     if market.phase != MarketPhase.DRAFT:
         return (
             "Application form can only be edited while the market is in draft phase. "
-            f"Current phase: {market.phase.value}."
+            f"Current phase: {phase_label(market.phase)}."
         )
 
     existing_app_count = ApplicationsApi.count_applications_for_market(market.id)

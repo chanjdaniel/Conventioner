@@ -190,9 +190,12 @@ async function undoCheckIn(date: string): Promise<void> {
               autocomplete="email"
               data-testid="attendance-checkin-email-input"
             />
+            <!-- Primary until it has been used, then secondary: once a result is on screen the
+                 action that matters is checking in, and a spent control should not go on wearing
+                 the only green on a page someone is holding at a door (E15/F02/S04). -->
             <button
               type="submit"
-              class="primary-button"
+              :class="summary ? 'secondary-button' : 'primary-button'"
               :disabled="isLoading"
               data-testid="attendance-checkin-lookup-button"
             >
@@ -284,15 +287,15 @@ async function undoCheckIn(date: string): Promise<void> {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  background-color: #f6f7f9;
+  background-color: var(--mm-beige);
 }
 
 .attendance-card {
   width: 100%;
   max-width: 720px;
   background-color: white;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.15);
-  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -306,8 +309,7 @@ async function undoCheckIn(date: string): Promise<void> {
 .attendance-eyebrow {
   margin: 0 0 2px;
   color: var(--mm-text-muted-on-dark);
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   text-align: center;
@@ -316,23 +318,20 @@ async function undoCheckIn(date: string): Promise<void> {
 .attendance-header h1 {
   margin: 0;
   color: white;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 26px;
+  font-size: var(--text-xl);
   text-align: center;
   overflow-wrap: anywhere;
 }
 
 .field-help {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
 .not-today-note {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-yellow);
 }
 
@@ -350,8 +349,7 @@ async function undoCheckIn(date: string): Promise<void> {
 }
 
 .lookup-form label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
@@ -364,22 +362,25 @@ async function undoCheckIn(date: string): Promise<void> {
 .lookup-row input {
   flex: 1;
   min-width: 200px;
-  padding: 10px 12px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 16px;
-  border: 1px solid #cfd3d8;
-  border-radius: 6px;
+  /* Matches `.primary-button` beside it. Left to its padding and line box the field came out 42px
+     against the button's 40, so the button's bottom edge sat 2px proud of the field's own
+     (E15/F01/S03). */
+  height: 40px;
+  padding: 0 12px;
+  font-size: var(--text-md);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
 }
 
 .primary-button {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 0 16px;
   height: 40px;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   cursor: pointer;
   transition: opacity 0.15s ease-in-out;
 }
@@ -399,11 +400,10 @@ async function undoCheckIn(date: string): Promise<void> {
   background: white;
   color: var(--mm-black);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 0 16px;
   height: 40px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
@@ -415,8 +415,7 @@ async function undoCheckIn(date: string): Promise<void> {
   background: none;
   border: none;
   padding: 6px 8px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-link);
   text-decoration: underline;
   cursor: pointer;
@@ -424,9 +423,8 @@ async function undoCheckIn(date: string): Promise<void> {
 
 .error-text {
   margin: 0;
-  color: #c62828;
-  font-size: 14px;
-  font-family: 'Outfit Regular', sans-serif;
+  color: var(--mm-red);
+  font-size: var(--text-sm);
 }
 
 .assignments-list {
@@ -439,31 +437,30 @@ async function undoCheckIn(date: string): Promise<void> {
   margin: 0;
   display: flex;
   flex-direction: column;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
 }
 
 .looked-up-email {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   overflow-wrap: anywhere;
 }
 
 .assignment-card {
-  border: 1px solid #e1e4e8;
-  border-radius: 8px;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-card);
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
 }
 
 .assignment-card--today {
   border-color: var(--mm-green);
   border-width: 2px;
-  box-shadow: 0 2px 8px rgba(54, 130, 111, 0.18);
+  box-shadow: var(--shadow-card);
 }
 
 .assignment-date {
@@ -472,7 +469,7 @@ async function undoCheckIn(date: string): Promise<void> {
   gap: 10px;
   flex-wrap: wrap;
   font-family: 'Merge One', sans-serif;
-  font-size: 18px;
+  font-size: var(--text-lg);
   color: var(--mm-green);
 }
 
@@ -480,16 +477,14 @@ async function undoCheckIn(date: string): Promise<void> {
   background: var(--mm-green);
   color: white;
   padding: 2px 10px;
-  border-radius: 999px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .assignment-meta {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -505,12 +500,11 @@ async function undoCheckIn(date: string): Promise<void> {
 }
 
 .checked-in-pill {
-  background: #e7f5ee;
-  color: #1e7a4f;
+  background: rgba(54, 130, 111, 0.16);
+  color: var(--mm-text-green);
   padding: 6px 12px;
-  border-radius: 999px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
 }
 
 /* Check-in is laptop-primary, but it is the one surface a volunteer may hold at a door, so it has
@@ -533,7 +527,7 @@ async function undoCheckIn(date: string): Promise<void> {
 
   .lookup-row input {
     min-width: 0;
-    font-size: 16px; /* iOS zooms the page in on a focused input below 16px. */
+    font-size: var(--text-md); /* iOS zooms the page in on a focused input below 16px. */
   }
 
   .lookup-row .primary-button,

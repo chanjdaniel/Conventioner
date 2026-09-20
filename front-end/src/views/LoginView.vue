@@ -330,7 +330,11 @@ const submitOTPLogin = async () => {
           >
             {{ errorMessage }}
           </p>
-          <button type="submit" class="submit-button" data-testid="login-submit-button">
+          <button
+            type="submit"
+            class="btn btn--primary submit-button"
+            data-testid="login-submit-button"
+          >
             Sign in
           </button>
           <div class="form-links">
@@ -415,7 +419,11 @@ const submitOTPLogin = async () => {
           >
             {{ registerSuccessMessage }}
           </p>
-          <button type="submit" class="submit-button" data-testid="login-register-submit-button">
+          <button
+            type="submit"
+            class="btn btn--primary submit-button"
+            data-testid="login-register-submit-button"
+          >
             Create account
           </button>
           <p class="field-help">
@@ -469,7 +477,11 @@ const submitOTPLogin = async () => {
           >
             {{ otpSuccessMessage }}
           </h3>
-          <button type="submit" class="submit-button" data-testid="login-otp-submit-button">
+          <button
+            type="submit"
+            class="btn btn--primary submit-button"
+            data-testid="login-otp-submit-button"
+          >
             {{ otpRequested ? 'Login' : 'Send Code' }}
           </button>
           <div v-if="otpRequested" class="form-links">
@@ -501,42 +513,44 @@ const submitOTPLogin = async () => {
   justify-content: center;
 }
 
+/* The card idiom, extracted: --radius-card and the three-layer shadow. The halo it replaces -
+   `0 0 4px 5px` - has no offset, so no light source, and a spread larger than its blur is a ring
+   rather than a shadow (E16/F05). */
 .login-window {
   width: 600px;
-  min-height: 600px;
   background-color: white;
-  border-radius: 10px;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
-  padding: 60px;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-8);
 }
 
 .mode-tabs {
   display: flex;
-  gap: 10px;
-  margin-bottom: 30px;
-  border-bottom: 2px solid #e0e0e0;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .mode-tab {
   flex: 1;
-  padding: 12px 20px;
+  padding: var(--space-3) var(--space-4);
   background: none;
   border: none;
-  border-bottom: 3px solid transparent;
-  font-size: 16px;
+  border-bottom: 2px solid transparent;
+  font-size: var(--text-sm);
   cursor: pointer;
-  color: #666;
-  transition: all 0.3s;
+  color: var(--mm-text-muted);
+  transition: color 0.15s ease-in-out;
 }
 
 .mode-tab:hover {
-  color: #333;
+  color: var(--mm-black);
 }
 
 .mode-tab.active {
   color: var(--mm-green);
   border-bottom-color: var(--mm-green);
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .form-container {
@@ -553,113 +567,110 @@ const submitOTPLogin = async () => {
 /* Persistent labels. Every field was placeholder-only, so its identity - and the password rule -
    vanished the moment the organizer started typing. */
 .field-label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
-  color: var(--mm-black);
-  margin-top: 22px;
-  margin-bottom: -22px;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-1);
 }
 
 .field-help {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
-  margin: 8px 0 0;
+  margin: var(--space-2) 0 0;
 }
 
+/* A composite field: it holds the input and, for passwords, the Show toggle - so it wears
+   `.field`'s metrics rather than the class itself. It used to be 60px tall with a 3px border and
+   20px text, which is why the auth screens read as a different product (E16/F05). */
 .login-input {
-  height: 60px;
-  padding-left: 10px;
-  margin-top: 30px;
-  border-radius: 8px;
-  border: 3px solid rgba(0, 0, 0, 0.4);
-  font-size: 20px;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--mm-border);
+  font-size: var(--text-sm);
   display: flex;
   flex-direction: row;
-  background-color: transparent;
+  align-items: center;
+  background-color: white;
 }
 
+/* `blue` was not a token, and a focus state has to be visible against the page as well as the
+   field. Matches the primitives' ring. */
 .login-input:focus-within {
-  border-color: blue;
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
 }
 
 .login-input:has(input:disabled) {
-  opacity: 0.6;
-  background-color: #f5f5f5;
+  background-color: var(--mm-beige);
+  color: var(--mm-text-muted);
 }
 
 .show-button {
   border: none;
   background-color: transparent;
   width: fit-content;
-  padding-right: 20px;
-  color: var(--mm-text-muted);
-  font-size: 14px;
+  padding: 0 0 0 var(--space-2);
+  color: var(--mm-text-link);
+  font-size: var(--text-xs);
   cursor: pointer;
-  outline: none;
 }
 
 .email-input {
   width: auto;
   border: none;
-  font-size: 20px;
+  font-size: var(--text-sm);
   flex-grow: 1;
   outline: none;
+  background: transparent;
 }
 
 .password-input {
   width: auto;
   border: none;
-  font-size: 20px;
+  font-size: var(--text-sm);
   flex-grow: 1;
   outline: none;
+  background: transparent;
 }
 
 /* Left-aligned with the form it belongs to. It was right-aligned against a left-aligned form,
-   so the eye had to hunt for it. `red` is also not a token; #c0392b reaches AA on white. */
+   so the eye had to hunt for it. `red` is also not a token; var(--mm-red) reaches AA on white. */
 .error-message {
-  color: #c0392b;
+  color: var(--mm-red);
   text-align: left;
-  font-size: 14px;
-  margin-top: 10px;
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
   margin-bottom: 0;
 }
 
+/* `green` was not a token either, and the keyword renders #008000 - unrelated to anything else
+   the product paints. */
 .success-message {
-  color: green;
-  text-align: center;
-  font-size: 14px;
-  margin-top: 10px;
+  color: var(--mm-green);
+  text-align: left;
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
   margin-bottom: 0;
 }
 
-/* 8px, not a 30px pill: every other button in the product is a rounded rectangle, and the fields
-   directly above this one are 8px. */
+/* `.btn btn--primary` carries the height, radius, fill, weight, focus ring and disabled state.
+   All this adds is the one thing that is local: it spans the form, which gives the page's primary
+   action presence without inventing a fourth button height (E16/F05). */
 .submit-button {
-  height: 60px;
-  border-radius: 8px;
-  margin-top: 40px;
-  background-color: var(--mm-green);
-  font-family: 'Outfit Regular';
-  color: white;
-  font-size: 20px;
-  border: none;
-  cursor: pointer;
-}
-
-.submit-button:hover {
-  opacity: 0.9;
+  width: 100%;
+  margin-top: var(--space-6);
 }
 
 .form-links {
-  margin-top: 20px;
+  margin-top: var(--space-4);
   text-align: center;
 }
 
 .link {
   color: var(--mm-text-link);
   text-decoration: none;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .link:hover {

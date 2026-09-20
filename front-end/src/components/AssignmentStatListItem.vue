@@ -40,12 +40,9 @@ function handleNavigate(): void {
   align-items: center;
   padding: 6px 12px;
   background-color: white;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border-left: 4px solid var(--mm-green);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.07),
-    0 2px 4px rgba(0, 0, 0, 0.07),
-    0 6px 14px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-card);
 }
 
 button.assignment-stat-list-item {
@@ -68,10 +65,7 @@ button.assignment-stat-list-item {
 .assignment-stat-list-item--clickable:hover {
   transform: translateX(2px);
   background-color: var(--mm-beige);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.1),
-    0 4px 8px rgba(0, 0, 0, 0.1),
-    0 10px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-card);
 }
 
 .assignment-stat-list-item--clickable:focus-visible {
@@ -80,19 +74,24 @@ button.assignment-stat-list-item {
 }
 
 .assignment-stat-list-label {
-  font-family: 'Outfit Regular';
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
 .assignment-stat-list-value {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   font-family: 'Merge One';
-  font-size: 16px;
-  font-weight: bold;
-  color: var(--mm-green);
+  font-size: var(--text-md);
+  font-weight: 400;
+  /* The ink token, not `--mm-green`: the fill green is tuned to carry white text and reaches only
+     3.68:1 as ink on `--mm-beige`. `--mm-text-green` is 5.33:1 on the same ground. */
+  color: var(--mm-text-green);
   background-color: var(--mm-beige);
   padding: 3px 11px;
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   min-width: 44px;
   text-align: center;
 }

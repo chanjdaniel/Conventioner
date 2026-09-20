@@ -89,14 +89,16 @@ function handleNewClose() {
 </template>
 
 <style scoped>
+/* A list column of the list width, centred, growing to its content while the page scrolls
+   (E16/F03). It was full-bleed, which is how a market name came to be capped at 320px inside an
+   1840px row with 1,455px of the row left empty. */
 .markets-view {
-  flex-grow: 1;
   display: flex;
   flex-direction: column;
-  height: 100%;
   width: 100%;
+  max-width: var(--list-max);
+  margin: 0 auto;
   padding: 32px 40px;
-  overflow: hidden;
 }
 
 .header {
@@ -110,10 +112,9 @@ function handleNewClose() {
 
 .header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 600;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .new-market-button {
@@ -121,33 +122,31 @@ function handleNewClose() {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: 'Outfit Regular', sans-serif;
-  box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  box-shadow: var(--shadow-card);
 }
 
 .new-market-button:hover {
-  background: #3a9a82;
-  box-shadow: 0 4px 8px rgba(73, 176, 150, 0.3);
+  background: var(--mm-green);
+  opacity: 0.9;
+  box-shadow: var(--shadow-card);
 }
 
 .markets-block {
-  flex: 1;
-  overflow-y: auto;
   padding-top: 24px;
 }
 
 .empty-state,
 .error-state {
-  color: #666;
-  font-size: 14px;
+  color: var(--mm-text-muted);
+  font-size: var(--text-sm);
 }
 
 .error-state {
-  color: #d32f2f;
+  color: var(--mm-red);
 }
 
 .markets-container {
@@ -162,16 +161,16 @@ function handleNewClose() {
 }
 
 .markets-block::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
+  background: var(--mm-beige);
+  border-radius: var(--radius-control);
 }
 
 .markets-block::-webkit-scrollbar-thumb {
   background: var(--mm-border);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 
 .markets-block::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: var(--mm-text-muted);
 }
 </style>

@@ -56,8 +56,7 @@ function handleSaved(_payload: { market_id: string }) {
 }
 
 .no-market-message p {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
   text-align: center;
   margin: 0;
@@ -70,7 +69,7 @@ function handleSaved(_payload: { market_id: string }) {
   border: none;
   border-radius: 5px;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: #ffffff;
   cursor: pointer;
   transition:

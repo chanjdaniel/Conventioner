@@ -308,7 +308,7 @@ function formatDate(dateStr: string): string {
   padding: 0 16px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   color: #ffffff;
 
@@ -348,11 +348,11 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-btn--danger {
-  background: #c0392b;
+  background: var(--mm-red);
 }
 
 .tp-btn--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, #c0392b 85%, black);
+  background: color-mix(in srgb, var(--mm-red) 85%, black);
 }
 
 /* ── Feedback toast ────────────────────────────────────────── */
@@ -364,9 +364,8 @@ function formatDate(dateStr: string): string {
   z-index: 3000;
   padding: 12px 24px;
   border-radius: 8px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-card);
   pointer-events: none;
   max-width: 90vw;
   text-align: center;
@@ -378,7 +377,7 @@ function formatDate(dateStr: string): string {
 }
 
 .feedback-toast--error {
-  background: #c0392b;
+  background: var(--mm-red);
   color: #ffffff;
 }
 
@@ -399,7 +398,7 @@ function formatDate(dateStr: string): string {
 :deep(.tp-dialog.p-dialog) {
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-card);
   border: 1px solid rgba(39, 35, 35, 0.18);
 }
 
@@ -414,7 +413,7 @@ function formatDate(dateStr: string): string {
 
 :deep(.tp-dialog .p-dialog-title) {
   font-family: 'Merge One', sans-serif;
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: 400;
   letter-spacing: 0.02em;
   color: #ffffff;
@@ -451,8 +450,7 @@ function formatDate(dateStr: string): string {
 
 .tp-dialog-desc {
   margin: 0 0 16px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   line-height: 1.5;
 }
@@ -466,9 +464,8 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--mm-black);
 }
 
@@ -478,8 +475,7 @@ function formatDate(dateStr: string): string {
   border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: var(--mm-beige);
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   box-shadow: none;
   transition: border-color 0.15s ease-in-out;
@@ -515,15 +511,13 @@ function formatDate(dateStr: string): string {
   background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 
 .tp-empty {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   text-align: center;
   padding: 24px 0;
@@ -535,8 +529,7 @@ function formatDate(dateStr: string): string {
   justify-content: center;
   gap: 8px;
   padding: 24px 0;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
@@ -597,7 +590,7 @@ function formatDate(dateStr: string): string {
 .tp-template-card:hover {
   border-color: var(--mm-green);
   background: #ffffff;
-  box-shadow: 0 2px 12px rgba(73, 176, 150, 0.12);
+  box-shadow: 0 2px 12px rgba(54, 130, 111, 0.12);
 }
 
 .tp-template-card:focus-visible {
@@ -613,9 +606,8 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-template-name {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--mm-black);
   white-space: nowrap;
   overflow: hidden;
@@ -623,8 +615,7 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-template-meta {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: rgba(39, 35, 35, 0.55);
 }
 
@@ -635,7 +626,7 @@ function formatDate(dateStr: string): string {
 
 .tp-template-arrow {
   flex-shrink: 0;
-  font-size: 18px;
+  font-size: var(--text-lg);
   color: var(--mm-text-muted);
   transition:
     color 0.15s ease-in-out,
@@ -650,8 +641,7 @@ function formatDate(dateStr: string): string {
 /* ── Confirm view ──────────────────────────────────────────── */
 .tp-confirm-text {
   margin: 0 0 10px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   line-height: 1.55;
 }
@@ -662,8 +652,7 @@ function formatDate(dateStr: string): string {
   background: color-mix(in srgb, var(--mm-yellow) 15%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 </style>

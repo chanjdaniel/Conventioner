@@ -70,9 +70,8 @@ onMounted(() => {
   width: 100%;
   padding: 8px 12px;
   border: 1.5px solid var(--mm-border);
-  border-radius: 6px;
-  font-size: 14px;
-  font-family: 'Outfit Regular', sans-serif;
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
   background: white;
   text-align: center;
 }
@@ -83,15 +82,15 @@ onMounted(() => {
 }
 
 .org-select-hint {
-  font-size: 12px;
-  color: #666;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
   margin: 0;
   text-align: center;
 }
 
 .org-select-error {
-  font-size: 12px;
-  color: #d32f2f;
+  font-size: var(--text-xs);
+  color: var(--mm-red);
   margin: 0;
   text-align: center;
 }
