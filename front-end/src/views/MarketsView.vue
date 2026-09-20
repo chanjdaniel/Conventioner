@@ -2,8 +2,8 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes';
-import { api, getApiErrorMessage } from '@/utils/api';
-import { openMarket, parseMarketFromApi } from '@/utils/market';
+import { getApiErrorMessage } from '@/utils/api';
+import { fetchMarkets, openMarket } from '@/utils/market';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 import NewMarketOverlay from './NewMarketOverlay.vue';
 import ManageMarketOverlay from './ManageMarketOverlay.vue';
@@ -16,12 +16,11 @@ const newOpen = ref(false);
 const manageOpen = ref(false);
 const manageMarket = ref<Market | null>(null);
 
-async function fetchMarkets() {
+async function loadMarkets() {
   loading.value = true;
   errorMessage.value = '';
   try {
-    const response = await api.get('/markets');
-    markets.value = (response.data.markets || []).map(parseMarketFromApi);
+    markets.value = await fetchMarkets();
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to load markets');
     markets.value = [];
@@ -31,7 +30,7 @@ async function fetchMarkets() {
 }
 
 onMounted(() => {
-  fetchMarkets();
+  loadMarkets();
 });
 
 function handleOpen(market: Market) {
@@ -46,12 +45,12 @@ function handleManage(market: Market) {
 function handleManageClose() {
   manageOpen.value = false;
   manageMarket.value = null;
-  fetchMarkets();
+  loadMarkets();
 }
 
 function handleNewClose() {
   newOpen.value = false;
-  fetchMarkets();
+  loadMarkets();
 }
 </script>
 

@@ -1,4 +1,5 @@
 import type { Router } from 'vue-router';
+import { api } from '@/utils/api';
 import {
   type ApplicationForm,
   type Market,
@@ -26,6 +27,22 @@ export const MARKET_HOME_PATH = '/market-setup';
 export function openMarket(router: Router, market: Market): void {
   localStorage.setItem('market', JSON.stringify(market));
   router.push(MARKET_HOME_PATH);
+}
+
+/**
+ * Every market this account can reach, newest payload from the server.
+ *
+ * Four screens asked for this list and three of them spelled the request out again; the fourth
+ * pushed onto a ref in a loop. It lives here beside `parseMarketFromApi` because the parse is the
+ * only interesting half, and a caller that forgets it gets raw API shapes with snake_case keys.
+ *
+ * Note what the endpoint answers: markets the caller can REACH, which includes ones reached
+ * through an organization as a viewer. It is not a list of markets they own, and copy drawn from
+ * its length should not say so.
+ */
+export async function fetchMarkets(): Promise<Market[]> {
+  const response = await api.get('/markets');
+  return ((response.data.markets || []) as unknown[]).map(parseMarketFromApi);
 }
 
 /**
