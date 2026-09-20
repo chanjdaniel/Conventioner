@@ -204,7 +204,7 @@ test.describe('Essential form fields', () => {
     // The essential questions now offer exactly what the plan defines.
     await formPage.openFormTab();
     await expect(formPage.essentialDateChips).toHaveCount(2);
-    await expect(formPage.essentialDateChips.nth(0)).toContainText('August 1, 2026');
+    await expect(formPage.essentialDateChips.nth(0)).toHaveText('Saturday, August 1, 2026');
     await expect(formPage.essentialSectionChips).toHaveCount(2);
     await expect(formPage.essentialSectionChips.nth(0)).toContainText('Main Hall');
     await expect(formPage.essentialSectionChips.nth(1)).toContainText('Garden');
