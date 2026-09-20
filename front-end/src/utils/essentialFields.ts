@@ -194,6 +194,10 @@ function answerText(value: unknown): string {
       .join(' · ');
   }
   if (value === null || value === undefined) return '';
+  // A checkbox answer is a yes or a no, not a `true` (E15/F02/S01). It reached the review card as
+  // the stored boolean - the one row on a card whose every other answer is written for a person.
+  // `false` renders rather than dropping out: "no, I do not need power" is an answer.
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   return String(value);
 }
 

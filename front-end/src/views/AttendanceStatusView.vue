@@ -88,7 +88,10 @@ onMounted(loadAttendance);
   <div class="attendance-status-view">
     <div class="attendance-status-card">
       <header class="attendance-status-header">
-        <h1>Attendance Status</h1>
+        <!-- The screen, then the market (E15/F02/S03). -->
+        <h1 data-testid="attendance-status-heading">
+          {{ railMarket ? `Attendance: ${railMarket.name}` : 'Attendance Status' }}
+        </h1>
       </header>
 
       <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />

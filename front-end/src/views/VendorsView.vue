@@ -389,7 +389,7 @@ function handleBack(): void {
   <div class="vendors-view">
     <div class="vendors-card">
       <header class="vendors-header">
-        <h1>{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
+        <h1 data-testid="vendors-heading">{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
       </header>
 
       <PhaseRail :market="market" @phase-advanced="(m) => (market = m)" />

@@ -190,9 +190,12 @@ async function undoCheckIn(date: string): Promise<void> {
               autocomplete="email"
               data-testid="attendance-checkin-email-input"
             />
+            <!-- Primary until it has been used, then secondary: once a result is on screen the
+                 action that matters is checking in, and a spent control should not go on wearing
+                 the only green on a page someone is holding at a door (E15/F02/S04). -->
             <button
               type="submit"
-              class="primary-button"
+              :class="summary ? 'secondary-button' : 'primary-button'"
               :disabled="isLoading"
               data-testid="attendance-checkin-lookup-button"
             >
