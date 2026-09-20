@@ -240,8 +240,10 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     await expect(page.getByTestId('market-setup-setup-tab')).not.toHaveClass(/active/);
 
     // And once you are on the tab that holds the fix, the panel stops offering to take you there.
+    // Keyed on the anchor itself rather than the testid this change introduced, so the assertion
+    // means "no link" rather than "no element with a name that is new here".
     await expect(blockers).toContainText('still awaiting review');
-    await expect(blockers.getByTestId('blocker-resolution-link')).toHaveCount(0);
+    await expect(blockers.locator('a.blocker-link')).toHaveCount(0);
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/09-blocked-assignment.png`, fullPage: true });
   });
@@ -492,8 +494,10 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft');
 
     // Two remedies in two different tabs - add dates to the plan, or add a custom field to the
-    // form - so there is no one tab to point at, and the message names both instead.
-    await expect(blockers.getByTestId('blocker-resolution-link')).toHaveCount(0);
+    // form - so there is no one tab to point at, and the message names both instead. The panel is
+    // proven present by the message above, so this is an absent link rather than an absent panel.
+    await expect(blockers.locator('a.blocker-link')).toHaveCount(0);
+    await expect(blockers).toContainText('custom field');
 
     await page.screenshot({
       path: `${SCREENSHOT_DIR}/12-empty-plan-blocked.png`,
