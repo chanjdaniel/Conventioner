@@ -51,7 +51,7 @@ const router = useRouter();
 
 h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: var(--text-xl);
   font-weight: 600;
 }
 
@@ -59,17 +59,17 @@ p {
   margin: 0;
   max-width: 52ch;
   color: var(--mm-text-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .no-market-action {
   height: 38px;
   padding: 0 18px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--mm-green);
   background: var(--mm-green);
   color: white;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 </style>

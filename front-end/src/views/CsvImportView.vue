@@ -1159,12 +1159,12 @@ function startOver() {
 
 .import-header h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: var(--text-xl);
 }
 
 .import-subtitle {
   margin: 4px 0 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -1175,7 +1175,7 @@ function startOver() {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -1190,7 +1190,7 @@ function startOver() {
   border: 1px solid var(--mm-red);
   border-radius: 6px;
   color: var(--mm-red);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .import-panel {
@@ -1202,12 +1202,12 @@ function startOver() {
 
 .import-panel h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--text-lg);
 }
 
 .import-help {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -1220,19 +1220,19 @@ function startOver() {
 
 .import-ledger h2 {
   margin: 0 0 4px;
-  font-size: 18px;
+  font-size: var(--text-lg);
 }
 
 .ledger-table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 12px;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .ledger-table th {
   text-align: left;
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--mm-text-muted);
@@ -1258,7 +1258,7 @@ function startOver() {
 
 .ledger-samples {
   color: var(--mm-text-muted);
-  font-size: 13px;
+  font-size: var(--text-xs);
   max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1273,7 +1273,7 @@ function startOver() {
   display: block;
   margin-top: 2px;
   font-weight: 400;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-green);
 }
 
@@ -1287,7 +1287,7 @@ function startOver() {
 }
 
 .ledger-member-note {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -1297,10 +1297,10 @@ function startOver() {
   gap: 10px;
   margin-bottom: 12px;
   padding: 10px 14px;
-  border: 1px solid #cfe3d4;
+  border: 1px solid rgba(54, 130, 111, 0.16);
   border-radius: 6px;
   background: #f2f8f4;
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .ledger-badge {
@@ -1310,7 +1310,7 @@ function startOver() {
   border-radius: 999px;
   background: #e8f3ec;
   color: var(--mm-green);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 400;
 }
 
@@ -1329,7 +1329,7 @@ function startOver() {
 
 .ledger-fixes-title {
   margin: 0 0 6px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-red);
 }
 
@@ -1345,18 +1345,18 @@ function startOver() {
   padding: 2px 6px;
   border-radius: 4px;
   background: #f2f2f2;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .ledger-fix-rows {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
 .ledger-fix-select {
   height: 30px;
   padding: 2px 6px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
@@ -1366,7 +1366,7 @@ function startOver() {
   border: none;
   background: none;
   padding: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   text-decoration: underline;
   cursor: pointer;
@@ -1376,8 +1376,8 @@ function startOver() {
   margin: 8px 0 0;
   padding: 8px 10px;
   border-left: 3px solid var(--mm-yellow);
-  background: #fdf7ec;
-  font-size: 13px;
+  background: rgba(228, 166, 41, 0.18);
+  font-size: var(--text-xs);
   max-width: 42ch;
 }
 
@@ -1386,7 +1386,7 @@ function startOver() {
   max-width: 260px;
   height: 34px;
   padding: 4px 8px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
   border-radius: 5px;
   background: white;
@@ -1401,7 +1401,7 @@ function startOver() {
 
 .import-rail h3 {
   margin: 0 0 10px;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .rail-list {
@@ -1411,7 +1411,7 @@ function startOver() {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .rail-tick {
@@ -1426,7 +1426,7 @@ function startOver() {
 
 .rail-ok {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-green);
 }
 
@@ -1435,7 +1435,7 @@ function startOver() {
   padding: 10px 12px;
   border-left: 3px solid var(--mm-green);
   background: #eef8f5;
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .rail-unasked p {
@@ -1452,7 +1452,7 @@ function startOver() {
 
 .rail-warning {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-red);
 }
 
@@ -1501,12 +1501,12 @@ function startOver() {
 
 .drop-zone-main {
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
 }
 
 .drop-zone-hint {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   max-width: 42ch;
   line-height: 1.5;
@@ -1519,7 +1519,7 @@ function startOver() {
 .preview-samples h3,
 .preview-mapping-heading {
   font-family: 'Merge One', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   margin: 0 0 8px;
 }
 
@@ -1546,7 +1546,7 @@ function startOver() {
   grid-template-columns: minmax(0, 1fr);
   gap: 2px;
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .sample-card dt {
@@ -1571,7 +1571,7 @@ function startOver() {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .preview-mapping li {
@@ -1600,7 +1600,7 @@ function startOver() {
   border: 1px solid var(--mm-border);
   border-radius: 6px;
   background: #fafafa;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -1613,14 +1613,14 @@ function startOver() {
 
 .import-failures h3 {
   margin: 0 0 4px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-red);
 }
 
 .import-failures ul {
   margin: 8px 0 0;
   padding-left: 18px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1639,7 +1639,7 @@ function startOver() {
   height: 38px;
   padding: 0 18px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
   border: 1px solid var(--mm-border);
   background: white;

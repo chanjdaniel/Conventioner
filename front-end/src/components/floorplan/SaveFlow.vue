@@ -382,7 +382,7 @@ async function handleSave() {
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 18px;
+  font-size: var(--text-lg);
   line-height: 1;
   cursor: pointer;
 
@@ -428,7 +428,7 @@ async function handleSave() {
   color: #ffffff;
   border-radius: 8px;
 
-  font-size: 15px;
+  font-size: var(--text-sm);
   box-shadow: 0 4px 20px rgba(39, 35, 35, 0.22);
 }
 
@@ -483,7 +483,7 @@ async function handleSave() {
   flex-direction: column;
   background: #fff;
   border-radius: 14px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   border: 1px solid rgba(39, 35, 35, 0.18);
 }
@@ -547,7 +547,7 @@ async function handleSave() {
 .save-dialog-title {
   margin: 0;
   font-family: 'Merge One', 'Outfit', sans-serif;
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: 400;
   letter-spacing: 0.02em;
   color: #fff;
@@ -574,7 +574,7 @@ async function handleSave() {
   border: 1px solid var(--mm-green);
   border-radius: 8px;
   color: var(--mm-green);
-  font-size: 14px;
+  font-size: var(--text-sm);
   text-align: center;
 }
 
@@ -585,7 +585,7 @@ async function handleSave() {
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
   color: var(--mm-black);
-  font-size: 14px;
+  font-size: var(--text-sm);
   text-align: center;
 }
 
@@ -611,7 +611,7 @@ async function handleSave() {
 }
 
 .save-stat-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   opacity: 0.7;
   text-transform: uppercase;
@@ -620,7 +620,7 @@ async function handleSave() {
 
 .save-stat-value {
   font-family: 'Merge One', sans-serif;
-  font-size: 28px;
+  font-size: var(--text-xl);
   color: var(--mm-black);
   line-height: 1.1;
 }
@@ -639,14 +639,14 @@ async function handleSave() {
 .save-section-title {
   margin: 0;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
   border-bottom: 2px solid var(--mm-border);
   padding-bottom: 6px;
 }
 
 .save-section-subtitle {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--mm-text-muted);
   letter-spacing: 0.01em;
@@ -666,7 +666,7 @@ async function handleSave() {
   padding: 5px 14px;
   background: var(--mm-beige);
   border-radius: 999px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   border: 1px solid transparent;
 }
@@ -703,7 +703,7 @@ async function handleSave() {
 }
 
 .save-section-card-label {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   opacity: 0.6;
   text-transform: uppercase;
@@ -719,7 +719,7 @@ async function handleSave() {
   border: 1px solid var(--mm-border);
   border-radius: 6px;
 
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 
   transition: border-color 0.15s ease;
@@ -744,7 +744,7 @@ async function handleSave() {
 }
 
 .save-section-card-tables {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   opacity: 0.55;
   white-space: nowrap;
@@ -760,7 +760,7 @@ async function handleSave() {
 
 .save-empty p {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   text-align: center;
 }
@@ -788,7 +788,7 @@ async function handleSave() {
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   line-height: 1;
   cursor: pointer;
 

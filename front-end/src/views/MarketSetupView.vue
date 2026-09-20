@@ -927,10 +927,10 @@ const sectionsUndescribed = computed(
   align-self: flex-start;
   margin-bottom: 8px;
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--mm-border);
   background: white;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-link);
   cursor: pointer;
 }
@@ -940,7 +940,7 @@ const sectionsUndescribed = computed(
 }
 
 .plan-save-status {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -973,11 +973,11 @@ const sectionsUndescribed = computed(
 .import-entry-button {
   height: 36px;
   padding: 0 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--mm-green);
   background: var(--mm-green);
   color: white;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
@@ -989,7 +989,7 @@ const sectionsUndescribed = computed(
 }
 
 .import-entry-hint {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -1035,7 +1035,7 @@ const sectionsUndescribed = computed(
   flex: 1;
   min-height: 0;
   background-color: white;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
 }
@@ -1067,7 +1067,7 @@ const sectionsUndescribed = computed(
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted-on-dark);
   cursor: pointer;
   transition:
@@ -1076,7 +1076,7 @@ const sectionsUndescribed = computed(
 }
 
 .tab-button:hover {
-  color: #ddd;
+  color: var(--mm-border);
 }
 
 .tab-button.active {
@@ -1118,14 +1118,14 @@ const sectionsUndescribed = computed(
 
 h1 {
   text-align: center;
-  font-size: 30px;
+  font-size: var(--text-2xl);
   color: white;
 }
 
 h2 {
   font-family: 'Merge One';
   text-align: left;
-  font-size: 20px;
+  font-size: var(--text-lg);
   color: white;
 }
 
@@ -1138,7 +1138,7 @@ h2 {
   padding: 0 14px;
 
   background: var(--mm-green);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   border: none;
 
   display: inline-flex;
@@ -1149,11 +1149,11 @@ h2 {
   font-family: 'Merge One';
   font-style: normal;
   font-weight: 400;
-  font-size: 20px;
+  font-size: var(--text-lg);
   line-height: 1.2;
   text-align: center;
 
-  color: #ffffff;
+  color: white;
 }
 
 .done-button:disabled {
@@ -1175,12 +1175,12 @@ h2 {
 }
 
 .discord-webhook-label {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
 .discord-webhook-optional {
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--mm-text-muted);
@@ -1188,7 +1188,7 @@ h2 {
 
 .discord-webhook-help {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -1196,9 +1196,9 @@ h2 {
   flex: 1;
   height: 32px;
   padding: 4px 10px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background-color: white;
 }
 
@@ -1221,28 +1221,28 @@ h2 {
 }
 
 .form-lock-banner {
-  font-size: 13px;
+  font-size: var(--text-xs);
   line-height: 1.4;
-  color: #7a5200;
-  background: #fff6e0;
-  border: 1px solid #f0d089;
-  border-radius: 6px;
+  color: var(--mm-text-yellow);
+  background: rgba(228, 166, 41, 0.18);
+  border: 1px solid var(--mm-yellow);
+  border-radius: var(--radius-control);
   padding: 10px 12px;
 }
 
 .form-loading-banner {
-  font-size: 13px;
+  font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--mm-text-muted);
-  background: #f4f4f4;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  background: var(--mm-beige);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
   padding: 10px 12px;
 }
 
 .assign-disabled-hint {
   margin: 6px 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
   color: rgba(39, 35, 35, 0.65);
 }
 
@@ -1257,12 +1257,12 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--mm-red);
-  background: #fdeaea;
-  border: 1px solid #f0a9a9;
-  border-radius: 6px;
+  background: rgba(192, 57, 43, 0.14);
+  border: 1px solid var(--mm-red);
+  border-radius: var(--radius-control);
   padding: 10px 12px;
 }
 
@@ -1271,10 +1271,10 @@ h2 {
   background: none;
   border: 1px solid var(--mm-red);
   color: var(--mm-red);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 3px 12px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .retry-button:hover {
@@ -1283,7 +1283,7 @@ h2 {
 }
 
 .save-status {
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .save-status.success {
@@ -1299,7 +1299,7 @@ h2 {
 }
 
 .preview-unavailable {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   text-align: center;
   padding: 40px;

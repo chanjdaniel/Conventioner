@@ -72,8 +72,8 @@ function goToDashboard() {
   max-height: 100px;
 
   /* MMWhite */
-  background: #ffffff;
-  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+  background: white;
+  box-shadow: var(--shadow-card);
 
   /* Inside auto layout */
   flex: none;
@@ -102,7 +102,7 @@ function goToDashboard() {
 }
 
 .menu-button:hover {
-  background-color: #ececec;
+  background-color: var(--mm-border);
   /* color: white; */
 }
 

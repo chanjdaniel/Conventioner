@@ -139,7 +139,7 @@ const dragOptions = computed(() => ({
                   :data-testid="'setup-tier-name-input-' + parentIndex"
                   style="
                     all: unset;
-                    font-size: 14px;
+                    font-size: var(--text-sm);
                     width: 100%;
                     height: 100%;
                     text-align: center;
@@ -219,8 +219,7 @@ h3 {
 .input-container {
   width: 80%;
   height: 100%;
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
 }
 
 .column-titles {
@@ -238,7 +237,6 @@ h3 {
 }
 
 .sortable-ghost {
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
   opacity: 0.7;
 }
 
@@ -270,10 +268,10 @@ h3 {
   flex: 0 0 auto;
   margin-left: 8px;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--mm-yellow);
   color: var(--mm-black);
-  font-size: 11px;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -340,7 +338,7 @@ h3 {
   border: none;
   outline: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-sm);
   padding-right: 5px;
   background-color: white;
 }

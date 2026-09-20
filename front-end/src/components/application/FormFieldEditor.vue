@@ -188,8 +188,8 @@ function updateOption(idx: number, value: string) {
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
-  background: #fafafa;
+  border-radius: var(--radius-control);
+  background: var(--mm-beige);
 }
 
 .field-row {
@@ -204,7 +204,7 @@ function updateOption(idx: number, value: string) {
 }
 
 .field-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   width: 65px;
   flex-shrink: 0;
@@ -215,14 +215,14 @@ function updateOption(idx: number, value: string) {
   flex: 1;
   height: 28px;
   padding: 2px 8px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   border: 1px solid var(--mm-border);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 
 .field-input:disabled,
 .field-input[disabled] {
-  background: #f0f0f0;
+  background: var(--mm-beige);
   color: var(--mm-text-muted);
   cursor: not-allowed;
 }
@@ -266,10 +266,10 @@ function updateOption(idx: number, value: string) {
   gap: 4px;
   background: none;
   border: 1px dashed var(--mm-border);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   padding: 4px 8px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 </style>

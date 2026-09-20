@@ -32,14 +32,14 @@ const router = useRouter();
 
 h1 {
   margin: 0 0 12px;
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 600;
 }
 
 p {
   margin: 0 0 20px;
   color: var(--mm-text-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .not-found-action {
@@ -49,7 +49,7 @@ p {
   border: 1px solid var(--mm-green);
   background: var(--mm-green);
   color: white;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 </style>

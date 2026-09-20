@@ -92,13 +92,13 @@ const emptyText = computed(() =>
 .placement-history-title {
   margin: 0 0 8px;
   font-family: 'Merge One', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-green);
 }
 
 .placement-history-note {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -132,14 +132,14 @@ const emptyText = computed(() =>
 
 .placement-history-what {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   overflow-wrap: anywhere;
 }
 
 .placement-history-who {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   overflow-wrap: anywhere;
 }

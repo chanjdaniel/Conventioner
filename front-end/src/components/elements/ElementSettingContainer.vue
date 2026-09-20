@@ -15,9 +15,9 @@
   display: flex;
   flex-direction: column;
 
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background-color: white;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-card);
 }
 
 .setting-header {
@@ -52,11 +52,11 @@
   width: calc(100% - 8px);
 
   text-align: center;
-  font-size: 12px;
+  font-size: var(--text-xs);
 
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   background-color: white;
-  box-shadow: 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-card);
 }
 
 /*
@@ -78,7 +78,7 @@
 }
 
 ::v-deep(.column-titles h3) {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   font-weight: 400;
   /* The heading sizes to its own text. "Priority" is 51px of text and its column was 15% of a

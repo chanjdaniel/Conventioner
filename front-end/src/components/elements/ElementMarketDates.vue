@@ -122,7 +122,7 @@ h4 {
   width: 100%;
   background-color: transparent;
   padding-right: 5px;
-  font-size: 16px;
+  font-size: var(--text-md);
 }
 
 .date-display {
@@ -134,7 +134,7 @@ h4 {
   text-align: center;
   text-justify: center;
   padding: 5px;
-  font-size: 16px;
+  font-size: var(--text-md);
 }
 
 .edit-icon {
@@ -231,7 +231,7 @@ h4 {
   border: none;
   outline: none;
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--text-md);
   padding-right: 5px;
   text-align-last: center;
   background-color: white;
@@ -272,7 +272,7 @@ h4 {
 .datatype-dropdown,
 .datatype-dropdown option {
   font-family: inherit;
-  font-size: 16px;
-  color: #333;
+  font-size: var(--text-md);
+  color: var(--mm-black);
 }
 </style>

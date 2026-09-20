@@ -167,7 +167,7 @@ const modalRoot = useModalRoot(open);
 
 .overlay-heading {
   font-family: 'Merge One', sans-serif;
-  font-size: 26px;
+  font-size: var(--text-xl);
   font-weight: 400;
   color: var(--mm-black);
   text-align: center;
@@ -175,7 +175,7 @@ const modalRoot = useModalRoot(open);
 }
 
 .overlay-subtitle {
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   text-align: center;
   margin: 0;
@@ -237,7 +237,7 @@ const modalRoot = useModalRoot(open);
   padding: 3px 10px;
   background: var(--mm-green);
   border-radius: 100px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: #ffffff;
   text-transform: uppercase;
@@ -245,7 +245,7 @@ const modalRoot = useModalRoot(open);
 }
 
 .card-caveat {
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--mm-text-muted);
   text-align: center;
@@ -265,7 +265,7 @@ const modalRoot = useModalRoot(open);
 }
 
 .card-icon {
-  font-size: 26px;
+  font-size: var(--text-xl);
   color: var(--mm-black);
 }
 
@@ -277,7 +277,7 @@ const modalRoot = useModalRoot(open);
 /* ── Card Title ───────────────────────────────────────────────── */
 .card-title {
   font-family: 'Merge One', sans-serif;
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--mm-black);
   text-align: center;
@@ -285,7 +285,7 @@ const modalRoot = useModalRoot(open);
 }
 
 .card-desc {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   text-align: center;
   line-height: 1.5;
@@ -308,13 +308,13 @@ const modalRoot = useModalRoot(open);
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   line-height: 1.45;
 }
 
 .feature-check {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-green);
   flex-shrink: 0;
   margin-top: 1px;
@@ -333,7 +333,7 @@ const modalRoot = useModalRoot(open);
   border: none;
   border-radius: 5px;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: #ffffff;
   cursor: pointer;
   transition:
@@ -366,7 +366,7 @@ const modalRoot = useModalRoot(open);
   padding: 3px 10px;
   background: var(--mm-yellow);
   border-radius: 100px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--mm-black);
   text-transform: uppercase;
@@ -382,7 +382,7 @@ const modalRoot = useModalRoot(open);
   }
 
   .overlay-heading {
-    font-size: 22px;
+    font-size: var(--text-lg);
   }
 
   .cards-row {
@@ -396,7 +396,7 @@ const modalRoot = useModalRoot(open);
   right: 14px;
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: var(--text-xl);
   line-height: 1;
   padding: 4px 8px;
   color: var(--mm-text-muted);

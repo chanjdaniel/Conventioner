@@ -69,22 +69,22 @@ onMounted(load);
 }
 h1 {
   margin: 0 0 12px;
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 600;
   color: var(--mm-black);
 }
 .slug-hint {
   margin: 0;
   color: #666;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 .market-home-loading {
   color: #666;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 .market-home-missing p {
   margin: 0;
   color: #666;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 </style>

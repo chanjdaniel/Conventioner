@@ -58,7 +58,7 @@ const removeRow = (index: number | null) => {
             <input
               type="text"
               v-model="locationObjects[index].name"
-              style="all: unset; font-size: 14px; width: 100%"
+              style="all: unset; font-size: var(--text-sm); width: 100%"
               :data-testid="'setup-location-name-input-' + index"
             />
           </div>
@@ -147,8 +147,7 @@ const removeRow = (index: number | null) => {
 .input-container {
   width: 80%;
   height: 100%;
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
 }
 
 input::-webkit-outer-spin-button,

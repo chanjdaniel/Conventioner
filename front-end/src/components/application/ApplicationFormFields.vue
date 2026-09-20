@@ -165,7 +165,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-label {
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--mm-black);
 }
@@ -175,7 +175,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-help {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   margin: 0;
 }
@@ -183,9 +183,9 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 .form-input {
   height: 36px;
   padding: 4px 10px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
@@ -198,7 +198,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;
 }
@@ -209,7 +209,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   gap: 6px;
   padding: 10px;
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
@@ -218,13 +218,13 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-field-error {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-red);
   margin: 2px 0 0;
 }
 
 .form-unsupported {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-red);
   font-style: italic;
 }
