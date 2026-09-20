@@ -2,9 +2,9 @@
 id: E16/F04
 title: The primitives
 type: feature
-status: in-progress
+status: done
 blocked_by: [E16/F02, E16/F03]
-pr: []
+pr: [77]
 ---
 
 ## Outcome

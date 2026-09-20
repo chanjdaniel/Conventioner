@@ -2,9 +2,9 @@
 id: E16/F02
 title: The scale, written down
 type: feature
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [77]
 ---
 
 ## Outcome

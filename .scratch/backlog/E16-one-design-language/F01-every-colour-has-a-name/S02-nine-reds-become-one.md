@@ -2,9 +2,9 @@
 id: E16/F01/S02
 title: Nine reds and two blues become two tokens
 type: story
-status: in-progress
+status: done
 blocked_by: [E16/F01/S01]
-pr: []
+pr: [77]
 ---
 
 ## What to build

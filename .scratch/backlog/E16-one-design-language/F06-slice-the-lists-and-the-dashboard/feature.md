@@ -2,9 +2,9 @@
 id: E16/F06
 title: Slice: the lists and the dashboard
 type: feature
-status: in-progress
+status: done
 blocked_by: [E16/F04]
-pr: []
+pr: [77]
 ---
 
 ## Outcome

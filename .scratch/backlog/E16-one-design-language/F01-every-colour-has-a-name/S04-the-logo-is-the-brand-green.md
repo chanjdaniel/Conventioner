@@ -2,9 +2,9 @@
 id: E16/F01/S04
 title: The logo is the brand green
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [77]
 ---
 
 ## What to build

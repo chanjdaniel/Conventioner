@@ -2,9 +2,9 @@
 id: E16/F04/S01
 title: The button primitive
 type: story
-status: in-progress
+status: done
 blocked_by: [E16/F02, E16/F03]
-pr: []
+pr: [77]
 ---
 
 ## What to build

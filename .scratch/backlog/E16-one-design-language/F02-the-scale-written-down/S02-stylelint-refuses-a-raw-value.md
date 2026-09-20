@@ -2,9 +2,9 @@
 id: E16/F02/S02
 title: Stylelint refuses a raw value
 type: story
-status: in-progress
+status: done
 blocked_by: [E16/F02/S01]
-pr: []
+pr: [77]
 ---
 
 ## What to build
