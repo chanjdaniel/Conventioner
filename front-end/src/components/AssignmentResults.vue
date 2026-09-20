@@ -920,6 +920,18 @@ const handleSendToDiscord = async () => {
   margin-top: 16px;
 }
 
+/* Above `.summary-card h3`, not below it. Both selectors are (0,1,1), so the later one wins on
+   cascade order alone - and with this rule last, the summary card's heading took `--mm-black`
+   over its green and rendered at 3.39:1 despite asking for white two rules down. */
+.stat-card h3 {
+  font-family: 'Merge One';
+  font-size: var(--text-lg);
+  color: var(--mm-black);
+  margin: 0;
+  border-bottom: 2px solid var(--mm-border);
+  padding-bottom: 10px;
+}
+
 .summary-card {
   background: linear-gradient(135deg, var(--mm-green) 0%, var(--mm-green) 100%);
 }
@@ -957,15 +969,6 @@ const handleSendToDiscord = async () => {
   line-height: 1.15;
   text-align: center;
   overflow-wrap: break-word;
-}
-
-.stat-card h3 {
-  font-family: 'Merge One';
-  font-size: var(--text-lg);
-  color: var(--mm-black);
-  margin: 0;
-  border-bottom: 2px solid var(--mm-border);
-  padding-bottom: 10px;
 }
 
 .stat-row {

@@ -86,7 +86,9 @@ button.assignment-stat-list-item {
   font-family: 'Merge One';
   font-size: var(--text-md);
   font-weight: 400;
-  color: var(--mm-green);
+  /* The ink token, not `--mm-green`: the fill green is tuned to carry white text and reaches only
+     3.68:1 as ink on `--mm-beige`. `--mm-text-green` is 5.33:1 on the same ground. */
+  color: var(--mm-text-green);
   background-color: var(--mm-beige);
   padding: 3px 11px;
   border-radius: var(--radius-pill);
