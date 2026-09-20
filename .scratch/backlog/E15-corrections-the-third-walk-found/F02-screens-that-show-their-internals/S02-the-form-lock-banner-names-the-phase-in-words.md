@@ -2,7 +2,7 @@
 id: E15/F02/S02
 title: The form-lock banner names the phase in words
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -23,9 +23,9 @@ Sweep for siblings while here: any other surface printing a raw phase, status or
 
 ## Acceptance criteria
 
-- [ ] The banner names the phase the way the rail names it.
-- [ ] No organizer-facing string contains a raw `snake_case` enum value. Asserted by a test that walks the market screens for `/[a-z]+_[a-z]+/` in visible text.
-- [ ] There is one phase-to-label mapping in the front end, not two.
+- [x] The banner names the phase the way the rail names it.
+- [x] No organizer-facing string contains a raw `snake_case` enum value. Asserted by a test that walks the market screens for `/[a-z]+_[a-z]+/` in visible text.
+- [x] There is one phase-to-label mapping in the front end, not two.
 
 ## Notes
 

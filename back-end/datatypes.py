@@ -52,6 +52,19 @@ class MarketPhase(str, Enum):
     ARCHIVED = "archived"
 
 
+def phase_label(phase: MarketPhase) -> str:
+    """A phase as a person reads it: ``market_days`` -> ``Market Days``.
+
+    Derived from the stored value rather than kept as a second table beside
+    ``front-end/src/utils/phase.ts``'s ``PHASE_LABELS``. Two hand-maintained maps of the phase
+    spine is exactly the drift ``_validate_registry`` exists to refuse elsewhere, and this
+    transform reproduces all eight of the front end's labels exactly - which
+    ``test_phase_label`` pins, so a phase whose label does not survive the derivation fails here
+    rather than reaching an organizer as ``market_days``.
+    """
+    return phase.value.replace("_", " ").title()
+
+
 def phase_from_market_document(document: Dict[str, Any]) -> MarketPhase:
     """Effective phase of a stored market document.
 

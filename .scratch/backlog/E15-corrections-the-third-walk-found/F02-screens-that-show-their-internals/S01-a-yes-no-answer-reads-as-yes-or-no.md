@@ -2,7 +2,7 @@
 id: E15/F02/S01
 title: A yes/no answer reads as Yes or No
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -19,9 +19,9 @@ Check the neighbouring cases while here: an unanswered optional field, and a num
 
 ## Acceptance criteria
 
-- [ ] No rendered answer reads `true`, `false`, `null`, `undefined` or `NaN` on any organizer surface.
-- [ ] A checkbox answer reads `Yes` or `No` on the triage card and on the vendor detail panel.
-- [ ] A test pins the boolean rendering, so a new answer type cannot reintroduce it.
+- [x] No rendered answer reads `true`, `false`, `null`, `undefined` or `NaN` on any organizer surface.
+- [x] A checkbox answer reads `Yes` or `No` on the triage card and on the vendor detail panel.
+- [x] A test pins the boolean rendering, so a new answer type cannot reintroduce it.
 
 ## Notes
 

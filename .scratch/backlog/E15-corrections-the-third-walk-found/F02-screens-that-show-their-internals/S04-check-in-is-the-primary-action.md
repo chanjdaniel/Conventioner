@@ -2,28 +2,33 @@
 id: E15/F02/S04
 title: Check in is the primary action
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
 
 ## What to build
 
-On the check-in result, `Look up` - the action the vendor has already completed - is the only solid green button on the page.
-`Check in`, the entire purpose of the surface, is a white outline button in the bottom-right corner of each day card with a 25px void above it.
+**Half of this story's premise was wrong, and the code was right.** Corrected 2026-09-20 while implementing it.
 
-This is the one surface someone holds in their hand at a door with a queue behind them.
+`Check in` is already `primary-button` on the row whose date is today, and `secondary-button` on every other row:
 
-- `Check in` becomes the solid primary, full width inside its day card.
-- `Look up` demotes to secondary once a result is showing.
+```
+:class="row.date === today ? 'primary-button' : 'secondary-button'"
+```
 
-The 390px rendering is otherwise the best-executed surface in the product - no horizontal scroll, no overflowing element, no contrast failure - so change the emphasis and the placement, not the layout.
+The walk measured a market whose dates were all in the future, so every row rendered secondary and the screenshot showed only outline buttons. `AttendanceCheckinView` already carries the reasoning: *"Today is the one a vendor at the door means. It is not merely styled differently: every other day's button is secondary, so a mis-tap takes a deliberate press on a control that does not look like the primary one."* That is better than what this story proposed - "`Check in` becomes the solid primary" on every row would make a mis-tap on the wrong day exactly as easy as the right one.
+
+**What is left, and is genuinely wrong:** `Look up` stays solid green after the lookup has succeeded, so on the result view it competes with the day's own action. It demotes to secondary once a summary is showing.
+
+The 390px rendering is otherwise the best-executed surface in the product - no horizontal scroll, no overflowing element, no contrast failure - so change the emphasis, not the layout.
 
 ## Acceptance criteria
 
-- [ ] `Check in` is the only primary-styled control on the result view, at both 1920x1080 and 390x844.
-- [ ] The check-in e2e spec asserts which control is primary, not just that it exists.
-- [ ] 390px still reports no horizontal scroll and no contrast failure.
+- [x] `Look up` is primary before a lookup and secondary after one.
+- [x] On the result view, the only primary control is `Check in` for today - and when today is not a market day, there is no primary control at all, which is correct: nothing on that screen is the thing to press.
+- [x] The check-in e2e spec asserts which control is primary, not just that it exists.
+- [x] 390px still reports no horizontal scroll and no contrast failure.
 
 ## Notes
 

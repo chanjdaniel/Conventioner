@@ -753,9 +753,10 @@
         <span class="sev high">High</span>
       </div>
       <div class="fb">
-        <p>"Look up" - the action the vendor has already completed - is the only solid green button on the page. "Check in", the entire purpose of the surface, is a white outline button tucked into the bottom-right corner of each day card, with a 25px void above it.</p>
+        <div class="callout warn"><strong>Half of this finding was wrong, corrected 20 Sep while fixing it.</strong> <code>Check in</code> is already the primary button on the row whose date is <em>today</em>, and secondary on every other row - <code>:class="row.date === today ? 'primary-button' : 'secondary-button'"</code>. The walk measured a market whose dates were all in the future, so every row rendered secondary. That design is better than what this finding proposed: making every row primary would make a mis-tap on the wrong day exactly as easy as the right one.</div>
+        <p>What survives: <strong>"Look up" stays solid green after it has been used</strong>, so on the result view a spent control wears the only green on a page someone is holding at a door. It now demotes to secondary once a result is showing.</p>
         <figure><img src="aes/15-checkin-result.png" alt="Check-in result showing outline Check in buttons" /></figure>
-        <p><strong>Recommendation:</strong> "Check in" becomes the solid primary, full-width inside its card; "Look up" demotes to secondary once a result is showing. At a market entrance with a queue behind them, the vendor should not have to look for the button.</p>
+        <p style="color:var(--ink-2)">The lesson is about the walk, not the screen: a surface whose behaviour depends on the date cannot be judged from a fixture dated in the future. The <em>Method</em> section's note on what a walk finds applies here too.</p>
       </div>
     </div>
 

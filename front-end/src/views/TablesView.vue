@@ -457,7 +457,12 @@ function swapSeats(withEmail: string): void {
   <div class="tables-view">
     <div class="tables-card">
       <header class="tables-header">
-        <h1>Tables</h1>
+        <!-- The screen, then the market. An organizer running two markets in the same week
+             could open this one and have nothing on screen say whose tables these are - on the
+             screen where a hand placement moves a real vendor to a real seat (E15/F02/S03). -->
+        <h1 data-testid="tables-heading">
+          {{ railMarket ? `Tables: ${railMarket.name}` : 'Tables' }}
+        </h1>
       </header>
 
       <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />

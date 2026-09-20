@@ -2,7 +2,7 @@
 id: E15/F02/S03
 title: Every market screen names its market
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -24,8 +24,8 @@ Adopt the Vendors form everywhere: **screen name, then market name.** All four s
 
 ## Acceptance criteria
 
-- [ ] Tables, Attendance, Vendors and the Market Setup tabs each name both the screen and the market.
-- [ ] An e2e assertion reads the market name from the header of each of the four screens.
+- [x] Tables, Attendance, Vendors and the Market Setup tabs each name both the screen and the market.
+- [x] An e2e assertion reads the market name from the header of each of the four screens.
 
 ## Notes
 
