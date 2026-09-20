@@ -2,7 +2,7 @@
 id: E16/F08
 title: Slice: the public surfaces
 type: feature
-status: blocked
+status: ready
 blocked_by: [E16/F04]
 pr: []
 ---

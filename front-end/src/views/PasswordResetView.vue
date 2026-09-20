@@ -138,7 +138,7 @@ const submitReset = async () => {
 
         <button
           type="submit"
-          class="submit-button"
+          class="btn btn--primary submit-button"
           :disabled="isLoading"
           data-testid="password-reset-submit-button"
         >
@@ -173,14 +173,14 @@ const submitReset = async () => {
   width: 600px;
   min-height: 500px;
   background-color: white;
-  border-radius: 10px;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   padding: 60px;
 }
 
 .description {
-  color: #666;
-  font-size: 16px;
+  color: var(--mm-text-muted);
+  font-size: var(--text-md);
   margin-bottom: 30px;
   text-align: center;
 }
@@ -192,12 +192,12 @@ const submitReset = async () => {
 }
 
 .input-group {
-  height: 60px;
+  height: 36px;
   padding-left: 10px;
   margin-top: 30px;
-  border-radius: 8px;
-  border: 3px solid rgba(0, 0, 0, 0.4);
-  font-size: 20px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--mm-border);
+  font-size: var(--text-sm);
   display: flex;
   flex-direction: row;
   background-color: transparent;
@@ -209,13 +209,13 @@ const submitReset = async () => {
 
 .input-group:has(input:disabled) {
   opacity: 0.6;
-  background-color: #f5f5f5;
+  background-color: var(--mm-beige);
 }
 
 .password-input {
   width: auto;
   border: none;
-  font-size: 20px;
+  font-size: var(--text-sm);
   flex-grow: 1;
   outline: none;
 }
@@ -226,7 +226,7 @@ const submitReset = async () => {
   width: fit-content;
   padding-right: 20px;
   color: var(--mm-text-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
   outline: none;
 }
@@ -234,7 +234,7 @@ const submitReset = async () => {
 .error-message {
   color: red;
   text-align: right;
-  font-size: 14px;
+  font-size: var(--text-sm);
   margin-top: 10px;
   margin-bottom: 0;
 }
@@ -242,20 +242,16 @@ const submitReset = async () => {
 .success-message {
   color: green;
   text-align: center;
-  font-size: 14px;
+  font-size: var(--text-sm);
   margin-top: 10px;
   margin-bottom: 0;
 }
 
+/* `.btn btn--primary` carries the height, radius, fill, weight, focus ring and disabled state.
+   It was a 60px, 30px-radius pill with 20px text - the auth screens' own dialect (E16/F05). */
 .submit-button {
-  height: 60px;
-  border-radius: 30px;
-  margin-top: 40px;
-  background-color: var(--mm-green);
-  color: white;
-  font-size: 20px;
-  border: none;
-  cursor: pointer;
+  width: 100%;
+  margin-top: var(--space-6);
 }
 
 .submit-button:hover:not(:disabled) {
@@ -275,7 +271,7 @@ const submitReset = async () => {
 .link {
   color: var(--mm-text-link);
   text-decoration: none;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .link:hover {

@@ -2,7 +2,7 @@
 id: E16/F06
 title: Slice: the lists and the dashboard
 type: feature
-status: blocked
+status: ready
 blocked_by: [E16/F04]
 pr: []
 ---

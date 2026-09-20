@@ -2,7 +2,7 @@
 id: E16/F05
 title: Slice: the auth screens
 type: feature
-status: blocked
+status: in-progress
 blocked_by: [E16/F04]
 pr: []
 ---
@@ -24,3 +24,22 @@ Sign in, Register, Sign-in code, the two password-reset screens and email verifi
 - Stylelint's rules are flipped from warning to **error** for these files (`E16/F02/S02`).
 - The contrast sweep covers these screens, including their dialogs and empty states.
 - A before/after screenshot pair is attached to the PR, because this is the kind of change a diff does not show.
+
+## Done
+
+All five files carry zero stylelint warnings, and the rules are **errors** for them now
+(`.stylelintrc.json` `overrides`) - which is what turns the backlog into a shrinking number rather
+than one everybody stops reading. Product-wide: 1140 warnings -> 1082.
+
+What changed, beyond swapping literals for tokens:
+
+- **The submit buttons became `.btn btn--primary`,** full-width. They were 60px tall with 20px text
+  and, on the reset screens, a 30px-radius pill - the auth screens' own dialect. Full-width is what
+  gives a page's primary action presence without inventing a fourth button height.
+- **The composite field wears `.field`'s metrics rather than the class**, because `.login-input`
+  holds the input *and* the Show toggle. 60px and a 3px border became 36px and 1px.
+- **`blue` and `green` were not tokens.** The focus state was `border-color: blue`; it is now the
+  primitives' own ring, which is visible against the page as well as the field.
+
+Verified by screenshot at 1400x1000, not only by the linter: the login and reset screens now read
+as the same product, which was the point of taking this slice first.

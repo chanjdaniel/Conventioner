@@ -2,7 +2,7 @@
 id: E16/F07
 title: Slice: the market workspace
 type: feature
-status: blocked
+status: ready
 blocked_by: [E16/F04, E16/F03]
 pr: []
 ---
