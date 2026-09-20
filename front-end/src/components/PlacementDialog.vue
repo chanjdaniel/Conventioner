@@ -9,6 +9,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useInertBehind } from '@/utils/useInertBehind';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import {
   FULL_TABLE,
@@ -75,6 +76,17 @@ useEscapeToClose(
   () => emit('close'),
 );
 
+/**
+ * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
+ * of the page out of the tab order (E14/F02/S04). The root element below wraps the whole overlay,
+ * so naming it is enough - its scrim and its panel are both inside it.
+ */
+const modalRoot = ref<HTMLElement | null>(null);
+useInertBehind(
+  () => props.open,
+  () => [modalRoot.value],
+);
+
 const seatChoices: Seat[] = [FULL_TABLE, HALF_TABLE_LEFT, HALF_TABLE_RIGHT];
 /** A fixed seat is not a choice: only one side of this table is free. */
 const seatIsFixed = computed(() => props.seat !== null);
@@ -99,7 +111,7 @@ function label(email: string | null | undefined): string {
 </script>
 
 <template>
-  <div v-if="open" class="placement-scrim" @click.self="emit('close')">
+  <div v-if="open" ref="modalRoot" class="placement-scrim" @click.self="emit('close')">
     <div
       class="placement-dialog"
       role="dialog"

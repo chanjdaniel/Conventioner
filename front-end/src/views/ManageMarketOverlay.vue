@@ -4,6 +4,7 @@ import { type Market, MarketRole } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useInertBehind } from '@/utils/useInertBehind';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -23,6 +24,17 @@ const emit = defineEmits<{
 useEscapeToClose(
   () => props.manageOpen,
   () => emit('manageClose'),
+);
+
+/**
+ * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
+ * of the page out of the tab order (E14/F02/S04). The root element below wraps the whole overlay,
+ * so naming it is enough - its scrim and its panel are both inside it.
+ */
+const modalRoot = ref<HTMLElement | null>(null);
+useInertBehind(
+  () => props.manageOpen,
+  () => [modalRoot.value],
 );
 
 const marketData = ref<Market | null>(null);
@@ -238,7 +250,7 @@ function handleClose() {
 </script>
 
 <template>
-  <div class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
+  <div ref="modalRoot" class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
     <div
       class="background"
       @click="handleClose"

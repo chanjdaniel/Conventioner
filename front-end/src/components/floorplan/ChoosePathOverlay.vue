@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useInertBehind } from '@/utils/useInertBehind';
 
 const emit = defineEmits<{
   select: [path: 'manual' | 'floorplan'];
@@ -12,10 +13,17 @@ const emit = defineEmits<{
    at until they had chosen. */
 const open = ref(true);
 useEscapeToClose(open, () => emit('select', 'manual'));
+
+/**
+ * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
+ * of the page out of the tab order (E14/F02/S04).
+ */
+const modalRoot = ref<HTMLElement | null>(null);
+useInertBehind(open, () => [modalRoot.value]);
 </script>
 
 <template>
-  <div class="overlay-backdrop">
+  <div ref="modalRoot" class="overlay-backdrop">
     <div class="overlay-panel">
       <button
         type="button"

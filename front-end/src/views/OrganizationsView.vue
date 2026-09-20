@@ -4,6 +4,7 @@ import { type Organization } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import { getRoleDisplayName } from '@/utils/permissions';
+import { useInertBehind } from '@/utils/useInertBehind';
 import type { SummaryFact } from '@/utils/summary';
 import SummaryCard from '@/components/SummaryCard.vue';
 import ManageOrgOverlay from './ManageOrgOverlay.vue';
@@ -12,6 +13,13 @@ const organizations = ref<Organization[]>([]);
 const loading = ref(true);
 const errorMessage = ref('');
 const newOpen = ref(false);
+
+/**
+ * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
+ * of the page out of the tab order (E14/F02/S04).
+ */
+const newOrgModalRoot = ref<HTMLElement | null>(null);
+useInertBehind(newOpen, () => [newOrgModalRoot.value]);
 const manageOpen = ref(false);
 const manageOrg = ref<Organization | null>(null);
 const newOrgName = ref('');
@@ -128,7 +136,7 @@ function canManage(org: Organization): boolean {
 
     <ManageOrgOverlay :manageOpen="manageOpen" :org="manageOrg" @manageClose="handleManageClose" />
 
-    <div v-if="newOpen" class="overlay">
+    <div v-if="newOpen" ref="newOrgModalRoot" class="overlay">
       <div
         class="overlay-background"
         @click="handleNewClose"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useInertBehind } from '@/utils/useInertBehind';
 import { useFloorplanStore } from '@/stores/floorplan';
 import type { PlacedTableObject, FloorplanSectionObject } from '@/assets/types/datatypes';
 
@@ -38,6 +39,15 @@ const isDrawing = ref(false);
 const lassoStart = ref({ x: 0, y: 0 });
 const lassoEnd = ref({ x: 0, y: 0 });
 const showDialog = ref(false);
+
+/**
+ * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
+ * of the page out of the tab order (E14/F02/S04).
+ */
+/* The dialog is teleported to `body`, so the walk up from it reaches the app container as a
+   sibling and marks the whole page in one step. */
+const modalRoot = ref<HTMLElement | null>(null);
+useInertBehind(showDialog, () => [modalRoot.value]);
 const showSectionList = ref(false);
 
 // Dialog fields
@@ -473,6 +483,7 @@ onUnmounted(() => {
       <Transition name="dialog-fade">
         <div
           v-if="showDialog"
+          ref="modalRoot"
           class="sg-dialog-backdrop"
           @click="cancelSection"
           aria-modal="true"

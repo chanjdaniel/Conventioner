@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes.ts';
 import { fetchMarkets, openMarket } from '@/utils/market';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useInertBehind } from '@/utils/useInertBehind';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 
 const props = defineProps<{
@@ -19,6 +20,17 @@ useEscapeToClose(
   () => emit('loadClose'),
 );
 
+/**
+ * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
+ * of the page out of the tab order (E14/F02/S04). The root element below wraps the whole overlay,
+ * so naming it is enough - its scrim and its panel are both inside it.
+ */
+const modalRoot = ref<HTMLElement | null>(null);
+useInertBehind(
+  () => props.loadOpen,
+  () => [modalRoot.value],
+);
+
 const router = useRouter();
 const markets = ref<Market[]>([]);
 
@@ -30,7 +42,7 @@ const handleLoadMarket = (market: Market) => openMarket(router, market);
 </script>
 
 <template>
-  <div class="container" :style="{ visibility: loadOpen ? 'visible' : 'hidden' }">
+  <div ref="modalRoot" class="container" :style="{ visibility: loadOpen ? 'visible' : 'hidden' }">
     <div
       class="background"
       @click="$emit('loadClose')"
