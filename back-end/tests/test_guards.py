@@ -1,6 +1,7 @@
 """Unit tests for the guard registry and phase transition evaluation (PR 2)."""
 import os
 import sys
+import pathlib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -147,7 +148,17 @@ class TestFormHasFieldsGuard:
         market = _make_market(application_form=None, setup_object=None)
         result = FormHasFieldsGuard().evaluate(market, None)
         assert result.passed is False
-        assert result.resolution_link is not None
+
+    def test_offers_no_link_because_its_two_remedies_sit_in_two_tabs(self):
+        """Add dates to the plan is Market Setup; add a custom field is Application Form.
+
+        A link can only name one of the two, which would quietly recommend it over the other. The
+        message names both instead (E14/F01/S03).
+        """
+        market = _make_market(application_form=None, setup_object=None)
+        result = FormHasFieldsGuard().evaluate(market, None)
+        assert result.resolution_link is None
+        assert "dates" in result.message and "custom field" in result.message
 
     def test_fails_when_an_empty_form_meets_an_empty_plan(self):
         market = _make_market(application_form=ApplicationForm(fields=[]), setup_object=None)
@@ -703,3 +714,59 @@ class TestNoOrphanedPinGuard:
         )
 
         assert NoOrphanedPinGuard().evaluate(market, None).passed is False
+
+
+class TestEveryResolutionLinkPointsAtItsFix:
+    """A blocker's "Fix this" must go somewhere, and somewhere specific (E14/F01/S03).
+
+    The rail carries ``BlockerPanel`` onto four organizer screens, so a bare ``/market-setup`` is
+    usually the page the blocker is already displayed on: the link rendered as a control and did
+    nothing when clicked. Every link that exists must therefore name the TAB holding the remedy.
+
+    Read out of the source with ``ast`` rather than by evaluating each guard, so the rule covers
+    the next guard someone writes without that guard needing a test of its own - which is how the
+    original ``/market-setup`` spread to four call sites.
+    """
+
+    #: Routes a link may name: a tab of the market screen, or a screen of its own.
+    ALLOWED = {
+        "/market-setup?tab=form",
+        "/market-setup?tab=setup",
+        "/market-setup?tab=applications",
+        "/market-setup?tab=assignment",
+    }
+    #: A bare page (every screen shows the rail) or a redirect (the panel cannot follow a hop).
+    REFUSED = {"/market-setup", "/assignment-results"}
+
+    def _links(self):
+        import ast
+
+        source = pathlib.Path(guards.__file__).read_text()
+        found = []
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, ast.Call):
+                continue
+            for kw in node.keywords:
+                if kw.arg == "resolution_link" and isinstance(kw.value, ast.Constant):
+                    found.append(kw.value.value)
+        return found
+
+    def test_the_guards_declare_some_links(self):
+        """Guards against the scan silently finding nothing and passing everything below."""
+        assert len([link for link in self._links() if link is not None]) >= 3
+
+    def test_no_link_names_a_bare_page_or_a_redirect(self):
+        offenders = [link for link in self._links() if link in self.REFUSED]
+        assert offenders == [], (
+            f"resolution_link must name the tab holding the fix, not {sorted(set(offenders))}. "
+            "A bare page is the one the blocker is usually displayed on, and a redirect cannot be "
+            "resolved by the panel's own-page check."
+        )
+
+    def test_every_link_names_a_known_destination(self):
+        unknown = [
+            link
+            for link in self._links()
+            if link is not None and link not in self.ALLOWED
+        ]
+        assert unknown == [], f"unrecognized resolution_link: {sorted(set(unknown))}"

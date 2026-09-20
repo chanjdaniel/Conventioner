@@ -227,7 +227,12 @@ class TestTransitionBlocked:
         assert blocker["id"] == "form_has_fields"
         assert blocker["passed"] is False
         assert blocker["message"]
-        assert blocker["resolutionLink"] == "/market-setup"
+        # The key is on the wire and camelCased, which is what this test is named for. Its value is
+        # null because this guard's two remedies sit in two different tabs, so there is no one
+        # place to send the organizer (E14/F01/S03).
+        assert "resolutionLink" in blocker
+        assert "resolution_link" not in blocker
+        assert blocker["resolutionLink"] is None
 
         assert collection.doc["phase"] == "draft"
 
@@ -242,7 +247,7 @@ class TestTransitionBlocked:
         assert body["currentPhase"] == "applications_closed"
         assert body["targetPhase"] == "applications_open"
         assert body["blockers"][0]["id"] == "form_has_fields"
-        assert body["blockers"][0]["resolutionLink"] == "/market-setup"
+        assert body["blockers"][0]["resolutionLink"] is None
 
         assert collection.doc["phase"] == "applications_closed"
 
