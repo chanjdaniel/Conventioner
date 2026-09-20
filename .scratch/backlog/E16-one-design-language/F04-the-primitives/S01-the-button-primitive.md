@@ -2,7 +2,7 @@
 id: E16/F04/S01
 title: The button primitive
 type: story
-status: blocked
+status: in-progress
 blocked_by: [E16/F02, E16/F03]
 pr: []
 ---
@@ -33,11 +33,11 @@ A visible focus ring is part of this story, not a later one. The product has 65 
 
 ## Acceptance criteria
 
-- [ ] One height for a standard button and one for a compact one; no third.
-- [ ] Every button in the product can be expressed as `.btn` plus one intent, with no local overrides. Where it cannot, the gap is recorded rather than patched locally.
-- [ ] The disabled state passes the contrast sweep from `E16/F01/S05`.
-- [ ] Every intent has a visible focus ring that passes contrast against both its own fill and the page.
-- [ ] No migration in this story; the primitive ships with a rendered example page or story book entry, so the slices have something to check against.
+- [x] One height for a standard button and one for a compact one; no third.
+- [x] Every button in the product can be expressed as `.btn` plus one intent, with no local overrides. Where it cannot, the gap is recorded rather than patched locally.
+- [x] The disabled state passes the contrast sweep from `E16/F01/S05`.
+- [x] Every intent has a visible focus ring that passes contrast against both its own fill and the page.
+- [x] No migration in this story; the primitive ships with a rendered example page or story book entry, so the slices have something to check against.
 
 ## Notes
 

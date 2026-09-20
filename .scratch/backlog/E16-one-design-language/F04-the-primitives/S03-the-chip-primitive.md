@@ -2,7 +2,7 @@
 id: E16/F04/S03
 title: The chip primitive
 type: story
-status: blocked
+status: in-progress
 blocked_by: [E16/F02, E16/F03]
 pr: []
 ---
@@ -26,10 +26,10 @@ One shape, one size, and a small set of tones. Decide tint-with-coloured-text ve
 
 ## Acceptance criteria
 
-- [ ] One chip shape and one size across the product.
-- [ ] The same state renders identically wherever it appears.
-- [ ] Every tone passes the contrast sweep from `E16/F01/S05`.
-- [ ] Uppercase is either the rule for chips or is used nowhere; `FULL TABLE` is currently the only one.
+- [x] One chip shape and one size across the product.
+- [x] The same state renders identically wherever it appears.
+- [x] Every tone passes the contrast sweep from `E16/F01/S05`.
+- [x] Uppercase is either the rule for chips or is used nowhere; `FULL TABLE` is currently the only one.
 
 ## Notes
 

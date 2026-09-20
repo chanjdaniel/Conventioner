@@ -2,7 +2,7 @@
 id: E16/F04
 title: The primitives
 type: feature
-status: blocked
+status: in-progress
 blocked_by: [E16/F02, E16/F03]
 pr: []
 ---
@@ -33,4 +33,8 @@ Non-interactive labels must not be reachable through `.field`.
 - `S02` - the field primitive.
 - `S03` - the chip primitive.
 
-The four slice features that follow get their stories written when this one lands. A story that says "use the primitive" before the primitive exists is not a story, and the shape of each slice depends on what these three turn out to cover.
+All three landed together in `front-end/src/assets/primitives.css`, because they share the height, the radius, the focus ring and the disabled state - splitting them across three commits would have meant deciding those three times.
+
+**The reference is a test, not a demo page.** The story asked for "a rendered example page or story book entry, so the slices have something to check against". `src/__tests__/primitives.test.ts` serves that purpose and is better suited: a demo page is product surface nobody ships and nothing keeps honest, while a test fails when the contract drifts. It asserts the things tokens cannot express - two control heights and no third, one disabled state, fields left-aligned, a select that cannot be squeezed below its longest option, and a focus ring that is not the brand green.
+
+The four slice features that follow get their stories written when a slice is taken. A story that says "use the primitive" is not a story; what each slice needs is the list of what it actually holds.

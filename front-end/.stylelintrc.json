@@ -20,5 +20,5 @@
       }
     ]
   },
-  "ignoreFiles": ["dist/**", "node_modules/**", "src/assets/base.css"]
+  "ignoreFiles": ["dist/**", "node_modules/**", "src/assets/base.css", "src/assets/primitives.css"]
 }

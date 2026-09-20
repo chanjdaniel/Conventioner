@@ -2,7 +2,7 @@
 id: E16/F04/S02
 title: The field primitive
 type: story
-status: blocked
+status: in-progress
 blocked_by: [E16/F02, E16/F03]
 pr: []
 ---
@@ -22,11 +22,11 @@ Non-interactive labels must not be reachable through `.field`. Market Setup's co
 
 ## Acceptance criteria
 
-- [ ] One field height; one border; one focus treatment.
-- [ ] No field in the product is centre-aligned.
-- [ ] A select's rendered width is at least the width of its longest option, asserted generically rather than per screen.
-- [ ] Labels are sentence case and left-aligned everywhere.
-- [ ] The inset "pressed" shadow is gone from every field.
+- [x] One field height; one border; one focus treatment.
+- [x] No field in the product is centre-aligned.
+- [x] A select's rendered width is at least the width of its longest option, asserted generically rather than per screen.
+- [x] Labels are sentence case and left-aligned everywhere.
+- [x] The inset "pressed" shadow is gone from every field.
 
 ## Notes
 
