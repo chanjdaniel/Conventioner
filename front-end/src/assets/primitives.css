@@ -198,7 +198,7 @@
 
 .chip--positive {
   background: rgba(54, 130, 111, 0.16);
-  color: #2a6858; /* 5.34 on that tint */
+  color: var(--mm-text-green); /* 5.34 on that tint */
 }
 
 .chip--attention {

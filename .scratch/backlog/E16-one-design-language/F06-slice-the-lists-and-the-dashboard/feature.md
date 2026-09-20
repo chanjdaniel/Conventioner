@@ -2,7 +2,7 @@
 id: E16/F06
 title: Slice: the lists and the dashboard
 type: feature
-status: ready
+status: in-progress
 blocked_by: [E16/F04]
 pr: []
 ---
@@ -26,3 +26,31 @@ It does **not** decide what a market row's button should do, or what the dashboa
 - Stylelint's rules are flipped from warning to **error** for these files (`E16/F02/S02`).
 - The contrast sweep covers these screens, including their dialogs and empty states.
 - A before/after screenshot pair is attached to the PR, because this is the kind of change a diff does not show.
+
+## Done
+
+Nine files, 184 warnings to zero, and the rules are errors for them now. Product-wide 1082 -> 902,
+though part of that drop was a bug in the gate itself rather than migration (see below).
+
+Two decisions worth recording, because neither was mechanical:
+
+- **Eight phase colours became four chip tones.** `PhaseBadge` painted a bespoke solid fill per
+  phase - `#a46a07`, `#8558ec`, `#048197`, `#cd3f85` and four more, none of them in `base.css`.
+  A chip's colour now carries the state's CHARACTER and its label carries the state's identity:
+  neutral (draft, archived), informational (applications open/closed), attention (review,
+  assignment, offers), positive (market days). **The tradeoff is real and is written into the
+  component**: five phases no longer have five distinct colours on the markets list, where the
+  phase is what tells rows apart. If that turns out to be load-bearing it is a follow-up, not a
+  reason to keep eight untokenised fills.
+- **Four role tints became three.** Owner reads as informational, Admin and Editor as positive
+  (they can change things), Viewer as neutral (they cannot). Two of the four - a purple `#7b1fa2`
+  and an amber `#f57c00` - were the only instances of their hue anywhere in the product.
+
+**`--mm-text-green` was added to the palette**, for the same reason `--mm-text-yellow` exists:
+`--mm-green` is 4.59 on white but only 3.75 on its own 16% tint, so a positive chip cannot reuse
+it. The value was already in the tree as a literal I had introduced in `E16/F01`; it is a token now.
+
+**A bug in the gate, found by using it.** The `box-shadow` rule read `/^(?!var\(|none)/` only after
+this slice; it had been `/^(?!var\().(?!none)/`, which consumes a character before looking ahead, so
+every `box-shadow: none` in the product was reported as a violation. Roughly 170 of the 1082
+warnings were that. A gate nobody can satisfy is a gate that gets switched off.

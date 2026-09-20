@@ -12,7 +12,7 @@
       {
         "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
         "/^border-radius$/": ["/^[0-9.]+(px|rem|%)/"],
-        "/^box-shadow$/": ["/^(?!var\\()./"]
+        "/^box-shadow$/": ["/^(?!var\\(|none)/"]
       },
       {
         "severity": "warning",
@@ -28,7 +28,16 @@
         "src/views/PasswordResetRequestView.vue",
         "src/views/PasswordResetView.vue",
         "src/views/EmailVerificationView.vue",
-        "src/views/InitView.vue"
+        "src/views/InitView.vue",
+        "src/views/MarketsView.vue",
+        "src/views/OrganizationsView.vue",
+        "src/views/DashboardView.vue",
+        "src/components/SummaryCard.vue",
+        "src/components/MarketSummaryCard.vue",
+        "src/components/PhaseBadge.vue",
+        "src/views/ManageMarketOverlay.vue",
+        "src/views/ManageOrgOverlay.vue",
+        "src/views/NewMarketOverlay.vue"
       ],
       "rules": {
         "color-no-hex": [
@@ -41,7 +50,7 @@
           {
             "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
             "/^border-radius$/": ["/^[0-9.]+(px|rem|%)/"],
-            "/^box-shadow$/": ["/^(?!var\\().(?!none)/"]
+            "/^box-shadow$/": ["/^(?!var\\(|none)/"]
           },
           {
             "severity": "error"

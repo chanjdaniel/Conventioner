@@ -796,7 +796,7 @@ function handleBack(): void {
   /* Darkened from #1e7a4f, which measured 4.35 on this tint - the rendered-usage sweep in
      E16/F01/S05 is what found it. A tinted chip is its own ground, and neither the token test nor
      the eye catches a miss of 0.15. */
-  color: #2a6858; /* 5.34 on rgba(54,130,111,.16) over white */
+  color: var(--mm-text-green); /* 5.34 on rgba(54,130,111,.16) over white */
 }
 
 .vendor-badge--unassigned {

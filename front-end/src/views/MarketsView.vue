@@ -112,7 +112,7 @@ function handleNewClose() {
 
 .header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 600;
   color: var(--mm-black);
 }
@@ -122,17 +122,17 @@ function handleNewClose() {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 400;
-  box-shadow: 0 2px 4px rgba(54, 130, 111, 0.2);
+  box-shadow: var(--shadow-card);
 }
 
 .new-market-button:hover {
   background: var(--mm-green);
   opacity: 0.9;
-  box-shadow: 0 4px 8px rgba(54, 130, 111, 0.3);
+  box-shadow: var(--shadow-card);
 }
 
 .markets-block {
@@ -141,8 +141,8 @@ function handleNewClose() {
 
 .empty-state,
 .error-state {
-  color: #666;
-  font-size: 14px;
+  color: var(--mm-text-muted);
+  font-size: var(--text-sm);
 }
 
 .error-state {
@@ -161,16 +161,16 @@ function handleNewClose() {
 }
 
 .markets-block::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
+  background: var(--mm-beige);
+  border-radius: var(--radius-control);
 }
 
 .markets-block::-webkit-scrollbar-thumb {
   background: var(--mm-border);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 
 .markets-block::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: var(--mm-text-muted);
 }
 </style>
