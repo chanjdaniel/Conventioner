@@ -20,5 +20,34 @@
       }
     ]
   },
-  "ignoreFiles": ["dist/**", "node_modules/**", "src/assets/base.css", "src/assets/primitives.css"]
+  "ignoreFiles": ["dist/**", "node_modules/**", "src/assets/base.css", "src/assets/primitives.css"],
+  "overrides": [
+    {
+      "files": [
+        "src/views/LoginView.vue",
+        "src/views/PasswordResetRequestView.vue",
+        "src/views/PasswordResetView.vue",
+        "src/views/EmailVerificationView.vue",
+        "src/views/InitView.vue"
+      ],
+      "rules": {
+        "color-no-hex": [
+          true,
+          {
+            "severity": "error"
+          }
+        ],
+        "declaration-property-value-disallowed-list": [
+          {
+            "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
+            "/^border-radius$/": ["/^[0-9.]+(px|rem|%)/"],
+            "/^box-shadow$/": ["/^(?!var\\().(?!none)/"]
+          },
+          {
+            "severity": "error"
+          }
+        ]
+      }
+    }
+  ]
 }

@@ -107,14 +107,14 @@ const resendVerification = async () => {
         </p>
         <button
           @click="resendVerification"
-          class="resend-button"
+          class="btn btn--primary resend-button"
           data-testid="email-verification-resend-button"
         >
           Resend Verification Email
         </button>
         <button
           @click="router.push('/login')"
-          class="link-button"
+          class="btn btn--secondary link-button"
           data-testid="email-verification-login-button"
         >
           Go to Login
@@ -138,8 +138,8 @@ const resendVerification = async () => {
   width: 600px;
   min-height: 400px;
   background-color: white;
-  border-radius: 10px;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   padding: 60px;
   display: flex;
   flex-direction: column;
@@ -149,41 +149,35 @@ const resendVerification = async () => {
 }
 
 .loading {
-  font-size: 18px;
-  color: #666;
+  font-size: var(--text-lg);
+  color: var(--mm-text-muted);
 }
 
 .success-message {
   color: green;
-  font-size: 18px;
+  font-size: var(--text-lg);
   margin-bottom: 20px;
 }
 
 .redirect-message {
-  color: #666;
-  font-size: 14px;
+  color: var(--mm-text-muted);
+  font-size: var(--text-sm);
 }
 
 .error-message {
   color: red;
-  font-size: 18px;
+  font-size: var(--text-lg);
   margin-bottom: 20px;
 }
 
 .resend-button,
 .link-button {
-  margin: 10px;
-  padding: 12px 24px;
-  border-radius: 5px;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  transition: opacity 0.3s;
+  margin: var(--space-2);
 }
 
+/* `.btn btn--primary` carries everything but the spacing (E16/F05). */
 .resend-button {
-  background-color: var(--mm-green);
-  color: white;
+  margin: var(--space-2);
 }
 
 .link-button {

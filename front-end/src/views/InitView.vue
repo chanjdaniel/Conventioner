@@ -58,9 +58,9 @@ h3 {
   font-family: 'Merge One';
   font-style: normal;
   font-weight: 400;
-  font-size: 20px;
+  font-size: var(--text-lg);
 
-  color: #ffffff;
+  color: white;
 }
 
 .text-new {
