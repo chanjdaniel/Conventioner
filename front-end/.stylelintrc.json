@@ -1,7 +1,5 @@
 {
-  "extends": [
-    "stylelint-config-html/vue"
-  ],
+  "extends": ["stylelint-config-html/vue"],
   "rules": {
     "color-no-hex": [
       true,
@@ -12,16 +10,9 @@
     ],
     "declaration-property-value-disallowed-list": [
       {
-        "/^font-size$/": [
-          "/^[0-9.]+(px|rem|em)$/"
-        ],
-        "/^border-radius$/": [
-          "/^[0-9.]+(px|rem)/",
-          "/^[0-9.]+%(?<!50%)/"
-        ],
-        "/^box-shadow$/": [
-          "/^(?!var\\(|none)/"
-        ]
+        "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
+        "/^border-radius$/": ["/^[0-9.]+(px|rem)/", "/^[0-9.]+%(?<!50%)/"],
+        "/^box-shadow$/": ["/^(?!var\\(|none)/"]
       },
       {
         "severity": "warning",
@@ -29,12 +20,7 @@
       }
     ]
   },
-  "ignoreFiles": [
-    "dist/**",
-    "node_modules/**",
-    "src/assets/base.css",
-    "src/assets/primitives.css"
-  ],
+  "ignoreFiles": ["dist/**", "node_modules/**", "src/assets/base.css", "src/assets/primitives.css"],
   "overrides": [
     {
       "files": [
@@ -101,16 +87,9 @@
         ],
         "declaration-property-value-disallowed-list": [
           {
-            "/^font-size$/": [
-              "/^[0-9.]+(px|rem|em)$/"
-            ],
-            "/^border-radius$/": [
-              "/^[0-9.]+(px|rem)/",
-              "/^[0-9.]+%(?<!50%)/"
-            ],
-            "/^box-shadow$/": [
-              "/^(?!var\\(|none)/"
-            ]
+            "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
+            "/^border-radius$/": ["/^[0-9.]+(px|rem)/", "/^[0-9.]+%(?<!50%)/"],
+            "/^box-shadow$/": ["/^(?!var\\(|none)/"]
           },
           {
             "severity": "error"
