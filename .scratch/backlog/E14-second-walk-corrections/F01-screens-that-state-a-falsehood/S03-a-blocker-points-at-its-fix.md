@@ -2,9 +2,9 @@
 id: E14/F01/S03
 title: A blocker points at its fix
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [75]
 ---
 
 ## What to build

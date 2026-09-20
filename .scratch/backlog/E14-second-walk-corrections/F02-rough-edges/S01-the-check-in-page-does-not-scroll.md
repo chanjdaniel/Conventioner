@@ -2,9 +2,9 @@
 id: E14/F02/S01
 title: The check-in page does not scroll when it has nothing to scroll
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [75]
 ---
 
 ## What to build
