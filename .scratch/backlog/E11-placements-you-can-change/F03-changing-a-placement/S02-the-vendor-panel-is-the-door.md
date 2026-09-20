@@ -2,7 +2,7 @@
 id: E11/F03/S02
 title: The vendor panel opens the Tables view where the change happens
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

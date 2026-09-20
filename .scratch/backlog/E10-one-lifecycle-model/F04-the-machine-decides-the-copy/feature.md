@@ -2,7 +2,7 @@
 id: E10/F04
 title: The machine decides which transitions confirm
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: [71]
 ---

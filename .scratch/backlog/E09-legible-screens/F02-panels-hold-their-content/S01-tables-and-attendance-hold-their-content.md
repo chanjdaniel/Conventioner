@@ -2,7 +2,7 @@
 id: E09/F02/S01
 title: The Tables and Attendance views hold their content
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

@@ -2,7 +2,7 @@
 id: E09/F03/S02
 title: Selects show their placeholder instead of rendering blank
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

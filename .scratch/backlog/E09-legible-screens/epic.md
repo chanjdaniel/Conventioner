@@ -2,7 +2,7 @@
 id: E09
 title: Legible screens
 type: epic
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

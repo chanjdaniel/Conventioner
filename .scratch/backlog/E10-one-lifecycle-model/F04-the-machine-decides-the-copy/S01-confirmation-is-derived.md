@@ -2,7 +2,7 @@
 id: E10/F04/S01
 title: Confirmation is derived from the transition table
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [71]
 ---

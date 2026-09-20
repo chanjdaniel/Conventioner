@@ -2,7 +2,7 @@
 id: E09/F05/S01
 title: Every page has a way onward
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---

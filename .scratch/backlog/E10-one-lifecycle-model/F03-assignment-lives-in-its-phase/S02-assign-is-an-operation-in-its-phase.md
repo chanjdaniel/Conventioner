@@ -2,7 +2,7 @@
 id: E10/F03/S02
 title: Assign runs in the assignment phase and nowhere else
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

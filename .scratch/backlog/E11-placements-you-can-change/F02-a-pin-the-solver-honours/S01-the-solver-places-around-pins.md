@@ -2,7 +2,7 @@
 id: E11/F02/S01
 title: The solver places around pinned vendors
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

@@ -2,7 +2,7 @@
 id: E11/F01/S01
 title: The placement endpoint, and assignment_object becomes server-owned
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [73]
 ---

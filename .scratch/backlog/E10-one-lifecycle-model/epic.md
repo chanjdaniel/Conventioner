@@ -2,7 +2,7 @@
 id: E10
 title: One lifecycle model
 type: epic
-status: in-progress
+status: done
 blocked_by: []
 pr: [71, 73]
 ---

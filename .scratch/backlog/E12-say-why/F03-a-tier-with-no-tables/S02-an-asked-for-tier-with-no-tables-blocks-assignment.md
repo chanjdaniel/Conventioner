@@ -2,7 +2,7 @@
 id: E12/F03/S02
 title: An asked-for tier with no tables blocks assignment
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [72]
 ---

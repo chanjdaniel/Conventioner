@@ -2,7 +2,7 @@
 id: E09/F03/S04
 title: The sign-in screen reads
 type: story
-status: in-progress
+status: done
 blocked_by: []
 pr: [69]
 ---
