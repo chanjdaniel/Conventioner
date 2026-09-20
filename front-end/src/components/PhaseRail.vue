@@ -27,7 +27,7 @@ import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { useInertBehind } from '@/utils/useInertBehind';
+import { useModalRoot } from '@/utils/useModalRoot';
 import {
   VALID_TRANSITIONS,
   phaseLabel,
@@ -208,17 +208,14 @@ const showingArchiveConfirm = ref(false);
 const showingPublishConfirm = ref(false);
 
 /**
- * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
- * of the page out of the tab order (E14/F02/S04).
+ * Modal: the page behind goes out of the tab order, not just out of reach of the mouse.
+ *
+ * One call each rather than one call over both. They are mutually exclusive today, but a single
+ * call would only say so in a comment - and its watcher, seeing the same `true` either side of a
+ * swap, would not re-run. `useInertBehind` counts its marks, so two live calls cost nothing.
  */
-/* One call for both confirmations: they are never open at once, and the composable ignores a
-   part that is not currently rendered. */
-const publishConfirmRoot = ref<HTMLElement | null>(null);
-const archiveConfirmRoot = ref<HTMLElement | null>(null);
-useInertBehind(
-  () => showingPublishConfirm.value || showingArchiveConfirm.value,
-  () => [publishConfirmRoot.value, archiveConfirmRoot.value],
-);
+const publishConfirmRoot = useModalRoot(showingPublishConfirm);
+const archiveConfirmRoot = useModalRoot(showingArchiveConfirm);
 const pendingPhase = ref('');
 const transitionError = ref('');
 const transitionBlockers = ref<PreconditionResult[]>([]);

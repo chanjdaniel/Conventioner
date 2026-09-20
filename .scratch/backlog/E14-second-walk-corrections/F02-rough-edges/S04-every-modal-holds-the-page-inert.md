@@ -45,7 +45,8 @@ Marking the page inert around it would take the wizard's own controls away for n
       browser test drives.
 - [x] Every scrim that dismissed on click still does.
 - [x] A modal added later cannot quietly skip this.
-      Enforced from the shape of the CSS, not from a list someone has to remember to update.
+      Enforced from the shape of the CSS, not from a list someone has to remember to update - plus a
+      pinned inventory for the one shape that shape cannot see.
 
 ## Notes
 
@@ -94,3 +95,59 @@ Its dialog is centred inside it, so Playwright's default centre-click lands on t
 clicks a corner.
 That is the overlay's own geometry and predates this story, but scrim dismissal is the third
 criterion here, so it is proven rather than assumed.
+
+## The criterion was false when first ticked
+
+Review found three live page modals the rule could not see: PrimeVue `<Dialog :modal="true">` in
+`floorplan/TemplatePanel.vue` (twice) and `floorplan/TableTypePanel.vue`.
+Their full-viewport mask is painted by the library's stylesheet, never by the component's scoped
+`<style>`, so both the hand survey and the test walked straight past them.
+
+Whether they actually had the defect was checked rather than assumed: `primevue/dialog` applies
+`[_directive_focustrap, { disabled: !modal }]`, so the trap is enabled on exactly that prop and
+those three are fine as they stand.
+But "cannot quietly skip this" was untrue for the shape, so the test now recognises a library modal
+by its markup and pins the inventory.
+A fourth fails it, and whoever adds it has to answer the question rather than inherit the answer.
+
+## An adjacent defect, the same one inverted
+
+`.nav-bar` closed by sliding to `left: -300px`.
+Off screen is not out of the tab order, so on every authenticated page a keyboard user could tab
+into a navigation menu nobody can see.
+It carries `visibility` now, and the browser test fails without it.
+
+## What the reviews changed about the shape of the fix
+
+The same four-line docblock was byte-identical in twelve files, restating what `useInertBehind`'s
+own docblock says.
+That is duplicated knowledge rather than duplicated code, and it is the kind that drifts.
+`useModalRoot` collapses the nine single-root sites to one line each; the two modals whose scrim and
+panel are separate siblings still call `useInertBehind` directly, because they have to name both.
+
+`useEscapeToClose` was deliberately NOT merged into it.
+Only eight of the thirteen call it, and three need multi-part roots, so a combined `useModal` would
+be a generality the code does not ask for.
+
+Two soundness fixes:
+
+- `navDrawer.value?.$el as HTMLElement` checked nothing, because Vue types `$el` as `any`.
+  A root that ever became a fragment would hand back a comment node, which would join the spine and
+  leave the real drawer a sibling of it - marked inert by its own modal.
+  `ElementNavigation` exposes its root now, and `useInertBehind` filters on `instanceof HTMLElement`.
+- `PhaseRail` used one call over both confirmations and asserted in a comment that they are never
+  both open.
+  It is one call each now, which is what counting the marks was for.
+
+## What the guard cannot see
+
+Written down so the next reader does not over-trust it:
+
+- `.vue` files, and only their own `<style>`.
+  A cover painted from a shared stylesheet is invisible; a library's is handled by the pinned
+  inventory above.
+- Innermost CSS blocks only, so a rule containing a nested block would hide the declarations around
+  it. This repo uses no CSS nesting yet.
+- Wiring is counted per file, not per modal.
+  `PhaseRail` holds two and would pass on one call; it has two, but nothing here would notice if it
+  did not.

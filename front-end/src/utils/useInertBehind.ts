@@ -67,7 +67,10 @@ export function useInertBehind(
 
   function apply() {
     release();
-    const parts = partsOf().filter((el): el is HTMLElement => el !== null);
+    // `instanceof`, not a null check. A caller reading a component's `$el` gets `any` from Vue, and
+    // a component with a fragment root hands back a comment node: that would join the spine while
+    // the real panel became a sibling of it, so the modal would mark ITSELF out of play.
+    const parts = partsOf().filter((el): el is HTMLElement => el instanceof HTMLElement);
     if (parts.length === 0) return;
 
     // Every ancestor of every part, so the walk below can tell the modal's own branch apart.

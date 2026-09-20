@@ -99,4 +99,27 @@ test.describe('A modal holds the page out of the keyboard, not just the mouse', 
     await navButton.focus();
     await expect(navButton).toBeFocused();
   });
+
+  /**
+   * The same defect standing the other way round, found while fixing the first: the drawer closes by
+   * sliding to `left: -300px`, which moves it off screen without taking it out of the tab order. So
+   * on every authenticated page a keyboard user could tab into a menu nobody can see (E14/F02/S04).
+   */
+  test('the closed navigation drawer is not in the tab order either', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.goto('/markets');
+    await expect(page.getByTestId('markets-create-button')).toBeVisible({ timeout: 10000 });
+
+    const navButton = page.getByTestId('app-nav').getByRole('button').first();
+    await expect(navButton).toBeHidden();
+    expect(
+      await page.evaluate(() => {
+        const el = document.querySelector('[data-testid="app-nav"] button') as HTMLElement | null;
+        el?.focus();
+        return el !== null && document.activeElement === el;
+      }),
+      'a link in the closed drawer took focus',
+    ).toBe(false);
+  });
 });

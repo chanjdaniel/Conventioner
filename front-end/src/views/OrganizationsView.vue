@@ -4,7 +4,7 @@ import { type Organization } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import { getRoleDisplayName } from '@/utils/permissions';
-import { useInertBehind } from '@/utils/useInertBehind';
+import { useModalRoot } from '@/utils/useModalRoot';
 import type { SummaryFact } from '@/utils/summary';
 import SummaryCard from '@/components/SummaryCard.vue';
 import ManageOrgOverlay from './ManageOrgOverlay.vue';
@@ -14,12 +14,8 @@ const loading = ref(true);
 const errorMessage = ref('');
 const newOpen = ref(false);
 
-/**
- * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
- * of the page out of the tab order (E14/F02/S04).
- */
-const newOrgModalRoot = ref<HTMLElement | null>(null);
-useInertBehind(newOpen, () => [newOrgModalRoot.value]);
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const newOrgModalRoot = useModalRoot(newOpen);
 const manageOpen = ref(false);
 const manageOrg = ref<Organization | null>(null);
 const newOrgName = ref('');

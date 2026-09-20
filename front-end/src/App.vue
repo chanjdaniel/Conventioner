@@ -22,10 +22,7 @@ const navOpen = ref(false);
  */
 const navScrim = ref<HTMLElement | null>(null);
 const navDrawer = ref<InstanceType<typeof ElementNavigation> | null>(null);
-useInertBehind(navOpen, () => [
-  navScrim.value,
-  (navDrawer.value?.$el as HTMLElement | undefined) ?? null,
-]);
+useInertBehind(navOpen, () => [navScrim.value, navDrawer.value?.root ?? null]);
 const route = useRoute();
 const router = useRouter();
 const isLogin = computed(() => route.path === '/login');
@@ -94,11 +91,18 @@ watch(isLogin, (newValue) => {
       @click="navOpen = false"
     ></div>
 
+    <!-- `visibility` as well as `left`: slid off-screen is not the same as gone, and a drawer that
+         is only off-screen keeps every one of its links in the tab order on every authenticated
+         page. That is the defect `E14/F02/S04` removes from behind a modal, standing the other way
+         round - a keyboard user tabbing into a menu nobody can see. -->
     <ElementNavigation
       v-if="!isPublicPage"
       ref="navDrawer"
       class="nav-bar"
-      :style="{ left: navOpen ? '0px' : '-300px' }"
+      :style="{
+        left: navOpen ? '0px' : '-300px',
+        visibility: navOpen ? 'visible' : 'hidden',
+      }"
       @menuClose="navOpen = false"
     />
   </div>
@@ -142,7 +146,11 @@ header {
   position: fixed;
   top: 0;
   left: -300px;
-  transition: left 0.3s ease-in-out;
+  /* `visibility` rides the same duration so it flips only once the drawer has finished sliding out,
+     rather than blinking away at the start of the transition. */
+  transition:
+    left 0.3s ease-in-out,
+    visibility 0.3s ease-in-out;
 }
 
 .nav-bar.nav-open {

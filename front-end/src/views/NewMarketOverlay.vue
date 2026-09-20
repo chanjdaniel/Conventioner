@@ -6,7 +6,7 @@ import { type Market, MarketRole } from '@/assets/types/datatypes.ts';
 import axios from 'axios';
 import { api } from '@/utils/api';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { useInertBehind } from '@/utils/useInertBehind';
+import { useModalRoot } from '@/utils/useModalRoot';
 
 const props = defineProps<{
   newOpen: boolean;
@@ -21,16 +21,8 @@ useEscapeToClose(
   () => emit('newClose'),
 );
 
-/**
- * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
- * of the page out of the tab order (E14/F02/S04). The root element below wraps the whole overlay,
- * so naming it is enough - its scrim and its panel are both inside it.
- */
-const modalRoot = ref<HTMLElement | null>(null);
-useInertBehind(
-  () => props.newOpen,
-  () => [modalRoot.value],
-);
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(() => props.newOpen);
 
 const router = useRouter();
 const marketName = ref('');
