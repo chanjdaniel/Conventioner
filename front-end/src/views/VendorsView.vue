@@ -585,7 +585,7 @@ function handleBack(): void {
 
 .vendors-card {
   width: 100%;
-  max-width: 1100px;
+  max-width: var(--list-max);
   background-color: white;
   box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.15);
   border-radius: 10px;

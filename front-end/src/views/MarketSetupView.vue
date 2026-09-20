@@ -883,24 +883,32 @@ const sectionsUndescribed = computed(
 .settings-body-plan {
   flex-direction: column;
   gap: 30px;
-  overflow-y: auto;
 }
 
 .plan-row {
   display: grid;
   gap: 30px;
   align-items: stretch;
-  /* Each row sizes to its own content; the page scrolls, not the rows. */
+  /* Each row sizes to its own content; the page scrolls, not the rows. True now: the
+     `min-height: 320px` that used to sit here made that comment false, and cost 268px of nothing
+     on the emptiest possible market. It was never what kept a row even either - `align-items:
+     stretch` is, so the floor only ever set the minimum of the TALLEST panel (E16/F03). */
   flex: 0 0 auto;
-  min-height: 320px;
 }
 
 .plan-row--single {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/*
+ * Sized by need, not by count. Equal thirds gave Section Setup - which needs 654px for four columns
+ * and a delete control - the same 460 as Location Setup, which needs 278. That is the sole cause of
+ * the Tier select rendering 65px wide with 34px of text room, while "Premium" needs 56, "Standard"
+ * 57 and "Community" 71: every tier read `Pr...`, `St...`, `Co...` on the field that sets a
+ * vendor's price. Unequal columns were already accepted here - `--asymmetric` is `3fr 2fr`.
+ */
 .plan-row--triple {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 0.69fr) minmax(0, 1.53fr);
 }
 
 .plan-row--asymmetric {
@@ -1005,13 +1013,20 @@ const sectionsUndescribed = computed(
   align-items: center;
 }
 
+/*
+ * A card of the workspace width that grows to its content, while the PAGE scrolls (E16/F03).
+ *
+ * This was `width: 80%; height: 80%`, which `git log -S` dates to the first commit of this view in
+ * Feb 2025 - scaffolding nobody chose. At 1920x1080 it gave the plan a 547px window for 1,032px of
+ * content and could not scroll the page at all, so the organizer scrolled inside a box on a screen
+ * that was 19% empty at the sides. Even the emptiest possible plan is 812px, so no market ever fit.
+ */
 .market-setup-body {
-  width: 80%;
-  height: 80%;
+  width: 100%;
+  max-width: var(--workspace-max);
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: safe center;
   align-items: center;
 }
 
@@ -1071,12 +1086,9 @@ const sectionsUndescribed = computed(
 
 .settings-body {
   align-self: stretch;
-  flex-grow: 1;
   display: flex;
   gap: 30px;
   padding: 40px;
-  min-height: 0;
-  flex: 1;
 }
 
 /* Each of these lays its cards out in a single row. The row must be `minmax(0, 1fr)`:

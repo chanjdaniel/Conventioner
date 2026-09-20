@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, toRef, nextTick, computed, watch } from 'vue';
+import { onMounted, ref, toRef, computed, watch } from 'vue';
 import draggable from 'vuedraggable';
 import {
   ALL_OTHERS,
@@ -124,25 +124,14 @@ const unplacedOptions = (rule: PriorityObject): string[] => {
   return remaining;
 };
 
-const rowsMaxHeight = ref<string | null>(null);
 const container = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
-const setHeight = () => {
-  rowsMaxHeight.value = '0px';
-  nextTick(() => {
-    if (container.value && columnTitles.value && rows.value) {
-      rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
-    }
-  });
-};
 
 const targetDefault = 'Select a question';
 const optionDefault = 'Add an answer';
 
-onMounted(() => {
-  setHeight();
-});
+onMounted(() => {});
 
 const nextRuleId = () =>
   priorityObjects.value.reduce((highest, rule) => Math.max(highest, rule.id), 0) + 1;
@@ -460,7 +449,6 @@ h3 {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: v-bind(rowsMaxHeight);
 
   align-items: center;
 
