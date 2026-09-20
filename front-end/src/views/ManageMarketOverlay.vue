@@ -644,7 +644,7 @@ function handleClose() {
 
 .role-editor {
   background: #e8f5e9;
-  color: #388e3c;
+  color: var(--mm-green);
 }
 
 .role-viewer {
@@ -683,7 +683,8 @@ function handleClose() {
 }
 
 .add-user-button:hover {
-  background: #3a9a82;
+  background: var(--mm-green);
+  opacity: 0.9;
 }
 
 .add-user-form {
@@ -749,7 +750,8 @@ function handleClose() {
 }
 
 .save-button:hover {
-  background: #3a9a82;
+  background: var(--mm-green);
+  opacity: 0.9;
 }
 
 .form-error {

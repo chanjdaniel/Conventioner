@@ -102,3 +102,34 @@ describe('every custom property a rule reads is a property something defines', (
     expect([...new Set(withFallback)].sort()).toEqual([]);
   });
 });
+
+describe('the scale exists as tokens', () => {
+  // E16/F02 is additive: the tokens land and nothing migrates yet. This is what stops the
+  // statement in `docs/design-system.md` and the file that ships from drifting apart while the
+  // four slice features work through 1150 stylelint warnings.
+  const SCALE = [
+    '--text-xs',
+    '--text-sm',
+    '--text-md',
+    '--text-lg',
+    '--text-xl',
+    '--text-2xl',
+    '--space-1',
+    '--space-2',
+    '--space-3',
+    '--space-4',
+    '--space-6',
+    '--space-8',
+    '--space-12',
+    '--space-hairline',
+    '--radius-control',
+    '--radius-card',
+    '--radius-pill',
+    '--shadow-card',
+  ];
+
+  it('defines every step the design language names', () => {
+    const defined = definedProperties(GLOBAL_CSS);
+    expect(SCALE.filter((token) => !defined.has(token))).toEqual([]);
+  });
+});

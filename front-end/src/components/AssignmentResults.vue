@@ -1199,7 +1199,7 @@ h2 {
 
 .discord-toast {
   margin: 8px 0 0;
-  color: #2e7d32;
+  color: var(--mm-green);
   font-size: 14px;
 }
 </style>

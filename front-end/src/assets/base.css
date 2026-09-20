@@ -53,6 +53,52 @@
   /* ---- Lines and states. Never carry text, so exempt from the contrast rule. ---- */
   --mm-border: rgba(39, 35, 35, 0.25);
   --hover-grey: rgba(192, 192, 192, 0.486);
+
+  /* ============================================================================================
+     The scale (E16/F02). `docs/design-system.md` is the statement; these are it as tokens.
+
+     Type and spacing were AUTHORED, because there was nothing to extract: 24 font sizes using
+     essentially every integer from 11px to 20px, and 32 spacing values, means no file ever chose a
+     STEP - each one chose a pixel. Radius and elevation were EXTRACTED from the screens E09-E13
+     built, which had already converged on something coherent.
+
+     That distinction matters when something looks off later: a disagreement with the radius or the
+     shadow is a bug, and a disagreement with the type or spacing scale is unmigrated code.
+     ============================================================================================ */
+
+  /* Six steps. Adjacent 1px steps are not distinguishable, so they carry no meaning - they only
+     let two screens disagree. Nothing below 12px: the product shipped 10px and 8px body text. */
+  --text-xs: 12px; /* captions, metadata, table labels, chips */
+  --text-sm: 14px; /* body, form fields, buttons, list rows */
+  --text-md: 16px; /* lead paragraphs, emphasis within body */
+  --text-lg: 20px; /* section headings, card titles */
+  --text-xl: 26px; /* page and screen titles */
+  --text-2xl: 32px; /* display figures - the assignment summary's numbers */
+
+  /* A 4px grid. The largest migration cost is here: 10px was the second most-used spacing value in
+     the product (87 uses) and is on no grid, so each one goes to 8 or 12 by judgement. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  /* Not a step, and nothing is laid out on it: the gap between an icon and its label, or between
+     two lines of one field. */
+  --space-hairline: 2px;
+
+  /* Three values, extracted. "Fully rounded" was spelled four ways - 999px, 100px, 30px, 20px. */
+  --radius-control: 6px; /* buttons, inputs, selects, small chips */
+  --radius-card: 10px; /* cards, panels, dialogs */
+  --radius-pill: 999px; /* pills and fully-rounded badges */
+
+  /* One shadow, extracted - it is already used 77 times on the Assignment Results screen alone.
+     The legacy halo it replaces is `0 0 4px 5px rgba(0,0,0,.25)`: no offset means no light source,
+     and a spread larger than its blur is a ring rather than a shadow, which is why the older cards
+     read as outlined in grey fog. Its inset twin is what makes the setup fields look pressed. */
+  --shadow-card:
+    0 0 0 1px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.07), 0 6px 14px rgba(0, 0, 0, 0.08);
 }
 
 /*

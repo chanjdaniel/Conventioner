@@ -203,7 +203,8 @@ function canManage(org: Organization): boolean {
 }
 
 .new-button:hover {
-  background: #3a9a82;
+  background: var(--mm-green);
+  opacity: 0.9;
   box-shadow: 0 4px 8px rgba(54, 130, 111, 0.3);
 }
 
@@ -249,7 +250,7 @@ function canManage(org: Organization): boolean {
 
 .role-member {
   background: #e8f5e9;
-  color: #388e3c;
+  color: var(--mm-green);
 }
 
 .manage-button {

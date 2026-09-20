@@ -52,6 +52,12 @@ jobs:
         run: npm run format:check
       - name: Lint (full repo)
         run: npm run lint
+      # Warnings today, not errors: the design language landed against 1150 existing violations
+      # (E16/F02). A rule that fails the build on a pre-existing backlog gets disabled within a
+      # week, which is the outcome this gate exists to avoid. The four slice features flip it to
+      # errors one directory at a time as each slice lands.
+      - name: Lint styles against the design language
+        run: npm run lint:css
       - name: Type-check (full repo)
         run: npm run type-check
 

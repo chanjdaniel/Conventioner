@@ -455,7 +455,7 @@ function submittedOn(app: Application): string {
 
 .published-badge {
   background: #e8f5e9;
-  color: #2e7d32;
+  color: var(--mm-green);
   padding: 6px 12px;
   border-radius: 4px;
   font-size: 13px;
