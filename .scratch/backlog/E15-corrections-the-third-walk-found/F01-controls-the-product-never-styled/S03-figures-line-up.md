@@ -2,7 +2,7 @@
 id: E15/F01/S03
 title: Figures line up
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -22,9 +22,9 @@ While here, two alignment defects with the same smell:
 
 ## Acceptance criteria
 
-- [ ] No column of figures shifts horizontally between rows. Asserted by measuring two rows with different digits and comparing the x of the element beside them.
-- [ ] `Download CSV` and `Send to Discord` share a baseline, and the Discord hint reads below or beside the control it explains, not above it.
-- [ ] The check-in field and its button are the same height.
+- [x] No column of figures shifts horizontally between rows. Asserted by measuring two rows with different digits and comparing the x of the element beside them.
+- [x] `Download CSV` and `Send to Discord` share a baseline, and the Discord hint reads below or beside the control it explains, not above it.
+- [x] The check-in field and its button are the same height.
 
 ## Notes
 

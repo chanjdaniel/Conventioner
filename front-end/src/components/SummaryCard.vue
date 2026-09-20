@@ -118,6 +118,10 @@ defineEmits<{ select: [] }>();
 }
 
 .summary-card-facts dd {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   margin: 0;
   color: var(--mm-black);
   font-size: 14px;

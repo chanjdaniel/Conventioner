@@ -802,6 +802,10 @@ function handleBack(): void {
 }
 
 .vendor-date-count {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: var(--mm-text-muted);
   white-space: nowrap;
