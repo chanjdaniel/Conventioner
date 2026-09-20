@@ -1,14 +1,13 @@
-import { test, expect, LoginPage, NewMarketPage, BACKEND_URL, TEST_USER } from './fixtures';
+import {
+  test,
+  expect,
+  LoginPage,
+  NewMarketPage,
+  BACKEND_URL,
+  TEST_USER,
+  NO_ORG_USER,
+} from './fixtures';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
-
-/**
- * Verified user that deliberately belongs to no organization.
- * Created by scripts/seed_fixture.sh alongside TEST_USER.
- */
-const NO_ORG_USER = {
-  email: 'e2e-noorg@example.com',
-  password: 'e2enoorg123',
-};
 
 /**
  * D14: every market requires an organization at creation. An org-less market is

@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useModalRoot } from '@/utils/useModalRoot';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -17,6 +18,9 @@ useEscapeToClose(
   () => props.manageOpen,
   () => emit('manageClose'),
 );
+
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(() => props.manageOpen);
 
 const orgData = ref<Organization | null>(null);
 const errorMessage = ref('');
@@ -144,7 +148,7 @@ function handleClose() {
 </script>
 
 <template>
-  <div class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
+  <div ref="modalRoot" class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
     <div
       class="background"
       @click="handleClose"

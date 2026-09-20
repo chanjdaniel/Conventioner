@@ -9,6 +9,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useModalRoot } from '@/utils/useModalRoot';
 import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 import {
   FULL_TABLE,
@@ -75,6 +76,9 @@ useEscapeToClose(
   () => emit('close'),
 );
 
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(() => props.open);
+
 const seatChoices: Seat[] = [FULL_TABLE, HALF_TABLE_LEFT, HALF_TABLE_RIGHT];
 /** A fixed seat is not a choice: only one side of this table is free. */
 const seatIsFixed = computed(() => props.seat !== null);
@@ -99,7 +103,7 @@ function label(email: string | null | undefined): string {
 </script>
 
 <template>
-  <div v-if="open" class="placement-scrim" @click.self="emit('close')">
+  <div v-if="open" ref="modalRoot" class="placement-scrim" @click.self="emit('close')">
     <div
       class="placement-dialog"
       role="dialog"

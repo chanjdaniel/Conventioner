@@ -45,6 +45,13 @@ class PreconditionResult:
     id: str
     passed: bool
     message: str
+    #: Where the fix is made, as a front-end route. It must name the TAB that holds the remedy
+    #: (``/market-setup?tab=applications``), not just the page: every organizer screen shows the
+    #: rail, so a bare ``/market-setup`` is the page the blocker is usually displayed on and the
+    #: link did nothing when clicked. ``None`` when the remedy spans two places - the panel would
+    #: rather say nothing than send the organizer to one of two, having named both in the message
+    #: (E14/F01/S03). Do not point it at a redirect: the panel compares this against the current
+    #: location to decide whether it leads anywhere, and cannot follow a hop.
     resolution_link: Optional[str] = None
 
 
@@ -95,7 +102,9 @@ class FormHasFieldsGuard:
                     "Add market dates, tiers or sections so the form can ask the essential "
                     "questions, or add a custom field, before opening applications."
                 ),
-                resolution_link="/market-setup",
+                # Two remedies, two tabs: the plan is Market Setup, a custom field is Application
+                # Form. The message names both; a link could only name one.
+                resolution_link=None,
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -166,7 +175,7 @@ class AssignmentComputedGuard:
                     "No assignment has been computed for this market, so its check-in page could "
                     "not tell anyone where to stand. Run the assignment first."
                 ),
-                resolution_link="/assignment-results",
+                resolution_link="/market-setup?tab=assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -199,7 +208,7 @@ class AllApplicationsReviewedGuard:
                     "Every application must be approved or rejected before assignment "
                     "can begin."
                 ),
-                resolution_link="/market-setup",
+                resolution_link="/market-setup?tab=applications",
             )
         if total == 0:
             return PreconditionResult(
@@ -241,7 +250,7 @@ class NoApprovedApplicationsGuard:
                     "assigned or unassigned. Run the assignment solver before "
                     "sending offers."
                 ),
-                resolution_link="/assignment-results",
+                resolution_link="/market-setup?tab=assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -345,7 +354,9 @@ class NoAskedForTierWithoutTablesGuard:
                 f"them: {'; '.join(parts)}. Add a section at that tier, or reject those "
                 f"applications, before assigning."
             ),
-            resolution_link="/market-setup",
+            # Add a section at that tier is Market Setup; reject those applications is
+            # Applications. Naming one would quietly recommend it over the other.
+            resolution_link=None,
         )
 
 
@@ -386,7 +397,11 @@ class NoOrphanedPinGuard:
                 f"{len(orphans)} hand {pin_word} the plan no longer has: {named}. "
                 "Restore the seat in the plan, or move those vendors, before assigning."
             ),
-            resolution_link="/market-setup?tab=assignment",
+            # Two remedies again, and neither is on this screen: restoring the seat is the Market
+            # Setup tab, and moving a vendor is the Tables view, which is routed by market id and
+            # so cannot be named by a fixed string here at all. This used to say
+            # `?tab=assignment`, which holds neither - the assignment tab reports the result.
+            resolution_link=None,
         )
 
 

@@ -1,21 +1,52 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import type { PreconditionResult } from '@/assets/types/datatypes';
 
-defineProps<{
+const props = defineProps<{
   blockers: PreconditionResult[];
 }>();
+
+const route = useRoute();
+const router = useRouter();
+
+/**
+ * Each blocker with its resolution link kept only where following it would go somewhere.
+ *
+ * The rail carries this panel onto every organizer screen, so the same blocker is read from four
+ * different places and a link is only useful from three of them. "Fix this" on the page holding
+ * the fix looks like a control and does nothing when clicked, which is worse than no link at all:
+ * the organizer concludes the panel is broken rather than that they are already where they need
+ * to be (E14/F01/S03).
+ *
+ * The comparison is `router.resolve(...).fullPath` against the current one, so a link is a link to
+ * a place rather than a string: `/market-setup?tab=applications` and the same route reached by
+ * clicking that tab match. It is NOT normalisation - a different query order or an extra parameter
+ * reads as a different place - so a guard's link must be spelled as the route it lands on, and must
+ * not be a redirect, which `resolve` does not follow.
+ */
+const rows = computed(() =>
+  props.blockers.map((blocker) => ({
+    blocker,
+    fixLink:
+      blocker.resolutionLink && router.resolve(blocker.resolutionLink).fullPath !== route.fullPath
+        ? blocker.resolutionLink
+        : null,
+  })),
+);
 </script>
 
 <template>
   <div v-if="blockers.length" class="blocker-panel">
     <p class="blocker-heading">Cannot proceed:</p>
     <ul class="blocker-list">
-      <li v-for="blocker in blockers" :key="blocker.id" class="blocker-item">
-        <span class="blocker-message">{{ blocker.message }}</span>
+      <li v-for="row in rows" :key="row.blocker.id" class="blocker-item">
+        <span class="blocker-message">{{ row.blocker.message }}</span>
         <router-link
-          v-if="blocker.resolutionLink"
-          :to="blocker.resolutionLink"
+          v-if="row.fixLink"
+          :to="row.fixLink"
           class="blocker-link"
+          data-testid="blocker-resolution-link"
         >
           Fix this &rarr;
         </router-link>

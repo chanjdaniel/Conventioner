@@ -6,6 +6,8 @@ import type { Locator, Page } from '@playwright/test';
 export class CheckinPage {
   readonly page: Page;
 
+  /** The whole card, so a test can ask whether its bottom is reachable. */
+  readonly card: Locator;
   readonly marketName: Locator;
   readonly emailInput: Locator;
   readonly lookupButton: Locator;
@@ -16,6 +18,7 @@ export class CheckinPage {
   constructor(page: Page) {
     this.page = page;
 
+    this.card = page.getByTestId('attendance-checkin-card');
     this.marketName = page.getByTestId('attendance-checkin-market-name');
     this.emailInput = page.getByTestId('attendance-checkin-email-input');
     this.lookupButton = page.getByTestId('attendance-checkin-lookup-button');

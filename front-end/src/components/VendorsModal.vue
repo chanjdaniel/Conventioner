@@ -10,11 +10,15 @@ import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 import { ESSENTIAL_KEY_PREFIX, FULL_NAME_KEY } from '@/utils/essentialFields';
 import { getShortDate } from '@/utils/utils';
+import { useModalRoot } from '@/utils/useModalRoot';
 
 const props = defineProps<{
   open: boolean;
   market: Market | null;
 }>();
+
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(() => props.open);
 
 const emit = defineEmits<{
   close: [];
@@ -200,6 +204,7 @@ const gridTemplate = computed(() => {
 <template>
   <Teleport to="body">
     <div
+      ref="modalRoot"
       class="vendors-modal-root"
       :class="{ 'vendors-modal-root--open': open }"
       :aria-hidden="!open"

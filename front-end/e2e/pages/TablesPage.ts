@@ -13,6 +13,10 @@ export class TablesPage {
   readonly clearAllFilterButton: Locator;
   readonly backButton: Locator;
   readonly tableRows: Locator;
+  /** The status pills above the list: assigned, partial, empty. */
+  readonly countAssigned: Locator;
+  readonly countPartial: Locator;
+  readonly countEmpty: Locator;
   readonly dateGroups: Locator;
   readonly dialog: Locator;
   readonly dialogWarning: Locator;
@@ -21,6 +25,9 @@ export class TablesPage {
   constructor(page: Page) {
     this.page = page;
 
+    this.countAssigned = page.getByTestId('tables-count-assigned');
+    this.countPartial = page.getByTestId('tables-count-partial');
+    this.countEmpty = page.getByTestId('tables-count-empty');
     this.dateFilterChip = page.getByTestId('tables-filter-chip-date');
     this.sectionFilterChip = page.getByTestId('tables-filter-chip-section');
     this.tierFilterChip = page.getByTestId('tables-filter-chip-tier');

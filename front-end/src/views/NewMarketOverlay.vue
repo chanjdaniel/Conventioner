@@ -6,6 +6,7 @@ import { type Market, MarketRole } from '@/assets/types/datatypes.ts';
 import axios from 'axios';
 import { api } from '@/utils/api';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useModalRoot } from '@/utils/useModalRoot';
 
 const props = defineProps<{
   newOpen: boolean;
@@ -19,6 +20,9 @@ useEscapeToClose(
   () => props.newOpen,
   () => emit('newClose'),
 );
+
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(() => props.newOpen);
 
 const router = useRouter();
 const marketName = ref('');
@@ -91,7 +95,7 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="container" :style="{ visibility: newOpen ? 'visible' : 'hidden' }">
+  <div ref="modalRoot" class="container" :style="{ visibility: newOpen ? 'visible' : 'hidden' }">
     <div
       class="background"
       @click="$emit('newClose')"

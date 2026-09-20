@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useModalRoot } from '@/utils/useModalRoot';
 import { useFloorplanStore } from '@/stores/floorplan';
 import type { PlacedTableObject, FloorplanSectionObject } from '@/assets/types/datatypes';
 
@@ -38,6 +39,13 @@ const isDrawing = ref(false);
 const lassoStart = ref({ x: 0, y: 0 });
 const lassoEnd = ref({ x: 0, y: 0 });
 const showDialog = ref(false);
+
+/**
+ * Modal: the page behind goes out of the tab order, not just out of reach of the mouse. The
+ * dialog is teleported to `body`, so the walk up from it reaches the app container as a sibling
+ * and marks the whole page in one step.
+ */
+const modalRoot = useModalRoot(showDialog);
 const showSectionList = ref(false);
 
 // Dialog fields
@@ -473,6 +481,7 @@ onUnmounted(() => {
       <Transition name="dialog-fade">
         <div
           v-if="showDialog"
+          ref="modalRoot"
           class="sg-dialog-backdrop"
           @click="cancelSection"
           aria-modal="true"

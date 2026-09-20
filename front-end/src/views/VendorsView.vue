@@ -7,6 +7,7 @@ import { fetchMarketApplications } from '@/utils/applicantApi';
 import { parseMarketFromApi } from '@/utils/market';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useInertBehind } from '@/utils/useInertBehind';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import VendorDateCard from '@/components/VendorDateCard.vue';
 import {
@@ -364,6 +365,17 @@ function closeDetail(): void {
 
 useEscapeToClose(() => selectedVendor.value !== null, closeDetail);
 
+/**
+ * The drawer is modal, so the rest of the page is out of play while it is open - to the keyboard as
+ * well as to the mouse. The scrim only ever stopped the mouse (E14/F02/S02).
+ */
+const detailOverlay = ref<HTMLElement | null>(null);
+const detailPanel = ref<HTMLElement | null>(null);
+useInertBehind(
+  () => selectedVendor.value !== null,
+  () => [detailOverlay.value, detailPanel.value],
+);
+
 function handleBack(): void {
   if (market.value?.id) {
     router.push({ path: '/market-setup', query: { tab: 'assignment' } });
@@ -467,13 +479,17 @@ function handleBack(): void {
     </div>
 
     <div
+      ref="detailOverlay"
       class="detail-overlay"
+      data-testid="vendors-detail-overlay"
       :class="{ 'detail-overlay--open': selectedVendor !== null }"
       @click="closeDetail"
     />
 
     <aside
+      ref="detailPanel"
       class="detail-panel"
+      data-testid="vendors-detail-panel"
       :class="{ 'detail-panel--open': selectedVendor !== null }"
       role="dialog"
       aria-modal="true"

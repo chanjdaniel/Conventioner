@@ -4,6 +4,7 @@ import { type Organization } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import { getRoleDisplayName } from '@/utils/permissions';
+import { useModalRoot } from '@/utils/useModalRoot';
 import type { SummaryFact } from '@/utils/summary';
 import SummaryCard from '@/components/SummaryCard.vue';
 import ManageOrgOverlay from './ManageOrgOverlay.vue';
@@ -12,6 +13,9 @@ const organizations = ref<Organization[]>([]);
 const loading = ref(true);
 const errorMessage = ref('');
 const newOpen = ref(false);
+
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const newOrgModalRoot = useModalRoot(newOpen);
 const manageOpen = ref(false);
 const manageOrg = ref<Organization | null>(null);
 const newOrgName = ref('');
@@ -128,7 +132,7 @@ function canManage(org: Organization): boolean {
 
     <ManageOrgOverlay :manageOpen="manageOpen" :org="manageOrg" @manageClose="handleManageClose" />
 
-    <div v-if="newOpen" class="overlay">
+    <div v-if="newOpen" ref="newOrgModalRoot" class="overlay">
       <div
         class="overlay-background"
         @click="handleNewClose"

@@ -170,7 +170,7 @@ async function undoCheckIn(date: string): Promise<void> {
 
 <template>
   <div class="attendance-view">
-    <div class="attendance-card">
+    <div class="attendance-card" data-testid="attendance-checkin-card">
       <header class="attendance-header">
         <p class="attendance-eyebrow">Vendor check-in</p>
         <h1 data-testid="attendance-checkin-market-name">
@@ -274,7 +274,12 @@ async function undoCheckIn(date: string): Promise<void> {
 <style scoped>
 .attendance-view {
   width: 100%;
-  min-height: 100vh;
+  /* Sized from the flex parent, not the viewport: `.router-view` is already flex:1 inside a 100vh
+     column, so `min-height: 100vh` here double-counted the 5vh banner and left a page holding
+     350px of content scrolling 54px on every load (E14/F02/S01). The same bug was fixed in
+     `VendorsView.vue`, which carries the same note; this view was missed at the time. */
+  height: 100%;
+  min-height: 0;
   padding: 40px 20px;
   display: flex;
   justify-content: center;

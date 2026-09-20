@@ -2,9 +2,9 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes.ts';
-import { api } from '@/utils/api';
-import { openMarket, parseMarketFromApi } from '@/utils/market';
+import { fetchMarkets, openMarket } from '@/utils/market';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
+import { useModalRoot } from '@/utils/useModalRoot';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 
 const props = defineProps<{
@@ -20,22 +20,21 @@ useEscapeToClose(
   () => emit('loadClose'),
 );
 
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(() => props.loadOpen);
+
 const router = useRouter();
 const markets = ref<Market[]>([]);
 
 onMounted(async () => {
-  const response = await api.get('/markets');
-
-  for (const market of response.data.markets) {
-    markets.value.push(parseMarketFromApi(market));
-  }
+  markets.value = await fetchMarkets();
 });
 
 const handleLoadMarket = (market: Market) => openMarket(router, market);
 </script>
 
 <template>
-  <div class="container" :style="{ visibility: loadOpen ? 'visible' : 'hidden' }">
+  <div ref="modalRoot" class="container" :style="{ visibility: loadOpen ? 'visible' : 'hidden' }">
     <div
       class="background"
       @click="$emit('loadClose')"
