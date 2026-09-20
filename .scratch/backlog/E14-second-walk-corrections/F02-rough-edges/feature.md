@@ -2,7 +2,7 @@
 id: E14/F02
 title: Rough edges
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

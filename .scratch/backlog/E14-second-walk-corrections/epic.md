@@ -32,4 +32,14 @@ In particular:
 ## Features
 
 - `F01-screens-that-state-a-falsehood` - the dashboard's empty state, the duplicated year, the blocker's resolution link.
-- `F02-rough-edges` - the check-in page's phantom scrollbar, the rail left lit behind a modal, the amber zero.
+- `F02-rough-edges` - the check-in page's phantom scrollbar, the rail reachable behind a modal, the amber zero.
+
+## Corrected on the way through
+
+Two of the fourteen findings were not what the walk recorded, and the stories say so where they say it:
+
+- The rail behind the vendor drawer is not "left lit".
+  The scrim dims everything behind it to a measured 60%, the rail no more brightly than its neighbours.
+  What was wrong is that fourteen controls behind the drawer stayed in the tab order, so "Publish Market" could be tabbed onto and fired with Enter - a stronger claim to being available than any colour makes.
+- The blocker link did not point at `/market-setup` from every guard.
+  Two pointed at `/assignment-results`, which is a redirect to the assignment tab, and one already named a tab - the wrong one.
