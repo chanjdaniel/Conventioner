@@ -229,7 +229,7 @@ const fieldCount = computed(() => fields.value.length);
 
 .field-ordinal {
   font-size: 13px;
-  font-weight: bold;
+  font-weight: 600;
   color: var(--mm-black);
 }
 

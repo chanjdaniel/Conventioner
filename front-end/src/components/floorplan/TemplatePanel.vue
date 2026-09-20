@@ -465,7 +465,7 @@ function formatDate(dateStr: string): string {
 
 .tp-label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--mm-black);
 }
 
@@ -607,7 +607,7 @@ function formatDate(dateStr: string): string {
 
 .tp-template-name {
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--mm-black);
   white-space: nowrap;
   overflow: hidden;

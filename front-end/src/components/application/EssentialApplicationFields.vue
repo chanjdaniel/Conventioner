@@ -435,7 +435,7 @@ function errorFor(key: string): string {
 
 .essential-email-label {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 600;
   color: var(--mm-black);
 }
 
@@ -457,7 +457,7 @@ function errorFor(key: string): string {
 
 .essential-label {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 600;
   color: var(--mm-black);
 }
 

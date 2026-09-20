@@ -166,7 +166,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 
 .form-label {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 600;
   color: var(--mm-black);
 }
 

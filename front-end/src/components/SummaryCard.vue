@@ -112,7 +112,7 @@ defineEmits<{ select: [] }>();
 }
 
 .summary-card-facts dt {
-  font-weight: 500;
+  font-weight: 400;
   color: var(--mm-text-muted);
   font-size: 13px;
 }

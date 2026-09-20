@@ -57,7 +57,7 @@ const newOpen = ref(false);
 h3 {
   font-family: 'Merge One';
   font-style: normal;
-  font-weight: 100;
+  font-weight: 400;
   font-size: 20px;
 
   color: #ffffff;

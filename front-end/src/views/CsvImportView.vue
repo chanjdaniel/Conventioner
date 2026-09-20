@@ -1181,7 +1181,7 @@ function startOver() {
 
 .import-steps .current {
   color: var(--mm-black);
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .import-error {
@@ -1247,7 +1247,7 @@ function startOver() {
 }
 
 .ledger-header {
-  font-weight: bold;
+  font-weight: 600;
   max-width: 260px;
 }
 
@@ -1272,7 +1272,7 @@ function startOver() {
 .ledger-shape {
   display: block;
   margin-top: 2px;
-  font-weight: normal;
+  font-weight: 400;
   font-size: 12px;
   color: var(--mm-green);
 }
@@ -1311,7 +1311,7 @@ function startOver() {
   background: #e8f3ec;
   color: var(--mm-green);
   font-size: 11px;
-  font-weight: normal;
+  font-weight: 400;
 }
 
 .ledger-badge.new {

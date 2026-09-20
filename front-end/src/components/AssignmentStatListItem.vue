@@ -87,7 +87,7 @@ button.assignment-stat-list-item {
 .assignment-stat-list-value {
   font-family: 'Merge One';
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 400;
   color: var(--mm-green);
   background-color: var(--mm-beige);
   padding: 3px 11px;

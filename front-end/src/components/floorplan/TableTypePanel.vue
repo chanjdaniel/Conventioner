@@ -498,7 +498,7 @@ const selectOptions = [
 
 .tt-type-name {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--mm-black);
   white-space: nowrap;
   overflow: hidden;
@@ -611,7 +611,7 @@ const selectOptions = [
 
 .tt-label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--mm-black);
 }
 

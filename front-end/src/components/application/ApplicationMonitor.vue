@@ -459,7 +459,7 @@ function submittedOn(app: Application): string {
   padding: 6px 12px;
   border-radius: 4px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .loading-state,
@@ -530,7 +530,7 @@ function submittedOn(app: Application): string {
 
 .app-status {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 400;
   color: white;
   padding: 2px 8px;
   border-radius: 4px;
@@ -558,7 +558,7 @@ function submittedOn(app: Application): string {
 
 .answers dt.custom {
   color: var(--mm-black);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .answers dd {

@@ -4,7 +4,7 @@
   max-width: 100%;
   margin: 0 auto;
   padding: 2rem;
-  font-weight: normal;
+  font-weight: 400;
 }
 
 .green {
@@ -61,9 +61,21 @@ a {
  * has shipped Medium, SemiBold and Bold all along, undeclared, while 65 rules asked for 500, 600
  * or bold and got a browser-synthesised smear of the regular. E15/F01/S02 declares them.
  */
+/*
+ * The variable font rather than static weights (E15/F01/S02). It is 108KB against 107.8KB for the
+ * two statics the design language names, so it costs nothing and no weight can ever be synthesised
+ * again - including one added later by someone who has not read this.
+ *
+ * `font-weight: 100 900` is the descriptor that makes that true. Without it the face claims
+ * `normal` alone, which is precisely how 65 declarations came to ask for 500, 600 or bold and get
+ * a smeared regular.
+ */
 @font-face {
   font-family: 'Outfit';
-  src: url('/fonts/Outfit/static/Outfit-Regular.ttf') format('truetype');
+  src: url('/fonts/Outfit-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 /*
@@ -83,4 +95,10 @@ input,
 select,
 textarea {
   font: inherit;
+  /*
+   * `font` is a shorthand, so it would bring `body`'s `line-height: 1.6` along with the family,
+   * size and weight - and a control's height is its line box. Measured: the login mode tabs grew
+   * from 45px to 53px on the first attempt at this. Controls keep the compact line box they had.
+   */
+  line-height: normal;
 }

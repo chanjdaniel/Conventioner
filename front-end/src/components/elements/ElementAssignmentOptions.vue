@@ -197,7 +197,7 @@ select.datatype-dropdown {
 }
 
 .optional-label {
-  font-weight: normal;
+  font-weight: 400;
   font-size: 0.85em;
   opacity: 0.85;
 }

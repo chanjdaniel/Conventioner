@@ -205,12 +205,12 @@ function onSaved(payload: { market_id: string }) {
 .workflow-progress span.active {
   color: #ffffff;
   background: var(--mm-green);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .workflow-progress span.done {
   color: var(--mm-green);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* ── Step bodies ────────────────────────────────────────────────── */

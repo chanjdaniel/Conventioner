@@ -93,7 +93,7 @@ const rows = computed(() =>
 
 .blocker-link {
   flex-shrink: 0;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--p-red-700, #b91c1c);
   text-decoration: underline;
 }

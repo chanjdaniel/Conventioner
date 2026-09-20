@@ -134,7 +134,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   color: #000;
   border-radius: 3px;
   padding: 1px 6px;
-  font-weight: bold;
+  font-weight: 600;
   font-size: 10px;
 }
 
@@ -175,7 +175,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 
 .preview-label {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 600;
   color: var(--mm-black);
 }
 

@@ -198,7 +198,7 @@ function canManage(org: Organization): boolean {
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
 }
 
@@ -233,7 +233,7 @@ function canManage(org: Organization): boolean {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 4px;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 12px;
 }
 
@@ -260,7 +260,7 @@ function canManage(org: Organization): boolean {
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   white-space: nowrap;
 }
 

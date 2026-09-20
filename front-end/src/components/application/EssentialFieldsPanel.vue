@@ -286,7 +286,7 @@ function asks(key: string): boolean {
 
 .essential-item-label {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 600;
   color: var(--mm-black);
   flex: 1;
   min-width: 0;

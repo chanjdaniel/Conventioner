@@ -2,7 +2,7 @@
 id: E15/F01/S02
 title: The weights are already in the repo
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -24,19 +24,24 @@ With no matching face the browser synthesises the weight by smearing the regular
 
 Two parts:
 
-- **Rename the family to `Outfit`.** The current name puts a *weight* in the *family* slot, which is why nobody added the other weights. This touches every `font-family` declaration naming `'Outfit Regular'`, so do it with `S01`'s deletions rather than twice.
+- ~~**Rename the family to `Outfit`.**~~ **Done in `S01`**, as this story asked: the rename touches every `font-family` declaration naming `'Outfit Regular'`, and `S01` was deleting 273 of them anyway, so doing it twice would have been the wrong shape. What remains here is the weights.
 - **Declare the weights the product asks for**, with `font-weight` descriptors - either the variable font across `100 900`, or static Regular and SemiBold. Then collapse the requested weights onto the two the design language names: `400` and `600`. `500` is indistinguishable from `400` at these sizes, and `700` is heavier than this type wants.
 
 See `docs/design-system.md`, "Type / Weight".
 
 ## Acceptance criteria
 
-- [ ] `document.fonts` reports a real face for every weight the product requests; no weight is synthesised.
-- [ ] Only `400` and `600` are requested. The `100` declarations are gone - nothing lighter than regular is loaded and browsers do not synthesise thin, so those two render as regular today and say something they do not mean.
-- [ ] The family is `Outfit`. `'Outfit Regular'` appears nowhere.
-- [ ] A test pins the loaded faces, so removing a `@font-face` cannot silently reintroduce synthesis.
+- [x] `document.fonts` reports a real face for every weight the product requests; no weight is synthesised.
+- [x] Only `400` and `600` are requested. The `100` declarations are gone - nothing lighter than regular is loaded and browsers do not synthesise thin, so those two render as regular today and say something they do not mean.
+- [x] The family is `Outfit`. `'Outfit Regular'` appears nowhere. *(Landed with `S01`.)*
+- [x] A test pins the loaded faces, so removing a `@font-face` cannot silently reintroduce synthesis.
 
 ## Notes
 
-Startable now. Pairs with `S01`.
+Startable now. The family rename landed with `S01`; this story is the weights.
+
+**Merge One ships one weight and always will**, so its six non-400 requests - three `bold`, two
+`100`, one `600` - cannot be satisfied by declaring a face. They become 400. The `100` pair is the
+clearest case: browsers do not synthesise thin, so those two headings already render as regular and
+say something they do not mean.
 Evidence: `.lavish/aesthetics-2026-09-20.html`, H16.

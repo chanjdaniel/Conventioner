@@ -25,10 +25,10 @@ See `docs/design-system.md`, "Type".
 
 ## Acceptance criteria
 
-- [ ] No element in the product computes a `font-family` of Arial, Times New Roman, or any other user-agent default. A unit or e2e assertion walks `/login`, `/markets`, `/market-setup` and the check-in page and fails on any such computed value.
-- [ ] `body` declares Outfit; `Inter` appears nowhere in `front-end/src`.
-- [ ] Every control on `/login` reports the same `font-family` as its surrounding text.
-- [ ] Per-file `font-family` declarations that only restated the default are gone, so the count of `font-family` declarations drops rather than holding steady.
+- [x] No element in the product computes a `font-family` of Arial, Times New Roman, or any other user-agent default. A unit or e2e assertion walks `/login`, `/markets`, `/market-setup` and the check-in page and fails on any such computed value.
+- [x] `body` declares Outfit; `Inter` appears nowhere in `front-end/src`.
+- [x] Every control on `/login` reports the same `font-family` as its surrounding text.
+- [x] Per-file `font-family` declarations that only restated the default are gone, so the count of `font-family` declarations drops rather than holding steady.
 
 ## Notes
 

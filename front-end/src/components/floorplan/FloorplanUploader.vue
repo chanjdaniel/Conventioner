@@ -288,7 +288,7 @@ onUnmounted(() => {
 
 .page-selector-label {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--mm-black);
 }
 
