@@ -2,9 +2,9 @@
 id: E14/F02/S02
 title: The rail reads as inert behind a modal
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [75]
 ---
 
 ## What to build

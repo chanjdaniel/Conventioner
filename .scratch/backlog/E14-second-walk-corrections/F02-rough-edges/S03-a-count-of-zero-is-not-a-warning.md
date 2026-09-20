@@ -2,9 +2,9 @@
 id: E14/F02/S03
 title: A count of zero is not a warning
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [75]
 ---
 
 ## What to build

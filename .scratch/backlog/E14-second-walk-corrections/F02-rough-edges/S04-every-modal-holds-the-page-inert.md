@@ -2,9 +2,9 @@
 id: E14/F02/S04
 title: Every modal holds the page inert, not just the vendor drawer
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [75]
 ---
 
 ## What to build

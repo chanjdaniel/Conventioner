@@ -2,9 +2,9 @@
 id: E14/F01/S02
 title: The dashboard asks the server whether you have a market
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [75]
 ---
 
 ## What to build

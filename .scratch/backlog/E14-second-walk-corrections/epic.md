@@ -2,9 +2,9 @@
 id: E14
 title: Second-walk corrections
 type: epic
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [75]
 ---
 
 ## Outcome
@@ -32,7 +32,12 @@ In particular:
 ## Features
 
 - `F01-screens-that-state-a-falsehood` - the dashboard's empty state, the duplicated year, the blocker's resolution link.
-- `F02-rough-edges` - the check-in page's phantom scrollbar, the rail reachable behind a modal, the amber zero.
+- `F02-rough-edges` - the check-in page's phantom scrollbar, the rail reachable behind a modal, the amber zero, and then every other modal in the product.
+
+## It grew by one story
+
+`F02/S02` found that the vendor drawer declared `aria-modal="true"` while the controls behind it stayed in the tab order, and deliberately fixed only that one rather than widening itself.
+`F02/S04` is the sibling it named, and it turned out to be thirteen modals rather than the five that story guessed at - three of which a hand survey missed entirely, and three more that only came to light when review asked what the guard could not see.
 
 ## Corrected on the way through
 

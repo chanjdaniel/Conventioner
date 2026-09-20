@@ -2,9 +2,9 @@
 id: E14/F01/S01
 title: Every date prints its year once
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [75]
 ---
 
 ## What to build
