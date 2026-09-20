@@ -57,9 +57,9 @@ defineEmits<{ select: [] }>();
   width: 100%;
   padding: 16px 24px;
   border: 1.5px solid var(--mm-border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-card);
 
   display: grid;
   grid-template-columns: minmax(200px, 20rem) minmax(0, 1fr) auto;
@@ -78,7 +78,7 @@ defineEmits<{ select: [] }>();
 .summary-card--selectable:hover,
 .summary-card--selectable:focus-visible {
   border-color: var(--mm-green);
-  box-shadow: 0 4px 12px rgba(54, 130, 111, 0.15);
+  box-shadow: var(--shadow-card);
   transform: translateY(-2px);
   outline: none;
 }
@@ -96,7 +96,7 @@ defineEmits<{ select: [] }>();
 .summary-card-name :slotted(h3) {
   margin: 0;
   color: var(--mm-black);
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -114,7 +114,7 @@ defineEmits<{ select: [] }>();
 .summary-card-facts dt {
   font-weight: 400;
   color: var(--mm-text-muted);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .summary-card-facts dd {
@@ -124,7 +124,7 @@ defineEmits<{ select: [] }>();
   font-variant-numeric: tabular-nums;
   margin: 0;
   color: var(--mm-black);
-  font-size: 14px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 

@@ -190,7 +190,7 @@ h3 {
   justify-content: center;
   align-items: center;
   background: white;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   z-index: 1;
 }
 
@@ -203,9 +203,9 @@ h3 {
 }
 
 .org-select-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
-  color: #666;
+  color: var(--mm-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -220,7 +220,7 @@ h3 {
 }
 
 .field-label {
-  font-size: 12px;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--mm-text-muted);
@@ -229,7 +229,7 @@ h3 {
 .text-input-container input {
   all: unset;
   width: 100%;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .dialog-actions {
@@ -245,9 +245,9 @@ h3 {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 9px 18px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
@@ -261,9 +261,9 @@ h3 {
   background: none;
   color: var(--mm-black);
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 9px 18px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
@@ -274,7 +274,7 @@ h3 {
   right: 12px;
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: var(--text-xl);
   line-height: 1;
   padding: 4px 8px;
   color: var(--mm-text-muted);
@@ -286,8 +286,8 @@ h3 {
   height: 100%;
   display: flex;
   flex-direction: row;
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  /* The inset "pressed" shadow is retired; a field is a border (E16/F02). */
+  border-radius: var(--radius-card);
 }
 
 .error-message {
@@ -296,7 +296,7 @@ h3 {
   left: 50%;
   transform: translateX(-50%);
   color: var(--mm-red);
-  font-size: 13px;
+  font-size: var(--text-xs);
   text-align: center;
   white-space: nowrap;
   pointer-events: none;

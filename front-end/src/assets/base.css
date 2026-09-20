@@ -19,6 +19,9 @@
      so it is one colour doing both jobs rather than two that must be kept in step. */
   --mm-text-yellow: #996f1b; /* 4.52 on white */
   --mm-text-link: #1a6f8b; /* 5.69 on white. Replaces a hardcoded #2196F3 at 3.12. */
+  /* Green as INK on a green TINT. --mm-green is 4.59 on white but only 3.75 on its own 16% tint,
+     so a chip cannot reuse it - the same reason --mm-text-yellow exists beside --mm-yellow. */
+  --mm-text-green: #2a6858; /* 5.34 on rgba(54,130,111,.16) over white */
 
   /* ---- Ink on a dark ground (--mm-black). Its own family, because one muted grey cannot serve
      both grounds - and pretending it could is how the phase panel came to paint

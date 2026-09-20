@@ -116,6 +116,9 @@ describe('the palette carries a contrast contract', () => {
     '--mm-text-muted',
     '--mm-text-yellow',
     '--mm-text-link',
+    // Ink on a green TINT, and on white it is darker still - so white is the harder of its two
+    // grounds to state here, and the tint pairing is measured by the rendered sweep.
+    '--mm-text-green',
     // --mm-green is here AND in FILLS below: it reaches 4.5 both as ink on white and as a fill
     // under white text, so it is one colour doing both jobs. Asserting both directions is what
     // keeps that true.
