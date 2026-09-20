@@ -3,7 +3,7 @@ import { ref, computed, watch, onUnmounted } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
-import { useInertBehind } from '@/utils/useInertBehind';
+import { useModalRoot } from '@/utils/useModalRoot';
 
 // ── Props ────────────────────────────────────────────────────────────
 const props = defineProps<{
@@ -21,12 +21,8 @@ const store = useFloorplanStore();
 // ── Dialog state ──────────────────────────────────────────────────────
 const dialogOpen = ref(false);
 
-/**
- * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
- * of the page out of the tab order (E14/F02/S04).
- */
-const modalRoot = ref<HTMLElement | null>(null);
-useInertBehind(dialogOpen, () => [modalRoot.value]);
+/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
+const modalRoot = useModalRoot(dialogOpen);
 const saving = ref(false);
 const error = ref('');
 const successMessage = ref('');

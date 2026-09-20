@@ -18,22 +18,41 @@ import { join, relative, resolve as resolvePath } from 'node:path';
  * This is the test that found the gap in the first place. A hand survey of the overlays - by the
  * classes they use and by which of them call `useEscapeToClose` - found ten surfaces and missed
  * three: `VendorsModal`, `SaveFlow`, and the app's own navigation drawer.
+ *
+ * What it does NOT see, so that the next reader does not assume otherwise:
+ *
+ * - Only `.vue` files, and only their own `<style>`. A cover painted from a shared stylesheet, or
+ *   by a component library, is invisible here - which is why PrimeVue's modal `Dialog` is matched
+ *   by markup below instead.
+ * - `\{[^{}]*\}` matches innermost blocks only, so a rule containing a nested block (CSS nesting,
+ *   which this repo does not use yet) would hide the declarations around it.
+ * - Wiring is counted per FILE, not per modal. `PhaseRail` holds two dialogs and would pass on one
+ *   call; it has two, but nothing here would notice if it did not.
  */
 
 // Resolved from the project root rather than `import.meta.url`, for the reason `contrast.test.ts`
 // gives: vitest transforms this module, so its `import.meta.url` is not a file: URL.
 const SRC = resolvePath(process.cwd(), 'src');
 
-/** The two spellings of "cover the whole viewport" this codebase uses. */
+/** The spellings of "cover the whole viewport" a hand-rolled modal uses. */
 function coversTheViewport(block: string): boolean {
   if (!/position:\s*fixed/.test(block)) return false;
   if (/\binset:\s*0\b/.test(block)) return true;
-  return (
-    /\btop:\s*0\b/.test(block) &&
-    /\bleft:\s*0\b/.test(block) &&
-    /\bwidth:\s*100%/.test(block) &&
-    /\bheight:\s*100%/.test(block)
-  );
+  const sides = (...names: string[]) =>
+    names.every((n) => new RegExp(`\\b${n}:\\s*0\\b`).test(block));
+  if (sides('top', 'right', 'bottom', 'left')) return true;
+  return sides('top', 'left') && /\bwidth:\s*100%/.test(block) && /\bheight:\s*100%/.test(block);
+}
+
+/**
+ * A PrimeVue `<Dialog :modal="true">` is a modal too, and it is invisible to the rule above: its
+ * full-viewport mask is painted by the library's own stylesheet, never by the component's scoped
+ * `<style>`. It does not need `useInertBehind` - PrimeVue applies its own focus trap on exactly that
+ * prop (`[_directive_focustrap, { disabled: !modal }]` in `primevue/dialog`) - but it does need to
+ * be recognised, or the rule below would be claiming something it had not checked.
+ */
+function usesALibraryModal(source: string): boolean {
+  return /<Dialog\b[^>]*:modal="true"/s.test(source);
 }
 
 function vueFiles(dir: string): string[] {
@@ -60,7 +79,7 @@ function fullViewportCovers(): { file: string; selectors: string[]; wired: boole
         selectors,
         // A CALL, not a mention: the import line carries the name too, so `source.includes(...)`
         // reported a component as wired after its call had been deleted. Found by deleting one.
-        wired: /useInertBehind\s*\(/.test(source),
+        wired: /use(InertBehind|ModalRoot)\s*\(/.test(source),
       };
     })
     .filter((entry) => entry.selectors.length > 0);
@@ -69,6 +88,23 @@ function fullViewportCovers(): { file: string; selectors: string[]; wired: boole
 describe('every modal holds the page inert', () => {
   it('finds the covers, so the rule below is not passing on an empty list', () => {
     expect(fullViewportCovers().length).toBeGreaterThanOrEqual(13);
+  });
+
+  /**
+   * The one shape the CSS rule cannot see, so it is pinned by name instead. A new library modal
+   * fails this and has to be looked at: today the answer is that PrimeVue's own focus trap covers
+   * it, and that answer should be re-checked rather than assumed for whatever arrives next.
+   */
+  it('accounts for the modals whose mask is painted from outside the component', () => {
+    const libraryModals = vueFiles(SRC)
+      .filter((file) => usesALibraryModal(readFileSync(file, 'utf-8')))
+      .map((file) => relative(SRC, file))
+      .sort();
+
+    expect(libraryModals).toEqual([
+      'components/floorplan/TableTypePanel.vue',
+      'components/floorplan/TemplatePanel.vue',
+    ]);
   });
 
   it('has no full-viewport cover that leaves the page behind it reachable', () => {

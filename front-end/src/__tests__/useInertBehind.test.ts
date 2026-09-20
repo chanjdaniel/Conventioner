@@ -161,6 +161,24 @@ describe('useInertBehind', () => {
   });
 
   /**
+   * A caller reading a component's `$el` gets `any` from Vue, and a fragment root yields a comment
+   * node. Letting one through would put it on the spine and leave the real panel a sibling of it -
+   * marked out of play by its own modal.
+   */
+  it('ignores a part that is not an element, rather than marking the modal itself', async () => {
+    const page = buildPage();
+    const notAnElement = document.createComment('a fragment root') as unknown as HTMLElement;
+    const open = ref(false);
+    mountWith(open, () => [notAnElement, page.panel]);
+
+    open.value = true;
+    await nextTick();
+
+    expect(page.panel.hasAttribute('inert')).toBe(false);
+    expect(page.content.hasAttribute('inert')).toBe(true);
+  });
+
+  /**
    * Something else may have marked an element inert for its own reasons. Releasing only what this
    * marked keeps the two from fighting over the attribute.
    */
