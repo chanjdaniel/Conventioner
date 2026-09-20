@@ -12,7 +12,7 @@ const user = inject<string | null>('user');
 </script>
 
 <template>
-  <div class="nav-bar" ref="nav-bar">
+  <div class="nav-bar" ref="nav-bar" data-testid="app-nav">
     <button class="close-button" @click="$emit('menuClose')">
       <IconCloseRound class="close-icon" />
     </button>

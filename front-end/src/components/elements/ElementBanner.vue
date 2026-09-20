@@ -30,6 +30,7 @@ function goToDashboard() {
     <button
       v-if="hasMenu"
       class="menu-button"
+      data-testid="app-menu-button"
       @click="$emit('menuOpen')"
       aria-label="Open navigation"
       :style="{ visibility: isLogin ? 'hidden' : 'visible' }"

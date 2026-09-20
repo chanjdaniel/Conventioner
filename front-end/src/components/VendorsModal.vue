@@ -10,11 +10,22 @@ import IconCloseRound from '@/components/icons/IconCloseRound.vue';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 import { ESSENTIAL_KEY_PREFIX, FULL_NAME_KEY } from '@/utils/essentialFields';
 import { getShortDate } from '@/utils/utils';
+import { useInertBehind } from '@/utils/useInertBehind';
 
 const props = defineProps<{
   open: boolean;
   market: Market | null;
 }>();
+
+/**
+ * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest
+ * of the page out of the tab order (E14/F02/S04).
+ */
+const modalRoot = ref<HTMLElement | null>(null);
+useInertBehind(
+  () => props.open,
+  () => [modalRoot.value],
+);
 
 const emit = defineEmits<{
   close: [];
@@ -200,6 +211,7 @@ const gridTemplate = computed(() => {
 <template>
   <Teleport to="body">
     <div
+      ref="modalRoot"
       class="vendors-modal-root"
       :class="{ 'vendors-modal-root--open': open }"
       :aria-hidden="!open"

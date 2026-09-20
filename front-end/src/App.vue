@@ -3,6 +3,7 @@ import axios from 'axios';
 import { RouterView } from 'vue-router';
 import ElementBanner from './components/elements/ElementBanner.vue';
 import ElementNavigation from './components/elements/ElementNavigation.vue';
+import { useInertBehind } from '@/utils/useInertBehind';
 
 import { onMounted, ref, provide, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -11,6 +12,20 @@ import { routerSettled } from '@/utils/routerReady';
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
 const navOpen = ref(false);
+
+/**
+ * Modal to the keyboard as well as to the mouse: the scrim stops clicks, and this takes the rest of
+ * the page out of the tab order (E14/F02/S04).
+ *
+ * Both parts are named because they are siblings here rather than one wrapping the other: naming
+ * only the scrim would mark the drawer itself, which is the thing that has to stay reachable.
+ */
+const navScrim = ref<HTMLElement | null>(null);
+const navDrawer = ref<InstanceType<typeof ElementNavigation> | null>(null);
+useInertBehind(navOpen, () => [
+  navScrim.value,
+  (navDrawer.value?.$el as HTMLElement | undefined) ?? null,
+]);
 const route = useRoute();
 const router = useRouter();
 const isLogin = computed(() => route.path === '/login');
@@ -70,6 +85,7 @@ watch(isLogin, (newValue) => {
 
     <div
       v-if="!isPublicPage"
+      ref="navScrim"
       class="nav-background"
       :style="{
         opacity: navOpen ? '100%' : '0%',
@@ -80,6 +96,7 @@ watch(isLogin, (newValue) => {
 
     <ElementNavigation
       v-if="!isPublicPage"
+      ref="navDrawer"
       class="nav-bar"
       :style="{ left: navOpen ? '0px' : '-300px' }"
       @menuClose="navOpen = false"
