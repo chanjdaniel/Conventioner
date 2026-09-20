@@ -103,10 +103,15 @@ function requestedWeights(): { weight: number; family: string; file: string }[] 
       const weight = asNumber(weightMatch[1]);
       if (weight === null) continue;
 
+      // `inherit` is not a family, it is the absence of one - so the weight is asked of whatever
+      // the element inherits, which for everything but a heading is the body face. The primitives
+      // say `font-family: inherit` deliberately, and reading that as a family name reported them
+      // as asking a face called "inherit" for a weight it could not have.
       const familyMatch = body.match(/font-family:\s*([^;]+);/);
+      const declared = familyMatch ? familyOf(familyMatch[1]) : '';
       asked.push({
         weight,
-        family: familyMatch ? familyOf(familyMatch[1]) : BODY_FACE,
+        family: declared && declared !== 'inherit' ? declared : BODY_FACE,
         file: relative(SRC, file),
       });
     }
