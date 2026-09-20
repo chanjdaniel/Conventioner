@@ -21,7 +21,6 @@ const label = computed(() => phaseLabel(current.value));
   display: inline-block;
   padding: 4px 14px;
   border-radius: 20px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: white;

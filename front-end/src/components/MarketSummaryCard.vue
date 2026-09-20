@@ -83,7 +83,6 @@ const facts = computed<SummaryFact[]>(() => [
   border: 1px solid var(--mm-border);
   background: white;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   cursor: pointer;
 }

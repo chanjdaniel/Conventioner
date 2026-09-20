@@ -422,7 +422,6 @@ function submittedOn(app: Application): string {
 .monitor-header h2 {
   margin: 0;
   font-size: 20px;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
 }
 
@@ -449,7 +448,6 @@ function submittedOn(app: Application): string {
 }
 
 .publish-hint {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: var(--mm-text-muted);
   max-width: 24ch;
@@ -460,7 +458,6 @@ function submittedOn(app: Application): string {
   color: #2e7d32;
   padding: 6px 12px;
   border-radius: 4px;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   font-weight: 500;
 }
@@ -471,7 +468,6 @@ function submittedOn(app: Application): string {
   text-align: center;
   padding: 40px;
   color: var(--mm-text-muted);
-  font-family: 'Outfit Regular';
   font-size: 14px;
 }
 
@@ -488,7 +484,6 @@ function submittedOn(app: Application): string {
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 12px;
-  font-family: 'Outfit Regular';
 }
 
 .progress {
@@ -507,7 +502,6 @@ function submittedOn(app: Application): string {
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
   padding: 10px 14px;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   line-height: 1.5;
   margin: 0 0 16px;
@@ -529,14 +523,12 @@ function submittedOn(app: Application): string {
 }
 
 .app-email {
-  font-family: 'Outfit Regular';
   font-size: 15px;
   color: var(--mm-black);
   word-break: break-all;
 }
 
 .app-status {
-  font-family: 'Outfit Regular';
   font-size: 11px;
   font-weight: 500;
   color: white;
@@ -547,7 +539,6 @@ function submittedOn(app: Application): string {
 }
 
 .app-date {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-text-muted);
 }
@@ -557,7 +548,6 @@ function submittedOn(app: Application): string {
   grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
   gap: 6px 16px;
   margin: 0 0 18px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
 }
 
@@ -579,7 +569,6 @@ function submittedOn(app: Application): string {
 }
 
 .no-answers {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
   margin: 0 0 18px;
@@ -602,7 +591,6 @@ function submittedOn(app: Application): string {
   border-radius: 4px;
   padding: 10px 16px;
   cursor: pointer;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: white;
 }
@@ -653,7 +641,6 @@ function submittedOn(app: Application): string {
   border: none;
   padding: 0;
   cursor: pointer;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   color: var(--mm-green);
   text-decoration: underline;

@@ -603,7 +603,6 @@ function handleBack(): void {
 .vendors-header h1 {
   margin: 0;
   color: white;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 26px;
   text-align: center;
   word-break: break-word;
@@ -617,7 +616,6 @@ function handleBack(): void {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
 }
 
@@ -635,7 +633,6 @@ function handleBack(): void {
 }
 
 .filter-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   opacity: 0.75;
@@ -644,7 +641,6 @@ function handleBack(): void {
 .filter-input {
   width: 100%;
   padding: 10px 12px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
   border: 1px solid #cfd3d8;
   border-radius: 6px;
@@ -660,7 +656,6 @@ function handleBack(): void {
 }
 
 .summary-line {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   opacity: 0.8;
@@ -688,7 +683,6 @@ function handleBack(): void {
   padding: 60px 0;
   color: var(--mm-black);
   opacity: 0.75;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .spinner {
@@ -715,7 +709,6 @@ function handleBack(): void {
   padding: 48px 16px;
   text-align: center;
   color: var(--mm-text-muted);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .empty-state--inline {
@@ -751,7 +744,6 @@ function handleBack(): void {
   background: white;
   cursor: pointer;
   text-align: left;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition:
@@ -903,7 +895,6 @@ function handleBack(): void {
 }
 
 .detail-eyebrow {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -921,7 +912,6 @@ function handleBack(): void {
 /* The panel head is dark, so the muted-on-dark token rather than the on-white one. */
 .detail-subtitle {
   margin: 2px 0 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-muted-on-dark);
   overflow-wrap: anywhere;
@@ -969,7 +959,6 @@ function handleBack(): void {
   display: grid;
   grid-template-columns: minmax(120px, 0.6fr) 1fr;
   gap: 8px 16px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
 }
@@ -989,7 +978,6 @@ function handleBack(): void {
 }
 
 .detail-empty {
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-text-muted);
   font-size: 14px;
 }
@@ -1020,7 +1008,6 @@ function handleBack(): void {
 }
 
 .assignment-detail {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   overflow-wrap: anywhere;

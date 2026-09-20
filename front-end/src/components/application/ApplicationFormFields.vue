@@ -165,7 +165,6 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-label {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   font-weight: bold;
   color: var(--mm-black);
@@ -176,7 +175,6 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-help {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-text-muted);
   margin: 0;
@@ -185,7 +183,6 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 .form-input {
   height: 36px;
   padding: 4px 10px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   border: 1px solid var(--mm-border);
   border-radius: 5px;
@@ -201,7 +198,6 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
   cursor: pointer;
@@ -222,14 +218,12 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-field-error {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-red, #cc0000);
   margin: 2px 0 0;
 }
 
 .form-unsupported {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-red, #cc0000);
   font-style: italic;

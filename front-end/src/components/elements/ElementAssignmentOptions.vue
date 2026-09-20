@@ -133,7 +133,6 @@ const handleProportionInput = (value: number) => {
 
 <style scoped>
 .option-help {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: var(--mm-text-muted);
   margin: 4px 0 0;
@@ -141,7 +140,6 @@ const handleProportionInput = (value: number) => {
 }
 
 .option-note {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: var(--mm-text-yellow);
   margin: 4px 0 0;

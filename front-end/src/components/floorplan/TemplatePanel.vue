@@ -364,7 +364,6 @@ function formatDate(dateStr: string): string {
   z-index: 3000;
   padding: 12px 24px;
   border-radius: 8px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   pointer-events: none;
@@ -451,7 +450,6 @@ function formatDate(dateStr: string): string {
 
 .tp-dialog-desc {
   margin: 0 0 16px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   line-height: 1.5;
@@ -466,7 +464,6 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--mm-black);
@@ -478,7 +475,6 @@ function formatDate(dateStr: string): string {
   border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: var(--mm-beige);
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   box-shadow: none;
@@ -515,14 +511,12 @@ function formatDate(dateStr: string): string {
   background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
 }
 
 .tp-empty {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-text-muted);
   text-align: center;
@@ -535,7 +529,6 @@ function formatDate(dateStr: string): string {
   justify-content: center;
   gap: 8px;
   padding: 24px 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
 }
@@ -613,7 +606,6 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-template-name {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
   font-weight: 500;
   color: var(--mm-black);
@@ -623,7 +615,6 @@ function formatDate(dateStr: string): string {
 }
 
 .tp-template-meta {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: rgba(39, 35, 35, 0.55);
 }
@@ -650,7 +641,6 @@ function formatDate(dateStr: string): string {
 /* ── Confirm view ──────────────────────────────────────────── */
 .tp-confirm-text {
   margin: 0 0 10px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   line-height: 1.55;
@@ -662,7 +652,6 @@ function formatDate(dateStr: string): string {
   background: color-mix(in srgb, var(--mm-yellow) 15%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
 }

@@ -80,7 +80,6 @@ button.assignment-stat-list-item {
 }
 
 .assignment-stat-list-label {
-  font-family: 'Outfit Regular';
   font-size: 15px;
   color: var(--mm-black);
 }

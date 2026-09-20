@@ -278,7 +278,7 @@ const pixelDistanceLabel = computed(() => {
     y: midY - 26,
     text: `${Math.round(originalDist)} px`,
     fontSize: 14,
-    fontFamily: 'Outfit Regular, sans-serif',
+    fontFamily: 'Outfit, sans-serif',
     fill: '#e74c3c',
     align: 'center',
     width: 200,
@@ -613,13 +613,11 @@ onUnmounted(() => {
 }
 
 .cal-state-text {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
   color: var(--mm-black);
 }
 
 .cal-error-text {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   text-align: center;
@@ -663,7 +661,6 @@ onUnmounted(() => {
   backdrop-filter: blur(6px);
   border-radius: 8px;
 
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: #ffffff;
   white-space: nowrap;
@@ -712,7 +709,6 @@ onUnmounted(() => {
 }
 
 .cal-dialog-desc {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   margin: 0;
@@ -727,7 +723,6 @@ onUnmounted(() => {
 }
 
 .cal-input-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--mm-black);
@@ -740,7 +735,6 @@ onUnmounted(() => {
   background: var(--mm-beige);
   border: 1.5px solid var(--mm-border);
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
   color: var(--mm-black);
   outline: none;
@@ -765,7 +759,6 @@ onUnmounted(() => {
 }
 
 .cal-unit-legend {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--mm-black);
@@ -791,7 +784,6 @@ onUnmounted(() => {
 }
 
 .cal-unit-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
   user-select: none;
@@ -804,7 +796,6 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
 }
@@ -891,14 +882,12 @@ onUnmounted(() => {
 }
 
 .cal-result-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-muted);
   flex-shrink: 0;
 }
 
 .cal-result-value {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   font-weight: 500;
   color: var(--mm-black);

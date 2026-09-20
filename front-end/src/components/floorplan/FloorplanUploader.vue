@@ -213,7 +213,6 @@ onUnmounted(() => {
 }
 
 .drop-zone-text {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 16px;
   color: var(--mm-black);
   margin: 0;

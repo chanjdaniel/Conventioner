@@ -428,7 +428,6 @@ async function handleSave() {
   color: #ffffff;
   border-radius: 8px;
 
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
   box-shadow: 0 4px 20px rgba(39, 35, 35, 0.22);
 }
@@ -575,7 +574,6 @@ async function handleSave() {
   border: 1px solid var(--mm-green);
   border-radius: 8px;
   color: var(--mm-green);
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   text-align: center;
 }
@@ -587,7 +585,6 @@ async function handleSave() {
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   text-align: center;
 }
@@ -614,7 +611,6 @@ async function handleSave() {
 }
 
 .save-stat-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: var(--mm-black);
   opacity: 0.7;
@@ -650,7 +646,6 @@ async function handleSave() {
 }
 
 .save-section-subtitle {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   font-weight: 400;
   color: var(--mm-text-muted);
@@ -671,7 +666,6 @@ async function handleSave() {
   padding: 5px 14px;
   background: var(--mm-beige);
   border-radius: 999px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
   border: 1px solid transparent;
@@ -709,7 +703,6 @@ async function handleSave() {
 }
 
 .save-section-card-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 11px;
   color: var(--mm-black);
   opacity: 0.6;
@@ -726,7 +719,6 @@ async function handleSave() {
   border: 1px solid var(--mm-border);
   border-radius: 6px;
 
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
 
@@ -752,7 +744,6 @@ async function handleSave() {
 }
 
 .save-section-card-tables {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: var(--mm-black);
   opacity: 0.55;
@@ -769,7 +760,6 @@ async function handleSave() {
 
 .save-empty p {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-text-muted);
   text-align: center;

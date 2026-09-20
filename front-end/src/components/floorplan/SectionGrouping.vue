@@ -672,7 +672,6 @@ onUnmounted(() => {
   backdrop-filter: blur(6px);
   border-radius: 999px;
 
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: #ffffff;
 }
@@ -750,7 +749,6 @@ onUnmounted(() => {
 }
 
 .sg-item-name {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   font-weight: 500;
   color: var(--mm-black);
@@ -847,7 +845,6 @@ onUnmounted(() => {
 
 .sg-dialog-sub {
   margin: 0 0 20px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-text-muted);
 }
@@ -861,7 +858,6 @@ onUnmounted(() => {
 }
 
 .sg-field-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--mm-black);
@@ -883,7 +879,6 @@ onUnmounted(() => {
   border-radius: 8px;
   outline: none;
 
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   background: #ffffff;
@@ -902,7 +897,6 @@ onUnmounted(() => {
 /* ── Code preview ───────────────────────────────────────────────── */
 .sg-code-preview {
   margin: 0 0 18px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
 }

@@ -175,7 +175,6 @@ const modalRoot = useModalRoot(open);
 }
 
 .overlay-subtitle {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
   color: var(--mm-text-muted);
   text-align: center;
@@ -238,7 +237,6 @@ const modalRoot = useModalRoot(open);
   padding: 3px 10px;
   background: var(--mm-green);
   border-radius: 100px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 11px;
   font-weight: 600;
   color: #ffffff;
@@ -247,7 +245,6 @@ const modalRoot = useModalRoot(open);
 }
 
 .card-caveat {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   line-height: 1.45;
   color: var(--mm-text-muted);
@@ -288,7 +285,6 @@ const modalRoot = useModalRoot(open);
 }
 
 .card-desc {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-muted);
   text-align: center;
@@ -312,7 +308,6 @@ const modalRoot = useModalRoot(open);
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
   line-height: 1.45;
@@ -371,7 +366,6 @@ const modalRoot = useModalRoot(open);
   padding: 3px 10px;
   background: var(--mm-yellow);
   border-radius: 100px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 11px;
   font-weight: 600;
   color: var(--mm-black);

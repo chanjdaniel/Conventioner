@@ -142,7 +142,6 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
 }
 
 .vendor-date-card-detail {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   overflow-wrap: anywhere;

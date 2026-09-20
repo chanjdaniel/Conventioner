@@ -392,7 +392,6 @@ function handleClose() {
   font-size: 28px;
   font-weight: 600;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .org-name {
@@ -421,7 +420,6 @@ function handleClose() {
   font-size: 16px;
   font-weight: 600;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .users-list {
@@ -478,7 +476,6 @@ function handleClose() {
   border: 1px solid #d32f2f;
   border-radius: 4px;
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .remove-button:hover {
@@ -499,7 +496,6 @@ function handleClose() {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .add-user-button:hover {
@@ -525,7 +521,6 @@ function handleClose() {
   border: 1.5px solid var(--mm-border);
   border-radius: 6px;
   font-size: 14px;
-  font-family: 'Outfit Regular', sans-serif;
   min-width: 180px;
 }
 
@@ -537,7 +532,6 @@ function handleClose() {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .submit-button:hover {
@@ -562,7 +556,6 @@ function handleClose() {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .save-button:hover {
@@ -588,7 +581,6 @@ function handleClose() {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .delete-button:hover {
@@ -620,7 +612,6 @@ function handleClose() {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .confirm-delete-button:hover {
@@ -635,7 +626,6 @@ function handleClose() {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .cancel-button:hover {

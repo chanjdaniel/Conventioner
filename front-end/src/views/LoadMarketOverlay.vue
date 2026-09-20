@@ -111,7 +111,6 @@ const handleLoadMarket = (market: Market) => openMarket(router, market);
   font-size: 28px;
   font-weight: 600;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .empty-state {

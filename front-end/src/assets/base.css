@@ -66,8 +66,17 @@ body {
     color 0.5s,
     background-color 0.5s;
   line-height: 1.6;
+  /*
+   * The product's UI face, declared once (E15/F01/S01). It used to be Inter, which 274 component
+   * rules then overrode to Outfit - so Inter survived only where nothing overrode it, and the one
+   * place nothing did was the form controls, which do not inherit font-family and fell through to
+   * the user agent's Arial instead. Naming Outfit here is what makes `font: inherit` on those
+   * controls (main.css) land on the right face rather than on Inter.
+   *
+   * Headings are Merge One and say so themselves; nothing else needs to.
+   */
   font-family:
-    Inter,
+    Outfit,
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',

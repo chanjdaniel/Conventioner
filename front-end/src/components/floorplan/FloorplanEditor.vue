@@ -699,7 +699,6 @@ watch(
   background: color-mix(in srgb, var(--mm-yellow) 22%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   text-align: center;

@@ -55,7 +55,32 @@ a {
   src: url('/fonts/MergeOne-Regular.ttf') format('truetype');
 }
 
+/*
+ * The family is `Outfit`, not `Outfit Regular` (E15/F01/S01). The old name put a WEIGHT in the
+ * FAMILY slot, which is why nobody ever added the other weights: `public/fonts/Outfit/static/`
+ * has shipped Medium, SemiBold and Bold all along, undeclared, while 65 rules asked for 500, 600
+ * or bold and got a browser-synthesised smear of the regular. E15/F01/S02 declares them.
+ */
 @font-face {
-  font-family: 'Outfit Regular';
+  font-family: 'Outfit';
   src: url('/fonts/Outfit/static/Outfit-Regular.ttf') format('truetype');
+}
+
+/*
+ * Form controls do not inherit `font-family` from their ancestors - the user agent sets it - so
+ * most controls in this product rendered in Arial while the text around them rendered in Outfit
+ * (E15/F01/S01). Only five rules in the whole repo said `inherit`.
+ *
+ * `font` rather than `font-family`: the shorthand brings size and weight along too, and a control
+ * left at the user agent's 13.3333px is as wrong as one left in Arial. Two of the controls on the
+ * login screen were at exactly that size, which is the tell that they had never been styled.
+ *
+ * This only works because `body` names Outfit (base.css). Adding it while `body` said Inter would
+ * have made every control Inter and left the 274 Outfit rules around them untouched.
+ */
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }

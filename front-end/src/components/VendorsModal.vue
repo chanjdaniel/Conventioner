@@ -430,7 +430,7 @@ const gridTemplate = computed(() => {
   border: none;
   border-radius: 999px;
   background: #fff;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 14px;
   color: var(--mm-black);
   cursor: default;
@@ -509,7 +509,7 @@ const gridTemplate = computed(() => {
 
 .vendors-modal-cell {
   padding: 12px 14px;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 14px;
   line-height: 1.45;
   color: var(--mm-black);

@@ -178,14 +178,12 @@ function logout() {
 }
 
 .dash-market {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
   margin: 0 0 8px;
 }
 
 .dash-email {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
   margin: 0 0 24px;
@@ -194,7 +192,6 @@ function logout() {
 .dash-loading {
   text-align: center;
   padding: 40px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
 }
@@ -204,7 +201,6 @@ function logout() {
   border: 1px solid #86b7fe;
   border-radius: 6px;
   padding: 16px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   line-height: 1.5;
   color: #084298;
@@ -217,7 +213,6 @@ function logout() {
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 24px;
-  font-family: 'Outfit Regular';
 }
 
 .dash-status-card.status-neutral {
@@ -256,7 +251,6 @@ function logout() {
 }
 
 .dash-form-answers h3 {
-  font-family: 'Outfit Regular';
   font-size: 16px;
   color: var(--mm-black);
   margin: 0 0 12px;
@@ -277,7 +271,6 @@ function logout() {
 }
 
 .answer-row dt {
-  font-family: 'Outfit Regular';
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -286,14 +279,12 @@ function logout() {
 }
 
 .answer-row dd {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
   margin: 0;
 }
 
 .dash-no-answers {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
   padding: 20px;

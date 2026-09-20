@@ -497,7 +497,6 @@ const selectOptions = [
 }
 
 .tt-type-name {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   font-weight: 500;
   color: var(--mm-black);
@@ -507,7 +506,6 @@ const selectOptions = [
 }
 
 .tt-type-dims {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: rgba(39, 35, 35, 0.55);
 }
@@ -552,7 +550,6 @@ const selectOptions = [
   margin: 0;
   padding: 20px 0;
   text-align: center;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: rgba(39, 35, 35, 0.4);
 }
@@ -613,7 +610,6 @@ const selectOptions = [
 }
 
 .tt-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--mm-black);
@@ -625,7 +621,6 @@ const selectOptions = [
   border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: var(--mm-beige);
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   outline: none;
@@ -656,7 +651,6 @@ const selectOptions = [
 
 .tt-select-btn :deep(.p-togglebutton) {
   flex: 1;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
 }
 
@@ -667,7 +661,6 @@ const selectOptions = [
   background: color-mix(in srgb, #c0392b 10%, transparent);
   border: 1px solid #c0392b;
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: #c0392b;
 }

@@ -1144,7 +1144,6 @@ function startOver() {
   flex-direction: column;
   gap: 20px;
   padding: 24px 32px 96px;
-  font-family: 'Outfit Regular';
   color: var(--mm-black);
 }
 
@@ -1357,7 +1356,6 @@ function startOver() {
 .ledger-fix-select {
   height: 30px;
   padding: 2px 6px;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   border: 1px solid var(--mm-border);
   border-radius: 5px;
@@ -1368,7 +1366,6 @@ function startOver() {
   border: none;
   background: none;
   padding: 0;
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-text-muted);
   text-decoration: underline;
@@ -1389,7 +1386,6 @@ function startOver() {
   max-width: 260px;
   height: 34px;
   padding: 4px 8px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   border: 1px solid var(--mm-border);
   border-radius: 5px;
@@ -1510,7 +1506,6 @@ function startOver() {
 }
 
 .drop-zone-hint {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-muted);
   max-width: 42ch;
@@ -1644,7 +1639,6 @@ function startOver() {
   height: 38px;
   padding: 0 18px;
   border-radius: 6px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   cursor: pointer;
   border: 1px solid var(--mm-border);

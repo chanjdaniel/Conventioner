@@ -208,7 +208,6 @@ const submitRequest = async () => {
   border-radius: 30px;
   margin-top: 40px;
   background-color: var(--mm-green);
-  font-family: 'Outfit Regular';
   color: white;
   font-size: 20px;
   border: none;

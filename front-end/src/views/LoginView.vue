@@ -553,7 +553,6 @@ const submitOTPLogin = async () => {
 /* Persistent labels. Every field was placeholder-only, so its identity - and the password rule -
    vanished the moment the organizer started typing. */
 .field-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
   margin-top: 22px;
@@ -561,7 +560,6 @@ const submitOTPLogin = async () => {
 }
 
 .field-help {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-muted);
   margin: 8px 0 0;
@@ -640,7 +638,6 @@ const submitOTPLogin = async () => {
   border-radius: 8px;
   margin-top: 40px;
   background-color: var(--mm-green);
-  font-family: 'Outfit Regular';
   color: white;
   font-size: 20px;
   border: none;

@@ -204,7 +204,6 @@ function updateOption(idx: number, value: string) {
 }
 
 .field-label {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-black);
   width: 65px;
@@ -216,7 +215,6 @@ function updateOption(idx: number, value: string) {
   flex: 1;
   height: 28px;
   padding: 2px 8px;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   border: 1px solid var(--mm-border);
   border-radius: 4px;
@@ -271,7 +269,6 @@ function updateOption(idx: number, value: string) {
   border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-black);
 }

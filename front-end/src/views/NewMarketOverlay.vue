@@ -220,7 +220,6 @@ h3 {
 }
 
 .field-label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -248,7 +247,6 @@ h3 {
   border: none;
   border-radius: 6px;
   padding: 9px 18px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   cursor: pointer;
 }
@@ -265,7 +263,6 @@ h3 {
   border: 1px solid var(--mm-border);
   border-radius: 6px;
   padding: 9px 18px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   cursor: pointer;
 }
