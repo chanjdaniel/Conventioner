@@ -203,6 +203,19 @@ const statusCounts = computed(() => {
   return { assigned, partial, empty };
 });
 
+/**
+ * The colour a status count is worn in.
+ *
+ * A count of zero is not a condition to act on, so it loses its colour whatever the category. The
+ * partial pill was amber at every value, so a market with nothing partially filled showed a
+ * warning-coloured zero pulling the eye to a non-problem (E14/F02/S03). Applied to all three rather
+ * than to partial alone: "0 assigned" in the green that means "done" is the same mistake wearing a
+ * friendlier face, and one rule needs no explaining to the next reader.
+ */
+function countBadgeClass(kind: RowStatus['label'], count: number): string {
+  return count === 0 ? 'count-badge--none' : `count-badge--${kind}`;
+}
+
 function clearFilter(name: FilterName): void {
   setFilter(name, '');
 }
@@ -571,13 +584,24 @@ function swapSeats(withEmail: string): void {
               <span class="counts-primary">
                 {{ filteredRows.length }} of {{ allRows.length }} tables
               </span>
-              <span class="count-badge count-badge--assigned"
+              <span
+                class="count-badge"
+                :class="countBadgeClass('assigned', statusCounts.assigned)"
+                data-testid="tables-count-assigned"
                 >{{ statusCounts.assigned }} assigned</span
               >
-              <span class="count-badge count-badge--partial"
+              <span
+                class="count-badge"
+                :class="countBadgeClass('partial', statusCounts.partial)"
+                data-testid="tables-count-partial"
                 >{{ statusCounts.partial }} partial</span
               >
-              <span class="count-badge count-badge--empty">{{ statusCounts.empty }} empty</span>
+              <span
+                class="count-badge"
+                :class="countBadgeClass('empty', statusCounts.empty)"
+                data-testid="tables-count-empty"
+                >{{ statusCounts.empty }} empty</span
+              >
             </div>
           </div>
 
@@ -929,7 +953,16 @@ function swapSeats(withEmail: string): void {
   color: var(--mm-black);
 }
 
-.count-badge--empty {
+/*
+ * The neutral pill, and the one a count of zero falls back to.
+ *
+ * Black on beige is 12.49. The obvious alternative - muted text, to say "nothing here" - is 4.24 on
+ * beige and so below AA, and `contrast.test.ts` would not have caught it: it holds only --mm-black
+ * to the beige ground, because --mm-black was the only thing ever set on it. Quieten a pill by
+ * changing its FILL, never by lowering its text.
+ */
+.count-badge--empty,
+.count-badge--none {
   background-color: var(--mm-beige);
   color: var(--mm-black);
   border: 1px solid var(--mm-border);
