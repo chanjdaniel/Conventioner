@@ -85,6 +85,10 @@ button.assignment-stat-list-item {
 }
 
 .assignment-stat-list-value {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   font-family: 'Merge One';
   font-size: 16px;
   font-weight: 400;

@@ -922,12 +922,20 @@ function swapSeats(withEmail: string): void {
 }
 
 .counts-primary {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   font-family: 'Merge One', sans-serif;
   font-size: 15px;
   color: var(--mm-black);
 }
 
 .count-badge {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;

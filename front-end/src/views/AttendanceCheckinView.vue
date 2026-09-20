@@ -359,7 +359,11 @@ async function undoCheckIn(date: string): Promise<void> {
 .lookup-row input {
   flex: 1;
   min-width: 200px;
-  padding: 10px 12px;
+  /* Matches `.primary-button` beside it. Left to its padding and line box the field came out 42px
+     against the button's 40, so the button's bottom edge sat 2px proud of the field's own
+     (E15/F01/S03). */
+  height: 40px;
+  padding: 0 12px;
   font-size: 16px;
   border: 1px solid #cfd3d8;
   border-radius: 6px;

@@ -641,15 +641,6 @@ const handleSendToDiscord = async () => {
           </button>
         </div>
         <div class="discord-action">
-          <!-- The reason used to live in a `title`, which is invisible on touch and slow
-               everywhere else, so the button just read as broken. -->
-          <p
-            v-if="!hasDiscordWebhook"
-            class="action-blocked-reason"
-            data-testid="assignment-results-discord-blocked-reason"
-          >
-            Add a Discord webhook URL in Market Setup to enable this.
-          </p>
           <button
             class="done-button discord-button"
             :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
@@ -658,6 +649,17 @@ const handleSendToDiscord = async () => {
           >
             {{ isPostingDiscord ? 'Sending…' : 'Send to Discord' }}
           </button>
+          <!-- The reason used to live in a `title`, which is invisible on touch and slow
+               everywhere else, so the button just read as broken. It sits BELOW the button it
+               explains: above, it pushed the button down inside a centred column and the two
+               footer actions ended up 21px apart on a row meant to be one line (E15/F01/S03). -->
+          <p
+            v-if="!hasDiscordWebhook"
+            class="action-blocked-reason"
+            data-testid="assignment-results-discord-blocked-reason"
+          >
+            Add a Discord webhook URL in Market Setup to enable this.
+          </p>
         </div>
       </div>
     </div>
@@ -994,6 +996,10 @@ const handleSendToDiscord = async () => {
 }
 
 .stat-value {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   font-family: 'Merge One';
   font-size: 36px;
   font-weight: 400;
@@ -1120,7 +1126,9 @@ h2 {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  align-items: center;
+  /* `start`, not `center`: the right-hand action carries an explanation under it, and centring
+     the two columns against each other is what put the buttons on different lines. */
+  align-items: start;
   gap: 12px;
 }
 
@@ -1167,7 +1175,7 @@ h2 {
 .discord-action {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: end;
   gap: 4px;
 }
 
