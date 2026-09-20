@@ -191,37 +191,51 @@ test.describe('Vendor browsing and search', () => {
     await vendorsPage.goto();
     await expect(vendorsPage.vendorListItems.first()).toBeVisible({ timeout: 10000 });
 
-    // The rail's forward action is reachable before the drawer opens - otherwise the assertion
-    // below would hold for the wrong reason.
-    const publish = page.getByTestId('phase-rail').getByRole('button').first();
-    await expect(publish).toBeVisible();
-    await publish.focus();
-    expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('BUTTON');
+    // The rail's one forward action, named by the testid it carries rather than taken by position.
+    // From `assignment` that is `market_days`, labelled "Publish Market": `offers` is a valid edge
+    // but sits off the spine, so it is not the forward step.
+    const railForward = page.getByTestId('phase-transition-market_days');
+    await expect(railForward).toBeVisible();
+    await railForward.focus();
+    await expect(railForward).toBeFocused();
 
     await vendorsPage.clickVendor(0);
     await expect(vendorsPage.detailCloseButton).toBeVisible({ timeout: 5000 });
 
     // Twenty tabs is more than the whole page holds, so if anything behind the drawer were still
     // reachable this would land on it.
+    //
+    // `inert` takes the rest of the page out of the tab order; it does not TRAP focus. So tabbing
+    // off the drawer's last control leaves the document for the browser's own chrome, and
+    // `document.activeElement` reports `<body>` until the next Tab re-enters at the drawer's first
+    // control. That is expected, and `<body>` is not a control anyone can operate - so what this
+    // asserts is that focus never lands on a control outside the drawer, and separately that it
+    // does land inside it, which is what stops the whole loop passing on a page with no focus at
+    // all.
+    await vendorsPage.detailCloseButton.focus();
+    let landedInside = 0;
     for (let i = 0; i < 20; i += 1) {
       await page.keyboard.press('Tab');
-      const escaped = await page.evaluate(() => {
-        const panel = document.querySelector('.detail-panel');
+      const where = await page.evaluate(() => {
+        const panel = document.querySelector('[data-testid="vendors-detail-panel"]');
         const active = document.activeElement;
-        if (!panel || !active || active === document.body) return null;
-        return panel.contains(active)
-          ? null
-          : (active.textContent || active.tagName).trim().slice(0, 40);
+        if (!panel || !active) return 'nothing focused';
+        if (panel.contains(active)) return 'inside';
+        if (active === document.body) return 'left the document';
+        return `outside: ${(active.textContent || active.tagName).trim().slice(0, 40)}`;
       });
-      expect(escaped, `tab ${i + 1} reached "${escaped}" behind the modal`).toBeNull();
+      expect(where, `tab ${i + 1} reached a control behind the drawer`).not.toMatch(/^outside: /);
+      if (where === 'inside') landedInside += 1;
     }
+    expect(landedInside, 'no tab ever landed in the drawer').toBeGreaterThan(0);
 
     // AC3: the scrim still dismisses on click, which is the behaviour that was already right.
-    await page.locator('.detail-overlay').click({ position: { x: 20, y: 20 } });
+    await vendorsPage.detailOverlay.click({ position: { x: 20, y: 20 } });
     await expect(vendorsPage.detailCloseButton).toBeHidden({ timeout: 5000 });
 
-    // And the rail comes back when it does.
-    await publish.focus();
+    // And the page behind is handed back, not left inert.
+    await railForward.focus();
+    await expect(railForward).toBeFocused();
     expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('BUTTON');
   });
 });

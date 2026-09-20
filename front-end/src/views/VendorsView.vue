@@ -371,8 +371,10 @@ useEscapeToClose(() => selectedVendor.value !== null, closeDetail);
  */
 const detailOverlay = ref<HTMLElement | null>(null);
 const detailPanel = ref<HTMLElement | null>(null);
-const detailOpen = computed(() => selectedVendor.value !== null);
-useInertBehind(detailOpen, () => [detailOverlay.value, detailPanel.value]);
+useInertBehind(
+  () => selectedVendor.value !== null,
+  () => [detailOverlay.value, detailPanel.value],
+);
 
 function handleBack(): void {
   if (market.value?.id) {
@@ -479,6 +481,7 @@ function handleBack(): void {
     <div
       ref="detailOverlay"
       class="detail-overlay"
+      data-testid="vendors-detail-overlay"
       :class="{ 'detail-overlay--open': selectedVendor !== null }"
       @click="closeDetail"
     />
@@ -486,6 +489,7 @@ function handleBack(): void {
     <aside
       ref="detailPanel"
       class="detail-panel"
+      data-testid="vendors-detail-panel"
       :class="{ 'detail-panel--open': selectedVendor !== null }"
       role="dialog"
       aria-modal="true"

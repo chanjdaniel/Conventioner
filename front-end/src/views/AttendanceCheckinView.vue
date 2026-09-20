@@ -170,7 +170,7 @@ async function undoCheckIn(date: string): Promise<void> {
 
 <template>
   <div class="attendance-view">
-    <div class="attendance-card">
+    <div class="attendance-card" data-testid="attendance-checkin-card">
       <header class="attendance-header">
         <p class="attendance-eyebrow">Vendor check-in</p>
         <h1 data-testid="attendance-checkin-market-name">

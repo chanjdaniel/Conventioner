@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { defineComponent, h, ref, nextTick } from 'vue';
+import { defineComponent, h, ref, nextTick, type Ref } from 'vue';
 import { mount } from '@vue/test-utils';
 
 import { useInertBehind } from '@/utils/useInertBehind';
@@ -36,11 +36,11 @@ function buildPage() {
   };
 }
 
-function mountWith(isOpen: ReturnType<typeof ref<boolean>>, parts: () => (HTMLElement | null)[]) {
+function mountWith(isOpen: Ref<boolean>, parts: () => (HTMLElement | null)[]) {
   return mount(
     defineComponent({
       setup() {
-        useInertBehind(isOpen as never, parts);
+        useInertBehind(isOpen, parts);
         return () => h('div');
       },
     }),
@@ -122,6 +122,42 @@ describe('useInertBehind', () => {
 
     expect(page.content.hasAttribute('inert')).toBe(false);
     expect(page.header.hasAttribute('inert')).toBe(false);
+  });
+
+  /** A view can mount with its modal already open - a deep link, or a restored route. */
+  it('marks the page when it mounts with the modal already open', async () => {
+    const page = buildPage();
+    const open = ref(true);
+    mountWith(open, () => [page.scrim, page.panel]);
+    await nextTick();
+
+    expect(page.content.hasAttribute('inert')).toBe(true);
+    expect(page.header.hasAttribute('inert')).toBe(true);
+  });
+
+  /**
+   * Two modals can be open at once, and their marked sets overlap. With a per-instance flag the
+   * first to close hands the page back while the second still needs it held.
+   */
+  it('keeps the page inert until the last modal using it has closed', async () => {
+    const page = buildPage();
+    const outer = ref(false);
+    const inner = ref(false);
+    mountWith(outer, () => [page.scrim, page.panel]);
+    mountWith(inner, () => [page.scrim, page.panel]);
+
+    outer.value = true;
+    inner.value = true;
+    await nextTick();
+    expect(page.content.hasAttribute('inert')).toBe(true);
+
+    inner.value = false;
+    await nextTick();
+    expect(page.content.hasAttribute('inert')).toBe(true);
+
+    outer.value = false;
+    await nextTick();
+    expect(page.content.hasAttribute('inert')).toBe(false);
   });
 
   /**

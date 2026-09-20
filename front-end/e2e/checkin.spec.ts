@@ -187,12 +187,12 @@ test.describe('Public vendor check-in', () => {
     // Scrolling has to actually reach the bottom of the card. A page that merely reports overflow
     // while clipping its own content would pass the line above; that is the way this fix could go
     // wrong, so it is the thing worth asserting.
-    const bottomOfCardReachable = await page.evaluate(() => {
+    const cardBottomAfterScrolling = await page.evaluate(() => {
       const d = document.documentElement;
       window.scrollTo(0, d.scrollHeight);
-      const card = document.querySelector('.attendance-card');
-      return card !== null && Math.round(card.getBoundingClientRect().bottom) <= d.clientHeight + 2;
+      const card = document.querySelector('[data-testid="attendance-checkin-card"]');
+      return card ? Math.round(card.getBoundingClientRect().bottom) : Infinity;
     });
-    expect(bottomOfCardReachable).toBe(true);
+    expect(cardBottomAfterScrolling).toBeLessThanOrEqual(squeezed.clientHeight + 2);
   });
 });
