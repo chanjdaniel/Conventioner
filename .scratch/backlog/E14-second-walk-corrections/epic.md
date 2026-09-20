@@ -2,7 +2,7 @@
 id: E14
 title: Second-walk corrections
 type: epic
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

@@ -2,7 +2,7 @@
 id: E14/F01/S01
 title: Every date prints its year once
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -24,10 +24,26 @@ Four call sites are affected, and the one that matters most is the third:
 
 ## Acceptance criteria
 
-- [ ] No market date renders its year twice, on any of the four call sites.
-- [ ] A unit test pins the composition, so the next change to `getFormattedDate` cannot silently reintroduce it.
+- [x] No market date renders its year twice, on any of the four call sites.
+      All four are now asserted exactly rather than by substring: the organizer panel chip and the
+      applicant checkbox label in `essential-fields.spec.ts`, and both stored-answer renderings in
+      `essentialDate.test.ts` and on the applicant dashboard.
+      A fifth render found on the way - the tier-day label - went through `getFormattedDate`
+      directly and now goes through `formattedEssentialDate` with the rest.
+- [x] A unit test pins the composition, so the next change to `getFormattedDate` cannot silently reintroduce it.
+      In two halves, because neither is sufficient alone: the year-occurrence count catches a change
+      to `getFormattedDate` (the composition assertion moves with it and cannot), and the composition
+      assertion catches decoration added back on this side that is not a year.
 
 ## Notes
 
 Startable now; blocked by nothing.
 This is the cheapest finding in `.lavish/qc-2026-09-20.html` (F5) and one of the two most visible.
+
+## Done, beyond the ask
+
+`answerText` joined a list with `', '`, and a formatted date carries two commas of its own, so two
+dates ran together with no readable boundary.
+The doubled year was the louder half of that string, not all of it.
+Both branches now use the middot the tier answer already used; it reaches the rankings too, which is
+deliberate - one function, one separator, and a section name can carry a comma as easily as a date.
