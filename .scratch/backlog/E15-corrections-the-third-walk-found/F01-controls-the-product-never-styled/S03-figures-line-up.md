@@ -2,9 +2,9 @@
 id: E15/F01/S03
 title: Figures line up
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [77]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E15/F02/S03
 title: Every market screen names its market
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [77]
 ---
 
 ## What to build

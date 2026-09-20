@@ -2,9 +2,9 @@
 id: E16/F02/S01
 title: The tokens exist
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [77]
 ---
 
 ## What to build

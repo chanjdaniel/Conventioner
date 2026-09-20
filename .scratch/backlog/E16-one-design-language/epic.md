@@ -2,9 +2,9 @@
 id: E16
 title: One design language
 type: epic
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [77]
 ---
 
 ## Outcome

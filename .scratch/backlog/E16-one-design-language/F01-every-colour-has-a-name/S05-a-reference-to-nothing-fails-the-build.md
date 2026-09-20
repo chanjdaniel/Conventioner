@@ -2,9 +2,9 @@
 id: E16/F01/S05
 title: A reference to nothing fails the build
 type: story
-status: in-progress
+status: done
 blocked_by: [E16/F01/S01]
-pr: []
+pr: [77]
 ---
 
 ## What to build

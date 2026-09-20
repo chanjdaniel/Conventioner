@@ -2,9 +2,9 @@
 id: E16/F04/S03
 title: The chip primitive
 type: story
-status: in-progress
+status: done
 blocked_by: [E16/F02, E16/F03]
-pr: []
+pr: [77]
 ---
 
 ## What to build

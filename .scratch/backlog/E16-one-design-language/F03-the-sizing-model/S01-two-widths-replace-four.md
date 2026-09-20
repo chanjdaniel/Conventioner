@@ -2,9 +2,9 @@
 id: E16/F03/S01
 title: Two widths replace four
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [77]
 ---
 
 ## What to build

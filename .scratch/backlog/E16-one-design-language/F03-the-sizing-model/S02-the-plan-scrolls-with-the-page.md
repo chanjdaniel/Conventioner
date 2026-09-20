@@ -2,9 +2,9 @@
 id: E16/F03/S02
 title: The plan scrolls with the page
 type: story
-status: in-progress
+status: done
 blocked_by: [E16/F03/S01]
-pr: []
+pr: [77]
 ---
 
 ## What to build

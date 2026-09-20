@@ -2,9 +2,9 @@
 id: E16/F07
 title: Slice: the market workspace
 type: feature
-status: in-progress
+status: done
 blocked_by: [E16/F04, E16/F03]
-pr: []
+pr: [77]
 ---
 
 ## Outcome

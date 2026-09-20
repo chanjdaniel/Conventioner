@@ -2,9 +2,9 @@
 id: E16/F08
 title: Slice: the public surfaces
 type: feature
-status: in-progress
+status: done
 blocked_by: [E16/F04]
-pr: []
+pr: [77]
 ---
 
 ## Outcome

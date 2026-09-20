@@ -2,9 +2,9 @@
 id: E15/F02/S01
 title: A yes/no answer reads as Yes or No
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [77]
 ---
 
 ## What to build

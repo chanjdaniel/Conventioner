@@ -2,9 +2,9 @@
 id: E16/F01/S03
 title: The verdict buttons and the phase label pass AA
 type: story
-status: in-progress
+status: done
 blocked_by: [E16/F01/S02]
-pr: []
+pr: [77]
 ---
 
 ## What to build

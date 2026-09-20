@@ -2,9 +2,9 @@
 id: E15/F02/S02
 title: The form-lock banner names the phase in words
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [77]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E16/F05
 title: Slice: the auth screens
 type: feature
-status: in-progress
+status: done
 blocked_by: [E16/F04]
-pr: []
+pr: [77]
 ---
 
 ## Outcome
