@@ -118,15 +118,22 @@ export function essentialOptionsFromSetup(
 }
 
 /**
- * A market date as the applicant reads it ("Saturday, August 1, 2026"), falling back to the
- * raw value. The year is spelled out because a market's dates can span a year boundary and the
- * stored ISO value is what the solver will read back.
+ * A market date as the applicant reads it ("Saturday, August 1, 2026").
+ *
+ * It adds nothing to `getFormattedDate`. It used to append the year, because the `getFormattedDate`
+ * of the day stopped at the day of the month and a market's dates can span a year boundary.
+ * `E09/F04/S02` - the "one date format" story - gave `getFormattedDate` the year and left this
+ * appending a second one, so every applicant-facing date read "Saturday, November 21, 2026, 2026"
+ * (E14/F01/S01).
+ *
+ * Kept as a named function rather than inlined at its four call sites, because the name is the
+ * statement that an essential question shows the product's one date format unaltered - which is
+ * exactly what stopped being true. The `?? ''` narrows the empty-string case that
+ * `getFormattedDate` answers with null; it is not a fallback for an unreadable date, which
+ * `getFormattedDate` already returns verbatim.
  */
 export function formattedEssentialDate(date: string): string {
-  const formatted = getFormattedDate(date);
-  if (!formatted) return date;
-  const year = date.slice(0, 4);
-  return /^\d{4}$/.test(year) ? `${formatted}, ${year}` : formatted;
+  return getFormattedDate(date) ?? '';
 }
 
 /** One answer of an application, as a person reads it. */
@@ -168,9 +175,16 @@ const ESSENTIAL_ORDER: ReadonlyArray<[string, string, (value: unknown) => unknow
   ],
 ];
 
-/** One stored answer as text. A map is keyed by date (the tier answer), so its keys are dates. */
+/**
+ * One stored answer as text. A map is keyed by date (the tier answer), so its keys are dates.
+ *
+ * Both branches separate their items with the same middot the tier answer has always used. A comma
+ * cannot do that job here: a list item is often a formatted date, which carries two commas of its
+ * own, so `join(', ')` ran two dates together into "Saturday, November 21, 2026, Sunday, November
+ * 22, 2026" - a string with no readable boundary between the entries (E14/F01/S01).
+ */
 function answerText(value: unknown): string {
-  if (Array.isArray(value)) return value.join(', ');
+  if (Array.isArray(value)) return value.join(' · ');
   if (value && typeof value === 'object') {
     return Object.entries(value as Record<string, unknown>)
       .map(([date, inner]) => {

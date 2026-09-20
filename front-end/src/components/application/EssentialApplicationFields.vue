@@ -16,7 +16,6 @@
  */
 import { computed, watch } from 'vue';
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
-import { getFormattedDate } from '@/utils/utils';
 import {
   AVAILABLE_DATES_KEY,
   AVAILABLE_DATES_LABEL,
@@ -282,7 +281,7 @@ function errorFor(key: string): string {
         class="essential-tier-day"
         :data-testid="`${prefix}-essential-tier-day-${date}`"
       >
-        <span class="essential-tier-day-label">{{ getFormattedDate(date) }}</span>
+        <span class="essential-tier-day-label">{{ formattedEssentialDate(date) }}</span>
         <div class="essential-choice-list" :class="{ error: errorFor(TIER_PREFERENCE_KEY) }">
           <label
             v-for="tier in options.tiers"
