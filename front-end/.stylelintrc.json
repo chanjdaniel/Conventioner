@@ -1,5 +1,7 @@
 {
-  "extends": ["stylelint-config-html/vue"],
+  "extends": [
+    "stylelint-config-html/vue"
+  ],
   "rules": {
     "color-no-hex": [
       true,
@@ -10,9 +12,16 @@
     ],
     "declaration-property-value-disallowed-list": [
       {
-        "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
-        "/^border-radius$/": ["/^[0-9.]+(px|rem)/", "/^[0-9.]+%(?<!50%)/"],
-        "/^box-shadow$/": ["/^(?!var\\(|none)/"]
+        "/^font-size$/": [
+          "/^[0-9.]+(px|rem|em)$/"
+        ],
+        "/^border-radius$/": [
+          "/^[0-9.]+(px|rem)/",
+          "/^[0-9.]+%(?<!50%)/"
+        ],
+        "/^box-shadow$/": [
+          "/^(?!var\\(|none)/"
+        ]
       },
       {
         "severity": "warning",
@@ -20,7 +29,12 @@
       }
     ]
   },
-  "ignoreFiles": ["dist/**", "node_modules/**", "src/assets/base.css", "src/assets/primitives.css"],
+  "ignoreFiles": [
+    "dist/**",
+    "node_modules/**",
+    "src/assets/base.css",
+    "src/assets/primitives.css"
+  ],
   "overrides": [
     {
       "files": [
@@ -29,6 +43,7 @@
         "src/components/BlockerPanel.vue",
         "src/components/MarketSummaryCard.vue",
         "src/components/NoMarketLoaded.vue",
+        "src/components/PageNotFound.vue",
         "src/components/PhaseBadge.vue",
         "src/components/PhaseRail.vue",
         "src/components/PlacementDialog.vue",
@@ -58,10 +73,13 @@
         "src/components/elements/ElementSettingContainer.vue",
         "src/components/elements/ElementSignoutButton.vue",
         "src/components/elements/ElementTierSetup.vue",
+        "src/views/AttendanceCheckinView.vue",
         "src/views/AttendanceStatusView.vue",
+        "src/views/CsvImportView.vue",
         "src/views/DashboardView.vue",
         "src/views/EmailVerificationView.vue",
         "src/views/InitView.vue",
+        "src/views/LoadMarketOverlay.vue",
         "src/views/LoginView.vue",
         "src/views/ManageMarketOverlay.vue",
         "src/views/ManageOrgOverlay.vue",
@@ -83,9 +101,16 @@
         ],
         "declaration-property-value-disallowed-list": [
           {
-            "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
-            "/^border-radius$/": ["/^[0-9.]+(px|rem)/", "/^[0-9.]+%(?<!50%)/"],
-            "/^box-shadow$/": ["/^(?!var\\(|none)/"]
+            "/^font-size$/": [
+              "/^[0-9.]+(px|rem|em)$/"
+            ],
+            "/^border-radius$/": [
+              "/^[0-9.]+(px|rem)/",
+              "/^[0-9.]+%(?<!50%)/"
+            ],
+            "/^box-shadow$/": [
+              "/^(?!var\\(|none)/"
+            ]
           },
           {
             "severity": "error"

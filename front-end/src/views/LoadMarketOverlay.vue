@@ -94,7 +94,7 @@ const handleLoadMarket = (market: Market) => openMarket(router, market);
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   z-index: 1;
   padding: 0;
   overflow: hidden;
@@ -115,7 +115,7 @@ const handleLoadMarket = (market: Market) => openMarket(router, market);
 
 .empty-state {
   margin-top: 12px;
-  color: #666;
+  color: var(--mm-text-muted);
   font-size: var(--text-sm);
 }
 
@@ -134,16 +134,16 @@ const handleLoadMarket = (market: Market) => openMarket(router, market);
 }
 
 .markets-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
+  background: var(--mm-beige);
+  border-radius: var(--radius-control);
 }
 
 .markets-container::-webkit-scrollbar-thumb {
   background: var(--mm-border);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 
 .markets-container::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: var(--mm-text-muted);
 }
 </style>
