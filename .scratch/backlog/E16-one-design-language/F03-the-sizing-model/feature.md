@@ -2,7 +2,7 @@
 id: E16/F03
 title: The sizing model
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

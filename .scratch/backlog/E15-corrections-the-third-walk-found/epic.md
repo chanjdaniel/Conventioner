@@ -2,7 +2,7 @@
 id: E15
 title: Corrections the third walk found
 type: epic
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

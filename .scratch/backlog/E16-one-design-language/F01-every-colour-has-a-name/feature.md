@@ -2,7 +2,7 @@
 id: E16/F01
 title: Every colour has a name
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---

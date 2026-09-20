@@ -2,7 +2,7 @@
 id: E15/F02
 title: Screens that show their internals
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
