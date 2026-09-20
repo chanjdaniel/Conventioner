@@ -1,10 +1,18 @@
 @import './base.css';
+@import './primitives.css';
 
+/*
+ * The mount point holds no layout of its own: each screen owns its width and its gutter, from
+ * --workspace-max or --list-max (E16/F03).
+ *
+ * The `padding: 2rem` that used to sit here was inert scaffolding while `.app-container` was
+ * absolutely positioned and escaped it. Putting the shell back into normal flow so the PAGE can
+ * scroll made it live again, and it immediately broke the one thing this product promises about a
+ * phone: 64px of padding put the check-in page 64px past a 844px window.
+ */
 #app {
   max-width: 100%;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+  font-weight: 400;
 }
 
 .green {
@@ -38,24 +46,55 @@ a {
   padding: 3px;
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
-
-  #app {
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
-}
-
 @font-face {
   font-family: 'Merge One';
   src: url('/fonts/MergeOne-Regular.ttf') format('truetype');
 }
 
+/*
+ * The family is `Outfit`, not `Outfit Regular` (E15/F01/S01). The old name put a WEIGHT in the
+ * FAMILY slot, which is why nobody ever added the other weights: `public/fonts/Outfit/static/`
+ * has shipped Medium, SemiBold and Bold all along, undeclared, while 65 rules asked for 500, 600
+ * or bold and got a browser-synthesised smear of the regular. E15/F01/S02 declares them.
+ */
+/*
+ * The variable font rather than static weights (E15/F01/S02). It is 108KB against 107.8KB for the
+ * two statics the design language names, so it costs nothing and no weight can ever be synthesised
+ * again - including one added later by someone who has not read this.
+ *
+ * `font-weight: 100 900` is the descriptor that makes that true. Without it the face claims
+ * `normal` alone, which is precisely how 65 declarations came to ask for 500, 600 or bold and get
+ * a smeared regular.
+ */
 @font-face {
-  font-family: 'Outfit Regular';
-  src: url('/fonts/Outfit/static/Outfit-Regular.ttf') format('truetype');
+  font-family: 'Outfit';
+  src: url('/fonts/Outfit-VariableFont_wght.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * Form controls do not inherit `font-family` from their ancestors - the user agent sets it - so
+ * most controls in this product rendered in Arial while the text around them rendered in Outfit
+ * (E15/F01/S01). Only five rules in the whole repo said `inherit`.
+ *
+ * `font` rather than `font-family`: the shorthand brings size and weight along too, and a control
+ * left at the user agent's 13.3333px is as wrong as one left in Arial. Two of the controls on the
+ * login screen were at exactly that size, which is the tell that they had never been styled.
+ *
+ * This only works because `body` names Outfit (base.css). Adding it while `body` said Inter would
+ * have made every control Inter and left the 274 Outfit rules around them untouched.
+ */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  /*
+   * `font` is a shorthand, so it would bring `body`'s `line-height: 1.6` along with the family,
+   * size and weight - and a control's height is its line box. Measured: the login mode tabs grew
+   * from 45px to 53px on the first attempt at this. Controls keep the compact line box they had.
+   */
+  line-height: normal;
 }

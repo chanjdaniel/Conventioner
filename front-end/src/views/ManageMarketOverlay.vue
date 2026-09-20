@@ -509,11 +509,11 @@ function handleClose() {
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   z-index: 1;
   padding: 0;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-card);
 }
 
 .header {
@@ -523,28 +523,27 @@ function handleClose() {
 
 .header h2 {
   margin: 0;
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 600;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .market-name {
   margin: 8px 0 0;
-  color: #666;
-  font-size: 14px;
+  color: var(--mm-text-muted);
+  font-size: var(--text-sm);
 }
 
 .error-state {
   margin-top: 12px;
-  color: #d32f2f;
-  font-size: 14px;
+  color: var(--mm-red);
+  font-size: var(--text-sm);
 }
 
 .loading-state {
   padding: 40px;
   text-align: center;
-  color: #666;
+  color: var(--mm-text-muted);
 }
 
 .content {
@@ -558,10 +557,9 @@ function handleClose() {
 
 .section h3 {
   margin: 0 0 12px;
-  font-size: 16px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .users-list {
@@ -577,22 +575,22 @@ function handleClose() {
   gap: 12px;
   padding: 10px 14px;
   border: 1.5px solid var(--mm-border);
-  border-radius: 8px;
-  background: #fafafa;
+  border-radius: var(--radius-card);
+  background: var(--mm-beige);
 }
 
 .user-email {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
 .role-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-  font-size: 12px;
+  border-radius: var(--radius-control);
+  font-weight: 400;
+  font-size: var(--text-xs);
 }
 
 .role-badge-dropdown {
@@ -609,8 +607,8 @@ function handleClose() {
   border: none;
   outline: none;
   font: inherit;
-  font-weight: 500;
-  font-size: 12px;
+  font-weight: 400;
+  font-size: var(--text-xs);
   color: inherit;
   cursor: pointer;
   padding: 0;
@@ -630,39 +628,38 @@ function handleClose() {
 }
 
 .role-chevron {
-  font-size: 8px;
+  font-size: var(--text-xs);
   opacity: 0.8;
 }
 
 .role-owner {
-  background: #e3f2fd;
-  color: var(--mm-text-link);
+  background: rgba(26, 111, 139, 0.14);
+  color: var(--mm-blue);
 }
 
 .role-admin {
-  background: #f3e5f5;
-  color: #7b1fa2;
+  background: rgba(54, 130, 111, 0.16);
+  color: var(--mm-text-green);
 }
 
 .role-editor {
-  background: #e8f5e9;
-  color: #388e3c;
+  background: rgba(54, 130, 111, 0.16);
+  color: var(--mm-text-green);
 }
 
 .role-viewer {
-  background: #fff3e0;
-  color: #f57c00;
+  background: var(--mm-beige);
+  color: var(--mm-black);
 }
 
 .remove-button {
   padding: 4px 12px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   background: transparent;
-  color: #d32f2f;
-  border: 1px solid #d32f2f;
-  border-radius: 4px;
+  color: var(--mm-red);
+  border: 1px solid var(--mm-red);
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .remove-button:hover {
@@ -670,24 +667,24 @@ function handleClose() {
 }
 
 .empty-state {
-  color: #666;
-  font-size: 14px;
+  color: var(--mm-text-muted);
+  font-size: var(--text-sm);
   margin: 0;
 }
 
 .add-user-button {
   padding: 8px 16px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .add-user-button:hover {
-  background: #3a9a82;
+  background: var(--mm-green);
+  opacity: 0.9;
 }
 
 .add-user-form {
@@ -706,29 +703,26 @@ function handleClose() {
 .form-input {
   padding: 8px 12px;
   border: 1.5px solid var(--mm-border);
-  border-radius: 6px;
-  font-size: 14px;
-  font-family: 'Outfit Regular', sans-serif;
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
   min-width: 180px;
 }
 
 .form-select {
   padding: 8px 12px;
   border: 1.5px solid var(--mm-border);
-  border-radius: 6px;
-  font-size: 14px;
-  font-family: 'Outfit Regular', sans-serif;
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
 }
 
 .submit-button {
   padding: 8px 16px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   background: var(--mm-black);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .submit-button:hover {
@@ -747,29 +741,29 @@ function handleClose() {
 
 .save-button {
   padding: 8px 20px;
-  font-size: 14px;
+  font-size: var(--text-sm);
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .save-button:hover {
-  background: #3a9a82;
+  background: var(--mm-green);
+  opacity: 0.9;
 }
 
 .form-error {
   margin: 8px 0 0;
-  color: #d32f2f;
-  font-size: 13px;
+  color: var(--mm-red);
+  font-size: var(--text-xs);
 }
 
 .form-hint {
   margin: 8px 0 0;
-  color: #666;
-  font-size: 13px;
+  color: var(--mm-text-muted);
+  font-size: var(--text-xs);
 }
 
 .danger-section {
@@ -779,17 +773,18 @@ function handleClose() {
 
 .delete-button {
   padding: 8px 20px;
-  font-size: 14px;
-  background: #d32f2f;
+  font-size: var(--text-sm);
+  background: var(--mm-red);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .delete-button:hover {
-  background: #b71c1c;
+  /* One red for one meaning, so a hover cannot be a second red. The product already
+     answers the pointer this way on its other solid fills (E16/F01). */
+  opacity: 0.9;
 }
 
 .delete-confirm {
@@ -800,7 +795,7 @@ function handleClose() {
 
 .confirm-text {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
@@ -811,32 +806,32 @@ function handleClose() {
 
 .confirm-delete-button {
   padding: 8px 20px;
-  font-size: 14px;
-  background: #d32f2f;
+  font-size: var(--text-sm);
+  background: var(--mm-red);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .confirm-delete-button:hover {
-  background: #b71c1c;
+  /* One red for one meaning, so a hover cannot be a second red. The product already
+     answers the pointer this way on its other solid fills (E16/F01). */
+  opacity: 0.9;
 }
 
 .cancel-button {
   padding: 8px 20px;
-  font-size: 14px;
-  background: #666;
+  font-size: var(--text-sm);
+  background: var(--mm-text-muted);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .cancel-button:hover {
-  background: #555;
+  background: var(--mm-text-muted);
 }
 
 .content::-webkit-scrollbar {
@@ -844,13 +839,13 @@ function handleClose() {
 }
 
 .content::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
+  background: var(--mm-beige);
+  border-radius: var(--radius-control);
 }
 
 .content::-webkit-scrollbar-thumb {
   background: var(--mm-border);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 /* This dialog had no X and no Cancel, and the last control in its scrolling body is a red
    Delete. Clicking the scrim did close it, but nothing said so, and Escape did nothing. */
@@ -860,7 +855,7 @@ function handleClose() {
   right: 12px;
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: var(--text-xl);
   line-height: 1;
   padding: 4px 8px;
   color: var(--mm-text-muted);

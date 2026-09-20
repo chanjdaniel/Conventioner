@@ -79,12 +79,11 @@ const facts = computed<SummaryFact[]>(() => [
 .manage-button {
   height: 34px;
   padding: 0 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--mm-border);
   background: white;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 

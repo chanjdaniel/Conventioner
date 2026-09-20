@@ -229,7 +229,7 @@ const calibrationLine = computed(() => {
   if (!startPoint.value || !endPoint.value) return null;
   return {
     points: [startPoint.value.x, startPoint.value.y, endPoint.value.x, endPoint.value.y],
-    stroke: '#e74c3c',
+    stroke: 'var(--mm-red)',
     strokeWidth: 2,
     dash: [8, 4],
     listening: false,
@@ -242,7 +242,7 @@ const startMarker = computed(() => {
     x: startPoint.value.x,
     y: startPoint.value.y,
     radius: 5,
-    fill: '#e74c3c',
+    fill: 'var(--mm-red)',
     stroke: '#ffffff',
     strokeWidth: 2,
     listening: false,
@@ -255,7 +255,7 @@ const endMarker = computed(() => {
     x: endPoint.value.x,
     y: endPoint.value.y,
     radius: 5,
-    fill: '#e74c3c',
+    fill: 'var(--mm-red)',
     stroke: '#ffffff',
     strokeWidth: 2,
     listening: false,
@@ -278,8 +278,8 @@ const pixelDistanceLabel = computed(() => {
     y: midY - 26,
     text: `${Math.round(originalDist)} px`,
     fontSize: 14,
-    fontFamily: 'Outfit Regular, sans-serif',
-    fill: '#e74c3c',
+    fontFamily: 'Outfit, sans-serif',
+    fill: 'var(--mm-red)',
     align: 'center',
     width: 200,
     listening: false,
@@ -613,14 +613,12 @@ onUnmounted(() => {
 }
 
 .cal-state-text {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
 .cal-error-text {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   text-align: center;
   margin: 0;
@@ -663,8 +661,7 @@ onUnmounted(() => {
   backdrop-filter: blur(6px);
   border-radius: 8px;
 
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: #ffffff;
   white-space: nowrap;
   pointer-events: none;
@@ -704,7 +701,7 @@ onUnmounted(() => {
 
 .cal-dialog-title {
   font-family: 'Merge One', sans-serif;
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--mm-black);
   margin: 0;
@@ -712,8 +709,7 @@ onUnmounted(() => {
 }
 
 .cal-dialog-desc {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   margin: 0;
   line-height: 1.4;
@@ -727,9 +723,8 @@ onUnmounted(() => {
 }
 
 .cal-input-label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--mm-black);
 }
 
@@ -740,8 +735,7 @@ onUnmounted(() => {
   background: var(--mm-beige);
   border: 1.5px solid var(--mm-border);
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   outline: none;
   transition: border-color 0.15s ease-in-out;
@@ -765,9 +759,8 @@ onUnmounted(() => {
 }
 
 .cal-unit-legend {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--mm-black);
   float: left;
   width: auto;
@@ -791,8 +784,7 @@ onUnmounted(() => {
 }
 
 .cal-unit-label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   user-select: none;
 }
@@ -804,8 +796,7 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
 }
 
@@ -829,7 +820,7 @@ onUnmounted(() => {
   border: none;
   border-radius: 5px;
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
   transition:
@@ -891,16 +882,14 @@ onUnmounted(() => {
 }
 
 .cal-result-label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   flex-shrink: 0;
 }
 
 .cal-result-value {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--mm-black);
   text-align: right;
   word-break: break-word;

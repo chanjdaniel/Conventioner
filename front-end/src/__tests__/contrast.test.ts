@@ -27,12 +27,24 @@ type Rgb = [number, number, number];
 // so its `import.meta.url` is not a file: URL and `fileURLToPath` refuses it.
 const BASE_CSS = readFileSync(resolvePath(process.cwd(), 'src/assets/base.css'), 'utf8');
 
+/**
+ * Whether a token's value is a colour at all.
+ *
+ * `base.css` also holds the type, spacing, radius and elevation scale (E16/F02), and a contrast
+ * contract has nothing to say about `12px`. Filtering on the VALUE rather than keeping a list of
+ * non-colour names means a token added to the scale later needs no edit here, while a colour added
+ * later still has to declare itself as ink or paint below - which is the whole point of that rule.
+ */
+function isColour(value: string): boolean {
+  return /^(#|rgb|hsl)/i.test(value.trim());
+}
+
 function parseTokens(css: string): Record<string, string> {
   const tokens: Record<string, string> = {};
   // Strip comments first: they quote old values ("was 2.65"), which would otherwise parse.
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
   for (const [, name, value] of withoutComments.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-    tokens[name] = value.trim();
+    if (isColour(value)) tokens[name] = value.trim();
   }
   return tokens;
 }
@@ -104,6 +116,9 @@ describe('the palette carries a contrast contract', () => {
     '--mm-text-muted',
     '--mm-text-yellow',
     '--mm-text-link',
+    // Ink on a green TINT, and on white it is darker still - so white is the harder of its two
+    // grounds to state here, and the tint pairing is measured by the rendered sweep.
+    '--mm-text-green',
     // --mm-green is here AND in FILLS below: it reaches 4.5 both as ink on white and as a fill
     // under white text, so it is one colour doing both jobs. Asserting both directions is what
     // keeps that true.
@@ -139,6 +154,11 @@ describe('the palette carries a contrast contract', () => {
     ['--mm-green', 'white'],
     ['--mm-yellow', '--mm-black'],
     ['--mm-beige', '--mm-black'],
+    // Added by E16/F01, and declared as fills here on purpose. Three of the nine reds they retired
+    // could not carry white text at all - #f44336, the Reject button, was 3.68 - and that went
+    // unnoticed because a hardcoded colour has no name to hold to a contract.
+    ['--mm-red', 'white'],
+    ['--mm-blue', 'white'],
   ];
 
   for (const [fill, ink] of FILLS) {

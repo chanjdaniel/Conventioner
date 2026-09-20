@@ -825,7 +825,7 @@ watch(
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   line-height: 1;
   cursor: pointer;
 
@@ -854,7 +854,7 @@ watch(
 
 .toolbar-btn--danger:hover:not(:disabled) {
   background: rgba(220, 80, 80, 0.12);
-  color: #c0392b;
+  color: var(--mm-red);
 }
 
 .toolbar-btn svg {
@@ -873,8 +873,7 @@ watch(
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(6px);
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   box-shadow: 0 1px 6px rgba(39, 35, 35, 0.08);
   z-index: 10;

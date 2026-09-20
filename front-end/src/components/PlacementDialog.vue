@@ -253,8 +253,8 @@ function label(email: string | null | undefined): string {
   width: 100%;
   max-width: 440px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 40px);
@@ -269,14 +269,13 @@ function label(email: string | null | undefined): string {
 .placement-dialog-head h2 {
   margin: 0;
   font-family: 'Merge One', sans-serif;
-  font-size: 20px;
+  font-size: var(--text-lg);
   color: var(--mm-green);
 }
 
 .placement-dialog-sub {
   margin: 4px 0 0;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -287,16 +286,16 @@ function label(email: string | null | undefined): string {
   width: 30px;
   height: 30px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
-  font-size: 22px;
+  font-size: var(--text-lg);
   line-height: 1;
   color: var(--mm-text-muted);
   cursor: pointer;
 }
 
 .placement-dialog-close:hover {
-  background: #f1f2f4;
+  background: var(--mm-beige);
   color: var(--mm-black);
 }
 
@@ -306,8 +305,7 @@ function label(email: string | null | undefined): string {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
@@ -321,7 +319,7 @@ function label(email: string | null | undefined): string {
 }
 
 .placement-field-label {
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -329,9 +327,9 @@ function label(email: string | null | undefined): string {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-sm);
   background: white;
   color: var(--mm-black);
 }
@@ -344,7 +342,7 @@ function label(email: string | null | undefined): string {
 
 .placement-note {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -356,16 +354,16 @@ function label(email: string | null | undefined): string {
   margin: 0;
   padding: 10px 12px 10px 28px;
   border-left: 4px solid var(--mm-yellow);
-  border-radius: 6px;
-  background: #fdf7e7;
+  border-radius: var(--radius-control);
+  background: rgba(228, 166, 41, 0.18);
   color: var(--mm-text-yellow);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
 
 .placement-error {
   margin: 0;
-  color: var(--mm-text-red);
-  font-size: 13px;
+  color: var(--mm-red);
+  font-size: var(--text-xs);
 }
 
 .placement-dialog-actions {
@@ -379,9 +377,8 @@ function label(email: string | null | undefined): string {
 .ghost-button,
 .confirm-button {
   padding: 8px 14px;
-  border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
@@ -392,8 +389,8 @@ function label(email: string | null | undefined): string {
 }
 
 .ghost-button--danger {
-  color: var(--mm-text-red);
-  border-color: var(--mm-text-red);
+  color: var(--mm-red);
+  border-color: var(--mm-red);
 }
 
 .confirm-button {

@@ -120,7 +120,7 @@ function toggleDropdown() {
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
 
@@ -195,8 +195,7 @@ function toggleDropdown() {
   background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 5px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   text-align: center;
 }
@@ -207,7 +206,7 @@ function toggleDropdown() {
   gap: 8px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   cursor: pointer;
   user-select: none;
@@ -236,7 +235,7 @@ function toggleDropdown() {
   border-radius: 5px;
 
   font-family: 'Merge One', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   line-height: 1;
   cursor: pointer;
 

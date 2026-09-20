@@ -15,9 +15,9 @@
   display: flex;
   flex-direction: column;
 
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background-color: white;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-card);
 }
 
 .setting-header {
@@ -52,10 +52,37 @@
   width: calc(100% - 8px);
 
   text-align: center;
-  font-size: 12px;
+  font-size: var(--text-xs);
 
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   background-color: white;
-  box-shadow: 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-card);
+}
+
+/*
+ * A column heading is a label, not a field (E16/F03/S03).
+ *
+ * `.row-container` is shared by the data rows AND the heading row above them, so "Section Name",
+ * "Location", "Tier" and "Count" wore the same border, radius and inset-looking shadow as the
+ * editable pills beneath them. A control's appearance is a promise about what it does, and these
+ * had nothing behind them: a query for `button, input, select, textarea, [role]` inside that row
+ * returns nothing at all.
+ */
+::v-deep(.column-titles.row-container) {
+  background-color: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--mm-border);
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+}
+
+::v-deep(.column-titles h3) {
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+  font-weight: 400;
+  /* The heading sizes to its own text. "Priority" is 51px of text and its column was 15% of a
+     280px panel - 42px - so the last glyph was cut. */
+  white-space: nowrap;
 }
 </style>

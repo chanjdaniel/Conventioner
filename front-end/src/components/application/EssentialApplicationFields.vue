@@ -429,26 +429,23 @@ function errorFor(key: string): string {
   gap: 2px;
   padding: 10px 14px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
-  background: #fafafa;
+  border-radius: var(--radius-control);
+  background: var(--mm-beige);
 }
 
 .essential-email-label {
-  font-family: 'Outfit Regular';
-  font-size: 14px;
-  font-weight: bold;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--mm-black);
 }
 
 .essential-email-value {
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
 .essential-email-note {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
@@ -459,19 +456,17 @@ function errorFor(key: string): string {
 }
 
 .essential-label {
-  font-family: 'Outfit Regular';
-  font-size: 14px;
-  font-weight: bold;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--mm-black);
 }
 
 .essential-required {
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .essential-help {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   margin: 0;
 }
@@ -482,12 +477,12 @@ function errorFor(key: string): string {
   gap: 2px;
   padding: 6px;
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
 .essential-choice-list.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .essential-choice {
@@ -497,20 +492,19 @@ function errorFor(key: string): string {
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid transparent;
-  border-radius: 5px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;
 }
 
 .essential-choice:hover {
-  background: #f4f4f4;
+  background: var(--mm-beige);
 }
 
 .essential-choice.checked {
-  background: #eef7ef;
-  border-color: #cfe3d4;
+  background: rgba(54, 130, 111, 0.16);
+  border-color: rgba(54, 130, 111, 0.16);
 }
 
 .essential-choice input[type='checkbox'],
@@ -525,36 +519,33 @@ function errorFor(key: string): string {
 .essential-text-input {
   height: 36px;
   padding: 4px 10px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
 .essential-text-input.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .essential-max-input {
   height: 36px;
   width: 120px;
   padding: 4px 10px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
 .essential-max-input.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .essential-error {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
-  color: var(--mm-red, #cc0000);
+  font-size: var(--text-xs);
+  color: var(--mm-red);
   margin: 2px 0 0;
 }
 .essential-tier-day {
@@ -563,7 +554,7 @@ function errorFor(key: string): string {
 
 .essential-tier-day-label {
   display: block;
-  font-size: 13px;
+  font-size: var(--text-xs);
   margin-bottom: 4px;
   color: var(--mm-black);
 }

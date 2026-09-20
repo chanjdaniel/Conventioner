@@ -58,15 +58,15 @@ const rows = computed(() =>
 <style scoped>
 .blocker-panel {
   padding: 1rem;
-  border-radius: 0.5rem;
-  background: var(--p-red-50, #fef2f2);
-  border: 1px solid var(--p-red-200, #fecaca);
+  border-radius: var(--radius-control);
+  background: var(--p-red-50, rgba(192, 57, 43, 0.14));
+  border: 1px solid var(--p-red-200, rgba(192, 57, 43, 0.14));
 }
 
 .blocker-heading {
   margin: 0 0 0.5rem 0;
   font-weight: 600;
-  color: var(--p-red-700, #b91c1c);
+  color: var(--p-red-700, var(--mm-red));
 }
 
 .blocker-list {
@@ -80,11 +80,11 @@ const rows = computed(() =>
   align-items: baseline;
   gap: 0.5rem;
   padding: 0.25rem 0;
-  color: var(--p-red-600, #dc2626);
+  color: var(--p-red-600, var(--mm-red));
 }
 
 .blocker-item + .blocker-item {
-  border-top: 1px solid var(--p-red-200, #fecaca);
+  border-top: 1px solid var(--p-red-200, rgba(192, 57, 43, 0.14));
 }
 
 .blocker-message {
@@ -93,8 +93,8 @@ const rows = computed(() =>
 
 .blocker-link {
   flex-shrink: 0;
-  font-weight: 500;
-  color: var(--p-red-700, #b91c1c);
+  font-weight: 400;
+  color: var(--p-red-700, var(--mm-red));
   text-decoration: underline;
 }
 </style>

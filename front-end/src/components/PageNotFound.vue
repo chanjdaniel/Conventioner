@@ -27,31 +27,29 @@ const router = useRouter();
 <style scoped>
 .not-found {
   padding: 48px 40px;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
 }
 
 h1 {
   margin: 0 0 12px;
-  font-size: 28px;
+  font-size: var(--text-xl);
   font-weight: 600;
 }
 
 p {
   margin: 0 0 20px;
   color: var(--mm-text-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .not-found-action {
   height: 38px;
   padding: 0 18px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--mm-green);
   background: var(--mm-green);
   color: white;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 </style>

@@ -165,19 +165,17 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 }
 
 .form-label {
-  font-family: 'Outfit Regular';
-  font-size: 14px;
-  font-weight: bold;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--mm-black);
 }
 
 .form-required {
-  color: var(--mm-red, #cc0000);
+  color: var(--mm-red);
 }
 
 .form-help {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   margin: 0;
 }
@@ -185,15 +183,14 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
 .form-input {
   height: 36px;
   padding: 4px 10px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
 .form-input.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .form-checkbox-label {
@@ -201,8 +198,7 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   cursor: pointer;
 }
@@ -213,25 +209,23 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
   gap: 6px;
   padding: 10px;
   border: 1px solid var(--mm-border);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   background: white;
 }
 
 .form-multiselect.error {
-  border-color: var(--mm-red, #cc0000);
+  border-color: var(--mm-red);
 }
 
 .form-field-error {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
-  color: var(--mm-red, #cc0000);
+  font-size: var(--text-xs);
+  color: var(--mm-red);
   margin: 2px 0 0;
 }
 
 .form-unsupported {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
-  color: var(--mm-red, #cc0000);
+  font-size: var(--text-xs);
+  color: var(--mm-red);
   font-style: italic;
 }
 </style>

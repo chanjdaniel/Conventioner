@@ -176,8 +176,7 @@ async function submitForm() {
   align-items: flex-start;
   gap: 12px;
   padding: 24px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .apply-load-failed button {
@@ -186,15 +185,13 @@ async function submitForm() {
   border-radius: 6px;
   border: 1px solid var(--mm-border);
   background: white;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
 .apply-loading {
   text-align: center;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
   padding: 40px;
 }
@@ -211,17 +208,16 @@ async function submitForm() {
 
 .apply-header h1 {
   font-family: 'Merge One';
-  font-size: 24px;
+  font-size: var(--text-xl);
   color: var(--mm-black);
   margin: 0;
 }
 
 .phase-badge {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
+  font-size: var(--text-xs);
   border-radius: 4px;
   padding: 4px 10px;
-  background: #f0f0f0;
+  background: var(--mm-beige);
   color: var(--mm-text-muted);
 }
 
@@ -231,21 +227,19 @@ async function submitForm() {
 }
 
 .apply-closed {
-  background: #fff3cd;
-  border: 1px solid #ffc107;
+  background: rgba(228, 166, 41, 0.18);
+  border: 1px solid var(--mm-yellow);
   border-radius: 6px;
   padding: 16px;
   margin-bottom: 24px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
-  color: #664d03;
+  font-size: var(--text-sm);
+  color: var(--mm-text-yellow);
 }
 
 .apply-no-form {
   text-align: center;
   padding: 40px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-text-muted);
 }
 
@@ -256,13 +250,12 @@ async function submitForm() {
 }
 
 .apply-custom-divider {
-  font-family: 'Outfit Regular';
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--mm-text-muted);
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--mm-border);
   padding-bottom: 4px;
   margin-top: 8px;
 }
@@ -281,7 +274,7 @@ async function submitForm() {
   padding: 10px 24px;
   cursor: pointer;
   font-family: 'Merge One';
-  font-size: 16px;
+  font-size: var(--text-md);
 }
 
 .apply-submit-btn:disabled {
@@ -292,11 +285,10 @@ async function submitForm() {
 .apply-error {
   margin-top: 4px;
   background: #f8d7da;
-  border: 1px solid var(--mm-red, #cc0000);
+  border: 1px solid var(--mm-red);
   border-radius: 6px;
   padding: 12px 16px;
-  font-family: 'Outfit Regular';
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: #721c24;
 }
 </style>

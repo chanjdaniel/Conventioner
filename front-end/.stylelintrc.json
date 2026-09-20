@@ -1,0 +1,101 @@
+{
+  "extends": ["stylelint-config-html/vue"],
+  "rules": {
+    "color-no-hex": [
+      true,
+      {
+        "severity": "warning",
+        "message": "Use a --mm-* token from base.css. 351 hardcoded colours, nine reds for one semantic role, and a red that could not carry white text is how the product got here (E16/F02)."
+      }
+    ],
+    "declaration-property-value-disallowed-list": [
+      {
+        "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
+        "/^border-radius$/": ["/^[0-9.]+(px|rem)/", "/^[0-9.]+%(?<!50%)/"],
+        "/^box-shadow$/": ["/^(?!var\\(|none)/"]
+      },
+      {
+        "severity": "warning",
+        "message": "Use a scale token from base.css - --text-*, --radius-*, --shadow-card. See docs/design-system.md."
+      }
+    ]
+  },
+  "ignoreFiles": ["dist/**", "node_modules/**", "src/assets/base.css", "src/assets/primitives.css"],
+  "overrides": [
+    {
+      "files": [
+        "src/components/AssignmentResults.vue",
+        "src/components/AssignmentStatListItem.vue",
+        "src/components/BlockerPanel.vue",
+        "src/components/MarketSummaryCard.vue",
+        "src/components/NoMarketLoaded.vue",
+        "src/components/PageNotFound.vue",
+        "src/components/PhaseBadge.vue",
+        "src/components/PhaseRail.vue",
+        "src/components/PlacementDialog.vue",
+        "src/components/PlacementHistory.vue",
+        "src/components/SummaryCard.vue",
+        "src/components/VendorDateCard.vue",
+        "src/components/VendorIdentity.vue",
+        "src/components/VendorsModal.vue",
+        "src/components/application/ApplicationFormFields.vue",
+        "src/components/application/ApplicationMonitor.vue",
+        "src/components/application/EssentialApplicationFields.vue",
+        "src/components/application/EssentialFieldsPanel.vue",
+        "src/components/application/FormBuilder.vue",
+        "src/components/application/FormFieldEditor.vue",
+        "src/components/application/FormPreview.vue",
+        "src/components/application/RankedChoiceInput.vue",
+        "src/components/elements/ElementAssignmentOptions.vue",
+        "src/components/elements/ElementAssignmentPriority.vue",
+        "src/components/elements/ElementBanner.vue",
+        "src/components/elements/ElementInitButton.vue",
+        "src/components/elements/ElementLocationSetup.vue",
+        "src/components/elements/ElementMarketDates.vue",
+        "src/components/elements/ElementNavigation.vue",
+        "src/components/elements/ElementNavigationItem.vue",
+        "src/components/elements/ElementOrgSelect.vue",
+        "src/components/elements/ElementSectionSetup.vue",
+        "src/components/elements/ElementSettingContainer.vue",
+        "src/components/elements/ElementSignoutButton.vue",
+        "src/components/elements/ElementTierSetup.vue",
+        "src/views/AttendanceCheckinView.vue",
+        "src/views/AttendanceStatusView.vue",
+        "src/views/CsvImportView.vue",
+        "src/views/DashboardView.vue",
+        "src/views/EmailVerificationView.vue",
+        "src/views/InitView.vue",
+        "src/views/LoadMarketOverlay.vue",
+        "src/views/LoginView.vue",
+        "src/views/ManageMarketOverlay.vue",
+        "src/views/ManageOrgOverlay.vue",
+        "src/views/MarketSetupView.vue",
+        "src/views/MarketsView.vue",
+        "src/views/NewMarketOverlay.vue",
+        "src/views/OrganizationsView.vue",
+        "src/views/PasswordResetRequestView.vue",
+        "src/views/PasswordResetView.vue",
+        "src/views/TablesView.vue",
+        "src/views/VendorsView.vue"
+      ],
+      "rules": {
+        "color-no-hex": [
+          true,
+          {
+            "severity": "error"
+          }
+        ],
+        "declaration-property-value-disallowed-list": [
+          {
+            "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
+            "/^border-radius$/": ["/^[0-9.]+(px|rem)/", "/^[0-9.]+%(?<!50%)/"],
+            "/^box-shadow$/": ["/^(?!var\\(|none)/"]
+          },
+          {
+            "severity": "error"
+          }
+        ]
+      }
+    }
+  ]
+}

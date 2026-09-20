@@ -88,7 +88,10 @@ onMounted(loadAttendance);
   <div class="attendance-status-view">
     <div class="attendance-status-card">
       <header class="attendance-status-header">
-        <h1>Attendance Status</h1>
+        <!-- The screen, then the market (E15/F02/S03). -->
+        <h1 data-testid="attendance-status-heading">
+          {{ railMarket ? `Attendance: ${railMarket.name}` : 'Attendance Status' }}
+        </h1>
       </header>
 
       <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />
@@ -152,15 +155,15 @@ onMounted(loadAttendance);
      anywhere - six of twenty-four tables visible, the second market date unreachable - and it is
      the same reason the Attendance card was an 820px slab holding 200px of content. */
   align-items: flex-start;
-  background-color: #f6f7f9;
+  background-color: var(--mm-beige);
 }
 
 .attendance-status-card {
   width: 100%;
-  max-width: 1100px;
+  max-width: var(--list-max);
   background-color: white;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.15);
-  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -175,8 +178,7 @@ onMounted(loadAttendance);
 .attendance-status-header h1 {
   margin: 0;
   color: white;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 26px;
+  font-size: var(--text-xl);
   text-align: center;
 }
 
@@ -184,7 +186,6 @@ onMounted(loadAttendance);
   padding: 24px;
   min-height: 200px;
   overflow-y: auto;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
 }
 
@@ -199,20 +200,19 @@ onMounted(loadAttendance);
 
 .attendance-table th,
 .attendance-table td {
-  border: 1px solid #e1e4e8;
+  border: 1px solid var(--mm-border);
   padding: 10px 12px;
   text-align: left;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .attendance-table th {
-  background-color: #f0f2f4;
+  background-color: var(--mm-beige);
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .vendor-cell {
-  font-family: 'Outfit Regular', sans-serif;
   font-weight: 600;
 }
 
@@ -220,18 +220,18 @@ onMounted(loadAttendance);
   padding: 16px 24px;
   display: flex;
   justify-content: flex-start;
-  border-top: 1px solid #eceff1;
+  border-top: 1px solid var(--mm-border);
 }
 
 .primary-button {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 0 18px;
   height: 38px;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 
@@ -241,8 +241,8 @@ onMounted(loadAttendance);
 
 .error-text {
   margin: 0 0 12px;
-  color: #c62828;
-  font-size: 14px;
+  color: var(--mm-red);
+  font-size: var(--text-sm);
 }
 
 .empty-state {

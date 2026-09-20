@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, toRef, nextTick, computed, watch } from 'vue';
+import { onMounted, ref, toRef, computed, watch } from 'vue';
 import draggable from 'vuedraggable';
 import { type SetupObject } from '@/assets/types/datatypes';
 import IconAddRound from '../icons/IconAddRound.vue';
@@ -74,22 +74,11 @@ const removeWatcher = (objId: number) => {
   }
 };
 
-const rowsMaxHeight = ref<string | null>(null);
 const container = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
-const setHeight = () => {
-  rowsMaxHeight.value = '0px';
-  nextTick(() => {
-    if (container.value && columnTitles.value && rows.value) {
-      rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
-    }
-  });
-};
 
 onMounted(() => {
-  setHeight();
-
   // Tiers used to be pre-filled by scraping the uploaded spreadsheet's cell values. There is no
   // spreadsheet now, and a tier is the organizer's decision rather than something to infer.
 });
@@ -150,7 +139,7 @@ const dragOptions = computed(() => ({
                   :data-testid="'setup-tier-name-input-' + parentIndex"
                   style="
                     all: unset;
-                    font-size: 14px;
+                    font-size: var(--text-sm);
                     width: 100%;
                     height: 100%;
                     text-align: center;
@@ -230,18 +219,17 @@ h3 {
 .input-container {
   width: 80%;
   height: 100%;
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
 }
 
 .column-titles {
   display: grid;
-  grid-template-columns: 15% minmax(0, 1fr) 2rem;
+  grid-template-columns: minmax(max-content, 15%) minmax(0, 1fr) 2rem;
 }
 
 .priority-row {
   display: grid;
-  grid-template-columns: 15% minmax(0, 1fr) 2rem;
+  grid-template-columns: minmax(max-content, 15%) minmax(0, 1fr) 2rem;
   padding-top: 5px;
   padding-bottom: 5px;
   min-height: 48px;
@@ -249,7 +237,6 @@ h3 {
 }
 
 .sortable-ghost {
-  box-shadow: inset 0px 0px 4px 2px rgba(0, 0, 0, 0.25);
   opacity: 0.7;
 }
 
@@ -281,11 +268,10 @@ h3 {
   flex: 0 0 auto;
   margin-left: 8px;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--mm-yellow);
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 11px;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -327,7 +313,6 @@ h3 {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: v-bind(rowsMaxHeight);
 
   align-items: center;
 
@@ -353,7 +338,7 @@ h3 {
   border: none;
   outline: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-sm);
   padding-right: 5px;
   background-color: white;
 }

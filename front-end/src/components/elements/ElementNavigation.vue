@@ -75,15 +75,15 @@ const user = inject<string | null>('user');
 <style scoped>
 .user-email {
   margin-top: 20px;
-  font-size: 18px;
+  font-size: var(--text-lg);
 }
 
 h3 {
   font-family: 'Merge One';
   font-style: normal;
-  font-size: 18px;
+  font-size: var(--text-lg);
 
-  /* color: #ffffff; */
+  /* color: white; */
   color: var(--mm-black);
 }
 
@@ -100,8 +100,8 @@ h3 {
   min-width: 250px;
   max-width: 300px;
 
-  background: #ffffff;
-  border-radius: 0px 10px 10px 0px;
+  background: white;
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
 }
 
 .close-button {

@@ -112,16 +112,20 @@ watch(isLogin, (newValue) => {
 /* `100vw` includes the vertical scrollbar, so any page tall enough to scroll gained a horizontal
    scrollbar it did not need (E08/F01/S02). `left/right: 0` fills the containing block exactly,
    scrollbar or not. */
+/*
+ * The shell fills the viewport and GROWS past it, so the page scrolls (E16/F03).
+ *
+ * It used to be `position: absolute; height: 100vh`, pinned to the viewport - which meant no screen
+ * could ever scroll the page, and every screen taller than the viewport had to handle its own
+ * overflow internally. That is where Market Setup's six nested scrollers came from, and why its
+ * card was capped at 80% of the viewport in the first place.
+ */
 .app-container {
-  right: 0;
-  height: 100vh;
+  min-height: 100vh;
   min-width: 1000px;
   background-color: white;
   padding: 0px;
   margin: 0px;
-  position: absolute;
-  left: 0;
-  top: 0;
 
   display: flex;
   flex-direction: column;

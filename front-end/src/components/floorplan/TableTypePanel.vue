@@ -18,7 +18,7 @@ const emit = defineEmits<{
 // ── Color palette ──────────────────────────────────────────────────
 const PALETTE: string[] = [
   '#4A90D9',
-  '#E74C3C',
+  'var(--mm-red)',
   '#27AE60',
   '#F39C12',
   '#8E44AD',
@@ -445,7 +445,7 @@ const selectOptions = [
 .tt-panel-title {
   margin: 0;
   font-family: 'Merge One', sans-serif;
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--mm-black);
   letter-spacing: 0.02em;
@@ -476,7 +476,7 @@ const selectOptions = [
 .tt-type-card:hover {
   border-color: var(--mm-green);
   background: #ffffff;
-  box-shadow: 0 2px 12px rgba(73, 176, 150, 0.12);
+  box-shadow: 0 2px 12px rgba(54, 130, 111, 0.12);
 }
 
 .tt-color-swatch {
@@ -485,7 +485,7 @@ const selectOptions = [
   height: 28px;
   border-radius: 6px;
   border: 2px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-card);
 }
 
 .tt-type-info {
@@ -497,9 +497,8 @@ const selectOptions = [
 }
 
 .tt-type-name {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--mm-black);
   white-space: nowrap;
   overflow: hidden;
@@ -507,8 +506,7 @@ const selectOptions = [
 }
 
 .tt-type-dims {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: rgba(39, 35, 35, 0.55);
 }
 
@@ -530,7 +528,7 @@ const selectOptions = [
   border: none;
   border-radius: 6px;
   color: rgba(39, 35, 35, 0.45);
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
   transition:
     background-color 0.15s ease-in-out,
@@ -544,7 +542,7 @@ const selectOptions = [
 
 .tt-icon-btn--delete:hover {
   background: rgba(220, 80, 80, 0.12);
-  color: #c0392b;
+  color: var(--mm-red);
 }
 
 /* ── Empty state ─────────────────────────────────────────────── */
@@ -552,8 +550,7 @@ const selectOptions = [
   margin: 0;
   padding: 20px 0;
   text-align: center;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: rgba(39, 35, 35, 0.4);
 }
 
@@ -570,7 +567,7 @@ const selectOptions = [
   border: 1.5px dashed var(--mm-green);
   border-radius: 8px;
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   cursor: pointer;
   transition:
@@ -592,7 +589,7 @@ const selectOptions = [
   background: #ffffff;
   border: 1.5px solid var(--mm-green);
   border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(73, 176, 150, 0.1);
+  box-shadow: 0 2px 12px rgba(54, 130, 111, 0.1);
 }
 
 /* ── Form fields ─────────────────────────────────────────────── */
@@ -613,9 +610,8 @@ const selectOptions = [
 }
 
 .tt-label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--mm-black);
 }
 
@@ -625,8 +621,7 @@ const selectOptions = [
   border: 1.5px solid var(--mm-border);
   border-radius: 8px;
   background: var(--mm-beige);
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   outline: none;
   transition: border-color 0.15s ease-in-out;
@@ -642,7 +637,7 @@ const selectOptions = [
 }
 
 .tt-input--error {
-  border-color: #c0392b;
+  border-color: var(--mm-red);
 }
 
 /* ── SelectButton overrides ──────────────────────────────────── */
@@ -656,20 +651,18 @@ const selectOptions = [
 
 .tt-select-btn :deep(.p-togglebutton) {
   flex: 1;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 /* ── Error message ───────────────────────────────────────────── */
 .tt-error {
   margin: 0;
   padding: 8px 12px;
-  background: color-mix(in srgb, #c0392b 10%, transparent);
-  border: 1px solid #c0392b;
+  background: color-mix(in srgb, var(--mm-red) 10%, transparent);
+  border: 1px solid var(--mm-red);
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
-  color: #c0392b;
+  font-size: var(--text-xs);
+  color: var(--mm-red);
 }
 
 /* ── Form actions ────────────────────────────────────────────── */
@@ -688,7 +681,7 @@ const selectOptions = [
   height: 34px;
   padding: 0 16px;
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   line-height: 1;
   color: #ffffff;
   border: none;

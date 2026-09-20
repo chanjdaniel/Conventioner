@@ -389,7 +389,7 @@ function handleBack(): void {
   <div class="vendors-view">
     <div class="vendors-card">
       <header class="vendors-header">
-        <h1>{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
+        <h1 data-testid="vendors-heading">{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
       </header>
 
       <PhaseRail :market="market" @phase-advanced="(m) => (market = m)" />
@@ -579,16 +579,16 @@ function handleBack(): void {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  background-color: #f6f7f9;
+  background-color: var(--mm-beige);
   position: relative;
 }
 
 .vendors-card {
   width: 100%;
-  max-width: 1100px;
+  max-width: var(--list-max);
   background-color: white;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.15);
-  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -603,8 +603,7 @@ function handleBack(): void {
 .vendors-header h1 {
   margin: 0;
   color: white;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 26px;
+  font-size: var(--text-xl);
   text-align: center;
   word-break: break-word;
 }
@@ -617,7 +616,6 @@ function handleBack(): void {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
 }
 
@@ -631,12 +629,11 @@ function handleBack(): void {
   align-items: center;
   gap: 12px;
   padding: 4px 0 12px;
-  border-bottom: 1px solid #eceff1;
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .filter-label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   opacity: 0.75;
 }
@@ -644,10 +641,9 @@ function handleBack(): void {
 .filter-input {
   width: 100%;
   padding: 10px 12px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 15px;
-  border: 1px solid #cfd3d8;
-  border-radius: 6px;
+  font-size: var(--text-sm);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
   transition:
     border-color 0.15s ease-in-out,
     box-shadow 0.15s ease-in-out;
@@ -656,12 +652,12 @@ function handleBack(): void {
 .filter-input:focus {
   outline: none;
   border-color: var(--mm-green);
-  box-shadow: 0 0 0 3px rgba(73, 176, 150, 0.18);
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
 }
 
 .summary-line {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   opacity: 0.8;
   white-space: nowrap;
@@ -669,15 +665,15 @@ function handleBack(): void {
 
 .summary-strong {
   font-family: 'Merge One', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-green);
   margin: 0 2px;
 }
 
 .error-text {
   margin: 0;
-  color: #c62828;
-  font-size: 14px;
+  color: var(--mm-red);
+  font-size: var(--text-sm);
 }
 
 .loading-state {
@@ -688,7 +684,6 @@ function handleBack(): void {
   padding: 60px 0;
   color: var(--mm-black);
   opacity: 0.75;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .spinner {
@@ -715,7 +710,6 @@ function handleBack(): void {
   padding: 48px 16px;
   text-align: center;
   color: var(--mm-text-muted);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .empty-state--inline {
@@ -746,14 +740,13 @@ function handleBack(): void {
   justify-content: space-between;
   gap: 16px;
   padding: 14px 18px;
-  border: 1px solid #e1e4e8;
-  border-radius: 8px;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-card);
   background: white;
   cursor: pointer;
   text-align: left;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-card);
   transition:
     border-color 0.15s ease-in-out,
     box-shadow 0.15s ease-in-out,
@@ -762,7 +755,7 @@ function handleBack(): void {
 
 .vendor-row-button:hover {
   border-color: var(--mm-green);
-  box-shadow: 0 2px 8px rgba(73, 176, 150, 0.18);
+  box-shadow: var(--shadow-card);
 }
 
 .vendor-row-button:active {
@@ -771,11 +764,12 @@ function handleBack(): void {
 
 .vendor-row--active .vendor-row-button {
   border-color: var(--mm-green);
-  box-shadow: 0 0 0 2px rgba(73, 176, 150, 0.35);
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
 }
 
 .vendor-email {
-  font-size: 15px;
+  font-size: var(--text-sm);
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -792,32 +786,39 @@ function handleBack(): void {
   display: inline-flex;
   align-items: center;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-family: 'Merge One', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
 .vendor-badge--assigned {
-  background: rgba(73, 176, 150, 0.16);
-  color: #1e7a4f;
+  background: rgba(54, 130, 111, 0.16);
+  /* Darkened from #1e7a4f, which measured 4.35 on this tint - the rendered-usage sweep in
+     E16/F01/S05 is what found it. A tinted chip is its own ground, and neither the token test nor
+     the eye catches a miss of 0.15. */
+  color: var(--mm-text-green); /* 5.34 on rgba(54,130,111,.16) over white */
 }
 
 .vendor-badge--unassigned {
   background: rgba(228, 166, 41, 0.18);
-  color: #8a5a00;
+  color: var(--mm-text-yellow);
 }
 
 .vendor-date-count {
-  font-size: 13px;
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
   white-space: nowrap;
 }
 
 .vendors-actions {
   padding: 16px 24px;
-  border-top: 1px solid #eceff1;
+  border-top: 1px solid var(--mm-border);
   display: flex;
   justify-content: flex-start;
 }
@@ -826,11 +827,11 @@ function handleBack(): void {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 0 18px;
   height: 38px;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   cursor: pointer;
   transition: opacity 0.15s ease-in-out;
 }
@@ -863,7 +864,7 @@ function handleBack(): void {
   height: 100vh;
   width: min(480px, 92vw);
   background: white;
-  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-card);
   transform: translateX(100%);
   transition: transform 0.25s ease-in-out;
   z-index: 60;
@@ -903,8 +904,7 @@ function handleBack(): void {
 }
 
 .detail-eyebrow {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   opacity: 0.7;
@@ -913,7 +913,7 @@ function handleBack(): void {
 .detail-title {
   margin: 0;
   font-family: 'Merge One', sans-serif;
-  font-size: 22px;
+  font-size: var(--text-lg);
   color: white;
   overflow-wrap: anywhere;
 }
@@ -921,8 +921,7 @@ function handleBack(): void {
 /* The panel head is dark, so the muted-on-dark token rather than the on-white one. */
 .detail-subtitle {
   margin: 2px 0 0;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted-on-dark);
   overflow-wrap: anywhere;
 }
@@ -931,11 +930,11 @@ function handleBack(): void {
   background: transparent;
   border: none;
   color: white;
-  font-size: 30px;
+  font-size: var(--text-2xl);
   line-height: 1;
   cursor: pointer;
   padding: 0 4px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   transition: background-color 0.15s ease-in-out;
 }
 
@@ -945,7 +944,7 @@ function handleBack(): void {
 
 .detail-section {
   padding: 20px 22px;
-  border-bottom: 1px solid #eceff1;
+  border-bottom: 1px solid var(--mm-border);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -958,7 +957,7 @@ function handleBack(): void {
 .detail-section-title {
   margin: 0;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
   padding-bottom: 8px;
   border-bottom: 2px solid var(--mm-border);
@@ -969,14 +968,13 @@ function handleBack(): void {
   display: grid;
   grid-template-columns: minmax(120px, 0.6fr) 1fr;
   gap: 8px 16px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
 .detail-grid dt {
   font-family: 'Merge One', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   opacity: 0.75;
   align-self: start;
@@ -989,9 +987,8 @@ function handleBack(): void {
 }
 
 .detail-empty {
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-text-muted);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .assignment-list {
@@ -1004,24 +1001,23 @@ function handleBack(): void {
 }
 
 .assignment-item {
-  border: 1px solid #e1e4e8;
+  border: 1px solid var(--mm-border);
   border-left: 4px solid var(--mm-green);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   padding: 12px 14px;
   background: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-card);
 }
 
 .assignment-date {
   font-family: 'Merge One', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-green);
   margin-bottom: 4px;
 }
 
 .assignment-detail {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   overflow-wrap: anywhere;
 }

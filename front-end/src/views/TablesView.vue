@@ -457,7 +457,12 @@ function swapSeats(withEmail: string): void {
   <div class="tables-view">
     <div class="tables-card">
       <header class="tables-header">
-        <h1>Tables</h1>
+        <!-- The screen, then the market. An organizer running two markets in the same week
+             could open this one and have nothing on screen say whose tables these are - on the
+             screen where a hand placement moves a real vendor to a real seat (E15/F02/S03). -->
+        <h1 data-testid="tables-heading">
+          {{ railMarket ? `Tables: ${railMarket.name}` : 'Tables' }}
+        </h1>
       </header>
 
       <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />
@@ -810,15 +815,15 @@ function swapSeats(withEmail: string): void {
      anywhere - six of twenty-four tables visible, the second market date unreachable - and it is
      the same reason the Attendance card was an 820px slab holding 200px of content. */
   align-items: flex-start;
-  background-color: #f6f7f9;
+  background-color: var(--mm-beige);
 }
 
 .tables-card {
   width: 100%;
-  max-width: 1100px;
+  max-width: var(--list-max);
   background-color: white;
-  box-shadow: 0px 0px 4px 5px rgba(0, 0, 0, 0.15);
-  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -835,14 +840,12 @@ function swapSeats(withEmail: string): void {
 .tables-header h1 {
   margin: 0;
   color: white;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 26px;
+  font-size: var(--text-xl);
   text-align: center;
 }
 
 .tables-body {
   padding: 24px;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
   flex: 1;
   display: flex;
@@ -873,7 +876,7 @@ function swapSeats(withEmail: string): void {
 
 .filter-chips-label {
   font-family: 'Merge One', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
@@ -884,9 +887,8 @@ function swapSeats(withEmail: string): void {
   padding: 4px 10px;
   background-color: var(--mm-beige);
   border: 1px solid var(--mm-border);
-  border-radius: 20px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
   color: var(--mm-black);
   cursor: pointer;
   transition:
@@ -905,10 +907,10 @@ function swapSeats(withEmail: string): void {
 }
 
 .filter-chip-close {
-  font-size: 16px;
+  font-size: var(--text-md);
   line-height: 1;
   color: var(--mm-black);
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .filter-chip--clear-all {
@@ -921,23 +923,29 @@ function swapSeats(withEmail: string): void {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .counts-primary {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   font-family: 'Merge One', sans-serif;
-  font-size: 15px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
 .count-badge {
+  /* Figures in a column need fixed-width digits (E15/F01/S03). Outfit's 0, 1 and 2 are different
+     widths, so a right-aligned group shifts by a pixel or two per row and the column reads ragged
+     down the list. */
+  font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-family: 'Outfit Regular', sans-serif;
+  border-radius: var(--radius-card);
+  font-size: var(--text-xs);
 }
 
 .count-badge--assigned {
@@ -996,7 +1004,7 @@ function swapSeats(withEmail: string): void {
   padding-bottom: 8px;
   border-bottom: 2px solid var(--mm-black);
   font-family: 'Merge One', sans-serif;
-  font-size: 22px;
+  font-size: var(--text-lg);
   color: var(--mm-black);
   display: flex;
   align-items: baseline;
@@ -1006,7 +1014,7 @@ function swapSeats(withEmail: string): void {
 }
 
 .date-heading-count {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   opacity: 0.6;
 }
@@ -1021,7 +1029,7 @@ function swapSeats(withEmail: string): void {
 .section-heading {
   margin: 0;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   color: var(--mm-black);
   display: flex;
   align-items: center;
@@ -1030,15 +1038,17 @@ function swapSeats(withEmail: string): void {
 }
 
 .section-heading-name {
-  font-size: 17px;
+  font-size: var(--text-md);
 }
 
 .section-heading-meta {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  /* Not redundant, unlike the 273 declarations E15/F01/S01 removed: `.section-heading` sets Merge
+     One on the <h3>, and this chip is a <span> inside it, so it opts back out. */
+  font-family: 'Outfit', sans-serif;
+  font-size: var(--text-xs);
   padding: 2px 8px;
   background-color: var(--mm-beige);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   color: var(--mm-black);
 }
 
@@ -1057,12 +1067,9 @@ function swapSeats(withEmail: string): void {
   gap: 8px;
   padding: 12px 16px;
   background-color: white;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   border-left: 4px solid var(--mm-green);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.06),
-    0 2px 4px rgba(0, 0, 0, 0.06),
-    0 6px 14px rgba(0, 0, 0, 0.07);
+  box-shadow: var(--shadow-card);
 }
 
 .table-row--partial {
@@ -1071,7 +1078,7 @@ function swapSeats(withEmail: string): void {
 
 .table-row--empty {
   border-left-color: var(--mm-yellow);
-  background-color: #fffbe6;
+  background-color: rgba(228, 166, 41, 0.18);
 }
 
 .table-row-head {
@@ -1083,16 +1090,15 @@ function swapSeats(withEmail: string): void {
 
 .table-code {
   font-family: 'Merge One', sans-serif;
-  font-size: 20px;
+  font-size: var(--text-lg);
   color: var(--mm-black);
   letter-spacing: 0.5px;
 }
 
 .choice-badge {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   padding: 2px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -1109,8 +1115,7 @@ function swapSeats(withEmail: string): void {
 }
 
 .meta-tag {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   opacity: 0.65;
 }
@@ -1124,8 +1129,7 @@ function swapSeats(withEmail: string): void {
 }
 
 .assignment-email {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   word-break: break-word;
 }
@@ -1141,8 +1145,7 @@ function swapSeats(withEmail: string): void {
 }
 
 .assignment-empty {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   opacity: 0.6;
   font-style: italic;
@@ -1171,7 +1174,7 @@ function swapSeats(withEmail: string): void {
   text-align: left;
   padding: 6px 8px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   font: inherit;
   cursor: pointer;
@@ -1186,7 +1189,7 @@ function swapSeats(withEmail: string): void {
 
 .seat-button:hover {
   border-color: var(--mm-green);
-  background: #f6f7f9;
+  background: var(--mm-beige);
 }
 
 .seat-button:focus-visible {
@@ -1206,8 +1209,7 @@ function swapSeats(withEmail: string): void {
    row taller makes the grid jump under the pointer. `nowrap` keeps it beside the label rather
    than below it, so a vacant seat is exactly as tall as an occupied one. */
 .seat-button-hint {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   white-space: nowrap;
   color: var(--mm-text-link);
   opacity: 0;
@@ -1232,25 +1234,23 @@ function swapSeats(withEmail: string): void {
 }
 
 .filter-picker-label {
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--mm-text-muted);
 }
 
 .filter-picker select {
   padding: 6px 8px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: white;
-  font-family: 'Outfit Regular', sans-serif;
-  font-size: 13px;
+  font-size: var(--text-xs);
   color: var(--mm-black);
   max-width: 100%;
 }
 
 .half-slot-label {
   font-family: 'Merge One', sans-serif;
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   color: var(--mm-black);
   opacity: 0.55;
@@ -1261,18 +1261,18 @@ function swapSeats(withEmail: string): void {
   padding: 16px 24px;
   display: flex;
   justify-content: flex-start;
-  border-top: 1px solid #eceff1;
+  border-top: 1px solid var(--mm-border);
 }
 
 .primary-button {
   background: var(--mm-green);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   padding: 0 18px;
   height: 38px;
   font-family: 'Merge One', sans-serif;
-  font-size: 16px;
+  font-size: var(--text-md);
   cursor: pointer;
   transition: opacity 0.12s ease-in-out;
 }
@@ -1288,8 +1288,8 @@ function swapSeats(withEmail: string): void {
 
 .error-text {
   margin: 0 0 12px;
-  color: #c62828;
-  font-size: 14px;
+  color: var(--mm-red);
+  font-size: var(--text-sm);
 }
 
 .visually-hidden {
@@ -1314,7 +1314,7 @@ function swapSeats(withEmail: string): void {
   }
 
   .date-heading {
-    font-size: 18px;
+    font-size: var(--text-lg);
   }
 
   .table-row-head {
@@ -1322,7 +1322,7 @@ function swapSeats(withEmail: string): void {
   }
 
   .table-code {
-    font-size: 18px;
+    font-size: var(--text-lg);
   }
 }
 </style>

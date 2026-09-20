@@ -504,6 +504,53 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   fail loud for `th-compose.sh`). This makes them work from a no-mistakes worktree
   (which has no treehouse slot) without falling through to the primary stack.
 
+## The Design Language (Conventioner sharp edge)
+
+- **`docs/design-system.md` is the single statement of what this product looks like**, decided
+  2026-09-20 from the walk in `.lavish/aesthetics-2026-09-20.html`. A value not in that file does not
+  belong in a component. `front-end/src/assets/base.css` is where it becomes tokens; `E16` is the work
+  of making it true.
+- **There is no shared component layer yet, and that is the root cause of everything aesthetic.**
+  12,211 lines of CSS in 71 scoped `<style>` blocks, each re-deciding from scratch: 17 radius
+  declarations, 24 font sizes, 32 spacing values, 351 hardcoded hex colours against 704 token uses.
+  Do not add a 72nd set of local decisions - reach for the tokens, and once `E16/F03` lands, the
+  primitives.
+- **The card idiom was extracted; the type and spacing scales were authored.** That distinction
+  matters when something looks off: 6px controls, 10px cards and the three-layer shadow are what the
+  newer screens already did, so a disagreement with them is a bug. The type and spacing scales are
+  new, so a disagreement is unmigrated code.
+- **A `var(--x)` that resolves to nothing fails silently and catastrophically.** `--mm-text-red` was
+  referenced in seven rules and defined nowhere, which rendered the market-archive confirmation button
+  as white text on a white dialog with no border - invisible, on the only irreversible action in the
+  product. `E16/F01/S05` adds the resolution check. Never write `var(--mm-x, #fallback)`: a fallback
+  on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
+- **`contrast.test.ts` asserts tokens, not usages, and that gap has been occupied.** A token exempt
+  from the contract because it "never carries text" (`--mm-border`) was used as a button fill with
+  white text at 1.74:1. The Playwright sweep in `E16/F01/S05` covers usages - and **it is only worth
+  the states it walks**, so dialogs, menus, disabled controls and empty states must be opened
+  deliberately. A twenty-screen pass missed the invisible button because nobody opened that dialog.
+- **A token is only AA on the ground it was measured against.** `--mm-green` is 4.59:1 on white and
+  4.43:1 on the phase rail's `#FBFBFA`.
+- **Form controls do not inherit `font-family`.** Setting `font: inherit` on them alone is wrong while
+  `body` declares Inter - it makes every control Inter while the 274 Outfit rules around them stay
+  Outfit. `body` becomes Outfit first (`E15/F01/S01`). And `font` is a SHORTHAND: it carries
+  `line-height` too, and a control's height is its line box, so the reset pairs it with
+  `line-height: normal`.
+- **`front-end/src/assets/primitives.css` owns every control.** `.btn`, `.field` and `.chip` carry
+  height, padding, radius, type, focus and the disabled state, because a token cannot stop a file
+  writing `height: 45px` - and that was the damage: ten control heights on one screen, four disabled
+  treatments, sixty button-ish class names. Reach for a primitive rather than deciding again;
+  `src/__tests__/primitives.test.ts` is the contract.
+- **`npm run lint:css` is the design-language gate**, and it is **warnings globally, errors per
+  migrated file** (`.stylelintrc.json` `overrides`). A rule that fails the build on a pre-existing
+  backlog gets switched off, so a slice adds its files to that list when it lands. Everything MVP
+  serves is on the list; the 174 remaining warnings are the floorplan GUI and the applicant views,
+  both switched off in MVP.
+- **A screen is one of two widths and never caps its own height.** `--workspace-max` (1440) or
+  `--list-max` (1100); the PAGE scrolls. `.app-container` used to be `position: absolute;
+  height: 100vh`, which is why no screen could scroll the page and every tall screen grew its own
+  nested scrollers. Do not reintroduce a viewport-height shell.
+
 ## Agent skills
 
 ### Issue tracker
