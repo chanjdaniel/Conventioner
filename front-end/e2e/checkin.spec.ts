@@ -130,4 +130,69 @@ test.describe('Public vendor check-in', () => {
       /Checked in .* [A-Z][a-z]{2} \d{1,2}, \d{4} at \d{1,2}:\d{2} (AM|PM)/,
     );
   });
+
+  /**
+   * The vendor-facing page on market day, usually on a phone, where a phantom scrollbar is felt
+   * most (E14/F02/S01, QC finding F12).
+   *
+   * `.attendance-view` carried `min-height: 100vh` inside a layout whose header already takes 5vh,
+   * so the page was a banner taller than the window and scrolled on every load with roughly 350px
+   * of content in it. `VendorsView.vue` had the identical bug and still carries the comment
+   * explaining it; the check-in view was not updated at the time.
+   */
+  test('does not scroll when everything already fits, and still scrolls when it does not', async ({
+    page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const checkinPage = new CheckinPage(page);
+
+    const overflow = () =>
+      page.evaluate(() => {
+        const d = document.documentElement;
+        return { scrollHeight: d.scrollHeight, clientHeight: d.clientHeight };
+      });
+
+    // A desk monitor and a phone: the content fits in both, so neither should offer to scroll.
+    for (const size of [
+      { width: 1920, height: 1080 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(size);
+      await checkinPage.goto(seed.marketSlug);
+      await expect(checkinPage.emailInput).toBeVisible({ timeout: 10000 });
+
+      const { scrollHeight, clientHeight } = await overflow();
+      expect(
+        scrollHeight,
+        `${size.width}x${size.height} scrolled ${scrollHeight - clientHeight}px past the window`,
+      ).toBeLessThanOrEqual(clientHeight);
+    }
+
+    // Squeezed well below what the card needs, so the page must scroll. 240px is chosen to leave
+    // an unambiguous margin: the card alone is a little over 320px, so this does not turn on a
+    // font loading a few pixels differently.
+    await page.setViewportSize({ width: 390, height: 240 });
+    await checkinPage.goto(seed.marketSlug);
+    await expect(checkinPage.emailInput).toBeVisible({ timeout: 10000 });
+
+    const squeezed = await overflow();
+    expect(squeezed.scrollHeight).toBeGreaterThan(squeezed.clientHeight);
+
+    // Scrolling has to actually reach the bottom of the card. A page that merely reports overflow
+    // while clipping its own content would pass the line above; that is the way this fix could go
+    // wrong, so it is the thing worth asserting.
+    const bottomOfCardReachable = await page.evaluate(() => {
+      const d = document.documentElement;
+      window.scrollTo(0, d.scrollHeight);
+      const card = document.querySelector('.attendance-card');
+      return card !== null && Math.round(card.getBoundingClientRect().bottom) <= d.clientHeight + 2;
+    });
+    expect(bottomOfCardReachable).toBe(true);
+  });
 });
