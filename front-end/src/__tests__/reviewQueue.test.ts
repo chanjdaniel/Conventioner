@@ -62,8 +62,9 @@ describe('reviewAnswers', () => {
   it('formats available dates the way the applicant read them back, year included', () => {
     const [answer] = reviewAnswers(application({ essential_available_dates: ['2026-05-01'] }));
 
-    expect(answer.value).toContain('May 1');
-    expect(answer.value).toContain('2026');
+    // Whole, not by substring: `toContain('2026')` is what let the doubled year reach the review
+    // queue and survive a green suite (E14/F01/S01).
+    expect(answer.value).toBe('Friday, May 1, 2026');
   });
 
   it('reads a table choice back as the sentence, not the stored code', () => {
@@ -78,7 +79,7 @@ describe('reviewAnswers', () => {
       application({ essential_section_ranking: ['Front Row', 'Middle'] }),
     );
 
-    expect(answer.value).toBe('1. Front Row, 2. Middle');
+    expect(answer.value).toBe('1. Front Row · 2. Middle');
   });
 
   it('lists the organizer’s questions in the order the form declares, not storage order', () => {

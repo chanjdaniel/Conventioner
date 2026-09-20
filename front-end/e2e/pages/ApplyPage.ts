@@ -61,6 +61,16 @@ export class ApplyPage {
   }
 
   /**
+   * The words beside that checkbox: the date as the applicant reads it. Addressed through the
+   * enclosing label rather than a testid of its own, so the assertion sees exactly the run of text
+   * the applicant sees - a second year appended to it is a failure, which a `toContainText` on a
+   * substring of the date is not (E14/F01/S01).
+   */
+  dateLabel(date: string): Locator {
+    return this.page.locator('label.essential-choice').filter({ has: this.dateCheckbox(date) });
+  }
+
+  /**
    * Tier is a hard filter AND it sets the price, so it is answered per date (E01/F05): a checkbox
    * per (date, tier), in a row for each date the applicant ticked above.
    */
