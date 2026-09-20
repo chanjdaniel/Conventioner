@@ -228,6 +228,21 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     await expect(blockers).toContainText('still awaiting review');
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
 
+    // The remedy is reviewing the applications, which is one tab along - so the link goes there
+    // and going there is visible. It used to point at `/market-setup`, the page it was displayed
+    // on, so clicking it did nothing at all (E14/F01/S03).
+    const fix = blockers.getByTestId('blocker-resolution-link');
+    await expect(fix).toBeVisible();
+    await fix.click();
+    await expect(page).toHaveURL(/tab=applications/);
+    await expect(page.getByTestId('market-setup-applications-tab')).toHaveClass(/active/);
+    // Exactly one tab reads as current; the others must not keep the marker.
+    await expect(page.getByTestId('market-setup-setup-tab')).not.toHaveClass(/active/);
+
+    // And once you are on the tab that holds the fix, the panel stops offering to take you there.
+    await expect(blockers).toContainText('still awaiting review');
+    await expect(blockers.getByTestId('blocker-resolution-link')).toHaveCount(0);
+
     await page.screenshot({ path: `${SCREENSHOT_DIR}/09-blocked-assignment.png`, fullPage: true });
   });
 });
@@ -475,6 +490,10 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
     await expect(blockers).toContainText('asks nothing');
     await expect(blockers).toContainText('dates');
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft');
+
+    // Two remedies in two different tabs - add dates to the plan, or add a custom field to the
+    // form - so there is no one tab to point at, and the message names both instead.
+    await expect(blockers.getByTestId('blocker-resolution-link')).toHaveCount(0);
 
     await page.screenshot({
       path: `${SCREENSHOT_DIR}/12-empty-plan-blocked.png`,
