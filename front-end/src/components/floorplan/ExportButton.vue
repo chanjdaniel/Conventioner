@@ -195,7 +195,6 @@ function toggleDropdown() {
   background: color-mix(in srgb, var(--mm-yellow) 18%, transparent);
   border: 1px solid var(--mm-yellow);
   border-radius: 5px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: var(--mm-black);
   text-align: center;

@@ -207,7 +207,6 @@ function goBack() {
 }
 
 .login-market {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
   margin: 0;
@@ -219,7 +218,6 @@ function goBack() {
   border-radius: 6px;
   padding: 12px 16px;
   margin-bottom: 16px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: #721c24;
 }
@@ -231,7 +229,6 @@ function goBack() {
 }
 
 .login-instruction {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
   margin: 0;
@@ -241,7 +238,6 @@ function goBack() {
 .login-input {
   height: 44px;
   padding: 4px 12px;
-  font-family: 'Outfit Regular';
   font-size: 16px;
   border: 1px solid var(--mm-border);
   border-radius: 5px;
@@ -283,7 +279,6 @@ function goBack() {
   border: none;
   color: var(--mm-text-muted);
   cursor: pointer;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   text-decoration: underline;
   padding: 0;

@@ -497,7 +497,6 @@ function cancelPending() {
   align-items: center;
   gap: 6px;
   padding: 2px 10px 2px 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   white-space: nowrap;
   color: var(--mm-text-muted);
@@ -551,7 +550,6 @@ function cancelPending() {
   border: 1px solid var(--mm-border);
   border-radius: 6px;
   background: white;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   min-width: 0;
 }
@@ -593,7 +591,6 @@ function cancelPending() {
 .rail-button {
   padding: 7px 14px;
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
@@ -640,7 +637,6 @@ function cancelPending() {
   background: white;
   padding: 9px 12px;
   text-align: left;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   cursor: pointer;
@@ -664,14 +660,12 @@ function cancelPending() {
 
 .phase-rail-frozen {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
 }
 
 .phase-rail-error {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-red);
 }
@@ -694,7 +688,6 @@ function cancelPending() {
   border-radius: 12px;
   padding: 22px 24px 18px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
 }
 
@@ -722,7 +715,6 @@ function cancelPending() {
 .cancel-confirm-button {
   padding: 8px 14px;
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   cursor: pointer;
 }

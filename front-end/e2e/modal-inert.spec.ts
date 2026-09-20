@@ -31,11 +31,25 @@ async function inertRegions(page: Page): Promise<string[]> {
   );
 }
 
-/** Whether a control can actually take focus, which is the thing a scrim never governed. */
+/**
+ * Whether a control can actually take focus, which is the thing a scrim never governed.
+ *
+ * Waiting for a committed frame is load-bearing. Chromium only enforces `inert` once the frame
+ * carrying it has been committed, so `focus()` called too early still succeeds - the attribute is
+ * already in the DOM and `closest('[inert]')` finds it, but the browser has not acted on it yet.
+ * A synchronous reflow is not enough; measured, it still let focus through. Two frames are.
+ *
+ * Without it this helper reports whatever the last frame happened to have computed, and the test
+ * passes or fails on timing that has nothing to do with the wiring it is checking. `E15/F01/S01`
+ * changed the page font, which shifted that timing and turned the latent flake into a hard failure.
+ */
 async function canFocus(page: Page, testId: string): Promise<boolean> {
-  return page.evaluate((id) => {
+  return page.evaluate(async (id) => {
     const el = document.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
     if (!el) return false;
+    // Two frames, so the frame that carries the `inert` attribute has been fully committed. One
+    // is not enough: the attribute lands during the first, and the browser acts on it in the next.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     el.focus();
     return document.activeElement === el;
   }, testId);

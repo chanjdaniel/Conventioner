@@ -267,7 +267,6 @@ async function triggerAutoPlace() {
   border: 1px solid var(--mm-yellow);
   border-radius: 8px;
 
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
   line-height: 1.4;

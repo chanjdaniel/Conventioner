@@ -275,7 +275,6 @@ function label(email: string | null | undefined): string {
 
 .placement-dialog-sub {
   margin: 4px 0 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-muted);
 }
@@ -306,7 +305,6 @@ function label(email: string | null | undefined): string {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
 }
@@ -380,7 +378,6 @@ function label(email: string | null | undefined): string {
 .confirm-button {
   padding: 8px 14px;
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   cursor: pointer;
 }

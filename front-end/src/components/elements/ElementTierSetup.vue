@@ -284,7 +284,6 @@ h3 {
   border-radius: 999px;
   background: var(--mm-yellow);
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 11px;
   white-space: nowrap;
 }

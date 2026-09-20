@@ -125,7 +125,6 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   padding: 8px 12px;
   background: #fff3cd;
   border-radius: 4px;
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: #664d03;
 }
@@ -146,7 +145,6 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 }
 
 .preview-custom-divider {
-  font-family: 'Outfit Regular';
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -159,7 +157,6 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 .preview-empty {
   text-align: center;
   padding: 40px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
 }
@@ -177,7 +174,6 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 }
 
 .preview-label {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   font-weight: bold;
   color: var(--mm-black);
@@ -188,7 +184,6 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 }
 
 .preview-help {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-text-muted);
   margin: 0;
@@ -197,7 +192,6 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 .preview-input {
   height: 32px;
   padding: 4px 10px;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   border: 1px solid var(--mm-border);
   border-radius: 5px;
@@ -215,7 +209,6 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   color: var(--mm-black);
 }
@@ -231,7 +224,6 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 }
 
 .preview-unsupported {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-red, #cc0000);
   font-style: italic;

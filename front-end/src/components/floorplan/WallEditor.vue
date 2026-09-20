@@ -873,7 +873,6 @@ watch(
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(6px);
   border-radius: 6px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: var(--mm-black);
   box-shadow: 0 1px 6px rgba(39, 35, 35, 0.08);

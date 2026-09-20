@@ -884,7 +884,6 @@ const handleSendToDiscord = async () => {
 /* Match `.settings-container` / quick-nav: white panel + soft outer shadow */
 .stat-note {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   line-height: 1.3;
 }
@@ -892,7 +891,6 @@ const handleSendToDiscord = async () => {
 .stat-empty {
   margin: 0;
   padding: 8px 10px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-muted);
 }
@@ -990,7 +988,6 @@ const handleSendToDiscord = async () => {
 }
 
 .stat-label {
-  font-family: 'Outfit Regular';
   font-size: 16px;
   color: var(--mm-black);
   opacity: 0.8;
@@ -1044,7 +1041,6 @@ const handleSendToDiscord = async () => {
   background-color: white;
   border-radius: 6px;
   border-left: 4px solid var(--mm-yellow);
-  font-family: 'Outfit Regular';
   font-size: 15px;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.07),
@@ -1096,13 +1092,11 @@ const handleSendToDiscord = async () => {
   justify-content: center;
   flex: 1;
   min-height: 0;
-  font-family: 'Outfit Regular';
   font-size: 18px;
   color: var(--mm-text-muted);
 }
 
 h1 {
-  font-family: 'Outfit Regular';
   text-align: center;
   font-size: 30px;
   color: white;
@@ -1179,7 +1173,6 @@ h2 {
 
 .action-blocked-reason {
   margin: 0;
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-text-yellow);
   text-align: center;

@@ -306,7 +306,6 @@ async function undoCheckIn(date: string): Promise<void> {
 .attendance-eyebrow {
   margin: 0 0 2px;
   color: var(--mm-text-muted-on-dark);
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -316,7 +315,6 @@ async function undoCheckIn(date: string): Promise<void> {
 .attendance-header h1 {
   margin: 0;
   color: white;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 26px;
   text-align: center;
   overflow-wrap: anywhere;
@@ -324,14 +322,12 @@ async function undoCheckIn(date: string): Promise<void> {
 
 .field-help {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-muted);
 }
 
 .not-today-note {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-text-yellow);
 }
@@ -350,7 +346,6 @@ async function undoCheckIn(date: string): Promise<void> {
 }
 
 .lookup-form label {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
 }
@@ -365,7 +360,6 @@ async function undoCheckIn(date: string): Promise<void> {
   flex: 1;
   min-width: 200px;
   padding: 10px 12px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 16px;
   border: 1px solid #cfd3d8;
   border-radius: 6px;
@@ -402,7 +396,6 @@ async function undoCheckIn(date: string): Promise<void> {
   border-radius: 5px;
   padding: 0 16px;
   height: 40px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
   cursor: pointer;
 }
@@ -415,7 +408,6 @@ async function undoCheckIn(date: string): Promise<void> {
   background: none;
   border: none;
   padding: 6px 8px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-text-link);
   text-decoration: underline;
@@ -426,7 +418,6 @@ async function undoCheckIn(date: string): Promise<void> {
   margin: 0;
   color: #c62828;
   font-size: 14px;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .assignments-list {
@@ -439,7 +430,6 @@ async function undoCheckIn(date: string): Promise<void> {
   margin: 0;
   display: flex;
   flex-direction: column;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 16px;
   color: var(--mm-black);
 }
@@ -481,14 +471,12 @@ async function undoCheckIn(date: string): Promise<void> {
   color: white;
   padding: 2px 10px;
   border-radius: 999px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .assignment-meta {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 15px;
   color: var(--mm-black);
   display: grid;
@@ -509,7 +497,6 @@ async function undoCheckIn(date: string): Promise<void> {
   color: #1e7a4f;
   padding: 6px 12px;
   border-radius: 999px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
 }
 

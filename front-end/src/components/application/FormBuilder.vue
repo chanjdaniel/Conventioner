@@ -168,7 +168,6 @@ const fieldCount = computed(() => fields.value.length);
 }
 
 .field-count {
-  font-family: 'Outfit Regular';
   font-size: 13px;
   color: var(--mm-text-muted);
 }
@@ -190,7 +189,6 @@ const fieldCount = computed(() => fields.value.length);
 .empty-state {
   text-align: center;
   padding: 40px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
 }
@@ -230,21 +228,18 @@ const fieldCount = computed(() => fields.value.length);
 }
 
 .field-ordinal {
-  font-family: 'Outfit Regular';
   font-size: 13px;
   font-weight: bold;
   color: var(--mm-black);
 }
 
 .field-label-preview {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
   flex: 1;
 }
 
 .field-type-badge {
-  font-family: 'Outfit Regular';
   font-size: 11px;
   background: #e8e8e8;
   color: #555;
@@ -253,7 +248,6 @@ const fieldCount = computed(() => fields.value.length);
 }
 
 .required-badge {
-  font-family: 'Outfit Regular';
   font-size: 11px;
   background: var(--mm-red, #cc0000);
   color: white;
@@ -268,7 +262,6 @@ const fieldCount = computed(() => fields.value.length);
   border-radius: 4px;
   padding: 2px 8px;
   cursor: pointer;
-  font-family: 'Outfit Regular';
   font-size: 12px;
 }
 

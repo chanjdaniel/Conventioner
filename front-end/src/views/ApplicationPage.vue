@@ -176,7 +176,6 @@ async function submitForm() {
   align-items: flex-start;
   gap: 12px;
   padding: 24px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
 }
 
@@ -186,14 +185,12 @@ async function submitForm() {
   border-radius: 6px;
   border: 1px solid var(--mm-border);
   background: white;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   cursor: pointer;
 }
 
 .apply-loading {
   text-align: center;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
   padding: 40px;
@@ -217,7 +214,6 @@ async function submitForm() {
 }
 
 .phase-badge {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   border-radius: 4px;
   padding: 4px 10px;
@@ -236,7 +232,6 @@ async function submitForm() {
   border-radius: 6px;
   padding: 16px;
   margin-bottom: 24px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: #664d03;
 }
@@ -244,7 +239,6 @@ async function submitForm() {
 .apply-no-form {
   text-align: center;
   padding: 40px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
 }
@@ -256,7 +250,6 @@ async function submitForm() {
 }
 
 .apply-custom-divider {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -295,7 +288,6 @@ async function submitForm() {
   border: 1px solid var(--mm-red, #cc0000);
   border-radius: 6px;
   padding: 12px 16px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: #721c24;
 }

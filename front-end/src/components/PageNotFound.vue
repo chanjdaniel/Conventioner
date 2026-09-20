@@ -27,7 +27,6 @@ const router = useRouter();
 <style scoped>
 .not-found {
   padding: 48px 40px;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
 }
 
@@ -50,7 +49,6 @@ p {
   border: 1px solid var(--mm-green);
   background: var(--mm-green);
   color: white;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   cursor: pointer;
 }

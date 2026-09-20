@@ -922,7 +922,6 @@ const sectionsUndescribed = computed(
   border-radius: 6px;
   border: 1px solid var(--mm-border);
   background: white;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   color: var(--mm-text-link);
   cursor: pointer;
@@ -933,7 +932,6 @@ const sectionsUndescribed = computed(
 }
 
 .plan-save-status {
-  font-family: 'Outfit Regular';
   font-size: 13px;
   color: var(--mm-text-muted);
 }
@@ -971,7 +969,6 @@ const sectionsUndescribed = computed(
   border: 1px solid var(--mm-green);
   background: var(--mm-green);
   color: white;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   cursor: pointer;
 }
@@ -984,7 +981,6 @@ const sectionsUndescribed = computed(
 }
 
 .import-entry-hint {
-  font-family: 'Outfit Regular';
   font-size: 13px;
   color: var(--mm-text-muted);
 }
@@ -1056,7 +1052,6 @@ const sectionsUndescribed = computed(
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted-on-dark);
   cursor: pointer;
@@ -1110,7 +1105,6 @@ const sectionsUndescribed = computed(
 }
 
 h1 {
-  font-family: 'Outfit Regular';
   text-align: center;
   font-size: 30px;
   color: white;
@@ -1169,7 +1163,6 @@ h2 {
 }
 
 .discord-webhook-label {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
 }
@@ -1183,7 +1176,6 @@ h2 {
 
 .discord-webhook-help {
   margin: 2px 0 0;
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-text-muted);
 }
@@ -1192,7 +1184,6 @@ h2 {
   flex: 1;
   height: 32px;
   padding: 4px 10px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   border: 1px solid var(--mm-border);
   border-radius: 5px;
@@ -1218,7 +1209,6 @@ h2 {
 }
 
 .form-lock-banner {
-  font-family: 'Outfit Regular';
   font-size: 13px;
   line-height: 1.4;
   color: #7a5200;
@@ -1229,7 +1219,6 @@ h2 {
 }
 
 .form-loading-banner {
-  font-family: 'Outfit Regular';
   font-size: 13px;
   line-height: 1.4;
   color: var(--mm-text-muted);
@@ -1256,7 +1245,6 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-family: 'Outfit Regular';
   font-size: 13px;
   line-height: 1.4;
   color: #8a1f1f;
@@ -1274,7 +1262,6 @@ h2 {
   border-radius: 4px;
   padding: 3px 12px;
   cursor: pointer;
-  font-family: 'Outfit Regular';
   font-size: 12px;
 }
 
@@ -1284,7 +1271,6 @@ h2 {
 }
 
 .save-status {
-  font-family: 'Outfit Regular';
   font-size: 13px;
 }
 
@@ -1301,7 +1287,6 @@ h2 {
 }
 
 .preview-unavailable {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-text-muted);
   text-align: center;

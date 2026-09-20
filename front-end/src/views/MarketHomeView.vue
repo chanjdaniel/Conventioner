@@ -66,7 +66,6 @@ onMounted(load);
 <style scoped>
 .market-home {
   padding: 32px 40px;
-  font-family: 'Outfit Regular', sans-serif;
 }
 h1 {
   margin: 0 0 12px;

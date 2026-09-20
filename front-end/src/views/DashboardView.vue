@@ -258,7 +258,6 @@ const handleSignOut = async () => {
   font-size: 14px;
   font-weight: 500;
   color: #666;
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .button-row {
@@ -386,7 +385,6 @@ h3 {
 }
 
 h4 {
-  font-family: 'Outfit Regular';
   font-style: normal;
   font-weight: 400;
   font-size: 16px;

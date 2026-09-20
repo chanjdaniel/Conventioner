@@ -106,14 +106,12 @@ function move(index: number, delta: number) {
 .ranked-name {
   flex: 1;
   min-width: 0;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
   overflow-wrap: anywhere;
 }
 
 .ranked-first-badge {
-  font-family: 'Outfit Regular';
   font-size: 11px;
   color: var(--mm-green);
   border: 1px solid var(--mm-green);

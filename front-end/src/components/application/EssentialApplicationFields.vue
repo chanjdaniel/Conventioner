@@ -434,20 +434,17 @@ function errorFor(key: string): string {
 }
 
 .essential-email-label {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   font-weight: bold;
   color: var(--mm-black);
 }
 
 .essential-email-value {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
 }
 
 .essential-email-note {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-text-muted);
 }
@@ -459,7 +456,6 @@ function errorFor(key: string): string {
 }
 
 .essential-label {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   font-weight: bold;
   color: var(--mm-black);
@@ -470,7 +466,6 @@ function errorFor(key: string): string {
 }
 
 .essential-help {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-text-muted);
   margin: 0;
@@ -498,7 +493,6 @@ function errorFor(key: string): string {
   padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: 5px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   color: var(--mm-black);
   cursor: pointer;
@@ -525,7 +519,6 @@ function errorFor(key: string): string {
 .essential-text-input {
   height: 36px;
   padding: 4px 10px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   border: 1px solid var(--mm-border);
   border-radius: 5px;
@@ -540,7 +533,6 @@ function errorFor(key: string): string {
   height: 36px;
   width: 120px;
   padding: 4px 10px;
-  font-family: 'Outfit Regular';
   font-size: 14px;
   border: 1px solid var(--mm-border);
   border-radius: 5px;
@@ -552,7 +544,6 @@ function errorFor(key: string): string {
 }
 
 .essential-error {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-red, #cc0000);
   margin: 2px 0 0;

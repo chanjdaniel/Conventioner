@@ -175,7 +175,6 @@ onMounted(loadAttendance);
 .attendance-status-header h1 {
   margin: 0;
   color: white;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 26px;
   text-align: center;
 }
@@ -184,7 +183,6 @@ onMounted(loadAttendance);
   padding: 24px;
   min-height: 200px;
   overflow-y: auto;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
 }
 
@@ -212,7 +210,6 @@ onMounted(loadAttendance);
 }
 
 .vendor-cell {
-  font-family: 'Outfit Regular', sans-serif;
   font-weight: 600;
 }
 

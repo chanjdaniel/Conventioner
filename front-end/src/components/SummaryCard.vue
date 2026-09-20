@@ -98,7 +98,6 @@ defineEmits<{ select: [] }>();
   color: var(--mm-black);
   font-size: 18px;
   font-weight: 600;
-  font-family: 'Outfit Regular', sans-serif;
   overflow-wrap: anywhere;
 }
 
@@ -113,7 +112,6 @@ defineEmits<{ select: [] }>();
 }
 
 .summary-card-facts dt {
-  font-family: 'Outfit Regular', sans-serif;
   font-weight: 500;
   color: var(--mm-text-muted);
   font-size: 13px;
@@ -121,7 +119,6 @@ defineEmits<{ select: [] }>();
 
 .summary-card-facts dd {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   color: var(--mm-black);
   font-size: 14px;
   overflow-wrap: anywhere;

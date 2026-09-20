@@ -72,7 +72,6 @@ onMounted(() => {
   border: 1.5px solid var(--mm-border);
   border-radius: 6px;
   font-size: 14px;
-  font-family: 'Outfit Regular', sans-serif;
   background: white;
   text-align: center;
 }

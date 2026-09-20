@@ -98,7 +98,6 @@ const emptyText = computed(() =>
 
 .placement-history-note {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-text-muted);
 }
@@ -133,7 +132,6 @@ const emptyText = computed(() =>
 
 .placement-history-what {
   margin: 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 14px;
   color: var(--mm-black);
   overflow-wrap: anywhere;
@@ -141,7 +139,6 @@ const emptyText = computed(() =>
 
 .placement-history-who {
   margin: 2px 0 0;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 12px;
   color: var(--mm-text-muted);
   overflow-wrap: anywhere;

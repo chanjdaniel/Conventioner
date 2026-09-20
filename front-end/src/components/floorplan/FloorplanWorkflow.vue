@@ -192,7 +192,6 @@ function onSaved(payload: { market_id: string }) {
 }
 
 .workflow-progress span {
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: rgba(39, 35, 35, 0.35);
   padding: 6px 14px;
@@ -254,7 +253,6 @@ function onSaved(payload: { market_id: string }) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: 'Outfit Regular', sans-serif;
   font-size: 13px;
   color: var(--mm-black);
   cursor: pointer;

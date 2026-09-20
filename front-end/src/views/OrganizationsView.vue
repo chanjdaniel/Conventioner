@@ -188,7 +188,6 @@ function canManage(org: Organization): boolean {
   font-size: 28px;
   font-weight: 600;
   color: var(--mm-black);
-  font-family: 'Outfit Regular', sans-serif;
 }
 
 .new-button {
@@ -200,7 +199,6 @@ function canManage(org: Organization): boolean {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  font-family: 'Outfit Regular', sans-serif;
   box-shadow: 0 2px 4px rgba(73, 176, 150, 0.2);
 }
 
@@ -263,7 +261,6 @@ function canManage(org: Organization): boolean {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  font-family: 'Outfit Regular', sans-serif;
   white-space: nowrap;
 }
 

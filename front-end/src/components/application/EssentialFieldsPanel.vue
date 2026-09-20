@@ -252,7 +252,6 @@ function asks(key: string): boolean {
 }
 
 .essential-badge {
-  font-family: 'Outfit Regular';
   font-size: 11px;
   background: var(--mm-green);
   color: white;
@@ -262,7 +261,6 @@ function asks(key: string): boolean {
 }
 
 .essential-panel-note {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   line-height: 1.4;
   color: #3c5a44;
@@ -287,7 +285,6 @@ function asks(key: string): boolean {
 }
 
 .essential-item-label {
-  font-family: 'Outfit Regular';
   font-size: 14px;
   font-weight: bold;
   color: var(--mm-black);
@@ -296,7 +293,6 @@ function asks(key: string): boolean {
 }
 
 .essential-type-badge {
-  font-family: 'Outfit Regular';
   font-size: 11px;
   background: #e8e8e8;
   color: #555;
@@ -306,7 +302,6 @@ function asks(key: string): boolean {
 }
 
 .essential-item-detail {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-text-muted);
   margin: 0;
@@ -323,7 +318,6 @@ function asks(key: string): boolean {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-family: 'Outfit Regular';
   font-size: 12px;
   color: var(--mm-black);
   background: #eef4ef;
@@ -345,7 +339,6 @@ function asks(key: string): boolean {
 }
 
 .essential-item-warning {
-  font-family: 'Outfit Regular';
   font-size: 12px;
   line-height: 1.4;
   color: #7a5200;
