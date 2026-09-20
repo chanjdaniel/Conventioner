@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { createRouter, createMemoryHistory } from 'vue-router';
+import { createRouter, createMemoryHistory, RouterLink } from 'vue-router';
 import { defineComponent, h } from 'vue';
 
 import BlockerPanel from '@/components/BlockerPanel.vue';
@@ -48,10 +48,13 @@ describe('BlockerPanel', () => {
 
   it('routes the resolution link in-SPA rather than reloading the page', async () => {
     const wrapper = await mountPanelAt('/market-setup', [reviewBlocker]);
-    const link = wrapper.find('[data-testid="blocker-resolution-link"]');
 
+    // A `RouterLink`, not a plain anchor: a real router renders a real `href`, so the href alone
+    // no longer tells the two apart the way it did under a stub.
+    const link = wrapper.findComponent(RouterLink);
     expect(link.exists()).toBe(true);
-    expect(link.attributes('href')).toBe('/market-setup?tab=applications');
+    expect(link.props('to')).toBe('/market-setup?tab=applications');
+    expect(link.attributes('data-testid')).toBe('blocker-resolution-link');
   });
 
   it('omits the resolution link when a blocker has none', async () => {
@@ -96,12 +99,14 @@ describe('BlockerPanel', () => {
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(true);
     });
 
-    /** Query order is the router's business, not a reason to show a dead link. */
-    it('is recognised however the current location spells its query', async () => {
-      const wrapper = await mountPanelAt('/market-setup?tab=applications', [
-        { ...reviewBlocker, resolutionLink: '/market-setup?tab=applications' },
-      ]);
+    /**
+     * A guard whose remedy spans two places sends no link at all, and the server spells that as
+     * an explicit null rather than by omitting the key.
+     */
+    it('is not conjured from a null link', async () => {
+      const wrapper = await mountPanelAt('/vendors', [{ ...reviewBlocker, resolutionLink: null }]);
 
+      expect(wrapper.text()).toContain('still awaiting review');
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
     });
   });

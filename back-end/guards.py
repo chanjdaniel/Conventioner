@@ -397,7 +397,11 @@ class NoOrphanedPinGuard:
                 f"{len(orphans)} hand {pin_word} the plan no longer has: {named}. "
                 "Restore the seat in the plan, or move those vendors, before assigning."
             ),
-            resolution_link="/market-setup?tab=assignment",
+            # Two remedies again, and neither is on this screen: restoring the seat is the Market
+            # Setup tab, and moving a vendor is the Tables view, which is routed by market id and
+            # so cannot be named by a fixed string here at all. This used to say
+            # `?tab=assignment`, which holds neither - the assignment tab reports the result.
+            resolution_link=None,
         )
 
 
