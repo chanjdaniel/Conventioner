@@ -27,12 +27,24 @@ type Rgb = [number, number, number];
 // so its `import.meta.url` is not a file: URL and `fileURLToPath` refuses it.
 const BASE_CSS = readFileSync(resolvePath(process.cwd(), 'src/assets/base.css'), 'utf8');
 
+/**
+ * Whether a token's value is a colour at all.
+ *
+ * `base.css` also holds the type, spacing, radius and elevation scale (E16/F02), and a contrast
+ * contract has nothing to say about `12px`. Filtering on the VALUE rather than keeping a list of
+ * non-colour names means a token added to the scale later needs no edit here, while a colour added
+ * later still has to declare itself as ink or paint below - which is the whole point of that rule.
+ */
+function isColour(value: string): boolean {
+  return /^(#|rgb|hsl)/i.test(value.trim());
+}
+
 function parseTokens(css: string): Record<string, string> {
   const tokens: Record<string, string> = {};
   // Strip comments first: they quote old values ("was 2.65"), which would otherwise parse.
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
   for (const [, name, value] of withoutComments.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-    tokens[name] = value.trim();
+    if (isColour(value)) tokens[name] = value.trim();
   }
   return tokens;
 }

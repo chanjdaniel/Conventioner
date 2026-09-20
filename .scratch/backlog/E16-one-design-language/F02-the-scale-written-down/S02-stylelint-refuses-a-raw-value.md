@@ -2,7 +2,7 @@
 id: E16/F02/S02
 title: Stylelint refuses a raw value
 type: story
-status: ready
+status: in-progress
 blocked_by: [E16/F02/S01]
 pr: []
 ---
@@ -22,9 +22,9 @@ Spacing is deliberately not linted. A raw `padding: 10px` is indistinguishable t
 
 ## Acceptance criteria
 
-- [ ] Stylelint runs in CI and reports the existing violations as warnings.
-- [ ] A new raw hex, font-size, radius or shadow in a file already migrated fails the build.
-- [ ] `base.css` and the primitive files are exempt, and the exemption is a named list rather than a glob that will quietly grow.
+- [x] Stylelint runs in CI and reports the existing violations as warnings.
+- [x] A new raw hex, font-size, radius or shadow in a file already migrated fails the build.
+- [x] `base.css` and the primitive files are exempt, and the exemption is a named list rather than a glob that will quietly grow.
 
 ## Notes
 

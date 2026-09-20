@@ -2,7 +2,7 @@
 id: E16/F02/S01
 title: The tokens exist
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -22,8 +22,8 @@ No component changes in this story.
 
 ## Acceptance criteria
 
-- [ ] Every token in `docs/design-system.md` exists in `base.css` with a comment.
-- [ ] Nothing renders differently: this story is additive and a visual diff should be empty.
+- [x] Every token in `docs/design-system.md` exists in `base.css` with a comment.
+- [x] Nothing renders differently: this story is additive and a visual diff should be empty.
 
 ## Notes
 

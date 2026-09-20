@@ -128,7 +128,8 @@ function handleNewClose() {
 }
 
 .new-market-button:hover {
-  background: #3a9a82;
+  background: var(--mm-green);
+  opacity: 0.9;
   box-shadow: 0 4px 8px rgba(54, 130, 111, 0.3);
 }
 

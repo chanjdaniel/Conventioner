@@ -1,0 +1,24 @@
+{
+  "extends": ["stylelint-config-html/vue"],
+  "rules": {
+    "color-no-hex": [
+      true,
+      {
+        "severity": "warning",
+        "message": "Use a --mm-* token from base.css. 351 hardcoded colours, nine reds for one semantic role, and a red that could not carry white text is how the product got here (E16/F02)."
+      }
+    ],
+    "declaration-property-value-disallowed-list": [
+      {
+        "/^font-size$/": ["/^[0-9.]+(px|rem|em)$/"],
+        "/^border-radius$/": ["/^[0-9.]+(px|rem|%)/"],
+        "/^box-shadow$/": ["/^(?!var\\()./"]
+      },
+      {
+        "severity": "warning",
+        "message": "Use a scale token from base.css - --text-*, --radius-*, --shadow-card. See docs/design-system.md."
+      }
+    ]
+  },
+  "ignoreFiles": ["dist/**", "node_modules/**", "src/assets/base.css"]
+}
