@@ -996,7 +996,7 @@ const handleSendToDiscord = async () => {
 .stat-value {
   font-family: 'Merge One';
   font-size: 36px;
-  font-weight: bold;
+  font-weight: 400;
   color: var(--mm-green);
 }
 
@@ -1072,7 +1072,7 @@ const handleSendToDiscord = async () => {
 .unassigned-date-header {
   font-family: 'Merge One';
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 400;
   color: var(--mm-black);
   margin-bottom: 8px;
   padding-bottom: 5px;

@@ -905,7 +905,7 @@ function swapSeats(withEmail: string): void {
   font-size: 16px;
   line-height: 1;
   color: var(--mm-black);
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .filter-chip--clear-all {
@@ -1029,8 +1029,8 @@ function swapSeats(withEmail: string): void {
 }
 
 .section-heading-meta {
-  /* Not redundant, unlike the 273 declarations E15/F01/S01 removed: the date heading above sets
-     Merge One on the whole row, so this chip has to opt back out of it. */
+  /* Not redundant, unlike the 273 declarations E15/F01/S01 removed: `.section-heading` sets Merge
+     One on the <h3>, and this chip is a <span> inside it, so it opts back out. */
   font-family: 'Outfit', sans-serif;
   font-size: 13px;
   padding: 2px 8px;

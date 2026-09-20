@@ -73,7 +73,7 @@ const logout = async () => {
 
 .signout-button :deep(.signout-label) {
   font-size: 1.2rem;
-  font-weight: 500;
+  font-weight: 400;
   margin-bottom: 0.4rem;
 }
 </style>

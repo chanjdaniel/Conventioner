@@ -256,7 +256,7 @@ const handleSignOut = async () => {
 .last-market-label {
   width: 716px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: #666;
 }
 
@@ -378,7 +378,7 @@ const handleSignOut = async () => {
 h3 {
   font-family: 'Merge One';
   font-style: normal;
-  font-weight: 100;
+  font-weight: 400;
   font-size: 20px;
   color: #ffffff;
   margin: 0;

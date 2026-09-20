@@ -449,7 +449,7 @@ function handleClose() {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 4px;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 12px;
 }
 

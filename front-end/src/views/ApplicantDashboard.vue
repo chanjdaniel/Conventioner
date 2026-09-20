@@ -241,7 +241,7 @@ function logout() {
 
 .status-label {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 400;
   font-family: 'Merge One';
 }
 

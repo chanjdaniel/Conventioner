@@ -13,15 +13,30 @@ import type { Page } from '@playwright/test';
  * Measured before the fix, across ten screens: **61 elements in Arial and 56 in Inter**, including
  * every field value and column header on the market plan.
  *
- * The assertion is deliberately "not a user-agent default" rather than a list of allowed families.
- * A list would have to be updated by whoever adds a third face, and the thing worth catching is not
- * "an unexpected family" but "nobody chose this at all" - which is exactly what Arial at
- * 13.3333px means.
+ * Two assertions, because `getComputedStyle().fontFamily` returns what the page DECLARED, not what
+ * the browser painted. A page whose webfont 404s reports `Outfit` on every element and renders the
+ * fallback, and a family name nothing defines - `'Outfit Regular'`, the exact bug this story fixes -
+ * reports itself happily too. So the sweep also asks `document.fonts` whether the face it is being
+ * told about actually loaded. Without that it is a guard with the hole it exists to close.
+ *
+ * The family assertion is deliberately "not a user-agent default" rather than a list of allowed
+ * faces. A list would have to be updated by whoever adds a third one, and the thing worth catching
+ * is not "an unexpected family" but "nobody chose this at all" - which is exactly what Arial at
+ * 13.3333px means. `/login` gets the stricter check on top, per this story's third criterion.
  */
 
-/** The families a browser falls back to when nothing in the page chose one. */
+/**
+ * The families a browser falls back to when nothing in the page chose one.
+ *
+ * `-apple-system` is here and is also the second entry in `body`'s stack, which is not a
+ * contradiction: this matches the FIRST declared family, so reaching it means every named face
+ * ahead of it was skipped.
+ */
 const USER_AGENT_DEFAULTS =
   /^(Arial|Helvetica|Times New Roman|Times|serif|sans-serif|-apple-system)$/;
+
+/** The faces the product declares, so a sweep can confirm they are really there. */
+const DECLARED_FACES = ['Outfit', 'Merge One'];
 
 interface Rendered {
   family: string;
@@ -65,6 +80,13 @@ async function renderedFaces(page: Page): Promise<Rendered[]> {
 }
 
 async function expectNoUserAgentFont(page: Page, screen: string): Promise<void> {
+  // The faces have to be real before their names mean anything - see the header.
+  const missing = await page.evaluate(async (faces) => {
+    await document.fonts.ready;
+    return faces.filter((face) => !document.fonts.check(`16px "${face}"`));
+  }, DECLARED_FACES);
+  expect(missing, `${screen} names faces the browser never loaded`).toEqual([]);
+
   const rendered = await renderedFaces(page);
   expect(rendered.length, `${screen} rendered nothing to check`).toBeGreaterThan(0);
 
@@ -118,6 +140,28 @@ test.describe('No element falls through to a user-agent font', () => {
     // toggle were Arial, the submit button Outfit, the sign-out button Inter.
     await page.goto('/login');
     await expectNoUserAgentFont(page, '/login');
+
+    // The story's third criterion, and stricter than the sweep: not merely "somebody chose a face"
+    // but "the same face as the text around it". A control set to Merge One would pass the sweep.
+    const mismatched = await page.evaluate(() => {
+      const first = (el: Element) =>
+        getComputedStyle(el).fontFamily.split(',')[0].replace(/["']/g, '');
+      const page_ = first(document.body);
+      return Array.from(document.querySelectorAll('button, input, select, textarea'))
+        .filter((el) => (el as HTMLElement).offsetParent !== null)
+        .filter((el) => first(el) !== page_)
+        .map((el) => `${el.tagName}.${el.className.toString().split(' ')[0]} in ${first(el)}`);
+    });
+    expect(mismatched, 'a control on /login does not match the text around it').toEqual([]);
+  });
+
+  test('the markets list, the screen an organizer opens most', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto('/markets');
+    await expect(authenticatedPage.getByTestId('markets-create-button')).toBeVisible({
+      timeout: 10000,
+    });
+
+    await expectNoUserAgentFont(authenticatedPage, '/markets');
   });
 
   test('the market plan, where every field value was Inter', async ({ authenticatedPage }) => {
@@ -134,8 +178,9 @@ test.describe('No element falls through to a user-agent font', () => {
     authenticatedPage,
   }) => {
     // This screen is why removing a component's `font-family` is not a blind find-and-replace:
-    // the date heading sets Merge One on the whole row, so `.section-heading-meta` has to opt back
-    // out. Twenty-four chips silently became headings when that declaration was first removed.
+    // `.section-heading` sets Merge One on the <h3>, so `.section-heading-meta` - a <span> inside
+    // it - has to opt back out. Twenty-four chips silently became headings when that declaration
+    // was first removed, which is how the exception was found.
     await openTheSeededMarket(authenticatedPage);
     await authenticatedPage.goto(`/markets/${marketId}/tables`);
     await expect(authenticatedPage.getByTestId('tables-count-assigned')).toBeVisible({
@@ -148,6 +193,7 @@ test.describe('No element falls through to a user-agent font', () => {
       .locator('.section-heading-meta')
       .first()
       .evaluate((el) => getComputedStyle(el).fontFamily.split(',')[0].replace(/["']/g, ''));
+    // `.section-heading` (the <h3> this chip sits inside) sets Merge One, so the chip opts back out.
     expect(metaFace, 'the section meta chip should not inherit the heading face').toBe('Outfit');
   });
 

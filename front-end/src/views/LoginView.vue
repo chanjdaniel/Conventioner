@@ -536,7 +536,7 @@ const submitOTPLogin = async () => {
 .mode-tab.active {
   color: var(--mm-green);
   border-bottom-color: var(--mm-green);
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .form-container {

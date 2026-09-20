@@ -750,7 +750,7 @@ onUnmounted(() => {
 
 .sg-item-name {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--mm-black);
   white-space: nowrap;
   overflow: hidden;
@@ -859,7 +859,7 @@ onUnmounted(() => {
 
 .sg-field-label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--mm-black);
 }
 
