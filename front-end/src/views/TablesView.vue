@@ -204,17 +204,24 @@ const statusCounts = computed(() => {
 });
 
 /**
- * The colour a status count is worn in.
+ * The three status pills, each with the fill it is worn in.
  *
  * A count of zero is not a condition to act on, so it loses its colour whatever the category. The
  * partial pill was amber at every value, so a market with nothing partially filled showed a
  * warning-coloured zero pulling the eye to a non-problem (E14/F02/S03). Applied to all three rather
  * than to partial alone: "0 assigned" in the green that means "done" is the same mistake wearing a
  * friendlier face, and one rule needs no explaining to the next reader.
+ *
+ * Built as a list rather than written out three times in the template, because the kind and the
+ * count travelled together and nothing stopped them being paired wrongly - `('assigned', partial)`
+ * typechecks perfectly and renders a lie.
  */
-function countBadgeClass(kind: RowStatus['label'], count: number): string {
-  return count === 0 ? 'count-badge--none' : `count-badge--${kind}`;
-}
+const countPills = computed(() =>
+  (['assigned', 'partial', 'empty'] as const).map((kind) => {
+    const count = statusCounts.value[kind];
+    return { kind, count, fill: count === 0 ? 'count-badge--none' : `count-badge--${kind}` };
+  }),
+);
 
 function clearFilter(name: FilterName): void {
   setFilter(name, '');
@@ -585,22 +592,12 @@ function swapSeats(withEmail: string): void {
                 {{ filteredRows.length }} of {{ allRows.length }} tables
               </span>
               <span
+                v-for="pill in countPills"
+                :key="pill.kind"
                 class="count-badge"
-                :class="countBadgeClass('assigned', statusCounts.assigned)"
-                data-testid="tables-count-assigned"
-                >{{ statusCounts.assigned }} assigned</span
-              >
-              <span
-                class="count-badge"
-                :class="countBadgeClass('partial', statusCounts.partial)"
-                data-testid="tables-count-partial"
-                >{{ statusCounts.partial }} partial</span
-              >
-              <span
-                class="count-badge"
-                :class="countBadgeClass('empty', statusCounts.empty)"
-                data-testid="tables-count-empty"
-                >{{ statusCounts.empty }} empty</span
+                :class="pill.fill"
+                :data-testid="`tables-count-${pill.kind}`"
+                >{{ pill.count }} {{ pill.kind }}</span
               >
             </div>
           </div>
