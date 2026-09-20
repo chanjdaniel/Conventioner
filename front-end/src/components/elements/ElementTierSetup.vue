@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, toRef, nextTick, computed, watch } from 'vue';
+import { onMounted, ref, toRef, computed, watch } from 'vue';
 import draggable from 'vuedraggable';
 import { type SetupObject } from '@/assets/types/datatypes';
 import IconAddRound from '../icons/IconAddRound.vue';
@@ -74,22 +74,11 @@ const removeWatcher = (objId: number) => {
   }
 };
 
-const rowsMaxHeight = ref<string | null>(null);
 const container = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
-const setHeight = () => {
-  rowsMaxHeight.value = '0px';
-  nextTick(() => {
-    if (container.value && columnTitles.value && rows.value) {
-      rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
-    }
-  });
-};
 
 onMounted(() => {
-  setHeight();
-
   // Tiers used to be pre-filled by scraping the uploaded spreadsheet's cell values. There is no
   // spreadsheet now, and a tier is the organizer's decision rather than something to infer.
 });
@@ -236,12 +225,12 @@ h3 {
 
 .column-titles {
   display: grid;
-  grid-template-columns: 15% minmax(0, 1fr) 2rem;
+  grid-template-columns: minmax(max-content, 15%) minmax(0, 1fr) 2rem;
 }
 
 .priority-row {
   display: grid;
-  grid-template-columns: 15% minmax(0, 1fr) 2rem;
+  grid-template-columns: minmax(max-content, 15%) minmax(0, 1fr) 2rem;
   padding-top: 5px;
   padding-bottom: 5px;
   min-height: 48px;
@@ -326,7 +315,6 @@ h3 {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: v-bind(rowsMaxHeight);
 
   align-items: center;
 

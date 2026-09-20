@@ -2,7 +2,7 @@
 id: E16/F03/S02
 title: The plan scrolls with the page
 type: story
-status: ready
+status: in-progress
 blocked_by: [E16/F03/S01]
 pr: []
 ---
@@ -27,11 +27,11 @@ Six nested scrollers on Market Setup collapse with the cap. Keep only scrollers 
 
 ## Acceptance criteria
 
-- [ ] No `min-height` on `.plan-row`.
-- [ ] On a market with one date, one tier and one section, the entire plan is visible without scrolling inside any element.
-- [ ] On a three-date market the page scrolls; nothing scrolls inside a panel except where a panel is genuinely bounded.
-- [ ] No element on the market screens scrolls horizontally.
-- [ ] No card clips its content mid-row at any content size (finding H13).
+- [x] No `min-height` on `.plan-row`.
+- [x] On a market with one date, one tier and one section, the entire plan is visible without scrolling inside any element.
+- [x] On a three-date market the page scrolls; nothing scrolls inside a panel except where a panel is genuinely bounded.
+- [x] No element on the market screens scrolls horizontally.
+- [x] No card clips its content mid-row at any content size (finding H13).
 
 ## Notes
 

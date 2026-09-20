@@ -2,7 +2,7 @@
 id: E16/F03/S01
 title: Two widths replace four
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -36,10 +36,10 @@ The import wizard is not in either list. It is the one screen whose chrome is an
 
 ## Acceptance criteria
 
-- [ ] Exactly two content widths exist across the organizer screens, from the two tokens. No screen sets its own.
-- [ ] No organizer screen sets `height` as a percentage of the viewport.
-- [ ] The gutter is one value.
-- [ ] An e2e assertion reads the rendered content width of each organizer screen and matches it to the token its screen belongs to, so a fifth width cannot be added quietly.
+- [x] Exactly two content widths exist across the organizer screens, from the two tokens. No screen sets its own.
+- [x] No organizer screen sets `height` as a percentage of the viewport.
+- [x] The gutter is one value.
+- [x] An e2e assertion reads the rendered content width of each organizer screen and matches it to the token its screen belongs to, so a fifth width cannot be added quietly.
 
 ## Notes
 

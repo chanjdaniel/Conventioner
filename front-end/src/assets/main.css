@@ -1,9 +1,16 @@
 @import './base.css';
 
+/*
+ * The mount point holds no layout of its own: each screen owns its width and its gutter, from
+ * --workspace-max or --list-max (E16/F03).
+ *
+ * The `padding: 2rem` that used to sit here was inert scaffolding while `.app-container` was
+ * absolutely positioned and escaped it. Putting the shell back into normal flow so the PAGE can
+ * scroll made it live again, and it immediately broke the one thing this product promises about a
+ * phone: 64px of padding put the check-in page 64px past a 844px window.
+ */
 #app {
   max-width: 100%;
-  margin: 0 auto;
-  padding: 2rem;
   font-weight: 400;
 }
 
@@ -36,18 +43,6 @@ a {
   text-decoration: none;
   transition: 0.4s;
   padding: 3px;
-}
-
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
-
-  #app {
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
 }
 
 @font-face {

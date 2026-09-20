@@ -2,7 +2,7 @@
 id: E16/F03/S03
 title: The plan's columns are sized by need
 type: story
-status: ready
+status: in-progress
 blocked_by: [E16/F03/S01]
 pr: []
 ---
@@ -29,10 +29,10 @@ While here: the column headers (`Section Name / Location / Tier / Count`, `Prior
 
 ## Acceptance criteria
 
-- [ ] No `<select>` or `<input>` on the plan is narrower than its own longest option or value. Asserted by measuring the rendered text width of the selected option against the control's available width, for every control on the plan.
-- [ ] `Community`, `Standard`, `Premium`, `Mezzanine` and `Main Hall` all render in full.
-- [ ] The three panels' widths are within ~10% of what their content needs, not equal to each other.
-- [ ] Column headers are visually distinct from the editable controls beneath them and expose no interactive element.
+- [x] No `<select>` or `<input>` on the plan is narrower than its own longest option or value. Asserted by measuring the rendered text width of the selected option against the control's available width, for every control on the plan.
+- [x] `Community`, `Standard`, `Premium`, `Mezzanine` and `Main Hall` all render in full.
+- [x] The three panels' widths are within ~10% of what their content needs, not equal to each other.
+- [x] Column headers are visually distinct from the editable controls beneath them and expose no interactive element.
 
 ## Notes
 

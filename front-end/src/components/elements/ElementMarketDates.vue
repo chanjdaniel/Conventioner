@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, defineEmits, defineProps, toRef, nextTick, onUnmounted, watch } from 'vue';
+import { ref, onMounted, defineEmits, defineProps, toRef, watch } from 'vue';
 import { type SetupObject, type MarketDateObject } from '@/assets/types/datatypes';
 import IconAddRound from '../icons/IconAddRound.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
@@ -15,27 +15,7 @@ const container = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
 
-const rowsMaxHeight = ref<string | null>(null);
-
-const setHeight = () => {
-  rowsMaxHeight.value = '0px';
-  nextTick(() => {
-    if (container.value && columnTitles.value && rows.value) {
-      rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 15}px`;
-    }
-  });
-};
-
-const resizeObserver = new ResizeObserver(setHeight);
-
-onMounted(() => {
-  setHeight();
-  resizeObserver.observe(document.body);
-});
-
-onUnmounted(() => {
-  resizeObserver.disconnect();
-});
+onMounted(() => {});
 
 watch(
   () => setupObject.value.marketDates,
@@ -51,13 +31,11 @@ const removeRow = (index: number | null) => {
   if (index != null) {
     marketDates.value.splice(index, 1);
   }
-  setHeight();
 };
 
 const addRow = () => {
   const newMarketDate: MarketDateObject = { date: '' };
   marketDates.value.push(newMarketDate);
-  setHeight();
 };
 </script>
 
@@ -186,7 +164,6 @@ h4 {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: v-bind(rowsMaxHeight);
 
   align-items: center;
 

@@ -89,14 +89,16 @@ function handleNewClose() {
 </template>
 
 <style scoped>
+/* A list column of the list width, centred, growing to its content while the page scrolls
+   (E16/F03). It was full-bleed, which is how a market name came to be capped at 320px inside an
+   1840px row with 1,455px of the row left empty. */
 .markets-view {
-  flex-grow: 1;
   display: flex;
   flex-direction: column;
-  height: 100%;
   width: 100%;
+  max-width: var(--list-max);
+  margin: 0 auto;
   padding: 32px 40px;
-  overflow: hidden;
 }
 
 .header {
@@ -134,8 +136,6 @@ function handleNewClose() {
 }
 
 .markets-block {
-  flex: 1;
-  overflow-y: auto;
   padding-top: 24px;
 }
 

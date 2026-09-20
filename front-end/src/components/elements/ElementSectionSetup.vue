@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, toRef, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, toRef, watch } from 'vue';
 import { type SetupObject, type SectionObject } from '@/assets/types/datatypes';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
@@ -16,30 +16,6 @@ const container = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
 const tableCount = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
-
-const rowsMaxHeight = ref<string | null>(null);
-
-const setHeight = () => {
-  rowsMaxHeight.value = '0px';
-  nextTick(() => {
-    if (container.value && columnTitles.value && rows.value) {
-      rowsMaxHeight.value = `${container.value.clientHeight - columnTitles.value.clientHeight - 30}px`;
-    }
-  });
-};
-
-const resizeObserver = new ResizeObserver(setHeight);
-
-onMounted(() => {
-  setHeight();
-  nextTick(() => {
-    resizeObserver.observe(document.body);
-  });
-});
-
-onUnmounted(() => {
-  resizeObserver.disconnect();
-});
 
 watch(
   () => setupObject.value.sections,
@@ -66,14 +42,12 @@ const addRow = () => {
     count: 0,
   };
   sections.value.push(newSection);
-  setHeight();
 };
 
 const removeRow = (index: number | null) => {
   if (index != null) {
     sections.value.splice(index, 1);
   }
-  setHeight();
 };
 
 const countTables = () => {
@@ -216,7 +190,6 @@ const countTables = () => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: v-bind(rowsMaxHeight);
 
   align-items: center;
 

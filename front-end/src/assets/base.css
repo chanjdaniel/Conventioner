@@ -88,6 +88,19 @@
      two lines of one field. */
   --space-hairline: 2px;
 
+  /* How wide a screen is (E16/F03, from claims-and-room ticket 01, which holds the measurements).
+
+     A screen is a card of ONE OF TWO widths that grows to its content while the page scrolls. Two
+     rather than one because the content clusters into two groups and nothing wants the 1536 the
+     workspace used to get: the plan's widest row needs 1316, the statistics 1129, and the
+     single-column lists ~1035. One width for both puts a 1,035px list in a 1,440px page.
+
+     1440 rather than the content-only answer of 1360 because that is the phase rail's measured
+     break - below it the rail wraps to a second row on a published market. The rail still wraps at
+     --list-max, which is ticket 07 and may yet amend this value. */
+  --workspace-max: 1440px; /* Market Setup and its four tabs */
+  --list-max: 1100px; /* Tables, Vendors, Attendance, Markets, Organizations */
+
   /* Three values, extracted. "Fully rounded" was spelled four ways - 999px, 100px, 30px, 20px. */
   --radius-control: 6px; /* buttons, inputs, selects, small chips */
   --radius-card: 10px; /* cards, panels, dialogs */

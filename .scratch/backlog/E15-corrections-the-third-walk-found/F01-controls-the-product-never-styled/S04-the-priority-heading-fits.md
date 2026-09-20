@@ -35,3 +35,7 @@ heading belongs to. Two changes to one grid, one of them deliberately narrow, is
 
 Kept rather than deleted so the record shows the narrow fix was considered and why it stopped being
 the right shape.
+
+**Absorbed as promised.** `E16/F03/S03` restyled `.column-titles` from a pill into a label row and
+widened the column to `minmax(max-content, 15%)`, so the heading sizes to its own text. Verified:
+zero clipped text nodes on `/market-setup`, and zero interactive elements inside the header row.
