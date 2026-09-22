@@ -2,7 +2,7 @@
 id: E17/F01/S03
 title: Plan-card headings and values share one grid
 type: story
-status: ready
+status: done
 blocked_by: [E17/F01/S01, E17/F02/S01]
 pr: []
 ---

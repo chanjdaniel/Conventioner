@@ -66,6 +66,8 @@ const countTables = () => {
       <h3>Location</h3>
       <h3>Tier</h3>
       <h3>Count</h3>
+      <!-- The remove column, so the heading row declares as many cells as the grid has tracks. -->
+      <h3></h3>
     </div>
     <div class="rows" ref="rows">
       <div

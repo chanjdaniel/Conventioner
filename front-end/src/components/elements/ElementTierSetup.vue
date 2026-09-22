@@ -208,6 +208,8 @@ h3 {
 }
 
 .container {
+  --tier-columns: 3.5rem minmax(0, 1fr) 2rem;
+
   width: 100%;
   height: 100%;
 
@@ -226,14 +228,25 @@ h3 {
   border-radius: var(--radius-card);
 }
 
+/*
+ * One track definition, shared (E17/F01/S03).
+ *
+ * Both grids declared `minmax(max-content, 15%)` for the rank column - the same template, which
+ * looked like agreement. It is not: `max-content` is resolved against each grid's OWN content, so
+ * the heading sized to "Priority" (50px) and the rows to "1" (the 15% floor, 41px), and the column
+ * boundary fell 9px apart. Identical declarations, different results.
+ *
+ * A fixed first track is content-independent, so the two cannot drift. `3.5rem` clears "Priority",
+ * which needs 50px and was the reason `max-content` was reached for in the first place.
+ */
 .column-titles {
   display: grid;
-  grid-template-columns: minmax(max-content, 15%) minmax(0, 1fr) 2rem;
+  grid-template-columns: var(--tier-columns);
 }
 
 .priority-row {
   display: grid;
-  grid-template-columns: minmax(max-content, 15%) minmax(0, 1fr) 2rem;
+  grid-template-columns: var(--tier-columns);
   padding-top: 5px;
   padding-bottom: 5px;
   min-height: 48px;
