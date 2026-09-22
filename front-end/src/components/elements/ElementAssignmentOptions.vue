@@ -310,12 +310,6 @@ input[type='number'] {
   -moz-appearance: textfield;
 }
 
-.icon-add-round {
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
-}
-
 /* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -
    the same icon that came out 24x24 in Section Setup, side by side on one screen. */
 .icon-close-round {
