@@ -8,8 +8,19 @@
  *
  * The plan object arrives as a prop and every edit is emitted rather than mutated in place, so a
  * later story can mount this under a different parent without rewriting it. The plan's ACTIONS row
- * is deliberately not here: it is a sibling of the settings panel rather than part of any tab body,
- * and moving it inside would be the DOM change this story must not make.
+ * is deliberately not here: it is a sibling of the settings panel rather than part of any tab body.
+ *
+ * ONE SCROLLING PAGE OF ORDERED SECTIONS (E18/F01/S01), each at the workspace's full width.
+ *
+ * Not a step wizard. The surface must be resumable, and it must never force a walk-through to
+ * change one value later, so the order is communicated by POSITION rather than enforced by
+ * navigation. The same layout survives into later phases, where the plan stays editable and the
+ * form section simply stops being gated - there is one layout for this data, not two.
+ *
+ * Full width also ends a fight rather than rebalancing it. Equal thirds once gave Section Setup -
+ * which needs 654px - the same 460 as Location Setup, which needs 278, and the tier select came
+ * out too narrow to show any of its own values on the field that sets a vendor's price. The
+ * negotiated `0.78fr / 0.69fr / 1.53fr` truce that replaced it is no longer needed.
  */
 import { computed } from 'vue';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
@@ -18,6 +29,8 @@ import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
+import { essentialOptionsFromSetup } from '@/utils/essentialFields';
+import { planGateReason } from '@/utils/planGate';
 import type { IntakeMode, Market, SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{
@@ -30,7 +43,11 @@ const emit = defineEmits<{
   (event: 'update:setupObject', value: SetupObject): void;
   (event: 'update:intakeMode', value: IntakeMode): void;
   (event: 'choosePath'): void;
+  (event: 'openForm'): void;
 }>();
+
+/** What the plan is still missing before the form can ask anything, or null when it is ready. */
+const formGateReason = computed(() => planGateReason(essentialOptionsFromSetup(props.setupObject)));
 
 /**
  * The floorplan route is offered from the Section Setup card - the place it is a question about -
@@ -69,7 +86,7 @@ const intakeEditable = computed(() => props.intakeEditable);
       </ElementSettingContainer>
     </section>
 
-    <section class="plan-row plan-row--triple">
+    <section class="plan-row plan-row--single">
       <ElementSettingContainer>
         <template #setting-title>
           <h2>Tier Setup</h2>
@@ -130,10 +147,60 @@ const intakeEditable = computed(() => props.intakeEditable);
         </template>
       </ElementSettingContainer>
     </section>
+
+    <!--
+      The form is built FROM the plan, so it comes after it and is gated on the plan offering
+      something (E18/F01/S01).
+
+      The gate reads the same rule the transition guard reads - what the plan OFFERS - and never a
+      count of custom fields. A form is its custom fields PLUS the essential questions the plan
+      asks, and a layer that counted only the former is what once let a market open applications
+      and then refuse every application it received.
+
+      It names what is missing rather than merely being disabled. That is the difference between a
+      guided page and a broken one.
+    -->
+    <section class="plan-row plan-row--single" data-testid="plan-form-section">
+      <ElementSettingContainer>
+        <template #setting-title>
+          <h2>Application form</h2>
+        </template>
+        <template #setting-content>
+          <p v-if="formGateReason" class="plan-form-gate" data-testid="plan-form-gate">
+            {{ formGateReason }}
+          </p>
+          <p v-else class="plan-form-ready" data-testid="plan-form-ready">
+            Your plan offers something to apply for, so the form can ask about it.
+            <button type="button" class="plan-form-link" @click="emit('openForm')">
+              Build the application form
+            </button>
+          </p>
+        </template>
+      </ElementSettingContainer>
+    </section>
   </div>
 </template>
 
 <style scoped>
+.plan-form-gate,
+.plan-form-ready {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+  line-height: 1.5;
+}
+
+.plan-form-link {
+  margin-left: var(--space-2);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--mm-text-link);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .settings-body {
   align-self: stretch;
   display: flex;

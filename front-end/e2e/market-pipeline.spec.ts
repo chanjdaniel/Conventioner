@@ -136,9 +136,10 @@ test.describe('Market pipeline E2E', () => {
     // Tiers are no longer pre-filled from an uploaded spreadsheet's cell values, so the
     // organizer names the one this market runs.
     await setupPage.addTier('Gold', 0);
-    await expect(page.locator('.plan-row--triple .priority-row').first()).toBeVisible({
-      timeout: 5000,
-    });
+    // Named by its testid rather than by a layout class: every plan section is full width now
+    // (E18/F01/S01), so `.plan-row--triple` no longer exists - and a spec that reaches through a
+    // layout class breaks whenever the layout changes, which is not what it is testing.
+    await expect(page.getByTestId('setup-tier-name-input-0')).toBeVisible({ timeout: 5000 });
 
     // Add a location
     await setupPage.addLocation('Main Hall', 0);
