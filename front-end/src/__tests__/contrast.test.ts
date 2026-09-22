@@ -114,6 +114,7 @@ describe('the palette carries a contrast contract', () => {
   const INK_ON_LIGHT = [
     '--mm-black',
     '--mm-text-muted',
+    '--mm-text-muted-on-beige',
     '--mm-text-yellow',
     // The attention chip's ink. `--mm-text-yellow` is 4.52 on white and 3.96 on the chip's own
     // tint, which is how two phase labels shipped below AA - so the chip has its own, and this
@@ -131,9 +132,14 @@ describe('the palette carries a contrast contract', () => {
 
   for (const token of INK_ON_LIGHT) {
     for (const [groundName, ground] of LIGHT_GROUNDS) {
-      // Beige is a card fill, not a page ground, and only --mm-black is ever set on it today.
+      // Beige is a card fill, not a page ground. Two tokens are set on it - `--mm-black`, and the
+      // disabled ink, which exists BECAUSE `--mm-text-muted` is 4.63 on white and 4.23 on beige.
       // Hold the rest to white only, and say so rather than silently skipping.
-      if (groundName === '--mm-beige' && token !== '--mm-black') continue;
+      if (
+        groundName === '--mm-beige' &&
+        !['--mm-black', '--mm-text-muted-on-beige'].includes(token)
+      )
+        continue;
       it(`${token} is legible on ${groundName}`, () => {
         expect(contrast(inkOn(token, ground), ground)).toBeGreaterThanOrEqual(AA_NORMAL);
       });

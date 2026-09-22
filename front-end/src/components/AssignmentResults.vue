@@ -632,7 +632,7 @@ const handleSendToDiscord = async () => {
       <div class="assignment-actions-row">
         <div>
           <button
-            class="done-button download-button"
+            class="btn btn--primary download-button"
             :disabled="isDownloading || !assignmentStatistics"
             @click="handleDownloadCsv"
             data-testid="assignment-results-download-csv-button"
@@ -642,7 +642,7 @@ const handleSendToDiscord = async () => {
         </div>
         <div class="discord-action">
           <button
-            class="done-button discord-button"
+            class="btn btn--primary discord-button"
             :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
             @click="handleSendToDiscord"
             data-testid="assignment-results-send-discord-button"
@@ -1132,44 +1132,9 @@ h2 {
   gap: 12px;
 }
 
-.done-button {
-  margin-top: 15px;
-  width: 100px;
-  height: 35px;
-
-  background: var(--mm-green);
-  border-radius: var(--radius-control);
-  border: none;
-
-  font-family: 'Merge One';
-  font-style: normal;
-  font-weight: 400;
-  font-size: var(--text-lg);
-  line-height: 15px;
-  text-align: center;
-
-  color: white;
-  cursor: pointer;
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
-}
-
-.done-button:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.done-button:disabled {
-  background: var(--mm-border);
-  cursor: not-allowed;
-  opacity: 0.6;
-  /* White on this fill is 1.67. --mm-black on it is 9.31. */
-  color: var(--mm-black);
-}
-
+/* Width only. Type, height, radius and the disabled state are `.btn`'s (E17/F03/S02). */
 .download-button {
   width: 180px;
-  font-size: var(--text-lg);
 }
 
 .discord-action {
@@ -1189,15 +1154,19 @@ h2 {
 
 .discord-button {
   width: 200px;
-  font-size: var(--text-lg);
   /* stylelint-disable-next-line color-no-hex --
      Discord's own brand colour. A button that posts to Discord wearing Conventioner's green
      would say the wrong thing about where the message goes (E16/F07). */
   background: #5865f2;
 }
 
-.discord-button:hover:not(:disabled) {
-  opacity: 0.9;
+/*
+ * The brand fill is for the ENABLED button only. `.btn:disabled` deliberately does not rely on text
+ * contrast - it swaps the fill for beige and the ink for muted - and a local `background` that
+ * outlived the disabled state would have left muted ink on blurple.
+ */
+.discord-button:disabled {
+  background: var(--mm-beige);
 }
 
 .discord-toast {

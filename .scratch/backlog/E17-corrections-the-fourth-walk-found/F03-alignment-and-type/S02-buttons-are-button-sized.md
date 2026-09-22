@@ -2,7 +2,7 @@
 id: E17/F03/S02
 title: Buttons are button-sized
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

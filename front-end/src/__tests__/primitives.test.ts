@@ -79,7 +79,7 @@ describe('the primitives exist and own what tokens cannot', () => {
   it('has one disabled state, and it does not rely on text contrast', () => {
     // The product had four treatments, one of which put white text on `--mm-border` at 1.74:1.
     expect(blocks('.btn:disabled')).toHaveLength(1);
-    expect(declaration('.btn:disabled', 'color')).toBe('var(--mm-text-muted)');
+    expect(declaration('.btn:disabled', 'color')).toBe('var(--mm-text-muted-on-beige)');
     expect(declaration('.btn:disabled', 'background')).toBe('var(--mm-beige)');
   });
 

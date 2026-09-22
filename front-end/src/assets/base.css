@@ -17,6 +17,10 @@
   /* Yellow as TEXT needs its own value; the yellow fill below is far too light to read on white.
      Green does not: --mm-green reaches 4.59 both as ink on white and as a fill under white text,
      so it is one colour doing both jobs rather than two that must be kept in step. */
+  /* The disabled control's ink, measured on `--mm-beige` - which is the ground a disabled control
+     actually has, since `.btn:disabled` swaps its fill for beige. `--mm-text-muted` is 4.63 on
+     white and only 4.23 on beige, and a disabled label nobody can read is not a quieter label. */
+  --mm-text-muted-on-beige: rgba(39, 35, 35, 0.7);
   --mm-text-yellow: #996f1b; /* 4.52 on white */
   /* The attention chip's ink, measured on the attention chip's own GROUND rather than on white.
      `--mm-text-yellow` is 4.52 on white and only 3.96 on that tint, which is how "Assignment" and

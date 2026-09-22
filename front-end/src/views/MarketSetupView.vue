@@ -593,7 +593,7 @@ const sectionsUndescribed = computed(
                   />
                   <div v-if="formEditable" class="form-save-row">
                     <button
-                      class="done-button"
+                      class="btn btn--primary done-button"
                       :disabled="!canSaveForm"
                       @click="saveApplicationForm()"
                       data-testid="form-builder-save-button"
@@ -842,7 +842,7 @@ const sectionsUndescribed = computed(
         </span>
         <button
           type="button"
-          class="done-button"
+          class="btn btn--primary done-button"
           :disabled="!assignmentOptionsComplete || !!assignRefusalReason"
           @click="handleAssign"
           data-testid="market-setup-assign-button"
@@ -1135,36 +1135,15 @@ h2 {
   color: white;
 }
 
+/*
+ * Height, padding, radius, type, focus and the disabled state come from `.btn btn--primary`
+ * (E17/F03/S02). This re-decided all of them, and set its label at `--text-lg` - which the scale
+ * documents as "section headings, card titles", two steps above the `--text-sm` it names for
+ * BUTTONS. Only the minimum footprint is this screen's own.
+ */
 .done-button {
   margin-top: 15px;
-  /* Sized to fit the label, with the original 100x35 box as the floor so the
-       single-word buttons ("Back", "Next", "Assign") keep their footprint. */
   min-width: 100px;
-  min-height: 35px;
-  padding: 0 14px;
-
-  background: var(--mm-green);
-  border-radius: var(--radius-control);
-  border: none;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-
-  font-family: 'Merge One';
-  font-style: normal;
-  font-weight: 400;
-  font-size: var(--text-lg);
-  line-height: 1.2;
-  text-align: center;
-
-  color: white;
-}
-
-.done-button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .discord-webhook-row {
@@ -1216,6 +1195,15 @@ h2 {
   overflow-y: auto;
 }
 
+/*
+ * The confirm action sits at the row's right (E17/F03/S02). The row had no `justify-content`, so it
+ * defaulted to the start and the save button sat bottom LEFT with its status messages trailing to
+ * its right.
+ *
+ * `margin-left: auto` on the button rather than `justify-content: flex-end` on the row, so the
+ * status - saved, the validation error, the incomplete hint - stays readable at the START of the
+ * row instead of being crowded against the button.
+ */
 .form-save-row {
   display: flex;
   flex-direction: row;
@@ -1224,6 +1212,11 @@ h2 {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--mm-border);
+}
+
+.form-save-row .done-button {
+  order: 1;
+  margin-left: auto;
 }
 
 .form-lock-banner {
