@@ -177,8 +177,6 @@ select.datatype-dropdown {
   align-items: stretch;
 
   gap: 8px;
-  padding-top: 0;
-  padding-bottom: 8px;
 
   overflow-y: auto;
   overflow-x: hidden;

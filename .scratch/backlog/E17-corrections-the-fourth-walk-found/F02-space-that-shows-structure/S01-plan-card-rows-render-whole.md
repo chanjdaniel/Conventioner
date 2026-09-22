@@ -2,7 +2,7 @@
 id: E17/F02/S01
 title: Plan-card rows render whole
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

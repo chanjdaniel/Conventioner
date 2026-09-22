@@ -321,8 +321,6 @@ h3 {
   align-items: center;
 
   gap: 8px;
-  padding-top: 4px;
-  padding-bottom: 8px;
 
   overflow: auto;
   scrollbar-width: none;
