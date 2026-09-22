@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
+import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
 import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue';
 import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
@@ -20,6 +21,7 @@ import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
+import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
@@ -337,6 +339,19 @@ async function saveApplicationForm() {
       await loadApplicationForm();
     }
   }
+}
+
+/**
+ * How vendors reach this market. Settable while it is a draft and frozen afterwards, which is what
+ * the back end enforces - this only stops an organizer reaching for something that would be
+ * refused (E18/F04/S01).
+ */
+const intakeEditable = computed(() => market.value?.phase === MarketPhase.Draft);
+
+function handleUpdateIntakeMode(mode: IntakeMode) {
+  if (!market.value) return;
+  market.value.intakeMode = mode;
+  void savePlan();
 }
 
 const updateMarket = async () => {
@@ -705,6 +720,21 @@ const sectionsUndescribed = computed(
                 <ElementSectionSetup
                   :setupObject="setupObject"
                   @update:setupObject="handleUpdateSetupObject"
+                />
+              </template>
+            </ElementSettingContainer>
+          </section>
+
+          <section class="plan-row plan-row--single">
+            <ElementSettingContainer>
+              <template #setting-title>
+                <h2>How vendors apply</h2>
+              </template>
+              <template #setting-content>
+                <ElementIntakeMode
+                  :intakeMode="market?.intakeMode"
+                  :editable="intakeEditable"
+                  @update:intakeMode="handleUpdateIntakeMode"
                 />
               </template>
             </ElementSettingContainer>

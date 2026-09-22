@@ -286,8 +286,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   because the essential questions define the offering the CSV maps onto. Intake mode decides who
   fills the form in, not whether one exists.
 - **It is organizer-settable only while the market is a draft**, then frozen by `update_market()`,
-  derived from the stored phase rather than from a list of late phases. MVP ships no UI control for
-  it, deliberately: every MVP market is CSV, and a toggle would advertise a surface MVP withholds.
+  derived from the stored phase rather than from a list of late phases. The control is
+  `ElementIntakeMode`, a plan card; the server is the authority, so a hidden or disabled control is
+  never the rule. It was withheld through MVP on the grounds that a toggle would advertise a surface
+  MVP withheld - retired by `E18/F04/S01`, because the applicant surface turned out to be built and
+  switched off rather than absent, and the apply page already answers correctly in every phase.
 - **`market_from_document()` withholds `phase` and `intake_mode` from the Pydantic parse** and takes
   both from their document readers. Pydantic validates an enum on construction, before any later
   assignment can degrade it, so a stored value this build does not recognize used to raise - taking
