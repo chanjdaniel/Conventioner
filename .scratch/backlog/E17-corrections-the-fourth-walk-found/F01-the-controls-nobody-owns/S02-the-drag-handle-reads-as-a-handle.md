@@ -2,7 +2,7 @@
 id: E17/F01/S02
 title: The drag handle reads as a handle
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
