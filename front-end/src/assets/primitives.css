@@ -203,7 +203,7 @@
 
 .chip--attention {
   background: rgba(228, 166, 41, 0.18);
-  color: var(--mm-text-yellow);
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .chip--informational {

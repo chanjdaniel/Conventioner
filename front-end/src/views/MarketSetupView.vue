@@ -1229,7 +1229,7 @@ h2 {
 .form-lock-banner {
   font-size: var(--text-xs);
   line-height: 1.4;
-  color: var(--mm-text-yellow);
+  color: var(--mm-text-yellow-on-tint);
   background: rgba(228, 166, 41, 0.18);
   border: 1px solid var(--mm-yellow);
   border-radius: var(--radius-control);

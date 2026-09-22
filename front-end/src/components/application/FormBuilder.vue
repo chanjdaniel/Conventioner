@@ -193,12 +193,18 @@ const fieldCount = computed(() => fields.value.length);
   color: var(--mm-text-muted);
 }
 
+/*
+ * Space between two fields must clearly exceed space within one (E17/F03/S01).
+ *
+ * It was 8px between and 6px inside, so a row of one field and the start of the next were the same
+ * distance apart and proximity gave the eye nothing to group on.
+ */
 .field-item {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
 }
 
 /* Appearance, colour, hover and hit area come from `.drag-handle` in primitives.css. Only the
@@ -207,11 +213,21 @@ const fieldCount = computed(() => fields.value.length);
   align-self: stretch;
 }
 
+/*
+ * A bounded card, which is what the essential-questions panel beside it already does for each of
+ * its questions. This declared no border, background, padding or radius - so the two halves of one
+ * screen disagreed about whether a form field is a card.
+ */
 .field-card {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
+
+  padding: var(--space-3);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
+  background: white;
 }
 
 .field-card-header {
@@ -233,12 +249,16 @@ const fieldCount = computed(() => fields.value.length);
   flex: 1;
 }
 
+/*
+ * `--mm-border` is exempt from the token contrast test because it "never carries text" - and here
+ * it carried text, at 3.73:1. The neutral chip tone is the product's answer for a quiet label.
+ */
 .field-type-badge {
   font-size: var(--text-xs);
-  background: var(--mm-border);
-  color: var(--mm-text-muted);
+  background: var(--mm-beige);
+  color: var(--mm-black);
   border-radius: var(--radius-control);
-  padding: 1px 6px;
+  padding: var(--space-hairline) var(--space-2);
 }
 
 .required-badge {

@@ -161,16 +161,6 @@ function asks(key: string): boolean {
       <div class="essential-item-header">
         <span class="essential-item-label">{{ SECTION_RANKING_LABEL }}</span>
         <span class="essential-type-badge">ranking</span>
-        <!-- Only a ranking gets this switch. Turning off a constraint - dates, tiers, table
-             choice - would let a default answer for the applicant, so those have none. -->
-        <label v-if="editable" class="essential-asks-toggle" data-testid="essential-asks-section">
-          <input
-            type="checkbox"
-            :checked="asks(SECTION_RANKING_KEY)"
-            @change="emit('toggleUnasked', SECTION_RANKING_KEY, asks(SECTION_RANKING_KEY))"
-          />
-          Ask this
-        </label>
       </div>
       <p
         v-if="!asks(SECTION_RANKING_KEY)"
@@ -199,6 +189,20 @@ function asks(key: string): boolean {
         No sections yet - this question is hidden from applicants until your market plan defines
         sections (Market Setup or the floorplan editor).
       </p>
+      <!-- Only a ranking gets this switch. Turning off a constraint - dates, tiers, table choice -
+           would let a default answer for the applicant, so those have none.
+
+           At the card's bottom right (E17/F03/S01): in the header, beside the label and the type
+           badge, it read as a third LABEL rather than as the control deciding whether the question
+           is asked at all. -->
+      <label v-if="editable" class="essential-asks-toggle" data-testid="essential-asks-section">
+        <input
+          type="checkbox"
+          :checked="asks(SECTION_RANKING_KEY)"
+          @change="emit('toggleUnasked', SECTION_RANKING_KEY, asks(SECTION_RANKING_KEY))"
+        />
+        Ask this
+      </label>
     </div>
 
     <div class="essential-item" data-testid="essential-item-table-type-ranking">
@@ -292,12 +296,16 @@ function asks(key: string): boolean {
   min-width: 0;
 }
 
+/*
+ * `--mm-border` is exempt from the token contrast contract because it "never carries text" - and
+ * here it carried text, at 3.73:1, on thirteen badges the rendered sweep had never walked.
+ */
 .essential-type-badge {
   font-size: var(--text-xs);
-  background: var(--mm-border);
-  color: var(--mm-text-muted);
+  background: var(--mm-beige);
+  color: var(--mm-black);
   border-radius: var(--radius-control);
-  padding: 1px 6px;
+  padding: var(--space-hairline) var(--space-2);
   white-space: nowrap;
 }
 
@@ -341,7 +349,7 @@ function asks(key: string): boolean {
 .essential-item-warning {
   font-size: var(--text-xs);
   line-height: 1.4;
-  color: var(--mm-text-yellow);
+  color: var(--mm-text-yellow-on-tint);
   background: rgba(228, 166, 41, 0.18);
   border: 1px solid var(--mm-yellow);
   border-radius: var(--radius-control);
@@ -349,7 +357,7 @@ function asks(key: string): boolean {
   margin: 0;
 }
 .essential-asks-toggle {
-  margin-left: auto;
+  align-self: flex-end;
   display: inline-flex;
   align-items: center;
   gap: 5px;
