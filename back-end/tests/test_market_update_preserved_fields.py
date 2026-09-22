@@ -52,7 +52,6 @@ def test_update_keeps_conventioner_fields_the_body_omits(monkeypatch):
                 ]
             },
             reviewConfig={"reviewers": ["a@example.com"]},
-            discordGuildId="guild-1",
         )
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
@@ -63,7 +62,6 @@ def test_update_keeps_conventioner_fields_the_body_omits(monkeypatch):
     written = fake.last_update["$set"]
     assert written["applicationForm"]["fields"][0]["label"] == "Shop name"
     assert written["reviewConfig"] == {"reviewers": ["a@example.com"]}
-    assert written["discordGuildId"] == "guild-1"
 
 
 def test_update_writes_conventioner_fields_the_body_does_carry(collection):
@@ -71,13 +69,12 @@ def test_update_writes_conventioner_fields_the_body_does_carry(collection):
     save_application_form. Its own coverage lives in test_application_form.py."""
     MarketsApi.update_market(
         "market-123",
-        client_market(review_config={"reviewers": ["b@example.com"]}, discord_guild_id="guild-2"),
+        client_market(review_config={"reviewers": ["b@example.com"]}),
         "user-1",
     )
 
     written = collection.last_update["$set"]
     assert written["reviewConfig"] == {"reviewers": ["b@example.com"]}
-    assert written["discordGuildId"] == "guild-2"
 
 
 def test_update_clears_conventioner_fields_the_body_explicitly_nulls(monkeypatch):
@@ -89,18 +86,16 @@ def test_update_clears_conventioner_fields_the_body_explicitly_nulls(monkeypatch
                 ]
             },
             reviewConfig={"reviewers": ["a@example.com"]},
-            discordGuildId="guild-1",
         )
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
 
-    body = client_market(application_form=None, review_config=None, discord_guild_id=None)
+    body = client_market(application_form=None, review_config=None)
     MarketsApi.update_market("market-123", body, "user-1")
 
     written = fake.last_update["$set"]
     assert written["reviewConfig"] is None
-    assert written["discordGuildId"] is None
     # An explicit null clears what the body owns, but not the server-owned form.
     assert written["applicationForm"]["fields"][0]["key"] == "shop_name"
 

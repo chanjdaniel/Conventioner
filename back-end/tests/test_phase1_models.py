@@ -169,7 +169,6 @@ class TestMarketDefaults:
         )
         assert market.application_form is None
         assert market.review_config is None
-        assert market.discord_guild_id is None
 
     def test_market_with_application_form(self):
         form = ApplicationForm(fields=[FormField(key="name", label="Name", type="text")])
@@ -181,12 +180,10 @@ class TestMarketDefaults:
             assignment_object=AssignmentObject(),
             application_form=form,
             review_config={"reviewer_ids": ["r1"]},
-            discord_guild_id="guild-123",
         )
         assert market.application_form is not None
         assert len(market.application_form.fields) == 1
         assert market.review_config == {"reviewer_ids": ["r1"]}
-        assert market.discord_guild_id == "guild-123"
 
     def test_explicit_phase(self):
         market = Market(
@@ -237,7 +234,6 @@ def _make_existing_market_doc(**overrides):
             "assignment_date": "2025-01-02",
         },
         "is_draft": False,
-        "discord_webhook_url": None,
     }
     doc.update(overrides)
     return doc

@@ -809,7 +809,7 @@ def describe_stored_assignment(
 ) -> Market:
     """Describe the market's STORED assignment, recomputing nothing about it.
 
-    Every read-only view - the statistics, the tables grid, the CSV, the Discord summary - used to
+    Every read-only view - the statistics, the tables grid, the CSV - used to
     run the solver afresh. That was harmless while the browser stored whatever it had been handed,
     and it is not harmless now: ``assignmentObject.vendorAssignments`` is what check-in reads at
     the door and what an organizer edits one seat at a time, so a screen drawn from a fresh run is

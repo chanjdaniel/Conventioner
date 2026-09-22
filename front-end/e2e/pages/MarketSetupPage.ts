@@ -2,7 +2,7 @@ import { type Locator, type Page } from '@playwright/test';
 
 /**
  * Page object for the Market Setup wizard view.
- * Covers wizard step navigation (Back/Next/Assign), the Discord webhook input,
+ * Covers wizard step navigation (Back/Next/Assign),
  * and interactions with the setup wizard sub-components.
  */
 export class MarketSetupPage {
@@ -10,9 +10,6 @@ export class MarketSetupPage {
 
   // Wizard navigation
   readonly assignButton: Locator;
-
-  // Discord webhook
-  readonly discordWebhookInput: Locator;
 
   // Page 0: Market Dates
   readonly datesAddButton: Locator;
@@ -50,8 +47,6 @@ export class MarketSetupPage {
     this.page = page;
 
     this.assignButton = page.getByTestId('market-setup-assign-button');
-
-    this.discordWebhookInput = page.getByTestId('market-setup-discord-webhook-input');
 
     this.datesAddButton = page.getByTestId('setup-dates-add-button');
 
@@ -143,10 +138,6 @@ export class MarketSetupPage {
 
   async isAssignEnabled(): Promise<boolean> {
     return await this.assignButton.isEnabled();
-  }
-
-  async fillDiscordWebhook(url: string): Promise<void> {
-    await this.discordWebhookInput.fill(url);
   }
 
   // --- Page 0: Market Dates ---

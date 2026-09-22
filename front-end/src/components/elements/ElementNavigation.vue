@@ -34,9 +34,9 @@ const user = inject<string | null>('user');
 
     <div class="nav">
       <!-- Every item here goes where it says it goes.
-           Four of six used to point at /vendors - "View Tables", "Discord Tools" and "View Change
+           Four of six used to point at /vendors - "View Tables", a Discord tool and "View Change
            Log" all landed on the vendors page, and "Manage Tables" opened /init, which is the
-           new-or-existing market chooser. Discord tools and a change log do not exist as pages at
+           new-or-existing market chooser. Neither those nor a change log exist as pages at
            all, so those two are simply gone - inventing a destination is how they got here.
            Organizations is not a replacement for them: it is a real page that was reachable only
            from the dashboard. -->

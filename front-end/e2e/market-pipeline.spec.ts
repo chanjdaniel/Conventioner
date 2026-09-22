@@ -183,7 +183,7 @@ test.describe('Market pipeline E2E', () => {
     expect(summaryText).toContain('Satisfaction');
     expect(summaryText).toContain('share of the dates vendors asked for');
 
-    // Download CSV and Send to Discord are the two things here that are actually actions. Done
+    // Download CSV is the thing here that is actually an action. Done
     // and Back are gone: publishing is a step on the phase strip, and "I have finished looking at
     // this" is what leaving a page already is (E10/F03/S01).
     await expect(resultsPage.downloadCsvButton).toBeVisible();

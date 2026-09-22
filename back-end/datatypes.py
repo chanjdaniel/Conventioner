@@ -427,8 +427,6 @@ class Market(BaseModel):
     application_form: Optional["ApplicationForm"] = None  # Application form definition
     review_config: Optional[Dict[str, Any]] = None  # Review configuration (reviewer pool, etc.)
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
-    discord_guild_id: Optional[str] = None  # Per-market Discord guild reference (D4 integration seam)
-    discord_webhook_url: Optional[str] = None  # Per-market Discord webhook target for assignment notifications
     # Server-owned: written only by the CSV import endpoint, never by a market update body.
     import_mapping: Optional["ImportMapping"] = None
     # Organizer-settable while the market is a draft, frozen by ``update_market`` once it is not.
@@ -830,8 +828,6 @@ class MarketSchemaContract(ContractModel):
     import_mapping: Optional[ImportMappingContract] = None
     assignment_object: AssignmentObjectContract
     creation_date: str
-    discord_guild_id: Optional[str] = None
-    discord_webhook_url: Optional[str] = None
     id: str
     intake_mode: Optional[str] = None
     is_draft: Optional[bool] = None

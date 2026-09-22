@@ -2,7 +2,7 @@
 id: E18/F05
 title: The Discord webhook goes
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

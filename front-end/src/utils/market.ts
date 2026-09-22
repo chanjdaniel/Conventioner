@@ -104,7 +104,5 @@ export function parseMarketFromApi(market: any): Market {
     },
     applicationForm: applicationForm ? (applicationForm as ApplicationForm) : undefined,
     reviewConfig: market.reviewConfig ?? market.review_config ?? undefined,
-    discordGuildId: market.discordGuildId ?? market.discord_guild_id ?? undefined,
-    discordWebhookUrl: market.discordWebhookUrl ?? market.discord_webhook_url ?? undefined,
   };
 }

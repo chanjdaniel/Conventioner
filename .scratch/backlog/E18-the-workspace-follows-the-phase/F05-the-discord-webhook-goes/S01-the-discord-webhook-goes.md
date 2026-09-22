@@ -2,7 +2,7 @@
 id: E18/F05/S01
 title: The Discord webhook goes
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

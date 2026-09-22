@@ -344,14 +344,6 @@ const updateMarket = async () => {
   await api.put('/markets/' + market.value!.id, market.value);
 };
 
-const handleDiscordWebhookInput = (event: Event) => {
-  if (!market.value) return;
-  const value = (event.target as HTMLInputElement).value;
-  const trimmed = value.trim();
-  market.value.discordWebhookUrl = trimmed === '' ? null : value;
-  localStorage.setItem('market', JSON.stringify(market.value));
-};
-
 /**
  * The plan saves itself as it is edited.
  *
@@ -792,30 +784,6 @@ const sectionsUndescribed = computed(
            nothing about what it sends, when, or that it is optional. Silence about a working
            feature is worse than silence about a stub: the organizer who skips it never learns
            what they skipped, and the one who fills it in does not know what they just armed. -->
-      <div v-if="activeTab === 'setup'" class="discord-webhook-row">
-        <div class="discord-webhook-heading">
-          <label class="discord-webhook-label" for="discord-webhook-url">
-            Discord webhook URL <span class="discord-webhook-optional">optional</span>
-          </label>
-          <p class="discord-webhook-help">
-            Paste one and a Send to Discord button on the results screen will post the finished
-            assignment to that channel. Nothing is sent until you press it.
-          </p>
-        </div>
-        <input
-          id="discord-webhook-url"
-          type="url"
-          class="discord-webhook-input"
-          placeholder="https://discord.com/api/webhooks/..."
-          :value="market?.discordWebhookUrl ?? ''"
-          @input="handleDiscordWebhookInput"
-          @change="updateMarket"
-          data-testid="market-setup-discord-webhook-input"
-        />
-      </div>
-      <!-- Back and Next are gone with the paging: the plan is one page, so there is nowhere to
-           page to. Assign is the only action here, and it no longer needs to say which page it
-           belongs to. -->
       <div v-if="activeTab === 'setup'" class="plan-actions">
         <!-- Whether what the organizer just typed is on the server. Nothing else on this page
              says so now that Next is gone. -->
@@ -1144,47 +1112,6 @@ h2 {
 .done-button {
   margin-top: 15px;
   min-width: 100px;
-}
-
-.discord-webhook-row {
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 12px;
-  margin-top: 15px;
-}
-
-.discord-webhook-heading {
-  max-width: 420px;
-}
-
-.discord-webhook-label {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.discord-webhook-optional {
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--mm-text-muted);
-}
-
-.discord-webhook-help {
-  margin: 2px 0 0;
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.discord-webhook-input {
-  flex: 1;
-  height: 32px;
-  padding: 4px 10px;
-  font-size: var(--text-sm);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background-color: white;
 }
 
 .form-builder-container {
