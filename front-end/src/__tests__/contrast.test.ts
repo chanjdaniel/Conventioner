@@ -115,6 +115,10 @@ describe('the palette carries a contrast contract', () => {
     '--mm-black',
     '--mm-text-muted',
     '--mm-text-yellow',
+    // The attention chip's ink. `--mm-text-yellow` is 4.52 on white and 3.96 on the chip's own
+    // tint, which is how two phase labels shipped below AA - so the chip has its own, and this
+    // asserts it on white while the rendered sweep measures the tint pairing.
+    '--mm-text-yellow-on-tint',
     '--mm-text-link',
     // Ink on a green TINT, and on white it is darker still - so white is the harder of its two
     // grounds to state here, and the tint pairing is measured by the rendered sweep.

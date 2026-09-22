@@ -444,9 +444,14 @@ function errorFor(key: string): string {
   color: var(--mm-black);
 }
 
+/*
+ * On beige, not on white. `--mm-text-muted` is 4.63 on white and 4.23 on `--mm-beige`, so this note
+ * was the one place the palette's "only --mm-black is ever set on beige" assumption was untrue.
+ */
 .essential-email-note {
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  color: var(--mm-black);
+  opacity: 0.75;
 }
 
 .essential-field {

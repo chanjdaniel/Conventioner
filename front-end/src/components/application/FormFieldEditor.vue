@@ -200,11 +200,44 @@ function updateOption(idx: number, value: string) {
 }
 
 .field-row-checkbox {
-  gap: 4px;
+  gap: var(--space-1);
 }
 
+/*
+ * The Options caption names a STACK, not one control, so it aligns to the first row rather than to
+ * the stack's midpoint - which is where `align-items: center` would put it once a field has three
+ * options.
+ */
+.field-row:has(.options-list) {
+  align-items: flex-start;
+}
+
+/*
+ * The caption sits on its control's centre line (E17/F03/S01).
+ *
+ * `.field-row` already declares `align-items: center`, so the label BOX and the control BOX were
+ * already centred against each other - adding that again fixes nothing. The misalignment was
+ * INSIDE the boxes: the caption had no line-height while the control has an explicit height and
+ * padding, so two centred boxes still put their text on different lines.
+ *
+ * Giving the caption the control's own height and centring its text within it makes the two line
+ * boxes the same, which is what actually aligns the glyphs - and it holds for the `<select>`, whose
+ * internal centring follows its own rules rather than a text input's.
+ *
+ * `margin-bottom: 0` because this shares a class name with the primitive layer's `.field-label`,
+ * which is a label sitting ABOVE its field and carries 4px beneath it. Here the caption sits BESIDE
+ * the control, so that margin made the row 32px tall and centred the two against different boxes -
+ * which is the whole of the 2px this rule exists to remove.
+ */
 .field-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 28px;
+  margin-bottom: 0;
+
   font-size: var(--text-xs);
+  line-height: normal;
   color: var(--mm-black);
   width: 65px;
   flex-shrink: 0;

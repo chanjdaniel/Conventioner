@@ -2,7 +2,7 @@
 id: E17/F03/S01
 title: The application form tab reads clearly
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
