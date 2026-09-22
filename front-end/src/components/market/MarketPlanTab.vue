@@ -17,15 +17,12 @@ import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
 import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
 import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
-import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
-import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue';
 import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
-import type { FormField, IntakeMode, Market, SetupObject } from '@/assets/types/datatypes';
+import type { IntakeMode, Market, SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{
   setupObject: SetupObject;
   market: Market | null;
-  formFields: FormField[];
   intakeEditable: boolean;
 }>();
 
@@ -47,7 +44,6 @@ const sectionsUndescribed = computed(
 
 const setupObject = computed(() => props.setupObject);
 const market = computed(() => props.market);
-const formFields = computed(() => props.formFields);
 const intakeEditable = computed(() => props.intakeEditable);
 </script>
 
@@ -134,32 +130,6 @@ const intakeEditable = computed(() => props.intakeEditable);
         </template>
       </ElementSettingContainer>
     </section>
-
-    <section class="plan-row plan-row--asymmetric">
-      <ElementSettingContainer>
-        <template #setting-title>
-          <h2>Assignment Priority</h2>
-        </template>
-        <template #setting-content>
-          <ElementAssignmentPriority
-            :setupObject="setupObject"
-            :formFields="formFields"
-            @update:setupObject="(value) => emit('update:setupObject', value)"
-          />
-        </template>
-      </ElementSettingContainer>
-      <ElementSettingContainer>
-        <template #setting-title>
-          <h2>Assignment Options</h2>
-        </template>
-        <template #setting-content>
-          <ElementAssignmentOptions
-            :setupObject="setupObject"
-            @update:setupObject="(value) => emit('update:setupObject', value)"
-          />
-        </template>
-      </ElementSettingContainer>
-    </section>
   </div>
 </template>
 
@@ -202,10 +172,6 @@ const intakeEditable = computed(() => props.intakeEditable);
  */
 .plan-row--triple {
   grid-template-columns: minmax(0, 0.78fr) minmax(0, 0.69fr) minmax(0, 1.53fr);
-}
-
-.plan-row--asymmetric {
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
 }
 
 .section-path-button {
