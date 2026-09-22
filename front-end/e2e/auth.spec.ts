@@ -1,11 +1,4 @@
-import {
-  test,
-  expect,
-  TEST_USER,
-  LoginPage,
-  PasswordResetPage,
-  AssignmentResultsPage,
-} from './fixtures';
+import { test, expect, TEST_USER, LoginPage, PasswordResetPage } from './fixtures';
 import { execSync } from 'child_process';
 import { mongoContainer } from './helpers/containerNames';
 import { deleteUser } from './helpers/deleteUser';

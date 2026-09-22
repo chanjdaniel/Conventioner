@@ -72,7 +72,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     expect(workspace, '--workspace-max is not defined').toBeGreaterThan(0);
     expect(list, '--list-max is not defined').toBeGreaterThan(0);
 
-    await page.goto('/market-setup');
+    await page.goto('/market-setup?tab=setup');
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '.market-setup-body')).toBe(workspace);
 
@@ -86,7 +86,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
   }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openTheSeededMarket(page);
-    await page.goto('/market-setup');
+    await page.goto('/market-setup?tab=setup');
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
 
     // The plan is taller than the window on any real market, so the PAGE must be what scrolls.
@@ -116,7 +116,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     // wide with 34px of text room, so every tier read "Pr...", "St...", "Co...".
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openTheSeededMarket(page);
-    await page.goto('/market-setup');
+    await page.goto('/market-setup?tab=setup');
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
 
     const truncated = await page.evaluate(() => {

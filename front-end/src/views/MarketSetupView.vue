@@ -8,6 +8,12 @@ import { type SetupObject, type Market, type FormField } from '@/assets/types/da
 import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
+import {
+  MARKET_SURFACES,
+  isCurrentSurface,
+  surfaceForPhase,
+  type MarketSurface,
+} from '@/utils/marketSurface';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue';
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
@@ -25,19 +31,24 @@ const showPathChoice = ref(false);
  * the Tables and Vendors screens come back to it. It used to be a route the organizer was pushed
  * to, which is how `Done` came to sit on it posting a phase transition (E10/F03/S01).
  */
-type MarketTab = 'form' | 'setup' | 'applications' | 'assignment';
-const MARKET_TABS: MarketTab[] = ['form', 'setup', 'applications', 'assignment'];
-
 const route = useRoute();
 
-function tabFromRoute(): MarketTab {
+/**
+ * The surface to open on (E18/F02/S02).
+ *
+ * An explicit stage in the URL always wins, so a shared or bookmarked link keeps working - that is
+ * the one requirement that survives the original finding. Otherwise the PHASE decides, rather than
+ * the unconditional `'setup'` this used to fall back to whatever the market was doing.
+ */
+function tabFromRoute(): MarketSurface {
   const asked = String(route.query.tab ?? '');
-  return (MARKET_TABS as string[]).includes(asked) ? (asked as MarketTab) : 'setup';
+  if ((MARKET_SURFACES as string[]).includes(asked)) return asked as MarketSurface;
+  return surfaceForPhase(market.value?.phase);
 }
 
-const activeTab = ref<MarketTab>(tabFromRoute());
+const activeTab = ref<MarketSurface>('setup');
 
-function showTab(tab: MarketTab) {
+function showTab(tab: MarketSurface) {
   activeTab.value = tab;
   router.replace({ query: { ...route.query, tab } });
 }
@@ -52,6 +63,9 @@ watch(
  * value that only arrives a tick later would flash that message on every page that does have one.
  */
 const market = ref<Market | null>(JSON.parse(localStorage.getItem('market') || 'null'));
+
+// The phase decides where an organizer lands, so this is set once the market is in hand.
+activeTab.value = tabFromRoute();
 
 /** Published by the form tab. The applications tab reads the first, the plan the second. */
 const formEditable = ref(false);
@@ -302,30 +316,66 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           <!-- The market's own name, so the page says which market this is. It read "Settings" on
                every market, and the route (/market-setup) carries no id to tell them apart. -->
           <h1 data-testid="market-setup-title">{{ market.name }}</h1>
+          <!--
+            Navigation along the spine, not four peers (E18/F02/S02).
+
+            The plan comes BEFORE the form, because the form is built from it - the back end says
+            the essential questions' offering "is never an independent list: it is the market plan
+            itself", and the old left-to-right order stated the dependency backwards.
+
+            Every surface stays reachable: the plan is editable in every phase, and an organizer
+            looking back at what they asked applicants is not doing anything wrong. What the bar
+            adds is WHERE THE MARKET IS - `aria-current` and a mark on the surface this phase is
+            worked on - so the bar and the rail beneath it say the same thing.
+          -->
           <div class="tab-bar">
             <button
-              :class="['tab-button', { active: activeTab === 'form' }]"
-              @click="showTab('form')"
-              data-testid="market-setup-form-tab"
-            >
-              Application Form
-            </button>
-            <button
-              :class="['tab-button', { active: activeTab === 'setup' }]"
+              :class="[
+                'tab-button',
+                {
+                  active: activeTab === 'setup',
+                  current: isCurrentSurface('setup', market?.phase),
+                },
+              ]"
+              :aria-current="isCurrentSurface('setup', market?.phase) ? 'step' : undefined"
               @click="showTab('setup')"
               data-testid="market-setup-setup-tab"
             >
               Market Setup
             </button>
             <button
-              :class="['tab-button', { active: activeTab === 'applications' }]"
+              :class="[
+                'tab-button',
+                { active: activeTab === 'form', current: isCurrentSurface('form', market?.phase) },
+              ]"
+              @click="showTab('form')"
+              data-testid="market-setup-form-tab"
+            >
+              Application Form
+            </button>
+            <button
+              :class="[
+                'tab-button',
+                {
+                  active: activeTab === 'applications',
+                  current: isCurrentSurface('applications', market?.phase),
+                },
+              ]"
+              :aria-current="isCurrentSurface('applications', market?.phase) ? 'step' : undefined"
               @click="showTab('applications')"
               data-testid="market-setup-applications-tab"
             >
               Applications
             </button>
             <button
-              :class="['tab-button', { active: activeTab === 'assignment' }]"
+              :class="[
+                'tab-button',
+                {
+                  active: activeTab === 'assignment',
+                  current: isCurrentSurface('assignment', market?.phase),
+                },
+              ]"
+              :aria-current="isCurrentSurface('assignment', market?.phase) ? 'step' : undefined"
               @click="showTab('assignment')"
               data-testid="market-setup-assignment-tab"
             >
@@ -566,6 +616,24 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 .tab-button.active {
   color: white;
   border-bottom-color: var(--mm-green);
+}
+
+/*
+ * Where the market IS, as against which surface is open (E18/F02/S02).
+ *
+ * A dot rather than a second underline: the underline already means "you are looking at this", and
+ * two treatments for two different ideas on one control is how a bar stops being readable. The
+ * rail beneath says the same thing at length; this is the one-glance version.
+ */
+.tab-button.current::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: var(--space-2);
+  vertical-align: middle;
+  border-radius: var(--radius-pill);
+  background: var(--mm-green);
 }
 
 .settings-body {

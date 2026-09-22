@@ -227,7 +227,7 @@ test.describe('Every rendered text node reaches AA', () => {
     await openTheSeededMarket(page);
     for (const [state, url, ready] of [
       ['markets', '/markets', 'markets-create-button'],
-      ['market plan', '/market-setup', 'setup-dates-date-display-0'],
+      ['market plan', '/market-setup?tab=setup', 'setup-dates-date-display-0'],
       // The densest authoring surface in the product, and unwalked until E17/F03/S01 - which is
       // how a field-type badge shipped at 3.73:1 on it.
       ['application form', '/market-setup?tab=form', 'essential-item-section-ranking'],
