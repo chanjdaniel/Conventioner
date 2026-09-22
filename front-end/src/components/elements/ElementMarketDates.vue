@@ -43,6 +43,8 @@ const addRow = () => {
   <div class="container" ref="container">
     <div class="column-titles row-container" ref="columnTitles">
       <h3>Date</h3>
+      <!-- The remove column, so the heading row declares as many cells as the grid has tracks. -->
+      <h3></h3>
     </div>
     <div class="rows" ref="rows">
       <div

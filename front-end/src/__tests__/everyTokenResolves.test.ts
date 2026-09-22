@@ -38,7 +38,7 @@ const GLOBAL_CSS = ['assets/base.css', 'assets/main.css']
  * only use is a local variable, and one defined in a component but used across the product is the
  * bug this test exists to catch. Naming them makes the difference explicit.
  */
-const LOCALLY_DEFINED = new Set(['--priority-columns', '--section-columns']);
+const LOCALLY_DEFINED = new Set(['--priority-columns', '--section-columns', '--tier-columns']);
 
 /**
  * PrimeVue's own theme tokens, defined by the library's stylesheet at runtime.

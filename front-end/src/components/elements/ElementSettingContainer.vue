@@ -89,6 +89,20 @@
   border-bottom: 1px solid var(--mm-border);
   padding-bottom: 6px;
   margin-bottom: 4px;
+
+  /*
+   * The SAME horizontal inset the rows list has (E17/F01/S03).
+   *
+   * The heading row is a SIBLING of `.rows`, not a child of it, so the padding that gives a row's
+   * shadow its room does not reach the heading - and a heading 16px wider than the values beneath
+   * it is a heading that names a column it does not sit over.
+   *
+   * Margin rather than padding, because this row draws the rule under the headings: padding would
+   * align the columns and still leave that rule 16px wider than every row below it.
+   */
+  width: calc(100% - 2 * var(--space-2));
+  margin-left: auto;
+  margin-right: auto;
 }
 
 ::v-deep(.column-titles h3) {
