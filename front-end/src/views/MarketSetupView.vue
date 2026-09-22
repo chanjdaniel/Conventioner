@@ -17,7 +17,7 @@ import {
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue';
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
-import AssignmentResults from '@/components/AssignmentResults.vue';
+import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 
@@ -261,6 +261,9 @@ const assignError = ref('');
  * used to let the error escape unhandled, so the button did nothing at all and the page simply
  * sat there.
  */
+/** Changes when an assignment has just been stored, so the results below re-read it. */
+const assignedAt = ref(0);
+
 const handleAssign = async () => {
   if (!assignmentOptionsComplete.value || assignRefusalReason.value) {
     return;
@@ -278,6 +281,9 @@ const handleAssign = async () => {
     market.value = assignedMarket;
     localStorage.setItem('market', JSON.stringify(market.value));
 
+    // The results read the assignment when they mount, and the organizer is already looking at
+    // them - so say that it changed.
+    assignedAt.value = Date.now();
     showTab('assignment');
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -405,7 +411,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           v-if="activeTab === 'setup'"
           :setupObject="setupObject"
           :market="market"
-          :formFields="formFields"
           :intakeEditable="intakeEditable"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
@@ -425,9 +430,17 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
              in every phase, and nothing on it posts a transition: publishing is a step on the
              phase strip above, and "I have finished looking at this" is what leaving a page
              already is. -->
-        <div v-if="activeTab === 'assignment'" class="settings-body settings-body-stacked">
-          <AssignmentResults />
-        </div>
+        <MarketAssignmentTab
+          v-if="activeTab === 'assignment'"
+          :setupObject="setupObject"
+          :formFields="formFields"
+          :assignmentOptionsComplete="assignmentOptionsComplete"
+          :assignRefusalReason="assignRefusalReason"
+          :assignError="assignError"
+          :assignedAt="assignedAt"
+          @update:setupObject="handleUpdateSetupObject"
+          @assign="handleAssign"
+        />
       </div>
       <!-- A real, wired feature that sat here as a bare URL box between Back and Next, saying
            nothing about what it sends, when, or that it is optional. Silence about a working
@@ -457,38 +470,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
         >
           {{ planSaveError }}
         </span>
-        <button
-          type="button"
-          class="btn btn--primary done-button"
-          :disabled="!assignmentOptionsComplete || !!assignRefusalReason"
-          @click="handleAssign"
-          data-testid="market-setup-assign-button"
-        >
-          Assign
-        </button>
-        <!-- The phase comes first: a market that may not be assigned at all is not waiting on
-             two numbers, and saying so would send the organizer to fix the wrong thing. -->
-        <p
-          v-if="assignRefusalReason"
-          class="assign-disabled-hint"
-          data-testid="market-setup-assign-phase-hint"
-        >
-          {{ assignRefusalReason }}
-        </p>
-        <p
-          v-else-if="!assignmentOptionsComplete"
-          class="assign-disabled-hint"
-          data-testid="market-setup-assign-hint"
-        >
-          Set both assignment options above to run the assignment.
-        </p>
-        <div
-          v-if="assignError"
-          class="form-load-error-banner assign-error-banner"
-          data-testid="market-setup-assign-error"
-        >
-          <span>{{ assignError }}</span>
-        </div>
       </div>
     </div>
   </div>

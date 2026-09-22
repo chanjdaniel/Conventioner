@@ -2,7 +2,7 @@
 id: E18/F02/S04
 title: The assignment surface
 type: story
-status: ready
+status: done
 blocked_by: [E18/F02/S02]
 pr: []
 ---

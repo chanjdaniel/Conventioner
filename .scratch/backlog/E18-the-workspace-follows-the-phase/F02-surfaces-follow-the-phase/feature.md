@@ -2,7 +2,7 @@
 id: E18/F02
 title: Surfaces follow the phase
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

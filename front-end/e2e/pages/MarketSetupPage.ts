@@ -128,15 +128,35 @@ export class MarketSetupPage {
       .waitFor({ timeout: 10000 });
   }
 
+  /**
+   * The PLAN, named explicitly.
+   *
+   * A bare `/market-setup` now opens the surface the market's phase is worked on (E18/F02/S02), so
+   * a page object whose other helpers all edit the plan has to say which surface it wants.
+   */
   async goto(): Promise<void> {
-    await this.page.goto('/market-setup');
+    await this.page.goto('/market-setup?tab=setup');
+  }
+
+  /**
+   * Assign lives on the ASSIGNMENT surface now (E18/F02/S04), not on the plan - it is refused
+   * outside the assignment phase, so a permanently disabled button beside the dates explained a
+   * rule instead of applying it.
+   */
+  async gotoAssignment(): Promise<void> {
+    // Click the tab rather than navigating: a hard `goto` reloads the app and drops whatever the
+    // debounced plan save has not written yet, which an organizer switching tabs never does.
+    await this.page.getByTestId('market-setup-assignment-tab').click();
+    await this.assignButton.waitFor({ state: 'visible', timeout: 15000 });
   }
 
   async clickAssign(): Promise<void> {
+    if (!(await this.assignButton.isVisible())) await this.gotoAssignment();
     await this.assignButton.click();
   }
 
   async isAssignEnabled(): Promise<boolean> {
+    if (!(await this.assignButton.isVisible())) await this.gotoAssignment();
     return await this.assignButton.isEnabled();
   }
 
@@ -266,8 +286,15 @@ export class MarketSetupPage {
 
   // --- Page 2: Assignment Options ---
 
-  /** Set the max assignments per vendor. */
+  /**
+   * Set the max assignments per vendor.
+   *
+   * Assignment Options moved to the assignment surface with Assign (E18/F02/S04), so this goes
+   * there if it is not already looking at it - a priority rule names a form field, and neither
+   * card can be filled in meaningfully while a market is still being planned.
+   */
   async setMaxAssignmentsPerVendor(value: number): Promise<void> {
+    if (!(await this.optionsMaxAssignmentsInput.isVisible())) await this.gotoAssignment();
     await this.optionsMaxAssignmentsInput.fill(String(value));
   }
 
@@ -281,15 +308,19 @@ export class MarketSetupPage {
   /**
    * Wait for the plan editor to be on screen.
    *
-   * It used to wait for the wizard's Next button; the plan is one page now (E10/F02/S01), so the
-   * thing to wait for is the one action it has.
+   * It used to wait for the wizard's Next button; the plan is one page now (E10/F02/S01). It then
+   * waited for Assign, which left the plan for the assignment surface (E18/F02/S04) - so the thing
+   * to wait for is the plan's own content.
    */
   async waitForWizard(): Promise<void> {
-    await this.assignButton.waitFor({ state: 'visible', timeout: 10000 });
+    await this.page
+      .getByTestId('setup-dates-add-button')
+      .waitFor({ state: 'visible', timeout: 10000 });
   }
 
   /** Wait for the Assign button to become enabled (all required options configured). */
   async waitForAssignEnabled(): Promise<void> {
+    if (!(await this.assignButton.isVisible())) await this.gotoAssignment();
     await this.assignButton.waitFor({ state: 'visible', timeout: 5000 });
     // The button should not be disabled
     await this.page.waitForFunction(
