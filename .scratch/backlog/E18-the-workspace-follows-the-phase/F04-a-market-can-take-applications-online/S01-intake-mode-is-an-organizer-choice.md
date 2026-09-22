@@ -2,7 +2,7 @@
 id: E18/F04/S01
 title: Intake mode is an organizer choice
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
