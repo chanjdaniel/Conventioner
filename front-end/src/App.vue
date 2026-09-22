@@ -135,7 +135,20 @@ watch(isLogin, (newValue) => {
   min-width: 0;
 }
 
+/*
+ * The navigation is reachable at any scroll position, on every page (E17/F04/S01).
+ *
+ * STICKY, not fixed: sticky keeps the bar in flow, so nothing has to be padded out from underneath
+ * it and no screen has to know the bar's height. It also depends on the page being what scrolls -
+ * `.app-container` grows past the viewport rather than capping at it (E16/F03), and a sticky
+ * element inside an `overflow` ancestor would silently stop sticking. Do not reintroduce a
+ * viewport-height shell to achieve this.
+ */
 header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+
   width: 100%;
   line-height: 1.5;
   max-height: 100vh;
@@ -150,6 +163,9 @@ header {
   position: fixed;
   top: 0;
   left: -300px;
+  /* Above the sticky header, which is 30. Order in the DOM used to be enough; once the header
+     stacks, the drawer has to say so. */
+  z-index: 100;
   /* `visibility` rides the same duration so it flips only once the drawer has finished sliding out,
      rather than blinking away at the start of the transition. */
   transition:
@@ -164,6 +180,8 @@ header {
 .nav-background {
   position: fixed;
   inset: 0;
+  /* Between the sticky header (30) and the drawer (100), so the scrim dims the bar too. */
+  z-index: 90;
   background: rgba(0, 0, 0, 0.5);
   opacity: 100%;
   transition:

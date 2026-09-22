@@ -2,7 +2,7 @@
 id: E17/F01
 title: The controls nobody owns
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

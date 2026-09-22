@@ -2,7 +2,7 @@
 id: E17/F02
 title: Space that shows structure
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

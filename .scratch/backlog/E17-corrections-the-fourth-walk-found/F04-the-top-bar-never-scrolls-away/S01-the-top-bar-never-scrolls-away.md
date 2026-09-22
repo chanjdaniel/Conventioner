@@ -2,7 +2,7 @@
 id: E17/F04/S01
 title: The top bar never scrolls away
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

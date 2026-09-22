@@ -2,7 +2,7 @@
 id: E17
 title: Corrections the fourth walk found
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

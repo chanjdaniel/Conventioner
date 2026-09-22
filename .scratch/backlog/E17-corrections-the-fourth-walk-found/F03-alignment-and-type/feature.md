@@ -2,7 +2,7 @@
 id: E17/F03
 title: Alignment and type
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
