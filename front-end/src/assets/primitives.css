@@ -91,7 +91,7 @@
  */
 .btn:disabled {
   background: var(--mm-beige);
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
   border-color: var(--mm-border);
   font-weight: 400;
   cursor: not-allowed;
@@ -146,7 +146,7 @@
 
 .field:disabled {
   background: var(--mm-beige);
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
   cursor: not-allowed;
 }
 
