@@ -977,11 +977,17 @@ def transition_market(market_id: str) -> Response:
             context.document[phase_key] if phase_key in context.document
             else {"$exists": False}
         )
+        # One atomic update. A failure between the phase and the stamp would leave a market whose
+        # two answers disagree, which is the class of bug migrate_is_draft_consistency exists to
+        # repair - and this endpoint is the only writer of either.
         result = MarketsApi.markets_collection.update_one(
             {"id": market_id, phase_key: stored_phase},
             {"$set": {
                 phase_key: to_phase.value,
                 is_draft_key: to_phase == MarketPhase.DRAFT,
+                **MarketsApi.finalization_update(
+                    from_phase, to_phase.value, context.document
+                ),
             }},
         )
 

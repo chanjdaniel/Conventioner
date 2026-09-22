@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import re
 import uuid
 from typing import NamedTuple, Optional, Dict, Any, List, Tuple
@@ -1064,6 +1065,49 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             "market_id": market_id,
             "function": "get_market_tables"
         }, 500
+
+
+def finalization_update(
+    from_phase: str, to_phase: str, document: Dict[str, Any]
+) -> Dict[str, Any]:
+    """The `$set` entries that record whether this market's form is finalized (E18/F03/S01).
+
+    **Leaving draft IS finalizing.** There is no separate act for an organizer to discover, and no
+    new guard: ``FormHasFieldsGuard`` already counts PLAN-DERIVED asked keys, so a market whose plan
+    offers nothing - and whose form therefore asks nothing - is already refused. Only the stamp was
+    missing.
+
+    Returning to draft, which stays legal only while no application exists, clears it. So the field
+    answers exactly one question: is this form finalized right now?
+
+    **It is not a restatement of ``phase != draft``**, because ``draft -> archived`` also exists -
+    the publish path - and does NOT stamp. A market published straight from draft never opened its
+    form to anybody, and the two fields therefore say different things: ``phase`` is where the
+    market is now, this is whether the form was ever opened to applicants.
+
+    If that edge is ever retired, this field becomes derivable and should be DELETED rather than
+    maintained. Left here so that is a decision next time and not an archaeology problem.
+
+    A market may reach ``applications_open`` with no stored form at all: a form is its custom fields
+    PLUS the essential questions the plan asks, and either half alone is a form. Such a market is
+    still finalized, so it gets one with no custom fields rather than no stamp.
+    """
+    form_key = market_doc_key("application_form")
+    stored_form = document.get(form_key)
+
+    if from_phase == MarketPhase.DRAFT.value and to_phase == MarketPhase.APPLICATIONS_OPEN.value:
+        stamp = datetime.now(timezone.utc).isoformat()
+        published_key = market_doc_key("published_at")
+        if isinstance(stored_form, dict):
+            return {f"{form_key}.{published_key}": stamp}
+        return {form_key: {"fields": [], published_key: stamp}}
+
+    if to_phase == MarketPhase.DRAFT.value:
+        if isinstance(stored_form, dict):
+            return {f"{form_key}.{market_doc_key('published_at')}": None}
+        return {}
+
+    return {}
 
 
 def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> bool:

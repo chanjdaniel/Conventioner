@@ -26,6 +26,11 @@ OWNER_EMAIL = "owner@example.com"
 OWNER_ID = "user-1"
 
 
+def response_ok(response):
+    assert response.status_code == 200, response.get_json()
+    return True
+
+
 def _market_doc(phase="draft", fields=None, is_draft=True):
     """A market document as it is stored in Mongo (camelCase keys).
 
@@ -58,6 +63,21 @@ def _matches(doc, filter_query):
     return True
 
 
+def _set_path(doc, key, value):
+    """A dotted `$set` writes into the nested document, as Mongo does.
+
+    A flat `dict.update` would store the literal key "applicationForm.publishedAt" beside the form
+    rather than inside it, so a test asserting the stamp would pass against a document shape the
+    database never produces.
+    """
+    head, _, tail = key.partition(".")
+    if not tail:
+        doc[key] = value
+        return
+    target = doc.setdefault(head, {})
+    _set_path(target, tail, value)
+
+
 class FakeMarketsCollection:
     """Honours the phase field in the filter so compare-and-set is testable."""
 
@@ -72,7 +92,8 @@ class FakeMarketsCollection:
         self.updates.append((filter_query, update))
         if not _matches(self.doc, filter_query):
             return SimpleNamespace(matched_count=0, modified_count=0)
-        self.doc.update(update.get("$set", {}))
+        for key, value in update.get("$set", {}).items():
+            _set_path(self.doc, key, value)
         return SimpleNamespace(matched_count=1, modified_count=1)
 
 
@@ -127,6 +148,37 @@ class TestTransitionSuccess:
         assert response.status_code == 200
         assert response.get_json() == {"phase": "applications_open"}
         assert collection.doc["phase"] == "applications_open"
+
+    def test_opening_applications_stamps_the_form_in_the_same_update(self, client, markets):
+        """Leaving draft IS finalizing (E18/F03/S01), and the stamp lands atomically with the phase.
+
+        The field was designed for this, threaded through the market API and read by two front-end
+        components - and nothing ever assigned it.
+        """
+        collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
+
+        assert response_ok(_post(client, {"toPhase": "applications_open"}))
+        assert collection.doc["phase"] == "applications_open"
+        assert collection.doc["applicationForm"]["publishedAt"]
+        assert collection.doc["applicationForm"]["fields"][0]["key"] == "name"
+
+    def test_returning_to_draft_clears_the_stamp(self, client, markets):
+        collection = markets(
+            _market_doc(phase="applications_open", is_draft=False, fields=[])
+        )
+        collection.doc["applicationForm"]["publishedAt"] = "2026-09-01T00:00:00+00:00"
+
+        assert response_ok(_post(client, {"toPhase": "draft"}))
+        assert collection.doc["applicationForm"]["publishedAt"] is None
+
+    def test_publishing_straight_from_draft_does_not_stamp(self, client, markets):
+        """What keeps the field from being a restatement of `phase != draft`: a market published by
+        this route never opened its form to anybody."""
+        collection = markets(_market_doc())
+
+        assert response_ok(_post(client, {"toPhase": "archived"}))
+        assert collection.doc["phase"] == "archived"
+        assert collection.doc["applicationForm"].get("publishedAt") is None
 
     def test_accepts_snake_case_body(self, client, markets):
         markets(_market_doc(phase="applications_open"))
