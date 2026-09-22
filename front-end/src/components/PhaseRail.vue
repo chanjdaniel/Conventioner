@@ -533,6 +533,18 @@ function cancelPending() {
   font-family: 'Merge One', sans-serif;
 }
 
+/*
+ * The ring takes no part in layout (E17/F02/S02).
+ *
+ * An outline paints OUTSIDE the border box without occupying space, so this 2px ring at 2px of
+ * offset ate 4px of the step's 6px gap and left about 2px between the dot and its label. The gap
+ * grows by the ring's full extent, on the current step alone - the ordinary steps keep the gap they
+ * have, which the walk found no fault with.
+ */
+.phase-step--current {
+  gap: 10px;
+}
+
 .phase-step--current .phase-step-dot {
   background: var(--mm-green);
   border-color: var(--mm-green);

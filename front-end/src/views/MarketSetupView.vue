@@ -1024,6 +1024,12 @@ const sectionsUndescribed = computed(
 .market-setup-body {
   width: 100%;
   max-width: var(--workspace-max);
+
+  /*
+   * A gutter on three sides (E17/F02/S02), so the panel reads as a card sitting on the page rather
+   * than as the page itself. Top is deliberately absent: the panel meets the header above it.
+   */
+  padding: 0 var(--space-4) var(--space-4);
   min-height: 0;
   display: flex;
   flex-direction: column;
