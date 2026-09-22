@@ -271,6 +271,48 @@
 }
 
 /* ============================================================================================
+   .drag-handle
+   ============================================================================================ */
+
+/*
+ * The control you grab to reorder a row (E17/F01/S02).
+ *
+ * Its icon used to hardcode its own colour, which OVERRODE the `color` its wrapper set - so the
+ * handle could not be themed and had no hover state. With the icon on `currentColor`, this owns
+ * both, and owns the hit area: the form builder's was `padding: 10px 4px` around an 8px glyph,
+ * a 16px-wide target for a DRAG control.
+ *
+ * Height is not set here. Two of the three consumers stretch the handle to their row, which is
+ * theirs to decide; what must not vary is how it reads and how big a target it is.
+ */
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: var(--space-6);
+  padding: 0 var(--space-1);
+  border: none;
+  background: none;
+
+  color: var(--mm-text-muted);
+  cursor: grab;
+}
+
+.drag-handle:hover {
+  color: var(--mm-black);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle__icon {
+  width: var(--space-2);
+  flex: 0 0 auto;
+}
+
+/* ============================================================================================
    Focus
    ============================================================================================ */
 
@@ -284,7 +326,8 @@
  */
 .btn:focus-visible,
 .field:focus-visible,
-.add-row:focus-visible {
+.add-row:focus-visible,
+.drag-handle:focus-visible {
   outline: 2px solid var(--mm-black);
   outline-offset: 2px;
 }

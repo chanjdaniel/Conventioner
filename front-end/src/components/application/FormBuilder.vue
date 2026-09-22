@@ -121,7 +121,7 @@ const fieldCount = computed(() => fields.value.length);
       <template #item="{ element, index }">
         <div class="field-item">
           <div v-if="!readonly" class="drag-handle" data-testid="form-builder-drag-handle">
-            <IconClickDrag />
+            <IconClickDrag class="drag-handle__icon" />
           </div>
           <div class="field-card">
             <div class="field-card-header">
@@ -201,16 +201,10 @@ const fieldCount = computed(() => fields.value.length);
   margin-bottom: 8px;
 }
 
+/* Appearance, colour, hover and hit area come from `.drag-handle` in primitives.css. Only the
+   stretch to the field's height is this list's own. */
 .drag-handle {
-  cursor: grab;
-  padding: 10px 4px;
-  color: var(--mm-text-muted);
-  display: flex;
-  align-items: center;
-}
-
-.drag-handle:active {
-  cursor: grabbing;
+  align-self: stretch;
 }
 
 .field-card {

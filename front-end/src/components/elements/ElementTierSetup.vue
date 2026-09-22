@@ -128,7 +128,9 @@ const dragOptions = computed(() => ({
             @mouseleave="hoverParentIndex = null"
           >
             <div class="row-item drag-item">
-              <IconClickDrag class="click-drag" />
+              <span class="drag-handle click-drag"
+                ><IconClickDrag class="drag-handle__icon"
+              /></span>
               <h3>{{ parentIndex + 1 }}</h3>
             </div>
             <div class="row-item">
@@ -437,10 +439,5 @@ h3 {
   margin-right: 5px;
   padding-left: 5px;
   padding-right: 5px;
-}
-
-.sorting-click-drag {
-  width: 16px;
-  height: 30px;
 }
 </style>
