@@ -114,8 +114,9 @@ test.describe('Floorplan workflow E2E', () => {
     const survivingTables = await floorplanPage.snapshotPlacedTables();
     expect(survivingTables.length).toBeGreaterThan(0);
 
-    // The wizard's tier/location/section page is reachable.
-    await expect(page.locator('.plan-row--triple')).toBeVisible({ timeout: 5000 });
+    // The plan's tier/location/section sections are reachable. Named by testid rather than by a
+    // layout class: every section is full width now (E18/F01/S01).
+    await expect(page.getByTestId('setup-tier-add-button')).toBeVisible({ timeout: 5000 });
 
     // The floorplan's own sections and locations reached the market plan, which is the "verify
     // save" this test is named for. It used to assert that rows were RENDERED on that page,

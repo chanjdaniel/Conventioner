@@ -415,6 +415,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
           @choosePath="showPathChoice = true"
+          @openForm="showTab('form')"
         />
 
         <!-- Applications Tab -->
