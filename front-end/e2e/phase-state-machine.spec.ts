@@ -505,3 +505,45 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
     });
   });
 });
+
+test.describe('Where the workspace opens', () => {
+  /**
+   * The workspace opens the surface the phase is worked on (E18/F02/S02).
+   *
+   * It used to fall back to the plan whatever the market was doing, so an organizer returning to a
+   * market mid-review landed on its dates. The original finding asked for the OPPOSITE of what
+   * ships here - the form until it was finalized, then the plan - and ticket 01 overturned it: the
+   * plan comes first, because the form is built from it.
+   */
+  test('a draft opens on the plan, and a market past draft does not', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+
+    await setMarketInPage(page, await loadMarket(page, seed.marketId));
+    await page.goto('/market-setup');
+    await expect(page.getByTestId('market-setup-setup-tab')).toHaveClass(/active/);
+
+    await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: { toPhase: 'archived' },
+    });
+    await setMarketInPage(page, await loadMarket(page, seed.marketId));
+    await page.goto('/market-setup');
+    await expect(page.getByTestId('market-setup-assignment-tab')).toHaveClass(/active/);
+    await expect(page.getByTestId('market-setup-setup-tab')).not.toHaveClass(/active/);
+  });
+
+  test('an explicit stage in the URL still wins, so a shared link keeps working', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    await setMarketInPage(page, await loadMarket(page, seed.marketId));
+
+    // A draft would otherwise open on the plan.
+    await page.goto('/market-setup?tab=applications');
+    await expect(page.getByTestId('market-setup-applications-tab')).toHaveClass(/active/);
+  });
+});
