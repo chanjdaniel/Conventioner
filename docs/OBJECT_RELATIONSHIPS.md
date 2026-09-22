@@ -95,8 +95,6 @@ The central entity representing a market event with configuration, assignments, 
 - `is_draft: bool` - Stored as `isDraft` in MongoDB (camelCase). A Pydantic `@computed_field` **derived strictly from `phase`** (`true` exactly when `phase == draft`), never independently writable: no request body can set it, and it is recomputed from the stored phase on every write. It is still persisted, and kept in agreement with `phase` by every writer, for exactly one reason: it is the fallback `phase_from_market_document()` drops to when a document's `phase` is missing or unrecognized. Nothing reads the stored value for a market whose `phase` this build understands - a fallback that disagreed with the phase would answer confidently and wrongly. Treat it as a persisted view of `phase`, never as state of its own.
 - `application_form: Optional[ApplicationForm]` - Application form definition (None if no form has been saved). Server-owned on update: only `PUT /markets/<market_id>/application-form` writes it (see [ApplicationForm](#applicationform))
 - `review_config: Optional[Dict[str, Any]]` - Free-form review configuration (reviewer pool, etc.); no fixed schema yet
-- `discord_guild_id: Optional[str]` - Per-market Discord guild reference (integration seam; not yet consumed)
-- `discord_webhook_url: Optional[str]` - Per-market Discord webhook target for assignment notifications (omitted/blank disables Discord notifications)
 
 **Relationships:**
 - **Many-to-Many with User**: Markets have multiple users with different roles (via `roles` dict, keys are user ids)
@@ -113,7 +111,7 @@ The central entity representing a market event with configuration, assignments, 
 - `is_draft` is not owned by anything either: it is *computed* from `phase` on the model, and rewritten from the stored phase on every write path (`create_market()` stamps `true` alongside `phase: "draft"`; `update_market()` re-derives it from the stored phase; the transition endpoint sets both fields in one atomic update). A PUT body carrying `isDraft` is ignored, so a client cannot publish a market by flipping the flag - it must transition the phase.
 - On read, the phase a market reports is always derived from its stored document by `phase_from_market_document()` (`back-end/datatypes.py`), never taken from the raw document as-is. Documents written before the field existed have no `phase`, so the detail endpoint, the market list, and every internal parse (`market_from_document()` in `back-end/market_documents.py`) run the same `isDraft` fallback and cannot disagree about what phase a market is in. The two endpoints that serve a *raw* document rather than a parsed `Market` (the detail endpoint and the market list) additionally re-stamp `isDraft` from that effective phase before responding, so a document the old publish flow left self-contradictory (`phase: "draft"` + `isDraft: false`) never goes out over the wire with its two fields disagreeing.
 - `application_form` is written on an existing market only by `PUT /markets/<market_id>/application-form`. `update_market()` always re-applies the stored form over whatever the market payload contained, so a stale client copy cannot revert a saved form and no market PUT can bypass the D9 lock. `POST /markets` may still carry a form on the create body, and it goes through the same validation and normalization as the dedicated endpoint.
-- `review_config` and `discord_guild_id` are carried over on update whenever the payload omits them, so a client that round-trips a market it fetched cannot accidentally null them out. Passing an explicit `null` still clears the field.
+- `review_config` is carried over on update whenever the payload omits it, so a client that round-trips a market it fetched cannot accidentally null it out. Passing an explicit `null` still clears the field.
 
 **Role System:**
 - **Owner** (exactly 1): Can manage all roles (Admin/Editor/Viewer), Edit, View
@@ -923,7 +921,7 @@ SourceData
 - `SectionObject.location` and `tier` are optional (sections can exist independently)
 - `Market.organization_id` is `Optional` in the model but required by `POST /markets`: new markets always belong to an organization, and the optional typing only keeps pre-existing org-less markets readable
 - `Market.theme` and `Organization.theme` are optional
-- `Market.application_form`, `review_config`, and `discord_guild_id` are optional (None by default); within `ApplicationForm`, `essential_options` and `published_at` are optional (None until set by the server)
+- `Market.application_form` and `review_config` are optional (None by default); within `ApplicationForm`, `essential_options` and `published_at` are optional (None until set by the server)
 - The CSV-derived fields (`SetupObject.col_names` / `col_values` / `col_include` / `enum_priority_order`, `PriorityObject.col_name_idx`, `MarketDateObject.col_name_idx`, and the `AssignmentOptionObject` column indices) are optional and kept for backward compatibility. The assignment algorithm validates them instead of the models. See [SetupObject](#setupobject).
 
 ### 5. Permission Resolution

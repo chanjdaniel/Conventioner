@@ -196,10 +196,7 @@ export interface Market {
   /** How vendors reach this market. Organizer-settable while draft, frozen by the server after.
    * Absent means `csv`, which is what the server reads too. */
   intakeMode?: IntakeMode;
-  discordGuildId?: string;
   userRole?: MarketRole; // User's effective role (added by API)
-  /** Per-market Discord webhook URL; omitted/blank disables Discord notifications. */
-  discordWebhookUrl?: string | null;
 }
 
 export type OrganizationRoleType = 'owner' | 'admin' | 'member';

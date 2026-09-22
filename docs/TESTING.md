@@ -36,7 +36,7 @@ Install **both** files. `requirements-dev.txt` is only `pytest`; it does not pul
 dependencies, and the suite imports the application. `scripts/nm-test.sh` installs both, which is
 why the gate passes where a hand-run `pip install -r requirements-dev.txt` does not.
 
-The suite covers the assignment algorithm, statistics, Discord webhook, attendance,
+The suite covers the assignment algorithm, statistics, attendance,
 CSV import column mapping, schema generation, role validation, CAPTCHA verification/bypass, the
 Conventioner data model (market phases, `is_draft` computed strictly from `phase`, application
 form/status models, and backward compatibility with existing market documents), the `phase`
@@ -117,7 +117,7 @@ npm run test:unit
 Tests cover the API client (it sends credentials and attaches no request interceptor, so no
 identity can be smuggled onto a request) and
 `parseMarketFromApi()` (`market.test.ts`), which round-trips the market `phase`,
-application form, review config, and Discord guild id, and leaves them undefined when the
+application form and review config, and leaves them undefined when the
 API omits them. The same suite covers `pathAfterLoadingMarket()`, which routes every pre-archive phase to the
 setup wizard and only routes `archived` to the market's public slug, falling back to `isDraft`
 only for a market cached by a build that predates the field - without that fallback, a published
@@ -189,7 +189,7 @@ assignment CSV export (download and verify columns), and publishing a market
 (verify the check-in URL is reachable). Tier-3 authentication and robustness
 journeys (`auth.spec.ts`) cover new-user registration, the full password reset
 flow (including reading the real reset token from MongoDB), posting an assignment
-to Discord, and login/OTP error states. The organization-required suite
+and login/OTP error states. The organization-required suite
 (`new-market-org.spec.ts`) covers the rule that every market must be created in an
 organization: it asserts that `POST /markets` rejects a payload with no
 `organizationId` (400) and succeeds with a valid one, that the persisted market

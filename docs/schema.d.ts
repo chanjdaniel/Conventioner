@@ -38,8 +38,6 @@ export interface MarketSchema {
     }[];
   };
   creationDate: string;
-  discordGuildId?: string;
-  discordWebhookUrl?: string;
   id: string;
   importMapping?: {
     headers?: string[];

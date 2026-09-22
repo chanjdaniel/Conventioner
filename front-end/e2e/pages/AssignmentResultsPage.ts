@@ -2,7 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 
 /**
  * Page object for the Assignment Results / Generate Assignment view.
- * Covers action buttons (Back, Download CSV, Send to Discord, Done)
+ * Covers action buttons (Back, Download CSV, Done)
  * and the quick-nav buttons (Vendors, Tables, Attendance).
  */
 export class AssignmentResultsPage {
@@ -10,7 +10,6 @@ export class AssignmentResultsPage {
 
   // Action buttons
   readonly downloadCsvButton: Locator;
-  readonly sendToDiscordButton: Locator;
 
   // Quick nav buttons
   readonly viewVendorsButton: Locator;
@@ -20,10 +19,6 @@ export class AssignmentResultsPage {
   // Summary stats
   readonly summaryStats: Locator;
 
-  // Discord feedback messages
-  readonly discordError: Locator;
-  readonly discordToast: Locator;
-
   // The Vendors modal this view opens: one row per applicant, one cell per market date
   readonly vendorRows: Locator;
 
@@ -31,16 +26,12 @@ export class AssignmentResultsPage {
     this.page = page;
 
     this.downloadCsvButton = page.getByTestId('assignment-results-download-csv-button');
-    this.sendToDiscordButton = page.getByTestId('assignment-results-send-discord-button');
 
     this.viewVendorsButton = page.getByTestId('assignment-results-view-vendors-button');
     this.viewTablesButton = page.getByTestId('assignment-results-view-tables-button');
     this.viewAttendanceButton = page.getByTestId('assignment-results-view-attendance-button');
 
     this.summaryStats = page.locator('.summary-card');
-
-    this.discordError = page.getByTestId('assignment-results-discord-error');
-    this.discordToast = page.getByTestId('assignment-results-discord-toast');
 
     this.vendorRows = page.getByTestId('vendors-modal-row');
   }
@@ -77,10 +68,6 @@ export class AssignmentResultsPage {
     await this.downloadCsvButton.click();
   }
 
-  async clickSendToDiscord(): Promise<void> {
-    await this.sendToDiscordButton.click();
-  }
-
   async clickViewVendors(): Promise<void> {
     await this.viewVendorsButton.click();
   }
@@ -95,9 +82,5 @@ export class AssignmentResultsPage {
 
   async isDownloadEnabled(): Promise<boolean> {
     return await this.downloadCsvButton.isEnabled();
-  }
-
-  async isSendToDiscordEnabled(): Promise<boolean> {
-    return await this.sendToDiscordButton.isEnabled();
   }
 }

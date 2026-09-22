@@ -186,7 +186,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Read-only views describe the STORED assignment, never a fresh run.**
   `assignment_to_show()` (`api/markets.py`) picks: `describe_stored_assignment()` when the market
   has placements, `assign_market()` when it has none. The statistics, the tables grid, the CSV
-  and the Discord summary all go through it.
+  all go through it.
   Consequence: **shrinking the plan does not unassign anybody** - only assigning again does. A
   test that expects an edit to the plan to change who is placed must re-run the assignment.
   `GET /markets/{id}/assignment` is the exception and stays a preview: it computes without storing.

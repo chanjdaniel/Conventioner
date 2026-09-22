@@ -1302,26 +1302,6 @@ def get_assignment_csv(market_id: str) -> Response:
         }), 500
 
 
-@app.route('/markets/<market_id>/discord/notify-assignment', methods=['POST'])
-@login_required
-def post_assignment_to_discord(market_id: str) -> Response:
-    """Send the assignment summary to the market's configured Discord webhook. Owner only."""
-    try:
-        requesting_user = authenticated_email()
-
-        result, status_code = MarketsApi.post_assignment_to_discord(market_id, requesting_user)
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in post_assignment_to_discord for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/discord/notify-assignment",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
-
-
 @app.route('/markets/<market_id>/tables', methods=['GET'])
 @login_required
 def get_market_tables(market_id: str) -> Response:

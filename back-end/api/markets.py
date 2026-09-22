@@ -346,7 +346,7 @@ def _preserve_server_owned_fields(
     # client copy could overwrite a whole assignment, with no manual editing involved at all.
     market_dict["assignment_object"] = existing_market.assignment_object.model_dump()
     _strip_persisted_assignment_statistics(market_dict)
-    for field in ("review_config", "discord_guild_id"):
+    for field in ("review_config",):
         if field in market.model_fields_set:
             continue
         existing_value = getattr(existing_market, field)
@@ -1063,112 +1063,6 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             "error_type": type(e).__name__,
             "market_id": market_id,
             "function": "get_market_tables"
-        }, 500
-
-
-def _top_n_by_count(counts: Optional[Dict[str, int]], n: int) -> List[tuple]:
-    """Return the top-N (label, count) pairs by descending count for Discord summary fields."""
-    if not counts:
-        return []
-    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:n]
-
-
-def _build_discord_payload(market: Market, assigned_market: Market) -> Dict[str, Any]:
-    """Build the Discord webhook JSON payload summarizing the assignment for one market."""
-    stats = assigned_market.assignment_object.assignment_statistics
-
-    total_assignments = stats.total_assignments if stats else 0
-    total_vendors = stats.total_vendors if stats else 0
-    total_tables = stats.total_tables if stats else 0
-    satisfaction_pct = round((stats.satisfaction_score or 0.0) * 100, 1) if stats else 0.0
-    unassigned_vendor_count = len(stats.unassigned_vendors) if stats else 0
-    unassigned_table_count = (
-        sum(len(entries) for entries in (stats.unassigned_tables or {}).values()) if stats else 0
-    )
-
-    fields: List[Dict[str, Any]] = [
-        {"name": "Assignments", "value": str(total_assignments), "inline": True},
-        {"name": "Vendors", "value": str(total_vendors), "inline": True},
-        {"name": "Tables", "value": str(total_tables), "inline": True},
-        {"name": "Satisfaction", "value": f"{satisfaction_pct}%", "inline": True},
-        {"name": "Unassigned Vendors", "value": str(unassigned_vendor_count), "inline": True},
-        {"name": "Unassigned Tables", "value": str(unassigned_table_count), "inline": True},
-    ]
-
-    top_sections = _top_n_by_count(stats.assignments_per_section if stats else None, 3)
-    if top_sections:
-        formatted = "\n".join(f"{name}: {count}" for name, count in top_sections)
-        fields.append({"name": "Top Sections", "value": formatted, "inline": False})
-
-    summary_line = (
-        f"{market.name}: {total_assignments} assignments across "
-        f"{total_vendors} vendors and {total_tables} tables "
-        f"({satisfaction_pct}% satisfaction)."
-    )
-
-    return {
-        "content": summary_line,
-        "embeds": [
-            {
-                "title": market.name,
-                "description": "Assignment summary",
-                "fields": fields,
-            }
-        ],
-    }
-
-
-def post_assignment_to_discord(market_id: str, requesting_user: str) -> tuple[Dict[str, Any], int]:
-    """Post a formatted assignment summary to the market's configured Discord webhook.
-
-    The webhook URL is treated as a secret and never logged. Only the market owner
-    may invoke this endpoint; lesser roles receive 403.
-    """
-    try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
-        if context.market is None:
-            return {"error": "Invalid market data"}, 400
-
-        market = context.market
-
-        if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.OWNER, context.organization):
-            return {"error": "User does not have permission to post to Discord for this market"}, 403
-
-        webhook_url = (market.discord_webhook_url or "").strip()
-        if not webhook_url:
-            return {"error": "No Discord webhook configured for this market"}, 400
-
-        if market.setup_object is None:
-            return {"error": "Market has no setup configured"}, 400
-
-        market.assignment_object.assignment_statistics = None
-        try:
-            assigned_market = assignment_to_show(market)
-        except IncompleteApplicationsError as incomplete:
-            # The organizer has to go and fix something, so say who.
-            return {"error": incomplete.message()}, 400
-
-        payload = _build_discord_payload(market, assigned_market)
-
-        try:
-            response = requests.post(webhook_url, json=payload, timeout=5)
-        except requests.RequestException as e:
-            return {"error": f"Failed to reach Discord: {e}"}, 502
-
-        if 200 <= response.status_code < 300:
-            return {"message": "Posted to Discord", "status": "ok"}, 200
-        return {"error": f"Discord webhook returned {response.status_code}"}, 502
-    except Exception as e:
-        logger.error(f"Unexpected error in post_assignment_to_discord: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "post_assignment_to_discord",
         }, 500
 
 
