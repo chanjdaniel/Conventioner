@@ -582,6 +582,20 @@ const submitOTPLogin = async () => {
 /* A composite field: it holds the input and, for passwords, the Show toggle - so it wears
    `.field`'s metrics rather than the class itself. It used to be 60px tall with a 3px border and
    20px text, which is why the auth screens read as a different product (E16/F05). */
+/*
+ * Two stacked fields need room for their focus rings (E17/F02/S02).
+ *
+ * `.login-form` is a flex column with no gap, so the sign-in-code form's email and code inputs sat
+ * flush against each other - and the ring is `2px` of outline at `2px` of offset, so focusing the
+ * code field painted 4px up into the field above it.
+ *
+ * Adjacent-sibling rather than a gap on the form: a gap would also push each field away from its
+ * own label, which belongs against it.
+ */
+.login-input + .login-input {
+  margin-top: var(--space-3);
+}
+
 .login-input {
   height: 36px;
   padding: 0 var(--space-3);

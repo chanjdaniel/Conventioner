@@ -2,7 +2,7 @@
 id: E17/F02/S02
 title: Three spacing corrections that each stand alone
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
