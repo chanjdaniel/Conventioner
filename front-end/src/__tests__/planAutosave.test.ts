@@ -45,6 +45,9 @@ function mountPlan() {
     shallow: true,
     global: {
       stubs: {
+        // The plan tab owns the cards since E18/F02/S01, and the setting container renders the
+        // slot each editor lives in - both have to be real or there is nothing to emit an edit from.
+        MarketPlanTab: false,
         ElementSettingContainer: {
           template: '<div><slot name="setting-title" /><slot name="setting-content" /></div>',
         },

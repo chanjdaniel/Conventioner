@@ -2,7 +2,7 @@
 id: E18/F02/S01
 title: Extract the four tab bodies into components
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

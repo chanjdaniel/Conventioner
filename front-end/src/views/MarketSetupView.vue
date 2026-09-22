@@ -2,31 +2,15 @@
 import { computed, onMounted, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
-import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
-import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
-import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
-import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue';
-import ElementTierSetup from '@/components/elements/ElementTierSetup.vue';
-import ElementLocationSetup from '@/components/elements/ElementLocationSetup.vue';
-import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
-import {
-  type SetupObject,
-  type Market,
-  type ApplicationForm,
-  type EssentialFormOptions,
-} from '@/assets/types/datatypes';
-import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
-import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
+import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
+import { type SetupObject, type Market, type FormField } from '@/assets/types/datatypes';
+import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
-import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
-import FormBuilder from '@/components/application/FormBuilder.vue';
-import FormPreview from '@/components/application/FormPreview.vue';
-import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
-import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
+import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue';
+import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import AssignmentResults from '@/components/AssignmentResults.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
@@ -68,34 +52,10 @@ watch(
  * value that only arrives a tick later would flash that message on every page that does have one.
  */
 const market = ref<Market | null>(JSON.parse(localStorage.getItem('market') || 'null'));
-const applicationForm = ref<ApplicationForm | null>(null);
-/**
- * Per-field "the organizer typed this key themselves" flags, positionally aligned with the
- * form's fields. It lives beside the form, whose lifetime it shares, rather than inside the
- * FormBuilder that tabbing away unmounts. It records intent, which a stored key cannot: an
- * auto-derived key and a hand-typed one are indistinguishable once written. Only a direct edit
- * of a key input and the stored-form seed in {@link adoptStoredApplicationForm} ever write it.
- */
-const keyTouched = ref<boolean[]>([]);
-const formSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
-const formErrorMessage = ref<string | null>(null);
-const formLockReason = ref<string | null>(null);
-const formLoadStatus = ref<'loading' | 'loaded' | 'error'>('loading');
-const formLoadError = ref<string | null>(null);
-const formLocked = computed(() => formLockReason.value !== null);
-/**
- * Only edit a form we know to be editable. Until the server answers - the load is still in
- * flight, or it failed - the lock state is unknown, and assuming "editable" there invites the
- * organizer to rework a locked form and lose it to a 409.
- */
-const formEditable = computed(() => formLoadStatus.value === 'loaded' && !formLocked.value);
-/**
- * No answer from the server and nothing cached tells us nothing about the market's form - not
- * even whether it has one - so there is nothing we can honestly render but the load state.
- */
-const formStateUnknown = computed(
-  () => formLoadStatus.value !== 'loaded' && applicationForm.value === null,
-);
+
+/** Published by the form tab. The applications tab reads the first, the plan the second. */
+const formEditable = ref(false);
+const formFields = ref<FormField[]>([]);
 const setupObject = reactive<SetupObject>({
   priority: [],
   marketDates: [],
@@ -112,23 +72,6 @@ const setupObject = reactive<SetupObject>({
  * The essential questions' offering as the server reports it: the frozen snapshot once an
  * applicant's answer exists, the stored plan otherwise.
  */
-const serverEssentialOptions = ref<EssentialFormOptions | null>(null);
-/**
- * What the essential questions offer right now. While the form is editable it follows the
- * organizer's local market plan live - an unsaved date shows up immediately - and once the form
- * is locked it is the server's frozen offering, which local plan edits can no longer move.
- */
-const essentialOptions = computed<EssentialFormOptions>(() => {
-  // The declaration of which questions this market asks lives on the FORM, and the offering is
-  // derived or frozen - so it has to be carried across, or an unasked question reappears the
-  // moment the offering is recomputed. Mirrors `_with_unasked` in back-end/essential_fields.py.
-  const unasked = applicationForm.value?.unaskedEssentials ?? [];
-  const base = formLocked.value
-    ? (serverEssentialOptions.value ?? EMPTY_ESSENTIAL_OPTIONS)
-    : essentialOptionsFromSetup(setupObject);
-  return unasked.length ? { ...base, unasked } : base;
-});
-
 function parseFiniteInt(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
   const n = typeof v === 'string' ? parseInt(v, 10) : Number(v);
@@ -184,60 +127,8 @@ onMounted(() => {
   if (market.value && market.value.setupObject) {
     Object.assign(setupObject, market.value.setupObject);
   }
-
-  // Paint the cached form immediately, then reconcile with the server, which also
-  // tells us whether the form is still editable.
-  adoptStoredApplicationForm(market.value?.applicationForm ?? null);
-  loadApplicationForm();
 });
 
-/**
- * The market document is the single source of truth for the form; keep it in step. The key flags
- * are the organizer's intent, so they are left exactly as they are: a save hands back the same
- * fields it was given, and saving does not make an auto-derived key a hand-typed one.
- */
-function adoptApplicationForm(form: ApplicationForm | null) {
-  applicationForm.value = form;
-  if (market.value) {
-    market.value.applicationForm = form ?? undefined;
-    localStorage.setItem('market', JSON.stringify(market.value));
-  }
-}
-
-/**
- * Adopt a form read back from storage, dropping whatever the organizer had in flight. Its keys
- * are already stored as those fields' answer keys, so re-labelling one must never rewrite it:
- * seed every flag as the organizer's own. The one place the flags come from field data.
- */
-function adoptStoredApplicationForm(form: ApplicationForm | null) {
-  adoptApplicationForm(form);
-  keyTouched.value = (form?.fields ?? []).map(() => true);
-}
-
-async function loadApplicationForm() {
-  if (!market.value?.id) {
-    formLoadStatus.value = 'error';
-    formLoadError.value = 'No market is loaded, so its application form is unknown.';
-    return;
-  }
-  formLoadStatus.value = 'loading';
-  formLoadError.value = null;
-  try {
-    const response = await api.get(`/markets/${market.value.id}/application-form`);
-    adoptStoredApplicationForm(response.data?.application_form ?? null);
-    formLockReason.value = response.data?.lock_reason ?? null;
-    serverEssentialOptions.value = response.data?.essential_options ?? null;
-    formLoadStatus.value = 'loaded';
-  } catch (err: unknown) {
-    formLoadStatus.value = 'error';
-    formLoadError.value = getApiErrorMessage(
-      err,
-      'Could not load the application form. Retry before editing it.',
-    );
-  }
-}
-
-/** Why importing is refused in this market's phase, or null. Mirrors the server's own rule. */
 const importRefusalReason = computed(() => importRefusal(market.value?.phase));
 
 /**
@@ -251,96 +142,6 @@ const importRefusalReason = computed(() => importRefusal(market.value?.phase));
 const assignRefusalReason = computed(() => assignRefusal(market.value?.phase));
 
 /** Guidance for a form the organizer has not finished starting; not a mistake to flag in red. */
-const formIncompleteHint = computed(() => applicationFormHint(applicationForm.value));
-
-const formValidationError = computed(() => applicationFormError(applicationForm.value));
-
-const canSaveForm = computed(
-  () =>
-    formEditable.value &&
-    formIncompleteHint.value === null &&
-    formValidationError.value === null &&
-    formSaveStatus.value !== 'saving',
-);
-
-const savedStatusTimer = ref<ReturnType<typeof setTimeout> | null>(null);
-
-function clearSavedStatusTimer() {
-  if (savedStatusTimer.value !== null) {
-    clearTimeout(savedStatusTimer.value);
-    savedStatusTimer.value = null;
-  }
-}
-
-onUnmounted(clearSavedStatusTimer);
-
-/**
- * Switch a preference ordering on or off for this market (E01/F06).
- *
- * Saved immediately rather than on the form's Save button: it is a property of what the market
- * asks, not of the custom fields being edited, and Save is disabled until a custom field exists.
- * The back end refuses anything but a ranking, so this cannot turn off a constraint.
- */
-async function handleToggleUnasked(key: string, unasked: boolean) {
-  if (!market.value?.id || !formEditable.value) return;
-  const current = applicationForm.value ?? { fields: [] };
-  const next = new Set(current.unaskedEssentials ?? []);
-  if (unasked) {
-    next.add(key);
-  } else {
-    next.delete(key);
-  }
-  const updated = { ...current, unaskedEssentials: [...next] };
-  formErrorMessage.value = null;
-  // This writes immediately through its own endpoint, unlike the custom fields beside it which
-  // wait for Save Form. Reporting through the same status is what tells the organizer which of
-  // their changes are already persisted; it used to save in complete silence.
-  clearSavedStatusTimer();
-  formSaveStatus.value = 'saving';
-  try {
-    const response = await api.put(`/markets/${market.value.id}/application-form`, updated);
-    adoptApplicationForm(response.data?.application_form ?? updated);
-    formSaveStatus.value = 'saved';
-    savedStatusTimer.value = setTimeout(() => {
-      savedStatusTimer.value = null;
-      if (formSaveStatus.value === 'saved') formSaveStatus.value = 'idle';
-    }, 2000);
-  } catch (err: unknown) {
-    formSaveStatus.value = 'error';
-    formErrorMessage.value = getApiErrorMessage(err, 'Could not update the form.');
-  }
-}
-
-async function saveApplicationForm() {
-  if (!market.value?.id || !canSaveForm.value) return;
-  clearSavedStatusTimer();
-  formSaveStatus.value = 'saving';
-  formErrorMessage.value = null;
-  try {
-    const response = await api.put(
-      `/markets/${market.value.id}/application-form`,
-      applicationForm.value,
-    );
-    formSaveStatus.value = 'saved';
-    if (response.data?.application_form) {
-      adoptApplicationForm(response.data.application_form);
-    }
-    savedStatusTimer.value = setTimeout(() => {
-      savedStatusTimer.value = null;
-      if (formSaveStatus.value === 'saved') formSaveStatus.value = 'idle';
-    }, 2000);
-  } catch (err: unknown) {
-    formSaveStatus.value = 'error';
-    formErrorMessage.value = getApiErrorMessage(err, 'Failed to save form');
-    // A 409 means the server locked the form under us; stop presenting the rejected edits as
-    // editable, and put back the form applicants will actually see.
-    if (getApiErrorStatus(err) === 409) {
-      formLockReason.value = formErrorMessage.value;
-      await loadApplicationForm();
-    }
-  }
-}
-
 /**
  * How vendors reach this market. Settable while it is a draft and frozen afterwards, which is what
  * the back end enforces - this only stops an organizer reaching for something that would be
@@ -489,11 +290,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
  * covers the dates the organizer is in the middle of typing. It is offered from the Section Setup
  * card instead - the place it is a question about - and opened when they ask for it.
  */
-const sectionsUndescribed = computed(
-  () =>
-    setupObject.sections.length === 0 &&
-    !(setupObject.floorplans && setupObject.floorplans.length > 0),
-);
 </script>
 
 <template>
@@ -547,260 +343,33 @@ const sectionsUndescribed = computed(
         />
 
         <!-- Application Form Tab -->
-        <div v-if="activeTab === 'form'" class="settings-body">
-          <div class="double-column-body">
-            <ElementSettingContainer>
-              <template #setting-title>
-                <h2>Form Builder</h2>
-              </template>
-              <template #setting-content>
-                <div class="form-builder-container">
-                  <div
-                    v-if="formLocked"
-                    class="form-lock-banner"
-                    data-testid="form-builder-lock-banner"
-                  >
-                    {{ formLockReason }}
-                  </div>
-                  <div
-                    v-else-if="formLoadStatus === 'error'"
-                    class="form-load-error-banner"
-                    data-testid="form-builder-load-error"
-                  >
-                    <span>{{ formLoadError }}</span>
-                    <button
-                      class="retry-button"
-                      @click="loadApplicationForm()"
-                      data-testid="form-builder-retry-button"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                  <div
-                    v-else-if="formLoadStatus === 'loading'"
-                    class="form-loading-banner"
-                    data-testid="form-builder-loading"
-                  >
-                    Loading the application form...
-                  </div>
-                  <EssentialFieldsPanel
-                    v-if="!formStateUnknown"
-                    :options="essentialOptions"
-                    :locked="formLocked"
-                    :editable="formEditable"
-                    @toggleUnasked="handleToggleUnasked"
-                  />
-                  <FormBuilder
-                    v-if="!formStateUnknown"
-                    :applicationForm="applicationForm"
-                    :keyTouched="keyTouched"
-                    :readonly="!formEditable"
-                    @update:applicationForm="(form: ApplicationForm) => (applicationForm = form)"
-                    @update:keyTouched="(touched: boolean[]) => (keyTouched = touched)"
-                  />
-                  <div v-if="formEditable" class="form-save-row">
-                    <button
-                      class="btn btn--primary done-button"
-                      :disabled="!canSaveForm"
-                      @click="saveApplicationForm()"
-                      data-testid="form-builder-save-button"
-                    >
-                      {{ formSaveStatus === 'saving' ? 'Saving...' : 'Save Form' }}
-                    </button>
-                    <span
-                      v-if="formSaveStatus === 'saved'"
-                      class="save-status success"
-                      data-testid="form-builder-save-success"
-                    >
-                      Saved
-                    </span>
-                    <span
-                      v-else-if="formSaveStatus === 'error'"
-                      class="save-status error"
-                      data-testid="form-builder-save-error"
-                    >
-                      {{ formErrorMessage }}
-                    </span>
-                    <span
-                      v-else-if="formValidationError"
-                      class="save-status error"
-                      data-testid="form-builder-validation-error"
-                    >
-                      {{ formValidationError }}
-                    </span>
-                    <span
-                      v-else-if="formIncompleteHint"
-                      class="save-status hint"
-                      data-testid="form-builder-save-hint"
-                    >
-                      {{ formIncompleteHint }}
-                    </span>
-                  </div>
-                </div>
-              </template>
-            </ElementSettingContainer>
-            <ElementSettingContainer>
-              <template #setting-title>
-                <h2>Preview</h2>
-              </template>
-              <template #setting-content>
-                <FormPreview
-                  v-if="!formStateUnknown"
-                  :applicationForm="applicationForm"
-                  :essentialOptions="essentialOptions"
-                />
-                <p v-else class="preview-unavailable" data-testid="form-preview-unavailable">
-                  Preview unavailable until the application form loads.
-                </p>
-              </template>
-            </ElementSettingContainer>
-          </div>
-        </div>
+        <MarketFormTab
+          v-if="activeTab === 'form'"
+          :market="market"
+          :setupObject="setupObject"
+          @update:formEditable="formEditable = $event"
+          @update:formFields="formFields = $event"
+        />
 
-        <!-- Market Setup Tab: the whole plan, one page.
-             It was three wizard pages, which implied an ordering the data does not have. The only
-             dependency worth respecting - tiers and locations before a section can reference one -
-             lives entirely within the second row, and the only cross-row one is that the market's
-             dates bound the max-assignments clamp, which the organizer can now see move. Paging it
-             was the same mistake as the wizard pretending to be the lifecycle, one level down. -->
-        <div v-if="activeTab === 'setup'" class="settings-body settings-body-plan">
-          <section class="plan-row plan-row--single">
-            <ElementSettingContainer>
-              <template #setting-title>
-                <h2>Market Dates</h2>
-              </template>
-              <template #setting-content>
-                <ElementMarketDates
-                  :setupObject="setupObject"
-                  @update:setupObject="handleUpdateSetupObject"
-                />
-              </template>
-            </ElementSettingContainer>
-          </section>
-
-          <section class="plan-row plan-row--triple">
-            <ElementSettingContainer>
-              <template #setting-title>
-                <h2>Tier Setup</h2>
-              </template>
-              <template #setting-content>
-                <ElementTierSetup
-                  :setupObject="setupObject"
-                  @update:setupObject="handleUpdateSetupObject"
-                />
-              </template>
-            </ElementSettingContainer>
-            <ElementSettingContainer>
-              <template #setting-title>
-                <h2>Location Setup</h2>
-              </template>
-              <template #setting-content>
-                <ElementLocationSetup
-                  :setupObject="setupObject"
-                  @update:setupObject="handleUpdateSetupObject"
-                />
-              </template>
-            </ElementSettingContainer>
-            <ElementSettingContainer>
-              <template #setting-title>
-                <h2>Section Setup</h2>
-              </template>
-              <template #setting-content>
-                <!-- The choice belongs here, where sections are described, rather than over the
-                     whole page - and it is offered rather than imposed. -->
-                <button
-                  v-if="sectionsUndescribed"
-                  type="button"
-                  class="section-path-button"
-                  @click="showPathChoice = true"
-                  data-testid="market-setup-choose-path-button"
-                >
-                  Set up sections from a floorplan instead
-                </button>
-                <ElementSectionSetup
-                  :setupObject="setupObject"
-                  @update:setupObject="handleUpdateSetupObject"
-                />
-              </template>
-            </ElementSettingContainer>
-          </section>
-
-          <section class="plan-row plan-row--single">
-            <ElementSettingContainer>
-              <template #setting-title>
-                <h2>How vendors apply</h2>
-              </template>
-              <template #setting-content>
-                <ElementIntakeMode
-                  :intakeMode="market?.intakeMode"
-                  :editable="intakeEditable"
-                  @update:intakeMode="handleUpdateIntakeMode"
-                />
-              </template>
-            </ElementSettingContainer>
-          </section>
-
-          <section class="plan-row plan-row--asymmetric">
-            <ElementSettingContainer>
-              <template #setting-title>
-                <h2>Assignment Priority</h2>
-              </template>
-              <template #setting-content>
-                <ElementAssignmentPriority
-                  :setupObject="setupObject"
-                  :formFields="applicationForm?.fields ?? []"
-                  @update:setupObject="handleUpdateSetupObject"
-                />
-              </template>
-            </ElementSettingContainer>
-            <ElementSettingContainer>
-              <template #setting-title>
-                <h2>Assignment Options</h2>
-              </template>
-              <template #setting-content>
-                <ElementAssignmentOptions
-                  :setupObject="setupObject"
-                  @update:setupObject="handleUpdateSetupObject"
-                />
-              </template>
-            </ElementSettingContainer>
-          </section>
-        </div>
+        <MarketPlanTab
+          v-if="activeTab === 'setup'"
+          :setupObject="setupObject"
+          :market="market"
+          :formFields="formFields"
+          :intakeEditable="intakeEditable"
+          @update:setupObject="handleUpdateSetupObject"
+          @update:intakeMode="handleUpdateIntakeMode"
+          @choosePath="showPathChoice = true"
+        />
 
         <!-- Applications Tab -->
-        <!-- `settings-body` lays its children out in a row, which is right for the two-card tabs
-             but put the import button in a dead column beside the list. This one stacks. -->
-        <div v-if="activeTab === 'applications'" class="settings-body settings-body-stacked">
-          <!-- The button used to be live in every phase and navigate to a page whose only
-               content was the refusal. The gate is right; being told before the click is the
-               part that was missing. -->
-          <div class="applications-toolbar">
-            <button
-              class="import-entry-button"
-              :disabled="importRefusalReason !== null"
-              data-testid="market-setup-import-button"
-              @click="router.push({ name: 'import-applications' })"
-            >
-              Import from CSV
-            </button>
-            <span
-              v-if="importRefusalReason"
-              class="import-entry-hint import-entry-hint--blocked"
-              data-testid="market-setup-import-blocked-reason"
-            >
-              {{ importRefusalReason }}
-            </span>
-            <span v-else class="import-entry-hint">
-              Bring in the responses you already collected, as a CSV from any form tool or
-              spreadsheet.
-            </span>
-          </div>
-          <ApplicationMonitor
-            :market="market"
-            :visible="activeTab === 'applications'"
-            :formEditable="formEditable"
-          />
-        </div>
+        <MarketApplicationsTab
+          v-if="activeTab === 'applications'"
+          :market="market"
+          :visible="activeTab === 'applications'"
+          :formEditable="formEditable"
+          :importRefusalReason="importRefusalReason"
+        />
 
         <!-- Assignment Results, a tab rather than a place the organizer is pushed to. Reachable
              in every phase, and nothing on it posts a transition: publishing is a step on the
@@ -876,65 +445,12 @@ const sectionsUndescribed = computed(
 </template>
 
 <style scoped>
-/* The plan is one scrolling page of rows rather than a row of cards, so it overrides
-   `.settings-body`'s single-row flex. */
-.settings-body-plan {
-  flex-direction: column;
-  gap: 30px;
-}
-
-.plan-row {
-  display: grid;
-  gap: 30px;
-  align-items: stretch;
-  /* Each row sizes to its own content; the page scrolls, not the rows. True now: the
-     `min-height: 320px` that used to sit here made that comment false, and cost 268px of nothing
-     on the emptiest possible market. It was never what kept a row even either - `align-items:
-     stretch` is, so the floor only ever set the minimum of the TALLEST panel (E16/F03). */
-  flex: 0 0 auto;
-}
-
-.plan-row--single {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-/*
- * Sized by need, not by count. Equal thirds gave Section Setup - which needs 654px for four columns
- * and a delete control - the same 460 as Location Setup, which needs 278. That is the sole cause of
- * the Tier select rendering 65px wide with 34px of text room, while "Premium" needs 56, "Standard"
- * 57 and "Community" 71: every tier read `Pr...`, `St...`, `Co...` on the field that sets a
- * vendor's price. Unequal columns were already accepted here - `--asymmetric` is `3fr 2fr`.
- */
-.plan-row--triple {
-  grid-template-columns: minmax(0, 0.78fr) minmax(0, 0.69fr) minmax(0, 1.53fr);
-}
-
-.plan-row--asymmetric {
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-}
-
 .plan-actions {
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
-}
-
-.section-path-button {
-  align-self: flex-start;
-  margin-bottom: 8px;
-  padding: 6px 12px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--mm-border);
-  background: white;
-  font-size: var(--text-xs);
-  color: var(--mm-text-link);
-  cursor: pointer;
-}
-
-.section-path-button:hover {
-  border-color: var(--mm-text-link);
 }
 
 .plan-save-status {
@@ -958,42 +474,6 @@ const sectionsUndescribed = computed(
      where it was unreachable. The other tabs each scroll inside their own card; this one has no
      card to scroll inside. */
   overflow-y: auto;
-}
-
-.applications-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.import-entry-button {
-  height: 36px;
-  padding: 0 16px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--mm-green);
-  background: var(--mm-green);
-  color: white;
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.import-entry-button:disabled {
-  background: var(--mm-border);
-  border-color: var(--mm-border);
-  color: var(--mm-black);
-  cursor: not-allowed;
-}
-
-.import-entry-hint {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.import-entry-hint--blocked {
-  color: var(--mm-text-yellow);
-  max-width: 60ch;
 }
 
 .market-setup-view {
@@ -1109,27 +589,9 @@ const sectionsUndescribed = computed(
   flex: 1;
 }
 
-.double-column-body {
-  align-self: stretch;
-  flex-grow: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 30px;
-  min-height: 0;
-  flex: 1;
-}
-
 h1 {
   text-align: center;
   font-size: var(--text-2xl);
-  color: white;
-}
-
-h2 {
-  font-family: 'Merge One';
-  text-align: left;
-  font-size: var(--text-lg);
   color: white;
 }
 
@@ -1144,58 +606,6 @@ h2 {
   min-width: 100px;
 }
 
-.form-builder-container {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  height: 100%;
-  overflow-y: auto;
-}
-
-/*
- * The confirm action sits at the row's right (E17/F03/S02). The row had no `justify-content`, so it
- * defaulted to the start and the save button sat bottom LEFT with its status messages trailing to
- * its right.
- *
- * `margin-left: auto` on the button rather than `justify-content: flex-end` on the row, so the
- * status - saved, the validation error, the incomplete hint - stays readable at the START of the
- * row instead of being crowded against the button.
- */
-.form-save-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--mm-border);
-}
-
-.form-save-row .done-button {
-  order: 1;
-  margin-left: auto;
-}
-
-.form-lock-banner {
-  font-size: var(--text-xs);
-  line-height: 1.4;
-  color: var(--mm-text-yellow-on-tint);
-  background: rgba(228, 166, 41, 0.18);
-  border: 1px solid var(--mm-yellow);
-  border-radius: var(--radius-control);
-  padding: 10px 12px;
-}
-
-.form-loading-banner {
-  font-size: var(--text-xs);
-  line-height: 1.4;
-  color: var(--mm-text-muted);
-  background: var(--mm-beige);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  padding: 10px 12px;
-}
-
 .assign-disabled-hint {
   margin: 6px 0 0;
   font-size: var(--text-xs);
@@ -1207,57 +617,8 @@ h2 {
   max-width: 520px;
 }
 
-.form-load-error-banner {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: var(--text-xs);
-  line-height: 1.4;
-  color: var(--mm-red);
-  background: rgba(192, 57, 43, 0.14);
-  border: 1px solid var(--mm-red);
-  border-radius: var(--radius-control);
-  padding: 10px 12px;
-}
-
-.retry-button {
-  flex-shrink: 0;
-  background: none;
-  border: 1px solid var(--mm-red);
-  color: var(--mm-red);
-  border-radius: var(--radius-control);
-  padding: 3px 12px;
-  cursor: pointer;
-  font-size: var(--text-xs);
-}
-
 .retry-button:hover {
   background: var(--mm-red);
   color: white;
-}
-
-.save-status {
-  font-size: var(--text-xs);
-}
-
-.save-status.success {
-  color: var(--mm-green);
-}
-
-.save-status.error {
-  color: var(--mm-red);
-}
-
-.save-status.hint {
-  color: var(--mm-text-muted);
-}
-
-.preview-unavailable {
-  font-size: var(--text-sm);
-  color: var(--mm-text-muted);
-  text-align: center;
-  padding: 40px;
 }
 </style>

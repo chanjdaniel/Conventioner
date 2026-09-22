@@ -20,6 +20,22 @@
   box-shadow: var(--shadow-card);
 }
 
+/*
+ * The card title, styled by the card (E18/F02/S01).
+ *
+ * It used to be a bare `h2 { color: white }` in `MarketSetupView`'s scoped style, reaching the
+ * titles because the slot content was rendered in that view's template. The moment those cards
+ * moved into their own components the rule stopped matching, and every title rendered the
+ * inherited dark ink on this black bar at 1.42:1 - invisible. A title's appearance belongs to the
+ * component that draws the bar behind it, not to whichever parent happens to pass the slot.
+ */
+::v-deep(.setting-header h2) {
+  font-family: 'Merge One';
+  text-align: left;
+  font-size: var(--text-lg);
+  color: white;
+}
+
 .setting-header {
   height: 35px;
   background-color: var(--mm-black);
