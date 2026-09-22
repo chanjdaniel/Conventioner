@@ -37,6 +37,8 @@ const props = defineProps<{
   formEditable: boolean;
 }>();
 
+const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void }>();
+
 const applications = ref<Application[]>([]);
 const loading = ref(false);
 const errorMessage = ref('');
@@ -131,6 +133,10 @@ const answers = computed(() =>
   current.value ? reviewAnswers(current.value, props.market?.applicationForm) : [],
 );
 const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.applicationForm));
+
+// The surface above leads with this in the review phase, where clearing the queue is the whole of
+// what the market is waiting on (E18/F02/S03).
+watch(undecided, (queue) => emit('update:undecidedCount', queue.length), { immediate: true });
 
 watch(
   () => [props.visible, props.market] as const,

@@ -506,6 +506,54 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
   });
 });
 
+test.describe('The applications surface says which phase it is in', () => {
+  /**
+   * One surface serves three phases (E18/F02/S03), which ticket 11 settled by measuring: recording
+   * a verdict has no phase gate at all, importing spans two of the three, and applications-closed
+   * changes nothing for a CSV market.
+   *
+   * The cost is the rail showing three steps over one place, and the mitigation is that the
+   * surface SAYS which. Hiding the Import button is not stating it - a surface whose only
+   * difference is a missing control teaches an organizer that the phases are arbitrary.
+   */
+  test('an organizer can tell the three apart by reading, not by which button is missing', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const move = (toPhase: string) =>
+      request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+        data: { toPhase },
+      });
+    const conditionNow = async () => {
+      await setMarketInPage(page, await loadMarket(page, seed.marketId));
+      await page.goto('/market-setup?tab=applications');
+      const line = page.getByTestId('market-setup-applications-condition');
+      await expect(line).toBeVisible({ timeout: 15000 });
+      return (await line.innerText()).trim();
+    };
+
+    await move('applications_open');
+    const open = await conditionNow();
+    await expect(page.getByTestId('market-setup-import-button')).toBeEnabled();
+
+    await move('applications_closed');
+    const closed = await conditionNow();
+    // Still offered: importing spans two of the three phases.
+    await expect(page.getByTestId('market-setup-import-button')).toBeEnabled();
+
+    await move('review');
+    const review = await conditionNow();
+    // Withdrawn here - and the withdrawal is explained rather than silent.
+    await expect(page.getByTestId('market-setup-import-button')).toBeDisabled();
+    await expect(page.getByTestId('market-setup-import-blocked-reason')).toBeVisible();
+
+    expect(new Set([open, closed, review]).size, `"${open}" / "${closed}" / "${review}"`).toBe(3);
+    expect(review).toMatch(/decided/);
+  });
+});
+
 test.describe('Where the workspace opens', () => {
   /**
    * The workspace opens the surface the phase is worked on (E18/F02/S02).

@@ -2,7 +2,7 @@
 id: E18/F02/S03
 title: The applications surface states which phase it is in
 type: story
-status: ready
+status: done
 blocked_by: [E18/F02/S02]
 pr: []
 ---

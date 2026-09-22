@@ -9,11 +9,12 @@
  * State arrives as props rather than being reached for, so a later story can mount this under a
  * different parent without rewriting it.
  */
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
-import type { Market } from '@/assets/types/datatypes';
+import { MarketPhase, type Market } from '@/assets/types/datatypes';
 
-defineProps<{
+const props = defineProps<{
   market: Market | null;
   visible: boolean;
   formEditable: boolean;
@@ -21,12 +22,54 @@ defineProps<{
 }>();
 
 const router = useRouter();
+
+/** Published by the review queue, so this surface can lead with it while reviewing. */
+const undecided = ref(0);
+
+/**
+ * Which of its three phases this surface is in, IN WORDS (E18/F02/S03).
+ *
+ * One surface serves applications-open, applications-closed and review, because ticket 11 measured
+ * the difference and found it small: recording a verdict has no phase gate at all, importing spans
+ * two of the three, and applications-closed changes nothing for a CSV market. Three screens would
+ * have meant two near-identical ones on every market this product currently serves.
+ *
+ * The cost of that is the rail showing three steps over one place, and the mitigation is this
+ * line. Hiding the Import button is NOT stating the condition: a surface whose only difference is
+ * a missing control teaches an organizer that the phases are arbitrary, and this project has been
+ * caught by exactly that before - a terminal state signalled only by strikethrough read as
+ * "stopped" rather than "archived".
+ */
+const condition = computed(() => {
+  const undecidedPhrase =
+    undecided.value === 1 ? '1 application' : `${undecided.value} applications`;
+  switch (props.market?.phase) {
+    case MarketPhase.ApplicationsOpen:
+      return 'This market is open for applications. New ones will keep arriving here.';
+    case MarketPhase.ApplicationsClosed:
+      return 'This market is no longer receiving applications. You can still import the ones you collected elsewhere.';
+    case MarketPhase.Review:
+      return undecided.value === 0
+        ? 'Every application has been decided. This market is ready to assign.'
+        : `${undecidedPhrase} still to decide. Every one must be decided before this market can assign.`;
+    default:
+      return '';
+  }
+});
 </script>
 
 <template>
   <!-- `settings-body` lays its children out in a row, which is right for the two-card tabs
        but put the import button in a dead column beside the list. This one stacks. -->
   <div class="settings-body settings-body-stacked">
+    <!-- Which of the three phases this is, said rather than implied. -->
+    <p
+      v-if="condition"
+      class="applications-condition"
+      data-testid="market-setup-applications-condition"
+    >
+      {{ condition }}
+    </p>
     <!-- The button used to be live in every phase and navigate to a page whose only
          content was the refusal. The gate is right; being told before the click is the
          part that was missing. -->
@@ -50,11 +93,23 @@ const router = useRouter();
         Bring in the responses you already collected, as a CSV from any form tool or spreadsheet.
       </span>
     </div>
-    <ApplicationMonitor :market="market" :visible="visible" :formEditable="formEditable" />
+    <ApplicationMonitor
+      :market="market"
+      :visible="visible"
+      :formEditable="formEditable"
+      @update:undecidedCount="undecided = $event"
+    />
   </div>
 </template>
 
 <style scoped>
+.applications-condition {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+  line-height: 1.4;
+}
+
 .settings-body {
   align-self: stretch;
   display: flex;
