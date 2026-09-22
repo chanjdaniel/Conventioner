@@ -2,7 +2,7 @@
 id: E18/F03/S01
 title: Finalizing is recorded
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

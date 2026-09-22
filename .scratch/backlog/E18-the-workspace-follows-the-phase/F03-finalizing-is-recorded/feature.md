@@ -2,7 +2,7 @@
 id: E18/F03
 title: Finalizing is recorded
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
