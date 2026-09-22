@@ -115,8 +115,6 @@ const removeRow = (index: number | null) => {
   align-items: center;
 
   gap: 8px;
-  padding-top: 4px;
-  padding-bottom: 8px;
 
   overflow-y: auto;
   overflow-x: hidden;
