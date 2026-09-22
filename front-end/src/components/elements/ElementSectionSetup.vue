@@ -147,13 +147,15 @@ const countTables = () => {
           />
         </button>
       </div>
-      <div class="add-container">
-        <IconAddRound
-          class="icon-add-round"
-          @click="addRow"
-          data-testid="setup-section-add-button"
-        />
-      </div>
+      <button
+        type="button"
+        class="add-row"
+        aria-label="Add a section"
+        data-testid="setup-section-add-button"
+        @click="addRow"
+      >
+        <IconAddRound class="add-row__icon" />
+      </button>
     </div>
     <div ref="tableCount" style="position: absolute; left: 5px; bottom: -10px">
       <h3 style="font-size: var(--text-sm)">Total tables: {{ countTables() }}</h3>
@@ -241,12 +243,6 @@ input::-webkit-inner-spin-button {
 
 input[type='number'] {
   -moz-appearance: textfield;
-}
-
-.icon-add-round {
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
 }
 
 /* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -

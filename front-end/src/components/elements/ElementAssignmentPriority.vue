@@ -330,10 +330,10 @@ const dragOptions = computed(() => ({
           </div>
         </template>
       </draggable>
-      <div class="add-row" data-testid="priority-add-rule" @click="addPriorityRow">
-        <IconAddRound class="add-round" />
-        <h3>Add a rule</h3>
-      </div>
+      <button type="button" class="add-row" data-testid="priority-add-rule" @click="addPriorityRow">
+        <IconAddRound class="add-row__icon" />
+        Add a rule
+      </button>
     </div>
   </div>
 </template>
@@ -456,12 +456,6 @@ h3 {
 
   overflow: auto;
   scrollbar-width: none;
-}
-
-.icon-add-round {
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
 }
 
 .dropdown {

@@ -76,9 +76,15 @@ const addRow = () => {
           />
         </button>
       </div>
-      <div class="add-container">
-        <IconAddRound class="icon-add-round" @click="addRow" data-testid="setup-dates-add-button" />
-      </div>
+      <button
+        type="button"
+        class="add-row"
+        aria-label="Add a date"
+        data-testid="setup-dates-add-button"
+        @click="addRow"
+      >
+        <IconAddRound class="add-row__icon" />
+      </button>
     </div>
   </div>
 </template>
@@ -239,12 +245,6 @@ h4 {
 
 .display-list {
   pointer-events: none;
-}
-
-.icon-add-round {
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
 }
 
 /* A real button: the control was a <div> with cursor:auto, tabIndex -1, no role and no

@@ -2,7 +2,7 @@
 id: E17/F01/S01
 title: One add-row control, adopted by all five plan cards
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

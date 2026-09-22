@@ -175,13 +175,15 @@ const dragOptions = computed(() => ({
         </template>
       </draggable>
 
-      <div class="add-container">
-        <IconAddRound
-          class="icon-add-round"
-          data-testid="setup-tier-add-button"
-          @click="addTierRow"
-        />
-      </div>
+      <button
+        type="button"
+        class="add-row"
+        aria-label="Add a tier"
+        data-testid="setup-tier-add-button"
+        @click="addTierRow"
+      >
+        <IconAddRound class="add-row__icon" />
+      </button>
     </div>
   </div>
 </template>
@@ -322,12 +324,6 @@ h3 {
 
   overflow: auto;
   scrollbar-width: none;
-}
-
-.icon-add-round {
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
 }
 
 .dropdown {

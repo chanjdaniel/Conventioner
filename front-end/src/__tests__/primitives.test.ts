@@ -62,6 +62,10 @@ describe('the primitives exist and own what tokens cannot', () => {
       ['.field', 'font-size'],
       ['.chip', 'border-radius'],
       ['.chip', 'font-size'],
+      ['.add-row', 'padding'],
+      ['.add-row', 'border-radius'],
+      ['.add-row', 'font-size'],
+      ['.add-row', 'gap'],
     ].filter(([selector, property]) => !declaration(selector, property)?.includes('var(--'));
 
     expect(offenders).toEqual([]);
@@ -96,6 +100,25 @@ describe('the primitives exist and own what tokens cannot', () => {
     expect(ring, 'no focus ring on .btn').toBeTruthy();
     expect(ring).not.toContain('--mm-green');
     expect(declaration('.btn:focus-visible', 'outline-offset')).toBeTruthy();
+  });
+
+  it('owns the add-row control, so five files stop owning a copy of it', () => {
+    // `.add-container` was used by four plan cards and styled in none of them - where the plus
+    // looked centred, it was centred by accident of a parent flex column. Beside it,
+    // `.icon-add-round { width: 40px; height: 40px }` was declared identically in SIX files, one of
+    // which never used the icon at all.
+    expect(blocks('.add-row')).not.toHaveLength(0);
+    expect(declaration('.add-row', 'height')).toBe('36px');
+    expect(declaration('.add-row', 'align-items')).toBe('center');
+    expect(declaration('.add-row', 'justify-content')).toBe('center');
+  });
+
+  it('sizes the add-row icon from its own type rather than a literal', () => {
+    // A pixel here would be a sixth copy of the thing this primitive replaced, and it would break
+    // the control-height contract above: that set is control heights, and an icon is not one.
+    for (const property of ['width', 'height']) {
+      expect(declaration('.add-row__icon', property)).toMatch(/em$/);
+    }
   });
 
   it('is loaded by the app', () => {
