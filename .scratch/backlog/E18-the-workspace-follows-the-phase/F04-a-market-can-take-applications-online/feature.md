@@ -2,7 +2,7 @@
 id: E18/F04
 title: A market can take applications online
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

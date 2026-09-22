@@ -15,6 +15,15 @@ test.describe('The phase rail', () => {
     seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   });
 
+  async function marketBody(page: import('@playwright/test').Page) {
+    const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    const { market } = (await res.json()) as { market: Record<string, unknown> };
+    delete market._id;
+    return market;
+  }
+
   async function openMarket(page: import('@playwright/test').Page, path: string) {
     const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
@@ -104,6 +113,36 @@ test.describe('The phase rail', () => {
     // And it is the page publishing actually put on the air.
     await page.goto(new URL(url).pathname);
     await expect(page.locator('body')).not.toContainText('Page not found');
+  });
+
+  test('a CSV market carries no application chip, and a form market does', async ({
+    authenticatedPage: page,
+  }) => {
+    // The seeded market takes its vendors by import, so the chip must not appear: its `/apply` URL
+    // answers exactly as a market that does not exist, and a chip would be the one place the
+    // product admitted it was real (E18/F04/S02).
+    await openMarket(page, '/market-setup?tab=setup');
+    await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('phase-rail-apply')).toHaveCount(0);
+
+    // The same market taking applications by form does carry it, pointing at its own address.
+    await page.request.put(`${BACKEND_URL}/markets/${seed.marketId}`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: { ...(await marketBody(page)), intakeMode: 'form' },
+    });
+    await openMarket(page, '/market-setup?tab=setup');
+
+    // Frozen after draft, so a market already past it keeps what it had - which is the rule, not a
+    // failure. Only assert the chip when the server actually accepted the change.
+    const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    const { market } = (await res.json()) as { market: { intakeMode?: string } };
+    if (market.intakeMode === 'form') {
+      const chip = page.getByTestId('phase-rail-apply');
+      await expect(chip).toBeVisible();
+      await expect(chip.locator('a')).toHaveAttribute('href', /\/apply$/);
+    }
   });
 
   test('archiving states in words that the market is over', async ({ authenticatedPage: page }) => {

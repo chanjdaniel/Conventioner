@@ -2,7 +2,7 @@
 id: E18/F04/S02
 title: The application chip
 type: story
-status: ready
+status: done
 blocked_by: [E18/F04/S01]
 pr: []
 ---

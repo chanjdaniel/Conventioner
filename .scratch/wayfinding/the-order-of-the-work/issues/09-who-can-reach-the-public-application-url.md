@@ -67,6 +67,14 @@ Wrongly hiding an application surface is visible and gets complained about; wron
 No migration, no backfill.
 
 **3. The application chip is shown only when `intakeMode === 'form'`**, in every phase of such a market - before applications open, while open, and after they close.
+
+> **Corrected while building (`E18/F04/S02`, 2026-09-23): not in `draft`.**
+> This answer reasoned that the apply page "already answers correctly in every phase". That is true
+> of a *published* market. A draft one is not published, so `published_market_by_slug` excludes it
+> and the URL redirects to an applicant login showing the SLUG rather than the market - revealing
+> nothing, correctly, because a draft must not be discoverable. A chip there would hand the
+> organizer a link to a page that deliberately tells them nothing. The chip therefore starts at the
+> first non-draft phase, which is the check-in chip's own reasoning at a different threshold.
 It copies the URL and opens the page, following the `checkin-chip` pattern already in the rail (label, link, Copy that flips to "Copied").
 Its visibility rule is the *opposite* of the check-in chip's deliberately: the check-in chip is restricted to `market_days` because before that it would be a link to a 404, whereas this page has a real answer in every phase.
 

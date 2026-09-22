@@ -22,7 +22,7 @@
  */
 import { computed, ref } from 'vue';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
-import { MarketPhase } from '@/assets/types/datatypes';
+import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
@@ -134,17 +134,48 @@ const checkInUrl = computed(() => {
   return `${window.location.origin}/${slug}/check-in`;
 });
 
-const copied = ref(false);
+// ── The public application URL (E18/F04/S02) ─────────────────────────────────
 
-async function copyCheckInUrl(): Promise<void> {
+/**
+ * A form-intake market's own address, from the moment it has one.
+ *
+ * Much wider than the check-in chip, which appears only once the market is running: this shows
+ * before applications open, while they are open, and after they close, because the apply page has
+ * a real answer in each - it names the phase and says the market is not currently taking
+ * applications. Seeing that is the point.
+ *
+ * NOT in draft, though, and the walk's plan said otherwise (ticket 09). A draft market is not
+ * published, so the applicant lookup treats it as one that does not exist: the URL redirects to a
+ * login that shows the SLUG rather than the market, revealing nothing - correctly, because a draft
+ * must not be discoverable. A chip pointing there would hand the organizer a link to a page that
+ * deliberately tells them nothing. The threshold is the same reasoning the check-in chip uses,
+ * with a different phase.
+ *
+ * A CSV market shows nothing at all, in any phase. Its `/apply` URL answers exactly as a market
+ * that does not exist, and a chip here would be the one place the product admitted it was real.
+ */
+const applyUrl = computed(() => {
+  if (props.market?.intakeMode !== IntakeMode.Form) return '';
+  if (currentPhase.value === MarketPhase.Draft) return '';
+  const slug = props.market?.slug;
+  if (!slug) return '';
+  return `${window.location.origin}/${slug}/apply`;
+});
+
+/** Which chip last confirmed a copy, so two chips do not share one "Copied". */
+const copiedUrl = ref('');
+
+async function copyUrl(url: string): Promise<void> {
   try {
-    await navigator.clipboard.writeText(checkInUrl.value);
-    copied.value = true;
-    window.setTimeout(() => (copied.value = false), 2000);
+    await navigator.clipboard.writeText(url);
+    copiedUrl.value = url;
+    window.setTimeout(() => {
+      if (copiedUrl.value === url) copiedUrl.value = '';
+    }, 2000);
   } catch {
     // Clipboard access can be refused, and the URL is on screen either way - so the copy is a
     // convenience, never the only way to get it.
-    copied.value = false;
+    copiedUrl.value = '';
   }
 }
 
@@ -314,18 +345,31 @@ function cancelPending() {
       </ol>
 
       <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
-      <div v-if="checkInUrl" class="checkin-chip" data-testid="phase-rail-checkin">
-        <span class="checkin-chip-label">Check-in page</span>
-        <a class="checkin-chip-url" :href="checkInUrl" target="_blank" rel="noopener">{{
+      <div v-if="applyUrl" class="url-chip" data-testid="phase-rail-apply">
+        <span class="url-chip-label">Application page</span>
+        <a class="url-chip-url" :href="applyUrl" target="_blank" rel="noopener">{{ applyUrl }}</a>
+        <button
+          type="button"
+          class="url-chip-copy"
+          data-testid="phase-rail-apply-copy"
+          @click="copyUrl(applyUrl)"
+        >
+          {{ copiedUrl === applyUrl ? 'Copied' : 'Copy' }}
+        </button>
+      </div>
+
+      <div v-if="checkInUrl" class="url-chip" data-testid="phase-rail-checkin">
+        <span class="url-chip-label">Check-in page</span>
+        <a class="url-chip-url" :href="checkInUrl" target="_blank" rel="noopener">{{
           checkInUrl
         }}</a>
         <button
           type="button"
-          class="checkin-chip-copy"
+          class="url-chip-copy"
           data-testid="phase-rail-checkin-copy"
-          @click="copyCheckInUrl"
+          @click="copyUrl(checkInUrl)"
         >
-          {{ copied ? 'Copied' : 'Copy' }}
+          {{ copiedUrl === checkInUrl ? 'Copied' : 'Copy' }}
         </button>
       </div>
 
@@ -558,7 +602,8 @@ function cancelPending() {
   color: var(--mm-text-muted);
 }
 
-.checkin-chip {
+/* One chip, two users: the application page and the check-in page (E18/F04/S02). */
+.url-chip {
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -570,17 +615,17 @@ function cancelPending() {
   min-width: 0;
 }
 
-.checkin-chip-label {
+.url-chip-label {
   color: var(--mm-text-muted);
   white-space: nowrap;
 }
 
-.checkin-chip-url {
+.url-chip-url {
   color: var(--mm-text-link);
   overflow-wrap: anywhere;
 }
 
-.checkin-chip-copy {
+.url-chip-copy {
   border: 1px solid var(--mm-border);
   background: white;
   border-radius: var(--radius-control);
@@ -591,7 +636,7 @@ function cancelPending() {
   white-space: nowrap;
 }
 
-.checkin-chip-copy:hover {
+.url-chip-copy:hover {
   border-color: var(--mm-green);
 }
 
