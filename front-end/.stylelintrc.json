@@ -38,6 +38,7 @@
         "src/components/VendorDateCard.vue",
         "src/components/VendorIdentity.vue",
         "src/components/VendorsModal.vue",
+        "src/components/AppDialog.vue",
         "src/components/application/ApplicationFormFields.vue",
         "src/components/application/ApplicationMonitor.vue",
         "src/components/application/EssentialApplicationFields.vue",

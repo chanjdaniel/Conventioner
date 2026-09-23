@@ -1,15 +1,32 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { type Organization } from '@/assets/types/datatypes';
 import { getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 
+const props = defineProps<{ id?: string }>();
 const model = defineModel<string>({ required: true });
 
 const organizations = ref<Organization[]>([]);
 const loading = ref(true);
 const errorMessage = ref('');
+
+/**
+ * With exactly one organization, say which it is rather than ask a question with one answer
+ * (E20/F01/S01).
+ *
+ * A select offering a single option is a control that looks like a decision and is not one, and it
+ * still has to be operated before the dialog will submit. The organization is named instead, and
+ * chosen below, so an organizer with one organization types a name and presses Enter.
+ */
+const onlyOrganization = computed(() =>
+  organizations.value.length === 1 ? organizations.value[0] : null,
+);
+
+watch(onlyOrganization, (only) => {
+  if (only) model.value = only.id;
+});
 
 async function loadOrganizations() {
   loading.value = true;
@@ -31,9 +48,14 @@ onMounted(() => {
 
 <template>
   <div class="org-select-wrapper">
+    <p v-if="onlyOrganization" class="org-select-only" data-testid="org-select-only">
+      {{ onlyOrganization.name }}
+    </p>
     <select
+      v-else
+      :id="props.id"
       v-model="model"
-      class="org-select"
+      class="field field--select"
       :disabled="loading || organizations.length === 0"
       data-testid="org-select-dropdown"
     >
@@ -62,37 +84,26 @@ onMounted(() => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
 }
 
-.org-select {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1.5px solid var(--mm-border);
-  border-radius: var(--radius-control);
+/* Named, not offered. Reads as a value the dialog already knows, which is what it is. */
+.org-select-only {
+  margin: 0;
   font-size: var(--text-sm);
-  background: white;
-  text-align: center;
-}
-
-.org-select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  color: var(--mm-black);
 }
 
 .org-select-hint {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   margin: 0;
-  text-align: center;
 }
 
 .org-select-error {
   font-size: var(--text-xs);
   color: var(--mm-red);
   margin: 0;
-  text-align: center;
 }
 
 .org-select-link {

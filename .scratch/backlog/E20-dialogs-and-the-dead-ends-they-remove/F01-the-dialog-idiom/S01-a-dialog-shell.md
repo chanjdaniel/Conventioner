@@ -2,7 +2,7 @@
 id: E20/F01/S01
 title: A dialog shell, proved by the create-market dialog
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
@@ -33,13 +33,13 @@ Three things it gets wrong today, all fixed here:
 
 ## Acceptance criteria
 
-- [ ] A reusable dialog shell exists, owning the scrim, window, close control, Escape and backdrop dismissal, the inert behaviour, and a native form with a submit confirm.
-- [ ] The create-market dialog is rebuilt on it and asks for name and organization only.
-- [ ] The name input reaches for the shared control primitive and **does not reset its own styling**, which would defeat the primitive. It reads as an input before anyone clicks it.
-- [ ] Enter in the name field creates the market, through the same handler the button uses, so it inherits the same guard.
-- [ ] When the confirm button is disabled, Enter does nothing.
-- [ ] The error message sits in flow beneath the control it describes, not at an absolute coordinate.
-- [ ] With exactly one organization, the dialog **names** it rather than offering a choice that is not a choice.
-- [ ] The zero-organization fallback still works and its existing spec passes unchanged.
-- [ ] The page stays inert behind the dialog; the existing inert unit test and e2e spec pass.
-- [ ] `npm run format:check`, `npm run lint:css` and the type check pass.
+- [x] A reusable dialog shell exists, owning the scrim, window, close control, Escape and backdrop dismissal, the inert behaviour, and a native form with a submit confirm.
+- [x] The create-market dialog is rebuilt on it and asks for name and organization only.
+- [x] The name input reaches for the shared control primitive and **does not reset its own styling**, which would defeat the primitive. It reads as an input before anyone clicks it.
+- [x] Enter in the name field creates the market, through the same handler the button uses, so it inherits the same guard.
+- [x] When the confirm button is disabled, Enter does nothing.
+- [x] The error message sits in flow beneath the control it describes, not at an absolute coordinate.
+- [x] With exactly one organization, the dialog **names** it rather than offering a choice that is not a choice.
+- [x] The zero-organization fallback still works and its existing spec passes unchanged.
+- [x] The page stays inert behind the dialog; the existing inert unit test and e2e spec pass.
+- [x] `npm run format:check`, `npm run lint:css` and the type check pass.
