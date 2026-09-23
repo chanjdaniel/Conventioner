@@ -2,7 +2,7 @@
 id: E19/F03/S02
 title: Highlights can be changed while reviewing
 type: story
-status: ready
+status: done
 blocked_by: [E19/F03/S01]
 pr: []
 ---
@@ -24,9 +24,9 @@ Without this, the feature is a guess an organizer makes once and cannot correct.
 
 ## Acceptance criteria
 
-- [ ] A reviewer can mark and unmark answers from the review queue, and the current card updates immediately.
-- [ ] The change is stored on the market, in the same place the form builder writes, and is visible to the next person who opens the queue.
-- [ ] It works **after** applications exist and the form has frozen - which is the case this story is for. Verify specifically on a market whose form is locked.
-- [ ] Marking from the queue and marking from the form builder read and write one list; there is no second store and no divergence.
-- [ ] The queue's position is not lost when the marks change - a reviewer on card twelve stays on card twelve.
-- [ ] Verified end-to-end on a market with a frozen form: change the marks mid-queue, confirm the card changes and that reopening the queue shows the new marks.
+- [x] A reviewer can mark and unmark answers from the review queue, and the current card updates immediately.
+- [x] The change is stored on the market, in the same place the form builder writes, and is visible to the next person who opens the queue.
+- [x] It works **after** applications exist and the form has frozen - which is the case this story is for. Verify specifically on a market whose form is locked.
+- [x] Marking from the queue and marking from the form builder read and write one list; there is no second store and no divergence.
+- [x] The queue's position is not lost when the marks change - a reviewer on card twelve stays on card twelve.
+- [x] Verified end-to-end on a market with a frozen form: change the marks mid-queue, confirm the card changes and that reopening the queue shows the new marks.
