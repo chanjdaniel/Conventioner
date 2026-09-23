@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Page object for the Organizations view (OrganizationsView) and the
@@ -37,6 +37,10 @@ export class OrganizationsPage {
   readonly deleteButton: Locator;
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
+  readonly deleteWindow: Locator;
+  readonly deleteBlocked: Locator;
+  readonly doomedMarkets: Locator;
+  readonly blockingMarkets: Locator;
   readonly manageWindow: Locator;
   readonly manageCloseButton: Locator;
   readonly adminEmails: Locator;
@@ -70,8 +74,12 @@ export class OrganizationsPage {
     this.removeUserButtons = page.getByTestId('manage-org-remove-user-button');
     this.removeMemberButtons = page.getByTestId('manage-org-remove-member-button');
     this.deleteButton = page.getByTestId('manage-org-delete-button');
-    this.deleteConfirmButton = page.getByTestId('manage-org-delete-confirm-button');
-    this.deleteCancelButton = page.getByTestId('manage-org-delete-cancel-button');
+    this.deleteConfirmButton = page.getByTestId('delete-org-submit-button');
+    this.deleteCancelButton = page.getByTestId('delete-org-cancel-button');
+    this.deleteWindow = page.getByTestId('delete-org-window');
+    this.deleteBlocked = page.getByTestId('delete-org-blocked');
+    this.doomedMarkets = page.getByTestId('delete-org-doomed-market');
+    this.blockingMarkets = page.getByTestId('delete-org-blocking-market');
     this.adminEmails = this.manageWindow.getByTestId('manage-org-admin-email');
     this.memberEmails = this.manageWindow.getByTestId('manage-org-member-email');
   }
@@ -186,8 +194,17 @@ export class OrganizationsPage {
     await this.deleteCancelButton.click();
   }
 
+  /**
+   * Delete the organization through its confirmation dialog (E20/F04/S01).
+   *
+   * The confirm waits to be enabled: the dialog reads what the deletion would destroy before it
+   * offers to do it, so clicking straight through would race the preview.
+   */
   async deleteOrg(): Promise<void> {
     await this.clickDelete();
+    await this.deleteWindow.waitFor({ state: 'visible', timeout: 5000 });
+    await this.deleteConfirmButton.waitFor({ state: 'visible', timeout: 5000 });
+    await expect(this.deleteConfirmButton).toBeEnabled({ timeout: 10000 });
     await this.confirmDelete();
   }
 }

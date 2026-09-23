@@ -23,6 +23,7 @@ import { type Organization, type OrganizationRoleType } from '@/assets/types/dat
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import AppDialog from '@/components/AppDialog.vue';
+import DeleteOrgDialog from '@/components/DeleteOrgDialog.vue';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -46,7 +47,6 @@ const newMemberEmail = ref('');
 const addAdminError = ref('');
 const addMemberError = ref('');
 const deleteConfirming = ref(false);
-const deleteError = ref('');
 
 watch(
   () => [props.manageOpen, props.org] as const,
@@ -61,7 +61,6 @@ watch(
       renameError.value = '';
       addAdminError.value = '';
       addMemberError.value = '';
-      deleteError.value = '';
     } else {
       orgData.value = null;
     }
@@ -189,22 +188,17 @@ function canRemoveUser(userId: string, role: OrganizationRoleType): boolean {
   return true;
 }
 
-/** One of the three correct closes: the thing being managed no longer exists. */
-async function handleDeleteConfirm() {
-  if (!orgData.value) return;
-  deleteError.value = '';
-  try {
-    await api.delete(`/organizations/${encodeURIComponent(orgData.value.id)}`);
-    emit('changed');
-    emit('manageClose');
-  } catch (err) {
-    deleteError.value = getApiErrorMessage(err, 'Failed to delete organization');
-  }
-}
-
-function handleDeleteCancel() {
-  deleteConfirming.value = false;
-  deleteError.value = '';
+/**
+ * One of the three correct closes: the thing being managed no longer exists.
+ *
+ * The confirmation is its own dialog now (E20/F04/S01), because what it has to say is not a
+ * sentence: deleting an organization destroys its drafts and archived markets, and an archived
+ * market is still publicly served and holds the record of a market that ran. "Are you sure? This
+ * cannot be undone." was true and useless.
+ */
+function handleDeleted() {
+  emit('changed');
+  emit('manageClose');
 }
 </script>
 
@@ -365,42 +359,27 @@ function handleDeleteCancel() {
 
         <section v-if="isOwner()" class="section danger-section">
           <h3>Delete organization</h3>
-          <div v-if="!deleteConfirming">
-            <button
-              type="button"
-              class="btn btn--compact btn--destructive"
-              data-testid="manage-org-delete-button"
-              @click="deleteConfirming = true"
-            >
-              Delete organization
-            </button>
-          </div>
-          <div v-else class="delete-confirm">
-            <p class="confirm-text">Are you sure? This cannot be undone.</p>
-            <div class="confirm-buttons">
-              <button
-                type="button"
-                class="btn btn--compact btn--destructive"
-                data-testid="manage-org-delete-confirm-button"
-                @click="handleDeleteConfirm"
-              >
-                Confirm
-              </button>
-              <button
-                type="button"
-                class="btn btn--compact btn--secondary"
-                data-testid="manage-org-delete-cancel-button"
-                @click="handleDeleteCancel"
-              >
-                Cancel
-              </button>
-            </div>
-            <p v-if="deleteError" class="form-error">{{ deleteError }}</p>
-          </div>
+          <button
+            type="button"
+            class="btn btn--compact btn--destructive"
+            data-testid="manage-org-delete-button"
+            @click="deleteConfirming = true"
+          >
+            Delete organization
+          </button>
         </section>
       </div>
     </template>
   </AppDialog>
+
+  <DeleteOrgDialog
+    v-if="orgData"
+    :open="deleteConfirming"
+    :org-id="orgData.id"
+    :org-name="orgData.name"
+    @close="deleteConfirming = false"
+    @deleted="handleDeleted()"
+  />
 </template>
 
 <style scoped>
@@ -502,22 +481,5 @@ function handleDeleteCancel() {
 .danger-section {
   padding-top: var(--space-4);
   border-top: 1px solid var(--mm-border);
-}
-
-.delete-confirm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.confirm-text {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.confirm-buttons {
-  display: flex;
-  gap: var(--space-2);
 }
 </style>
