@@ -55,19 +55,29 @@ export class ApplyPage {
     return this.page.getByTestId('apply-essential-full-name-input');
   }
 
-  /** The checkbox for one offered market date (ISO string). */
-  dateCheckbox(date: string): Locator {
-    return this.page.getByTestId(`apply-essential-date-${date}`);
+  /**
+   * The row for one offered market date.
+   *
+   * Availability is no longer its own question (E19/F01/S02): an organizer's own form has always
+   * asked it as one grid - tiers per day, or "not available" - so availability is derived from the
+   * tier answer rather than asked beside it.
+   */
+  dateRow(date: string): Locator {
+    return this.page.getByTestId(`apply-essential-tier-day-${date}`);
+  }
+
+  /** Say that this is a day the applicant cannot attend. */
+  notAvailableCheckbox(date: string): Locator {
+    return this.page.getByTestId(`apply-essential-unavailable-${date}`);
   }
 
   /**
-   * The words beside that checkbox: the date as the applicant reads it. Addressed through the
-   * enclosing label rather than a testid of its own, so the assertion sees exactly the run of text
-   * the applicant sees - a second year appended to it is a failure, which a `toContainText` on a
-   * substring of the date is not (E14/F01/S01).
+   * The words naming that day: the date as the applicant reads it. Asserted whole, so a second
+   * year appended to it is a failure - which a `toContainText` on a substring is not
+   * (E14/F01/S01).
    */
   dateLabel(date: string): Locator {
-    return this.page.locator('label.essential-choice').filter({ has: this.dateCheckbox(date) });
+    return this.dateRow(date).locator('.essential-tier-day-label');
   }
 
   /**
