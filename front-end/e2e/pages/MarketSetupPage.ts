@@ -1,5 +1,20 @@
 import { type Locator, type Page } from '@playwright/test';
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 /**
  * Page object for the Market Setup wizard view.
  * Covers wizard step navigation (Back/Next/Assign),
@@ -10,9 +25,6 @@ export class MarketSetupPage {
 
   // Wizard navigation
   readonly assignButton: Locator;
-
-  // Page 0: Market Dates
-  readonly datesAddButton: Locator;
 
   // Page 1: Path choice overlay
   readonly choosePathButton: Locator;
@@ -47,8 +59,6 @@ export class MarketSetupPage {
     this.page = page;
 
     this.assignButton = page.getByTestId('market-setup-assign-button');
-
-    this.datesAddButton = page.getByTestId('setup-dates-add-button');
 
     this.choosePathButton = page.getByTestId('market-setup-choose-path-button');
     this.choosePathManualCard = page.getByTestId('choose-path-manual');
@@ -162,18 +172,33 @@ export class MarketSetupPage {
 
   // --- Page 0: Market Dates ---
 
-  /** Add a new market date row and configure it. */
-  /** A market date is a date. It used to also need a spreadsheet column chosen beside it. */
-  async addMarketDate(date: string, index: number = 0): Promise<void> {
-    await this.datesAddButton.click();
-    const dateInput = this.page.getByTestId(`setup-dates-date-input-${index}`);
-    await dateInput.waitFor({ state: 'visible' });
-    await dateInput.fill(date);
-  }
+  /**
+   * Choose a market day on the calendar.
+   *
+   * A market date is a date. It used to also need a spreadsheet column chosen beside it, and then
+   * a row with an invisible native date input laid across it - the calendar replaced both
+   * (E18/F01/S02), so this walks to the month and clicks the day.
+   */
+  async addMarketDate(date: string): Promise<void> {
+    const [year, month] = date.split('-').map(Number);
+    const wanted = `${MONTH_NAMES[month - 1]} ${year}`;
+    const shown = this.page.getByTestId('setup-dates-month');
+    await shown.waitFor({ state: 'visible', timeout: 15000 });
 
-  /** Get a date input by row index. */
-  getDateInput(index: number): Locator {
-    return this.page.getByTestId(`setup-dates-date-input-${index}`);
+    // Step rather than jump: the control has no month picker, which is what an organizer has too.
+    for (let guard = 0; guard < 60; guard += 1) {
+      const now = (await shown.innerText()).trim();
+      if (now === wanted) break;
+      const [shownMonth, shownYear] = now.split(' ');
+      const forward =
+        Number(shownYear) < year ||
+        (Number(shownYear) === year && MONTH_NAMES.indexOf(shownMonth) < month - 1);
+      await this.page
+        .getByTestId(forward ? 'setup-dates-next-month' : 'setup-dates-prev-month')
+        .click();
+    }
+
+    await this.page.getByTestId(`setup-dates-day-${date}`).click();
   }
 
   /** Get a date column select by row index. */
@@ -309,13 +334,11 @@ export class MarketSetupPage {
    * Wait for the plan editor to be on screen.
    *
    * It used to wait for the wizard's Next button; the plan is one page now (E10/F02/S01). It then
-   * waited for Assign, which left the plan for the assignment surface (E18/F02/S04) - so the thing
-   * to wait for is the plan's own content.
+   * waited for Assign, which left the plan for the assignment surface (E18/F02/S04). What it waits
+   * for now is the first thing the plan asks for: the calendar of market days (E18/F01/S02).
    */
   async waitForWizard(): Promise<void> {
-    await this.page
-      .getByTestId('setup-dates-add-button')
-      .waitFor({ state: 'visible', timeout: 10000 });
+    await this.page.getByTestId('setup-dates-month').waitFor({ state: 'visible', timeout: 10000 });
   }
 
   /** Wait for the Assign button to become enabled (all required options configured). */

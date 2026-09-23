@@ -1,3 +1,4 @@
+import { getFormattedDate } from '../src/utils/utils';
 import {
   test,
   expect,
@@ -128,8 +129,12 @@ test.describe('Market pipeline E2E', () => {
     // --- The plan, one page (E10/F02/S01) ---
     // There is no Manage Columns step any more: a market describes no spreadsheet, so the plan is
     // the days it runs, what it offers, and how the solver should order applicants.
-    await setupPage.addMarketDate(MARKET_DATE, 0);
-    await expect(setupPage.getDateInput(0)).toHaveValue(MARKET_DATE);
+    await setupPage.addMarketDate(MARKET_DATE);
+    // The day reads back as a day, not as an input's value: dates are chosen on a calendar now
+    // (E18/F01/S02), and what the organizer sees is the date spelled out.
+    await expect(page.getByTestId('setup-dates-date-display-0')).toHaveText(
+      getFormattedDate(MARKET_DATE) as string,
+    );
 
     await setupPage.selectManualPath();
 
