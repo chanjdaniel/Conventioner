@@ -1,5 +1,6 @@
 import { test, expect, BACKEND_URL, TEST_USER, ApplicationFormPage, ApplyPage } from './fixtures';
 import { ApplicantLoginPage } from './pages/ApplicantLoginPage';
+import { MarketSetupPage } from './pages/MarketSetupPage';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import {
   seedApplicantMarket,
@@ -187,10 +188,11 @@ test.describe('Essential form fields', () => {
 
     // The organizer adds market dates in the setup wizard...
     await formPage.openSetupTab();
-    await page.getByTestId('setup-dates-add-button').click();
-    await page.getByTestId('setup-dates-date-input-0').fill('2026-08-01');
-    await page.getByTestId('setup-dates-add-button').click();
-    await page.getByTestId('setup-dates-date-input-1').fill('2026-08-08');
+    const setupPage = new MarketSetupPage(page);
+    // The dates are chosen on a calendar now (E18/F01/S02), so the page object walks to the month
+    // and clicks the days rather than filling a row's hidden date input.
+    await setupPage.addMarketDate('2026-08-01');
+    await setupPage.addMarketDate('2026-08-08');
 
     // ...and sections, further down the same page (E10/F02/S01). The plan saves itself.
     await page.getByTestId('setup-section-add-button').click();

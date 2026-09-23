@@ -2,7 +2,7 @@
 id: E18/F01
 title: The draft page
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

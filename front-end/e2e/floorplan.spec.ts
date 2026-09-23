@@ -100,7 +100,7 @@ test.describe('Floorplan workflow E2E', () => {
     await setupPage.waitForWizard();
 
     // No Manage Columns step, and no paging: the plan is one page (E10/F02/S01).
-    await setupPage.addMarketDate('2026-07-15', 0);
+    await setupPage.addMarketDate('2026-07-15');
 
     const floorplanPage = new FloorplanWorkflowPage(page);
     await floorplanPage.selectFloorplanPath();

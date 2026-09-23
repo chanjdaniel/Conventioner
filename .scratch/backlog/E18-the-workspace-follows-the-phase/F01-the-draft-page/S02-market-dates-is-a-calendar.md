@@ -2,7 +2,7 @@
 id: E18/F01/S02
 title: Market dates is a calendar
 type: story
-status: ready
+status: done
 blocked_by: [E18/F01/S01]
 pr: []
 ---

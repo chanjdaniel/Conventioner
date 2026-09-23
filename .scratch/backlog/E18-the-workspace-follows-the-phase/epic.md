@@ -2,7 +2,7 @@
 id: E18
 title: The workspace follows the phase
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
