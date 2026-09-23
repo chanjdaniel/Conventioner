@@ -953,9 +953,10 @@ function startOver() {
         </p>
 
         <!-- Turning a question off is a change to the FORM, and a form is editable only in draft
-             (D9). This wizard only ever runs in applications_open, so it points at where to do it
-             rather than offering a button that would be refused here - the same shape as the
-             unmapped-column dead end in the ledger. -->
+             (D9). This wizard runs in TWO phases - `applications_open` and `applications_closed` -
+             and the form is editable in neither, so it points at where to do it rather than
+             offering a button that would be refused here. Same shape as the unmapped-column dead
+             end in the ledger, and E20/F03 is the story that removes both. -->
         <div
           v-for="target in declarableUnasked"
           :key="target.key"
@@ -1139,10 +1140,26 @@ function startOver() {
 </template>
 
 <style scoped>
+/*
+ * A screen is one of two named widths, centred, and the PAGE scrolls (E20/F02/S01).
+ *
+ * This view never joined that model: it was uncapped, so at 1920 its 720px panel sat pinned to the
+ * left of a full-bleed header with 1,200px of nothing beside it, and Cancel was the width of the
+ * screen away from the thing it cancelled. That white space was the whole of the finding - it was
+ * never a disagreement with the flow being a page.
+ *
+ * ONE shell width for all four steps, deliberately. Three of them are narrow panels and the
+ * mapping step is a full-width ledger with a rail, so no single CONTENT width is right - but a
+ * shell that changed width as the organizer pressed Next would read as instability, and the step
+ * indicator already says where they are.
+ */
 .import-view {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
+  max-width: var(--workspace-max);
+  margin: 0 auto;
   padding: 24px 32px 96px;
   color: var(--mm-black);
 }
@@ -1193,11 +1210,15 @@ function startOver() {
   font-size: var(--text-sm);
 }
 
+/* The narrow steps sit in the middle of the shell rather than against its left edge. The mapping
+   step is not one of these - it is `.import-map`, and it keeps the whole width. */
 .import-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
   max-width: 720px;
+  margin-inline: auto;
 }
 
 .import-panel h2 {
