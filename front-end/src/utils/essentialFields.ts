@@ -22,6 +22,8 @@ export const ESSENTIAL_KEY_PREFIX = 'essential_';
  * splitting on whitespace guesses wrong on every "van der Berg" and mononym.
  */
 export const FULL_NAME_KEY = 'essential_full_name';
+/** The name a vendor is CALLED, as against the one on their identification (E19/F02/S01). */
+export const PREFERRED_NAME_KEY = 'essential_preferred_name';
 
 export const AVAILABLE_DATES_KEY = 'essential_available_dates';
 export const MAX_DATES_KEY = 'essential_max_dates';
@@ -32,6 +34,7 @@ export const SECTION_RANKING_KEY = 'essential_section_ranking';
 export const TABLE_TYPE_RANKING_KEY = 'essential_table_type_ranking';
 
 export const FULL_NAME_LABEL = 'Full name';
+export const PREFERRED_NAME_LABEL = 'Preferred name';
 export const AVAILABLE_DATES_LABEL = 'Available dates';
 export const MAX_DATES_LABEL = 'Number of dates you want';
 export const TIER_PREFERENCE_LABEL = 'Tier preference';
@@ -182,6 +185,9 @@ export interface AnswerRow {
 /** The order the form asks the essential questions, so answers read back the way they were given. */
 const ESSENTIAL_ORDER: ReadonlyArray<[string, string, (value: unknown) => unknown]> = [
   [FULL_NAME_KEY, FULL_NAME_LABEL, (v) => v],
+  // Both names on the review card, labelled: an organizer deciding about a PERSON is doing
+  // something different from one scanning a list, where only the chosen name appears.
+  [PREFERRED_NAME_KEY, PREFERRED_NAME_LABEL, (v) => v],
   [
     AVAILABLE_DATES_KEY,
     AVAILABLE_DATES_LABEL,

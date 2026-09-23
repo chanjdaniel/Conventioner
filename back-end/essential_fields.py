@@ -62,6 +62,18 @@ ESSENTIAL_KEY_PREFIX = "essential_"
 # mononym. This is identity; being confidently wrong is worse than being incomplete.
 FULL_NAME_KEY = "essential_full_name"
 
+# The name a vendor is CALLED, as against the one on their identification (E19/F02/S01).
+#
+# The committed export carries it as the column beside the legal name, and `readable-journey`
+# ticket 02 said the product "drops both because it has nowhere to put them" - then built a home
+# for the legal name only. What that ticket deferred was a TRADING name (`Paper & Pine` rather than
+# `Ana Rivera`), which is a different thing and does not cover this.
+#
+# Essential but NOT required: asked of everyone, answerable by nobody without consequence, which is
+# the shape TABLE_SHARE_EMAIL_KEY already has. Asked unconditionally, following the legal name,
+# because identity does not depend on the plan.
+PREFERRED_NAME_KEY = "essential_preferred_name"
+
 AVAILABLE_DATES_KEY = "essential_available_dates"
 MAX_DATES_KEY = "essential_max_dates"
 TIER_PREFERENCE_KEY = "essential_tier_preference"
@@ -73,6 +85,7 @@ TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 # The labels the applicant sees, shared with error messages so a validation failure names the
 # question exactly as the form asked it.
 FULL_NAME_LABEL = "Full name"
+PREFERRED_NAME_LABEL = "Preferred name"
 EMAIL_LABEL = "Email address"
 AVAILABLE_DATES_LABEL = "Available dates"
 MAX_DATES_LABEL = "Number of dates you want"
@@ -179,6 +192,20 @@ REQUIRED_ESSENTIAL_KEYS = (
 UNASKABLE_ESSENTIAL_KEYS = (SECTION_RANKING_KEY, TABLE_TYPE_RANKING_KEY)
 
 
+def display_name(form_data: Dict[str, Any]) -> str:
+    """The name to call this vendor: the one they chose, or the one on their identification.
+
+    ONE statement of that rule (E19/F02/S01). Every surface that shows a vendor renders through
+    `VendorIdentity`, which is handed the name this produces - so the choice is made once, here,
+    beside the contract that defines both keys, rather than in each screen that shows a person.
+
+    The review card is the exception and shows BOTH, labelled: an organizer deciding about a
+    person is doing something different from an organizer scanning a list.
+    """
+    preferred = str(form_data.get(PREFERRED_NAME_KEY) or "").strip()
+    return preferred or str(form_data.get(FULL_NAME_KEY) or "").strip()
+
+
 def reconciled_dates_and_tiers(tier_answer: Any, available_dates: Any) -> Tuple[Any, Any]:
     """The stored shape of a dates-and-tiers answer, whichever way the form asked for it.
 
@@ -257,7 +284,7 @@ def asked_essential_keys(options: EssentialFormOptions) -> frozenset:
     # oversight: every other essential question is gated on the plan offering something to answer
     # about, and identity does not depend on the plan. A market with no dates, no tiers and no
     # sections still needs to know who is applying.
-    asked = {FULL_NAME_KEY}
+    asked = {FULL_NAME_KEY, PREFERRED_NAME_KEY}
     if options.dates:
         asked.update({
             AVAILABLE_DATES_KEY,
@@ -290,7 +317,7 @@ def plan_derived_asked_keys(options: EssentialFormOptions) -> frozenset:
     count is never zero, so reading ``asked_essential_keys`` here would make both of them unable
     to say no - silently, with their docstrings still claiming otherwise.
     """
-    return asked_essential_keys(options) - {FULL_NAME_KEY}
+    return asked_essential_keys(options) - {FULL_NAME_KEY, PREFERRED_NAME_KEY}
 
 
 def offering_for_key(key: str, options: EssentialFormOptions) -> List[str]:
@@ -572,6 +599,11 @@ def _validate_full_name(incoming: Dict[str, Any], stored: Dict[str, Any]) -> Opt
     if not value:
         return f"'{FULL_NAME_LABEL}' is required."
     stored[FULL_NAME_KEY] = value
+
+    # Optional, and stored as the empty string rather than left absent, so every reader compares
+    # one shape - the same way an unasked ranking stores its empty value.
+    preferred = incoming.get(PREFERRED_NAME_KEY)
+    stored[PREFERRED_NAME_KEY] = str(preferred).strip() if preferred is not None else ""
     return None
 
 

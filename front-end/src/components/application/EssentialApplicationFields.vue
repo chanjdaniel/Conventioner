@@ -18,6 +18,8 @@ import { computed, watch } from 'vue';
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_LABEL,
+  PREFERRED_NAME_KEY,
+  PREFERRED_NAME_LABEL,
   AVAILABLE_DATES_KEY,
   FULL_NAME_KEY,
   FULL_NAME_LABEL,
@@ -166,6 +168,12 @@ function setUnavailable(date: string, checked: boolean) {
 
 const fullName = computed(() => (props.modelValue[FULL_NAME_KEY] as string) ?? '');
 
+const preferredName = computed(() => (props.modelValue[PREFERRED_NAME_KEY] as string) ?? '');
+
+function onPreferredNameInput(event: Event) {
+  setAnswer(PREFERRED_NAME_KEY, (event.target as HTMLInputElement).value);
+}
+
 function onFullNameInput(event: Event) {
   setAnswer(FULL_NAME_KEY, (event.target as HTMLInputElement).value);
 }
@@ -223,6 +231,28 @@ function errorFor(key: string): string {
       >
         {{ errorFor(FULL_NAME_KEY) }}
       </p>
+    </div>
+
+    <!-- Preferred name. Optional, and asked of everyone: identity does not depend on the plan
+         (E19/F02/S01). The legal name stays stored and stays on the review card. -->
+    <div class="essential-field" :data-testid="`${prefix}-essential-preferred-name`">
+      <label class="essential-label" :for="`${prefix}-essential-preferred-name-input`">
+        {{ PREFERRED_NAME_LABEL }}
+      </label>
+      <p class="essential-help">
+        What you would like to be called, if it is not the name above. This is the name that appears
+        on lists and beside your table.
+      </p>
+      <input
+        :id="`${prefix}-essential-preferred-name-input`"
+        class="essential-text-input"
+        type="text"
+        autocomplete="nickname"
+        :value="preferredName"
+        :disabled="disabled"
+        :data-testid="`${prefix}-essential-preferred-name-input`"
+        @input="onPreferredNameInput"
+      />
     </div>
 
     <!-- Max dates -->
