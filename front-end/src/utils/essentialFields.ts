@@ -86,6 +86,40 @@ export const UNASKABLE_ESSENTIAL_KEYS: readonly string[] = [
   TABLE_TYPE_RANKING_KEY,
 ];
 
+/**
+ * The stored shape of a dates-and-tiers answer, whichever way the form asked for it.
+ *
+ * Mirrors `reconciled_dates_and_tiers` in `back-end/essential_fields.py`, which is the authority.
+ *
+ * There are two ways to ask. A PER-DATE GRID is what an organizer's own form produces - one
+ * question per day whose cell carries the tiers, or nothing when the vendor cannot attend - so it
+ * answers availability too: the dates you named tiers for are the dates you are available. A FLAT
+ * LIST is what a form that asked once produces, and it means those tiers on every available date.
+ *
+ * Anything else is carried through untouched, because a missing or unrecognised answer is the
+ * validator's to refuse in the applicant's own words.
+ */
+export function reconciledDatesAndTiers(
+  tierAnswer: unknown,
+  availableDates: unknown,
+): { tiers: unknown; dates: unknown } {
+  if (Array.isArray(tierAnswer)) {
+    const dates = Array.isArray(availableDates) ? [...availableDates] : [];
+    // A fresh array per date: one shared array is one edit away from changing every day at once.
+    const tiers: Record<string, unknown[]> = {};
+    for (const date of dates) tiers[String(date)] = [...tierAnswer];
+    return { tiers, dates };
+  }
+
+  const availabilityAnswered = Array.isArray(availableDates) && availableDates.length > 0;
+  if (tierAnswer && typeof tierAnswer === 'object' && !availabilityAnswered) {
+    const grid = tierAnswer as Record<string, unknown[]>;
+    return { tiers: grid, dates: Object.keys(grid).filter((date) => grid[date]?.length) };
+  }
+
+  return { tiers: tierAnswer, dates: availableDates };
+}
+
 /** Is this essential question one this market actually asks? */
 export function isEssentialAsked(key: string, options: EssentialFormOptions): boolean {
   return !(options.unasked ?? []).includes(key);
