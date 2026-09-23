@@ -2,7 +2,7 @@
 id: E19/F01/S02
 title: The applicant form asks one grid
 type: story
-status: ready
+status: done
 blocked_by: [E19/F01/S01]
 pr: []
 ---

@@ -599,8 +599,8 @@ def _validate_tiers_per_date(
 
     if not isinstance(raw, dict):
         return (
-            f"'{TIER_PREFERENCE_LABEL}' is required. Choose the tiers you would accept on each "
-            "date you are available."
+            f"'{TIER_PREFERENCE_LABEL}' is required. For each day, choose the tiers you would be "
+            "considered for, or mark that day as one you cannot attend."
         )
 
     per_date: Dict[str, List[str]] = {}
@@ -609,13 +609,13 @@ def _validate_tiers_per_date(
         if not isinstance(given, list) or not given:
             return (
                 f"'{TIER_PREFERENCE_LABEL}' is missing for {date}. Choose at least one tier for "
-                "every date you are available, or remove that date."
+                "that day, or mark it as one you cannot attend."
             )
         names = [str(name).strip() for name in given if str(name).strip()]
         if not names:
             return (
                 f"'{TIER_PREFERENCE_LABEL}' is missing for {date}. Choose at least one tier for "
-                "every date you are available, or remove that date."
+                "that day, or mark it as one you cannot attend."
             )
         invalid = [name for name in names if name not in options.tiers]
         if invalid:

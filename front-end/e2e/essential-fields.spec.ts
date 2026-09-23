@@ -212,8 +212,10 @@ test.describe('Essential form fields', () => {
     await expect(formPage.essentialSectionChips.nth(1)).toContainText('Garden');
     // The applicant preview shows them exactly as the applicant will get them.
     await expect(formPage.previewEssential).toBeVisible();
+    // The preview shows the applicant's own control: one grid with a row per market date
+    // (E19/F01/S02), not a separate availability question.
     await expect(
-      formPage.previewEssential.getByTestId('form-preview-essential-date-2026-08-01'),
+      formPage.previewEssential.getByTestId('form-preview-essential-tier-day-2026-08-01'),
     ).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('02-essential-panel-offering-from-plan.png'),
@@ -272,21 +274,22 @@ test.describe('Essential form fields', () => {
     // Identity: asked whatever the plan offers, and never split (E13/F01/S01).
     await apply.fullNameInput.fill('Jan van der Berg');
 
-    // Available dates: capability. The label is asserted whole, not by substring - the product has
-    // one date format and an essential question shows it unaltered (E14/F01/S01).
-    await expect(apply.dateCheckbox(PLAN_DATES[0])).toBeVisible();
+    // Availability is not its own question any more (E19/F01/S02) - it follows from the tier
+    // grid below. The label is still asserted whole, not by substring: the product has one date
+    // format and an essential question shows it unaltered (E14/F01/S01).
+    await expect(apply.dateRow(PLAN_DATES[0])).toBeVisible();
     await expect(apply.dateLabel('2026-08-01')).toHaveText('Saturday, August 1, 2026');
-    await apply.dateCheckbox('2026-08-01').check();
-    await apply.dateCheckbox('2026-08-08').check();
 
     // Max dates: appetite - available on two dates, wants at most two.
     await apply.maxDatesInput.fill('2');
 
     // Tier: a hard filter, so a subset is a complete answer. Refusing Silver means the solver
-    // may leave them unplaced rather than seat them there.
+    // may leave them unplaced rather than seat them there. Ticking a tier is ALSO how this
+    // applicant says they are available that day.
     await expect(apply.tierCheckbox('2026-08-01', 'Silver')).toBeVisible();
     await apply.tierCheckbox('2026-08-01', 'Gold').check();
     await apply.tierCheckbox('2026-08-08', 'Gold').check();
+    await expect(apply.notAvailableCheckbox('2026-08-01')).not.toBeChecked();
 
     // Table choice: sharing, and with someone specific in mind.
     await apply.tableChoiceRadio('half').check();

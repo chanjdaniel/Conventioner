@@ -347,7 +347,7 @@ export function essentialValidationErrors(
     const unanswered = dates.filter((date) => !answered(date));
     if (!dates.length || unanswered.length) {
       errors[TIER_PREFERENCE_KEY] = dates.length
-        ? `'${TIER_PREFERENCE_LABEL}' is missing for ${unanswered.join(', ')}. Choose at least one tier for every date you are available.`
+        ? `'${TIER_PREFERENCE_LABEL}' is missing for ${unanswered.join(', ')}. Choose at least one tier for each, or mark it as a day you cannot attend.`
         : `'${TIER_PREFERENCE_LABEL}' is required. Select at least one tier.`;
     }
   }

@@ -2,7 +2,7 @@
 id: E19/F01
 title: One grid for dates and tiers
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
