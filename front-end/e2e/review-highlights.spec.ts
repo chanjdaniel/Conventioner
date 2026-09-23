@@ -190,4 +190,63 @@ test.describe('What a reviewer reads first', () => {
     await expect(monitor.answers).toBeVisible();
     await expect(page.getByTestId('app-monitor-rest')).toHaveCount(0);
   });
+
+  /**
+   * The point of the whole feature (E19/F03/S02).
+   *
+   * An organizer authoring a form is guessing what will matter. A reviewer on card twelve KNOWS -
+   * and by then the form has FROZEN, because an application exists. This is why the list lives on
+   * the market and not on the form: on the form it would be settable only before it was knowable.
+   */
+  test('a reviewer changes what leads the card from the queue, with the form frozen', async ({
+    authenticatedPage: page,
+  }) => {
+    await openTheMarket(page, 'form');
+
+    // The precondition this story is FOR: applications exist, so the form builder is locked.
+    await expect(page.getByTestId('form-builder-lock-banner')).toBeVisible();
+
+    await page.goto(`/market-setup?tab=applications`);
+    const monitor = new ApplicationMonitorPage(page);
+    await monitor.waitForLoaded();
+
+    // Where the reviewer is now, so it can be shown they are still there afterwards.
+    const before = ((await monitor.email.textContent()) ?? '').trim();
+
+    await page.getByTestId('app-monitor-choose-highlights').click();
+    const highlights = page.getByTestId('review-highlights');
+    await expect(highlights).toBeVisible();
+
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${marketId}/review-highlights`) &&
+          response.request().method() === 'PUT',
+      ),
+      highlights.getByTestId('review-highlight-instagram').click(),
+    ]);
+
+    // The card in front of them changed, without leaving the queue and without a reload.
+    const leading = page.getByTestId('app-monitor-leading');
+    await expect(leading.locator('dt')).toHaveText(['Instagram']);
+    await expect(page.getByTestId('app-monitor-rest-summary')).toHaveText('5 more answers');
+
+    // And they are still on the same application: the marks change what the card SHOWS, never
+    // which one is up.
+    await expect(monitor.email).toHaveText(before);
+
+    // One list, not two: the form builder reads back what the queue wrote.
+    await page.goto('/market-setup?tab=form');
+    await expect(
+      page
+        .getByTestId('review-highlights')
+        .getByTestId('review-highlight-instagram')
+        .locator('input'),
+    ).toBeChecked();
+
+    // And it is there for whoever reviews next - a fresh load of the queue, not this page's state.
+    await page.goto(`/market-setup?tab=applications`);
+    await monitor.waitForLoaded();
+    await expect(page.getByTestId('app-monitor-leading').locator('dt')).toHaveText(['Instagram']);
+  });
 });

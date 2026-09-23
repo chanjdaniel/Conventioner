@@ -26,12 +26,34 @@ const props = defineProps<{
 const emit = defineEmits<{ (event: 'update:highlights', value: string[]): void }>();
 
 /** The organizer's own questions first, then the essential ones - the card's own order. */
-const candidates = computed(() => [
+const offered = computed(() => [
   ...props.fields
     .filter((field) => field.key)
     .map((field) => ({ key: field.key, label: field.label || field.key, custom: true })),
   ...askedEssentialAnswers(props.essentialOptions).map((answer) => ({ ...answer, custom: false })),
 ]);
+
+/**
+ * Anything already marked that this screen would not otherwise offer, so a mark can always be
+ * taken off where it is found.
+ *
+ * The two screens that show this control describe different moments: the builder offers what the
+ * plan asks right now, the review queue offers the offering FROZEN onto the form. A key marked in
+ * one and absent from the other's list would be a mark the reviewer can see leading the card and
+ * has no way to remove - and removing it is the whole of E19/F03/S02.
+ */
+const strays = computed(() => {
+  const known = new Set(offered.value.map((candidate) => candidate.key));
+  return props.highlights
+    .filter((key) => !known.has(key))
+    .map((key) => ({
+      key,
+      label: key.replace(/^essential_/, '').replace(/_/g, ' '),
+      custom: true,
+    }));
+});
+
+const candidates = computed(() => [...offered.value, ...strays.value]);
 
 function marked(key: string): boolean {
   return props.highlights.includes(key);

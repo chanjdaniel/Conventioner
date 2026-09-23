@@ -20,6 +20,7 @@ import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
+import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
@@ -226,57 +227,10 @@ async function saveApplicationForm() {
 /**
  * Which answers a reviewer reads first. Saved to its own endpoint, not through the market PUT:
  * the list is server-owned precisely because a reviewer changes it mid-queue (E19/F03).
- */
-const highlights = ref<string[]>(props.market?.reviewHighlights ?? []);
-const highlightsError = ref('');
-
-watch(
-  () => props.market?.reviewHighlights,
-  (stored) => {
-    if (stored) highlights.value = [...stored];
-  },
-);
-
-/**
- * Which save is the current one. Every toggle sends its own PUT, so two quick clicks put two in
- * flight at once - and the responses are not promised in order. Applying whichever landed LAST
- * wrote the older list over the newer one: mark two answers quickly and the second silently came
- * back off. A stale response is ignored rather than raced against.
- */
-let latestHighlightSave = 0;
-
-async function saveHighlights(keys: string[]) {
-  const previous = [...highlights.value];
-  const save = (latestHighlightSave += 1);
-  highlights.value = keys;
-  highlightsError.value = '';
-  try {
-    const response = await api.put(`/markets/${market.value!.id}/review-highlights`, { keys });
-    if (save !== latestHighlightSave) return;
-    adoptReviewHighlights(response.data?.reviewHighlights ?? keys);
-  } catch (err: unknown) {
-    if (save !== latestHighlightSave) return;
-    highlights.value = previous;
-    highlightsError.value = getApiErrorMessage(err, 'Could not save what a reviewer reads first.');
-  }
-}
-
-/**
- * Put the saved list onto the market the rest of the app reads, the way `adoptApplicationForm`
- * does for the form.
  *
- * Without this the mark saved and the REVIEW CARD DID NOT MOVE: the review queue reads
- * `market.reviewHighlights`, the market comes from the store, and the store still held the list
- * as it was before the click. An organizer would mark two answers, switch to Applications, and
- * find the card exactly as it had been - with nothing to say why.
+ * The queue changes the same list through the same composable, so the two screens cannot diverge.
  */
-function adoptReviewHighlights(stored: string[]) {
-  highlights.value = [...stored];
-  if (market.value) {
-    market.value.reviewHighlights = [...stored];
-    localStorage.setItem('market', JSON.stringify(market.value));
-  }
-}
+const { highlights, error: highlightsError, save: saveHighlights } = useReviewHighlights(market);
 
 onMounted(() => {
   // Paint the cached form immediately, then reconcile with the server, which also
