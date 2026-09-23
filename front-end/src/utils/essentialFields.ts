@@ -123,6 +123,27 @@ export function reconciledDatesAndTiers(
   return { tiers: tierAnswer, dates: availableDates };
 }
 
+/**
+ * Every essential question this market asks, with the label a reviewer reads (E19/F03/S01).
+ *
+ * Built from the same ESSENTIAL_ORDER the review card renders, so the list an organizer marks from
+ * and the list they will see are the same list in the same order.
+ */
+export function askedEssentialAnswers(
+  options: EssentialFormOptions,
+): Array<{ key: string; label: string }> {
+  return ESSENTIAL_ORDER.filter(([key]) => isEssentialAsked(key, options))
+    .filter(([key]) => {
+      if (key === AVAILABLE_DATES_KEY || key === MAX_DATES_KEY || key === TABLE_CHOICE_KEY)
+        return options.dates.length > 0;
+      if (key === TIER_PREFERENCE_KEY) return options.tiers.length > 0;
+      if (key === SECTION_RANKING_KEY) return options.sections.length >= 2;
+      if (key === TABLE_TYPE_RANKING_KEY) return options.tableTypes.length >= 2;
+      return true;
+    })
+    .map(([key, label]) => ({ key, label }));
+}
+
 /** Is this essential question one this market actually asks? */
 export function isEssentialAsked(key: string, options: EssentialFormOptions): boolean {
   return !(options.unasked ?? []).includes(key);

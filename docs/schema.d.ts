@@ -54,6 +54,7 @@ export interface MarketSchema {
   phase?: string;
   reviewConfig?: {
   };
+  reviewHighlights?: string[];
   roles: Record<string, string>;
   setupObject: null | {
     assignmentOptions: {

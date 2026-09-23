@@ -2,7 +2,7 @@
 id: E19/F03/S01
 title: Review highlights lead the card
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
@@ -39,13 +39,13 @@ Three things follow, and they are criteria, not suggestions.
 
 ## Acceptance criteria
 
-- [ ] The market carries a list of answer keys naming what a reviewer reads first. It is server-owned: a market update body cannot set it, and an update re-applies the stored value.
-- [ ] An organizer marks and unmarks answers from the form builder, and can mark **essential** answers as well as their own custom fields.
-- [ ] The review card renders marked answers first and prominently; the rest collapse behind a disclosure.
-- [ ] The disclosure **names its count**, so a reviewer knows what is hidden without opening it.
-- [ ] The disclosure's open state **persists across cards within a review session**, so a reviewer who opens it once is not reopening it forty times.
-- [ ] A market that has marked nothing renders the card as it does today - every answer visible, no disclosure. An empty list is not a reason to hide an application.
-- [ ] The custom-fields-first heuristic is removed; ordering within the marked and unmarked groups is otherwise unchanged.
-- [ ] Absent list means nothing marked; no migration.
-- [ ] **The glossary gains all three notions, kept apart**: an answer the applicant must give, an answer whose change invalidates a completed review, and an answer a reviewer reads first. They are independent - a required answer may be noise on a card, and a highlighted answer may be optional - and without naming them apart the builder grows two controls an organizer cannot tell apart.
-- [ ] Verified end-to-end: mark two answers, open the queue, confirm the card leads with them and the disclosure holds the rest.
+- [x] The market carries a list of answer keys naming what a reviewer reads first. It is server-owned: a market update body cannot set it, and an update re-applies the stored value.
+- [x] An organizer marks and unmarks answers from the form builder, and can mark **essential** answers as well as their own custom fields.
+- [x] The review card renders marked answers first and prominently; the rest collapse behind a disclosure.
+- [x] The disclosure **names its count**, so a reviewer knows what is hidden without opening it.
+- [x] The disclosure's open state **persists across cards within a review session**, so a reviewer who opens it once is not reopening it forty times.
+- [x] A market that has marked nothing renders the card as it does today - every answer visible, no disclosure. An empty list is not a reason to hide an application.
+- [x] The custom-fields-first heuristic is removed; ordering within the marked and unmarked groups is otherwise unchanged.
+- [x] Absent list means nothing marked; no migration.
+- [x] **The glossary gains all three notions, kept apart**: an answer the applicant must give, an answer whose change invalidates a completed review, and an answer a reviewer reads first. They are independent - a required answer may be noise on a card, and a highlighted answer may be optional - and without naming them apart the builder grows two controls an organizer cannot tell apart.
+- [x] Verified end-to-end: mark two answers, open the queue, confirm the card leads with them and the disclosure holds the rest.

@@ -304,6 +304,10 @@ test.describe('Essential form fields', () => {
     await apply.fillField('business_name', 'Vermilion Ceramics');
     await apply.fillField('product_type', 'Hand-thrown pottery');
 
+    // What this vendor is actually called. Asked beside the full name and stored beside it, so an
+    // organizer deciding about a PERSON sees both (E19/F02/S01).
+    await apply.preferredNameInput.fill('Jan');
+
     await page.screenshot({
       path: testInfo.outputPath('04-applicant-essential-fields.png'),
       fullPage: true,
@@ -329,6 +333,9 @@ test.describe('Essential form fields', () => {
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_full_name'),
     ).toContainText('Jan van der Berg');
+    await expect(
+      answers.getByTestId('applicant-dashboard-answer-essential_preferred_name'),
+    ).toContainText('Jan');
     // Read back whole: a formatted date carries two commas of its own, so the entries are
     // separated by a middot and each prints its year once (E14/F01/S01).
     await expect(
@@ -370,6 +377,8 @@ test.describe('Essential form fields', () => {
       product_type: 'Hand-thrown pottery',
       // One field, stored whole: splitting it would guess wrong on exactly this name.
       essential_full_name: 'Jan van der Berg',
+      // Stored beside the full name, never instead of it: the card shows both, labelled.
+      essential_preferred_name: 'Jan',
       essential_available_dates: ['2026-08-01', '2026-08-08'],
       essential_max_dates: 2,
       // Only Gold was ticked: an accepted SET, so Silver's absence is the answer, not an omission.

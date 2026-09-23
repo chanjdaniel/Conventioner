@@ -184,6 +184,33 @@ def mongo_project(doc: dict, projection) -> dict:
     return {key: value for key, value in doc.items() if key in projection}
 
 
+def reject_malformed_update(update):
+    """Refuse an update document Mongo itself would refuse, as ``update_one`` does.
+
+    A fake that records the update without looking at it accepts things the driver rejects, and the
+    suite is then green on a call that 500s in production. That is exactly how a double-wrapped
+    ``{"$set": market_doc_set(...)}`` reached a running stack: ``market_doc_set`` already returns
+    the operator document, so the value under ``$set`` was another ``$set``, and Mongo answers
+    "the dollar ($) prefixed field '$set' ... is not allowed".
+    """
+    if not isinstance(update, dict) or not update:
+        raise ValueError(f"update document must be a non-empty dict, got {update!r}")
+
+    operators = [key for key in update if key.startswith("$")]
+    if operators and len(operators) != len(update):
+        raise ValueError(f"update document mixes operators with plain fields: {sorted(update)}")
+
+    for operator in operators:
+        fields = update[operator]
+        if not isinstance(fields, dict):
+            raise ValueError(f"{operator} takes a field map, got {fields!r}")
+        nested = [field for field in fields if field.startswith("$")]
+        if nested:
+            raise ValueError(
+                f"The dollar ($) prefixed field {nested[0]!r} in {operator!r} is not allowed"
+            )
+
+
 class FakeMarketsCollection:
     """Stand-in for the markets collection, holding one market document."""
 
@@ -196,6 +223,7 @@ class FakeMarketsCollection:
         return mongo_project(dict(self.doc), projection) if self.doc is not None else None
 
     def update_one(self, _filter, update):
+        reject_malformed_update(update)
         self.last_update = update
         return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
 
@@ -236,6 +264,7 @@ class FakeSlugMarketsCollection:
         return iter([mongo_project(d, projection) for d in matched])
 
     def update_one(self, _filter, update):
+        reject_malformed_update(update)
         self.last_update = update
         return SimpleNamespace(matched_count=1, modified_count=1, upserted_id=None)
 

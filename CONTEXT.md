@@ -56,6 +56,21 @@ What a vendor is called. One field, never split into first and last - the names 
 **Offering**:
 The set of choices an essential question presents, derived from the market's own plan - its dates, its sections, its table types. Frozen onto the form when the first applicant answers, so later plan edits cannot move the questions under them.
 
+**Required answer**:
+An answer the applicant cannot submit the form without. A property of the question, enforced at the applicant's keyboard. Says nothing about whether anyone reads it afterwards.
+_Avoid_: Essential (that is the product's own set of questions, and a custom field can be required too)
+
+**Review highlight**:
+An answer a reviewer reads first. The organizer marks a handful on the market, and the review card leads with them and folds the rest away behind a disclosure. A flag, not a rank.
+
+It lives on the market rather than on the form because the form freezes at the first application, and an organizer only learns which answers they needed once they are reading real ones. Off the form it can also name essential answers, which are not form fields at all.
+_Avoid_: Important field, priority (means the solver's ordering rules)
+
+**Solver-relevant answer**:
+An answer whose change invalidates a completed review, because it changes what the solver would do with the application. Named by `SOLVER_RELEVANT_KEYS` in `back-end/essential_fields.py`.
+
+**These three are independent, and the glossary keeps them apart deliberately.** A required answer may be noise on a triage card; a review highlight may be optional; a solver-relevant answer may be neither. Blurring them is how the form builder grows two controls an organizer cannot tell apart.
+
 **Vendor**:
 An applicant being placed, or already placed, at tables. The solver's word for the thing it assigns.
 

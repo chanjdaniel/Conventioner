@@ -19,6 +19,7 @@ import ElementSettingContainer from '@/components/elements/ElementSettingContain
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
+import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
@@ -222,6 +223,61 @@ async function saveApplicationForm() {
   }
 }
 
+/**
+ * Which answers a reviewer reads first. Saved to its own endpoint, not through the market PUT:
+ * the list is server-owned precisely because a reviewer changes it mid-queue (E19/F03).
+ */
+const highlights = ref<string[]>(props.market?.reviewHighlights ?? []);
+const highlightsError = ref('');
+
+watch(
+  () => props.market?.reviewHighlights,
+  (stored) => {
+    if (stored) highlights.value = [...stored];
+  },
+);
+
+/**
+ * Which save is the current one. Every toggle sends its own PUT, so two quick clicks put two in
+ * flight at once - and the responses are not promised in order. Applying whichever landed LAST
+ * wrote the older list over the newer one: mark two answers quickly and the second silently came
+ * back off. A stale response is ignored rather than raced against.
+ */
+let latestHighlightSave = 0;
+
+async function saveHighlights(keys: string[]) {
+  const previous = [...highlights.value];
+  const save = (latestHighlightSave += 1);
+  highlights.value = keys;
+  highlightsError.value = '';
+  try {
+    const response = await api.put(`/markets/${market.value!.id}/review-highlights`, { keys });
+    if (save !== latestHighlightSave) return;
+    adoptReviewHighlights(response.data?.reviewHighlights ?? keys);
+  } catch (err: unknown) {
+    if (save !== latestHighlightSave) return;
+    highlights.value = previous;
+    highlightsError.value = getApiErrorMessage(err, 'Could not save what a reviewer reads first.');
+  }
+}
+
+/**
+ * Put the saved list onto the market the rest of the app reads, the way `adoptApplicationForm`
+ * does for the form.
+ *
+ * Without this the mark saved and the REVIEW CARD DID NOT MOVE: the review queue reads
+ * `market.reviewHighlights`, the market comes from the store, and the store still held the list
+ * as it was before the click. An organizer would mark two answers, switch to Applications, and
+ * find the card exactly as it had been - with nothing to say why.
+ */
+function adoptReviewHighlights(stored: string[]) {
+  highlights.value = [...stored];
+  if (market.value) {
+    market.value.reviewHighlights = [...stored];
+    localStorage.setItem('market', JSON.stringify(market.value));
+  }
+}
+
 onMounted(() => {
   // Paint the cached form immediately, then reconcile with the server, which also
   // tells us whether the form is still editable.
@@ -286,6 +342,28 @@ watch(
               @update:applicationForm="(form: ApplicationForm) => (applicationForm = form)"
               @update:keyTouched="(touched: boolean[]) => (keyTouched = touched)"
             />
+            <!--
+              Which answers a reviewer reads first (E19/F03/S01). NOT gated on `formEditable`: the
+              form freezes at the first application, and this deliberately does not, because an
+              organizer only finds out which answers they needed once they are reviewing.
+            -->
+            <div v-if="!formStateUnknown" class="review-highlights-block">
+              <h3 class="review-highlights-title">What a reviewer reads first</h3>
+              <ReviewHighlights
+                :fields="applicationForm?.fields ?? []"
+                :essentialOptions="essentialOptions"
+                :highlights="highlights"
+                @update:highlights="saveHighlights"
+              />
+              <p
+                v-if="highlightsError"
+                class="review-highlights-error"
+                data-testid="review-highlights-error"
+              >
+                {{ highlightsError }}
+              </p>
+            </div>
+
             <div v-if="formEditable" class="form-save-row">
               <button
                 class="btn btn--primary done-button"
@@ -347,6 +425,27 @@ watch(
 </template>
 
 <style scoped>
+.review-highlights-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--mm-border);
+}
+
+.review-highlights-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+.review-highlights-error {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-red);
+}
+
 .settings-body {
   align-self: stretch;
   display: flex;
