@@ -1,5 +1,6 @@
 import { test, expect, LoginPage, NewMarketPage, TEST_USER, BACKEND_URL } from './fixtures';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
+import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 /**
@@ -169,5 +170,98 @@ test.describe('The create-market dialog with exactly one organization', () => {
     await expect(dialog.submitButton).toBeEnabled();
     await dialog.nameInput.press('Enter');
     await dialog.waitForSetupRedirect();
+  });
+});
+
+/**
+ * Closing never means saved, and saving never closes (E20/F01/S02).
+ *
+ * Three actions here each succeeded and then emitted the close event, and the PARENT treated
+ * close as its refresh signal - so closing was the only thing that re-read the data, and adding
+ * two people meant reopening the dialog between them.
+ */
+test.describe('Manage organization stays open', () => {
+  const SECOND = { email: 'e2e-dialog-second@example.com', password: 'e2edialog123' };
+  const THIRD = { email: 'e2e-dialog-third@example.com', password: 'e2edialog123' };
+
+  test.beforeAll(() => {
+    ensureVerifiedUser(SECOND.email, SECOND.password);
+    ensureVerifiedUser(THIRD.email, THIRD.password);
+  });
+
+  async function openAFreshOrg(page: import('@playwright/test').Page) {
+    const orgs = new OrganizationsPage(page);
+    await orgs.goto();
+    await orgs.waitForLoaded();
+
+    const orgName = `E2E DialogStays ${Date.now()}`;
+    await orgs.createOrg(orgName);
+    const card = page.getByTestId('organization-card').filter({ hasText: orgName });
+    await expect(card).toBeVisible({ timeout: 10000 });
+
+    await card.getByTestId('organizations-manage-button').click();
+    await orgs.waitForManageOverlay();
+    return { orgs, orgName, card };
+  }
+
+  test('two people are added in a row, and the list behind learns about it', async ({
+    authenticatedPage: page,
+  }) => {
+    const { orgs } = await openAFreshOrg(page);
+
+    await orgs.addAdmin(SECOND.email);
+    await expect(orgs.adminEmails.filter({ hasText: SECOND.email })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(orgs.manageWindow).toBeVisible();
+
+    // No reopening: the add form is still there with an empty field, ready for the next person.
+    await expect(orgs.addAdminInput).toBeVisible();
+    await expect(orgs.addAdminInput).toHaveValue('');
+
+    // Enter, not the button - the row is a native form, so both go through the same handler.
+    await orgs.addAdminInput.fill(THIRD.email);
+    await orgs.addAdminInput.press('Enter');
+    await expect(orgs.adminEmails.filter({ hasText: THIRD.email })).toBeVisible({ timeout: 5000 });
+    await expect(orgs.manageWindow).toBeVisible();
+
+    // The list behind knows, through `changed` and not through close.
+    await orgs.manageCloseButton.click();
+    await expect(orgs.manageWindow).toBeHidden();
+  });
+
+  test('a failing add keeps the dialog open with what was typed still in the field', async ({
+    authenticatedPage: page,
+  }) => {
+    const { orgs } = await openAFreshOrg(page);
+
+    const notAUser = `nobody-${Date.now()}@example.com`;
+    await orgs.addAdmin(notAUser);
+
+    await expect(page.getByTestId('manage-org-add-admin-error')).toBeVisible({ timeout: 5000 });
+    await expect(orgs.manageWindow).toBeVisible();
+    await expect(orgs.addAdminInput).toHaveValue(notAUser);
+  });
+
+  test('the explicit close and the backdrop both still close it', async ({
+    authenticatedPage: page,
+  }) => {
+    const { orgs } = await openAFreshOrg(page);
+
+    await orgs.manageCloseButton.click();
+    await expect(orgs.manageWindow).toBeHidden({ timeout: 5000 });
+
+    await orgs.manageButtons.first().click();
+    await orgs.waitForManageOverlay();
+    // A corner: the dialog is centred in the scrim, so a default click lands on the dialog.
+    await orgs.manageOverlayBackground.click({ position: { x: 8, y: 8 } });
+    await expect(orgs.manageWindow).toBeHidden({ timeout: 5000 });
+  });
+
+  test('Escape closes it', async ({ authenticatedPage: page }) => {
+    const { orgs } = await openAFreshOrg(page);
+
+    await page.keyboard.press('Escape');
+    await expect(orgs.manageWindow).toBeHidden({ timeout: 5000 });
   });
 });

@@ -53,31 +53,38 @@ test.describe('Tier 2 - Organization CRUD', () => {
       .filter({ hasText: orgName })
       .getByTestId('organizations-manage-button');
 
+    // ONE session. Every membership change used to close this dialog, so each of these steps
+    // needed the dialog reopened first (E20/F01/S02) - which is the defect, written down.
     await manageButton.click();
     await orgsPage.waitForManageOverlay();
+
     await orgsPage.addAdmin(SECOND_USER.email);
-    await page.waitForTimeout(500);
+    await expect(orgsPage.adminEmails.filter({ hasText: SECOND_USER.email })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(orgsPage.manageWindow).toBeVisible();
 
-    await manageButton.click();
-    await orgsPage.waitForManageOverlay();
     await orgsPage.addMember(THIRD_USER.email);
-    await page.waitForTimeout(500);
+    await expect(orgsPage.memberEmails.filter({ hasText: THIRD_USER.email })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(orgsPage.manageWindow).toBeVisible();
 
-    await manageButton.click();
-    await orgsPage.waitForManageOverlay();
     const memberRemove = orgsPage.removeMemberButtons.first();
     await expect(memberRemove).toBeVisible({ timeout: 5000 });
     await memberRemove.click();
-    await page.waitForTimeout(500);
+    await expect(orgsPage.memberEmails.filter({ hasText: THIRD_USER.email })).toHaveCount(0, {
+      timeout: 5000,
+    });
+    await expect(orgsPage.manageWindow).toBeVisible();
 
-    await manageButton.click();
-    await orgsPage.waitForManageOverlay();
     const newName = `${orgName} (renamed)`;
     await orgsPage.renameOrg(newName);
-    await page.waitForTimeout(500);
+    await expect(orgsPage.manageWindow).toBeVisible();
 
+    // Deleting IS one of the three correct closes: the thing being managed no longer exists.
     await orgsPage.deleteOrg();
-    await page.waitForTimeout(500);
+    await expect(orgsPage.manageWindow).toBeHidden({ timeout: 5000 });
 
     await expect(
       page.getByTestId('organization-card').filter({ hasText: newName }),

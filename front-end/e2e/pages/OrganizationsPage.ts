@@ -4,6 +4,10 @@ import type { Locator, Page } from '@playwright/test';
  * Page object for the Organizations view (OrganizationsView) and the
  * ManageOrgOverlay. Covers org CRUD: create, rename, add/remove admin/member,
  * and delete.
+ *
+ * The manage dialog is built on `AppDialog` (E20/F01/S02), so its window, scrim and close ids
+ * come from the shell's `manage-org` prefix. **It no longer closes when something saves**: add
+ * and remove leave it open showing the new membership, and the helpers here no longer reopen it.
  */
 export class OrganizationsPage {
   readonly page: Page;
@@ -33,6 +37,10 @@ export class OrganizationsPage {
   readonly deleteButton: Locator;
   readonly deleteConfirmButton: Locator;
   readonly deleteCancelButton: Locator;
+  readonly manageWindow: Locator;
+  readonly manageCloseButton: Locator;
+  readonly adminEmails: Locator;
+  readonly memberEmails: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -48,7 +56,9 @@ export class OrganizationsPage {
     this.createSubmitButton = page.getByTestId('organizations-create-submit-button');
 
     // ManageOrgOverlay
-    this.manageOverlayBackground = page.getByTestId('manage-org-overlay-background');
+    this.manageOverlayBackground = page.getByTestId('manage-org-background');
+    this.manageWindow = page.getByTestId('manage-org-window');
+    this.manageCloseButton = page.getByTestId('manage-org-close-button');
     this.renameInput = page.getByTestId('manage-org-rename-input');
     this.renameSaveButton = page.getByTestId('manage-org-rename-save-button');
     this.addAdminButton = page.getByTestId('manage-org-add-admin-button');
@@ -62,6 +72,8 @@ export class OrganizationsPage {
     this.deleteButton = page.getByTestId('manage-org-delete-button');
     this.deleteConfirmButton = page.getByTestId('manage-org-delete-confirm-button');
     this.deleteCancelButton = page.getByTestId('manage-org-delete-cancel-button');
+    this.adminEmails = this.manageWindow.getByTestId('manage-org-admin-email');
+    this.memberEmails = this.manageWindow.getByTestId('manage-org-member-email');
   }
 
   async goto(): Promise<void> {
@@ -99,7 +111,7 @@ export class OrganizationsPage {
   }
 
   async waitForManageOverlay(): Promise<void> {
-    await this.page.waitForSelector('.container .window', { timeout: 5000 });
+    await this.manageWindow.waitFor({ state: 'visible', timeout: 5000 });
   }
 
   // ── Rename ──

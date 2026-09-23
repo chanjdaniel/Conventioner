@@ -1,9 +1,28 @@
 <script setup lang="ts">
+/**
+ * Manage organization: the dialog that used to vanish on you (E20/F01/S02).
+ *
+ * Adding an admin, adding a member and removing a user each succeeded and then emitted
+ * `manageClose` - and the PARENT treated close as its refresh signal, so closing was the only
+ * thing that re-read the data. Adding two people meant reopening the dialog between them.
+ *
+ * Closing never means saved, and saving never closes. That needs the two halves separated: this
+ * dialog refreshes its own view of the organization, and the list behind it learns about the
+ * change through `changed`, an event of its own. `handleRename` in this same file already worked
+ * this way and was the model.
+ *
+ * It refreshes through the user's own organization LIST rather than `GET /organizations/<id>`:
+ * the list endpoint is scoped to what the caller belongs to and returns the enriched shape this
+ * dialog renders (emails and the caller's role), which the single-organization read does not.
+ *
+ * Three closes are correct and stay: deleting the organization, the explicit close control, and
+ * dismissal by Escape or the backdrop - the last two now owned by `AppDialog`.
+ */
 import { ref, watch } from 'vue';
 import { type Organization, type OrganizationRoleType } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
-import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { useModalRoot } from '@/utils/useModalRoot';
+import { fetchOrganizations } from '@/utils/organizations';
+import AppDialog from '@/components/AppDialog.vue';
 
 const props = defineProps<{
   manageOpen: boolean;
@@ -12,15 +31,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   manageClose: [];
+  /** Something about this organization changed. Distinct from close, which means only closed. */
+  changed: [];
 }>();
-
-useEscapeToClose(
-  () => props.manageOpen,
-  () => emit('manageClose'),
-);
-
-/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
-const modalRoot = useModalRoot(() => props.manageOpen);
 
 const orgData = ref<Organization | null>(null);
 const errorMessage = ref('');
@@ -65,6 +78,54 @@ function isOwner(): boolean {
   return orgData.value?.userRole === 'owner';
 }
 
+/**
+ * Re-read this organization so the dialog shows what it just did.
+ *
+ * A membership change answers with a message and no document, so there is nothing to merge; and
+ * guessing the new membership locally would be a second copy of the server's rules about who may
+ * hold which role.
+ */
+async function refreshOrg(): Promise<void> {
+  const id = orgData.value?.id;
+  if (!id) return;
+  try {
+    const mine = await fetchOrganizations();
+    const found = mine.find((candidate) => candidate.id === id);
+    if (found) orgData.value = found;
+  } catch (err) {
+    errorMessage.value = getApiErrorMessage(err, 'Saved, but could not re-read the organization');
+  }
+}
+
+/** Saved: show it here, and tell the list behind. Neither of those is closing. */
+async function saved(): Promise<void> {
+  await refreshOrg();
+  emit('changed');
+}
+
+/**
+ * The same control opens the form and cancels it, so it must not stay green once it says Cancel -
+ * a primary fill is the product's word for "the thing to do here", and cancelling is not.
+ *
+ * Cancelling clears what was typed and any error: reopening should not hand back a rejected
+ * address as though it were still being considered.
+ */
+function toggleAddAdmin() {
+  showAddAdminForm.value = !showAddAdminForm.value;
+  if (!showAddAdminForm.value) {
+    newAdminEmail.value = '';
+    addAdminError.value = '';
+  }
+}
+
+function toggleAddMember() {
+  showAddMemberForm.value = !showAddMemberForm.value;
+  if (!showAddMemberForm.value) {
+    newMemberEmail.value = '';
+    addMemberError.value = '';
+  }
+}
+
 async function handleRename() {
   if (!orgData.value || renameValue.value.trim() === orgData.value.name) return;
   renameError.value = '';
@@ -73,6 +134,7 @@ async function handleRename() {
       name: renameValue.value.trim(),
     });
     orgData.value = { ...orgData.value, name: renameValue.value.trim() };
+    emit('changed');
   } catch (err) {
     renameError.value = getApiErrorMessage(err, 'Failed to rename');
   }
@@ -85,9 +147,10 @@ async function handleAddAdmin() {
     await api.post(`/organizations/${encodeURIComponent(orgData.value.id)}/admins`, {
       user_email: newAdminEmail.value.trim(),
     });
-    showAddAdminForm.value = false;
+    // The form stays open with an empty field: adding two people in a row is the case this story
+    // is named after. A failure leaves the typed address exactly where it was.
     newAdminEmail.value = '';
-    emit('manageClose');
+    await saved();
   } catch (err) {
     addAdminError.value = getApiErrorMessage(err, 'Failed to add admin');
   }
@@ -100,9 +163,8 @@ async function handleAddMember() {
     await api.post(`/organizations/${encodeURIComponent(orgData.value.id)}/members`, {
       user_email: newMemberEmail.value.trim(),
     });
-    showAddMemberForm.value = false;
     newMemberEmail.value = '';
-    emit('manageClose');
+    await saved();
   } catch (err) {
     addMemberError.value = getApiErrorMessage(err, 'Failed to add member');
   }
@@ -110,11 +172,12 @@ async function handleAddMember() {
 
 async function handleRemoveUser(userId: string) {
   if (!orgData.value) return;
+  errorMessage.value = '';
   try {
     await api.delete(
       `/organizations/${encodeURIComponent(orgData.value.id)}/users/${encodeURIComponent(userId)}`,
     );
-    emit('manageClose');
+    await saved();
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to remove user');
   }
@@ -126,11 +189,13 @@ function canRemoveUser(userId: string, role: OrganizationRoleType): boolean {
   return true;
 }
 
+/** One of the three correct closes: the thing being managed no longer exists. */
 async function handleDeleteConfirm() {
   if (!orgData.value) return;
   deleteError.value = '';
   try {
     await api.delete(`/organizations/${encodeURIComponent(orgData.value.id)}`);
+    emit('changed');
     emit('manageClose');
   } catch (err) {
     deleteError.value = getApiErrorMessage(err, 'Failed to delete organization');
@@ -141,36 +206,21 @@ function handleDeleteCancel() {
   deleteConfirming.value = false;
   deleteError.value = '';
 }
-
-function handleClose() {
-  emit('manageClose');
-}
 </script>
 
 <template>
-  <div ref="modalRoot" class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
-    <div
-      class="background"
-      @click="handleClose"
-      :style="{ opacity: manageOpen ? '100%' : '0%' }"
-      data-testid="manage-org-overlay-background"
-    />
-    <div v-if="manageOpen && org" class="window">
-      <button
-        type="button"
-        class="dialog-close"
-        aria-label="Close"
-        @click="emit('manageClose')"
-        data-testid="manage-org-close-button"
-      >
-        &times;
-      </button>
-      <div class="header">
-        <h2>Manage organization</h2>
-        <p v-if="orgData" class="org-name">{{ orgData.name }}</p>
-        <p v-if="errorMessage" class="error-state">{{ errorMessage }}</p>
-      </div>
-      <div v-if="orgData" class="content">
+  <AppDialog
+    :open="manageOpen"
+    title="Manage organization"
+    testid="manage-org"
+    wide
+    :error="errorMessage"
+    @close="emit('manageClose')"
+  >
+    <template v-if="orgData">
+      <p class="org-name">{{ orgData.name }}</p>
+
+      <div class="content">
         <section class="section">
           <h3>Owner</h3>
           <div class="user-card">
@@ -187,14 +237,15 @@ function handleClose() {
               :key="orgData.admins?.[idx] ?? idx"
               class="user-card"
             >
-              <span class="user-email">{{ email }}</span>
+              <span class="user-email" data-testid="manage-org-admin-email">{{ email }}</span>
               <span class="role-badge role-admin">Admin</span>
               <button
                 v-if="isOwner() && canRemoveUser(orgData.admins![idx], 'admin')"
-                class="remove-button"
-                @click="handleRemoveUser(orgData.admins![idx])"
+                type="button"
+                class="btn btn--compact btn--destructive"
                 title="Remove admin"
                 data-testid="manage-org-remove-user-button"
+                @click="handleRemoveUser(orgData.admins![idx])"
               >
                 Remove
               </button>
@@ -205,31 +256,37 @@ function handleClose() {
           </div>
           <button
             v-if="isOwner()"
-            class="add-user-button"
-            @click="showAddAdminForm = !showAddAdminForm"
+            type="button"
+            class="btn btn--compact"
+            :class="showAddAdminForm ? 'btn--secondary' : 'btn--primary'"
             data-testid="manage-org-add-admin-button"
+            @click="toggleAddAdmin()"
           >
             {{ showAddAdminForm ? 'Cancel' : 'Add admin' }}
           </button>
-          <div v-if="showAddAdminForm" class="add-user-form">
+          <!-- Its own form, so Enter in the field adds the admin through the very same handler. -->
+          <form v-if="showAddAdminForm" class="add-user-form" @submit.prevent="handleAddAdmin">
             <div class="add-org-row">
               <input
                 v-model="newAdminEmail"
                 type="email"
                 placeholder="User email"
-                class="form-input"
+                class="field"
                 data-testid="manage-org-add-admin-input"
               />
               <button
-                class="submit-button"
-                @click="handleAddAdmin"
+                type="submit"
+                class="btn btn--compact btn--primary"
+                :disabled="!newAdminEmail.trim()"
                 data-testid="manage-org-add-admin-submit"
               >
                 Add
               </button>
             </div>
-            <p v-if="addAdminError" class="form-error">{{ addAdminError }}</p>
-          </div>
+            <p v-if="addAdminError" class="form-error" data-testid="manage-org-add-admin-error">
+              {{ addAdminError }}
+            </p>
+          </form>
         </section>
 
         <section v-if="canManage()" class="section">
@@ -240,14 +297,15 @@ function handleClose() {
               :key="orgData.members?.[idx] ?? idx"
               class="user-card"
             >
-              <span class="user-email">{{ email }}</span>
+              <span class="user-email" data-testid="manage-org-member-email">{{ email }}</span>
               <span class="role-badge role-member">Member</span>
               <button
                 v-if="canRemoveUser(orgData.members![idx], 'member')"
-                class="remove-button"
-                @click="handleRemoveUser(orgData.members![idx])"
+                type="button"
+                class="btn btn--compact btn--destructive"
                 title="Remove member"
                 data-testid="manage-org-remove-member-button"
+                @click="handleRemoveUser(orgData.members![idx])"
               >
                 Remove
               </button>
@@ -257,49 +315,51 @@ function handleClose() {
             </p>
           </div>
           <button
-            class="add-user-button"
-            @click="showAddMemberForm = !showAddMemberForm"
+            type="button"
+            class="btn btn--compact"
+            :class="showAddMemberForm ? 'btn--secondary' : 'btn--primary'"
             data-testid="manage-org-add-member-button"
+            @click="toggleAddMember()"
           >
             {{ showAddMemberForm ? 'Cancel' : 'Add member' }}
           </button>
-          <div v-if="showAddMemberForm" class="add-user-form">
+          <form v-if="showAddMemberForm" class="add-user-form" @submit.prevent="handleAddMember">
             <div class="add-org-row">
               <input
                 v-model="newMemberEmail"
                 type="email"
                 placeholder="User email"
-                class="form-input"
+                class="field"
                 data-testid="manage-org-add-member-input"
               />
               <button
-                class="submit-button"
-                @click="handleAddMember"
+                type="submit"
+                class="btn btn--compact btn--primary"
+                :disabled="!newMemberEmail.trim()"
                 data-testid="manage-org-add-member-submit"
               >
                 Add
               </button>
             </div>
-            <p v-if="addMemberError" class="form-error">{{ addMemberError }}</p>
-          </div>
+            <p v-if="addMemberError" class="form-error" data-testid="manage-org-add-member-error">
+              {{ addMemberError }}
+            </p>
+          </form>
         </section>
 
         <section v-if="canManage()" class="section">
           <h3>Rename organization</h3>
-          <div class="rename-row">
-            <input
-              v-model="renameValue"
-              class="form-input rename-input"
-              data-testid="manage-org-rename-input"
-            />
+          <form class="rename-row" @submit.prevent="handleRename">
+            <input v-model="renameValue" class="field" data-testid="manage-org-rename-input" />
             <button
-              class="save-button"
-              @click="handleRename"
+              type="submit"
+              class="btn btn--compact btn--primary"
+              :disabled="!renameValue.trim() || renameValue.trim() === orgData.name"
               data-testid="manage-org-rename-save-button"
             >
               Save
             </button>
-          </div>
+          </form>
           <p v-if="renameError" class="form-error">{{ renameError }}</p>
         </section>
 
@@ -307,9 +367,10 @@ function handleClose() {
           <h3>Delete organization</h3>
           <div v-if="!deleteConfirming">
             <button
-              class="delete-button"
-              @click="deleteConfirming = true"
+              type="button"
+              class="btn btn--compact btn--destructive"
               data-testid="manage-org-delete-button"
+              @click="deleteConfirming = true"
             >
               Delete organization
             </button>
@@ -318,16 +379,18 @@ function handleClose() {
             <p class="confirm-text">Are you sure? This cannot be undone.</p>
             <div class="confirm-buttons">
               <button
-                class="confirm-delete-button"
-                @click="handleDeleteConfirm"
+                type="button"
+                class="btn btn--compact btn--destructive"
                 data-testid="manage-org-delete-confirm-button"
+                @click="handleDeleteConfirm"
               >
                 Confirm
               </button>
               <button
-                class="cancel-button"
-                @click="handleDeleteCancel"
+                type="button"
+                class="btn btn--compact btn--secondary"
                 data-testid="manage-org-delete-cancel-button"
+                @click="handleDeleteCancel"
               >
                 Cancel
               </button>
@@ -336,87 +399,27 @@ function handleClose() {
           </div>
         </section>
       </div>
-    </div>
-  </div>
+    </template>
+  </AppDialog>
 </template>
 
 <style scoped>
-.container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-}
-
-.background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  opacity: 0%;
-  transition:
-    opacity 0.15s ease-in-out,
-    visibility 0.15s ease-in-out;
-  z-index: 0;
-}
-
-.window {
-  position: relative;
-  width: 70%;
-  max-width: 600px;
-  max-height: 85%;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  border-radius: var(--radius-card);
-  z-index: 1;
-  padding: 0;
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-}
-
-.header {
-  padding: 32px 40px 24px;
-  border-bottom: 1px solid var(--mm-border);
-}
-
-.header h2 {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--mm-black);
-}
-
+/* The scrim, window, close control and width belong to `AppDialog`; the buttons and fields to
+   `primitives.css`. What is left here is this dialog's own list of people. */
 .org-name {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
 }
 
-.error-state {
-  margin-top: 12px;
-  color: var(--mm-red);
-  font-size: var(--text-sm);
-}
-
 .content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px 40px 32px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--space-6);
 }
 
 .section h3 {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--mm-black);
@@ -425,16 +428,16 @@ function handleClose() {
 .users-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .user-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border: 1.5px solid var(--mm-border);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
   background: var(--mm-beige);
 }
@@ -443,14 +446,16 @@ function handleClose() {
   flex: 1;
   font-size: var(--text-sm);
   color: var(--mm-black);
+  overflow-wrap: anywhere;
 }
 
 .role-badge {
   display: inline-block;
-  padding: 2px 8px;
+  padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-control);
   font-weight: 400;
   font-size: var(--text-xs);
+  white-space: nowrap;
 }
 
 .role-owner {
@@ -468,133 +473,41 @@ function handleClose() {
   color: var(--mm-green);
 }
 
-.remove-button {
-  padding: 4px 12px;
-  font-size: var(--text-xs);
-  background: transparent;
-  color: var(--mm-red);
-  border: 1px solid var(--mm-red);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.remove-button:hover {
-  background: rgba(211, 47, 47, 0.08);
-}
-
 .empty-state {
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
   margin: 0;
 }
 
-.add-user-button {
-  padding: 8px 16px;
-  font-size: var(--text-sm);
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.add-user-button:hover {
-  background: var(--mm-green);
-  opacity: 0.9;
-}
-
 .add-user-form {
-  margin-top: 12px;
+  margin-top: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
-.add-org-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.form-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1.5px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  font-size: var(--text-sm);
-  min-width: 180px;
-}
-
-.submit-button {
-  padding: 8px 16px;
-  font-size: var(--text-sm);
-  background: var(--mm-black);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.submit-button:hover {
-  opacity: 0.9;
-}
-
+.add-org-row,
 .rename-row {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
   align-items: center;
-}
-
-.rename-input {
-  flex: 1;
-}
-
-.save-button {
-  padding: 8px 20px;
-  font-size: var(--text-sm);
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.save-button:hover {
-  background: var(--mm-green);
-  opacity: 0.9;
 }
 
 .form-error {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--mm-red);
   font-size: var(--text-xs);
 }
 
 .danger-section {
-  padding-top: 20px;
+  padding-top: var(--space-4);
   border-top: 1px solid var(--mm-border);
-}
-
-.delete-button {
-  padding: 8px 20px;
-  font-size: var(--text-sm);
-  background: var(--mm-red);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.delete-button:hover {
-  /* One red for one meaning, so a hover cannot be a second red. The product already
-     answers the pointer this way on its other solid fills (E16/F01). */
-  opacity: 0.9;
 }
 
 .delete-confirm {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .confirm-text {
@@ -605,65 +518,6 @@ function handleClose() {
 
 .confirm-buttons {
   display: flex;
-  gap: 10px;
-}
-
-.confirm-delete-button {
-  padding: 8px 20px;
-  font-size: var(--text-sm);
-  background: var(--mm-red);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.confirm-delete-button:hover {
-  /* One red for one meaning, so a hover cannot be a second red. The product already
-     answers the pointer this way on its other solid fills (E16/F01). */
-  opacity: 0.9;
-}
-
-.cancel-button {
-  padding: 8px 20px;
-  font-size: var(--text-sm);
-  background: var(--mm-text-muted);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.cancel-button:hover {
-  background: var(--mm-text-muted);
-}
-
-.content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.content::-webkit-scrollbar-track {
-  background: var(--mm-beige);
-  border-radius: var(--radius-control);
-}
-
-.content::-webkit-scrollbar-thumb {
-  background: var(--mm-border);
-  border-radius: var(--radius-control);
-}
-/* This dialog had no X and no Cancel, and the last control in its scrolling body is a red
-   Delete. Clicking the scrim did close it, but nothing said so, and Escape did nothing. */
-.dialog-close {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  background: none;
-  border: none;
-  font-size: var(--text-xl);
-  line-height: 1;
-  padding: 4px 8px;
-  color: var(--mm-text-muted);
-  cursor: pointer;
-  z-index: 2;
+  gap: var(--space-2);
 }
 </style>
