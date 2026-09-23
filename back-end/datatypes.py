@@ -436,6 +436,14 @@ class Market(BaseModel):
     # A list of answer keys, so it names both kinds uniformly. Absent means nothing is marked,
     # which renders the card exactly as it did before this existed - so no migration.
     review_highlights: Optional[List[str]] = None
+    # A form amendment in flight (E20/F03/S01): the phase the market must be returned to once the
+    # form has been written. Present ONLY while the chain is walking, so its presence is exactly
+    # the question "did a chain stop partway, and where was it going?".
+    #
+    # Without it a stalled chain is unrecoverable: the organizer would discover from the phase rail
+    # that their market is sitting in `draft` mid-import, with nothing saying why or how to finish.
+    # Server-owned - only the amendment endpoint writes it.
+    form_amendment: Optional["FormAmendment"] = None
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
     # Server-owned: written only by the CSV import endpoint, never by a market update body.
     import_mapping: Optional["ImportMapping"] = None
@@ -568,6 +576,19 @@ class EssentialFormOptions(BaseModel):
     # nothing but the tie-break; a default for dates, tiers or table choice would invent a
     # commitment the applicant never made.
     unasked: List[str] = []
+
+
+class FormAmendment(BaseModel):
+    """Where a form amendment was going, recorded before it moves anything (E20/F03/S01).
+
+    The chain is pre-flight, not rollback: nothing moves until the whole path is known to
+    succeed. This exists for the failure pre-flight cannot prevent - a transport failure or a
+    concurrent change BETWEEN two hops - so the market can be told where it was headed rather
+    than leaving the organizer to work it out from the rail.
+    """
+
+    return_phase: str
+    started_at: str
 
 
 class ApplicationForm(BaseModel):
