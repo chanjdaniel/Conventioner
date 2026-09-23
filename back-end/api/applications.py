@@ -182,6 +182,8 @@ def vendor_names_for_market(market_id: str) -> Dict[str, str]:
     ``essential_full_name`` existed simply has no entry, which is what lets every surface fall
     back to the email and render exactly as the product did before.
 
+    The name is the one the vendor CHOSE where they gave one; see ``display_name``.
+
     Lowercased keys, because that is the form every other reader matches on: ``record_attendance``
     normalizes, the importer lowercases on the way in, and a map whose keys did not would miss
     the one vendor whose form capitalized their address.
@@ -195,11 +197,14 @@ def vendor_names_for_market(market_id: str) -> Dict[str, str]:
         "_id": 0,
         APPLICANT_EMAIL_FIELD: 1,
         f"form_data.{EssentialFields.FULL_NAME_KEY}": 1,
+        f"form_data.{EssentialFields.PREFERRED_NAME_KEY}": 1,
     }
     names: Dict[str, str] = {}
     for doc in applications_collection.find(market_filter(market_id), projection):
         email = str(doc.get(APPLICANT_EMAIL_FIELD) or "").strip().lower()
-        name = str((doc.get("form_data") or {}).get(EssentialFields.FULL_NAME_KEY) or "").strip()
+        # The name they CHOSE, falling back to the one on their identification - stated once, in
+        # the module that owns both keys (E19/F02/S01).
+        name = EssentialFields.display_name(doc.get("form_data") or {})
         if email and name:
             names[email] = name
     return names

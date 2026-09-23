@@ -2,7 +2,7 @@
 id: E19/F02/S01
 title: A vendor's preferred name
 type: story
-status: ready
+status: done
 blocked_by: [E19/F01/S02]
 pr: []
 ---

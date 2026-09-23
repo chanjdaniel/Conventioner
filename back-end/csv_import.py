@@ -262,6 +262,8 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
         # First, and asked by every market: a column of names maps straight across, which is what
         # the Fall 2025 export's "Full Legal Name" had nowhere to go before.
         (EssentialFields.FULL_NAME_KEY, EssentialFields.FULL_NAME_LABEL),
+        # The column beside it in that same export, which had nowhere to go until E19/F02/S01.
+        (EssentialFields.PREFERRED_NAME_KEY, EssentialFields.PREFERRED_NAME_LABEL),
         (EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL),
         (EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL),
         (EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL),

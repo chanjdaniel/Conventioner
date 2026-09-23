@@ -2,7 +2,7 @@
 id: E19/F02
 title: A vendor's preferred name
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
