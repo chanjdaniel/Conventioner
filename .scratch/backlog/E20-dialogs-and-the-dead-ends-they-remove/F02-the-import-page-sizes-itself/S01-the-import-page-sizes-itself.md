@@ -2,7 +2,7 @@
 id: E20/F02/S01
 title: The import page sizes itself
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
@@ -23,14 +23,17 @@ Letting each step size its own shell was considered and rejected: a flow whose p
 
 ## Acceptance criteria
 
-- [ ] The view is capped at the workspace's named maximum width and centred on the page.
-- [ ] The three narrow steps centre their panel within that shell rather than sitting at its left edge.
-- [ ] The mapping step keeps the width it needs; its ledger and rail are not squeezed.
-- [ ] **The shell does not change width between steps.** Walk all four and confirm.
-- [ ] The view obeys the project's sizing model: one of the two named widths, and the page scrolls rather than the view capping its own height.
-- [ ] The stale comment claiming this wizard "only ever runs in applications_open" is corrected - the import phases are two, and a later story in this epic depends on that being understood.
-- [ ] Verified by screenshot at 1920x1080 on all four steps, before and after.
-- [ ] `npm run lint:css` passes.
+- [x] The view is capped at the workspace's named maximum width and centred on the page.
+- [x] The three narrow steps centre their panel within that shell rather than sitting at its left edge.
+- [x] The mapping step keeps the width it needs; its ledger and rail are not squeezed.
+- [x] **The shell does not change width between steps.** Walk all four and confirm.
+- [x] The view obeys the project's sizing model: one of the two named widths, and the page scrolls rather than the view capping its own height.
+- [x] The stale comment claiming this wizard "only ever runs in applications_open" is corrected - the import phases are two, and a later story in this epic depends on that being understood.
+- [x] Verified by screenshot at 1920x1080 on all four steps, before and after.
+  Before: shell 1920 wide, left edge 0, on every step - a 720px panel pinned left with 1,200px beside it.
+  After: shell 1440 (`--workspace-max`), left edge 240, identical on all four.
+  Pinned by `csv-import.spec.ts`, which walks the four and asserts one width, centred, with nothing boxed.
+- [x] `npm run lint:css` passes.
 
 ## Do not
 

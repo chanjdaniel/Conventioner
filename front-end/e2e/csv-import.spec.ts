@@ -546,4 +546,96 @@ test.describe('CSV vendor import', () => {
     await importPage.chooseFile(CSV);
     await expect(importPage.map).toBeVisible();
   });
+
+  /**
+   * The flow sits at the workspace width, centred, and does not move between steps (E20/F02/S01).
+   *
+   * It never joined the project's sizing model: uncapped, so at 1920 its 720px panel sat pinned to
+   * the left of a full-bleed header with 1,200px of nothing beside it, and Cancel was a screen's
+   * width away from the thing it cancelled.
+   *
+   * ONE shell width for all four steps, although three are narrow panels and the mapping ledger
+   * wants the whole room. A shell that changed width as the organizer pressed Next would read as
+   * instability, and the step indicator already says where they are - so the WALK is the test.
+   */
+  test('the flow is one width, centred, from upload to confirm', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    await openImport(importPage, request, seed.marketId);
+
+    const shell = page.locator('.import-view');
+    const workspace = await page.evaluate(() =>
+      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--workspace-max')),
+    );
+    expect(workspace, '--workspace-max is not defined').toBeGreaterThan(0);
+
+    /** The shell's box, plus anything hiding its content in a nested scroller. */
+    const measure = async () =>
+      await page.evaluate(() => {
+        const view = document.querySelector('.import-view')!;
+        const box = view.getBoundingClientRect();
+        const de = document.documentElement;
+        const boxed = Array.from(document.querySelectorAll('*'))
+          .filter((el) => {
+            const style = getComputedStyle(el);
+            return /auto|scroll/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 24;
+          })
+          .map((el) => el.className.toString().split(' ')[0] || el.tagName);
+        return {
+          width: Math.round(box.width),
+          left: Math.round(box.left),
+          right: Math.round(de.clientWidth - box.right),
+          boxed,
+        };
+      });
+
+    const seen: Array<{ step: string; width: number; left: number; right: number }> = [];
+    const record = async (step: string) => {
+      const m = await measure();
+      expect(m.boxed, `${step} is hiding its content inside a box`).toEqual([]);
+      seen.push({ step, width: m.width, left: m.left, right: m.right });
+    };
+
+    await expect(importPage.dropZone).toBeVisible();
+    await record('upload');
+
+    await importPage.chooseFile(CSV);
+    await expect(importPage.columnRows).toHaveCount(HEADERS.length);
+    await record('map');
+
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+    await expect(importPage.previewCounts).toBeVisible();
+    await record('preview');
+
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toBeVisible();
+    await record('done');
+
+    // One of the two named widths, and centred - not a width of its own and not full bleed.
+    for (const step of seen) {
+      expect(step.width, `${step.step} is not at the workspace width`).toBe(workspace);
+      expect(step.left, `${step.step} is not centred`).toBe(step.right);
+    }
+
+    // And the SAME width at every step, which is what the walk is here to prove.
+    expect(
+      new Set(seen.map((step) => step.width)).size,
+      `the shell changes width between steps: ${JSON.stringify(seen)}`,
+    ).toBe(1);
+
+    // The narrow steps centre their panel inside that shell rather than hugging its left edge.
+    await expect(shell.locator('.import-panel')).toHaveCount(1);
+    const panel = await page.evaluate(() => {
+      const view = document.querySelector('.import-view')!.getBoundingClientRect();
+      const box = document.querySelector('.import-panel')!.getBoundingClientRect();
+      return { lead: Math.round(box.left - view.left), trail: Math.round(view.right - box.right) };
+    });
+    expect(panel.lead, 'the panel is not centred within the shell').toBe(panel.trail);
+    expect(panel.lead).toBeGreaterThan(0);
+  });
 });
