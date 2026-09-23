@@ -129,9 +129,25 @@ const rejectedCount = computed(
 const verdictsStillLegible = computed(() => approvedCount.value + rejectedCount.value > 0);
 
 const current = computed<Application | undefined>(() => undecided.value[cursor.value]);
-const answers = computed(() =>
-  current.value ? reviewAnswers(current.value, props.market?.applicationForm) : [],
+const split = computed(() =>
+  current.value
+    ? reviewAnswers(
+        current.value,
+        props.market?.applicationForm,
+        props.market?.reviewHighlights ?? [],
+      )
+    : { leading: [], rest: [] },
 );
+const leading = computed(() => split.value.leading);
+const rest = computed(() => split.value.rest);
+
+/**
+ * Kept for the whole session, not per card (E19/F03/S01).
+ *
+ * A reviewer who opens this once is not reopening it forty times; at card forty a click to reach
+ * an unmarked answer is a tax on the person doing the work.
+ */
+const restOpen = ref(false);
 const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.applicationForm));
 
 // The surface above leads with this in the review phase, where clearing the queue is the whole of
@@ -329,13 +345,49 @@ function submittedOn(app: Application): string {
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
 
-        <dl v-if="answers.length" class="answers" data-testid="app-monitor-answers">
-          <template v-for="answer in answers" :key="answer.key">
+        <!-- What this market said a reviewer reads first (E19/F03/S01). -->
+        <dl v-if="leading.length" class="answers" data-testid="app-monitor-leading">
+          <template v-for="answer in leading" :key="answer.key">
             <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
             <dd>{{ answer.value }}</dd>
           </template>
         </dl>
-        <p v-else class="no-answers">This application carries no answers.</p>
+
+        <!--
+          The rest, behind a disclosure - but ONLY when something was marked. A market that marked
+          nothing renders the card exactly as it always did: an empty list is not a reason to hide
+          an application.
+
+          The label names the HIDDEN count, not the total: the question a reviewer is answering
+          before they click is "what am I not being shown?", and the
+          open state is kept for the whole session: at card forty, reopening this each time is a
+          tax on the person doing the work.
+        -->
+        <details
+          v-if="leading.length && rest.length"
+          class="answers-rest"
+          :open="restOpen"
+          data-testid="app-monitor-rest"
+          @toggle="restOpen = ($event.target as HTMLDetailsElement).open"
+        >
+          <summary data-testid="app-monitor-rest-summary">
+            {{ rest.length }} more {{ rest.length === 1 ? 'answer' : 'answers' }}
+          </summary>
+          <dl class="answers">
+            <template v-for="answer in rest" :key="answer.key">
+              <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
+              <dd>{{ answer.value }}</dd>
+            </template>
+          </dl>
+        </details>
+
+        <dl v-else-if="rest.length" class="answers" data-testid="app-monitor-answers">
+          <template v-for="answer in rest" :key="answer.key">
+            <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
+            <dd>{{ answer.value }}</dd>
+          </template>
+        </dl>
+        <p v-else-if="!leading.length" class="no-answers">This application carries no answers.</p>
 
         <div class="card-actions">
           <button

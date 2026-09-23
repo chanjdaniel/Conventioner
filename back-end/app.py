@@ -819,6 +819,38 @@ def update_market(market_id: str) -> Response:
         return jsonify({"error": str(e)}), 400
 
 
+@app.route('/markets/<market_id>/review-highlights', methods=['PUT'])
+@login_required
+def save_review_highlights(market_id: str) -> Response:
+    """Set which answers a reviewer reads first (E19/F03/S01).
+
+    The only writer of the field; a market PUT preserves the stored list, because a reviewer
+    changes these mid-queue and a stale client copy must not overwrite that.
+
+    Body: { "keys": ["business_name", "essential_available_dates"] }
+
+    Deliberately NOT gated on the application-form lock: an organizer learns which answers they
+    needed while reviewing, which is after that lock closes.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        keys = data.get("keys")
+        if keys is None:
+            return jsonify({"error": "keys is required"}), 400
+
+        stored = MarketsApi.save_review_highlights(market_id, keys, authenticated_email())
+        return jsonify(convert_keys_to_camel_case({"review_highlights": stored})), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in save_review_highlights for {market_id}: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
 @app.route('/markets/<market_id>/application-form', methods=['PUT'])
 @login_required
 def save_application_form(market_id: str) -> Response:

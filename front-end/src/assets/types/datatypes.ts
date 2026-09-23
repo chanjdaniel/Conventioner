@@ -196,6 +196,11 @@ export interface Market {
   /** How vendors reach this market. Organizer-settable while draft, frozen by the server after.
    * Absent means `csv`, which is what the server reads too. */
   intakeMode?: IntakeMode;
+  /**
+   * Which answers a reviewer reads first (E19/F03/S01). On the MARKET, never on the form: the form
+   * freezes at the first application and an organizer learns what they needed while reviewing.
+   */
+  reviewHighlights?: string[];
   userRole?: MarketRole; // User's effective role (added by API)
 }
 

@@ -426,6 +426,16 @@ class Market(BaseModel):
     phase: MarketPhase = MarketPhase.DRAFT  # Market lifecycle phase (single source of truth)
     application_form: Optional["ApplicationForm"] = None  # Application form definition
     review_config: Optional[Dict[str, Any]] = None  # Review configuration (reviewer pool, etc.)
+    # Which answers a reviewer reads first (E19/F03/S01).
+    #
+    # ON THE MARKET, never on the form. The form freezes at the first application, and an organizer
+    # learns which answers they actually needed WHILE REVIEWING - after that moment. A flag on a
+    # `FormField` would freeze exactly when it becomes knowable, and could never mark the ESSENTIAL
+    # answers, which are derived from the plan rather than being form fields at all.
+    #
+    # A list of answer keys, so it names both kinds uniformly. Absent means nothing is marked,
+    # which renders the card exactly as it did before this existed - so no migration.
+    review_highlights: Optional[List[str]] = None
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
     # Server-owned: written only by the CSV import endpoint, never by a market update body.
     import_mapping: Optional["ImportMapping"] = None
@@ -836,6 +846,7 @@ class MarketSchemaContract(ContractModel):
     organization_id: Optional[str] = None
     phase: Optional[str] = None
     review_config: Optional[Dict[str, Any]] = None
+    review_highlights: Optional[List[str]] = None
     roles: Dict[str, str]
     setup_object: Optional[SetupObjectContract]
     user_role: Optional[str] = None

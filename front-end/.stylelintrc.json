@@ -46,6 +46,7 @@
         "src/components/application/FormFieldEditor.vue",
         "src/components/application/FormPreview.vue",
         "src/components/application/RankedChoiceInput.vue",
+        "src/components/application/ReviewHighlights.vue",
         "src/components/elements/ElementAssignmentOptions.vue",
         "src/components/elements/ElementAssignmentPriority.vue",
         "src/components/elements/ElementBanner.vue",

@@ -56,6 +56,15 @@ export class ApplyPage {
   }
 
   /**
+   * What the vendor is actually called, when that differs from their legal name (E19/F02/S01).
+   *
+   * Optional: left blank, `display_name` falls back to the full name, so nobody is nameless.
+   */
+  get preferredNameInput(): Locator {
+    return this.page.getByTestId('apply-essential-preferred-name-input');
+  }
+
+  /**
    * The row for one offered market date.
    *
    * Availability is no longer its own question (E19/F01/S02): an organizer's own form has always

@@ -36,6 +36,7 @@ from market_documents import (
     market_doc_field,
     market_doc_filter,
     market_doc_key,
+    market_doc_set,
     market_from_document,
 )
 import api.permissions as PermissionsApi
@@ -302,6 +303,20 @@ def _intake_mode_for_update(market: Market, existing_market: Market) -> IntakeMo
     return market.intake_mode
 
 
+def review_highlights_for_update(market: Market, existing_market: Market) -> Optional[List[str]]:
+    """The review highlights a market update must store: always the ones already stored.
+
+    Server-owned for the same reason as ``application_form`` and ``assignment_object``, and for a
+    sharper one of its own: a reviewer changes these from the review queue (E19/F03/S02), MID
+    QUEUE, while a market screen open in another tab still holds the list as it was. A market PUT
+    from that tab would silently undo the change, and the reviewer would find the card leading with
+    the wrong answers again with nothing to show why.
+
+    ``save_review_highlights`` is the only writer.
+    """
+    return existing_market.review_highlights
+
+
 def _preserve_server_owned_fields(
     market_dict: Dict[str, Any], market: Market, existing_market: Market
 ) -> None:
@@ -346,6 +361,9 @@ def _preserve_server_owned_fields(
     # door, and it was the one field on this list that was missing: a market PUT carrying a stale
     # client copy could overwrite a whole assignment, with no manual editing involved at all.
     market_dict["assignment_object"] = existing_market.assignment_object.model_dump()
+    # review_highlights is written only by save_review_highlights - see its note on why a stale
+    # tab must not be able to undo a change a reviewer made mid-queue.
+    market_dict["review_highlights"] = review_highlights_for_update(market, existing_market)
     _strip_persisted_assignment_statistics(market_dict)
     for field in ("review_config",):
         if field in market.model_fields_set:
@@ -1269,6 +1287,33 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
         logger.warning(f"Failed to delete placement history for market {market_id}: {e}")
 
     return markets_collection.delete_one({"id": market_id})
+
+
+def save_review_highlights(
+    market_id: str, keys: List[str], requesting_user: str
+) -> List[str]:
+    """Set which answers a reviewer reads first. Requires EDIT permission.
+
+    The list IS the order the card leads with, so a repeat is dropped where it recurs rather than
+    resorting what an organizer arranged. An empty list clears them, and clearing is a write of
+    ``[]`` rather than a delete: absent and empty both mean "nothing is marked", and one shape for
+    that keeps the card from having to tell them apart.
+
+    Deliberately NOT gated on ``application_form_lock_reason``. That lock freezes the form the
+    moment an applicant submits - which is the moment these first become knowable, because an
+    organizer learns which answers they needed by reading real applications. A highlight that
+    inherited the form's lock would be settable only before anyone could know what to set.
+    """
+    _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+
+    seen: List[str] = []
+    for key in keys:
+        cleaned = key.strip()
+        if cleaned and cleaned not in seen:
+            seen.append(cleaned)
+
+    markets_collection.update_one({"id": market_id}, market_doc_set("review_highlights", seen))
+    return seen
 
 
 def save_application_form(market_id: str, application_form_data: dict, requesting_user: str) -> dict:
