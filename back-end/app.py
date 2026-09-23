@@ -474,10 +474,35 @@ def update_organization(org_id: str) -> Response:
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/organizations/<org_id>/deletion-preview', methods=['GET'])
+@login_required
+def organization_deletion_preview(org_id: str) -> Response:
+    """What deleting this organization would destroy, and what would refuse it (E20/F04/S01).
+
+    The confirmation dialog's whole content. A COUNT of markets does not let an organizer decide,
+    so this names each one: its name, its phase, whether it ran, how many placements it holds and
+    the public URL that stops resolving.
+    """
+    try:
+        preview = OrgsApi.organization_deletion_preview(org_id, authenticated_email())
+        return jsonify(convert_keys_to_camel_case(preview)), 200
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error in organization_deletion_preview {org_id}: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @app.route('/organizations/<org_id>', methods=['DELETE'])
 @login_required
 def delete_organization(org_id: str) -> Response:
-    """Delete an organization. Only owner can delete."""
+    """Delete an organization, and the drafts and archived markets it holds. Only owner can delete.
+
+    Refused while it holds a market that is mid-lifecycle, and the refusal NAMES them: "you cannot
+    delete this" without saying which market is a refusal an organizer can only answer by guessing.
+    """
     try:
         requesting_user = authenticated_email()
         
@@ -486,11 +511,18 @@ def delete_organization(org_id: str) -> Response:
             return jsonify({"message": "Organization deleted successfully"}), 200
         else:
             return jsonify({"error": "Organization not found"}), 404
+    except OrgsApi.OrganizationHasLiveMarkets as e:
+        return jsonify(convert_keys_to_camel_case({
+            "error": "organization_has_live_markets",
+            "message": str(e),
+            "blocking_markets": e.blocking,
+        })), 409
     except PermissionError as e:
         return jsonify({"error": str(e)}), 403
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
+        logger.error(f"Error in delete_organization {org_id}: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/organizations/<org_id>/admins', methods=['POST'])

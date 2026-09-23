@@ -346,3 +346,73 @@ test.describe('Enter means the same thing in every dialog', () => {
     await expect(dialog.getByText(renamed).first()).toBeVisible();
   });
 });
+
+/**
+ * A dialog opened FROM a dialog is live, not inert (E20/F01/S01, found by E20/F04/S01).
+ *
+ * `useInertBehind` marks every sibling of the open modal's branch, and a second dialog IS a
+ * sibling - so the confirmation rendered, said all the right things, and silently could not be
+ * pressed. Nothing caught it: it is visible, it is enabled, and only an actual click finds out.
+ */
+test.describe('A dialog opened from a dialog can be used', () => {
+  test('the delete confirmation is clickable while the dialog beneath it is open', async ({
+    authenticatedPage: page,
+  }) => {
+    const orgs = new OrganizationsPage(page);
+    await orgs.goto();
+    await orgs.waitForLoaded();
+
+    const name = `E2E StackedDialog ${Date.now()}`;
+    await orgs.createOrg(name);
+    const card = page.getByTestId('organization-card').filter({ hasText: name });
+    await expect(card).toBeVisible({ timeout: 10000 });
+
+    await card.getByTestId('organizations-manage-button').click();
+    await orgs.waitForManageOverlay();
+    await orgs.clickDelete();
+    await expect(orgs.deleteWindow).toBeVisible({ timeout: 5000 });
+
+    // Visible and enabled is not the same as reachable, which is exactly how this got through.
+    const inert = await orgs.deleteWindow.evaluate((el) => Boolean(el.closest('[inert]')));
+    expect(inert, 'the confirmation is inside an inert subtree, so nothing can click it').toBe(
+      false,
+    );
+
+    await expect(orgs.deleteConfirmButton).toBeEnabled({ timeout: 10000 });
+    await orgs.confirmDelete();
+    await expect(card).not.toBeVisible({ timeout: 10000 });
+  });
+
+  test('and the dialog beneath is inert again once the one above closes', async ({
+    authenticatedPage: page,
+  }) => {
+    const orgs = new OrganizationsPage(page);
+    await orgs.goto();
+    await orgs.waitForLoaded();
+
+    const name = `E2E StackedBack ${Date.now()}`;
+    await orgs.createOrg(name);
+    const card = page.getByTestId('organization-card').filter({ hasText: name });
+    await expect(card).toBeVisible({ timeout: 10000 });
+
+    await card.getByTestId('organizations-manage-button').click();
+    await orgs.waitForManageOverlay();
+    await orgs.clickDelete();
+    await expect(orgs.deleteWindow).toBeVisible({ timeout: 5000 });
+
+    // Cancelling puts the page back out of play behind the dialog that is still open.
+    await orgs.deleteCancelButton.click();
+    await expect(orgs.deleteWindow).toBeHidden({ timeout: 5000 });
+    await expect(orgs.manageWindow).toBeVisible();
+
+    /*
+     * Asserted on a control the page HOLDS, not on the page container: the dialogs render inside
+     * `.organizations-view`, so it is an ancestor of theirs and on the live spine - it is never
+     * marked, and asserting on it would pass whatever the marks said.
+     */
+    const stillOutOfPlay = await page
+      .getByTestId('organizations-create-button')
+      .evaluate((el) => el.closest('[inert]') !== null);
+    expect(stillOutOfPlay, 'the page behind the manage dialog became reachable again').toBe(true);
+  });
+});
