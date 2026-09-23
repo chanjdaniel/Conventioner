@@ -179,6 +179,40 @@ REQUIRED_ESSENTIAL_KEYS = (
 UNASKABLE_ESSENTIAL_KEYS = (SECTION_RANKING_KEY, TABLE_TYPE_RANKING_KEY)
 
 
+def reconciled_dates_and_tiers(tier_answer: Any, available_dates: Any) -> Tuple[Any, Any]:
+    """The stored shape of a dates-and-tiers answer, whichever way the form asked for it.
+
+    There are two ways to ask, and they converge here so that everything downstream - the solver,
+    the review card, the applicant's own dashboard, the importer - reads exactly one shape.
+
+    **A per-date grid** is what an organizer's own form produces: one question per day whose cell
+    carries the tiers, or "None" when the vendor cannot attend. That single grid answers BOTH
+    questions, so availability is read from it rather than demanding a second answer the form never
+    had: the dates you named tiers for are the dates you are available. The two are still stored
+    separately and still have to agree; this is what makes them agree by construction.
+
+    **A flat list** is what a form that asked once produces - "which tiers will you accept?" - and
+    it means those tiers on every date the vendor is available.
+
+    Anything else is carried through untouched. A missing or unrecognised answer is the validator's
+    to refuse, in the applicant's own words, rather than this function's to guess at.
+
+    This is the ONE statement of the rule. It lived inline in the CSV import path until the
+    applicant form began producing the same shapes (E19/F01/S02), and two copies of it - here and
+    in the importer, or here and in `essentialFields.ts` - is the drift that would surface as the
+    solver rejecting answers the form had just accepted.
+    """
+    if isinstance(tier_answer, list):
+        dates = list(available_dates or [])
+        # A fresh list per date: one shared list is one edit away from changing every day at once.
+        return {date: list(tier_answer) for date in dates}, dates
+
+    if isinstance(tier_answer, dict) and not available_dates:
+        return tier_answer, [date for date, names in tier_answer.items() if names]
+
+    return tier_answer, available_dates
+
+
 def unaskable_essential_error(keys: Optional[List[str]]) -> Optional[str]:
     """Why this market may not declare these questions unasked, or None.
 

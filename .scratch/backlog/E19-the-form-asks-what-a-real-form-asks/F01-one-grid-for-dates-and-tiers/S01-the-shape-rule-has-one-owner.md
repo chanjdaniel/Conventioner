@@ -2,7 +2,7 @@
 id: E19/F01/S01
 title: The shape rule has one owner
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
