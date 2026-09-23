@@ -2,7 +2,7 @@
 id: E20/F03/S01
 title: Fixing the form without leaving the import
 type: story
-status: ready
+status: done
 blocked_by: [E20/F01/S01]
 pr: []
 ---
@@ -36,17 +36,17 @@ There is nothing to roll back because nothing moved.
 
 ## Acceptance criteria
 
-- [ ] A dialog opened from the mapping step edits the application form and returns the market to the phase it started in - verified from **both** import phases.
-- [ ] No new phase transition is added to the transition table.
-- [ ] Every guard on the return path is checked **before** the market leaves its phase; a form edited so that it asks nothing is refused with an explanation and the market does not move.
-- [ ] A chain that stops partway - transport failure, or a concurrent change - **says where it stopped and offers to finish**. It never fails silently and never leaves the organizer to discover the phase from the rail.
-- [ ] The wizard's uploaded file, resolved mapping and cursor position all survive the dialog. Without this the story trades a four-step round trip for a two-step one.
-- [ ] **Both of the rail's dead ends are covered**, not just one: the question the form never asked, and the unmapped column. The source itself calls them the same shape.
-- [ ] The dialog is unavailable once an application exists, and **says why** rather than failing - at that point the form is frozen for good and the way back is blocked.
-- [ ] The dialog states that a form-intake market's public application page is unavailable while the chain runs. The exposure is bounded - the chain is only possible when nobody has applied - but it must be said, not discovered.
-- [ ] If `E18/F03/S01` has landed, an amend re-dates the form's publication. That is correct, and the dialog says so: the amend is invisible in the workflow but not in the record.
-- [ ] The dialog is built on the shell from `E20/F01/S01`.
-- [ ] Verified end-to-end from both import phases, including the refusal path.
+- [x] A dialog opened from the mapping step edits the application form and returns the market to the phase it started in - verified from **both** import phases.
+- [x] No new phase transition is added to the transition table.
+- [x] Every guard on the return path is checked **before** the market leaves its phase; a form edited so that it asks nothing is refused with an explanation and the market does not move.
+- [x] A chain that stops partway - transport failure, or a concurrent change - **says where it stopped and offers to finish**. It never fails silently and never leaves the organizer to discover the phase from the rail.
+- [x] The wizard's uploaded file, resolved mapping and cursor position all survive the dialog. Without this the story trades a four-step round trip for a two-step one.
+- [x] **Both of the rail's dead ends are covered**, not just one: the question the form never asked, and the unmapped column. The source itself calls them the same shape.
+- [x] The dialog is unavailable once an application exists, and **says why** rather than failing - at that point the form is frozen for good and the way back is blocked.
+- [x] The dialog states that a form-intake market's public application page is unavailable while the chain runs. The exposure is bounded - the chain is only possible when nobody has applied - but it must be said, not discovered.
+- [x] If `E18/F03/S01` has landed, an amend re-dates the form's publication. That is correct, and the dialog says so: the amend is invisible in the workflow but not in the record.
+- [x] The dialog is built on the shell from `E20/F01/S01`.
+- [x] Verified end-to-end from both import phases, including the refusal path.
 
 ## Keep the voice
 

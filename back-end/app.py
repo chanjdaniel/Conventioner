@@ -10,6 +10,7 @@ import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.placements as PlacementsApi
+import api.form_amendment as FormAmendmentApi
 import csv_import as CsvImport
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
@@ -849,6 +850,102 @@ def save_review_highlights(market_id: str) -> Response:
     except Exception as e:
         logger.error(f"Error in save_review_highlights for {market_id}: {str(e)}")
         return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
+@app.route('/markets/<market_id>/application-form/amendment', methods=['GET'])
+@login_required
+def application_form_amendment_availability(market_id: str) -> Response:
+    """Whether the form can be amended from here, and what the chain would cost (E20/F03/S01).
+
+    The dialog reads this to decide whether to offer itself, so it can say WHY it is unavailable
+    rather than opening and then failing - which is the difference between a control that is
+    unavailable and one that is broken.
+    """
+    try:
+        context = MarketsApi.load_market_context(market_id)
+        if context is None or context.market is None:
+            return jsonify({"error": "Market not found"}), 404
+        if not PermissionsApi.user_has_permission(
+            authenticated_email(), context.market, MarketRole.ADMIN, context.organization
+        ):
+            return jsonify({"error": "User does not have permission to manage this market"}), 403
+
+        availability = FormAmendmentApi.amendment_availability(context.market)
+        pending = context.market.form_amendment
+        return jsonify(convert_keys_to_camel_case({
+            **availability,
+            "pending_return_phase": pending.return_phase if pending else None,
+        })), 200
+    except Exception as e:
+        logger.error(f"Error in application_form_amendment_availability {market_id}: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/application-form/amendment', methods=['POST'])
+@login_required
+def amend_application_form(market_id: str) -> Response:
+    """Edit the form and return the market to the phase it started in (E20/F03/S01).
+
+    Body: { "applicationForm": { "fields": [...], "unaskedEssentials": [...] } }
+
+    Pre-flight, not rollback: every guard on the return path is checked against the PROPOSED form
+    before the market leaves its phase, so a refusal leaves nothing to undo.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        form_data = data.get("applicationForm") or data.get("application_form")
+        if not isinstance(form_data, dict):
+            return jsonify({"error": "applicationForm is required"}), 400
+
+        result = FormAmendmentApi.amend_application_form(
+            market_id, convert_keys_to_snake_case(form_data), authenticated_email()
+        )
+        return jsonify(convert_keys_to_camel_case(result)), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except FormAmendmentApi.AmendmentUnavailable as e:
+        return jsonify({"error": str(e)}), 409
+    except FormAmendmentApi.AmendmentRefused as e:
+        return jsonify(convert_keys_to_camel_case({
+            "error": "preconditions_not_met",
+            "message": str(e),
+            "blockers": [asdict(b) for b in e.blockers],
+        })), 409
+    except FormAmendmentApi.AmendmentStalled as e:
+        logger.error(f"Form amendment stalled for {market_id}: {e}")
+        return jsonify(FormAmendmentApi.stall_payload(e)), 409
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in amend_application_form {market_id}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/application-form/amendment/resume', methods=['POST'])
+@login_required
+def resume_application_form_amendment(market_id: str) -> Response:
+    """Finish a chain that stopped partway (E20/F03/S01).
+
+    The offer the stall message makes. Re-plans from where the market actually is, because the
+    reason a chain stalls is that the market is no longer where the walk believed.
+    """
+    try:
+        result = FormAmendmentApi.resume_amendment(market_id, authenticated_email())
+        return jsonify(convert_keys_to_camel_case(result)), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except FormAmendmentApi.AmendmentUnavailable as e:
+        return jsonify({"error": str(e)}), 409
+    except FormAmendmentApi.AmendmentStalled as e:
+        return jsonify(FormAmendmentApi.stall_payload(e)), 409
+    except Exception as e:
+        logger.error(f"Error in resume_application_form_amendment {market_id}: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route('/markets/<market_id>/application-form', methods=['PUT'])

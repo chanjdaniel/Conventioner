@@ -1128,6 +1128,56 @@ def finalization_update(
     return {}
 
 
+class PhaseChangedUnderRequest(Exception):
+    """The market's stored phase was not what this write expected.
+
+    Carries the phase it actually holds, so a caller can say so rather than retrying blindly.
+    """
+
+    def __init__(self, actual_phase: str):
+        self.actual_phase = actual_phase
+        super().__init__(f"Market is in '{actual_phase}'")
+
+
+def apply_phase_transition(market_id: str, document: Dict[str, Any], to_phase: str) -> None:
+    """Write one phase change, conditional on the market still being where the caller thinks.
+
+    Extracted from the transition endpoint so the form-amendment chain (E20/F03/S01) walks the
+    market with the SAME writer rather than a second copy of it. A second copy is how the
+    `isDraft` stamp and the finalization stamp come to disagree with `phase`.
+
+    ONE atomic update, and one conditional on the stored phase: a failure between the phase and
+    the stamp would leave a market whose two answers disagree, which is the class of bug
+    `migrate_is_draft_consistency` exists to repair, and a lost update would move a market a
+    concurrent request had already moved.
+
+    Raises:
+        PhaseChangedUnderRequest: the stored phase moved under this request.
+        MarketNotFoundError: the market is gone.
+    """
+    phase_key = market_doc_key("phase")
+    is_draft_key = market_doc_key("is_draft")
+    from_phase = phase_from_market_document(document).value
+    stored_phase = document[phase_key] if phase_key in document else {"$exists": False}
+
+    result = markets_collection.update_one(
+        {"id": market_id, phase_key: stored_phase},
+        {"$set": {
+            phase_key: to_phase,
+            is_draft_key: to_phase == MarketPhase.DRAFT.value,
+            **finalization_update(from_phase, to_phase, document),
+        }},
+    )
+
+    if result.matched_count:
+        return
+
+    latest = markets_collection.find_one({"id": market_id})
+    if latest is None:
+        raise MarketNotFoundError("Market not found")
+    raise PhaseChangedUnderRequest(phase_from_market_document(latest).value)
+
+
 def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> bool:
     """Add a user role to a market. Requires permission to manage roles."""
     context = load_market_context(market_id)
