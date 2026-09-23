@@ -93,7 +93,7 @@ describe('every modal holds the page inert', () => {
      * idiom spreads, and lowering it is a migration landing rather than a rule being weakened.
      * What must never fall is the shell itself, which is why it is named below.
      */
-    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(12);
+    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(7);
   });
 
   it('includes the dialog shell, which paints the cover for every dialog built on it', () => {

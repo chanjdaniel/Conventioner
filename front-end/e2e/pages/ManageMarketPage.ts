@@ -9,6 +9,7 @@ export class ManageMarketPage {
   readonly page: Page;
 
   readonly overlayBackground: Locator;
+  readonly window: Locator;
   readonly roleSelects: Locator;
   readonly removeUserButtons: Locator;
   readonly addUserButton: Locator;
@@ -28,7 +29,8 @@ export class ManageMarketPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.overlayBackground = page.getByTestId('manage-market-overlay-background');
+    this.overlayBackground = page.getByTestId('manage-market-background');
+    this.window = page.getByTestId('manage-market-window');
     this.roleSelects = page.getByTestId('manage-market-role-select');
     this.removeUserButtons = page.getByTestId('manage-market-remove-user-button');
     this.addUserButton = page.getByTestId('manage-market-add-user-button');
@@ -47,7 +49,7 @@ export class ManageMarketPage {
   }
 
   async waitForOverlay(): Promise<void> {
-    await this.page.waitForSelector('.container .window', { timeout: 5000 });
+    await this.window.waitFor({ state: 'visible', timeout: 5000 });
   }
 
   // ── Add user with role ──

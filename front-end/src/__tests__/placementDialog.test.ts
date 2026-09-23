@@ -70,7 +70,10 @@ describe('filling a seat', () => {
     const wrapper = dialog({ seat: HALF_TABLE_RIGHT });
     await wrapper.get('[data-testid="placement-dialog-vendor"]').setValue('nadia@ember.test');
 
-    await wrapper.get('[data-testid="placement-dialog-confirm"]').trigger('click');
+    // The confirm is `type="submit"` in the dialog's form now (E20/F01/S03), which is what gives
+    // Enter its meaning. jsdom does not turn a click on a submit button into a form submission the
+    // way a browser does, so the form is submitted directly - the same event either path raises.
+    await wrapper.get('form').trigger('submit');
 
     expect(wrapper.emitted('place')).toEqual([
       [{ email: 'nadia@ember.test', seat: HALF_TABLE_RIGHT }],

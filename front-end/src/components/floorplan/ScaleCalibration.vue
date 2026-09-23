@@ -475,7 +475,10 @@ onUnmounted(() => {
 
       <!-- ── Input dialog ──────────────────────────────────────────── -->
       <div v-if="phase === 'input'" class="cal-dialog-overlay">
-        <div class="cal-dialog">
+        <!-- A native form rather than a key handler, the product's one Enter pattern
+             (E20/F01/S03). `@submit.prevent` replaces the `@keydown.enter.prevent` this panel
+             carried, and the confirm inherits its own disabled guard. -->
+        <form class="cal-dialog" @submit.prevent="confirmCalibration">
           <h3 class="cal-dialog-title">Enter Reference Length</h3>
           <p class="cal-dialog-desc">How long is the red line in the real world?</p>
 
@@ -491,7 +494,6 @@ onUnmounted(() => {
               placeholder="e.g. 3.5"
               autofocus
               data-testid="scale-calibration-length-input"
-              @keydown.enter.prevent="confirmCalibration"
             />
           </div>
 
@@ -512,17 +514,18 @@ onUnmounted(() => {
 
           <div class="cal-dialog-actions">
             <button
+              type="button"
               class="cal-btn cal-btn--secondary"
               data-testid="scale-calibration-btn-redraw"
-              @click="resetCalibration"
               :disabled="isSubmitting"
+              @click="resetCalibration"
             >
               Redraw
             </button>
             <button
+              type="submit"
               class="cal-btn cal-btn--primary"
               data-testid="scale-calibration-btn-calibrate"
-              @click="confirmCalibration"
               :disabled="isSubmitting"
             >
               <template v-if="isSubmitting">
@@ -532,7 +535,7 @@ onUnmounted(() => {
               <template v-else>Calibrate</template>
             </button>
           </div>
-        </div>
+        </form>
       </div>
 
       <!-- ── Calibrated result ──────────────────────────────────────── -->

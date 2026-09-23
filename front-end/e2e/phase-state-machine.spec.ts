@@ -175,7 +175,7 @@ test.describe('Phase state machine - full walk', () => {
     // the transition table, not listed in the panel (E10/F04/S01). The dialog used to ask "Begin
     // Market Days? No offers are pending - no vendors will be marked refused", which answered a
     // question about a feature MVP does not have; it names the consequence now (E10/F04/S02).
-    const publishDialog = page.getByTestId('sweep-confirm-dialog');
+    const publishDialog = page.getByTestId('sweep-confirm-window');
     await expect(publishDialog).toBeVisible({ timeout: 5000 });
     await expect(publishDialog).toContainText('Publish Market');
     await expect(publishDialog).toContainText('check-in page on the air');
@@ -183,7 +183,7 @@ test.describe('Phase state machine - full walk', () => {
       path: `${SCREENSHOT_DIR}/06b-publish-confirmation.png`,
       fullPage: true,
     });
-    await page.getByTestId('sweep-confirm-confirm').click();
+    await page.getByTestId('sweep-confirm-submit-button').click();
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days', {
       timeout: 10000,
     });
@@ -404,7 +404,7 @@ test.describe('Phase state machine - archive confirmation', () => {
     await expect(archiveBtn).toBeVisible();
     await archiveBtn.click();
 
-    const dialog = page.getByTestId('archive-confirm-dialog');
+    const dialog = page.getByTestId('archive-confirm-window');
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText('Archive this market?');
 
@@ -414,7 +414,7 @@ test.describe('Phase state machine - archive confirmation', () => {
     });
 
     // Cancel
-    await page.getByTestId('archive-confirm-cancel').click();
+    await page.getByTestId('archive-confirm-cancel-button').click();
     await expect(dialog).not.toBeVisible({ timeout: 3000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open');
 
@@ -423,7 +423,7 @@ test.describe('Phase state machine - archive confirmation', () => {
     await page.getByTestId('phase-rail-menu-button').click();
     await archiveBtn.click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
-    await page.getByTestId('archive-confirm-confirm').click();
+    await page.getByTestId('archive-confirm-submit-button').click();
     await expect(dialog).not.toBeVisible({ timeout: 3000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Archived', {
       timeout: 10000,

@@ -265,3 +265,84 @@ test.describe('Manage organization stays open', () => {
     await expect(orgs.manageWindow).toBeHidden({ timeout: 5000 });
   });
 });
+
+/**
+ * Enter means one thing, everywhere (E20/F01/S03).
+ *
+ * Four dialogs had no Enter handling at all, and six other places each invented their own -
+ * `@keydown.enter` in three views, `@keyup.enter` in two, two of those preventing the default.
+ * They are all native forms now, so Enter runs the confirm's own handler and inherits its guard.
+ */
+test.describe('Enter means the same thing in every dialog', () => {
+  test('the create-organization dialog', async ({ authenticatedPage: page }) => {
+    const orgs = new OrganizationsPage(page);
+    await orgs.goto();
+    await orgs.waitForLoaded();
+
+    await orgs.clickCreate();
+    await expect(orgs.createNameInput).toBeVisible({ timeout: 5000 });
+
+    // Empty: the confirm is disabled, so Enter is inert with no key handler saying so.
+    await expect(orgs.createSubmitButton).toBeDisabled();
+    await orgs.createNameInput.press('Enter');
+    await expect(orgs.createNameInput).toBeVisible();
+
+    const name = `E2E EnterOrg ${Date.now()}`;
+    await orgs.fillOrgName(name);
+    await orgs.createNameInput.press('Enter');
+    await expect(page.getByTestId('organization-card').filter({ hasText: name })).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
+  test('the manage-market dialog, which had no Enter handling at all', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Its OWN market. This test renames what it opens, and taking whichever card came first
+    // renamed the shared seed fixture out from under `smoke.spec.ts`.
+    await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const orgId = await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const mine = `E2E EnterTarget ${Date.now()}`;
+    const created = await request.post(`${BACKEND_URL}/markets`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: {
+        name: mine,
+        creationDate: new Date().toISOString(),
+        organizationId: orgId,
+        roles: { [TEST_USER.email]: 'owner' },
+        modificationList: [],
+        assignmentObject: {},
+      },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+
+    await page.goto('/markets');
+    await expect(page.locator('.markets-view')).toBeVisible({ timeout: 10000 });
+    const card = page.getByTestId('market-card').filter({ hasText: mine });
+    await expect(card).toBeVisible({ timeout: 10000 });
+    await card.getByTestId('market-card-manage-button').click();
+
+    const dialog = page.getByTestId('manage-market-window');
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+
+    // Renaming, by Enter in the field rather than by finding the Save button.
+    const rename = page.getByTestId('manage-market-rename-input');
+    const save = page.getByTestId('manage-market-rename-save-button');
+
+    // Unchanged: nothing to save, so the confirm is disabled and Enter does nothing.
+    await expect(save).toBeDisabled();
+    await rename.press('Enter');
+    await expect(dialog).toBeVisible();
+
+    const renamed = `E2E EnterRename ${Date.now()}`;
+    await rename.fill(renamed);
+    await expect(save).toBeEnabled();
+    await rename.press('Enter');
+
+    // Saved, and the dialog is still open - saving never closes.
+    await expect(save).toBeDisabled({ timeout: 5000 });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText(renamed).first()).toBeVisible();
+  });
+});

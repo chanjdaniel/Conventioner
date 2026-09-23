@@ -88,7 +88,20 @@ watch(
   async (open) => {
     if (!open) return;
     await nextTick();
-    const focusable = windowEl.value?.querySelector<HTMLElement>(FOCUSABLE);
+    /*
+     * A DESTRUCTIVE dialog opens on Cancel, deliberately. Its confirm is irreversible - archiving
+     * takes a live check-in URL off the air - and a dialog that opens with that button focused
+     * turns one stray Enter into the whole action. Cancel is a `type="button"`, so Enter there
+     * cancels rather than submitting, and the idiom is intact: Enter still does what the focused
+     * control says.
+     *
+     * DOM order already put Cancel first; this makes it a decision rather than something that
+     * would change quietly the next time the footer is reordered.
+     */
+    const preferred = props.destructive
+      ? windowEl.value?.querySelector<HTMLElement>(`[data-testid="${props.testid}-cancel-button"]`)
+      : null;
+    const focusable = preferred ?? windowEl.value?.querySelector<HTMLElement>(FOCUSABLE);
     (focusable ?? windowEl.value)?.focus();
   },
   { immediate: true },

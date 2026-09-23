@@ -2,7 +2,7 @@
 id: E20/F01/S03
 title: The remaining dialogs adopt the idiom
 type: story
-status: ready
+status: done
 blocked_by: [E20/F01/S01]
 pr: []
 ---
@@ -32,14 +32,16 @@ Open it.
 
 ## Acceptance criteria
 
-- [ ] The manage-market, placement, load-market and archive-confirmation dialogs are rebuilt on the shell.
-- [ ] Enter submits in every dialog that has a confirm action, through the same handler the button uses, and does nothing when that button is disabled.
-- [ ] The six hand-rolled Enter handlers are converged onto the single pattern the shell establishes, **including the three floorplan panels**.
-- [ ] Fields in these dialogs reach for the shared control primitive; errors sit in flow.
-- [ ] The archive confirmation is **opened and screenshotted** in the PR, with its button legible and its destructive intent clear.
-- [ ] Each dialog's existing behaviour is preserved - the placement dialog's swap, the manage-market dialog's role changes, the load-market dialog's selection.
-- [ ] Every e2e spec that drives these dialogs passes, updated only where the interaction genuinely changed.
-- [ ] `npm run format:check`, `npm run lint:css` and the type check pass.
+- [x] The manage-market, placement, load-market and archive-confirmation dialogs are rebuilt on the shell.
+- [x] Enter submits in every dialog that has a confirm action, through the same handler the button uses, and does nothing when that button is disabled.
+- [x] The six hand-rolled Enter handlers are converged onto the single pattern the shell establishes, **including the three floorplan panels**.
+- [x] Fields in these dialogs reach for the shared control primitive; errors sit in flow.
+- [x] The archive confirmation is **opened and screenshotted** in the PR, with its button legible and its destructive intent clear.
+  Opened and looked at: it wears `btn--destructive` (a token-defined red fill with white text), the title says "Archive this market?" and the body says "cannot be undone".
+  It also now opens with focus on **Cancel**, deliberately - see the note in `AppDialog`.
+- [x] Each dialog's existing behaviour is preserved - the placement dialog's swap, the manage-market dialog's role changes, the load-market dialog's selection.
+- [x] Every e2e spec that drives these dialogs passes, updated only where the interaction genuinely changed.
+- [x] `npm run format:check`, `npm run lint:css` and the type check pass.
 
 ## Out of scope, deliberately
 
