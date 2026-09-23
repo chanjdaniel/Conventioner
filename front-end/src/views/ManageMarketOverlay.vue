@@ -3,8 +3,7 @@ import { ref, watch } from 'vue';
 import { type Market, MarketRole } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
-import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { useModalRoot } from '@/utils/useModalRoot';
+import AppDialog from '@/components/AppDialog.vue';
 import {
   getRoleDisplayName,
   canManageRoles,
@@ -20,14 +19,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   manageClose: [];
 }>();
-
-useEscapeToClose(
-  () => props.manageOpen,
-  () => emit('manageClose'),
-);
-
-/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
-const modalRoot = useModalRoot(() => props.manageOpen);
 
 const marketData = ref<Market | null>(null);
 const loading = ref(false);
@@ -113,6 +104,13 @@ async function fetchUserOrgs() {
   }
 }
 
+/** What this caller could change the given role TO. Empty means it is not theirs to change. */
+function changeableRoles(role: MarketRole): MarketRole[] {
+  const userRole = marketData.value?.userRole;
+  if (!userRole || !canChangeRole(userRole, role)) return [];
+  return getRolesForChange(role, userRole);
+}
+
 function canRemoveUser(targetRole: MarketRole): boolean {
   if (targetRole === MarketRole.Owner) return false;
   const userRole = marketData.value?.userRole;
@@ -128,7 +126,8 @@ async function handleAddUser() {
       user_email: newUserEmail.value.trim(),
       role: newUserRole.value,
     });
-    showAddUserForm.value = false;
+    // The form stays open with an empty field: adding two people in a row is the case E20/F01/S02
+    // is named after, and this dialog is the same shape.
     newUserEmail.value = '';
     newUserRole.value = MarketRole.Editor;
     await fetchMarket(false);
@@ -236,327 +235,267 @@ function handleDeleteCancel() {
   deleteError.value = '';
 }
 
-function handleClose() {
-  emit('manageClose');
+/**
+ * The add toggles double as Cancel, so they must not stay green once they say it - a primary fill
+ * is this product's word for "the thing to do here" (E20/F01/S03). Cancelling clears what was
+ * typed and any error, so reopening does not hand back a rejected value.
+ */
+function toggleAddUser() {
+  showAddUserForm.value = !showAddUserForm.value;
+  if (!showAddUserForm.value) {
+    newUserEmail.value = '';
+    addUserError.value = '';
+  }
+}
+
+function toggleAddOrg() {
+  showAddOrgForm.value = !showAddOrgForm.value;
+  if (showAddOrgForm.value) {
+    fetchUserOrgs();
+    return;
+  }
+  newOrgName.value = '';
+  addOrgError.value = '';
 }
 </script>
 
 <template>
-  <div ref="modalRoot" class="container" :style="{ visibility: manageOpen ? 'visible' : 'hidden' }">
-    <div
-      class="background"
-      @click="handleClose"
-      :style="{ opacity: manageOpen ? '100%' : '0%' }"
-      data-testid="manage-market-overlay-background"
-    />
-    <div v-if="manageOpen && market" class="window">
-      <button
-        type="button"
-        class="dialog-close"
-        aria-label="Close"
-        @click="emit('manageClose')"
-        data-testid="manage-market-close-button"
-      >
-        &times;
-      </button>
-      <div class="header">
-        <h2>Manage market</h2>
-        <p v-if="marketData" class="market-name">{{ marketData.name }}</p>
-        <p v-if="errorMessage" class="error-state">{{ errorMessage }}</p>
-      </div>
-      <div v-if="loading" class="loading-state">Loading...</div>
-      <div v-else-if="marketData" class="content">
-        <section class="section">
-          <h3>Users with access</h3>
-          <div class="users-list">
-            <div v-for="{ userId, email, role } in getUserList()" :key="userId" class="user-card">
-              <span class="user-email">{{ email }}</span>
-              <span
-                v-if="!marketData?.userRole || !canChangeRole(marketData.userRole, role)"
-                class="role-badge"
-                :class="`role-${(role as string).toLowerCase()}`"
-              >
-                {{ getRoleDisplayName(role) }}
-              </span>
-              <span
-                v-else
-                class="role-badge role-badge-dropdown"
-                :class="`role-${(role as string).toLowerCase()}`"
-              >
-                <select
-                  :value="role"
-                  class="role-select"
-                  data-testid="manage-market-role-select"
-                  @change="
-                    handleRoleChange(
-                      userId,
-                      ($event.target as HTMLSelectElement).value as MarketRole,
-                    )
-                  "
-                >
-                  <option :value="role">{{ getRoleDisplayName(role) }}</option>
-                  <option
-                    v-for="r in getRolesForChange(role, marketData!.userRole!)"
-                    :key="r"
-                    :value="r"
-                  >
-                    {{ getRoleDisplayName(r) }}
-                  </option>
-                </select>
-                <span class="role-chevron">▼</span>
-              </span>
-              <button
-                v-if="canRemoveUser(role)"
-                class="remove-button"
-                @click="handleRemoveUser(userId)"
-                title="Remove user"
-                data-testid="manage-market-remove-user-button"
-              >
-                Remove
-              </button>
-            </div>
-            <p v-if="getUserList().length === 0" class="empty-state">
-              No users with explicit access
-            </p>
-          </div>
-          <button
-            class="add-user-button"
-            @click="showAddUserForm = !showAddUserForm"
-            data-testid="manage-market-add-user-button"
-          >
-            {{ showAddUserForm ? 'Cancel' : 'Add user' }}
-          </button>
-          <div v-if="showAddUserForm" class="add-user-form">
-            <div class="add-org-row">
-              <input
-                v-model="newUserEmail"
-                type="email"
-                placeholder="User email"
-                class="form-input"
-                data-testid="manage-market-add-user-input"
-              />
-              <select
-                v-model="newUserRole"
-                class="form-select"
-                data-testid="manage-market-add-user-select"
-              >
-                <option v-for="r in addableRoles" :key="r" :value="r">
-                  {{ getRoleDisplayName(r) }}
-                </option>
-              </select>
-              <button
-                class="submit-button"
-                @click="handleAddUser"
-                data-testid="manage-market-add-user-submit"
-              >
-                Add
-              </button>
-            </div>
-            <p v-if="addUserError" class="form-error">{{ addUserError }}</p>
-          </div>
-        </section>
+  <AppDialog
+    :open="manageOpen"
+    title="Manage market"
+    testid="manage-market"
+    wide
+    :error="errorMessage"
+    @close="emit('manageClose')"
+  >
+    <p v-if="marketData" class="market-name">{{ marketData.name }}</p>
 
-        <section class="section">
-          <h3>Organizations with access</h3>
-          <div class="users-list">
-            <div v-for="orgName in getOrganizationList()" :key="orgName" class="user-card">
-              <span class="user-email">{{ orgName }}</span>
-              <span class="role-badge role-viewer">Viewer</span>
-              <button
-                v-if="canRemoveOrg()"
-                class="remove-button"
-                @click="handleRemoveOrg()"
-                title="Remove organization"
-                data-testid="manage-market-remove-org-button"
-              >
-                Remove
-              </button>
-            </div>
-            <p v-if="getOrganizationList().length === 0" class="empty-state">
-              No organizations with access
-            </p>
-          </div>
-          <button
-            class="add-user-button"
-            @click="(showAddOrgForm = !showAddOrgForm) && fetchUserOrgs()"
-            data-testid="manage-market-add-org-button"
-          >
-            {{ showAddOrgForm ? 'Cancel' : 'Add organization' }}
-          </button>
-          <div v-if="showAddOrgForm" class="add-user-form">
-            <div class="add-org-row">
-              <select
-                v-model="newOrgName"
-                class="form-select"
-                :disabled="getAvailableOrgsForAdd().length === 0"
-                data-testid="manage-market-add-org-select"
-              >
-                <option value="">Select organization</option>
-                <option v-for="org in getAvailableOrgsForAdd()" :key="org.name" :value="org.name">
-                  {{ org.name }}
-                </option>
-              </select>
-              <button
-                class="submit-button"
-                @click="handleAddOrg"
-                :disabled="!newOrgName.trim()"
-                data-testid="manage-market-add-org-submit"
-              >
-                Add
-              </button>
-            </div>
-            <p
-              v-if="getAvailableOrgsForAdd().length === 0 && getOrganizationList().length > 0"
-              class="form-hint"
+    <p v-if="loading" class="empty-state">Loading...</p>
+    <div v-else-if="marketData" class="content">
+      <section class="section">
+        <h3>Users with access</h3>
+        <div class="users-list">
+          <div v-for="{ userId, email, role } in getUserList()" :key="userId" class="user-card">
+            <span class="user-email">{{ email }}</span>
+            <!--
+              A role with nowhere to go is stated, not offered (E20/F01/S03). The owner's own row
+              rendered a select whose only option was "Owner" - a control that looks like a
+              decision and is not one, which is the same thing S01 settled for the org picker.
+            -->
+            <span
+              v-if="!changeableRoles(role).length"
+              class="role-badge"
+              :class="`role-${(role as string).toLowerCase()}`"
             >
-              All your organizations already have access
-            </p>
-            <p v-else-if="getAvailableOrgsForAdd().length === 0" class="form-hint">
-              Create an organization first
-            </p>
-            <p v-if="addOrgError" class="form-error">{{ addOrgError }}</p>
+              {{ getRoleDisplayName(role) }}
+            </span>
+            <select
+              v-else
+              :value="role"
+              class="field field--select role-select"
+              data-testid="manage-market-role-select"
+              @change="
+                handleRoleChange(userId, ($event.target as HTMLSelectElement).value as MarketRole)
+              "
+            >
+              <option :value="role">{{ getRoleDisplayName(role) }}</option>
+              <option v-for="r in changeableRoles(role)" :key="r" :value="r">
+                {{ getRoleDisplayName(r) }}
+              </option>
+            </select>
+            <button
+              v-if="canRemoveUser(role)"
+              type="button"
+              class="btn btn--compact btn--destructive"
+              title="Remove user"
+              data-testid="manage-market-remove-user-button"
+              @click="handleRemoveUser(userId)"
+            >
+              Remove
+            </button>
           </div>
-        </section>
-
-        <section class="section">
-          <h3>Rename market</h3>
-          <div class="rename-row">
+          <p v-if="getUserList().length === 0" class="empty-state">No users with explicit access</p>
+        </div>
+        <button
+          type="button"
+          class="btn btn--compact"
+          :class="showAddUserForm ? 'btn--secondary' : 'btn--primary'"
+          data-testid="manage-market-add-user-button"
+          @click="toggleAddUser()"
+        >
+          {{ showAddUserForm ? 'Cancel' : 'Add user' }}
+        </button>
+        <!-- Its own form, so Enter in the field adds the user through the very same handler. -->
+        <form v-if="showAddUserForm" class="add-user-form" @submit.prevent="handleAddUser">
+          <div class="add-org-row">
             <input
-              v-model="renameValue"
-              class="form-input rename-input"
-              data-testid="manage-market-rename-input"
+              v-model="newUserEmail"
+              type="email"
+              placeholder="User email"
+              class="field"
+              data-testid="manage-market-add-user-input"
             />
-            <button
-              class="save-button"
-              @click="handleRename"
-              data-testid="manage-market-rename-save-button"
+            <select
+              v-model="newUserRole"
+              class="field field--select"
+              data-testid="manage-market-add-user-select"
             >
-              Save
+              <option v-for="r in addableRoles" :key="r" :value="r">
+                {{ getRoleDisplayName(r) }}
+              </option>
+            </select>
+            <button
+              type="submit"
+              class="btn btn--compact btn--primary"
+              :disabled="!newUserEmail.trim()"
+              data-testid="manage-market-add-user-submit"
+            >
+              Add
             </button>
           </div>
-          <p v-if="renameError" class="form-error">{{ renameError }}</p>
-        </section>
+          <p v-if="addUserError" class="form-error" data-testid="manage-market-add-user-error">
+            {{ addUserError }}
+          </p>
+        </form>
+      </section>
 
-        <section class="section danger-section">
-          <h3>Delete market</h3>
-          <div v-if="!deleteConfirming">
+      <section class="section">
+        <h3>Organizations with access</h3>
+        <div class="users-list">
+          <div v-for="orgName in getOrganizationList()" :key="orgName" class="user-card">
+            <span class="user-email">{{ orgName }}</span>
+            <span class="role-badge role-viewer">Viewer</span>
             <button
-              class="delete-button"
-              @click="deleteConfirming = true"
-              data-testid="manage-market-delete-button"
+              v-if="canRemoveOrg()"
+              type="button"
+              class="btn btn--compact btn--destructive"
+              title="Remove organization"
+              data-testid="manage-market-remove-org-button"
+              @click="handleRemoveOrg()"
             >
-              Delete market
+              Remove
             </button>
           </div>
-          <div v-else class="delete-confirm">
-            <p class="confirm-text">Are you sure? This cannot be undone.</p>
-            <div class="confirm-buttons">
-              <button
-                class="confirm-delete-button"
-                @click="handleDeleteConfirm"
-                data-testid="manage-market-delete-confirm-button"
-              >
-                Confirm
-              </button>
-              <button
-                class="cancel-button"
-                @click="handleDeleteCancel"
-                data-testid="manage-market-delete-cancel-button"
-              >
-                Cancel
-              </button>
-            </div>
-            <p v-if="deleteError" class="form-error">{{ deleteError }}</p>
+          <p v-if="getOrganizationList().length === 0" class="empty-state">
+            No organizations with access
+          </p>
+        </div>
+        <button
+          type="button"
+          class="btn btn--compact"
+          :class="showAddOrgForm ? 'btn--secondary' : 'btn--primary'"
+          data-testid="manage-market-add-org-button"
+          @click="toggleAddOrg()"
+        >
+          {{ showAddOrgForm ? 'Cancel' : 'Add organization' }}
+        </button>
+        <form v-if="showAddOrgForm" class="add-user-form" @submit.prevent="handleAddOrg">
+          <div class="add-org-row">
+            <select
+              v-model="newOrgName"
+              class="field field--select"
+              :disabled="getAvailableOrgsForAdd().length === 0"
+              data-testid="manage-market-add-org-select"
+            >
+              <option value="">Select organization</option>
+              <option v-for="org in getAvailableOrgsForAdd()" :key="org.name" :value="org.name">
+                {{ org.name }}
+              </option>
+            </select>
+            <button
+              type="submit"
+              class="btn btn--compact btn--primary"
+              :disabled="!newOrgName.trim()"
+              data-testid="manage-market-add-org-submit"
+            >
+              Add
+            </button>
           </div>
-        </section>
-      </div>
+          <p
+            v-if="getAvailableOrgsForAdd().length === 0 && getOrganizationList().length > 0"
+            class="form-hint"
+          >
+            All your organizations already have access
+          </p>
+          <p v-else-if="getAvailableOrgsForAdd().length === 0" class="form-hint">
+            Create an organization first
+          </p>
+          <p v-if="addOrgError" class="form-error">{{ addOrgError }}</p>
+        </form>
+      </section>
+
+      <section class="section">
+        <h3>Rename market</h3>
+        <form class="rename-row" @submit.prevent="handleRename">
+          <input v-model="renameValue" class="field" data-testid="manage-market-rename-input" />
+          <button
+            type="submit"
+            class="btn btn--compact btn--primary"
+            :disabled="!renameValue.trim() || renameValue.trim() === marketData.name"
+            data-testid="manage-market-rename-save-button"
+          >
+            Save
+          </button>
+        </form>
+        <p v-if="renameError" class="form-error">{{ renameError }}</p>
+      </section>
+
+      <section class="section danger-section">
+        <h3>Delete market</h3>
+        <div v-if="!deleteConfirming">
+          <button
+            type="button"
+            class="btn btn--compact btn--destructive"
+            data-testid="manage-market-delete-button"
+            @click="deleteConfirming = true"
+          >
+            Delete market
+          </button>
+        </div>
+        <div v-else class="delete-confirm">
+          <p class="confirm-text">Are you sure? This cannot be undone.</p>
+          <div class="confirm-buttons">
+            <button
+              type="button"
+              class="btn btn--compact btn--destructive"
+              data-testid="manage-market-delete-confirm-button"
+              @click="handleDeleteConfirm"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              class="btn btn--compact btn--secondary"
+              data-testid="manage-market-delete-cancel-button"
+              @click="handleDeleteCancel"
+            >
+              Cancel
+            </button>
+          </div>
+          <p v-if="deleteError" class="form-error">{{ deleteError }}</p>
+        </div>
+      </section>
     </div>
-  </div>
+  </AppDialog>
 </template>
 
 <style scoped>
-.container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-}
-
-.background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  opacity: 0%;
-  transition:
-    opacity 0.15s ease-in-out,
-    visibility 0.15s ease-in-out;
-  z-index: 0;
-}
-
-.window {
-  position: relative;
-  width: 70%;
-  max-width: 600px;
-  max-height: 85%;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  border-radius: var(--radius-card);
-  z-index: 1;
-  padding: 0;
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-}
-
-.header {
-  padding: 32px 40px 24px;
-  border-bottom: 1px solid var(--mm-border);
-}
-
-.header h2 {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--mm-black);
-}
-
+/* The scrim, window, close control and width belong to `AppDialog`; the buttons and fields to
+   `primitives.css`. What is left is this dialog's own list of people and organizations. */
 .market-name {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
-}
-
-.error-state {
-  margin-top: 12px;
-  color: var(--mm-red);
-  font-size: var(--text-sm);
-}
-
-.loading-state {
-  padding: 40px;
-  text-align: center;
-  color: var(--mm-text-muted);
 }
 
 .content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px 40px 32px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--space-6);
 }
 
 .section h3 {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--mm-black);
@@ -565,16 +504,16 @@ function handleClose() {
 .users-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .user-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border: 1.5px solid var(--mm-border);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
   background: var(--mm-beige);
 }
@@ -583,53 +522,23 @@ function handleClose() {
   flex: 1;
   font-size: var(--text-sm);
   color: var(--mm-black);
+  overflow-wrap: anywhere;
 }
 
 .role-badge {
   display: inline-block;
-  padding: 2px 8px;
+  padding: var(--space-hairline) var(--space-2);
   border-radius: var(--radius-control);
   font-weight: 400;
   font-size: var(--text-xs);
+  white-space: nowrap;
 }
 
-.role-badge-dropdown {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding-right: 4px;
-  cursor: pointer;
-}
-
+/* A role the caller may change is a select, not a badge pretending to be one. It used to be a
+   badge wrapping a transparent select and a hand-drawn chevron, which is three things saying one. */
 .role-select {
-  appearance: none;
-  background: transparent;
-  border: none;
-  outline: none;
-  font: inherit;
-  font-weight: 400;
-  font-size: var(--text-xs);
-  color: inherit;
-  cursor: pointer;
-  padding: 0;
-  margin: 0;
-}
-
-.role-select:focus {
-  outline: none;
-  border: none;
-  box-shadow: none;
-}
-
-.role-select option {
-  color: black;
-  padding: 0 4px;
-  text-align: center;
-}
-
-.role-chevron {
-  font-size: var(--text-xs);
-  opacity: 0.8;
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .role-owner {
@@ -642,28 +551,10 @@ function handleClose() {
   color: var(--mm-text-green);
 }
 
-.role-editor {
-  background: rgba(54, 130, 111, 0.16);
-  color: var(--mm-text-green);
-}
-
+.role-editor,
 .role-viewer {
-  background: var(--mm-beige);
-  color: var(--mm-black);
-}
-
-.remove-button {
-  padding: 4px 12px;
-  font-size: var(--text-xs);
-  background: transparent;
-  color: var(--mm-red);
-  border: 1px solid var(--mm-red);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.remove-button:hover {
-  background: rgba(211, 47, 47, 0.08);
+  background: rgba(54, 130, 111, 0.16);
+  color: var(--mm-green);
 }
 
 .empty-state {
@@ -672,125 +563,41 @@ function handleClose() {
   margin: 0;
 }
 
-.add-user-button {
-  padding: 8px 16px;
-  font-size: var(--text-sm);
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.add-user-button:hover {
-  background: var(--mm-green);
-  opacity: 0.9;
-}
-
 .add-user-form {
-  margin-top: 12px;
+  margin-top: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
-.add-org-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.form-input {
-  padding: 8px 12px;
-  border: 1.5px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  font-size: var(--text-sm);
-  min-width: 180px;
-}
-
-.form-select {
-  padding: 8px 12px;
-  border: 1.5px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  font-size: var(--text-sm);
-}
-
-.submit-button {
-  padding: 8px 16px;
-  font-size: var(--text-sm);
-  background: var(--mm-black);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.submit-button:hover {
-  opacity: 0.9;
-}
-
+.add-org-row,
 .rename-row {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
   align-items: center;
-}
-
-.rename-input {
-  flex: 1;
-}
-
-.save-button {
-  padding: 8px 20px;
-  font-size: var(--text-sm);
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.save-button:hover {
-  background: var(--mm-green);
-  opacity: 0.9;
 }
 
 .form-error {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--mm-red);
   font-size: var(--text-xs);
 }
 
 .form-hint {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--mm-text-muted);
   font-size: var(--text-xs);
 }
 
 .danger-section {
-  padding-top: 20px;
+  padding-top: var(--space-4);
   border-top: 1px solid var(--mm-border);
-}
-
-.delete-button {
-  padding: 8px 20px;
-  font-size: var(--text-sm);
-  background: var(--mm-red);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.delete-button:hover {
-  /* One red for one meaning, so a hover cannot be a second red. The product already
-     answers the pointer this way on its other solid fills (E16/F01). */
-  opacity: 0.9;
 }
 
 .delete-confirm {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .confirm-text {
@@ -801,65 +608,6 @@ function handleClose() {
 
 .confirm-buttons {
   display: flex;
-  gap: 10px;
-}
-
-.confirm-delete-button {
-  padding: 8px 20px;
-  font-size: var(--text-sm);
-  background: var(--mm-red);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.confirm-delete-button:hover {
-  /* One red for one meaning, so a hover cannot be a second red. The product already
-     answers the pointer this way on its other solid fills (E16/F01). */
-  opacity: 0.9;
-}
-
-.cancel-button {
-  padding: 8px 20px;
-  font-size: var(--text-sm);
-  background: var(--mm-text-muted);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.cancel-button:hover {
-  background: var(--mm-text-muted);
-}
-
-.content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.content::-webkit-scrollbar-track {
-  background: var(--mm-beige);
-  border-radius: var(--radius-control);
-}
-
-.content::-webkit-scrollbar-thumb {
-  background: var(--mm-border);
-  border-radius: var(--radius-control);
-}
-/* This dialog had no X and no Cancel, and the last control in its scrolling body is a red
-   Delete. Clicking the scrim did close it, but nothing said so, and Escape did nothing. */
-.dialog-close {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  background: none;
-  border: none;
-  font-size: var(--text-xl);
-  line-height: 1;
-  padding: 4px 8px;
-  color: var(--mm-text-muted);
-  cursor: pointer;
-  z-index: 2;
+  gap: var(--space-2);
 }
 </style>

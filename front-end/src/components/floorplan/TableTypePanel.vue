@@ -261,7 +261,8 @@ const selectOptions = [
 
     <!-- ── Inline add form ──────────────────────────────────────── -->
     <Transition name="tt-form">
-      <div v-if="showForm" class="tt-inline-form">
+      <!-- A native form, the product's one Enter pattern (E20/F01/S03). -->
+      <form v-if="showForm" class="tt-inline-form" @submit.prevent="saveType">
         <div class="tt-field">
           <label class="tt-label" for="tt-name">Name</label>
           <InputText
@@ -271,7 +272,6 @@ const selectOptions = [
             placeholder="e.g. 6ft Rectangle"
             data-testid="floorplan-table-type-name-input"
             :class="{ 'tt-input--error': !!formError }"
-            @keydown.enter="saveType"
           />
         </div>
 
@@ -328,6 +328,7 @@ const selectOptions = [
 
         <div class="tt-form-actions">
           <button
+            type="button"
             class="tt-btn tt-btn--secondary"
             data-testid="floorplan-table-type-cancel-btn"
             @click="cancelForm"
@@ -335,15 +336,15 @@ const selectOptions = [
             Cancel
           </button>
           <button
+            type="submit"
             class="tt-btn tt-btn--primary"
             :disabled="!form.name.trim() || !formWidthMm || !formHeightMm"
             data-testid="floorplan-table-type-save-btn"
-            @click="saveType"
           >
             Save
           </button>
         </div>
-      </div>
+      </form>
     </Transition>
 
     <!-- ── Edit dialog ──────────────────────────────────────────── -->
@@ -355,7 +356,11 @@ const selectOptions = [
       :closable="true"
       :draggable="false"
     >
-      <div class="tt-dialog-body">
+      <!--
+        The footer is PrimeVue's own slot, so Update cannot sit inside this form. `form="..."`
+        on the button is what ties them together - the same submit, from outside (E20/F01/S03).
+      -->
+      <form id="tt-edit-form" class="tt-dialog-body" @submit.prevent="saveEdit">
         <div class="tt-field">
           <label class="tt-label" for="tt-edit-name">Name</label>
           <InputText
@@ -364,7 +369,6 @@ const selectOptions = [
             class="tt-input"
             placeholder="Table type name"
             :class="{ 'tt-input--error': !!editError }"
-            @keydown.enter="saveEdit"
           />
         </div>
 
@@ -416,15 +420,16 @@ const selectOptions = [
         </div>
 
         <p v-if="editError" class="tt-error">{{ editError }}</p>
-      </div>
+      </form>
 
       <template #footer>
         <div class="tt-dialog-actions">
-          <button class="tt-btn tt-btn--secondary" @click="cancelEdit">Cancel</button>
+          <button type="button" class="tt-btn tt-btn--secondary" @click="cancelEdit">Cancel</button>
           <button
+            type="submit"
+            form="tt-edit-form"
             class="tt-btn tt-btn--primary"
             :disabled="!editForm.name.trim() || !editWidthMm || !editHeightMm"
-            @click="saveEdit"
           >
             Update
           </button>

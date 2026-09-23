@@ -159,20 +159,18 @@ test.describe('Tier 2 - Market role management', () => {
     await expect(page.locator('.user-card').filter({ hasText: SECOND_USER.email })).toBeVisible({
       timeout: 5000,
     });
-    await expect(
-      page.locator('.user-card').filter({ hasText: SECOND_USER.email }).locator('.role-editor'),
-    ).toBeVisible();
 
+    // A role the caller may change is the SELECT itself now, not a badge wrapping a transparent
+    // one behind a hand-drawn chevron (E20/F01/S03). Its value is the role, which is a more honest
+    // thing to assert than the colour class the badge happened to carry.
     const roleSelect = page
       .locator('.user-card')
       .filter({ hasText: SECOND_USER.email })
       .getByTestId('manage-market-role-select');
-    await roleSelect.selectOption('viewer');
-    await page.waitForTimeout(1000);
+    await expect(roleSelect).toHaveValue('editor');
 
-    await expect(
-      page.locator('.user-card').filter({ hasText: SECOND_USER.email }).locator('.role-viewer'),
-    ).toBeVisible({ timeout: 5000 });
+    await roleSelect.selectOption('viewer');
+    await expect(roleSelect).toHaveValue('viewer', { timeout: 5000 });
 
     const removeButton = page
       .locator('.user-card')

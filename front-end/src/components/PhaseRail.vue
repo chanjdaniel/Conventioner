@@ -27,7 +27,7 @@ import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { useModalRoot } from '@/utils/useModalRoot';
+import AppDialog from '@/components/AppDialog.vue';
 import {
   VALID_TRANSITIONS,
   phaseLabel,
@@ -245,8 +245,6 @@ const showingPublishConfirm = ref(false);
  * call would only say so in a comment - and its watcher, seeing the same `true` either side of a
  * swap, would not re-run. `useInertBehind` counts its marks, so two live calls cost nothing.
  */
-const publishConfirmRoot = useModalRoot(showingPublishConfirm);
-const archiveConfirmRoot = useModalRoot(showingArchiveConfirm);
 const pendingPhase = ref('');
 const transitionError = ref('');
 const transitionBlockers = ref<PreconditionResult[]>([]);
@@ -434,72 +432,44 @@ function cancelPending() {
     <!-- Publishing. It asked "Begin Market Days? No offers are pending", counted from an endpoint
          whose answer is always 0 because offers are out of MVP scope: a dialog answering a
          question the organizer never asked, about a feature the product does not have. -->
-    <div
-      v-if="showingPublishConfirm"
-      ref="publishConfirmRoot"
-      class="rail-confirm-overlay"
-      data-testid="sweep-confirm-overlay"
+    <AppDialog
+      :open="showingPublishConfirm"
+      title="Publish Market?"
+      testid="sweep-confirm"
+      confirm-label="Publish Market"
+      :confirm-disabled="transitioning"
+      @close="cancelPending"
+      @submit="confirmPending"
     >
-      <div class="rail-confirm-dialog" data-testid="sweep-confirm-dialog">
-        <h3>Publish Market?</h3>
-        <p>
-          Publishing puts this market's check-in page on the air: every vendor you placed can look
-          themselves up and check in on the day. The assignment they see is the one you have now.
-        </p>
-        <p>A published market cannot be returned to an earlier phase.</p>
-        <div class="rail-confirm-buttons">
-          <button
-            class="confirm-publish-button"
-            :disabled="transitioning"
-            data-testid="sweep-confirm-confirm"
-            @click="confirmPending"
-          >
-            Publish Market
-          </button>
-          <button
-            class="cancel-confirm-button"
-            :disabled="transitioning"
-            data-testid="sweep-confirm-cancel"
-            @click="cancelPending"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+      <p class="rail-confirm-text">
+        Publishing puts this market's check-in page on the air: every vendor you placed can look
+        themselves up and check in on the day. The assignment they see is the one you have now.
+      </p>
+      <p class="rail-confirm-text">A published market cannot be returned to an earlier phase.</p>
+    </AppDialog>
 
-    <div
-      v-if="showingArchiveConfirm"
-      ref="archiveConfirmRoot"
-      class="rail-confirm-overlay"
-      data-testid="archive-confirm-overlay"
+    <!--
+      THE ONE IRREVERSIBLE ACTION IN THE PRODUCT, and it has been invisible before: `--mm-text-red`
+      was referenced in seven rules and defined nowhere, so this button rendered as white text on a
+      white dialog with no border. It wears `btn--destructive` now, which is a token-defined fill
+      the contrast contract covers - and `E20/F01/S03` required this dialog to be opened and looked
+      at rather than swept.
+    -->
+    <AppDialog
+      :open="showingArchiveConfirm"
+      title="Archive this market?"
+      testid="archive-confirm"
+      confirm-label="Archive"
+      destructive
+      :confirm-disabled="transitioning"
+      @close="cancelPending"
+      @submit="confirmPending"
     >
-      <div class="rail-confirm-dialog" data-testid="archive-confirm-dialog">
-        <h3>Archive this market?</h3>
-        <p>
-          Archiving is permanent. Once archived, a market cannot be returned to an active phase.
-          This action cannot be undone.
-        </p>
-        <div class="rail-confirm-buttons">
-          <button
-            class="confirm-archive-button"
-            :disabled="transitioning"
-            data-testid="archive-confirm-confirm"
-            @click="confirmPending"
-          >
-            Archive
-          </button>
-          <button
-            class="cancel-confirm-button"
-            :disabled="transitioning"
-            data-testid="archive-confirm-cancel"
-            @click="cancelPending"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+      <p class="rail-confirm-text">
+        Archiving is permanent. Once archived, a market cannot be returned to an active phase. This
+        action cannot be undone.
+      </p>
+    </AppDialog>
   </Teleport>
 </template>
 
@@ -731,72 +701,12 @@ function cancelPending() {
   color: var(--mm-red);
 }
 
-.rail-confirm-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  z-index: 80;
-}
-
-.rail-confirm-dialog {
-  width: 100%;
-  max-width: 460px;
-  background: white;
-  border-radius: var(--radius-card);
-  padding: 22px 24px 18px;
-  box-shadow: var(--shadow-card);
-  color: var(--mm-black);
-}
-
-.rail-confirm-dialog h3 {
-  margin: 0 0 10px;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-lg);
-  /* Not --mm-green. This is the heading of a permanent, irreversible confirmation, and the
-     product's affirmative colour is the wrong thing to say over "cannot be undone" (E16/F01). */
-  color: var(--mm-black);
-}
-
-.rail-confirm-dialog p {
-  margin: 0 0 10px;
+/* The scrim, window, title and buttons belong to `AppDialog` now (E20/F01/S03). The heading's
+   colour went with them, and the reason it must not be `--mm-green` went into the shell's own
+   title: the product's affirmative colour is the wrong thing to say over "cannot be undone". */
+.rail-confirm-text {
+  margin: 0;
   font-size: var(--text-sm);
-}
-
-.rail-confirm-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 14px;
-}
-
-.confirm-publish-button,
-.confirm-archive-button,
-.cancel-confirm-button {
-  padding: 8px 14px;
-  border-radius: var(--radius-control);
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.confirm-publish-button {
-  border: 1px solid var(--mm-green);
-  background: var(--mm-green);
-  color: white;
-}
-
-.confirm-archive-button {
-  border: 1px solid var(--mm-red);
-  background: var(--mm-red);
-  color: white;
-}
-
-.cancel-confirm-button {
-  border: 1px solid var(--mm-border);
-  background: white;
   color: var(--mm-black);
 }
 </style>
