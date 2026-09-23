@@ -2,7 +2,7 @@
 id: E20
 title: Dialogs, and the dead ends they remove
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

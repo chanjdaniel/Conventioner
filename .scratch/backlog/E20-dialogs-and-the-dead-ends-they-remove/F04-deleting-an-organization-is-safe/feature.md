@@ -2,7 +2,7 @@
 id: E20/F04
 title: Deleting an organization is safe
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

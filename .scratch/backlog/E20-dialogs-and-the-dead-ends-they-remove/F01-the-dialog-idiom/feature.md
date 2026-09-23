@@ -2,7 +2,7 @@
 id: E20/F01
 title: The dialog idiom
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

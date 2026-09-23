@@ -2,7 +2,7 @@
 id: E19
 title: The form asks what a real form asks
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

@@ -2,7 +2,7 @@
 id: E20/F03
 title: Fixing the form without leaving the import
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

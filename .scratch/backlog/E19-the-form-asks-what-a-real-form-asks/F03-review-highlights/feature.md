@@ -2,7 +2,7 @@
 id: E19/F03
 title: Review highlights
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

@@ -554,6 +554,57 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   height: 100vh`, which is why no screen could scroll the page and every tall screen grew its own
   nested scrollers. Do not reintroduce a viewport-height shell.
 
+## Dialogs (Conventioner sharp edge)
+
+- **`front-end/src/components/AppDialog.vue` is what a dialog is in this product** (E20/F01): a
+  native `<form>` in a modal doing one small job. It owns the scrim, window, close control, Escape
+  and backdrop dismissal, the inert behaviour, and the `type="submit"` confirm. **That form IS the
+  Enter contract** - Enter runs the same handler as the button, so it inherits that handler's
+  guard, and a disabled submit makes Enter inert with no key handler anywhere. Do not add
+  `@keydown.enter`: five views each invented their own answer and one of them (`ApplicantLogin`)
+  bypassed its own resend cooldown by doing so.
+- A dialog of several independent actions passes no `confirmLabel` and hosts its own `<form>`s
+  (Manage organization has three). Testids come from the `testid` prefix - `<testid>-window`,
+  `-submit-button`, `-cancel-button`, `-background`, `-close-button`.
+- **Closing never means saved, and saving never closes.** Three closes are correct and are pinned:
+  deleting the thing, the explicit close control, and Escape or backdrop. The parent learns about a
+  save through its own event, never through close - `OrganizationsView` treating close as its
+  refresh signal is why every membership change used to close the dialog.
+- **A destructive dialog opens focused on Cancel**, deliberately: one stray Enter would otherwise be
+  the whole irreversible action. Focus skips `:disabled` controls - `focus()` on a disabled element
+  is a silent no-op, which left the create-market dialog opening with focus on `<body>`.
+- **A dialog opened FROM a dialog is a sibling of it**, so `useInertBehind` marked it out of play:
+  it rendered, read correctly, was visible and enabled, and could not be clicked. A dialog now
+  un-inerts its own branch on open and restores the marks on close. Asserting this needs a control
+  the PAGE holds - the view container is an ancestor of the dialogs and is never marked.
+- `src/__tests__/modalsHoldThePageInert.test.ts` keeps a FLOOR of cover-painting files that **falls
+  on purpose** as dialogs adopt the shell. `AppDialog` itself is pinned by name, because without
+  that every dialog built on it leaves the rule's sight at once.
+
+## Organization Deletion and the Import Chain (Conventioner sharp edge)
+
+- **Deleting an organization deletes the drafts and archived markets it holds, and is refused while
+  it holds anything mid-lifecycle** (`BLOCKING_PHASES` in `back-end/api/organizations.py`). The
+  refusal names each market. The update that set `organizationId` to null is **gone outright** - a
+  market belonging to nothing is a state `POST /markets` refuses to produce.
+  The check lives with the organization API, NOT in `guards.py`, which is validated against the
+  transition table and is for transitions.
+- **An archived market is still publicly served**, so deleting one takes a live check-in URL off the
+  air and destroys the record of a market that ran. Reaffirmed 2026-09-22. The confirmation
+  therefore names what each deletion destroys per market, and `back-end/deletion_trail.py` records
+  it - written BEFORE anything is destroyed, and allowed to fail the whole operation.
+- **`back-end/api/form_amendment.py` fixes the application form from inside the import** (E20/F03).
+  It **adds no transition edge**: the route is a breadth-first walk of `VALID_TRANSITIONS`, two hops
+  from `applications_open` and four from `applications_closed`, and the market returns to the phase
+  it started in.
+- **Pre-flight, not rollback.** Every guard on every hop is judged against the PROPOSED form before
+  the market moves. Judging the stored form would pass a market whose current form is fine, move it
+  to draft, write a form that asks nothing and then refuse the return - stranding it mid-import.
+  `Market.form_amendment` records the destination before the first step, so a chain that stalls says
+  where it stopped and offers to finish.
+- The form is still written by `save_application_form` in `draft`, so the D9 lock stays
+  unbypassable. The chain is ADMIN, because it moves phases.
+
 ## Agent skills
 
 ### Issue tracker

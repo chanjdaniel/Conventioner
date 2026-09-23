@@ -2,7 +2,7 @@
 id: E20/F02
 title: The import page sizes itself
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
