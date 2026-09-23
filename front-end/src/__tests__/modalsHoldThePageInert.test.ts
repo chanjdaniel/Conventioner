@@ -87,7 +87,21 @@ function fullViewportCovers(): { file: string; selectors: string[]; wired: boole
 
 describe('every modal holds the page inert', () => {
   it('finds the covers, so the rule below is not passing on an empty list', () => {
-    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(13);
+    /*
+     * A FLOOR, and one that falls on purpose. Every dialog rebuilt on `AppDialog` (E20/F01) stops
+     * painting its own cover, because the shell paints it - so the honest number goes DOWN as the
+     * idiom spreads, and lowering it is a migration landing rather than a rule being weakened.
+     * What must never fall is the shell itself, which is why it is named below.
+     */
+    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(12);
+  });
+
+  it('includes the dialog shell, which paints the cover for every dialog built on it', () => {
+    // If this stops matching, every dialog that delegates to `AppDialog` silently leaves the rule's
+    // sight at once - the covers list would shrink and the suite would still be green.
+    const shell = fullViewportCovers().find((entry) => entry.file.endsWith('AppDialog.vue'));
+    expect(shell, 'AppDialog no longer paints a full-viewport cover').toBeDefined();
+    expect(shell!.wired, 'AppDialog paints a cover without holding the page inert').toBe(true);
   });
 
   /**

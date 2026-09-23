@@ -45,6 +45,11 @@ const props = withDefaults(
     cancelLabel?: string;
     /** A destructive confirm wears the destructive primitive - archive, delete. */
     destructive?: boolean;
+    /**
+     * A dialog whose body is a list rather than two controls. One step, not a free width: two
+     * sizes is a decision, and a percentage per dialog is what the product had.
+     */
+    wide?: boolean;
     /** An error about the submission as a whole. Field errors belong beneath their field. */
     error?: string;
   }>(),
@@ -107,6 +112,7 @@ watch(
       v-if="open"
       ref="windowEl"
       class="dialog-window"
+      :class="{ 'dialog-window--wide': wide }"
       role="dialog"
       aria-modal="true"
       :aria-label="title"
@@ -204,6 +210,10 @@ watch(
   background: white;
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
+}
+
+.dialog-window--wide {
+  width: min(100% - 2 * var(--space-4), 38rem);
 }
 
 .dialog-title {

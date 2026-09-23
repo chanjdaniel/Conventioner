@@ -77,6 +77,17 @@ function handleManageClose() {
   loadOrganizations();
 }
 
+/**
+ * The dialog saved something. Close is no longer how this list finds out (E20/F01/S02): it used
+ * to be the ONLY way, which is exactly why every membership change closed the dialog.
+ *
+ * `manageOrg` is deliberately not re-pointed at the refreshed organization - the dialog re-reads
+ * its own, and replacing the prop underneath it would reset the open add form mid-typing.
+ */
+function handleManageChanged() {
+  loadOrganizations();
+}
+
 function canManage(org: Organization): boolean {
   const role = org.userRole;
   return role === 'owner' || role === 'admin';
@@ -130,7 +141,12 @@ function canManage(org: Organization): boolean {
       </div>
     </div>
 
-    <ManageOrgOverlay :manageOpen="manageOpen" :org="manageOrg" @manageClose="handleManageClose" />
+    <ManageOrgOverlay
+      :manageOpen="manageOpen"
+      :org="manageOrg"
+      @manageClose="handleManageClose"
+      @changed="handleManageChanged"
+    />
 
     <div v-if="newOpen" ref="newOrgModalRoot" class="overlay">
       <div

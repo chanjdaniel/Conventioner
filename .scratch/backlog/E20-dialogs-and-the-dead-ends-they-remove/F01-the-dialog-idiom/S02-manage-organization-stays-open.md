@@ -2,7 +2,7 @@
 id: E20/F01/S02
 title: Manage organization stays open
 type: story
-status: ready
+status: done
 blocked_by: [E20/F01/S01]
 pr: []
 ---
@@ -24,10 +24,10 @@ Keeping it open therefore needs two separate things - the dialog refreshing its 
 
 ## Acceptance criteria
 
-- [ ] Adding an admin, adding a member and removing a user all leave the dialog open, showing the updated membership.
-- [ ] The organization list behind the dialog still reflects the change, through an event distinct from close.
-- [ ] Adding two people in succession requires no reopening.
-- [ ] **Three closes stay correct and are verified**: deleting the organization, the explicit close control, and dismissal by Escape or backdrop.
-- [ ] The dialog is rebuilt on the shell from `S01`, so its three inputs gain the Enter contract - each submitting through the same handler its button uses.
-- [ ] The existing organization page object and specs are updated: they assume the dialog closes after add and remove, and that expectation moves with the behaviour.
-- [ ] An add that fails shows its error in flow and still leaves the dialog open with the typed value intact.
+- [x] Adding an admin, adding a member and removing a user all leave the dialog open, showing the updated membership.
+- [x] The organization list behind the dialog still reflects the change, through an event distinct from close.
+- [x] Adding two people in succession requires no reopening.
+- [x] **Three closes stay correct and are verified**: deleting the organization, the explicit close control, and dismissal by Escape or backdrop.
+- [x] The dialog is rebuilt on the shell from `S01`, so its three inputs gain the Enter contract - each submitting through the same handler its button uses.
+- [x] The existing organization page object and specs are updated: they assume the dialog closes after add and remove, and that expectation moves with the behaviour.
+- [x] An add that fails shows its error in flow and still leaves the dialog open with the typed value intact.
