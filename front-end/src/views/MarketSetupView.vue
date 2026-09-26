@@ -470,6 +470,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignmentOptionsComplete="assignmentOptionsComplete"
           :assignRefusalReason="assignRefusalReason"
           :assignError="assignError"
+          :rulesLockReason="market?.assignmentRulesLockReason ?? null"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         />

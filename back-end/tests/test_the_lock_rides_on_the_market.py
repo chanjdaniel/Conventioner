@@ -91,3 +91,26 @@ def test_it_cannot_be_written(monkeypatch):
     market = client_market(application_form_lock_reason="nothing to see here")
 
     assert "application_form_lock_reason" not in market.model_dump()
+
+
+# The assignment rules' lock rides on the market the same way (E22/F02/S02): the rules page reads
+# it from the market it holds, so a transition from the rail reaches it at once.
+@pytest.mark.parametrize(
+    "phase", [MarketPhase.OFFERS, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED]
+)
+def test_once_the_assignment_is_settled_the_rules_say_so(serve, phase):
+    assert "settled" in serve(phase)["assignmentRulesLockReason"]
+
+
+@pytest.mark.parametrize(
+    "phase",
+    [
+        MarketPhase.DRAFT,
+        MarketPhase.APPLICATIONS_OPEN,
+        MarketPhase.APPLICATIONS_CLOSED,
+        MarketPhase.REVIEW,
+        MarketPhase.ASSIGNMENT,
+    ],
+)
+def test_up_to_and_including_the_assignment_the_rules_are_open(serve, phase):
+    assert serve(phase)["assignmentRulesLockReason"] is None

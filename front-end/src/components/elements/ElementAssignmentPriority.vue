@@ -27,7 +27,16 @@ import IconCloseRound from '../icons/IconCloseRound.vue';
  * follows from the target's own type, which makes that state unrepresentable rather than merely
  * discouraged.
  */
-const props = defineProps<{ setupObject: SetupObject; formFields?: FormField[] }>();
+const props = defineProps<{
+  setupObject: SetupObject;
+  formFields?: FormField[];
+  /**
+   * The rules as they were run, with nothing offering to change them (E22/F02/S02): once the
+   * market can no longer run its assignment, a changed rule would change nothing. Mirrors the plan
+   * write's refusal; the server is the rule.
+   */
+  readonly?: boolean;
+}>();
 const emit = defineEmits(['update:setupObject']);
 
 const setupObject = toRef(props, 'setupObject');
@@ -168,7 +177,7 @@ const hoverChildIndex = ref(null);
 
 const dragOptions = computed(() => ({
   group: 'rows',
-  disabled: false,
+  disabled: props.readonly,
   ghostClass: 'sortable-chosen',
   chosenClass: 'sortable-ghost',
   dragClass: 'sortable-ghost',
@@ -187,7 +196,14 @@ const dragOptions = computed(() => ({
       <h3></h3>
     </div>
     <div class="rows" ref="rows">
-      <p v-if="fieldTargets.length === 0" class="empty-hint">
+      <p
+        v-if="readonly && priorityObjects.length === 0"
+        class="empty-hint"
+        data-testid="priority-none-set"
+      >
+        No priority rules were set for this assignment.
+      </p>
+      <p v-else-if="!readonly && fieldTargets.length === 0" class="empty-hint">
         Priority rules order vendors by an answer on your application form. Add a question with a
         fixed set of answers, such as a dropdown or a multi-select, and it will appear here. You can
         always order by when the application arrived.
@@ -202,7 +218,7 @@ const dragOptions = computed(() => ({
             @mouseleave="hoverParentIndex = null"
           >
             <div class="row-item drag-item">
-              <span class="drag-handle click-drag"
+              <span v-if="!readonly" class="drag-handle click-drag"
                 ><IconClickDrag class="drag-handle__icon"
               /></span>
               <h3>{{ parentIndex + 1 }}</h3>
@@ -211,6 +227,7 @@ const dragOptions = computed(() => ({
               <select
                 class="dropdown"
                 data-testid="priority-target-select"
+                :disabled="readonly"
                 v-model="priorityObjects[parentIndex].target"
                 @change="handleTargetChange(parentIndex)"
               >
@@ -246,6 +263,7 @@ const dragOptions = computed(() => ({
                 <select
                   class="dropdown"
                   data-testid="priority-direction-select"
+                  :disabled="readonly"
                   v-model="priorityObjects[parentIndex].direction"
                 >
                   <option :value="PriorityDirection.Ascending">
@@ -271,7 +289,7 @@ const dragOptions = computed(() => ({
                     fallbackOnBody: true,
                   }"
                   :group="`sorting-${parentIndex}`"
-                  :disabled="false"
+                  :disabled="readonly"
                   :ghostClass="'sortable-chosen'"
                   :chosenClass="'sorting-ghost'"
                   :dragClass="'sorting-ghost'"
@@ -284,13 +302,14 @@ const dragOptions = computed(() => ({
                       @mouseleave="hoverChildIndex = null"
                     >
                       <div class="sorting-index-drag" @mousedown.stop>
-                        <span class="drag-handle sorting-click-drag"
+                        <span v-if="!readonly" class="drag-handle sorting-click-drag"
                           ><IconClickDragSmall class="drag-handle__icon"
                         /></span>
                         <h3>{{ childIndex + 1 }}</h3>
                       </div>
                       <h3 class="sorting-answer">{{ answer }}</h3>
                       <IconCloseRound
+                        v-if="!readonly"
                         class="close-round"
                         data-testid="priority-ordering-remove"
                         @click="removeOrderingItem(parentIndex, childIndex)"
@@ -299,6 +318,7 @@ const dragOptions = computed(() => ({
                   </template>
                 </draggable>
                 <select
+                  v-if="!readonly"
                   class="dropdown add-answer"
                   data-testid="priority-ordering-add"
                   :value="''"
@@ -316,7 +336,10 @@ const dragOptions = computed(() => ({
                     {{ option }}
                   </option>
                 </select>
-                <p class="ordering-hint" v-if="priorityObjects[parentIndex].ordering.length === 0">
+                <p
+                  class="ordering-hint"
+                  v-if="!readonly && priorityObjects[parentIndex].ordering.length === 0"
+                >
                   Add the answers to &ldquo;{{
                     labelFor(priorityObjects[parentIndex].target)
                   }}&rdquo; in the order you want them placed. Anything you leave out sorts last, or
@@ -326,6 +349,7 @@ const dragOptions = computed(() => ({
             </div>
             <div class="row-item">
               <IconCloseRound
+                v-if="!readonly"
                 class="close-round"
                 data-testid="priority-rule-remove"
                 @click="removePriorityRow(parentIndex)"
@@ -334,7 +358,13 @@ const dragOptions = computed(() => ({
           </div>
         </template>
       </draggable>
-      <button type="button" class="add-row" data-testid="priority-add-rule" @click="addPriorityRow">
+      <button
+        v-if="!readonly"
+        type="button"
+        class="add-row"
+        data-testid="priority-add-rule"
+        @click="addPriorityRow"
+      >
         <IconAddRound class="add-row__icon" />
         Add a rule
       </button>

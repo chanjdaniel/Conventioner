@@ -132,5 +132,7 @@ export function parseMarketFromApi(market: any): Market {
     // Why the application form cannot be edited, or null when it can: computed by the server on
     // every read of one market (E21/F02/S03). Undefined when the read did not carry it - a list.
     applicationFormLockReason: market.applicationFormLockReason,
+    // Why the assignment rules can no longer change, or null while they can (E22/F02/S02).
+    assignmentRulesLockReason: market.assignmentRulesLockReason,
   };
 }

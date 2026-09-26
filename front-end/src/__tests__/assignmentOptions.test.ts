@@ -52,3 +52,20 @@ describe('ElementAssignmentOptions: max assignments per vendor', () => {
     expect(await enterMaxAssignments(mountOptions(), 'abc')).toBeNull();
   });
 });
+
+describe('ElementAssignmentOptions, read-only (E22/F02/S02)', () => {
+  it('shows both options as they were run, and neither can be edited', () => {
+    const wrapper = mount(ElementAssignmentOptions, {
+      props: { setupObject: setup(3), readonly: true },
+    });
+
+    for (const input of [
+      'setup-options-max-assignments-input',
+      'setup-options-max-proportion-input',
+    ]) {
+      expect(wrapper.find(`[data-testid="${input}"]`).attributes(), input).toHaveProperty(
+        'disabled',
+      );
+    }
+  });
+});

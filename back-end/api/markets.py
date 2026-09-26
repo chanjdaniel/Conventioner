@@ -513,6 +513,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # application exists, which only the server knows, and the store re-reads the market after every
     # write - so a transition reaches the form builder the moment it lands. Served, never stored.
     market_dict['applicationFormLockReason'] = application_form_lock_reason(market)
+    # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
+    # from the market it holds, rather than deciding the phases for itself.
+    market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}

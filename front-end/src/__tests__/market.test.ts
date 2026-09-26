@@ -68,6 +68,18 @@ describe('parseMarketFromApi', () => {
     expect(market.setupObject?.marketDates).toEqual([{ date: '2026-08-01' }]);
   });
 
+  it('keeps why the assignment rules are settled, and reads open rules as no lock', () => {
+    const settled = 'The assignment for this market is settled.';
+    expect(
+      parseMarketFromApi({ ...apiMarket, assignmentRulesLockReason: settled })
+        .assignmentRulesLockReason,
+    ).toBe(settled);
+    expect(
+      parseMarketFromApi({ ...apiMarket, assignmentRulesLockReason: null })
+        .assignmentRulesLockReason,
+    ).toBeNull();
+  });
+
   it('reads an editable form as no lock at all', () => {
     expect(
       parseMarketFromApi({ ...apiMarket, applicationFormLockReason: null })
