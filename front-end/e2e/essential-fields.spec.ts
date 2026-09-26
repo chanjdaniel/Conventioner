@@ -1,4 +1,6 @@
 import { test, expect, BACKEND_URL, TEST_USER, ApplicationFormPage, ApplyPage } from './fixtures';
+import { savePlan } from './helpers/savePlan';
+import { marketSetupPath } from './helpers/marketScreens';
 import { ApplicantLoginPage } from './pages/ApplicantLoginPage';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
@@ -60,20 +62,11 @@ async function createMarketWithPlan(
   }
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-  const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
-  const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+  await page.evaluate((user) => {
+    localStorage.setItem('user', JSON.stringify(user));
+  }, TEST_USER.email);
 
-  await page.evaluate(
-    ({ m, user }) => {
-      localStorage.setItem('market', JSON.stringify(m));
-      localStorage.setItem('user', JSON.stringify(user));
-    },
-    { m: market, user: TEST_USER.email },
-  );
-
-  await page.goto('/market-setup');
+  await page.goto(marketSetupPath(marketId));
   return marketId;
 }
 
@@ -440,11 +433,7 @@ test.describe('Essential form fields', () => {
       market: { setupObject: { marketDates: Array<{ date: string }> } } & Record<string, unknown>;
     };
     marketDoc.setupObject.marketDates.push({ date: '2026-08-22' });
-    const putRes = await request.put(`${BACKEND_URL}/markets/${market.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-      data: marketDoc,
-    });
-    expect(putRes.ok()).toBeTruthy();
+    await savePlan(request, BACKEND_URL, TEST_USER.email, market.marketId, marketDoc.setupObject);
 
     // ...but the form's offering is frozen: the public form still offers the original three.
     const publicForm = await (
@@ -477,14 +466,10 @@ test.describe('Essential form fields', () => {
 
     // The builder tells the organizer the same story: locked form, frozen offering - the
     // panel shows three dates even though the local plan now carries four.
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: marketDoc, user: TEST_USER.email },
-    );
-    await page.goto('/market-setup');
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
+    await page.goto(marketSetupPath(market.marketId));
     const formPage = new ApplicationFormPage(page);
     await formPage.openFormTab();
     await expect(formPage.lockBanner).toBeVisible();

@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import { savePlan } from './savePlan';
 import { seedApprovedVendor } from './seedApplication';
 
 /**
@@ -157,11 +158,16 @@ export async function seedMarketWithVendors(
   baseURL: string,
   email: string,
   password: string,
+  /**
+   * A name of the caller's choosing. A market can only be renamed while it is a draft
+   * (E21/F03/S04), so a spec that needs a particular name for a market further along gives it here.
+   */
+  options: { name?: string } = {},
 ): Promise<SeedResult> {
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
-  const marketName = `E2E Market ${Date.now()}`;
+  const marketName = options.name ?? `E2E Market ${Date.now()}`;
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: {
       'Content-Type': 'application/json',
@@ -288,28 +294,7 @@ export async function seedPublishedMarketWithAssignments(
     floorplans: null,
   };
 
-  // Fetch the market so we can enrich it.
-  const getMarketRes = await request.get(`${baseURL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': email },
-  });
-  if (!getMarketRes.ok()) {
-    throw new Error(`Market fetch failed: ${getMarketRes.status()} ${await getMarketRes.text()}`);
-  }
-  const { market } = (await getMarketRes.json()) as { market: Record<string, unknown> };
-
-  const setupRes = await request.put(`${baseURL}/markets/${marketId}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Owner-Email': email,
-    },
-    data: {
-      ...market,
-      setupObject,
-    },
-  });
-  if (!setupRes.ok()) {
-    throw new Error(`Market setup put failed: ${setupRes.status()} ${await setupRes.text()}`);
-  }
+  await savePlan(request, baseURL, email, marketId, setupObject);
 
   const marketSlug = marketNameToSlug(marketName);
 

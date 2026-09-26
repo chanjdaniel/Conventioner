@@ -17,6 +17,7 @@
  * `top: 35px; left: 50%` - a coordinate measured against one arrangement of the dialog.
  */
 import ElementOrgSelect from '@/components/elements/ElementOrgSelect.vue';
+import { marketPath } from '@/utils/market';
 import AppDialog from '@/components/AppDialog.vue';
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
@@ -79,23 +80,18 @@ const handleSubmit = async () => {
     const createResponse = await api.post('/markets', newMarket);
     const marketId = createResponse.data.market_id;
 
-    const marketWithId: Market = { ...newMarket, id: marketId };
-    localStorage.removeItem('market');
-    localStorage.setItem('market', JSON.stringify(marketWithId));
-
-    router.push('/market-setup');
+    router.push(marketPath(marketId));
   } catch (error) {
     if (
       axios.isAxiosError(error) &&
       error.response?.status === 400 &&
       error.response?.data?.error
     ) {
-      const errorText = error.response.data.error.toLowerCase();
-      if (errorText.includes('already exists') || errorText.includes('market already')) {
-        errorMessage.value = 'A market with this name already exists';
-      } else {
-        errorMessage.value = error.response.data.error;
-      }
+      // The server's own words. This used to rewrite anything mentioning "market already" into "A
+      // market with this name already exists" - which is false for the refusal that matters most:
+      // "Cafe Market" beside "Café Market" is a different name on the SAME public address, and the
+      // server says exactly that (E21/F03/S03).
+      errorMessage.value = error.response.data.error;
     } else {
       errorMessage.value = 'An error occurred. Please try again.';
     }

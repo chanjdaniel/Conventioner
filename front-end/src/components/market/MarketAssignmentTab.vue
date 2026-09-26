@@ -24,15 +24,6 @@ defineProps<{
   assignmentOptionsComplete: boolean;
   assignRefusalReason: string | null;
   assignError: string;
-  /**
-   * Bumped when an assignment has just been stored (E18/F02/S04).
-   *
-   * `AssignmentResults` reads the assignment once, on mount. That was fine while Assign lived on
-   * the PLAN, because running it moved the organizer here and mounted the results fresh. Now that
-   * Assign is on this surface, the move is a no-op and the results would keep showing the state
-   * from before the run - so they are keyed on this and re-read when it changes.
-   */
-  assignedAt: number;
 }>();
 
 const emit = defineEmits<{
@@ -100,7 +91,7 @@ const emit = defineEmits<{
       </div>
     </div>
 
-    <AssignmentResults :key="assignedAt" />
+    <AssignmentResults />
   </div>
 </template>
 

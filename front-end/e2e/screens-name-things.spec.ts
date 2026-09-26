@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
@@ -25,7 +26,6 @@ test.describe('Screens say what they mean', () => {
   let marketId: string;
   let marketSlug: string;
   let marketName: string;
-  let market: unknown;
 
   test.beforeAll(async ({ request }) => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
@@ -38,27 +38,18 @@ test.describe('Screens say what they mean', () => {
     marketId = seeded.marketId;
     marketSlug = seeded.marketSlug;
     marketName = seeded.marketName;
-
-    const response = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    market = ((await response.json()) as { market: unknown }).market;
   });
 
   async function openTheSeededMarket(page: Page): Promise<void> {
     await page.goto('/login');
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
   }
 
   test('the form-lock banner names the phase in words', async ({ authenticatedPage: page }) => {
     await openTheSeededMarket(page);
-    await page.goto('/market-setup?tab=form');
+    await page.goto(marketSetupPath(marketId, 'form'));
 
     const banner = page.getByTestId('form-builder-lock-banner');
     await expect(banner).toBeVisible({ timeout: 15000 });
@@ -75,9 +66,9 @@ test.describe('Screens say what they mean', () => {
     await openTheSeededMarket(page);
 
     for (const [screen, url, ready] of [
-      ['form builder', '/market-setup?tab=form', 'form-builder-lock-banner'],
-      ['tables', `/markets/${marketId}/tables`, 'tables-count-assigned'],
-      ['attendance', `/markets/${marketId}/attendance`, 'attendance-status-heading'],
+      ['form builder', marketSetupPath(marketId, 'form'), 'form-builder-lock-banner'],
+      ['tables', marketScreenPath(marketId, 'tables'), 'tables-count-assigned'],
+      ['attendance', marketScreenPath(marketId, 'attendance'), 'attendance-status-heading'],
     ] as const) {
       await page.goto(url);
       await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
@@ -115,9 +106,9 @@ test.describe('Screens say what they mean', () => {
     await openTheSeededMarket(page);
 
     for (const [url, heading] of [
-      [`/markets/${marketId}/tables`, 'tables-heading'],
-      [`/markets/${marketId}/attendance`, 'attendance-status-heading'],
-      ['/vendors', 'vendors-heading'],
+      [marketScreenPath(marketId, 'tables'), 'tables-heading'],
+      [marketScreenPath(marketId, 'attendance'), 'attendance-status-heading'],
+      [marketScreenPath(marketId, 'vendors'), 'vendors-heading'],
     ] as const) {
       await page.goto(url);
       await expect(page.getByTestId(heading)).toContainText(marketName, { timeout: 15000 });

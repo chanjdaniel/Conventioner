@@ -69,7 +69,7 @@ async function openImport(
     headers: { 'X-Owner-Email': TEST_USER.email },
   });
   const { market } = (await res.json()) as { market: Record<string, unknown> };
-  await importPage.open(market, TEST_USER.email);
+  await importPage.open(market);
 }
 
 /** Reach the mapping ledger with a file whose last column has nowhere to go. */
@@ -119,6 +119,19 @@ test.describe('Fixing the form from inside the import', () => {
     await expect(
       importPage.targetSelectAt(HEADERS.length - 1).locator('option[value="our_secret_handshake"]'),
     ).toHaveCount(1);
+
+    // And Market Setup, reached without a reload, shows the market as the chain left it: the
+    // phase it returned to, and the question it added (E21/F02/S04). The import used to read and
+    // never write a stored copy of the market, so the way back showed the market as it had been.
+    await page.getByTestId('import-leave-button').click();
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
+      timeout: 10000,
+    });
+    await page.getByTestId('market-setup-form-tab').click();
+    await expect(page.getByTestId('form-field-label-input').last()).toHaveValue(
+      'Our secret handshake',
+      { timeout: 10000 },
+    );
   });
 
   test('from applications closed, it returns the market to applications closed', async ({

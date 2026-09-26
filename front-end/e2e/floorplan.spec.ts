@@ -1,4 +1,6 @@
 import path from 'path';
+import { savePlan } from './helpers/savePlan';
+import { marketSetupPath, MARKET_SETUP_URL } from './helpers/marketScreens';
 import { fileURLToPath } from 'url';
 import {
   test,
@@ -52,11 +54,6 @@ test.describe('Floorplan workflow E2E', () => {
     }
     const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-    const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    let { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-
     // Seed a minimal setupObject so the setup wizard has columns to display.
     const minimalSetup = {
       priority: [],
@@ -69,32 +66,14 @@ test.describe('Floorplan workflow E2E', () => {
         maxHalfTableProportionPerSection: null,
       },
     };
-    const setupRes = await ctx.put(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Owner-Email': TEST_USER.email,
-      },
-      data: { ...market, setupObject: minimalSetup },
-    });
-    if (!setupRes.ok()) {
-      throw new Error(`Setup PUT failed: ${setupRes.status()} ${await setupRes.text()}`);
-    }
-    const updatedRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const updated = (await updatedRes.json()) as { market: Record<string, unknown> };
-    market = updated.market;
+    await savePlan(ctx, BACKEND_URL, TEST_USER.email, marketId, minimalSetup);
 
-    // Inject the market into localStorage so the setup wizard can pick it up.
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    // The signed-in user, where the screens that still read it look; the market is the URL's.
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
 
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(marketId));
 
     const setupPage = new MarketSetupPage(page);
     await setupPage.waitForWizard();
@@ -106,7 +85,7 @@ test.describe('Floorplan workflow E2E', () => {
     await floorplanPage.selectFloorplanPath();
     await floorplanPage.completeFloorplanWorkflow(FLOORPLAN_PATH);
 
-    await expect(page).toHaveURL(/\/market-setup/);
+    await expect(page).toHaveURL(MARKET_SETUP_URL);
     await setupPage.waitForWizard();
 
     // Verify placed tables survived the step-2 to step-3 transition.
@@ -131,5 +110,20 @@ test.describe('Floorplan workflow E2E', () => {
     };
     expect(saved.market.setupObject?.sections?.length ?? 0).toBeGreaterThan(0);
     expect(saved.market.setupObject?.locations?.length ?? 0).toBeGreaterThan(0);
+
+    // And the next plan edit does not erase the floorplan. The plan saves a working copy built
+    // from the market the server reported, and a parser that dropped `floorplans` from it would
+    // have written the plan back without one on the organizer's next keystroke (E21/F02/S03).
+    const floorplansOf = async () => {
+      const res = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      const body = (await res.json()) as { market: { setupObject?: { floorplans?: unknown[] } } };
+      return body.market.setupObject?.floorplans?.length ?? 0;
+    };
+    expect(await floorplansOf()).toBeGreaterThan(0);
+    await setupPage.addMarketDate('2026-07-22');
+    await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible({ timeout: 10000 });
+    expect(await floorplansOf()).toBeGreaterThan(0);
   });
 });

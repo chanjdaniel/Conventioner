@@ -1,4 +1,6 @@
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
+import { savePlan } from './helpers/savePlan';
+import { marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import type { APIRequestContext } from '@playwright/test';
 
@@ -52,11 +54,6 @@ async function seedMarketWithDate(request: APIRequestContext): Promise<Record<st
   }
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-  const marketRes = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
-  const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-
   const setupObject = {
     priority: [],
     marketDates: [{ date: MARKET_DATE }],
@@ -68,13 +65,7 @@ async function seedMarketWithDate(request: APIRequestContext): Promise<Record<st
       maxHalfTableProportionPerSection: null,
     },
   };
-  const putRes = await request.put(`${BACKEND_URL}/markets/${marketId}`, {
-    headers,
-    data: { ...market, setupObject },
-  });
-  if (!putRes.ok()) {
-    throw new Error(`Setup PUT failed: ${putRes.status()} ${await putRes.text()}`);
-  }
+  await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, setupObject);
   const updatedRes = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
     headers: { 'X-Owner-Email': TEST_USER.email },
   });
@@ -91,16 +82,12 @@ for (const timezoneId of TIMEZONES) {
       const market = await seedMarketWithDate(page.request);
 
       // Establish the app origin, then inject market + user the same way
-      // market-pipeline.spec.ts does so /market-setup renders our market.
+      // market-pipeline.spec.ts does, for the screens that still read it.
       await page.goto('/login');
-      await page.evaluate(
-        ({ m, user }) => {
-          localStorage.setItem('market', JSON.stringify(m));
-          localStorage.setItem('user', JSON.stringify(user));
-        },
-        { m: market, user: TEST_USER.email },
-      );
-      await page.goto('/market-setup?tab=setup');
+      await page.evaluate((user) => {
+        localStorage.setItem('user', JSON.stringify(user));
+      }, TEST_USER.email);
+      await page.goto(marketSetupPath(String(market.id), 'setup'));
 
       const dateLabel = page.getByTestId('setup-dates-date-display-0');
       await expect(dateLabel).toBeVisible({ timeout: 10000 });
@@ -125,14 +112,10 @@ for (const timezoneId of TIMEZONES) {
     }) => {
       const market = await seedMarketWithDate(page.request);
       await page.goto('/login');
-      await page.evaluate(
-        ({ m, user }) => {
-          localStorage.setItem('market', JSON.stringify(m));
-          localStorage.setItem('user', JSON.stringify(user));
-        },
-        { m: market, user: TEST_USER.email },
-      );
-      await page.goto('/market-setup?tab=setup');
+      await page.evaluate((user) => {
+        localStorage.setItem('user', JSON.stringify(user));
+      }, TEST_USER.email);
+      await page.goto(marketSetupPath(String(market.id), 'setup'));
 
       // It opens on the month the market already sits in - the same month for every viewer.
       const month = page.getByTestId('setup-dates-month');

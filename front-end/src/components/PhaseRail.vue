@@ -24,7 +24,7 @@ import { computed, ref } from 'vue';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
-import { parseMarketFromApi } from '@/utils/market';
+import { useMarketStore } from '@/stores/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import AppDialog from '@/components/AppDialog.vue';
@@ -49,7 +49,9 @@ const props = defineProps<{
   beforeTransition?: () => Promise<void> | void;
 }>();
 
-const emit = defineEmits<{ phaseAdvanced: [market: Market] }>();
+/** Said after a transition lands and the store has re-read the market. */
+const emit = defineEmits<{ phaseAdvanced: [] }>();
+const marketStore = useMarketStore();
 
 const lifecycle = phaseSpine();
 const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
@@ -258,24 +260,12 @@ async function doTransition(toPhase: string) {
 
   try {
     await props.beforeTransition?.();
-    const response = await api.post(`/markets/${encodeURIComponent(props.market.id)}/transition`, {
-      toPhase,
-    });
-    const updatedMarket = {
-      ...props.market,
-      phase: response.data.phase,
-      isDraft: response.data.phase === MarketPhase.Draft,
-    };
-
-    try {
-      const full = await api.get(`/markets/${encodeURIComponent(props.market.id)}`);
-      const fresh = parseMarketFromApi(full.data.market);
-      localStorage.setItem('market', JSON.stringify(fresh));
-      emit('phaseAdvanced', fresh);
-    } catch {
-      localStorage.setItem('market', JSON.stringify(updatedMarket));
-      emit('phaseAdvanced', updatedMarket);
-    }
+    await api.post(`/markets/${encodeURIComponent(props.market.id)}/transition`, { toPhase });
+    // A transition is a write, so the one store re-reads the market (E21/F02). The rail used to
+    // fetch its own copy, write it into `localStorage` and hand it to the screen to splice in;
+    // every screen shows the market from the store now, so the re-read is all any of them needs.
+    await marketStore.refresh();
+    emit('phaseAdvanced');
   } catch (err: unknown) {
     const response =
       err && typeof err === 'object' && 'response' in err
@@ -424,6 +414,7 @@ function cancelPending() {
     <BlockerPanel
       v-if="transitionBlockers.length"
       :blockers="transitionBlockers"
+      :marketId="market.id"
       data-testid="phase-rail-blockers"
     />
   </div>

@@ -1,6 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import type { Router } from 'vue-router';
-import { MARKET_HOME_PATH, openMarket, parseMarketFromApi } from '@/utils/market';
+import { marketPath, openMarket, parseMarketFromApi } from '@/utils/market';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
 
 const apiMarket = {
@@ -42,6 +42,39 @@ describe('parseMarketFromApi', () => {
     expect(market.reviewConfig).toEqual({ reviewers: ['a@example.com'] });
   });
 
+  /**
+   * Every screen reads the PARSED market now (E21/F02). They used to read the raw copy out of
+   * `localStorage`, which is how a parser that silently dropped fields went unnoticed - and the
+   * plan's autosave sends a working copy built from this, so a dropped `floorplans` would be a
+   * floorplan erased by the next keystroke on the plan.
+   */
+  it('keeps everything the server says about the market', () => {
+    const floorplans = [{ id: 'fp-1', tableTypes: [{ name: 'Full' }] }];
+    const market = parseMarketFromApi({
+      ...apiMarket,
+      phase: 'applications_open',
+      intakeMode: 'form',
+      resultsPublished: true,
+      applicationFormLockReason: 'Application form can only be edited while in draft.',
+      setupObject: { marketDates: [{ date: '2026-08-01' }], floorplans },
+    });
+
+    expect(market.intakeMode).toBe('form');
+    expect(market.resultsPublished).toBe(true);
+    expect(market.applicationFormLockReason).toBe(
+      'Application form can only be edited while in draft.',
+    );
+    expect(market.setupObject?.floorplans).toEqual(floorplans);
+    expect(market.setupObject?.marketDates).toEqual([{ date: '2026-08-01' }]);
+  });
+
+  it('reads an editable form as no lock at all', () => {
+    expect(
+      parseMarketFromApi({ ...apiMarket, applicationFormLockReason: null })
+        .applicationFormLockReason,
+    ).toBeNull();
+  });
+
   it('leaves the new fields undefined when the API omits them', () => {
     const market = parseMarketFromApi(apiMarket);
 
@@ -79,22 +112,37 @@ describe('openMarket', () => {
     MarketPhase.MarketDays,
     MarketPhase.Archived,
   ])('opens a market in %s on its own screens', (phase) => {
-    expect(opened(market({ phase })).push).toHaveBeenCalledWith(MARKET_HOME_PATH);
+    expect(opened(market({ phase })).push).toHaveBeenCalledWith('/markets/market-123/setup');
   });
 
   it('opens a stored market that predates the phase field the same way', () => {
-    expect(opened(market({ isDraft: false })).push).toHaveBeenCalledWith(MARKET_HOME_PATH);
-    expect(opened(market({ isDraft: true })).push).toHaveBeenCalledWith(MARKET_HOME_PATH);
+    expect(opened(market({ isDraft: false })).push).toHaveBeenCalledWith(
+      '/markets/market-123/setup',
+    );
+    expect(opened(market({ isDraft: true })).push).toHaveBeenCalledWith(
+      '/markets/market-123/setup',
+    );
+  });
+
+  it('keeps nothing about the market in the browser; arriving is what opens it', () => {
+    expect(opened(market({ phase: MarketPhase.Draft })).stored).toBeNull();
   });
 
   it('never sends anyone to a public slug, which a CSV market does not serve', () => {
-    expect(MARKET_HOME_PATH).toBe('/market-setup');
     expect(opened(market({ phase: MarketPhase.MarketDays })).push).not.toHaveBeenCalledWith(
       '/test-market',
     );
   });
+});
 
-  it('makes the chosen market the open one', () => {
-    expect(opened(market({ phase: MarketPhase.Draft })).stored.id).toBe('market-123');
+describe('marketPath', () => {
+  it('addresses every market screen by id, so a link opens that market', () => {
+    expect(marketPath('m1')).toBe('/markets/m1/setup');
+    expect(marketPath('m1', 'setup', 'assignment')).toBe('/markets/m1/setup?tab=assignment');
+    expect(marketPath('m1', 'tables')).toBe('/markets/m1/tables');
+  });
+
+  it('escapes an id rather than letting it name another path', () => {
+    expect(marketPath('a/b')).toBe('/markets/a%2Fb/setup');
   });
 });

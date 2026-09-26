@@ -35,14 +35,17 @@ async function mountDashboard() {
   const wrapper = mount(DashboardView, {
     global: { provide: { setUser: vi.fn() } },
   });
-  // onMounted reads localStorage and then asks the server; the render follows both.
+  // onMounted asks the server; the render follows its answer.
   await flushPromises();
   return wrapper;
 }
 
-/** This browser last opened that market - the only thing localStorage is still consulted for. */
-function browserRemembers(market: unknown) {
-  localStorage.setItem('market', JSON.stringify(market));
+/**
+ * This browser last opened that market. It remembers the id and nothing else (E21/F02/S05): what
+ * the market is called now, and whether it still exists, is the server's to say.
+ */
+function browserRemembers(market: { id: string }) {
+  localStorage.setItem('lastMarketId', market.id);
 }
 
 describe('DashboardView, the first screen after signing in', () => {
@@ -147,13 +150,13 @@ describe('DashboardView, the first screen after signing in', () => {
       expect(wrapper.find('[data-testid="dashboard-no-market-yet"]').exists()).toBe(false);
     });
 
-    it('is covered by the same branch when what was stored cannot even be read', async () => {
-      localStorage.setItem('market', 'not json at all');
+    it('is told once: the pointer is forgotten, so the next visit does not repeat it', async () => {
+      browserRemembers(A_MARKET);
       serverHas(ANOTHER_MARKET);
 
-      const wrapper = await mountDashboard();
+      await mountDashboard();
 
-      expect(wrapper.find('[data-testid="dashboard-last-market-unavailable"]').exists()).toBe(true);
+      expect(localStorage.getItem('lastMarketId')).toBeNull();
     });
 
     /**
@@ -190,17 +193,16 @@ describe('DashboardView, the first screen after signing in', () => {
     });
 
     /**
-     * The card is drawn from the server's answer, not from the cached copy, so a market renamed on
-     * another device does not read back under its old name here.
+     * The card is drawn from the server's answer, so a market renamed on another device reads back
+     * under its current name - there is no cached copy for an old one to come from.
      */
-    it('sees its current name, not the one this browser cached', async () => {
-      browserRemembers({ ...A_MARKET, name: 'Its Old Name' });
-      serverHas(A_MARKET);
+    it('sees its current name, as the server has it', async () => {
+      browserRemembers(A_MARKET);
+      serverHas({ ...A_MARKET, name: 'Its New Name' });
 
       const wrapper = await mountDashboard();
 
-      expect(wrapper.text()).toContain('Riverside Spring Market');
-      expect(wrapper.text()).not.toContain('Its Old Name');
+      expect(wrapper.text()).toContain('Its New Name');
     });
   });
 
@@ -223,18 +225,18 @@ describe('DashboardView, the first screen after signing in', () => {
     });
 
     /**
-     * The card costs nothing to draw and never needed the network: this browser rendered it from
-     * the cache alone before the screen made any request. Losing it offline would trade one
-     * regression for another.
+     * The card used to be drawn from a whole market cached in the browser when the server could not
+     * be asked. Nothing about a market is kept there now (E21/F02/S05), so with no answer there is
+     * no card - a convenience lost, never a stale market shown - and the pointer is kept for later.
      */
-    it('still offers the market this browser remembers', async () => {
+    it('offers no card it cannot draw from the server, and keeps the pointer', async () => {
       browserRemembers(A_MARKET);
       fetchMarkets.mockRejectedValue(new Error('offline'));
 
       const wrapper = await mountDashboard();
 
-      expect(wrapper.find('[data-testid="dashboard-last-market-card"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain('Riverside Spring Market');
+      expect(wrapper.find('[data-testid="dashboard-last-market-card"]').exists()).toBe(false);
+      expect(localStorage.getItem('lastMarketId')).toBe('market-1');
     });
   });
 });

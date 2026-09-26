@@ -1,5 +1,6 @@
 import { ref, watch, type Ref } from 'vue';
 import { api, getApiErrorMessage } from '@/utils/api';
+import { useMarketStore } from '@/stores/market';
 import type { Market } from '@/assets/types/datatypes';
 
 /**
@@ -33,17 +34,16 @@ export function useReviewHighlights(market: Ref<Market | null | undefined>) {
   );
 
   /**
-   * Put the saved list onto the market the rest of the app reads, the way the form save does.
+   * Take the saved list, and have the store re-read the market the rest of the app reads.
    *
-   * Without this the mark saved and the REVIEW CARD DID NOT MOVE: the queue reads
-   * `market.reviewHighlights`, the market comes from the store, and the store still held the list
-   * as it was before the click.
+   * Without the re-read the mark saved and the REVIEW CARD DID NOT MOVE: the queue reads
+   * `market.reviewHighlights`, and the store still held the list as it was before the click. It
+   * used to patch the list onto the market in place; a write is followed by asking the server now
+   * (E21/F02/S02).
    */
   function adopt(stored: string[]) {
     highlights.value = [...stored];
-    if (!market.value) return;
-    market.value.reviewHighlights = [...stored];
-    localStorage.setItem('market', JSON.stringify(market.value));
+    void useMarketStore().refresh();
   }
 
   async function save(keys: string[]) {

@@ -77,6 +77,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   market over the API and stops at "awaiting review". Before adding a test, decide which of those
   you are extending - and if the answer is "the seam between two of them", it belongs in the
   journey spec.
+- **Open a market by URL**, the way a bookmark would: `e2e/helpers/marketScreens.ts`
+  (`marketSetupPath`, `marketScreenPath`). Specs no longer plant a market in `localStorage`.
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `stack().frontendPort`.
   Bring the stack up with `DISABLE_EMAIL=true scripts/th-compose.sh up -d` (compose passes it
@@ -131,13 +133,42 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 - `seedPublishedMarketWithAssignments()` in `front-end/e2e/helpers/seeds.ts` creates a fully
   published market with vendor assignments ready for check-in, vendor browsing, and table filtering tests.
-- Publishing is `POST /markets/{id}/transition` with `{ toPhase: 'archived' }`, never a PUT of
-  `isDraft: false` - `isDraft` is derived from `phase` and a PUT body cannot set it.
+- Publishing is `POST /markets/{id}/transition` - `isDraft` is derived from `phase`, and no
+  request body can set either.
 - **An assignment is stored by `POST /markets/{id}/assignment`, and by nothing else.**
   That one call runs the solver and persists what it produced.
-  It used to be `GET /markets/{id}/assignment` (which only computes) followed by a whole-market PUT carrying the result, and that PUT now stores nothing: `assignmentObject` is server-owned like `applicationForm` and `importMapping`, because it is what `record_attendance` reads at check-in time and a stale client copy overwriting it moves vendors on market day (E11/F01/S01).
+  It used to be `GET /markets/{id}/assignment` (which only computes) followed by a whole-market PUT carrying the result. `assignmentObject` is what `record_attendance` reads at check-in time, so a stale client copy overwriting it moved vendors on market day (E11/F01/S01); the whole-market PUT is gone now (E21/F03/S06).
   `back-end/api/placements.py` is the single writer - a solver run, or `PUT /markets/{id}/placements` for one vendor in one seat on one date, both gated on `MarketRole.EDITOR`.
   Run the assignment *before* publishing: `market_days` has an entry invariant that one exists.
+
+## One Market, From the Server (Conventioner sharp edge)
+
+- **The back end is the only source of truth about a market, and the browser holds it in ONE
+  place:** `front-end/src/stores/market.ts`. Every market screen, the rail and every tab read it;
+  screens get it through `useOpenMarket` (`front-end/src/utils/openMarket.ts`). Settled in
+  `.scratch/wayfinding/the-market-frame/issues/03-one-market-every-surface-reads.md`.
+- **Every market screen is addressed by id**: `/markets/:marketId/{setup,vendors,import,floorplan,
+  tables,attendance}`, built with `marketPath()`. The id-less paths redirect to `/markets`.
+- **A write is followed by a re-read, never a patch.** After anything that changes the market
+  (a transition - the rail does it - a form save, an assignment run, a placement, an import, a
+  highlight) call the store's `refresh()`. Do not assign into the held market: no caller should
+  need to know which fields its write touched.
+- **Each write names what it changes; there is no whole-market PUT** (E21/F03/S06). The plan is
+  `PUT /markets/:id/plan`, the name `PUT /markets/:id/name` (draft only - the name is the public
+  address), the form, placements, highlights and transitions have their own. A market's
+  organization is fixed at creation, and no two markets share a slug (unique `market_slug` index).
+- **Unsaved work is the editor's working copy**, never layered on the store (the plan's
+  `setupObject`/`planIntakeMode`, the form builder's form). A re-read never overwrites a working
+  copy that holds unsaved edits.
+- **Nothing about a market is stored in the browser.** `localStorage` `market` is gone and
+  `noMarketInTheBrowser.test.ts` fails if it returns; the dashboard keeps only a `lastMarketId`
+  pointer (`utils/lastMarket.ts`), set by the store when a market arrives.
+- **`parseMarketFromApi` must carry every field the server sends.** It once rebuilt `setupObject`
+  from a fixed key list and dropped `floorplans`; once screens read the parsed market, the plan's
+  autosave erased the floorplan. Spread what you do not name.
+- **Facts derived from the market are served on it**, not fetched per tab: the form lock is
+  `applicationFormLockReason` on `GET /markets/:id`. A tab that fetches a fact for itself and
+  publishes it to siblings is how the form builder and the priority rules went stale.
 
 ## The Phase Rail (Conventioner sharp edge)
 
@@ -156,8 +187,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   *archived* - the prototype proved it. There is no record of which phases a market passed
   through, so an archived market's frozen stage is read off evidence it holds (a stored
   assignment, a published application form), never off history it does not.
-- Screens routed by market id (Tables, Attendance) get their `Market` from `useRailMarket`
-  (`front-end/src/utils/railMarket.ts`); the rail never fails a screen that cannot load one.
+- Screens routed by market id get their `Market` from `useOpenMarket`
+  (`front-end/src/utils/openMarket.ts`), a reader of the one market store
+  (`front-end/src/stores/market.ts`); a transition from the rail is followed by the store
+  re-reading the market, and the rail never fails a screen that cannot load one.
 
 ## Placements, Pins and the Trail (Conventioner sharp edge)
 
@@ -173,9 +206,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   All four are gated on `MarketRole.EDITOR` - the same bar as every other market write, and
   deliberately not stricter, since an EDITOR already owns the tiers, sections and counts the
   whole assignment is computed from.
-  `update_market()` re-applies the stored `assignment_object` like `application_form`: a market
-  PUT stores nothing, because a stale client copy moving vendors is a stale client copy moving
-  them on market day.
+  There is no other door: the whole-market PUT that once let a stale client copy move vendors on
+  market day is deleted (E21/F03/S06).
 - **A pin IS a placement row, flagged `hand_placed`.** There is no separate constraint object;
   two records could disagree, and a vendor pinned to one table and placed at another is the exact
   bug pins exist to prevent.
@@ -248,11 +280,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `back-end/api/markets.py`. A market's application form is editable only in `draft` phase
   and only while no application exists for it; once an applicant has submitted, the form is
   frozen for good.
-- **`Market.application_form` is server-owned on update.** `PUT /markets/<id>/application-form`
-  is its only writer on an existing market; `update_market()` re-applies the stored form over
-  whatever a market PUT body carried. Do not "fix" that by letting a market PUT write the form
-  - it is what makes the lock unbypassable. `POST /markets` may carry a form, and it runs
-  through the same validator.
+- **`Market.application_form` has one writer on an existing market:** `PUT
+  /markets/<id>/application-form`, which is what makes the lock unbypassable. Do not add a second
+  (the whole-market PUT that was one is deleted, E21/F03/S06). `POST /markets` may carry a form,
+  and it runs through the same validator.
 - E2E reaches the locked state with `seedApplication()`
   (`front-end/e2e/helpers/seedApplication.ts`), which writes the document straight into Mongo
   via `mongosh`, because no applicant-facing submit endpoint exists yet.
@@ -285,8 +316,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Intake mode does not gate the form builder.** A CSV market still has an application form,
   because the essential questions define the offering the CSV maps onto. Intake mode decides who
   fills the form in, not whether one exists.
-- **It is organizer-settable only while the market is a draft**, then frozen by `update_market()`,
-  derived from the stored phase rather than from a list of late phases. The control is
+- **It is organizer-settable only while the market is a draft**, through the plan write (`PUT
+  /markets/<id>/plan`, `save_plan`), which refuses a change after that - derived from the stored
+  phase rather than from a list of late phases. The control is
   `ElementIntakeMode`, a plan card; the server is the authority, so a hidden or disabled control is
   never the rule. It was withheld through MVP on the grounds that a toggle would advertise a surface
   MVP withheld - retired by `E18/F04/S01`, because the applicant surface turned out to be built and
@@ -300,15 +332,16 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 ## Market Document Canonical Form (Conventioner sharp edge)
 
 - **The back end refuses to boot** unless `migrations/migrate_market_keys.py` has recorded
-  both of its markers (`market_document_keys` and `market_slugs`) in the `schema_migrations`
-  collection. The migration establishes a market document's canonical form: camelCase keys (no
-  legacy snake_case) plus a stored slug derived from the name. A dev Mongo volume created
-  before the migration existed has no marker, so an existing stack hits this on first pull.
-  The fix is the migration itself: `docker compose run --rm backend python
-  migrations/migrate_market_keys.py` (`run`, not `exec` - the back end is crash-looping). One
-  command records both markers; the operator never discovers them one restart at a time. Do
-  not "fix" it by softening the check: it fails closed because an unmigrated market is
-  invisible, not broken.
+  every marker in `MARKET_MIGRATION_IDS` (`market_document_keys`, `market_slugs`,
+  `market_slugs_unique`) in the `schema_migrations` collection. The migration establishes a
+  market document's canonical form: camelCase keys (no legacy snake_case), a stored slug derived
+  from the name, and a UNIQUE slug index. A dev Mongo volume older than a marker lacks it, so an
+  existing stack hits this on first pull. The fix is the migration itself: `docker compose run
+  --rm backend python migrations/migrate_market_keys.py` (`run`, not `exec` - the back end is
+  crash-looping). One command records every marker; the operator never discovers them one
+  restart at a time. When stored markets already share a public address it stops and names
+  them: rename all but one in each group and run it again. Do not "fix" either refusal by
+  softening the check: it fails closed because an unmigrated market is invisible, not broken.
 - **Market documents are stored camelCase, and that is the only spelling reads may name.**
   Every write camel-cases the whole document, so a hand-written filter on `organization_id`
   matches nothing. Anything touching a raw document or a Mongo filter goes through
@@ -320,12 +353,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   org member's markets, and the suite's positive assertions catch it.
 - **`Market.slug` is a computed field** (`@computed_field` on the Pydantic model, derived from
   the name via `market_name_slug()` in `back-end/datatypes.py`). It is persisted and indexed
-  (`market_slug` index on the `markets` collection) so the public slug lookup
+  (`market_slug`, **unique** over non-empty slugs) so the public slug lookup
   (`published_market_by_slug` in `market_documents.py`) is one indexed query rather than a
   decode of every market on every unauthenticated request. It is never independently writable:
   no request body can name it, and every write recomputes it from the name. The stored slug
   narrows the query but does not decide it - `published_market_by_slug` re-checks the name
-  against `market_name_slug`.
+  against `market_name_slug`. **One address, one market** (E21/F03/S03): creation and rename both
+  ask `public_address_refusal()`, so "Cafe Market" is refused beside "Café Market"; uniqueness
+  on the exact name alone let two markets share a public URL.
 - **Parse stored markets with `market_from_document()`**, never `Market(**snake_dict)`.
   `Market.phase` defaults to `draft`, so a raw parse silently mislabels every market written
   before the field existed. `phase_from_market_document()` (`back-end/datatypes.py`) is the one
@@ -339,15 +374,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
   stay that way. `_validate_registry()` runs at import and refuses to load tables that disagree,
   so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
-- `Market.phase` is server-owned: `create_market()` stamps `draft`, `update_market()` re-applies
-  the stored phase, and the transition endpoint is the only writer on an existing market.
+- `Market.phase` is server-owned: `create_market()` stamps `draft`, and the transition endpoint is
+  the only writer on an existing market.
 - **`phase` is the single source of truth for the market lifecycle; `is_draft` is derived from
   it.** `Market.is_draft` is a Pydantic `@computed_field` (true iff `phase == draft`) and is
   never independently writable: no request body can set it, and it is recomputed from the stored
   phase on every write. Nothing reads the stored value for a market whose `phase` this build
   understands. It is still *persisted*, and every writer keeps it in agreement with `phase` (create stamps both,
-  `update_market()` re-derives it from the stored phase, the transition endpoint sets both in one
-  atomic update), purely because it is the fallback `phase_from_market_document()` drops to when
+  the transition endpoint sets both in one atomic update, and no other write touches either), purely because it is the fallback `phase_from_market_document()` drops to when
   `phase` is missing or unrecognized - a fallback that contradicted the phase would answer
   confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
   `Market` re-stamp `isDraft` from the effective phase before responding.
@@ -549,6 +583,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   backlog gets switched off, so a slice adds its files to that list when it lands. Everything MVP
   serves is on the list; the 174 remaining warnings are the floorplan GUI and the applicant views,
   both switched off in MVP.
+- **A market screen stands in `MarketFrame`** (`front-end/src/components/MarketFrame.vue`), whose
+  bar and whole phase rail stick at `top: var(--banner-h)` - the banner's height as a token - on the
+  same principle as the banner itself. The card fills at least the window under the banner. Never
+  give a frame screen an `overflow` scroller of its own: the sticky block silently stops sticking.
 - **A screen is one of two widths and never caps its own height.** `--workspace-max` (1440) or
   `--list-max` (1100); the PAGE scrolls. `.app-container` used to be `position: absolute;
   height: 100vh`, which is why no screen could scroll the page and every tall screen grew its own

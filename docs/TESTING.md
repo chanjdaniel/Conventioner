@@ -116,12 +116,13 @@ npm run test:unit
 
 Tests cover the API client (it sends credentials and attaches no request interceptor, so no
 identity can be smuggled onto a request) and
-`parseMarketFromApi()` (`market.test.ts`), which round-trips the market `phase`,
-application form and review config, and leaves them undefined when the
-API omits them. The same suite covers `pathAfterLoadingMarket()`, which routes every pre-archive phase to the
-setup wizard and only routes `archived` to the market's public slug, falling back to `isDraft`
-only for a market cached by a build that predates the field - without that fallback, a published
-market left in `localStorage` would be routed back into the setup wizard.
+`parseMarketFromApi()` (`market.test.ts`), which keeps everything the server sends about a
+market - the phase, the application form, the intake mode, the form lock and every key of the
+plan, `floorplans` included - since every screen reads the parsed market and the plan's autosave
+writes a working copy built from it. The same suite covers `openMarket()` and `marketPath()`: every
+phase opens the market's own screens, addressed by id. `marketStore.test.ts` covers the one holder of
+the open market (keyed by id, re-read after writes, never shows another market's copy), and
+`noMarketInTheBrowser.test.ts` fails if any source file stores the market in `localStorage` again.
 The application form builder is covered by three suites:
 `applicationForm.test.ts` (the shared validator: which forms Save blocks with a hint - a
 field the organizer has not started filling in - versus a validation error such as a bad,
@@ -210,8 +211,8 @@ market-setup Application Form tab: an organizer builds a form (keys auto-slugged
 labels) on a market created through the API path, watches the live preview, saves it, and
 reloads to confirm it persisted; a second test seeds an application straight into Mongo
 and asserts the D9 lock then renders the builder read-only with its lock banner, that
-`PUT /markets/{id}/application-form` refuses with 409, and that a market PUT carrying a
-rewritten form cannot smuggle one past it either. The floorplan suite
+`PUT /markets/{id}/application-form` refuses with 409, and that no whole-market PUT exists to
+smuggle one past it (405). The floorplan suite
 (`floorplan.spec.ts`) drives the create-from-floorplan setup path end to end:
 it walks the Floorplan AI 5-step wizard (upload, scale calibration, table
 placement, section grouping, save) and verifies the resulting sections land

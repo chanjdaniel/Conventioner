@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { savePlan } from './helpers/savePlan';
 import type { APIRequestContext } from '@playwright/test';
 import { loginViaApi, ensureTestOrgAuthenticated } from './helpers/seeds';
 import {
@@ -33,21 +34,10 @@ async function setPlan(
   seed: PhaseMarketSeed,
   sectionCount: number,
 ): Promise<void> {
-  const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
+  await savePlan(request, BACKEND_URL, TEST_USER.email, seed.marketId, {
+    ...PLAN,
+    sections: [{ ...PLAN.sections[0], count: sectionCount }],
   });
-  const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-  const res = await request.put(`${BACKEND_URL}/markets/${seed.marketId}`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-    data: {
-      ...market,
-      setupObject: {
-        ...PLAN,
-        sections: [{ ...PLAN.sections[0], count: sectionCount }],
-      },
-    },
-  });
-  expect(res.ok(), await res.text()).toBeTruthy();
 }
 
 function place(request: APIRequestContext, marketId: string, body: Record<string, unknown>) {

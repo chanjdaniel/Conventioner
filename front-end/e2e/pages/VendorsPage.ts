@@ -1,7 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
+import { marketScreenPath } from '../helpers/marketScreens';
 
 /**
- * Page object for the vendor browsing view (/vendors).
+ * Page object for the vendor browsing view (`/markets/:marketId/vendors`).
  */
 export class VendorsPage {
   readonly page: Page;
@@ -27,8 +28,8 @@ export class VendorsPage {
     this.detailAssignmentItems = page.getByTestId('vendors-detail-assignment-item');
   }
 
-  async goto(): Promise<void> {
-    await this.page.goto('/vendors');
+  async goto(marketId: string): Promise<void> {
+    await this.page.goto(marketScreenPath(marketId, 'vendors'));
   }
 
   async search(term: string): Promise<void> {

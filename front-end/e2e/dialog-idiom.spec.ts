@@ -326,6 +326,10 @@ test.describe('Enter means the same thing in every dialog', () => {
     const dialog = page.getByTestId('manage-market-window');
     await expect(dialog).toBeVisible({ timeout: 5000 });
 
+    // One organization, fixed at creation, said as one line - no control to move it (E21/F03/S05).
+    await expect(page.getByTestId('manage-market-organization')).toContainText('Belongs to');
+    await expect(page.getByTestId('manage-market-add-org-button')).toHaveCount(0);
+
     // Renaming, by Enter in the field rather than by finding the Save button.
     const rename = page.getByTestId('manage-market-rename-input');
     const save = page.getByTestId('manage-market-rename-save-button');

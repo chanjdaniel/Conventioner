@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
@@ -193,7 +194,6 @@ async function expectAA(page: Page, state: string): Promise<void> {
 test.describe('Every rendered text node reaches AA', () => {
   let marketId: string;
   let marketSlug: string;
-  let market: unknown;
 
   test.beforeAll(async ({ request }) => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
@@ -205,40 +205,31 @@ test.describe('Every rendered text node reaches AA', () => {
     );
     marketId = seeded.marketId;
     marketSlug = seeded.marketSlug;
-
-    const response = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    market = ((await response.json()) as { market: unknown }).market;
   });
 
   async function openTheSeededMarket(page: Page): Promise<void> {
     await page.goto('/login');
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
   }
 
   test('the screens', async ({ authenticatedPage: page }) => {
     await openTheSeededMarket(page);
     for (const [state, url, ready] of [
       ['markets', '/markets', 'markets-create-button'],
-      ['market plan', '/market-setup?tab=setup', 'setup-dates-date-display-0'],
+      ['market plan', marketSetupPath(marketId, 'setup'), 'setup-dates-date-display-0'],
       // The densest authoring surface in the product, and unwalked until E17/F03/S01 - which is
       // how a field-type badge shipped at 3.73:1 on it.
-      ['application form', '/market-setup?tab=form', 'essential-item-section-ranking'],
+      ['application form', marketSetupPath(marketId, 'form'), 'essential-item-section-ranking'],
       [
         'assignment results',
-        '/market-setup?tab=assignment',
+        marketSetupPath(marketId, 'assignment'),
         'assignment-results-download-csv-button',
       ],
-      ['tables', `/markets/${marketId}/tables`, 'tables-count-assigned'],
-      ['vendors', '/vendors', 'vendors-search-input'],
-      ['attendance', `/markets/${marketId}/attendance`, 'attendance-status-heading'],
+      ['tables', marketScreenPath(marketId, 'tables'), 'tables-count-assigned'],
+      ['vendors', marketScreenPath(marketId, 'vendors'), 'vendors-search-input'],
+      ['attendance', marketScreenPath(marketId, 'attendance'), 'attendance-status-heading'],
     ] as const) {
       await page.goto(url);
       await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
@@ -254,7 +245,7 @@ test.describe('Every rendered text node reaches AA', () => {
     // reported thirteen failures on a card that has none, and would equally have reported none on a
     // card that did. An empty failure list is only worth the ground it was measured on.
     await openTheSeededMarket(page);
-    await page.goto('/market-setup?tab=assignment');
+    await page.goto(marketSetupPath(marketId, 'assignment'));
     await expect(page.getByTestId('assignment-results-download-csv-button')).toBeVisible({
       timeout: 15000,
     });
@@ -285,7 +276,7 @@ test.describe('Every rendered text node reaches AA', () => {
     // The invisible archive-confirmation button lived here, behind two clicks, and a twenty-screen
     // walk never found it.
     await openTheSeededMarket(page);
-    await page.goto(`/markets/${marketId}/tables`);
+    await page.goto(marketScreenPath(marketId, 'tables'));
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
 
     await page.getByTestId('phase-rail-menu-button').click();
@@ -308,6 +299,17 @@ test.describe('Every rendered text node reaches AA', () => {
     // that went through with it would only pass once.
     await page.getByTestId('archive-confirm-cancel-button').click();
     await expect(page.getByTestId('archive-confirm-window')).toBeHidden();
+  });
+
+  test('a market tab under the pointer', async ({ authenticatedPage: page }) => {
+    // Hover is a state too, and none was walked: the tab bar's hover set its label to the border
+    // token, a 25% near-black, on the black bar - invisible under the pointer (E21/F01/S01).
+    await openTheSeededMarket(page);
+    await page.goto(marketSetupPath(marketId, 'setup'));
+    const tab = page.getByTestId('market-setup-applications-tab');
+    await expect(tab).toBeVisible({ timeout: 15000 });
+    await tab.hover();
+    await expectAA(page, 'a hovered market tab');
   });
 
   test('the new-market dialog, where a disabled primary lives', async ({

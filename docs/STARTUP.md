@@ -169,7 +169,7 @@ docker run -d \
    python init_database.py
   ```
    This creates the collections and records the market-document migration markers.
-   The back end refuses to boot without both markers (see Troubleshooting below), and a MongoDB you started yourself has never run `back-end/mongo-init.js`, which is what records them for the Docker stack.
+   The back end refuses to boot without every marker (see Troubleshooting below), and a MongoDB you started yourself has never run `back-end/mongo-init.js`, which is what records them for the Docker stack.
    Re-running it is harmless.
 
 ## Step 3: Frontend Setup
@@ -378,7 +378,8 @@ Running the back end directly, it means the process has no `.env` to read: do st
 
 The back end refuses to boot against a database whose market documents may not be in canonical form (legacy snake_case keys, or missing the stored slug), because it reads the canonical camelCase key only and the public slug lookup queries the stored slug - an unmigrated market would be invisible at every public URL, with nothing logged.
 A Mongo volume created before the migration existed has no markers, so an existing dev stack hits this the first time it pulls the change.
-The migration is the whole fix: it runs against an existing database, rewrites the documents into canonical form, builds the slug index, and records both markers itself.
+The migration is the whole fix: it runs against an existing database, rewrites the documents into canonical form, builds the unique slug index, and records every marker itself.
+If two stored markets already share a public address it stops and names them instead: rename all but one in each group, then run it again.
 
 ```bash
 docker compose run --rm backend python migrations/migrate_market_keys.py

@@ -95,7 +95,7 @@ test.describe('The MVP journey', () => {
     await newMarket.selectFirstOrg();
     await newMarket.fillMarketName(marketName);
     await newMarket.clickSubmit();
-    await newMarket.waitForSetupRedirect();
+    const marketId = await newMarket.waitForSetupRedirect();
 
     await setup.waitForWizard();
     await expect(setup.currentPhase).toHaveText('Draft');
@@ -143,7 +143,7 @@ test.describe('The MVP journey', () => {
     await page.screenshot({ path: testInfo.outputPath('02-imported.png'), fullPage: true });
 
     // --- 5. Review them ------------------------------------------------------------------
-    await setup.goto();
+    await setup.goto(marketId);
     await setup.openApplicationsTab();
     await monitor.waitForLoaded();
 

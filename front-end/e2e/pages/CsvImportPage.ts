@@ -1,7 +1,8 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { marketScreenPath } from '../helpers/marketScreens';
 
 /**
- * Page object for the CSV vendor import flow (`/import-applications`).
+ * Page object for the CSV vendor import flow (`/markets/:marketId/import`).
  *
  * The flow has four stages on one view: choose a file, map its columns onto the questions the
  * solver reads, resolve any cell value the market does not recognise, then preview and confirm.
@@ -102,20 +103,11 @@ export class CsvImportPage {
   }
 
   /**
-   * Put a market where every organizer view reads it, then open the import flow.
-   *
-   * The import view reads the current market from local storage the way the rest of the
-   * organizer surface does, so a test that seeded a market over the API arrives here with it.
+   * Open the import flow for a market seeded over the API, by its id - every market screen is
+   * addressed by id and takes its market from the server (E21/F02/S04).
    */
-  async open(market: Record<string, unknown>, userEmail: string): Promise<void> {
-    await this.page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: userEmail },
-    );
-    await this.page.goto('/import-applications');
+  async open(market: Record<string, unknown>): Promise<void> {
+    await this.page.goto(marketScreenPath(String(market.id), 'import'));
     await expect(this.view).toBeVisible();
   }
 

@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { marketPath } from '@/utils/market';
 import InitView from '@/views/InitView.vue';
 import LoginView from '@/views/LoginView.vue';
 import EmailVerificationView from '@/views/EmailVerificationView.vue';
@@ -59,32 +60,44 @@ const router = createRouter({
       component: () => import('@/views/OrganizationsView.vue'),
     },
     {
-      path: '/vendors',
+      path: '/markets/:marketId/vendors',
       name: 'vendors',
       component: () => import('@/views/VendorsView.vue'),
     },
+    { path: '/vendors', redirect: '/markets' },
     {
-      path: '/market-setup',
+      path: '/markets/:marketId/setup',
       name: 'market-setup',
       component: () => import('@/views/MarketSetupView.vue'),
     },
+    // Every market screen is addressed by id (E21/F02/S02). The id-less path never held one to
+    // preserve, so it can only send the organizer to choose a market.
     {
-      path: '/import-applications',
+      path: '/market-setup',
+      redirect: '/markets',
+    },
+    {
+      path: '/markets/:marketId/import',
       name: 'import-applications',
       component: () => import('@/views/CsvImportView.vue'),
     },
+    { path: '/import-applications', redirect: '/markets' },
     {
-      path: '/floorplan-editor',
+      path: '/markets/:marketId/floorplan',
       name: 'floorplan-editor',
       component: () => import('@/views/FloorplanEditorView.vue'),
     },
-    // Assignment Results is a tab on the market now, not a place the organizer is pushed to
-    // (E10/F03/S01). The old route is kept as a redirect, because it is what every screen that
-    // came back to the results used to push.
+    // This one did carry an id, in the query, so an old link still opens the market it named.
+    {
+      path: '/floorplan-editor',
+      redirect: (to) =>
+        to.query.marketId ? marketPath(String(to.query.marketId), 'floorplan') : '/markets',
+    },
+    // Assignment Results is a tab on the market now (E10/F03/S01). The old path carried no market
+    // id, so, like `/market-setup`, all it can do is send the organizer to choose a market.
     {
       path: '/assignment-results',
-      name: 'assignment-results',
-      redirect: { path: '/market-setup', query: { tab: 'assignment' } },
+      redirect: '/markets',
     },
     {
       path: '/markets/:marketId/attendance',

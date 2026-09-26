@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
@@ -100,7 +101,6 @@ async function expectNoUserAgentFont(page: Page, screen: string): Promise<void> 
 test.describe('No element falls through to a user-agent font', () => {
   let marketId: string;
   let marketSlug: string;
-  let market: unknown;
 
   test.beforeAll(async ({ request }) => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
@@ -112,11 +112,6 @@ test.describe('No element falls through to a user-agent font', () => {
     );
     marketId = seeded.marketId;
     marketSlug = seeded.marketSlug;
-
-    const response = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    market = ((await response.json()) as { market: unknown }).market;
   });
 
   /**
@@ -126,13 +121,9 @@ test.describe('No element falls through to a user-agent font', () => {
    */
   async function openTheSeededMarket(page: Page): Promise<void> {
     await page.goto('/login');
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
   }
 
   test('the sign-in screen, which is where the fallback was worst', async ({ page }) => {
@@ -166,12 +157,12 @@ test.describe('No element falls through to a user-agent font', () => {
 
   test('the market plan, where every field value was Inter', async ({ authenticatedPage }) => {
     await openTheSeededMarket(authenticatedPage);
-    await authenticatedPage.goto('/market-setup?tab=setup');
+    await authenticatedPage.goto(marketSetupPath(marketId, 'setup'));
     await expect(authenticatedPage.getByTestId('setup-dates-date-display-0')).toBeVisible({
       timeout: 10000,
     });
 
-    await expectNoUserAgentFont(authenticatedPage, '/market-setup');
+    await expectNoUserAgentFont(authenticatedPage, 'market setup');
   });
 
   test('the tables view, where a heading row sets Merge One on its children', async ({
@@ -182,7 +173,7 @@ test.describe('No element falls through to a user-agent font', () => {
     // it - has to opt back out. Twenty-four chips silently became headings when that declaration
     // was first removed, which is how the exception was found.
     await openTheSeededMarket(authenticatedPage);
-    await authenticatedPage.goto(`/markets/${marketId}/tables`);
+    await authenticatedPage.goto(marketScreenPath(marketId, 'tables'));
     await expect(authenticatedPage.getByTestId('tables-count-assigned')).toBeVisible({
       timeout: 10000,
     });

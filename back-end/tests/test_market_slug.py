@@ -73,21 +73,14 @@ class TestEveryWritePersistsIt:
 
         assert collection.inserted["slug"] == "cafe-market"
 
-    def test_renaming_a_market_moves_its_public_url(self, collection):
-        MarketsApi.update_market("market-123", client_market(name="Renamed Market"), "user-1")
+    def test_renaming_a_draft_moves_its_public_url(self, collection):
+        collection.doc = stored_market()  # a draft: past it, the name is fixed (E21/F03/S04)
+
+        MarketsApi.rename_market("market-123", "Renamed Market", "user-1")
 
         written = collection.last_update["$set"]
         assert written["name"] == "Renamed Market"
         assert written["slug"] == "renamed-market"
-
-    def test_an_update_body_cannot_name_the_slug(self, collection):
-        MarketsApi.update_market(
-            "market-123",
-            client_market(name="Spring Market", slug="someone-elses-market"),
-            "user-1",
-        )
-
-        assert collection.last_update["$set"]["slug"] == "spring-market"
 
 
 class TestTheLookupUsesTheStoredSlug:
