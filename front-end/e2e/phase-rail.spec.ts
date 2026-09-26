@@ -49,7 +49,7 @@ test.describe('The phase rail', () => {
   test('is below the header on every market screen', async ({ authenticatedPage: page }) => {
     for (const path of [
       marketSetupPath(seed.marketId, 'setup'),
-      marketScreenPath(seed.marketId, 'tables'),
+      marketScreenPath(seed.marketId, 'result'),
       marketScreenPath(seed.marketId, 'vendors'),
       marketScreenPath(seed.marketId, 'attendance'),
     ]) {

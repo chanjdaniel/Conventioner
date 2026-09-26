@@ -9,7 +9,6 @@ export class VendorsPage {
 
   readonly searchInput: Locator;
   readonly vendorListItems: Locator;
-  readonly backButton: Locator;
   readonly detailCloseButton: Locator;
   readonly detailPanel: Locator;
   readonly detailOverlay: Locator;
@@ -20,7 +19,6 @@ export class VendorsPage {
 
     this.searchInput = page.getByTestId('vendors-search-input');
     this.vendorListItems = page.getByTestId('vendors-list-item');
-    this.backButton = page.getByTestId('vendors-back-button');
     this.detailCloseButton = page.getByTestId('vendors-detail-close');
     this.detailPanel = page.getByTestId('vendors-detail-panel');
     /** The scrim. Clicking it dismisses the drawer, and it is what holds the mouse out. */
@@ -42,9 +40,5 @@ export class VendorsPage {
 
   async closeDetail(): Promise<void> {
     await this.detailCloseButton.click();
-  }
-
-  async clickBack(): Promise<void> {
-    await this.backButton.click();
   }
 }

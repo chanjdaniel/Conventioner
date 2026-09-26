@@ -70,7 +70,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '[data-testid="market-frame-card"]')).toBe(workspace);
 
-    await page.goto(marketScreenPath(marketId, 'tables'));
+    await page.goto(marketScreenPath(marketId, 'result'));
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '[data-testid="market-frame-card"]')).toBe(workspace);
 
@@ -150,7 +150,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     const gapUnderBanner = async () =>
       page.evaluate(() => {
         const banner = document.querySelector('.app-container > header') as HTMLElement;
-        const title = document.querySelector('[data-testid="market-setup-title"]') as HTMLElement;
+        const title = document.querySelector('[data-testid="market-bar-title"]') as HTMLElement;
         const card = title.closest('.settings-container') as HTMLElement;
         return Math.round(card.getBoundingClientRect().top - banner.getBoundingClientRect().bottom);
       });

@@ -147,8 +147,15 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   place:** `front-end/src/stores/market.ts`. Every market screen, the rail and every tab read it;
   screens get it through `useOpenMarket` (`front-end/src/utils/openMarket.ts`). Settled in
   `.scratch/wayfinding/the-market-frame/issues/03-one-market-every-surface-reads.md`.
-- **Every market screen is addressed by id**: `/markets/:marketId/{setup,vendors,import,floorplan,
-  tables,attendance}`, built with `marketPath()`. The id-less paths redirect to `/markets`.
+- **Every market page has its own address** (E22/F04/S02): `/markets/:marketId/{setup,form,
+  applications,assignment,result,vendors,attendance}` plus the `import` and `floorplan` flows, built
+  with `marketPath()`. `/markets/:marketId` alone lands on the page for the market's phase
+  (`MarketLanding`, via `currentPage` in `utils/marketPage.ts`). The old `setup?tab=` and `/tables`
+  addresses redirect; the id-less paths redirect to `/markets`. A guard's `resolution_link` names a
+  page (`applications`), never a redirect.
+- **The market's bar is `MarketBar`, rendered once by `MarketFrame`**: the name and the tabs (Market
+  Setup, Application Form, Applications, Assignment, and Attendance once published). A screen draws
+  no title or Back button of its own; `utils/marketPage.ts` says which tab holds which page.
 - **A write is followed by a re-read, never a patch.** After anything that changes the market
   (a transition - the rail does it - a form save, an assignment run, a placement, an import, a
   highlight) call the store's `refresh()`. Do not assign into the held market: no caller should

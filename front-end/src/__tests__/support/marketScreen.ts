@@ -9,9 +9,9 @@ import type { Mock } from 'vitest';
 
 export const MARKET_ID = 'market-1';
 
-/** The route a market screen is mounted at: its id in the path, the tab (if any) in the query. */
-export function marketRoute(tab?: string) {
-  return { params: { marketId: MARKET_ID }, query: tab ? { tab } : {} };
+/** The route a market page is mounted at: its id and its page in the path (E22/F04/S02). */
+export function marketRoute(page: string = 'setup') {
+  return { name: 'market-setup', params: { marketId: MARKET_ID, page }, query: {} };
 }
 
 /**

@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
+import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import type { ApplicationForm } from '@/assets/types/datatypes';
 import { MARKET_ID, marketRoute, serveMarket } from './support/marketScreen';
@@ -18,8 +19,8 @@ const formApi = vi.hoisted(() => vi.fn());
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  // The market's id and the open tab both live in the URL (E10/F03/S01, E21/F02/S02).
-  useRoute: () => marketRoute(),
+  // The market's id and its page both live in the URL (E21/F02/S02, E22/F04/S02).
+  useRoute: () => marketRoute('form'),
 }));
 
 vi.mock('@/utils/api', async (importOriginal) => {
@@ -61,7 +62,7 @@ function formWith(key: string, label: string): ApplicationForm {
 }
 
 /**
- * Mount the view on its Application Form tab with every child component stubbed, except the two
+ * Mount the view on its Application Form page with every child component stubbed, except the two
  * that have to render for the builder to be reachable: the form tab, which owns the form since
  * E18/F02/S01, and the setting container, which renders the slot the builder lives in.
  */
@@ -79,9 +80,8 @@ async function mountOnFormTab() {
       },
     },
   });
-  // The store fetches the market first; the tab bar exists once it has arrived.
-  await vi.waitFor(() => wrapper.get('[data-testid="market-setup-form-tab"]'));
-  await wrapper.get('[data-testid="market-setup-form-tab"]').trigger('click');
+  // The store fetches the market first; the page renders once it has arrived.
+  await vi.waitFor(() => expect(wrapper.findComponent(MarketFormTab).exists()).toBe(true));
   return wrapper;
 }
 

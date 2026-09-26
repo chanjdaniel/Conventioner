@@ -62,7 +62,7 @@ test.describe('What the dashboard says about your markets', () => {
   /** Open a market the way an organizer does - by arriving at it - and come back to the dashboard. */
   async function openThenReturn(page: Page, market: Record<string, unknown>) {
     await page.goto(marketSetupPath(String(market.id)));
-    await expect(page.getByTestId('market-setup-title')).toHaveText(String(market.name), {
+    await expect(page.getByTestId('market-bar-title')).toHaveText(String(market.name), {
       timeout: 15000,
     });
     await page.goto('/dashboard');

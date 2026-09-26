@@ -45,8 +45,8 @@ export class ApplicationFormPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.formTab = page.getByTestId('market-setup-form-tab');
-    this.setupTab = page.getByTestId('market-setup-setup-tab');
+    this.formTab = page.getByTestId('market-bar-tab-form');
+    this.setupTab = page.getByTestId('market-bar-tab-setup');
 
     this.builder = page.getByTestId('form-builder');
     this.builderEmpty = page.getByTestId('form-builder-empty');

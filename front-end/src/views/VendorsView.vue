@@ -339,15 +339,15 @@ function overridesFor(email: string, date: string): PlacementOverride[] | undefi
  *
  * This is the story that makes those filters reachable: `dateFilter` and its three neighbours
  * were computed from `route.query` and set by nothing, so a complete filter system existed that
- * no organizer could invoke (`E11/F03/S02`). The vendor rides along so the Tables view can send
- * them back to this panel rather than to the results tab.
+ * no organizer could invoke (`E11/F03/S02`). The vendor rides along, naming whose placement the
+ * organizer came to change.
  */
 function tablesLinkFor(date: string): string | null {
   const id = market.value?.id;
   const vendor = selectedVendor.value?.email;
   if (!id || !vendor) return null;
   const query = new URLSearchParams({ date, vendor });
-  return `/markets/${encodeURIComponent(id)}/tables?${query.toString()}`;
+  return `${marketPath(id, 'result')}?${query.toString()}`;
 }
 
 function goToTables(date: string): void {
@@ -355,13 +355,36 @@ function goToTables(date: string): void {
   if (href) router.push(href);
 }
 
+/**
+ * The open vendor is part of the page's address (E22/F04/S02), so a link, a refresh or the browser's
+ * Back returns to that vendor's panel. It is what the Tables view's Back button used to do by hand
+ * before the market's pages became tabs and the Back buttons went.
+ */
 function selectVendor(rowIndex: number): void {
   selectedRowIndex.value = rowIndex;
+  const email = vendors.value.find((v) => v.rowIndex === rowIndex)?.email;
+  if (email && route.query.vendor !== email) {
+    void router.replace({ query: { ...route.query, vendor: email } });
+  }
 }
 
 function closeDetail(): void {
   selectedRowIndex.value = null;
+  if (route.query.vendor) {
+    const query = { ...route.query };
+    delete query.vendor;
+    void router.replace({ query });
+  }
 }
+
+// Back and Forward move between addresses without remounting, so the panel follows the address.
+watch(
+  () => route.query.vendor,
+  (vendor) => {
+    if (vendor) openVendorFromRoute();
+    else selectedRowIndex.value = null;
+  },
+);
 
 useEscapeToClose(() => selectedVendor.value !== null, closeDetail);
 
@@ -375,26 +398,11 @@ useInertBehind(
   () => selectedVendor.value !== null,
   () => [detailOverlay.value, detailPanel.value],
 );
-
-function handleBack(): void {
-  if (market.value?.id) {
-    router.push(marketPath(market.value.id, 'setup', 'assignment'));
-  } else {
-    router.push('/dashboard');
-  }
-}
 </script>
 
 <template>
   <div class="vendors-view">
     <MarketFrame class="vendors-card" :market="market">
-      <template #bar>
-        <header class="vendors-header">
-          <h1 data-testid="vendors-heading">
-            {{ market ? `Vendors: ${market.name}` : 'Vendors' }}
-          </h1>
-        </header>
-      </template>
       <!-- The search stays in view with the frame; it used to stick inside the card's own
            scroller, which is gone (E21/F04/S02). -->
       <template #pinned>
@@ -470,17 +478,6 @@ function handleBack(): void {
           </ul>
         </template>
       </div>
-
-      <template #footer>
-        <button
-          type="button"
-          class="primary-button"
-          @click="handleBack"
-          data-testid="vendors-back-button"
-        >
-          Back
-        </button>
-      </template>
     </MarketFrame>
 
     <div
@@ -588,22 +585,6 @@ function handleBack(): void {
      under the banner, and a sticky element inside an `overflow` ancestor stops sticking. This used
      to cap the card at the viewport and scroll a body inside it. */
   border-radius: var(--radius-card);
-}
-
-.vendors-header {
-  background-color: var(--mm-black);
-  padding: 18px 24px;
-  /* The card is rounded and nothing clips it any more (a sticky bar cannot sit inside an overflow
-     ancestor), so the bar rounds its own top corners. */
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
-}
-
-.vendors-header h1 {
-  margin: 0;
-  color: white;
-  font-size: var(--text-xl);
-  text-align: center;
-  word-break: break-word;
 }
 
 .vendors-body {
@@ -807,23 +788,6 @@ function handleBack(): void {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   white-space: nowrap;
-}
-
-.primary-button {
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  padding: 0 18px;
-  height: 38px;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-md);
-  cursor: pointer;
-  transition: opacity 0.15s ease-in-out;
-}
-
-.primary-button:hover:not(:disabled) {
-  opacity: 0.9;
 }
 
 .detail-overlay {
