@@ -6,7 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/utils/api';
 import type { VendorAttendance } from '@/assets/types/datatypes';
 import { getShortDate, getTimestampTime } from '@/utils/utils';
-import PhaseRail from '@/components/PhaseRail.vue';
+import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import MarketArrival from '@/components/MarketArrival.vue';
 
@@ -94,16 +94,17 @@ onMounted(loadAttendance);
 
 <template>
   <div class="attendance-status-view">
-    <div class="attendance-status-card">
-      <header class="attendance-status-header">
-        <!-- The screen, then the market (E15/F02/S03). -->
-        <h1 data-testid="attendance-status-heading">
-          {{ market ? `Attendance: ${market.name}` : 'Attendance Status' }}
-        </h1>
-      </header>
+    <MarketFrame class="attendance-status-card" :market="market">
+      <template #bar>
+        <header class="attendance-status-header">
+          <!-- The screen, then the market (E15/F02/S03). -->
+          <h1 data-testid="attendance-status-heading">
+            {{ market ? `Attendance: ${market.name}` : 'Attendance Status' }}
+          </h1>
+        </header>
+      </template>
 
       <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
-      <PhaseRail :market="market" />
       <div v-if="marketStatus !== 'missing'" class="attendance-status-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
         <p v-if="isLoading">Loading…</p>
@@ -146,23 +147,16 @@ onMounted(loadAttendance);
           Back
         </button>
       </div>
-    </div>
+    </MarketFrame>
   </div>
 </template>
 
 <style scoped>
 .attendance-status-view {
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  padding: 40px 20px;
+  padding: 0 20px var(--space-4);
   display: flex;
   justify-content: center;
-  /* flex-start, not the default `stretch`: a stretched card is forced to the height of this
-     container (100vh minus padding) regardless of what it holds. Combined with the card's
-     `overflow: hidden` that clipped 1,942px of the 2,762px of table rows with no scrollbar
-     anywhere - six of twenty-four tables visible, the second market date unreachable - and it is
-     the same reason the Attendance card was an 820px slab holding 200px of content. */
   align-items: flex-start;
   background-color: var(--mm-beige);
 }
@@ -170,13 +164,9 @@ onMounted(loadAttendance);
 .attendance-status-card {
   width: 100%;
   max-width: var(--list-max);
-  background-color: white;
-  box-shadow: var(--shadow-card);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: 100%;
+  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
+     banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
+     card at the viewport and scroll a body inside it. */
 }
 
 .attendance-status-header {
@@ -194,7 +184,6 @@ onMounted(loadAttendance);
 .attendance-status-body {
   padding: 24px;
   min-height: 200px;
-  overflow-y: auto;
   color: var(--mm-black);
 }
 
@@ -230,6 +219,11 @@ onMounted(loadAttendance);
   display: flex;
   justify-content: flex-start;
   border-top: 1px solid var(--mm-border);
+  /* Back stays reachable at any scroll position, as it did outside the old inner scroller. */
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background-color: white;
 }
 
 .primary-button {

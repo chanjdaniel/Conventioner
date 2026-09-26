@@ -8,7 +8,7 @@ import { getFormattedDate } from '@/utils/utils';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
-import PhaseRail from '@/components/PhaseRail.vue';
+import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import MarketArrival from '@/components/MarketArrival.vue';
 import {
@@ -464,18 +464,19 @@ function swapSeats(withEmail: string): void {
 
 <template>
   <div class="tables-view">
-    <div class="tables-card">
-      <header class="tables-header">
-        <!-- The screen, then the market. An organizer running two markets in the same week
+    <MarketFrame class="tables-card" :market="market">
+      <template #bar>
+        <header class="tables-header">
+          <!-- The screen, then the market. An organizer running two markets in the same week
              could open this one and have nothing on screen say whose tables these are - on the
              screen where a hand placement moves a real vendor to a real seat (E15/F02/S03). -->
-        <h1 data-testid="tables-heading">
-          {{ market ? `Tables: ${market.name}` : 'Tables' }}
-        </h1>
-      </header>
+          <h1 data-testid="tables-heading">
+            {{ market ? `Tables: ${market.name}` : 'Tables' }}
+          </h1>
+        </header>
+      </template>
 
       <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
-      <PhaseRail :market="market" />
 
       <div v-if="marketStatus !== 'missing'" class="tables-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -785,7 +786,7 @@ function swapSeats(withEmail: string): void {
           Back
         </button>
       </div>
-    </div>
+    </MarketFrame>
 
     <PlacementDialog
       v-if="openSeat"
@@ -814,16 +815,9 @@ function swapSeats(withEmail: string): void {
 <style scoped>
 .tables-view {
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  padding: 40px 20px;
+  padding: 0 20px var(--space-4);
   display: flex;
   justify-content: center;
-  /* flex-start, not the default `stretch`: a stretched card is forced to the height of this
-     container (100vh minus padding) regardless of what it holds. Combined with the card's
-     `overflow: hidden` that clipped 1,942px of the 2,762px of table rows with no scrollbar
-     anywhere - six of twenty-four tables visible, the second market date unreachable - and it is
-     the same reason the Attendance card was an 820px slab holding 200px of content. */
   align-items: flex-start;
   background-color: var(--mm-beige);
 }
@@ -831,15 +825,9 @@ function swapSeats(withEmail: string): void {
 .tables-card {
   width: 100%;
   max-width: var(--list-max);
-  background-color: white;
-  box-shadow: var(--shadow-card);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  /* Grow with the content, then cap at the viewport and let the body scroll, so the header and
-     the actions row stay put on a long list. Same shape as the assignment results page. */
-  max-height: 100%;
+  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
+     banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
+     card at the viewport and scroll a body inside it. */
 }
 
 .tables-header {
@@ -861,8 +849,6 @@ function swapSeats(withEmail: string): void {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .filter-bar {
@@ -1272,6 +1258,11 @@ function swapSeats(withEmail: string): void {
   display: flex;
   justify-content: flex-start;
   border-top: 1px solid var(--mm-border);
+  /* Back stays reachable at any scroll position, as it did outside the old inner scroller. */
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background-color: white;
 }
 
 .primary-button {

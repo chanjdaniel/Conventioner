@@ -2,7 +2,7 @@
 id: E21
 title: The market frame
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

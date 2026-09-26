@@ -2,7 +2,7 @@
 id: E21/F04/S02
 title: Tables, Attendance and Vendors stand in the frame
 type: story
-status: ready
+status: done
 blocked_by: [E21/F04/S01]
 pr: []
 ---
@@ -20,7 +20,7 @@ Anything these screens pin today for its own reasons (a filter row, an actions r
 
 ## Acceptance criteria
 
-- [ ] Tables, Attendance and Vendors use the frame component with their own titles, and none of them caps its height or scrolls inside its card.
-- [ ] At 1920x1080, scrolling each to the bottom keeps the title and the whole rail visible under the banner.
-- [ ] On each of the four frame screens the page is the only vertical scroller, and an e2e spec asserts it.
-- [ ] Any control these screens kept in view by the old inner scroller is still reachable at any scroll position.
+- [x] Tables, Attendance and Vendors use the frame component with their own titles, and none of them caps its height or scrolls inside its card.
+- [x] At 1920x1080, scrolling each to the bottom keeps the title and the whole rail visible under the banner.
+- [x] On each of the four frame screens the page is the only vertical scroller, and an e2e spec asserts it.
+- [x] Any control these screens kept in view by the old inner scroller is still reachable at any scroll position.

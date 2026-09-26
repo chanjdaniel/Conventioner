@@ -28,6 +28,9 @@ defineProps<{
     <div class="market-frame" data-testid="market-frame">
       <slot name="bar" />
       <PhaseRail :market="market" :beforeTransition="beforeTransition" />
+      <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned with
+           the frame rather than sticking on its own, because it could only guess the frame's height. -->
+      <slot name="pinned" />
     </div>
     <slot />
   </div>
