@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { savePlan } from './helpers/savePlan';
 import { marketSetupPath } from './helpers/marketScreens';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
@@ -76,10 +77,7 @@ test.describe('Vendor browsing and search', () => {
     // One table for two approved vendors, so exactly one of them cannot be placed.
     const setup = market.setupObject as { sections: Array<Record<string, unknown>> };
     setup.sections = setup.sections.map((section) => ({ ...section, count: 1 }));
-    await request.put(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: market,
-    });
+    await savePlan(request, BACKEND_URL, TEST_USER.email, seed.marketId, setup);
 
     // Assign again against the smaller plan. Shrinking it is not on its own enough: every view
     // describes the STORED assignment now (E11/F03/S01), so nobody is unplaced until the run

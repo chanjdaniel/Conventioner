@@ -2,7 +2,7 @@
 id: E21/F03/S06
 title: The whole-market PUT is gone
 type: story
-status: ready
+status: done
 blocked_by: [E21/F03/S02, E21/F03/S04, E21/F03/S05]
 pr: []
 ---
@@ -20,7 +20,7 @@ Each is rewritten to state the rule as it now stands, not deleted and not left d
 
 ## Acceptance criteria
 
-- [ ] `PUT /markets/:id` answers 405 (or 404), and a test pins that.
-- [ ] `_preserve_server_owned_fields` and its tests are gone; each server-owned field's one writer is still covered by its own tests.
-- [ ] No front-end or e2e code calls the route.
-- [ ] AGENTS.md no longer describes defending against a market PUT, and each affected entry states the rule as it now stands.
+- [x] `PUT /markets/:id` answers 405 (or 404), and a test pins that.
+- [x] `_preserve_server_owned_fields` and its tests are gone; each server-owned field's one writer is still covered by its own tests.
+- [x] No front-end or e2e code calls the route.
+- [x] AGENTS.md no longer describes defending against a market PUT, and each affected entry states the rule as it now stands.

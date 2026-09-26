@@ -133,11 +133,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 - `seedPublishedMarketWithAssignments()` in `front-end/e2e/helpers/seeds.ts` creates a fully
   published market with vendor assignments ready for check-in, vendor browsing, and table filtering tests.
-- Publishing is `POST /markets/{id}/transition` with `{ toPhase: 'archived' }`, never a PUT of
-  `isDraft: false` - `isDraft` is derived from `phase` and a PUT body cannot set it.
+- Publishing is `POST /markets/{id}/transition` - `isDraft` is derived from `phase`, and no
+  request body can set either.
 - **An assignment is stored by `POST /markets/{id}/assignment`, and by nothing else.**
   That one call runs the solver and persists what it produced.
-  It used to be `GET /markets/{id}/assignment` (which only computes) followed by a whole-market PUT carrying the result, and that PUT now stores nothing: `assignmentObject` is server-owned like `applicationForm` and `importMapping`, because it is what `record_attendance` reads at check-in time and a stale client copy overwriting it moves vendors on market day (E11/F01/S01).
+  It used to be `GET /markets/{id}/assignment` (which only computes) followed by a whole-market PUT carrying the result. `assignmentObject` is what `record_attendance` reads at check-in time, so a stale client copy overwriting it moved vendors on market day (E11/F01/S01); the whole-market PUT is gone now (E21/F03/S06).
   `back-end/api/placements.py` is the single writer - a solver run, or `PUT /markets/{id}/placements` for one vendor in one seat on one date, both gated on `MarketRole.EDITOR`.
   Run the assignment *before* publishing: `market_days` has an entry invariant that one exists.
 
@@ -153,6 +153,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   (a transition - the rail does it - a form save, an assignment run, a placement, an import, a
   highlight) call the store's `refresh()`. Do not assign into the held market: no caller should
   need to know which fields its write touched.
+- **Each write names what it changes; there is no whole-market PUT** (E21/F03/S06). The plan is
+  `PUT /markets/:id/plan`, the name `PUT /markets/:id/name` (draft only - the name is the public
+  address), the form, placements, highlights and transitions have their own. A market's
+  organization is fixed at creation, and no two markets share a slug (unique `market_slug` index).
 - **Unsaved work is the editor's working copy**, never layered on the store (the plan's
   `setupObject`/`planIntakeMode`, the form builder's form). A re-read never overwrites a working
   copy that holds unsaved edits.
@@ -202,9 +206,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   All four are gated on `MarketRole.EDITOR` - the same bar as every other market write, and
   deliberately not stricter, since an EDITOR already owns the tiers, sections and counts the
   whole assignment is computed from.
-  `update_market()` re-applies the stored `assignment_object` like `application_form`: a market
-  PUT stores nothing, because a stale client copy moving vendors is a stale client copy moving
-  them on market day.
+  There is no other door: the whole-market PUT that once let a stale client copy move vendors on
+  market day is deleted (E21/F03/S06).
 - **A pin IS a placement row, flagged `hand_placed`.** There is no separate constraint object;
   two records could disagree, and a vendor pinned to one table and placed at another is the exact
   bug pins exist to prevent.
@@ -277,11 +280,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `back-end/api/markets.py`. A market's application form is editable only in `draft` phase
   and only while no application exists for it; once an applicant has submitted, the form is
   frozen for good.
-- **`Market.application_form` is server-owned on update.** `PUT /markets/<id>/application-form`
-  is its only writer on an existing market; `update_market()` re-applies the stored form over
-  whatever a market PUT body carried. Do not "fix" that by letting a market PUT write the form
-  - it is what makes the lock unbypassable. `POST /markets` may carry a form, and it runs
-  through the same validator.
+- **`Market.application_form` has one writer on an existing market:** `PUT
+  /markets/<id>/application-form`, which is what makes the lock unbypassable. Do not add a second
+  (the whole-market PUT that was one is deleted, E21/F03/S06). `POST /markets` may carry a form,
+  and it runs through the same validator.
 - E2E reaches the locked state with `seedApplication()`
   (`front-end/e2e/helpers/seedApplication.ts`), which writes the document straight into Mongo
   via `mongosh`, because no applicant-facing submit endpoint exists yet.
@@ -314,8 +316,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Intake mode does not gate the form builder.** A CSV market still has an application form,
   because the essential questions define the offering the CSV maps onto. Intake mode decides who
   fills the form in, not whether one exists.
-- **It is organizer-settable only while the market is a draft**, then frozen by `update_market()`,
-  derived from the stored phase rather than from a list of late phases. The control is
+- **It is organizer-settable only while the market is a draft**, through the plan write (`PUT
+  /markets/<id>/plan`, `save_plan`), which refuses a change after that - derived from the stored
+  phase rather than from a list of late phases. The control is
   `ElementIntakeMode`, a plan card; the server is the authority, so a hidden or disabled control is
   never the rule. It was withheld through MVP on the grounds that a toggle would advertise a surface
   MVP withheld - retired by `E18/F04/S01`, because the applicant surface turned out to be built and
@@ -371,15 +374,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
   stay that way. `_validate_registry()` runs at import and refuses to load tables that disagree,
   so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
-- `Market.phase` is server-owned: `create_market()` stamps `draft`, `update_market()` re-applies
-  the stored phase, and the transition endpoint is the only writer on an existing market.
+- `Market.phase` is server-owned: `create_market()` stamps `draft`, and the transition endpoint is
+  the only writer on an existing market.
 - **`phase` is the single source of truth for the market lifecycle; `is_draft` is derived from
   it.** `Market.is_draft` is a Pydantic `@computed_field` (true iff `phase == draft`) and is
   never independently writable: no request body can set it, and it is recomputed from the stored
   phase on every write. Nothing reads the stored value for a market whose `phase` this build
   understands. It is still *persisted*, and every writer keeps it in agreement with `phase` (create stamps both,
-  `update_market()` re-derives it from the stored phase, the transition endpoint sets both in one
-  atomic update), purely because it is the fallback `phase_from_market_document()` drops to when
+  the transition endpoint sets both in one atomic update, and no other write touches either), purely because it is the fallback `phase_from_market_document()` drops to when
   `phase` is missing or unrecognized - a fallback that contradicted the phase would answer
   confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
   `Market` re-stamp `isDraft` from the effective phase before responding.

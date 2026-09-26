@@ -796,53 +796,6 @@ def create_market() -> Response:
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-@app.route('/markets/<market_id>', methods=['PUT'])
-@login_required
-def update_market(market_id: str) -> Response:
-    """Update an existing market."""
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        # Validate the incoming market data using Pydantic
-        try:
-            data = convert_keys_to_snake_case(data)
-            market = Market(**data)
-        except Exception as validation_error:
-            print(f"Market validation error: {validation_error}")
-            print(f"Validation error type: {type(validation_error)}")
-            if hasattr(validation_error, 'errors'):
-                print(f"Validation errors: {validation_error.errors()}")
-            raise validation_error
-
-        requesting_user = authenticated_email()
-
-        # Check that user exists
-        user = UsersApi.get_user(requesting_user)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-        
-        # Perform the update (with permission check)
-        result = MarketsApi.update_market(market_id, market, requesting_user)
-
-        # Handle no matching market
-        if result.matched_count == 0:
-            return jsonify({"error": "Market not found"}), 404
-
-        return jsonify({
-            "message": "Market updated successfully",
-            "modified_count": result.modified_count
-        }), 200
-
-    except MarketsApi.MarketNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
-    except PermissionError as e:
-        return jsonify({"error": str(e)}), 403
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-
-
 @app.route('/markets/<market_id>/name', methods=['PUT'])
 @login_required
 def rename_market(market_id: str) -> Response:
@@ -892,8 +845,8 @@ def save_plan(market_id: str) -> Response:
 def save_review_highlights(market_id: str) -> Response:
     """Set which answers a reviewer reads first (E19/F03/S01).
 
-    The only writer of the field; a market PUT preserves the stored list, because a reviewer
-    changes these mid-queue and a stale client copy must not overwrite that.
+    The only writer of the field. A reviewer changes these mid-queue, which is why there is one
+    writer and no market-wide write that could carry a stale list back over it.
 
     Body: { "keys": ["business_name", "essential_available_dates"] }
 
@@ -1020,7 +973,7 @@ def resume_application_form_amendment(market_id: str) -> Response:
 def save_application_form(market_id: str) -> Response:
     """Save or update the application form for a market.
 
-    The only writer of the application form; a market PUT preserves the stored one.
+    The only writer of the application form on an existing market.
     Only allowed in ``draft`` phase.  Once any application exists for the market
     the form is locked (D9) and further edits are refused.
     """

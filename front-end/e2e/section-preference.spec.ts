@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { savePlan } from './helpers/savePlan';
 import { BACKEND_URL, TEST_USER } from './fixtures';
 import { SEED_MARKET_DATE, ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
@@ -67,15 +68,7 @@ test.describe('Section preference', () => {
       sections: [HALL, GARDEN],
     });
 
-    const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-    const putRes = await ctx.put(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: { ...market, setupObject },
-    });
-    expect(putRes.ok()).toBeTruthy();
+    await savePlan(ctx, BACKEND_URL, TEST_USER.email, marketId, setupObject);
 
     const assignmentRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}/assignment`, {
       headers: { 'X-Owner-Email': TEST_USER.email },

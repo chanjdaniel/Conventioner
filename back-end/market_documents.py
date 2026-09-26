@@ -3,7 +3,7 @@
 Two things make a stored market document canonical, and one migration establishes both.
 
 **The key convention.** Every market write camel-cases the whole document
-(``convert_keys_to_camel_case`` in ``create_market`` and ``update_market``), so
+(``convert_keys_to_camel_case`` in ``create_market`` and every named write), so
 ``organization_id`` is persisted as ``organizationId``. camelCase is the one canonical spelling:
 documents written before that convention used snake_case, and ``migrations/migrate_market_keys.py``
 rewrites them, so no stored document carries both spellings and no read has to guess.

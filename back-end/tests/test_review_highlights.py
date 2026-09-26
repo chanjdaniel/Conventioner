@@ -5,13 +5,11 @@ organizer learns which answers they needed WHILE REVIEWING - after that moment. 
 field would freeze exactly when it becomes knowable, and could never mark the essential answers,
 which are not form fields at all.
 """
-from types import SimpleNamespace
-
 import pytest
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
-from conftest import FakeMarketsCollection, client_market, stored_market
+from conftest import FakeMarketsCollection, stored_market
 from datatypes import MarketPhase, MarketRole
 
 
@@ -21,42 +19,6 @@ def markets(monkeypatch):
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
     return fake
-
-
-class TestTheFieldItself:
-    def test_a_market_carries_none_by_default(self):
-        # Absent means nothing is marked, which renders the card exactly as it does today.
-        assert (
-            MarketsApi.review_highlights_for_update(
-                client_market(), SimpleNamespace(review_highlights=None, phase=MarketPhase.DRAFT)
-            )
-            is None
-        )
-
-
-class TestItIsServerOwned:
-    def test_a_market_put_cannot_set_it(self):
-        """Like `application_form` and `assignment_object`: one writer, and a market PUT is not it.
-
-        A client that round-trips a market it fetched would otherwise carry a stale list back over
-        whatever a reviewer had just changed mid-queue (E19/F03/S02).
-        """
-        existing = SimpleNamespace(review_highlights=["business_name"], phase=MarketPhase.REVIEW)
-        body = client_market()
-        body.review_highlights = ["something_else"]
-
-        assert MarketsApi.review_highlights_for_update(body, existing) == ["business_name"]
-
-    def test_and_the_stored_value_survives_a_body_that_omits_it(self):
-        existing = SimpleNamespace(
-            review_highlights=["business_name", "essential_available_dates"],
-            phase=MarketPhase.REVIEW,
-        )
-
-        assert MarketsApi.review_highlights_for_update(client_market(), existing) == [
-            "business_name",
-            "essential_available_dates",
-        ]
 
 
 class TestSavingThem:

@@ -1,4 +1,5 @@
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
+import { savePlan } from './helpers/savePlan';
 import { marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import type { APIRequestContext } from '@playwright/test';
@@ -53,11 +54,6 @@ async function seedMarketWithDate(request: APIRequestContext): Promise<Record<st
   }
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-  const marketRes = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
-  const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-
   const setupObject = {
     priority: [],
     marketDates: [{ date: MARKET_DATE }],
@@ -69,13 +65,7 @@ async function seedMarketWithDate(request: APIRequestContext): Promise<Record<st
       maxHalfTableProportionPerSection: null,
     },
   };
-  const putRes = await request.put(`${BACKEND_URL}/markets/${marketId}`, {
-    headers,
-    data: { ...market, setupObject },
-  });
-  if (!putRes.ok()) {
-    throw new Error(`Setup PUT failed: ${putRes.status()} ${await putRes.text()}`);
-  }
+  await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, setupObject);
   const updatedRes = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
     headers: { 'X-Owner-Email': TEST_USER.email },
   });
