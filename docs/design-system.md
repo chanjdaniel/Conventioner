@@ -77,14 +77,17 @@ No screen caps its own height, and no row carries a minimum height.
 
 | Token | Value | Screens |
 | --- | --- | --- |
-| `--workspace-max` | 1440px | Market Setup and its four tabs |
-| `--list-max` | 1100px | Tables, Vendors, Attendance, Markets, Organizations |
+| `--workspace-max` | 1440px | Every market screen: its tabs, Tables, Vendors, Attendance, Import |
+| `--list-max` | 1100px | Markets, Organizations |
 
 Two widths rather than one because the content clusters into two groups and **nothing wants the 1536 the workspace currently gets**: the plan's widest row needs 1316, the statistics need 1129, and the single-column lists need ~1035. One width for both puts a 1,035px list in a 1,440px page.
 
 **1440 rather than the content-only answer of 1360** because that is the phase rail's measured break - below it the rail wraps to a second row on a published market. `readable-journey` ticket 06 had already put that break "between 1366 and 1440"; it is exactly 1440.
 
-The rail still wraps at `--list-max`, which is [ticket 07](../.scratch/wayfinding/claims-and-room/issues/07-the-rails-second-row.md) and may yet amend `--list-max`.
+**Every market screen is one width, and `MarketFrame` sets it** (E22/F04/S01, from [the-assignment-tab ticket 02](../.scratch/wayfinding/the-assignment-tab/issues/02-how-every-market-screen-is-reached.md)).
+Tables, Vendors and Attendance used to be `--list-max`, so moving between a market's screens made the frame jump 340px, cut the market's name, and wrapped the rail to a second row on the narrow ones.
+A screen that stands in the frame sets no width of its own.
+The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not.
 
 **A market screen's frame stays put** (E21/F04, from [the-market-frame ticket 01](../.scratch/wayfinding/the-market-frame/issues/01-how-the-frame-stays-put.md)).
 `MarketFrame` pins the screen's bar and the whole phase rail directly under the app banner, at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.

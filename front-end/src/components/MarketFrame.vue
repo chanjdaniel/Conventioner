@@ -42,7 +42,16 @@ defineProps<{
 </template>
 
 <style scoped>
+/*
+ * Every market screen is one width, and the frame says which (E22/F04/S01). Tables, Vendors and
+ * Attendance were `--list-max` while the tabs were `--workspace-max`, so moving between a market's
+ * screens made the frame jump 340px and cut the market's name on the narrow ones. A screen that
+ * stands in the frame sets no width of its own.
+ */
 .market-frame-card {
+  width: 100%;
+  max-width: var(--workspace-max);
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   background-color: white;
