@@ -64,9 +64,15 @@ const router = createRouter({
       component: () => import('@/views/VendorsView.vue'),
     },
     {
-      path: '/market-setup',
+      path: '/markets/:marketId/setup',
       name: 'market-setup',
       component: () => import('@/views/MarketSetupView.vue'),
+    },
+    // Every market screen is addressed by id (E21/F02/S02). The id-less path never held one to
+    // preserve, so it can only send the organizer to choose a market.
+    {
+      path: '/market-setup',
+      redirect: '/markets',
     },
     {
       path: '/import-applications',
@@ -78,13 +84,11 @@ const router = createRouter({
       name: 'floorplan-editor',
       component: () => import('@/views/FloorplanEditorView.vue'),
     },
-    // Assignment Results is a tab on the market now, not a place the organizer is pushed to
-    // (E10/F03/S01). The old route is kept as a redirect, because it is what every screen that
-    // came back to the results used to push.
+    // Assignment Results is a tab on the market now (E10/F03/S01). The old path carried no market
+    // id, so, like `/market-setup`, all it can do is send the organizer to choose a market.
     {
       path: '/assignment-results',
-      name: 'assignment-results',
-      redirect: { path: '/market-setup', query: { tab: 'assignment' } },
+      redirect: '/markets',
     },
     {
       path: '/markets/:marketId/attendance',

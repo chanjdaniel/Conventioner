@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { MARKET_SETUP_URL } from '../helpers/marketScreens';
 
 /** Minimal shape of a placed table as stored in the Pinia floorplan store. */
 interface PlacedTable {
@@ -340,9 +341,9 @@ export class FloorplanWorkflowPage {
     await this.saveConfirmBtn.click();
   }
 
-  /** Wait for redirect back to market-setup after successful save. */
+  /** Wait for redirect back to the market's setup screen after a successful save. */
   async waitForSaveComplete(): Promise<void> {
-    await this.page.waitForURL('**/market-setup**', { timeout: 15000 });
+    await this.page.waitForURL(MARKET_SETUP_URL, { timeout: 15000 });
   }
 
   // ─── Helpers ────────────────────────────────────────────────────
@@ -351,7 +352,7 @@ export class FloorplanWorkflowPage {
    * Full floorplan workflow: upload, calibrate, add table type,
    * auto-place, group sections, and save.
    *
-   * Returns once the save has completed and navigated to /market-setup.
+   * Returns once the save has completed and navigated back to the market's setup screen.
    */
   async completeFloorplanWorkflow(
     fixturePath: string,

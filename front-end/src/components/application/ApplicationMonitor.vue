@@ -178,14 +178,20 @@ const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.ap
 // what the market is waiting on (E18/F02/S03).
 watch(undecided, (queue) => emit('update:undecidedCount', queue.length), { immediate: true });
 
+// Reload the queue when the surface is shown or a different MARKET opens - not whenever the store
+// re-reads this one. It re-reads after every write now (E21/F02/S02), a highlight toggle included,
+// and reloading on each would put the reviewer back on the first card mid-queue.
 watch(
-  () => [props.visible, props.market] as const,
+  () => [props.visible, props.market?.id] as const,
   async ([visible]) => {
-    if (visible && props.market) {
-      resultsPublished.value = props.market.resultsPublished ?? false;
-      await loadApplications();
-    }
+    if (visible && props.market) await loadApplications();
   },
+  { immediate: true },
+);
+
+watch(
+  () => props.market?.resultsPublished,
+  (published) => (resultsPublished.value = published ?? false),
   { immediate: true },
 );
 

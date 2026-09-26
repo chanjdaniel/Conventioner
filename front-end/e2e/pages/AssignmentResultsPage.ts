@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { marketSetupPath } from '../helpers/marketScreens';
 
 /**
  * Page object for the Assignment Results / Generate Assignment view.
@@ -60,8 +61,8 @@ export class AssignmentResultsPage {
   }
 
   /** The results are a tab on the market, not a route of their own (E10/F03/S01). */
-  async goto(): Promise<void> {
-    await this.page.goto('/market-setup?tab=assignment');
+  async goto(marketId: string): Promise<void> {
+    await this.page.goto(marketSetupPath(marketId, 'assignment'));
   }
 
   async clickDownloadCsv(): Promise<void> {

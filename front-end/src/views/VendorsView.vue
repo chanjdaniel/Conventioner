@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
@@ -378,7 +379,7 @@ useInertBehind(
 
 function handleBack(): void {
   if (market.value?.id) {
-    router.push({ path: '/market-setup', query: { tab: 'assignment' } });
+    router.push(marketPath(market.value.id, 'setup', 'assignment'));
   } else {
     router.push('/dashboard');
   }

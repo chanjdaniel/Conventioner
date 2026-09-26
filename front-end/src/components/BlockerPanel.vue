@@ -5,6 +5,8 @@ import type { PreconditionResult } from '@/assets/types/datatypes';
 
 const props = defineProps<{
   blockers: PreconditionResult[];
+  /** The market the blockers are about; a resolution link names a screen of THIS market. */
+  marketId: string;
 }>();
 
 const route = useRoute();
@@ -20,20 +22,30 @@ const router = useRouter();
  * to be (E14/F01/S03).
  *
  * The comparison is `router.resolve(...).fullPath` against the current one, so a link is a link to
- * a place rather than a string: `/market-setup?tab=applications` and the same route reached by
+ * a place rather than a string: `/markets/<id>/setup?tab=applications` and the same route reached by
  * clicking that tab match. It is NOT normalisation - a different query order or an extra parameter
  * reads as a different place - so a guard's link must be spelled as the route it lands on, and must
  * not be a redirect, which `resolve` does not follow.
  */
 const rows = computed(() =>
-  props.blockers.map((blocker) => ({
-    blocker,
-    fixLink:
-      blocker.resolutionLink && router.resolve(blocker.resolutionLink).fullPath !== route.fullPath
-        ? blocker.resolutionLink
-        : null,
-  })),
+  props.blockers.map((blocker) => {
+    const link = blocker.resolutionLink ? marketLink(blocker.resolutionLink) : null;
+    return {
+      blocker,
+      fixLink: link && router.resolve(link).fullPath !== route.fullPath ? link : null,
+    };
+  }),
 );
+
+/**
+ * A resolution link is relative to the market's own screens - `setup?tab=applications` - and this
+ * is where it becomes the market's address (E21/F02/S02). The server names the screen and the tab
+ * that hold the remedy; which market that is, the panel already knows, so the guards never build
+ * per-market URLs and every link stays a literal their test can read.
+ */
+function marketLink(relative: string): string {
+  return `/markets/${encodeURIComponent(props.marketId)}/${relative.replace(/^\/+/, '')}`;
+}
 </script>
 
 <template>

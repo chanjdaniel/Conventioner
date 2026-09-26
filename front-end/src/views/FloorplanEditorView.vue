@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { marketPath } from '@/utils/market';
 import { useRouter, useRoute } from 'vue-router';
 import FloorplanWorkflow from '@/components/floorplan/FloorplanWorkflow.vue';
 
@@ -8,9 +9,8 @@ const route = useRoute();
 
 const marketId = computed(() => route.query.marketId as string | undefined);
 
-function handleSaved(_payload: { market_id: string }) {
-  void _payload;
-  router.push('/market-setup');
+function handleSaved(payload: { market_id: string }) {
+  router.push(marketPath(payload.market_id));
 }
 </script>
 
@@ -19,10 +19,8 @@ function handleSaved(_payload: { market_id: string }) {
     <div class="editor-wrapper">
       <FloorplanWorkflow v-if="marketId" :marketId="marketId" @saved="handleSaved" />
       <div v-else class="no-market-message">
-        <p>No market selected. Please start from the Market Setup page.</p>
-        <button class="return-button" @click="router.push('/market-setup')">
-          Go to Market Setup
-        </button>
+        <p>No market selected. Choose a market and open its floorplan from there.</p>
+        <button class="return-button" @click="router.push('/markets')">Choose a market</button>
       </div>
     </div>
   </div>

@@ -1,4 +1,5 @@
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import type { APIRequestContext } from '@playwright/test';
 
@@ -91,7 +92,7 @@ for (const timezoneId of TIMEZONES) {
       const market = await seedMarketWithDate(page.request);
 
       // Establish the app origin, then inject market + user the same way
-      // market-pipeline.spec.ts does so /market-setup renders our market.
+      // market-pipeline.spec.ts does, for the screens that still read it.
       await page.goto('/login');
       await page.evaluate(
         ({ m, user }) => {
@@ -100,7 +101,7 @@ for (const timezoneId of TIMEZONES) {
         },
         { m: market, user: TEST_USER.email },
       );
-      await page.goto('/market-setup?tab=setup');
+      await page.goto(marketSetupPath(String(market.id), 'setup'));
 
       const dateLabel = page.getByTestId('setup-dates-date-display-0');
       await expect(dateLabel).toBeVisible({ timeout: 10000 });
@@ -132,7 +133,7 @@ for (const timezoneId of TIMEZONES) {
         },
         { m: market, user: TEST_USER.email },
       );
-      await page.goto('/market-setup?tab=setup');
+      await page.goto(marketSetupPath(String(market.id), 'setup'));
 
       // It opens on the month the market already sits in - the same month for every viewer.
       const month = page.getByTestId('setup-dates-month');

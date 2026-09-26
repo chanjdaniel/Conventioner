@@ -8,16 +8,18 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
+import { marketRoute, serveMarket } from './support/marketScreen';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  // The open tab lives in the URL now (E10/F03/S01).
-  useRoute: () => ({ query: {} }),
+  // The market's id and the open tab both live in the URL (E10/F03/S01, E21/F02/S02).
+  useRoute: () => marketRoute(),
 }));
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
@@ -33,15 +35,13 @@ const PLAN = {
   assignmentOptions: {},
 };
 
-function storeMarket() {
-  localStorage.setItem(
-    'market',
-    JSON.stringify({ id: 'market-1', name: 'Riverside', phase: 'draft', setupObject: PLAN }),
-  );
+function serveTheMarket() {
+  serveMarket(api.get, { id: 'market-1', name: 'Riverside', phase: 'draft', setupObject: PLAN });
 }
 
-function mountPlan() {
-  return mount(MarketSetupView, {
+/** Mount the plan, and let the store receive the market it is routed to. */
+async function mountPlan() {
+  const wrapper = mount(MarketSetupView, {
     shallow: true,
     global: {
       stubs: {
@@ -54,14 +54,16 @@ function mountPlan() {
       },
     },
   });
+  await vi.advanceTimersByTimeAsync(0);
+  return wrapper;
 }
 
 beforeEach(() => {
-  localStorage.clear();
+  setActivePinia(createPinia());
   api.get.mockReset();
   api.put.mockReset();
   api.put.mockResolvedValue({ data: {} });
-  storeMarket();
+  serveTheMarket();
   vi.useFakeTimers();
 });
 
@@ -69,14 +71,17 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function edit(wrapper: ReturnType<typeof mountPlan>, plan: Record<string, unknown> = PLAN) {
+async function edit(
+  wrapper: Awaited<ReturnType<typeof mountPlan>>,
+  plan: Record<string, unknown> = PLAN,
+) {
   wrapper.findComponent(ElementMarketDates).vm.$emit('update:setupObject', plan);
   await wrapper.vm.$nextTick();
 }
 
 describe('the plan saves itself', () => {
   it('writes an edit to the server', async () => {
-    const wrapper = mountPlan();
+    const wrapper = await mountPlan();
 
     await edit(wrapper);
     await vi.advanceTimersByTimeAsync(1000);
@@ -85,7 +90,7 @@ describe('the plan saves itself', () => {
   });
 
   it('waits, so a name typed one letter at a time is one save and not eleven', async () => {
-    const wrapper = mountPlan();
+    const wrapper = await mountPlan();
 
     for (let keystroke = 0; keystroke < 'Riverside 1'.length; keystroke += 1) {
       await edit(wrapper);
@@ -97,7 +102,7 @@ describe('the plan saves itself', () => {
   });
 
   it('says it saved, and stops saying so', async () => {
-    const wrapper = mountPlan();
+    const wrapper = await mountPlan();
 
     await edit(wrapper);
     await vi.advanceTimersByTimeAsync(1000);
@@ -109,7 +114,7 @@ describe('the plan saves itself', () => {
 
   it('says so when a save fails, rather than reporting a plan that is not there', async () => {
     api.put.mockRejectedValue(new Error('offline'));
-    const wrapper = mountPlan();
+    const wrapper = await mountPlan();
 
     await edit(wrapper);
     await vi.advanceTimersByTimeAsync(1000);
@@ -119,7 +124,7 @@ describe('the plan saves itself', () => {
   });
 
   it('sends a pending edit when the organizer leaves before it fires', async () => {
-    const wrapper = mountPlan();
+    const wrapper = await mountPlan();
 
     await edit(wrapper);
     await vi.advanceTimersByTimeAsync(100);

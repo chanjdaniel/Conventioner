@@ -1,4 +1,5 @@
 import path from 'path';
+import { marketSetupPath, MARKET_SETUP_URL } from './helpers/marketScreens';
 import { fileURLToPath } from 'url';
 import {
   test,
@@ -94,7 +95,7 @@ test.describe('Floorplan workflow E2E', () => {
       { m: market, user: TEST_USER.email },
     );
 
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(marketId));
 
     const setupPage = new MarketSetupPage(page);
     await setupPage.waitForWizard();
@@ -106,7 +107,7 @@ test.describe('Floorplan workflow E2E', () => {
     await floorplanPage.selectFloorplanPath();
     await floorplanPage.completeFloorplanWorkflow(FLOORPLAN_PATH);
 
-    await expect(page).toHaveURL(/\/market-setup/);
+    await expect(page).toHaveURL(MARKET_SETUP_URL);
     await setupPage.waitForWizard();
 
     // Verify placed tables survived the step-2 to step-3 transition.

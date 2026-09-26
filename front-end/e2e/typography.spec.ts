@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
@@ -166,12 +167,12 @@ test.describe('No element falls through to a user-agent font', () => {
 
   test('the market plan, where every field value was Inter', async ({ authenticatedPage }) => {
     await openTheSeededMarket(authenticatedPage);
-    await authenticatedPage.goto('/market-setup?tab=setup');
+    await authenticatedPage.goto(marketSetupPath(marketId, 'setup'));
     await expect(authenticatedPage.getByTestId('setup-dates-date-display-0')).toBeVisible({
       timeout: 10000,
     });
 
-    await expectNoUserAgentFont(authenticatedPage, '/market-setup');
+    await expectNoUserAgentFont(authenticatedPage, 'market setup');
   });
 
   test('the tables view, where a heading row sets Merge One on its children', async ({

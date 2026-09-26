@@ -17,6 +17,7 @@
  * `top: 35px; left: 50%` - a coordinate measured against one arrangement of the dialog.
  */
 import ElementOrgSelect from '@/components/elements/ElementOrgSelect.vue';
+import { marketPath } from '@/utils/market';
 import AppDialog from '@/components/AppDialog.vue';
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
@@ -83,7 +84,7 @@ const handleSubmit = async () => {
     localStorage.removeItem('market');
     localStorage.setItem('market', JSON.stringify(marketWithId));
 
-    router.push('/market-setup');
+    router.push(marketPath(marketId));
   } catch (error) {
     if (
       axios.isAxiosError(error) &&

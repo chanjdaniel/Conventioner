@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
@@ -285,7 +286,7 @@ function goBack(): void {
     router.push({ path: '/vendors', query: { vendor } });
     return;
   }
-  router.push({ path: '/market-setup', query: { tab: 'assignment' } });
+  router.push(marketPath(marketId.value, 'setup', 'assignment'));
 }
 
 async function loadTables(): Promise<void> {

@@ -745,17 +745,26 @@ class TestEveryResolutionLinkPointsAtItsFix:
     where this turns it into a red build for whoever typed it.
     """
 
-    #: Routes a link may name. Only tabs the URL actually distinguishes: ``?tab=setup`` is NOT
-    #: here, because ``tabFromRoute()`` renders the setup tab for a bare ``/market-setup`` too, so
+    #: Routes a link may name, relative to the market's own screens. Only tabs the URL actually
+    #: distinguishes: ``?tab=setup`` is NOT here, because ``tabFromRoute()`` can render the setup
+    #: tab for a bare ``setup`` too, so
     #: a link to it would read as leading elsewhere from the very page it lands on - the dead link
     #: this story removes. A guard that needs to point at the plan has to wait for the market
     #: screen to put its default tab in the URL.
     ALLOWED = {
+        "setup?tab=applications",
+        "setup?tab=assignment",
+    }
+    #: A bare page (every screen shows the rail), a redirect (the panel cannot follow a hop), or an
+    #: absolute path (a link is relative to the market's own screens; the id-less paths redirect).
+    REFUSED = {
+        "setup",
+        "setup?tab=setup",
+        "/market-setup",
         "/market-setup?tab=applications",
         "/market-setup?tab=assignment",
+        "/assignment-results",
     }
-    #: A bare page (every screen shows the rail) or a redirect (the panel cannot follow a hop).
-    REFUSED = {"/market-setup", "/assignment-results", "/market-setup?tab=setup"}
 
     def _link_nodes(self):
         """Every ``resolution_link`` argument in the module, keyword or positional."""

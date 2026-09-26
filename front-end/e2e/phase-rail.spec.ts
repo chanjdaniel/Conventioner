@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssignedMarket';
 
 /**
@@ -40,7 +41,7 @@ test.describe('The phase rail', () => {
 
   test('is below the header on every market screen', async ({ authenticatedPage: page }) => {
     for (const path of [
-      '/market-setup?tab=setup',
+      marketSetupPath(seed.marketId, 'setup'),
       `/markets/${seed.marketId}/tables`,
       '/vendors',
       `/markets/${seed.marketId}/attendance`,
@@ -77,7 +78,7 @@ test.describe('The phase rail', () => {
       data: { toPhase: 'market_days' },
     });
 
-    await openMarket(page, '/market-setup?tab=setup');
+    await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
     const chip = page.getByTestId('phase-rail-checkin');
     await expect(chip).toBeVisible({ timeout: 15000 });
     const url = await chip.locator('a').innerText();
@@ -102,7 +103,7 @@ test.describe('The phase rail', () => {
     authenticatedPage: page,
   }) => {
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
-    await openMarket(page, '/market-setup?tab=setup');
+    await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
 
     const chip = page.getByTestId('phase-rail-checkin');
     await expect(chip).toBeVisible({ timeout: 15000 });
@@ -123,7 +124,7 @@ test.describe('The phase rail', () => {
     // The seeded market takes its vendors by import, so the chip must not appear: its `/apply` URL
     // answers exactly as a market that does not exist, and a chip would be the one place the
     // product admitted it was real (E18/F04/S02).
-    await openMarket(page, '/market-setup?tab=setup');
+    await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
     await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('phase-rail-apply')).toHaveCount(0);
 
@@ -132,7 +133,7 @@ test.describe('The phase rail', () => {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { ...(await marketBody(page)), intakeMode: 'form' },
     });
-    await openMarket(page, '/market-setup?tab=setup');
+    await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
 
     // Frozen after draft, so a market already past it keeps what it had - which is the rule, not a
     // failure. Only assert the chip when the server actually accepted the change.
@@ -152,7 +153,7 @@ test.describe('The phase rail', () => {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'archived' },
     });
-    await openMarket(page, '/market-setup?tab=setup');
+    await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
 
     const frozen = page.getByTestId('phase-rail-frozen');
     await expect(frozen).toBeVisible({ timeout: 15000 });

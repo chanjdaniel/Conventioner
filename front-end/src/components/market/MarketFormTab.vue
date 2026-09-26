@@ -15,6 +15,7 @@
  * priority offers as the questions a rule can order by.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useMarketStore } from '@/stores/market';
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
@@ -33,6 +34,8 @@ import type {
 } from '@/assets/types/datatypes';
 
 const props = defineProps<{ market: Market | null; setupObject: SetupObject }>();
+/** A save is a write, so it is followed by the store re-reading the market (E21/F02/S02). */
+const marketStore = useMarketStore();
 const emit = defineEmits<{
   (event: 'update:formEditable', value: boolean): void;
   (event: 'update:formFields', value: FormField[]): void;
@@ -87,16 +90,16 @@ const essentialOptions = computed<EssentialFormOptions>(() => {
 });
 
 /**
- * The market document is the single source of truth for the form; keep it in step. The key flags
- * are the organizer's intent, so they are left exactly as they are: a save hands back the same
- * fields it was given, and saving does not make an auto-derived key a hand-typed one.
+ * Take the form the server holds as this tab's working copy. The key flags are the organizer's
+ * intent, so they are left exactly as they are: a save hands back the same fields it was given,
+ * and saving does not make an auto-derived key a hand-typed one.
+ *
+ * It used to write the form onto the market it was handed, and into `localStorage`, so the rest of
+ * the page would see it. The market belongs to the store now (E21/F02/S02): a save is followed by
+ * the store re-reading it, which is how every other surface learns the form changed.
  */
 function adoptApplicationForm(form: ApplicationForm | null) {
   applicationForm.value = form;
-  if (market.value) {
-    market.value.applicationForm = form ?? undefined;
-    localStorage.setItem('market', JSON.stringify(market.value));
-  }
 }
 
 /**
@@ -183,6 +186,7 @@ async function handleToggleUnasked(key: string, unasked: boolean) {
   try {
     const response = await api.put(`/markets/${market.value.id}/application-form`, updated);
     adoptApplicationForm(response.data?.application_form ?? updated);
+    void marketStore.refresh();
     formSaveStatus.value = 'saved';
     savedStatusTimer.value = setTimeout(() => {
       savedStatusTimer.value = null;
@@ -208,6 +212,7 @@ async function saveApplicationForm() {
     if (response.data?.application_form) {
       adoptApplicationForm(response.data.application_form);
     }
+    void marketStore.refresh();
     savedStatusTimer.value = setTimeout(() => {
       savedStatusTimer.value = null;
       if (formSaveStatus.value === 'saved') formSaveStatus.value = 'idle';

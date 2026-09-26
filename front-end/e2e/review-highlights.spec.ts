@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { seedApplication } from './helpers/seedApplication';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
@@ -90,7 +91,7 @@ test.describe('What a reviewer reads first', () => {
       },
       { m: market, user: TEST_USER.email },
     );
-    await page.goto(`/market-setup?tab=${tab}`);
+    await page.goto(marketSetupPath(marketId, tab));
   }
 
   test('a market that marked nothing shows every answer, with no disclosure', async ({
@@ -137,7 +138,7 @@ test.describe('What a reviewer reads first', () => {
     const body = (await response.json()) as { market: { reviewHighlights?: string[] } };
     expect(body.market.reviewHighlights).toEqual(['what_you_sell', 'essential_full_name']);
 
-    await page.goto(`/market-setup?tab=applications`);
+    await page.goto(marketSetupPath(marketId, 'applications'));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
 
@@ -183,7 +184,7 @@ test.describe('What a reviewer reads first', () => {
       ]);
     }
 
-    await page.goto(`/market-setup?tab=applications`);
+    await page.goto(marketSetupPath(marketId, 'applications'));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
 
@@ -206,7 +207,7 @@ test.describe('What a reviewer reads first', () => {
     // The precondition this story is FOR: applications exist, so the form builder is locked.
     await expect(page.getByTestId('form-builder-lock-banner')).toBeVisible();
 
-    await page.goto(`/market-setup?tab=applications`);
+    await page.goto(marketSetupPath(marketId, 'applications'));
     const monitor = new ApplicationMonitorPage(page);
     await monitor.waitForLoaded();
 
@@ -236,7 +237,7 @@ test.describe('What a reviewer reads first', () => {
     await expect(monitor.email).toHaveText(before);
 
     // One list, not two: the form builder reads back what the queue wrote.
-    await page.goto('/market-setup?tab=form');
+    await page.goto(marketSetupPath(marketId, 'form'));
     await expect(
       page
         .getByTestId('review-highlights')
@@ -245,7 +246,7 @@ test.describe('What a reviewer reads first', () => {
     ).toBeChecked();
 
     // And it is there for whoever reviews next - a fresh load of the queue, not this page's state.
-    await page.goto(`/market-setup?tab=applications`);
+    await page.goto(marketSetupPath(marketId, 'applications'));
     await monitor.waitForLoaded();
     await expect(page.getByTestId('app-monitor-leading').locator('dt')).toHaveText(['Instagram']);
   });

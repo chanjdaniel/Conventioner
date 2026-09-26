@@ -7,6 +7,7 @@ import {
   ManageMarketPage,
   BACKEND_URL,
 } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { SEED_MARKET_DATE, ensureTestOrgAuthenticated } from './helpers/seeds';
 
@@ -216,9 +217,8 @@ test.describe('Tier 2 - Assignment CSV export', () => {
       { market: marketData, user: TEST_USER.email },
     );
 
-    // Assignment Results is a tab on the market now (E10/F03/S01); the old route redirects to it.
-    await page.goto('/assignment-results');
-    await page.waitForURL('**/market-setup**', { timeout: 10000 });
+    // Assignment Results is a tab on the market now (E10/F03/S01), addressed by the market's id.
+    await page.goto(marketSetupPath(marketId, 'assignment'));
     await expect(page.locator('.assignment-results')).toBeVisible({ timeout: 15000 });
 
     const downloadButton = page.getByTestId('assignment-results-download-csv-button');
@@ -312,7 +312,7 @@ test.describe('Tier 2 - Publish market', () => {
       expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
     }
 
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(marketId));
     const setupPage = new MarketSetupPage(page);
     await setupPage.advancePhaseTo('market_days', 'Market Days');
 

@@ -1,16 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import type { ApplicationForm } from '@/assets/types/datatypes';
+import { MARKET_ID, marketRoute, serveMarket } from './support/marketScreen';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
+/**
+ * What the application-form endpoint answers. The market itself is served by `GET /markets/:id`
+ * (the store fetches it, E21/F02/S02); every other read goes here, so a test can still make the
+ * form's own load hang or answer.
+ */
+const formApi = vi.hoisted(() => vi.fn());
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  // The open tab lives in the URL now (E10/F03/S01).
-  useRoute: () => ({ query: {} }),
+  // The market's id and the open tab both live in the URL (E10/F03/S01, E21/F02/S02).
+  useRoute: () => marketRoute(),
 }));
 
 vi.mock('@/utils/api', async (importOriginal) => {
@@ -28,9 +36,10 @@ const EMPTY_SETUP_OBJECT = {
 };
 
 function storeMarket(applicationForm: ApplicationForm | null) {
-  localStorage.setItem(
-    'market',
-    JSON.stringify({ id: 'market-1', setupObject: EMPTY_SETUP_OBJECT, applicationForm }),
+  serveMarket(
+    api.get,
+    { id: MARKET_ID, name: 'Riverside', setupObject: EMPTY_SETUP_OBJECT, applicationForm },
+    (url) => formApi(url),
   );
 }
 
@@ -57,6 +66,8 @@ async function mountOnFormTab() {
       },
     },
   });
+  // The store fetches the market first; the tab bar exists once it has arrived.
+  await vi.waitFor(() => wrapper.get('[data-testid="market-setup-form-tab"]'));
   await wrapper.get('[data-testid="market-setup-form-tab"]').trigger('click');
   return wrapper;
 }
@@ -64,7 +75,8 @@ async function mountOnFormTab() {
 const builderOf = (wrapper: ReturnType<typeof mount>) => wrapper.findComponent(FormBuilder);
 
 beforeEach(() => {
-  localStorage.clear();
+  setActivePinia(createPinia());
+  formApi.mockReset();
   api.get.mockReset();
   api.put.mockReset();
 });
@@ -78,7 +90,7 @@ describe('MarketSetupView application form', () => {
   it('keeps the builder read-only until the server has reported the lock state', async () => {
     storeMarket(formWith('shop_name', 'Shop'));
     let resolveGet: (value: unknown) => void = () => {};
-    api.get.mockReturnValue(
+    formApi.mockReturnValue(
       new Promise((resolve) => {
         resolveGet = resolve;
       }),
@@ -100,7 +112,7 @@ describe('MarketSetupView application form', () => {
 
   it('never offers to edit a locked form, even for an instant', async () => {
     storeMarket(formWith('shop_name', 'Shop'));
-    api.get.mockResolvedValue({
+    formApi.mockResolvedValue({
       data: {
         application_form: formWith('shop_name', 'Shop'),
         lock_reason: 'Applications have been submitted.',
@@ -120,7 +132,7 @@ describe('MarketSetupView application form', () => {
 
   it('does not reclassify an auto-derived key as hand-edited when the form is saved', async () => {
     storeMarket(null);
-    api.get.mockResolvedValue({ data: { application_form: null, lock_reason: null } });
+    formApi.mockResolvedValue({ data: { application_form: null, lock_reason: null } });
 
     const wrapper = await mountOnFormTab();
     await flushPromises();
@@ -144,7 +156,7 @@ describe('MarketSetupView application form', () => {
     vi.useFakeTimers();
     const form = formWith('shop_name', 'Shop');
     storeMarket(form);
-    api.get.mockResolvedValue({ data: { application_form: form, lock_reason: null } });
+    formApi.mockResolvedValue({ data: { application_form: form, lock_reason: null } });
     api.put.mockResolvedValue({ data: { application_form: form } });
 
     const wrapper = await mountOnFormTab();
@@ -177,7 +189,7 @@ describe('MarketSetupView application form', () => {
 
   it('treats every key of a form loaded from the server as the organizer own', async () => {
     storeMarket(null);
-    api.get.mockResolvedValue({
+    formApi.mockResolvedValue({
       data: { application_form: formWith('shop_name', 'Shop'), lock_reason: null },
     });
 

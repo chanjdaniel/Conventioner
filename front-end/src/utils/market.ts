@@ -21,12 +21,24 @@ import {
  * check-in URL among it, and sending every phase to the same place is one fewer thing that can be
  * wrong about a phase.
  */
-export const MARKET_HOME_PATH = '/market-setup';
+export type MarketScreen = 'setup' | 'tables' | 'attendance' | 'vendors' | 'import' | 'floorplan';
+
+/**
+ * Where one of a market's screens lives (E21/F02/S02).
+ *
+ * Every market screen is addressed by id, so a link to any of them - bookmarked, shared, or opened
+ * in a second browser tab - opens that market. `/market-setup` carried no id, which is why the
+ * market had to be kept in `localStorage` to know which one was open.
+ */
+export function marketPath(marketId: string, screen: MarketScreen = 'setup', tab?: string): string {
+  const base = `/markets/${encodeURIComponent(marketId)}/${screen}`;
+  return tab ? `${base}?tab=${encodeURIComponent(tab)}` : base;
+}
 
 /** Make this the open market and go to it. The three lists that open a market all did this by hand. */
 export function openMarket(router: Router, market: Market): void {
   localStorage.setItem('market', JSON.stringify(market));
-  router.push(MARKET_HOME_PATH);
+  router.push(marketPath(market.id));
 }
 
 /**

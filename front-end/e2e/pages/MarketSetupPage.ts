@@ -1,4 +1,5 @@
 import { type Locator, type Page } from '@playwright/test';
+import { marketSetupPath } from '../helpers/marketScreens';
 
 const MONTH_NAMES = [
   'January',
@@ -141,11 +142,11 @@ export class MarketSetupPage {
   /**
    * The PLAN, named explicitly.
    *
-   * A bare `/market-setup` now opens the surface the market's phase is worked on (E18/F02/S02), so
+   * A market's bare setup URL opens the surface its phase is worked on (E18/F02/S02), so
    * a page object whose other helpers all edit the plan has to say which surface it wants.
    */
-  async goto(): Promise<void> {
-    await this.page.goto('/market-setup?tab=setup');
+  async goto(marketId: string): Promise<void> {
+    await this.page.goto(marketSetupPath(marketId, 'setup'));
   }
 
   /**

@@ -18,54 +18,59 @@ async function mountPanelAt(path: string, blockers: PreconditionResult[]) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/market-setup', component: Blank },
-      { path: '/vendors', component: Blank },
+      { path: '/markets/:marketId/setup', component: Blank },
+      { path: '/markets/:marketId/vendors', component: Blank },
       { path: '/:pathMatch(.*)*', component: Blank },
     ],
   });
   await router.push(path);
   await router.isReady();
-  return mount(BlockerPanel, { props: { blockers }, global: { plugins: [router] } });
+  return mount(BlockerPanel, {
+    props: { blockers, marketId: 'm1' },
+    global: { plugins: [router] },
+  });
 }
 
 const reviewBlocker: PreconditionResult = {
   id: 'all_applications_reviewed',
   passed: false,
   message: '2 applications are still awaiting review.',
-  resolutionLink: '/market-setup?tab=applications',
+  // Relative to the market's own screens: the server names the screen and tab, the panel names the
+  // market it is showing (E21/F02/S02).
+  resolutionLink: 'setup?tab=applications',
 };
 
 describe('BlockerPanel', () => {
   it('renders nothing when there are no blockers', async () => {
-    const wrapper = await mountPanelAt('/market-setup', []);
+    const wrapper = await mountPanelAt('/markets/m1/setup', []);
     expect(wrapper.find('.blocker-panel').exists()).toBe(false);
   });
 
   it('names each blocker', async () => {
-    const wrapper = await mountPanelAt('/market-setup', [reviewBlocker]);
+    const wrapper = await mountPanelAt('/markets/m1/setup', [reviewBlocker]);
     expect(wrapper.text()).toContain('2 applications are still awaiting review.');
   });
 
   it('routes the resolution link in-SPA rather than reloading the page', async () => {
-    const wrapper = await mountPanelAt('/market-setup', [reviewBlocker]);
+    const wrapper = await mountPanelAt('/markets/m1/setup', [reviewBlocker]);
 
     // A `RouterLink`, not a plain anchor: a real router renders a real `href`, so the href alone
     // no longer tells the two apart the way it did under a stub.
     const link = wrapper.findComponent(RouterLink);
     expect(link.exists()).toBe(true);
-    expect(link.props('to')).toBe('/market-setup?tab=applications');
+    expect(link.props('to')).toBe('/markets/m1/setup?tab=applications');
     expect(link.attributes('data-testid')).toBe('blocker-resolution-link');
   });
 
   it('omits the resolution link when a blocker has none', async () => {
-    const wrapper = await mountPanelAt('/market-setup', [
+    const wrapper = await mountPanelAt('/markets/m1/setup', [
       { ...reviewBlocker, resolutionLink: undefined },
     ]);
     expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
   });
 
   it('renders every blocker generically, with no guard-specific logic', async () => {
-    const wrapper = await mountPanelAt('/market-setup', [
+    const wrapper = await mountPanelAt('/markets/m1/setup', [
       reviewBlocker,
       { id: 'other_guard', passed: false, message: 'Something else is wrong.' },
     ]);
@@ -81,20 +86,20 @@ describe('BlockerPanel', () => {
    */
   describe('a link to the page you are already on', () => {
     it('is not offered', async () => {
-      const wrapper = await mountPanelAt('/market-setup?tab=applications', [reviewBlocker]);
+      const wrapper = await mountPanelAt('/markets/m1/setup?tab=applications', [reviewBlocker]);
 
       expect(wrapper.text()).toContain('still awaiting review');
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
     });
 
     it('is still offered from a different tab of the same page', async () => {
-      const wrapper = await mountPanelAt('/market-setup?tab=setup', [reviewBlocker]);
+      const wrapper = await mountPanelAt('/markets/m1/setup?tab=setup', [reviewBlocker]);
 
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(true);
     });
 
     it('is still offered from another screen entirely', async () => {
-      const wrapper = await mountPanelAt('/vendors', [reviewBlocker]);
+      const wrapper = await mountPanelAt('/markets/m1/vendors', [reviewBlocker]);
 
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(true);
     });
@@ -104,7 +109,9 @@ describe('BlockerPanel', () => {
      * an explicit null rather than by omitting the key.
      */
     it('is not conjured from a null link', async () => {
-      const wrapper = await mountPanelAt('/vendors', [{ ...reviewBlocker, resolutionLink: null }]);
+      const wrapper = await mountPanelAt('/markets/m1/vendors', [
+        { ...reviewBlocker, resolutionLink: null },
+      ]);
 
       expect(wrapper.text()).toContain('still awaiting review');
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
