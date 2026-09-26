@@ -62,6 +62,18 @@ ESSENTIAL_KEY_PREFIX = "essential_"
 # mononym. This is identity; being confidently wrong is worse than being incomplete.
 FULL_NAME_KEY = "essential_full_name"
 
+# The name a vendor is CALLED, as against the one on their identification (E19/F02/S01).
+#
+# The committed export carries it as the column beside the legal name, and `readable-journey`
+# ticket 02 said the product "drops both because it has nowhere to put them" - then built a home
+# for the legal name only. What that ticket deferred was a TRADING name (`Paper & Pine` rather than
+# `Ana Rivera`), which is a different thing and does not cover this.
+#
+# Essential but NOT required: asked of everyone, answerable by nobody without consequence, which is
+# the shape TABLE_SHARE_EMAIL_KEY already has. Asked unconditionally, following the legal name,
+# because identity does not depend on the plan.
+PREFERRED_NAME_KEY = "essential_preferred_name"
+
 AVAILABLE_DATES_KEY = "essential_available_dates"
 MAX_DATES_KEY = "essential_max_dates"
 TIER_PREFERENCE_KEY = "essential_tier_preference"
@@ -73,6 +85,7 @@ TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 # The labels the applicant sees, shared with error messages so a validation failure names the
 # question exactly as the form asked it.
 FULL_NAME_LABEL = "Full name"
+PREFERRED_NAME_LABEL = "Preferred name"
 EMAIL_LABEL = "Email address"
 AVAILABLE_DATES_LABEL = "Available dates"
 MAX_DATES_LABEL = "Number of dates you want"
@@ -179,6 +192,54 @@ REQUIRED_ESSENTIAL_KEYS = (
 UNASKABLE_ESSENTIAL_KEYS = (SECTION_RANKING_KEY, TABLE_TYPE_RANKING_KEY)
 
 
+def display_name(form_data: Dict[str, Any]) -> str:
+    """The name to call this vendor: the one they chose, or the one on their identification.
+
+    ONE statement of that rule (E19/F02/S01). Every surface that shows a vendor renders through
+    `VendorIdentity`, which is handed the name this produces - so the choice is made once, here,
+    beside the contract that defines both keys, rather than in each screen that shows a person.
+
+    The review card is the exception and shows BOTH, labelled: an organizer deciding about a
+    person is doing something different from an organizer scanning a list.
+    """
+    preferred = str(form_data.get(PREFERRED_NAME_KEY) or "").strip()
+    return preferred or str(form_data.get(FULL_NAME_KEY) or "").strip()
+
+
+def reconciled_dates_and_tiers(tier_answer: Any, available_dates: Any) -> Tuple[Any, Any]:
+    """The stored shape of a dates-and-tiers answer, whichever way the form asked for it.
+
+    There are two ways to ask, and they converge here so that everything downstream - the solver,
+    the review card, the applicant's own dashboard, the importer - reads exactly one shape.
+
+    **A per-date grid** is what an organizer's own form produces: one question per day whose cell
+    carries the tiers, or "None" when the vendor cannot attend. That single grid answers BOTH
+    questions, so availability is read from it rather than demanding a second answer the form never
+    had: the dates you named tiers for are the dates you are available. The two are still stored
+    separately and still have to agree; this is what makes them agree by construction.
+
+    **A flat list** is what a form that asked once produces - "which tiers will you accept?" - and
+    it means those tiers on every date the vendor is available.
+
+    Anything else is carried through untouched. A missing or unrecognised answer is the validator's
+    to refuse, in the applicant's own words, rather than this function's to guess at.
+
+    This is the ONE statement of the rule. It lived inline in the CSV import path until the
+    applicant form began producing the same shapes (E19/F01/S02), and two copies of it - here and
+    in the importer, or here and in `essentialFields.ts` - is the drift that would surface as the
+    solver rejecting answers the form had just accepted.
+    """
+    if isinstance(tier_answer, list):
+        dates = list(available_dates or [])
+        # A fresh list per date: one shared list is one edit away from changing every day at once.
+        return {date: list(tier_answer) for date in dates}, dates
+
+    if isinstance(tier_answer, dict) and not available_dates:
+        return tier_answer, [date for date, names in tier_answer.items() if names]
+
+    return tier_answer, available_dates
+
+
 def unaskable_essential_error(keys: Optional[List[str]]) -> Optional[str]:
     """Why this market may not declare these questions unasked, or None.
 
@@ -223,7 +284,7 @@ def asked_essential_keys(options: EssentialFormOptions) -> frozenset:
     # oversight: every other essential question is gated on the plan offering something to answer
     # about, and identity does not depend on the plan. A market with no dates, no tiers and no
     # sections still needs to know who is applying.
-    asked = {FULL_NAME_KEY}
+    asked = {FULL_NAME_KEY, PREFERRED_NAME_KEY}
     if options.dates:
         asked.update({
             AVAILABLE_DATES_KEY,
@@ -256,7 +317,7 @@ def plan_derived_asked_keys(options: EssentialFormOptions) -> frozenset:
     count is never zero, so reading ``asked_essential_keys`` here would make both of them unable
     to say no - silently, with their docstrings still claiming otherwise.
     """
-    return asked_essential_keys(options) - {FULL_NAME_KEY}
+    return asked_essential_keys(options) - {FULL_NAME_KEY, PREFERRED_NAME_KEY}
 
 
 def offering_for_key(key: str, options: EssentialFormOptions) -> List[str]:
@@ -538,6 +599,11 @@ def _validate_full_name(incoming: Dict[str, Any], stored: Dict[str, Any]) -> Opt
     if not value:
         return f"'{FULL_NAME_LABEL}' is required."
     stored[FULL_NAME_KEY] = value
+
+    # Optional, and stored as the empty string rather than left absent, so every reader compares
+    # one shape - the same way an unasked ranking stores its empty value.
+    preferred = incoming.get(PREFERRED_NAME_KEY)
+    stored[PREFERRED_NAME_KEY] = str(preferred).strip() if preferred is not None else ""
     return None
 
 
@@ -565,8 +631,8 @@ def _validate_tiers_per_date(
 
     if not isinstance(raw, dict):
         return (
-            f"'{TIER_PREFERENCE_LABEL}' is required. Choose the tiers you would accept on each "
-            "date you are available."
+            f"'{TIER_PREFERENCE_LABEL}' is required. For each day, choose the tiers you would be "
+            "considered for, or mark that day as one you cannot attend."
         )
 
     per_date: Dict[str, List[str]] = {}
@@ -575,13 +641,13 @@ def _validate_tiers_per_date(
         if not isinstance(given, list) or not given:
             return (
                 f"'{TIER_PREFERENCE_LABEL}' is missing for {date}. Choose at least one tier for "
-                "every date you are available, or remove that date."
+                "that day, or mark it as one you cannot attend."
             )
         names = [str(name).strip() for name in given if str(name).strip()]
         if not names:
             return (
                 f"'{TIER_PREFERENCE_LABEL}' is missing for {date}. Choose at least one tier for "
-                "every date you are available, or remove that date."
+                "that day, or mark it as one you cannot attend."
             )
         invalid = [name for name in names if name not in options.tiers]
         if invalid:

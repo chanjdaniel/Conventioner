@@ -50,14 +50,14 @@ describe('a transition confirms when it cannot be undone', () => {
   it('publishing confirms: `market_days` reaches only `archived`', async () => {
     const wrapper = await clickTransition(MarketPhase.Assignment, 'market_days');
 
-    expect(wrapper.find('[data-testid="sweep-confirm-dialog"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="sweep-confirm-window"]').exists()).toBe(true);
     expect(api.post).not.toHaveBeenCalled();
   });
 
   it('archiving confirms: `archived` has no outbound edge at all', async () => {
     const wrapper = await clickTransition(MarketPhase.Draft, 'archived');
 
-    expect(wrapper.find('[data-testid="archive-confirm-dialog"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="archive-confirm-window"]').exists()).toBe(true);
     expect(api.post).not.toHaveBeenCalled();
   });
 

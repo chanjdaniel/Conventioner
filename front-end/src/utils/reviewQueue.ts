@@ -8,21 +8,36 @@ import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
  * so an organizer was asked to accept or refuse 232 people with nothing to decide on (E08/F04).
  * Triage answers that by showing the whole application, one at a time.
  *
- * The organizer's OWN questions come first, which is the one thing a reviewer's order does that
- * the applicant's does not. They are what distinguish applicants from each other - what the vendor
- * sells, their portfolio - while the essential answers mostly repeat, because they are drawn from
- * the same small offering. The rendering itself belongs to the contract being rendered, so it
- * lives in `essentialFields.ts` and the applicant's own dashboard reads the same answers back.
+ * The answers the market MARKED come first (E19/F03/S01).
+ *
+ * This used to put the organizer's own questions first and the essential answers after, reasoning
+ * that custom questions "are what distinguish applicants from each other". That was a heuristic
+ * standing in for exactly this mark, and it was wrong in both directions: a custom "how did you
+ * hear about us?" is noise on a triage card, and an essential availability answer can be the whole
+ * decision. Now the market says which, and within each group the previous order is unchanged - so
+ * nothing else moves at the same time.
+ *
+ * The rendering itself belongs to the contract being rendered, so it lives in `essentialFields.ts`
+ * and the applicant's own dashboard reads the same answers back.
  */
 export function reviewAnswers(
   application: Application,
   form?: ApplicationForm | null,
-): AnswerRow[] {
+  highlights: string[] = [],
+): { leading: AnswerRow[]; rest: AnswerRow[] } {
   const { essential, custom } = applicationAnswerRows(
     (application.formData ?? {}) as Record<string, unknown>,
     form?.fields ?? [],
   );
-  return [...custom, ...essential];
+  const all = [...custom, ...essential];
+  if (!highlights.length) return { leading: [], rest: all };
+
+  const marked = new Set(highlights);
+  return {
+    // In the order the market marked them: that order is what a reviewer reads down.
+    leading: highlights.flatMap((key) => all.filter((row) => row.key === key)),
+    rest: all.filter((row) => !marked.has(row.key)),
+  };
 }
 
 /**

@@ -10,6 +10,7 @@ import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.placements as PlacementsApi
+import api.form_amendment as FormAmendmentApi
 import csv_import as CsvImport
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
@@ -473,10 +474,35 @@ def update_organization(org_id: str) -> Response:
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/organizations/<org_id>/deletion-preview', methods=['GET'])
+@login_required
+def organization_deletion_preview(org_id: str) -> Response:
+    """What deleting this organization would destroy, and what would refuse it (E20/F04/S01).
+
+    The confirmation dialog's whole content. A COUNT of markets does not let an organizer decide,
+    so this names each one: its name, its phase, whether it ran, how many placements it holds and
+    the public URL that stops resolving.
+    """
+    try:
+        preview = OrgsApi.organization_deletion_preview(org_id, authenticated_email())
+        return jsonify(convert_keys_to_camel_case(preview)), 200
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error in organization_deletion_preview {org_id}: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @app.route('/organizations/<org_id>', methods=['DELETE'])
 @login_required
 def delete_organization(org_id: str) -> Response:
-    """Delete an organization. Only owner can delete."""
+    """Delete an organization, and the drafts and archived markets it holds. Only owner can delete.
+
+    Refused while it holds a market that is mid-lifecycle, and the refusal NAMES them: "you cannot
+    delete this" without saying which market is a refusal an organizer can only answer by guessing.
+    """
     try:
         requesting_user = authenticated_email()
         
@@ -485,11 +511,18 @@ def delete_organization(org_id: str) -> Response:
             return jsonify({"message": "Organization deleted successfully"}), 200
         else:
             return jsonify({"error": "Organization not found"}), 404
+    except OrgsApi.OrganizationHasLiveMarkets as e:
+        return jsonify(convert_keys_to_camel_case({
+            "error": "organization_has_live_markets",
+            "message": str(e),
+            "blocking_markets": e.blocking,
+        })), 409
     except PermissionError as e:
         return jsonify({"error": str(e)}), 403
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
+        logger.error(f"Error in delete_organization {org_id}: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/organizations/<org_id>/admins', methods=['POST'])
@@ -819,6 +852,134 @@ def update_market(market_id: str) -> Response:
         return jsonify({"error": str(e)}), 400
 
 
+@app.route('/markets/<market_id>/review-highlights', methods=['PUT'])
+@login_required
+def save_review_highlights(market_id: str) -> Response:
+    """Set which answers a reviewer reads first (E19/F03/S01).
+
+    The only writer of the field; a market PUT preserves the stored list, because a reviewer
+    changes these mid-queue and a stale client copy must not overwrite that.
+
+    Body: { "keys": ["business_name", "essential_available_dates"] }
+
+    Deliberately NOT gated on the application-form lock: an organizer learns which answers they
+    needed while reviewing, which is after that lock closes.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        keys = data.get("keys")
+        if keys is None:
+            return jsonify({"error": "keys is required"}), 400
+
+        stored = MarketsApi.save_review_highlights(market_id, keys, authenticated_email())
+        return jsonify(convert_keys_to_camel_case({"review_highlights": stored})), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in save_review_highlights for {market_id}: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
+@app.route('/markets/<market_id>/application-form/amendment', methods=['GET'])
+@login_required
+def application_form_amendment_availability(market_id: str) -> Response:
+    """Whether the form can be amended from here, and what the chain would cost (E20/F03/S01).
+
+    The dialog reads this to decide whether to offer itself, so it can say WHY it is unavailable
+    rather than opening and then failing - which is the difference between a control that is
+    unavailable and one that is broken.
+    """
+    try:
+        context = MarketsApi.load_market_context(market_id)
+        if context is None or context.market is None:
+            return jsonify({"error": "Market not found"}), 404
+        if not PermissionsApi.user_has_permission(
+            authenticated_email(), context.market, MarketRole.ADMIN, context.organization
+        ):
+            return jsonify({"error": "User does not have permission to manage this market"}), 403
+
+        availability = FormAmendmentApi.amendment_availability(context.market)
+        pending = context.market.form_amendment
+        return jsonify(convert_keys_to_camel_case({
+            **availability,
+            "pending_return_phase": pending.return_phase if pending else None,
+        })), 200
+    except Exception as e:
+        logger.error(f"Error in application_form_amendment_availability {market_id}: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/application-form/amendment', methods=['POST'])
+@login_required
+def amend_application_form(market_id: str) -> Response:
+    """Edit the form and return the market to the phase it started in (E20/F03/S01).
+
+    Body: { "applicationForm": { "fields": [...], "unaskedEssentials": [...] } }
+
+    Pre-flight, not rollback: every guard on the return path is checked against the PROPOSED form
+    before the market leaves its phase, so a refusal leaves nothing to undo.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        form_data = data.get("applicationForm") or data.get("application_form")
+        if not isinstance(form_data, dict):
+            return jsonify({"error": "applicationForm is required"}), 400
+
+        result = FormAmendmentApi.amend_application_form(
+            market_id, convert_keys_to_snake_case(form_data), authenticated_email()
+        )
+        return jsonify(convert_keys_to_camel_case(result)), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except FormAmendmentApi.AmendmentUnavailable as e:
+        return jsonify({"error": str(e)}), 409
+    except FormAmendmentApi.AmendmentRefused as e:
+        return jsonify(convert_keys_to_camel_case({
+            "error": "preconditions_not_met",
+            "message": str(e),
+            "blockers": [asdict(b) for b in e.blockers],
+        })), 409
+    except FormAmendmentApi.AmendmentStalled as e:
+        logger.error(f"Form amendment stalled for {market_id}: {e}")
+        return jsonify(FormAmendmentApi.stall_payload(e)), 409
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in amend_application_form {market_id}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/application-form/amendment/resume', methods=['POST'])
+@login_required
+def resume_application_form_amendment(market_id: str) -> Response:
+    """Finish a chain that stopped partway (E20/F03/S01).
+
+    The offer the stall message makes. Re-plans from where the market actually is, because the
+    reason a chain stalls is that the market is no longer where the walk believed.
+    """
+    try:
+        result = FormAmendmentApi.resume_amendment(market_id, authenticated_email())
+        return jsonify(convert_keys_to_camel_case(result)), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except FormAmendmentApi.AmendmentUnavailable as e:
+        return jsonify({"error": str(e)}), 409
+    except FormAmendmentApi.AmendmentStalled as e:
+        return jsonify(FormAmendmentApi.stall_payload(e)), 409
+    except Exception as e:
+        logger.error(f"Error in resume_application_form_amendment {market_id}: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @app.route('/markets/<market_id>/application-form', methods=['PUT'])
 @login_required
 def save_application_form(market_id: str) -> Response:
@@ -977,11 +1138,17 @@ def transition_market(market_id: str) -> Response:
             context.document[phase_key] if phase_key in context.document
             else {"$exists": False}
         )
+        # One atomic update. A failure between the phase and the stamp would leave a market whose
+        # two answers disagree, which is the class of bug migrate_is_draft_consistency exists to
+        # repair - and this endpoint is the only writer of either.
         result = MarketsApi.markets_collection.update_one(
             {"id": market_id, phase_key: stored_phase},
             {"$set": {
                 phase_key: to_phase.value,
                 is_draft_key: to_phase == MarketPhase.DRAFT,
+                **MarketsApi.finalization_update(
+                    from_phase, to_phase.value, context.document
+                ),
             }},
         )
 
@@ -1298,26 +1465,6 @@ def get_assignment_csv(market_id: str) -> Response:
             "error": "Internal server error",
             "message": str(e),
             "endpoint": f"/markets/{market_id}/assignment-csv",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 500
-
-
-@app.route('/markets/<market_id>/discord/notify-assignment', methods=['POST'])
-@login_required
-def post_assignment_to_discord(market_id: str) -> Response:
-    """Send the assignment summary to the market's configured Discord webhook. Owner only."""
-    try:
-        requesting_user = authenticated_email()
-
-        result, status_code = MarketsApi.post_assignment_to_discord(market_id, requesting_user)
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in post_assignment_to_discord for {market_id}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e),
-            "endpoint": f"/markets/{market_id}/discord/notify-assignment",
             "timestamp": datetime.now(timezone.utc).isoformat()
         }), 500
 

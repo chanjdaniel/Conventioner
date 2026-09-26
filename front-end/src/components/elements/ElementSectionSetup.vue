@@ -66,6 +66,8 @@ const countTables = () => {
       <h3>Location</h3>
       <h3>Tier</h3>
       <h3>Count</h3>
+      <!-- The remove column, so the heading row declares as many cells as the grid has tracks. -->
+      <h3></h3>
     </div>
     <div class="rows" ref="rows">
       <div
@@ -147,13 +149,15 @@ const countTables = () => {
           />
         </button>
       </div>
-      <div class="add-container">
-        <IconAddRound
-          class="icon-add-round"
-          @click="addRow"
-          data-testid="setup-section-add-button"
-        />
-      </div>
+      <button
+        type="button"
+        class="add-row"
+        aria-label="Add a section"
+        data-testid="setup-section-add-button"
+        @click="addRow"
+      >
+        <IconAddRound class="add-row__icon" />
+      </button>
     </div>
     <div ref="tableCount" style="position: absolute; left: 5px; bottom: -10px">
       <h3 style="font-size: var(--text-sm)">Total tables: {{ countTables() }}</h3>
@@ -194,8 +198,6 @@ const countTables = () => {
   align-items: center;
 
   gap: 8px;
-  padding-top: 4px;
-  padding-bottom: 8px;
 
   overflow-y: auto;
   overflow-x: hidden;
@@ -241,12 +243,6 @@ input::-webkit-inner-spin-button {
 
 input[type='number'] {
   -moz-appearance: textfield;
-}
-
-.icon-add-round {
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
 }
 
 /* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -

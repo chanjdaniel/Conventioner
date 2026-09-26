@@ -1,11 +1,4 @@
-import {
-  test,
-  expect,
-  TEST_USER,
-  LoginPage,
-  PasswordResetPage,
-  AssignmentResultsPage,
-} from './fixtures';
+import { test, expect, TEST_USER, LoginPage, PasswordResetPage } from './fixtures';
 import { execSync } from 'child_process';
 import { mongoContainer } from './helpers/containerNames';
 import { deleteUser } from './helpers/deleteUser';
@@ -182,90 +175,6 @@ test.describe('Authentication journeys', () => {
       } finally {
         deleteUser(email);
       }
-    });
-  });
-
-  // ── Journey 3: Post assignment to Discord ─────────────────────────
-  test.describe('Discord posting', () => {
-    test('sends assignment to Discord and shows success toast', async ({
-      authenticatedPage: page,
-    }) => {
-      const webhookUrl = 'https://discord.com/api/webhooks/test/e2e';
-      const marketId = `e2e-discord-${Date.now()}`;
-
-      // Set market data in localStorage AFTER login (so App.vue session
-      // check succeeds and doesn't clear our data).
-      await page.evaluate(
-        ({ market }) => {
-          localStorage.setItem('market', JSON.stringify(market));
-        },
-        {
-          market: {
-            id: marketId,
-            name: 'E2E Discord Market',
-            creationDate: new Date().toISOString(),
-            roles: {},
-            roleEmails: {},
-            phase: 'draft',
-            isDraft: true,
-            setupObject: null,
-            modificationList: [],
-            assignmentObject: {
-              vendorAssignments: [],
-              assignmentDate: new Date().toISOString(),
-              totalVendorsAssigned: 2,
-              totalTablesAssigned: 2,
-              assignmentStatistics: null,
-            },
-            discordWebhookUrl: webhookUrl,
-          },
-        },
-      );
-
-      // Mock the assignment-statistics endpoint.
-      await page.route('**/assignment-statistics', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            totalAssignments: 2,
-            totalAssignedVendors: 2,
-            totalAssignedTables: 2,
-            totalVendors: 2,
-            totalTables: 2,
-            satisfactionScore: 1.0,
-            assignmentsPerDate: { '2025-01-01': 2 },
-            assignmentsPerSection: { A: 2 },
-            assignmentsPerTier: { Gold: 2 },
-            assignmentsPerTableChoice: { 'Full table': 2 },
-            unassignedVendors: [],
-            unassignedTables: {},
-          }),
-        });
-      });
-
-      // Intercept the Discord notify API call.
-      await page.route('**/discord/notify-assignment', async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ message: 'Posted to Discord', status: 'ok' }),
-        });
-      });
-
-      await page.goto('/assignment-results');
-
-      const resultsPage = new AssignmentResultsPage(page);
-
-      await expect(resultsPage.summaryStats).toBeVisible({ timeout: 10000 });
-      await expect(resultsPage.sendToDiscordButton).toBeEnabled({
-        timeout: 5000,
-      });
-
-      await resultsPage.clickSendToDiscord();
-
-      await expect(resultsPage.discordToast).toBeVisible({ timeout: 5000 });
-      await expect(resultsPage.discordToast).toContainText('Posted to Discord');
     });
   });
 

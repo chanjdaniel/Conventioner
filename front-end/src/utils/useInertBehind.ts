@@ -44,8 +44,23 @@ export function useInertBehind(
   partsOf: () => (HTMLElement | null)[],
 ): void {
   let marked: HTMLElement[] = [];
+  /**
+   * Elements this modal took `inert` OFF because they are part of it.
+   *
+   * A dialog opened FROM a dialog is a sibling of the one beneath it, so the first modal marked
+   * the second before it existed as anything to click: the confirmation rendered, said the right
+   * things, and silently could not be pressed. The count stays, so the modal beneath still
+   * releases correctly when it closes; only the attribute comes off, and goes back on release.
+   */
+  let suppressed: HTMLElement[] = [];
 
   function release() {
+    for (const el of suppressed) {
+      // Still marked by something else, so it goes back to being out of play.
+      if ((markedBy.get(el) ?? 0) > 0) el.setAttribute('inert', '');
+    }
+    suppressed = [];
+
     for (const el of marked) {
       const count = (markedBy.get(el) ?? 1) - 1;
       if (count > 0) {
@@ -79,6 +94,13 @@ export function useInertBehind(
       for (let el: Element | null = part; el && el !== document.body; el = el.parentElement) {
         spine.add(el);
       }
+    }
+
+    // This modal's own branch is live, whatever a modal beneath it decided before it opened.
+    for (const el of spine) {
+      if (!(el instanceof HTMLElement) || !markedBy.has(el)) continue;
+      el.removeAttribute('inert');
+      suppressed.push(el);
     }
 
     for (const part of parts) {

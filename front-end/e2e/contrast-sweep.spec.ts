@@ -227,7 +227,10 @@ test.describe('Every rendered text node reaches AA', () => {
     await openTheSeededMarket(page);
     for (const [state, url, ready] of [
       ['markets', '/markets', 'markets-create-button'],
-      ['market plan', '/market-setup', 'setup-dates-date-display-0'],
+      ['market plan', '/market-setup?tab=setup', 'setup-dates-date-display-0'],
+      // The densest authoring surface in the product, and unwalked until E17/F03/S01 - which is
+      // how a field-type badge shipped at 3.73:1 on it.
+      ['application form', '/market-setup?tab=form', 'essential-item-section-ranking'],
       [
         'assignment results',
         '/market-setup?tab=assignment',
@@ -290,11 +293,11 @@ test.describe('Every rendered text node reaches AA', () => {
     await expectAA(page, 'the phase-rail menu');
 
     await page.locator('.rail-menu-item--end').click();
-    await expect(page.getByTestId('archive-confirm-dialog')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('archive-confirm-window')).toBeVisible({ timeout: 5000 });
     await expectAA(page, 'the archive confirmation');
 
     // And the button is actually there, which is the whole of S01.
-    const archive = page.locator('.confirm-archive-button');
+    const archive = page.getByTestId('archive-confirm-submit-button');
     const painted = await archive.evaluate((el) => {
       const style = getComputedStyle(el);
       return { background: style.backgroundColor, border: style.borderWidth };
@@ -303,8 +306,8 @@ test.describe('Every rendered text node reaches AA', () => {
 
     // Leave the market as it was found. Cancel, never confirm: archiving is permanent, so a spec
     // that went through with it would only pass once.
-    await page.getByTestId('archive-confirm-cancel').click();
-    await expect(page.getByTestId('archive-confirm-dialog')).toBeHidden();
+    await page.getByTestId('archive-confirm-cancel-button').click();
+    await expect(page.getByTestId('archive-confirm-window')).toBeHidden();
   });
 
   test('the new-market dialog, where a disabled primary lives', async ({

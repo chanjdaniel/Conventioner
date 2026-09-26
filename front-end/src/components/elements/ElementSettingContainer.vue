@@ -20,6 +20,22 @@
   box-shadow: var(--shadow-card);
 }
 
+/*
+ * The card title, styled by the card (E18/F02/S01).
+ *
+ * It used to be a bare `h2 { color: white }` in `MarketSetupView`'s scoped style, reaching the
+ * titles because the slot content was rendered in that view's template. The moment those cards
+ * moved into their own components the rule stopped matching, and every title rendered the
+ * inherited dark ink on this black bar at 1.42:1 - invisible. A title's appearance belongs to the
+ * component that draws the bar behind it, not to whichever parent happens to pass the slot.
+ */
+::v-deep(.setting-header h2) {
+  font-family: 'Merge One';
+  text-align: left;
+  font-size: var(--text-lg);
+  color: white;
+}
+
 .setting-header {
   height: 35px;
   background-color: var(--mm-black);
@@ -46,10 +62,24 @@
   padding-bottom: 20px;
 }
 
+/*
+ * The row spans its container, and the room its shadow needs is the scroll container's padding
+ * (E17/F02/S01).
+ *
+ * It used to be `margin: 0 8px` with `width: calc(100% - 8px)`, which is 8px of margin plus a
+ * width short by only 8 - so the border box sat flush with the right edge (0px for a shadow that
+ * paints 14px sideways) while the left had 8, and the MARGIN box overhung by 8px. Four of the six
+ * cards reported horizontal overflow, silently clipped by `overflow-x: hidden`.
+ *
+ * Padding rather than margin because overflow clips at the PADDING box: a child's shadow paints
+ * into its scroll container's padding and stays visible, where a margin only moves the child.
+ */
+::v-deep(.rows) {
+  padding: var(--space-2);
+}
+
 ::v-deep(.row-container) {
-  margin-left: 8px;
-  margin-right: 8px;
-  width: calc(100% - 8px);
+  width: 100%;
 
   text-align: center;
   font-size: var(--text-xs);
@@ -75,6 +105,20 @@
   border-bottom: 1px solid var(--mm-border);
   padding-bottom: 6px;
   margin-bottom: 4px;
+
+  /*
+   * The SAME horizontal inset the rows list has (E17/F01/S03).
+   *
+   * The heading row is a SIBLING of `.rows`, not a child of it, so the padding that gives a row's
+   * shadow its room does not reach the heading - and a heading 16px wider than the values beneath
+   * it is a heading that names a column it does not sit over.
+   *
+   * Margin rather than padding, because this row draws the rule under the headings: padding would
+   * align the columns and still leave that rule 16px wider than every row below it.
+   */
+  width: calc(100% - 2 * var(--space-2));
+  margin-left: auto;
+  margin-right: auto;
 }
 
 ::v-deep(.column-titles h3) {

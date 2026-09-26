@@ -9,6 +9,11 @@
  * A vendor with no stored name renders as a single line holding their address, which is exactly
  * what every one of these surfaces showed before names existed. That is deliberate: this ships
  * without making any existing market look worse, and nobody is labelled "Unnamed vendor".
+ *
+ * WHICH name this is - the one they chose, or the one on their identification - is decided once by
+ * `display_name` in `back-end/essential_fields.py`, beside the contract that defines both keys,
+ * and handed here already resolved (E19/F02/S01). The review card is the one surface that shows
+ * both, labelled: deciding about a person is not the same as scanning a list.
  */
 import { computed } from 'vue';
 import { vendorHeadline, vendorName, type VendorNames } from '@/utils/vendorIdentity';

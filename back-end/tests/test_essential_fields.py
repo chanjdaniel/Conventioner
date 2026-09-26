@@ -247,6 +247,8 @@ class TestValidatedEssentialAnswers:
         assert error is None
         assert stored == {
             "essential_full_name": "Ana Rivera",
+            # Optional, and stored empty rather than absent, so every reader compares one shape.
+            "essential_preferred_name": "",
             "essential_available_dates": [],
             "essential_max_dates": None,
             "essential_tier_preference": {},

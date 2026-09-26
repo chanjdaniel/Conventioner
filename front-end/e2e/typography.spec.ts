@@ -166,7 +166,7 @@ test.describe('No element falls through to a user-agent font', () => {
 
   test('the market plan, where every field value was Inter', async ({ authenticatedPage }) => {
     await openTheSeededMarket(authenticatedPage);
-    await authenticatedPage.goto('/market-setup');
+    await authenticatedPage.goto('/market-setup?tab=setup');
     await expect(authenticatedPage.getByTestId('setup-dates-date-display-0')).toBeVisible({
       timeout: 10000,
     });

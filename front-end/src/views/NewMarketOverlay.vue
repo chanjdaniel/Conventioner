@@ -1,12 +1,28 @@
 <script setup lang="ts">
+/**
+ * Creating a market: a name and an organization, and nothing else (E20/F01/S01).
+ *
+ * It stays a modal and stays minimal. `draft` is a full-width ordered page where everything else
+ * about a market is decided in sequence, so this dialog's whole job is to give the market an
+ * identity and hand off - create lands the organizer at the top of that page.
+ *
+ * A modal rather than a first section of that page because a market must not exist until the
+ * organizer commits to one: creating in place would leave an empty draft behind every abandoned
+ * attempt.
+ *
+ * This is the exemplar for `AppDialog`, and it had all three of the defects the shell exists to
+ * stop: the name field rendered as bare text (`all: unset` on the input, and a container declaring
+ * a radius with no border and no background under a comment saying "a field is a border" that was
+ * never written), Enter did nothing on the first screen of the product, and the error was placed at
+ * `top: 35px; left: 50%` - a coordinate measured against one arrangement of the dialog.
+ */
 import ElementOrgSelect from '@/components/elements/ElementOrgSelect.vue';
-import { ref, watch } from 'vue';
+import AppDialog from '@/components/AppDialog.vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market, MarketRole } from '@/assets/types/datatypes.ts';
 import axios from 'axios';
 import { api } from '@/utils/api';
-import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { useModalRoot } from '@/utils/useModalRoot';
 
 const props = defineProps<{
   newOpen: boolean;
@@ -16,35 +32,28 @@ const emit = defineEmits<{
   newClose: [];
 }>();
 
-useEscapeToClose(
-  () => props.newOpen,
-  () => emit('newClose'),
-);
-
-/** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
-const modalRoot = useModalRoot(() => props.newOpen);
-
 const router = useRouter();
 const marketName = ref('');
 const selectedOrgId = ref('');
 const errorMessage = ref('');
+const creating = ref(false);
 
 watch(selectedOrgId, () => {
   errorMessage.value = '';
 });
 
+/**
+ * Enter is inert while this is true, because the confirm button is `type="submit"` and disabled -
+ * no key handler is involved. The same guard the button wears is the one Enter meets.
+ */
+const cannotCreate = computed(
+  () => creating.value || !selectedOrgId.value || !marketName.value.trim(),
+);
+
 const handleSubmit = async () => {
+  if (cannotCreate.value) return;
   errorMessage.value = '';
-
-  if (!selectedOrgId.value) {
-    errorMessage.value = 'Organization is required';
-    return;
-  }
-
-  if (!marketName.value.trim()) {
-    errorMessage.value = 'Market name is required';
-    return;
-  }
+  creating.value = true;
 
   try {
     const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
@@ -90,215 +99,61 @@ const handleSubmit = async () => {
     } else {
       errorMessage.value = 'An error occurred. Please try again.';
     }
+  } finally {
+    creating.value = false;
   }
 };
 </script>
 
 <template>
-  <div ref="modalRoot" class="container" :style="{ visibility: newOpen ? 'visible' : 'hidden' }">
-    <div
-      class="background"
-      @click="$emit('newClose')"
-      :style="{ opacity: newOpen ? '100%' : '0%' }"
-      data-testid="new-market-overlay-background"
-    ></div>
-    <div v-if="newOpen" class="window">
-      <button
-        type="button"
-        class="dialog-close"
-        aria-label="Close"
-        @click="emit('newClose')"
-        data-testid="new-market-close-button"
-      >
-        &times;
-      </button>
-      <h2>Create new market</h2>
-      <div class="org-select-container">
-        <label class="org-select-label">Organization</label>
-        <ElementOrgSelect v-model="selectedOrgId" />
-      </div>
-      <div class="input-wrapper">
-        <label class="field-label" for="new-market-name">Market name</label>
-        <div class="text-input-container">
-          <input
-            id="new-market-name"
-            type="text"
-            v-model="marketName"
-            @keydown.enter="handleSubmit"
-            @input="errorMessage = ''"
-            placeholder="Winter Market 2026"
-            data-testid="new-market-name-input"
-          />
-        </div>
-        <div class="dialog-actions">
-          <button type="button" class="secondary-button" @click="emit('newClose')">Cancel</button>
-          <button
-            type="button"
-            class="primary-button"
-            @click="handleSubmit"
-            :disabled="!selectedOrgId || !marketName.trim()"
-            data-testid="new-market-submit-button"
-          >
-            Create market
-          </button>
-        </div>
-        <p v-show="errorMessage" class="error-message">{{ errorMessage }}</p>
-      </div>
+  <AppDialog
+    :open="props.newOpen"
+    title="Create new market"
+    testid="new-market"
+    confirm-label="Create market"
+    :confirm-disabled="cannotCreate"
+    @close="emit('newClose')"
+    @submit="handleSubmit"
+  >
+    <div class="dialog-field">
+      <label class="field-label" for="new-market-org">Organization</label>
+      <ElementOrgSelect id="new-market-org" v-model="selectedOrgId" />
     </div>
-  </div>
+
+    <div class="dialog-field">
+      <label class="field-label" for="new-market-name">Market name</label>
+      <!-- `.field` owns height, padding, radius, type and focus. Nothing here resets it. -->
+      <input
+        id="new-market-name"
+        v-model="marketName"
+        type="text"
+        class="field"
+        placeholder="Winter Market 2026"
+        data-testid="new-market-name-input"
+        @input="errorMessage = ''"
+      />
+      <!--
+        In flow, beneath the control it is about. Every error this dialog can raise is about the
+        name: submission is gated on an organization being picked, so "organization is required"
+        is unreachable, and what is left is the server refusing the name.
+      -->
+      <p v-if="errorMessage" class="error-message" data-testid="new-market-error">
+        {{ errorMessage }}
+      </p>
+    </div>
+  </AppDialog>
 </template>
 
 <style scoped>
-h3 {
-  display: inline;
-}
-
-.container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-}
-
-.background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  opacity: 0%;
-  transition:
-    opacity 0.15s ease-in-out,
-    visibility 0.15s ease-in-out;
-  z-index: 0;
-}
-
-.window {
-  position: relative;
-  width: 25%;
-  min-height: 140px;
-  padding: 25px;
-  gap: 10px;
+.dialog-field {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: white;
-  border-radius: var(--radius-card);
-  z-index: 1;
-}
-
-.org-select-container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.org-select-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--mm-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.input-wrapper {
-  width: 100%;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-}
-
-.field-label {
-  font-size: var(--text-xs);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--mm-text-muted);
-}
-
-.text-input-container input {
-  all: unset;
-  width: 100%;
-  font-size: var(--text-sm);
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-/* Was `all: unset` - no background, no border, no padding, and enabled/disabled differed only by
-   opacity, so the dialog's primary action read as a word rather than a button. */
-.primary-button {
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  padding: 9px 18px;
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.primary-button:disabled {
-  background: var(--mm-border);
-  color: var(--mm-black);
-  cursor: not-allowed;
-}
-
-.secondary-button {
-  background: none;
-  color: var(--mm-black);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  padding: 9px 18px;
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-/* Every overlay in the product ignored Escape and two had no visible way out at all. */
-.dialog-close {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  background: none;
-  border: none;
-  font-size: var(--text-xl);
-  line-height: 1;
-  padding: 4px 8px;
-  color: var(--mm-text-muted);
-  cursor: pointer;
-}
-
-.text-input-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: row;
-  /* The inset "pressed" shadow is retired; a field is a border (E16/F02). */
-  border-radius: var(--radius-card);
+  gap: var(--space-1);
 }
 
 .error-message {
-  position: absolute;
-  top: 35px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--mm-red);
+  margin: 0;
   font-size: var(--text-xs);
-  text-align: center;
-  white-space: nowrap;
-  pointer-events: none;
+  color: var(--mm-red);
 }
 </style>

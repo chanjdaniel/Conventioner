@@ -29,7 +29,7 @@ function form(fields: Array<{ key: string; label: string }>): ApplicationForm {
 
 describe('reviewAnswers', () => {
   it('shows the organizer’s own questions first, since those are what differ between applicants', () => {
-    const answers = reviewAnswers(
+    const { rest: answers } = reviewAnswers(
       application({
         essential_max_dates: 2,
         what_do_you_sell: 'Enamel pins',
@@ -51,7 +51,9 @@ describe('reviewAnswers', () => {
   });
 
   it('renders the per-date tier answer rather than [object Object]', () => {
-    const [answer] = reviewAnswers(
+    const {
+      rest: [answer],
+    } = reviewAnswers(
       application({ essential_tier_preference: { '2026-05-01': ['Gold', 'Silver'] } }),
     );
 
@@ -60,7 +62,9 @@ describe('reviewAnswers', () => {
   });
 
   it('formats available dates the way the applicant read them back, year included', () => {
-    const [answer] = reviewAnswers(application({ essential_available_dates: ['2026-05-01'] }));
+    const {
+      rest: [answer],
+    } = reviewAnswers(application({ essential_available_dates: ['2026-05-01'] }));
 
     // Whole, not by substring: `toContain('2026')` is what let the doubled year reach the review
     // queue and survive a green suite (E14/F01/S01).
@@ -68,22 +72,24 @@ describe('reviewAnswers', () => {
   });
 
   it('reads a table choice back as the sentence, not the stored code', () => {
-    const [answer] = reviewAnswers(application({ essential_table_choice: 'half' }));
+    const {
+      rest: [answer],
+    } = reviewAnswers(application({ essential_table_choice: 'half' }));
 
     expect(answer.value).not.toBe('half');
     expect(answer.value.toLowerCase()).toContain('half');
   });
 
   it('keeps a ranking numbered, so a preference does not read as a plain list', () => {
-    const [answer] = reviewAnswers(
-      application({ essential_section_ranking: ['Front Row', 'Middle'] }),
-    );
+    const {
+      rest: [answer],
+    } = reviewAnswers(application({ essential_section_ranking: ['Front Row', 'Middle'] }));
 
     expect(answer.value).toBe('1. Front Row · 2. Middle');
   });
 
   it('lists the organizer’s questions in the order the form declares, not storage order', () => {
-    const answers = reviewAnswers(application({ second: 'b', first: 'a' }), {
+    const { rest: answers } = reviewAnswers(application({ second: 'b', first: 'a' }), {
       fields: [
         { key: 'first', label: 'First', type: 'text', required: false, options: [], order: 0 },
         { key: 'second', label: 'Second', type: 'text', required: false, options: [], order: 1 },
@@ -94,13 +100,15 @@ describe('reviewAnswers', () => {
   });
 
   it('still shows an essential answer this build does not know about', () => {
-    const [answer] = reviewAnswers(application({ essential_something_new: 'kept' }));
+    const {
+      rest: [answer],
+    } = reviewAnswers(application({ essential_something_new: 'kept' }));
 
     expect(answer).toMatchObject({ value: 'kept', custom: false });
   });
 
   it('drops a blank answer, because an unanswered optional question is not information', () => {
-    const answers = reviewAnswers(
+    const { rest: answers } = reviewAnswers(
       application({ portfolio: '   ', what_do_you_sell: 'Pins' }),
       form([
         { key: 'portfolio', label: 'Portfolio' },
@@ -112,13 +120,15 @@ describe('reviewAnswers', () => {
   });
 
   it('still shows an answer whose question the form no longer names', () => {
-    const [answer] = reviewAnswers(application({ old_question: 'kept' }), form([]));
+    const {
+      rest: [answer],
+    } = reviewAnswers(application({ old_question: 'kept' }), form([]));
 
     expect(answer).toMatchObject({ label: 'old question', value: 'kept' });
   });
 
   it('holds no answer the application did not carry', () => {
-    expect(reviewAnswers(application({}), form([{ key: 'a', label: 'A' }]))).toEqual([]);
+    expect(reviewAnswers(application({}), form([{ key: 'a', label: 'A' }])).rest).toEqual([]);
   });
 });
 
@@ -130,5 +140,71 @@ describe('asksNothingDistinguishing', () => {
 
   it('is false once the organizer asks anything of their own', () => {
     expect(asksNothingDistinguishing(form([{ key: 'a', label: 'A' }]))).toBe(false);
+  });
+});
+
+describe('review highlights lead the card', () => {
+  const form = (fields: Array<{ key: string; label: string }>) =>
+    ({ fields: fields.map((f, i) => ({ ...f, type: 'text', order: i })) }) as never;
+
+  it('leads with the marked answers, in the order they were marked', () => {
+    const { leading } = reviewAnswers(
+      application({ portfolio: 'p', shop: 's', essential_available_dates: ['2026-05-01'] }),
+      form([
+        { key: 'shop', label: 'Shop' },
+        { key: 'portfolio', label: 'Portfolio' },
+      ]),
+      ['portfolio', 'shop'],
+    );
+
+    expect(leading.map((row) => row.key)).toEqual(['portfolio', 'shop']);
+  });
+
+  it('marks an ESSENTIAL answer as readily as a custom one', () => {
+    // Which is the whole reason this lives on the market: essential answers are not form fields,
+    // so a flag on a field could only ever have marked half the card.
+    const { leading } = reviewAnswers(
+      application({ shop: 's', essential_available_dates: ['2026-05-01'] }),
+      form([{ key: 'shop', label: 'Shop' }]),
+      ['essential_available_dates'],
+    );
+
+    expect(leading.map((row) => row.key)).toEqual(['essential_available_dates']);
+  });
+
+  it('keeps everything else, rather than losing it', () => {
+    const { leading, rest } = reviewAnswers(
+      application({ shop: 's', portfolio: 'p' }),
+      form([
+        { key: 'shop', label: 'Shop' },
+        { key: 'portfolio', label: 'Portfolio' },
+      ]),
+      ['shop'],
+    );
+
+    expect(leading.map((row) => row.key)).toEqual(['shop']);
+    expect(rest.map((row) => row.key)).toContain('portfolio');
+  });
+
+  it('renders the card as it always did when a market has marked nothing', () => {
+    // An empty list is not a reason to hide an application.
+    const { leading, rest } = reviewAnswers(
+      application({ shop: 's' }),
+      form([{ key: 'shop', label: 'Shop' }]),
+      [],
+    );
+
+    expect(leading).toEqual([]);
+    expect(rest.map((row) => row.key)).toEqual(['shop']);
+  });
+
+  it('ignores a marked key the application has no answer for', () => {
+    const { leading } = reviewAnswers(
+      application({ shop: 's' }),
+      form([{ key: 'shop', label: 'Shop' }]),
+      ['a_question_this_market_stopped_asking'],
+    );
+
+    expect(leading).toEqual([]);
   });
 });

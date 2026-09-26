@@ -100,7 +100,7 @@ for (const timezoneId of TIMEZONES) {
         },
         { m: market, user: TEST_USER.email },
       );
-      await page.goto('/market-setup');
+      await page.goto('/market-setup?tab=setup');
 
       const dateLabel = page.getByTestId('setup-dates-date-display-0');
       await expect(dateLabel).toBeVisible({ timeout: 10000 });
@@ -110,6 +110,51 @@ for (const timezoneId of TIMEZONES) {
         path: testInfo.outputPath(`market-dates-${timezoneId.replace('/', '_')}.png`),
         fullPage: true,
       });
+    });
+
+    /**
+     * The CALENDAR, not just the formatter (E18/F01/S02).
+     *
+     * A calendar does month ARITHMETIC rather than only formatting, which makes it the likeliest
+     * place in the product to reintroduce the calendar-day-versus-instant bug: `new Date(2026, 10,
+     * 1)` is midnight LOCAL, already November in Tokyo and still October in Honolulu. So the month
+     * an organizer navigates to, and the day they click, are asserted in each timezone too.
+     */
+    test('the calendar names the same month and stores the same day everywhere', async ({
+      page,
+    }) => {
+      const market = await seedMarketWithDate(page.request);
+      await page.goto('/login');
+      await page.evaluate(
+        ({ m, user }) => {
+          localStorage.setItem('market', JSON.stringify(m));
+          localStorage.setItem('user', JSON.stringify(user));
+        },
+        { m: market, user: TEST_USER.email },
+      );
+      await page.goto('/market-setup?tab=setup');
+
+      // It opens on the month the market already sits in - the same month for every viewer.
+      const month = page.getByTestId('setup-dates-month');
+      await expect(month).toBeVisible({ timeout: 15000 });
+      await expect(month).toHaveText('July 2026');
+
+      // Both edges of the month are where a local-offset bug shows first.
+      await expect(page.getByTestId('setup-dates-day-2026-07-01')).toBeVisible();
+      await expect(page.getByTestId('setup-dates-day-2026-07-31')).toBeVisible();
+      await expect(page.getByTestId('setup-dates-day-2026-08-01')).toHaveCount(0);
+
+      // Stepping a month, and back, lands where it started.
+      await page.getByTestId('setup-dates-next-month').click();
+      await expect(month).toHaveText('August 2026');
+      await page.getByTestId('setup-dates-prev-month').click();
+      await expect(month).toHaveText('July 2026');
+
+      // A day clicked here is stored as that calendar day, whoever clicked it.
+      await page.getByTestId('setup-dates-day-2026-07-01').click();
+      await expect(page.getByTestId('setup-dates-date-display-0')).toHaveText(
+        'Wednesday, July 1, 2026',
+      );
     });
   });
 }

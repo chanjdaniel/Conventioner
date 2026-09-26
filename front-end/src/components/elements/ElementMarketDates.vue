@@ -1,8 +1,24 @@
 <script setup lang="ts">
-import { ref, onMounted, defineEmits, defineProps, toRef, watch } from 'vue';
+/**
+ * The market's days, chosen on a calendar (E18/F01/S02).
+ *
+ * It was one row per date, growing downwards, in the widest section on the page - a tall narrow
+ * column of single values stranded in a very wide box. A calendar uses that width, reads the same
+ * for a two-day market and a twelve-day one, and shows the shape of the market: two Saturdays a
+ * month apart look like two Saturdays a month apart.
+ *
+ * It also DISSOLVES the old picker defect rather than fixing it. The row control laid an invisible
+ * native `<input type="date">` across the whole row and called `showPicker()`, which opened
+ * anchored to that input's left edge - the wrong side of the field. With no native date input
+ * there is no popup to position and no invisible overlay to work around.
+ *
+ * A MARKET DATE IS A CALENDAR DAY, NOT AN INSTANT. All arithmetic is in `calendarMonth`, in UTC,
+ * carrying days as strings - see its note on why a calendar is the likeliest place to reintroduce
+ * the timezone bug `e2e/date-display-timezone.spec.ts` pins.
+ */
+import { computed, ref, toRef, watch } from 'vue';
 import { type SetupObject, type MarketDateObject } from '@/assets/types/datatypes';
-import IconAddRound from '../icons/IconAddRound.vue';
-import IconCloseRound from '../icons/IconCloseRound.vue';
+import { addMonths, monthGrid, monthOf } from '@/utils/calendarMonth';
 import { getFormattedDate } from '@/utils/utils';
 
 const props = defineProps<{ setupObject: SetupObject }>();
@@ -11,268 +27,238 @@ const emit = defineEmits(['update:setupObject']);
 const setupObject = toRef(props, 'setupObject');
 const marketDates = toRef(setupObject.value, 'marketDates');
 
-const container = ref<HTMLElement | null>(null);
-const columnTitles = ref<HTMLElement | null>(null);
-const rows = ref<HTMLElement | null>(null);
-
-onMounted(() => {});
-
 watch(
   () => setupObject.value.marketDates,
-  () => {
-    emit('update:setupObject', setupObject.value);
-  },
+  () => emit('update:setupObject', setupObject.value),
   { deep: true },
 );
 
-const hoverIndex = ref<number | null>(null);
+const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
-const removeRow = (index: number | null) => {
-  if (index != null) {
-    marketDates.value.splice(index, 1);
-  }
-};
+const chosen = computed(() =>
+  (marketDates.value ?? []).map((entry: MarketDateObject) => entry.date).filter(Boolean),
+);
 
-const addRow = () => {
-  const newMarketDate: MarketDateObject = { date: '' };
-  marketDates.value.push(newMarketDate);
-};
+/**
+ * Opens on the month the market already sits in, so a returning organizer sees their own dates.
+ *
+ * Settled by a watcher rather than read once at setup: the market is loaded into the plan AFTER
+ * this mounts, so reading `chosen` here would find it empty and open on today - which is what it
+ * did, in every timezone, until the timezone spec caught it.
+ *
+ * `steered` stops it moving again once the organizer has navigated. A calendar that jumps back
+ * because a save round-tripped is worse than one that opens on the wrong month.
+ */
+const viewing = ref(monthOf(chosen.value));
+const steered = ref(false);
+
+watch(
+  chosen,
+  (days) => {
+    if (steered.value || !days.length) return;
+    viewing.value = monthOf(days);
+  },
+  { immediate: true },
+);
+const weeks = computed(() => monthGrid(viewing.value.year, viewing.value.month));
+const heading = computed(() => `${MONTH_NAMES[viewing.value.month]} ${viewing.value.year}`);
+
+function step(delta: number) {
+  steered.value = true;
+  viewing.value = addMonths(viewing.value.year, viewing.value.month, delta);
+}
+
+function isChosen(day: string): boolean {
+  return chosen.value.includes(day);
+}
+
+function toggle(day: string) {
+  const at = marketDates.value.findIndex((entry: MarketDateObject) => entry.date === day);
+  if (at >= 0) marketDates.value.splice(at, 1);
+  else marketDates.value.push({ date: day } as MarketDateObject);
+}
+
+/** The chosen days in order, so the summary reads as a market rather than as a click history. */
+const chosenInOrder = computed(() => [...chosen.value].sort());
 </script>
 
 <template>
-  <div class="container" ref="container">
-    <div class="column-titles row-container" ref="columnTitles">
-      <h3>Date</h3>
-    </div>
-    <div class="rows" ref="rows">
-      <div
-        class="row-container setup-row"
-        v-for="(item, index) in marketDates"
-        :key="index"
-        @mouseover="hoverIndex = index"
-        @mouseleave="hoverIndex = null"
+  <div class="calendar" data-testid="setup-dates">
+    <div class="calendar-head">
+      <button
+        type="button"
+        class="calendar-step"
+        aria-label="Previous month"
+        data-testid="setup-dates-prev-month"
+        @click="step(-1)"
       >
-        <div class="row-item text-item">
-          <h4 class="date-display" :data-testid="'setup-dates-date-display-' + index">
-            {{ getFormattedDate(marketDates[index].date) }}
-          </h4>
-          <input
-            type="date"
-            class="colname-input date-input"
-            v-model="marketDates[index].date"
-            onclick="this.showPicker()"
-            :data-testid="'setup-dates-date-input-' + index"
-          />
-        </div>
-        <button
-          type="button"
-          class="row-remove-button"
-          :aria-label="`Remove date ${index + 1}`"
-          @click="removeRow(index)"
-        >
-          <IconCloseRound
-            :class="{ 'hidden-icon': hoverIndex !== index }"
-            class="icon-close-round"
-          />
-        </button>
-      </div>
-      <div class="add-container">
-        <IconAddRound class="icon-add-round" @click="addRow" data-testid="setup-dates-add-button" />
-      </div>
+        ‹
+      </button>
+      <span class="calendar-month" data-testid="setup-dates-month">{{ heading }}</span>
+      <button
+        type="button"
+        class="calendar-step"
+        aria-label="Next month"
+        data-testid="setup-dates-next-month"
+        @click="step(1)"
+      >
+        ›
+      </button>
     </div>
+
+    <div class="calendar-grid" role="grid">
+      <span v-for="name in WEEKDAYS" :key="name" class="calendar-weekday">{{ name }}</span>
+      <template v-for="(week, w) in weeks" :key="w">
+        <span v-for="(day, d) in week" :key="`${w}-${d}`" class="calendar-cell">
+          <button
+            v-if="day"
+            type="button"
+            class="calendar-day"
+            :class="{ chosen: isChosen(day) }"
+            :aria-pressed="isChosen(day)"
+            :data-testid="`setup-dates-day-${day}`"
+            @click="toggle(day)"
+          >
+            {{ Number(day.slice(8)) }}
+          </button>
+        </span>
+      </template>
+    </div>
+
+    <!-- What was chosen, in words. A grid of marks says WHICH days; this says how many and when,
+         which is the question an organizer is actually answering. -->
+    <p v-if="chosenInOrder.length" class="calendar-summary" data-testid="setup-dates-summary">
+      <span
+        v-for="(day, index) in chosenInOrder"
+        :key="day"
+        class="calendar-chosen"
+        :data-testid="`setup-dates-date-display-${index}`"
+      >
+        {{ getFormattedDate(day) }}
+      </span>
+    </p>
+    <p v-else class="calendar-empty" data-testid="setup-dates-empty">
+      No market days yet. Pick them on the calendar above.
+    </p>
   </div>
 </template>
 
 <style scoped>
-option {
-  text-align: left;
-}
-
-select {
-  max-width: 100%;
-  white-space: normal;
-  /* For Firefox: */
-  text-overflow: ellipsis;
-}
-
-h4 {
-  width: 100%;
-  display: flex;
-  align-items: top;
-  max-height: 200px;
-  overflow-y: scroll;
-  scrollbar-width: none;
-}
-
-.colname-input {
-  width: 100%;
-  border: none;
-  resize: none;
-  /* font: unset; */
-  outline: none;
-}
-
-.date-input {
-  text-align: center;
-  text-justify: center;
-  color: transparent;
-  text-indent: -9999px;
-  position: absolute;
-  left: 0;
-  width: 100%;
-  background-color: transparent;
-  padding-right: 5px;
-  font-size: var(--text-md);
-}
-
-.date-display {
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  text-justify: center;
-  padding: 5px;
-  font-size: var(--text-md);
-}
-
-.edit-icon {
-  color: var(--mm-text-muted);
-  min-width: 24px;
-  min-height: 24px;
-  margin-left: 5px;
-}
-
-.container {
-  width: 100%;
-  height: 100%;
-
+.calendar {
   display: flex;
   flex-direction: column;
   align-items: center;
-
-  gap: 15px;
-}
-
-.column-titles {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 2rem;
-}
-
-.rows {
-  display: flex;
-  flex-direction: column;
+  gap: var(--space-3);
   width: 100%;
-
-  align-items: center;
-
-  gap: 8px;
-  padding-top: 4px;
-  padding-bottom: 8px;
-
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
-.setup-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 2rem;
-  padding-top: 5px;
-  padding-bottom: 5px;
-}
-
-.setup-row-colname {
-  text-align: left;
-  cursor: text;
-}
-
-.row-item {
-  display: flex;
-  flex-direction: row;
-  position: relative;
-
-  padding-left: 10px;
-  padding-right: 5px;
-  justify-content: space-between;
-  align-items: center;
-
-  border-right: 3px solid var(--mm-border);
-}
-
-.row-item:last-of-type {
-  border: none;
-}
-
-.text-item {
-  cursor: text;
-}
-
-.enum-item {
-  cursor: pointer;
-}
-
-.edit-icon-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: top;
-}
-
-.datatype-dropdown {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  text-justify: center;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  font-size: var(--text-md);
-  padding-right: 5px;
-  text-align-last: center;
-  background-color: white;
-}
-
-.display-list {
-  pointer-events: none;
-}
-
-.icon-add-round {
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
-}
-
-/* A real button: the control was a <div> with cursor:auto, tabIndex -1, no role and no
-   accessible name, in a 10px-wide hit target. Keyboard users could not remove a row at all. */
-.row-remove-button {
+.calendar-head {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
+  gap: var(--space-4);
 }
 
-.icon-close-round {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-}
-
-.date-input,
-.datatype-dropdown,
-.datatype-dropdown option {
-  font-family: inherit;
+.calendar-month {
   font-size: var(--text-md);
   color: var(--mm-black);
+  min-width: 12ch;
+  text-align: center;
+}
+
+.calendar-step {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
+  background: white;
+  color: var(--mm-black);
+  font-size: var(--text-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.calendar-step:hover {
+  border-color: var(--mm-green);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 420px;
+}
+
+.calendar-weekday {
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+  text-align: center;
+  padding-bottom: var(--space-1);
+}
+
+.calendar-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+}
+
+.calendar-day {
+  width: 100%;
+  height: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--mm-black);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.calendar-day:hover {
+  border-color: var(--mm-border);
+}
+
+.calendar-day.chosen {
+  background: var(--mm-green);
+  border-color: var(--mm-green);
+  color: white;
+}
+
+.calendar-summary {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.calendar-chosen {
+  font-size: var(--text-xs);
+  color: var(--mm-black);
+  background: var(--mm-beige);
+  border-radius: var(--radius-pill);
+  padding: var(--space-hairline) var(--space-2);
+  white-space: nowrap;
+}
+
+.calendar-empty {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 </style>

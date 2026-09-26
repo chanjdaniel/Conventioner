@@ -175,7 +175,7 @@ test.describe('Phase state machine - full walk', () => {
     // the transition table, not listed in the panel (E10/F04/S01). The dialog used to ask "Begin
     // Market Days? No offers are pending - no vendors will be marked refused", which answered a
     // question about a feature MVP does not have; it names the consequence now (E10/F04/S02).
-    const publishDialog = page.getByTestId('sweep-confirm-dialog');
+    const publishDialog = page.getByTestId('sweep-confirm-window');
     await expect(publishDialog).toBeVisible({ timeout: 5000 });
     await expect(publishDialog).toContainText('Publish Market');
     await expect(publishDialog).toContainText('check-in page on the air');
@@ -183,7 +183,7 @@ test.describe('Phase state machine - full walk', () => {
       path: `${SCREENSHOT_DIR}/06b-publish-confirmation.png`,
       fullPage: true,
     });
-    await page.getByTestId('sweep-confirm-confirm').click();
+    await page.getByTestId('sweep-confirm-submit-button').click();
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days', {
       timeout: 10000,
     });
@@ -404,7 +404,7 @@ test.describe('Phase state machine - archive confirmation', () => {
     await expect(archiveBtn).toBeVisible();
     await archiveBtn.click();
 
-    const dialog = page.getByTestId('archive-confirm-dialog');
+    const dialog = page.getByTestId('archive-confirm-window');
     await expect(dialog).toBeVisible({ timeout: 5000 });
     await expect(dialog).toContainText('Archive this market?');
 
@@ -414,7 +414,7 @@ test.describe('Phase state machine - archive confirmation', () => {
     });
 
     // Cancel
-    await page.getByTestId('archive-confirm-cancel').click();
+    await page.getByTestId('archive-confirm-cancel-button').click();
     await expect(dialog).not.toBeVisible({ timeout: 3000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open');
 
@@ -423,7 +423,7 @@ test.describe('Phase state machine - archive confirmation', () => {
     await page.getByTestId('phase-rail-menu-button').click();
     await archiveBtn.click();
     await expect(dialog).toBeVisible({ timeout: 5000 });
-    await page.getByTestId('archive-confirm-confirm').click();
+    await page.getByTestId('archive-confirm-submit-button').click();
     await expect(dialog).not.toBeVisible({ timeout: 3000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Archived', {
       timeout: 10000,
@@ -503,5 +503,95 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
       path: `${SCREENSHOT_DIR}/12-empty-plan-blocked.png`,
       fullPage: true,
     });
+  });
+});
+
+test.describe('The applications surface says which phase it is in', () => {
+  /**
+   * One surface serves three phases (E18/F02/S03), which ticket 11 settled by measuring: recording
+   * a verdict has no phase gate at all, importing spans two of the three, and applications-closed
+   * changes nothing for a CSV market.
+   *
+   * The cost is the rail showing three steps over one place, and the mitigation is that the
+   * surface SAYS which. Hiding the Import button is not stating it - a surface whose only
+   * difference is a missing control teaches an organizer that the phases are arbitrary.
+   */
+  test('an organizer can tell the three apart by reading, not by which button is missing', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const move = (toPhase: string) =>
+      request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+        data: { toPhase },
+      });
+    const conditionNow = async () => {
+      await setMarketInPage(page, await loadMarket(page, seed.marketId));
+      await page.goto('/market-setup?tab=applications');
+      const line = page.getByTestId('market-setup-applications-condition');
+      await expect(line).toBeVisible({ timeout: 15000 });
+      return (await line.innerText()).trim();
+    };
+
+    await move('applications_open');
+    const open = await conditionNow();
+    await expect(page.getByTestId('market-setup-import-button')).toBeEnabled();
+
+    await move('applications_closed');
+    const closed = await conditionNow();
+    // Still offered: importing spans two of the three phases.
+    await expect(page.getByTestId('market-setup-import-button')).toBeEnabled();
+
+    await move('review');
+    const review = await conditionNow();
+    // Withdrawn here - and the withdrawal is explained rather than silent.
+    await expect(page.getByTestId('market-setup-import-button')).toBeDisabled();
+    await expect(page.getByTestId('market-setup-import-blocked-reason')).toBeVisible();
+
+    expect(new Set([open, closed, review]).size, `"${open}" / "${closed}" / "${review}"`).toBe(3);
+    expect(review).toMatch(/decided/);
+  });
+});
+
+test.describe('Where the workspace opens', () => {
+  /**
+   * The workspace opens the surface the phase is worked on (E18/F02/S02).
+   *
+   * It used to fall back to the plan whatever the market was doing, so an organizer returning to a
+   * market mid-review landed on its dates. The original finding asked for the OPPOSITE of what
+   * ships here - the form until it was finalized, then the plan - and ticket 01 overturned it: the
+   * plan comes first, because the form is built from it.
+   */
+  test('a draft opens on the plan, and a market past draft does not', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+
+    await setMarketInPage(page, await loadMarket(page, seed.marketId));
+    await page.goto('/market-setup');
+    await expect(page.getByTestId('market-setup-setup-tab')).toHaveClass(/active/);
+
+    await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: { toPhase: 'archived' },
+    });
+    await setMarketInPage(page, await loadMarket(page, seed.marketId));
+    await page.goto('/market-setup');
+    await expect(page.getByTestId('market-setup-assignment-tab')).toHaveClass(/active/);
+    await expect(page.getByTestId('market-setup-setup-tab')).not.toHaveClass(/active/);
+  });
+
+  test('an explicit stage in the URL still wins, so a shared link keeps working', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    await setMarketInPage(page, await loadMarket(page, seed.marketId));
+
+    // A draft would otherwise open on the plan.
+    await page.goto('/market-setup?tab=applications');
+    await expect(page.getByTestId('market-setup-applications-tab')).toHaveClass(/active/);
   });
 });

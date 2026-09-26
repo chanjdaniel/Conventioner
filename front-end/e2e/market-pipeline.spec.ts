@@ -1,3 +1,4 @@
+import { getFormattedDate } from '../src/utils/utils';
 import {
   test,
   expect,
@@ -128,17 +129,22 @@ test.describe('Market pipeline E2E', () => {
     // --- The plan, one page (E10/F02/S01) ---
     // There is no Manage Columns step any more: a market describes no spreadsheet, so the plan is
     // the days it runs, what it offers, and how the solver should order applicants.
-    await setupPage.addMarketDate(MARKET_DATE, 0);
-    await expect(setupPage.getDateInput(0)).toHaveValue(MARKET_DATE);
+    await setupPage.addMarketDate(MARKET_DATE);
+    // The day reads back as a day, not as an input's value: dates are chosen on a calendar now
+    // (E18/F01/S02), and what the organizer sees is the date spelled out.
+    await expect(page.getByTestId('setup-dates-date-display-0')).toHaveText(
+      getFormattedDate(MARKET_DATE) as string,
+    );
 
     await setupPage.selectManualPath();
 
     // Tiers are no longer pre-filled from an uploaded spreadsheet's cell values, so the
     // organizer names the one this market runs.
     await setupPage.addTier('Gold', 0);
-    await expect(page.locator('.plan-row--triple .priority-row').first()).toBeVisible({
-      timeout: 5000,
-    });
+    // Named by its testid rather than by a layout class: every plan section is full width now
+    // (E18/F01/S01), so `.plan-row--triple` no longer exists - and a spec that reaches through a
+    // layout class breaks whenever the layout changes, which is not what it is testing.
+    await expect(page.getByTestId('setup-tier-name-input-0')).toBeVisible({ timeout: 5000 });
 
     // Add a location
     await setupPage.addLocation('Main Hall', 0);
@@ -183,7 +189,7 @@ test.describe('Market pipeline E2E', () => {
     expect(summaryText).toContain('Satisfaction');
     expect(summaryText).toContain('share of the dates vendors asked for');
 
-    // Download CSV and Send to Discord are the two things here that are actually actions. Done
+    // Download CSV is the thing here that is actually an action. Done
     // and Back are gone: publishing is a step on the phase strip, and "I have finished looking at
     // this" is what leaving a page already is (E10/F03/S01).
     await expect(resultsPage.downloadCsvButton).toBeVisible();

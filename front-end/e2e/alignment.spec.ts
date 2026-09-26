@@ -10,8 +10,8 @@ import type { Page } from '@playwright/test';
  *   - Down the Vendors list the right-hand metadata started at 1387, 1389 and 1391 depending on the
  *     digits in the row. Outfit's `0`, `1` and `2` are different widths, so a right-aligned group
  *     shifts by a pixel or two per row and the column reads ragged.
- *   - `Download CSV` sat at y=881 and `Send to Discord` at y=902, both 35px tall, in the same
- *     footer row - because the Discord explanation was stacked ABOVE its button inside a centred
+ *   - Two footer actions sat 21px apart on a row meant to be one line, because an explanation was
+ *     stacked ABOVE its button inside a centred
  *     column.
  *   - The check-in email field was 42px and the button beside it 40px, both starting at the same y.
  *
@@ -81,26 +81,6 @@ test.describe('Things meant to line up do', () => {
     if (varied) {
       const distinct = [...new Set(counts.map((c) => c.left))];
       expect(distinct, `ragged column: ${JSON.stringify(counts)}`).toHaveLength(1);
-    }
-  });
-
-  test('the two footer actions share a line', async ({ authenticatedPage: page }) => {
-    await openTheSeededMarket(page);
-    await page.goto('/market-setup?tab=assignment');
-    const csv = page.getByTestId('assignment-results-download-csv-button');
-    const discord = page.getByTestId('assignment-results-send-discord-button');
-    await expect(csv).toBeVisible({ timeout: 15000 });
-    await expect(discord).toBeVisible();
-
-    const [a, b] = await Promise.all([csv.boundingBox(), discord.boundingBox()]);
-    expect(a && b).toBeTruthy();
-    expect(Math.abs(a!.y - b!.y), `footer buttons ${a!.y} vs ${b!.y}`).toBeLessThanOrEqual(1);
-
-    // And the explanation reads below the control it explains, not above it.
-    const reason = page.getByTestId('assignment-results-discord-blocked-reason');
-    if (await reason.count()) {
-      const r = await reason.boundingBox();
-      expect(r!.y, 'the reason still sits above its button').toBeGreaterThan(b!.y);
     }
   });
 

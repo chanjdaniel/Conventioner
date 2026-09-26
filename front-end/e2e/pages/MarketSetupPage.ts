@@ -1,8 +1,23 @@
 import { type Locator, type Page } from '@playwright/test';
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 /**
  * Page object for the Market Setup wizard view.
- * Covers wizard step navigation (Back/Next/Assign), the Discord webhook input,
+ * Covers wizard step navigation (Back/Next/Assign),
  * and interactions with the setup wizard sub-components.
  */
 export class MarketSetupPage {
@@ -10,12 +25,6 @@ export class MarketSetupPage {
 
   // Wizard navigation
   readonly assignButton: Locator;
-
-  // Discord webhook
-  readonly discordWebhookInput: Locator;
-
-  // Page 0: Market Dates
-  readonly datesAddButton: Locator;
 
   // Page 1: Path choice overlay
   readonly choosePathButton: Locator;
@@ -50,10 +59,6 @@ export class MarketSetupPage {
     this.page = page;
 
     this.assignButton = page.getByTestId('market-setup-assign-button');
-
-    this.discordWebhookInput = page.getByTestId('market-setup-discord-webhook-input');
-
-    this.datesAddButton = page.getByTestId('setup-dates-add-button');
 
     this.choosePathButton = page.getByTestId('market-setup-choose-path-button');
     this.choosePathManualCard = page.getByTestId('choose-path-manual');
@@ -121,7 +126,7 @@ export class MarketSetupPage {
 
     // Publishing confirms, because it is one of the two edges with no route back: it puts a
     // public check-in page on the air.
-    const publishConfirm = this.page.getByTestId('sweep-confirm-confirm');
+    const publishConfirm = this.page.getByTestId('sweep-confirm-submit-button');
     if (await publishConfirm.isVisible({ timeout: 2000 }).catch(() => false)) {
       await publishConfirm.click();
     }
@@ -133,36 +138,67 @@ export class MarketSetupPage {
       .waitFor({ timeout: 10000 });
   }
 
+  /**
+   * The PLAN, named explicitly.
+   *
+   * A bare `/market-setup` now opens the surface the market's phase is worked on (E18/F02/S02), so
+   * a page object whose other helpers all edit the plan has to say which surface it wants.
+   */
   async goto(): Promise<void> {
-    await this.page.goto('/market-setup');
+    await this.page.goto('/market-setup?tab=setup');
+  }
+
+  /**
+   * Assign lives on the ASSIGNMENT surface now (E18/F02/S04), not on the plan - it is refused
+   * outside the assignment phase, so a permanently disabled button beside the dates explained a
+   * rule instead of applying it.
+   */
+  async gotoAssignment(): Promise<void> {
+    // Click the tab rather than navigating: a hard `goto` reloads the app and drops whatever the
+    // debounced plan save has not written yet, which an organizer switching tabs never does.
+    await this.page.getByTestId('market-setup-assignment-tab').click();
+    await this.assignButton.waitFor({ state: 'visible', timeout: 15000 });
   }
 
   async clickAssign(): Promise<void> {
+    if (!(await this.assignButton.isVisible())) await this.gotoAssignment();
     await this.assignButton.click();
   }
 
   async isAssignEnabled(): Promise<boolean> {
+    if (!(await this.assignButton.isVisible())) await this.gotoAssignment();
     return await this.assignButton.isEnabled();
-  }
-
-  async fillDiscordWebhook(url: string): Promise<void> {
-    await this.discordWebhookInput.fill(url);
   }
 
   // --- Page 0: Market Dates ---
 
-  /** Add a new market date row and configure it. */
-  /** A market date is a date. It used to also need a spreadsheet column chosen beside it. */
-  async addMarketDate(date: string, index: number = 0): Promise<void> {
-    await this.datesAddButton.click();
-    const dateInput = this.page.getByTestId(`setup-dates-date-input-${index}`);
-    await dateInput.waitFor({ state: 'visible' });
-    await dateInput.fill(date);
-  }
+  /**
+   * Choose a market day on the calendar.
+   *
+   * A market date is a date. It used to also need a spreadsheet column chosen beside it, and then
+   * a row with an invisible native date input laid across it - the calendar replaced both
+   * (E18/F01/S02), so this walks to the month and clicks the day.
+   */
+  async addMarketDate(date: string): Promise<void> {
+    const [year, month] = date.split('-').map(Number);
+    const wanted = `${MONTH_NAMES[month - 1]} ${year}`;
+    const shown = this.page.getByTestId('setup-dates-month');
+    await shown.waitFor({ state: 'visible', timeout: 15000 });
 
-  /** Get a date input by row index. */
-  getDateInput(index: number): Locator {
-    return this.page.getByTestId(`setup-dates-date-input-${index}`);
+    // Step rather than jump: the control has no month picker, which is what an organizer has too.
+    for (let guard = 0; guard < 60; guard += 1) {
+      const now = (await shown.innerText()).trim();
+      if (now === wanted) break;
+      const [shownMonth, shownYear] = now.split(' ');
+      const forward =
+        Number(shownYear) < year ||
+        (Number(shownYear) === year && MONTH_NAMES.indexOf(shownMonth) < month - 1);
+      await this.page
+        .getByTestId(forward ? 'setup-dates-next-month' : 'setup-dates-prev-month')
+        .click();
+    }
+
+    await this.page.getByTestId(`setup-dates-day-${date}`).click();
   }
 
   /** Get a date column select by row index. */
@@ -275,8 +311,15 @@ export class MarketSetupPage {
 
   // --- Page 2: Assignment Options ---
 
-  /** Set the max assignments per vendor. */
+  /**
+   * Set the max assignments per vendor.
+   *
+   * Assignment Options moved to the assignment surface with Assign (E18/F02/S04), so this goes
+   * there if it is not already looking at it - a priority rule names a form field, and neither
+   * card can be filled in meaningfully while a market is still being planned.
+   */
   async setMaxAssignmentsPerVendor(value: number): Promise<void> {
+    if (!(await this.optionsMaxAssignmentsInput.isVisible())) await this.gotoAssignment();
     await this.optionsMaxAssignmentsInput.fill(String(value));
   }
 
@@ -290,15 +333,17 @@ export class MarketSetupPage {
   /**
    * Wait for the plan editor to be on screen.
    *
-   * It used to wait for the wizard's Next button; the plan is one page now (E10/F02/S01), so the
-   * thing to wait for is the one action it has.
+   * It used to wait for the wizard's Next button; the plan is one page now (E10/F02/S01). It then
+   * waited for Assign, which left the plan for the assignment surface (E18/F02/S04). What it waits
+   * for now is the first thing the plan asks for: the calendar of market days (E18/F01/S02).
    */
   async waitForWizard(): Promise<void> {
-    await this.assignButton.waitFor({ state: 'visible', timeout: 10000 });
+    await this.page.getByTestId('setup-dates-month').waitFor({ state: 'visible', timeout: 10000 });
   }
 
   /** Wait for the Assign button to become enabled (all required options configured). */
   async waitForAssignEnabled(): Promise<void> {
+    if (!(await this.assignButton.isVisible())) await this.gotoAssignment();
     await this.assignButton.waitFor({ state: 'visible', timeout: 5000 });
     // The button should not be disabled
     await this.page.waitForFunction(

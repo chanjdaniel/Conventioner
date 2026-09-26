@@ -262,6 +262,8 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
         # First, and asked by every market: a column of names maps straight across, which is what
         # the Fall 2025 export's "Full Legal Name" had nowhere to go before.
         (EssentialFields.FULL_NAME_KEY, EssentialFields.FULL_NAME_LABEL),
+        # The column beside it in that same export, which had nowhere to go until E19/F02/S01.
+        (EssentialFields.PREFERRED_NAME_KEY, EssentialFields.PREFERRED_NAME_LABEL),
         (EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL),
         (EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL),
         (EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL),
@@ -777,27 +779,21 @@ def _assembled_rows(
                     value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
             form_data[key] = _stored_answer(key, value)
 
-        # Tier is answered PER DATE (E01/F05). A grid already says it that way - one column per
-        # date, tiers in the cell - but a form that asked once ("which tiers will you accept?")
-        # gives a flat list, which means those tiers on every date the vendor is available. Expanded
-        # here rather than in ``_coerce`` because only the assembled row knows both answers.
-        tier_answer = form_data.get(EssentialFields.TIER_PREFERENCE_KEY)
-        if isinstance(tier_answer, list):
-            dates = form_data.get(EssentialFields.AVAILABLE_DATES_KEY) or []
-            form_data[EssentialFields.TIER_PREFERENCE_KEY] = {
-                date: list(tier_answer) for date in dates
-            }
-        elif isinstance(tier_answer, dict) and not form_data.get(
-            EssentialFields.AVAILABLE_DATES_KEY
-        ):
-            # A real form asks one question per day whose cell carries the tiers, or "None" when
-            # the vendor cannot attend. That single grid answers BOTH questions, so availability is
-            # read from it rather than demanding a second column the form never had: the dates you
-            # named tiers for are the dates you are available. The two are still stored separately
-            # and still have to agree - this is what makes them agree by construction.
-            form_data[EssentialFields.AVAILABLE_DATES_KEY] = [
-                date for date, names in tier_answer.items() if names
-            ]
+        # How the two answers become the stored shape is the contract's own rule, not the
+        # importer's: the applicant form produces the same shapes (E19/F01/S02), and a second copy
+        # here would be the drift that surfaces as the solver rejecting answers the form accepted.
+        # Applied on the ASSEMBLED row because only it knows both answers.
+        tiers, dates = EssentialFields.reconciled_dates_and_tiers(
+            form_data.get(EssentialFields.TIER_PREFERENCE_KEY),
+            form_data.get(EssentialFields.AVAILABLE_DATES_KEY),
+        )
+        # Only where there was something to reconcile: writing a key the mapping never produced
+        # turns "this column was not mapped" into "this applicant answered nothing", which the
+        # validator reads differently.
+        if EssentialFields.TIER_PREFERENCE_KEY in form_data:
+            form_data[EssentialFields.TIER_PREFERENCE_KEY] = tiers
+        if dates or EssentialFields.AVAILABLE_DATES_KEY in form_data:
+            form_data[EssentialFields.AVAILABLE_DATES_KEY] = dates
 
         # Normalised here, at the boundary, so every reader downstream compares one shape. A value
         # that is not a time is carried as the sentinel below and refused by ``_row_faults`` with

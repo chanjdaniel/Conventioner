@@ -104,7 +104,8 @@ export function parseMarketFromApi(market: any): Market {
     },
     applicationForm: applicationForm ? (applicationForm as ApplicationForm) : undefined,
     reviewConfig: market.reviewConfig ?? market.review_config ?? undefined,
-    discordGuildId: market.discordGuildId ?? market.discord_guild_id ?? undefined,
-    discordWebhookUrl: market.discordWebhookUrl ?? market.discord_webhook_url ?? undefined,
+    // Which answers a reviewer reads first (E19/F03/S01). Absent means nothing is marked, which
+    // renders the card exactly as it did before this existed.
+    reviewHighlights: (market.reviewHighlights ?? market.review_highlights ?? []) as string[],
   };
 }

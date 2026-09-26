@@ -126,7 +126,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
   background: rgba(228, 166, 41, 0.18);
   border-radius: var(--radius-control);
   font-size: var(--text-xs);
-  color: var(--mm-text-yellow);
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .preview-badge {

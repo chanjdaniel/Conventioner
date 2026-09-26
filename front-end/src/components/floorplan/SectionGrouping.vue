@@ -487,7 +487,14 @@ onUnmounted(() => {
           aria-modal="true"
           role="dialog"
         >
-          <div class="sg-dialog" @click.stop>
+          <!--
+            A native form, not three key handlers (E20/F01/S03). Enter runs the same handler the
+            Assign button does, so it inherits the empty-name guard, and does nothing while that
+            button is disabled. This panel used `@keyup.enter` on each of its three inputs, the
+            two floorplan panels beside it used `@keydown.enter`, and one of those prevented the
+            default - three files, three answers, which is what a policy is for.
+          -->
+          <form class="sg-dialog" @click.stop @submit.prevent="confirmSection">
             <h2 class="sg-dialog-title">Create Section</h2>
             <p class="sg-dialog-sub">
               Assign {{ lassoedTableIds.length }} selected table{{
@@ -505,7 +512,6 @@ onUnmounted(() => {
                 placeholder="e.g. A"
                 autofocus
                 data-testid="floorplan-section-dialog-name-input"
-                @keyup.enter="confirmSection"
               />
             </label>
 
@@ -517,7 +523,6 @@ onUnmounted(() => {
                 type="text"
                 placeholder="e.g. Main Hall"
                 data-testid="floorplan-section-dialog-location-input"
-                @keyup.enter="confirmSection"
               />
             </label>
 
@@ -528,7 +533,6 @@ onUnmounted(() => {
                 class="sg-field-input"
                 type="text"
                 placeholder="e.g. Premium"
-                @keyup.enter="confirmSection"
               />
             </label>
 
@@ -544,6 +548,7 @@ onUnmounted(() => {
 
             <div class="sg-dialog-actions">
               <button
+                type="button"
                 class="sg-btn sg-btn--cancel"
                 data-testid="floorplan-section-dialog-cancel-btn"
                 @click="cancelSection"
@@ -551,15 +556,15 @@ onUnmounted(() => {
                 Cancel
               </button>
               <button
+                type="submit"
                 class="sg-btn sg-btn--confirm"
                 :disabled="!dialogSectionName.trim()"
                 data-testid="floorplan-section-dialog-assign-btn"
-                @click="confirmSection"
               >
                 Assign Section
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </Transition>
     </Teleport>

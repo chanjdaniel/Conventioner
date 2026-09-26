@@ -291,23 +291,12 @@ Every step is reachable from the UI; none of it needs the API.
    Approve the ones a table should go to: **the solver reads approved applications and nothing
    else**, so an application left unreviewed takes no part in assignment.
 8. **Generate the assignment** by running "Assign" from Market Setup.
-9. **View the results**, download the CSV, and optionally post the summary to Discord.
+9. **View the results** and download the CSV.
 
 **Where do I get a CSV?**
 Any CSV with a header row will do for a first look: an email address column, plus one column per
 question your market asks.
 `front-end/e2e/csv-import.spec.ts` carries a small realistic example at the top of the file.
-
-### Discord Webhook Setup
-
-The market owner can post the assignment summary to a Discord channel via a per-market webhook URL.
-
-1. In Discord, open the target server and go to **Server Settings → Integrations → Webhooks**.
-2. Click **New Webhook**, choose the destination channel, optionally rename the webhook, then click **Copy Webhook URL**.
-3. In Conventioner, open the market in **Market Setup** and paste the URL into the **Discord webhook URL** field. The URL is saved with the market on the next save action.
-4. After running an assignment, open **Assignment Results** and click **Send to Discord**. The summary (assignments, vendors, tables, satisfaction, top sections, unassigned counts) is posted to the configured channel.
-
-The webhook URL is stored per-market and treated as a secret; it is never logged. Leaving the field blank disables the **Send to Discord** button.
 
 ## Troubleshooting
 
@@ -563,11 +552,6 @@ Use the schema utility to regenerate the backend/frontend contract declaration d
   ```
 2. The generated contract will be written to:
   - `docs/schema.d.ts`
-
-### Discord Webhook Setup
-
-Per market, and documented under [The Full Workflow](#the-full-workflow) above.
-The webhook URL is stored on the market, never in `.env`, and is treated as a secret.
 
 ## Next Steps
 
