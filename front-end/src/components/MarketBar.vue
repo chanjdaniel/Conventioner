@@ -18,10 +18,9 @@ import {
   TAB_LABELS,
   currentPage,
   pageForTab,
+  pageOfRoute,
   tabOf,
   tabsFor,
-  type MarketFlow,
-  type MarketPage,
   type MarketTab,
 } from '@/utils/marketPage';
 
@@ -29,24 +28,7 @@ const props = defineProps<{ market: Market | null }>();
 const route = useRoute();
 
 /** The page or flow this route is, read off the route rather than told by each screen. */
-const here = computed((): MarketPage | MarketFlow | null => {
-  switch (route.name) {
-    case 'market-setup':
-      return String(route.params.page) as MarketPage;
-    case 'market-result':
-      return 'result';
-    case 'vendors':
-      return 'vendors';
-    case 'attendance-status':
-      return 'attendance';
-    case 'import-applications':
-      return 'import';
-    case 'floorplan-editor':
-      return 'floorplan';
-    default:
-      return null;
-  }
-});
+const here = computed(() => pageOfRoute(route.name, route.params));
 
 const assigned = computed(
   () => (props.market?.assignmentObject?.vendorAssignments?.length ?? 0) > 0,

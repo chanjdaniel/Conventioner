@@ -30,7 +30,8 @@ export async function seedAssignedMarket(
   baseURL: string,
   email: string,
   password: string,
-  options: { name?: string } = {},
+  /** `run: false` stops in the assignment phase with nothing run yet (E22/F04/S03). */
+  options: { name?: string; run?: boolean } = {},
 ): Promise<AssignedSeedResult> {
   const seed = await seedMarketWithVendors(request, baseURL, email, password, options);
 
@@ -71,6 +72,10 @@ export async function seedAssignedMarket(
     if (!res.ok()) {
       throw new Error(`Transition to ${toPhase} failed: ${res.status()} ${await res.text()}`);
     }
+  }
+
+  if (options.run === false) {
+    return { ...seed, slug: marketNameToSlug(seed.marketName), assignmentObject: {} };
   }
 
   // One call runs the solver and stores what it produced. `assignmentObject` is server-owned

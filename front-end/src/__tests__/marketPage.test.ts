@@ -3,6 +3,7 @@ import {
   TAB_PAGES,
   currentPage,
   pageForTab,
+  pageOfRoute,
   tabOf,
   tabsFor,
   type MarketPage,
@@ -94,5 +95,27 @@ describe('the page a tab opens', () => {
     expect(pageForTab('assignment', MarketPhase.Draft, false)).toBe('assignment');
     expect(pageForTab('setup', MarketPhase.MarketDays, true)).toBe('setup');
     expect(pageForTab('attendance', MarketPhase.MarketDays, true)).toBe('attendance');
+  });
+});
+
+describe('the page a route is', () => {
+  it('reads the four pages of the market view off its address', () => {
+    for (const page of ['setup', 'form', 'applications', 'assignment']) {
+      expect(pageOfRoute('market-setup', { page })).toBe(page);
+    }
+  });
+
+  it('names the pages and flows that are views of their own', () => {
+    expect(pageOfRoute('market-result', {})).toBe('result');
+    expect(pageOfRoute('vendors', {})).toBe('vendors');
+    expect(pageOfRoute('attendance-status', {})).toBe('attendance');
+    expect(pageOfRoute('import-applications', {})).toBe('import');
+    expect(pageOfRoute('floorplan-editor', {})).toBe('floorplan');
+  });
+
+  it('is nothing for a route that is not a market page', () => {
+    expect(pageOfRoute('market', {})).toBeNull();
+    expect(pageOfRoute('markets', {})).toBeNull();
+    expect(pageOfRoute(undefined, {})).toBeNull();
   });
 });
