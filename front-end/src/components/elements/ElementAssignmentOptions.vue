@@ -177,9 +177,8 @@ select.datatype-dropdown {
   align-items: stretch;
 
   gap: 8px;
-
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* No scroller of its own (E22/F01/S01): it was one, sized to the card rather than to the options,
+     so the second option sat 30px below a scrollbar nobody could see. The page is the scroller. */
 }
 
 .mapping-heading {

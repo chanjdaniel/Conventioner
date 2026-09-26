@@ -2,7 +2,7 @@
 id: E22/F01/S01
 title: The Assignment Options card shows both options
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -17,6 +17,6 @@ AGENTS.md (**The Design Language**) forbids a frame screen growing a scroller of
 
 ## Acceptance criteria
 
-- [ ] Reproduced first in the running app: on a market with the Assignment tab open at 1920x1080, the half-table option's box is clipped.
-- [ ] Both options show in full at 1920x1080 and at 1280x800, with no scroller inside the card.
-- [ ] A Playwright check fails if any element inside a market screen's surface scrolls on its own (content taller than its box, with `overflow` other than `visible`) - so the next nested scroller is caught by name rather than by eye.
+- [x] Reproduced first in the running app: on a market with the Assignment tab open at 1920x1080, the half-table option's box is clipped.
+- [x] Both options show in full at 1920x1080 and at 1280x800, with no scroller inside the card.
+- [x] A Playwright check fails if any element inside a market screen's surface scrolls on its own (content taller than its box, with `overflow` other than `visible`) - so the next nested scroller is caught by name rather than by eye.
