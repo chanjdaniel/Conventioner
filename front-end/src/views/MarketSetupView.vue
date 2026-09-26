@@ -19,7 +19,7 @@ import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue';
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
-import PhaseRail from '@/components/PhaseRail.vue';
+import MarketFrame from '@/components/MarketFrame.vue';
 import MarketArrival from '@/components/MarketArrival.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 
@@ -52,6 +52,9 @@ const activeTab = ref<MarketSurface>('setup');
 
 function showTab(tab: MarketSurface) {
   activeTab.value = tab;
+  // A surface starts at its own top, directly under the pinned frame, rather than wherever the last
+  // one was scrolled to (E21/F04/S01).
+  if (window.scrollY > 0) window.scrollTo({ top: 0 });
   router.replace({ query: { ...route.query, tab } });
 }
 
@@ -346,20 +349,23 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
        to paint but the state of asking (E21/F02/S02). -->
   <div v-if="!market" class="market-setup-view">
     <div class="market-setup-body">
-      <div class="settings-container">
+      <MarketFrame class="settings-container" :market="null">
         <MarketArrival :status="marketStatus" @retry="refreshMarket()" />
-      </div>
+      </MarketFrame>
     </div>
   </div>
   <div v-else class="market-setup-view">
     <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
     <div class="market-setup-body">
-      <div class="settings-container">
-        <div class="settings-header">
-          <!-- The market's own name, so the page says which market this is. It read "Settings" on
+      <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
+           banner while the page scrolls. -->
+      <MarketFrame class="settings-container" :market="market" :beforeTransition="flushPlanSave">
+        <template #bar>
+          <div class="settings-header">
+            <!-- The market's own name, so the page says which market this is. It read "Settings" on
                every market, back when the route carried no id to tell them apart. -->
-          <h1 data-testid="market-setup-title">{{ market.name }}</h1>
-          <!--
+            <h1 data-testid="market-setup-title">{{ market.name }}</h1>
+            <!--
             Navigation along the spine, not four peers (E18/F02/S02).
 
             The plan comes BEFORE the form, because the form is built from it - the back end says
@@ -371,65 +377,65 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
             adds is WHERE THE MARKET IS - `aria-current` and a mark on the surface this phase is
             worked on - so the bar and the rail beneath it say the same thing.
           -->
-          <div class="tab-bar">
-            <button
-              :class="[
-                'tab-button',
-                {
-                  active: activeTab === 'setup',
-                  current: isCurrentSurface('setup', market?.phase),
-                },
-              ]"
-              :aria-current="isCurrentSurface('setup', market?.phase) ? 'step' : undefined"
-              @click="showTab('setup')"
-              data-testid="market-setup-setup-tab"
-            >
-              Market Setup
-            </button>
-            <button
-              :class="[
-                'tab-button',
-                { active: activeTab === 'form', current: isCurrentSurface('form', market?.phase) },
-              ]"
-              @click="showTab('form')"
-              data-testid="market-setup-form-tab"
-            >
-              Application Form
-            </button>
-            <button
-              :class="[
-                'tab-button',
-                {
-                  active: activeTab === 'applications',
-                  current: isCurrentSurface('applications', market?.phase),
-                },
-              ]"
-              :aria-current="isCurrentSurface('applications', market?.phase) ? 'step' : undefined"
-              @click="showTab('applications')"
-              data-testid="market-setup-applications-tab"
-            >
-              Applications
-            </button>
-            <button
-              :class="[
-                'tab-button',
-                {
-                  active: activeTab === 'assignment',
-                  current: isCurrentSurface('assignment', market?.phase),
-                },
-              ]"
-              :aria-current="isCurrentSurface('assignment', market?.phase) ? 'step' : undefined"
-              @click="showTab('assignment')"
-              data-testid="market-setup-assignment-tab"
-            >
-              Assignment Results
-            </button>
+            <div class="tab-bar">
+              <button
+                :class="[
+                  'tab-button',
+                  {
+                    active: activeTab === 'setup',
+                    current: isCurrentSurface('setup', market?.phase),
+                  },
+                ]"
+                :aria-current="isCurrentSurface('setup', market?.phase) ? 'step' : undefined"
+                @click="showTab('setup')"
+                data-testid="market-setup-setup-tab"
+              >
+                Market Setup
+              </button>
+              <button
+                :class="[
+                  'tab-button',
+                  {
+                    active: activeTab === 'form',
+                    current: isCurrentSurface('form', market?.phase),
+                  },
+                ]"
+                @click="showTab('form')"
+                data-testid="market-setup-form-tab"
+              >
+                Application Form
+              </button>
+              <button
+                :class="[
+                  'tab-button',
+                  {
+                    active: activeTab === 'applications',
+                    current: isCurrentSurface('applications', market?.phase),
+                  },
+                ]"
+                :aria-current="isCurrentSurface('applications', market?.phase) ? 'step' : undefined"
+                @click="showTab('applications')"
+                data-testid="market-setup-applications-tab"
+              >
+                Applications
+              </button>
+              <button
+                :class="[
+                  'tab-button',
+                  {
+                    active: activeTab === 'assignment',
+                    current: isCurrentSurface('assignment', market?.phase),
+                  },
+                ]"
+                :aria-current="isCurrentSurface('assignment', market?.phase) ? 'step' : undefined"
+                @click="showTab('assignment')"
+                data-testid="market-setup-assignment-tab"
+              >
+                Assignment Results
+              </button>
+            </div>
           </div>
-        </div>
-
-        <!-- The lifecycle, directly below the market header and inside the card (E10/F01/S01).
-             It used to float above the card as a strip of coloured pills. -->
-        <PhaseRail :market="market" :beforeTransition="flushPlanSave" />
+        </template>
 
         <!-- Application Form Tab -->
         <MarketFormTab v-if="activeTab === 'form'" :market="market" :setupObject="setupObject" />
@@ -467,7 +473,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         />
-      </div>
+      </MarketFrame>
       <!-- A real, wired feature that sat here as a bare URL box between Back and Next, saying
            nothing about what it sends, when, or that it is optional. Silence about a working
            feature is worse than silence about a stub: the organizer who skips it never learns
@@ -573,12 +579,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 
 .settings-container {
   align-self: stretch;
-  flex: 1;
-  min-height: 0;
-  background-color: white;
-  box-shadow: var(--shadow-card);
-  display: flex;
-  flex-direction: column;
 }
 
 .settings-right-container {

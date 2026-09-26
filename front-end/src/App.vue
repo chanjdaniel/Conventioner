@@ -196,7 +196,8 @@ header {
 
 .banner {
   width: 100%;
-  height: 5vh;
+  /* A token, because the market frame sticks at exactly this offset (E21/F04/S01). */
+  height: var(--banner-h);
 }
 
 .router-view {

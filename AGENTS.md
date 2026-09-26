@@ -583,6 +583,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   backlog gets switched off, so a slice adds its files to that list when it lands. Everything MVP
   serves is on the list; the 174 remaining warnings are the floorplan GUI and the applicant views,
   both switched off in MVP.
+- **A market screen stands in `MarketFrame`** (`front-end/src/components/MarketFrame.vue`), whose
+  bar and whole phase rail stick at `top: var(--banner-h)` - the banner's height as a token - on the
+  same principle as the banner itself. The card fills at least the window under the banner. Never
+  give a frame screen an `overflow` scroller of its own: the sticky block silently stops sticking.
 - **A screen is one of two widths and never caps its own height.** `--workspace-max` (1440) or
   `--list-max` (1100); the PAGE scrolls. `.app-container` used to be `position: absolute;
   height: 100vh`, which is why no screen could scroll the page and every tall screen grew its own

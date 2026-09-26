@@ -76,6 +76,8 @@ async function mountThePlan() {
     shallow: true,
     global: {
       stubs: {
+        // The frame renders the bar and the tabs' content in its slots (E21/F04/S01).
+        MarketFrame: false,
         MarketPlanTab: false,
         ElementSettingContainer: {
           template: '<div><slot name="setting-title" /><slot name="setting-content" /></div>',
