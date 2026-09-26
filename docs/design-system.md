@@ -89,6 +89,17 @@ Tables, Vendors and Attendance used to be `--list-max`, so moving between a mark
 A screen that stands in the frame sets no width of its own.
 The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not.
 
+**A screen of cards is a two-track grid** (E23/F01/S01, from [the-plan-uses-its-space ticket 01](../.scratch/wayfinding/the-plan-uses-its-space/issues/01-the-row-rule.md)).
+It is `.card-grid` in `primitives.css`; a screen reaches for it rather than laying out its own rows.
+
+- **A card is half width unless it declares itself wide** (`.card-grid__wide`). One declaration per card, so the next card added decides nothing else.
+- **A card ends at its own content.** Two cards in a row do not stretch to match, and the next row starts under the taller: blank space inside a card reads as something missing.
+- **Below `--card-grid-one-track` (900px) of room it is one track**, in the cards' own order. The break follows the room the grid has, not the window.
+- **Cards are `--card-grid-gap` apart, and every card has the same inner gutter**, set by the card, never by what it holds.
+
+On the plan, Market Dates and Section Setup are wide (Section Setup's columns need 654px, and at half width its tier select truncated); Tier Setup sits beside Location Setup, and How vendors apply beside Application form.
+Two other rules were prototyped and rejected: two columns by purpose truncated the tier select at 1280, and packing cards by content width changed the screen's shape with the window.
+
 **A market screen's frame stays put** (E21/F04, from [the-market-frame ticket 01](../.scratch/wayfinding/the-market-frame/issues/01-how-the-frame-stays-put.md)).
 `MarketFrame` pins the screen's bar and the whole phase rail directly under the app banner, at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
 `--banner-h` (`clamp(30px, 5vh, 100px)`) is the banner's height as a token, so nothing measures the banner at run time.

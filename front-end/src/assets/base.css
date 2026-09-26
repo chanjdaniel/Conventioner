@@ -118,6 +118,10 @@
      banner itself, and nothing else could know it - so the market frame, which sticks directly
      beneath the banner, would have had to measure it with a script. The same value, now named. */
   --banner-h: clamp(30px, 5vh, 100px);
+  /* A screen of cards (E23/F01/S01, `.card-grid` in primitives.css): the gap between cards, and the
+     room below which two tracks become one. */
+  --card-grid-gap: var(--space-8);
+  --card-grid-one-track: 900px;
   --workspace-max: 1440px; /* Every market screen; `MarketFrame` sets it (E22/F04/S01) */
   --list-max: 1100px; /* Markets, Organizations */
 

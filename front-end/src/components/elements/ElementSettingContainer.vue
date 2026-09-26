@@ -8,9 +8,14 @@
 </template>
 
 <style scoped>
+/*
+ * No height of its own (E23/F01/S01). It was `height: 100%`, which in a grid resolves against the
+ * whole row - so a card could never end at its own content, and three tiers beside nine locations
+ * grew a blank box to match. A grid that wants its cards level stretches them by default; one that
+ * does not (`.card-grid`) now can say so.
+ */
 .setting-container {
   width: 100%;
-  height: 100%;
 
   display: flex;
   flex-direction: column;
