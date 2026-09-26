@@ -45,6 +45,8 @@ async function mountPlan() {
     shallow: true,
     global: {
       stubs: {
+        // The frame renders the bar and the tabs' content in its slots (E21/F04/S01).
+        MarketFrame: false,
         // The plan tab owns the cards since E18/F02/S01, and the setting container renders the
         // slot each editor lives in - both have to be real or there is nothing to emit an edit from.
         MarketPlanTab: false,

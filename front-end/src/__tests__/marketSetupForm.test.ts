@@ -70,6 +70,8 @@ async function mountOnFormTab() {
     shallow: true,
     global: {
       stubs: {
+        // The frame renders the bar and the tabs' content in its slots (E21/F04/S01).
+        MarketFrame: false,
         MarketFormTab: false,
         ElementSettingContainer: {
           template: '<div><slot name="setting-title" /><slot name="setting-content" /></div>',
