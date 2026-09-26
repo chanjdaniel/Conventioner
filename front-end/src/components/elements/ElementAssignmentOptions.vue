@@ -2,7 +2,11 @@
 import { ref, toRef, watch } from 'vue';
 import { type SetupObject } from '@/assets/types/datatypes';
 
-const props = defineProps<{ setupObject: SetupObject }>();
+const props = defineProps<{
+  setupObject: SetupObject;
+  /** The options as they were run, and not editable (E22/F02/S02). */
+  readonly?: boolean;
+}>();
 const emit = defineEmits(['update:setupObject']);
 
 const setupObject = toRef(props, 'setupObject');
@@ -87,6 +91,7 @@ const handleProportionInput = (value: number) => {
               @input="handleDaysInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
               style="all: unset; font-size: var(--text-sm); width: 100%"
               data-testid="setup-options-max-assignments-input"
+              :disabled="readonly"
             />
           </div>
           <p v-if="daysNote" class="option-note" data-testid="setup-options-max-assignments-note">
@@ -116,6 +121,7 @@ const handleProportionInput = (value: number) => {
               "
               style="all: unset; font-size: var(--text-sm); width: 100%"
               data-testid="setup-options-max-proportion-input"
+              :disabled="readonly"
             />
           </div>
           <p
@@ -177,9 +183,8 @@ select.datatype-dropdown {
   align-items: stretch;
 
   gap: 8px;
-
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* No scroller of its own (E22/F01/S01): it was one, sized to the card rather than to the options,
+     so the second option sat 30px below a scrollbar nobody could see. The page is the scroller. */
 }
 
 .mapping-heading {

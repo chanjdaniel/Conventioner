@@ -232,10 +232,10 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     const fix = blockers.getByTestId('blocker-resolution-link');
     await expect(fix).toBeVisible();
     await fix.click();
-    await expect(page).toHaveURL(/tab=applications/);
-    await expect(page.getByTestId('market-setup-applications-tab')).toHaveClass(/active/);
+    await expect(page).toHaveURL(/\/markets\/[^/]+\/applications$/);
+    await expect(page.getByTestId('market-bar-tab-applications')).toHaveClass(/active/);
     // Exactly one tab reads as current; the others must not keep the marker.
-    await expect(page.getByTestId('market-setup-setup-tab')).not.toHaveClass(/active/);
+    await expect(page.getByTestId('market-bar-tab-setup')).not.toHaveClass(/active/);
 
     // And once you are on the tab that holds the fix, the panel stops offering to take you there.
     // Keyed on the anchor itself rather than the testid this change introduced, so the assertion
@@ -567,18 +567,22 @@ test.describe('Where the workspace opens', () => {
   }) => {
     const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
 
+    // The market's own address decides by phase (E22/F04/S02); a page's address always shows it.
     await setUserInPage(page);
-    await page.goto(marketSetupPath(seed.marketId));
-    await expect(page.getByTestId('market-setup-setup-tab')).toHaveClass(/active/);
+    await page.goto(`/markets/${seed.marketId}`);
+    await expect(page).toHaveURL(/\/setup$/, { timeout: 15000 });
+    await expect(page.getByTestId('market-bar-tab-setup')).toHaveClass(/active/);
 
-    await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+    const opened = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: { toPhase: 'archived' },
+      data: { toPhase: 'applications_open' },
     });
+    expect(opened.ok()).toBe(true);
     await setUserInPage(page);
-    await page.goto(marketSetupPath(seed.marketId));
-    await expect(page.getByTestId('market-setup-assignment-tab')).toHaveClass(/active/);
-    await expect(page.getByTestId('market-setup-setup-tab')).not.toHaveClass(/active/);
+    await page.goto(`/markets/${seed.marketId}`);
+    await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
+    await expect(page.getByTestId('market-bar-tab-applications')).toHaveClass(/active/);
+    await expect(page.getByTestId('market-bar-tab-setup')).not.toHaveClass(/active/);
   });
 
   test('an explicit stage in the URL still wins, so a shared link keeps working', async ({
@@ -590,6 +594,6 @@ test.describe('Where the workspace opens', () => {
 
     // A draft would otherwise open on the plan.
     await page.goto(marketSetupPath(seed.marketId, 'applications'));
-    await expect(page.getByTestId('market-setup-applications-tab')).toHaveClass(/active/);
+    await expect(page.getByTestId('market-bar-tab-applications')).toHaveClass(/active/);
   });
 });

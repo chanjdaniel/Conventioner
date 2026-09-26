@@ -45,11 +45,10 @@ class PreconditionResult:
     id: str
     passed: bool
     message: str
-    #: Where the fix is made, as a screen of THIS market: relative to ``/markets/<id>/``, which
-    #: the front end prefixes (E21/F02/S02), so a guard never builds a per-market URL. It must name
-    #: the TAB that holds the remedy (``setup?tab=applications``), not just the page: every
-    #: organizer screen shows the rail, so a bare ``setup`` is the page the blocker is usually
-    #: displayed on and the link did nothing when clicked. ``None`` when the remedy spans two places - the panel would
+    #: Where the fix is made, as a page of THIS market: relative to ``/markets/<id>/``, which the
+    #: front end prefixes (E21/F02/S02), so a guard never builds a per-market URL. It names the page
+    #: that holds the remedy (``applications``); every market page has its own address since
+    #: E22/F04/S02, so a link to one leads there from anywhere but that page itself. ``None`` when the remedy spans two places - the panel would
     #: rather say nothing than send the organizer to one of two, having named both in the message
     #: (E14/F01/S03). Do not point it at a redirect: the panel compares this against the current
     #: location to decide whether it leads anywhere, and cannot follow a hop.
@@ -176,7 +175,7 @@ class AssignmentComputedGuard:
                     "No assignment has been computed for this market, so its check-in page could "
                     "not tell anyone where to stand. Run the assignment first."
                 ),
-                resolution_link="setup?tab=assignment",
+                resolution_link="assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -209,7 +208,7 @@ class AllApplicationsReviewedGuard:
                     "Every application must be approved or rejected before assignment "
                     "can begin."
                 ),
-                resolution_link="setup?tab=applications",
+                resolution_link="applications",
             )
         if total == 0:
             return PreconditionResult(
@@ -251,7 +250,7 @@ class NoApprovedApplicationsGuard:
                     "assigned or unassigned. Run the assignment solver before "
                     "sending offers."
                 ),
-                resolution_link="setup?tab=assignment",
+                resolution_link="assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -289,6 +288,29 @@ VALID_TRANSITIONS: set[tuple[str, str]] = {
     ("offers", "archived"),
     ("market_days", "archived"),
 }
+
+
+def route_between(from_phase: str, to_phase: str) -> Optional[List[str]]:
+    """The shortest route of existing transitions between two phases, archiving excluded.
+
+    The phases entered on the way, ``[]`` when the two are the same phase, or None when there is no
+    route. A breadth-first walk of ``VALID_TRANSITIONS``, so no caller states a route of its own: an
+    edge added or removed above changes every route with no edit anywhere else. Archiving is left
+    out because it is terminal - a route through it ends the market rather than getting anywhere.
+    """
+    queue: List[tuple[str, List[str]]] = [(from_phase, [])]
+    seen = {from_phase}
+    while queue:
+        at, path = queue.pop(0)
+        if at == to_phase:
+            return path
+        for source, target in sorted(VALID_TRANSITIONS):
+            if source != at or target in seen or target == MarketPhase.ARCHIVED.value:
+                continue
+            seen.add(target)
+            queue.append((target, path + [target]))
+    return None
+
 
 class NoAskedForTierWithoutTablesGuard:
     """No approved applicant may be waiting on a tier the plan gives no tables to.
@@ -398,10 +420,8 @@ class NoOrphanedPinGuard:
                 f"{len(orphans)} hand {pin_word} the plan no longer has: {named}. "
                 "Restore the seat in the plan, or move those vendors, before assigning."
             ),
-            # Two remedies again, and neither is on this screen: restoring the seat is the Market
-            # Setup tab, and moving a vendor is the Tables view, which is routed by market id and
-            # so cannot be named by a fixed string here at all. This used to say
-            # `?tab=assignment`, which holds neither - the assignment tab reports the result.
+            # Two remedies again, on two pages: restoring the seat is Market Setup, and moving a
+            # vendor is the Result page. This used to say `?tab=assignment`, which holds neither.
             resolution_link=None,
         )
 

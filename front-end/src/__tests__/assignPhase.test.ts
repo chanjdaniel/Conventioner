@@ -35,11 +35,11 @@ describe('where the assignment may be run', () => {
     expect(assignRefusal('applications_open')).toContain('Close them');
   });
 
-  it('sends an organizer past assignment to the Tables view, not back to Assign', () => {
+  it('sends an organizer past assignment to the Result page, not back to Assign', () => {
     // The answer is settled and the vendors have been told; changing one placement is what is
-    // wanted, and that is what the Tables view is for (E11/F03).
+    // wanted, and the Result page is where that happens (E11/F03, E22/F04/S04).
     for (const phase of ['offers', 'market_days', 'archived']) {
-      expect(assignRefusal(phase)).toContain('Tables view');
+      expect(assignRefusal(phase)).toContain('Result page');
     }
   });
 

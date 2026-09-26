@@ -72,3 +72,51 @@ export function monthOf(days: string[]): { year: number; month: number } {
   const now = new Date();
   return { year: now.getUTCFullYear(), month: now.getUTCMonth() };
 }
+
+/** The months by name, January first: the one list, read by every date the product spells. */
+export const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export interface DatesMonth {
+  year: number;
+  month: number;
+  /** "October 2026": the year on every month, so a market crossing a new year reads right. */
+  label: string;
+  /** "Sat 3". */
+  days: Array<{ day: string; label: string }>;
+}
+
+/**
+ * The chosen dates, one group per month, in date order (E23/F02/S01).
+ *
+ * A market's dates grow by months rather than by dates in the list beside the calendar, so a
+ * 20-date market is five lines. Weekdays come from UTC arithmetic like everything in this file.
+ */
+export function datesByMonth(days: string[]): DatesMonth[] {
+  const unique = [...new Set(days)].filter((day) => dayParts(day)).sort();
+  const months: DatesMonth[] = [];
+  for (const day of unique) {
+    const { year, month, day: date } = dayParts(day)!;
+    let group = months[months.length - 1];
+    if (!group || group.year !== year || group.month !== month) {
+      group = { year, month, label: `${MONTH_NAMES[month]} ${year}`, days: [] };
+      months.push(group);
+    }
+    const weekday = new Date(Date.UTC(year, month, date)).getUTCDay();
+    group.days.push({ day, label: `${WEEKDAY_SHORT[weekday]} ${date}` });
+  }
+  return months;
+}

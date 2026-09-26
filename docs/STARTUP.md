@@ -538,7 +538,7 @@ Both keys are configured in `.env` and forwarded to the backend via `docker-comp
 
 - `GET /markets/<market_id>/assignment-csv` builds the CSV in memory and returns it as an
   attachment; the browser saves it wherever downloads go.
-- Reached from **Assignment Results** in the UI.
+- Reached from the market's **Assignment** tab in the UI.
 - Nothing is written to the server's disk. A `csv_exports` directory used to be created and
   mounted for this; nothing ever wrote to it, and it is gone.
 

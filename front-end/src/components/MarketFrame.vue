@@ -2,8 +2,9 @@
 /**
  * The frame around a market screen (E21/F04, variant A of the-market-frame ticket 01).
  *
- * A card whose top - the screen's own bar (the market's name, its tabs, or a screen title) and the
- * whole phase rail - sticks directly under the app banner while the PAGE scrolls. Everything the
+ * A card whose top - the market's bar (its name and its tabs, `MarketBar`, the same on every market
+ * page since E22/F04/S02) and the whole phase rail - sticks directly under the app banner while the
+ * PAGE scrolls. Everything the
  * rail grows (a refused transition's blockers, an error, the archived note) is inside the pinned
  * block, under the button that caused it. Condensing on scroll hid "where the market is"; floating
  * the growth covered what it asked the organizer to fix; both were tried and rejected.
@@ -14,6 +15,8 @@
  * so a short surface fills it rather than ending mid-screen.
  */
 import type { Market } from '@/assets/types/datatypes';
+import MarketBar from '@/components/MarketBar.vue';
+import MarketPages from '@/components/MarketPages.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 
 defineProps<{
@@ -26,23 +29,30 @@ defineProps<{
 <template>
   <div class="market-frame-card" data-testid="market-frame-card">
     <div class="market-frame" data-testid="market-frame">
-      <slot name="bar" />
+      <!-- The market's name and its tabs, the same on every market page (E22/F04/S02). -->
+      <MarketBar :market="market" />
       <PhaseRail :market="market" :beforeTransition="beforeTransition" />
+      <!-- The open tab's pages, when it has more than one: Assignment, Result, Vendors (E22/F04/S03). -->
+      <MarketPages :market="market" />
       <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned with
            the frame rather than sticking on its own, because it could only guess the frame's height. -->
       <slot name="pinned" />
     </div>
     <slot />
-    <!-- The screen's own actions (Back), stuck to the bottom of the window so they stay reachable at
-         any scroll position - which is what the old inner scrollers gave them for free. -->
-    <div v-if="$slots.footer" class="market-frame-footer" data-testid="market-frame-footer">
-      <slot name="footer" />
-    </div>
   </div>
 </template>
 
 <style scoped>
+/*
+ * Every market screen is one width, and the frame says which (E22/F04/S01). Tables, Vendors and
+ * Attendance were `--list-max` while the tabs were `--workspace-max`, so moving between a market's
+ * screens made the frame jump 340px and cut the market's name on the narrow ones. A screen that
+ * stands in the frame sets no width of its own.
+ */
 .market-frame-card {
+  width: 100%;
+  max-width: var(--workspace-max);
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   background-color: white;
@@ -57,22 +67,5 @@ defineProps<{
   /* Above the surface it pins over; below the banner (30), the nav scrim and the drawer. */
   z-index: 20;
   background-color: white;
-}
-
-.market-frame-footer {
-  position: sticky;
-  bottom: 0;
-  /* Above the surface it sits over, level with the frame. */
-  z-index: 20;
-  display: flex;
-  justify-content: flex-start;
-  padding: var(--space-4) var(--space-6);
-  border-top: 1px solid var(--mm-border);
-  background-color: white;
-  /* The card's own content pushes it down; `auto` keeps a short screen's footer at the bottom. */
-  margin-top: auto;
-  /* Follows a rounded card's corners, since nothing clips it. */
-  border-bottom-left-radius: inherit;
-  border-bottom-right-radius: inherit;
 }
 </style>

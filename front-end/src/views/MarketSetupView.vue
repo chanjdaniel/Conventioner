@@ -10,11 +10,11 @@ import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
 import {
-  MARKET_SURFACES,
-  isCurrentSurface,
-  surfaceForPhase,
-  type MarketSurface,
-} from '@/utils/marketSurface';
+  SETUP_VIEW_PAGES,
+  hasAssignment,
+  type MarketPage,
+  type SetupViewPage,
+} from '@/utils/marketPage';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue';
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
@@ -36,31 +36,26 @@ const showPathChoice = ref(false);
 const route = useRoute();
 
 /**
- * The surface to open on (E18/F02/S02).
- *
- * An explicit stage in the URL always wins, so a shared or bookmarked link keeps working - that is
- * the one requirement that survives the original finding. Otherwise the PHASE decides, rather than
- * the unconditional `'setup'` this used to fall back to whatever the market was doing.
+ * The page on show, read off the address. A market's own address (`/markets/:id`) is what decides
+ * by phase, in `MarketLanding`; an address that names a page always shows that page, so a shared or
+ * bookmarked link keeps working (E18/F02/S02).
  */
-function tabFromRoute(): MarketSurface {
-  const asked = String(route.query.tab ?? '');
-  if ((MARKET_SURFACES as string[]).includes(asked)) return asked as MarketSurface;
-  return surfaceForPhase(market.value?.phase);
+const activeTab = computed((): SetupViewPage => {
+  const page = String(route.params.page ?? '');
+  return (SETUP_VIEW_PAGES as readonly string[]).includes(page) ? (page as SetupViewPage) : 'setup';
+});
+
+function showTab(page: MarketPage) {
+  router.push(marketPath(marketId.value, page));
 }
 
-const activeTab = ref<MarketSurface>('setup');
-
-function showTab(tab: MarketSurface) {
-  activeTab.value = tab;
-  // A surface starts at its own top, directly under the pinned frame, rather than wherever the last
-  // one was scrolled to (E21/F04/S01).
-  if (window.scrollY > 0) window.scrollTo({ top: 0 });
-  router.replace({ query: { ...route.query, tab } });
-}
-
+// A page starts at its own top, directly under the pinned frame, rather than wherever the last one
+// was scrolled to (E21/F04/S01).
 watch(
-  () => route.query.tab,
-  () => (activeTab.value = tabFromRoute()),
+  () => route.params.page,
+  () => {
+    if (window.scrollY > 0) window.scrollTo({ top: 0 });
+  },
 );
 
 /**
@@ -73,16 +68,6 @@ watch(
  */
 const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
-
-// The phase decides where an organizer lands, so this is set once the market is in hand - on
-// ARRIVAL at each market, not on every re-read: a transition does not move the organizer's tab.
-activeTab.value = tabFromRoute();
-watch(
-  () => market.value?.id,
-  (id, previous) => {
-    if (id && id !== previous) activeTab.value = tabFromRoute();
-  },
-);
 
 /**
  * The questions a priority rule can order by: the market's own form, as the server holds it.
@@ -294,6 +279,13 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
 
 const assignError = ref('');
 
+/** How many hand placements the stored assignment holds; null until one has been run. */
+const handPlacements = computed((): number | null => {
+  if (!hasAssignment(market.value)) return null;
+  return (market.value?.assignmentObject?.vendorAssignments ?? []).filter((row) => row.handPlaced)
+    .length;
+});
+
 /**
  * Run the assignment, or say why it was refused.
  *
@@ -319,7 +311,8 @@ const handleAssign = async () => {
     // The results below re-read their statistics when the market in the store changes, so taking
     // the market back from the server is all it takes for them to show the new run.
     await refreshMarket();
-    showTab('assignment');
+    // A run lands on the result it produced (E22/F04/S03).
+    showTab('result');
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
     assignError.value = detail || 'Assignment failed. Please try again.';
@@ -360,83 +353,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
       <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
            banner while the page scrolls. -->
       <MarketFrame class="settings-container" :market="market" :beforeTransition="flushPlanSave">
-        <template #bar>
-          <div class="settings-header">
-            <!-- The market's own name, so the page says which market this is. It read "Settings" on
-               every market, back when the route carried no id to tell them apart. -->
-            <h1 data-testid="market-setup-title">{{ market.name }}</h1>
-            <!--
-            Navigation along the spine, not four peers (E18/F02/S02).
-
-            The plan comes BEFORE the form, because the form is built from it - the back end says
-            the essential questions' offering "is never an independent list: it is the market plan
-            itself", and the old left-to-right order stated the dependency backwards.
-
-            Every surface stays reachable: the plan is editable in every phase, and an organizer
-            looking back at what they asked applicants is not doing anything wrong. What the bar
-            adds is WHERE THE MARKET IS - `aria-current` and a mark on the surface this phase is
-            worked on - so the bar and the rail beneath it say the same thing.
-          -->
-            <div class="tab-bar">
-              <button
-                :class="[
-                  'tab-button',
-                  {
-                    active: activeTab === 'setup',
-                    current: isCurrentSurface('setup', market?.phase),
-                  },
-                ]"
-                :aria-current="isCurrentSurface('setup', market?.phase) ? 'step' : undefined"
-                @click="showTab('setup')"
-                data-testid="market-setup-setup-tab"
-              >
-                Market Setup
-              </button>
-              <button
-                :class="[
-                  'tab-button',
-                  {
-                    active: activeTab === 'form',
-                    current: isCurrentSurface('form', market?.phase),
-                  },
-                ]"
-                @click="showTab('form')"
-                data-testid="market-setup-form-tab"
-              >
-                Application Form
-              </button>
-              <button
-                :class="[
-                  'tab-button',
-                  {
-                    active: activeTab === 'applications',
-                    current: isCurrentSurface('applications', market?.phase),
-                  },
-                ]"
-                :aria-current="isCurrentSurface('applications', market?.phase) ? 'step' : undefined"
-                @click="showTab('applications')"
-                data-testid="market-setup-applications-tab"
-              >
-                Applications
-              </button>
-              <button
-                :class="[
-                  'tab-button',
-                  {
-                    active: activeTab === 'assignment',
-                    current: isCurrentSurface('assignment', market?.phase),
-                  },
-                ]"
-                :aria-current="isCurrentSurface('assignment', market?.phase) ? 'step' : undefined"
-                @click="showTab('assignment')"
-                data-testid="market-setup-assignment-tab"
-              >
-                Assignment Results
-              </button>
-            </div>
-          </div>
-        </template>
-
         <!-- Application Form Tab -->
         <MarketFormTab v-if="activeTab === 'form'" :market="market" :setupObject="setupObject" />
 
@@ -459,7 +375,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :importRefusalReason="importRefusalReason"
         />
 
-        <!-- Assignment Results, a tab rather than a place the organizer is pushed to. Reachable
+        <!-- Assignment, a tab rather than a place the organizer is pushed to. Reachable
              in every phase, and nothing on it posts a transition: publishing is a step on the
              phase strip above, and "I have finished looking at this" is what leaving a page
              already is. -->
@@ -470,6 +386,8 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignmentOptionsComplete="assignmentOptionsComplete"
           :assignRefusalReason="assignRefusalReason"
           :assignError="assignError"
+          :rulesLockReason="market?.assignmentRulesLockReason ?? null"
+          :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         />
@@ -564,7 +482,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
  */
 .market-setup-body {
   width: 100%;
-  max-width: var(--workspace-max);
 
   /*
    * A gutter on three sides (E17/F02/S02), so the panel reads as a card sitting on the page rather
@@ -586,63 +503,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   grid-template-rows: 48% 4% 48%;
 }
 
-.settings-header {
-  align-self: stretch;
-  height: 50px;
-  background-color: var(--mm-black);
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-}
-
-.tab-bar {
-  display: flex;
-  flex-direction: row;
-  gap: 2px;
-}
-
-.tab-button {
-  padding: 6px 16px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  font-size: var(--text-sm);
-  color: var(--mm-text-muted-on-dark);
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s;
-}
-
-.tab-button:hover {
-  color: var(--mm-text-hover-on-dark);
-}
-
-.tab-button.active {
-  color: white;
-  border-bottom-color: var(--mm-green);
-}
-
-/*
- * Where the market IS, as against which surface is open (E18/F02/S02).
- *
- * A dot rather than a second underline: the underline already means "you are looking at this", and
- * two treatments for two different ideas on one control is how a bar stops being readable. The
- * rail beneath says the same thing at length; this is the one-glance version.
- */
-.tab-button.current::after {
-  content: '';
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: var(--space-2);
-  vertical-align: middle;
-  border-radius: var(--radius-pill);
-  background: var(--mm-green);
-}
-
 .settings-body {
   align-self: stretch;
   display: flex;
@@ -662,12 +522,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   gap: 30px;
   min-height: 0;
   flex: 1;
-}
-
-h1 {
-  text-align: center;
-  font-size: var(--text-2xl);
-  color: white;
 }
 
 /*

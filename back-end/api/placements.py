@@ -34,6 +34,7 @@ from datatypes import (
     table_code_for,
 )
 import api.markets as MarketsApi
+import assignment.made_from as MadeFrom
 import placement_history as PlacementHistory
 
 # The three seats a table holds. A table holds two, and a placement therefore always names a
@@ -144,27 +145,30 @@ def _placement_for(
 
 
 def _store_vendor_assignments(
-    market_id: str, vendor_assignments: List[VendorAssignmentResult], assignment_date: str
+    market_id: str,
+    vendor_assignments: List[VendorAssignmentResult],
+    assignment_date: str,
+    made_from: Optional[Dict[str, str]] = None,
 ) -> None:
     """Write the placements, and nothing else, onto the stored market.
 
-    Statistics are never persisted - every read derives them fresh - so only the two fields that
-    are the assignment itself are set. A ``$set`` of the two keys rather than of the whole
+    Statistics are never persisted - every read derives them fresh - so only the fields that are
+    the assignment itself are set. A ``$set`` of those keys rather than of the whole
     ``assignmentObject`` keeps a stale ``assignmentStatistics`` from being resurrected by a write.
+
+    ``made_from`` is what a solver run read (E22/F03/S01), and only a run passes it: a hand
+    placement is an edit to the result, not an input, so it leaves the fingerprint alone.
     """
-    MarketsApi.markets_collection.update_one(
-        {"id": market_id},
-        {
-            "$set": {
-                "assignmentObject.vendorAssignments": [
-                    convert_keys_to_camel_case(placement.model_dump())
-                    for placement in vendor_assignments
-                ],
-                "assignmentObject.assignmentDate": assignment_date,
-                "assignmentObject.assignmentStatistics": None,
-            }
-        },
-    )
+    written: Dict[str, Any] = {
+        "assignmentObject.vendorAssignments": [
+            convert_keys_to_camel_case(placement.model_dump()) for placement in vendor_assignments
+        ],
+        "assignmentObject.assignmentDate": assignment_date,
+        "assignmentObject.assignmentStatistics": None,
+    }
+    if made_from is not None:
+        written["assignmentObject.madeFrom"] = made_from
+    MarketsApi.markets_collection.update_one({"id": market_id}, {"$set": written})
 
 
 # The one phase the assignment runs in, and the whole of what this rule says (E10/F03/S02).
@@ -204,10 +208,11 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
             "assignment."
         )
     # Past assignment, the answer is settled and the vendors have been told. Changing one
-    # placement is what is wanted here, and that is what the Tables view is for (E11/F03).
+    # placement is what is wanted here, and the Result page is where that happens (E11/F03,
+    # E22/F04/S04).
     return (
-        "The assignment for this market is settled. Change a single placement from the Tables "
-        "view instead of re-running it."
+        "The assignment for this market is settled. Change a single placement on the Result page "
+        "instead of re-running it."
     )
 
 
@@ -244,7 +249,10 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     assignment = assigned_market.assignment_object
 
     _store_vendor_assignments(
-        market_id, assignment.vendor_assignments, assignment.assignment_date
+        market_id,
+        assignment.vendor_assignments,
+        assignment.assignment_date,
+        MadeFrom.fingerprint(market.setup_object, vendors),
     )
     PlacementHistory.record_assignment_run(
         market_id,

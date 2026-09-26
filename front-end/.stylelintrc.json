@@ -24,11 +24,13 @@
   "overrides": [
     {
       "files": [
-        "src/components/AssignmentResults.vue",
-        "src/components/AssignmentStatListItem.vue",
         "src/components/BlockerPanel.vue",
         "src/components/MarketSummaryCard.vue",
         "src/components/MarketArrival.vue",
+        "src/components/MarketBar.vue",
+        "src/components/MarketPages.vue",
+        "src/components/ResultStatistics.vue",
+        "src/components/ResultSummary.vue",
         "src/components/MarketFrame.vue",
         "src/components/PageNotFound.vue",
         "src/components/PhaseBadge.vue",
@@ -38,7 +40,6 @@
         "src/components/SummaryCard.vue",
         "src/components/VendorDateCard.vue",
         "src/components/VendorIdentity.vue",
-        "src/components/VendorsModal.vue",
         "src/components/AppDialog.vue",
         "src/components/DeleteOrgDialog.vue",
         "src/components/application/AmendFormDialog.vue",
@@ -52,6 +53,8 @@
         "src/components/application/RankedChoiceInput.vue",
         "src/components/application/ReviewHighlights.vue",
         "src/components/elements/ElementAssignmentOptions.vue",
+        "src/components/market/MarketAssignmentTab.vue",
+        "src/components/market/MarketPlanTab.vue",
         "src/components/elements/ElementAssignmentPriority.vue",
         "src/components/elements/ElementBanner.vue",
         "src/components/elements/ElementInitButton.vue",
@@ -71,6 +74,7 @@
         "src/views/EmailVerificationView.vue",
         "src/views/InitView.vue",
         "src/views/LoadMarketOverlay.vue",
+        "src/views/MarketLanding.vue",
         "src/views/LoginView.vue",
         "src/views/ManageMarketOverlay.vue",
         "src/views/ManageOrgOverlay.vue",
@@ -80,7 +84,7 @@
         "src/views/OrganizationsView.vue",
         "src/views/PasswordResetRequestView.vue",
         "src/views/PasswordResetView.vue",
-        "src/views/TablesView.vue",
+        "src/views/ResultView.vue",
         "src/views/VendorsView.vue"
       ],
       "rules": {

@@ -1,3 +1,4 @@
+import { marketScreenPath } from '../helpers/marketScreens';
 import type { Locator, Page } from '@playwright/test';
 
 /**
@@ -7,20 +8,12 @@ import type { Locator, Page } from '@playwright/test';
 export class AttendanceStatusPage {
   readonly page: Page;
 
-  readonly backButton: Locator;
-
   constructor(page: Page) {
     this.page = page;
-
-    this.backButton = page.getByTestId('attendance-status-back-button');
   }
 
   async goto(marketId: string): Promise<void> {
-    await this.page.goto(`/markets/${marketId}/attendance`);
-  }
-
-  async clickBack(): Promise<void> {
-    await this.backButton.click();
+    await this.page.goto(marketScreenPath(marketId, 'attendance'));
   }
 
   /**

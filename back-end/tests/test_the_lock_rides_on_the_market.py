@@ -91,3 +91,51 @@ def test_it_cannot_be_written(monkeypatch):
     market = client_market(application_form_lock_reason="nothing to see here")
 
     assert "application_form_lock_reason" not in market.model_dump()
+
+
+# The assignment rules' lock rides on the market the same way (E22/F02/S02): the rules page reads
+# it from the market it holds, so a transition from the rail reaches it at once.
+@pytest.mark.parametrize(
+    "phase", [MarketPhase.OFFERS, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED]
+)
+def test_once_the_assignment_is_settled_the_rules_say_so(serve, phase):
+    assert "settled" in serve(phase)["assignmentRulesLockReason"]
+
+
+@pytest.mark.parametrize(
+    "phase",
+    [
+        MarketPhase.DRAFT,
+        MarketPhase.APPLICATIONS_OPEN,
+        MarketPhase.APPLICATIONS_CLOSED,
+        MarketPhase.REVIEW,
+        MarketPhase.ASSIGNMENT,
+    ],
+)
+def test_up_to_and_including_the_assignment_the_rules_are_open(serve, phase):
+    assert serve(phase)["assignmentRulesLockReason"] is None
+
+
+def test_the_market_says_what_changed_since_its_assignment_ran(serve, monkeypatch):
+    """Served on the market like the locks (E22/F03/S01); computed by ``made_from``, tested there."""
+    import assignment.made_from as MadeFrom
+
+    monkeypatch.setattr(MarketsApi, "changed_since_run", lambda _market: ["rules", "plan"])
+    assert serve(MarketPhase.ASSIGNMENT)["assignmentOutOfDate"] == ["rules", "plan"]
+    assert MadeFrom.GROUPS == ("rules", "plan", "applications")
+
+
+def test_a_market_with_no_assignment_is_not_out_of_date(serve):
+    assert serve(MarketPhase.ASSIGNMENT)["assignmentOutOfDate"] == []
+
+
+@pytest.mark.parametrize("phase", [MarketPhase.REVIEW, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED])
+def test_outside_assignment_the_market_is_read_without_its_applications(serve, monkeypatch, phase):
+    """Only `assignment` can act on it, so no other phase pays for reading the approved applications -
+    least of all a running market, read on the day by everyone at once (E22/F03/S01)."""
+
+    def unexpected(_market):
+        raise AssertionError("fingerprints computed outside assignment")
+
+    monkeypatch.setattr(MarketsApi, "changed_since_run", unexpected)
+    assert serve(phase)["assignmentOutOfDate"] == []

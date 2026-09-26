@@ -6,7 +6,7 @@ market's own plan rather than believing the request.
 """
 import pytest
 
-from conftest import FakeMarketsCollection, stored_market
+from conftest import a_solver_vendor, FakeMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
@@ -248,7 +248,7 @@ def test_a_solver_run_stores_what_it_produced(collection, monkeypatch):
         )
         return market
 
-    monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: ["a vendor"])
+    monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: [a_solver_vendor()])
     monkeypatch.setattr(PlacementsApi, "assign_market", fake_assign)
 
     result, status = PlacementsApi.run_assignment("market-123", "user-1")
@@ -321,7 +321,7 @@ def test_a_solver_run_carries_the_organization_name(collection, monkeypatch):
         "_load_organization_context",
         lambda _org_id: (None, {"name": "Seed Test Org"}),
     )
-    monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: ["a vendor"])
+    monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: [a_solver_vendor()])
     monkeypatch.setattr(
         PlacementsApi, "assign_market", lambda market, _v=None: market
     )
@@ -546,7 +546,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
         fake = FakeMarketsCollection(stored_market(phase=phase, setupObject=SETUP_OBJECT))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
-        monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _m: ["a vendor"])
+        monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _m: [a_solver_vendor()])
         monkeypatch.setattr(PlacementsApi, "assign_market", lambda m, _v=None: m)
         return fake
 
@@ -589,7 +589,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
         (MarketPhase.DRAFT, "draft"),
         (MarketPhase.APPLICATIONS_OPEN, "Close them"),
         (MarketPhase.REVIEW, "review"),
-        (MarketPhase.MARKET_DAYS, "Tables view"),
+        (MarketPhase.MARKET_DAYS, "Result page"),
     ])
     def test_the_refusal_names_an_action_available_from_that_phase(self, phase, names):
         assert names in PlacementsApi.assign_phase_refusal(phase)
@@ -601,3 +601,23 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
         source = inspect.getsource(PlacementsApi.assign_phase_refusal)
         assert "ApplicationStatus" not in source
         assert "vendor_assignments" not in source
+
+
+@pytest.mark.parametrize("change", ["free", "swap"])
+def test_freeing_and_swapping_leave_what_the_run_was_made_from_alone(collection, change):
+    """A hand change is an edit to the result, never an input to it (E22/F03/S01)."""
+    already_placed(
+        collection,
+        ("ana@example.com", "2026-08-01", "Hall A 1"),
+        ("ben@example.com", "2026-08-01", "Hall A 2"),
+    )
+
+    if change == "free":
+        PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1")
+    else:
+        PlacementsApi.swap_placements(
+            "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1"
+        )
+
+    assert collection.last_update is not None
+    assert "assignmentObject.madeFrom" not in collection.last_update["$set"]

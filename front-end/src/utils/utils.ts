@@ -1,3 +1,4 @@
+import { MONTH_NAMES } from './calendarMonth';
 /**
  * How a date is written, everywhere.
  *
@@ -21,20 +22,7 @@
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+const MONTHS = MONTH_NAMES;
 
 /** A calendar day as a UTC instant, or null when the string is not one. */
 function calendarDay(dateString: string): Date | null {

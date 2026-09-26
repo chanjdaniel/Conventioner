@@ -298,3 +298,47 @@ describe('ElementAssignmentPriority', () => {
     });
   });
 });
+
+/**
+ * Settled rules read as they were run (E22/F02/S02). Once the market can no longer run its
+ * assignment, a changed rule would change nothing, so nothing here offers to change one.
+ */
+describe('ElementAssignmentPriority, read-only', () => {
+  const rules = (): SetupObject =>
+    ({
+      ...setup(),
+      priority: [{ id: 0, target: 'returning_vendor', ordering: ['Yes', 'No'] }],
+    }) as unknown as SetupObject;
+
+  it('shows the rules but offers no way to change them', () => {
+    const wrapper = mount(ElementAssignmentPriority, {
+      props: { setupObject: rules(), formFields: [RETURNING], readonly: true },
+    });
+
+    expect(wrapper.findAll('[data-testid="priority-rule-row"]')).toHaveLength(1);
+    expect(wrapper.findAll('[data-testid="priority-ordering-row"]')).toHaveLength(2);
+    expect(wrapper.find('[data-testid="priority-target-select"]').attributes()).toHaveProperty(
+      'disabled',
+    );
+    for (const control of [
+      'priority-add-rule',
+      'priority-rule-remove',
+      'priority-ordering-remove',
+      'priority-ordering-add',
+    ]) {
+      expect(wrapper.find(`[data-testid="${control}"]`).exists(), control).toBe(false);
+    }
+    expect(wrapper.find('.drag-handle').exists()).toBe(false);
+  });
+});
+
+describe('ElementAssignmentPriority, read-only with no rules', () => {
+  it('says there were none, rather than inviting an edit that cannot happen', () => {
+    const wrapper = mount(ElementAssignmentPriority, {
+      props: { setupObject: setup(), formFields: [], readonly: true },
+    });
+
+    expect(wrapper.find('[data-testid="priority-none-set"]').text()).toContain('No priority rules');
+    expect(wrapper.text()).not.toContain('Add a question');
+  });
+});

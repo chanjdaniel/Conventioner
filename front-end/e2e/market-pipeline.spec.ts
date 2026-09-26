@@ -1,14 +1,7 @@
 import { getFormattedDate } from '../src/utils/utils';
 import { savePlan } from './helpers/savePlan';
-import { marketSetupPath, MARKET_SETUP_URL } from './helpers/marketScreens';
-import {
-  test,
-  expect,
-  MarketSetupPage,
-  AssignmentResultsPage,
-  BACKEND_URL,
-  TEST_USER,
-} from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
+import { test, expect, MarketSetupPage, ResultPage, BACKEND_URL, TEST_USER } from './fixtures';
 import { ensureTestOrg, loginViaApi, marketNameToSlug } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 
@@ -111,7 +104,8 @@ test.describe('Market pipeline E2E', () => {
     await setupPage.addMarketDate(MARKET_DATE);
     // The day reads back as a day, not as an input's value: dates are chosen on a calendar now
     // (E18/F01/S02), and what the organizer sees is the date spelled out.
-    await expect(page.getByTestId('setup-dates-date-display-0')).toHaveText(
+    await expect(page.getByTestId('setup-dates-date-display-0')).toHaveAttribute(
+      'title',
       getFormattedDate(MARKET_DATE) as string,
     );
 
@@ -154,34 +148,29 @@ test.describe('Market pipeline E2E', () => {
     const assignError = page.getByTestId('market-setup-assign-error');
     await expect(assignError).toBeHidden();
 
-    // Phase 3: Verify assignment results
-    const resultsPage = new AssignmentResultsPage(page);
+    // Phase 3: Verify the result. A run lands on the Result page (E22/F04/S03).
+    await expect(page).toHaveURL(/\/result$/, { timeout: 15000 });
+    const resultsPage = new ResultPage(page);
+    await expect(resultsPage.strip).toBeVisible({ timeout: 15000 });
 
-    await expect(resultsPage.summaryStats).toBeVisible({ timeout: 15000 });
-
-    const summaryText = await resultsPage.summaryStats.textContent();
-    expect(summaryText).toContain('Assignments');
-    expect(summaryText).toContain('Assigned Tables');
-    expect(summaryText).toContain('Assigned Vendors');
+    const summaryText = await resultsPage.strip.textContent();
+    expect(summaryText).toContain('vendors placed');
+    expect(summaryText).toContain('tables used');
+    expect(summaryText).toContain('unassigned');
     // Named and defined where it is shown: it used to be a bare "Satisfaction Score" with no
     // definition, no breakdown and no tooltip anywhere in the product.
-    expect(summaryText).toContain('Satisfaction');
-    expect(summaryText).toContain('share of the dates vendors asked for');
+    expect(summaryText).toContain('satisfaction');
+    await expect(page.getByText('share of the dates vendors asked for')).toBeVisible();
 
-    // Download CSV is the thing here that is actually an action. Done
-    // and Back are gone: publishing is a step on the phase strip, and "I have finished looking at
-    // this" is what leaving a page already is (E10/F03/S01).
+    // Download CSV is the thing here that is actually an action. Done and Back are gone:
+    // publishing is a step on the phase strip, and "I have finished looking at this" is what
+    // leaving a page already is (E10/F03/S01).
     await expect(resultsPage.downloadCsvButton).toBeVisible();
     await expect(page.getByTestId('assignment-results-done-button')).toHaveCount(0);
     await expect(page.getByTestId('assignment-results-back-button')).toHaveCount(0);
 
-    await expect(page.locator('.body-grid-date .stat-list')).toBeVisible();
-    await expect(page.locator('.body-grid-section .stat-list')).toBeVisible();
-    await expect(page.locator('.body-grid-tier .stat-list')).toBeVisible();
-
-    await expect(resultsPage.viewVendorsButton).toBeVisible();
-    await expect(resultsPage.viewTablesButton).toBeVisible();
-    await expect(resultsPage.viewAttendanceButton).toBeVisible();
+    // Vendors is a page of the same tab now, not a quick link (E22/F04/S02).
+    await expect(page.getByTestId('market-pages-vendors')).toBeVisible();
 
     // Phase 4: Publish
     await page.screenshot({
@@ -225,16 +214,17 @@ test.describe('Market pipeline E2E', () => {
     expect(storedMarket.phase).toBe('market_days');
     expect(storedMarket.isDraft).toBe(false);
 
-    // Reopening the published market from the markets list lands on the market's own screens.
+    // Reopening the published market from the markets list lands on the market's own screens - on
+    // Attendance, the page a running market is worked on (E22/F04/S02).
     // This used to route on phase and send a published market to `/<slug>`, its public page -
     // which the intake-mode gate serves only to form-intake markets, so every MVP market landed
     // on "Page not found". The old assertion here waited for that URL and passed, because the URL
     // was right and only the page was wrong; this asserts what rendered.
     await page.goto('/markets');
     await page.getByTestId('market-card').filter({ hasText: marketName }).first().click();
-    await page.waitForURL(MARKET_SETUP_URL, { timeout: 10000 });
+    await page.waitForURL(/\/markets\/[^/]+\/attendance$/, { timeout: 10000 });
     await expect(page.getByTestId('page-not-found')).toHaveCount(0);
-    await expect(page.getByTestId('market-setup-title')).toHaveText(marketName, { timeout: 10000 });
+    await expect(page.getByTestId('market-bar-title')).toHaveText(marketName, { timeout: 10000 });
 
     // Phase 5: A vendor can now check in
     const anonymous = await playwright.request.newContext({ ignoreHTTPSErrors: true });

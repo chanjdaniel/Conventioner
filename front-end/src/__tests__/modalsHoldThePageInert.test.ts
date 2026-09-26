@@ -91,9 +91,10 @@ describe('every modal holds the page inert', () => {
      * A FLOOR, and one that falls on purpose. Every dialog rebuilt on `AppDialog` (E20/F01) stops
      * painting its own cover, because the shell paints it - so the honest number goes DOWN as the
      * idiom spreads, and lowering it is a migration landing rather than a rule being weakened.
-     * What must never fall is the shell itself, which is why it is named below.
+     * What must never fall is the shell itself, which is why it is named below. Six since
+     * `VendorsModal` went with the old results page (E22/F04/S04): a modal removed, not unwired.
      */
-    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(7);
+    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(6);
   });
 
   it('includes the dialog shell, which paints the cover for every dialog built on it', () => {

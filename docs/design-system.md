@@ -77,14 +77,28 @@ No screen caps its own height, and no row carries a minimum height.
 
 | Token | Value | Screens |
 | --- | --- | --- |
-| `--workspace-max` | 1440px | Market Setup and its four tabs |
-| `--list-max` | 1100px | Tables, Vendors, Attendance, Markets, Organizations |
+| `--workspace-max` | 1440px | Every market page and flow: Market Setup to Attendance, Import, Floorplan |
+| `--list-max` | 1100px | Markets, Organizations |
 
 Two widths rather than one because the content clusters into two groups and **nothing wants the 1536 the workspace currently gets**: the plan's widest row needs 1316, the statistics need 1129, and the single-column lists need ~1035. One width for both puts a 1,035px list in a 1,440px page.
 
 **1440 rather than the content-only answer of 1360** because that is the phase rail's measured break - below it the rail wraps to a second row on a published market. `readable-journey` ticket 06 had already put that break "between 1366 and 1440"; it is exactly 1440.
 
-The rail still wraps at `--list-max`, which is [ticket 07](../.scratch/wayfinding/claims-and-room/issues/07-the-rails-second-row.md) and may yet amend `--list-max`.
+**Every market screen is one width, and `MarketFrame` sets it** (E22/F04/S01, from [the-assignment-tab ticket 02](../.scratch/wayfinding/the-assignment-tab/issues/02-how-every-market-screen-is-reached.md)).
+Tables, Vendors and Attendance used to be `--list-max`, so moving between a market's screens made the frame jump 340px, cut the market's name, and wrapped the rail to a second row on the narrow ones.
+A screen that stands in the frame sets no width of its own.
+The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not.
+
+**A screen of cards is a two-track grid** (E23/F01/S01, from [the-plan-uses-its-space ticket 01](../.scratch/wayfinding/the-plan-uses-its-space/issues/01-the-row-rule.md)).
+It is `.card-grid` in `primitives.css`; a screen reaches for it rather than laying out its own rows.
+
+- **A card is half width unless it declares itself wide** (`.card-grid__wide`). One declaration per card, so the next card added decides nothing else.
+- **A card ends at its own content.** Two cards in a row do not stretch to match, and the next row starts under the taller: blank space inside a card reads as something missing.
+- **Below `--card-grid-one-track` (900px) of room it is one track**, in the cards' own order. The break follows the room the grid has, not the window.
+- **Cards are `--card-grid-gap` apart, and every card has the same inner gutter**, set by the card, never by what it holds.
+
+On the plan, Market Dates and Section Setup are wide (Section Setup's columns need 654px, and at half width its tier select truncated); Tier Setup sits beside Location Setup, and How vendors apply beside Application form.
+Two other rules were prototyped and rejected: two columns by purpose truncated the tier select at 1280, and packing cards by content width changed the screen's shape with the window.
 
 **A market screen's frame stays put** (E21/F04, from [the-market-frame ticket 01](../.scratch/wayfinding/the-market-frame/issues/01-how-the-frame-stays-put.md)).
 `MarketFrame` pins the screen's bar and the whole phase rail directly under the app banner, at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.

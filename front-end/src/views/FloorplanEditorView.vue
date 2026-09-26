@@ -4,6 +4,7 @@ import { marketPath } from '@/utils/market';
 import { useRouter, useRoute } from 'vue-router';
 import FloorplanWorkflow from '@/components/floorplan/FloorplanWorkflow.vue';
 import MarketArrival from '@/components/MarketArrival.vue';
+import MarketBar from '@/components/MarketBar.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 
 const router = useRouter();
@@ -19,12 +20,16 @@ const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
 
 function handleSaved(payload: { market_id: string }) {
-  router.push(marketPath(payload.market_id));
+  // Back to the plan, where the sections it just described are listed.
+  router.push(marketPath(payload.market_id, 'setup'));
 }
 </script>
 
 <template>
   <div class="floorplan-editor-view">
+    <!-- A flow entered from Market Setup, so it carries the market's bar with that tab active
+         (E22/F04/S02). -->
+    <MarketBar :market="market" />
     <div class="editor-wrapper">
       <FloorplanWorkflow v-if="market" :marketId="market.id" @saved="handleSaved" />
       <MarketArrival v-else :status="marketStatus" @retry="refreshMarket()" />
