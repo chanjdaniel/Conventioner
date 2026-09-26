@@ -2,7 +2,7 @@
 id: E21/F02/S03
 title: The form lock is on the market
 type: story
-status: ready
+status: done
 blocked_by: [E21/F02/S02]
 pr: []
 ---
@@ -22,8 +22,14 @@ The Applications advisory drops its `formEditable` input and the "add a question
 
 ## Acceptance criteria
 
-- [ ] `GET /markets/:id` returns the lock reason, and pytest covers draft with no applications (unlocked), draft with an application (locked, D9), and each non-draft phase (locked).
-- [ ] The form builder is locked the moment Open Applications lands from the rail, and unlocked the moment a reopen to draft lands, with no tab switch; its notice never names a phase other than the one the rail shows.
-- [ ] Opening the Assignment tab directly on a market with a dropdown question offers that question as a priority target, and the empty-state hint does not appear.
-- [ ] `MarketApplicationsTab` and `ApplicationMonitor` no longer take `formEditable`, and `MarketFormTab` no longer emits `formEditable` or `formFields`.
-- [ ] An e2e spec pins both reproduced bugs: the form builder across open and reopen without leaving the tab, and the priority targets on direct arrival at the Assignment tab.
+- [x] `GET /markets/:id` returns the lock reason, and pytest covers draft with no applications (unlocked), draft with an application (locked, D9), and each non-draft phase (locked).
+- [x] The form builder is locked the moment Open Applications lands from the rail, and unlocked the moment a reopen to draft lands, with no tab switch; its notice never names a phase other than the one the rail shows.
+- [x] Opening the Assignment tab directly on a market with a dropdown question offers that question as a priority target, and the empty-state hint does not appear.
+- [x] `MarketApplicationsTab` and `ApplicationMonitor` no longer take `formEditable`, and `MarketFormTab` no longer emits `formEditable` or `formFields`.
+- [x] An e2e spec pins both reproduced bugs: the form builder across open and reopen without leaving the tab, and the priority targets on direct arrival at the Assignment tab.
+
+## Found while building
+
+`parseMarketFromApi` rebuilt `setupObject` from a fixed list of keys and dropped `intakeMode` and `resultsPublished`.
+Harmless while the screens read the unparsed `localStorage` copy; once every screen read the parsed market (S01, S02), the plan's autosave sent a working copy without `floorplans`, so the next edit to a plan erased the market's floorplan.
+Reproduced by the floorplan e2e spec (it fails without the fix), and fixed here: the parser spreads what it does not name, carries the two fields, and a unit test pins that it keeps everything the server sends.

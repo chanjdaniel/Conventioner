@@ -28,7 +28,6 @@ import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/esse
 import type {
   ApplicationForm,
   EssentialFormOptions,
-  FormField,
   Market,
   SetupObject,
 } from '@/assets/types/datatypes';
@@ -36,10 +35,6 @@ import type {
 const props = defineProps<{ market: Market | null; setupObject: SetupObject }>();
 /** A save is a write, so it is followed by the store re-reading the market (E21/F02/S02). */
 const marketStore = useMarketStore();
-const emit = defineEmits<{
-  (event: 'update:formEditable', value: boolean): void;
-  (event: 'update:formFields', value: FormField[]): void;
-}>();
 
 const market = computed(() => props.market);
 
@@ -54,16 +49,28 @@ const applicationForm = ref<ApplicationForm | null>(null);
 const keyTouched = ref<boolean[]>([]);
 const formSaveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const formErrorMessage = ref<string | null>(null);
-const formLockReason = ref<string | null>(null);
 const formLoadStatus = ref<'loading' | 'loaded' | 'error'>('loading');
 const formLoadError = ref<string | null>(null);
+/**
+ * Why the form cannot be edited, read off the MARKET (E21/F02/S03).
+ *
+ * It used to be fetched once, when this tab mounted, and nothing re-read it: open applications from
+ * the rail and Add field stayed live; reopen and a notice named a phase the rail directly above it
+ * contradicted. The server computes it on every read of the market, and the store re-reads the
+ * market after every write - a transition included - so it is right the moment one lands.
+ */
+const formLockReason = computed(() => market.value?.applicationFormLockReason ?? null);
+const formLockKnown = computed(() => market.value?.applicationFormLockReason !== undefined);
 const formLocked = computed(() => formLockReason.value !== null);
 /**
  * Only edit a form we know to be editable. Until the server answers - the load is still in
- * flight, or it failed - the lock state is unknown, and assuming "editable" there invites the
- * organizer to rework a locked form and lose it to a 409.
+ * flight, it failed, or the market in hand has not said whether it is locked - the lock state is
+ * unknown, and assuming "editable" there invites the organizer to rework a locked form and lose it
+ * to a 409.
  */
-const formEditable = computed(() => formLoadStatus.value === 'loaded' && !formLocked.value);
+const formEditable = computed(
+  () => formLoadStatus.value === 'loaded' && formLockKnown.value && !formLocked.value,
+);
 /**
  * No answer from the server and nothing cached tells us nothing about the market's form - not
  * even whether it has one - so there is nothing we can honestly render but the load state.
@@ -123,7 +130,6 @@ async function loadApplicationForm() {
   try {
     const response = await api.get(`/markets/${market.value.id}/application-form`);
     adoptStoredApplicationForm(response.data?.application_form ?? null);
-    formLockReason.value = response.data?.lock_reason ?? null;
     serverEssentialOptions.value = response.data?.essential_options ?? null;
     formLoadStatus.value = 'loaded';
   } catch (err: unknown) {
@@ -223,8 +229,7 @@ async function saveApplicationForm() {
     // A 409 means the server locked the form under us; stop presenting the rejected edits as
     // editable, and put back the form applicants will actually see.
     if (getApiErrorStatus(err) === 409) {
-      formLockReason.value = formErrorMessage.value;
-      await loadApplicationForm();
+      await Promise.all([marketStore.refresh(), loadApplicationForm()]);
     }
   }
 }
@@ -244,13 +249,13 @@ onMounted(() => {
   loadApplicationForm();
 });
 
-// The applications tab reads this, and the plan's assignment priority reads the fields.
-watch(formEditable, (value) => emit('update:formEditable', value), { immediate: true });
-watch(
-  () => applicationForm.value?.fields ?? [],
-  (fields) => emit('update:formFields', fields),
-  { immediate: true, deep: true },
-);
+/**
+ * A form that has just become locked - a transition landed while the organizer had edits in hand -
+ * shows what applicants will actually see, rather than edits that can no longer be saved.
+ */
+watch(formLocked, (locked, wasLocked) => {
+  if (locked && !wasLocked && formLoadStatus.value === 'loaded') void loadApplicationForm();
+});
 </script>
 
 <template>

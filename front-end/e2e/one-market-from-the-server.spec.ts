@@ -1,5 +1,7 @@
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedPhaseMarket } from './helpers/seedPhaseMarket';
+import { marketSetupPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
 
 /**
@@ -63,5 +65,67 @@ test.describe('One market, from the server', () => {
       { timeout: 15000 },
     );
     await expect(page.getByTestId('phase-rail')).toHaveCount(0);
+  });
+
+  /**
+   * The two defects the-market-frame ticket 02 reproduced, pinned where the organizer met them.
+   * Both came from the form tab fetching the form for itself and its siblings borrowing the answer
+   * (E21/F02/S03).
+   */
+  test('the form builder follows an open and a reopen without leaving the tab', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    await page.goto(marketSetupPath(seed.marketId, 'form'));
+    const addField = page.getByTestId('form-builder-add-field-button');
+    const lockBanner = page.getByTestId('form-builder-lock-banner');
+    await expect(addField).toBeEnabled({ timeout: 15000 });
+    await expect(lockBanner).toHaveCount(0);
+
+    await page.getByTestId('phase-transition-applications_open').click();
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
+      timeout: 10000,
+    });
+    await expect(addField).toHaveCount(0);
+    await expect(lockBanner).toContainText('Applications Open');
+
+    await page.getByTestId('phase-rail-menu-button').click();
+    await page.getByTestId('phase-transition-draft').click();
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', { timeout: 10000 });
+    await expect(lockBanner).toHaveCount(0);
+    await expect(addField).toBeEnabled();
+  });
+
+  test("the priority rules offer the market's own questions on direct arrival", async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const form = await request.put(`${BACKEND_URL}/markets/${seed.marketId}/application-form`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: {
+        fields: [
+          {
+            key: 'category',
+            label: 'Category',
+            type: 'select',
+            required: false,
+            options: ['Art', 'Food'],
+            order: 0,
+          },
+        ],
+      },
+    });
+    expect(form.ok()).toBe(true);
+
+    // Straight to the Assignment tab, the way Assign and the links back from Tables arrive.
+    await page.goto(marketSetupPath(seed.marketId, 'assignment'));
+    await page.getByTestId('priority-add-rule').click({ timeout: 15000 });
+
+    const target = page.getByTestId('priority-target-select').last();
+    await expect(target.locator('optgroup[label="Your questions"] option')).toHaveText([
+      'Category',
+    ]);
   });
 });

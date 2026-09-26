@@ -132,5 +132,20 @@ test.describe('Floorplan workflow E2E', () => {
     };
     expect(saved.market.setupObject?.sections?.length ?? 0).toBeGreaterThan(0);
     expect(saved.market.setupObject?.locations?.length ?? 0).toBeGreaterThan(0);
+
+    // And the next plan edit does not erase the floorplan. The plan saves a working copy built
+    // from the market the server reported, and a parser that dropped `floorplans` from it would
+    // have written the plan back without one on the organizer's next keystroke (E21/F02/S03).
+    const floorplansOf = async () => {
+      const res = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
+        headers: { 'X-Owner-Email': TEST_USER.email },
+      });
+      const body = (await res.json()) as { market: { setupObject?: { floorplans?: unknown[] } } };
+      return body.market.setupObject?.floorplans?.length ?? 0;
+    };
+    expect(await floorplansOf()).toBeGreaterThan(0);
+    await setupPage.addMarketDate('2026-07-22');
+    await expect(page.getByTestId('market-setup-plan-saved')).toBeVisible({ timeout: 10000 });
+    expect(await floorplansOf()).toBeGreaterThan(0);
   });
 });

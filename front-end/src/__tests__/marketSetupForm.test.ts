@@ -6,6 +6,7 @@ import MarketSetupView from '@/views/MarketSetupView.vue';
 import FormBuilder from '@/components/application/FormBuilder.vue';
 import type { ApplicationForm } from '@/assets/types/datatypes';
 import { MARKET_ID, marketRoute, serveMarket } from './support/marketScreen';
+import { useMarketStore } from '@/stores/market';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 /**
@@ -35,10 +36,20 @@ const EMPTY_SETUP_OBJECT = {
   assignmentOptions: {},
 };
 
-function storeMarket(applicationForm: ApplicationForm | null) {
+/**
+ * Serve the market, and with it the form's lock: it rides on the market every screen reads, which
+ * the store re-reads after every write (E21/F02/S03). `null` is an editable form.
+ */
+function storeMarket(applicationForm: ApplicationForm | null, lockReason: string | null = null) {
   serveMarket(
     api.get,
-    { id: MARKET_ID, name: 'Riverside', setupObject: EMPTY_SETUP_OBJECT, applicationForm },
+    {
+      id: MARKET_ID,
+      name: 'Riverside',
+      setupObject: EMPTY_SETUP_OBJECT,
+      applicationForm,
+      applicationFormLockReason: lockReason,
+    },
     (url) => formApi(url),
   );
 }
@@ -103,7 +114,7 @@ describe('MarketSetupView application form', () => {
     expect(wrapper.find('[data-testid="form-builder-save-button"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="form-builder-loading"]').exists()).toBe(true);
 
-    resolveGet({ data: { application_form: formWith('shop_name', 'Shop'), lock_reason: null } });
+    resolveGet({ data: { application_form: formWith('shop_name', 'Shop') } });
     await flushPromises();
 
     expect(builderOf(wrapper).props('readonly')).toBe(false);
@@ -111,13 +122,8 @@ describe('MarketSetupView application form', () => {
   });
 
   it('never offers to edit a locked form, even for an instant', async () => {
-    storeMarket(formWith('shop_name', 'Shop'));
-    formApi.mockResolvedValue({
-      data: {
-        application_form: formWith('shop_name', 'Shop'),
-        lock_reason: 'Applications have been submitted.',
-      },
-    });
+    storeMarket(formWith('shop_name', 'Shop'), 'Applications have been submitted.');
+    formApi.mockResolvedValue({ data: { application_form: formWith('shop_name', 'Shop') } });
 
     const wrapper = await mountOnFormTab();
     expect(builderOf(wrapper).props('readonly')).toBe(true);
@@ -130,9 +136,38 @@ describe('MarketSetupView application form', () => {
     );
   });
 
+  /**
+   * The reported bug (the-market-frame ticket 02): open applications from the rail and Add field
+   * stayed live; reopen and the lock notice named a phase the rail contradicted - until the
+   * organizer changed tabs. The lock is on the market now, so a re-read is all it takes.
+   */
+  it('follows the lock the moment the market changes, without leaving the tab', async () => {
+    storeMarket(formWith('shop_name', 'Shop'));
+    formApi.mockResolvedValue({ data: { application_form: formWith('shop_name', 'Shop') } });
+    const wrapper = await mountOnFormTab();
+    await flushPromises();
+    expect(builderOf(wrapper).props('readonly')).toBe(false);
+
+    // Applications open: the rail's transition makes the store re-read the market.
+    storeMarket(formWith('shop_name', 'Shop'), 'Only while the market is in draft phase.');
+    await useMarketStore().refresh();
+    await flushPromises();
+    expect(builderOf(wrapper).props('readonly')).toBe(true);
+    expect(wrapper.get('[data-testid="form-builder-lock-banner"]').text()).toContain(
+      'Only while the market is in draft phase.',
+    );
+
+    // Reopened: editable again, and no notice left over from the phase before.
+    storeMarket(formWith('shop_name', 'Shop'));
+    await useMarketStore().refresh();
+    await flushPromises();
+    expect(builderOf(wrapper).props('readonly')).toBe(false);
+    expect(wrapper.find('[data-testid="form-builder-lock-banner"]').exists()).toBe(false);
+  });
+
   it('does not reclassify an auto-derived key as hand-edited when the form is saved', async () => {
     storeMarket(null);
-    formApi.mockResolvedValue({ data: { application_form: null, lock_reason: null } });
+    formApi.mockResolvedValue({ data: { application_form: null } });
 
     const wrapper = await mountOnFormTab();
     await flushPromises();
@@ -156,7 +191,7 @@ describe('MarketSetupView application form', () => {
     vi.useFakeTimers();
     const form = formWith('shop_name', 'Shop');
     storeMarket(form);
-    formApi.mockResolvedValue({ data: { application_form: form, lock_reason: null } });
+    formApi.mockResolvedValue({ data: { application_form: form } });
     api.put.mockResolvedValue({ data: { application_form: form } });
 
     const wrapper = await mountOnFormTab();
@@ -190,7 +225,7 @@ describe('MarketSetupView application form', () => {
   it('treats every key of a form loaded from the server as the organizer own', async () => {
     storeMarket(null);
     formApi.mockResolvedValue({
-      data: { application_form: formWith('shop_name', 'Shop'), lock_reason: null },
+      data: { application_form: formWith('shop_name', 'Shop') },
     });
 
     const wrapper = await mountOnFormTab();

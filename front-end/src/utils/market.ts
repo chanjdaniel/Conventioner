@@ -93,7 +93,11 @@ export function parseMarketFromApi(market: any): Market {
       ? (phaseRaw as MarketPhase) === 'draft'
       : (market.isDraft ?? market.is_draft ?? true),
     phase: phaseRaw ? (phaseRaw as MarketPhase) : undefined,
+    // Spread first, so a key this parser does not name (the floorplans, above all) is carried
+    // rather than dropped: the plan's autosave sends a working copy built from this, and a key lost
+    // here is a key the next save erases (E21/F02/S03).
     setupObject: {
+      ...(market.setupObject ?? {}),
       priority: market.setupObject?.priority || [],
       marketDates: market.setupObject?.marketDates || [],
       tiers: market.setupObject?.tiers || [],
@@ -119,5 +123,12 @@ export function parseMarketFromApi(market: any): Market {
     // Which answers a reviewer reads first (E19/F03/S01). Absent means nothing is marked, which
     // renders the card exactly as it did before this existed.
     reviewHighlights: (market.reviewHighlights ?? market.review_highlights ?? []) as string[],
+    // How vendors reach the market, and whether verdicts are visible to applicants. Both were
+    // dropped here, harmlessly only while the screens read the unparsed `localStorage` copy.
+    intakeMode: market.intakeMode ?? market.intake_mode ?? undefined,
+    resultsPublished: market.resultsPublished ?? market.results_published ?? undefined,
+    // Why the application form cannot be edited, or null when it can: computed by the server on
+    // every read of one market (E21/F02/S03). Undefined when the read did not carry it - a list.
+    applicationFormLockReason: market.applicationFormLockReason,
   };
 }

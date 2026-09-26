@@ -42,6 +42,39 @@ describe('parseMarketFromApi', () => {
     expect(market.reviewConfig).toEqual({ reviewers: ['a@example.com'] });
   });
 
+  /**
+   * Every screen reads the PARSED market now (E21/F02). They used to read the raw copy out of
+   * `localStorage`, which is how a parser that silently dropped fields went unnoticed - and the
+   * plan's autosave sends a working copy built from this, so a dropped `floorplans` would be a
+   * floorplan erased by the next keystroke on the plan.
+   */
+  it('keeps everything the server says about the market', () => {
+    const floorplans = [{ id: 'fp-1', tableTypes: [{ name: 'Full' }] }];
+    const market = parseMarketFromApi({
+      ...apiMarket,
+      phase: 'applications_open',
+      intakeMode: 'form',
+      resultsPublished: true,
+      applicationFormLockReason: 'Application form can only be edited while in draft.',
+      setupObject: { marketDates: [{ date: '2026-08-01' }], floorplans },
+    });
+
+    expect(market.intakeMode).toBe('form');
+    expect(market.resultsPublished).toBe(true);
+    expect(market.applicationFormLockReason).toBe(
+      'Application form can only be edited while in draft.',
+    );
+    expect(market.setupObject?.floorplans).toEqual(floorplans);
+    expect(market.setupObject?.marketDates).toEqual([{ date: '2026-08-01' }]);
+  });
+
+  it('reads an editable form as no lock at all', () => {
+    expect(
+      parseMarketFromApi({ ...apiMarket, applicationFormLockReason: null })
+        .applicationFormLockReason,
+    ).toBeNull();
+  });
+
   it('leaves the new fields undefined when the API omits them', () => {
     const market = parseMarketFromApi(apiMarket);
 
