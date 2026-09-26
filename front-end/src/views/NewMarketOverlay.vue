@@ -80,7 +80,6 @@ const handleSubmit = async () => {
     const createResponse = await api.post('/markets', newMarket);
     const marketId = createResponse.data.market_id;
 
-
     router.push(marketPath(marketId));
   } catch (error) {
     if (

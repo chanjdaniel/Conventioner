@@ -40,9 +40,7 @@ const everOpenedOne = computed(() => rememberedId.value !== null);
  * when the list could not be fetched; nothing about a market is kept in the browser now, so with
  * no answer there is simply no card - a convenience lost, never a stale market shown.
  */
-const lastMarket = computed(() =>
-  markets.value?.find((m) => m.id === rememberedId.value) ?? null,
-);
+const lastMarket = computed(() => markets.value?.find((m) => m.id === rememberedId.value) ?? null);
 /** Nothing below may be said until the server has answered. */
 const countKnown = computed(() => markets.value !== null);
 const reachableCount = computed(() => markets.value?.length ?? 0);
