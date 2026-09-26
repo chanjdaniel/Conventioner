@@ -1,5 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import type { Page } from '@playwright/test';
 
 /**
@@ -135,6 +136,37 @@ test.describe('Every organizer screen sizes itself the same way', () => {
       short.boxed,
       'a screen is hiding its content inside a box when the window is short',
     ).toEqual([]);
+  });
+
+  test('a surface shorter than the window starts at the top, not in the middle', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // The market view centred its card vertically (`safe center`), so a short surface - an
+    // Applications tab with nothing in it - floated the whole card, header and rail with it, to the
+    // middle of the window (E21/F01/S02). A draft with no applications is the shortest there is.
+    const draft = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const response = await request.get(`${BACKEND_URL}/markets/${draft.marketId}`, {
+      headers: { 'X-Owner-Email': TEST_USER.email },
+    });
+    const draftMarket = ((await response.json()) as { market: unknown }).market;
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto('/login');
+    await page.evaluate((m) => localStorage.setItem('market', JSON.stringify(m)), draftMarket);
+
+    const gapUnderBanner = async () =>
+      page.evaluate(() => {
+        const banner = document.querySelector('.app-container > header') as HTMLElement;
+        const title = document.querySelector('[data-testid="market-setup-title"]') as HTMLElement;
+        const card = title.closest('.settings-container') as HTMLElement;
+        return Math.round(card.getBoundingClientRect().top - banner.getBoundingClientRect().bottom);
+      });
+
+    for (const tab of ['applications', 'setup', 'form', 'assignment']) {
+      await page.goto(`/market-setup?tab=${tab}`);
+      await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
+      expect(await gapUnderBanner(), `the ${tab} tab is not at the top`).toBe(0);
+    }
   });
 
   test('no control on the plan is narrower than its own longest value', async ({
