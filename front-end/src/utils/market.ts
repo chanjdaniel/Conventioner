@@ -35,9 +35,11 @@ export function marketPath(marketId: string, screen: MarketScreen = 'setup', tab
   return tab ? `${base}?tab=${encodeURIComponent(tab)}` : base;
 }
 
-/** Make this the open market and go to it. The three lists that open a market all did this by hand. */
+/**
+ * Go to a market. The three lists that open a market all did this by hand, and all three stored the
+ * market in `localStorage` first; arriving is what opens it now (E21/F02/S05).
+ */
 export function openMarket(router: Router, market: Market): void {
-  localStorage.setItem('market', JSON.stringify(market));
   router.push(marketPath(market.id));
 }
 

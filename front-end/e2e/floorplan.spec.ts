@@ -87,13 +87,9 @@ test.describe('Floorplan workflow E2E', () => {
     market = updated.market;
 
     // Inject the market into localStorage so the setup wizard can pick it up.
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
 
     await page.goto(marketSetupPath(marketId));
 

@@ -77,6 +77,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   market over the API and stops at "awaiting review". Before adding a test, decide which of those
   you are extending - and if the answer is "the seam between two of them", it belongs in the
   journey spec.
+- **Open a market by URL**, the way a bookmark would: `e2e/helpers/marketScreens.ts`
+  (`marketSetupPath`, `marketScreenPath`). Specs no longer plant a market in `localStorage`.
 - **Run E2E**: `./scripts/seed_fixture.sh` then `cd front-end && npm run test:e2e`.
   Playwright config auto-detects worktree port via `stack().frontendPort`.
   Bring the stack up with `DISABLE_EMAIL=true scripts/th-compose.sh up -d` (compose passes it
@@ -138,6 +140,31 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   It used to be `GET /markets/{id}/assignment` (which only computes) followed by a whole-market PUT carrying the result, and that PUT now stores nothing: `assignmentObject` is server-owned like `applicationForm` and `importMapping`, because it is what `record_attendance` reads at check-in time and a stale client copy overwriting it moves vendors on market day (E11/F01/S01).
   `back-end/api/placements.py` is the single writer - a solver run, or `PUT /markets/{id}/placements` for one vendor in one seat on one date, both gated on `MarketRole.EDITOR`.
   Run the assignment *before* publishing: `market_days` has an entry invariant that one exists.
+
+## One Market, From the Server (Conventioner sharp edge)
+
+- **The back end is the only source of truth about a market, and the browser holds it in ONE
+  place:** `front-end/src/stores/market.ts`. Every market screen, the rail and every tab read it;
+  screens get it through `useOpenMarket` (`front-end/src/utils/openMarket.ts`). Settled in
+  `.scratch/wayfinding/the-market-frame/issues/03-one-market-every-surface-reads.md`.
+- **Every market screen is addressed by id**: `/markets/:marketId/{setup,vendors,import,floorplan,
+  tables,attendance}`, built with `marketPath()`. The id-less paths redirect to `/markets`.
+- **A write is followed by a re-read, never a patch.** After anything that changes the market
+  (a transition - the rail does it - a form save, an assignment run, a placement, an import, a
+  highlight) call the store's `refresh()`. Do not assign into the held market: no caller should
+  need to know which fields its write touched.
+- **Unsaved work is the editor's working copy**, never layered on the store (the plan's
+  `setupObject`/`planIntakeMode`, the form builder's form). A re-read never overwrites a working
+  copy that holds unsaved edits.
+- **Nothing about a market is stored in the browser.** `localStorage` `market` is gone and
+  `noMarketInTheBrowser.test.ts` fails if it returns; the dashboard keeps only a `lastMarketId`
+  pointer (`utils/lastMarket.ts`), set by the store when a market arrives.
+- **`parseMarketFromApi` must carry every field the server sends.** It once rebuilt `setupObject`
+  from a fixed key list and dropped `floorplans`; once screens read the parsed market, the plan's
+  autosave erased the floorplan. Spread what you do not name.
+- **Facts derived from the market are served on it**, not fetched per tab: the form lock is
+  `applicationFormLockReason` on `GET /markets/:id`. A tab that fetches a fact for itself and
+  publishes it to siblings is how the form builder and the priority rules went stale.
 
 ## The Phase Rail (Conventioner sharp edge)
 

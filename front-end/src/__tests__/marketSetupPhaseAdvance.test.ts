@@ -6,6 +6,7 @@ import MarketSetupView from '@/views/MarketSetupView.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
 import { marketRoute, serveMarket } from './support/marketScreen';
+import { useMarketStore } from '@/stores/market';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 
@@ -100,7 +101,7 @@ async function savedPayloadAfterAdvancing() {
   await wrapper.vm.$nextTick();
 
   serveMarket(api.get, SERVER_MARKET_AFTER_TRANSITION);
-  wrapper.findComponent(PhaseRail).vm.$emit('phase-advanced');
+  await useMarketStore().refresh();
   await vi.advanceTimersByTimeAsync(0);
 
   await vi.advanceTimersByTimeAsync(1000);
@@ -128,8 +129,9 @@ describe('advancing a phase does not discard the organizer\u2019s unsaved plan',
   it('still takes the new phase from the server, which is what the transition decided', async () => {
     const wrapper = await mountThePlan();
 
+    // The rail re-reads the store once a transition lands; what the screen shows is what it got.
     serveMarket(api.get, SERVER_MARKET_AFTER_TRANSITION);
-    wrapper.findComponent(PhaseRail).vm.$emit('phase-advanced');
+    await useMarketStore().refresh();
     await vi.advanceTimersByTimeAsync(0);
 
     expect(wrapper.findComponent(PhaseRail).props('market')?.phase).toBe('applications_open');

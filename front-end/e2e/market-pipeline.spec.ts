@@ -113,13 +113,9 @@ test.describe('Market pipeline E2E', () => {
     market = updated.market;
 
     // Inject the market into localStorage so the setup wizard can pick it up.
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
 
     await page.goto(marketSetupPath(marketId));
 
@@ -221,14 +217,6 @@ test.describe('Market pipeline E2E', () => {
     // Publishing is a step on the phase strip, not a Done button on the results screen
     // (E10/F03/S01): that button posted a transition invalid from the phase the organizer was
     // standing in, and failed with a raw enum error.
-    const afterWalk = await page.request.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market: walkedMarket } = (await afterWalk.json()) as {
-      market: Record<string, unknown>;
-    };
-    await page.evaluate((m) => localStorage.setItem('market', JSON.stringify(m)), walkedMarket);
-
     await page.goto(marketSetupPath(marketId));
     await setupPage.advancePhaseTo('market_days', 'Market Days');
 

@@ -26,7 +26,6 @@ test.describe('Screens say what they mean', () => {
   let marketId: string;
   let marketSlug: string;
   let marketName: string;
-  let market: unknown;
 
   test.beforeAll(async ({ request }) => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
@@ -39,22 +38,13 @@ test.describe('Screens say what they mean', () => {
     marketId = seeded.marketId;
     marketSlug = seeded.marketSlug;
     marketName = seeded.marketName;
-
-    const response = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    market = ((await response.json()) as { market: unknown }).market;
   });
 
   async function openTheSeededMarket(page: Page): Promise<void> {
     await page.goto('/login');
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
   }
 
   test('the form-lock banner names the phase in words', async ({ authenticatedPage: page }) => {
