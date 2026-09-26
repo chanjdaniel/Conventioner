@@ -2,7 +2,7 @@
 id: E21/F03/S02
 title: The plan saves only the plan
 type: story
-status: ready
+status: done
 blocked_by: [E21/F02/S02]
 pr: []
 ---
@@ -19,7 +19,7 @@ Afterwards the store re-fetches the market, as for every other write (F02).
 
 ## Acceptance criteria
 
-- [ ] The plan autosave calls a plan-only write; nothing in Market Setup calls `PUT /markets/:id`.
-- [ ] The plan-only write rejects a body that names any field other than the plan and the intake mode.
-- [ ] It enforces EDITOR permission and refuses an intake-mode change outside draft, with pytest coverage of each.
-- [ ] The plan save status behaves as before, and the e2e specs covering plan editing pass unchanged in behaviour.
+- [x] The plan autosave calls a plan-only write; nothing in Market Setup calls `PUT /markets/:id`.
+- [x] The plan-only write rejects a body that names any field other than the plan and the intake mode.
+- [x] It enforces EDITOR permission and refuses an intake-mode change outside draft, with pytest coverage of each.
+- [x] The plan save status behaves as before, and the e2e specs covering plan editing pass unchanged in behaviour.

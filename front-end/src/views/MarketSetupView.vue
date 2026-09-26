@@ -117,7 +117,6 @@ function parseFiniteNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-
 /**
  * True when the required Assignment Options are set, which is what enables Assign.
  *
@@ -198,12 +197,16 @@ function handleUpdateIntakeMode(mode: IntakeMode) {
   void savePlan();
 }
 
-/** Send the plan's working copy, then take the market back from the server. */
+/**
+ * Send the plan's working copy, then take the market back from the server.
+ *
+ * Through the plan's own write (E21/F03/S02), carrying the plan and the intake mode and nothing
+ * else. It used to PUT the whole market, which is a client claiming its copy is the truth.
+ */
 const updateMarket = async () => {
   if (!market.value) return;
   const sending = planEdits;
-  await api.put('/markets/' + market.value.id, {
-    ...market.value,
+  await api.put(`/markets/${encodeURIComponent(market.value.id)}/plan`, {
     setupObject: { ...setupObject },
     intakeMode: planIntakeMode.value,
   });
@@ -426,17 +429,10 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 
         <!-- The lifecycle, directly below the market header and inside the card (E10/F01/S01).
              It used to float above the card as a strip of coloured pills. -->
-        <PhaseRail
-          :market="market"
-          :beforeTransition="flushPlanSave"
-        />
+        <PhaseRail :market="market" :beforeTransition="flushPlanSave" />
 
         <!-- Application Form Tab -->
-        <MarketFormTab
-          v-if="activeTab === 'form'"
-          :market="market"
-          :setupObject="setupObject"
-        />
+        <MarketFormTab v-if="activeTab === 'form'" :market="market" :setupObject="setupObject" />
 
         <MarketPlanTab
           v-if="activeTab === 'setup'"

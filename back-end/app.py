@@ -843,6 +843,31 @@ def update_market(market_id: str) -> Response:
         return jsonify({"error": str(e)}), 400
 
 
+@app.route('/markets/<market_id>/plan', methods=['PUT'])
+@login_required
+def save_plan(market_id: str) -> Response:
+    """Write the market plan, and while it is a draft how vendors reach it (E21/F03/S02).
+
+    Body: { "setupObject": {...}, "intakeMode": "csv" | "form" }. Anything else is refused by
+    name: the plan's autosave sends what the plan owns, not the whole market.
+    """
+    try:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "A JSON object is required"}), 400
+        MarketsApi.save_plan(market_id, data, authenticated_email())
+        return jsonify({"message": "Plan saved"}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in save_plan for {market_id}: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
 @app.route('/markets/<market_id>/review-highlights', methods=['PUT'])
 @login_required
 def save_review_highlights(market_id: str) -> Response:

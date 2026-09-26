@@ -80,13 +80,24 @@ async function edit(
 }
 
 describe('the plan saves itself', () => {
+  it('writes only the plan, never the whole market', async () => {
+    const wrapper = await mountPlan();
+
+    await edit(wrapper);
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const [url, body] = api.put.mock.calls[0];
+    expect(url).toBe('/markets/market-1/plan');
+    expect(Object.keys(body).sort()).toEqual(['intakeMode', 'setupObject']);
+  });
+
   it('writes an edit to the server', async () => {
     const wrapper = await mountPlan();
 
     await edit(wrapper);
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(api.put).toHaveBeenCalledWith('/markets/market-1', expect.anything());
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/plan', expect.anything());
   });
 
   it('waits, so a name typed one letter at a time is one save and not eleven', async () => {
@@ -133,6 +144,6 @@ describe('the plan saves itself', () => {
     wrapper.unmount();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(api.put).toHaveBeenCalledWith('/markets/market-1', expect.anything());
+    expect(api.put).toHaveBeenCalledWith('/markets/market-1/plan', expect.anything());
   });
 });

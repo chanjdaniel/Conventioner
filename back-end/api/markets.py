@@ -15,6 +15,7 @@ from datatypes import (
     MarketRole,
     MarketTableRow,
     Organization,
+    SetupObject,
     UnassignedTableEntry,
     intake_mode_from_market_document,
     market_name_slug,
@@ -1400,6 +1401,50 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
         logger.warning(f"Failed to delete placement history for market {market_id}: {e}")
 
     return markets_collection.delete_one({"id": market_id})
+
+
+PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
+
+
+def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> None:
+    """Write the market plan and, while the market is a draft, how vendors reach it (E21/F03/S02).
+
+    The plan's own write. It used to travel inside a PUT of the whole market, which stored the
+    client's entire copy and stayed safe only by re-applying every field the server owns - added
+    one "a stale copy overwrote X" bug at a time. This carries the plan and the intake mode and
+    refuses anything else by name, rather than quietly re-applying over it.
+
+    The intake mode is fixed once the market leaves draft (see ``_intake_mode_for_update``); a body
+    that merely restates the stored mode is not a change, because the plan saves itself in every
+    phase and says which mode it holds. Requires EDITOR, the bar every market write has.
+    """
+    extra = sorted(set(body) - set(PLAN_WRITE_FIELDS))
+    if extra:
+        raise ValueError(f"The plan write carries only the plan; it does not accept {', '.join(extra)}.")
+    if "setupObject" not in body:
+        raise ValueError("setupObject is required.")
+
+    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+
+    try:
+        plan = SetupObject(**convert_keys_to_snake_case(body["setupObject"]))
+    except Exception as e:
+        raise ValueError(f"Invalid plan: {e}")
+    update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
+
+    if body.get("intakeMode") is not None:
+        try:
+            intake = IntakeMode(body["intakeMode"])
+        except ValueError:
+            raise ValueError(f"Unknown intake mode: {body['intakeMode']!r}.")
+        if intake is not market.intake_mode:
+            if market.phase is not MarketPhase.DRAFT:
+                raise ValueError(
+                    "How vendors reach a market can only be changed while it is a draft."
+                )
+            update[market_doc_key("intake_mode")] = intake.value
+
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
 
 
 def save_review_highlights(
