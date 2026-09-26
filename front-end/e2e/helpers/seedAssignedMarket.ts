@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import { savePlan } from './savePlan';
 import {
   SEED_MARKET_DATE,
   type SeedResult,
@@ -54,25 +55,7 @@ export async function seedAssignedMarket(
     },
   };
 
-  const putRes = await request.put(`${baseURL}/markets/${encodeURIComponent(seed.marketId)}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Owner-Email': email,
-    },
-    data: {
-      id: seed.marketId,
-      name: seed.marketName,
-      creationDate: new Date().toISOString(),
-      organizationId: seed.orgId,
-      roles: { [seed.userId]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
-      setupObject,
-    },
-  });
-  if (!putRes.ok()) {
-    throw new Error(`Market PUT failed: ${putRes.status()} ${await putRes.text()}`);
-  }
+  await savePlan(request, baseURL, email, seed.marketId, setupObject);
 
   // Walk to `assignment` first. It is where an organizer looking at the results screen actually
   // is - publishing is `assignment -> market_days` (E03/F03) - and it is the one phase the solver

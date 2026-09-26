@@ -199,12 +199,13 @@ test.describe('Application form builder', () => {
     expect(formPut.status()).toBe(409);
     expect((await formPut.json()).error).toContain('Application form is locked');
 
-    // A market PUT carrying a rewritten form cannot bypass it either.
+    // Nor is there another door: the market PUT that once carried a whole market, form and all,
+    // is gone (E21/F03/S06), so a rewritten form has nowhere else to go.
     const marketBefore = await (await api.get(`/markets/${marketId}`)).json();
     const marketPut = await api.put(`/markets/${marketId}`, {
       data: { ...marketBefore.market, applicationForm: tamperedForm },
     });
-    expect(marketPut.ok()).toBeTruthy();
+    expect(marketPut.status()).toBe(405);
 
     // Whatever route was used, the stored form is still the one applicants see.
     const after = await (await api.get(`/markets/${marketId}/application-form`)).json();

@@ -1,20 +1,17 @@
-"""A market's organization is set at creation and never changes (E21/F03/S01, E21/F03/S05).
+"""A market's organization is set at creation and never changes (E21/F03/S01, S05, S06).
 
 `POST /markets` refuses a missing organization, an unknown one, and one the caller is not a member
 of. The market PUT checked none of them: reproduced on a running stack, `organizationId: null` and
-`organizationId: "not-a-real-org"` both answered 200 and were stored, the second also added to the
-market list of whatever organization carried that id. A market belonging to nothing is a state the
-product refuses to produce anywhere else.
+`organizationId: "not-a-real-org"` both answered 200 and were stored. S01 put the same rule on the
+PUT, S05 refused every organization change on it, and S06 deleted it - so creation is the only door
+a market's organization passes through, and this is its rule.
 """
 from types import SimpleNamespace
 
 import pytest
 
-from conftest import FakeMarketsCollection, client_market, stored_market
-
 import api.markets as MarketsApi
 import api.organizations as OrgsApi
-import api.permissions as PermissionsApi
 import api.users as UsersApi
 
 
@@ -25,59 +22,31 @@ ORGANIZATIONS = {
 }
 
 
-class FakeOrganizations:
-    def __init__(self):
-        self.updates = []
-
-    def update_one(self, query, update):
-        self.updates.append((query, update))
-        return SimpleNamespace(matched_count=1, modified_count=1)
-
-
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def world(monkeypatch):
-    markets = FakeMarketsCollection(stored_market(organizationId="org-home"))
-    organizations = FakeOrganizations()
-    monkeypatch.setattr(MarketsApi, "markets_collection", markets)
-    monkeypatch.setattr(MarketsApi, "db", {"organizations": organizations})
-    monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
     monkeypatch.setattr(OrgsApi, "get_organization", lambda org_id: ORGANIZATIONS.get(org_id))
     monkeypatch.setattr(
         UsersApi,
         "get_user",
         lambda email: SimpleNamespace(id="user-1", email=email) if email == "user-1" else None,
     )
-    return SimpleNamespace(markets=markets, organizations=organizations)
 
 
 @pytest.mark.parametrize(
-    "organization_id",
-    [None, "not-a-real-org", "org-strangers", "org-joined"],
+    "organization_id, reason",
+    [
+        (None, "required"),
+        ("", "required"),
+        ("not-a-real-org", "not found"),
+        ("org-strangers", "not a member"),
+    ],
 )
-def test_no_update_moves_a_market_to_another_organization(world, organization_id):
-    """Fixed at creation (E21/F03/S05): a valid destination is refused as surely as an invalid one.
-
-    A market's organization is its container and its access grant at once - its members see it,
-    and deleting the organization deletes it - so moving it is not an edit. S01 first closed the
-    invalid moves (none, unknown, not a member); this closes the valid one too, which Manage
-    Market's "Add organization" performed while presenting it as granting access.
-    """
-    with pytest.raises(ValueError, match="organization is fixed"):
-        MarketsApi.update_market(
-            "market-123", client_market(organization_id=organization_id), "user-1"
-        )
-
-    assert world.markets.last_update is None, "the market was written anyway"
-    assert world.organizations.updates == [], "an organization's market list was touched"
+def test_a_market_cannot_be_created_into_an_organization_it_cannot_belong_to(
+    organization_id, reason
+):
+    assert reason in MarketsApi.organization_refusal("user-1", organization_id).lower()
 
 
-def test_keeping_the_organization_is_not_a_change(world):
-    MarketsApi.update_market("market-123", client_market(organization_id="org-home"), "user-1")
-
-    assert world.markets.last_update["$set"]["organizationId"] == "org-home"
-    assert world.organizations.updates == []
-
-
-def test_creation_and_update_ask_the_same_question():
-    """One rule, so the two doors cannot drift apart again."""
-    assert MarketsApi.organization_refusal("user-1", None) is not None
+@pytest.mark.parametrize("organization_id", ["org-home", "org-joined"])
+def test_an_owner_or_member_may_create_a_market_in_it(organization_id):
+    assert MarketsApi.organization_refusal("user-1", organization_id) is None

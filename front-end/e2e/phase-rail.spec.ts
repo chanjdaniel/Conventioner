@@ -1,6 +1,18 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssignedMarket';
+import { seedPhaseMarket } from './helpers/seedPhaseMarket';
+import { savePlan } from './helpers/savePlan';
+
+/** A plan with a date, so the essential questions have something to ask. */
+const PLAN = {
+  priority: [],
+  marketDates: [{ date: '2099-05-01' }],
+  tiers: [],
+  locations: [],
+  sections: [],
+  assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
+};
 
 /**
  * The phase rail (E10/F01).
@@ -20,15 +32,6 @@ test.describe('The phase rail', () => {
       name: `Portland Holiday Makers Market December ${Date.now()}`,
     });
   });
-
-  async function marketBody(page: import('@playwright/test').Page) {
-    const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await res.json()) as { market: Record<string, unknown> };
-    delete market._id;
-    return market;
-  }
 
   async function openMarket(page: import('@playwright/test').Page, path: string) {
     const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
@@ -119,24 +122,28 @@ test.describe('The phase rail', () => {
     await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('phase-rail-apply')).toHaveCount(0);
 
-    // The same market taking applications by form does carry it, pointing at its own address.
-    await page.request.put(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: { ...(await marketBody(page)), intakeMode: 'form' },
-    });
-    await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
+    // A market taking applications by form does carry it, pointing at its own address. Intake
+    // mode is chosen while a market is a draft and fixed after, so this is a market of its own.
+    const formMarket = await seedPhaseMarket(
+      page.request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    await savePlan(page.request, BACKEND_URL, TEST_USER.email, formMarket.marketId, PLAN, 'form');
+    const opened = await page.request.post(
+      `${BACKEND_URL}/markets/${formMarket.marketId}/transition`,
+      {
+        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+        data: { toPhase: 'applications_open' },
+      },
+    );
+    expect(opened.ok(), await opened.text()).toBeTruthy();
+    await page.goto(marketSetupPath(formMarket.marketId, 'setup'));
 
-    // Frozen after draft, so a market already past it keeps what it had - which is the rule, not a
-    // failure. Only assert the chip when the server actually accepted the change.
-    const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await res.json()) as { market: { intakeMode?: string } };
-    if (market.intakeMode === 'form') {
-      const chip = page.getByTestId('phase-rail-apply');
-      await expect(chip).toBeVisible();
-      await expect(chip.locator('a')).toHaveAttribute('href', /\/apply$/);
-    }
+    const chip = page.getByTestId('phase-rail-apply');
+    await expect(chip).toBeVisible({ timeout: 15000 });
+    await expect(chip.locator('a')).toHaveAttribute('href', /\/apply$/);
   });
 
   test('archiving states in words that the market is over', async ({ authenticatedPage: page }) => {

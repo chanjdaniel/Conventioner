@@ -1,4 +1,5 @@
 import path from 'path';
+import { savePlan } from './helpers/savePlan';
 import { marketSetupPath, MARKET_SETUP_URL } from './helpers/marketScreens';
 import { fileURLToPath } from 'url';
 import {
@@ -53,11 +54,6 @@ test.describe('Floorplan workflow E2E', () => {
     }
     const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-    const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    let { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-
     // Seed a minimal setupObject so the setup wizard has columns to display.
     const minimalSetup = {
       priority: [],
@@ -70,23 +66,9 @@ test.describe('Floorplan workflow E2E', () => {
         maxHalfTableProportionPerSection: null,
       },
     };
-    const setupRes = await ctx.put(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Owner-Email': TEST_USER.email,
-      },
-      data: { ...market, setupObject: minimalSetup },
-    });
-    if (!setupRes.ok()) {
-      throw new Error(`Setup PUT failed: ${setupRes.status()} ${await setupRes.text()}`);
-    }
-    const updatedRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const updated = (await updatedRes.json()) as { market: Record<string, unknown> };
-    market = updated.market;
+    await savePlan(ctx, BACKEND_URL, TEST_USER.email, marketId, minimalSetup);
 
-    // Inject the market into localStorage so the setup wizard can pick it up.
+    // The signed-in user, where the screens that still read it look; the market is the URL's.
     await page.evaluate((user) => {
       localStorage.setItem('user', JSON.stringify(user));
     }, TEST_USER.email);

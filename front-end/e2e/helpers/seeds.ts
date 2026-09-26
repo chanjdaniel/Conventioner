@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
+import { savePlan } from './savePlan';
 import { seedApprovedVendor } from './seedApplication';
 
 /**
@@ -293,28 +294,7 @@ export async function seedPublishedMarketWithAssignments(
     floorplans: null,
   };
 
-  // Fetch the market so we can enrich it.
-  const getMarketRes = await request.get(`${baseURL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': email },
-  });
-  if (!getMarketRes.ok()) {
-    throw new Error(`Market fetch failed: ${getMarketRes.status()} ${await getMarketRes.text()}`);
-  }
-  const { market } = (await getMarketRes.json()) as { market: Record<string, unknown> };
-
-  const setupRes = await request.put(`${baseURL}/markets/${marketId}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Owner-Email': email,
-    },
-    data: {
-      ...market,
-      setupObject,
-    },
-  });
-  if (!setupRes.ok()) {
-    throw new Error(`Market setup put failed: ${setupRes.status()} ${await setupRes.text()}`);
-  }
+  await savePlan(request, baseURL, email, marketId, setupObject);
 
   const marketSlug = marketNameToSlug(marketName);
 

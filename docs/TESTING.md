@@ -211,8 +211,8 @@ market-setup Application Form tab: an organizer builds a form (keys auto-slugged
 labels) on a market created through the API path, watches the live preview, saves it, and
 reloads to confirm it persisted; a second test seeds an application straight into Mongo
 and asserts the D9 lock then renders the builder read-only with its lock banner, that
-`PUT /markets/{id}/application-form` refuses with 409, and that a market PUT carrying a
-rewritten form cannot smuggle one past it either. The floorplan suite
+`PUT /markets/{id}/application-form` refuses with 409, and that no whole-market PUT exists to
+smuggle one past it (405). The floorplan suite
 (`floorplan.spec.ts`) drives the create-from-floorplan setup path end to end:
 it walks the Floorplan AI 5-step wizard (upload, scale calibration, table
 placement, section grouping, save) and verifies the resulting sections land

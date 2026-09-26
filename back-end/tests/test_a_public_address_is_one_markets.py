@@ -11,7 +11,7 @@ Either way a stranger following a public link could land on the wrong market.
 """
 import pytest
 
-from conftest import FakeSlugMarketsCollection, client_market, stored_market
+from conftest import FakeSlugMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
@@ -61,19 +61,6 @@ class TestCreation:
 
     def test_a_free_address_is_created(self, two_markets):
         MarketsApi.create_market(_market("Autumn Market"), "owner@example.com")
-
-
-class TestRenaming:
-    def test_a_rename_onto_another_markets_address_is_refused(self, two_markets):
-        with pytest.raises(ValueError, match="web address"):
-            MarketsApi.update_market("market-123", client_market(name="Cafe Market"), "user-1")
-
-        assert two_markets.last_update is None
-
-    def test_keeping_its_own_address_is_not_a_clash(self, two_markets):
-        MarketsApi.update_market("market-123", client_market(name="Spring Market!"), "user-1")
-
-        assert two_markets.last_update["$set"]["slug"] == "spring-market"
 
 
 class FakeCollection:
