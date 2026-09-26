@@ -12,6 +12,8 @@
  * phase refuses a run, why, in the words `assign_phase_refusal` uses on the server.
  */
 import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import ResultStatistics from '@/components/ResultStatistics.vue';
 import type { AssignmentStatistics, Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { marketPath } from '@/utils/market';
@@ -29,6 +31,18 @@ const outOfDate = computed(() =>
 );
 
 const statistics = ref<AssignmentStatistics | null>(null);
+
+/** Whether the counts are open under the strip: part of the address, so a refresh keeps it. */
+const route = useRoute();
+const router = useRouter();
+const statisticsOpen = computed(() => route.query.stats === 'open');
+
+function toggleStatistics(): void {
+  const query = { ...route.query };
+  if (statisticsOpen.value) delete query.stats;
+  else query.stats = 'open';
+  void router.replace({ query });
+}
 
 /**
  * Read the statistics for what the market STORES: its assignment and the plan it was made against.
@@ -169,6 +183,15 @@ async function downloadCsv(): Promise<void> {
         <button
           type="button"
           class="btn btn--secondary"
+          :aria-expanded="statisticsOpen"
+          data-testid="result-statistics-button"
+          @click="toggleStatistics"
+        >
+          Statistics
+        </button>
+        <button
+          type="button"
+          class="btn btn--secondary"
           :disabled="isDownloading"
           data-testid="result-download-csv-button"
           @click="downloadCsv"
@@ -177,10 +200,15 @@ async function downloadCsv(): Promise<void> {
         </button>
       </span>
     </div>
+
     <!-- Named and defined where it is shown: it was once a bare "Satisfaction Score" (E12). -->
     <p v-if="hasAssignment" class="result-definition">
       Satisfaction is the share of the dates vendors asked for, and could have had, that they got.
     </p>
+    <ResultStatistics
+      v-if="hasAssignment && statisticsOpen && statistics"
+      :statistics="statistics"
+    />
     <p v-if="downloadError" class="result-error" data-testid="result-download-error">
       {{ downloadError }}
     </p>

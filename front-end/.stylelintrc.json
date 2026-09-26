@@ -24,12 +24,12 @@
   "overrides": [
     {
       "files": [
-        "src/components/AssignmentStatListItem.vue",
         "src/components/BlockerPanel.vue",
         "src/components/MarketSummaryCard.vue",
         "src/components/MarketArrival.vue",
         "src/components/MarketBar.vue",
         "src/components/MarketPages.vue",
+        "src/components/ResultStatistics.vue",
         "src/components/ResultSummary.vue",
         "src/components/MarketFrame.vue",
         "src/components/PageNotFound.vue",

@@ -47,6 +47,46 @@ test.describe('The Result page', () => {
     await expect(placed).not.toHaveText(before ?? '', { timeout: 10000 });
   });
 
+  /**
+   * The statistics open under the strip (E22/F04/S05): an inline panel, closed by default, holding
+   * the per date, section, tier and table choice counts. Not a dialog, because this is reading.
+   */
+  test('the statistics open under the strip, survive a refresh, and filter the grid', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedAssignedMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    await page.goto(at(marketId, 'result'));
+    const panel = page.getByTestId('result-statistics');
+    await expect(page.getByTestId('result-strip')).toBeVisible({ timeout: 15000 });
+    await expect(panel).toHaveCount(0);
+
+    await page.getByTestId('result-statistics-button').click();
+    await expect(panel).toBeVisible();
+    await expect(page).toHaveURL(/stats=open/);
+    for (const heading of ['Per Date', 'Per Section', 'Per Tier', 'Per Table Choice']) {
+      await expect(panel.getByRole('heading', { name: heading })).toBeVisible();
+    }
+
+    await page.reload();
+    await expect(panel).toBeVisible({ timeout: 15000 });
+
+    const firstDate = panel.getByTestId('result-statistics-date').first();
+    const date = await firstDate.getAttribute('data-value');
+    await firstDate.click();
+    await expect(page).toHaveURL(new RegExp(`date=${date}`));
+    await expect(page.getByTestId('tables-filter-date')).toHaveValue(date ?? '');
+    await expect(panel).toBeVisible();
+
+    await page.getByTestId('result-statistics-button').click();
+    await expect(panel).toHaveCount(0);
+  });
+
   test('Download CSV downloads the stored assignment', async ({
     authenticatedPage: page,
     request,
