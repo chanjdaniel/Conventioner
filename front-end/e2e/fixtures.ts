@@ -38,7 +38,7 @@ export const test = base.extend<{ authenticatedPage: Page }>({
 export { expect } from '@playwright/test';
 export { LoginPage } from './pages/LoginPage';
 export { MarketSetupPage } from './pages/MarketSetupPage';
-export { AssignmentResultsPage } from './pages/AssignmentResultsPage';
+export { ResultPage } from './pages/ResultPage';
 export { NewMarketPage } from './pages/NewMarketPage';
 export { CheckinPage } from './pages/CheckinPage';
 export { VendorsPage } from './pages/VendorsPage';

@@ -32,18 +32,23 @@ test.describe('The result knows what it was made from', () => {
     // can land back on the value it had.
     const halfTables = page.getByTestId('setup-options-max-proportion-input');
     await expect(halfTables).toBeEnabled({ timeout: 15000 });
-    const line = page.getByTestId('assignment-out-of-date');
-    await expect(line).toHaveCount(0);
 
     // The plan saves as the organizer types; the store re-reads the market after it does.
     const current = await halfTables.inputValue();
     await halfTables.fill(current === '40' ? '30' : '40');
     await halfTables.blur();
-    await expect(line).toHaveText(/Your rules changed since this assignment ran/, {
+
+    // The line is on the Result page, where the assignment it describes is (E22/F04/S04).
+    await page.getByTestId('market-pages-result').click();
+    const line = page.getByTestId('assignment-out-of-date');
+    await expect(line).toContainText('Your rules changed since this assignment ran', {
       timeout: 10000,
     });
 
+    await line.getByRole('link', { name: 'Run it again' }).click();
     await page.getByTestId('market-setup-assign-button').click();
-    await expect(line).toHaveCount(0, { timeout: 15000 });
+    await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/result$`), { timeout: 15000 });
+    await expect(page.getByTestId('result-strip')).toBeVisible();
+    await expect(line).toHaveCount(0);
   });
 });

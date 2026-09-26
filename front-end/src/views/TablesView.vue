@@ -10,6 +10,8 @@ import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.v
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import MarketArrival from '@/components/MarketArrival.vue';
+import ResultSummary from '@/components/ResultSummary.vue';
+import PlacementHistory from '@/components/PlacementHistory.vue';
 import {
   FULL_TABLE,
   HALF_TABLE_LEFT,
@@ -451,6 +453,9 @@ function swapSeats(withEmail: string): void {
       <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
 
       <div v-if="marketStatus !== 'missing'" class="tables-body">
+        <!-- The Result page (E22/F04/S04): how the assignment came out, then the tables it sits on,
+             then who changed what. -->
+        <ResultSummary v-if="market" :market="market" />
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
 
         <div v-if="isLoading" class="status-message">Loading tables…</div>
@@ -746,6 +751,7 @@ function swapSeats(withEmail: string): void {
             </section>
           </div>
         </template>
+        <PlacementHistory v-if="market" :marketId="market.id" />
       </div>
     </MarketFrame>
 
