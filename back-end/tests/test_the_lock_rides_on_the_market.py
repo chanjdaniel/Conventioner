@@ -114,3 +114,16 @@ def test_once_the_assignment_is_settled_the_rules_say_so(serve, phase):
 )
 def test_up_to_and_including_the_assignment_the_rules_are_open(serve, phase):
     assert serve(phase)["assignmentRulesLockReason"] is None
+
+
+def test_the_market_says_what_changed_since_its_assignment_ran(serve, monkeypatch):
+    """Served on the market like the locks (E22/F03/S01); computed by ``made_from``, tested there."""
+    import assignment.made_from as MadeFrom
+
+    monkeypatch.setattr(MarketsApi, "changed_since_run", lambda _market: ["rules", "plan"])
+    assert serve(MarketPhase.ASSIGNMENT)["assignmentOutOfDate"] == ["rules", "plan"]
+    assert MadeFrom.GROUPS == ("rules", "plan", "applications")
+
+
+def test_a_market_with_no_assignment_is_not_out_of_date(serve):
+    assert serve(MarketPhase.ASSIGNMENT)["assignmentOutOfDate"] == []

@@ -50,6 +50,7 @@ import traceback
 import logging
 from assignment.csv_output import market_csv_to_string
 from guards import route_between
+from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import overridden_placements, unplaced_dates
 from db_config import get_database
 
@@ -170,16 +171,6 @@ def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is not None:
         return None
     return ASSIGNMENT_RULES_SETTLED
-
-
-def _assignment_rules(plan: Optional[SetupObject]) -> Dict[str, Any]:
-    """The part of a plan that is the assignment rules, in one comparable shape."""
-    if plan is None:
-        return {"priority": [], "assignment_options": None}
-    return {
-        "priority": [rule.model_dump() for rule in plan.priority],
-        "assignment_options": plan.assignment_options.model_dump(),
-    }
 
 
 def _assert_application_form_editable(market: Market) -> None:
@@ -516,6 +507,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
     # from the market it holds, rather than deciding the phases for itself.
     market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
+    # Which of the rules, the plan and the approved applications changed since the stored
+    # assignment ran (E22/F03/S01). Computed on read, never stored; empty when nothing has, or when
+    # the assignment predates the fingerprints and so is not known to be out of date.
+    market_dict['assignmentOutOfDate'] = changed_since_run(market)
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -1406,7 +1401,7 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     # restating the stored rules is not a change, and anything else is refused once they are
     # settled (E22/F02/S01).
     settled = assignment_rules_lock_reason(market.phase)
-    if settled and _assignment_rules(plan) != _assignment_rules(market.setup_object):
+    if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
         raise ValueError(settled)
 
     markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})

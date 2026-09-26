@@ -2,7 +2,7 @@
 id: E22/F03/S01
 title: A run records what it was made from, and the market says when that has changed
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -25,10 +25,10 @@ Each group's fingerprint is computed in one place, read by both the run and the 
 
 ## Acceptance criteria
 
-- [ ] After a run, the market reads as up to date.
-- [ ] Changing a rule, the plan, or which applications are approved (or an approved application's answers) makes it read as out of date, naming exactly the groups that changed.
-- [ ] Changing a thing back to what the run saw makes it up to date again.
-- [ ] Placing, freeing and swapping do not make it out of date.
-- [ ] A market with an assignment and no fingerprints reads as not out of date.
-- [ ] Running again records fresh fingerprints and clears it.
-- [ ] Pinned by pytest at the run and at the market read.
+- [x] After a run, the market reads as up to date.
+- [x] Changing a rule, the plan, or which applications are approved (or an approved application's answers) makes it read as out of date, naming exactly the groups that changed.
+- [x] Changing a thing back to what the run saw makes it up to date again.
+- [x] Placing, freeing and swapping do not make it out of date.
+- [x] A market with an assignment and no fingerprints reads as not out of date.
+- [x] Running again records fresh fingerprints and clears it.
+- [x] Pinned by pytest at the run and at the market read.

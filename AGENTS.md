@@ -222,6 +222,16 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   Consequence: **shrinking the plan does not unassign anybody** - only assigning again does. A
   test that expects an edit to the plan to change who is placed must re-run the assignment.
   `GET /markets/{id}/assignment` is the exception and stays a preview: it computes without storing.
+- **A run records what it was made from** (E22/F03): `assignmentObject.madeFrom` holds one
+  fingerprint each for the rules, the plan and the approved applications (as `SolverVendor`s), and
+  `GET /markets/:id` serves `assignmentOutOfDate`, the groups that differ now.
+  `back-end/assignment/made_from.py` is the ONE place a fingerprint is computed - the run and the
+  read both call it. Only a solver run writes `madeFrom`; a hand placement is an edit to the result,
+  never an input. An assignment with no fingerprints is served as not out of date, never as stale.
+- **The assignment rules close with the assignment** (E22/F02): once the market can no longer
+  reach `assignment` (derived with `guards.route_between`, not listed), the plan write refuses a
+  change to the priority or the assignment options, and `assignmentRulesLockReason` rides on the
+  market for the page to mirror.
 - **`MarketTableRow.assignment` is the occupants and nothing else** - its LENGTH is what
   `derive_unassigned_tables_from_rows` reads to count spare capacity. Which side of a table is
   free lives in `assignment_slots` (`[left, right]`, null for vacant). Do not conflate them.

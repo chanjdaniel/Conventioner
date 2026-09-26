@@ -393,6 +393,9 @@ class AssignmentObject(BaseModel):
     vendor_assignments: List[VendorAssignmentResult] = []
     assignment_date: str = ""  # When the assignment was performed
     assignment_statistics: Optional[AssignmentStatistics] = None
+    # What the run read, one fingerprint per group (E22/F03/S01, ``assignment/made_from.py``).
+    # Written only by a run; None on an assignment made before it existed.
+    made_from: Optional[Dict[str, str]] = None
 
 
 class ImportMapping(BaseModel):

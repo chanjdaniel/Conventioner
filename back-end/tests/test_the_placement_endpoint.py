@@ -6,7 +6,7 @@ market's own plan rather than believing the request.
 """
 import pytest
 
-from conftest import FakeMarketsCollection, stored_market
+from conftest import a_solver_vendor, FakeMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
@@ -248,7 +248,7 @@ def test_a_solver_run_stores_what_it_produced(collection, monkeypatch):
         )
         return market
 
-    monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: ["a vendor"])
+    monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: [a_solver_vendor()])
     monkeypatch.setattr(PlacementsApi, "assign_market", fake_assign)
 
     result, status = PlacementsApi.run_assignment("market-123", "user-1")
@@ -321,7 +321,7 @@ def test_a_solver_run_carries_the_organization_name(collection, monkeypatch):
         "_load_organization_context",
         lambda _org_id: (None, {"name": "Seed Test Org"}),
     )
-    monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: ["a vendor"])
+    monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _market: [a_solver_vendor()])
     monkeypatch.setattr(
         PlacementsApi, "assign_market", lambda market, _v=None: market
     )
@@ -546,7 +546,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
         fake = FakeMarketsCollection(stored_market(phase=phase, setupObject=SETUP_OBJECT))
         monkeypatch.setattr(MarketsApi, "markets_collection", fake)
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
-        monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _m: ["a vendor"])
+        monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _m: [a_solver_vendor()])
         monkeypatch.setattr(PlacementsApi, "assign_market", lambda m, _v=None: m)
         return fake
 
