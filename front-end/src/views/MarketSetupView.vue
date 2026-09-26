@@ -9,7 +9,12 @@ import { type SetupObject, type FormField } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
-import type { MarketPage } from '@/utils/marketPage';
+import {
+  SETUP_VIEW_PAGES,
+  hasAssignment,
+  type MarketPage,
+  type SetupViewPage,
+} from '@/utils/marketPage';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue';
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
@@ -30,18 +35,14 @@ const showPathChoice = ref(false);
  */
 const route = useRoute();
 
-/** The four pages this view shows, each at its own address (E22/F04/S02). */
-type SetupPage = 'setup' | 'form' | 'applications' | 'assignment';
-const SETUP_PAGES: SetupPage[] = ['setup', 'form', 'applications', 'assignment'];
-
 /**
  * The page on show, read off the address. A market's own address (`/markets/:id`) is what decides
  * by phase, in `MarketLanding`; an address that names a page always shows that page, so a shared or
  * bookmarked link keeps working (E18/F02/S02).
  */
-const activeTab = computed((): SetupPage => {
+const activeTab = computed((): SetupViewPage => {
   const page = String(route.params.page ?? '');
-  return (SETUP_PAGES as string[]).includes(page) ? (page as SetupPage) : 'setup';
+  return (SETUP_VIEW_PAGES as readonly string[]).includes(page) ? (page as SetupViewPage) : 'setup';
 });
 
 function showTab(page: MarketPage) {
@@ -280,8 +281,9 @@ const assignError = ref('');
 
 /** How many hand placements the stored assignment holds; null until one has been run. */
 const handPlacements = computed((): number | null => {
-  const rows = market.value?.assignmentObject?.vendorAssignments ?? [];
-  return rows.length ? rows.filter((row) => row.handPlaced).length : null;
+  if (!hasAssignment(market.value)) return null;
+  return (market.value?.assignmentObject?.vendorAssignments ?? []).filter((row) => row.handPlaced)
+    .length;
 });
 
 /**

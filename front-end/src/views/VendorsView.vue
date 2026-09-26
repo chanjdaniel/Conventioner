@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
+import { withoutQueryKey } from '@/utils/routeQuery';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
@@ -273,9 +274,7 @@ const vendors = computed<VendorRow[]>(() =>
 const onlyUnassigned = computed(() => route.query.show === 'unassigned');
 
 function showEveryone(): void {
-  const query = { ...route.query };
-  delete query.show;
-  void router.replace({ query });
+  void router.replace({ query: withoutQueryKey(route.query, 'show') });
 }
 
 const filteredVendors = computed(() => {
@@ -349,14 +348,14 @@ function overridesFor(email: string, date: string): PlacementOverride[] | undefi
 }
 
 /**
- * The Tables view, filtered to the day the organizer would be placing them on.
+ * The Result page's tables, filtered to the day the organizer would be placing them on.
  *
  * This is the story that makes those filters reachable: `dateFilter` and its three neighbours
  * were computed from `route.query` and set by nothing, so a complete filter system existed that
  * no organizer could invoke (`E11/F03/S02`). The vendor rides along, naming whose placement the
  * organizer came to change.
  */
-function tablesLinkFor(date: string): string | null {
+function resultLinkFor(date: string): string | null {
   const id = market.value?.id;
   const vendor = selectedVendor.value?.email;
   if (!id || !vendor) return null;
@@ -364,14 +363,14 @@ function tablesLinkFor(date: string): string | null {
   return `${marketPath(id, 'result')}?${query.toString()}`;
 }
 
-function goToTables(date: string): void {
-  const href = tablesLinkFor(date);
+function goToResult(date: string): void {
+  const href = resultLinkFor(date);
   if (href) router.push(href);
 }
 
 /**
  * The open vendor is part of the page's address (E22/F04/S02), so a link, a refresh or the browser's
- * Back returns to that vendor's panel. It is what the Tables view's Back button used to do by hand
+ * Back returns to that vendor's panel. It is what the old Tables screen's Back button did by hand
  * before the market's pages became tabs and the Back buttons went.
  */
 function selectVendor(rowIndex: number): void {
@@ -384,11 +383,7 @@ function selectVendor(rowIndex: number): void {
 
 function closeDetail(): void {
   selectedRowIndex.value = null;
-  if (route.query.vendor) {
-    const query = { ...route.query };
-    delete query.vendor;
-    void router.replace({ query });
-  }
+  if (route.query.vendor) void router.replace({ query: withoutQueryKey(route.query, 'vendor') });
 }
 
 // Back and Forward move between addresses without remounting, so the panel follows the address.
@@ -434,7 +429,7 @@ useInertBehind(
           <button
             v-if="onlyUnassigned"
             type="button"
-            class="chip chip--neutral unassigned-filter"
+            class="btn btn--secondary btn--compact"
             aria-label="Show every vendor"
             data-testid="vendors-filter-unassigned"
             @click="showEveryone"
@@ -573,8 +568,8 @@ useInertBehind(
               :placement="placementOn(selectedVendor, date.date)"
               :reason="reasonFor(selectedVendor.email, date.date)"
               :overrides="overridesFor(selectedVendor.email, date.date)"
-              :placeHref="tablesLinkFor(date.date)"
-              @place="goToTables(date.date)"
+              :placeHref="resultLinkFor(date.date)"
+              @place="goToResult(date.date)"
             />
           </ul>
         </section>
@@ -653,11 +648,6 @@ useInertBehind(
   border-color: var(--mm-green);
   outline: 2px solid var(--mm-black);
   outline-offset: 2px;
-}
-
-.unassigned-filter {
-  border: none;
-  cursor: pointer;
 }
 
 .summary-line {

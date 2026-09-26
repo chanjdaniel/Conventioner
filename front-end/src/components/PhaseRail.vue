@@ -20,6 +20,7 @@
  * that the spine wraps rather than compressing, because labels painting over each other is worse
  * than a rail two lines tall.
  */
+import { hasAssignment } from '@/utils/marketPage';
 import { computed, ref } from 'vue';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
@@ -88,7 +89,7 @@ const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
 const frozenAtIndex = computed(() => {
   const market = props.market;
   if (!market) return 0;
-  if ((market.assignmentObject?.vendorAssignments?.length ?? 0) > 0) {
+  if (hasAssignment(market)) {
     return spine.value.indexOf(MarketPhase.Assignment);
   }
   if (market.applicationForm?.publishedAt) {

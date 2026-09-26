@@ -1,3 +1,4 @@
+import { marketScreenPath } from '../helpers/marketScreens';
 import type { Locator, Page } from '@playwright/test';
 
 /**
@@ -12,7 +13,7 @@ export class AttendanceStatusPage {
   }
 
   async goto(marketId: string): Promise<void> {
-    await this.page.goto(`/markets/${marketId}/attendance`);
+    await this.page.goto(marketScreenPath(marketId, 'attendance'));
   }
 
   /**

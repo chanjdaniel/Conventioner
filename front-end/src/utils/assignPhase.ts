@@ -31,6 +31,7 @@ export function assignRefusal(phase: string | undefined | null): string | null {
     return 'This market is still in review. Move it to the assignment phase to run the assignment.';
   }
   // Past assignment: the assignment is settled and vendors have been told. Changing one
-  // placement is what is wanted here, and the Tables view is where that happens (E11/F03).
-  return 'The assignment for this market is settled. Change a single placement from the Tables view instead of re-running it.';
+  // placement is what is wanted here, and the Result page is where that happens (E11/F03,
+  // E22/F04/S04).
+  return 'The assignment for this market is settled. Change a single placement on the Result page instead of re-running it.';
 }

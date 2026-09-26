@@ -208,10 +208,11 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
             "assignment."
         )
     # Past assignment, the answer is settled and the vendors have been told. Changing one
-    # placement is what is wanted here, and that is what the Tables view is for (E11/F03).
+    # placement is what is wanted here, and the Result page is where that happens (E11/F03,
+    # E22/F04/S04).
     return (
-        "The assignment for this market is settled. Change a single placement from the Tables "
-        "view instead of re-running it."
+        "The assignment for this market is settled. Change a single placement on the Result page "
+        "instead of re-running it."
     )
 
 

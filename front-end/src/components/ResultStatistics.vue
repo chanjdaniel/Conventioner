@@ -76,6 +76,11 @@ function filterTo(filter: Filter, value: string): void {
 
 <template>
   <section class="result-statistics" data-testid="result-statistics" aria-label="Statistics">
+    <p class="result-statistics-total" data-testid="result-statistics-total">
+      <strong>{{ statistics.totalAssignments }}</strong>
+      {{ statistics.totalAssignments === 1 ? 'placement' : 'placements' }} in all, one per vendor
+      per date
+    </p>
     <div v-for="group in groups" :key="group.filter" class="result-statistics-group">
       <h3>{{ group.title }}</h3>
       <p v-if="!group.counts.length" class="result-statistics-none">None.</p>
@@ -105,6 +110,13 @@ function filterTo(filter: Filter, value: string): void {
   padding: var(--space-4);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-card);
+}
+
+.result-statistics-total {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .result-statistics-group h3 {

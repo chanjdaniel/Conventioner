@@ -73,7 +73,8 @@ export function monthOf(days: string[]): { year: number; month: number } {
   return { year: now.getUTCFullYear(), month: now.getUTCMonth() };
 }
 
-const MONTH_NAMES = [
+/** The months by name, January first: the one list, read by every date the product spells. */
+export const MONTH_NAMES = [
   'January',
   'February',
   'March',

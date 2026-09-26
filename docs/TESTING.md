@@ -244,7 +244,7 @@ The suite is built on a Page Object Model plus a fixture layer under `front-end/
   (e.g. `login-email-input`, `markets-create-button`). Views are instrumented
   with `data-testid` attributes so tests never depend on CSS classes or text.
 - **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `NewMarketPage`,
-  `MarketSetupPage`, `AssignmentResultsPage`, `CheckinPage`, `VendorsPage`,
+  `MarketSetupPage`, `ResultPage`, `CheckinPage`, `VendorsPage`,
   `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, `ManageMarketPage`,
   `PasswordResetPage`, `ApplicationFormPage`, `FloorplanWorkflowPage`,
   `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`, `CsvImportPage`, and

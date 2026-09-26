@@ -12,7 +12,7 @@ import { useRoute, useRouter } from 'vue-router';
 import MarketFrame from '@/components/MarketFrame.vue';
 import MarketArrival from '@/components/MarketArrival.vue';
 import { marketPath } from '@/utils/market';
-import { currentPage } from '@/utils/marketPage';
+import { currentPage, hasAssignment } from '@/utils/marketPage';
 import { useOpenMarket } from '@/utils/openMarket';
 
 const route = useRoute();
@@ -24,8 +24,7 @@ watch(
   market,
   (arrived) => {
     if (!arrived || arrived.id !== marketId.value) return;
-    const assigned = (arrived.assignmentObject?.vendorAssignments?.length ?? 0) > 0;
-    void router.replace(marketPath(arrived.id, currentPage(arrived.phase, assigned)));
+    void router.replace(marketPath(arrived.id, currentPage(arrived.phase, hasAssignment(arrived))));
   },
   { immediate: true },
 );

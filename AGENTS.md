@@ -41,7 +41,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Page Object Model**: Located under `front-end/e2e/pages/`.
   Each page object wraps Playwright `getByTestId()` selectors and exposes action methods.
   New pages should follow the existing `LoginPage`, `NewMarketPage`, `MarketSetupPage`,
-  `AssignmentResultsPage`, `OrganizationsPage`, `ManageMarketPage` patterns.
+  `ResultPage`, `OrganizationsPage`, `ManageMarketPage` patterns.
 - **Fixtures**: `front-end/e2e/fixtures.ts` provides `TEST_USER`, `authenticatedPage`,
   re-exports page objects for convenience, and exposes `BACKEND_URL`
   (derived from `stack().backendURL`) for direct API calls.

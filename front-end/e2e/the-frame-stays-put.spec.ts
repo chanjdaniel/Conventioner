@@ -248,6 +248,13 @@ test.describe('The frame stays put', () => {
     authenticatedPage: page,
     request,
   }) => {
+    // An ordinary name fits beside the tabs, and is shown whole, with nothing cut.
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto(marketSetupPath(marketId, 'setup'));
+    const ordinary = page.getByTestId('market-bar-title');
+    await expect(ordinary).toBeVisible({ timeout: 15000 });
+    expect(await ordinary.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
     const name = `The Riverside Night Market of Handmade Goods and Small Batch Makers ${Date.now()}`;
     const long = await seedMarketWithVendors(
       request,
@@ -262,6 +269,7 @@ test.describe('The frame stays put', () => {
     await expect(title).toBeVisible({ timeout: 15000 });
 
     await expect(title).toHaveAttribute('title', name);
+
     const fits = await page.evaluate(() => {
       const bar = document.querySelector('[data-testid="market-frame"] > *') as HTMLElement;
       return bar.scrollWidth <= bar.clientWidth;

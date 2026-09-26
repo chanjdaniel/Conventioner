@@ -65,6 +65,10 @@ test.describe('Every market page has its own address', () => {
     await expect(page).toHaveURL(new RegExp(`/markets/${published}/form$`));
     await activeTab(page, 'form');
 
+    // Retired before these (E10/F03/S01, kept by E22/F01/S02): it carried no market to open.
+    await page.goto('/assignment-results');
+    await expect(page).toHaveURL(/\/markets$/);
+
     await page.goto(`${at(published, 'tables')}?date=2026-07-15`);
     await expect(page).toHaveURL(new RegExp(`/markets/${published}/result\\?date=2026-07-15$`));
     await activeTab(page, 'assignment');

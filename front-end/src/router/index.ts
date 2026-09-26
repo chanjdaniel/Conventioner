@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { marketPath } from '@/utils/market';
-import type { MarketPage } from '@/utils/marketPage';
+import { SETUP_VIEW_PAGES, type MarketPage } from '@/utils/marketPage';
 import InitView from '@/views/InitView.vue';
 import LoginView from '@/views/LoginView.vue';
 import EmailVerificationView from '@/views/EmailVerificationView.vue';
@@ -69,14 +69,18 @@ const router = createRouter({
     // Every market page has its own address (E22/F04/S02). The plan, the form, the applications and
     // the assignment rules are the pages of one view; the rest are views of their own.
     {
-      path: '/markets/:marketId/:page(setup|form|applications|assignment)',
+      path: `/markets/:marketId/:page(${SETUP_VIEW_PAGES.join('|')})`,
       name: 'market-setup',
       component: () => import('@/views/MarketSetupView.vue'),
       // The pages were a `?tab=` on `setup` until E22/F04/S02, and a bookmark or an emailed link may
       // still say so; it lands on the page it named.
       beforeEnter: (to) => {
         const tab = String(to.query.tab ?? '');
-        if (to.params.page !== 'setup' || !['form', 'applications', 'assignment'].includes(tab)) {
+        if (
+          to.params.page !== 'setup' ||
+          tab === 'setup' ||
+          !(SETUP_VIEW_PAGES as readonly string[]).includes(tab)
+        ) {
           return true;
         }
         const query = { ...to.query };
@@ -87,7 +91,7 @@ const router = createRouter({
     {
       path: '/markets/:marketId/result',
       name: 'market-result',
-      component: () => import('@/views/TablesView.vue'),
+      component: () => import('@/views/ResultView.vue'),
     },
     // Tables became the Result page (E22/F04/S02); its filters travel with it.
     {

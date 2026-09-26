@@ -32,18 +32,13 @@ defineProps<{
       <!-- The market's name and its tabs, the same on every market page (E22/F04/S02). -->
       <MarketBar :market="market" />
       <PhaseRail :market="market" :beforeTransition="beforeTransition" />
+      <!-- The open tab's pages, when it has more than one: Assignment, Result, Vendors (E22/F04/S03). -->
+      <MarketPages :market="market" />
       <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned with
            the frame rather than sticking on its own, because it could only guess the frame's height. -->
       <slot name="pinned" />
-      <!-- The open tab's pages, when it has more than one: Assignment, Result, Vendors (E22/F04/S03). -->
-      <MarketPages :market="market" />
     </div>
     <slot />
-    <!-- The screen's own actions (Back), stuck to the bottom of the window so they stay reachable at
-         any scroll position - which is what the old inner scrollers gave them for free. -->
-    <div v-if="$slots.footer" class="market-frame-footer" data-testid="market-frame-footer">
-      <slot name="footer" />
-    </div>
   </div>
 </template>
 
@@ -72,22 +67,5 @@ defineProps<{
   /* Above the surface it pins over; below the banner (30), the nav scrim and the drawer. */
   z-index: 20;
   background-color: white;
-}
-
-.market-frame-footer {
-  position: sticky;
-  bottom: 0;
-  /* Above the surface it sits over, level with the frame. */
-  z-index: 20;
-  display: flex;
-  justify-content: flex-start;
-  padding: var(--space-4) var(--space-6);
-  border-top: 1px solid var(--mm-border);
-  background-color: white;
-  /* The card's own content pushes it down; `auto` keeps a short screen's footer at the bottom. */
-  margin-top: auto;
-  /* Follows a rounded card's corners, since nothing clips it. */
-  border-bottom-left-radius: inherit;
-  border-bottom-right-radius: inherit;
 }
 </style>
