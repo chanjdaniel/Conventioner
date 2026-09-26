@@ -290,6 +290,29 @@ VALID_TRANSITIONS: set[tuple[str, str]] = {
     ("market_days", "archived"),
 }
 
+
+def route_between(from_phase: str, to_phase: str) -> Optional[List[str]]:
+    """The shortest route of existing transitions between two phases, archiving excluded.
+
+    The phases entered on the way, ``[]`` when the two are the same phase, or None when there is no
+    route. A breadth-first walk of ``VALID_TRANSITIONS``, so no caller states a route of its own: an
+    edge added or removed above changes every route with no edit anywhere else. Archiving is left
+    out because it is terminal - a route through it ends the market rather than getting anywhere.
+    """
+    queue: List[tuple[str, List[str]]] = [(from_phase, [])]
+    seen = {from_phase}
+    while queue:
+        at, path = queue.pop(0)
+        if at == to_phase:
+            return path
+        for source, target in sorted(VALID_TRANSITIONS):
+            if source != at or target in seen or target == MarketPhase.ARCHIVED.value:
+                continue
+            seen.add(target)
+            queue.append((target, path + [target]))
+    return None
+
+
 class NoAskedForTierWithoutTablesGuard:
     """No approved applicant may be waiting on a tier the plan gives no tables to.
 

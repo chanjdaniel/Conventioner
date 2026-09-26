@@ -49,6 +49,7 @@ import api.users as UsersApi
 import traceback
 import logging
 from assignment.csv_output import market_csv_to_string
+from guards import route_between
 from placement_reasons import overridden_placements, unplaced_dates
 from db_config import get_database
 
@@ -149,6 +150,36 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
         )
 
     return None
+
+
+ASSIGNMENT_RULES_SETTLED = (
+    "The assignment for this market is settled. A rule only takes effect when the assignment "
+    "runs, and this market can no longer run it; change a single placement from the result instead."
+)
+
+
+def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
+    """Why the assignment rules may no longer change, or None while they still can (E22/F02).
+
+    A rule - the priority, the max assignments per vendor, the half-table proportion - only takes
+    effect when the assignment runs, and it runs in the ``assignment`` phase alone. So the rules
+    are open for exactly as long as the market can still get there. That is derived from the
+    transition table rather than listed, so a phase added or an edge moved decides it with no edit
+    here: today it closes them in ``offers``, ``market_days`` and ``archived``.
+    """
+    if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is not None:
+        return None
+    return ASSIGNMENT_RULES_SETTLED
+
+
+def _assignment_rules(plan: Optional[SetupObject]) -> Dict[str, Any]:
+    """The part of a plan that is the assignment rules, in one comparable shape."""
+    if plan is None:
+        return {"priority": [], "assignment_options": None}
+    return {
+        "priority": [rule.model_dump() for rule in plan.priority],
+        "assignment_options": plan.assignment_options.model_dump(),
+    }
 
 
 def _assert_application_form_editable(market: Market) -> None:
@@ -1338,7 +1369,9 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     The intake mode is fixed once the market leaves draft - switching it mid-lifecycle strands what
     the previous mode produced, as flipping a form market to CSV after people applied would; a body
     that merely restates the stored mode is not a change, because the plan saves itself in every
-    phase and says which mode it holds. Requires EDITOR, the bar every market write has.
+    phase and says which mode it holds. The assignment rules close the same way once the market can
+    no longer run its assignment (``assignment_rules_lock_reason``), and restating them is likewise
+    not a change. Requires EDITOR, the bar every market write has.
     """
     extra = sorted(set(body) - set(PLAN_WRITE_FIELDS))
     if extra:
@@ -1365,6 +1398,13 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
                     "How vendors reach a market can only be changed while it is a draft."
                 )
             update[market_doc_key("intake_mode")] = intake.value
+
+    # The plan saves as the organizer types, in every phase, and always carries the rules it holds;
+    # restating the stored rules is not a change, and anything else is refused once they are
+    # settled (E22/F02/S01).
+    settled = assignment_rules_lock_reason(market.phase)
+    if settled and _assignment_rules(plan) != _assignment_rules(market.setup_object):
+        raise ValueError(settled)
 
     markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
 
