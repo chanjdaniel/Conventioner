@@ -153,6 +153,16 @@ describe('the palette carries a contrast contract', () => {
     );
   });
 
+  it('--mm-text-hover-on-dark is legible on --mm-black, between resting and active', () => {
+    const ground = resolve('--mm-black');
+    const hover = contrast(inkOn('--mm-text-hover-on-dark', ground), ground);
+    expect(hover).toBeGreaterThanOrEqual(AA_NORMAL);
+    // A hover that read dimmer than the resting label, or brighter than the active one, would say
+    // the wrong thing about which tab is which.
+    expect(hover).toBeGreaterThan(contrast(inkOn('--mm-text-muted-on-dark', ground), ground));
+    expect(hover).toBeLessThan(contrast(WHITE, ground));
+  });
+
   it('--color-text is legible on --color-background, which is what body sets', () => {
     const ground = resolve('--color-background');
     expect(contrast(inkOn('--color-text', ground), ground)).toBeGreaterThanOrEqual(AA_NORMAL);
@@ -190,6 +200,7 @@ describe('the palette carries a contrast contract', () => {
     const known = new Set([
       ...INK_ON_LIGHT,
       '--mm-text-muted-on-dark',
+      '--mm-text-hover-on-dark',
       '--color-text',
       '--color-background',
       ...FILLS.map(([f]) => f),

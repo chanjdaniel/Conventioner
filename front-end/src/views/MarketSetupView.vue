@@ -592,7 +592,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 }
 
 .tab-button:hover {
-  color: var(--mm-border);
+  color: var(--mm-text-hover-on-dark);
 }
 
 .tab-button.active {
