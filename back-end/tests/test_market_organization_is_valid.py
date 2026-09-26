@@ -1,4 +1,4 @@
-"""A market can never be written into an organization its creation would refuse (E21/F03/S01).
+"""A market's organization is set at creation and never changes (E21/F03/S01, E21/F03/S05).
 
 `POST /markets` refuses a missing organization, an unknown one, and one the caller is not a member
 of. The market PUT checked none of them: reproduced on a running stack, `organizationId: null` and
@@ -51,15 +51,18 @@ def world(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "organization_id, reason",
-    [
-        (None, "required"),
-        ("not-a-real-org", "not found"),
-        ("org-strangers", "not a member"),
-    ],
+    "organization_id",
+    [None, "not-a-real-org", "org-strangers", "org-joined"],
 )
-def test_an_organization_creation_would_refuse_is_refused(world, organization_id, reason):
-    with pytest.raises(ValueError, match=reason):
+def test_no_update_moves_a_market_to_another_organization(world, organization_id):
+    """Fixed at creation (E21/F03/S05): a valid destination is refused as surely as an invalid one.
+
+    A market's organization is its container and its access grant at once - its members see it,
+    and deleting the organization deletes it - so moving it is not an edit. S01 first closed the
+    invalid moves (none, unknown, not a member); this closes the valid one too, which Manage
+    Market's "Add organization" performed while presenting it as granting access.
+    """
+    with pytest.raises(ValueError, match="organization is fixed"):
         MarketsApi.update_market(
             "market-123", client_market(organization_id=organization_id), "user-1"
         )

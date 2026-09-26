@@ -815,24 +815,14 @@ def update_market(market_id: str, market: Market, requesting_user: str) -> Updat
     market_dict["roles"] = _convert_roles_keys_to_user_ids(market_dict.get("roles", {}))
     market_dict = convert_keys_to_camel_case(market_dict)
     
-    old_org_id = existing_market.organization_id
-    new_org_id = market.organization_id
-    if old_org_id != new_org_id:
-        refusal = organization_refusal(requesting_user, new_org_id)
-        if refusal:
-            raise ValueError(refusal)
-        organizations_collection = db["organizations"]
-        if old_org_id:
-            organizations_collection.update_one(
-                {"id": old_org_id},
-                {"$pull": {"markets": market_id}}
-            )
-        if new_org_id:
-            organizations_collection.update_one(
-                {"id": new_org_id},
-                {"$addToSet": {"markets": market_id}}
-            )
-    
+    # A market's organization is fixed when it is created (E21/F03/S05). It is the market's
+    # container and its access grant at once - its members see it, and deleting the organization
+    # deletes it - so moving it is not an edit. Any change is refused, not only an invalid one.
+    if market.organization_id != existing_market.organization_id:
+        raise ValueError(
+            "A market's organization is fixed when the market is created, and cannot be changed."
+        )
+
     return markets_collection.update_one({"id": market_id}, {"$set": market_dict})
 
 def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:

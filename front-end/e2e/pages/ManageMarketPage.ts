@@ -16,9 +16,6 @@ export class ManageMarketPage {
   readonly addUserInput: Locator;
   readonly addUserSelect: Locator;
   readonly addUserSubmit: Locator;
-  readonly addOrgButton: Locator;
-  readonly addOrgSelect: Locator;
-  readonly addOrgSubmit: Locator;
   readonly renameInput: Locator;
   readonly renameSaveButton: Locator;
   readonly deleteButton: Locator;
@@ -36,9 +33,6 @@ export class ManageMarketPage {
     this.addUserInput = page.getByTestId('manage-market-add-user-input');
     this.addUserSelect = page.getByTestId('manage-market-add-user-select');
     this.addUserSubmit = page.getByTestId('manage-market-add-user-submit');
-    this.addOrgButton = page.getByTestId('manage-market-add-org-button');
-    this.addOrgSelect = page.getByTestId('manage-market-add-org-select');
-    this.addOrgSubmit = page.getByTestId('manage-market-add-org-submit');
     this.renameInput = page.getByTestId('manage-market-rename-input');
     this.renameSaveButton = page.getByTestId('manage-market-rename-save-button');
     this.deleteButton = page.getByTestId('manage-market-delete-button');

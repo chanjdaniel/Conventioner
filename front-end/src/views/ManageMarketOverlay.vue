@@ -29,10 +29,6 @@ const showAddUserForm = ref(false);
 const newUserEmail = ref('');
 const newUserRole = ref<MarketRole>(MarketRole.Editor);
 const addUserError = ref('');
-const showAddOrgForm = ref(false);
-const newOrgName = ref('');
-const addOrgError = ref('');
-const userOrgs = ref<Array<{ id: string; name: string }>>([]);
 const renameError = ref('');
 const deleteConfirming = ref(false);
 const deleteError = ref('');
@@ -46,11 +42,9 @@ watch(
       marketData.value = market;
       renameValue.value = market.name;
       showAddUserForm.value = false;
-      showAddOrgForm.value = false;
       deleteConfirming.value = false;
       errorMessage.value = '';
       addUserError.value = '';
-      addOrgError.value = '';
       renameError.value = '';
       deleteError.value = '';
       await fetchMarket();
@@ -84,25 +78,6 @@ function getUserList(): Array<{ userId: string; email: string; role: MarketRole 
     email: marketData.value!.roleEmails?.[userId] ?? userId,
     role: role as MarketRole,
   }));
-}
-
-function getOrganizationList(): string[] {
-  if (!marketData.value?.organizationName) return [];
-  return [marketData.value.organizationName];
-}
-
-function getAvailableOrgsForAdd(): Array<{ id: string; name: string }> {
-  const currentId = marketData.value?.organizationId;
-  return userOrgs.value.filter((org) => org.id !== currentId);
-}
-
-async function fetchUserOrgs() {
-  try {
-    const response = await api.get('/organizations');
-    userOrgs.value = response.data.organizations || [];
-  } catch {
-    userOrgs.value = [];
-  }
 }
 
 /** What this caller could change the given role TO. Empty means it is not theirs to change. */
@@ -162,27 +137,6 @@ async function handleRoleChange(userId: string, newRole: MarketRole) {
   }
 }
 
-async function handleAddOrg() {
-  if (!marketData.value || !newOrgName.value.trim()) return;
-  addOrgError.value = '';
-  try {
-    const org = userOrgs.value.find((o) => o.name === newOrgName.value.trim());
-    const orgId = org?.id ?? newOrgName.value.trim();
-    const updated = { ...marketData.value, organizationId: orgId };
-    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}`, updated);
-    marketData.value = {
-      ...marketData.value,
-      organizationId: orgId,
-      organizationName: org?.name ?? newOrgName.value.trim(),
-    };
-    showAddOrgForm.value = false;
-    newOrgName.value = '';
-    await fetchMarket(false);
-  } catch (err) {
-    addOrgError.value = getApiErrorMessage(err, 'Failed to add organization');
-  }
-}
-
 /**
  * The name is the market's public web address, so it can change only while the market is a draft
  * (E21/F03/S04). Past that, this says why rather than offering a control the server refuses.
@@ -234,16 +188,6 @@ function toggleAddUser() {
     newUserEmail.value = '';
     addUserError.value = '';
   }
-}
-
-function toggleAddOrg() {
-  showAddOrgForm.value = !showAddOrgForm.value;
-  if (showAddOrgForm.value) {
-    fetchUserOrgs();
-    return;
-  }
-  newOrgName.value = '';
-  addOrgError.value = '';
 }
 </script>
 
@@ -347,59 +291,19 @@ function toggleAddOrg() {
         </form>
       </section>
 
+      <!-- One organization, fixed when the market was created (E21/F03/S05). This was a list,
+           "Organizations with access", with Add and Remove - but there is only ever one, "Add"
+           REPLACED it (moving the market, who can see it, and whose deletion deletes it), and it
+           fell back to the typed text as an id when no organization of that name existed. -->
       <section class="section">
-        <h3>Organizations with access</h3>
-        <div class="users-list">
-          <div v-for="orgName in getOrganizationList()" :key="orgName" class="user-card">
-            <span class="user-email">{{ orgName }}</span>
-            <span class="role-badge role-viewer">Viewer</span>
-          </div>
-          <p v-if="getOrganizationList().length === 0" class="empty-state">
-            No organizations with access
-          </p>
-        </div>
-        <button
-          type="button"
-          class="btn btn--compact"
-          :class="showAddOrgForm ? 'btn--secondary' : 'btn--primary'"
-          data-testid="manage-market-add-org-button"
-          @click="toggleAddOrg()"
-        >
-          {{ showAddOrgForm ? 'Cancel' : 'Add organization' }}
-        </button>
-        <form v-if="showAddOrgForm" class="add-user-form" @submit.prevent="handleAddOrg">
-          <div class="add-org-row">
-            <select
-              v-model="newOrgName"
-              class="field field--select"
-              :disabled="getAvailableOrgsForAdd().length === 0"
-              data-testid="manage-market-add-org-select"
-            >
-              <option value="">Select organization</option>
-              <option v-for="org in getAvailableOrgsForAdd()" :key="org.name" :value="org.name">
-                {{ org.name }}
-              </option>
-            </select>
-            <button
-              type="submit"
-              class="btn btn--compact btn--primary"
-              :disabled="!newOrgName.trim()"
-              data-testid="manage-market-add-org-submit"
-            >
-              Add
-            </button>
-          </div>
-          <p
-            v-if="getAvailableOrgsForAdd().length === 0 && getOrganizationList().length > 0"
-            class="form-hint"
-          >
-            All your organizations already have access
-          </p>
-          <p v-else-if="getAvailableOrgsForAdd().length === 0" class="form-hint">
-            Create an organization first
-          </p>
-          <p v-if="addOrgError" class="form-error">{{ addOrgError }}</p>
-        </form>
+        <h3>Organization</h3>
+        <p class="org-line" data-testid="manage-market-organization">
+          <template v-if="marketData.organizationName">
+            Belongs to <strong>{{ marketData.organizationName }}</strong
+            >. Its members can view it.
+          </template>
+          <template v-else>Belongs to no organization you can see.</template>
+        </p>
       </section>
 
       <section class="section">
@@ -552,6 +456,12 @@ function toggleAddOrg() {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+.org-line {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .add-org-row,
