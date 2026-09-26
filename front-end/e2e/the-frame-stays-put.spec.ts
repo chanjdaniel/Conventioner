@@ -155,6 +155,50 @@ test.describe('The frame stays put', () => {
     }
   });
 
+  /**
+   * Nothing inside a market screen scrolls or clips on its own (E22/F01/S01).
+   *
+   * The Assignment Options card cut its second option off by 30px inside a scroller nobody could
+   * see, under the 24px allowance the check above keeps for Tables, Attendance and Vendors. A box
+   * whose content is taller than it, with any overflow but `visible`, is either a nested scroller
+   * or a clip - and on a frame screen both are wrong, because the page is the scroller.
+   */
+  test('no box inside any market screen scrolls or clips its content', async ({
+    authenticatedPage: page,
+  }) => {
+    const screens = [
+      ...['setup', 'form', 'applications', 'assignment'].map((tab) =>
+        marketSetupPath(marketId, tab),
+      ),
+      ...(['tables', 'attendance', 'vendors'] as const).map((s) => marketScreenPath(marketId, s)),
+    ];
+    for (const size of [
+      { width: 1920, height: 1080 },
+      { width: 1280, height: 800 },
+    ]) {
+      await page.setViewportSize(size);
+      for (const path of screens) {
+        await page.goto(path);
+        await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
+        await page.waitForLoadState('networkidle');
+
+        const clipped = await page.evaluate(() =>
+          Array.from(document.querySelectorAll('[data-testid="market-frame-card"] *'))
+            .filter((el) => {
+              const style = getComputedStyle(el);
+              return style.overflowY !== 'visible' && el.scrollHeight > el.clientHeight + 1;
+            })
+            .map(
+              (el) =>
+                `${el.tagName.toLowerCase()}.${el.className.toString().split(' ')[0]} ` +
+                `(${el.clientHeight} of ${el.scrollHeight}px)`,
+            ),
+        );
+        expect(clipped, `${path} at ${size.width}px`).toEqual([]);
+      }
+    }
+  });
+
   test('the vendor search stays in view with the frame', async ({ authenticatedPage: page }) => {
     await page.setViewportSize({ width: 1920, height: 500 });
     await page.goto(marketScreenPath(marketId, 'vendors'));
