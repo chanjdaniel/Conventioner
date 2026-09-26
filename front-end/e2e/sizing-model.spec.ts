@@ -65,13 +65,18 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     expect(workspace, '--workspace-max is not defined').toBeGreaterThan(0);
     expect(list, '--list-max is not defined').toBeGreaterThan(0);
 
+    // Every market screen is the workspace width, set by the frame (E22/F04/S01).
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
-    expect(await contentWidth(page, '.market-setup-body')).toBe(workspace);
+    expect(await contentWidth(page, '[data-testid="market-frame-card"]')).toBe(workspace);
 
     await page.goto(marketScreenPath(marketId, 'tables'));
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
-    expect(await contentWidth(page, '.tables-card')).toBe(list);
+    expect(await contentWidth(page, '[data-testid="market-frame-card"]')).toBe(workspace);
+
+    await page.goto('/markets');
+    await expect(page.getByTestId('markets-create-button')).toBeVisible({ timeout: 15000 });
+    expect(await contentWidth(page, '.markets-view')).toBe(list);
   });
 
   test('no screen caps its own height, and the page is what scrolls', async ({
