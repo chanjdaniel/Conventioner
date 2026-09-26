@@ -118,7 +118,7 @@ test.describe('Screens say what they mean', () => {
     for (const [url, heading] of [
       [`/markets/${marketId}/tables`, 'tables-heading'],
       [`/markets/${marketId}/attendance`, 'attendance-status-heading'],
-      ['/vendors', 'vendors-heading'],
+      [`/markets/${marketId}/vendors`, 'vendors-heading'],
     ] as const) {
       await page.goto(url);
       await expect(page.getByTestId(heading)).toContainText(marketName, { timeout: 15000 });

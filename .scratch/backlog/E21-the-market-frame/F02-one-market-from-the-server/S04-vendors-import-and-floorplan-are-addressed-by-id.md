@@ -2,7 +2,7 @@
 id: E21/F02/S04
 title: Vendors, Import and the floorplan editor are addressed by id
 type: story
-status: ready
+status: done
 blocked_by: [E21/F02/S01]
 pr: []
 ---
@@ -20,8 +20,8 @@ Every in-app link to these screens (from the Applications tab, the Assignment ta
 
 ## Acceptance criteria
 
-- [ ] Each of the three screens opens the market named in its path, reading it from the store, and none reads `localStorage` `market`.
-- [ ] The old paths send the organizer to the Markets list.
-- [ ] Every in-app link to these screens, and every link back from them, carries the market id.
-- [ ] Returning to Market Setup after an import whose form amendment ran shows the amended form and the phase the chain returned to, with no reload.
-- [ ] The e2e specs and page objects for these screens navigate by URL, and the full e2e suite passes.
+- [x] Each of the three screens opens the market named in its path, reading it from the store, and none reads `localStorage` `market`.
+- [x] The old paths send the organizer to the Markets list.
+- [x] Every in-app link to these screens, and every link back from them, carries the market id.
+- [x] Returning to Market Setup after an import whose form amendment ran shows the amended form and the phase the chain returned to, with no reload.
+- [x] The e2e specs and page objects for these screens navigate by URL, and the full e2e suite passes.

@@ -30,7 +30,7 @@ test.describe('Vendor browsing and search', () => {
     }, marketData);
 
     const vendorsPage = new VendorsPage(page);
-    await vendorsPage.goto();
+    await vendorsPage.goto(seed.marketId);
 
     await expect(vendorsPage.vendorListItems.first()).toBeVisible({ timeout: 10000 });
     await expect(vendorsPage.vendorListItems).toHaveCount(2);
@@ -101,7 +101,7 @@ test.describe('Vendor browsing and search', () => {
 
     // It leads to that vendor's panel, where the date card says why rather than showing an
     // em dash on a card the same colour as a placed one.
-    await page.waitForURL('**/vendors?vendor=**', { timeout: 10000 });
+    await page.waitForURL(/\/markets\/[^/]+\/vendors\?vendor=/, { timeout: 10000 });
     const card = page.getByTestId('vendors-detail-assignment-item').first();
     await expect(card).toBeVisible({ timeout: 10000 });
     await expect(card).toHaveAttribute('data-state', 'unplaced');
@@ -137,7 +137,7 @@ test.describe('Vendor browsing and search', () => {
     }, marketData);
 
     const vendorsPage = new VendorsPage(page);
-    await vendorsPage.goto();
+    await vendorsPage.goto(seed.marketId);
     await expect(vendorsPage.vendorListItems.first()).toBeVisible({ timeout: 10000 });
 
     const alice = vendorsPage.vendorListItems.filter({ hasText: 'alice@example.com' });
@@ -189,7 +189,7 @@ test.describe('Vendor browsing and search', () => {
     }, market);
 
     const vendorsPage = new VendorsPage(page);
-    await vendorsPage.goto();
+    await vendorsPage.goto(seed.marketId);
     await expect(vendorsPage.vendorListItems.first()).toBeVisible({ timeout: 10000 });
 
     // The rail's one forward action, named by the testid it carries rather than taken by position.

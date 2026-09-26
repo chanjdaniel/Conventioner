@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
+import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
@@ -321,10 +322,7 @@ const handleAssign = async () => {
 function handlePathChoice(path: 'manual' | 'floorplan') {
   showPathChoice.value = false;
   if (path === 'floorplan') {
-    router.push({
-      path: '/floorplan-editor',
-      query: { marketId: market.value?.id },
-    });
+    if (market.value) router.push(marketPath(market.value.id, 'floorplan'));
   }
   // For 'manual': just hide overlay, existing text-based UI is already underneath
 }

@@ -75,7 +75,7 @@ async function openImport(
     headers: { 'X-Owner-Email': TEST_USER.email },
   });
   const { market } = (await res.json()) as { market: Record<string, unknown> };
-  await importPage.open(market, TEST_USER.email);
+  await importPage.open(market);
 }
 
 /** Which field carries the status varies by serializer version; this says so once. */

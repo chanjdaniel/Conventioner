@@ -238,7 +238,7 @@ test.describe('Every rendered text node reaches AA', () => {
         'assignment-results-download-csv-button',
       ],
       ['tables', `/markets/${marketId}/tables`, 'tables-count-assigned'],
-      ['vendors', '/vendors', 'vendors-search-input'],
+      ['vendors', `/markets/${marketId}/vendors`, 'vendors-search-input'],
       ['attendance', `/markets/${marketId}/attendance`, 'attendance-status-heading'],
     ] as const) {
       await page.goto(url);

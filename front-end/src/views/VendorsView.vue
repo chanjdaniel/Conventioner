@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
-import { parseMarketFromApi } from '@/utils/market';
+import { useOpenMarket } from '@/utils/openMarket';
+import MarketArrival from '@/components/MarketArrival.vue';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useInertBehind } from '@/utils/useInertBehind';
-import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import VendorDateCard from '@/components/VendorDateCard.vue';
 import {
   overrideIndex,
@@ -19,7 +19,7 @@ import {
   type PlacementReason,
   type UnplacedDate,
 } from '@/utils/placementReason';
-import type { Application, Market, MarketDateObject } from '@/assets/types/datatypes';
+import type { Application, MarketDateObject } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 import {
   vendorHeadline,
@@ -72,22 +72,12 @@ interface VendorRow {
 const router = useRouter();
 const route = useRoute();
 
-function readMarketFromStorage(): Market | null {
-  const raw = localStorage.getItem('market');
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return parseMarketFromApi(parsed);
-  } catch {
-    return null;
-  }
-}
-
 /**
- * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
- * value that only arrives a tick later would flash that message on every page that does have one.
+ * The market in the route, from the one store (E21/F02/S04). This screen used to read it out of
+ * `localStorage`, because `/vendors` carried no id.
  */
-const market = ref<Market | null>(readMarketFromStorage());
+const marketId = computed(() => String(route.params.marketId ?? ''));
+const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
 const applications = ref<Application[]>([]);
 const tableRows = ref<MarketTableRowResponse[]>([]);
 const vendorNames = ref<VendorNames>({});
@@ -132,9 +122,8 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 
 async function loadVendors(): Promise<void> {
   loadError.value = '';
-  const loaded = readMarketFromStorage();
-  market.value = loaded;
-  if (!loaded?.id) return;
+  const id = marketId.value;
+  if (!id) return;
 
   const userEmail = readUserEmail();
   if (!userEmail) {
@@ -142,15 +131,15 @@ async function loadVendors(): Promise<void> {
     return;
   }
 
-  const marketId = encodeURIComponent(loaded.id);
+  const encoded = encodeURIComponent(id);
   isLoading.value = true;
 
   try {
     const [applicationList, statsResp, tablesResp] = await Promise.all([
-      fetchMarketApplications(loaded.id),
-      api.get<AssignmentStatisticsResponse>(`/markets/${marketId}/assignment-statistics`),
+      fetchMarketApplications(id),
+      api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
       api.get<{ rows: MarketTableRowResponse[]; vendorNames: VendorNames }>(
-        `/markets/${marketId}/tables`,
+        `/markets/${encoded}/tables`,
       ),
     ]);
 
@@ -197,10 +186,20 @@ function openVendorFromRoute() {
   if (row) selectedRowIndex.value = row.rowIndex;
 }
 
-onMounted(async () => {
-  await loadVendors();
-  openVendorFromRoute();
-});
+watch(
+  marketId,
+  async () => {
+    await loadVendors();
+    openVendorFromRoute();
+  },
+  { immediate: true },
+);
+
+/** A failed arrival retries both halves: the market the rail draws, and this screen's own list. */
+function retryArrival(): void {
+  void refreshMarket();
+  void loadVendors();
+}
 
 const setup = computed(() => market.value?.setupObject ?? null);
 const marketDates = computed<MarketDateObject[]>(() => setup.value?.marketDates ?? []);
@@ -393,10 +392,11 @@ function handleBack(): void {
         <h1 data-testid="vendors-heading">{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
       </header>
 
-      <PhaseRail :market="market" @phase-advanced="(m) => (market = m)" />
+      <!-- A transition is a write, so the store re-reads the market rather than taking the rail's copy. -->
+      <PhaseRail :market="market" @phase-advanced="refreshMarket()" />
 
       <div class="vendors-body">
-        <NoMarketLoaded v-if="!market" shows="the vendors" />
+        <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
 
         <template v-else>
           <div class="vendors-toolbar">

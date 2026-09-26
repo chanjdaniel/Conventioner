@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { MARKET_SETUP_URL } from '../helpers/marketScreens';
+import { MARKET_SETUP_URL, marketScreenPath } from '../helpers/marketScreens';
 
 /** Minimal shape of a placed table as stored in the Pinia floorplan store. */
 interface PlacedTable {
@@ -26,7 +26,7 @@ interface VueAppLike {
 /**
  * Page object for the Floorplan Workflow wizard view.
  * Covers the 5-step floorplan creation flow: Upload, Calibrate, Place Tables,
- * Edit Layout, Save. Accessed at /floorplan-editor?marketId=xxx.
+ * Edit Layout, Save. Accessed at /markets/:marketId/floorplan.
  */
 export class FloorplanWorkflowPage {
   readonly page: Page;
@@ -149,7 +149,7 @@ export class FloorplanWorkflowPage {
 
   /** Navigate to the floorplan editor for a given market. */
   async goto(marketId: string): Promise<void> {
-    await this.page.goto(`/floorplan-editor?marketId=${marketId}`);
+    await this.page.goto(marketScreenPath(marketId, 'floorplan'));
   }
 
   // ─── Wizard Navigation ──────────────────────────────────────────
@@ -187,8 +187,8 @@ export class FloorplanWorkflowPage {
     // (E10/F02/S01).
     await this.page.getByTestId('market-setup-choose-path-button').click();
     await this.choosePathFloorplanCard.click();
-    // Expect navigation to /floorplan-editor
-    await this.page.waitForURL('**/floorplan-editor**', { timeout: 10000 });
+    // Expect navigation to the market's floorplan editor
+    await this.page.waitForURL(/\/markets\/[^/]+\/floorplan$/, { timeout: 10000 });
   }
 
   // ─── Step 0: Upload ─────────────────────────────────────────────

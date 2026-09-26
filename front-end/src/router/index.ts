@@ -59,10 +59,11 @@ const router = createRouter({
       component: () => import('@/views/OrganizationsView.vue'),
     },
     {
-      path: '/vendors',
+      path: '/markets/:marketId/vendors',
       name: 'vendors',
       component: () => import('@/views/VendorsView.vue'),
     },
+    { path: '/vendors', redirect: '/markets' },
     {
       path: '/markets/:marketId/setup',
       name: 'market-setup',
@@ -75,14 +76,23 @@ const router = createRouter({
       redirect: '/markets',
     },
     {
-      path: '/import-applications',
+      path: '/markets/:marketId/import',
       name: 'import-applications',
       component: () => import('@/views/CsvImportView.vue'),
     },
+    { path: '/import-applications', redirect: '/markets' },
     {
-      path: '/floorplan-editor',
+      path: '/markets/:marketId/floorplan',
       name: 'floorplan-editor',
       component: () => import('@/views/FloorplanEditorView.vue'),
+    },
+    // This one did carry an id, in the query, so an old link still opens the market it named.
+    {
+      path: '/floorplan-editor',
+      redirect: (to) =>
+        to.query.marketId
+          ? `/markets/${encodeURIComponent(String(to.query.marketId))}/floorplan`
+          : '/markets',
     },
     // Assignment Results is a tab on the market now (E10/F03/S01). The old path carried no market
     // id, so, like `/market-setup`, all it can do is send the organizer to choose a market.

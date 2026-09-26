@@ -43,7 +43,7 @@ test.describe('The phase rail', () => {
     for (const path of [
       marketSetupPath(seed.marketId, 'setup'),
       `/markets/${seed.marketId}/tables`,
-      '/vendors',
+      `/markets/${seed.marketId}/vendors`,
       `/markets/${seed.marketId}/attendance`,
     ]) {
       await openMarket(page, path);

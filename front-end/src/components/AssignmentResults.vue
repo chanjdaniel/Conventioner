@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { marketPath } from '@/utils/market';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 
@@ -231,7 +232,7 @@ const satisfactionDisplay = computed(() => {
  */
 function openVendor(email: string) {
   if (!email || !market.value?.id) return;
-  router.push({ path: '/vendors', query: { vendor: email } });
+  router.push({ path: marketPath(market.value.id, 'vendors'), query: { vendor: email } });
 }
 
 const openVendorsModal = () => {
