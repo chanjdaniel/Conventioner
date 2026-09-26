@@ -80,6 +80,13 @@ describe('parseMarketFromApi', () => {
     ).toBeNull();
   });
 
+  it('keeps which groups changed since the assignment ran', () => {
+    expect(
+      parseMarketFromApi({ ...apiMarket, assignmentOutOfDate: ['rules', 'plan'] })
+        .assignmentOutOfDate,
+    ).toEqual(['rules', 'plan']);
+  });
+
   it('reads an editable form as no lock at all', () => {
     expect(
       parseMarketFromApi({ ...apiMarket, applicationFormLockReason: null })
