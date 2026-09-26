@@ -13,7 +13,12 @@ test.describe('The phase rail', () => {
   let seed: AssignedSeedResult;
 
   test.beforeAll(async ({ request }) => {
-    seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    // A long name, so a later test can measure the rail with a long check-in URL. Given at creation:
+    // a market can only be renamed while it is a draft (E21/F03/S04). Unique per run, because a
+    // public address belongs to one market (E21/F03/S03).
+    seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      name: `Portland Holiday Makers Market December ${Date.now()}`,
+    });
   });
 
   async function marketBody(page: import('@playwright/test').Page) {
@@ -58,19 +63,6 @@ test.describe('The phase rail', () => {
     // Container overflow does not detect this: the step boxes shrink below their labels, so the
     // labels paint over each other while the row still fits.
     await page.setViewportSize({ width: 1920, height: 1080 });
-
-    const res = await page.request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await res.json()) as { market: Record<string, unknown> };
-    // Unique per run: a public address belongs to one market (E21/F03/S03), and a fixed name here
-    // used to pile up duplicates on a reused database, one per run.
-    market.name = `Portland Holiday Makers Market December ${Date.now()}`;
-    const put = await page.request.put(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: market,
-    });
-    expect(put.ok(), await put.text()).toBeTruthy();
 
     await page.request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },

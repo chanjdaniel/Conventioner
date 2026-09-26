@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { type Market, MarketRole } from '@/assets/types/datatypes';
+import { computed, ref, watch } from 'vue';
+import { type Market, MarketPhase, MarketRole } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
+import { useMarketStore } from '@/stores/market';
 import AppDialog from '@/components/AppDialog.vue';
 import {
   getRoleDisplayName,
@@ -182,18 +183,27 @@ async function handleAddOrg() {
   }
 }
 
+/**
+ * The name is the market's public web address, so it can change only while the market is a draft
+ * (E21/F03/S04). Past that, this says why rather than offering a control the server refuses.
+ */
+const renameAllowed = computed(() => marketData.value?.phase === MarketPhase.Draft);
+
 async function handleRename() {
   if (!marketData.value || renameValue.value.trim() === marketData.value.name) return;
   renameError.value = '';
   try {
-    const updated = { ...marketData.value, name: renameValue.value.trim() };
-    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}`, updated);
-    marketData.value = { ...marketData.value, name: renameValue.value.trim() };
+    // Its own write, carrying only the name - not the whole market (E21/F03/S04).
+    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}/name`, {
+      name: renameValue.value.trim(),
+    });
+    await fetchMarket(false);
+    // The open market may be this one: a rename is a write, so the store re-reads it.
+    const store = useMarketStore();
+    if (store.marketId === marketData.value?.id) void store.refresh();
   } catch (err) {
-    const msg = getApiErrorMessage(err, '');
-    renameError.value = msg.toLowerCase().includes('already exists')
-      ? 'A market with this name already exists'
-      : msg || 'Failed to rename';
+    // The server's own words: a clash is about the public web address, not only the exact name.
+    renameError.value = getApiErrorMessage(err, 'Failed to rename');
   }
 }
 
@@ -394,7 +404,11 @@ function toggleAddOrg() {
 
       <section class="section">
         <h3>Rename market</h3>
-        <form class="rename-row" @submit.prevent="handleRename">
+        <p v-if="!renameAllowed" class="form-hint" data-testid="manage-market-rename-fixed">
+          This market's public web address comes from its name, and it has already been shared, so
+          its name can no longer change.
+        </p>
+        <form v-else class="rename-row" @submit.prevent="handleRename">
           <input v-model="renameValue" class="field" data-testid="manage-market-rename-input" />
           <button
             type="submit"
@@ -405,7 +419,9 @@ function toggleAddOrg() {
             Save
           </button>
         </form>
-        <p v-if="renameError" class="form-error">{{ renameError }}</p>
+        <p v-if="renameError" class="form-error" data-testid="manage-market-rename-error">
+          {{ renameError }}
+        </p>
       </section>
 
       <section class="section danger-section">

@@ -843,6 +843,25 @@ def update_market(market_id: str) -> Response:
         return jsonify({"error": str(e)}), 400
 
 
+@app.route('/markets/<market_id>/name', methods=['PUT'])
+@login_required
+def rename_market(market_id: str) -> Response:
+    """Rename a market while it is a draft (E21/F03/S04). Body: { "name": "..." }."""
+    try:
+        data = request.get_json(silent=True) or {}
+        MarketsApi.rename_market(market_id, data.get("name", ""), authenticated_email())
+        return jsonify({"message": "Market renamed"}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in rename_market for {market_id}: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
 @app.route('/markets/<market_id>/plan', methods=['PUT'])
 @login_required
 def save_plan(market_id: str) -> Response:

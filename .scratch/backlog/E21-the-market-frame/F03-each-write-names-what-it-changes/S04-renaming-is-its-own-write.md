@@ -2,7 +2,7 @@
 id: E21/F03/S04
 title: Renaming is its own write, and only while the market is a draft
 type: story
-status: ready
+status: done
 blocked_by: [E21/F03/S03]
 pr: []
 ---
@@ -20,7 +20,7 @@ The rename goes through the slug check from `S03`, and the market store re-fetch
 
 ## Acceptance criteria
 
-- [ ] A rename write accepts only the name, requires the same role renaming requires today, and refuses a taken slug.
-- [ ] Outside draft it is refused with the reason, and pytest covers draft (allowed) and each later phase (refused).
-- [ ] Manage Market no longer renames through `PUT /markets/:id`.
-- [ ] Past draft, Manage Market shows why the name is fixed and offers no rename control; e2e covers both states.
+- [x] A rename write accepts only the name, requires the same role renaming requires today, and refuses a taken slug.
+- [x] Outside draft it is refused with the reason, and pytest covers draft (allowed) and each later phase (refused).
+- [x] Manage Market no longer renames through `PUT /markets/:id`.
+- [x] Past draft, Manage Market shows why the name is fixed and offers no rename control; e2e covers both states.

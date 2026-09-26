@@ -157,11 +157,16 @@ export async function seedMarketWithVendors(
   baseURL: string,
   email: string,
   password: string,
+  /**
+   * A name of the caller's choosing. A market can only be renamed while it is a draft
+   * (E21/F03/S04), so a spec that needs a particular name for a market further along gives it here.
+   */
+  options: { name?: string } = {},
 ): Promise<SeedResult> {
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
-  const marketName = `E2E Market ${Date.now()}`;
+  const marketName = options.name ?? `E2E Market ${Date.now()}`;
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: {
       'Content-Type': 'application/json',
