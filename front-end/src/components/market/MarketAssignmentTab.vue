@@ -26,6 +26,8 @@ defineProps<{
   assignError: string;
   /** Why the rules can no longer change, from the market (E22/F02/S02); null while they can. */
   rulesLockReason: string | null;
+  /** What changed since the stored assignment ran, worded; null when nothing has (E22/F03/S02). */
+  outOfDate: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -101,6 +103,11 @@ const emit = defineEmits<{
       </div>
     </div>
 
+    <!-- A fact, not an error: no dismiss, and running again is what clears it (E22/F03/S02). -->
+    <p v-if="outOfDate" class="out-of-date" data-testid="assignment-out-of-date">
+      {{ outOfDate }} Run the assignment again to bring it up to date.
+    </p>
+
     <AssignmentResults />
   </div>
 </template>
@@ -127,6 +134,14 @@ const emit = defineEmits<{
 
 .plan-row--asymmetric {
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.out-of-date {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--mm-green);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .rules-settled {

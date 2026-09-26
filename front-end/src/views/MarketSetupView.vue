@@ -9,6 +9,7 @@ import { type SetupObject, type FormField } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
+import { outOfDateLine } from '@/utils/assignmentOutOfDate';
 import {
   MARKET_SURFACES,
   isCurrentSurface,
@@ -471,6 +472,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignRefusalReason="assignRefusalReason"
           :assignError="assignError"
           :rulesLockReason="market?.assignmentRulesLockReason ?? null"
+          :outOfDate="outOfDateLine(market?.assignmentOutOfDate, market?.phase)"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         />

@@ -2,7 +2,7 @@
 id: E22/F03/S02
 title: The result says it is out of date
 type: story
-status: ready
+status: in-progress
 blocked_by: [E22/F03/S01]
 pr: []
 ---
@@ -19,8 +19,8 @@ Where on the page it sits follows the Result page's layout ([the-assignment-tab 
 
 ## Acceptance criteria
 
-- [ ] In `assignment`, an out-of-date assignment shows the line, naming each changed group in plain words.
-- [ ] An up-to-date assignment, or one not known to be out of date, shows nothing.
-- [ ] Outside `assignment`, nothing is shown.
-- [ ] Editing a rule and then opening the result shows the line without a reload (the store re-reads after the plan saves).
-- [ ] Pinned by an e2e spec: run, change a rule, see the line, run again, see it gone.
+- [x] In `assignment`, an out-of-date assignment shows the line, naming each changed group in plain words.
+- [x] An up-to-date assignment, or one not known to be out of date, shows nothing.
+- [x] Outside `assignment`, nothing is shown.
+- [x] Editing a rule and then opening the result shows the line without a reload (the store re-reads after the plan saves).
+- [x] Pinned by an e2e spec: run, change a rule, see the line, run again, see it gone.
