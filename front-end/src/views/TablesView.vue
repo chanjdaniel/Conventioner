@@ -283,7 +283,7 @@ function choiceFilterLabel(filter: ChoiceFilter): string {
 function goBack(): void {
   const vendor = normalizeQuery(route.query.vendor);
   if (vendor) {
-    router.push({ path: '/vendors', query: { vendor } });
+    router.push({ path: marketPath(marketId.value, 'vendors'), query: { vendor } });
     return;
   }
   router.push(marketPath(marketId.value, 'setup', 'assignment'));
@@ -411,8 +411,9 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
     closePlacement();
     // Re-read rather than patch the grid in place: the solver places everyone else around a pin,
     // so one change can move other vendors, and a locally patched grid would show a floor plan
-    // nobody is standing on.
-    await loadTables();
+    // nobody is standing on. A placement is a write to the market's stored assignment, so the
+    // store re-reads the market too (E21/F02/S04): anything else showing it follows.
+    await Promise.all([loadTables(), refreshMarket()]);
   } catch (err: unknown) {
     const data =
       err && typeof err === 'object' && 'response' in err

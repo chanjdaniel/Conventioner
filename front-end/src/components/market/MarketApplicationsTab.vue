@@ -10,6 +10,7 @@
  * different parent without rewriting it.
  */
 import { computed, ref } from 'vue';
+import { marketPath } from '@/utils/market';
 import { useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
@@ -78,7 +79,7 @@ const condition = computed(() => {
         class="import-entry-button"
         :disabled="importRefusalReason !== null"
         data-testid="market-setup-import-button"
-        @click="router.push({ name: 'import-applications' })"
+        @click="market && router.push(marketPath(market.id, 'import'))"
       >
         Import from CSV
       </button>

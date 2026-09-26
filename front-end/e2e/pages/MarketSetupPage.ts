@@ -96,7 +96,7 @@ export class MarketSetupPage {
   /** Leave for the CSV import flow, the way the organizer does: from the Applications tab. */
   async startCsvImport(): Promise<void> {
     await this.importButton.click();
-    await this.page.waitForURL('**/import-applications');
+    await this.page.waitForURL(/\/markets\/[^/]+\/import$/);
   }
 
   // --- Phase control ---

@@ -13,6 +13,9 @@ const root = ref<HTMLElement | null>(null);
 defineExpose({ root });
 
 import { inject } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useMarketStore } from '@/stores/market';
+import { marketPath } from '@/utils/market';
 import ElementNavigationItem from './ElementNavigationItem.vue';
 import IconOrganizations from '../icons/IconOrganizations.vue';
 import IconVendors from '../icons/IconVendors.vue';
@@ -22,6 +25,13 @@ import IconSignOutSquare from '../icons/IconSignOutSquare.vue';
 import ElementSignoutButton from './ElementSignoutButton.vue';
 
 const user = inject<string | null>('user');
+
+/**
+ * The market whose vendors "Market vendors" shows: the one the store holds (E21/F02/S04). The item
+ * used to link to `/vendors`, which read the market out of `localStorage`; with every market screen
+ * addressed by id it needs an id, and with no market open there are no market vendors to show.
+ */
+const { marketId } = storeToRefs(useMarketStore());
 </script>
 
 <template>
@@ -54,7 +64,11 @@ const user = inject<string | null>('user');
         <h3>Organizations</h3>
       </ElementNavigationItem>
 
-      <ElementNavigationItem to="/vendors" @menuClose="$emit('menuClose')">
+      <ElementNavigationItem
+        v-if="marketId"
+        :to="marketPath(marketId, 'vendors')"
+        @menuClose="$emit('menuClose')"
+      >
         <template #icon>
           <IconVendors class="nav-icon" />
         </template>

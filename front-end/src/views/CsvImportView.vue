@@ -14,12 +14,12 @@
  */
 import { computed, onMounted, ref } from 'vue';
 import { marketPath } from '@/utils/market';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import { useOpenMarket } from '@/utils/openMarket';
+import MarketArrival from '@/components/MarketArrival.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
-import type { Market } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 import { canImportInto, importRefusal } from '@/utils/importPhase';
-import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
 import type { ApplicationForm, EssentialFormOptions } from '@/assets/types/datatypes';
@@ -82,13 +82,15 @@ interface ImportFailure {
 
 const router = useRouter();
 
-/** The market in play, carried in localStorage the way every other organizer view reads it. */
 /**
- * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
- * value that only arrives a tick later would flash that message on every page that does have one.
+ * The market in the route, from the one store (E21/F02/S04). It used to be read out of
+ * `localStorage`, because `/import-applications` carried no id - and the form amendment below moves
+ * the market's phase twice and rewrites its form without ever touching that copy, so returning to
+ * Market Setup after one showed the market as it had been.
  */
-const market = ref<Market | null>(JSON.parse(localStorage.getItem('market') || 'null'));
-const marketId = computed(() => market.value?.id ?? '');
+const route = useRoute();
+const marketId = computed(() => String(route.params.marketId ?? ''));
+const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
 
 /**
  * Importing belongs to the phases that take applications. The server enforces this - all three
@@ -479,6 +481,9 @@ async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
  * across - without this the story trades a four-step round trip for a two-step one.
  */
 async function onAmended() {
+  // The amendment walked the market out of its phase and back and rewrote its form: a write, so
+  // the store re-reads it and every screen showing the market follows.
+  void refreshMarket();
   const keptColumns = { ...columnTarget.value };
   const keptGroups = { ...groupTarget.value };
   const keptResolutions = { ...resolutions.value };
@@ -632,6 +637,8 @@ async function runImport() {
     updated.value = data.updated ?? 0;
     failures.value = data.failures ?? [];
     step.value = 'done';
+    // Applications now exist, which locks the form: part of the market every screen reads.
+    void refreshMarket();
   } catch (e) {
     error.value = getApiErrorMessage(e, 'The import could not be completed.');
   } finally {
@@ -656,7 +663,9 @@ function startOver() {
 </script>
 
 <template>
-  <NoMarketLoaded v-if="!marketId" shows="an import into a market" />
+  <div v-if="!market" class="import-view">
+    <MarketArrival :status="marketStatus" @retry="refreshMarket()" />
+  </div>
   <div v-else class="import-view" data-testid="import-view">
     <header class="import-header">
       <div>

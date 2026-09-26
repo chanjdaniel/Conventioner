@@ -7,7 +7,8 @@ import FloorplanWorkflow from '@/components/floorplan/FloorplanWorkflow.vue';
 const router = useRouter();
 const route = useRoute();
 
-const marketId = computed(() => route.query.marketId as string | undefined);
+/** The market in the route (E21/F02/S04); it used to ride in the query string. */
+const marketId = computed(() => (route.params.marketId as string | undefined) || undefined);
 
 function handleSaved(payload: { market_id: string }) {
   router.push(marketPath(payload.market_id));

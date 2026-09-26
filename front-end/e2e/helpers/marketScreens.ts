@@ -19,3 +19,11 @@ export async function openMarketSetup(page: Page, marketId: string, tab?: string
 
 /** Matches the URL of any market's setup screen, for `waitForURL` after a redirect lands there. */
 export const MARKET_SETUP_URL = /\/markets\/[^/]+\/setup(\?.*)?$/;
+
+/** Any of a market's screens by id: `vendors`, `import`, `floorplan`, `tables`, `attendance`. */
+export function marketScreenPath(
+  marketId: string,
+  screen: 'vendors' | 'import' | 'floorplan' | 'tables' | 'attendance',
+): string {
+  return `/markets/${encodeURIComponent(marketId)}/${screen}`;
+}
