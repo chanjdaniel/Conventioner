@@ -182,28 +182,6 @@ async function handleAddOrg() {
   }
 }
 
-async function handleRemoveOrg() {
-  if (!marketData.value) return;
-  try {
-    const updated = { ...marketData.value, organizationId: null };
-    await api.put(`/markets/${encodeURIComponent(marketData.value.id)}`, updated);
-    marketData.value = {
-      ...marketData.value,
-      organizationId: undefined,
-      organizationName: undefined,
-    };
-    await fetchMarket(false);
-  } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to remove organization');
-  }
-}
-
-function canRemoveOrg(): boolean {
-  const userRole = marketData.value?.userRole;
-  if (!userRole) return false;
-  return userRole === MarketRole.Owner || userRole === MarketRole.Admin;
-}
-
 async function handleRename() {
   if (!marketData.value || renameValue.value.trim() === marketData.value.name) return;
   renameError.value = '';
@@ -365,16 +343,6 @@ function toggleAddOrg() {
           <div v-for="orgName in getOrganizationList()" :key="orgName" class="user-card">
             <span class="user-email">{{ orgName }}</span>
             <span class="role-badge role-viewer">Viewer</span>
-            <button
-              v-if="canRemoveOrg()"
-              type="button"
-              class="btn btn--compact btn--destructive"
-              title="Remove organization"
-              data-testid="manage-market-remove-org-button"
-              @click="handleRemoveOrg()"
-            >
-              Remove
-            </button>
           </div>
           <p v-if="getOrganizationList().length === 0" class="empty-state">
             No organizations with access
