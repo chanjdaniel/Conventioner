@@ -2,9 +2,9 @@
 id: E22/F04
 title: The Assignment tab has pages
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## Outcome

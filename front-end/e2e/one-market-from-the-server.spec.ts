@@ -37,8 +37,8 @@ test.describe('One market, from the server', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(marketScreenPath(seeded.marketId, 'tables'));
-    await expect(page.getByTestId('tables-heading')).toContainText(seeded.marketName, {
+    await page.goto(marketScreenPath(seeded.marketId, 'result'));
+    await expect(page.getByTestId('market-bar-title')).toContainText(seeded.marketName, {
       timeout: 15000,
     });
     await expect(page.getByTestId('phase-rail-frozen')).toHaveCount(0);
@@ -58,7 +58,7 @@ test.describe('One market, from the server', () => {
   test('a market that does not exist reads as one this organizer cannot reach', async ({
     authenticatedPage: page,
   }) => {
-    for (const screen of ['tables', 'floorplan'] as const) {
+    for (const screen of ['result', 'floorplan'] as const) {
       await page.goto(marketScreenPath('no-such-market', screen));
 
       await expect(page.getByTestId('market-arrival-missing')).toHaveText(

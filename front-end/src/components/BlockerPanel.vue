@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { marketPath, type MarketScreen } from '@/utils/market';
+import { marketPath } from '@/utils/market';
+import type { MarketFlow, MarketPage } from '@/utils/marketPage';
 import { useRoute, useRouter } from 'vue-router';
 import type { PreconditionResult } from '@/assets/types/datatypes';
 
@@ -23,8 +24,8 @@ const router = useRouter();
  * to be (E14/F01/S03).
  *
  * The comparison is `router.resolve(...).fullPath` against the current one, so a link is a link to
- * a place rather than a string: `/markets/<id>/setup?tab=applications` and the same route reached by
- * clicking that tab match. It is NOT normalisation - a different query order or an extra parameter
+ * a place rather than a string: `/markets/<id>/applications` and the same page reached by clicking
+ * its tab match. It is NOT normalisation - a different query order or an extra parameter
  * reads as a different place - so a guard's link must be spelled as the route it lands on, and must
  * not be a redirect, which `resolve` does not follow.
  */
@@ -39,14 +40,14 @@ const rows = computed(() =>
 );
 
 /**
- * A resolution link is relative to the market's own screens - `setup?tab=applications` - and this
- * is where it becomes the market's address (E21/F02/S02). The server names the screen and the tab
- * that hold the remedy; which market that is, the panel already knows, so the guards never build
- * per-market URLs and every link stays a literal their test can read.
+ * A resolution link is relative to the market's own pages - `applications` - and this is where it
+ * becomes the market's address (E21/F02/S02, E22/F04/S02). The server names the page that holds the
+ * remedy; which market that is, the panel already knows, so the guards never build per-market URLs
+ * and every link stays a literal their test can read.
  */
 function marketLink(relative: string): string {
-  const [screen, query] = relative.replace(/^\/+/, '').split('?');
-  const path = marketPath(props.marketId, screen as MarketScreen);
+  const [page, query] = relative.replace(/^\/+/, '').split('?');
+  const path = marketPath(props.marketId, page as MarketPage | MarketFlow);
   return query ? `${path}?${query}` : path;
 }
 </script>

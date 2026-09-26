@@ -41,7 +41,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Page Object Model**: Located under `front-end/e2e/pages/`.
   Each page object wraps Playwright `getByTestId()` selectors and exposes action methods.
   New pages should follow the existing `LoginPage`, `NewMarketPage`, `MarketSetupPage`,
-  `AssignmentResultsPage`, `OrganizationsPage`, `ManageMarketPage` patterns.
+  `ResultPage`, `OrganizationsPage`, `ManageMarketPage` patterns.
 - **Fixtures**: `front-end/e2e/fixtures.ts` provides `TEST_USER`, `authenticatedPage`,
   re-exports page objects for convenience, and exposes `BACKEND_URL`
   (derived from `stack().backendURL`) for direct API calls.
@@ -147,8 +147,15 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   place:** `front-end/src/stores/market.ts`. Every market screen, the rail and every tab read it;
   screens get it through `useOpenMarket` (`front-end/src/utils/openMarket.ts`). Settled in
   `.scratch/wayfinding/the-market-frame/issues/03-one-market-every-surface-reads.md`.
-- **Every market screen is addressed by id**: `/markets/:marketId/{setup,vendors,import,floorplan,
-  tables,attendance}`, built with `marketPath()`. The id-less paths redirect to `/markets`.
+- **Every market page has its own address** (E22/F04/S02): `/markets/:marketId/{setup,form,
+  applications,assignment,result,vendors,attendance}` plus the `import` and `floorplan` flows, built
+  with `marketPath()`. `/markets/:marketId` alone lands on the page for the market's phase
+  (`MarketLanding`, via `currentPage` in `utils/marketPage.ts`). The old `setup?tab=` and `/tables`
+  addresses redirect; the id-less paths redirect to `/markets`. A guard's `resolution_link` names a
+  page (`applications`), never a redirect.
+- **The market's bar is `MarketBar`, rendered once by `MarketFrame`**: the name and the tabs (Market
+  Setup, Application Form, Applications, Assignment, and Attendance once published). A screen draws
+  no title or Back button of its own; `utils/marketPage.ts` says which tab holds which page.
 - **A write is followed by a re-read, never a patch.** After anything that changes the market
   (a transition - the rail does it - a form save, an assignment run, a placement, an import, a
   highlight) call the store's `refresh()`. Do not assign into the held market: no caller should
@@ -222,6 +229,16 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   Consequence: **shrinking the plan does not unassign anybody** - only assigning again does. A
   test that expects an edit to the plan to change who is placed must re-run the assignment.
   `GET /markets/{id}/assignment` is the exception and stays a preview: it computes without storing.
+- **A run records what it was made from** (E22/F03): `assignmentObject.madeFrom` holds one
+  fingerprint each for the rules, the plan and the approved applications (as `SolverVendor`s), and
+  `GET /markets/:id` serves `assignmentOutOfDate`, the groups that differ now.
+  `back-end/assignment/made_from.py` is the ONE place a fingerprint is computed - the run and the
+  read both call it. Only a solver run writes `madeFrom`; a hand placement is an edit to the result,
+  never an input. An assignment with no fingerprints is served as not out of date, never as stale.
+- **The assignment rules close with the assignment** (E22/F02): once the market can no longer
+  reach `assignment` (derived with `guards.route_between`, not listed), the plan write refuses a
+  change to the priority or the assignment options, and `assignmentRulesLockReason` rides on the
+  market for the page to mirror.
 - **`MarketTableRow.assignment` is the occupants and nothing else** - its LENGTH is what
   `derive_unassigned_tables_from_rows` reads to count spare capacity. Which side of a table is
   free lives in `assignment_slots` (`[left, right]`, null for vacant). Do not conflate them.
@@ -588,7 +605,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   same principle as the banner itself. The card fills at least the window under the banner. Never
   give a frame screen an `overflow` scroller of its own: the sticky block silently stops sticking.
 - **A screen is one of two widths and never caps its own height.** `--workspace-max` (1440) or
-  `--list-max` (1100); the PAGE scrolls. `.app-container` used to be `position: absolute;
+  `--list-max` (1100); the PAGE scrolls. **Every market screen is `--workspace-max`, set by
+  `MarketFrame`** (E22/F04/S01): a screen in the frame sets no width of its own, or moving between
+  a market's screens makes the frame jump. `.app-container` used to be `position: absolute;
   height: 100vh`, which is why no screen could scroll the page and every tall screen grew its own
   nested scrollers. Do not reintroduce a viewport-height shell.
 

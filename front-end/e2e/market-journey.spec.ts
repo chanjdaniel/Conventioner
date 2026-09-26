@@ -8,7 +8,7 @@ import {
   MarketSetupPage,
   CsvImportPage,
   ApplicationMonitorPage,
-  AssignmentResultsPage,
+  ResultPage,
 } from './fixtures';
 import { ensureTestOrg } from './helpers/seeds';
 
@@ -86,7 +86,7 @@ test.describe('The MVP journey', () => {
     const setup = new MarketSetupPage(page);
     const importPage = new CsvImportPage(page);
     const monitor = new ApplicationMonitorPage(page);
-    const results = new AssignmentResultsPage(page);
+    const results = new ResultPage(page);
 
     // --- 1. Create the market ------------------------------------------------------------
     await page.goto('/markets');
@@ -106,7 +106,8 @@ test.describe('The MVP journey', () => {
     await setup.addMarketDate(MARKET_DATES[1]);
     // Both days read back as days, in order: dates are chosen on a calendar now (E18/F01/S02),
     // and what the organizer sees is each date spelled out rather than an input's value.
-    await expect(page.getByTestId('setup-dates-date-display-1')).toHaveText(
+    await expect(page.getByTestId('setup-dates-date-display-1')).toHaveAttribute(
+      'title',
       getFormattedDate(MARKET_DATES[1]) as string,
     );
 
@@ -184,16 +185,15 @@ test.describe('The MVP journey', () => {
     await expect(setup.assignError).toBeHidden();
 
     // --- 7. The result --------------------------------------------------------------------
-    await expect(results.summaryStats).toBeVisible({ timeout: 15000 });
+    // A run lands on the Result page (E22/F04/S03): the strip over the tables grid.
+    await expect(page).toHaveURL(/\/result$/, { timeout: 15000 });
+    await expect(results.strip).toBeVisible({ timeout: 15000 });
+    await expect(results.occupiedSeats.first()).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: testInfo.outputPath('04-assigned.png'), fullPage: true });
 
-    await results.clickViewVendors();
-    await expect(results.vendorRows.first()).toBeVisible({ timeout: 10000 });
-
     // Approval is what decided this, and it is the whole point of the journey: the two the
-    // organizer approved hold tables, and the one they turned down holds none. The modal lists
-    // every applicant either way, so a rejected vendor is present and empty rather than absent -
-    // which is the stronger assertion, because it distinguishes "not placed" from "not loaded".
+    // organizer approved hold tables, and the one they turned down holds none - read off the grid
+    // once it has drawn, so "not placed" is not "not loaded".
     expect(await results.placementsFor(WANTED)).toEqual([
       expect.stringContaining(SECTIONS[0]),
       expect.stringContaining(SECTIONS[0]),

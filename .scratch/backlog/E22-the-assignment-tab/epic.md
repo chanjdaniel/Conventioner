@@ -2,9 +2,9 @@
 id: E22
 title: The assignment tab
 type: epic
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## Outcome

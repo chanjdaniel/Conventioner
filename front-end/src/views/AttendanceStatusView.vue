@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { marketPath } from '@/utils/market';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 import { api } from '@/utils/api';
 import type { VendorAttendance } from '@/assets/types/datatypes';
@@ -11,7 +10,6 @@ import { useOpenMarket } from '@/utils/openMarket';
 import MarketArrival from '@/components/MarketArrival.vue';
 
 const route = useRoute();
-const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
@@ -85,25 +83,12 @@ async function loadAttendance(): Promise<void> {
   }
 }
 
-function goBack(): void {
-  router.push(marketPath(marketId.value, 'setup', 'assignment'));
-}
-
 onMounted(loadAttendance);
 </script>
 
 <template>
   <div class="attendance-status-view">
     <MarketFrame class="attendance-status-card" :market="market">
-      <template #bar>
-        <header class="attendance-status-header">
-          <!-- The screen, then the market (E15/F02/S03). -->
-          <h1 data-testid="attendance-status-heading">
-            {{ market ? `Attendance: ${market.name}` : 'Attendance Status' }}
-          </h1>
-        </header>
-      </template>
-
       <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
       <div v-if="marketStatus !== 'missing'" class="attendance-status-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -137,16 +122,6 @@ onMounted(loadAttendance);
           </table>
         </div>
       </div>
-      <template v-if="marketStatus !== 'missing'" #footer>
-        <button
-          type="button"
-          class="primary-button"
-          @click="goBack"
-          data-testid="attendance-status-back-button"
-        >
-          Back
-        </button>
-      </template>
     </MarketFrame>
   </div>
 </template>
@@ -162,27 +137,10 @@ onMounted(loadAttendance);
 }
 
 .attendance-status-card {
-  width: 100%;
-  max-width: var(--list-max);
   /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
      banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
      card at the viewport and scroll a body inside it. */
   border-radius: var(--radius-card);
-}
-
-.attendance-status-header {
-  background-color: var(--mm-black);
-  padding: 18px 24px;
-  /* The card is rounded and nothing clips it any more (a sticky bar cannot sit inside an overflow
-     ancestor), so the bar rounds its own top corners. */
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
-}
-
-.attendance-status-header h1 {
-  margin: 0;
-  color: white;
-  font-size: var(--text-xl);
-  text-align: center;
 }
 
 .attendance-status-body {
@@ -216,22 +174,6 @@ onMounted(loadAttendance);
 
 .vendor-cell {
   font-weight: 600;
-}
-
-.primary-button {
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  padding: 0 18px;
-  height: 38px;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-md);
-  cursor: pointer;
-}
-
-.primary-button:hover:not(:disabled) {
-  opacity: 0.9;
 }
 
 .error-text {

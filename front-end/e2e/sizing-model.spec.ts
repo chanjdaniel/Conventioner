@@ -65,13 +65,18 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     expect(workspace, '--workspace-max is not defined').toBeGreaterThan(0);
     expect(list, '--list-max is not defined').toBeGreaterThan(0);
 
+    // Every market screen is the workspace width, set by the frame (E22/F04/S01).
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
-    expect(await contentWidth(page, '.market-setup-body')).toBe(workspace);
+    expect(await contentWidth(page, '[data-testid="market-frame-card"]')).toBe(workspace);
 
-    await page.goto(marketScreenPath(marketId, 'tables'));
+    await page.goto(marketScreenPath(marketId, 'result'));
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
-    expect(await contentWidth(page, '.tables-card')).toBe(list);
+    expect(await contentWidth(page, '[data-testid="market-frame-card"]')).toBe(workspace);
+
+    await page.goto('/markets');
+    await expect(page.getByTestId('markets-create-button')).toBeVisible({ timeout: 15000 });
+    expect(await contentWidth(page, '.markets-view')).toBe(list);
   });
 
   test('no screen caps its own height, and the page is what scrolls', async ({
@@ -111,8 +116,9 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect((await measure()).boxed, 'the plan is hiding its content inside a box').toEqual([]);
 
+    // A published market: its rules are settled and there is no run button (E22/F02/S02).
     await page.goto(marketSetupPath(marketId, 'assignment'));
-    await expect(page.getByTestId('market-setup-assign-button')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('assignment-rules-settled')).toBeVisible({ timeout: 15000 });
     expect(
       (await measure()).boxed,
       'the assignment surface is hiding its content inside a box',
@@ -144,7 +150,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     const gapUnderBanner = async () =>
       page.evaluate(() => {
         const banner = document.querySelector('.app-container > header') as HTMLElement;
-        const title = document.querySelector('[data-testid="market-setup-title"]') as HTMLElement;
+        const title = document.querySelector('[data-testid="market-bar-title"]') as HTMLElement;
         const card = title.closest('.settings-container') as HTMLElement;
         return Math.round(card.getBoundingClientRect().top - banner.getBoundingClientRect().bottom);
       });

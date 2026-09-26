@@ -216,9 +216,8 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
-
-  padding-left: 5px;
-  padding-right: 5px;
+  /* No side padding of its own: it put Tier's rows 5px further in than every other card's, when a
+     card's inner gutter is the card's to set (E23/F01/S01). */
   gap: 15px;
 }
 

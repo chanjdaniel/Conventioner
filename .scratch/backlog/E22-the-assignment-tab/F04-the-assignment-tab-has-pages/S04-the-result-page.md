@@ -2,9 +2,9 @@
 id: E22/F04/S04
 title: The Result page is the assignment, read and changed
 type: story
-status: ready
+status: done
 blocked_by: [E22/F04/S03]
-pr: []
+pr: [#83]
 ---
 
 ## What to build
@@ -23,9 +23,9 @@ The old results component is retired with it; nothing else renders the summary.
 
 ## Acceptance criteria
 
-- [ ] Result shows the strip, the grid with seat editing, and the history, for a market with an assignment.
-- [ ] Filling, freeing and swapping a seat work from Result exactly as they did on Tables, and the strip updates without a reload.
-- [ ] "Unassigned" opens Vendors filtered to the unassigned.
-- [ ] Download CSV downloads the stored assignment.
-- [ ] With no assignment, Result says so and links to the Assignment page, with the phase's reason where a run is refused.
-- [ ] The e2e specs that used Tables and the results page reach the same behaviour through Result.
+- [x] Result shows the strip, the grid with seat editing, and the history, for a market with an assignment.
+- [x] Filling, freeing and swapping a seat work from Result exactly as they did on Tables, and the strip updates without a reload.
+- [x] "Unassigned" opens Vendors filtered to the unassigned.
+- [x] Download CSV downloads the stored assignment.
+- [x] With no assignment, Result says so and links to the Assignment page, with the phase's reason where a run is refused.
+- [x] The e2e specs that used Tables and the results page reach the same behaviour through Result.

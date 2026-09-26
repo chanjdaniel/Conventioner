@@ -105,12 +105,13 @@ test.describe('Changing a placement on the Tables view', () => {
     await link.click();
 
     // Scoped to the date, which is what makes the Tables view's filters reachable at all.
-    await page.waitForURL(/\/tables\?.*date=/, { timeout: 10000 });
+    await page.waitForURL(/\/result\?.*date=/, { timeout: 10000 });
     const tables = new TablesPage(page);
     await expect(tables.dateFilterChip).toBeVisible();
 
-    // And back to the panel it came from, rather than to the results tab.
-    await tables.clickBack();
+    // And back to the panel it came from: the browser's own Back, now that the market's pages are
+    // tabs and the screen has no Back of its own (E22/F04/S02).
+    await page.goBack();
     await page.waitForURL(/\/vendors\?vendor=/, { timeout: 10000 });
     await expect(page.getByTestId('vendors-detail-assignment-item').first()).toBeVisible();
   });

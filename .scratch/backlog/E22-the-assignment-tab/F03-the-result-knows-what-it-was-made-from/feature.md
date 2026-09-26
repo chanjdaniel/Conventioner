@@ -2,9 +2,9 @@
 id: E22/F03
 title: The result knows what it was made from
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## Outcome

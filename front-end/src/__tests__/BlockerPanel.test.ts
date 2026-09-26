@@ -18,7 +18,7 @@ async function mountPanelAt(path: string, blockers: PreconditionResult[]) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/markets/:marketId/setup', component: Blank },
+      { path: '/markets/:marketId/:page(setup|form|applications|assignment)', component: Blank },
       { path: '/markets/:marketId/vendors', component: Blank },
       { path: '/:pathMatch(.*)*', component: Blank },
     ],
@@ -35,9 +35,9 @@ const reviewBlocker: PreconditionResult = {
   id: 'all_applications_reviewed',
   passed: false,
   message: '2 applications are still awaiting review.',
-  // Relative to the market's own screens: the server names the screen and tab, the panel names the
-  // market it is showing (E21/F02/S02).
-  resolutionLink: 'setup?tab=applications',
+  // Relative to the market's own pages: the server names the page, the panel names the market it
+  // is showing (E21/F02/S02). Every page has its own address since E22/F04/S02.
+  resolutionLink: 'applications',
 };
 
 describe('BlockerPanel', () => {
@@ -58,7 +58,7 @@ describe('BlockerPanel', () => {
     // no longer tells the two apart the way it did under a stub.
     const link = wrapper.findComponent(RouterLink);
     expect(link.exists()).toBe(true);
-    expect(link.props('to')).toBe('/markets/m1/setup?tab=applications');
+    expect(link.props('to')).toBe('/markets/m1/applications');
     expect(link.attributes('data-testid')).toBe('blocker-resolution-link');
   });
 
@@ -86,14 +86,14 @@ describe('BlockerPanel', () => {
    */
   describe('a link to the page you are already on', () => {
     it('is not offered', async () => {
-      const wrapper = await mountPanelAt('/markets/m1/setup?tab=applications', [reviewBlocker]);
+      const wrapper = await mountPanelAt('/markets/m1/applications', [reviewBlocker]);
 
       expect(wrapper.text()).toContain('still awaiting review');
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(false);
     });
 
-    it('is still offered from a different tab of the same page', async () => {
-      const wrapper = await mountPanelAt('/markets/m1/setup?tab=setup', [reviewBlocker]);
+    it('is still offered from another page of the same market', async () => {
+      const wrapper = await mountPanelAt('/markets/m1/setup', [reviewBlocker]);
 
       expect(wrapper.find('[data-testid="blocker-resolution-link"]').exists()).toBe(true);
     });

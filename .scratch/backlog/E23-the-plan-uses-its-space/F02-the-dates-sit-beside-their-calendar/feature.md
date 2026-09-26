@@ -2,9 +2,9 @@
 id: E23/F02
 title: The market dates sit beside their calendar
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## Outcome

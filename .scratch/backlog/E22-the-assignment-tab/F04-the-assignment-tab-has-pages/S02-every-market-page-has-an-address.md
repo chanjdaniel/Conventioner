@@ -2,9 +2,9 @@
 id: E22/F04/S02
 title: Every market page has its own address, and the bar reaches every one
 type: story
-status: ready
+status: done
 blocked_by: [E22/F01/S02]
-pr: []
+pr: [#83]
 ---
 
 ## What to build
@@ -23,10 +23,10 @@ The market's bar - its name and its tabs - is on every one of them, rendered onc
 
 ## Acceptance criteria
 
-- [ ] Each page's address opens it directly, and a refresh keeps it.
-- [ ] Every old address (`setup?tab=…`, `/tables`) redirects to its page, keeping the market.
-- [ ] The bar is on every market page, with the right tab active, including Import and Floorplan.
-- [ ] Attendance is a tab exactly when the market is published, and appears without a reload when the rail publishes it.
-- [ ] Opening the market, or a tab, lands on the page for its phase.
-- [ ] No Back button remains on a market screen.
-- [ ] The e2e page objects reach pages by these addresses (`e2e/helpers/marketScreens.ts`).
+- [x] Each page's address opens it directly, and a refresh keeps it.
+- [x] Every old address (`setup?tab=…`, `/tables`) redirects to its page, keeping the market.
+- [x] The bar is on every market page, with the right tab active, including Import and Floorplan.
+- [x] Attendance is a tab exactly when the market is published, and appears without a reload when the rail publishes it.
+- [x] Opening the market, or a tab, lands on the page for its phase.
+- [x] No Back button remains on a market screen.
+- [x] The e2e page objects reach pages by these addresses (`e2e/helpers/marketScreens.ts`).

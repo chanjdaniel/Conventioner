@@ -2,9 +2,9 @@
 id: E23/F01
 title: Plan cards share a row
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## Outcome

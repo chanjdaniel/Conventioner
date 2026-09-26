@@ -492,3 +492,26 @@ if not STUBBED_MODULES:
     import api.applicant_auth as _applicant_auth_module
 
     _applicant_auth_module.challenges_collection = FakeApplicationsCollection()
+
+
+def a_solver_vendor(application_id: str = "app-1", **overrides):
+    """One vendor as the solver reads them, for a test that stubs the solver's input.
+
+    A real ``SolverVendor`` rather than a placeholder: a run fingerprints what it read
+    (E22/F03/S01), and a string has no fields to read.
+    """
+    from assignment.vendor_input import SolverVendor
+
+    fields = dict(
+        application_id=application_id,
+        email=f"{application_id}@example.com",
+        available_dates=frozenset({"2026-08-01"}),
+        max_dates=1,
+        accepted_tiers_by_date={"2026-08-01": frozenset({"Gold"})},
+        table_choice="Full Table",
+        table_share_email=None,
+        section_ranking=(),
+        table_type_ranking=(),
+    )
+    fields.update(overrides)
+    return SolverVendor(**fields)

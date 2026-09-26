@@ -80,7 +80,8 @@ const handleSubmit = async () => {
     const createResponse = await api.post('/markets', newMarket);
     const marketId = createResponse.data.market_id;
 
-    router.push(marketPath(marketId));
+    // A new market is a draft, and a draft is planned first.
+    router.push(marketPath(marketId, 'setup'));
   } catch (error) {
     if (
       axios.isAxiosError(error) &&

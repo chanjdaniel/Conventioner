@@ -2,9 +2,9 @@
 id: E22/F04/S05
 title: The statistics open under the result
 type: story
-status: ready
+status: done
 blocked_by: [E22/F04/S04]
-pr: []
+pr: [#83]
 ---
 
 ## What to build
@@ -15,7 +15,7 @@ A count that names a date, a section or a tier filters the grid below to it, as 
 
 ## Acceptance criteria
 
-- [ ] The panel is closed on arrival and opens and closes from the strip, without moving the grid's filters.
-- [ ] Every count the old results page showed is in the panel, from the same statistics read.
-- [ ] Choosing a date, section or tier count filters the grid to it.
-- [ ] The panel's open state is part of the address, so a refresh keeps it.
+- [x] The panel is closed on arrival and opens and closes from the strip, without moving the grid's filters.
+- [x] Every count the old results page showed is in the panel, from the same statistics read.
+- [x] Choosing a date, section or tier count filters the grid to it.
+- [x] The panel's open state is part of the address, so a refresh keeps it.

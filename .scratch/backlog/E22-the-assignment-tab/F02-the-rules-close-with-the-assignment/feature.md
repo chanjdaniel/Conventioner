@@ -2,9 +2,9 @@
 id: E22/F02
 title: The assignment rules close with the assignment
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## Outcome

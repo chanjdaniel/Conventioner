@@ -1,6 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { savePlan } from './helpers/savePlan';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath } from './helpers/marketScreens';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { VendorsPage } from './pages/VendorsPage';
@@ -91,14 +91,16 @@ test.describe('Vendor browsing and search', () => {
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
     });
 
-    await page.goto(marketSetupPath(seed.marketId, 'assignment'));
-    const unplaced = page.getByTestId('assignment-results-unassigned-vendor').first();
+    // "N unassigned" on the Result page leads to Vendors filtered to them (E22/F04/S04).
+    await page.goto(marketScreenPath(seed.marketId, 'result'));
+    await page.getByTestId('result-unassigned-link').click();
+    const unplaced = page.getByTestId('vendors-list-item').first();
     await expect(unplaced).toBeVisible({ timeout: 15000 });
     await unplaced.click();
 
     // It leads to that vendor's panel, where the date card says why rather than showing an
     // em dash on a card the same colour as a placed one.
-    await page.waitForURL(/\/markets\/[^/]+\/vendors\?vendor=/, { timeout: 10000 });
+    await page.waitForURL(/\/markets\/[^/]+\/vendors\?.*vendor=/, { timeout: 10000 });
     const card = page.getByTestId('vendors-detail-assignment-item').first();
     await expect(card).toBeVisible({ timeout: 10000 });
     await expect(card).toHaveAttribute('data-state', 'unplaced');

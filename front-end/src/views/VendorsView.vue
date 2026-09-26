@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
+import { withoutQueryKey } from '@/utils/routeQuery';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
@@ -265,12 +266,24 @@ const vendors = computed<VendorRow[]>(() =>
   }),
 );
 
+/**
+ * Only the vendors the assignment left without a table: where "N unassigned" on the Result page
+ * leads (E22/F04/S04), in the address so the link is a link. It replaced the results page's own
+ * list of them, which could only report an address.
+ */
+const onlyUnassigned = computed(() => route.query.show === 'unassigned');
+
+function showEveryone(): void {
+  void router.replace({ query: withoutQueryKey(route.query, 'show') });
+}
+
 const filteredVendors = computed(() => {
+  const shown = onlyUnassigned.value ? vendors.value.filter((v) => !v.isAssigned) : vendors.value;
   const term = filterText.value.trim();
-  if (!term) return vendors.value;
+  if (!term) return shown;
   // Name AND address. The box used to read "Filter by email" and match only that, which on a
   // market of 232 vendors meant knowing someone's address to find them by name.
-  return vendors.value.filter((v) => vendorMatches(term, v.email, vendorNames.value));
+  return shown.filter((v) => vendorMatches(term, v.email, vendorNames.value));
 });
 
 const totalVendorCount = computed(() => vendors.value.length);
@@ -335,33 +348,52 @@ function overridesFor(email: string, date: string): PlacementOverride[] | undefi
 }
 
 /**
- * The Tables view, filtered to the day the organizer would be placing them on.
+ * The Result page's tables, filtered to the day the organizer would be placing them on.
  *
  * This is the story that makes those filters reachable: `dateFilter` and its three neighbours
  * were computed from `route.query` and set by nothing, so a complete filter system existed that
- * no organizer could invoke (`E11/F03/S02`). The vendor rides along so the Tables view can send
- * them back to this panel rather than to the results tab.
+ * no organizer could invoke (`E11/F03/S02`). The vendor rides along, naming whose placement the
+ * organizer came to change.
  */
-function tablesLinkFor(date: string): string | null {
+function resultLinkFor(date: string): string | null {
   const id = market.value?.id;
   const vendor = selectedVendor.value?.email;
   if (!id || !vendor) return null;
   const query = new URLSearchParams({ date, vendor });
-  return `/markets/${encodeURIComponent(id)}/tables?${query.toString()}`;
+  return `${marketPath(id, 'result')}?${query.toString()}`;
 }
 
-function goToTables(date: string): void {
-  const href = tablesLinkFor(date);
+function goToResult(date: string): void {
+  const href = resultLinkFor(date);
   if (href) router.push(href);
 }
 
+/**
+ * The open vendor is part of the page's address (E22/F04/S02), so a link, a refresh or the browser's
+ * Back returns to that vendor's panel. It is what the old Tables screen's Back button did by hand
+ * before the market's pages became tabs and the Back buttons went.
+ */
 function selectVendor(rowIndex: number): void {
   selectedRowIndex.value = rowIndex;
+  const email = vendors.value.find((v) => v.rowIndex === rowIndex)?.email;
+  if (email && route.query.vendor !== email) {
+    void router.replace({ query: { ...route.query, vendor: email } });
+  }
 }
 
 function closeDetail(): void {
   selectedRowIndex.value = null;
+  if (route.query.vendor) void router.replace({ query: withoutQueryKey(route.query, 'vendor') });
 }
+
+// Back and Forward move between addresses without remounting, so the panel follows the address.
+watch(
+  () => route.query.vendor,
+  (vendor) => {
+    if (vendor) openVendorFromRoute();
+    else selectedRowIndex.value = null;
+  },
+);
 
 useEscapeToClose(() => selectedVendor.value !== null, closeDetail);
 
@@ -375,26 +407,11 @@ useInertBehind(
   () => selectedVendor.value !== null,
   () => [detailOverlay.value, detailPanel.value],
 );
-
-function handleBack(): void {
-  if (market.value?.id) {
-    router.push(marketPath(market.value.id, 'setup', 'assignment'));
-  } else {
-    router.push('/dashboard');
-  }
-}
 </script>
 
 <template>
   <div class="vendors-view">
     <MarketFrame class="vendors-card" :market="market">
-      <template #bar>
-        <header class="vendors-header">
-          <h1 data-testid="vendors-heading">
-            {{ market ? `Vendors: ${market.name}` : 'Vendors' }}
-          </h1>
-        </header>
-      </template>
       <!-- The search stays in view with the frame; it used to stick inside the card's own
            scroller, which is gone (E21/F04/S02). -->
       <template #pinned>
@@ -409,6 +426,16 @@ function handleBack(): void {
             class="filter-input"
             data-testid="vendors-search-input"
           />
+          <button
+            v-if="onlyUnassigned"
+            type="button"
+            class="btn btn--secondary btn--compact"
+            aria-label="Show every vendor"
+            data-testid="vendors-filter-unassigned"
+            @click="showEveryone"
+          >
+            Unassigned only &times;
+          </button>
           <div class="summary-line">
             <span class="summary-strong">{{ assignedVendorCount }}</span>
             of
@@ -431,6 +458,7 @@ function handleBack(): void {
 
           <div v-else-if="filteredVendors.length === 0" class="empty-state empty-state--inline">
             <p v-if="totalVendorCount === 0">No vendors found.</p>
+            <p v-else-if="onlyUnassigned && !filterText.trim()">Every vendor has a table.</p>
             <p v-else>No vendors match "{{ filterText }}".</p>
           </div>
 
@@ -470,17 +498,6 @@ function handleBack(): void {
           </ul>
         </template>
       </div>
-
-      <template #footer>
-        <button
-          type="button"
-          class="primary-button"
-          @click="handleBack"
-          data-testid="vendors-back-button"
-        >
-          Back
-        </button>
-      </template>
     </MarketFrame>
 
     <div
@@ -551,8 +568,8 @@ function handleBack(): void {
               :placement="placementOn(selectedVendor, date.date)"
               :reason="reasonFor(selectedVendor.email, date.date)"
               :overrides="overridesFor(selectedVendor.email, date.date)"
-              :placeHref="tablesLinkFor(date.date)"
-              @place="goToTables(date.date)"
+              :placeHref="resultLinkFor(date.date)"
+              @place="goToResult(date.date)"
             />
           </ul>
         </section>
@@ -584,28 +601,10 @@ function handleBack(): void {
 }
 
 .vendors-card {
-  width: 100%;
-  max-width: var(--list-max);
   /* The page scrolls, not the card (E21/F04/S02): the frame pins the title, the rail and the search
      under the banner, and a sticky element inside an `overflow` ancestor stops sticking. This used
      to cap the card at the viewport and scroll a body inside it. */
   border-radius: var(--radius-card);
-}
-
-.vendors-header {
-  background-color: var(--mm-black);
-  padding: 18px 24px;
-  /* The card is rounded and nothing clips it any more (a sticky bar cannot sit inside an overflow
-     ancestor), so the bar rounds its own top corners. */
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
-}
-
-.vendors-header h1 {
-  margin: 0;
-  color: white;
-  font-size: var(--text-xl);
-  text-align: center;
-  word-break: break-word;
 }
 
 .vendors-body {
@@ -809,23 +808,6 @@ function handleBack(): void {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   white-space: nowrap;
-}
-
-.primary-button {
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  padding: 0 18px;
-  height: 38px;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-md);
-  cursor: pointer;
-  transition: opacity 0.15s ease-in-out;
-}
-
-.primary-button:hover:not(:disabled) {
-  opacity: 0.9;
 }
 
 .detail-overlay {

@@ -173,7 +173,7 @@ test.describe('No element falls through to a user-agent font', () => {
     // it - has to opt back out. Twenty-four chips silently became headings when that declaration
     // was first removed, which is how the exception was found.
     await openTheSeededMarket(authenticatedPage);
-    await authenticatedPage.goto(marketScreenPath(marketId, 'tables'));
+    await authenticatedPage.goto(marketScreenPath(marketId, 'result'));
     await expect(authenticatedPage.getByTestId('tables-count-assigned')).toBeVisible({
       timeout: 10000,
     });

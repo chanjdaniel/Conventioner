@@ -67,8 +67,8 @@ test.describe('Screens say what they mean', () => {
 
     for (const [screen, url, ready] of [
       ['form builder', marketSetupPath(marketId, 'form'), 'form-builder-lock-banner'],
-      ['tables', marketScreenPath(marketId, 'tables'), 'tables-count-assigned'],
-      ['attendance', marketScreenPath(marketId, 'attendance'), 'attendance-status-heading'],
+      ['tables', marketScreenPath(marketId, 'result'), 'tables-count-assigned'],
+      ['attendance', marketScreenPath(marketId, 'attendance'), 'market-bar-title'],
     ] as const) {
       await page.goto(url);
       await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
@@ -105,13 +105,16 @@ test.describe('Screens say what they mean', () => {
   test('every market screen names its market', async ({ authenticatedPage: page }) => {
     await openTheSeededMarket(page);
 
-    for (const [url, heading] of [
-      [marketScreenPath(marketId, 'tables'), 'tables-heading'],
-      [marketScreenPath(marketId, 'attendance'), 'attendance-status-heading'],
-      [marketScreenPath(marketId, 'vendors'), 'vendors-heading'],
-    ] as const) {
+    // One bar, rendered by the frame, names the market on every page (E22/F04/S02).
+    for (const url of [
+      marketScreenPath(marketId, 'result'),
+      marketScreenPath(marketId, 'attendance'),
+      marketScreenPath(marketId, 'vendors'),
+    ]) {
       await page.goto(url);
-      await expect(page.getByTestId(heading)).toContainText(marketName, { timeout: 15000 });
+      await expect(page.getByTestId('market-bar-title')).toContainText(marketName, {
+        timeout: 15000,
+      });
     }
   });
 

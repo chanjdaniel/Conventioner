@@ -2,9 +2,9 @@
 id: E22/F02/S01
 title: The plan write refuses a change to the assignment rules after the assignment phase
 type: story
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build
@@ -17,7 +17,7 @@ The plan still saves as the organizer types in every phase, and it always sends 
 
 ## Acceptance criteria
 
-- [ ] In every phase after `assignment`, a plan write that changes any assignment rule is refused with a reason naming the settled assignment, and stores nothing.
-- [ ] In the same phases, a plan write that restates the stored rules and changes something else in the plan succeeds.
-- [ ] Up to and including `assignment`, the rules save as they do today.
-- [ ] Pinned by pytest beside the existing plan-write tests.
+- [x] In every phase after `assignment`, a plan write that changes any assignment rule is refused with a reason naming the settled assignment, and stores nothing.
+- [x] In the same phases, a plan write that restates the stored rules and changes something else in the plan succeeds.
+- [x] Up to and including `assignment`, the rules save as they do today.
+- [x] Pinned by pytest beside the existing plan-write tests.

@@ -2,9 +2,9 @@
 id: E23
 title: The plan uses its space
 type: epic
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## Outcome

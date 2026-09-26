@@ -2,9 +2,9 @@
 id: E23/F02/S01
 title: The chosen dates are listed by month beside the calendar
 type: story
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build
@@ -22,9 +22,9 @@ A market date is a calendar day, not an instant: every date in the list is forma
 
 ## Acceptance criteria
 
-- [ ] At 1920x1080, with 1, 5 and 20 dates, the calendar and the list sit side by side and the card is no taller than the calendar.
-- [ ] Dates spanning a new year show both years.
-- [ ] × removes a date; clicking a month shows that month; the shown month is highlighted.
-- [ ] Below the room for both, the list sits under the calendar.
-- [ ] The list shows the same day in Honolulu, Los Angeles and Tokyo.
-- [ ] The existing dates testids keep working, or the specs that use them move with them.
+- [x] At 1920x1080, with 1, 5 and 20 dates, the calendar and the list sit side by side and the card is no taller than the calendar.
+- [x] Dates spanning a new year show both years.
+- [x] × removes a date; clicking a month shows that month; the shown month is highlighted.
+- [x] Below the room for both, the list sits under the calendar.
+- [x] The list shows the same day in Honolulu, Los Angeles and Tokyo.
+- [x] The existing dates testids keep working, or the specs that use them move with them.

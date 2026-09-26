@@ -2,9 +2,9 @@
 id: E22/F01/S02
 title: The tab is called Assignment
 type: story
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build
@@ -17,6 +17,6 @@ The component and page-object names that describe the *result* (as opposed to th
 
 ## Acceptance criteria
 
-- [ ] The tab's label is "Assignment" on every market, in every phase.
-- [ ] Tests, the page objects' tab accessors and the docs that name the tab say "Assignment"; nothing user-facing says "Assignment Results".
-- [ ] The retired `/assignment-results` path still redirects to the markets list.
+- [x] The tab's label is "Assignment" on every market, in every phase.
+- [x] Tests, the page objects' tab accessors and the docs that name the tab say "Assignment"; nothing user-facing says "Assignment Results".
+- [x] The retired `/assignment-results` path still redirects to the markets list.

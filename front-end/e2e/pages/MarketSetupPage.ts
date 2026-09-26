@@ -70,9 +70,9 @@ export class MarketSetupPage {
     this.optionsMaxAssignmentsInput = page.getByTestId('setup-options-max-assignments-input');
     this.optionsMaxProportionInput = page.getByTestId('setup-options-max-proportion-input');
 
-    this.setupTab = page.getByTestId('market-setup-setup-tab');
-    this.formTab = page.getByTestId('market-setup-form-tab');
-    this.applicationsTab = page.getByTestId('market-setup-applications-tab');
+    this.setupTab = page.getByTestId('market-bar-tab-setup');
+    this.formTab = page.getByTestId('market-bar-tab-form');
+    this.applicationsTab = page.getByTestId('market-bar-tab-applications');
     this.importButton = page.getByTestId('market-setup-import-button');
 
     this.phaseControlPanel = page.getByTestId('phase-rail');
@@ -157,7 +157,7 @@ export class MarketSetupPage {
   async gotoAssignment(): Promise<void> {
     // Click the tab rather than navigating: a hard `goto` reloads the app and drops whatever the
     // debounced plan save has not written yet, which an organizer switching tabs never does.
-    await this.page.getByTestId('market-setup-assignment-tab').click();
+    await this.page.getByTestId('market-bar-tab-assignment').click();
     await this.assignButton.waitFor({ state: 'visible', timeout: 15000 });
   }
 
