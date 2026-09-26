@@ -118,6 +118,12 @@ Two half-table vendors placed at the same table. A vendor may name a preferred p
 
 **Assignment**:
 The output of the solver: which vendor sits at which table on which date.
+Changed afterwards only by hand placements, never by editing the rules - new rules take effect when the assignment is run again.
+The organizers' word for the whole job of placing vendors, which is why the page where the **Assignment rules** are set and run is also labelled Assignment; its sibling page, where the assignment is read and changed, is the **Result**.
+_Avoid_: Assignment results (the assignment is the result; there is no second thing)
+
+**Assignment rules**:
+The organizer's inputs to the solver: the **Priority**, the **Max assignments per vendor**, and how many of a section's tables may be split between half-table vendors. What the organizer sets before running an assignment, as distinct from the **Assignment** it produces.
 
 **Priority**:
 The organizer's ordered rules for who gets placed first when demand exceeds tables. Each rule names a target - one of their own form questions, or a built-in fact about the application such as when it was submitted - and an ordering over that target's values.
