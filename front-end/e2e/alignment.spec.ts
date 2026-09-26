@@ -1,6 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketScreenPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
-import type { Page } from '@playwright/test';
 
 /**
  * Things that are meant to line up, do (E15/F01/S03).
@@ -21,7 +21,7 @@ import type { Page } from '@playwright/test';
 
 test.describe('Things meant to line up do', () => {
   let marketSlug: string;
-  let market: unknown;
+  let marketId: string;
 
   test.beforeAll(async ({ request }) => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
@@ -32,30 +32,13 @@ test.describe('Things meant to line up do', () => {
       TEST_USER.password,
     );
     marketSlug = seeded.marketSlug;
-
-    const response = await request.get(`${BACKEND_URL}/markets/${seeded.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    market = ((await response.json()) as { market: unknown }).market;
+    marketId = seeded.marketId;
   });
-
-  /** `/vendors` and `/market-setup` read their market from `localStorage`, not from the URL. */
-  async function openTheSeededMarket(page: Page): Promise<void> {
-    await page.goto('/login');
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
-  }
 
   test('a column of figures does not shift with its digits', async ({
     authenticatedPage: page,
   }) => {
-    await openTheSeededMarket(page);
-    await page.goto('/vendors');
+    await page.goto(marketScreenPath(marketId, 'vendors'));
     // Wait for a ROW, not for the search box. The box renders before the list has loaded, so
     // waiting on it measured an empty list and the assertion below passed or failed on timing.
     await expect(page.locator('.vendor-date-count').first()).toBeVisible({ timeout: 15000 });

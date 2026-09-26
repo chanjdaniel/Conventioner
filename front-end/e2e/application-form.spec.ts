@@ -1,4 +1,5 @@
 import { test, expect, BACKEND_URL, TEST_USER, ApplicationFormPage } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { seedApplication } from './helpers/seedApplication';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import type { Page } from '@playwright/test';
@@ -34,20 +35,11 @@ async function createMarket(page: Page): Promise<string> {
   }
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-  const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
-  const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+  await page.evaluate((user) => {
+    localStorage.setItem('user', JSON.stringify(user));
+  }, TEST_USER.email);
 
-  await page.evaluate(
-    ({ m, user }) => {
-      localStorage.setItem('market', JSON.stringify(m));
-      localStorage.setItem('user', JSON.stringify(user));
-    },
-    { m: market, user: TEST_USER.email },
-  );
-
-  await page.goto('/market-setup');
+  await page.goto(marketSetupPath(marketId));
   return marketId;
 }
 
@@ -207,12 +199,13 @@ test.describe('Application form builder', () => {
     expect(formPut.status()).toBe(409);
     expect((await formPut.json()).error).toContain('Application form is locked');
 
-    // A market PUT carrying a rewritten form cannot bypass it either.
+    // Nor is there another door: the market PUT that once carried a whole market, form and all,
+    // is gone (E21/F03/S06), so a rewritten form has nowhere else to go.
     const marketBefore = await (await api.get(`/markets/${marketId}`)).json();
     const marketPut = await api.put(`/markets/${marketId}`, {
       data: { ...marketBefore.market, applicationForm: tamperedForm },
     });
-    expect(marketPut.ok()).toBeTruthy();
+    expect(marketPut.status()).toBe(405);
 
     // Whatever route was used, the stored form is still the one applicants see.
     const after = await (await api.get(`/markets/${marketId}/application-form`)).json();

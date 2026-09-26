@@ -1,16 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
 
 import MarketSetupView from '@/views/MarketSetupView.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 import ElementMarketDates from '@/components/elements/ElementMarketDates.vue';
+import { marketRoute, serveMarket } from './support/marketScreen';
+import { useMarketStore } from '@/stores/market';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  // The open tab lives in the URL now (E10/F03/S01).
-  useRoute: () => ({ query: {} }),
+  // The market's id and the open tab both live in the URL (E10/F03/S01, E21/F02/S02).
+  useRoute: () => marketRoute(),
 }));
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
@@ -46,45 +49,35 @@ const SERVER_MARKET_AFTER_TRANSITION = {
   },
 };
 
-function storePlannedMarket() {
-  localStorage.setItem(
-    'market',
-    JSON.stringify({
-      id: 'market-1',
-      name: 'Riverside Spring',
-      phase: 'draft',
-      setupObject: PLANNED_SETUP,
-      applicationForm: null,
-    }),
-  );
-}
+/** The market as last SAVED, before the transition: the options the organizer typed are not in it. */
+const SAVED_DRAFT = {
+  ...SERVER_MARKET_AFTER_TRANSITION,
+  phase: 'draft',
+  isDraft: true,
+};
 
 beforeEach(() => {
-  localStorage.clear();
+  setActivePinia(createPinia());
   api.get.mockReset();
   api.put.mockReset();
+  api.put.mockResolvedValue({ data: {} });
+  serveMarket(api.get, SAVED_DRAFT);
 });
 
-/**
- * Advance the phase, then make the view SAVE, and report what it sent.
- *
- * Asserting on local storage alone would be vacuous: the old handler never wrote there, so the
- * untouched original still carried the options and the assertion passed while the defect stood.
- * What the next save sends is the thing that actually reaches the server.
- *
- * The save used to be the wizard's Next button. The plan is one page now (E10/F02/S01), so it is
- * a plan edit that saves - debounced, hence the timers.
- */
-async function savedPayloadAfterAdvancing() {
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+async function mountThePlan() {
   vi.useFakeTimers();
-  // The setting container has to render its slots, or the plan's editors never mount and there is
-  // nothing to emit an edit from.
+  // The plan tab owns the cards since E18/F02/S01, and the setting container renders the slot
+  // each editor lives in - both have to be real or there is nothing to emit an edit from.
   const wrapper = mount(MarketSetupView, {
     shallow: true,
     global: {
       stubs: {
-        // The plan tab owns the cards since E18/F02/S01, and the setting container renders the
-        // slot each editor lives in - both have to be real or there is nothing to emit an edit from.
+        // The frame renders the bar and the tabs' content in its slots (E21/F04/S01).
+        MarketFrame: false,
         MarketPlanTab: false,
         ElementSettingContainer: {
           template: '<div><slot name="setting-title" /><slot name="setting-content" /></div>',
@@ -92,25 +85,35 @@ async function savedPayloadAfterAdvancing() {
       },
     },
   });
-  wrapper.findComponent(PhaseRail).vm.$emit('phase-advanced', SERVER_MARKET_AFTER_TRANSITION);
-  await wrapper.vm.$nextTick();
+  await vi.advanceTimersByTimeAsync(0);
+  return wrapper;
+}
 
-  api.put.mockClear();
-  // Any plan edit; the payload is what matters, not which field moved.
+/**
+ * Type into the plan, advance the phase before the autosave fires, and report what the save sent.
+ *
+ * The transition is a write, so the store re-reads the market - and the server's copy carries the
+ * plan as last SAVED, without what was just typed. The plan is the organizer's working copy, which
+ * a re-read never touches (E21/F02/S02); it used to be spliced back over the server's copy by hand.
+ */
+async function savedPayloadAfterAdvancing() {
+  const wrapper = await mountThePlan();
+
   wrapper.findComponent(ElementMarketDates).vm.$emit('update:setupObject', PLANNED_SETUP);
   await wrapper.vm.$nextTick();
-  await vi.advanceTimersByTimeAsync(1000);
-  vi.useRealTimers();
 
+  serveMarket(api.get, SERVER_MARKET_AFTER_TRANSITION);
+  await useMarketStore().refresh();
+  await vi.advanceTimersByTimeAsync(0);
+
+  await vi.advanceTimersByTimeAsync(1000);
   expect(api.put).toHaveBeenCalled();
-  return api.put.mock.calls[0][1];
+  return { wrapper, saved: api.put.mock.calls[0][1] };
 }
 
 describe('advancing a phase does not discard the organizer\u2019s unsaved plan', () => {
   it('the next save still carries the assignment options the organizer typed', async () => {
-    storePlannedMarket();
-
-    const saved = await savedPayloadAfterAdvancing();
+    const { saved } = await savedPayloadAfterAdvancing();
 
     expect(saved.setupObject.assignmentOptions).toEqual({
       maxAssignmentsPerVendor: 2,
@@ -119,23 +122,20 @@ describe('advancing a phase does not discard the organizer\u2019s unsaved plan',
   });
 
   it('the next save still carries the tiers and sections that were planned', async () => {
-    storePlannedMarket();
-
-    const saved = await savedPayloadAfterAdvancing();
+    const { saved } = await savedPayloadAfterAdvancing();
 
     expect(saved.setupObject.sections).toHaveLength(1);
     expect(saved.setupObject.tiers[0].name).toBe('Gold');
   });
 
   it('still takes the new phase from the server, which is what the transition decided', async () => {
-    storePlannedMarket();
-    const wrapper = mount(MarketSetupView, { shallow: true });
+    const wrapper = await mountThePlan();
 
-    wrapper.findComponent(PhaseRail).vm.$emit('phase-advanced', SERVER_MARKET_AFTER_TRANSITION);
-    await wrapper.vm.$nextTick();
+    // The rail re-reads the store once a transition lands; what the screen shows is what it got.
+    serveMarket(api.get, SERVER_MARKET_AFTER_TRANSITION);
+    await useMarketStore().refresh();
+    await vi.advanceTimersByTimeAsync(0);
 
-    const stored = JSON.parse(localStorage.getItem('market') ?? '{}');
-    expect(stored.phase).toBe('applications_open');
-    expect(stored.isDraft).toBe(false);
+    expect(wrapper.findComponent(PhaseRail).props('market')?.phase).toBe('applications_open');
   });
 });

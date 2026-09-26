@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 import re
 import uuid
 from typing import NamedTuple, Optional, Dict, Any, List, Tuple
-from pymongo.results import InsertOneResult, UpdateResult, DeleteResult
-from pydantic import BaseModel
-from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
+from pymongo.results import DeleteResult
+from pydantic import ValidationError
 from datatypes import (
     ApplicationForm,
     EssentialFormOptions,
@@ -15,8 +15,10 @@ from datatypes import (
     MarketRole,
     MarketTableRow,
     Organization,
+    SetupObject,
     UnassignedTableEntry,
     intake_mode_from_market_document,
+    market_name_slug,
     phase_label,
     phase_from_market_document,
     table_code_for,
@@ -29,11 +31,12 @@ from assignment.assignment import (
     describe_stored_assignment,
     solver_vendors_for,
 )
-from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case, snake_to_camel
+from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
 from market_documents import (
     market_doc_field,
+    market_doc_projection,
     market_doc_filter,
     market_doc_key,
     market_doc_set,
@@ -45,7 +48,6 @@ import api.organizations as OrgsApi
 import api.users as UsersApi
 import traceback
 import logging
-import requests
 from assignment.csv_output import market_csv_to_string
 from placement_reasons import overridden_placements, unplaced_dates
 from db_config import get_database
@@ -280,104 +282,6 @@ def _strip_persisted_assignment_statistics(market_dict: Dict[str, Any]) -> None:
         assignment_object.pop("assignment_statistics", None)
 
 
-def _intake_mode_for_update(market: Market, existing_market: Market) -> IntakeMode:
-    """The intake mode an update writes: the payload's while the market is a draft, else the stored one.
-
-    Switching intake mid-lifecycle strands whatever the previous mode produced -- flip a form
-    market to CSV after applicants have applied and their dashboards go dark -- so the answer is
-    fixed the moment the market leaves ``draft``. This mirrors the application-form lock: editable
-    until it would invalidate something real, then fixed for good.
-
-    The freeze is derived from the stored phase rather than from a list of phases that count as
-    late, so it stays in step with the phase machine as edges are added.
-
-    A draft payload that does not mention intake mode keeps what the draft stored.
-    ``Market.intake_mode`` defaults to ``csv``, so an omitted field is otherwise indistinguishable
-    from a deliberate ``csv``, and a client round-tripping a market it fetched would silently
-    switch off a form market's own intake.
-    """
-    if existing_market.phase is not MarketPhase.DRAFT:
-        return existing_market.intake_mode
-    if "intake_mode" not in market.model_fields_set:
-        return existing_market.intake_mode
-    return market.intake_mode
-
-
-def review_highlights_for_update(market: Market, existing_market: Market) -> Optional[List[str]]:
-    """The review highlights a market update must store: always the ones already stored.
-
-    Server-owned for the same reason as ``application_form`` and ``assignment_object``, and for a
-    sharper one of its own: a reviewer changes these from the review queue (E19/F03/S02), MID
-    QUEUE, while a market screen open in another tab still holds the list as it was. A market PUT
-    from that tab would silently undo the change, and the reviewer would find the card leading with
-    the wrong answers again with nothing to show why.
-
-    ``save_review_highlights`` is the only writer.
-    """
-    return existing_market.review_highlights
-
-
-def _preserve_server_owned_fields(
-    market_dict: Dict[str, Any], market: Market, existing_market: Market
-) -> None:
-    """Keep market state the update payload does not own.
-
-    `phase` is lifecycle state advanced by the server, never by an update body. `application_form`
-    is written only by ``save_application_form``: a single writer keeps the D9 lock unbypassable
-    and stops a stale client copy of the market from silently reverting a saved form on the next
-    PUT. Both are always taken from the stored market, whatever the payload carries.
-
-    `isDraft` is derived strictly from `phase` and rewritten here from the stored phase, never
-    from the payload. No read consults the stored value while the document's `phase` is one this
-    build knows -- ``Market.is_draft`` is computed, and no query filters on it. It is kept in
-    agreement anyway because it is the fallback ``phase_from_market_document`` drops to when
-    `phase` is missing or unrecognized (an older build reading a phase a newer one wrote, say),
-    and a fallback that disagrees with the phase is worse than no fallback: it answers
-    confidently and wrongly.
-
-    `assignment_object` is written only by ``api/placements.py`` - a solver run or a single
-    placement - for the same single-writer reason, and for a sharper one: it is what check-in
-    reads at the door, so a stale copy overwriting it moves vendors on market day.
-
-    `intake_mode` is the one field here the client may write, and only while the market is still a
-    draft -- see ``_intake_mode_for_update``.
-
-    The remaining Conventioner fields are carried over whenever the payload omits them, so a client
-    that round-trips a market it fetched cannot null them out; an explicit null still clears them.
-    """
-    market_dict["phase"] = existing_market.phase.value
-    market_dict["is_draft"] = existing_market.is_draft
-    market_dict["intake_mode"] = _intake_mode_for_update(market, existing_market).value
-    market_dict["application_form"] = _application_form_dump(existing_market)
-    # results_published is a server-owned gate: only the publish-results endpoint flips it.
-    market_dict["results_published"] = existing_market.results_published
-    # import_mapping is written only by the CSV import endpoint, for the same single-writer reason
-    # as application_form: a stale client copy must not revert what an import just saved.
-    market_dict["import_mapping"] = (
-        existing_market.import_mapping.model_dump()
-        if existing_market.import_mapping is not None else None
-    )
-    # assignment_object is written only by api/placements.py. It is what check-in reads at the
-    # door, and it was the one field on this list that was missing: a market PUT carrying a stale
-    # client copy could overwrite a whole assignment, with no manual editing involved at all.
-    market_dict["assignment_object"] = existing_market.assignment_object.model_dump()
-    # review_highlights is written only by save_review_highlights - see its note on why a stale
-    # tab must not be able to undo a change a reviewer made mid-queue.
-    market_dict["review_highlights"] = review_highlights_for_update(market, existing_market)
-    _strip_persisted_assignment_statistics(market_dict)
-    for field in ("review_config",):
-        if field in market.model_fields_set:
-            continue
-        existing_value = getattr(existing_market, field)
-        if existing_value is None:
-            continue
-        market_dict[field] = (
-            existing_value.model_dump()
-            if isinstance(existing_value, BaseModel)
-            else existing_value
-        )
-
-
 def assignment_to_show(market: Market, vendors=None) -> Market:
     """The assignment every read-only view should describe: the stored one, when there is one.
 
@@ -574,6 +478,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['_id'] = str(market_dict['_id'])
     market_dict['user_role'] = user_role.value
     _stamp_effective_market_state(market_dict, market.phase)
+    # The form lock rides on the market every screen reads (E21/F02/S03): it depends on whether an
+    # application exists, which only the server knows, and the store re-reads the market after every
+    # write - so a transition reaches the form builder the moment it lands. Served, never stored.
+    market_dict['applicationFormLockReason'] = application_form_lock_reason(market)
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -726,11 +634,16 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["id"] = market_id
     market_dict = convert_keys_to_camel_case(market_dict)
     
-    existing_market = markets_collection.find_one({"name": market.name})
-    if existing_market:
-        raise ValueError("Market already exists")
+    refusal = public_address_refusal(market.name)
+    if refusal:
+        raise ValueError(refusal)
     
-    result = markets_collection.insert_one(market_dict)
+    try:
+        result = markets_collection.insert_one(market_dict)
+    except DuplicateKeyError as e:
+        # Two creations passed the check above and raced; the unique `market_slug` index refused
+        # the second. It is the same clash, so it reads the same (code review of E21).
+        raise ValueError(_address_taken(market.name)) from e
     
     if market.organization_id:
         try:
@@ -744,32 +657,63 @@ def create_market(market: Market, owner_email: str) -> tuple:
     
     return result, market_id
 
-def update_market(market_id: str, market: Market, requesting_user: str) -> UpdateResult:
-    """Update an existing market. Requires EDIT permission."""
-    existing_market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+def public_address_refusal(name: str, market_id: Optional[str] = None) -> Optional[str]:
+    """Why no market may be called this, or None when it may (E21/F03/S03).
 
-    market_dict = market.model_dump()
-    _strip_persisted_assignment_statistics(market_dict)
-    _preserve_server_owned_fields(market_dict, market, existing_market)
-    market_dict["roles"] = _convert_roles_keys_to_user_ids(market_dict.get("roles", {}))
-    market_dict = convert_keys_to_camel_case(market_dict)
-    
-    old_org_id = existing_market.organization_id
-    new_org_id = market.organization_id
-    if old_org_id != new_org_id:
-        organizations_collection = db["organizations"]
-        if old_org_id:
-            organizations_collection.update_one(
-                {"id": old_org_id},
-                {"$pull": {"markets": market_id}}
-            )
-        if new_org_id:
-            organizations_collection.update_one(
-                {"id": new_org_id},
-                {"$addToSet": {"markets": market_id}}
-            )
-    
-    return markets_collection.update_one({"id": market_id}, {"$set": market_dict})
+    The name decides the slug and the slug is the market's public address - its applicant links
+    and its check-in page, served without authentication - so two markets answering one address
+    could hand a stranger the wrong market. Asked by creation and by a rename alike, against every
+    OTHER market; the unique ``market_slug`` index is the database's refusal of the same thing.
+
+    A name with nothing sluggable in it has no public address, so it can only clash by name.
+    """
+    slug = market_name_slug(name or "")
+    query: Dict[str, Any] = (
+        market_doc_filter("slug", slug) if slug else market_doc_filter("name", name)
+    )
+    if market_id is not None:
+        query.update(market_doc_filter("id", {"$ne": market_id}))
+    if markets_collection.find_one(query, market_doc_projection(["id"])) is None:
+        return None
+    return _address_taken(name)
+
+
+def _address_taken(name: str) -> str:
+    """The refusal for a market whose address another market already answers."""
+    slug = market_name_slug(name or "")
+    if slug:
+        return (
+            f"Another market already uses the web address /{slug}. "
+            "Choose a name that is different in more than accents or punctuation."
+        )
+    return "Another market already has this name."
+
+
+def organization_refusal(user_email: str, organization_id: Optional[str]) -> Optional[str]:
+    """Why this user's market may not belong to this organization, or None when it may.
+
+    Asked by creation, the one door a market's organization passes through (E21/F03/S01, S05, S06:
+    no write changes it afterwards). A market belongs to exactly one organization - its members see
+    the market, and deleting the organization deletes it - so a market that names none, names one
+    that does not exist, or names one its writer is not part of is a state the product refuses to
+    produce.
+    """
+    if not organization_id:
+        return "organization_id is required"
+    organization = OrgsApi.get_organization(organization_id)
+    if not organization:
+        return "Organization not found"
+    user = UsersApi.get_user(user_email)
+    user_id = user.id if user else None
+    if (
+        user_id is None
+        or user_id != organization.get("owner")
+        and user_id not in organization.get("admins", [])
+        and user_id not in organization.get("members", [])
+    ):
+        return "User is not a member of this organization"
+    return None
+
 
 def get_assigned_market(market_id: str, requesting_user: Optional[str] = None) -> tuple[Dict[str, Any], int]:
     """Get an assigned market. Requires VIEW permission."""
@@ -1339,6 +1283,92 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
     return markets_collection.delete_one({"id": market_id})
 
 
+RENAME_REFUSED_AFTER_DRAFT = (
+    "This market's public web address comes from its name, and it has already been shared - "
+    "on its application link or its check-in page - so its name can no longer change."
+)
+
+
+def rename_market(market_id: str, name: str, requesting_user: str) -> None:
+    """Rename a market, only while it is a draft (E21/F03/S04).
+
+    The name decides the slug and the slug is the public address, so after draft a rename would move
+    an address that has already been handed out; it is refused with that reason instead. Decoupling
+    the slug from the name was considered and held back (the-market-frame ticket 04): it would add a
+    second stored identity to every public lookup for a need nobody has yet.
+
+    Its own write - the whole-market PUT that used to carry it is gone - carrying only the name, and
+    held to the same public-address rule as creation. Requires EDITOR, as renaming always has.
+    """
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("A market needs a name.")
+
+    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "rename")
+    if market.phase is not MarketPhase.DRAFT:
+        raise ValueError(RENAME_REFUSED_AFTER_DRAFT)
+    if name == market.name:
+        return
+
+    refusal = public_address_refusal(name, market_id)
+    if refusal:
+        raise ValueError(refusal)
+
+    try:
+        markets_collection.update_one(
+            market_doc_filter("id", market_id),
+            {"$set": {market_doc_key("name"): name, market_doc_key("slug"): market_name_slug(name)}},
+        )
+    except DuplicateKeyError as e:
+        # A rename that raced another write to the same address, refused by the unique index.
+        raise ValueError(_address_taken(name)) from e
+
+
+PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
+
+
+def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> None:
+    """Write the market plan and, while the market is a draft, how vendors reach it (E21/F03/S02).
+
+    The plan's own write. It used to travel inside a PUT of the whole market, which stored the
+    client's entire copy and stayed safe only by re-applying every field the server owns - added
+    one "a stale copy overwrote X" bug at a time. This carries the plan and the intake mode and
+    refuses anything else by name, rather than quietly re-applying over it.
+
+    The intake mode is fixed once the market leaves draft - switching it mid-lifecycle strands what
+    the previous mode produced, as flipping a form market to CSV after people applied would; a body
+    that merely restates the stored mode is not a change, because the plan saves itself in every
+    phase and says which mode it holds. Requires EDITOR, the bar every market write has.
+    """
+    extra = sorted(set(body) - set(PLAN_WRITE_FIELDS))
+    if extra:
+        raise ValueError(f"The plan write carries only the plan; it does not accept {', '.join(extra)}.")
+    if "setupObject" not in body:
+        raise ValueError("setupObject is required.")
+
+    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+
+    try:
+        plan = SetupObject(**convert_keys_to_snake_case(body["setupObject"]))
+    except ValidationError as e:
+        raise ValueError(f"Invalid plan: {e}") from e
+    update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
+
+    if body.get("intakeMode") is not None:
+        try:
+            intake = IntakeMode(body["intakeMode"])
+        except ValueError as e:
+            raise ValueError(f"Unknown intake mode: {body['intakeMode']!r}.") from e
+        if intake is not market.intake_mode:
+            if market.phase is not MarketPhase.DRAFT:
+                raise ValueError(
+                    "How vendors reach a market can only be changed while it is a draft."
+                )
+            update[market_doc_key("intake_mode")] = intake.value
+
+    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
+
+
 def save_review_highlights(
     market_id: str, keys: List[str], requesting_user: str
 ) -> List[str]:
@@ -1369,9 +1399,8 @@ def save_review_highlights(
 def save_application_form(market_id: str, application_form_data: dict, requesting_user: str) -> dict:
     """Save or update the application form for a market.
 
-    The only writer of ``Market.application_form`` on an existing market: ``update_market``
-    preserves the stored form rather than accepting one from a market body, so every write
-    passes the lock below.
+    The only writer of ``Market.application_form`` on an existing market - the whole-market PUT
+    that once carried one is gone (E21/F03/S06) - so every write passes the lock below.
 
     Returns the saved ``ApplicationForm`` as a camelCase dict on success.
 

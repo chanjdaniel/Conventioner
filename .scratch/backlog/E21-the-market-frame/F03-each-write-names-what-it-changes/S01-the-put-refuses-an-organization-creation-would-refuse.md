@@ -2,7 +2,7 @@
 id: E21/F03/S01
 title: The market PUT refuses an organization that creation would refuse
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
@@ -27,7 +27,7 @@ Whether a market may move between organizations at all, and who may move it, is 
 
 ## Acceptance criteria
 
-- [ ] Reproduced first as a failing pytest: both PUTs above succeed today.
-- [ ] A PUT that changes `organizationId` to null, to an unknown id, or to an organization the caller is not a member of answers 400, stores nothing, and touches no organization's `markets` list.
-- [ ] Creation and update share one organization check; there is no second copy of the rule.
-- [ ] Manage Market no longer offers "remove organization", and its e2e coverage is updated.
+- [x] Reproduced first as a failing pytest: both PUTs above succeed today.
+- [x] A PUT that changes `organizationId` to null, to an unknown id, or to an organization the caller is not a member of answers 400, stores nothing, and touches no organization's `markets` list.
+- [x] Creation and update share one organization check; there is no second copy of the rule.
+- [x] Manage Market no longer offers "remove organization", and its e2e coverage is updated.

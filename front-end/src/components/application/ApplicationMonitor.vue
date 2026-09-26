@@ -31,13 +31,6 @@ import { getTimestampDate } from '@/utils/utils';
 const props = defineProps<{
   market: Market | null;
   visible: boolean;
-  /**
-   * Whether the application form can still be changed, as the server answered it - not as this
-   * component guesses. The advisory below used to tell every organizer that adding a question was
-   * "possible while the market is a draft and nobody has applied", which is a description of the
-   * rule rather than of their market: five people had applied and the form was frozen.
-   */
-  formEditable: boolean;
 }>();
 
 const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void }>();
@@ -178,14 +171,20 @@ const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.ap
 // what the market is waiting on (E18/F02/S03).
 watch(undecided, (queue) => emit('update:undecidedCount', queue.length), { immediate: true });
 
+// Reload the queue when the surface is shown or a different MARKET opens - not whenever the store
+// re-reads this one. It re-reads after every write now (E21/F02/S02), a highlight toggle included,
+// and reloading on each would put the reviewer back on the first card mid-queue.
 watch(
-  () => [props.visible, props.market] as const,
+  () => [props.visible, props.market?.id] as const,
   async ([visible]) => {
-    if (visible && props.market) {
-      resultsPublished.value = props.market.resultsPublished ?? false;
-      await loadApplications();
-    }
+    if (visible && props.market) await loadApplications();
   },
+  { immediate: true },
+);
+
+watch(
+  () => props.market?.resultsPublished,
+  (published) => (resultsPublished.value = published ?? false),
   { immediate: true },
 );
 
@@ -345,13 +344,11 @@ function submittedOn(app: Application): string {
       <p v-if="nothingToJudge" class="advisory" data-testid="app-monitor-advisory">
         This market's form asks only the essential questions, so every application reads alike and
         there is nothing here to tell applicants apart.
-        <template v-if="formEditable">
-          Add a question of your own on the Application Form tab. The form freezes as soon as the
-          first applicant submits.
-        </template>
-        <template v-else>
-          The form is frozen for this market, so nothing can be added to it now.
-        </template>
+        <!-- Always frozen, and said so. This only renders once applications exist, and the D9 lock
+             freezes a form the moment one does - so the "add a question" branch it used to carry
+             could never show. It also read a flag only the form tab published, so it was stale by
+             construction and right by accident (E21/F02/S03). -->
+        The form is frozen for this market, so nothing can be added to it now.
       </p>
 
       <div v-if="current" class="review-card" data-testid="app-monitor-card">

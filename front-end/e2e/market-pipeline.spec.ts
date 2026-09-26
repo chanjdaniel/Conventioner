@@ -1,4 +1,6 @@
 import { getFormattedDate } from '../src/utils/utils';
+import { savePlan } from './helpers/savePlan';
+import { marketSetupPath, MARKET_SETUP_URL } from './helpers/marketScreens';
 import {
   test,
   expect,
@@ -78,11 +80,6 @@ test.describe('Market pipeline E2E', () => {
       });
     }
 
-    const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    let { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-
     // Seed a minimal setupObject so the setup wizard has columns to display.
     const minimalSetup = {
       priority: [],
@@ -95,32 +92,14 @@ test.describe('Market pipeline E2E', () => {
         maxHalfTableProportionPerSection: null,
       },
     };
-    const setupRes = await ctx.put(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Owner-Email': TEST_USER.email,
-      },
-      data: { ...market, setupObject: minimalSetup },
-    });
-    if (!setupRes.ok()) {
-      throw new Error(`Setup PUT failed: ${setupRes.status()} ${await setupRes.text()}`);
-    }
-    const updatedRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const updated = (await updatedRes.json()) as { market: Record<string, unknown> };
-    market = updated.market;
+    await savePlan(ctx, BACKEND_URL, TEST_USER.email, marketId, minimalSetup);
 
-    // Inject the market into localStorage so the setup wizard can pick it up.
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    // The signed-in user, where the screens that still read it look; the market is the URL's.
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
 
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(marketId));
 
     // Phase 2: Walk the setup wizard
     const setupPage = new MarketSetupPage(page);
@@ -220,15 +199,7 @@ test.describe('Market pipeline E2E', () => {
     // Publishing is a step on the phase strip, not a Done button on the results screen
     // (E10/F03/S01): that button posted a transition invalid from the phase the organizer was
     // standing in, and failed with a raw enum error.
-    const afterWalk = await page.request.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market: walkedMarket } = (await afterWalk.json()) as {
-      market: Record<string, unknown>;
-    };
-    await page.evaluate((m) => localStorage.setItem('market', JSON.stringify(m)), walkedMarket);
-
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(marketId));
     await setupPage.advancePhaseTo('market_days', 'Market Days');
 
     // Its vendors reach check-in on the URL publishing put on the air. This market takes its
@@ -261,7 +232,7 @@ test.describe('Market pipeline E2E', () => {
     // was right and only the page was wrong; this asserts what rendered.
     await page.goto('/markets');
     await page.getByTestId('market-card').filter({ hasText: marketName }).first().click();
-    await page.waitForURL('**/market-setup', { timeout: 10000 });
+    await page.waitForURL(MARKET_SETUP_URL, { timeout: 10000 });
     await expect(page.getByTestId('page-not-found')).toHaveCount(0);
     await expect(page.getByTestId('market-setup-title')).toHaveText(marketName, { timeout: 10000 });
 

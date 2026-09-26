@@ -3,7 +3,7 @@
 Two things make a stored market document canonical, and one migration establishes both.
 
 **The key convention.** Every market write camel-cases the whole document
-(``convert_keys_to_camel_case`` in ``create_market`` and ``update_market``), so
+(``convert_keys_to_camel_case`` in ``create_market`` and every named write), so
 ``organization_id`` is persisted as ``organizationId``. camelCase is the one canonical spelling:
 documents written before that convention used snake_case, and ``migrations/migrate_market_keys.py``
 rewrites them, so no stored document carries both spellings and no read has to guess.
@@ -35,11 +35,12 @@ failure mode that cannot be deployed by accident. Each marker is a single docume
 ``_id``, so the check is a couple of indexed lookups rather than a scan over every market - cheap
 enough to fail closed on, which is what it does: an unknown migration state is not a migrated one.
 
-There are two markers rather than one because the canonical form grew: the older one says the keys
-were rewritten, the newer one says the slugs were backfilled. One run of the one migration records
-both, so the operator still has one command to paste - but a database migrated by an older build
-carries only the first, which is precisely the state that has to be caught, and a build rolled
-*back* still finds the marker it knows.
+There are several markers rather than one because the canonical form grew: the first says the keys
+were rewritten, the second that the slugs were backfilled, the third that the slug index is unique
+and no two markets share a public address. One run of the one migration records them all, so the
+operator still has one command to paste - but a database migrated by an older build carries only
+the earlier ones, which is precisely the state that has to be caught, and a build rolled *back*
+still finds the markers it knows.
 """
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -64,10 +65,18 @@ MARKETS_COLLECTION = "markets"
 SCHEMA_COLLECTION = "schema_migrations"
 MARKET_KEY_MIGRATION_ID = "market_document_keys"
 MARKET_SLUG_MIGRATION_ID = "market_slugs"
+# The slug index is UNIQUE (E21/F03/S03). A database migrated before that carries the two markers
+# above over a non-unique index, and possibly over two markets sharing one public address - so it
+# needs its own marker, or an older database would boot without ever being checked for a clash.
+MARKET_SLUG_UNIQUE_MIGRATION_ID = "market_slugs_unique"
 
 # Every marker the current canonical form rests on. A database is migrated when it carries all of
 # them, and the one migration below records all of them.
-MARKET_MIGRATION_IDS = (MARKET_KEY_MIGRATION_ID, MARKET_SLUG_MIGRATION_ID)
+MARKET_MIGRATION_IDS = (
+    MARKET_KEY_MIGRATION_ID,
+    MARKET_SLUG_MIGRATION_ID,
+    MARKET_SLUG_UNIQUE_MIGRATION_ID,
+)
 
 MARKET_SLUG_INDEX = "market_slug"
 
@@ -155,14 +164,70 @@ def record_market_key_migration(db: Any) -> None:
         )
 
 
-def ensure_market_slug_index(db: Any) -> None:
-    """Index the stored slug, which is what the public lookup queries markets by.
+class MarketSlugCollisionError(MarketKeyMigrationError):
+    """Two or more stored markets answer one public address, so the unique index cannot be built.
 
-    Not unique: two organizations may each run a market called "Spring Market", and refusing the
-    second one's *creation* over a public URL collision is not this index's call to make. What it
-    is for is keeping the unauthenticated lookup off a collection scan.
+    Which of them keeps the address is an organizer's decision, not a migration's, so this names
+    every clash and stops. Renaming all but one of each group and running the migration again is
+    the whole remedy.
     """
-    db[MARKETS_COLLECTION].create_index(market_doc_key("slug"), name=MARKET_SLUG_INDEX)
+
+    def __init__(self, clashes: Dict[str, List[Dict[str, Any]]]) -> None:
+        lines = [
+            f"  /{slug}: "
+            + ", ".join(f"{doc.get('name')!r} (id {doc.get('id')})" for doc in docs)
+            for slug, docs in sorted(clashes.items())
+        ]
+        super().__init__(
+            "These markets share a public address, and a public address must belong to one "
+            "market. Rename all but one market in each group, then run the migration again:\n"
+            + "\n".join(lines)
+        )
+        self.clashes = clashes
+
+
+# A name with nothing sluggable in it has no public address at all, and any number of markets may
+# share that absence. The index covers real addresses only, so the empty slug is not one address
+# they all collide on.
+MARKET_SLUG_INDEX_FILTER = {"slug": {"$gt": ""}}
+
+
+def market_slug_collisions(docs: Sequence[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    """Every public address two or more of these market documents answer, with the markets."""
+    by_slug: Dict[str, List[Dict[str, Any]]] = {}
+    for doc in docs:
+        slug = market_name_slug(doc.get("name") or "")
+        if slug:
+            by_slug.setdefault(slug, []).append(doc)
+    return {slug: group for slug, group in by_slug.items() if len(group) > 1}
+
+
+def ensure_market_slug_index(db: Any) -> None:
+    """Index the stored slug uniquely: one public address, one market (E21/F03/S03).
+
+    It keeps the unauthenticated lookup off a collection scan, and it is the database's refusal of
+    what ``public_address_refusal`` checks first - two markets answering one public URL, so a
+    stranger following a link can land on the wrong one. It used to be non-unique, on the grounds
+    that refusing a creation over a URL clash was not the index's call; but a clash is exactly what
+    the public URL cannot survive, and creation already refused a duplicate name.
+
+    Stored markets that already clash are named and the index is not built: which of them keeps
+    the address is the operator's call. An older non-unique index of the same name is replaced,
+    because Mongo will not change an index's options in place.
+    """
+    markets = db[MARKETS_COLLECTION]
+    clashes = market_slug_collisions(list(markets.find({})))
+    if clashes:
+        raise MarketSlugCollisionError(clashes)
+    existing = markets.index_information().get(MARKET_SLUG_INDEX)
+    if existing is not None and not existing.get("unique"):
+        markets.drop_index(MARKET_SLUG_INDEX)
+    markets.create_index(
+        market_doc_key("slug"),
+        name=MARKET_SLUG_INDEX,
+        unique=True,
+        partialFilterExpression=MARKET_SLUG_INDEX_FILTER,
+    )
 
 
 def pending_market_key_rewrites(db: Any) -> List[Tuple[Dict[str, Any], Dict[str, Any]]]:

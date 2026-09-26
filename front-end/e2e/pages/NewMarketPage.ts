@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { MARKET_SETUP_URL } from '../helpers/marketScreens';
 
 /**
  * Page object for the New Market dialog.
@@ -64,8 +65,14 @@ export class NewMarketPage {
     return labels.map((label) => label.trim());
   }
 
-  /** Wait for navigation to the market setup wizard after submission. */
-  async waitForSetupRedirect(): Promise<void> {
-    await this.page.waitForURL('**/market-setup', { timeout: 15000 });
+  /**
+   * Wait for navigation to the new market's setup screen, and return the market's id - which the
+   * URL now carries, since every market screen is addressed by id (E21/F02/S02).
+   */
+  async waitForSetupRedirect(): Promise<string> {
+    await this.page.waitForURL(MARKET_SETUP_URL, { timeout: 15000 });
+    const match = new URL(this.page.url()).pathname.match(/^\/markets\/([^/]+)\/setup$/);
+    if (!match) throw new Error(`not on a market's setup screen: ${this.page.url()}`);
+    return decodeURIComponent(match[1]);
   }
 }

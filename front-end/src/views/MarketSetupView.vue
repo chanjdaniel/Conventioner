@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
+import { computed, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
+import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
-import { type SetupObject, type Market, type FormField } from '@/assets/types/datatypes';
+import { type SetupObject, type FormField } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
@@ -18,8 +19,9 @@ import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue';
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
-import PhaseRail from '@/components/PhaseRail.vue';
-import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
+import MarketFrame from '@/components/MarketFrame.vue';
+import MarketArrival from '@/components/MarketArrival.vue';
+import { useOpenMarket } from '@/utils/openMarket';
 
 const router = useRouter();
 
@@ -50,6 +52,9 @@ const activeTab = ref<MarketSurface>('setup');
 
 function showTab(tab: MarketSurface) {
   activeTab.value = tab;
+  // A surface starts at its own top, directly under the pinned frame, rather than wherever the last
+  // one was scrolled to (E21/F04/S01).
+  if (window.scrollY > 0) window.scrollTo({ top: 0 });
   router.replace({ query: { ...route.query, tab } });
 }
 
@@ -59,17 +64,34 @@ watch(
 );
 
 /**
- * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
- * value that only arrives a tick later would flash that message on every page that does have one.
+ * The market this screen is routed to, as the server last reported it (E21/F02/S02).
+ *
+ * It used to be read out of `localStorage` at setup - the route (`/market-setup`) carried no id -
+ * and patched in place by every write on the page. It comes from the one market store now, and is
+ * never written here: a write is followed by `refreshMarket()`, and the store takes what the
+ * server says.
  */
-const market = ref<Market | null>(JSON.parse(localStorage.getItem('market') || 'null'));
+const marketId = computed(() => String(route.params.marketId ?? ''));
+const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
 
-// The phase decides where an organizer lands, so this is set once the market is in hand.
+// The phase decides where an organizer lands, so this is set once the market is in hand - on
+// ARRIVAL at each market, not on every re-read: a transition does not move the organizer's tab.
 activeTab.value = tabFromRoute();
+watch(
+  () => market.value?.id,
+  (id, previous) => {
+    if (id && id !== previous) activeTab.value = tabFromRoute();
+  },
+);
 
-/** Published by the form tab. The applications tab reads the first, the plan the second. */
-const formEditable = ref(false);
-const formFields = ref<FormField[]>([]);
+/**
+ * The questions a priority rule can order by: the market's own form, as the server holds it.
+ *
+ * This used to be published by the form tab, so it was empty until that tab had been opened on the
+ * visit - and the Assignment tab, where an organizer usually arrives, offered none of the market's
+ * questions and told them to add one they already had (E21/F02/S03).
+ */
+const formFields = computed<FormField[]>(() => market.value?.applicationForm?.fields ?? []);
 const setupObject = reactive<SetupObject>({
   priority: [],
   marketDates: [],
@@ -99,22 +121,6 @@ function parseFiniteNumber(v: unknown): number | null {
 }
 
 /**
- * Take the new phase from the server without throwing away the organizer's unsaved plan.
- *
- * This used to replace the whole market with the server's copy. A transition changes the phase and
- * nothing else, but the server's copy carries the setup as it was last SAVED - so every edit not
- * yet persisted vanished the moment the organizer advanced a phase, silently. The assignment
- * options showed it most often, because they live on the wizard's last page, which has no Next to
- * save them: type them, open applications, and they are gone, leaving Assign disabled for a reason
- * nothing states.
- */
-function handlePhaseAdvanced(updatedMarket: Market) {
-  const localSetup = market.value?.setupObject;
-  market.value = localSetup ? { ...updatedMarket, setupObject: localSetup } : updatedMarket;
-  localStorage.setItem('market', JSON.stringify(market.value));
-}
-
-/**
  * True when the required Assignment Options are set, which is what enables Assign.
  *
  * It used to also require four spreadsheet columns to be mapped - which vendor answer lived
@@ -135,13 +141,37 @@ const assignmentOptionsComplete = computed(() => {
   return true;
 });
 
-onMounted(() => {
-  // create setup object
+/**
+ * The plan's working copy (E21/F02/S02).
+ *
+ * The organizer edits `setupObject` and `planIntakeMode`, never the market in the store. They are
+ * taken from the market when it arrives, and again whenever a re-read lands while there is nothing
+ * unsaved in them - so a re-read never overwrites what the organizer is typing. `planEdits` counts
+ * edits and `planSavedEdits` the edits the last successful save carried; they differ exactly while
+ * there is unsaved work.
+ */
+const planIntakeMode = ref<IntakeMode | undefined>(undefined);
+let planEdits = 0;
+let planSavedEdits = 0;
 
-  if (market.value && market.value.setupObject) {
-    Object.assign(setupObject, market.value.setupObject);
-  }
-});
+watch(
+  market,
+  (fresh, previous) => {
+    if (!fresh) return;
+    const arrived = fresh.id !== previous?.id;
+    if (!arrived && planEdits !== planSavedEdits) return;
+    if (fresh.setupObject) {
+      // Replace, not merge: a key the server no longer holds must not live on in the working copy
+      // and be written back by the next save.
+      for (const key of Object.keys(setupObject)) {
+        if (!(key in fresh.setupObject)) delete (setupObject as Record<string, unknown>)[key];
+      }
+      Object.assign(setupObject, fresh.setupObject);
+    }
+    planIntakeMode.value = fresh.intakeMode;
+  },
+  { immediate: true },
+);
 
 const importRefusalReason = computed(() => importRefusal(market.value?.phase));
 
@@ -165,13 +195,26 @@ const intakeEditable = computed(() => market.value?.phase === MarketPhase.Draft)
 
 function handleUpdateIntakeMode(mode: IntakeMode) {
   if (!market.value) return;
-  market.value.intakeMode = mode;
+  planIntakeMode.value = mode;
+  planEdits += 1;
   void savePlan();
 }
 
+/**
+ * Send the plan's working copy, then take the market back from the server.
+ *
+ * Through the plan's own write (E21/F03/S02), carrying the plan and the intake mode and nothing
+ * else. It used to PUT the whole market, which is a client claiming its copy is the truth.
+ */
 const updateMarket = async () => {
-  localStorage.setItem('market', JSON.stringify(market.value));
-  await api.put('/markets/' + market.value!.id, market.value);
+  if (!market.value) return;
+  const sending = planEdits;
+  await api.put(`/markets/${encodeURIComponent(market.value.id)}/plan`, {
+    setupObject: { ...setupObject },
+    intakeMode: planIntakeMode.value,
+  });
+  planSavedEdits = Math.max(planSavedEdits, sending);
+  await refreshMarket();
 };
 
 /**
@@ -243,8 +286,7 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
   nextTick(() => {
     if (market.value) {
       Object.assign(setupObject, newSetupObject);
-      market.value.setupObject = newSetupObject;
-      localStorage.setItem('market', JSON.stringify(market.value));
+      planEdits += 1;
       schedulePlanSave();
     }
   });
@@ -261,9 +303,6 @@ const assignError = ref('');
  * used to let the error escape unhandled, so the button did nothing at all and the page simply
  * sat there.
  */
-/** Changes when an assignment has just been stored, so the results below re-read it. */
-const assignedAt = ref(0);
-
 const handleAssign = async () => {
   if (!assignmentOptionsComplete.value || assignRefusalReason.value) {
     return;
@@ -275,15 +314,11 @@ const handleAssign = async () => {
     // POST, not GET-then-PUT. `assignmentObject` is server-owned (E11/F01/S01), so a market PUT
     // no longer stores an assignment the browser was handed - and never should have: a stale
     // copy in one tab could overwrite what another had just saved.
-    const response = await api.post('/markets/' + market.value!.id + '/assignment');
+    await api.post('/markets/' + market.value!.id + '/assignment');
 
-    const assignedMarket: Market = response.data;
-    market.value = assignedMarket;
-    localStorage.setItem('market', JSON.stringify(market.value));
-
-    // The results read the assignment when they mount, and the organizer is already looking at
-    // them - so say that it changed.
-    assignedAt.value = Date.now();
+    // The results below re-read their statistics when the market in the store changes, so taking
+    // the market back from the server is all it takes for them to show the new run.
+    await refreshMarket();
     showTab('assignment');
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -294,10 +329,7 @@ const handleAssign = async () => {
 function handlePathChoice(path: 'manual' | 'floorplan') {
   showPathChoice.value = false;
   if (path === 'floorplan') {
-    router.push({
-      path: '/floorplan-editor',
-      query: { marketId: market.value?.id },
-    });
+    if (market.value) router.push(marketPath(market.value.id, 'floorplan'));
   }
   // For 'manual': just hide overlay, existing text-based UI is already underneath
 }
@@ -313,16 +345,27 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 </script>
 
 <template>
-  <NoMarketLoaded v-if="!market" shows="a market's plan and application form" />
+  <!-- Nothing about a market is kept in the browser, so until the server answers there is nothing
+       to paint but the state of asking (E21/F02/S02). -->
+  <div v-if="!market" class="market-setup-view">
+    <div class="market-setup-body">
+      <MarketFrame class="settings-container" :market="null">
+        <MarketArrival :status="marketStatus" @retry="refreshMarket()" />
+      </MarketFrame>
+    </div>
+  </div>
   <div v-else class="market-setup-view">
     <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
     <div class="market-setup-body">
-      <div class="settings-container">
-        <div class="settings-header">
-          <!-- The market's own name, so the page says which market this is. It read "Settings" on
-               every market, and the route (/market-setup) carries no id to tell them apart. -->
-          <h1 data-testid="market-setup-title">{{ market.name }}</h1>
-          <!--
+      <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
+           banner while the page scrolls. -->
+      <MarketFrame class="settings-container" :market="market" :beforeTransition="flushPlanSave">
+        <template #bar>
+          <div class="settings-header">
+            <!-- The market's own name, so the page says which market this is. It read "Settings" on
+               every market, back when the route carried no id to tell them apart. -->
+            <h1 data-testid="market-setup-title">{{ market.name }}</h1>
+            <!--
             Navigation along the spine, not four peers (E18/F02/S02).
 
             The plan comes BEFORE the form, because the form is built from it - the back end says
@@ -334,83 +377,73 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
             adds is WHERE THE MARKET IS - `aria-current` and a mark on the surface this phase is
             worked on - so the bar and the rail beneath it say the same thing.
           -->
-          <div class="tab-bar">
-            <button
-              :class="[
-                'tab-button',
-                {
-                  active: activeTab === 'setup',
-                  current: isCurrentSurface('setup', market?.phase),
-                },
-              ]"
-              :aria-current="isCurrentSurface('setup', market?.phase) ? 'step' : undefined"
-              @click="showTab('setup')"
-              data-testid="market-setup-setup-tab"
-            >
-              Market Setup
-            </button>
-            <button
-              :class="[
-                'tab-button',
-                { active: activeTab === 'form', current: isCurrentSurface('form', market?.phase) },
-              ]"
-              @click="showTab('form')"
-              data-testid="market-setup-form-tab"
-            >
-              Application Form
-            </button>
-            <button
-              :class="[
-                'tab-button',
-                {
-                  active: activeTab === 'applications',
-                  current: isCurrentSurface('applications', market?.phase),
-                },
-              ]"
-              :aria-current="isCurrentSurface('applications', market?.phase) ? 'step' : undefined"
-              @click="showTab('applications')"
-              data-testid="market-setup-applications-tab"
-            >
-              Applications
-            </button>
-            <button
-              :class="[
-                'tab-button',
-                {
-                  active: activeTab === 'assignment',
-                  current: isCurrentSurface('assignment', market?.phase),
-                },
-              ]"
-              :aria-current="isCurrentSurface('assignment', market?.phase) ? 'step' : undefined"
-              @click="showTab('assignment')"
-              data-testid="market-setup-assignment-tab"
-            >
-              Assignment Results
-            </button>
+            <div class="tab-bar">
+              <button
+                :class="[
+                  'tab-button',
+                  {
+                    active: activeTab === 'setup',
+                    current: isCurrentSurface('setup', market?.phase),
+                  },
+                ]"
+                :aria-current="isCurrentSurface('setup', market?.phase) ? 'step' : undefined"
+                @click="showTab('setup')"
+                data-testid="market-setup-setup-tab"
+              >
+                Market Setup
+              </button>
+              <button
+                :class="[
+                  'tab-button',
+                  {
+                    active: activeTab === 'form',
+                    current: isCurrentSurface('form', market?.phase),
+                  },
+                ]"
+                @click="showTab('form')"
+                data-testid="market-setup-form-tab"
+              >
+                Application Form
+              </button>
+              <button
+                :class="[
+                  'tab-button',
+                  {
+                    active: activeTab === 'applications',
+                    current: isCurrentSurface('applications', market?.phase),
+                  },
+                ]"
+                :aria-current="isCurrentSurface('applications', market?.phase) ? 'step' : undefined"
+                @click="showTab('applications')"
+                data-testid="market-setup-applications-tab"
+              >
+                Applications
+              </button>
+              <button
+                :class="[
+                  'tab-button',
+                  {
+                    active: activeTab === 'assignment',
+                    current: isCurrentSurface('assignment', market?.phase),
+                  },
+                ]"
+                :aria-current="isCurrentSurface('assignment', market?.phase) ? 'step' : undefined"
+                @click="showTab('assignment')"
+                data-testid="market-setup-assignment-tab"
+              >
+                Assignment Results
+              </button>
+            </div>
           </div>
-        </div>
-
-        <!-- The lifecycle, directly below the market header and inside the card (E10/F01/S01).
-             It used to float above the card as a strip of coloured pills. -->
-        <PhaseRail
-          :market="market"
-          :beforeTransition="flushPlanSave"
-          @phase-advanced="handlePhaseAdvanced"
-        />
+        </template>
 
         <!-- Application Form Tab -->
-        <MarketFormTab
-          v-if="activeTab === 'form'"
-          :market="market"
-          :setupObject="setupObject"
-          @update:formEditable="formEditable = $event"
-          @update:formFields="formFields = $event"
-        />
+        <MarketFormTab v-if="activeTab === 'form'" :market="market" :setupObject="setupObject" />
 
         <MarketPlanTab
           v-if="activeTab === 'setup'"
           :setupObject="setupObject"
-          :market="market"
+          :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
@@ -423,7 +456,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           v-if="activeTab === 'applications'"
           :market="market"
           :visible="activeTab === 'applications'"
-          :formEditable="formEditable"
           :importRefusalReason="importRefusalReason"
         />
 
@@ -438,11 +470,10 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignmentOptionsComplete="assignmentOptionsComplete"
           :assignRefusalReason="assignRefusalReason"
           :assignError="assignError"
-          :assignedAt="assignedAt"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         />
-      </div>
+      </MarketFrame>
       <!-- A real, wired feature that sat here as a bare URL box between Back and Next, saying
            nothing about what it sends, when, or that it is optional. Silence about a working
            feature is worse than silence about a stub: the organizer who skips it never learns
@@ -516,10 +547,10 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 
   display: flex;
   flex-direction: column;
-  /* `safe` centres only while the content fits. Plain `center` splits any overflow
-       evenly above and below, and content above the scroll origin cannot be reached at
-       any scroll position - it would strand the organizer with no way back to the tabs. */
-  justify-content: safe center;
+  /* The top, never the middle (E21/F01/S02). This was `safe center`, which floated the whole card
+     - header and rail with it - into the middle of the window whenever a surface was shorter than
+     the viewport, so the market's own header moved as the organizer changed tabs. */
+  justify-content: flex-start;
   align-items: center;
 }
 
@@ -548,12 +579,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 
 .settings-container {
   align-self: stretch;
-  flex: 1;
-  min-height: 0;
-  background-color: white;
-  box-shadow: var(--shadow-card);
-  display: flex;
-  flex-direction: column;
 }
 
 .settings-right-container {
@@ -592,7 +617,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 }
 
 .tab-button:hover {
-  color: var(--mm-border);
+  color: var(--mm-text-hover-on-dark);
 }
 
 .tab-button.active {

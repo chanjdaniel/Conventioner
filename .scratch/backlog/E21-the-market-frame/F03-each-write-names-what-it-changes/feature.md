@@ -2,7 +2,7 @@
 id: E21/F03
 title: Each write names what it changes
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

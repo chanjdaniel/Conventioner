@@ -36,6 +36,10 @@
      both grounds - and pretending it could is how the phase panel came to paint
      rgba(255,255,255,.7) on a white page. Plain `white` covers the primary case. ---- */
   --mm-text-muted-on-dark: rgba(255, 255, 255, 0.72); /* 8.62 on --mm-black */
+  /* A control under the pointer on the dark bar: brighter than the resting label, never brighter
+     than the active one (white). The market tabs used --mm-border here - a 25% near-black - which
+     is 1:1 on this ground, so the label vanished exactly when it was pointed at (E21/F01/S01). */
+  --mm-text-hover-on-dark: rgba(255, 255, 255, 0.9);
 
   /* ---- Paint. Fills, and what each is legible under. ---- */
   /* Darkened from #49b096, which gave white labels 2.65 on every primary button in the product,
@@ -110,6 +114,10 @@
      1440 rather than the content-only answer of 1360 because that is the phase rail's measured
      break - below it the rail wraps to a second row on a published market. The rail still wraps at
      --list-max, which is ticket 07 and may yet amend this value. */
+  /* The app banner's height, as a token (E21/F04/S01). It was whatever `5vh` came to, clamped by the
+     banner itself, and nothing else could know it - so the market frame, which sticks directly
+     beneath the banner, would have had to measure it with a script. The same value, now named. */
+  --banner-h: clamp(30px, 5vh, 100px);
   --workspace-max: 1440px; /* Market Setup and its four tabs */
   --list-max: 1100px; /* Tables, Vendors, Attendance, Markets, Organizations */
 

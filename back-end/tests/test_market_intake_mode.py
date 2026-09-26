@@ -54,17 +54,6 @@ class TestReadingItFromAStoredDocument:
         intake_mode_from_market_document(doc)
         assert doc["intakeMode"] == "carrier_pigeon"
 
-    def test_the_next_write_normalizes_an_unrecognized_value(self, monkeypatch):
-        """Reading leaves the typo alone; writing repairs it.
-
-        Every writer persists the effective value, and the effective value of an unrecognized one
-        is ``csv`` -- which every reader already answers for it. Leaving the raw value in place for
-        ever would keep a document that no build can explain.
-        """
-        fake = _collection(monkeypatch, stored_market(intakeMode="carrier_pigeon"))
-        MarketsApi.update_market("market-123", client_market(), "user-1")
-        assert fake.last_update["$set"]["intakeMode"] == "csv"
-
     def test_a_blank_value_is_csv(self):
         assert intake_mode_from_market_document(stored_market(intakeMode="")) is IntakeMode.CSV
 
@@ -104,69 +93,5 @@ class TestCreatingAMarket:
         assert fake.inserted["intakeMode"] == "csv"
 
 
-class TestWritingItWhileTheMarketIsADraft:
-    def test_a_draft_market_may_change_its_intake_mode(self, monkeypatch):
-        fake = _collection(monkeypatch, stored_market(phase=MarketPhase.DRAFT))
-        MarketsApi.update_market(
-            "market-123", client_market(intake_mode=IntakeMode.FORM), "user-1"
-        )
-        assert fake.last_update["$set"]["intakeMode"] == "form"
-
-    def test_a_draft_market_may_change_it_back(self, monkeypatch):
-        fake = _collection(
-            monkeypatch, stored_market(phase=MarketPhase.DRAFT, intakeMode="form")
-        )
-        MarketsApi.update_market(
-            "market-123", client_market(intake_mode=IntakeMode.CSV), "user-1"
-        )
-        assert fake.last_update["$set"]["intakeMode"] == "csv"
-
-    def test_a_body_that_omits_it_keeps_what_the_draft_stored(self, monkeypatch):
-        """A client round-tripping a market it fetched must not silently switch off its form.
-
-        ``Market.intake_mode`` defaults to CSV, so an omitted field is indistinguishable from a
-        deliberate ``csv`` unless the payload's set fields are consulted.
-        """
-        fake = _collection(
-            monkeypatch, stored_market(phase=MarketPhase.DRAFT, intakeMode="form")
-        )
-        MarketsApi.update_market("market-123", client_market(), "user-1")
-        assert fake.last_update["$set"]["intakeMode"] == "form"
-
-
-class TestTheFreeze:
-    """Switching intake mid-lifecycle strands whatever the previous mode produced.
-
-    Flip a form market to CSV after applicants have applied and their dashboards go dark.
-    """
-
-    @pytest.mark.parametrize(
-        "phase",
-        [p for p in MarketPhase if p is not MarketPhase.DRAFT],
-    )
-    def test_a_market_past_draft_cannot_change_its_intake_mode(self, monkeypatch, phase):
-        fake = _collection(monkeypatch, stored_market(phase=phase, intakeMode="form"))
-        MarketsApi.update_market(
-            "market-123", client_market(intake_mode=IntakeMode.CSV), "user-1"
-        )
-        assert fake.last_update["$set"]["intakeMode"] == "form"
-
-    def test_a_market_past_draft_that_stored_nothing_stays_csv(self, monkeypatch):
-        fake = _collection(monkeypatch, stored_market(phase=MarketPhase.ARCHIVED))
-        MarketsApi.update_market(
-            "market-123", client_market(intake_mode=IntakeMode.FORM), "user-1"
-        )
-        assert fake.last_update["$set"]["intakeMode"] == "csv"
-
-    def test_a_legacy_document_with_no_phase_is_judged_by_the_phase_it_falls_back_to(
-        self, monkeypatch
-    ):
-        """A published market written before ``phase`` existed is not a draft, so it is frozen."""
-        stored = stored_market(phase=MarketPhase.ARCHIVED, intakeMode="form")
-        stored.pop("phase")
-        fake = _collection(monkeypatch, stored)
-        MarketsApi.update_market(
-            "market-123", client_market(intake_mode=IntakeMode.CSV), "user-1"
-        )
-        assert fake.last_update["$set"]["intakeMode"] == "form"
-
+# Writing it - while a draft, and not after - is the plan write's to test now: the market PUT
+# that carried it is gone (E21/F03/S06). See test_the_plan_saves_only_the_plan.py.

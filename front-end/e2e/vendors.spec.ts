@@ -1,4 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { savePlan } from './helpers/savePlan';
+import { marketSetupPath } from './helpers/marketScreens';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { VendorsPage } from './pages/VendorsPage';
@@ -24,12 +26,11 @@ test.describe('Vendor browsing and search', () => {
     await page.evaluate((data) => {
       const m = { ...(data as Record<string, unknown>) };
       delete (m as Record<string, unknown>)._id;
-      localStorage.setItem('market', JSON.stringify(m));
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
     }, marketData);
 
     const vendorsPage = new VendorsPage(page);
-    await vendorsPage.goto();
+    await vendorsPage.goto(seed.marketId);
 
     await expect(vendorsPage.vendorListItems.first()).toBeVisible({ timeout: 10000 });
     await expect(vendorsPage.vendorListItems).toHaveCount(2);
@@ -68,17 +69,15 @@ test.describe('Vendor browsing and search', () => {
       TEST_USER.password,
     );
 
-    // One table for two approved vendors, so exactly one of them cannot be placed.
     const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+
+    // One table for two approved vendors, so exactly one of them cannot be placed.
     const setup = market.setupObject as { sections: Array<Record<string, unknown>> };
     setup.sections = setup.sections.map((section) => ({ ...section, count: 1 }));
-    await request.put(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-      data: market,
-    });
+    await savePlan(request, BACKEND_URL, TEST_USER.email, seed.marketId, setup);
 
     // Assign again against the smaller plan. Shrinking it is not on its own enough: every view
     // describes the STORED assignment now (E11/F03/S01), so nobody is unplaced until the run
@@ -88,19 +87,18 @@ test.describe('Vendor browsing and search', () => {
     });
     expect(rerun.ok(), await rerun.text()).toBeTruthy();
 
-    await page.evaluate((m) => {
-      localStorage.setItem('market', JSON.stringify(m));
+    await page.evaluate(() => {
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
-    }, market);
+    });
 
-    await page.goto('/market-setup?tab=assignment');
+    await page.goto(marketSetupPath(seed.marketId, 'assignment'));
     const unplaced = page.getByTestId('assignment-results-unassigned-vendor').first();
     await expect(unplaced).toBeVisible({ timeout: 15000 });
     await unplaced.click();
 
     // It leads to that vendor's panel, where the date card says why rather than showing an
     // em dash on a card the same colour as a placed one.
-    await page.waitForURL('**/vendors?vendor=**', { timeout: 10000 });
+    await page.waitForURL(/\/markets\/[^/]+\/vendors\?vendor=/, { timeout: 10000 });
     const card = page.getByTestId('vendors-detail-assignment-item').first();
     await expect(card).toBeVisible({ timeout: 10000 });
     await expect(card).toHaveAttribute('data-state', 'unplaced');
@@ -131,12 +129,11 @@ test.describe('Vendor browsing and search', () => {
     await page.evaluate((data) => {
       const m = { ...(data as Record<string, unknown>) };
       delete (m as Record<string, unknown>)._id;
-      localStorage.setItem('market', JSON.stringify(m));
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
     }, marketData);
 
     const vendorsPage = new VendorsPage(page);
-    await vendorsPage.goto();
+    await vendorsPage.goto(seed.marketId);
     await expect(vendorsPage.vendorListItems.first()).toBeVisible({ timeout: 10000 });
 
     const alice = vendorsPage.vendorListItems.filter({ hasText: 'alice@example.com' });
@@ -178,17 +175,12 @@ test.describe('Vendor browsing and search', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-    await page.evaluate((m) => {
-      localStorage.setItem('market', JSON.stringify(m));
+    await page.evaluate(() => {
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
-    }, market);
+    });
 
     const vendorsPage = new VendorsPage(page);
-    await vendorsPage.goto();
+    await vendorsPage.goto(seed.marketId);
     await expect(vendorsPage.vendorListItems.first()).toBeVisible({ timeout: 10000 });
 
     // The rail's one forward action, named by the testid it carries rather than taken by position.

@@ -4,9 +4,8 @@
 writes it decides where a vendor stands on the day. Until E11 there was no writer at all: the
 organizer's browser fetched a computed assignment from ``GET /markets/<id>/assignment`` and PUT
 the whole market back, which meant *any* market PUT carrying a stale client copy could overwrite
-an assignment wholesale - with no manual editing involved. ``_preserve_server_owned_fields`` now
-takes ``assignment_object`` from the stored market like every other server-owned field, and the
-two functions here are what may change it:
+an assignment wholesale - with no manual editing involved. That PUT is gone (E21/F03/S06), and the
+two functions here are the only things that may change it:
 
 - ``run_assignment`` runs the solver and stores the result, replacing the browser's fetch-then-PUT.
 - ``write_placement`` writes one vendor into one seat on one date.

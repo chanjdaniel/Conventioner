@@ -45,10 +45,11 @@ class PreconditionResult:
     id: str
     passed: bool
     message: str
-    #: Where the fix is made, as a front-end route. It must name the TAB that holds the remedy
-    #: (``/market-setup?tab=applications``), not just the page: every organizer screen shows the
-    #: rail, so a bare ``/market-setup`` is the page the blocker is usually displayed on and the
-    #: link did nothing when clicked. ``None`` when the remedy spans two places - the panel would
+    #: Where the fix is made, as a screen of THIS market: relative to ``/markets/<id>/``, which
+    #: the front end prefixes (E21/F02/S02), so a guard never builds a per-market URL. It must name
+    #: the TAB that holds the remedy (``setup?tab=applications``), not just the page: every
+    #: organizer screen shows the rail, so a bare ``setup`` is the page the blocker is usually
+    #: displayed on and the link did nothing when clicked. ``None`` when the remedy spans two places - the panel would
     #: rather say nothing than send the organizer to one of two, having named both in the message
     #: (E14/F01/S03). Do not point it at a redirect: the panel compares this against the current
     #: location to decide whether it leads anywhere, and cannot follow a hop.
@@ -175,7 +176,7 @@ class AssignmentComputedGuard:
                     "No assignment has been computed for this market, so its check-in page could "
                     "not tell anyone where to stand. Run the assignment first."
                 ),
-                resolution_link="/market-setup?tab=assignment",
+                resolution_link="setup?tab=assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -208,7 +209,7 @@ class AllApplicationsReviewedGuard:
                     "Every application must be approved or rejected before assignment "
                     "can begin."
                 ),
-                resolution_link="/market-setup?tab=applications",
+                resolution_link="setup?tab=applications",
             )
         if total == 0:
             return PreconditionResult(
@@ -250,7 +251,7 @@ class NoApprovedApplicationsGuard:
                     "assigned or unassigned. Run the assignment solver before "
                     "sending offers."
                 ),
-                resolution_link="/market-setup?tab=assignment",
+                resolution_link="setup?tab=assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 

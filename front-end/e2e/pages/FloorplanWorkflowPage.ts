@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { MARKET_SETUP_URL, marketScreenPath } from '../helpers/marketScreens';
 
 /** Minimal shape of a placed table as stored in the Pinia floorplan store. */
 interface PlacedTable {
@@ -25,7 +26,7 @@ interface VueAppLike {
 /**
  * Page object for the Floorplan Workflow wizard view.
  * Covers the 5-step floorplan creation flow: Upload, Calibrate, Place Tables,
- * Edit Layout, Save. Accessed at /floorplan-editor?marketId=xxx.
+ * Edit Layout, Save. Accessed at /markets/:marketId/floorplan.
  */
 export class FloorplanWorkflowPage {
   readonly page: Page;
@@ -148,7 +149,7 @@ export class FloorplanWorkflowPage {
 
   /** Navigate to the floorplan editor for a given market. */
   async goto(marketId: string): Promise<void> {
-    await this.page.goto(`/floorplan-editor?marketId=${marketId}`);
+    await this.page.goto(marketScreenPath(marketId, 'floorplan'));
   }
 
   // ─── Wizard Navigation ──────────────────────────────────────────
@@ -186,8 +187,8 @@ export class FloorplanWorkflowPage {
     // (E10/F02/S01).
     await this.page.getByTestId('market-setup-choose-path-button').click();
     await this.choosePathFloorplanCard.click();
-    // Expect navigation to /floorplan-editor
-    await this.page.waitForURL('**/floorplan-editor**', { timeout: 10000 });
+    // Expect navigation to the market's floorplan editor
+    await this.page.waitForURL(/\/markets\/[^/]+\/floorplan$/, { timeout: 10000 });
   }
 
   // ─── Step 0: Upload ─────────────────────────────────────────────
@@ -340,9 +341,9 @@ export class FloorplanWorkflowPage {
     await this.saveConfirmBtn.click();
   }
 
-  /** Wait for redirect back to market-setup after successful save. */
+  /** Wait for redirect back to the market's setup screen after a successful save. */
   async waitForSaveComplete(): Promise<void> {
-    await this.page.waitForURL('**/market-setup**', { timeout: 15000 });
+    await this.page.waitForURL(MARKET_SETUP_URL, { timeout: 15000 });
   }
 
   // ─── Helpers ────────────────────────────────────────────────────
@@ -351,7 +352,7 @@ export class FloorplanWorkflowPage {
    * Full floorplan workflow: upload, calibrate, add table type,
    * auto-place, group sections, and save.
    *
-   * Returns once the save has completed and navigated to /market-setup.
+   * Returns once the save has completed and navigated back to the market's setup screen.
    */
   async completeFloorplanWorkflow(
     fixturePath: string,

@@ -2,7 +2,7 @@
 id: E21/F01
 title: Two plain fixes
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

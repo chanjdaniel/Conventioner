@@ -2,7 +2,7 @@
 id: E21/F01/S01
 title: A tab's hover state is readable
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
@@ -19,7 +19,7 @@ Hover should read as a step between the muted resting label and the white active
 
 ## Acceptance criteria
 
-- [ ] Reproduced first in the running app: hovering an inactive tab makes its label unreadable.
-- [ ] A hovered inactive tab's label meets WCAG AA on the bar, and reads as brighter than the resting label and no brighter than the active one.
-- [ ] The value comes from a token measured against `--mm-black`, not a new hardcoded colour.
-- [ ] The Playwright contrast sweep walks the tab bar's **hover** state. It walks no hover state today, which is how this shipped; per AGENTS.md, the sweep is only worth the states it walks.
+- [x] Reproduced first in the running app: hovering an inactive tab makes its label unreadable.
+- [x] A hovered inactive tab's label meets WCAG AA on the bar, and reads as brighter than the resting label and no brighter than the active one.
+- [x] The value comes from a token measured against `--mm-black`, not a new hardcoded colour.
+- [x] The Playwright contrast sweep walks the tab bar's **hover** state. It walks no hover state today, which is how this shipped; per AGENTS.md, the sweep is only worth the states it walks.

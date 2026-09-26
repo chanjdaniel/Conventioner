@@ -2,7 +2,7 @@
 id: E21/F03/S05
 title: A market belongs to one organization, for good
 type: story
-status: ready
+status: done
 blocked_by: [E21/F03/S01]
 pr: []
 ---
@@ -21,6 +21,6 @@ The server stops accepting an organization change on any write; `S01`'s refusal 
 
 ## Acceptance criteria
 
-- [ ] Manage Market shows the market's organization as one read-only line, in the organizer's terms.
-- [ ] No control in the product changes a market's organization, and no write accepts a change to it.
-- [ ] The e2e specs for the removed controls are removed or rewritten against the read-only line.
+- [x] Manage Market shows the market's organization as one read-only line, in the organizer's terms.
+- [x] No control in the product changes a market's organization, and no write accepts a change to it.
+- [x] The e2e specs for the removed controls are removed or rewritten against the read-only line.

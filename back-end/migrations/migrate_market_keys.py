@@ -4,10 +4,10 @@
 Idempotent -- running it twice is harmless, and a database an older build already migrated only
 needs running again to pick up the slug.
 
-Canonical form is two things, and both are here because both are repaired by the same rewrite.
+Canonical form is three things, and all are here because one run repairs or checks them all.
 
 **Canonical keys.** Markets are persisted camel-cased (``convert_keys_to_camel_case`` in
-``create_market`` and ``update_market``), but documents written before that convention carry
+``create_market`` and every named write), but documents written before that convention carry
 snake_case keys, and a later write only ever adds the camelCase spelling alongside them. A
 document holding both keeps a stale ``organization_id`` (or ``is_draft``) forever, so any query
 that still matches the legacy spelling acts on data no write has refreshed since. This drops the
@@ -21,8 +21,10 @@ one from ``Market.slug``; this stamps it on the ones written before that field e
 the index. A market without one is reachable at no public URL at all.
 
 The run records a marker per part in the ``schema_migrations`` collection. The app refuses to boot
-without both, because a market this migration has not reached is one that reads silently cannot
-see. Run this before deploying, and note that nothing runs it for you.
+without all of them, because a market this migration has not reached is one that reads silently
+cannot see. The third part is the unique slug index (E21/F03/S03): markets that already share a
+public address are named and the run stops, because which of them keeps it is the operator's call.
+Run this before deploying, and note that nothing runs it for you.
 
 Usage:
     python migrations/migrate_market_keys.py
@@ -40,8 +42,11 @@ from db_config import get_database
 from market_documents import (
     MARKET_MIGRATION_IDS,
     MARKET_SLUG_INDEX,
+    MARKETS_COLLECTION,
     SCHEMA_COLLECTION,
+    MarketSlugCollisionError,
     apply_market_key_migration,
+    market_slug_collisions,
     pending_market_key_rewrites,
 )
 
@@ -68,6 +73,10 @@ def migrate(db, dry_run=False):
                 + (f" (drop {', '.join(dropped)})" if dropped else "")
                 + (f" (add {', '.join(added)})" if added else "")
             )
+        clashes = market_slug_collisions(list(db[MARKETS_COLLECTION].find({})))
+        for slug, docs in sorted(clashes.items()):
+            names = ", ".join(repr(doc.get("name")) for doc in docs)
+            print(f"[DRY RUN] /{slug} is shared by {names}: rename all but one first")
         print(f"\nDRY RUN: would rewrite {len(pending)} market(s)")
         print(f"DRY RUN: would build the '{MARKET_SLUG_INDEX}' index")
         print(f"DRY RUN: would record {markers} in '{SCHEMA_COLLECTION}'")
@@ -90,7 +99,13 @@ def main():
     args = parser.parse_args()
 
     db = get_database()
-    migrate(db, dry_run=args.dry_run)
+    try:
+        migrate(db, dry_run=args.dry_run)
+    except MarketSlugCollisionError as clash:
+        # Which market keeps a shared address is the operator's decision, so this stops and says
+        # which ones - as a message to act on, not a traceback to read around.
+        print(clash, file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

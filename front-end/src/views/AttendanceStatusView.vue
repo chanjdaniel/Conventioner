@@ -1,19 +1,27 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
 import type { VendorAttendance } from '@/assets/types/datatypes';
 import { getShortDate, getTimestampTime } from '@/utils/utils';
-import PhaseRail from '@/components/PhaseRail.vue';
-import { useRailMarket } from '@/utils/railMarket';
+import MarketFrame from '@/components/MarketFrame.vue';
+import { useOpenMarket } from '@/utils/openMarket';
+import MarketArrival from '@/components/MarketArrival.vue';
 
 const route = useRoute();
 const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
-const { market: railMarket, adopt: adoptRailMarket } = useRailMarket(marketId);
+const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+
+/** A failed arrival retries both halves: the market the rail draws, and this screen's own rows. */
+function retryArrival(): void {
+  void refreshMarket();
+  void loadAttendance();
+}
 const attendance = ref<VendorAttendance[]>([]);
 const errorMessage = ref('');
 const isLoading = ref(false);
@@ -78,7 +86,7 @@ async function loadAttendance(): Promise<void> {
 }
 
 function goBack(): void {
-  router.push({ path: '/market-setup', query: { tab: 'assignment' } });
+  router.push(marketPath(marketId.value, 'setup', 'assignment'));
 }
 
 onMounted(loadAttendance);
@@ -86,16 +94,18 @@ onMounted(loadAttendance);
 
 <template>
   <div class="attendance-status-view">
-    <div class="attendance-status-card">
-      <header class="attendance-status-header">
-        <!-- The screen, then the market (E15/F02/S03). -->
-        <h1 data-testid="attendance-status-heading">
-          {{ railMarket ? `Attendance: ${railMarket.name}` : 'Attendance Status' }}
-        </h1>
-      </header>
+    <MarketFrame class="attendance-status-card" :market="market">
+      <template #bar>
+        <header class="attendance-status-header">
+          <!-- The screen, then the market (E15/F02/S03). -->
+          <h1 data-testid="attendance-status-heading">
+            {{ market ? `Attendance: ${market.name}` : 'Attendance Status' }}
+          </h1>
+        </header>
+      </template>
 
-      <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />
-      <div class="attendance-status-body">
+      <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
+      <div v-if="marketStatus !== 'missing'" class="attendance-status-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
         <p v-if="isLoading">Loading…</p>
         <div v-else-if="attendance.length === 0" class="empty-state">
@@ -127,7 +137,7 @@ onMounted(loadAttendance);
           </table>
         </div>
       </div>
-      <div class="actions-row">
+      <template v-if="marketStatus !== 'missing'" #footer>
         <button
           type="button"
           class="primary-button"
@@ -136,24 +146,17 @@ onMounted(loadAttendance);
         >
           Back
         </button>
-      </div>
-    </div>
+      </template>
+    </MarketFrame>
   </div>
 </template>
 
 <style scoped>
 .attendance-status-view {
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  padding: 40px 20px;
+  padding: 0 var(--space-4) var(--space-4);
   display: flex;
   justify-content: center;
-  /* flex-start, not the default `stretch`: a stretched card is forced to the height of this
-     container (100vh minus padding) regardless of what it holds. Combined with the card's
-     `overflow: hidden` that clipped 1,942px of the 2,762px of table rows with no scrollbar
-     anywhere - six of twenty-four tables visible, the second market date unreachable - and it is
-     the same reason the Attendance card was an 820px slab holding 200px of content. */
   align-items: flex-start;
   background-color: var(--mm-beige);
 }
@@ -161,18 +164,18 @@ onMounted(loadAttendance);
 .attendance-status-card {
   width: 100%;
   max-width: var(--list-max);
-  background-color: white;
-  box-shadow: var(--shadow-card);
+  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
+     banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
+     card at the viewport and scroll a body inside it. */
   border-radius: var(--radius-card);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: 100%;
 }
 
 .attendance-status-header {
   background-color: var(--mm-black);
   padding: 18px 24px;
+  /* The card is rounded and nothing clips it any more (a sticky bar cannot sit inside an overflow
+     ancestor), so the bar rounds its own top corners. */
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
 .attendance-status-header h1 {
@@ -185,7 +188,6 @@ onMounted(loadAttendance);
 .attendance-status-body {
   padding: 24px;
   min-height: 200px;
-  overflow-y: auto;
   color: var(--mm-black);
 }
 
@@ -214,13 +216,6 @@ onMounted(loadAttendance);
 
 .vendor-cell {
   font-weight: 600;
-}
-
-.actions-row {
-  padding: 16px 24px;
-  display: flex;
-  justify-content: flex-start;
-  border-top: 1px solid var(--mm-border);
 }
 
 .primary-button {

@@ -86,6 +86,11 @@ Two widths rather than one because the content clusters into two groups and **no
 
 The rail still wraps at `--list-max`, which is [ticket 07](../.scratch/wayfinding/claims-and-room/issues/07-the-rails-second-row.md) and may yet amend `--list-max`.
 
+**A market screen's frame stays put** (E21/F04, from [the-market-frame ticket 01](../.scratch/wayfinding/the-market-frame/issues/01-how-the-frame-stays-put.md)).
+`MarketFrame` pins the screen's bar and the whole phase rail directly under the app banner, at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
+`--banner-h` (`clamp(30px, 5vh, 100px)`) is the banner's height as a token, so nothing measures the banner at run time.
+A frame screen never scrolls inside its card: a sticky element inside an `overflow` ancestor stops sticking.
+
 **Columns are sized by need, not by count.** `repeat(3, minmax(0, 1fr))` is what makes the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs. The codebase already accepts this: `.plan-row--asymmetric` is `3fr 2fr`.
 
 ## Radius

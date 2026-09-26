@@ -1,5 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import type { Page } from '@playwright/test';
 
 /**
@@ -35,7 +37,6 @@ async function contentWidth(page: Page, selector: string): Promise<number> {
 
 test.describe('Every organizer screen sizes itself the same way', () => {
   let marketId: string;
-  let market: unknown;
 
   test.beforeAll(async ({ request }) => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
@@ -46,21 +47,13 @@ test.describe('Every organizer screen sizes itself the same way', () => {
       TEST_USER.password,
     );
     marketId = seeded.marketId;
-    const response = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    market = ((await response.json()) as { market: unknown }).market;
   });
 
   async function openTheSeededMarket(page: Page): Promise<void> {
     await page.goto('/login');
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
   }
 
   test('there are two widths, and each screen uses one of them', async ({
@@ -72,11 +65,11 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     expect(workspace, '--workspace-max is not defined').toBeGreaterThan(0);
     expect(list, '--list-max is not defined').toBeGreaterThan(0);
 
-    await page.goto('/market-setup?tab=setup');
+    await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '.market-setup-body')).toBe(workspace);
 
-    await page.goto(`/markets/${marketId}/tables`);
+    await page.goto(marketScreenPath(marketId, 'tables'));
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '.tables-card')).toBe(list);
   });
@@ -114,11 +107,11 @@ test.describe('Every organizer screen sizes itself the same way', () => {
         return { pageScrolls: de.scrollHeight > de.clientHeight, boxed };
       });
 
-    await page.goto('/market-setup?tab=setup');
+    await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect((await measure()).boxed, 'the plan is hiding its content inside a box').toEqual([]);
 
-    await page.goto('/market-setup?tab=assignment');
+    await page.goto(marketSetupPath(marketId, 'assignment'));
     await expect(page.getByTestId('market-setup-assign-button')).toBeVisible({ timeout: 15000 });
     expect(
       (await measure()).boxed,
@@ -127,7 +120,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
 
     // Short enough that any real plan overflows it, so what scrolls is not left to chance.
     await page.setViewportSize({ width: 1920, height: 400 });
-    await page.goto('/market-setup?tab=setup');
+    await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     const short = await measure();
     expect(short.pageScrolls, 'the page does not scroll, so something else must be').toBe(true);
@@ -135,6 +128,32 @@ test.describe('Every organizer screen sizes itself the same way', () => {
       short.boxed,
       'a screen is hiding its content inside a box when the window is short',
     ).toEqual([]);
+  });
+
+  test('a surface shorter than the window starts at the top, not in the middle', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // The market view centred its card vertically (`safe center`), so a short surface - an
+    // Applications tab with nothing in it - floated the whole card, header and rail with it, to the
+    // middle of the window (E21/F01/S02). A draft with no applications is the shortest there is.
+    const draft = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto('/login');
+
+    const gapUnderBanner = async () =>
+      page.evaluate(() => {
+        const banner = document.querySelector('.app-container > header') as HTMLElement;
+        const title = document.querySelector('[data-testid="market-setup-title"]') as HTMLElement;
+        const card = title.closest('.settings-container') as HTMLElement;
+        return Math.round(card.getBoundingClientRect().top - banner.getBoundingClientRect().bottom);
+      });
+
+    for (const tab of ['applications', 'setup', 'form', 'assignment']) {
+      await page.goto(marketSetupPath(draft.marketId, tab));
+      await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
+      expect(await gapUnderBanner(), `the ${tab} tab is not at the top`).toBe(0);
+    }
   });
 
   test('no control on the plan is narrower than its own longest value', async ({
@@ -145,7 +164,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     // wide with 34px of text room, so every tier read "Pr...", "St...", "Co...".
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openTheSeededMarket(page);
-    await page.goto('/market-setup?tab=setup');
+    await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
 
     const truncated = await page.evaluate(() => {

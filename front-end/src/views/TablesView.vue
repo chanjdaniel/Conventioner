@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '@/utils/api';
@@ -7,8 +8,9 @@ import { getFormattedDate } from '@/utils/utils';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
-import PhaseRail from '@/components/PhaseRail.vue';
-import { useRailMarket } from '@/utils/railMarket';
+import MarketFrame from '@/components/MarketFrame.vue';
+import { useOpenMarket } from '@/utils/openMarket';
+import MarketArrival from '@/components/MarketArrival.vue';
 import {
   FULL_TABLE,
   HALF_TABLE_LEFT,
@@ -52,7 +54,13 @@ const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
-const { market: railMarket, adopt: adoptRailMarket } = useRailMarket(marketId);
+const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+
+/** A failed arrival retries both halves: the market the rail draws, and this screen's own rows. */
+function retryArrival(): void {
+  void refreshMarket();
+  void loadTables();
+}
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
 const vendorNames = ref<VendorNames>({});
@@ -275,10 +283,10 @@ function choiceFilterLabel(filter: ChoiceFilter): string {
 function goBack(): void {
   const vendor = normalizeQuery(route.query.vendor);
   if (vendor) {
-    router.push({ path: '/vendors', query: { vendor } });
+    router.push({ path: marketPath(marketId.value, 'vendors'), query: { vendor } });
     return;
   }
-  router.push({ path: '/market-setup', query: { tab: 'assignment' } });
+  router.push(marketPath(marketId.value, 'setup', 'assignment'));
 }
 
 async function loadTables(): Promise<void> {
@@ -403,8 +411,9 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
     closePlacement();
     // Re-read rather than patch the grid in place: the solver places everyone else around a pin,
     // so one change can move other vendors, and a locally patched grid would show a floor plan
-    // nobody is standing on.
-    await loadTables();
+    // nobody is standing on. A placement is a write to the market's stored assignment, so the
+    // store re-reads the market too (E21/F02/S04): anything else showing it follows.
+    await Promise.all([loadTables(), refreshMarket()]);
   } catch (err: unknown) {
     const data =
       err && typeof err === 'object' && 'response' in err
@@ -455,19 +464,21 @@ function swapSeats(withEmail: string): void {
 
 <template>
   <div class="tables-view">
-    <div class="tables-card">
-      <header class="tables-header">
-        <!-- The screen, then the market. An organizer running two markets in the same week
+    <MarketFrame class="tables-card" :market="market">
+      <template #bar>
+        <header class="tables-header">
+          <!-- The screen, then the market. An organizer running two markets in the same week
              could open this one and have nothing on screen say whose tables these are - on the
              screen where a hand placement moves a real vendor to a real seat (E15/F02/S03). -->
-        <h1 data-testid="tables-heading">
-          {{ railMarket ? `Tables: ${railMarket.name}` : 'Tables' }}
-        </h1>
-      </header>
+          <h1 data-testid="tables-heading">
+            {{ market ? `Tables: ${market.name}` : 'Tables' }}
+          </h1>
+        </header>
+      </template>
 
-      <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />
+      <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
 
-      <div class="tables-body">
+      <div v-if="marketStatus !== 'missing'" class="tables-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
 
         <div v-if="isLoading" class="status-message">Loading tables…</div>
@@ -765,7 +776,7 @@ function swapSeats(withEmail: string): void {
         </template>
       </div>
 
-      <div class="actions-row">
+      <template v-if="marketStatus !== 'missing'" #footer>
         <button
           type="button"
           class="primary-button"
@@ -774,8 +785,8 @@ function swapSeats(withEmail: string): void {
         >
           Back
         </button>
-      </div>
-    </div>
+      </template>
+    </MarketFrame>
 
     <PlacementDialog
       v-if="openSeat"
@@ -804,16 +815,9 @@ function swapSeats(withEmail: string): void {
 <style scoped>
 .tables-view {
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  padding: 40px 20px;
+  padding: 0 var(--space-4) var(--space-4);
   display: flex;
   justify-content: center;
-  /* flex-start, not the default `stretch`: a stretched card is forced to the height of this
-     container (100vh minus padding) regardless of what it holds. Combined with the card's
-     `overflow: hidden` that clipped 1,942px of the 2,762px of table rows with no scrollbar
-     anywhere - six of twenty-four tables visible, the second market date unreachable - and it is
-     the same reason the Attendance card was an 820px slab holding 200px of content. */
   align-items: flex-start;
   background-color: var(--mm-beige);
 }
@@ -821,20 +825,18 @@ function swapSeats(withEmail: string): void {
 .tables-card {
   width: 100%;
   max-width: var(--list-max);
-  background-color: white;
-  box-shadow: var(--shadow-card);
+  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
+     banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
+     card at the viewport and scroll a body inside it. */
   border-radius: var(--radius-card);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  /* Grow with the content, then cap at the viewport and let the body scroll, so the header and
-     the actions row stay put on a long list. Same shape as the assignment results page. */
-  max-height: 100%;
 }
 
 .tables-header {
   background-color: var(--mm-black);
   padding: 18px 24px;
+  /* The card is rounded and nothing clips it any more (a sticky bar cannot sit inside an overflow
+     ancestor), so the bar rounds its own top corners. */
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
 .tables-header h1 {
@@ -851,8 +853,6 @@ function swapSeats(withEmail: string): void {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .filter-bar {
@@ -1255,13 +1255,6 @@ function swapSeats(withEmail: string): void {
   color: var(--mm-black);
   opacity: 0.55;
   letter-spacing: 0.6px;
-}
-
-.actions-row {
-  padding: 16px 24px;
-  display: flex;
-  justify-content: flex-start;
-  border-top: 1px solid var(--mm-border);
 }
 
 .primary-button {

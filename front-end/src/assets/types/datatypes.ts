@@ -201,6 +201,12 @@ export interface Market {
    * freezes at the first application and an organizer learns what they needed while reviewing.
    */
   reviewHighlights?: string[];
+  /**
+   * Why the application form cannot be edited, or null when it can (E21/F02/S03). Computed by the
+   * server on every read of ONE market from the D9 rule - the phase, and whether an application
+   * exists - and never writable. Undefined on a read that does not carry it, such as the list.
+   */
+  applicationFormLockReason?: string | null;
   userRole?: MarketRole; // User's effective role (added by API)
 }
 

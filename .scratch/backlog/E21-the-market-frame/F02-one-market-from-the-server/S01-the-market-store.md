@@ -2,7 +2,7 @@
 id: E21/F02/S01
 title: The market store, proved by Tables and Attendance
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
@@ -27,9 +27,9 @@ After any write that changes the market it re-fetches rather than being patched;
 
 ## Acceptance criteria
 
-- [ ] A single Pinia store holds the open market, keyed by id, and Tables and Attendance read their market and rail from it.
-- [ ] It fetches on arrival and on returning to the browser tab; a transition from the rail is followed by a re-fetch, not a local merge.
-- [ ] Navigating from market A's Tables to market B's Tables never shows A's name or phase, not even for a frame.
-- [ ] Loading, failed-with-retry, and missing-or-unreachable states render as above, and missing and unreachable are indistinguishable.
-- [ ] Signing out and in as another user never shows the previous user's market.
-- [ ] Unit tests cover the store's keying, re-fetch-after-write and stale-id rules; an e2e spec covers the return-to-tab re-fetch on Tables.
+- [x] A single Pinia store holds the open market, keyed by id, and Tables and Attendance read their market and rail from it.
+- [x] It fetches on arrival and on returning to the browser tab; a transition from the rail is followed by a re-fetch, not a local merge.
+- [x] Navigating from market A's Tables to market B's Tables never shows A's name or phase, not even for a frame.
+- [x] Loading, failed-with-retry, and missing-or-unreachable states render as above, and missing and unreachable are indistinguishable.
+- [x] Signing out and in as another user never shows the previous user's market.
+- [x] Unit tests cover the store's keying, re-fetch-after-write and stale-id rules; an e2e spec covers the return-to-tab re-fetch on Tables.

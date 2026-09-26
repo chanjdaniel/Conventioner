@@ -782,18 +782,9 @@ def create_market() -> Response:
         if owner_count != 1:
             return jsonify({"error": "Market must have exactly one owner in roles dict"}), 400
         
-        org_id = data.get('organization_id')
-        if not org_id:
-            return jsonify({"error": "organization_id is required"}), 400
-        
-        org = OrgsApi.get_organization(org_id)
-        if not org:
-            return jsonify({"error": "Organization not found"}), 400
-        
-        if (owner.id != org.get('owner')
-                and owner.id not in org.get('admins', [])
-                and owner.id not in org.get('members', [])):
-            return jsonify({"error": "User is not a member of this organization"}), 400
+        refusal = MarketsApi.organization_refusal(owner_email, data.get('organization_id'))
+        if refusal:
+            return jsonify({"error": refusal}), 400
         
         # Create the market
         result, market_id = MarketsApi.create_market(market, owner_email)
@@ -805,51 +796,48 @@ def create_market() -> Response:
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-@app.route('/markets/<market_id>', methods=['PUT'])
+@app.route('/markets/<market_id>/name', methods=['PUT'])
 @login_required
-def update_market(market_id: str) -> Response:
-    """Update an existing market."""
+def rename_market(market_id: str) -> Response:
+    """Rename a market while it is a draft (E21/F03/S04). Body: { "name": "..." }."""
     try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        # Validate the incoming market data using Pydantic
-        try:
-            data = convert_keys_to_snake_case(data)
-            market = Market(**data)
-        except Exception as validation_error:
-            print(f"Market validation error: {validation_error}")
-            print(f"Validation error type: {type(validation_error)}")
-            if hasattr(validation_error, 'errors'):
-                print(f"Validation errors: {validation_error.errors()}")
-            raise validation_error
-
-        requesting_user = authenticated_email()
-
-        # Check that user exists
-        user = UsersApi.get_user(requesting_user)
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-        
-        # Perform the update (with permission check)
-        result = MarketsApi.update_market(market_id, market, requesting_user)
-
-        # Handle no matching market
-        if result.matched_count == 0:
-            return jsonify({"error": "Market not found"}), 404
-
-        return jsonify({
-            "message": "Market updated successfully",
-            "modified_count": result.modified_count
-        }), 200
-
-    except MarketsApi.MarketNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
+        data = request.get_json(silent=True) or {}
+        MarketsApi.rename_market(market_id, data.get("name", ""), authenticated_email())
+        return jsonify({"message": "Market renamed"}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
     except PermissionError as e:
         return jsonify({"error": str(e)}), 403
-    except Exception as e:
+    except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in rename_market for {market_id}: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
+@app.route('/markets/<market_id>/plan', methods=['PUT'])
+@login_required
+def save_plan(market_id: str) -> Response:
+    """Write the market plan, and while it is a draft how vendors reach it (E21/F03/S02).
+
+    Body: { "setupObject": {...}, "intakeMode": "csv" | "form" }. Anything else is refused by
+    name: the plan's autosave sends what the plan owns, not the whole market.
+    """
+    try:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "A JSON object is required"}), 400
+        MarketsApi.save_plan(market_id, data, authenticated_email())
+        return jsonify({"message": "Plan saved"}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in save_plan for {market_id}: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
 
 
 @app.route('/markets/<market_id>/review-highlights', methods=['PUT'])
@@ -857,8 +845,8 @@ def update_market(market_id: str) -> Response:
 def save_review_highlights(market_id: str) -> Response:
     """Set which answers a reviewer reads first (E19/F03/S01).
 
-    The only writer of the field; a market PUT preserves the stored list, because a reviewer
-    changes these mid-queue and a stale client copy must not overwrite that.
+    The only writer of the field. A reviewer changes these mid-queue, which is why there is one
+    writer and no market-wide write that could carry a stale list back over it.
 
     Body: { "keys": ["business_name", "essential_available_dates"] }
 
@@ -985,7 +973,7 @@ def resume_application_form_amendment(market_id: str) -> Response:
 def save_application_form(market_id: str) -> Response:
     """Save or update the application form for a market.
 
-    The only writer of the application form; a market PUT preserves the stored one.
+    The only writer of the application form on an existing market.
     Only allowed in ``draft`` phase.  Once any application exists for the market
     the form is locked (D9) and further edits are refused.
     """

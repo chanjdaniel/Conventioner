@@ -8,6 +8,7 @@ import { useInertBehind } from '@/utils/useInertBehind';
 import { onMounted, ref, provide, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { routerSettled } from '@/utils/routerReady';
+import { useMarketStore } from '@/stores/market';
 
 const hostname = import.meta.env.VITE_FLASK_HOST;
 
@@ -25,6 +26,8 @@ const navDrawer = ref<InstanceType<typeof ElementNavigation> | null>(null);
 useInertBehind(navOpen, () => [navScrim.value, navDrawer.value?.root ?? null]);
 const route = useRoute();
 const router = useRouter();
+// A lost session forgets the open market too, for the reason signing out does.
+const marketStore = useMarketStore();
 const isLogin = computed(() => route.path === '/login');
 const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
 
@@ -57,10 +60,12 @@ onMounted(async () => {
       setUser(user_email);
     } else {
       localStorage.clear();
+      marketStore.clear();
       router.push('/login');
     }
   } catch {
     localStorage.clear();
+    marketStore.clear();
     router.push('/login');
   }
 });
@@ -191,7 +196,8 @@ header {
 
 .banner {
   width: 100%;
-  height: 5vh;
+  /* A token, because the market frame sticks at exactly this offset (E21/F04/S01). */
+  height: var(--banner-h);
 }
 
 .router-view {

@@ -2,7 +2,7 @@
 id: E21/F04
 title: The frame stays put
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

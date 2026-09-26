@@ -31,11 +31,12 @@ import ElementSectionSetup from '@/components/elements/ElementSectionSetup.vue';
 import ElementIntakeMode from '@/components/elements/ElementIntakeMode.vue';
 import { essentialOptionsFromSetup } from '@/utils/essentialFields';
 import { planGateReason } from '@/utils/planGate';
-import type { IntakeMode, Market, SetupObject } from '@/assets/types/datatypes';
+import type { IntakeMode, SetupObject } from '@/assets/types/datatypes';
 
 const props = defineProps<{
   setupObject: SetupObject;
-  market: Market | null;
+  /** The plan's working copy of how vendors reach this market, not the stored value. */
+  intakeMode: IntakeMode | undefined;
   intakeEditable: boolean;
 }>();
 
@@ -60,7 +61,6 @@ const sectionsUndescribed = computed(
 );
 
 const setupObject = computed(() => props.setupObject);
-const market = computed(() => props.market);
 const intakeEditable = computed(() => props.intakeEditable);
 </script>
 
@@ -140,7 +140,7 @@ const intakeEditable = computed(() => props.intakeEditable);
         </template>
         <template #setting-content>
           <ElementIntakeMode
-            :intakeMode="market?.intakeMode"
+            :intakeMode="props.intakeMode"
             :editable="intakeEditable"
             @update:intakeMode="(value) => emit('update:intakeMode', value)"
           />

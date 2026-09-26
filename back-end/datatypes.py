@@ -447,7 +447,7 @@ class Market(BaseModel):
     results_published: bool = False  # Organizer-controlled gate: verdicts hidden from applicants until flipped
     # Server-owned: written only by the CSV import endpoint, never by a market update body.
     import_mapping: Optional["ImportMapping"] = None
-    # Organizer-settable while the market is a draft, frozen by ``update_market`` once it is not.
+    # Organizer-settable while the market is a draft, through the plan write; fixed once it is not.
     intake_mode: IntakeMode = IntakeMode.CSV
 
     @computed_field

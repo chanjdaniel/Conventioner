@@ -21,12 +21,26 @@ import {
  * check-in URL among it, and sending every phase to the same place is one fewer thing that can be
  * wrong about a phase.
  */
-export const MARKET_HOME_PATH = '/market-setup';
+export type MarketScreen = 'setup' | 'tables' | 'attendance' | 'vendors' | 'import' | 'floorplan';
 
-/** Make this the open market and go to it. The three lists that open a market all did this by hand. */
+/**
+ * Where one of a market's screens lives (E21/F02/S02).
+ *
+ * Every market screen is addressed by id, so a link to any of them - bookmarked, shared, or opened
+ * in a second browser tab - opens that market. `/market-setup` carried no id, which is why the
+ * market had to be kept in `localStorage` to know which one was open.
+ */
+export function marketPath(marketId: string, screen: MarketScreen = 'setup', tab?: string): string {
+  const base = `/markets/${encodeURIComponent(marketId)}/${screen}`;
+  return tab ? `${base}?tab=${encodeURIComponent(tab)}` : base;
+}
+
+/**
+ * Go to a market. The three lists that open a market all did this by hand, and all three stored the
+ * market in `localStorage` first; arriving is what opens it now (E21/F02/S05).
+ */
 export function openMarket(router: Router, market: Market): void {
-  localStorage.setItem('market', JSON.stringify(market));
-  router.push(MARKET_HOME_PATH);
+  router.push(marketPath(market.id));
 }
 
 /**
@@ -81,7 +95,11 @@ export function parseMarketFromApi(market: any): Market {
       ? (phaseRaw as MarketPhase) === 'draft'
       : (market.isDraft ?? market.is_draft ?? true),
     phase: phaseRaw ? (phaseRaw as MarketPhase) : undefined,
+    // Spread first, so a key this parser does not name (the floorplans, above all) is carried
+    // rather than dropped: the plan's autosave sends a working copy built from this, and a key lost
+    // here is a key the next save erases (E21/F02/S03).
     setupObject: {
+      ...(market.setupObject ?? {}),
       priority: market.setupObject?.priority || [],
       marketDates: market.setupObject?.marketDates || [],
       tiers: market.setupObject?.tiers || [],
@@ -107,5 +125,12 @@ export function parseMarketFromApi(market: any): Market {
     // Which answers a reviewer reads first (E19/F03/S01). Absent means nothing is marked, which
     // renders the card exactly as it did before this existed.
     reviewHighlights: (market.reviewHighlights ?? market.review_highlights ?? []) as string[],
+    // How vendors reach the market, and whether verdicts are visible to applicants. Both were
+    // dropped here, harmlessly only while the screens read the unparsed `localStorage` copy.
+    intakeMode: market.intakeMode ?? market.intake_mode ?? undefined,
+    resultsPublished: market.resultsPublished ?? market.results_published ?? undefined,
+    // Why the application form cannot be edited, or null when it can: computed by the server on
+    // every read of one market (E21/F02/S03). Undefined when the read did not carry it - a list.
+    applicationFormLockReason: market.applicationFormLockReason,
   };
 }
