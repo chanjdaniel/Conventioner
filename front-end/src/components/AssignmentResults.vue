@@ -250,7 +250,7 @@ const goToAttendance = () => {
 const tablesBase = computed((): string | null => {
   const id = market.value?.id;
   if (!id) return null;
-  return `/markets/${encodeURIComponent(id)}/tables`;
+  return marketPath(id, 'result');
 });
 
 const goToTables = () => {

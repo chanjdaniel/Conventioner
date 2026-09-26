@@ -127,7 +127,7 @@ test.describe('Fixing the form from inside the import', () => {
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
       timeout: 10000,
     });
-    await page.getByTestId('market-setup-form-tab').click();
+    await page.getByTestId('market-bar-tab-form').click();
     await expect(page.getByTestId('form-field-label-input').last()).toHaveValue(
       'Our secret handshake',
       { timeout: 10000 },

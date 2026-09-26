@@ -2,8 +2,9 @@
 /**
  * The frame around a market screen (E21/F04, variant A of the-market-frame ticket 01).
  *
- * A card whose top - the screen's own bar (the market's name, its tabs, or a screen title) and the
- * whole phase rail - sticks directly under the app banner while the PAGE scrolls. Everything the
+ * A card whose top - the market's bar (its name and its tabs, `MarketBar`, the same on every market
+ * page since E22/F04/S02) and the whole phase rail - sticks directly under the app banner while the
+ * PAGE scrolls. Everything the
  * rail grows (a refused transition's blockers, an error, the archived note) is inside the pinned
  * block, under the button that caused it. Condensing on scroll hid "where the market is"; floating
  * the growth covered what it asked the organizer to fix; both were tried and rejected.
@@ -14,6 +15,7 @@
  * so a short surface fills it rather than ending mid-screen.
  */
 import type { Market } from '@/assets/types/datatypes';
+import MarketBar from '@/components/MarketBar.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 
 defineProps<{
@@ -26,7 +28,8 @@ defineProps<{
 <template>
   <div class="market-frame-card" data-testid="market-frame-card">
     <div class="market-frame" data-testid="market-frame">
-      <slot name="bar" />
+      <!-- The market's name and its tabs, the same on every market page (E22/F04/S02). -->
+      <MarketBar :market="market" />
       <PhaseRail :market="market" :beforeTransition="beforeTransition" />
       <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned with
            the frame rather than sticking on its own, because it could only guess the frame's height. -->

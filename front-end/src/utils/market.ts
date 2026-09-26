@@ -1,4 +1,5 @@
 import type { Router } from 'vue-router';
+import type { MarketFlow, MarketPage } from '@/utils/marketPage';
 import { api } from '@/utils/api';
 import {
   type ApplicationForm,
@@ -8,36 +9,29 @@ import {
 } from '@/assets/types/datatypes';
 
 /**
- * Where a market opens: its own screens, in every phase.
+ * Where a market, or one of its pages, lives (E21/F02/S02, E22/F04/S02).
+ *
+ * Every market page has its own address, so a link to any of them - bookmarked, shared, or opened
+ * in a second browser tab - opens that page of that market. With no page it is the market's own
+ * address, which lands on the page the market is worked on in its phase. The one builder of these:
+ * nothing spells a market path by hand.
+ */
+export function marketPath(marketId: string, page?: MarketPage | MarketFlow): string {
+  const base = `/markets/${encodeURIComponent(marketId)}`;
+  return page ? `${base}/${page}` : base;
+}
+
+/**
+ * Go to a market: its own screens, in every phase, landing on the page for its phase (E22/F04/S02).
+ *
+ * The three lists that open a market all did this by hand, and all three stored the market in
+ * `localStorage` first; arriving is what opens it now (E21/F02/S05).
  *
  * This used to branch. A market in `market_days` or `archived` was sent to `/<slug>`, "the public
  * page it serves" - except that `/<slug>` is gated by `applicant_intake_market_by_slug` to
  * form-intake markets only, and every MVP market is CSV. So Open on a published market landed on
- * "Page not found", while its check-in page - the thing the organizer was trying to reach - was
- * working the whole time. The gate exists precisely so a CSV market serves no public page; the
- * branch described one that does not exist.
- *
- * There is nothing to branch on. A published market has plenty to show on its own screens, the
- * check-in URL among it, and sending every phase to the same place is one fewer thing that can be
- * wrong about a phase.
- */
-export type MarketScreen = 'setup' | 'tables' | 'attendance' | 'vendors' | 'import' | 'floorplan';
-
-/**
- * Where one of a market's screens lives (E21/F02/S02).
- *
- * Every market screen is addressed by id, so a link to any of them - bookmarked, shared, or opened
- * in a second browser tab - opens that market. `/market-setup` carried no id, which is why the
- * market had to be kept in `localStorage` to know which one was open.
- */
-export function marketPath(marketId: string, screen: MarketScreen = 'setup', tab?: string): string {
-  const base = `/markets/${encodeURIComponent(marketId)}/${screen}`;
-  return tab ? `${base}?tab=${encodeURIComponent(tab)}` : base;
-}
-
-/**
- * Go to a market. The three lists that open a market all did this by hand, and all three stored the
- * market in `localStorage` first; arriving is what opens it now (E21/F02/S05).
+ * "Page not found", while its check-in page was working the whole time. There is nothing to branch
+ * on: sending every phase to the same place is one fewer thing that can be wrong about a phase.
  */
 export function openMarket(router: Router, market: Market): void {
   router.push(marketPath(market.id));

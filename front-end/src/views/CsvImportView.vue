@@ -17,6 +17,7 @@ import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import { useOpenMarket } from '@/utils/openMarket';
 import MarketArrival from '@/components/MarketArrival.vue';
+import MarketBar from '@/components/MarketBar.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { canImportInto, importRefusal } from '@/utils/importPhase';
@@ -105,7 +106,7 @@ const step = ref<Step>('upload');
 
 /** Leave the wizard for the market it belongs to. Nothing is written until the final confirm. */
 function leaveImport() {
-  if (market.value?.id) router.push(marketPath(market.value.id));
+  if (market.value?.id) router.push(marketPath(market.value.id, 'applications'));
   else router.push('/markets');
 }
 const busy = ref(false);
@@ -667,6 +668,9 @@ function startOver() {
     <MarketArrival :status="marketStatus" @retry="refreshMarket()" />
   </div>
   <div v-else class="import-view" data-testid="import-view">
+    <!-- A flow entered from Applications, so it carries the market's bar with that tab active
+         (E22/F04/S02). -->
+    <MarketBar class="import-bar" :market="market" />
     <header class="import-header">
       <div>
         <h1>Import applications</h1>

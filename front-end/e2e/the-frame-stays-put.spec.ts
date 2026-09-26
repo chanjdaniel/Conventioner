@@ -67,8 +67,8 @@ test.describe('The frame stays put', () => {
       const { frameTop, bannerBottom, scrolled } = await frameGeometry(page);
       expect(scrolled, `the ${tab} tab did not scroll, so this proves nothing`).toBeGreaterThan(0);
       expect(frameTop, `the frame left the banner on the ${tab} tab`).toBe(bannerBottom);
-      await expect(page.getByTestId('market-setup-title')).toBeInViewport();
-      await expect(page.getByTestId('market-setup-setup-tab')).toBeInViewport();
+      await expect(page.getByTestId('market-bar-title')).toBeInViewport();
+      await expect(page.getByTestId('market-bar-tab-setup')).toBeInViewport();
       await expect(page.getByTestId('phase-rail')).toBeInViewport({ ratio: 1 });
     }
   });
@@ -81,7 +81,7 @@ test.describe('The frame stays put', () => {
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
 
-    await expect(page.getByTestId('market-setup-assignment-tab')).toHaveText('Assignment');
+    await expect(page.getByTestId('market-bar-tab-assignment')).toHaveText('Assignment');
     await expect(page.getByText('Assignment Results')).toHaveCount(0);
   });
 
@@ -93,7 +93,7 @@ test.describe('The frame stays put', () => {
     await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
     await scrollToBottom(page);
 
-    await page.getByTestId('market-setup-assignment-tab').click();
+    await page.getByTestId('market-bar-tab-assignment').click();
 
     const { scrolled } = await frameGeometry(page);
     expect(scrolled).toBe(0);
@@ -146,14 +146,10 @@ test.describe('The frame stays put', () => {
     authenticatedPage: page,
   }) => {
     // Short enough that Attendance with no check-ins still scrolls: at the full frame width its rail
-    // no longer wraps to a second row, which is all that made it taller than 500px (E22/F04/S01).
-    await page.setViewportSize({ width: 1920, height: 400 });
+    // no longer wraps (E22/F04/S01), and it has no Back footer any more (E22/F04/S02).
+    await page.setViewportSize({ width: 1920, height: 300 });
 
-    for (const [screen, back] of [
-      ['tables', 'tables-back-button'],
-      ['attendance', 'attendance-status-back-button'],
-      ['vendors', 'vendors-back-button'],
-    ] as const) {
+    for (const screen of ['result', 'attendance', 'vendors'] as const) {
       await page.goto(marketScreenPath(marketId, screen));
       await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
       await page.waitForLoadState('networkidle');
@@ -173,7 +169,6 @@ test.describe('The frame stays put', () => {
       expect(scrolled, `${screen} did not scroll, so this proves nothing`).toBeGreaterThan(0);
       expect(frameTop, `the frame left the banner on ${screen}`).toBe(bannerBottom);
       await expect(page.getByTestId('phase-rail')).toBeInViewport({ ratio: 1 });
-      if (back) await expect(page.getByTestId(back)).toBeInViewport();
     }
   });
 
@@ -192,7 +187,7 @@ test.describe('The frame stays put', () => {
       ...['setup', 'form', 'applications', 'assignment'].map((tab) =>
         marketSetupPath(marketId, tab),
       ),
-      ...(['tables', 'attendance', 'vendors'] as const).map((s) => marketScreenPath(marketId, s)),
+      ...(['result', 'attendance', 'vendors'] as const).map((s) => marketScreenPath(marketId, s)),
     ];
     for (const size of [
       { width: 1920, height: 1080 },
@@ -230,7 +225,7 @@ test.describe('The frame stays put', () => {
     const screens = [
       marketSetupPath(marketId, 'setup'),
       marketSetupPath(marketId, 'assignment'),
-      ...(['tables', 'attendance', 'vendors'] as const).map((s) => marketScreenPath(marketId, s)),
+      ...(['result', 'attendance', 'vendors'] as const).map((s) => marketScreenPath(marketId, s)),
     ];
     for (const size of [
       { width: 1920, height: 1080 },
@@ -263,7 +258,7 @@ test.describe('The frame stays put', () => {
     );
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(marketSetupPath(long.marketId, 'setup'));
-    const title = page.getByTestId('market-setup-title');
+    const title = page.getByTestId('market-bar-title');
     await expect(title).toBeVisible({ timeout: 15000 });
 
     await expect(title).toHaveAttribute('title', name);
@@ -272,7 +267,7 @@ test.describe('The frame stays put', () => {
       return bar.scrollWidth <= bar.clientWidth;
     });
     expect(fits, 'the name pushed the tabs out of the bar').toBe(true);
-    await expect(page.getByTestId('market-setup-assignment-tab')).toBeInViewport({ ratio: 1 });
+    await expect(page.getByTestId('market-bar-tab-assignment')).toBeInViewport({ ratio: 1 });
   });
 
   test('the vendor search stays in view with the frame', async ({ authenticatedPage: page }) => {

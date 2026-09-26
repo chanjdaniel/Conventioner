@@ -227,9 +227,9 @@ test.describe('Every rendered text node reaches AA', () => {
         marketSetupPath(marketId, 'assignment'),
         'assignment-results-download-csv-button',
       ],
-      ['tables', marketScreenPath(marketId, 'tables'), 'tables-count-assigned'],
+      ['tables', marketScreenPath(marketId, 'result'), 'tables-count-assigned'],
       ['vendors', marketScreenPath(marketId, 'vendors'), 'vendors-search-input'],
-      ['attendance', marketScreenPath(marketId, 'attendance'), 'attendance-status-heading'],
+      ['attendance', marketScreenPath(marketId, 'attendance'), 'market-bar-title'],
     ] as const) {
       await page.goto(url);
       await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
@@ -276,7 +276,7 @@ test.describe('Every rendered text node reaches AA', () => {
     // The invisible archive-confirmation button lived here, behind two clicks, and a twenty-screen
     // walk never found it.
     await openTheSeededMarket(page);
-    await page.goto(marketScreenPath(marketId, 'tables'));
+    await page.goto(marketScreenPath(marketId, 'result'));
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
 
     await page.getByTestId('phase-rail-menu-button').click();
@@ -306,7 +306,7 @@ test.describe('Every rendered text node reaches AA', () => {
     // token, a 25% near-black, on the black bar - invisible under the pointer (E21/F01/S01).
     await openTheSeededMarket(page);
     await page.goto(marketSetupPath(marketId, 'setup'));
-    const tab = page.getByTestId('market-setup-applications-tab');
+    const tab = page.getByTestId('market-bar-tab-applications');
     await expect(tab).toBeVisible({ timeout: 15000 });
     await tab.hover();
     await expectAA(page, 'a hovered market tab');

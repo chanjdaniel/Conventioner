@@ -130,17 +130,13 @@ describe('openMarket', () => {
     MarketPhase.Offers,
     MarketPhase.MarketDays,
     MarketPhase.Archived,
-  ])('opens a market in %s on its own screens', (phase) => {
-    expect(opened(market({ phase })).push).toHaveBeenCalledWith('/markets/market-123/setup');
+  ])('opens a market in %s at its own address, which lands on the page for its phase', (phase) => {
+    expect(opened(market({ phase })).push).toHaveBeenCalledWith('/markets/market-123');
   });
 
   it('opens a stored market that predates the phase field the same way', () => {
-    expect(opened(market({ isDraft: false })).push).toHaveBeenCalledWith(
-      '/markets/market-123/setup',
-    );
-    expect(opened(market({ isDraft: true })).push).toHaveBeenCalledWith(
-      '/markets/market-123/setup',
-    );
+    expect(opened(market({ isDraft: false })).push).toHaveBeenCalledWith('/markets/market-123');
+    expect(opened(market({ isDraft: true })).push).toHaveBeenCalledWith('/markets/market-123');
   });
 
   it('keeps nothing about the market in the browser; arriving is what opens it', () => {
@@ -155,13 +151,18 @@ describe('openMarket', () => {
 });
 
 describe('marketPath', () => {
-  it('addresses every market screen by id, so a link opens that market', () => {
-    expect(marketPath('m1')).toBe('/markets/m1/setup');
-    expect(marketPath('m1', 'setup', 'assignment')).toBe('/markets/m1/setup?tab=assignment');
-    expect(marketPath('m1', 'tables')).toBe('/markets/m1/tables');
+  it('gives every market page its own address, so a link opens that page of that market', () => {
+    expect(marketPath('m1', 'setup')).toBe('/markets/m1/setup');
+    expect(marketPath('m1', 'assignment')).toBe('/markets/m1/assignment');
+    expect(marketPath('m1', 'result')).toBe('/markets/m1/result');
+    expect(marketPath('m1', 'import')).toBe('/markets/m1/import');
+  });
+
+  it("is the market's own address with no page, which lands on the page for its phase", () => {
+    expect(marketPath('m1')).toBe('/markets/m1');
   });
 
   it('escapes an id rather than letting it name another path', () => {
-    expect(marketPath('a/b')).toBe('/markets/a%2Fb/setup');
+    expect(marketPath('a/b', 'setup')).toBe('/markets/a%2Fb/setup');
   });
 });

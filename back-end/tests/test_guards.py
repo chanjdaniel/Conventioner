@@ -745,21 +745,26 @@ class TestEveryResolutionLinkPointsAtItsFix:
     where this turns it into a red build for whoever typed it.
     """
 
-    #: Routes a link may name, relative to the market's own screens. Only tabs the URL actually
-    #: distinguishes: ``?tab=setup`` is NOT here, because ``tabFromRoute()`` can render the setup
-    #: tab for a bare ``setup`` too, so
-    #: a link to it would read as leading elsewhere from the very page it lands on - the dead link
-    #: this story removes. A guard that needs to point at the plan has to wait for the market
-    #: screen to put its default tab in the URL.
+    #: Routes a link may name, relative to the market's own screens: its pages, each of which has
+    #: its own address since E22/F04/S02, so a link to one is never the page it is read from unless
+    #: it truly is that page.
     ALLOWED = {
+        "setup",
+        "form",
+        "applications",
+        "assignment",
+        "result",
+        "vendors",
+        "attendance",
+    }
+    #: A redirect (the panel cannot follow a hop - the ``?tab=`` pages and ``tables`` are the old
+    #: addresses), or an absolute path (a link is relative to the market's own screens; the id-less
+    #: paths redirect).
+    REFUSED = {
         "setup?tab=applications",
         "setup?tab=assignment",
-    }
-    #: A bare page (every screen shows the rail), a redirect (the panel cannot follow a hop), or an
-    #: absolute path (a link is relative to the market's own screens; the id-less paths redirect).
-    REFUSED = {
-        "setup",
         "setup?tab=setup",
+        "tables",
         "/market-setup",
         "/market-setup?tab=applications",
         "/market-setup?tab=assignment",
