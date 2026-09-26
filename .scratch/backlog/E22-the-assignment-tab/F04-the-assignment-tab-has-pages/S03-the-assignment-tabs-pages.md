@@ -2,7 +2,7 @@
 id: E22/F04/S03
 title: The Assignment tab's pages
 type: story
-status: ready
+status: in-progress
 blocked_by: [E22/F04/S02]
 pr: []
 ---
@@ -23,8 +23,8 @@ The **Assignment** page holds the assignment rules and the run, and no longer th
 
 ## Acceptance criteria
 
-- [ ] The page row shows on all three pages and nowhere else, pinned under the rail at any scroll position.
-- [ ] The Assignment page shows the rules and the run and nothing of the result.
-- [ ] A successful run lands on Result showing the new assignment; a refused run stays on Assignment with its reason.
-- [ ] "Run again" and its line appear once an assignment exists, counting the market's hand placements.
-- [ ] An e2e spec walks: set rules, run, land on Result, return to Assignment, see Run again.
+- [x] The page row shows on all three pages and nowhere else, pinned under the rail at any scroll position.
+- [x] The Assignment page shows the rules and the run and nothing of the result.
+- [x] A successful run lands on Result showing the new assignment; a refused run stays on Assignment with its reason.
+- [x] "Run again" and its line appear once an assignment exists, counting the market's hand placements.
+- [x] An e2e spec walks: set rules, run, land on Result, return to Assignment, see Run again.

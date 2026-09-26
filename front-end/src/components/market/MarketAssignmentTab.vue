@@ -1,6 +1,11 @@
 <script setup lang="ts">
 /**
- * The assignment surface (E18/F02/S04).
+ * The Assignment page: the rules and the run (E18/F02/S04, E22/F04/S03).
+ *
+ * The result used to sit under the rules on one long page; it is a page of its own now (Result), and
+ * a run lands there. Once an assignment exists the button runs it again and says what that keeps:
+ * every hand placement is a pin, and a run re-places only what the solver placed, so there is no
+ * confirmation to ask for.
  *
  * Assignment Priority, Assignment Options and Assign used to live in the PLAN - the earliest
  * stage, and the furthest possible point from where they belong. A priority rule names a form
@@ -15,7 +20,6 @@
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
 import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue';
-import AssignmentResults from '@/components/AssignmentResults.vue';
 import type { FormField, SetupObject } from '@/assets/types/datatypes';
 
 defineProps<{
@@ -28,6 +32,8 @@ defineProps<{
   rulesLockReason: string | null;
   /** What changed since the stored assignment ran, worded; null when nothing has (E22/F03/S02). */
   outOfDate: string | null;
+  /** How many hand placements the stored assignment holds; null when nothing has been run yet. */
+  handPlacements: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -79,8 +85,19 @@ const emit = defineEmits<{
         @click="emit('assign')"
         data-testid="market-setup-assign-button"
       >
-        Assign
+        {{ handPlacements === null ? 'Assign' : 'Run again' }}
       </button>
+      <p
+        v-if="handPlacements !== null && !assignRefusalReason"
+        class="assign-disabled-hint"
+        data-testid="market-setup-rerun-keeps"
+      >
+        {{
+          handPlacements
+            ? `Keeps your ${handPlacements} hand placement${handPlacements === 1 ? '' : 's'}; places everyone else again.`
+            : 'Places everyone again.'
+        }}
+      </p>
       <!-- The phase comes first: a market that may not be assigned at all is not waiting on
            two numbers, and saying so would send the organizer to fix the wrong thing. -->
       <!-- Said once: when the rules are settled, the line above already says why nothing runs. -->
@@ -107,8 +124,6 @@ const emit = defineEmits<{
     <p v-if="outOfDate" class="out-of-date" data-testid="assignment-out-of-date">
       {{ outOfDate }} Run the assignment again to bring it up to date.
     </p>
-
-    <AssignmentResults />
   </div>
 </template>
 

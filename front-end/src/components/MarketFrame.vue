@@ -16,6 +16,7 @@
  */
 import type { Market } from '@/assets/types/datatypes';
 import MarketBar from '@/components/MarketBar.vue';
+import MarketPages from '@/components/MarketPages.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 
 defineProps<{
@@ -34,6 +35,8 @@ defineProps<{
       <!-- A screen's own control that must stay in view too, such as the vendor search. Pinned with
            the frame rather than sticking on its own, because it could only guess the frame's height. -->
       <slot name="pinned" />
+      <!-- The open tab's pages, when it has more than one: Assignment, Result, Vendors (E22/F04/S03). -->
+      <MarketPages :market="market" />
     </div>
     <slot />
     <!-- The screen's own actions (Back), stuck to the bottom of the window so they stay reachable at

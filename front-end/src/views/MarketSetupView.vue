@@ -279,6 +279,12 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
 
 const assignError = ref('');
 
+/** How many hand placements the stored assignment holds; null until one has been run. */
+const handPlacements = computed((): number | null => {
+  const rows = market.value?.assignmentObject?.vendorAssignments ?? [];
+  return rows.length ? rows.filter((row) => row.handPlaced).length : null;
+});
+
 /**
  * Run the assignment, or say why it was refused.
  *
@@ -304,7 +310,8 @@ const handleAssign = async () => {
     // The results below re-read their statistics when the market in the store changes, so taking
     // the market back from the server is all it takes for them to show the new run.
     await refreshMarket();
-    showTab('assignment');
+    // A run lands on the result it produced (E22/F04/S03).
+    showTab('result');
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
     assignError.value = detail || 'Assignment failed. Please try again.';
@@ -380,6 +387,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignError="assignError"
           :rulesLockReason="market?.assignmentRulesLockReason ?? null"
           :outOfDate="outOfDateLine(market?.assignmentOutOfDate, market?.phase)"
+          :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         />

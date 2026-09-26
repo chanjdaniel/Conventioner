@@ -115,3 +115,31 @@ export function pageForTab(
   const current = currentPage(phase, hasAssignment);
   return TAB_PAGES[tab].includes(current) ? current : TAB_PAGES[tab][0];
 }
+
+/**
+ * The page or flow a route is, from its name and params; null for a route that is not one. The one
+ * reading of it, so the bar and the page row can never disagree about where the organizer is.
+ */
+export function pageOfRoute(
+  name: string | symbol | null | undefined,
+  params: Record<string, unknown>,
+): MarketPage | MarketFlow | null {
+  switch (name) {
+    case 'market-setup': {
+      const page = String(params.page ?? '');
+      return (MARKET_PAGES as string[]).includes(page) ? (page as MarketPage) : 'setup';
+    }
+    case 'market-result':
+      return 'result';
+    case 'vendors':
+      return 'vendors';
+    case 'attendance-status':
+      return 'attendance';
+    case 'import-applications':
+      return 'import';
+    case 'floorplan-editor':
+      return 'floorplan';
+    default:
+      return null;
+  }
+}
