@@ -81,9 +81,14 @@ watch(
   },
 );
 
-/** Published by the form tab. The applications tab reads the first, the plan the second. */
-const formEditable = ref(false);
-const formFields = ref<FormField[]>([]);
+/**
+ * The questions a priority rule can order by: the market's own form, as the server holds it.
+ *
+ * This used to be published by the form tab, so it was empty until that tab had been opened on the
+ * visit - and the Assignment tab, where an organizer usually arrives, offered none of the market's
+ * questions and told them to add one they already had (E21/F02/S03).
+ */
+const formFields = computed<FormField[]>(() => market.value?.applicationForm?.fields ?? []);
 const setupObject = reactive<SetupObject>({
   priority: [],
   marketDates: [],
@@ -164,7 +169,14 @@ watch(
     if (!fresh) return;
     const arrived = fresh.id !== previous?.id;
     if (!arrived && planEdits !== planSavedEdits) return;
-    if (fresh.setupObject) Object.assign(setupObject, fresh.setupObject);
+    if (fresh.setupObject) {
+      // Replace, not merge: a key the server no longer holds must not live on in the working copy
+      // and be written back by the next save.
+      for (const key of Object.keys(setupObject)) {
+        if (!(key in fresh.setupObject)) delete (setupObject as Record<string, unknown>)[key];
+      }
+      Object.assign(setupObject, fresh.setupObject);
+    }
     planIntakeMode.value = fresh.intakeMode;
   },
   { immediate: true },
@@ -436,8 +448,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           v-if="activeTab === 'form'"
           :market="market"
           :setupObject="setupObject"
-          @update:formEditable="formEditable = $event"
-          @update:formFields="formFields = $event"
         />
 
         <MarketPlanTab
@@ -456,7 +466,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           v-if="activeTab === 'applications'"
           :market="market"
           :visible="activeTab === 'applications'"
-          :formEditable="formEditable"
           :importRefusalReason="importRefusalReason"
         />
 

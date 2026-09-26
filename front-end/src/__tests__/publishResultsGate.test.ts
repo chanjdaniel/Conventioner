@@ -41,7 +41,7 @@ function marketTaking(intakeMode?: IntakeMode): Market {
 
 async function mounted(market: Market) {
   const wrapper = mount(ApplicationMonitor, {
-    props: { market, visible: true, formEditable: false },
+    props: { market, visible: true },
   });
   await vi.waitFor(() => {
     expect(wrapper.find('[data-testid="app-monitor-panel"]').exists()).toBe(true);

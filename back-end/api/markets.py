@@ -575,6 +575,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['_id'] = str(market_dict['_id'])
     market_dict['user_role'] = user_role.value
     _stamp_effective_market_state(market_dict, market.phase)
+    # The form lock rides on the market every screen reads (E21/F02/S03): it depends on whether an
+    # application exists, which only the server knows, and the store re-reads the market after every
+    # write - so a transition reaches the form builder the moment it lands. Served, never stored.
+    market_dict['applicationFormLockReason'] = application_form_lock_reason(market)
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}

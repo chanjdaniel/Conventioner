@@ -31,10 +31,8 @@ function application(email: string): Application {
 /** A market whose form asks only the essential questions, which is what triggers the advisory. */
 const market = { id: 'm1', applicationForm: { fields: [] } } as unknown as Market;
 
-async function advisoryWhen(formEditable: boolean): Promise<string> {
-  const wrapper = mount(ApplicationMonitor, {
-    props: { market, visible: true, formEditable },
-  });
+async function advisory(): Promise<string> {
+  const wrapper = mount(ApplicationMonitor, { props: { market, visible: true } });
   await vi.waitFor(() => {
     expect(wrapper.find('[data-testid="app-monitor-advisory"]').exists()).toBe(true);
   });
@@ -46,24 +44,18 @@ describe('the triage advisory', () => {
     fetchMarketApplications.mockResolvedValue([application('nadia@ember.ca')]);
   });
 
-  it('points at the form builder while the form can still be changed', async () => {
-    const text = await advisoryWhen(true);
-
-    expect(text).toContain('Application Form tab');
-    expect(text).not.toContain('frozen for this market');
-  });
-
-  it('says the form is frozen once it is, rather than advising an edit that would be refused', async () => {
-    const text = await advisoryWhen(false);
+  /**
+   * It renders only once applications exist, and by then the D9 lock has frozen the form: pointing
+   * at the form builder could only ever advise an edit the server would refuse (E21/F02/S03).
+   */
+  it('says the form is frozen, rather than advising an edit that would be refused', async () => {
+    const text = await advisory();
 
     expect(text).toContain('frozen for this market');
     expect(text).not.toContain('Application Form tab');
   });
 
-  it('describes the market in front of the reviewer either way', async () => {
-    for (const editable of [true, false]) {
-      const text = await advisoryWhen(editable);
-      expect(text).toContain('asks only the essential questions');
-    }
+  it('describes the market in front of the reviewer', async () => {
+    expect(await advisory()).toContain('asks only the essential questions');
   });
 });

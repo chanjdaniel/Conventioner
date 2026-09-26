@@ -18,7 +18,6 @@ import { MarketPhase, type Market } from '@/assets/types/datatypes';
 const props = defineProps<{
   market: Market | null;
   visible: boolean;
-  formEditable: boolean;
   importRefusalReason: string | null;
 }>();
 
@@ -97,7 +96,6 @@ const condition = computed(() => {
     <ApplicationMonitor
       :market="market"
       :visible="visible"
-      :formEditable="formEditable"
       @update:undecidedCount="undecided = $event"
     />
   </div>
