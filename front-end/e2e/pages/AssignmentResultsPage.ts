@@ -2,7 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { marketSetupPath } from '../helpers/marketScreens';
 
 /**
- * Page object for the Assignment Results / Generate Assignment view.
+ * Page object for the market's Assignment tab and the results it shows.
  * Covers action buttons (Back, Download CSV, Done)
  * and the quick-nav buttons (Vendors, Tables, Attendance).
  */

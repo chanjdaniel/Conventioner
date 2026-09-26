@@ -204,7 +204,7 @@ test.describe('Tier 2 - Assignment CSV export', () => {
       localStorage.setItem('user', JSON.stringify(user));
     }, TEST_USER.email);
 
-    // Assignment Results is a tab on the market now (E10/F03/S01), addressed by the market's id.
+    // Assignment is a tab on the market now (E10/F03/S01), addressed by the market's id.
     await page.goto(marketSetupPath(marketId, 'assignment'));
     await expect(page.locator('.assignment-results')).toBeVisible({ timeout: 15000 });
 

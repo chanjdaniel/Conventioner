@@ -66,6 +66,18 @@ test.describe('The frame stays put', () => {
     }
   });
 
+  /**
+   * The fourth tab is Assignment (E22/F01/S02). `CONTEXT.md` defines the assignment as the solver's
+   * output, so "Assignment Results" named one thing twice.
+   */
+  test('the tabs are called what the glossary calls them', async ({ authenticatedPage: page }) => {
+    await page.goto(marketSetupPath(marketId, 'setup'));
+    await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
+
+    await expect(page.getByTestId('market-setup-assignment-tab')).toHaveText('Assignment');
+    await expect(page.getByText('Assignment Results')).toHaveCount(0);
+  });
+
   test('switching tab while scrolled lands at the new tab’s top, nothing hidden under the frame', async ({
     authenticatedPage: page,
   }) => {
