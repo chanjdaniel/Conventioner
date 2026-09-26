@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addMonths,
+  datesByMonth,
   dayParts,
   daysInMonth,
   firstWeekday,
@@ -53,5 +54,46 @@ describe('month arithmetic for market dates', () => {
     expect(july[0]).toBe('2026-07-01');
     expect(july.at(-1)).toBe('2026-07-31');
     expect(july.every((day) => day.startsWith('2026-07'))).toBe(true);
+  });
+});
+
+/**
+ * The chosen dates, one line per month, beside the calendar (E23/F02/S01). A 20-date market reads
+ * as five lines rather than twenty, and each month says its year, so a market that crosses into a
+ * new one never shows "Sat, Jan 2" with nothing to say which January.
+ */
+describe('the chosen dates, grouped by month', () => {
+  it('groups by month in date order, whatever order they were chosen in', () => {
+    const months = datesByMonth(['2026-11-07', '2026-10-10', '2026-10-03', '2026-11-01']);
+    expect(months.map((m) => m.label)).toEqual(['October 2026', 'November 2026']);
+    expect(months[0].days).toEqual([
+      { day: '2026-10-03', label: 'Sat 3' },
+      { day: '2026-10-10', label: 'Sat 10' },
+    ]);
+    expect(months[1].days.map((d) => d.label)).toEqual(['Sun 1', 'Sat 7']);
+  });
+
+  it('keeps the year on every month, across a new year', () => {
+    const months = datesByMonth(['2027-01-02', '2026-12-26']);
+    expect(months.map((m) => m.label)).toEqual(['December 2026', 'January 2027']);
+    expect(months.map((m) => [m.year, m.month])).toEqual([
+      [2026, 11],
+      [2027, 0],
+    ]);
+  });
+
+  it('names each day by UTC arithmetic, the same in every timezone', () => {
+    // 1 November 2026 is a Sunday everywhere; a local-offset parse makes it Saturday in Honolulu.
+    expect(datesByMonth(['2026-11-01'])[0].days[0].label).toBe('Sun 1');
+  });
+
+  it('ignores a repeat and anything that is not a calendar day', () => {
+    const months = datesByMonth(['2026-10-03', '2026-10-03', '', 'not a date']);
+    expect(months).toHaveLength(1);
+    expect(months[0].days).toHaveLength(1);
+  });
+
+  it('is empty for a market with no dates', () => {
+    expect(datesByMonth([])).toEqual([]);
   });
 });

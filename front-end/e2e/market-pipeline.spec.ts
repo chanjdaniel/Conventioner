@@ -111,7 +111,8 @@ test.describe('Market pipeline E2E', () => {
     await setupPage.addMarketDate(MARKET_DATE);
     // The day reads back as a day, not as an input's value: dates are chosen on a calendar now
     // (E18/F01/S02), and what the organizer sees is the date spelled out.
-    await expect(page.getByTestId('setup-dates-date-display-0')).toHaveText(
+    await expect(page.getByTestId('setup-dates-date-display-0')).toHaveAttribute(
+      'title',
       getFormattedDate(MARKET_DATE) as string,
     );
 
