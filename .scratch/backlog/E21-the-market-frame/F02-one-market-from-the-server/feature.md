@@ -2,7 +2,7 @@
 id: E21/F02
 title: One market, from the server
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

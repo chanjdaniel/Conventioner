@@ -25,7 +25,6 @@ test.describe('Vendor browsing and search', () => {
     await page.evaluate((data) => {
       const m = { ...(data as Record<string, unknown>) };
       delete (m as Record<string, unknown>)._id;
-      localStorage.setItem('market', JSON.stringify(m));
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
     }, marketData);
 
@@ -69,11 +68,12 @@ test.describe('Vendor browsing and search', () => {
       TEST_USER.password,
     );
 
-    // One table for two approved vendors, so exactly one of them cannot be placed.
     const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
+
+    // One table for two approved vendors, so exactly one of them cannot be placed.
     const setup = market.setupObject as { sections: Array<Record<string, unknown>> };
     setup.sections = setup.sections.map((section) => ({ ...section, count: 1 }));
     await request.put(`${BACKEND_URL}/markets/${seed.marketId}`, {
@@ -89,10 +89,9 @@ test.describe('Vendor browsing and search', () => {
     });
     expect(rerun.ok(), await rerun.text()).toBeTruthy();
 
-    await page.evaluate((m) => {
-      localStorage.setItem('market', JSON.stringify(m));
+    await page.evaluate(() => {
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
-    }, market);
+    });
 
     await page.goto(marketSetupPath(seed.marketId, 'assignment'));
     const unplaced = page.getByTestId('assignment-results-unassigned-vendor').first();
@@ -132,7 +131,6 @@ test.describe('Vendor browsing and search', () => {
     await page.evaluate((data) => {
       const m = { ...(data as Record<string, unknown>) };
       delete (m as Record<string, unknown>)._id;
-      localStorage.setItem('market', JSON.stringify(m));
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
     }, marketData);
 
@@ -179,14 +177,9 @@ test.describe('Vendor browsing and search', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    const marketRes = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
-      headers: { 'X-Owner-Email': TEST_USER.email },
-    });
-    const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-    await page.evaluate((m) => {
-      localStorage.setItem('market', JSON.stringify(m));
+    await page.evaluate(() => {
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
-    }, market);
+    });
 
     const vendorsPage = new VendorsPage(page);
     await vendorsPage.goto(seed.marketId);

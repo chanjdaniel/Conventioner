@@ -80,9 +80,6 @@ const handleSubmit = async () => {
     const createResponse = await api.post('/markets', newMarket);
     const marketId = createResponse.data.market_id;
 
-    const marketWithId: Market = { ...newMarket, id: marketId };
-    localStorage.removeItem('market');
-    localStorage.setItem('market', JSON.stringify(marketWithId));
 
     router.push(marketPath(marketId));
   } catch (error) {

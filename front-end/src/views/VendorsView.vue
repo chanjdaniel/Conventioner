@@ -392,8 +392,7 @@ function handleBack(): void {
         <h1 data-testid="vendors-heading">{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
       </header>
 
-      <!-- A transition is a write, so the store re-reads the market rather than taking the rail's copy. -->
-      <PhaseRail :market="market" @phase-advanced="refreshMarket()" />
+      <PhaseRail :market="market" />
 
       <div class="vendors-body">
         <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />

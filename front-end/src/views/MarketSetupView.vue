@@ -117,17 +117,6 @@ function parseFiniteNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/**
- * A transition is a write, so the store re-reads the market (E21/F02/S02).
- *
- * The organizer's unsaved plan is safe without any merging here: it is the plan's own working
- * copy, which a re-read never touches, and the rail flushes it to the server before it transitions
- * anyway. This used to splice the local plan into the server's copy by hand, because every edit not
- * yet persisted vanished the moment the organizer advanced a phase.
- */
-function handlePhaseAdvanced() {
-  void refreshMarket();
-}
 
 /**
  * True when the required Assignment Options are set, which is what enables Assign.
@@ -440,7 +429,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
         <PhaseRail
           :market="market"
           :beforeTransition="flushPlanSave"
-          @phase-advanced="handlePhaseAdvanced"
         />
 
         <!-- Application Form Tab -->

@@ -61,18 +61,9 @@ async function createMarketWithPlan(
   }
   const { market_id: marketId } = (await createRes.json()) as { market_id: string };
 
-  const marketRes = await ctx.get(`${BACKEND_URL}/markets/${marketId}`, {
-    headers: { 'X-Owner-Email': TEST_USER.email },
-  });
-  const { market } = (await marketRes.json()) as { market: Record<string, unknown> };
-
-  await page.evaluate(
-    ({ m, user }) => {
-      localStorage.setItem('market', JSON.stringify(m));
-      localStorage.setItem('user', JSON.stringify(user));
-    },
-    { m: market, user: TEST_USER.email },
-  );
+  await page.evaluate((user) => {
+    localStorage.setItem('user', JSON.stringify(user));
+  }, TEST_USER.email);
 
   await page.goto(marketSetupPath(marketId));
   return marketId;
@@ -478,13 +469,9 @@ test.describe('Essential form fields', () => {
 
     // The builder tells the organizer the same story: locked form, frozen offering - the
     // panel shows three dates even though the local plan now carries four.
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: marketDoc, user: TEST_USER.email },
-    );
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
     await page.goto(marketSetupPath(market.marketId));
     const formPage = new ApplicationFormPage(page);
     await formPage.openFormTab();

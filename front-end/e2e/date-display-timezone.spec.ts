@@ -94,13 +94,9 @@ for (const timezoneId of TIMEZONES) {
       // Establish the app origin, then inject market + user the same way
       // market-pipeline.spec.ts does, for the screens that still read it.
       await page.goto('/login');
-      await page.evaluate(
-        ({ m, user }) => {
-          localStorage.setItem('market', JSON.stringify(m));
-          localStorage.setItem('user', JSON.stringify(user));
-        },
-        { m: market, user: TEST_USER.email },
-      );
+      await page.evaluate((user) => {
+        localStorage.setItem('user', JSON.stringify(user));
+      }, TEST_USER.email);
       await page.goto(marketSetupPath(String(market.id), 'setup'));
 
       const dateLabel = page.getByTestId('setup-dates-date-display-0');
@@ -126,13 +122,9 @@ for (const timezoneId of TIMEZONES) {
     }) => {
       const market = await seedMarketWithDate(page.request);
       await page.goto('/login');
-      await page.evaluate(
-        ({ m, user }) => {
-          localStorage.setItem('market', JSON.stringify(m));
-          localStorage.setItem('user', JSON.stringify(user));
-        },
-        { m: market, user: TEST_USER.email },
-      );
+      await page.evaluate((user) => {
+        localStorage.setItem('user', JSON.stringify(user));
+      }, TEST_USER.email);
       await page.goto(marketSetupPath(String(market.id), 'setup'));
 
       // It opens on the month the market already sits in - the same month for every viewer.

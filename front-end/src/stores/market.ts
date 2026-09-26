@@ -27,6 +27,7 @@ import { computed, ref } from 'vue';
 import type { Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
+import { forgetLastMarket, lastMarketId, rememberLastMarket } from '@/utils/lastMarket';
 
 export type MarketStatus = 'idle' | 'loading' | 'loaded' | 'failed' | 'missing';
 
@@ -53,11 +54,15 @@ export const useMarketStore = defineStore('market', () => {
       if (mine !== generation) return;
       held.value = parseMarketFromApi(response.data.market);
       status.value = 'loaded';
+      // Arriving at a market is what opening one means, so this is the one place the dashboard's
+      // pointer is set - by the list, a link, a bookmark or a new market alike.
+      rememberLastMarket(id);
     } catch (err: unknown) {
       if (mine !== generation) return;
       held.value = null;
       const code = axios.isAxiosError(err) ? err.response?.status : undefined;
       status.value = code === 404 || code === 403 ? 'missing' : 'failed';
+      if (status.value === 'missing' && lastMarketId() === id) forgetLastMarket();
     }
   }
 

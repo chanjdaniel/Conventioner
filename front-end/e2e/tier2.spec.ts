@@ -200,22 +200,9 @@ test.describe('Tier 2 - Assignment CSV export', () => {
   });
 
   test('download CSV with expected columns', async ({ authenticatedPage: page }) => {
-    const marketRes = await page.request.get(
-      `${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`,
-      {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      },
-    );
-    expect(marketRes.ok()).toBeTruthy();
-    const marketData = (await marketRes.json()).market as Record<string, unknown>;
-
-    await page.evaluate(
-      ({ market, user }) => {
-        localStorage.setItem('market', JSON.stringify(market));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { market: marketData, user: TEST_USER.email },
-    );
+    await page.evaluate((user: string) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
 
     // Assignment Results is a tab on the market now (E10/F03/S01), addressed by the market's id.
     await page.goto(marketSetupPath(marketId, 'assignment'));
@@ -270,22 +257,9 @@ test.describe('Tier 2 - Publish market', () => {
   });
 
   test('publish market and verify check-in URL', async ({ authenticatedPage: page }) => {
-    const marketRes = await page.request.get(
-      `${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`,
-      {
-        headers: { 'X-Owner-Email': TEST_USER.email },
-      },
-    );
-    expect(marketRes.ok()).toBeTruthy();
-    const marketData = (await marketRes.json()).market as Record<string, unknown>;
-
-    await page.evaluate(
-      ({ market, user }) => {
-        localStorage.setItem('market', JSON.stringify(market));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { market: marketData, user: TEST_USER.email },
-    );
+    await page.evaluate((user: string) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
 
     // Publishing is a step on the phase strip, not a Done button on the results screen
     // (E10/F03/S01): that button posted a transition invalid from the phase the organizer was
@@ -300,6 +274,12 @@ test.describe('Tier 2 - Publish market', () => {
       'review',
       'assignment',
     ];
+    const marketRes = await page.request.get(
+      `${BACKEND_URL}/markets/${encodeURIComponent(marketId)}`,
+      { headers: { 'X-Owner-Email': TEST_USER.email } },
+    );
+    expect(marketRes.ok()).toBeTruthy();
+    const marketData = (await marketRes.json()).market as Record<string, unknown>;
     const startAt = PATH_TO_ASSIGNMENT.indexOf(String(marketData.phase ?? 'draft'));
     for (const toPhase of PATH_TO_ASSIGNMENT.slice(startAt + 1)) {
       const res = await page.request.post(

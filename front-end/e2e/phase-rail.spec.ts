@@ -33,7 +33,6 @@ test.describe('The phase rail', () => {
     await page.evaluate((m) => {
       const copy = { ...(m as Record<string, unknown>) };
       delete copy._id;
-      localStorage.setItem('market', JSON.stringify(copy));
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
     }, market);
     await page.goto(path);

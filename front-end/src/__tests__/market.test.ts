@@ -124,8 +124,8 @@ describe('openMarket', () => {
     );
   });
 
-  it('makes the chosen market the open one', () => {
-    expect(opened(market({ phase: MarketPhase.Draft })).stored.id).toBe('market-123');
+  it('keeps nothing about the market in the browser; arriving is what opens it', () => {
+    expect(opened(market({ phase: MarketPhase.Draft })).stored).toBeNull();
   });
 
   it('never sends anyone to a public slug, which a CSV market does not serve', () => {

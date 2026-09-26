@@ -9,7 +9,6 @@ import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import IconAttendance from '@/components/icons/IconAttendance.vue';
-import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import IconTables from '@/components/icons/IconTables.vue';
@@ -27,7 +26,7 @@ const vendorNames = ref<VendorNames>({});
 const { market } = storeToRefs(useMarketStore());
 const showVendorsModal = ref(false);
 
-/** API / localStorage may use camelCase or snake_case; statistics lists must match backend field names. */
+/** The API may use camelCase or snake_case; statistics lists must match backend field names. */
 const unassignedVendorList = computed((): unknown[] => {
   const s = assignmentStatistics.value as Record<string, unknown> | null;
   if (!s) return [];
@@ -346,8 +345,9 @@ const handleDownloadCsv = async () => {
 </script>
 
 <template>
-  <NoMarketLoaded v-if="!market" shows="the assignment" />
-  <template v-else>
+  <!-- Only ever mounted inside a market's screen, which renders its tabs once the market is in hand;
+       there is no "no market is open" state left to draw here (E21/F02/S05). -->
+  <template v-if="market">
     <VendorsModal :open="showVendorsModal" :market="market" @close="closeVendorsModal" />
     <!-- A tab's content, not a page: the market's name and its tab bar are drawn above this, so
          the card, the centring and the second "Assignment Results" heading this used to carry are

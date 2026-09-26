@@ -3,6 +3,8 @@ import { inject, ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { type Market } from '@/assets/types/datatypes';
 import { fetchMarkets, openMarket } from '@/utils/market';
+import { forgetLastMarket, lastMarketId } from '@/utils/lastMarket';
+import { useMarketStore } from '@/stores/market';
 import MarketSummaryCard from '@/components/MarketSummaryCard.vue';
 
 const setUser: (user: unknown) => void = inject('setUser')!;
@@ -23,23 +25,23 @@ const router = useRouter();
  */
 const markets = ref<Market[] | null>(null);
 
-/** Whether this browser ever opened one - true even if what it stored can no longer be read. */
-const everOpenedOne = ref(false);
-/** What this browser remembers, which is still the only record of the LAST market opened. */
-const rememberedMarket = ref<Market | null>(null);
+/**
+ * Which market this browser last opened: an id, never a copy (E21/F02/S05). What that market is
+ * called now, and whether it still exists for this account, is the server's to say.
+ */
+const rememberedId = ref<string | null>(lastMarketId());
+/** Whether this browser ever opened one. */
+const everOpenedOne = computed(() => rememberedId.value !== null);
 
 /**
- * The market to offer reopening.
+ * The market to offer reopening, as the server reports it.
  *
- * The server's copy wins where there is one, so a market renamed on another device does not read
- * back here under the name this browser cached. Where the server could not be asked, the cached
- * copy stands in: it is the card this screen drew before it made any request at all, and dropping
- * it when the network is down would take away a convenience that never needed the network.
+ * Only ever the server's copy. It used to fall back to a whole market cached in `localStorage`
+ * when the list could not be fetched; nothing about a market is kept in the browser now, so with
+ * no answer there is simply no card - a convenience lost, never a stale market shown.
  */
 const lastMarket = computed(() =>
-  markets.value === null
-    ? rememberedMarket.value
-    : (markets.value.find((m) => m.id === rememberedMarket.value?.id) ?? null),
+  markets.value?.find((m) => m.id === rememberedId.value) ?? null,
 );
 /** Nothing below may be said until the server has answered. */
 const countKnown = computed(() => markets.value !== null);
@@ -101,31 +103,17 @@ const emptyState = computed(() => {
   };
 });
 
-function readRememberedMarket() {
-  const stored = localStorage.getItem('market');
-  if (!stored) return;
-  everOpenedOne.value = true;
-  try {
-    const parsed = JSON.parse(stored) as unknown;
-    if (parsed && typeof parsed === 'object') {
-      const m = parsed as Record<string, unknown>;
-      if (typeof m.id === 'string' && typeof m.name === 'string') {
-        rememberedMarket.value = parsed as Market;
-      }
-    }
-  } catch {
-    // Unreadable: this browser opened something, but cannot say what. `lastMarketIsGone` covers it.
-  }
-}
-
 onMounted(async () => {
-  readRememberedMarket();
   try {
     markets.value = await fetchMarkets();
   } catch {
     // Leave it unknown rather than guessing at zero; the template makes no claim either way.
     markets.value = null;
+    return;
   }
+  // Gone, or no longer reachable by this account: said once (below), then forgotten, so the next
+  // visit does not keep announcing it.
+  if (rememberedId.value && !lastMarket.value) forgetLastMarket();
 });
 
 const handleLoadLastMarket = () => {
@@ -151,6 +139,7 @@ const handleSignOut = async () => {
     console.error('Logout failed:', error);
   } finally {
     localStorage.clear();
+    useMarketStore().clear();
     setUser(null);
     router.push('/login');
   }

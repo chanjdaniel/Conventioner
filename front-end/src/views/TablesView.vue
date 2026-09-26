@@ -475,8 +475,7 @@ function swapSeats(withEmail: string): void {
       </header>
 
       <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
-      <!-- A transition is a write, so the store re-reads the market rather than taking the rail's copy. -->
-      <PhaseRail :market="market" @phase-advanced="refreshMarket()" />
+      <PhaseRail :market="market" />
 
       <div v-if="marketStatus !== 'missing'" class="tables-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>

@@ -44,14 +44,11 @@ async function loadMarket(page: Page, marketId: string): Promise<Record<string, 
   return json.market as Record<string, unknown>;
 }
 
-function setMarketInPage(page: Page, marketBody: Record<string, unknown>) {
-  return page.evaluate(
-    ({ market, user }: { market: Record<string, unknown>; user: string }) => {
-      localStorage.setItem('market', JSON.stringify(market));
-      localStorage.setItem('user', JSON.stringify(user));
-    },
-    { market: marketBody, user: TEST_USER.email },
-  );
+/** The signed-in user, where the screens that still read it look for it. The market is the URL's. */
+function setUserInPage(page: Page) {
+  return page.evaluate((user: string) => {
+    localStorage.setItem('user', JSON.stringify(user));
+  }, TEST_USER.email);
 }
 
 function runMongo(evalJs: string): string {
@@ -121,7 +118,7 @@ test.describe('Phase state machine - full walk', () => {
     authenticatedPage: page,
   }) => {
     const marketBody = await loadMarket(page, seed.marketId);
-    await setMarketInPage(page, marketBody);
+    await setUserInPage(page);
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
 
@@ -215,7 +212,7 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     seedApplicationWithStatus(seed.marketId, 'open', 'guard-b@example.com');
 
     const marketBody = await loadMarket(page, seed.marketId);
-    await setMarketInPage(page, marketBody);
+    await setUserInPage(page);
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Review', {
@@ -270,7 +267,7 @@ test.describe('Phase state machine - guard: offers blocked by leftover approved'
     await transitionViaPage(page, seed.marketId, 'assignment');
 
     const marketBody = await loadMarket(page, seed.marketId);
-    await setMarketInPage(page, marketBody);
+    await setUserInPage(page);
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Assignment', {
@@ -367,7 +364,7 @@ test.describe('Phase state machine - sweep', () => {
 
     // Also show the market_days UI
     const marketBody = await loadMarket(page, seed.marketId);
-    await setMarketInPage(page, marketBody);
+    await setUserInPage(page);
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days', {
       timeout: 10000,
@@ -392,7 +389,7 @@ test.describe('Phase state machine - archive confirmation', () => {
     await transitionViaPage(page, seed.marketId, 'applications_open');
 
     const marketBody = await loadMarket(page, seed.marketId);
-    await setMarketInPage(page, marketBody);
+    await setUserInPage(page);
 
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
@@ -449,7 +446,7 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
     );
 
     const marketBody = await loadMarket(page, seed.marketId);
-    await setMarketInPage(page, marketBody);
+    await setUserInPage(page);
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', {
@@ -482,7 +479,7 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
     );
 
     const marketBody = await loadMarket(page, seed.marketId);
-    await setMarketInPage(page, marketBody);
+    await setUserInPage(page);
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
 
@@ -528,7 +525,7 @@ test.describe('The applications surface says which phase it is in', () => {
         data: { toPhase },
       });
     const conditionNow = async () => {
-      await setMarketInPage(page, await loadMarket(page, seed.marketId));
+      await setUserInPage(page);
       await page.goto(marketSetupPath(seed.marketId, 'applications'));
       const line = page.getByTestId('market-setup-applications-condition');
       await expect(line).toBeVisible({ timeout: 15000 });
@@ -570,7 +567,7 @@ test.describe('Where the workspace opens', () => {
   }) => {
     const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
 
-    await setMarketInPage(page, await loadMarket(page, seed.marketId));
+    await setUserInPage(page);
     await page.goto(marketSetupPath(seed.marketId));
     await expect(page.getByTestId('market-setup-setup-tab')).toHaveClass(/active/);
 
@@ -578,7 +575,7 @@ test.describe('Where the workspace opens', () => {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { toPhase: 'archived' },
     });
-    await setMarketInPage(page, await loadMarket(page, seed.marketId));
+    await setUserInPage(page);
     await page.goto(marketSetupPath(seed.marketId));
     await expect(page.getByTestId('market-setup-assignment-tab')).toHaveClass(/active/);
     await expect(page.getByTestId('market-setup-setup-tab')).not.toHaveClass(/active/);
@@ -589,7 +586,7 @@ test.describe('Where the workspace opens', () => {
     request,
   }) => {
     const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    await setMarketInPage(page, await loadMarket(page, seed.marketId));
+    await setUserInPage(page);
 
     // A draft would otherwise open on the plan.
     await page.goto(marketSetupPath(seed.marketId, 'applications'));

@@ -72,10 +72,9 @@ async function seedMarketWithAForm(
 
 test.describe('What a reviewer reads first', () => {
   let marketId: string;
-  let market: unknown;
 
   test.beforeAll(async ({ request }) => {
-    ({ marketId, market } = await seedMarketWithAForm(request));
+    ({ marketId } = await seedMarketWithAForm(request));
     // Two applicants, so the disclosure's open state can be watched ACROSS cards - which is the
     // criterion that keeps this from taxing a reviewer once per card at card forty.
     seedApplication(marketId, 'nadia@ember.test', ANSWERS);
@@ -84,13 +83,9 @@ test.describe('What a reviewer reads first', () => {
 
   async function openTheMarket(page: import('@playwright/test').Page, tab: string): Promise<void> {
     await page.goto('/login');
-    await page.evaluate(
-      ({ m, user }) => {
-        localStorage.setItem('market', JSON.stringify(m));
-        localStorage.setItem('user', JSON.stringify(user));
-      },
-      { m: market, user: TEST_USER.email },
-    );
+    await page.evaluate((user) => {
+      localStorage.setItem('user', JSON.stringify(user));
+    }, TEST_USER.email);
     await page.goto(marketSetupPath(marketId, tab));
   }
 
