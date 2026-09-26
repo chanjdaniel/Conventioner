@@ -588,7 +588,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   same principle as the banner itself. The card fills at least the window under the banner. Never
   give a frame screen an `overflow` scroller of its own: the sticky block silently stops sticking.
 - **A screen is one of two widths and never caps its own height.** `--workspace-max` (1440) or
-  `--list-max` (1100); the PAGE scrolls. `.app-container` used to be `position: absolute;
+  `--list-max` (1100); the PAGE scrolls. **Every market screen is `--workspace-max`, set by
+  `MarketFrame`** (E22/F04/S01): a screen in the frame sets no width of its own, or moving between
+  a market's screens makes the frame jump. `.app-container` used to be `position: absolute;
   height: 100vh`, which is why no screen could scroll the page and every tall screen grew its own
   nested scrollers. Do not reintroduce a viewport-height shell.
 

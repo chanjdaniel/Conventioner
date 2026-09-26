@@ -364,7 +364,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           <div class="settings-header">
             <!-- The market's own name, so the page says which market this is. It read "Settings" on
                every market, back when the route carried no id to tell them apart. -->
-            <h1 data-testid="market-setup-title">{{ market.name }}</h1>
+            <h1 data-testid="market-setup-title" :title="market.name">{{ market.name }}</h1>
             <!--
             Navigation along the spine, not four peers (E18/F02/S02).
 
@@ -564,7 +564,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
  */
 .market-setup-body {
   width: 100%;
-  max-width: var(--workspace-max);
 
   /*
    * A gutter on three sides (E17/F02/S02), so the panel reads as a card sitting on the page rather
@@ -594,10 +593,21 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-4);
   padding: 0 20px;
 }
 
+/* The market's name, whole wherever it fits beside the tabs; ellipsed, with the full name on hover,
+   only where it does not (E22/F04/S01). The tabs never give way to it. */
+.settings-header h1 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tab-bar {
+  flex-shrink: 0;
   display: flex;
   flex-direction: row;
   gap: 2px;

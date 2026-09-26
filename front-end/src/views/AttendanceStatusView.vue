@@ -162,8 +162,6 @@ onMounted(loadAttendance);
 }
 
 .attendance-status-card {
-  width: 100%;
-  max-width: var(--list-max);
   /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
      banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
      card at the viewport and scroll a body inside it. */

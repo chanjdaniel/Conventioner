@@ -112,14 +112,14 @@
      single-column lists ~1035. One width for both puts a 1,035px list in a 1,440px page.
 
      1440 rather than the content-only answer of 1360 because that is the phase rail's measured
-     break - below it the rail wraps to a second row on a published market. The rail still wraps at
-     --list-max, which is ticket 07 and may yet amend this value. */
+     break - below it the rail wraps to a second row on a published market. No market screen is
+     --list-max any more (E22/F04/S01), so the rail no longer meets that width. */
   /* The app banner's height, as a token (E21/F04/S01). It was whatever `5vh` came to, clamped by the
      banner itself, and nothing else could know it - so the market frame, which sticks directly
      beneath the banner, would have had to measure it with a script. The same value, now named. */
   --banner-h: clamp(30px, 5vh, 100px);
-  --workspace-max: 1440px; /* Market Setup and its four tabs */
-  --list-max: 1100px; /* Tables, Vendors, Attendance, Markets, Organizations */
+  --workspace-max: 1440px; /* Every market screen; `MarketFrame` sets it (E22/F04/S01) */
+  --list-max: 1100px; /* Markets, Organizations */
 
   /* Three values, extracted. "Fully rounded" was spelled four ways - 999px, 100px, 30px, 20px. */
   --radius-control: 6px; /* buttons, inputs, selects, small chips */

@@ -1,5 +1,9 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import {
+  ensureTestOrg,
+  seedMarketWithVendors,
+  seedPublishedMarketWithAssignments,
+} from './helpers/seeds';
 import { seedFormlessPhaseMarket } from './helpers/seedPhaseMarket';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
@@ -29,7 +33,10 @@ async function frameGeometry(page: Page) {
 
 async function scrollToBottom(page: Page) {
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  await page.waitForFunction(() => window.scrollY > 0).catch(() => undefined);
+  // Bounded: a screen shorter than the window does not scroll, and the caller says whether it must.
+  await page
+    .waitForFunction(() => window.scrollY > 0, null, { timeout: 2000 })
+    .catch(() => undefined);
 }
 
 test.describe('The frame stays put', () => {
@@ -138,7 +145,9 @@ test.describe('The frame stays put', () => {
   test('on Tables, Attendance and Vendors the frame stays put and the page is the only scroller', async ({
     authenticatedPage: page,
   }) => {
-    await page.setViewportSize({ width: 1920, height: 500 });
+    // Short enough that Attendance with no check-ins still scrolls: at the full frame width its rail
+    // no longer wraps to a second row, which is all that made it taller than 500px (E22/F04/S01).
+    await page.setViewportSize({ width: 1920, height: 400 });
 
     for (const [screen, back] of [
       ['tables', 'tables-back-button'],
@@ -160,7 +169,8 @@ test.describe('The frame stays put', () => {
       expect(boxed, `${screen} scrolls inside a box`).toEqual([]);
 
       await scrollToBottom(page);
-      const { frameTop, bannerBottom } = await frameGeometry(page);
+      const { frameTop, bannerBottom, scrolled } = await frameGeometry(page);
+      expect(scrolled, `${screen} did not scroll, so this proves nothing`).toBeGreaterThan(0);
       expect(frameTop, `the frame left the banner on ${screen}`).toBe(bannerBottom);
       await expect(page.getByTestId('phase-rail')).toBeInViewport({ ratio: 1 });
       if (back) await expect(page.getByTestId(back)).toBeInViewport();
@@ -209,6 +219,60 @@ test.describe('The frame stays put', () => {
         expect(clipped, `${path} at ${size.width}px`).toEqual([]);
       }
     }
+  });
+
+  /**
+   * Every market screen is one width (E22/F04/S01). Tables, Vendors and Attendance were
+   * `--list-max` while the tabs were `--workspace-max`, so moving between a market's screens made
+   * the frame jump 340px and cut the market's name on the narrower ones.
+   */
+  test('every market screen is one width', async ({ authenticatedPage: page }) => {
+    const screens = [
+      marketSetupPath(marketId, 'setup'),
+      marketSetupPath(marketId, 'assignment'),
+      ...(['tables', 'attendance', 'vendors'] as const).map((s) => marketScreenPath(marketId, s)),
+    ];
+    for (const size of [
+      { width: 1920, height: 1080 },
+      { width: 1280, height: 800 },
+    ]) {
+      await page.setViewportSize(size);
+      const widths: Record<string, number> = {};
+      for (const path of screens) {
+        await page.goto(path);
+        await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
+        widths[path] = await page
+          .getByTestId('market-frame-card')
+          .evaluate((el) => Math.round(el.getBoundingClientRect().width));
+      }
+      expect(new Set(Object.values(widths)).size, JSON.stringify(widths)).toBe(1);
+    }
+  });
+
+  test('a long market name is whole where it fits, and ellipsed with its full name where not', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const name = `The Riverside Night Market of Handmade Goods and Small Batch Makers ${Date.now()}`;
+    const long = await seedMarketWithVendors(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { name },
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(marketSetupPath(long.marketId, 'setup'));
+    const title = page.getByTestId('market-setup-title');
+    await expect(title).toBeVisible({ timeout: 15000 });
+
+    await expect(title).toHaveAttribute('title', name);
+    const fits = await page.evaluate(() => {
+      const bar = document.querySelector('[data-testid="market-frame"] > *') as HTMLElement;
+      return bar.scrollWidth <= bar.clientWidth;
+    });
+    expect(fits, 'the name pushed the tabs out of the bar').toBe(true);
+    await expect(page.getByTestId('market-setup-assignment-tab')).toBeInViewport({ ratio: 1 });
   });
 
   test('the vendor search stays in view with the frame', async ({ authenticatedPage: page }) => {
