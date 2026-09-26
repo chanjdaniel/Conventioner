@@ -73,10 +73,16 @@ class FakeMarketsCollection:
     def create_index(self, keys, name=None, **_kwargs):
         self.indexes.append((keys, name))
 
+    def index_information(self):
+        return {}
+
     def _matches(self, doc, query):
         for key, condition in query.items():
             if isinstance(condition, dict) and "$in" in condition:
                 if doc.get(key) not in condition["$in"]:
+                    return False
+            elif isinstance(condition, dict) and "$ne" in condition:
+                if doc.get(key) == condition["$ne"]:
                     return False
             elif doc.get(key) != condition:
                 return False
@@ -85,7 +91,7 @@ class FakeMarketsCollection:
     def find(self, query):
         return iter([dict(doc) for doc in self.docs if self._matches(doc, query)])
 
-    def find_one(self, query):
+    def find_one(self, query, _projection=None):
         return next(self.find(query), None)
 
     def replace_one(self, query, replacement):
@@ -357,8 +363,12 @@ class TestStartupCheck:
         URL, and nothing would say so - it would just get slower as the product grew."""
         source = (Path(__file__).resolve().parent.parent / "mongo-init.js").read_text()
 
-        assert f"db.{MARKETS_COLLECTION}.createIndex({{ slug: 1 }}" in source
-        assert f"'{MARKET_SLUG_INDEX}'" in source
+        assert f"db.{MARKETS_COLLECTION}.createIndex(" in source
+        assert f"name: '{MARKET_SLUG_INDEX}'" in source
+        # And with the same options the app builds it with: an index of one name and different
+        # options is one Mongo refuses to build over, so the two must agree exactly.
+        assert "unique: true" in source
+        assert "partialFilterExpression: { slug: { $gt: '' } }" in source
 
 
 def test_deleting_an_org_deletes_a_migrated_legacy_market_too(org_delete):

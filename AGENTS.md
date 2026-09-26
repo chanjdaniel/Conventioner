@@ -300,15 +300,16 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 ## Market Document Canonical Form (Conventioner sharp edge)
 
 - **The back end refuses to boot** unless `migrations/migrate_market_keys.py` has recorded
-  both of its markers (`market_document_keys` and `market_slugs`) in the `schema_migrations`
-  collection. The migration establishes a market document's canonical form: camelCase keys (no
-  legacy snake_case) plus a stored slug derived from the name. A dev Mongo volume created
-  before the migration existed has no marker, so an existing stack hits this on first pull.
-  The fix is the migration itself: `docker compose run --rm backend python
-  migrations/migrate_market_keys.py` (`run`, not `exec` - the back end is crash-looping). One
-  command records both markers; the operator never discovers them one restart at a time. Do
-  not "fix" it by softening the check: it fails closed because an unmigrated market is
-  invisible, not broken.
+  every marker in `MARKET_MIGRATION_IDS` (`market_document_keys`, `market_slugs`,
+  `market_slugs_unique`) in the `schema_migrations` collection. The migration establishes a
+  market document's canonical form: camelCase keys (no legacy snake_case), a stored slug derived
+  from the name, and a UNIQUE slug index. A dev Mongo volume older than a marker lacks it, so an
+  existing stack hits this on first pull. The fix is the migration itself: `docker compose run
+  --rm backend python migrations/migrate_market_keys.py` (`run`, not `exec` - the back end is
+  crash-looping). One command records every marker; the operator never discovers them one
+  restart at a time. When stored markets already share a public address it stops and names
+  them: rename all but one in each group and run it again. Do not "fix" either refusal by
+  softening the check: it fails closed because an unmigrated market is invisible, not broken.
 - **Market documents are stored camelCase, and that is the only spelling reads may name.**
   Every write camel-cases the whole document, so a hand-written filter on `organization_id`
   matches nothing. Anything touching a raw document or a Mongo filter goes through
@@ -320,12 +321,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   org member's markets, and the suite's positive assertions catch it.
 - **`Market.slug` is a computed field** (`@computed_field` on the Pydantic model, derived from
   the name via `market_name_slug()` in `back-end/datatypes.py`). It is persisted and indexed
-  (`market_slug` index on the `markets` collection) so the public slug lookup
+  (`market_slug`, **unique** over non-empty slugs) so the public slug lookup
   (`published_market_by_slug` in `market_documents.py`) is one indexed query rather than a
   decode of every market on every unauthenticated request. It is never independently writable:
   no request body can name it, and every write recomputes it from the name. The stored slug
   narrows the query but does not decide it - `published_market_by_slug` re-checks the name
-  against `market_name_slug`.
+  against `market_name_slug`. **One address, one market** (E21/F03/S03): creation and rename both
+  ask `public_address_refusal()`, so "Cafe Market" is refused beside "Café Market"; uniqueness
+  on the exact name alone let two markets share a public URL.
 - **Parse stored markets with `market_from_document()`**, never `Market(**snake_dict)`.
   `Market.phase` defaults to `draft`, so a raw parse silently mislabels every market written
   before the field existed. `phase_from_market_document()` (`back-end/datatypes.py`) is the one
