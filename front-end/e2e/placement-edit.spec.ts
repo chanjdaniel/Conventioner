@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketScreenPath } from './helpers/marketScreens';
 import { TablesPage } from './pages/TablesPage';
 import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssignedMarket';
 import { loginViaApi } from './helpers/seeds';
@@ -92,7 +93,7 @@ test.describe('Changing a placement on the Tables view', () => {
   }) => {
     // The door (E11/F03/S02). The trigger for every change is a person, and the vendor panel is
     // where an organizer is looking at one; only the Tables view can answer "where can they go".
-    await page.goto(`/markets/${seed.marketId}/vendors`);
+    await page.goto(marketScreenPath(seed.marketId, 'vendors'));
     const firstRow = page.getByTestId('vendors-list-item').first();
     await expect(firstRow).toBeVisible({ timeout: 15000 });
     await firstRow.click();

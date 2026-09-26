@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { marketPath } from '@/utils/market';
 import InitView from '@/views/InitView.vue';
 import LoginView from '@/views/LoginView.vue';
 import EmailVerificationView from '@/views/EmailVerificationView.vue';
@@ -90,9 +91,7 @@ const router = createRouter({
     {
       path: '/floorplan-editor',
       redirect: (to) =>
-        to.query.marketId
-          ? `/markets/${encodeURIComponent(String(to.query.marketId))}/floorplan`
-          : '/markets',
+        to.query.marketId ? marketPath(String(to.query.marketId), 'floorplan') : '/markets',
     },
     // Assignment Results is a tab on the market now (E10/F03/S01). The old path carried no market
     // id, so, like `/market-setup`, all it can do is send the organizer to choose a market.

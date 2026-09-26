@@ -3,12 +3,20 @@ import { computed } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRouter, useRoute } from 'vue-router';
 import FloorplanWorkflow from '@/components/floorplan/FloorplanWorkflow.vue';
+import MarketArrival from '@/components/MarketArrival.vue';
+import { useOpenMarket } from '@/utils/openMarket';
 
 const router = useRouter();
 const route = useRoute();
 
 /** The market in the route (E21/F02/S04); it used to ride in the query string. */
-const marketId = computed(() => (route.params.marketId as string | undefined) || undefined);
+const marketId = computed(() => String(route.params.marketId ?? ''));
+/**
+ * Opened through the one store like every other market screen, so an id that names no market - or
+ * one this organizer cannot reach - reads as such, rather than opening an editor that will fail on
+ * save.
+ */
+const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
 
 function handleSaved(payload: { market_id: string }) {
   router.push(marketPath(payload.market_id));
@@ -18,11 +26,8 @@ function handleSaved(payload: { market_id: string }) {
 <template>
   <div class="floorplan-editor-view">
     <div class="editor-wrapper">
-      <FloorplanWorkflow v-if="marketId" :marketId="marketId" @saved="handleSaved" />
-      <div v-else class="no-market-message">
-        <p>No market selected. Choose a market and open its floorplan from there.</p>
-        <button class="return-button" @click="router.push('/markets')">Choose a market</button>
-      </div>
+      <FloorplanWorkflow v-if="market" :marketId="market.id" @saved="handleSaved" />
+      <MarketArrival v-else :status="marketStatus" @retry="refreshMarket()" />
     </div>
   </div>
 </template>
@@ -42,42 +47,5 @@ function handleSaved(payload: { market_id: string }) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.no-market-message {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  padding: 40px;
-}
-
-.no-market-message p {
-  font-size: var(--text-md);
-  color: var(--mm-black);
-  text-align: center;
-  margin: 0;
-}
-
-.return-button {
-  height: 36px;
-  padding: 0 20px;
-  background: var(--mm-green);
-  border: none;
-  border-radius: 5px;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-md);
-  color: #ffffff;
-  cursor: pointer;
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
-}
-
-.return-button:hover {
-  opacity: 0.9;
-  background: color-mix(in srgb, var(--mm-green) 85%, black);
 }
 </style>

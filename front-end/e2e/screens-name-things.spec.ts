@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
@@ -67,8 +67,8 @@ test.describe('Screens say what they mean', () => {
 
     for (const [screen, url, ready] of [
       ['form builder', marketSetupPath(marketId, 'form'), 'form-builder-lock-banner'],
-      ['tables', `/markets/${marketId}/tables`, 'tables-count-assigned'],
-      ['attendance', `/markets/${marketId}/attendance`, 'attendance-status-heading'],
+      ['tables', marketScreenPath(marketId, 'tables'), 'tables-count-assigned'],
+      ['attendance', marketScreenPath(marketId, 'attendance'), 'attendance-status-heading'],
     ] as const) {
       await page.goto(url);
       await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
@@ -106,9 +106,9 @@ test.describe('Screens say what they mean', () => {
     await openTheSeededMarket(page);
 
     for (const [url, heading] of [
-      [`/markets/${marketId}/tables`, 'tables-heading'],
-      [`/markets/${marketId}/attendance`, 'attendance-status-heading'],
-      [`/markets/${marketId}/vendors`, 'vendors-heading'],
+      [marketScreenPath(marketId, 'tables'), 'tables-heading'],
+      [marketScreenPath(marketId, 'attendance'), 'attendance-status-heading'],
+      [marketScreenPath(marketId, 'vendors'), 'vendors-heading'],
     ] as const) {
       await page.goto(url);
       await expect(page.getByTestId(heading)).toContainText(marketName, { timeout: 15000 });

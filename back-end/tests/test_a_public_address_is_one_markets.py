@@ -162,3 +162,33 @@ def test_a_dry_run_names_the_clashes_without_stopping(capsys):
     out = capsys.readouterr().out
     assert "/cafe-market is shared by 'Café Market', 'Cafe Market'" in out
     assert db[SCHEMA_COLLECTION].docs == {}
+
+
+class TestTheRaceTheIndexCatches:
+    """Two writes can both pass the check and race to the insert; the unique index refuses the
+    second. That refusal must read as the same address clash the check gives, not as a raw database
+    error or a 500 (code review of E21)."""
+
+    @pytest.fixture
+    def racing(self, monkeypatch):
+        from pymongo.errors import DuplicateKeyError
+
+        class LosesTheRace(FakeSlugMarketsCollection):
+            def insert_one(self, _document):
+                raise DuplicateKeyError("E11000 duplicate key error collection: markets index: market_slug")
+
+            def update_one(self, _filter, _update):
+                raise DuplicateKeyError("E11000 duplicate key error collection: markets index: market_slug")
+
+        collection = LosesTheRace([stored_market(name="Spring Market", id="market-123")])
+        monkeypatch.setattr(MarketsApi, "markets_collection", collection)
+        monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
+        return collection
+
+    def test_a_creation_that_loses_reads_as_the_clash(self, racing):
+        with pytest.raises(ValueError, match="web address /autumn-market"):
+            MarketsApi.create_market(_market("Autumn Market"), "owner@example.com")
+
+    def test_a_rename_that_loses_reads_as_the_clash(self, racing):
+        with pytest.raises(ValueError, match="web address /autumn-market"):
+            MarketsApi.rename_market("market-123", "Autumn Market", "user-1")

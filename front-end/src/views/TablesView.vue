@@ -776,7 +776,7 @@ function swapSeats(withEmail: string): void {
         </template>
       </div>
 
-      <div v-if="marketStatus !== 'missing'" class="actions-row">
+      <template v-if="marketStatus !== 'missing'" #footer>
         <button
           type="button"
           class="primary-button"
@@ -785,7 +785,7 @@ function swapSeats(withEmail: string): void {
         >
           Back
         </button>
-      </div>
+      </template>
     </MarketFrame>
 
     <PlacementDialog
@@ -815,7 +815,7 @@ function swapSeats(withEmail: string): void {
 <style scoped>
 .tables-view {
   width: 100%;
-  padding: 0 20px var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -828,11 +828,15 @@ function swapSeats(withEmail: string): void {
   /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
      banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
      card at the viewport and scroll a body inside it. */
+  border-radius: var(--radius-card);
 }
 
 .tables-header {
   background-color: var(--mm-black);
   padding: 18px 24px;
+  /* The card is rounded and nothing clips it any more (a sticky bar cannot sit inside an overflow
+     ancestor), so the bar rounds its own top corners. */
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
 .tables-header h1 {
@@ -1251,18 +1255,6 @@ function swapSeats(withEmail: string): void {
   color: var(--mm-black);
   opacity: 0.55;
   letter-spacing: 0.6px;
-}
-
-.actions-row {
-  padding: 16px 24px;
-  display: flex;
-  justify-content: flex-start;
-  border-top: 1px solid var(--mm-border);
-  /* Back stays reachable at any scroll position, as it did outside the old inner scroller. */
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  background-color: white;
 }
 
 .primary-button {

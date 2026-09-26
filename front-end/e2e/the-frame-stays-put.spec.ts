@@ -1,7 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedFormlessPhaseMarket } from './helpers/seedPhaseMarket';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
 
 /**
@@ -133,7 +133,7 @@ test.describe('The frame stays put', () => {
       ['attendance', 'attendance-status-back-button'],
       ['vendors', 'vendors-back-button'],
     ] as const) {
-      await page.goto(`/markets/${marketId}/${screen}`);
+      await page.goto(marketScreenPath(marketId, screen));
       await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
       await page.waitForLoadState('networkidle');
 
@@ -157,7 +157,7 @@ test.describe('The frame stays put', () => {
 
   test('the vendor search stays in view with the frame', async ({ authenticatedPage: page }) => {
     await page.setViewportSize({ width: 1920, height: 500 });
-    await page.goto(`/markets/${marketId}/vendors`);
+    await page.goto(marketScreenPath(marketId, 'vendors'));
     await expect(page.getByTestId('vendors-search-input')).toBeVisible({ timeout: 15000 });
     await scrollToBottom(page);
 

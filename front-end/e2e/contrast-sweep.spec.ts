@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
@@ -227,9 +227,9 @@ test.describe('Every rendered text node reaches AA', () => {
         marketSetupPath(marketId, 'assignment'),
         'assignment-results-download-csv-button',
       ],
-      ['tables', `/markets/${marketId}/tables`, 'tables-count-assigned'],
-      ['vendors', `/markets/${marketId}/vendors`, 'vendors-search-input'],
-      ['attendance', `/markets/${marketId}/attendance`, 'attendance-status-heading'],
+      ['tables', marketScreenPath(marketId, 'tables'), 'tables-count-assigned'],
+      ['vendors', marketScreenPath(marketId, 'vendors'), 'vendors-search-input'],
+      ['attendance', marketScreenPath(marketId, 'attendance'), 'attendance-status-heading'],
     ] as const) {
       await page.goto(url);
       await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
@@ -276,7 +276,7 @@ test.describe('Every rendered text node reaches AA', () => {
     // The invisible archive-confirmation button lived here, behind two clicks, and a twenty-screen
     // walk never found it.
     await openTheSeededMarket(page);
-    await page.goto(`/markets/${marketId}/tables`);
+    await page.goto(marketScreenPath(marketId, 'tables'));
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
 
     await page.getByTestId('phase-rail-menu-button').click();

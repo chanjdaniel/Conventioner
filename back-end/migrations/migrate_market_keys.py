@@ -7,7 +7,7 @@ needs running again to pick up the slug.
 Canonical form is three things, and all are here because one run repairs or checks them all.
 
 **Canonical keys.** Markets are persisted camel-cased (``convert_keys_to_camel_case`` in
-``create_market`` and ``update_market``), but documents written before that convention carry
+``create_market`` and every named write), but documents written before that convention carry
 snake_case keys, and a later write only ever adds the camelCase spelling alongside them. A
 document holding both keeps a stale ``organization_id`` (or ``is_draft``) forever, so any query
 that still matches the legacy spelling acts on data no write has refreshed since. This drops the

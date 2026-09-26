@@ -143,6 +143,45 @@ describe('the market store', () => {
     expect(store.market?.id).toBe('m1');
   });
 
+  /**
+   * A re-read that fails for a reason other than the market being gone must not take the market
+   * away: every screen renders from it, so dropping it unmounts the tabs - and with them any unsaved
+   * working copy, such as a form being built - over a dropped connection (code review of E21).
+   */
+  it('keeps what it holds when a re-read of the same market fails in transit', async () => {
+    const store = useMarketStore();
+    const opened = store.open('m1');
+    calls[0].resolve(apiMarket('m1'));
+    await opened;
+
+    const reread = store.refresh();
+    calls[1].reject(httpError(500));
+    await reread;
+
+    expect(store.market?.id).toBe('m1');
+    expect(store.status).toBe('loaded');
+    expect(store.stale).toBe(true);
+
+    const recovered = store.refresh();
+    calls[2].resolve(apiMarket('m1'));
+    await recovered;
+    expect(store.stale).toBe(false);
+  });
+
+  it('lets go of a market that has gone, even one it was holding', async () => {
+    const store = useMarketStore();
+    const opened = store.open('m1');
+    calls[0].resolve(apiMarket('m1'));
+    await opened;
+
+    const reread = store.refresh();
+    calls[1].reject(httpError(404));
+    await reread;
+
+    expect(store.market).toBeNull();
+    expect(store.status).toBe('missing');
+  });
+
   it('forgets everything when cleared, so the next account is never shown this market', async () => {
     const store = useMarketStore();
     const opened = store.open('m1');

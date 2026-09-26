@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssignedMarket';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
@@ -49,9 +49,9 @@ test.describe('The phase rail', () => {
   test('is below the header on every market screen', async ({ authenticatedPage: page }) => {
     for (const path of [
       marketSetupPath(seed.marketId, 'setup'),
-      `/markets/${seed.marketId}/tables`,
-      `/markets/${seed.marketId}/vendors`,
-      `/markets/${seed.marketId}/attendance`,
+      marketScreenPath(seed.marketId, 'tables'),
+      marketScreenPath(seed.marketId, 'vendors'),
+      marketScreenPath(seed.marketId, 'attendance'),
     ]) {
       await openMarket(page, path);
       const rail = page.getByTestId('phase-rail');
