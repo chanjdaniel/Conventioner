@@ -209,7 +209,7 @@ export interface Market {
   applicationFormLockReason?: string | null;
   /** Why the assignment rules can no longer change, or null while they can (E22/F02/S02). */
   assignmentRulesLockReason?: string | null;
-  /** Which of `rules`, `plan`, `applications` changed since the assignment ran (E22/F03/S01). */
+  /** Which of the solver's inputs changed since the assignment ran (E22/F03/S01). */
   assignmentOutOfDate?: string[];
   userRole?: MarketRole; // User's effective role (added by API)
 }
@@ -413,3 +413,9 @@ export interface FloorplanTemplate {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * One of the three things an assignment is made from, as the server names them in
+ * `assignmentOutOfDate` (`back-end/assignment/made_from.py`, `GROUPS`).
+ */
+export type AssignmentInputGroup = 'rules' | 'plan' | 'applications';

@@ -12,19 +12,21 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import type { Market } from '@/assets/types/datatypes';
 import { marketPath } from '@/utils/market';
-import { PAGE_LABELS, TAB_PAGES, currentPage, pageOfRoute, tabOf } from '@/utils/marketPage';
+import {
+  PAGE_LABELS,
+  TAB_PAGES,
+  currentPage,
+  hasAssignment,
+  pageOfRoute,
+  tabOf,
+} from '@/utils/marketPage';
 
 const props = defineProps<{ market: Market | null }>();
 const route = useRoute();
 
 const here = computed(() => pageOfRoute(route.name, route.params));
 const pages = computed(() => (here.value ? TAB_PAGES[tabOf(here.value)] : []));
-const current = computed(() =>
-  currentPage(
-    props.market?.phase,
-    (props.market?.assignmentObject?.vendorAssignments?.length ?? 0) > 0,
-  ),
-);
+const current = computed(() => currentPage(props.market?.phase, hasAssignment(props.market)));
 </script>
 
 <template>
@@ -53,7 +55,7 @@ const current = computed(() =>
 .market-pages {
   display: flex;
   gap: var(--space-1);
-  padding: var(--space-2) 20px;
+  padding: var(--space-2) var(--space-6);
   border-bottom: 1px solid var(--mm-border);
   background-color: white;
 }

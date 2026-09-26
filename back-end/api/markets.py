@@ -155,7 +155,8 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
 
 ASSIGNMENT_RULES_SETTLED = (
     "The assignment for this market is settled. A rule only takes effect when the assignment "
-    "runs, and this market can no longer run it; change a single placement from the result instead."
+    "runs, and this market can no longer run it. Change a single placement on the Result page "
+    "instead."
 )
 
 
@@ -509,8 +510,12 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
     # Which of the rules, the plan and the approved applications changed since the stored
     # assignment ran (E22/F03/S01). Computed on read, never stored; empty when nothing has, or when
-    # the assignment predates the fingerprints and so is not known to be out of date.
-    market_dict['assignmentOutOfDate'] = changed_since_run(market)
+    # the assignment predates the fingerprints and so is not known to be out of date. Only in
+    # `assignment`, the one phase that can act on it by running again: every other read - a running
+    # market's above all - is spared reading the approved applications to compute it.
+    market_dict['assignmentOutOfDate'] = (
+        changed_since_run(market) if market.phase is MarketPhase.ASSIGNMENT else []
+    )
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}

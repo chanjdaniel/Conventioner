@@ -53,6 +53,8 @@
         "src/components/application/RankedChoiceInput.vue",
         "src/components/application/ReviewHighlights.vue",
         "src/components/elements/ElementAssignmentOptions.vue",
+        "src/components/market/MarketAssignmentTab.vue",
+        "src/components/market/MarketPlanTab.vue",
         "src/components/elements/ElementAssignmentPriority.vue",
         "src/components/elements/ElementBanner.vue",
         "src/components/elements/ElementInitButton.vue",
@@ -72,6 +74,7 @@
         "src/views/EmailVerificationView.vue",
         "src/views/InitView.vue",
         "src/views/LoadMarketOverlay.vue",
+        "src/views/MarketLanding.vue",
         "src/views/LoginView.vue",
         "src/views/ManageMarketOverlay.vue",
         "src/views/ManageOrgOverlay.vue",
@@ -81,7 +84,7 @@
         "src/views/OrganizationsView.vue",
         "src/views/PasswordResetRequestView.vue",
         "src/views/PasswordResetView.vue",
-        "src/views/TablesView.vue",
+        "src/views/ResultView.vue",
         "src/views/VendorsView.vue"
       ],
       "rules": {

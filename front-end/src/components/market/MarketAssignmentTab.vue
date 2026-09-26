@@ -43,7 +43,7 @@ const emit = defineEmits<{
 <template>
   <div class="settings-body settings-body-stacked">
     <!-- The rules as they were run, and why nothing offers to change them (E22/F02/S02). -->
-    <p v-if="rulesLockReason" class="rules-settled" data-testid="assignment-rules-settled">
+    <p v-if="rulesLockReason" class="note" data-testid="assignment-rules-settled">
       {{ rulesLockReason }}
     </p>
     <section class="plan-row plan-row--asymmetric">
@@ -142,14 +142,6 @@ const emit = defineEmits<{
 
 .plan-row--asymmetric {
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-}
-
-.rules-settled {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-left: 3px solid var(--mm-green);
-  font-size: var(--text-sm);
-  color: var(--mm-black);
 }
 
 .assign-actions {

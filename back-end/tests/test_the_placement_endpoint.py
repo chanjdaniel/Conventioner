@@ -589,7 +589,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
         (MarketPhase.DRAFT, "draft"),
         (MarketPhase.APPLICATIONS_OPEN, "Close them"),
         (MarketPhase.REVIEW, "review"),
-        (MarketPhase.MARKET_DAYS, "Tables view"),
+        (MarketPhase.MARKET_DAYS, "Result page"),
     ])
     def test_the_refusal_names_an_action_available_from_that_phase(self, phase, names):
         assert names in PlacementsApi.assign_phase_refusal(phase)
@@ -601,3 +601,23 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
         source = inspect.getsource(PlacementsApi.assign_phase_refusal)
         assert "ApplicationStatus" not in source
         assert "vendor_assignments" not in source
+
+
+@pytest.mark.parametrize("change", ["free", "swap"])
+def test_freeing_and_swapping_leave_what_the_run_was_made_from_alone(collection, change):
+    """A hand change is an edit to the result, never an input to it (E22/F03/S01)."""
+    already_placed(
+        collection,
+        ("ana@example.com", "2026-08-01", "Hall A 1"),
+        ("ben@example.com", "2026-08-01", "Hall A 2"),
+    )
+
+    if change == "free":
+        PlacementsApi.remove_placement("market-123", "ana@example.com", "2026-08-01", "user-1")
+    else:
+        PlacementsApi.swap_placements(
+            "market-123", "2026-08-01", "ana@example.com", "ben@example.com", "user-1"
+        )
+
+    assert collection.last_update is not None
+    assert "assignmentObject.madeFrom" not in collection.last_update["$set"]

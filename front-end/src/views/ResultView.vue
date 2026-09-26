@@ -1,4 +1,12 @@
 <script setup lang="ts">
+/**
+ * The Result page: the assignment, read and changed in one place (E22/F04/S04).
+ *
+ * It was the Tables screen, reached by a quick link from a results page under the rules. The
+ * organizer's "result" is who sits where, which is this grid, so the grid became the page: a
+ * summary strip on top (`ResultSummary`), then the tables with their seat editing, then the
+ * placement history. It stands under the Assignment tab, beside the rules and the Vendors page.
+ */
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 

@@ -19,12 +19,12 @@ import { api } from '@/utils/api';
 import { marketPath } from '@/utils/market';
 import { assignRefusal } from '@/utils/assignPhase';
 import { outOfDateLine } from '@/utils/assignmentOutOfDate';
+import { hasAssignment } from '@/utils/marketPage';
+import { withoutQueryKey } from '@/utils/routeQuery';
 
 const props = defineProps<{ market: Market }>();
 
-const hasAssignment = computed(
-  () => (props.market.assignmentObject?.vendorAssignments?.length ?? 0) > 0,
-);
+const assigned = computed(() => hasAssignment(props.market));
 const refusal = computed(() => assignRefusal(props.market.phase));
 const outOfDate = computed(() =>
   outOfDateLine(props.market.assignmentOutOfDate, props.market.phase),
@@ -38,9 +38,9 @@ const router = useRouter();
 const statisticsOpen = computed(() => route.query.stats === 'open');
 
 function toggleStatistics(): void {
-  const query = { ...route.query };
-  if (statisticsOpen.value) delete query.stats;
-  else query.stats = 'open';
+  const query = statisticsOpen.value
+    ? withoutQueryKey(route.query, 'stats')
+    : { ...route.query, stats: 'open' };
   void router.replace({ query });
 }
 
@@ -52,7 +52,7 @@ function toggleStatistics(): void {
  * assignment, so the store re-reading the market afterwards is all it takes for this to follow.
  */
 const basis = computed(() =>
-  hasAssignment.value
+  assigned.value
     ? JSON.stringify([
         props.market.id,
         props.market.assignmentObject ?? null,
@@ -145,17 +145,17 @@ async function downloadCsv(): Promise<void> {
 <template>
   <div class="result-summary">
     <!-- A fact, not an error: no dismiss, and running again is what clears it (E22/F03/S02). -->
-    <p v-if="outOfDate" class="result-note" data-testid="assignment-out-of-date">
+    <p v-if="outOfDate" class="note" data-testid="assignment-out-of-date">
       {{ outOfDate }}
       <RouterLink :to="marketPath(market.id, 'assignment')">Run it again</RouterLink>
       to bring it up to date.
     </p>
 
-    <p v-if="!hasAssignment" class="result-note" data-testid="result-empty">
+    <p v-if="!assigned" class="note" data-testid="result-empty">
       No assignment yet.
       <template v-if="refusal">{{ refusal }}</template>
-      <RouterLink v-else :to="marketPath(market.id, 'assignment')">
-        Set the rules and run it
+      <RouterLink :to="marketPath(market.id, 'assignment')">
+        {{ refusal ? 'Set the rules' : 'Set the rules and run it' }}
       </RouterLink>
     </p>
 
@@ -202,13 +202,10 @@ async function downloadCsv(): Promise<void> {
     </div>
 
     <!-- Named and defined where it is shown: it was once a bare "Satisfaction Score" (E12). -->
-    <p v-if="hasAssignment" class="result-definition">
+    <p v-if="assigned" class="result-definition">
       Satisfaction is the share of the dates vendors asked for, and could have had, that they got.
     </p>
-    <ResultStatistics
-      v-if="hasAssignment && statisticsOpen && statistics"
-      :statistics="statistics"
-    />
+    <ResultStatistics v-if="assigned && statisticsOpen && statistics" :statistics="statistics" />
     <p v-if="downloadError" class="result-error" data-testid="result-download-error">
       {{ downloadError }}
     </p>
@@ -220,18 +217,6 @@ async function downloadCsv(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-
-.result-note {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-left: 3px solid var(--mm-green);
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.result-note a {
-  color: var(--mm-text-link);
 }
 
 .result-strip {
@@ -254,7 +239,7 @@ async function downloadCsv(): Promise<void> {
 .result-link {
   color: var(--mm-black);
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-underline-offset: var(--space-hairline);
 }
 
 .result-actions {

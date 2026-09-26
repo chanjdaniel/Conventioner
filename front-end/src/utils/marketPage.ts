@@ -12,7 +12,7 @@
  * bar and the rail beneath it say the same thing about where the market is. This replaced
  * `marketSurface.ts`, whose four surfaces could not name Result, Vendors or Attendance.
  */
-import { MarketPhase } from '@/assets/types/datatypes';
+import { MarketPhase, type Market } from '@/assets/types/datatypes';
 
 export type MarketPage =
   'setup' | 'form' | 'applications' | 'assignment' | 'result' | 'vendors' | 'attendance';
@@ -31,6 +31,23 @@ export const MARKET_PAGES: MarketPage[] = [
   'vendors',
   'attendance',
 ];
+
+/**
+ * The pages one view shows (`MarketSetupView`): the plan, the form, the applications and the rules.
+ * The router's route for them, and the view's own reading of its address, both come from here.
+ */
+export const SETUP_VIEW_PAGES = ['setup', 'form', 'applications', 'assignment'] as const;
+export type SetupViewPage = (typeof SETUP_VIEW_PAGES)[number];
+
+/**
+ * Whether the market holds an assignment: any placement stored. The one statement of it, read by
+ * every page that changes with it - the bar and page row's dot, the landing, the Result page.
+ */
+export function hasAssignment(
+  market: Pick<Market, 'assignmentObject'> | null | undefined,
+): boolean {
+  return (market?.assignmentObject?.vendorAssignments?.length ?? 0) > 0;
+}
 
 /** The pages under each tab, in the order its page row shows them. */
 export const TAB_PAGES: Record<MarketTab, MarketPage[]> = {

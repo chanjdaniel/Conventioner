@@ -1,3 +1,4 @@
+import { marketScreenPath } from '../helpers/marketScreens';
 import type { Locator, Page } from '@playwright/test';
 
 /**
@@ -40,12 +41,12 @@ export class TablesPage {
   }
 
   async goto(marketId: string): Promise<void> {
-    await this.page.goto(`/markets/${marketId}/result`);
+    await this.page.goto(marketScreenPath(marketId, 'result'));
   }
 
   async gotoWithFilters(marketId: string, query: Record<string, string>): Promise<void> {
     const params = new URLSearchParams(query).toString();
-    await this.page.goto(`/markets/${marketId}/result?${params}`);
+    await this.page.goto(`${marketScreenPath(marketId, 'result')}?${params}`);
   }
 
   async clearAllFilters(): Promise<void> {

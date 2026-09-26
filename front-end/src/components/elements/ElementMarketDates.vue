@@ -18,7 +18,7 @@
  */
 import { computed, ref, toRef, watch } from 'vue';
 import { type SetupObject, type MarketDateObject } from '@/assets/types/datatypes';
-import { addMonths, datesByMonth, monthGrid, monthOf } from '@/utils/calendarMonth';
+import { MONTH_NAMES, addMonths, datesByMonth, monthGrid, monthOf } from '@/utils/calendarMonth';
 import { getFormattedDate } from '@/utils/utils';
 
 const props = defineProps<{ setupObject: SetupObject }>();
@@ -34,20 +34,6 @@ watch(
 );
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
 
 const chosen = computed(() =>
   (marketDates.value ?? []).map((entry: MarketDateObject) => entry.date).filter(Boolean),

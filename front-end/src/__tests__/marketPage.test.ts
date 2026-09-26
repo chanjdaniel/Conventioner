@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   TAB_PAGES,
   currentPage,
+  SETUP_VIEW_PAGES,
+  hasAssignment,
   pageForTab,
   pageOfRoute,
   tabOf,
@@ -117,5 +119,23 @@ describe('the page a route is', () => {
     expect(pageOfRoute('market', {})).toBeNull();
     expect(pageOfRoute('markets', {})).toBeNull();
     expect(pageOfRoute(undefined, {})).toBeNull();
+  });
+});
+
+describe('whether a market has an assignment', () => {
+  it('is whether any placement is stored', () => {
+    expect(hasAssignment(null)).toBe(false);
+    expect(hasAssignment({ assignmentObject: undefined })).toBe(false);
+    expect(hasAssignment({ assignmentObject: { vendorAssignments: [] } })).toBe(false);
+    expect(hasAssignment({ assignmentObject: { vendorAssignments: [{ email: 'a@b.c' }] } })).toBe(
+      true,
+    );
+  });
+});
+
+describe('the pages one view shows', () => {
+  it('are the plan, the form, the applications and the rules, all under their own tabs', () => {
+    expect(SETUP_VIEW_PAGES).toEqual(['setup', 'form', 'applications', 'assignment']);
+    for (const page of SETUP_VIEW_PAGES) expect(pageOfRoute('market-setup', { page })).toBe(page);
   });
 });

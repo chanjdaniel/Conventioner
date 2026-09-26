@@ -372,3 +372,24 @@
 .card-grid > .card-grid__wide {
   grid-column: 1 / -1;
 }
+
+/* ============================================================================================
+   .note
+   ============================================================================================ */
+
+/*
+ * A fact the page states about itself, quietly (E22): the rules are settled, the assignment is out
+ * of date, there is no assignment yet. Not an error and not a control - a rule down its edge and
+ * body type - so it reads the same wherever the product says such a thing.
+ */
+.note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: var(--space-hairline) solid var(--mm-green);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+.note a {
+  color: var(--mm-text-link);
+}

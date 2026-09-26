@@ -17,6 +17,7 @@ import { marketPath } from '@/utils/market';
 import {
   TAB_LABELS,
   currentPage,
+  hasAssignment,
   pageForTab,
   pageOfRoute,
   tabOf,
@@ -30,19 +31,12 @@ const route = useRoute();
 /** The page or flow this route is, read off the route rather than told by each screen. */
 const here = computed(() => pageOfRoute(route.name, route.params));
 
-const assigned = computed(
-  () => (props.market?.assignmentObject?.vendorAssignments?.length ?? 0) > 0,
-);
+const assigned = computed(() => hasAssignment(props.market));
 const current = computed(() => currentPage(props.market?.phase, assigned.value));
 const activeTab = computed(() => (here.value ? tabOf(here.value) : null));
 
-/** Attendance once published - and on the Attendance page itself, however it was reached. */
-const tabs = computed((): MarketTab[] => {
-  const shown = tabsFor(props.market?.phase);
-  return activeTab.value === 'attendance' && !shown.includes('attendance')
-    ? [...shown, 'attendance']
-    : shown;
-});
+/** Attendance once the market is published, and only then. */
+const tabs = computed((): MarketTab[] => tabsFor(props.market?.phase));
 
 function linkFor(tab: MarketTab): string {
   return marketPath(props.market!.id, pageForTab(tab, props.market?.phase, assigned.value));
@@ -83,7 +77,8 @@ function linkFor(tab: MarketTab): string {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: 0 20px;
+  /* The rail's own inset, so the name and the rail's first stage line up. */
+  padding: 0 var(--space-6);
 }
 
 /* Whole wherever it fits beside the tabs; ellipsed, with the full name on hover, only where it does
@@ -102,11 +97,11 @@ function linkFor(tab: MarketTab): string {
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
-  gap: 2px;
+  gap: var(--space-hairline);
 }
 
 .market-bar-tab {
-  padding: 6px 16px;
+  padding: var(--space-2) var(--space-4);
   border-bottom: 2px solid transparent;
   font-size: var(--text-sm);
   color: var(--mm-text-muted-on-dark);
