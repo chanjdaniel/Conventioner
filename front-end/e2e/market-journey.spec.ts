@@ -106,7 +106,8 @@ test.describe('The MVP journey', () => {
     await setup.addMarketDate(MARKET_DATES[1]);
     // Both days read back as days, in order: dates are chosen on a calendar now (E18/F01/S02),
     // and what the organizer sees is each date spelled out rather than an input's value.
-    await expect(page.getByTestId('setup-dates-date-display-1')).toHaveText(
+    await expect(page.getByTestId('setup-dates-date-display-1')).toHaveAttribute(
+      'title',
       getFormattedDate(MARKET_DATES[1]) as string,
     );
 

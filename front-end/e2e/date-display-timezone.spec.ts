@@ -91,7 +91,10 @@ for (const timezoneId of TIMEZONES) {
 
       const dateLabel = page.getByTestId('setup-dates-date-display-0');
       await expect(dateLabel).toBeVisible({ timeout: 10000 });
-      await expect(dateLabel).toHaveText(EXPECTED_LABEL);
+      // A day reads short beside its month (E23/F02/S01); its title is the whole date.
+      await expect(dateLabel).toHaveAttribute('title', EXPECTED_LABEL);
+      await expect(dateLabel).toContainText('Fri 31');
+      await expect(page.getByTestId('setup-dates-month-name')).toHaveText(['July 2026']);
 
       await page.screenshot({
         path: testInfo.outputPath(`market-dates-${timezoneId.replace('/', '_')}.png`),
@@ -135,7 +138,8 @@ for (const timezoneId of TIMEZONES) {
 
       // A day clicked here is stored as that calendar day, whoever clicked it.
       await page.getByTestId('setup-dates-day-2026-07-01').click();
-      await expect(page.getByTestId('setup-dates-date-display-0')).toHaveText(
+      await expect(page.getByTestId('setup-dates-date-display-0')).toHaveAttribute(
+        'title',
         'Wednesday, July 1, 2026',
       );
     });
