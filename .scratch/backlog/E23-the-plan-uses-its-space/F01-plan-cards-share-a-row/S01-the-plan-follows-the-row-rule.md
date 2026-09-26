@@ -2,9 +2,9 @@
 id: E23/F01/S01
 title: The row rule is written, and the plan follows it
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build

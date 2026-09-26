@@ -2,9 +2,9 @@
 id: E22/F04/S04
 title: The Result page is the assignment, read and changed
 type: story
-status: in-progress
+status: done
 blocked_by: [E22/F04/S03]
-pr: []
+pr: [#83]
 ---
 
 ## What to build

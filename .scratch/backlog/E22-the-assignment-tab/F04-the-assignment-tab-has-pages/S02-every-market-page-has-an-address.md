@@ -2,9 +2,9 @@
 id: E22/F04/S02
 title: Every market page has its own address, and the bar reaches every one
 type: story
-status: in-progress
+status: done
 blocked_by: [E22/F01/S02]
-pr: []
+pr: [#83]
 ---
 
 ## What to build

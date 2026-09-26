@@ -2,9 +2,9 @@
 id: E22/F04/S01
 title: Every market screen is one width
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build

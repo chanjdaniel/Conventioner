@@ -2,9 +2,9 @@
 id: E22/F01/S01
 title: The Assignment Options card shows both options
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E22/F02/S01
 title: The plan write refuses a change to the assignment rules after the assignment phase
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build

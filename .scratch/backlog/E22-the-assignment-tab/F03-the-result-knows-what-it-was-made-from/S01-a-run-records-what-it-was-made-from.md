@@ -2,9 +2,9 @@
 id: E22/F03/S01
 title: A run records what it was made from, and the market says when that has changed
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build

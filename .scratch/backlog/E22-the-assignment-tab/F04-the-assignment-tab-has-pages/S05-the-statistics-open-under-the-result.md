@@ -2,9 +2,9 @@
 id: E22/F04/S05
 title: The statistics open under the result
 type: story
-status: in-progress
+status: done
 blocked_by: [E22/F04/S04]
-pr: []
+pr: [#83]
 ---
 
 ## What to build

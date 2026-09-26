@@ -2,9 +2,9 @@
 id: E22/F03/S02
 title: The result says it is out of date
 type: story
-status: in-progress
+status: done
 blocked_by: [E22/F03/S01]
-pr: []
+pr: [#83]
 ---
 
 ## What to build

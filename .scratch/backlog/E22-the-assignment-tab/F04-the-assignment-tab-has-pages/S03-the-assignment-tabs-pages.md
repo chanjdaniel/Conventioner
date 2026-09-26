@@ -2,9 +2,9 @@
 id: E22/F04/S03
 title: The Assignment tab's pages
 type: story
-status: in-progress
+status: done
 blocked_by: [E22/F04/S02]
-pr: []
+pr: [#83]
 ---
 
 ## What to build

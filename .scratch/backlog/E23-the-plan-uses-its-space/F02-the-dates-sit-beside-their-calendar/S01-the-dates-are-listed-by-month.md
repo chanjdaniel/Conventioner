@@ -2,9 +2,9 @@
 id: E23/F02/S01
 title: The chosen dates are listed by month beside the calendar
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build

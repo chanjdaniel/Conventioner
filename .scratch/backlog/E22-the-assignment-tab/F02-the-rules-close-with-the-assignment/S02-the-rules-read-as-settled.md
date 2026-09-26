@@ -2,9 +2,9 @@
 id: E22/F02/S02
 title: The assignment rules read as settled after the assignment phase
 type: story
-status: in-progress
+status: done
 blocked_by: [E22/F02/S01]
-pr: []
+pr: [#83]
 ---
 
 ## What to build

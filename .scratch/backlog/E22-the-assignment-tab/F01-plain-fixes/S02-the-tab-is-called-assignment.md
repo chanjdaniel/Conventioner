@@ -2,9 +2,9 @@
 id: E22/F01/S02
 title: The tab is called Assignment
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#83]
 ---
 
 ## What to build
