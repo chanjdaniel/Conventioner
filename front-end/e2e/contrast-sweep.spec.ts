@@ -222,12 +222,9 @@ test.describe('Every rendered text node reaches AA', () => {
       // The densest authoring surface in the product, and unwalked until E17/F03/S01 - which is
       // how a field-type badge shipped at 3.73:1 on it.
       ['application form', marketSetupPath(marketId, 'form'), 'essential-item-section-ranking'],
-      [
-        'assignment',
-        marketSetupPath(marketId, 'assignment'),
-        'assignment-results-download-csv-button',
-      ],
-      ['tables', marketScreenPath(marketId, 'result'), 'tables-count-assigned'],
+      // A published market: its rules read as settled (E22/F02/S02).
+      ['assignment', marketSetupPath(marketId, 'assignment'), 'assignment-rules-settled'],
+      ['result', marketScreenPath(marketId, 'result'), 'result-strip'],
       ['vendors', marketScreenPath(marketId, 'vendors'), 'vendors-search-input'],
       ['attendance', marketScreenPath(marketId, 'attendance'), 'market-bar-title'],
     ] as const) {
@@ -235,29 +232,6 @@ test.describe('Every rendered text node reaches AA', () => {
       await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
       await expectAA(page, state);
     }
-  });
-
-  test('the summary card is measured against its gradient, not against the page', async ({
-    authenticatedPage: page,
-  }) => {
-    // The sweep read `backgroundColor` alone, and a gradient reports `rgba(0,0,0,0)` for that - so
-    // the walk sailed past this card and scored its white text against the page's white. It
-    // reported thirteen failures on a card that has none, and would equally have reported none on a
-    // card that did. An empty failure list is only worth the ground it was measured on.
-    await openTheSeededMarket(page);
-    await page.goto(marketSetupPath(marketId, 'assignment'));
-    await expect(page.getByTestId('assignment-results-download-csv-button')).toBeVisible({
-      timeout: 15000,
-    });
-
-    const card = page.locator('.summary-card');
-    await expect(card).toBeVisible();
-    const painted = await card.evaluate((el) => getComputedStyle(el).backgroundImage);
-    expect(painted, 'the summary card lost its gradient').toContain('gradient');
-
-    await settle(page);
-    const { failures } = await sweep(page);
-    expect(failures, 'the summary card is below AA').toEqual([]);
   });
 
   test('sign-in, and the public check-in page', async ({ page }) => {

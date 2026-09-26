@@ -265,12 +265,26 @@ const vendors = computed<VendorRow[]>(() =>
   }),
 );
 
+/**
+ * Only the vendors the assignment left without a table: where "N unassigned" on the Result page
+ * leads (E22/F04/S04), in the address so the link is a link. It replaced the results page's own
+ * list of them, which could only report an address.
+ */
+const onlyUnassigned = computed(() => route.query.show === 'unassigned');
+
+function showEveryone(): void {
+  const query = { ...route.query };
+  delete query.show;
+  void router.replace({ query });
+}
+
 const filteredVendors = computed(() => {
+  const shown = onlyUnassigned.value ? vendors.value.filter((v) => !v.isAssigned) : vendors.value;
   const term = filterText.value.trim();
-  if (!term) return vendors.value;
+  if (!term) return shown;
   // Name AND address. The box used to read "Filter by email" and match only that, which on a
   // market of 232 vendors meant knowing someone's address to find them by name.
-  return vendors.value.filter((v) => vendorMatches(term, v.email, vendorNames.value));
+  return shown.filter((v) => vendorMatches(term, v.email, vendorNames.value));
 });
 
 const totalVendorCount = computed(() => vendors.value.length);
@@ -417,6 +431,16 @@ useInertBehind(
             class="filter-input"
             data-testid="vendors-search-input"
           />
+          <button
+            v-if="onlyUnassigned"
+            type="button"
+            class="chip chip--neutral unassigned-filter"
+            aria-label="Show every vendor"
+            data-testid="vendors-filter-unassigned"
+            @click="showEveryone"
+          >
+            Unassigned only &times;
+          </button>
           <div class="summary-line">
             <span class="summary-strong">{{ assignedVendorCount }}</span>
             of
@@ -439,6 +463,7 @@ useInertBehind(
 
           <div v-else-if="filteredVendors.length === 0" class="empty-state empty-state--inline">
             <p v-if="totalVendorCount === 0">No vendors found.</p>
+            <p v-else-if="onlyUnassigned && !filterText.trim()">Every vendor has a table.</p>
             <p v-else>No vendors match "{{ filterText }}".</p>
           </div>
 
@@ -628,6 +653,11 @@ useInertBehind(
   border-color: var(--mm-green);
   outline: 2px solid var(--mm-black);
   outline-offset: 2px;
+}
+
+.unassigned-filter {
+  border: none;
+  cursor: pointer;
 }
 
 .summary-line {

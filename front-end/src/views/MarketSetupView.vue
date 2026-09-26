@@ -9,7 +9,6 @@ import { type SetupObject, type FormField } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
-import { outOfDateLine } from '@/utils/assignmentOutOfDate';
 import type { MarketPage } from '@/utils/marketPage';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue';
@@ -386,7 +385,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignRefusalReason="assignRefusalReason"
           :assignError="assignError"
           :rulesLockReason="market?.assignmentRulesLockReason ?? null"
-          :outOfDate="outOfDateLine(market?.assignmentOutOfDate, market?.phase)"
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"

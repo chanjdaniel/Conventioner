@@ -7,7 +7,7 @@ import {
   ManageMarketPage,
   BACKEND_URL,
 } from './fixtures';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { SEED_MARKET_DATE, ensureTestOrgAuthenticated } from './helpers/seeds';
 
@@ -204,11 +204,11 @@ test.describe('Tier 2 - Assignment CSV export', () => {
       localStorage.setItem('user', JSON.stringify(user));
     }, TEST_USER.email);
 
-    // Assignment is a tab on the market now (E10/F03/S01), addressed by the market's id.
-    await page.goto(marketSetupPath(marketId, 'assignment'));
-    await expect(page.locator('.assignment-results')).toBeVisible({ timeout: 15000 });
+    // The assignment is read on the Result page (E22/F04/S04), addressed by the market's id.
+    await page.goto(marketScreenPath(marketId, 'result'));
+    await expect(page.getByTestId('result-strip')).toBeVisible({ timeout: 15000 });
 
-    const downloadButton = page.getByTestId('assignment-results-download-csv-button');
+    const downloadButton = page.getByTestId('result-download-csv-button');
     await expect(downloadButton).toBeEnabled({ timeout: 15000 });
 
     const downloadPromise = page.waitForEvent('download', { timeout: 10000 });
