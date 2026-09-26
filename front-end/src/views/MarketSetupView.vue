@@ -516,10 +516,10 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 
   display: flex;
   flex-direction: column;
-  /* `safe` centres only while the content fits. Plain `center` splits any overflow
-       evenly above and below, and content above the scroll origin cannot be reached at
-       any scroll position - it would strand the organizer with no way back to the tabs. */
-  justify-content: safe center;
+  /* The top, never the middle (E21/F01/S02). This was `safe center`, which floated the whole card
+     - header and rail with it - into the middle of the window whenever a surface was shorter than
+     the viewport, so the market's own header moved as the organizer changed tabs. */
+  justify-content: flex-start;
   align-items: center;
 }
 
