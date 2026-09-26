@@ -5,7 +5,7 @@ and a flag saying "hand-placed" cannot answer it. Scope is placements and nothin
 """
 import pytest
 
-from conftest import FakeMarketsCollection, stored_market
+from conftest import a_solver_vendor, FakeMarketsCollection, stored_market
 
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
@@ -128,7 +128,7 @@ class TestOneEntryPerAction:
             )
             return market
 
-        monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _m: ["a vendor"])
+        monkeypatch.setattr(PlacementsApi, "solver_vendors_for", lambda _m: [a_solver_vendor()])
         monkeypatch.setattr(PlacementsApi, "assign_market", rows)
 
         PlacementsApi.run_assignment("market-123", "dana@example.com")
