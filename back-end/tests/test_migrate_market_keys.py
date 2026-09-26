@@ -20,6 +20,7 @@ from market_documents import (
     MARKET_KEY_MIGRATION_ID,
     MARKET_SLUG_INDEX,
     MARKET_SLUG_MIGRATION_ID,
+    MARKET_SLUG_UNIQUE_MIGRATION_ID,
     MONGO_ID_KEY,
     SCHEMA_COLLECTION,
     MarketKeyMigrationMissingError,
@@ -39,6 +40,9 @@ class FakeCollection:
 
     def create_index(self, keys, name=None, **_kwargs):
         self.indexes.append((keys, name))
+
+    def index_information(self):
+        return {}
 
     def replace_one(self, query, replacement):
         for index, doc in enumerate(self.docs):
@@ -202,7 +206,26 @@ def test_a_database_migrated_by_an_older_build_still_refuses_to_serve():
     with pytest.raises(MarketKeyMigrationMissingError) as excinfo:
         assert_market_key_migration_recorded(db)
 
-    assert excinfo.value.missing == (MARKET_SLUG_MIGRATION_ID,)
+    assert excinfo.value.missing == (MARKET_SLUG_MIGRATION_ID, MARKET_SLUG_UNIQUE_MIGRATION_ID)
+
+    migrate(db)
+
+    assert_market_key_migration_recorded(db)
+
+
+def test_a_database_migrated_before_addresses_were_unique_still_refuses_to_serve():
+    """Both older markers present, the unique one missing: that database has a non-unique index and
+    may hold two markets on one public address, so it is refused until the migration checks it."""
+    db = FakeDatabase([{"_id": 1, "id": "m1", "name": "Spring Market", "slug": "spring-market"}])
+    for marker in (MARKET_KEY_MIGRATION_ID, MARKET_SLUG_MIGRATION_ID):
+        db[SCHEMA_COLLECTION].update_one(
+            {MONGO_ID_KEY: marker}, {"$set": {"appliedAt": "then"}}, upsert=True,
+        )
+
+    with pytest.raises(MarketKeyMigrationMissingError) as excinfo:
+        assert_market_key_migration_recorded(db)
+
+    assert excinfo.value.missing == (MARKET_SLUG_UNIQUE_MIGRATION_ID,)
 
     migrate(db)
 

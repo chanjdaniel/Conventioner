@@ -219,8 +219,12 @@ class FakeMarketsCollection:
         self.last_update = None
         self.inserted = None
 
-    def find_one(self, _query, projection=None):
-        return mongo_project(dict(self.doc), projection) if self.doc is not None else None
+    def find_one(self, query, projection=None):
+        # The filter is applied, as Mongo would: a rename asks whether ANOTHER market holds the
+        # address (`id: {$ne: ...}`), and a fake that ignored the filter would answer "yes, this one".
+        if self.doc is None or not mongo_matches(self.doc, query):
+            return None
+        return mongo_project(dict(self.doc), projection)
 
     def update_one(self, _filter, update):
         reject_malformed_update(update)
@@ -450,16 +454,15 @@ def applications(monkeypatch):
 # by a database that reports the migration as applied. Only the probe is redirected: the data
 # collections stay unreachable, so a test that touches an unpatched one still fails loudly.
 import db_config
-from market_documents import MARKET_KEY_MIGRATION_ID, MARKET_SLUG_MIGRATION_ID, MONGO_ID_KEY, SCHEMA_COLLECTION
+from market_documents import MARKET_MIGRATION_IDS, MONGO_ID_KEY, SCHEMA_COLLECTION
 
 
 class _MigratedProbeDatabase:
     client = SimpleNamespace(close=lambda: None)
 
-    _markers = {
-        MARKET_KEY_MIGRATION_ID: {MONGO_ID_KEY: MARKET_KEY_MIGRATION_ID},
-        MARKET_SLUG_MIGRATION_ID: {MONGO_ID_KEY: MARKET_SLUG_MIGRATION_ID},
-    }
+    # Every marker the boot check asks for, so a marker added to the canonical form is one this
+    # probe answers without a second list to keep in step.
+    _markers = {marker: {MONGO_ID_KEY: marker} for marker in MARKET_MIGRATION_IDS}
 
     def __getitem__(self, name):
         assert name == SCHEMA_COLLECTION, "the probe reads the schema marker and nothing else"

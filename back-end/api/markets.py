@@ -17,6 +17,7 @@ from datatypes import (
     Organization,
     UnassignedTableEntry,
     intake_mode_from_market_document,
+    market_name_slug,
     phase_label,
     phase_from_market_document,
     table_code_for,
@@ -726,9 +727,9 @@ def create_market(market: Market, owner_email: str) -> tuple:
     market_dict["id"] = market_id
     market_dict = convert_keys_to_camel_case(market_dict)
     
-    existing_market = markets_collection.find_one({"name": market.name})
-    if existing_market:
-        raise ValueError("Market already exists")
+    refusal = public_address_refusal(market.name)
+    if refusal:
+        raise ValueError(refusal)
     
     result = markets_collection.insert_one(market_dict)
     
@@ -743,6 +744,30 @@ def create_market(market: Market, owner_email: str) -> tuple:
             logger.warning(f"Failed to add market to organization: {e}")
     
     return result, market_id
+
+def public_address_refusal(name: str, market_id: Optional[str] = None) -> Optional[str]:
+    """Why no market may be called this, or None when it may (E21/F03/S03).
+
+    The name decides the slug and the slug is the market's public address - its applicant links
+    and its check-in page, served without authentication - so two markets answering one address
+    could hand a stranger the wrong market. Asked by creation and by a rename alike, against every
+    OTHER market; the unique ``market_slug`` index is the database's refusal of the same thing.
+
+    A name with nothing sluggable in it has no public address, so it can only clash by name.
+    """
+    slug = market_name_slug(name or "")
+    query: Dict[str, Any] = market_doc_filter("slug", slug) if slug else {"name": name}
+    if market_id is not None:
+        query["id"] = {"$ne": market_id}
+    if markets_collection.find_one(query, {"id": 1}) is None:
+        return None
+    if slug:
+        return (
+            f"Another market already uses the web address /{slug}. "
+            "Choose a name that is different in more than accents or punctuation."
+        )
+    return "Another market already has this name."
+
 
 def organization_refusal(user_email: str, organization_id: Optional[str]) -> Optional[str]:
     """Why this user's market may not belong to this organization, or None when it may.
@@ -773,6 +798,11 @@ def organization_refusal(user_email: str, organization_id: Optional[str]) -> Opt
 def update_market(market_id: str, market: Market, requesting_user: str) -> UpdateResult:
     """Update an existing market. Requires EDIT permission."""
     existing_market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+
+    if market.name != existing_market.name:
+        refusal = public_address_refusal(market.name, market_id)
+        if refusal:
+            raise ValueError(refusal)
 
     market_dict = market.model_dump()
     _strip_persisted_assignment_statistics(market_dict)

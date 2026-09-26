@@ -90,12 +90,11 @@ const handleSubmit = async () => {
       error.response?.status === 400 &&
       error.response?.data?.error
     ) {
-      const errorText = error.response.data.error.toLowerCase();
-      if (errorText.includes('already exists') || errorText.includes('market already')) {
-        errorMessage.value = 'A market with this name already exists';
-      } else {
-        errorMessage.value = error.response.data.error;
-      }
+      // The server's own words. This used to rewrite anything mentioning "market already" into "A
+      // market with this name already exists" - which is false for the refusal that matters most:
+      // "Cafe Market" beside "Café Market" is a different name on the SAME public address, and the
+      // server says exactly that (E21/F03/S03).
+      errorMessage.value = error.response.data.error;
     } else {
       errorMessage.value = 'An error occurred. Please try again.';
     }

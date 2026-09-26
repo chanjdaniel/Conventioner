@@ -136,7 +136,7 @@ Before a promotion reaches production, run the pending migrations in `back-end/m
 
 ```bash
 python migrations/migrate_phase.py                    # backfills `phase` on existing markets
-python migrations/migrate_market_keys.py              # rewrites market documents into canonical form (camelCase keys + stored slug, builds slug index)
+python migrations/migrate_market_keys.py              # rewrites market documents into canonical form (camelCase keys + stored slug, builds the UNIQUE slug index; stops and names markets that share a public address)
 python migrations/migrate_is_draft_consistency.py     # makes `isDraft` agree with `phase` on markets that have one
 python migrations/create_applications_collection.py   # creates the applications collection and its indexes
 ```
@@ -154,7 +154,7 @@ Run it after `migrate_phase.py`: the two are disjoint by construction (one touch
 
 `migrate_market_keys.py` **must** be run before the code that reads market documents by the canonical key only and the code that queries the stored slug.
 An unmigrated market is invisible to every such read: vendors are told the market does not exist at check-in, applicants get a 404 at the public market URL, and organization members get an empty market list.
-The migration records both of its marker documents (`market_document_keys` and `market_slugs`) in the `schema_migrations` collection, builds the `market_slug` index, and the back end refuses to boot unless it can read both markers; the fatal log names every missing one and the script to run.
+The migration records every one of its marker documents (`market_document_keys`, `market_slugs` and `market_slugs_unique`) in the `schema_migrations` collection, builds the unique `market_slug` index (stopping to name any stored markets that already share a public address), and the back end refuses to boot unless it can read every marker; the fatal log names every missing one and the script to run.
 The check fails closed on anything short of confirmed markers - an unknown migration state is not a migrated one - so a deploy that skipped the migration fails loudly at startup rather than quietly serving half the data.
 
 ## Files

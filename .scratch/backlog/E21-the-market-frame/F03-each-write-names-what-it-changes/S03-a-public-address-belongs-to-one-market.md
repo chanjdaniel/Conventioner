@@ -2,7 +2,7 @@
 id: E21/F03/S03
 title: A public address belongs to one market
 type: story
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
@@ -23,8 +23,8 @@ The migration that builds it stops with an error naming every set of colliding m
 
 ## Acceptance criteria
 
-- [ ] Reproduced first as failing pytest: a rename onto an existing name, and a creation whose name differs only by accent or punctuation, both succeed today.
-- [ ] Creation and rename both refuse a taken slug, through one check.
-- [ ] The slug index is unique; a migration builds it and, when collisions exist, refuses and names them.
-- [ ] The back end refuses to boot until that migration's marker is recorded, and `docs/RELEASING.md` names the step.
-- [ ] The create-market dialog shows the refusal where the name field is.
+- [x] Reproduced first as failing pytest: a rename onto an existing name, and a creation whose name differs only by accent or punctuation, both succeed today.
+- [x] Creation and rename both refuse a taken slug, through one check.
+- [x] The slug index is unique; a migration builds it and, when collisions exist, refuses and names them.
+- [x] The back end refuses to boot until that migration's marker is recorded, and `docs/RELEASING.md` names the step.
+- [x] The create-market dialog shows the refusal where the name field is.
