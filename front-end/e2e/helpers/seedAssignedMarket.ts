@@ -29,8 +29,9 @@ export async function seedAssignedMarket(
   baseURL: string,
   email: string,
   password: string,
+  options: { name?: string } = {},
 ): Promise<AssignedSeedResult> {
-  const seed = await seedMarketWithVendors(request, baseURL, email, password);
+  const seed = await seedMarketWithVendors(request, baseURL, email, password, options);
 
   // The vendors themselves are approved applications, seeded by seedMarketWithVendors. This
   // setupObject used to carry their answers as spreadsheet cell values as well.

@@ -1403,6 +1403,43 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
     return markets_collection.delete_one({"id": market_id})
 
 
+RENAME_REFUSED_AFTER_DRAFT = (
+    "This market's public web address comes from its name, and it has already been shared - "
+    "on its application link or its check-in page - so its name can no longer change."
+)
+
+
+def rename_market(market_id: str, name: str, requesting_user: str) -> None:
+    """Rename a market, only while it is a draft (E21/F03/S04).
+
+    The name decides the slug and the slug is the public address, so after draft a rename would move
+    an address that has already been handed out; it is refused with that reason instead. Decoupling
+    the slug from the name was considered and held back (the-market-frame ticket 04): it would add a
+    second stored identity to every public lookup for a need nobody has yet.
+
+    Its own write rather than a field of the market PUT, carrying the name and nothing else, and
+    held to the same public-address rule as creation. Requires EDITOR, as renaming always has.
+    """
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("A market needs a name.")
+
+    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "rename")
+    if market.phase is not MarketPhase.DRAFT:
+        raise ValueError(RENAME_REFUSED_AFTER_DRAFT)
+    if name == market.name:
+        return
+
+    refusal = public_address_refusal(name, market_id)
+    if refusal:
+        raise ValueError(refusal)
+
+    markets_collection.update_one(
+        market_doc_filter("id", market_id),
+        {"$set": {market_doc_key("name"): name, market_doc_key("slug"): market_name_slug(name)}},
+    )
+
+
 PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
 
 
