@@ -18,7 +18,8 @@
  * - **What it holds is shown while a re-read of the same market is in flight**, so returning to a
  *   screen or saving does not blank it.
  * - **A missing market and one the organizer cannot reach read identically.** Anything else that
- *   fails is `failed`, and `refresh` is the retry.
+ *   fails is `failed` when nothing is held, and `refresh` is the retry; a failed RE-read keeps what
+ *   it holds and marks it `stale`, so a dropped connection never unmounts a screen's unsaved work.
  * - An editor's unsaved work is the editor's own working copy, never layered on this.
  */
 import axios from 'axios';
@@ -33,15 +34,22 @@ export type MarketStatus = 'idle' | 'loading' | 'loaded' | 'failed' | 'missing';
 
 export const useMarketStore = defineStore('market', () => {
   const marketId = ref<string | null>(null);
-  const held = ref<Market | null>(null);
+  /** The market as the server last reported it - shown only while it is the one that is open. */
+  const lastFetched = ref<Market | null>(null);
   const status = ref<MarketStatus>('idle');
+  /**
+   * True when the last re-read of the open market failed in transit and what is shown is the copy
+   * before it. The market is kept rather than dropped: every screen renders from it, and taking it
+   * away would unmount the tabs and whatever unsaved working copy they hold.
+   */
+  const stale = ref(false);
 
   /** Bumped by every fetch, so an answer to an earlier one can tell it has been overtaken. */
   let generation = 0;
 
   /** Only ever the market for the id that is open. */
   const market = computed<Market | null>(() =>
-    held.value && held.value.id === marketId.value ? held.value : null,
+    lastFetched.value && lastFetched.value.id === marketId.value ? lastFetched.value : null,
   );
 
   async function refresh(): Promise<void> {
@@ -52,17 +60,25 @@ export const useMarketStore = defineStore('market', () => {
     try {
       const response = await api.get(`/markets/${encodeURIComponent(id)}`);
       if (mine !== generation) return;
-      held.value = parseMarketFromApi(response.data.market);
+      lastFetched.value = parseMarketFromApi(response.data.market);
       status.value = 'loaded';
+      stale.value = false;
       // Arriving at a market is what opening one means, so this is the one place the dashboard's
       // pointer is set - by the list, a link, a bookmark or a new market alike.
       rememberLastMarket(id);
     } catch (err: unknown) {
       if (mine !== generation) return;
-      held.value = null;
       const code = axios.isAxiosError(err) ? err.response?.status : undefined;
-      status.value = code === 404 || code === 403 ? 'missing' : 'failed';
-      if (status.value === 'missing' && lastMarketId() === id) forgetLastMarket();
+      if (code === 404 || code === 403) {
+        // Gone, or no longer this organizer's to see: let go of it, whatever was held.
+        lastFetched.value = null;
+        status.value = 'missing';
+        if (lastMarketId() === id) forgetLastMarket();
+      } else if (market.value) {
+        stale.value = true;
+      } else {
+        status.value = 'failed';
+      }
     }
   }
 
@@ -70,7 +86,7 @@ export const useMarketStore = defineStore('market', () => {
   function open(id: string): Promise<void> {
     if (id !== marketId.value) {
       marketId.value = id;
-      held.value = null;
+      lastFetched.value = null;
     }
     return refresh();
   }
@@ -79,9 +95,10 @@ export const useMarketStore = defineStore('market', () => {
   function clear(): void {
     generation++;
     marketId.value = null;
-    held.value = null;
+    lastFetched.value = null;
     status.value = 'idle';
+    stale.value = false;
   }
 
-  return { marketId, market, status, open, refresh, clear };
+  return { marketId, market, status, stale, open, refresh, clear };
 });

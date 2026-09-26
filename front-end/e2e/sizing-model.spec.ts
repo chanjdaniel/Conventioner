@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import type { Page } from '@playwright/test';
@@ -69,7 +69,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '.market-setup-body')).toBe(workspace);
 
-    await page.goto(`/markets/${marketId}/tables`);
+    await page.goto(marketScreenPath(marketId, 'tables'));
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '.tables-card')).toBe(list);
   });

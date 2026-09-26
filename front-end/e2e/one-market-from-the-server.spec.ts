@@ -1,7 +1,7 @@
 import { test, expect, BACKEND_URL, TEST_USER } from './fixtures';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
 
 /**
@@ -37,7 +37,7 @@ test.describe('One market, from the server', () => {
       TEST_USER.email,
       TEST_USER.password,
     );
-    await page.goto(`/markets/${seeded.marketId}/tables`);
+    await page.goto(marketScreenPath(seeded.marketId, 'tables'));
     await expect(page.getByTestId('tables-heading')).toContainText(seeded.marketName, {
       timeout: 15000,
     });
@@ -58,13 +58,15 @@ test.describe('One market, from the server', () => {
   test('a market that does not exist reads as one this organizer cannot reach', async ({
     authenticatedPage: page,
   }) => {
-    await page.goto('/markets/no-such-market/tables');
+    for (const screen of ['tables', 'floorplan'] as const) {
+      await page.goto(marketScreenPath('no-such-market', screen));
 
-    await expect(page.getByTestId('market-arrival-missing')).toHaveText(
-      /does not exist, or you do not have access to it/,
-      { timeout: 15000 },
-    );
-    await expect(page.getByTestId('phase-rail')).toHaveCount(0);
+      await expect(page.getByTestId('market-arrival-missing')).toHaveText(
+        /does not exist, or you do not have access to it/,
+        { timeout: 15000 },
+      );
+      await expect(page.getByTestId('phase-rail')).toHaveCount(0);
+    }
   });
 
   /**

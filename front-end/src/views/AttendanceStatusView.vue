@@ -137,7 +137,7 @@ onMounted(loadAttendance);
           </table>
         </div>
       </div>
-      <div v-if="marketStatus !== 'missing'" class="actions-row">
+      <template v-if="marketStatus !== 'missing'" #footer>
         <button
           type="button"
           class="primary-button"
@@ -146,7 +146,7 @@ onMounted(loadAttendance);
         >
           Back
         </button>
-      </div>
+      </template>
     </MarketFrame>
   </div>
 </template>
@@ -154,7 +154,7 @@ onMounted(loadAttendance);
 <style scoped>
 .attendance-status-view {
   width: 100%;
-  padding: 0 20px var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -167,11 +167,15 @@ onMounted(loadAttendance);
   /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
      banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
      card at the viewport and scroll a body inside it. */
+  border-radius: var(--radius-card);
 }
 
 .attendance-status-header {
   background-color: var(--mm-black);
   padding: 18px 24px;
+  /* The card is rounded and nothing clips it any more (a sticky bar cannot sit inside an overflow
+     ancestor), so the bar rounds its own top corners. */
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
 .attendance-status-header h1 {
@@ -212,18 +216,6 @@ onMounted(loadAttendance);
 
 .vendor-cell {
   font-weight: 600;
-}
-
-.actions-row {
-  padding: 16px 24px;
-  display: flex;
-  justify-content: flex-start;
-  border-top: 1px solid var(--mm-border);
-  /* Back stays reachable at any scroll position, as it did outside the old inner scroller. */
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  background-color: white;
 }
 
 .primary-button {

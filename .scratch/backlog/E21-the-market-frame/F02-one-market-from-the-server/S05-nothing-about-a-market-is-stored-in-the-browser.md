@@ -28,3 +28,8 @@ The existing prose that describes the stored market (the Phase Rail entry's `use
 - [x] The dashboard offers the last opened market from a fresh fetch, and offers nothing, without an error, when that market was deleted or access was removed.
 - [x] Signing out clears `lastMarketId`.
 - [x] AGENTS.md describes the model as built, and no longer describes the stored market.
+
+## Built differently, on purpose
+
+"Silently forgets the id" is not quite what shipped. When the remembered market is gone, the dashboard says so **once** ("The market you last opened is no longer available") and then forgets the pointer, so the next visit is silent.
+Saying nothing would put back the falsehood `E14/F01/S02` removed: an organizer whose only market is gone would be greeted with "set up your first market".

@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketScreenPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 
 /**
@@ -37,7 +38,7 @@ test.describe('Things meant to line up do', () => {
   test('a column of figures does not shift with its digits', async ({
     authenticatedPage: page,
   }) => {
-    await page.goto(`/markets/${marketId}/vendors`);
+    await page.goto(marketScreenPath(marketId, 'vendors'));
     // Wait for a ROW, not for the search box. The box renders before the list has loaded, so
     // waiting on it measured an empty list and the assertion below passed or failed on timing.
     await expect(page.locator('.vendor-date-count').first()).toBeVisible({ timeout: 15000 });

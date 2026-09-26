@@ -2,7 +2,9 @@ from datetime import datetime, timezone
 import re
 import uuid
 from typing import NamedTuple, Optional, Dict, Any, List, Tuple
+from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
+from pydantic import ValidationError
 from datatypes import (
     ApplicationForm,
     EssentialFormOptions,
@@ -34,6 +36,7 @@ import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
 from market_documents import (
     market_doc_field,
+    market_doc_projection,
     market_doc_filter,
     market_doc_key,
     market_doc_set,
@@ -635,7 +638,12 @@ def create_market(market: Market, owner_email: str) -> tuple:
     if refusal:
         raise ValueError(refusal)
     
-    result = markets_collection.insert_one(market_dict)
+    try:
+        result = markets_collection.insert_one(market_dict)
+    except DuplicateKeyError as e:
+        # Two creations passed the check above and raced; the unique `market_slug` index refused
+        # the second. It is the same clash, so it reads the same (code review of E21).
+        raise ValueError(_address_taken(market.name)) from e
     
     if market.organization_id:
         try:
@@ -660,11 +668,19 @@ def public_address_refusal(name: str, market_id: Optional[str] = None) -> Option
     A name with nothing sluggable in it has no public address, so it can only clash by name.
     """
     slug = market_name_slug(name or "")
-    query: Dict[str, Any] = market_doc_filter("slug", slug) if slug else {"name": name}
+    query: Dict[str, Any] = (
+        market_doc_filter("slug", slug) if slug else market_doc_filter("name", name)
+    )
     if market_id is not None:
-        query["id"] = {"$ne": market_id}
-    if markets_collection.find_one(query, {"id": 1}) is None:
+        query.update(market_doc_filter("id", {"$ne": market_id}))
+    if markets_collection.find_one(query, market_doc_projection(["id"])) is None:
         return None
+    return _address_taken(name)
+
+
+def _address_taken(name: str) -> str:
+    """The refusal for a market whose address another market already answers."""
+    slug = market_name_slug(name or "")
     if slug:
         return (
             f"Another market already uses the web address /{slug}. "
@@ -676,11 +692,11 @@ def public_address_refusal(name: str, market_id: Optional[str] = None) -> Option
 def organization_refusal(user_email: str, organization_id: Optional[str]) -> Optional[str]:
     """Why this user's market may not belong to this organization, or None when it may.
 
-    The one statement of the rule for creation and update alike (E21/F03/S01). A market belongs to
-    exactly one organization - its members see the market, and deleting the organization deletes
-    it - so a market that names none, names one that does not exist, or names one its writer is not
-    part of is a state the product refuses to produce. The update path used to check none of the
-    three, and two doors holding one rule is how that happened.
+    Asked by creation, the one door a market's organization passes through (E21/F03/S01, S05, S06:
+    no write changes it afterwards). A market belongs to exactly one organization - its members see
+    the market, and deleting the organization deletes it - so a market that names none, names one
+    that does not exist, or names one its writer is not part of is a state the product refuses to
+    produce.
     """
     if not organization_id:
         return "organization_id is required"
@@ -1298,10 +1314,14 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
     if refusal:
         raise ValueError(refusal)
 
-    markets_collection.update_one(
-        market_doc_filter("id", market_id),
-        {"$set": {market_doc_key("name"): name, market_doc_key("slug"): market_name_slug(name)}},
-    )
+    try:
+        markets_collection.update_one(
+            market_doc_filter("id", market_id),
+            {"$set": {market_doc_key("name"): name, market_doc_key("slug"): market_name_slug(name)}},
+        )
+    except DuplicateKeyError as e:
+        # A rename that raced another write to the same address, refused by the unique index.
+        raise ValueError(_address_taken(name)) from e
 
 
 PLAN_WRITE_FIELDS = ("setupObject", "intakeMode")
@@ -1330,15 +1350,15 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
 
     try:
         plan = SetupObject(**convert_keys_to_snake_case(body["setupObject"]))
-    except Exception as e:
-        raise ValueError(f"Invalid plan: {e}")
+    except ValidationError as e:
+        raise ValueError(f"Invalid plan: {e}") from e
     update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
 
     if body.get("intakeMode") is not None:
         try:
             intake = IntakeMode(body["intakeMode"])
-        except ValueError:
-            raise ValueError(f"Unknown intake mode: {body['intakeMode']!r}.")
+        except ValueError as e:
+            raise ValueError(f"Unknown intake mode: {body['intakeMode']!r}.") from e
         if intake is not market.intake_mode:
             if market.phase is not MarketPhase.DRAFT:
                 raise ValueError(

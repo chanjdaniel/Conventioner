@@ -30,3 +30,8 @@ It is the design system's first sticky layer beneath the banner, so `docs/design
 - [x] On a tab shorter than the window, the card reaches the bottom of the viewport.
 - [x] The banner's height is a token, the frame sticks at it, and there is no `ResizeObserver` or scroll handler doing either job.
 - [x] No ancestor of the frame has an `overflow` that would stop it sticking, and an e2e spec asserts the frame's position after scrolling on each tab.
+
+## Built differently, on purpose
+
+`--banner-h` is `clamp(30px, 5vh, 100px)` - the value the banner already came to - rather than a single pixel height.
+The point of the decision was that nothing measures the banner at run time, and nothing does; a flat pixel value would have changed the banner's size at every other window height, which no story asked for.

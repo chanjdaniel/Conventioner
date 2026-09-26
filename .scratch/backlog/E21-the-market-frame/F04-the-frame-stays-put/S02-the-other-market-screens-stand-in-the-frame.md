@@ -24,3 +24,8 @@ Anything these screens pin today for its own reasons (a filter row, an actions r
 - [x] At 1920x1080, scrolling each to the bottom keeps the title and the whole rail visible under the banner.
 - [x] On each of the four frame screens the page is the only vertical scroller, and an e2e spec asserts it.
 - [x] Any control these screens kept in view by the old inner scroller is still reachable at any scroll position.
+
+## Built differently, on purpose
+
+The Back rows are in the frame's `footer` slot, which sticks to the bottom of the window, rather than scrolling away with the page: the acceptance criteria require that a control the old inner scroller kept in view stays reachable at any scroll position.
+The three list screens now sit flush under the banner like Market Setup (their 40px top gutter went) and keep their card radius.

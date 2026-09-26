@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { marketPath, type MarketScreen } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import type { PreconditionResult } from '@/assets/types/datatypes';
 
@@ -44,7 +45,9 @@ const rows = computed(() =>
  * per-market URLs and every link stays a literal their test can read.
  */
 function marketLink(relative: string): string {
-  return `/markets/${encodeURIComponent(props.marketId)}/${relative.replace(/^\/+/, '')}`;
+  const [screen, query] = relative.replace(/^\/+/, '').split('?');
+  const path = marketPath(props.marketId, screen as MarketScreen);
+  return query ? `${path}?${query}` : path;
 }
 </script>
 

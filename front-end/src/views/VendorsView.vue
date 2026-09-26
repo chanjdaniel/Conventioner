@@ -471,7 +471,7 @@ function handleBack(): void {
         </template>
       </div>
 
-      <div class="vendors-actions">
+      <template #footer>
         <button
           type="button"
           class="primary-button"
@@ -480,7 +480,7 @@ function handleBack(): void {
         >
           Back
         </button>
-      </div>
+      </template>
     </MarketFrame>
 
     <div
@@ -575,7 +575,7 @@ function handleBack(): void {
 <style scoped>
 .vendors-view {
   width: 100%;
-  padding: 0 20px var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -589,11 +589,15 @@ function handleBack(): void {
   /* The page scrolls, not the card (E21/F04/S02): the frame pins the title, the rail and the search
      under the banner, and a sticky element inside an `overflow` ancestor stops sticking. This used
      to cap the card at the viewport and scroll a body inside it. */
+  border-radius: var(--radius-card);
 }
 
 .vendors-header {
   background-color: var(--mm-black);
   padding: 18px 24px;
+  /* The card is rounded and nothing clips it any more (a sticky bar cannot sit inside an overflow
+     ancestor), so the bar rounds its own top corners. */
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
 .vendors-header h1 {
@@ -805,18 +809,6 @@ function handleBack(): void {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   white-space: nowrap;
-}
-
-.vendors-actions {
-  padding: 16px 24px;
-  border-top: 1px solid var(--mm-border);
-  display: flex;
-  justify-content: flex-start;
-  /* Back stays reachable at any scroll position, as it did outside the old inner scroller. */
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  background-color: white;
 }
 
 .primary-button {
