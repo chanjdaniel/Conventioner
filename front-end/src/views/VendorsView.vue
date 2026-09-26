@@ -29,7 +29,7 @@ import {
 } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
-import PhaseRail from '@/components/PhaseRail.vue';
+import MarketFrame from '@/components/MarketFrame.vue';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -387,36 +387,41 @@ function handleBack(): void {
 
 <template>
   <div class="vendors-view">
-    <div class="vendors-card">
-      <header class="vendors-header">
-        <h1 data-testid="vendors-heading">{{ market ? `Vendors: ${market.name}` : 'Vendors' }}</h1>
-      </header>
-
-      <PhaseRail :market="market" />
+    <MarketFrame class="vendors-card" :market="market">
+      <template #bar>
+        <header class="vendors-header">
+          <h1 data-testid="vendors-heading">
+            {{ market ? `Vendors: ${market.name}` : 'Vendors' }}
+          </h1>
+        </header>
+      </template>
+      <!-- The search stays in view with the frame; it used to stick inside the card's own
+           scroller, which is gone (E21/F04/S02). -->
+      <template #pinned>
+        <div v-if="market" class="vendors-toolbar">
+          <label class="filter-label" for="vendor-filter">Search vendors</label>
+          <input
+            id="vendor-filter"
+            v-model="filterText"
+            type="search"
+            placeholder="Filter by name or email…"
+            autocomplete="off"
+            class="filter-input"
+            data-testid="vendors-search-input"
+          />
+          <div class="summary-line">
+            <span class="summary-strong">{{ assignedVendorCount }}</span>
+            of
+            <span class="summary-strong">{{ totalVendorCount }}</span>
+            vendors assigned
+          </div>
+        </div>
+      </template>
 
       <div class="vendors-body">
         <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
 
         <template v-else>
-          <div class="vendors-toolbar">
-            <label class="filter-label" for="vendor-filter">Search vendors</label>
-            <input
-              id="vendor-filter"
-              v-model="filterText"
-              type="search"
-              placeholder="Filter by name or email…"
-              autocomplete="off"
-              class="filter-input"
-              data-testid="vendors-search-input"
-            />
-            <div class="summary-line">
-              <span class="summary-strong">{{ assignedVendorCount }}</span>
-              of
-              <span class="summary-strong">{{ totalVendorCount }}</span>
-              vendors assigned
-            </div>
-          </div>
-
           <p v-if="loadError" class="error-text">{{ loadError }}</p>
 
           <div v-if="isLoading" class="loading-state">
@@ -476,7 +481,7 @@ function handleBack(): void {
           Back
         </button>
       </div>
-    </div>
+    </MarketFrame>
 
     <div
       ref="detailOverlay"
@@ -570,12 +575,7 @@ function handleBack(): void {
 <style scoped>
 .vendors-view {
   width: 100%;
-  /* Sized from the flex parent, not the viewport: .router-view is already flex:1 inside a
-     100vh column, so `min-height: 100vh` here double-counted the 5vh banner and left the page
-     scrolling 45px behind a list that was scrolling too. */
-  height: 100%;
-  min-height: 0;
-  padding: 40px 20px;
+  padding: 0 20px var(--space-4);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -586,13 +586,9 @@ function handleBack(): void {
 .vendors-card {
   width: 100%;
   max-width: var(--list-max);
-  background-color: white;
-  box-shadow: var(--shadow-card);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: 100%;
+  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title, the rail and the search
+     under the banner, and a sticky element inside an `overflow` ancestor stops sticking. This used
+     to cap the card at the viewport and scroll a body inside it. */
 }
 
 .vendors-header {
@@ -613,22 +609,17 @@ function handleBack(): void {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  min-height: 0;
   flex: 1;
-  overflow-y: auto;
   color: var(--mm-black);
 }
 
 .vendors-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   background-color: white;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 4px 0 12px;
+  padding: 12px 24px;
   border-bottom: 1px solid var(--mm-border);
 }
 
@@ -821,6 +812,11 @@ function handleBack(): void {
   border-top: 1px solid var(--mm-border);
   display: flex;
   justify-content: flex-start;
+  /* Back stays reachable at any scroll position, as it did outside the old inner scroller. */
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background-color: white;
 }
 
 .primary-button {

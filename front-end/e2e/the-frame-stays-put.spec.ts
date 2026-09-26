@@ -117,4 +117,50 @@ test.describe('The frame stays put', () => {
     expect(frameTop).toBe(bannerBottom);
     await expect(blockers).toBeInViewport({ ratio: 1 });
   });
+
+  /**
+   * Tables, Attendance and Vendors used to keep their title in view by capping the card at the
+   * window and scrolling inside it - the nested scroller the design language forbids, and the reason
+   * a sticky frame could not work there (E21/F04/S02). The page is the scroller on all four now.
+   */
+  test('on Tables, Attendance and Vendors the frame stays put and the page is the only scroller', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1920, height: 500 });
+
+    for (const [screen, back] of [
+      ['tables', 'tables-back-button'],
+      ['attendance', 'attendance-status-back-button'],
+      ['vendors', 'vendors-back-button'],
+    ] as const) {
+      await page.goto(`/markets/${marketId}/${screen}`);
+      await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
+      await page.waitForLoadState('networkidle');
+
+      const boxed = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('*'))
+          .filter((el) => {
+            const style = getComputedStyle(el);
+            return /auto|scroll/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 24;
+          })
+          .map((el) => el.className.toString().split(' ')[0] || el.tagName),
+      );
+      expect(boxed, `${screen} scrolls inside a box`).toEqual([]);
+
+      await scrollToBottom(page);
+      const { frameTop, bannerBottom } = await frameGeometry(page);
+      expect(frameTop, `the frame left the banner on ${screen}`).toBe(bannerBottom);
+      await expect(page.getByTestId('phase-rail')).toBeInViewport({ ratio: 1 });
+      if (back) await expect(page.getByTestId(back)).toBeInViewport();
+    }
+  });
+
+  test('the vendor search stays in view with the frame', async ({ authenticatedPage: page }) => {
+    await page.setViewportSize({ width: 1920, height: 500 });
+    await page.goto(`/markets/${marketId}/vendors`);
+    await expect(page.getByTestId('vendors-search-input')).toBeVisible({ timeout: 15000 });
+    await scrollToBottom(page);
+
+    await expect(page.getByTestId('vendors-search-input')).toBeInViewport();
+  });
 });
