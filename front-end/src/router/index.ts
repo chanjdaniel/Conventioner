@@ -93,7 +93,7 @@ const router = createRouter({
       redirect: (to) =>
         to.query.marketId ? marketPath(String(to.query.marketId), 'floorplan') : '/markets',
     },
-    // Assignment Results is a tab on the market now (E10/F03/S01). The old path carried no market
+    // Assignment is a tab on the market now (E10/F03/S01). The old path carried no market
     // id, so, like `/market-setup`, all it can do is send the organizer to choose a market.
     {
       path: '/assignment-results',

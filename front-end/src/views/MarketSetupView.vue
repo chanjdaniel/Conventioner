@@ -431,7 +431,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
                 @click="showTab('assignment')"
                 data-testid="market-setup-assignment-tab"
               >
-                Assignment Results
+                Assignment
               </button>
             </div>
           </div>
@@ -459,7 +459,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :importRefusalReason="importRefusalReason"
         />
 
-        <!-- Assignment Results, a tab rather than a place the organizer is pushed to. Reachable
+        <!-- Assignment, a tab rather than a place the organizer is pushed to. Reachable
              in every phase, and nothing on it posts a transition: publishing is a step on the
              phase strip above, and "I have finished looking at this" is what leaving a page
              already is. -->

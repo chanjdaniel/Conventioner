@@ -223,7 +223,7 @@ test.describe('Every rendered text node reaches AA', () => {
       // how a field-type badge shipped at 3.73:1 on it.
       ['application form', marketSetupPath(marketId, 'form'), 'essential-item-section-ranking'],
       [
-        'assignment results',
+        'assignment',
         marketSetupPath(marketId, 'assignment'),
         'assignment-results-download-csv-button',
       ],
