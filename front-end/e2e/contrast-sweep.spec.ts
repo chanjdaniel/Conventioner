@@ -310,6 +310,17 @@ test.describe('Every rendered text node reaches AA', () => {
     await expect(page.getByTestId('archive-confirm-window')).toBeHidden();
   });
 
+  test('a market tab under the pointer', async ({ authenticatedPage: page }) => {
+    // Hover is a state too, and none was walked: the tab bar's hover set its label to the border
+    // token, a 25% near-black, on the black bar - invisible under the pointer (E21/F01/S01).
+    await openTheSeededMarket(page);
+    await page.goto('/market-setup?tab=setup');
+    const tab = page.getByTestId('market-setup-applications-tab');
+    await expect(tab).toBeVisible({ timeout: 15000 });
+    await tab.hover();
+    await expectAA(page, 'a hovered market tab');
+  });
+
   test('the new-market dialog, where a disabled primary lives', async ({
     authenticatedPage: page,
   }) => {

@@ -36,6 +36,10 @@
      both grounds - and pretending it could is how the phase panel came to paint
      rgba(255,255,255,.7) on a white page. Plain `white` covers the primary case. ---- */
   --mm-text-muted-on-dark: rgba(255, 255, 255, 0.72); /* 8.62 on --mm-black */
+  /* A control under the pointer on the dark bar: brighter than the resting label, never brighter
+     than the active one (white). The market tabs used --mm-border here - a 25% near-black - which
+     is 1:1 on this ground, so the label vanished exactly when it was pointed at (E21/F01/S01). */
+  --mm-text-hover-on-dark: rgba(255, 255, 255, 0.9);
 
   /* ---- Paint. Fills, and what each is legible under. ---- */
   /* Darkened from #49b096, which gave white labels 2.65 on every primary button in the product,
