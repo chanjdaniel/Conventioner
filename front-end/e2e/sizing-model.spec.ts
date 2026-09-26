@@ -116,8 +116,9 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect((await measure()).boxed, 'the plan is hiding its content inside a box').toEqual([]);
 
+    // A published market: its rules are settled and there is no run button (E22/F02/S02).
     await page.goto(marketSetupPath(marketId, 'assignment'));
-    await expect(page.getByTestId('market-setup-assign-button')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('assignment-rules-settled')).toBeVisible({ timeout: 15000 });
     expect(
       (await measure()).boxed,
       'the assignment surface is hiding its content inside a box',

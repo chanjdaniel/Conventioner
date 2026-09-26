@@ -207,6 +207,8 @@ export interface Market {
    * exists - and never writable. Undefined on a read that does not carry it, such as the list.
    */
   applicationFormLockReason?: string | null;
+  /** Why the assignment rules can no longer change, or null while they can (E22/F02/S02). */
+  assignmentRulesLockReason?: string | null;
   userRole?: MarketRole; // User's effective role (added by API)
 }
 

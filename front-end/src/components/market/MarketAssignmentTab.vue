@@ -24,6 +24,8 @@ defineProps<{
   assignmentOptionsComplete: boolean;
   assignRefusalReason: string | null;
   assignError: string;
+  /** Why the rules can no longer change, from the market (E22/F02/S02); null while they can. */
+  rulesLockReason: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -34,6 +36,10 @@ const emit = defineEmits<{
 
 <template>
   <div class="settings-body settings-body-stacked">
+    <!-- The rules as they were run, and why nothing offers to change them (E22/F02/S02). -->
+    <p v-if="rulesLockReason" class="rules-settled" data-testid="assignment-rules-settled">
+      {{ rulesLockReason }}
+    </p>
     <section class="plan-row plan-row--asymmetric">
       <ElementSettingContainer>
         <template #setting-title>
@@ -43,6 +49,7 @@ const emit = defineEmits<{
           <ElementAssignmentPriority
             :setupObject="setupObject"
             :formFields="formFields"
+            :readonly="!!rulesLockReason"
             @update:setupObject="(value) => emit('update:setupObject', value)"
           />
         </template>
@@ -54,13 +61,15 @@ const emit = defineEmits<{
         <template #setting-content>
           <ElementAssignmentOptions
             :setupObject="setupObject"
+            :readonly="!!rulesLockReason"
             @update:setupObject="(value) => emit('update:setupObject', value)"
           />
         </template>
       </ElementSettingContainer>
     </section>
 
-    <div class="assign-actions">
+    <!-- Nothing can run once the rules are settled, so there is no button to explain. -->
+    <div v-if="!rulesLockReason" class="assign-actions">
       <button
         type="button"
         class="btn btn--primary done-button"
@@ -72,8 +81,9 @@ const emit = defineEmits<{
       </button>
       <!-- The phase comes first: a market that may not be assigned at all is not waiting on
            two numbers, and saying so would send the organizer to fix the wrong thing. -->
+      <!-- Said once: when the rules are settled, the line above already says why nothing runs. -->
       <p
-        v-if="assignRefusalReason"
+        v-if="assignRefusalReason && !rulesLockReason"
         class="assign-disabled-hint"
         data-testid="market-setup-assign-phase-hint"
       >
@@ -117,6 +127,14 @@ const emit = defineEmits<{
 
 .plan-row--asymmetric {
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.rules-settled {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--mm-green);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .assign-actions {
