@@ -1,13 +1,22 @@
+<!--
+  A grip, not a divider (E17/F01/S02).
+
+  It was two vertical strokes at `stroke-width: 0.8` inside `<g opacity="0.25">`, stroked with a
+  hardcoded `#222222`. Three things were wrong with that. Two 0.8px hairlines at quarter opacity
+  are close to invisible on white; two parallel lines are the shape of a RULE, not of something you
+  pick up - the convention is a dot grid, which reads as texture to grip; and the hardcoded colour
+  OVERRODE the `color` its wrapper set, so the handle could be neither themed nor given a hover
+  state from CSS.
+
+  `currentColor` and no opacity group, so `.drag-handle` owns both.
+-->
 <template>
-  <svg width="8" height="28" viewBox="0 0 8 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g opacity="0.25">
-      <path d="M4 22.1667L4 5.83342" stroke="#222222" stroke-width="0.8" stroke-linecap="round" />
-      <path
-        d="M5.66667 22.1667L5.66667 5.83342"
-        stroke="#222222"
-        stroke-width="0.8"
-        stroke-linecap="round"
-      />
-    </g>
+  <svg viewBox="0 0 8 12" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="2.5" cy="2" r="1" />
+    <circle cx="5.5" cy="2" r="1" />
+    <circle cx="2.5" cy="6" r="1" />
+    <circle cx="5.5" cy="6" r="1" />
+    <circle cx="2.5" cy="10" r="1" />
+    <circle cx="5.5" cy="10" r="1" />
   </svg>
 </template>

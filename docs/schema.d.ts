@@ -38,8 +38,6 @@ export interface MarketSchema {
     }[];
   };
   creationDate: string;
-  discordGuildId?: string;
-  discordWebhookUrl?: string;
   id: string;
   importMapping?: {
     headers?: string[];
@@ -56,6 +54,7 @@ export interface MarketSchema {
   phase?: string;
   reviewConfig?: {
   };
+  reviewHighlights?: string[];
   roles: Record<string, string>;
   setupObject: null | {
     assignmentOptions: {

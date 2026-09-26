@@ -271,14 +271,6 @@ function formatDateLabel(dateKey: string): string {
 
 const downloadError = ref('');
 const isDownloading = ref(false);
-const discordError = ref('');
-const discordToast = ref('');
-const isPostingDiscord = ref(false);
-
-const hasDiscordWebhook = computed(() => {
-  const url = market.value?.discordWebhookUrl;
-  return typeof url === 'string' && url.trim().length > 0;
-});
 
 function filenameFromContentDisposition(header: string | undefined, fallback: string): string {
   if (!header) return fallback;
@@ -341,43 +333,6 @@ const handleDownloadCsv = async () => {
     downloadError.value = message;
   } finally {
     isDownloading.value = false;
-  }
-};
-
-const handleSendToDiscord = async () => {
-  discordError.value = '';
-  discordToast.value = '';
-  if (!market.value?.id) {
-    discordError.value = 'No market loaded.';
-    return;
-  }
-  if (!hasDiscordWebhook.value) {
-    discordError.value = 'No Discord webhook configured for this market.';
-    return;
-  }
-  const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
-  if (!userEmail) {
-    discordError.value = 'You must be signed in to send to Discord.';
-    return;
-  }
-  isPostingDiscord.value = true;
-  try {
-    await api.post(`/markets/${encodeURIComponent(market.value.id)}/discord/notify-assignment`, {});
-    discordToast.value = 'Posted to Discord';
-    setTimeout(() => {
-      discordToast.value = '';
-    }, 3000);
-  } catch (err: unknown) {
-    let message = 'Failed to post to Discord.';
-    const response =
-      err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response
-        : undefined;
-    const errVal = response?.data?.error;
-    if (typeof errVal === 'string' && errVal) message = errVal;
-    discordError.value = message;
-  } finally {
-    isPostingDiscord.value = false;
   }
 };
 </script>
@@ -623,43 +578,16 @@ const handleSendToDiscord = async () => {
         </div>
       </div>
       <p v-if="downloadError" class="done-error">{{ downloadError }}</p>
-      <p v-if="discordError" class="done-error" data-testid="assignment-results-discord-error">
-        {{ discordError }}
-      </p>
-      <p v-if="discordToast" class="discord-toast" data-testid="assignment-results-discord-toast">
-        {{ discordToast }}
-      </p>
       <div class="assignment-actions-row">
         <div>
           <button
-            class="done-button download-button"
+            class="btn btn--primary download-button"
             :disabled="isDownloading || !assignmentStatistics"
             @click="handleDownloadCsv"
             data-testid="assignment-results-download-csv-button"
           >
             {{ isDownloading ? 'Downloading…' : 'Download CSV' }}
           </button>
-        </div>
-        <div class="discord-action">
-          <button
-            class="done-button discord-button"
-            :disabled="isPostingDiscord || !assignmentStatistics || !hasDiscordWebhook"
-            @click="handleSendToDiscord"
-            data-testid="assignment-results-send-discord-button"
-          >
-            {{ isPostingDiscord ? 'Sending…' : 'Send to Discord' }}
-          </button>
-          <!-- The reason used to live in a `title`, which is invisible on touch and slow
-               everywhere else, so the button just read as broken. It sits BELOW the button it
-               explains: above, it pushed the button down inside a centred column and the two
-               footer actions ended up 21px apart on a row meant to be one line (E15/F01/S03). -->
-          <p
-            v-if="!hasDiscordWebhook"
-            class="action-blocked-reason"
-            data-testid="assignment-results-discord-blocked-reason"
-          >
-            Add a Discord webhook URL in Market Setup to enable this.
-          </p>
         </div>
       </div>
     </div>
@@ -1132,77 +1060,8 @@ h2 {
   gap: 12px;
 }
 
-.done-button {
-  margin-top: 15px;
-  width: 100px;
-  height: 35px;
-
-  background: var(--mm-green);
-  border-radius: var(--radius-control);
-  border: none;
-
-  font-family: 'Merge One';
-  font-style: normal;
-  font-weight: 400;
-  font-size: var(--text-lg);
-  line-height: 15px;
-  text-align: center;
-
-  color: white;
-  cursor: pointer;
-  transition:
-    opacity 0.15s ease-in-out,
-    background-color 0.15s ease-in-out;
-}
-
-.done-button:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.done-button:disabled {
-  background: var(--mm-border);
-  cursor: not-allowed;
-  opacity: 0.6;
-  /* White on this fill is 1.67. --mm-black on it is 9.31. */
-  color: var(--mm-black);
-}
-
+/* Width only. Type, height, radius and the disabled state are `.btn`'s (E17/F03/S02). */
 .download-button {
   width: 180px;
-  font-size: var(--text-lg);
-}
-
-.discord-action {
-  display: flex;
-  flex-direction: column;
-  align-items: end;
-  gap: 4px;
-}
-
-.action-blocked-reason {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--mm-text-yellow);
-  text-align: center;
-  max-width: 220px;
-}
-
-.discord-button {
-  width: 200px;
-  font-size: var(--text-lg);
-  /* stylelint-disable-next-line color-no-hex --
-     Discord's own brand colour. A button that posts to Discord wearing Conventioner's green
-     would say the wrong thing about where the message goes (E16/F07). */
-  background: #5865f2;
-}
-
-.discord-button:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.discord-toast {
-  margin: 8px 0 0;
-  color: var(--mm-green);
-  font-size: var(--text-sm);
 }
 </style>

@@ -22,12 +22,12 @@
  */
 import { computed, ref } from 'vue';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
-import { MarketPhase } from '@/assets/types/datatypes';
+import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { useModalRoot } from '@/utils/useModalRoot';
+import AppDialog from '@/components/AppDialog.vue';
 import {
   VALID_TRANSITIONS,
   phaseLabel,
@@ -134,17 +134,48 @@ const checkInUrl = computed(() => {
   return `${window.location.origin}/${slug}/check-in`;
 });
 
-const copied = ref(false);
+// ── The public application URL (E18/F04/S02) ─────────────────────────────────
 
-async function copyCheckInUrl(): Promise<void> {
+/**
+ * A form-intake market's own address, from the moment it has one.
+ *
+ * Much wider than the check-in chip, which appears only once the market is running: this shows
+ * before applications open, while they are open, and after they close, because the apply page has
+ * a real answer in each - it names the phase and says the market is not currently taking
+ * applications. Seeing that is the point.
+ *
+ * NOT in draft, though, and the walk's plan said otherwise (ticket 09). A draft market is not
+ * published, so the applicant lookup treats it as one that does not exist: the URL redirects to a
+ * login that shows the SLUG rather than the market, revealing nothing - correctly, because a draft
+ * must not be discoverable. A chip pointing there would hand the organizer a link to a page that
+ * deliberately tells them nothing. The threshold is the same reasoning the check-in chip uses,
+ * with a different phase.
+ *
+ * A CSV market shows nothing at all, in any phase. Its `/apply` URL answers exactly as a market
+ * that does not exist, and a chip here would be the one place the product admitted it was real.
+ */
+const applyUrl = computed(() => {
+  if (props.market?.intakeMode !== IntakeMode.Form) return '';
+  if (currentPhase.value === MarketPhase.Draft) return '';
+  const slug = props.market?.slug;
+  if (!slug) return '';
+  return `${window.location.origin}/${slug}/apply`;
+});
+
+/** Which chip last confirmed a copy, so two chips do not share one "Copied". */
+const copiedUrl = ref('');
+
+async function copyUrl(url: string): Promise<void> {
   try {
-    await navigator.clipboard.writeText(checkInUrl.value);
-    copied.value = true;
-    window.setTimeout(() => (copied.value = false), 2000);
+    await navigator.clipboard.writeText(url);
+    copiedUrl.value = url;
+    window.setTimeout(() => {
+      if (copiedUrl.value === url) copiedUrl.value = '';
+    }, 2000);
   } catch {
     // Clipboard access can be refused, and the URL is on screen either way - so the copy is a
     // convenience, never the only way to get it.
-    copied.value = false;
+    copiedUrl.value = '';
   }
 }
 
@@ -214,8 +245,6 @@ const showingPublishConfirm = ref(false);
  * call would only say so in a comment - and its watcher, seeing the same `true` either side of a
  * swap, would not re-run. `useInertBehind` counts its marks, so two live calls cost nothing.
  */
-const publishConfirmRoot = useModalRoot(showingPublishConfirm);
-const archiveConfirmRoot = useModalRoot(showingArchiveConfirm);
 const pendingPhase = ref('');
 const transitionError = ref('');
 const transitionBlockers = ref<PreconditionResult[]>([]);
@@ -314,18 +343,31 @@ function cancelPending() {
       </ol>
 
       <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
-      <div v-if="checkInUrl" class="checkin-chip" data-testid="phase-rail-checkin">
-        <span class="checkin-chip-label">Check-in page</span>
-        <a class="checkin-chip-url" :href="checkInUrl" target="_blank" rel="noopener">{{
+      <div v-if="applyUrl" class="url-chip" data-testid="phase-rail-apply">
+        <span class="url-chip-label">Application page</span>
+        <a class="url-chip-url" :href="applyUrl" target="_blank" rel="noopener">{{ applyUrl }}</a>
+        <button
+          type="button"
+          class="url-chip-copy"
+          data-testid="phase-rail-apply-copy"
+          @click="copyUrl(applyUrl)"
+        >
+          {{ copiedUrl === applyUrl ? 'Copied' : 'Copy' }}
+        </button>
+      </div>
+
+      <div v-if="checkInUrl" class="url-chip" data-testid="phase-rail-checkin">
+        <span class="url-chip-label">Check-in page</span>
+        <a class="url-chip-url" :href="checkInUrl" target="_blank" rel="noopener">{{
           checkInUrl
         }}</a>
         <button
           type="button"
-          class="checkin-chip-copy"
+          class="url-chip-copy"
           data-testid="phase-rail-checkin-copy"
-          @click="copyCheckInUrl"
+          @click="copyUrl(checkInUrl)"
         >
-          {{ copied ? 'Copied' : 'Copy' }}
+          {{ copiedUrl === checkInUrl ? 'Copied' : 'Copy' }}
         </button>
       </div>
 
@@ -390,72 +432,44 @@ function cancelPending() {
     <!-- Publishing. It asked "Begin Market Days? No offers are pending", counted from an endpoint
          whose answer is always 0 because offers are out of MVP scope: a dialog answering a
          question the organizer never asked, about a feature the product does not have. -->
-    <div
-      v-if="showingPublishConfirm"
-      ref="publishConfirmRoot"
-      class="rail-confirm-overlay"
-      data-testid="sweep-confirm-overlay"
+    <AppDialog
+      :open="showingPublishConfirm"
+      title="Publish Market?"
+      testid="sweep-confirm"
+      confirm-label="Publish Market"
+      :confirm-disabled="transitioning"
+      @close="cancelPending"
+      @submit="confirmPending"
     >
-      <div class="rail-confirm-dialog" data-testid="sweep-confirm-dialog">
-        <h3>Publish Market?</h3>
-        <p>
-          Publishing puts this market's check-in page on the air: every vendor you placed can look
-          themselves up and check in on the day. The assignment they see is the one you have now.
-        </p>
-        <p>A published market cannot be returned to an earlier phase.</p>
-        <div class="rail-confirm-buttons">
-          <button
-            class="confirm-publish-button"
-            :disabled="transitioning"
-            data-testid="sweep-confirm-confirm"
-            @click="confirmPending"
-          >
-            Publish Market
-          </button>
-          <button
-            class="cancel-confirm-button"
-            :disabled="transitioning"
-            data-testid="sweep-confirm-cancel"
-            @click="cancelPending"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+      <p class="rail-confirm-text">
+        Publishing puts this market's check-in page on the air: every vendor you placed can look
+        themselves up and check in on the day. The assignment they see is the one you have now.
+      </p>
+      <p class="rail-confirm-text">A published market cannot be returned to an earlier phase.</p>
+    </AppDialog>
 
-    <div
-      v-if="showingArchiveConfirm"
-      ref="archiveConfirmRoot"
-      class="rail-confirm-overlay"
-      data-testid="archive-confirm-overlay"
+    <!--
+      THE ONE IRREVERSIBLE ACTION IN THE PRODUCT, and it has been invisible before: `--mm-text-red`
+      was referenced in seven rules and defined nowhere, so this button rendered as white text on a
+      white dialog with no border. It wears `btn--destructive` now, which is a token-defined fill
+      the contrast contract covers - and `E20/F01/S03` required this dialog to be opened and looked
+      at rather than swept.
+    -->
+    <AppDialog
+      :open="showingArchiveConfirm"
+      title="Archive this market?"
+      testid="archive-confirm"
+      confirm-label="Archive"
+      destructive
+      :confirm-disabled="transitioning"
+      @close="cancelPending"
+      @submit="confirmPending"
     >
-      <div class="rail-confirm-dialog" data-testid="archive-confirm-dialog">
-        <h3>Archive this market?</h3>
-        <p>
-          Archiving is permanent. Once archived, a market cannot be returned to an active phase.
-          This action cannot be undone.
-        </p>
-        <div class="rail-confirm-buttons">
-          <button
-            class="confirm-archive-button"
-            :disabled="transitioning"
-            data-testid="archive-confirm-confirm"
-            @click="confirmPending"
-          >
-            Archive
-          </button>
-          <button
-            class="cancel-confirm-button"
-            :disabled="transitioning"
-            data-testid="archive-confirm-cancel"
-            @click="cancelPending"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+      <p class="rail-confirm-text">
+        Archiving is permanent. Once archived, a market cannot be returned to an active phase. This
+        action cannot be undone.
+      </p>
+    </AppDialog>
   </Teleport>
 </template>
 
@@ -533,6 +547,18 @@ function cancelPending() {
   font-family: 'Merge One', sans-serif;
 }
 
+/*
+ * The ring takes no part in layout (E17/F02/S02).
+ *
+ * An outline paints OUTSIDE the border box without occupying space, so this 2px ring at 2px of
+ * offset ate 4px of the step's 6px gap and left about 2px between the dot and its label. The gap
+ * grows by the ring's full extent, on the current step alone - the ordinary steps keep the gap they
+ * have, which the walk found no fault with.
+ */
+.phase-step--current {
+  gap: 10px;
+}
+
 .phase-step--current .phase-step-dot {
   background: var(--mm-green);
   border-color: var(--mm-green);
@@ -546,7 +572,8 @@ function cancelPending() {
   color: var(--mm-text-muted);
 }
 
-.checkin-chip {
+/* One chip, two users: the application page and the check-in page (E18/F04/S02). */
+.url-chip {
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -558,17 +585,17 @@ function cancelPending() {
   min-width: 0;
 }
 
-.checkin-chip-label {
+.url-chip-label {
   color: var(--mm-text-muted);
   white-space: nowrap;
 }
 
-.checkin-chip-url {
+.url-chip-url {
   color: var(--mm-text-link);
   overflow-wrap: anywhere;
 }
 
-.checkin-chip-copy {
+.url-chip-copy {
   border: 1px solid var(--mm-border);
   background: white;
   border-radius: var(--radius-control);
@@ -579,7 +606,7 @@ function cancelPending() {
   white-space: nowrap;
 }
 
-.checkin-chip-copy:hover {
+.url-chip-copy:hover {
   border-color: var(--mm-green);
 }
 
@@ -674,72 +701,12 @@ function cancelPending() {
   color: var(--mm-red);
 }
 
-.rail-confirm-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  z-index: 80;
-}
-
-.rail-confirm-dialog {
-  width: 100%;
-  max-width: 460px;
-  background: white;
-  border-radius: var(--radius-card);
-  padding: 22px 24px 18px;
-  box-shadow: var(--shadow-card);
-  color: var(--mm-black);
-}
-
-.rail-confirm-dialog h3 {
-  margin: 0 0 10px;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-lg);
-  /* Not --mm-green. This is the heading of a permanent, irreversible confirmation, and the
-     product's affirmative colour is the wrong thing to say over "cannot be undone" (E16/F01). */
-  color: var(--mm-black);
-}
-
-.rail-confirm-dialog p {
-  margin: 0 0 10px;
+/* The scrim, window, title and buttons belong to `AppDialog` now (E20/F01/S03). The heading's
+   colour went with them, and the reason it must not be `--mm-green` went into the shell's own
+   title: the product's affirmative colour is the wrong thing to say over "cannot be undone". */
+.rail-confirm-text {
+  margin: 0;
   font-size: var(--text-sm);
-}
-
-.rail-confirm-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 14px;
-}
-
-.confirm-publish-button,
-.confirm-archive-button,
-.cancel-confirm-button {
-  padding: 8px 14px;
-  border-radius: var(--radius-control);
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.confirm-publish-button {
-  border: 1px solid var(--mm-green);
-  background: var(--mm-green);
-  color: white;
-}
-
-.confirm-archive-button {
-  border: 1px solid var(--mm-red);
-  background: var(--mm-red);
-  color: white;
-}
-
-.cancel-confirm-button {
-  border: 1px solid var(--mm-border);
-  background: white;
   color: var(--mm-black);
 }
 </style>

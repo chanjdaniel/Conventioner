@@ -1,3 +1,4 @@
+import { getFormattedDate } from '../src/utils/utils';
 import {
   test,
   expect,
@@ -101,9 +102,13 @@ test.describe('The MVP journey', () => {
 
     // --- 2. Plan the market --------------------------------------------------------------
     // What the market offers is what it can ask an applicant about, so this comes first.
-    await setup.addMarketDate(MARKET_DATES[0], 0);
-    await setup.addMarketDate(MARKET_DATES[1], 1);
-    await expect(setup.getDateInput(1)).toHaveValue(MARKET_DATES[1]);
+    await setup.addMarketDate(MARKET_DATES[0]);
+    await setup.addMarketDate(MARKET_DATES[1]);
+    // Both days read back as days, in order: dates are chosen on a calendar now (E18/F01/S02),
+    // and what the organizer sees is each date spelled out rather than an input's value.
+    await expect(page.getByTestId('setup-dates-date-display-1')).toHaveText(
+      getFormattedDate(MARKET_DATES[1]) as string,
+    );
 
     // One page, no paging (E10/F02/S01): dates, then tiers and sections, then the options, all in
     // view at once.

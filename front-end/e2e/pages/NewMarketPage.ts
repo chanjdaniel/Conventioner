@@ -1,8 +1,10 @@
 import type { Locator, Page } from '@playwright/test';
 
 /**
- * Page object for the New Market overlay.
- * Covers organization selection, market name entry, and submission.
+ * Page object for the New Market dialog.
+ *
+ * Built on `AppDialog` (E20/F01/S01), so its scrim, window, close and submit ids are the shell's,
+ * derived from the `new-market` prefix - not hand-rolled per overlay as they were.
  */
 export class NewMarketPage {
   readonly page: Page;
@@ -14,17 +16,23 @@ export class NewMarketPage {
   readonly nameInput: Locator;
   readonly submitButton: Locator;
   readonly errorMessage: Locator;
+  readonly closeButton: Locator;
+  readonly cancelButton: Locator;
+  readonly orgOnly: Locator;
 
   constructor(page: Page) {
     this.page = page;
 
-    this.overlayBackground = page.getByTestId('new-market-overlay-background');
+    this.overlayBackground = page.getByTestId('new-market-background');
     this.orgSelect = page.getByTestId('org-select-dropdown');
     this.orgEmptyHint = page.getByTestId('org-select-empty-hint');
     this.orgCreateLink = page.getByTestId('org-select-create-link');
     this.nameInput = page.getByTestId('new-market-name-input');
     this.submitButton = page.getByTestId('new-market-submit-button');
-    this.errorMessage = page.locator('.error-message');
+    this.errorMessage = page.getByTestId('new-market-error');
+    this.closeButton = page.getByTestId('new-market-close-button');
+    this.cancelButton = page.getByTestId('new-market-cancel-button');
+    this.orgOnly = page.getByTestId('org-select-only');
   }
 
   /** Wait for the overlay to be visible. */

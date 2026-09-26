@@ -113,6 +113,13 @@ class FakeMarketsCollection:
                 doc.pop(key, None)
         return SimpleNamespace(matched_count=len(matched))
 
+    def delete_one(self, query):
+        for index, doc in enumerate(self.docs):
+            if self._matches(doc, query):
+                self.docs.pop(index)
+                return SimpleNamespace(deleted_count=1)
+        return SimpleNamespace(deleted_count=0)
+
     def aggregate(self, _pipeline):
         return iter([])
 
@@ -223,14 +230,24 @@ def org_delete(monkeypatch):
     monkeypatch.setattr(
         OrgsApi.UsersApi, "get_user", lambda _email: SimpleNamespace(id=USER_ID, email=USER_EMAIL)
     )
+    monkeypatch.setattr(
+        OrgsApi.DeletionTrail, "record_organization_deletion", lambda *_a, **_k: "trail-1"
+    )
     return fake
 
 
-def test_deleting_an_org_detaches_its_markets(org_delete):
+def test_deleting_an_org_deletes_the_markets_it_holds(org_delete):
+    """It used to DETACH them, which is the state E20/F04/S01 removed.
+
+    A market belonging to nothing is a state `POST /markets` refuses to produce, and it was
+    invisible to everyone who reached it through the organization. What this still pins is the
+    thing it always pinned: the markets are found through the CANONICAL camelCase spelling, and a
+    snake_case filter would match none of them - which now means leaving them behind rather than
+    detaching them.
+    """
     OrgsApi.delete_organization(ORG_ID, USER_EMAIL)
 
-    market = next(doc for doc in org_delete.docs if doc["id"] == "camel-market")
-    assert market_doc_field(market, "organization_id") is None
+    assert [doc["id"] for doc in org_delete.docs] == []
 
 
 def test_market_list_reads_each_org_and_member_once(collection, monkeypatch):
@@ -344,15 +361,14 @@ class TestStartupCheck:
         assert f"'{MARKET_SLUG_INDEX}'" in source
 
 
-def test_deleting_an_org_detaches_a_migrated_legacy_market(org_delete):
+def test_deleting_an_org_deletes_a_migrated_legacy_market_too(org_delete):
     org_delete.docs.append(_market("legacy-market", org_key="organization_id"))
     migrate(FakeDatabase(org_delete))
 
     OrgsApi.delete_organization(ORG_ID, USER_EMAIL)
 
-    market = next(doc for doc in org_delete.docs if doc["id"] == "legacy-market")
-    assert market_doc_field(market, "organization_id") is None
-    assert "organization_id" not in market
+    # The migration rewrote the legacy key, so the canonical filter reaches it like any other.
+    assert "legacy-market" not in [doc["id"] for doc in org_delete.docs]
 
 
 def test_market_doc_field_reads_the_persisted_key():

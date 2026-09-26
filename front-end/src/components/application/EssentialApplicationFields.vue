@@ -17,8 +17,10 @@
 import { computed, watch } from 'vue';
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
 import {
-  AVAILABLE_DATES_KEY,
   AVAILABLE_DATES_LABEL,
+  PREFERRED_NAME_KEY,
+  PREFERRED_NAME_LABEL,
+  AVAILABLE_DATES_KEY,
   FULL_NAME_KEY,
   FULL_NAME_LABEL,
   MAX_DATES_KEY,
@@ -35,6 +37,7 @@ import {
   TIER_PREFERENCE_KEY,
   TIER_PREFERENCE_LABEL,
   formattedEssentialDate,
+  reconciledDatesAndTiers,
 } from '@/utils/essentialFields';
 import RankedChoiceInput from './RankedChoiceInput.vue';
 
@@ -55,7 +58,6 @@ const emit = defineEmits<{
   (e: 'field-change', key: string): void;
 }>();
 
-const selectedDates = computed(() => (props.modelValue[AVAILABLE_DATES_KEY] as string[]) ?? []);
 /**
  * Tier is answered per date (E01/F05), because a tier is a hard filter and it sets the price: one
  * set for the whole application would let someone be placed at a tier they offered on one day, and
@@ -104,9 +106,25 @@ function setAnswer(key: string, value: unknown) {
   emit('field-change', key);
 }
 
-function toggleDate(date: string, checked: boolean) {
-  const current = selectedDates.value;
-  setAnswer(AVAILABLE_DATES_KEY, checked ? [...current, date] : current.filter((d) => d !== date));
+/** The choice that says "not this day", which is what makes the grid one question. */
+const NOT_AVAILABLE_LABEL = 'Not available';
+
+/**
+ * Store the grid and the availability it implies, together (E19/F01/S02).
+ *
+ * Availability is no longer asked; it is DERIVED from the grid, through the same rule the import
+ * path calls. Writing both here is what keeps the two stored answers agreeing by construction -
+ * the back end refuses an available date with no tiers, and tiers for a date not available.
+ */
+function storeGrid(grid: Record<string, string[]>) {
+  const { tiers, dates } = reconciledDatesAndTiers(grid, []);
+  emit('update:modelValue', {
+    ...props.modelValue,
+    [TIER_PREFERENCE_KEY]: tiers,
+    [AVAILABLE_DATES_KEY]: dates,
+  });
+  emit('field-change', TIER_PREFERENCE_KEY);
+  emit('field-change', AVAILABLE_DATES_KEY);
 }
 
 function toggleTier(date: string, tier: string, checked: boolean) {
@@ -115,10 +133,46 @@ function toggleTier(date: string, tier: string, checked: boolean) {
   const all = { ...tiersByDate.value };
   if (next.length) all[date] = next;
   else delete all[date];
-  setAnswer(TIER_PREFERENCE_KEY, all);
+  storeGrid(all);
+}
+
+/** Whether this applicant said they can attend that day. */
+function availableOn(date: string): boolean {
+  return ((props.modelValue[AVAILABLE_DATES_KEY] as string[]) ?? []).includes(date);
+}
+
+/**
+ * A market with dates and no tiers has nothing to tick per day, so the day itself is the answer.
+ * Stored as the grid's shape all the same, so there is still only one stored form.
+ */
+function setAvailable(date: string, checked: boolean) {
+  const all = { ...tiersByDate.value };
+  if (checked) all[date] = all[date] ?? [];
+  else delete all[date];
+  const dates = Object.keys(all);
+  emit('update:modelValue', {
+    ...props.modelValue,
+    [TIER_PREFERENCE_KEY]: all,
+    [AVAILABLE_DATES_KEY]: dates,
+  });
+  emit('field-change', AVAILABLE_DATES_KEY);
+}
+
+/** Ticking "not available" clears that day; unticking it leaves the day waiting for a tier. */
+function setUnavailable(date: string, checked: boolean) {
+  if (!checked) return;
+  const all = { ...tiersByDate.value };
+  delete all[date];
+  storeGrid(all);
 }
 
 const fullName = computed(() => (props.modelValue[FULL_NAME_KEY] as string) ?? '');
+
+const preferredName = computed(() => (props.modelValue[PREFERRED_NAME_KEY] as string) ?? '');
+
+function onPreferredNameInput(event: Event) {
+  setAnswer(PREFERRED_NAME_KEY, (event.target as HTMLInputElement).value);
+}
 
 function onFullNameInput(event: Event) {
   setAnswer(FULL_NAME_KEY, (event.target as HTMLInputElement).value);
@@ -179,41 +233,26 @@ function errorFor(key: string): string {
       </p>
     </div>
 
-    <!-- Available dates -->
-    <div
-      v-if="options.dates.length"
-      class="essential-field"
-      :data-testid="`${prefix}-essential-available-dates`"
-    >
-      <span class="essential-label">
-        {{ AVAILABLE_DATES_LABEL }}
-        <span class="essential-required">*</span>
-      </span>
-      <p class="essential-help">Tick every market date you could attend.</p>
-      <div class="essential-choice-list" :class="{ error: errorFor(AVAILABLE_DATES_KEY) }">
-        <label
-          v-for="date in options.dates"
-          :key="date"
-          class="essential-choice"
-          :class="{ checked: selectedDates.includes(date) }"
-        >
-          <input
-            type="checkbox"
-            :checked="selectedDates.includes(date)"
-            :disabled="disabled"
-            :data-testid="`${prefix}-essential-date-${date}`"
-            @change="toggleDate(date, ($event.target as HTMLInputElement).checked)"
-          />
-          <span>{{ formattedEssentialDate(date) }}</span>
-        </label>
-      </div>
-      <p
-        v-if="errorFor(AVAILABLE_DATES_KEY)"
-        class="essential-error"
-        :data-testid="`${prefix}-essential-error-available-dates`"
-      >
-        {{ errorFor(AVAILABLE_DATES_KEY) }}
+    <!-- Preferred name. Optional, and asked of everyone: identity does not depend on the plan
+         (E19/F02/S01). The legal name stays stored and stays on the review card. -->
+    <div class="essential-field" :data-testid="`${prefix}-essential-preferred-name`">
+      <label class="essential-label" :for="`${prefix}-essential-preferred-name-input`">
+        {{ PREFERRED_NAME_LABEL }}
+      </label>
+      <p class="essential-help">
+        What you would like to be called, if it is not the name above. This is the name that appears
+        on lists and beside your table.
       </p>
+      <input
+        :id="`${prefix}-essential-preferred-name-input`"
+        class="essential-text-input"
+        type="text"
+        autocomplete="nickname"
+        :value="preferredName"
+        :disabled="disabled"
+        :data-testid="`${prefix}-essential-preferred-name-input`"
+        @input="onPreferredNameInput"
+      />
     </div>
 
     <!-- Max dates -->
@@ -254,29 +293,37 @@ function errorFor(key: string): string {
 
     <!-- Tier preference: a hard filter, so a multi-select rather than a ranking -->
     <div
-      v-if="options.tiers.length"
+      v-if="options.dates.length"
       class="essential-field"
       :data-testid="`${prefix}-essential-tier-preference`"
     >
       <span class="essential-label">
-        {{ TIER_PREFERENCE_LABEL }}
+        {{ options.tiers.length ? TIER_PREFERENCE_LABEL : AVAILABLE_DATES_LABEL }}
         <span class="essential-required">*</span>
       </span>
-      <p class="essential-help">
-        For each date you can attend, tick every tier you would accept that day. You will never be
-        placed in one you leave unticked, even if it means going unplaced.
+      <p v-if="options.tiers.length" class="essential-help">
+        For each day, tick every tier you would be considered for. Tick
+        <strong>{{ NOT_AVAILABLE_LABEL }}</strong> for a day you cannot attend. You will never be
+        placed in a tier you leave unticked, even if it means going unplaced.
       </p>
-      <p
-        v-if="!selectedDates.length"
-        class="essential-help"
-        :data-testid="`${prefix}-tier-no-dates`"
-      >
-        Pick your available dates above first.
-      </p>
-      <!-- One row per date the applicant ticked above, so the two answers cannot disagree: the
-           back end refuses an available date with no tiers, and tiers for a date not ticked. -->
+      <!-- A market with dates but no tiers still asks about the DAYS: `asked_essential_keys` gates
+           availability on dates and tier preference on tiers, so the grid follows the dates and
+           the tier column simply is not there. Merging the two questions must not make one of them
+           vanish with the other's offering. -->
+      <p v-else class="essential-help">Tick every market day you could attend.</p>
+      <!--
+        ONE question, not two (E19/F01/S02).
+
+        It used to ask availability first and then tiers per ticked date. An organizer's own form
+        has always asked it as a single grid - "choose all tiers you would be considered for;
+        choose None if you are not available" - so availability is implicit in the tier answer.
+        Asking twice made an applicant discover an order, and made two answers that could disagree.
+
+        The stored shape has not changed: availability is DERIVED here through the same rule the
+        importer calls, so the solver, the review card and the dashboard all still read one shape.
+      -->
       <div
-        v-for="date in selectedDates"
+        v-for="date in options.dates"
         :key="date"
         class="essential-tier-day"
         :data-testid="`${prefix}-essential-tier-day-${date}`"
@@ -297,6 +344,33 @@ function errorFor(key: string): string {
               @change="toggleTier(date, tier, ($event.target as HTMLInputElement).checked)"
             />
             <span>{{ tier }}</span>
+          </label>
+
+          <!-- With tiers, "not available" is what makes the grid one question. Without them there
+               is nothing to tick per day, so the day itself is the answer. -->
+          <label
+            v-if="options.tiers.length"
+            class="essential-choice essential-choice--unavailable"
+            :class="{ checked: !tiersOn(date).length }"
+          >
+            <input
+              type="checkbox"
+              :checked="!tiersOn(date).length"
+              :disabled="disabled"
+              :data-testid="`${prefix}-essential-unavailable-${date}`"
+              @change="setUnavailable(date, ($event.target as HTMLInputElement).checked)"
+            />
+            <span>{{ NOT_AVAILABLE_LABEL }}</span>
+          </label>
+          <label v-else class="essential-choice" :class="{ checked: availableOn(date) }">
+            <input
+              type="checkbox"
+              :checked="availableOn(date)"
+              :disabled="disabled"
+              :data-testid="`${prefix}-essential-date-${date}`"
+              @change="setAvailable(date, ($event.target as HTMLInputElement).checked)"
+            />
+            <span>I can attend</span>
           </label>
         </div>
       </div>
@@ -444,9 +518,14 @@ function errorFor(key: string): string {
   color: var(--mm-black);
 }
 
+/*
+ * On beige, not on white. `--mm-text-muted` is 4.63 on white and 4.23 on `--mm-beige`, so this note
+ * was the one place the palette's "only --mm-black is ever set on beige" assumption was untrue.
+ */
 .essential-email-note {
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  color: var(--mm-black);
+  opacity: 0.75;
 }
 
 .essential-field {

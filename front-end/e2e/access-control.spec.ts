@@ -359,11 +359,22 @@ test.describe('Market visibility - org deletion', () => {
     marketId = await createMarket(request, marketName, orgId, org.ownerUserId);
   });
 
-  test('deleting org revokes org-based access but owner still sees market via explicit role', async ({
+  /**
+   * Deleting an organization takes its drafts with it (E20/F04/S01).
+   *
+   * This used to assert the opposite half of the same act: the market SURVIVED, detached, and was
+   * still reachable by anyone holding an explicit role on it. That detachment is the state the
+   * story removed - a market belonging to nothing is one `POST /markets` refuses to produce, and
+   * it was invisible to everyone who reached it through the organization.
+   *
+   * So what is pinned now is that the market is gone for EVERYBODY, including the owner, whose
+   * explicit role is no longer a way to reach a market that no longer exists.
+   */
+  test('deleting an org deletes the drafts it holds, for the member and the owner alike', async ({
     browser,
     request,
   }) => {
-    // Four full UI logins plus an org deletion do not fit the suite's default budget.
+    // Three full UI logins plus an org deletion do not fit the suite's default budget.
     test.setTimeout(60_000);
 
     // ── Phase 1: ORG_MEMBER sees the market via org membership ──
@@ -372,7 +383,14 @@ test.describe('Market visibility - org deletion', () => {
       await expect(marketCard(page, marketName)).toBeVisible({ timeout: 10000 });
     });
 
-    // ── Phase 2: Owner deletes the org ──
+    // An explicit role, so Phase 3 proves the market is GONE rather than merely unreachable.
+    await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: { user_email: TEST_USER.email, role: 'owner' },
+    });
+
+    // ── Phase 2: Owner deletes the org, and the confirmation names what goes with it ──
     await withUser(browser, TEST_USER.email, TEST_USER.password, async (page) => {
       await page.goto('/organizations');
       await page.waitForSelector('.organizations-view', { timeout: 10000 });
@@ -384,38 +402,27 @@ test.describe('Market visibility - org deletion', () => {
       await orgCard.getByTestId('organizations-manage-button').click();
       await orgsPage.waitForManageOverlay();
 
-      await orgsPage.deleteOrg();
+      await orgsPage.clickDelete();
+      await expect(orgsPage.deleteWindow).toBeVisible({ timeout: 5000 });
+      // Named, not counted: this is the market about to be destroyed.
+      await expect(orgsPage.doomedMarkets.filter({ hasText: marketName })).toBeVisible({
+        timeout: 10000,
+      });
+
+      await expect(orgsPage.deleteConfirmButton).toBeEnabled({ timeout: 10000 });
+      await orgsPage.confirmDelete();
 
       await expect(orgCard).not.toBeVisible({ timeout: 5000 });
     });
 
-    // ── Phase 3: ORG_MEMBER no longer sees the market ──
+    // ── Phase 3: it is gone, for the member and for the owner who holds an explicit role ──
     await withUser(browser, ORG_MEMBER.email, ORG_MEMBER.password, async (page) => {
       await gotoMarketsLoaded(page);
       await expect(marketCard(page, marketName)).not.toBeVisible({ timeout: 5000 });
     });
 
-    // ── Phase 4: Owner with explicit role STILL sees the market ──
-    // This positive twin proves the market exists and the query works.
-    // Give TEST_USER explicit owner role on the market so access survives
-    // org deletion.
-    await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
-    await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Owner-Email': TEST_USER.email,
-      },
-      data: { user_email: TEST_USER.email, role: 'owner' },
-    });
-
-    await withUser(browser, TEST_USER.email, TEST_USER.password, async (page) => {
-      await gotoMarketsLoaded(page);
-      await expect(marketCard(page, marketName)).toBeVisible({ timeout: 10000 });
-    });
-
-    // ── API: Owner still accesses; ORG_MEMBER is denied ──
     const ownerGet = await apiGetMarket(request, TEST_USER.email, TEST_USER.password, marketId);
-    expect(ownerGet.status).toBe(200);
+    expect(ownerGet.status, 'a deleted market is gone, not merely detached').toBe(404);
 
     const memberGet = await apiGetMarket(request, ORG_MEMBER.email, ORG_MEMBER.password, marketId);
     expect(memberGet.status).toBe(404);

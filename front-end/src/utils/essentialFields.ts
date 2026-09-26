@@ -22,6 +22,8 @@ export const ESSENTIAL_KEY_PREFIX = 'essential_';
  * splitting on whitespace guesses wrong on every "van der Berg" and mononym.
  */
 export const FULL_NAME_KEY = 'essential_full_name';
+/** The name a vendor is CALLED, as against the one on their identification (E19/F02/S01). */
+export const PREFERRED_NAME_KEY = 'essential_preferred_name';
 
 export const AVAILABLE_DATES_KEY = 'essential_available_dates';
 export const MAX_DATES_KEY = 'essential_max_dates';
@@ -32,6 +34,7 @@ export const SECTION_RANKING_KEY = 'essential_section_ranking';
 export const TABLE_TYPE_RANKING_KEY = 'essential_table_type_ranking';
 
 export const FULL_NAME_LABEL = 'Full name';
+export const PREFERRED_NAME_LABEL = 'Preferred name';
 export const AVAILABLE_DATES_LABEL = 'Available dates';
 export const MAX_DATES_LABEL = 'Number of dates you want';
 export const TIER_PREFERENCE_LABEL = 'Tier preference';
@@ -85,6 +88,61 @@ export const UNASKABLE_ESSENTIAL_KEYS: readonly string[] = [
   SECTION_RANKING_KEY,
   TABLE_TYPE_RANKING_KEY,
 ];
+
+/**
+ * The stored shape of a dates-and-tiers answer, whichever way the form asked for it.
+ *
+ * Mirrors `reconciled_dates_and_tiers` in `back-end/essential_fields.py`, which is the authority.
+ *
+ * There are two ways to ask. A PER-DATE GRID is what an organizer's own form produces - one
+ * question per day whose cell carries the tiers, or nothing when the vendor cannot attend - so it
+ * answers availability too: the dates you named tiers for are the dates you are available. A FLAT
+ * LIST is what a form that asked once produces, and it means those tiers on every available date.
+ *
+ * Anything else is carried through untouched, because a missing or unrecognised answer is the
+ * validator's to refuse in the applicant's own words.
+ */
+export function reconciledDatesAndTiers(
+  tierAnswer: unknown,
+  availableDates: unknown,
+): { tiers: unknown; dates: unknown } {
+  if (Array.isArray(tierAnswer)) {
+    const dates = Array.isArray(availableDates) ? [...availableDates] : [];
+    // A fresh array per date: one shared array is one edit away from changing every day at once.
+    const tiers: Record<string, unknown[]> = {};
+    for (const date of dates) tiers[String(date)] = [...tierAnswer];
+    return { tiers, dates };
+  }
+
+  const availabilityAnswered = Array.isArray(availableDates) && availableDates.length > 0;
+  if (tierAnswer && typeof tierAnswer === 'object' && !availabilityAnswered) {
+    const grid = tierAnswer as Record<string, unknown[]>;
+    return { tiers: grid, dates: Object.keys(grid).filter((date) => grid[date]?.length) };
+  }
+
+  return { tiers: tierAnswer, dates: availableDates };
+}
+
+/**
+ * Every essential question this market asks, with the label a reviewer reads (E19/F03/S01).
+ *
+ * Built from the same ESSENTIAL_ORDER the review card renders, so the list an organizer marks from
+ * and the list they will see are the same list in the same order.
+ */
+export function askedEssentialAnswers(
+  options: EssentialFormOptions,
+): Array<{ key: string; label: string }> {
+  return ESSENTIAL_ORDER.filter(([key]) => isEssentialAsked(key, options))
+    .filter(([key]) => {
+      if (key === AVAILABLE_DATES_KEY || key === MAX_DATES_KEY || key === TABLE_CHOICE_KEY)
+        return options.dates.length > 0;
+      if (key === TIER_PREFERENCE_KEY) return options.tiers.length > 0;
+      if (key === SECTION_RANKING_KEY) return options.sections.length >= 2;
+      if (key === TABLE_TYPE_RANKING_KEY) return options.tableTypes.length >= 2;
+      return true;
+    })
+    .map(([key, label]) => ({ key, label }));
+}
 
 /** Is this essential question one this market actually asks? */
 export function isEssentialAsked(key: string, options: EssentialFormOptions): boolean {
@@ -148,6 +206,9 @@ export interface AnswerRow {
 /** The order the form asks the essential questions, so answers read back the way they were given. */
 const ESSENTIAL_ORDER: ReadonlyArray<[string, string, (value: unknown) => unknown]> = [
   [FULL_NAME_KEY, FULL_NAME_LABEL, (v) => v],
+  // Both names on the review card, labelled: an organizer deciding about a PERSON is doing
+  // something different from one scanning a list, where only the chosen name appears.
+  [PREFERRED_NAME_KEY, PREFERRED_NAME_LABEL, (v) => v],
   [
     AVAILABLE_DATES_KEY,
     AVAILABLE_DATES_LABEL,
@@ -313,7 +374,7 @@ export function essentialValidationErrors(
     const unanswered = dates.filter((date) => !answered(date));
     if (!dates.length || unanswered.length) {
       errors[TIER_PREFERENCE_KEY] = dates.length
-        ? `'${TIER_PREFERENCE_LABEL}' is missing for ${unanswered.join(', ')}. Choose at least one tier for every date you are available.`
+        ? `'${TIER_PREFERENCE_LABEL}' is missing for ${unanswered.join(', ')}. Choose at least one tier for each, or mark it as a day you cannot attend.`
         : `'${TIER_PREFERENCE_LABEL}' is required. Select at least one tier.`;
     }
   }

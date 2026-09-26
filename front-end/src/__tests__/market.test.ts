@@ -20,7 +20,7 @@ describe('parseMarketFromApi', () => {
     expect(market.phase).toBe(MarketPhase.Archived);
   });
 
-  it('round-trips the application form, review config and Discord guild', () => {
+  it('round-trips the application form and review config', () => {
     const market = parseMarketFromApi({
       ...apiMarket,
       applicationForm: {
@@ -36,12 +36,10 @@ describe('parseMarketFromApi', () => {
         ],
       },
       reviewConfig: { reviewers: ['a@example.com'] },
-      discordGuildId: 'guild-1',
     });
 
     expect(market.applicationForm?.fields[0].label).toBe('Shop name');
     expect(market.reviewConfig).toEqual({ reviewers: ['a@example.com'] });
-    expect(market.discordGuildId).toBe('guild-1');
   });
 
   it('leaves the new fields undefined when the API omits them', () => {
@@ -50,7 +48,6 @@ describe('parseMarketFromApi', () => {
     expect(market.phase).toBeUndefined();
     expect(market.applicationForm).toBeUndefined();
     expect(market.reviewConfig).toBeUndefined();
-    expect(market.discordGuildId).toBeUndefined();
   });
 });
 

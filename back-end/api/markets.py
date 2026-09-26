@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import re
 import uuid
 from typing import NamedTuple, Optional, Dict, Any, List, Tuple
@@ -35,6 +36,7 @@ from market_documents import (
     market_doc_field,
     market_doc_filter,
     market_doc_key,
+    market_doc_set,
     market_from_document,
 )
 import api.permissions as PermissionsApi
@@ -301,6 +303,20 @@ def _intake_mode_for_update(market: Market, existing_market: Market) -> IntakeMo
     return market.intake_mode
 
 
+def review_highlights_for_update(market: Market, existing_market: Market) -> Optional[List[str]]:
+    """The review highlights a market update must store: always the ones already stored.
+
+    Server-owned for the same reason as ``application_form`` and ``assignment_object``, and for a
+    sharper one of its own: a reviewer changes these from the review queue (E19/F03/S02), MID
+    QUEUE, while a market screen open in another tab still holds the list as it was. A market PUT
+    from that tab would silently undo the change, and the reviewer would find the card leading with
+    the wrong answers again with nothing to show why.
+
+    ``save_review_highlights`` is the only writer.
+    """
+    return existing_market.review_highlights
+
+
 def _preserve_server_owned_fields(
     market_dict: Dict[str, Any], market: Market, existing_market: Market
 ) -> None:
@@ -345,8 +361,11 @@ def _preserve_server_owned_fields(
     # door, and it was the one field on this list that was missing: a market PUT carrying a stale
     # client copy could overwrite a whole assignment, with no manual editing involved at all.
     market_dict["assignment_object"] = existing_market.assignment_object.model_dump()
+    # review_highlights is written only by save_review_highlights - see its note on why a stale
+    # tab must not be able to undo a change a reviewer made mid-queue.
+    market_dict["review_highlights"] = review_highlights_for_update(market, existing_market)
     _strip_persisted_assignment_statistics(market_dict)
-    for field in ("review_config", "discord_guild_id"):
+    for field in ("review_config",):
         if field in market.model_fields_set:
             continue
         existing_value = getattr(existing_market, field)
@@ -1066,110 +1085,97 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
         }, 500
 
 
-def _top_n_by_count(counts: Optional[Dict[str, int]], n: int) -> List[tuple]:
-    """Return the top-N (label, count) pairs by descending count for Discord summary fields."""
-    if not counts:
-        return []
-    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:n]
+def finalization_update(
+    from_phase: str, to_phase: str, document: Dict[str, Any]
+) -> Dict[str, Any]:
+    """The `$set` entries that record whether this market's form is finalized (E18/F03/S01).
 
+    **Leaving draft IS finalizing.** There is no separate act for an organizer to discover, and no
+    new guard: ``FormHasFieldsGuard`` already counts PLAN-DERIVED asked keys, so a market whose plan
+    offers nothing - and whose form therefore asks nothing - is already refused. Only the stamp was
+    missing.
 
-def _build_discord_payload(market: Market, assigned_market: Market) -> Dict[str, Any]:
-    """Build the Discord webhook JSON payload summarizing the assignment for one market."""
-    stats = assigned_market.assignment_object.assignment_statistics
+    Returning to draft, which stays legal only while no application exists, clears it. So the field
+    answers exactly one question: is this form finalized right now?
 
-    total_assignments = stats.total_assignments if stats else 0
-    total_vendors = stats.total_vendors if stats else 0
-    total_tables = stats.total_tables if stats else 0
-    satisfaction_pct = round((stats.satisfaction_score or 0.0) * 100, 1) if stats else 0.0
-    unassigned_vendor_count = len(stats.unassigned_vendors) if stats else 0
-    unassigned_table_count = (
-        sum(len(entries) for entries in (stats.unassigned_tables or {}).values()) if stats else 0
-    )
+    **It is not a restatement of ``phase != draft``**, because ``draft -> archived`` also exists -
+    the publish path - and does NOT stamp. A market published straight from draft never opened its
+    form to anybody, and the two fields therefore say different things: ``phase`` is where the
+    market is now, this is whether the form was ever opened to applicants.
 
-    fields: List[Dict[str, Any]] = [
-        {"name": "Assignments", "value": str(total_assignments), "inline": True},
-        {"name": "Vendors", "value": str(total_vendors), "inline": True},
-        {"name": "Tables", "value": str(total_tables), "inline": True},
-        {"name": "Satisfaction", "value": f"{satisfaction_pct}%", "inline": True},
-        {"name": "Unassigned Vendors", "value": str(unassigned_vendor_count), "inline": True},
-        {"name": "Unassigned Tables", "value": str(unassigned_table_count), "inline": True},
-    ]
+    If that edge is ever retired, this field becomes derivable and should be DELETED rather than
+    maintained. Left here so that is a decision next time and not an archaeology problem.
 
-    top_sections = _top_n_by_count(stats.assignments_per_section if stats else None, 3)
-    if top_sections:
-        formatted = "\n".join(f"{name}: {count}" for name, count in top_sections)
-        fields.append({"name": "Top Sections", "value": formatted, "inline": False})
-
-    summary_line = (
-        f"{market.name}: {total_assignments} assignments across "
-        f"{total_vendors} vendors and {total_tables} tables "
-        f"({satisfaction_pct}% satisfaction)."
-    )
-
-    return {
-        "content": summary_line,
-        "embeds": [
-            {
-                "title": market.name,
-                "description": "Assignment summary",
-                "fields": fields,
-            }
-        ],
-    }
-
-
-def post_assignment_to_discord(market_id: str, requesting_user: str) -> tuple[Dict[str, Any], int]:
-    """Post a formatted assignment summary to the market's configured Discord webhook.
-
-    The webhook URL is treated as a secret and never logged. Only the market owner
-    may invoke this endpoint; lesser roles receive 403.
+    A market may reach ``applications_open`` with no stored form at all: a form is its custom fields
+    PLUS the essential questions the plan asks, and either half alone is a form. Such a market is
+    still finalized, so it gets one with no custom fields rather than no stamp.
     """
-    try:
-        context = load_market_context(market_id)
-        if context is None:
-            return {"error": "Market not found"}, 404
-        if context.market is None:
-            return {"error": "Invalid market data"}, 400
+    form_key = market_doc_key("application_form")
+    stored_form = document.get(form_key)
 
-        market = context.market
+    if from_phase == MarketPhase.DRAFT.value and to_phase == MarketPhase.APPLICATIONS_OPEN.value:
+        stamp = datetime.now(timezone.utc).isoformat()
+        published_key = market_doc_key("published_at")
+        if isinstance(stored_form, dict):
+            return {f"{form_key}.{published_key}": stamp}
+        return {form_key: {"fields": [], published_key: stamp}}
 
-        if not PermissionsApi.user_has_permission(requesting_user, market, MarketRole.OWNER, context.organization):
-            return {"error": "User does not have permission to post to Discord for this market"}, 403
+    if to_phase == MarketPhase.DRAFT.value:
+        if isinstance(stored_form, dict):
+            return {f"{form_key}.{market_doc_key('published_at')}": None}
+        return {}
 
-        webhook_url = (market.discord_webhook_url or "").strip()
-        if not webhook_url:
-            return {"error": "No Discord webhook configured for this market"}, 400
+    return {}
 
-        if market.setup_object is None:
-            return {"error": "Market has no setup configured"}, 400
 
-        market.assignment_object.assignment_statistics = None
-        try:
-            assigned_market = assignment_to_show(market)
-        except IncompleteApplicationsError as incomplete:
-            # The organizer has to go and fix something, so say who.
-            return {"error": incomplete.message()}, 400
+class PhaseChangedUnderRequest(Exception):
+    """The market's stored phase was not what this write expected.
 
-        payload = _build_discord_payload(market, assigned_market)
+    Carries the phase it actually holds, so a caller can say so rather than retrying blindly.
+    """
 
-        try:
-            response = requests.post(webhook_url, json=payload, timeout=5)
-        except requests.RequestException as e:
-            return {"error": f"Failed to reach Discord: {e}"}, 502
+    def __init__(self, actual_phase: str):
+        self.actual_phase = actual_phase
+        super().__init__(f"Market is in '{actual_phase}'")
 
-        if 200 <= response.status_code < 300:
-            return {"message": "Posted to Discord", "status": "ok"}, 200
-        return {"error": f"Discord webhook returned {response.status_code}"}, 502
-    except Exception as e:
-        logger.error(f"Unexpected error in post_assignment_to_discord: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return {
-            "error": "Internal server error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-            "market_id": market_id,
-            "function": "post_assignment_to_discord",
-        }, 500
+
+def apply_phase_transition(market_id: str, document: Dict[str, Any], to_phase: str) -> None:
+    """Write one phase change, conditional on the market still being where the caller thinks.
+
+    Extracted from the transition endpoint so the form-amendment chain (E20/F03/S01) walks the
+    market with the SAME writer rather than a second copy of it. A second copy is how the
+    `isDraft` stamp and the finalization stamp come to disagree with `phase`.
+
+    ONE atomic update, and one conditional on the stored phase: a failure between the phase and
+    the stamp would leave a market whose two answers disagree, which is the class of bug
+    `migrate_is_draft_consistency` exists to repair, and a lost update would move a market a
+    concurrent request had already moved.
+
+    Raises:
+        PhaseChangedUnderRequest: the stored phase moved under this request.
+        MarketNotFoundError: the market is gone.
+    """
+    phase_key = market_doc_key("phase")
+    is_draft_key = market_doc_key("is_draft")
+    from_phase = phase_from_market_document(document).value
+    stored_phase = document[phase_key] if phase_key in document else {"$exists": False}
+
+    result = markets_collection.update_one(
+        {"id": market_id, phase_key: stored_phase},
+        {"$set": {
+            phase_key: to_phase,
+            is_draft_key: to_phase == MarketPhase.DRAFT.value,
+            **finalization_update(from_phase, to_phase, document),
+        }},
+    )
+
+    if result.matched_count:
+        return
+
+    latest = markets_collection.find_one({"id": market_id})
+    if latest is None:
+        raise MarketNotFoundError("Market not found")
+    raise PhaseChangedUnderRequest(phase_from_market_document(latest).value)
 
 
 def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> bool:
@@ -1331,6 +1337,33 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
         logger.warning(f"Failed to delete placement history for market {market_id}: {e}")
 
     return markets_collection.delete_one({"id": market_id})
+
+
+def save_review_highlights(
+    market_id: str, keys: List[str], requesting_user: str
+) -> List[str]:
+    """Set which answers a reviewer reads first. Requires EDIT permission.
+
+    The list IS the order the card leads with, so a repeat is dropped where it recurs rather than
+    resorting what an organizer arranged. An empty list clears them, and clearing is a write of
+    ``[]`` rather than a delete: absent and empty both mean "nothing is marked", and one shape for
+    that keeps the card from having to tell them apart.
+
+    Deliberately NOT gated on ``application_form_lock_reason``. That lock freezes the form the
+    moment an applicant submits - which is the moment these first become knowable, because an
+    organizer learns which answers they needed by reading real applications. A highlight that
+    inherited the form's lock would be settable only before anyone could know what to set.
+    """
+    _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+
+    seen: List[str] = []
+    for key in keys:
+        cleaned = key.strip()
+        if cleaned and cleaned not in seen:
+            seen.append(cleaned)
+
+    markets_collection.update_one({"id": market_id}, market_doc_set("review_highlights", seen))
+    return seen
 
 
 def save_application_form(market_id: str, application_form_data: dict, requesting_user: str) -> dict:

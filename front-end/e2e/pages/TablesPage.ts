@@ -36,7 +36,7 @@ export class TablesPage {
     this.backButton = page.getByTestId('tables-back-button');
     this.tableRows = page.locator('.table-row');
     this.dateGroups = page.locator('.date-group');
-    this.dialog = page.getByTestId('placement-dialog');
+    this.dialog = page.getByTestId('placement-dialog-window');
     this.dialogWarning = page.getByTestId('placement-dialog-warning');
     this.dialogError = page.getByTestId('placement-dialog-error');
   }

@@ -75,13 +75,15 @@ const removeRow = (index: number | null) => {
           />
         </button>
       </div>
-      <div class="add-container">
-        <IconAddRound
-          class="icon-add-round"
-          @click="addRow"
-          data-testid="setup-location-add-button"
-        />
-      </div>
+      <button
+        type="button"
+        class="add-row"
+        aria-label="Add a location"
+        data-testid="setup-location-add-button"
+        @click="addRow"
+      >
+        <IconAddRound class="add-row__icon" />
+      </button>
     </div>
   </div>
 </template>
@@ -113,8 +115,6 @@ const removeRow = (index: number | null) => {
   align-items: center;
 
   gap: 8px;
-  padding-top: 4px;
-  padding-bottom: 8px;
 
   overflow-y: auto;
   overflow-x: hidden;
@@ -158,12 +158,6 @@ input::-webkit-inner-spin-button {
 
 input[type='number'] {
   -moz-appearance: textfield;
-}
-
-.icon-add-round {
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
 }
 
 /* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -

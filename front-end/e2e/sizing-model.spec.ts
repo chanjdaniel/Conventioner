@@ -72,7 +72,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     expect(workspace, '--workspace-max is not defined').toBeGreaterThan(0);
     expect(list, '--list-max is not defined').toBeGreaterThan(0);
 
-    await page.goto('/market-setup');
+    await page.goto('/market-setup?tab=setup');
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '.market-setup-body')).toBe(workspace);
 
@@ -86,26 +86,55 @@ test.describe('Every organizer screen sizes itself the same way', () => {
   }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openTheSeededMarket(page);
-    await page.goto('/market-setup');
+
+    /*
+     * Both workspace surfaces, because the invariant is about every screen and because the plan
+     * alone stopped being a sufficient sample: it lost Assignment Priority and Assignment Options
+     * to the assignment surface (E18/F02/S04), so on a small market it now fits the window.
+     *
+     * `boxed` is the invariant - no screen may hide its content in a nested scroller.
+     *
+     * `pageScrolls` is the check that the sample means anything, and it is measured at a SHORT
+     * viewport so it does not depend on how much the seeded market happens to contain. Asserting
+     * it at 1080 was flaky for exactly that reason: the plan fits the window on a small market
+     * now that two cards moved to the assignment surface.
+     */
+    const measure = async () =>
+      await page.evaluate(() => {
+        const de = document.documentElement;
+        const boxed = Array.from(document.querySelectorAll('*'))
+          .filter((el) => {
+            const style = getComputedStyle(el);
+            return /auto|scroll/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 24;
+          })
+          .map(
+            (el) =>
+              `${el.className.toString().split(' ')[0] || el.tagName} hides ${el.scrollHeight - el.clientHeight}px`,
+          );
+        return { pageScrolls: de.scrollHeight > de.clientHeight, boxed };
+      });
+
+    await page.goto('/market-setup?tab=setup');
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
+    expect((await measure()).boxed, 'the plan is hiding its content inside a box').toEqual([]);
 
-    // The plan is taller than the window on any real market, so the PAGE must be what scrolls.
-    const shape = await page.evaluate(() => {
-      const de = document.documentElement;
-      const boxed = Array.from(document.querySelectorAll('*'))
-        .filter((el) => {
-          const style = getComputedStyle(el);
-          return /auto|scroll/.test(style.overflowY) && el.scrollHeight > el.clientHeight + 24;
-        })
-        .map(
-          (el) =>
-            `${el.className.toString().split(' ')[0] || el.tagName} hides ${el.scrollHeight - el.clientHeight}px`,
-        );
-      return { pageScrolls: de.scrollHeight > de.clientHeight, boxed };
-    });
+    await page.goto('/market-setup?tab=assignment');
+    await expect(page.getByTestId('market-setup-assign-button')).toBeVisible({ timeout: 15000 });
+    expect(
+      (await measure()).boxed,
+      'the assignment surface is hiding its content inside a box',
+    ).toEqual([]);
 
-    expect(shape.pageScrolls, 'the page does not scroll, so something else must be').toBe(true);
-    expect(shape.boxed, 'a screen is hiding its content inside a box').toEqual([]);
+    // Short enough that any real plan overflows it, so what scrolls is not left to chance.
+    await page.setViewportSize({ width: 1920, height: 400 });
+    await page.goto('/market-setup?tab=setup');
+    await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
+    const short = await measure();
+    expect(short.pageScrolls, 'the page does not scroll, so something else must be').toBe(true);
+    expect(
+      short.boxed,
+      'a screen is hiding its content inside a box when the window is short',
+    ).toEqual([]);
   });
 
   test('no control on the plan is narrower than its own longest value', async ({
@@ -116,7 +145,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     // wide with 34px of text room, so every tier read "Pr...", "St...", "Co...".
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openTheSeededMarket(page);
-    await page.goto('/market-setup');
+    await page.goto('/market-setup?tab=setup');
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
 
     const truncated = await page.evaluate(() => {

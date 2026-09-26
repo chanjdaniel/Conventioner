@@ -1,5 +1,6 @@
 import { test, expect, BACKEND_URL, TEST_USER, ApplicationFormPage, ApplyPage } from './fixtures';
 import { ApplicantLoginPage } from './pages/ApplicantLoginPage';
+import { MarketSetupPage } from './pages/MarketSetupPage';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import {
   seedApplicantMarket,
@@ -187,10 +188,11 @@ test.describe('Essential form fields', () => {
 
     // The organizer adds market dates in the setup wizard...
     await formPage.openSetupTab();
-    await page.getByTestId('setup-dates-add-button').click();
-    await page.getByTestId('setup-dates-date-input-0').fill('2026-08-01');
-    await page.getByTestId('setup-dates-add-button').click();
-    await page.getByTestId('setup-dates-date-input-1').fill('2026-08-08');
+    const setupPage = new MarketSetupPage(page);
+    // The dates are chosen on a calendar now (E18/F01/S02), so the page object walks to the month
+    // and clicks the days rather than filling a row's hidden date input.
+    await setupPage.addMarketDate('2026-08-01');
+    await setupPage.addMarketDate('2026-08-08');
 
     // ...and sections, further down the same page (E10/F02/S01). The plan saves itself.
     await page.getByTestId('setup-section-add-button').click();
@@ -210,8 +212,10 @@ test.describe('Essential form fields', () => {
     await expect(formPage.essentialSectionChips.nth(1)).toContainText('Garden');
     // The applicant preview shows them exactly as the applicant will get them.
     await expect(formPage.previewEssential).toBeVisible();
+    // The preview shows the applicant's own control: one grid with a row per market date
+    // (E19/F01/S02), not a separate availability question.
     await expect(
-      formPage.previewEssential.getByTestId('form-preview-essential-date-2026-08-01'),
+      formPage.previewEssential.getByTestId('form-preview-essential-tier-day-2026-08-01'),
     ).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('02-essential-panel-offering-from-plan.png'),
@@ -270,21 +274,22 @@ test.describe('Essential form fields', () => {
     // Identity: asked whatever the plan offers, and never split (E13/F01/S01).
     await apply.fullNameInput.fill('Jan van der Berg');
 
-    // Available dates: capability. The label is asserted whole, not by substring - the product has
-    // one date format and an essential question shows it unaltered (E14/F01/S01).
-    await expect(apply.dateCheckbox(PLAN_DATES[0])).toBeVisible();
+    // Availability is not its own question any more (E19/F01/S02) - it follows from the tier
+    // grid below. The label is still asserted whole, not by substring: the product has one date
+    // format and an essential question shows it unaltered (E14/F01/S01).
+    await expect(apply.dateRow(PLAN_DATES[0])).toBeVisible();
     await expect(apply.dateLabel('2026-08-01')).toHaveText('Saturday, August 1, 2026');
-    await apply.dateCheckbox('2026-08-01').check();
-    await apply.dateCheckbox('2026-08-08').check();
 
     // Max dates: appetite - available on two dates, wants at most two.
     await apply.maxDatesInput.fill('2');
 
     // Tier: a hard filter, so a subset is a complete answer. Refusing Silver means the solver
-    // may leave them unplaced rather than seat them there.
+    // may leave them unplaced rather than seat them there. Ticking a tier is ALSO how this
+    // applicant says they are available that day.
     await expect(apply.tierCheckbox('2026-08-01', 'Silver')).toBeVisible();
     await apply.tierCheckbox('2026-08-01', 'Gold').check();
     await apply.tierCheckbox('2026-08-08', 'Gold').check();
+    await expect(apply.notAvailableCheckbox('2026-08-01')).not.toBeChecked();
 
     // Table choice: sharing, and with someone specific in mind.
     await apply.tableChoiceRadio('half').check();
@@ -298,6 +303,10 @@ test.describe('Essential form fields', () => {
 
     await apply.fillField('business_name', 'Vermilion Ceramics');
     await apply.fillField('product_type', 'Hand-thrown pottery');
+
+    // What this vendor is actually called. Asked beside the full name and stored beside it, so an
+    // organizer deciding about a PERSON sees both (E19/F02/S01).
+    await apply.preferredNameInput.fill('Jan');
 
     await page.screenshot({
       path: testInfo.outputPath('04-applicant-essential-fields.png'),
@@ -324,6 +333,9 @@ test.describe('Essential form fields', () => {
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_full_name'),
     ).toContainText('Jan van der Berg');
+    await expect(
+      answers.getByTestId('applicant-dashboard-answer-essential_preferred_name'),
+    ).toContainText('Jan');
     // Read back whole: a formatted date carries two commas of its own, so the entries are
     // separated by a middot and each prints its year once (E14/F01/S01).
     await expect(
@@ -365,6 +377,8 @@ test.describe('Essential form fields', () => {
       product_type: 'Hand-thrown pottery',
       // One field, stored whole: splitting it would guess wrong on exactly this name.
       essential_full_name: 'Jan van der Berg',
+      // Stored beside the full name, never instead of it: the card shows both, labelled.
+      essential_preferred_name: 'Jan',
       essential_available_dates: ['2026-08-01', '2026-08-08'],
       essential_max_dates: 2,
       // Only Gold was ticked: an accepted SET, so Silver's absence is the answer, not an omission.

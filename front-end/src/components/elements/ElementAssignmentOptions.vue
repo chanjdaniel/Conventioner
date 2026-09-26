@@ -177,8 +177,6 @@ select.datatype-dropdown {
   align-items: stretch;
 
   gap: 8px;
-  padding-top: 0;
-  padding-bottom: 8px;
 
   overflow-y: auto;
   overflow-x: hidden;
@@ -308,12 +306,6 @@ input::-webkit-inner-spin-button {
 
 input[type='number'] {
   -moz-appearance: textfield;
-}
-
-.icon-add-round {
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
 }
 
 /* A fixed square. Sized as a percentage of its cell it rendered 8x20 in the narrow columns -

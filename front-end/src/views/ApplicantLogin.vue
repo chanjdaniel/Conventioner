@@ -121,7 +121,16 @@ function goBack() {
     </div>
 
     <template v-if="step === 'email'">
-      <div class="login-step" data-testid="applicant-login-email-step">
+      <!--
+        A native form, not a key handler (E20/F01/S03). Enter then runs the same handler as the
+        button and inherits its guard - including the cooldown, which a `@keyup.enter` bypassed:
+        the button said "retry in 7s" while Enter sent another code.
+      -->
+      <form
+        class="login-step"
+        data-testid="applicant-login-email-step"
+        @submit.prevent="requestCode"
+      >
         <p class="login-instruction">
           Enter the email address you used to apply. We'll send you a verification code.
         </p>
@@ -131,12 +140,11 @@ function goBack() {
           type="email"
           placeholder="you@example.com"
           data-testid="applicant-login-email-input"
-          @keyup.enter="requestCode"
         />
         <button
+          type="submit"
           class="login-btn"
           :disabled="submitting || !email.trim() || cooldownApplies"
-          @click="requestCode"
           data-testid="applicant-login-request-btn"
         >
           <template v-if="cooldownApplies"
@@ -144,11 +152,11 @@ function goBack() {
           >
           <template v-else>{{ submitting ? 'Sending...' : 'Send Code' }}</template>
         </button>
-      </div>
+      </form>
     </template>
 
     <template v-else>
-      <div class="login-step" data-testid="applicant-login-code-step">
+      <form class="login-step" data-testid="applicant-login-code-step" @submit.prevent="verifyCode">
         <p class="login-instruction">If an account exists for this email, we've sent a code.</p>
         <input
           v-model="code"
@@ -158,22 +166,28 @@ function goBack() {
           maxlength="6"
           placeholder="000000"
           data-testid="applicant-login-code-input"
-          @keyup.enter="verifyCode"
         />
         <button
+          type="submit"
           class="login-btn"
           :disabled="submitting || code.trim().length !== 6"
-          @click="verifyCode"
           data-testid="applicant-login-verify-btn"
         >
           {{ submitting ? 'Verifying...' : 'Verify & Sign In' }}
         </button>
         <div class="login-alt">
-          <button class="login-link-btn" @click="goBack" data-testid="applicant-login-back-btn">
+          <!-- `type="button"`: inside a form, a button with no type submits it. -->
+          <button
+            type="button"
+            class="login-link-btn"
+            @click="goBack"
+            data-testid="applicant-login-back-btn"
+          >
             Use a different email
           </button>
           <span class="login-sep">|</span>
           <button
+            type="button"
             class="login-link-btn"
             :disabled="submitting || cooldownRemaining > 0"
             @click="requestCode"
@@ -182,7 +196,7 @@ function goBack() {
             {{ cooldownRemaining > 0 ? `Resend code in ${cooldownRemaining}s` : 'Resend code' }}
           </button>
         </div>
-      </div>
+      </form>
     </template>
   </div>
 </template>

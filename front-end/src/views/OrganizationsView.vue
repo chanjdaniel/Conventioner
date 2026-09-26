@@ -4,7 +4,7 @@ import { type Organization } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { fetchOrganizations } from '@/utils/organizations';
 import { getRoleDisplayName } from '@/utils/permissions';
-import { useModalRoot } from '@/utils/useModalRoot';
+import AppDialog from '@/components/AppDialog.vue';
 import type { SummaryFact } from '@/utils/summary';
 import SummaryCard from '@/components/SummaryCard.vue';
 import ManageOrgOverlay from './ManageOrgOverlay.vue';
@@ -15,7 +15,6 @@ const errorMessage = ref('');
 const newOpen = ref(false);
 
 /** Modal: the page behind it goes out of the tab order, not just out of reach of the mouse. */
-const newOrgModalRoot = useModalRoot(newOpen);
 const manageOpen = ref(false);
 const manageOrg = ref<Organization | null>(null);
 const newOrgName = ref('');
@@ -77,6 +76,17 @@ function handleManageClose() {
   loadOrganizations();
 }
 
+/**
+ * The dialog saved something. Close is no longer how this list finds out (E20/F01/S02): it used
+ * to be the ONLY way, which is exactly why every membership change closed the dialog.
+ *
+ * `manageOrg` is deliberately not re-pointed at the refreshed organization - the dialog re-reads
+ * its own, and replacing the prop underneath it would reset the open add form mid-typing.
+ */
+function handleManageChanged() {
+  loadOrganizations();
+}
+
 function canManage(org: Organization): boolean {
   const role = org.userRole;
   return role === 'owner' || role === 'admin';
@@ -130,36 +140,31 @@ function canManage(org: Organization): boolean {
       </div>
     </div>
 
-    <ManageOrgOverlay :manageOpen="manageOpen" :org="manageOrg" @manageClose="handleManageClose" />
+    <ManageOrgOverlay
+      :manageOpen="manageOpen"
+      :org="manageOrg"
+      @manageClose="handleManageClose"
+      @changed="handleManageChanged"
+    />
 
-    <div v-if="newOpen" ref="newOrgModalRoot" class="overlay">
-      <div
-        class="overlay-background"
-        @click="handleNewClose"
-        data-testid="organizations-overlay-background"
+    <AppDialog
+      :open="newOpen"
+      title="New organization"
+      testid="organizations-create"
+      confirm-label="Create"
+      :confirm-disabled="!newOrgName.trim()"
+      :error="newOrgError"
+      @close="handleNewClose"
+      @submit="handleCreateOrg"
+    >
+      <input
+        v-model="newOrgName"
+        type="text"
+        placeholder="Organization name"
+        class="field"
+        data-testid="organizations-create-name-input"
       />
-      <div class="overlay-window">
-        <h2>New organization</h2>
-        <div class="form-row">
-          <input
-            v-model="newOrgName"
-            type="text"
-            placeholder="Organization name"
-            class="form-input"
-            @keydown.enter="handleCreateOrg"
-            data-testid="organizations-create-name-input"
-          />
-          <button
-            class="submit-button"
-            @click="handleCreateOrg"
-            data-testid="organizations-create-submit-button"
-          >
-            Create
-          </button>
-        </div>
-        <p v-if="newOrgError" class="form-error">{{ newOrgError }}</p>
-      </div>
-    </div>
+    </AppDialog>
   </div>
 </template>
 
@@ -269,65 +274,6 @@ function canManage(org: Organization): boolean {
 
 .manage-button:hover {
   opacity: 0.9;
-}
-
-.overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 100;
-}
-
-.overlay-background {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.overlay-window {
-  position: relative;
-  padding: 25px;
-  background: white;
-  border-radius: var(--radius-card);
-  z-index: 1;
-  min-width: 300px;
-}
-
-.overlay-window h2 {
-  margin: 0 0 16px;
-  font-size: var(--text-lg);
-}
-
-.form-row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.form-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  font-size: var(--text-sm);
-}
-
-.submit-button {
-  padding: 8px 20px;
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-  font-size: var(--text-sm);
-}
-
-.form-error {
-  margin: 8px 0 0;
-  color: var(--mm-red);
-  font-size: var(--text-xs);
 }
 
 .content-block::-webkit-scrollbar {

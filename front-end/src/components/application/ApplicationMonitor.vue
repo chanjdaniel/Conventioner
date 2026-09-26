@@ -23,6 +23,9 @@ import {
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import { asksNothingDistinguishing, reviewAnswers } from '@/utils/reviewQueue';
+import { useReviewHighlights } from '@/utils/reviewHighlights';
+import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
+import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
@@ -36,6 +39,8 @@ const props = defineProps<{
    */
   formEditable: boolean;
 }>();
+
+const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void }>();
 
 const applications = ref<Application[]>([]);
 const loading = ref(false);
@@ -127,10 +132,51 @@ const rejectedCount = computed(
 const verdictsStillLegible = computed(() => approvedCount.value + rejectedCount.value > 0);
 
 const current = computed<Application | undefined>(() => undecided.value[cursor.value]);
-const answers = computed(() =>
-  current.value ? reviewAnswers(current.value, props.market?.applicationForm) : [],
+/**
+ * Changed from HERE, not only from the form builder (E19/F03/S02).
+ *
+ * This is the point of storing the list on the market rather than on the form. An organizer
+ * authoring a form is guessing what will matter; a reviewer on card twelve knows - and by then the
+ * form has frozen, because an application exists. The same composable the builder uses, so there
+ * is one list and no second store to diverge from.
+ */
+const marketRef = computed(() => props.market);
+const { highlights, error: highlightsError, save: saveHighlights } = useReviewHighlights(marketRef);
+
+/** Whether the reviewer has the marking control open. Closed by default: the queue is for judging. */
+const choosingHighlights = ref(false);
+
+/**
+ * What the essential questions offered this market's applicants.
+ *
+ * Read off the FROZEN snapshot on the form, never recomputed from the current plan: by the time
+ * anyone is reviewing, the plan may have moved on, and offering a reviewer a question the
+ * applicants were never asked would mark an answer no card can show.
+ */
+const essentialOptions = computed(
+  () => props.market?.applicationForm?.essentialOptions ?? EMPTY_ESSENTIAL_OPTIONS,
 );
+
+const split = computed(() =>
+  current.value
+    ? reviewAnswers(current.value, props.market?.applicationForm, highlights.value)
+    : { leading: [], rest: [] },
+);
+const leading = computed(() => split.value.leading);
+const rest = computed(() => split.value.rest);
+
+/**
+ * Kept for the whole session, not per card (E19/F03/S01).
+ *
+ * A reviewer who opens this once is not reopening it forty times; at card forty a click to reach
+ * an unmarked answer is a tax on the person doing the work.
+ */
+const restOpen = ref(false);
 const nothingToJudge = computed(() => asksNothingDistinguishing(props.market?.applicationForm));
+
+// The surface above leads with this in the review phase, where clearing the queue is the whole of
+// what the market is waiting on (E18/F02/S03).
+watch(undecided, (queue) => emit('update:undecidedCount', queue.length), { immediate: true });
 
 watch(
   () => [props.visible, props.market] as const,
@@ -323,13 +369,82 @@ function submittedOn(app: Application): string {
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
 
-        <dl v-if="answers.length" class="answers" data-testid="app-monitor-answers">
-          <template v-for="answer in answers" :key="answer.key">
+        <!-- What this market said a reviewer reads first (E19/F03/S01). -->
+        <dl v-if="leading.length" class="answers" data-testid="app-monitor-leading">
+          <template v-for="answer in leading" :key="answer.key">
             <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
             <dd>{{ answer.value }}</dd>
           </template>
         </dl>
-        <p v-else class="no-answers">This application carries no answers.</p>
+
+        <!--
+          The rest, behind a disclosure - but ONLY when something was marked. A market that marked
+          nothing renders the card exactly as it always did: an empty list is not a reason to hide
+          an application.
+
+          The label names the HIDDEN count, not the total: the question a reviewer is answering
+          before they click is "what am I not being shown?", and the
+          open state is kept for the whole session: at card forty, reopening this each time is a
+          tax on the person doing the work.
+        -->
+        <details
+          v-if="leading.length && rest.length"
+          class="answers-rest"
+          :open="restOpen"
+          data-testid="app-monitor-rest"
+          @toggle="restOpen = ($event.target as HTMLDetailsElement).open"
+        >
+          <summary data-testid="app-monitor-rest-summary">
+            {{ rest.length }} more {{ rest.length === 1 ? 'answer' : 'answers' }}
+          </summary>
+          <dl class="answers">
+            <template v-for="answer in rest" :key="answer.key">
+              <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
+              <dd>{{ answer.value }}</dd>
+            </template>
+          </dl>
+        </details>
+
+        <dl v-else-if="rest.length" class="answers" data-testid="app-monitor-answers">
+          <template v-for="answer in rest" :key="answer.key">
+            <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
+            <dd>{{ answer.value }}</dd>
+          </template>
+        </dl>
+        <p v-else-if="!leading.length" class="no-answers">This application carries no answers.</p>
+
+        <!--
+          Change what leads the card, from where the knowing happens (E19/F03/S02).
+
+          Nothing here touches `cursor`, so a reviewer on card twelve stays on card twelve: the
+          marks change what the card SHOWS, never which application is up.
+        -->
+        <div class="choose-highlights">
+          <button
+            type="button"
+            class="choose-highlights-toggle"
+            :aria-expanded="choosingHighlights"
+            data-testid="app-monitor-choose-highlights"
+            @click="choosingHighlights = !choosingHighlights"
+          >
+            {{ choosingHighlights ? 'Done choosing' : 'Choose what leads the card' }}
+          </button>
+          <div v-if="choosingHighlights" class="choose-highlights-body">
+            <ReviewHighlights
+              :fields="market?.applicationForm?.fields ?? []"
+              :essentialOptions="essentialOptions"
+              :highlights="highlights"
+              @update:highlights="saveHighlights"
+            />
+            <p
+              v-if="highlightsError"
+              class="choose-highlights-error"
+              data-testid="app-monitor-highlights-error"
+            >
+              {{ highlightsError }}
+            </p>
+          </div>
+        </div>
 
         <div class="card-actions">
           <button
@@ -572,6 +687,81 @@ function submittedOn(app: Application): string {
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
   margin: 0 0 18px;
+}
+
+/* The unmarked answers. Set apart from the marked ones above it by a rule, so the card reads as
+   "these first, then the rest" rather than as one long list that happens to fold. */
+.answers-rest {
+  margin: 0 0 18px;
+  border-top: 1px solid var(--mm-border);
+  padding-top: 12px;
+}
+
+.answers-rest summary {
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.answers-rest summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Its own marker, because the native one is hidden above to keep the row on one baseline. */
+.answers-rest summary::before {
+  content: '▸';
+  font-size: var(--text-xs);
+  transition: transform 0.12s ease;
+}
+
+.answers-rest[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.answers-rest summary:hover {
+  color: var(--mm-black);
+}
+
+.answers-rest .answers {
+  margin: 12px 0 0;
+}
+
+/* Changing what leads the card, from the queue. Quiet by default: the reviewer came here to
+   judge applications, and this is the thing they reach for once. */
+.choose-highlights {
+  margin: 0 0 18px;
+}
+
+.choose-highlights-toggle {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.choose-highlights-toggle:hover {
+  color: var(--mm-black);
+}
+
+.choose-highlights-body {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-card);
+  background: var(--mm-beige);
+}
+
+.choose-highlights-error {
+  margin: 8px 0 0;
+  font-size: var(--text-xs);
+  color: var(--mm-red);
 }
 
 .card-actions {

@@ -178,7 +178,9 @@ function formatDate(dateStr: string): string {
       class="tp-dialog"
       @hide="closeSaveDialog"
     >
-      <div class="tp-dialog-body">
+      <!-- A native form, the product's one Enter pattern (E20/F01/S03): Enter runs the same
+           handler the Save button does and is inert while that button is disabled. -->
+      <form class="tp-dialog-body" @submit.prevent="saveTemplate">
         <p class="tp-dialog-desc">
           Save the current <strong>{{ store.tableTypes.length }}</strong> table type{{
             store.tableTypes.length === 1 ? '' : 's'
@@ -195,26 +197,30 @@ function formatDate(dateStr: string): string {
             placeholder="e.g. Standard Layout"
             :maxlength="100"
             :disabled="saving"
-            @keydown.enter="saveTemplate"
           />
         </div>
 
         <p v-if="saveError" class="tp-error">{{ saveError }}</p>
 
         <div class="tp-dialog-actions">
-          <button class="tp-btn tp-btn--secondary" :disabled="saving" @click="saveDialog = false">
+          <button
+            type="button"
+            class="tp-btn tp-btn--secondary"
+            :disabled="saving"
+            @click="saveDialog = false"
+          >
             Cancel
           </button>
           <button
+            type="submit"
             class="tp-btn tp-btn--primary"
             :disabled="saving || !templateName.trim()"
-            @click="saveTemplate"
           >
             <span v-if="saving" class="tp-spinner" />
             {{ saving ? 'Saving&hellip;' : 'Save' }}
           </button>
         </div>
-      </div>
+      </form>
     </Dialog>
 
     <!-- ── Load Dialog ─────────────────────────────────────── -->

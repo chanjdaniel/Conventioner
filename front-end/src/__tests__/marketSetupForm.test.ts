@@ -41,14 +41,16 @@ function formWith(key: string, label: string): ApplicationForm {
 }
 
 /**
- * Mount the view on its Application Form tab with every child component stubbed, except that the
- * setting container still renders its slots - the form builder lives in one.
+ * Mount the view on its Application Form tab with every child component stubbed, except the two
+ * that have to render for the builder to be reachable: the form tab, which owns the form since
+ * E18/F02/S01, and the setting container, which renders the slot the builder lives in.
  */
 async function mountOnFormTab() {
   const wrapper = mount(MarketSetupView, {
     shallow: true,
     global: {
       stubs: {
+        MarketFormTab: false,
         ElementSettingContainer: {
           template: '<div><slot name="setting-title" /><slot name="setting-content" /></div>',
         },

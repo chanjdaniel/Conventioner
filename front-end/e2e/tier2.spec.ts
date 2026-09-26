@@ -53,31 +53,38 @@ test.describe('Tier 2 - Organization CRUD', () => {
       .filter({ hasText: orgName })
       .getByTestId('organizations-manage-button');
 
+    // ONE session. Every membership change used to close this dialog, so each of these steps
+    // needed the dialog reopened first (E20/F01/S02) - which is the defect, written down.
     await manageButton.click();
     await orgsPage.waitForManageOverlay();
+
     await orgsPage.addAdmin(SECOND_USER.email);
-    await page.waitForTimeout(500);
+    await expect(orgsPage.adminEmails.filter({ hasText: SECOND_USER.email })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(orgsPage.manageWindow).toBeVisible();
 
-    await manageButton.click();
-    await orgsPage.waitForManageOverlay();
     await orgsPage.addMember(THIRD_USER.email);
-    await page.waitForTimeout(500);
+    await expect(orgsPage.memberEmails.filter({ hasText: THIRD_USER.email })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(orgsPage.manageWindow).toBeVisible();
 
-    await manageButton.click();
-    await orgsPage.waitForManageOverlay();
     const memberRemove = orgsPage.removeMemberButtons.first();
     await expect(memberRemove).toBeVisible({ timeout: 5000 });
     await memberRemove.click();
-    await page.waitForTimeout(500);
+    await expect(orgsPage.memberEmails.filter({ hasText: THIRD_USER.email })).toHaveCount(0, {
+      timeout: 5000,
+    });
+    await expect(orgsPage.manageWindow).toBeVisible();
 
-    await manageButton.click();
-    await orgsPage.waitForManageOverlay();
     const newName = `${orgName} (renamed)`;
     await orgsPage.renameOrg(newName);
-    await page.waitForTimeout(500);
+    await expect(orgsPage.manageWindow).toBeVisible();
 
+    // Deleting IS one of the three correct closes: the thing being managed no longer exists.
     await orgsPage.deleteOrg();
-    await page.waitForTimeout(500);
+    await expect(orgsPage.manageWindow).toBeHidden({ timeout: 5000 });
 
     await expect(
       page.getByTestId('organization-card').filter({ hasText: newName }),
@@ -152,20 +159,18 @@ test.describe('Tier 2 - Market role management', () => {
     await expect(page.locator('.user-card').filter({ hasText: SECOND_USER.email })).toBeVisible({
       timeout: 5000,
     });
-    await expect(
-      page.locator('.user-card').filter({ hasText: SECOND_USER.email }).locator('.role-editor'),
-    ).toBeVisible();
 
+    // A role the caller may change is the SELECT itself now, not a badge wrapping a transparent
+    // one behind a hand-drawn chevron (E20/F01/S03). Its value is the role, which is a more honest
+    // thing to assert than the colour class the badge happened to carry.
     const roleSelect = page
       .locator('.user-card')
       .filter({ hasText: SECOND_USER.email })
       .getByTestId('manage-market-role-select');
-    await roleSelect.selectOption('viewer');
-    await page.waitForTimeout(1000);
+    await expect(roleSelect).toHaveValue('editor');
 
-    await expect(
-      page.locator('.user-card').filter({ hasText: SECOND_USER.email }).locator('.role-viewer'),
-    ).toBeVisible({ timeout: 5000 });
+    await roleSelect.selectOption('viewer');
+    await expect(roleSelect).toHaveValue('viewer', { timeout: 5000 });
 
     const removeButton = page
       .locator('.user-card')

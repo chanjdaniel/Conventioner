@@ -19,6 +19,9 @@ import type { Market } from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 import { canImportInto, importRefusal } from '@/utils/importPhase';
 import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
+import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
+import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
+import type { ApplicationForm, EssentialFormOptions } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_KEY,
   SECTION_RANKING_KEY,
@@ -156,7 +159,11 @@ const returningEmails = ref<string[]>([]);
 onMounted(() => {
   if (!marketId.value) {
     error.value = 'No market is open. Open a market first, then import into it.';
+    return;
   }
+  // Asked once, on the way in: both dead ends need the answer, and neither should discover it by
+  // offering a control that then refuses.
+  loadAmendAvailability();
 });
 
 const activeGroups = computed(() => groups.value.filter((g) => !splitStems.value.has(g.stem)));
@@ -410,6 +417,82 @@ async function acceptFile(file: File | undefined) {
   fileName.value = file.name;
   csvContent.value = await file.text();
   await inspect();
+}
+
+/* ── Fixing the form without leaving the import (E20/F03/S01) ─────────────────────────────────
+ *
+ * Both of the ledger's dead ends end here, because they are the same shape: a column with nowhere
+ * to go needs a custom field, and a question the form never asked needs that question turned off.
+ * What used to be printed instructions - four manual steps, two phase transitions, and the file
+ * gone - is now a dialog that walks the market down to draft, writes the form and puts it back.
+ */
+const amendOpen = ref(false);
+const amendFieldLabel = ref('');
+const amendUnasked = ref('');
+const amendForm = ref<ApplicationForm | null>(null);
+const amendOptions = ref<EssentialFormOptions>(EMPTY_ESSENTIAL_OPTIONS);
+const amendAvailability = ref<{ available: boolean; reason: string | null } | null>(null);
+
+/** Whether this market serves applicants, so the dialog can say what goes off the air. */
+const intakeIsForm = computed(
+  () => String((market.value as { intakeMode?: string })?.intakeMode ?? 'csv') === 'form',
+);
+
+/**
+ * Ask the server whether the chain is possible before offering it.
+ *
+ * A control that fails when pressed is a broken one; this is what lets the wizard say "the form
+ * is frozen and here is why" instead.
+ */
+async function loadAmendAvailability() {
+  if (!marketId.value) return;
+  try {
+    const { data } = await api.get(`/markets/${marketId.value}/application-form/amendment`);
+    amendAvailability.value = { available: data?.available === true, reason: data?.reason ?? null };
+  } catch {
+    amendAvailability.value = null;
+  }
+}
+
+async function openAmend(options: { fieldLabel?: string; unasked?: string }) {
+  amendFieldLabel.value = options.fieldLabel ?? '';
+  amendUnasked.value = options.unasked ?? '';
+  try {
+    const { data } = await api.get(`/markets/${marketId.value}/application-form`);
+    amendForm.value = (data?.application_form ?? null) as ApplicationForm | null;
+    amendOptions.value = (data?.essential_options ??
+      EMPTY_ESSENTIAL_OPTIONS) as EssentialFormOptions;
+  } catch (err) {
+    error.value = getApiErrorMessage(err, "Could not read this market's application form.");
+    return;
+  }
+  amendOpen.value = true;
+}
+
+/**
+ * The form changed, so the ledger's targets have, and the file and mapping must not.
+ *
+ * Re-inspecting is what picks up a new custom field as a target and drops a question that was
+ * turned off. It rebuilds the mapping from scratch, so the organizer's own decisions are carried
+ * across - without this the story trades a four-step round trip for a two-step one.
+ */
+async function onAmended() {
+  const keptColumns = { ...columnTarget.value };
+  const keptGroups = { ...groupTarget.value };
+  const keptResolutions = { ...resolutions.value };
+  const keptStep = step.value;
+
+  await inspect();
+
+  // By column index and group stem, both of which are properties of the FILE - and the file is
+  // the one thing that did not change.
+  for (const [index, target] of Object.entries(keptColumns)) {
+    if (target) columnTarget.value[Number(index)] = target;
+  }
+  groupTarget.value = { ...groupTarget.value, ...keptGroups };
+  resolutions.value = { ...keptResolutions };
+  step.value = keptStep;
+  await loadAmendAvailability();
 }
 
 async function inspect() {
@@ -827,21 +910,34 @@ function startOver() {
                     <option :value="NEEDS_A_FIELD">This column has nowhere to go…</option>
                   </select>
 
-                  <!-- The dead end (E03/F04). A column the organizer wants to keep, with no target
-                       to map it to, needs a custom form field - and the form is editable only in
-                       draft, by its only writer. So this says where to go rather than creating a
-                       field from here: writing the form from the import screen would bypass
-                       PUT /markets/<id>/application-form, which is what makes the D9 lock
-                       unbypassable. -->
-                  <p
+                  <!--
+                    WAS the dead end (E03/F04), and is now a way through (E20/F03/S01). It still
+                    does not write the form from here: the dialog calls the amendment endpoint,
+                    which walks the market to draft and goes through
+                    PUT /markets/<id>/application-form like everything else - which is what keeps
+                    the D9 lock unbypassable.
+                  -->
+                  <div
                     v-if="columnTarget[row.index] === NEEDS_A_FIELD"
                     class="ledger-deadend"
                     data-testid="import-needs-a-field"
                   >
-                    Nothing here answers this column. To keep it, reopen the market for editing and
-                    add a form field for it, then import again. The form can only be changed while
-                    nobody has applied.
-                  </p>
+                    <p>
+                      Nothing here answers this column. To keep it, this market has to ask for it.
+                    </p>
+                    <button
+                      v-if="amendAvailability?.available"
+                      type="button"
+                      class="btn btn--compact btn--primary"
+                      data-testid="import-add-a-field-button"
+                      @click="openAmend({ fieldLabel: headers[row.index] })"
+                    >
+                      Add a question for it
+                    </button>
+                    <p v-else-if="amendAvailability" class="ledger-deadend-why">
+                      {{ amendAvailability.reason }}
+                    </p>
+                  </div>
 
                   <!-- Warn, do not block: the reconciliation screen below already refuses to
                        advance until every unmatched value is spoken for, so nothing wrong imports
@@ -953,9 +1049,10 @@ function startOver() {
         </p>
 
         <!-- Turning a question off is a change to the FORM, and a form is editable only in draft
-             (D9). This wizard only ever runs in applications_open, so it points at where to do it
-             rather than offering a button that would be refused here - the same shape as the
-             unmapped-column dead end in the ledger. -->
+             (D9). This wizard runs in TWO phases - `applications_open` and `applications_closed` -
+             and the form is editable in neither, so it points at where to do it rather than
+             offering a button that would be refused here. Same shape as the unmapped-column dead
+             end in the ledger, and E20/F03 is the story that removes both. -->
         <div
           v-for="target in declarableUnasked"
           :key="target.key"
@@ -967,9 +1064,17 @@ function startOver() {
             >. It is a preference, not a constraint, so this market can stop asking it and treat
             every applicant equally.
           </p>
-          <p class="rail-unasked-how">
-            Reopen the market for editing, turn it off in the form builder, then open applications
-            and import again.
+          <button
+            v-if="amendAvailability?.available"
+            type="button"
+            class="btn btn--compact btn--primary"
+            :data-testid="`import-stop-asking-${target.key}`"
+            @click="openAmend({ unasked: target.key })"
+          >
+            Stop asking it
+          </button>
+          <p v-else-if="amendAvailability" class="rail-unasked-how">
+            {{ amendAvailability.reason }}
           </p>
         </div>
       </aside>
@@ -1135,14 +1240,42 @@ function startOver() {
         Back to market setup
       </button>
     </footer>
+
+    <AmendFormDialog
+      :open="amendOpen"
+      :market-id="marketId"
+      :application-form="amendForm"
+      :essential-options="amendOptions"
+      :suggested-field-label="amendFieldLabel"
+      :suggested-unasked="amendUnasked"
+      :intake-is-form="intakeIsForm"
+      @close="amendOpen = false"
+      @amended="onAmended()"
+    />
   </div>
 </template>
 
 <style scoped>
+/*
+ * A screen is one of two named widths, centred, and the PAGE scrolls (E20/F02/S01).
+ *
+ * This view never joined that model: it was uncapped, so at 1920 its 720px panel sat pinned to the
+ * left of a full-bleed header with 1,200px of nothing beside it, and Cancel was the width of the
+ * screen away from the thing it cancelled. That white space was the whole of the finding - it was
+ * never a disagreement with the flow being a page.
+ *
+ * ONE shell width for all four steps, deliberately. Three of them are narrow panels and the
+ * mapping step is a full-width ledger with a rail, so no single CONTENT width is right - but a
+ * shell that changed width as the organizer pressed Next would read as instability, and the step
+ * indicator already says where they are.
+ */
 .import-view {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 100%;
+  max-width: var(--workspace-max);
+  margin: 0 auto;
   padding: 24px 32px 96px;
   color: var(--mm-black);
 }
@@ -1193,11 +1326,15 @@ function startOver() {
   font-size: var(--text-sm);
 }
 
+/* The narrow steps sit in the middle of the shell rather than against its left edge. The mapping
+   step is not one of these - it is `.import-map`, and it keeps the whole width. */
 .import-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
   max-width: 720px;
+  margin-inline: auto;
 }
 
 .import-panel h2 {
@@ -1373,12 +1510,20 @@ function startOver() {
 }
 
 .ledger-deadend {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
   margin: 8px 0 0;
   padding: 8px 10px;
   border-left: 3px solid var(--mm-yellow);
   background: rgba(228, 166, 41, 0.18);
   font-size: var(--text-xs);
   max-width: 42ch;
+}
+
+.ledger-deadend p {
+  margin: 0;
 }
 
 .ledger-select {
@@ -1444,6 +1589,10 @@ function startOver() {
 
 .rail-unasked p:last-child {
   margin-bottom: 0;
+}
+
+.ledger-deadend-why {
+  margin: 0;
 }
 
 .rail-unasked-how {
