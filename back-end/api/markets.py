@@ -744,6 +744,32 @@ def create_market(market: Market, owner_email: str) -> tuple:
     
     return result, market_id
 
+def organization_refusal(user_email: str, organization_id: Optional[str]) -> Optional[str]:
+    """Why this user's market may not belong to this organization, or None when it may.
+
+    The one statement of the rule for creation and update alike (E21/F03/S01). A market belongs to
+    exactly one organization - its members see the market, and deleting the organization deletes
+    it - so a market that names none, names one that does not exist, or names one its writer is not
+    part of is a state the product refuses to produce. The update path used to check none of the
+    three, and two doors holding one rule is how that happened.
+    """
+    if not organization_id:
+        return "organization_id is required"
+    organization = OrgsApi.get_organization(organization_id)
+    if not organization:
+        return "Organization not found"
+    user = UsersApi.get_user(user_email)
+    user_id = user.id if user else None
+    if (
+        user_id is None
+        or user_id != organization.get("owner")
+        and user_id not in organization.get("admins", [])
+        and user_id not in organization.get("members", [])
+    ):
+        return "User is not a member of this organization"
+    return None
+
+
 def update_market(market_id: str, market: Market, requesting_user: str) -> UpdateResult:
     """Update an existing market. Requires EDIT permission."""
     existing_market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
@@ -757,6 +783,9 @@ def update_market(market_id: str, market: Market, requesting_user: str) -> Updat
     old_org_id = existing_market.organization_id
     new_org_id = market.organization_id
     if old_org_id != new_org_id:
+        refusal = organization_refusal(requesting_user, new_org_id)
+        if refusal:
+            raise ValueError(refusal)
         organizations_collection = db["organizations"]
         if old_org_id:
             organizations_collection.update_one(
