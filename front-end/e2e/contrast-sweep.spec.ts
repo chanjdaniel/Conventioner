@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
@@ -227,13 +228,13 @@ test.describe('Every rendered text node reaches AA', () => {
     await openTheSeededMarket(page);
     for (const [state, url, ready] of [
       ['markets', '/markets', 'markets-create-button'],
-      ['market plan', '/market-setup?tab=setup', 'setup-dates-date-display-0'],
+      ['market plan', marketSetupPath(marketId, 'setup'), 'setup-dates-date-display-0'],
       // The densest authoring surface in the product, and unwalked until E17/F03/S01 - which is
       // how a field-type badge shipped at 3.73:1 on it.
-      ['application form', '/market-setup?tab=form', 'essential-item-section-ranking'],
+      ['application form', marketSetupPath(marketId, 'form'), 'essential-item-section-ranking'],
       [
         'assignment results',
-        '/market-setup?tab=assignment',
+        marketSetupPath(marketId, 'assignment'),
         'assignment-results-download-csv-button',
       ],
       ['tables', `/markets/${marketId}/tables`, 'tables-count-assigned'],
@@ -254,7 +255,7 @@ test.describe('Every rendered text node reaches AA', () => {
     // reported thirteen failures on a card that has none, and would equally have reported none on a
     // card that did. An empty failure list is only worth the ground it was measured on.
     await openTheSeededMarket(page);
-    await page.goto('/market-setup?tab=assignment');
+    await page.goto(marketSetupPath(marketId, 'assignment'));
     await expect(page.getByTestId('assignment-results-download-csv-button')).toBeVisible({
       timeout: 15000,
     });
@@ -314,7 +315,7 @@ test.describe('Every rendered text node reaches AA', () => {
     // Hover is a state too, and none was walked: the tab bar's hover set its label to the border
     // token, a 25% near-black, on the black bar - invisible under the pointer (E21/F01/S01).
     await openTheSeededMarket(page);
-    await page.goto('/market-setup?tab=setup');
+    await page.goto(marketSetupPath(marketId, 'setup'));
     const tab = page.getByTestId('market-setup-applications-tab');
     await expect(tab).toBeVisible({ timeout: 15000 });
     await tab.hover();

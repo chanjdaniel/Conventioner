@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
+import { computed, onUnmounted, reactive, nextTick, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
-import { type SetupObject, type Market, type FormField } from '@/assets/types/datatypes';
+import { type SetupObject, type FormField } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
@@ -19,7 +19,8 @@ import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
-import NoMarketLoaded from '@/components/NoMarketLoaded.vue';
+import MarketArrival from '@/components/MarketArrival.vue';
+import { useOpenMarket } from '@/utils/openMarket';
 
 const router = useRouter();
 
@@ -59,13 +60,25 @@ watch(
 );
 
 /**
- * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
- * value that only arrives a tick later would flash that message on every page that does have one.
+ * The market this screen is routed to, as the server last reported it (E21/F02/S02).
+ *
+ * It used to be read out of `localStorage` at setup - the route (`/market-setup`) carried no id -
+ * and patched in place by every write on the page. It comes from the one market store now, and is
+ * never written here: a write is followed by `refreshMarket()`, and the store takes what the
+ * server says.
  */
-const market = ref<Market | null>(JSON.parse(localStorage.getItem('market') || 'null'));
+const marketId = computed(() => String(route.params.marketId ?? ''));
+const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
 
-// The phase decides where an organizer lands, so this is set once the market is in hand.
+// The phase decides where an organizer lands, so this is set once the market is in hand - on
+// ARRIVAL at each market, not on every re-read: a transition does not move the organizer's tab.
 activeTab.value = tabFromRoute();
+watch(
+  () => market.value?.id,
+  (id, previous) => {
+    if (id && id !== previous) activeTab.value = tabFromRoute();
+  },
+);
 
 /** Published by the form tab. The applications tab reads the first, the plan the second. */
 const formEditable = ref(false);
@@ -99,19 +112,15 @@ function parseFiniteNumber(v: unknown): number | null {
 }
 
 /**
- * Take the new phase from the server without throwing away the organizer's unsaved plan.
+ * A transition is a write, so the store re-reads the market (E21/F02/S02).
  *
- * This used to replace the whole market with the server's copy. A transition changes the phase and
- * nothing else, but the server's copy carries the setup as it was last SAVED - so every edit not
- * yet persisted vanished the moment the organizer advanced a phase, silently. The assignment
- * options showed it most often, because they live on the wizard's last page, which has no Next to
- * save them: type them, open applications, and they are gone, leaving Assign disabled for a reason
- * nothing states.
+ * The organizer's unsaved plan is safe without any merging here: it is the plan's own working
+ * copy, which a re-read never touches, and the rail flushes it to the server before it transitions
+ * anyway. This used to splice the local plan into the server's copy by hand, because every edit not
+ * yet persisted vanished the moment the organizer advanced a phase.
  */
-function handlePhaseAdvanced(updatedMarket: Market) {
-  const localSetup = market.value?.setupObject;
-  market.value = localSetup ? { ...updatedMarket, setupObject: localSetup } : updatedMarket;
-  localStorage.setItem('market', JSON.stringify(market.value));
+function handlePhaseAdvanced() {
+  void refreshMarket();
 }
 
 /**
@@ -135,13 +144,30 @@ const assignmentOptionsComplete = computed(() => {
   return true;
 });
 
-onMounted(() => {
-  // create setup object
+/**
+ * The plan's working copy (E21/F02/S02).
+ *
+ * The organizer edits `setupObject` and `planIntakeMode`, never the market in the store. They are
+ * taken from the market when it arrives, and again whenever a re-read lands while there is nothing
+ * unsaved in them - so a re-read never overwrites what the organizer is typing. `planEdits` counts
+ * edits and `planSavedEdits` the edits the last successful save carried; they differ exactly while
+ * there is unsaved work.
+ */
+const planIntakeMode = ref<IntakeMode | undefined>(undefined);
+let planEdits = 0;
+let planSavedEdits = 0;
 
-  if (market.value && market.value.setupObject) {
-    Object.assign(setupObject, market.value.setupObject);
-  }
-});
+watch(
+  market,
+  (fresh, previous) => {
+    if (!fresh) return;
+    const arrived = fresh.id !== previous?.id;
+    if (!arrived && planEdits !== planSavedEdits) return;
+    if (fresh.setupObject) Object.assign(setupObject, fresh.setupObject);
+    planIntakeMode.value = fresh.intakeMode;
+  },
+  { immediate: true },
+);
 
 const importRefusalReason = computed(() => importRefusal(market.value?.phase));
 
@@ -165,13 +191,22 @@ const intakeEditable = computed(() => market.value?.phase === MarketPhase.Draft)
 
 function handleUpdateIntakeMode(mode: IntakeMode) {
   if (!market.value) return;
-  market.value.intakeMode = mode;
+  planIntakeMode.value = mode;
+  planEdits += 1;
   void savePlan();
 }
 
+/** Send the plan's working copy, then take the market back from the server. */
 const updateMarket = async () => {
-  localStorage.setItem('market', JSON.stringify(market.value));
-  await api.put('/markets/' + market.value!.id, market.value);
+  if (!market.value) return;
+  const sending = planEdits;
+  await api.put('/markets/' + market.value.id, {
+    ...market.value,
+    setupObject: { ...setupObject },
+    intakeMode: planIntakeMode.value,
+  });
+  planSavedEdits = Math.max(planSavedEdits, sending);
+  await refreshMarket();
 };
 
 /**
@@ -243,8 +278,7 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
   nextTick(() => {
     if (market.value) {
       Object.assign(setupObject, newSetupObject);
-      market.value.setupObject = newSetupObject;
-      localStorage.setItem('market', JSON.stringify(market.value));
+      planEdits += 1;
       schedulePlanSave();
     }
   });
@@ -261,9 +295,6 @@ const assignError = ref('');
  * used to let the error escape unhandled, so the button did nothing at all and the page simply
  * sat there.
  */
-/** Changes when an assignment has just been stored, so the results below re-read it. */
-const assignedAt = ref(0);
-
 const handleAssign = async () => {
   if (!assignmentOptionsComplete.value || assignRefusalReason.value) {
     return;
@@ -275,15 +306,11 @@ const handleAssign = async () => {
     // POST, not GET-then-PUT. `assignmentObject` is server-owned (E11/F01/S01), so a market PUT
     // no longer stores an assignment the browser was handed - and never should have: a stale
     // copy in one tab could overwrite what another had just saved.
-    const response = await api.post('/markets/' + market.value!.id + '/assignment');
+    await api.post('/markets/' + market.value!.id + '/assignment');
 
-    const assignedMarket: Market = response.data;
-    market.value = assignedMarket;
-    localStorage.setItem('market', JSON.stringify(market.value));
-
-    // The results read the assignment when they mount, and the organizer is already looking at
-    // them - so say that it changed.
-    assignedAt.value = Date.now();
+    // The results below re-read their statistics when the market in the store changes, so taking
+    // the market back from the server is all it takes for them to show the new run.
+    await refreshMarket();
     showTab('assignment');
   } catch (err: unknown) {
     const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -313,14 +340,22 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 </script>
 
 <template>
-  <NoMarketLoaded v-if="!market" shows="a market's plan and application form" />
+  <!-- Nothing about a market is kept in the browser, so until the server answers there is nothing
+       to paint but the state of asking (E21/F02/S02). -->
+  <div v-if="!market" class="market-setup-view">
+    <div class="market-setup-body">
+      <div class="settings-container">
+        <MarketArrival :status="marketStatus" @retry="refreshMarket()" />
+      </div>
+    </div>
+  </div>
   <div v-else class="market-setup-view">
     <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
     <div class="market-setup-body">
       <div class="settings-container">
         <div class="settings-header">
           <!-- The market's own name, so the page says which market this is. It read "Settings" on
-               every market, and the route (/market-setup) carries no id to tell them apart. -->
+               every market, back when the route carried no id to tell them apart. -->
           <h1 data-testid="market-setup-title">{{ market.name }}</h1>
           <!--
             Navigation along the spine, not four peers (E18/F02/S02).
@@ -410,7 +445,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
         <MarketPlanTab
           v-if="activeTab === 'setup'"
           :setupObject="setupObject"
-          :market="market"
+          :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
@@ -438,7 +473,6 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignmentOptionsComplete="assignmentOptionsComplete"
           :assignRefusalReason="assignRefusalReason"
           :assignError="assignError"
-          :assignedAt="assignedAt"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         />

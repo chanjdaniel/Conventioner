@@ -1,4 +1,5 @@
 import { getFormattedDate } from '../src/utils/utils';
+import { marketSetupPath, MARKET_SETUP_URL } from './helpers/marketScreens';
 import {
   test,
   expect,
@@ -120,7 +121,7 @@ test.describe('Market pipeline E2E', () => {
       { m: market, user: TEST_USER.email },
     );
 
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(marketId));
 
     // Phase 2: Walk the setup wizard
     const setupPage = new MarketSetupPage(page);
@@ -228,7 +229,7 @@ test.describe('Market pipeline E2E', () => {
     };
     await page.evaluate((m) => localStorage.setItem('market', JSON.stringify(m)), walkedMarket);
 
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(marketId));
     await setupPage.advancePhaseTo('market_days', 'Market Days');
 
     // Its vendors reach check-in on the URL publishing put on the air. This market takes its
@@ -261,7 +262,7 @@ test.describe('Market pipeline E2E', () => {
     // was right and only the page was wrong; this asserts what rendered.
     await page.goto('/markets');
     await page.getByTestId('market-card').filter({ hasText: marketName }).first().click();
-    await page.waitForURL('**/market-setup', { timeout: 10000 });
+    await page.waitForURL(MARKET_SETUP_URL, { timeout: 10000 });
     await expect(page.getByTestId('page-not-found')).toHaveCount(0);
     await expect(page.getByTestId('market-setup-title')).toHaveText(marketName, { timeout: 10000 });
 

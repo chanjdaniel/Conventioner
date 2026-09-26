@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { marketSetupPath } from './helpers/marketScreens';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { mongoContainer } from './helpers/containerNames';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -121,7 +122,7 @@ test.describe('Phase state machine - full walk', () => {
   }) => {
     const marketBody = await loadMarket(page, seed.marketId);
     await setMarketInPage(page, marketBody);
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
 
     await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 5000 });
@@ -215,7 +216,7 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
 
     const marketBody = await loadMarket(page, seed.marketId);
     await setMarketInPage(page, marketBody);
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Review', {
       timeout: 10000,
@@ -270,7 +271,7 @@ test.describe('Phase state machine - guard: offers blocked by leftover approved'
 
     const marketBody = await loadMarket(page, seed.marketId);
     await setMarketInPage(page, marketBody);
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Assignment', {
       timeout: 10000,
@@ -367,7 +368,7 @@ test.describe('Phase state machine - sweep', () => {
     // Also show the market_days UI
     const marketBody = await loadMarket(page, seed.marketId);
     await setMarketInPage(page, marketBody);
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days', {
       timeout: 10000,
     });
@@ -393,7 +394,7 @@ test.describe('Phase state machine - archive confirmation', () => {
     const marketBody = await loadMarket(page, seed.marketId);
     await setMarketInPage(page, marketBody);
 
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
       timeout: 10000,
@@ -449,7 +450,7 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
 
     const marketBody = await loadMarket(page, seed.marketId);
     await setMarketInPage(page, marketBody);
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', {
       timeout: 10000,
@@ -482,7 +483,7 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
 
     const marketBody = await loadMarket(page, seed.marketId);
     await setMarketInPage(page, marketBody);
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
 
     await page.getByTestId('phase-transition-applications_open').click();
@@ -528,7 +529,7 @@ test.describe('The applications surface says which phase it is in', () => {
       });
     const conditionNow = async () => {
       await setMarketInPage(page, await loadMarket(page, seed.marketId));
-      await page.goto('/market-setup?tab=applications');
+      await page.goto(marketSetupPath(seed.marketId, 'applications'));
       const line = page.getByTestId('market-setup-applications-condition');
       await expect(line).toBeVisible({ timeout: 15000 });
       return (await line.innerText()).trim();
@@ -570,7 +571,7 @@ test.describe('Where the workspace opens', () => {
     const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
 
     await setMarketInPage(page, await loadMarket(page, seed.marketId));
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(seed.marketId));
     await expect(page.getByTestId('market-setup-setup-tab')).toHaveClass(/active/);
 
     await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
@@ -578,7 +579,7 @@ test.describe('Where the workspace opens', () => {
       data: { toPhase: 'archived' },
     });
     await setMarketInPage(page, await loadMarket(page, seed.marketId));
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(seed.marketId));
     await expect(page.getByTestId('market-setup-assignment-tab')).toHaveClass(/active/);
     await expect(page.getByTestId('market-setup-setup-tab')).not.toHaveClass(/active/);
   });
@@ -591,7 +592,7 @@ test.describe('Where the workspace opens', () => {
     await setMarketInPage(page, await loadMarket(page, seed.marketId));
 
     // A draft would otherwise open on the plan.
-    await page.goto('/market-setup?tab=applications');
+    await page.goto(marketSetupPath(seed.marketId, 'applications'));
     await expect(page.getByTestId('market-setup-applications-tab')).toHaveClass(/active/);
   });
 });

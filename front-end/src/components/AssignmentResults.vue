@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 
-import {
-  type AssignmentStatistics,
-  type Market,
-  type UnassignedTableEntry,
-} from '@/assets/types/datatypes';
+import { type AssignmentStatistics, type UnassignedTableEntry } from '@/assets/types/datatypes';
 import AssignmentStatListItem from '@/components/AssignmentStatListItem.vue';
 import VendorsModal from '@/components/VendorsModal.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
@@ -17,7 +14,7 @@ import { type VendorNames } from '@/utils/vendorIdentity';
 import IconTables from '@/components/icons/IconTables.vue';
 import IconVendors from '@/components/icons/IconVendors.vue';
 import { api } from '@/utils/api';
-import { parseMarketFromApi } from '@/utils/market';
+import { useMarketStore } from '@/stores/market';
 import { getFormattedDate, getShortDate } from '@/utils/utils';
 
 const router = useRouter();
@@ -25,21 +22,8 @@ const router = useRouter();
 const assignmentStatistics = ref<AssignmentStatistics | null>(null);
 /** Email to name, arriving with the statistics that carry the bare addresses. */
 const vendorNames = ref<VendorNames>({});
-/**
- * Read at setup, not on mount: the page renders "no market is open" when there is none, and a
- * value that only arrives a tick later would flash that message on every page that does have one.
- */
-function marketFromStorage(): Market | null {
-  const raw = localStorage.getItem('market');
-  if (!raw) return null;
-  try {
-    return parseMarketFromApi(JSON.parse(raw) as unknown);
-  } catch {
-    return null;
-  }
-}
-
-const market = ref<Market | null>(marketFromStorage());
+/** The open market, from the one store (E21/F02/S02). This used to be read out of `localStorage`. */
+const { market } = storeToRefs(useMarketStore());
 const showVendorsModal = ref(false);
 
 /** API / localStorage may use camelCase or snake_case; statistics lists must match backend field names. */
@@ -186,22 +170,45 @@ const processedTableChoices = computed(() => {
   return processed;
 });
 
-onMounted(() => {
-  assignmentStatistics.value = null;
-  const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
-  if (!market.value?.id || !userEmail) return;
+/**
+ * Read the statistics for what the market STORES: its assignment and the plan it was made against.
+ *
+ * Keyed on those, not on the market object, which the store replaces on every re-read - a plan
+ * autosave or a highlight toggle would otherwise refetch and repaint the whole surface. An assignment
+ * run changes the stored assignment, so the store re-reading the market after one is all it takes
+ * for this to show the new run (it used to be remounted by a `:key` the parent bumped).
+ */
+const statisticsBasis = computed(() =>
+  market.value
+    ? JSON.stringify([
+        market.value.id,
+        market.value.assignmentObject ?? null,
+        market.value.setupObject ?? null,
+      ])
+    : null,
+);
 
-  api
-    .get(`/markets/${encodeURIComponent(market.value.id)}/assignment-statistics`)
-    .then((response) => {
-      assignmentStatistics.value = response.data as AssignmentStatistics;
-      vendorNames.value = (response.data as { vendorNames?: VendorNames }).vendorNames ?? {};
-    })
-    .catch(() => {
-      assignmentStatistics.value = null;
-      vendorNames.value = {};
-    });
-});
+watch(
+  statisticsBasis,
+  (basis, previous) => {
+    const id = market.value?.id;
+    if (!basis || !id) return;
+    // Only a different MARKET clears what is on screen; a new run of the same one repaints in place.
+    if (previous && JSON.parse(previous)[0] !== id) assignmentStatistics.value = null;
+    api
+      .get(`/markets/${encodeURIComponent(id)}/assignment-statistics`)
+      .then((response) => {
+        if (market.value?.id !== id) return;
+        assignmentStatistics.value = response.data as AssignmentStatistics;
+        vendorNames.value = (response.data as { vendorNames?: VendorNames }).vendorNames ?? {};
+      })
+      .catch(() => {
+        assignmentStatistics.value = null;
+        vendorNames.value = {};
+      });
+  },
+  { immediate: true },
+);
 
 /**
  * The satisfaction score, or a statement that there was nothing to score.

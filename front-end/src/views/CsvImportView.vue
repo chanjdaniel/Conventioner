@@ -13,6 +13,7 @@
  * with nothing left to assign.
  */
 import { computed, onMounted, ref } from 'vue';
+import { marketPath } from '@/utils/market';
 import { useRouter } from 'vue-router';
 import { api, getApiErrorMessage } from '@/utils/api';
 import type { Market } from '@/assets/types/datatypes';
@@ -102,7 +103,8 @@ const step = ref<Step>('upload');
 
 /** Leave the wizard for the market it belongs to. Nothing is written until the final confirm. */
 function leaveImport() {
-  router.push({ name: 'market-setup' });
+  if (market.value?.id) router.push(marketPath(market.value.id));
+  else router.push('/markets');
 }
 const busy = ref(false);
 const error = ref('');
@@ -1235,7 +1237,7 @@ function startOver() {
         v-if="step === 'done'"
         class="button-primary"
         data-testid="import-finish-button"
-        @click="router.push({ name: 'market-setup' })"
+        @click="leaveImport()"
       >
         Back to market setup
       </button>

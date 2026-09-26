@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { VendorsPage } from './pages/VendorsPage';
@@ -93,7 +94,7 @@ test.describe('Vendor browsing and search', () => {
       localStorage.setItem('user', JSON.stringify('e2e@example.com'));
     }, market);
 
-    await page.goto('/market-setup?tab=assignment');
+    await page.goto(marketSetupPath(seed.marketId, 'assignment'));
     const unplaced = page.getByTestId('assignment-results-unassigned-vendor').first();
     await expect(unplaced).toBeVisible({ timeout: 15000 });
     await unplaced.click();

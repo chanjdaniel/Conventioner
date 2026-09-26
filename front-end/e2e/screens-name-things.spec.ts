@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
@@ -58,7 +59,7 @@ test.describe('Screens say what they mean', () => {
 
   test('the form-lock banner names the phase in words', async ({ authenticatedPage: page }) => {
     await openTheSeededMarket(page);
-    await page.goto('/market-setup?tab=form');
+    await page.goto(marketSetupPath(marketId, 'form'));
 
     const banner = page.getByTestId('form-builder-lock-banner');
     await expect(banner).toBeVisible({ timeout: 15000 });
@@ -75,7 +76,7 @@ test.describe('Screens say what they mean', () => {
     await openTheSeededMarket(page);
 
     for (const [screen, url, ready] of [
-      ['form builder', '/market-setup?tab=form', 'form-builder-lock-banner'],
+      ['form builder', marketSetupPath(marketId, 'form'), 'form-builder-lock-banner'],
       ['tables', `/markets/${marketId}/tables`, 'tables-count-assigned'],
       ['attendance', `/markets/${marketId}/attendance`, 'attendance-status-heading'],
     ] as const) {

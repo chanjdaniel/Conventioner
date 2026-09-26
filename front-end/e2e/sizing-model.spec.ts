@@ -1,4 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import type { Page } from '@playwright/test';
@@ -73,7 +74,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     expect(workspace, '--workspace-max is not defined').toBeGreaterThan(0);
     expect(list, '--list-max is not defined').toBeGreaterThan(0);
 
-    await page.goto('/market-setup?tab=setup');
+    await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect(await contentWidth(page, '.market-setup-body')).toBe(workspace);
 
@@ -115,11 +116,11 @@ test.describe('Every organizer screen sizes itself the same way', () => {
         return { pageScrolls: de.scrollHeight > de.clientHeight, boxed };
       });
 
-    await page.goto('/market-setup?tab=setup');
+    await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     expect((await measure()).boxed, 'the plan is hiding its content inside a box').toEqual([]);
 
-    await page.goto('/market-setup?tab=assignment');
+    await page.goto(marketSetupPath(marketId, 'assignment'));
     await expect(page.getByTestId('market-setup-assign-button')).toBeVisible({ timeout: 15000 });
     expect(
       (await measure()).boxed,
@@ -128,7 +129,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
 
     // Short enough that any real plan overflows it, so what scrolls is not left to chance.
     await page.setViewportSize({ width: 1920, height: 400 });
-    await page.goto('/market-setup?tab=setup');
+    await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
     const short = await measure();
     expect(short.pageScrolls, 'the page does not scroll, so something else must be').toBe(true);
@@ -163,7 +164,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
       });
 
     for (const tab of ['applications', 'setup', 'form', 'assignment']) {
-      await page.goto(`/market-setup?tab=${tab}`);
+      await page.goto(marketSetupPath(draft.marketId, tab));
       await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
       expect(await gapUnderBanner(), `the ${tab} tab is not at the top`).toBe(0);
     }
@@ -177,7 +178,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
     // wide with 34px of text room, so every tier read "Pr...", "St...", "Co...".
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openTheSeededMarket(page);
-    await page.goto('/market-setup?tab=setup');
+    await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('setup-dates-date-display-0')).toBeVisible({ timeout: 15000 });
 
     const truncated = await page.evaluate(() => {

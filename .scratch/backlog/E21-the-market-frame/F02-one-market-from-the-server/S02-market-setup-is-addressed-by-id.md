@@ -2,7 +2,7 @@
 id: E21/F02/S02
 title: Market Setup is addressed by id and reads the store
 type: story
-status: ready
+status: done
 blocked_by: [E21/F02/S01]
 pr: []
 ---
@@ -32,9 +32,9 @@ Every spec and page object that reaches Market Setup by writing `localStorage` a
 
 ## Acceptance criteria
 
-- [ ] `/markets/:marketId/setup?tab=<tab>` opens that market on that tab; `/market-setup` goes to the Markets list.
-- [ ] The dashboard, the Markets list and every in-app link to Market Setup use the id-addressed URL.
-- [ ] The rail and all four tabs read the market from the store; none of them reads `localStorage` `market`.
-- [ ] After each of transition, form save, assignment run and highlight change, the store re-fetches, and nothing patches the held market locally.
-- [ ] Typing into the plan and firing a transition before the autosave lands keeps what was typed, both on screen and on the server.
-- [ ] The e2e specs that reached Market Setup through `localStorage` navigate by URL through one helper, and the full e2e suite passes.
+- [x] `/markets/:marketId/setup?tab=<tab>` opens that market on that tab; `/market-setup` goes to the Markets list.
+- [x] The dashboard, the Markets list and every in-app link to Market Setup use the id-addressed URL.
+- [x] The rail and all four tabs read the market from the store; none of them reads `localStorage` `market`.
+- [x] After each of transition, form save, assignment run and highlight change, the store re-fetches, and nothing patches the held market locally.
+- [x] Typing into the plan and firing a transition before the autosave lands keeps what was typed, both on screen and on the server.
+- [x] The e2e specs that reached Market Setup through `localStorage` navigate by URL through one helper, and the full e2e suite passes.

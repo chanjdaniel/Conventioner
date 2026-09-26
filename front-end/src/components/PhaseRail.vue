@@ -424,6 +424,7 @@ function cancelPending() {
     <BlockerPanel
       v-if="transitionBlockers.length"
       :blockers="transitionBlockers"
+      :marketId="market.id"
       data-testid="phase-rail-blockers"
     />
   </div>

@@ -1,4 +1,5 @@
 import { test, expect, BACKEND_URL, TEST_USER, ApplicationFormPage } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { seedApplication } from './helpers/seedApplication';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import type { Page } from '@playwright/test';
@@ -47,7 +48,7 @@ async function createMarket(page: Page): Promise<string> {
     { m: market, user: TEST_USER.email },
   );
 
-  await page.goto('/market-setup');
+  await page.goto(marketSetupPath(marketId));
   return marketId;
 }
 

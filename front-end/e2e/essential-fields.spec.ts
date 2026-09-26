@@ -1,4 +1,5 @@
 import { test, expect, BACKEND_URL, TEST_USER, ApplicationFormPage, ApplyPage } from './fixtures';
+import { marketSetupPath } from './helpers/marketScreens';
 import { ApplicantLoginPage } from './pages/ApplicantLoginPage';
 import { MarketSetupPage } from './pages/MarketSetupPage';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
@@ -73,7 +74,7 @@ async function createMarketWithPlan(
     { m: market, user: TEST_USER.email },
   );
 
-  await page.goto('/market-setup');
+  await page.goto(marketSetupPath(marketId));
   return marketId;
 }
 
@@ -484,7 +485,7 @@ test.describe('Essential form fields', () => {
       },
       { m: marketDoc, user: TEST_USER.email },
     );
-    await page.goto('/market-setup');
+    await page.goto(marketSetupPath(market.marketId));
     const formPage = new ApplicationFormPage(page);
     await formPage.openFormTab();
     await expect(formPage.lockBanner).toBeVisible();
