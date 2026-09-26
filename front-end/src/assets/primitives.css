@@ -331,3 +331,44 @@
   outline: 2px solid var(--mm-black);
   outline-offset: 2px;
 }
+
+/* ============================================================================================
+   .card-grid
+   ============================================================================================ */
+
+/*
+ * A screen of cards (E23/F01/S01, decided in the-plan-uses-its-space ticket 01).
+ *
+ * - A two-track grid.
+ * - A card is half width unless it declares itself wide (`.card-grid__wide`).
+ * - A card ends at its own content: two cards in a row do not stretch to match, and the next row
+ *   starts under the taller. Blank space inside a card reads as something missing.
+ * - Below `--card-grid-one-track` of room it is one track, in the cards' own order.
+ *
+ * The screen of cards declared nothing before this, which is why every plan card had a row to itself
+ * and Tier Setup stretched one short name across 1,330px. The one-track break is written into the
+ * track size rather than a media query, so it follows the room the grid has, not the window: each
+ * track is at least half of `--card-grid-one-track`, so two only fit where that much room exists.
+ */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(
+      min(
+        100%,
+        max(
+          (var(--card-grid-one-track) - var(--card-grid-gap)) / 2,
+          (100% - var(--card-grid-gap)) / 2
+        )
+      ),
+      1fr
+    )
+  );
+  gap: var(--card-grid-gap);
+  align-items: start;
+}
+
+.card-grid > .card-grid__wide {
+  grid-column: 1 / -1;
+}

@@ -2,7 +2,7 @@
 id: E23/F01/S01
 title: The row rule is written, and the plan follows it
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -22,10 +22,10 @@ Section Setup keeps the width its columns need (654px): at half width its tier s
 
 ## Acceptance criteria
 
-- [ ] At 1920x1080 and 1280x800, Tier and Location share a row, How vendors apply and Application form share a row, and Market Dates and Section Setup span the row.
-- [ ] With three tiers beside nine locations, the Tier card ends at its content.
-- [ ] With less than 900px of room, every card is full width, in plan order.
-- [ ] No select in Section Setup truncates its value at any of those widths.
-- [ ] Every plan card's rows start at the same inset.
-- [ ] The rule is in `docs/design-system.md`, and the plan tab uses the shared class rather than its own grid.
-- [ ] The plan tab stays on the stylelint errors list.
+- [x] At 1920x1080 and 1280x800, Tier and Location share a row, How vendors apply and Application form share a row, and Market Dates and Section Setup span the row.
+- [x] With three tiers beside nine locations, the Tier card ends at its content.
+- [x] With less than 900px of room, every card is full width, in plan order.
+- [x] No select in Section Setup truncates its value at any of those widths.
+- [x] Every plan card's rows start at the same inset.
+- [x] The rule is in `docs/design-system.md`, and the plan tab uses the shared class rather than its own grid.
+- [x] The plan tab stays on the stylelint errors list.
