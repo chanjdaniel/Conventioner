@@ -6,14 +6,21 @@ import { api } from '@/utils/api';
 import type { VendorAttendance } from '@/assets/types/datatypes';
 import { getShortDate, getTimestampTime } from '@/utils/utils';
 import PhaseRail from '@/components/PhaseRail.vue';
-import { useRailMarket } from '@/utils/railMarket';
+import { useOpenMarket } from '@/utils/openMarket';
+import MarketArrival from '@/components/MarketArrival.vue';
 
 const route = useRoute();
 const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
-const { market: railMarket, adopt: adoptRailMarket } = useRailMarket(marketId);
+const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+
+/** A failed arrival retries both halves: the market the rail draws, and this screen's own rows. */
+function retryArrival(): void {
+  void refreshMarket();
+  void loadAttendance();
+}
 const attendance = ref<VendorAttendance[]>([]);
 const errorMessage = ref('');
 const isLoading = ref(false);
@@ -90,12 +97,14 @@ onMounted(loadAttendance);
       <header class="attendance-status-header">
         <!-- The screen, then the market (E15/F02/S03). -->
         <h1 data-testid="attendance-status-heading">
-          {{ railMarket ? `Attendance: ${railMarket.name}` : 'Attendance Status' }}
+          {{ market ? `Attendance: ${market.name}` : 'Attendance Status' }}
         </h1>
       </header>
 
-      <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />
-      <div class="attendance-status-body">
+      <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
+      <!-- A transition is a write, so the store re-reads the market rather than taking the rail's copy. -->
+      <PhaseRail :market="market" @phase-advanced="refreshMarket()" />
+      <div v-if="marketStatus !== 'missing'" class="attendance-status-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
         <p v-if="isLoading">Loading…</p>
         <div v-else-if="attendance.length === 0" class="empty-state">
@@ -127,7 +136,7 @@ onMounted(loadAttendance);
           </table>
         </div>
       </div>
-      <div class="actions-row">
+      <div v-if="marketStatus !== 'missing'" class="actions-row">
         <button
           type="button"
           class="primary-button"

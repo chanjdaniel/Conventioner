@@ -63,7 +63,9 @@ test.describe('The phase rail', () => {
       headers: { 'X-Owner-Email': TEST_USER.email },
     });
     const { market } = (await res.json()) as { market: Record<string, unknown> };
-    market.name = 'Portland Holiday Makers Market December 2026';
+    // Unique per run: a public address belongs to one market (E21/F03/S03), and a fixed name here
+    // used to pile up duplicates on a reused database, one per run.
+    market.name = `Portland Holiday Makers Market December ${Date.now()}`;
     const put = await page.request.put(`${BACKEND_URL}/markets/${seed.marketId}`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: market,

@@ -8,7 +8,8 @@ import { type VendorNames } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
-import { useRailMarket } from '@/utils/railMarket';
+import { useOpenMarket } from '@/utils/openMarket';
+import MarketArrival from '@/components/MarketArrival.vue';
 import {
   FULL_TABLE,
   HALF_TABLE_LEFT,
@@ -52,7 +53,13 @@ const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
-const { market: railMarket, adopt: adoptRailMarket } = useRailMarket(marketId);
+const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+
+/** A failed arrival retries both halves: the market the rail draws, and this screen's own rows. */
+function retryArrival(): void {
+  void refreshMarket();
+  void loadTables();
+}
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
 const vendorNames = ref<VendorNames>({});
@@ -461,13 +468,15 @@ function swapSeats(withEmail: string): void {
              could open this one and have nothing on screen say whose tables these are - on the
              screen where a hand placement moves a real vendor to a real seat (E15/F02/S03). -->
         <h1 data-testid="tables-heading">
-          {{ railMarket ? `Tables: ${railMarket.name}` : 'Tables' }}
+          {{ market ? `Tables: ${market.name}` : 'Tables' }}
         </h1>
       </header>
 
-      <PhaseRail :market="railMarket" @phase-advanced="adoptRailMarket" />
+      <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
+      <!-- A transition is a write, so the store re-reads the market rather than taking the rail's copy. -->
+      <PhaseRail :market="market" @phase-advanced="refreshMarket()" />
 
-      <div class="tables-body">
+      <div v-if="marketStatus !== 'missing'" class="tables-body">
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
 
         <div v-if="isLoading" class="status-message">Loading tables…</div>
@@ -765,7 +774,7 @@ function swapSeats(withEmail: string): void {
         </template>
       </div>
 
-      <div class="actions-row">
+      <div v-if="marketStatus !== 'missing'" class="actions-row">
         <button
           type="button"
           class="primary-button"

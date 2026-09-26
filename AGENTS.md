@@ -156,8 +156,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   *archived* - the prototype proved it. There is no record of which phases a market passed
   through, so an archived market's frozen stage is read off evidence it holds (a stored
   assignment, a published application form), never off history it does not.
-- Screens routed by market id (Tables, Attendance) get their `Market` from `useRailMarket`
-  (`front-end/src/utils/railMarket.ts`); the rail never fails a screen that cannot load one.
+- Screens routed by market id get their `Market` from `useOpenMarket`
+  (`front-end/src/utils/openMarket.ts`), a reader of the one market store
+  (`front-end/src/stores/market.ts`); a transition from the rail is followed by the store
+  re-reading the market, and the rail never fails a screen that cannot load one.
 
 ## Placements, Pins and the Trail (Conventioner sharp edge)
 
