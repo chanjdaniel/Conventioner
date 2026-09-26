@@ -120,3 +120,57 @@ def test_a_malformed_plan_is_refused(market):
         MarketsApi.save_plan("market-123", {"setupObject": {"tiers": "not a list"}}, "user-1")
 
     assert collection.last_update is None
+
+
+# The assignment rules close with the assignment (E22/F02/S01). A rule only takes effect when the
+# assignment runs, and once a market has left `assignment` it can never run again - so a changed
+# rule there would change nothing while reading as though it had. Listed here rather than derived,
+# so the test is an independent statement of which phases those are.
+SETTLED = [MarketPhase.OFFERS, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED]
+OPEN = [phase for phase in MarketPhase if phase not in SETTLED]
+
+STORED_RULES = {
+    **PLAN,
+    "priority": [{"id": 0, "target": "application.submitted_at", "direction": "ascending"}],
+    "assignmentOptions": {"maxAssignmentsPerVendor": 2, "maxHalfTableProportionPerSection": 50},
+}
+
+
+@pytest.mark.parametrize("phase", SETTLED)
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"priority": []},
+        {"priority": [{"id": 0, "target": "application.submitted_at", "direction": "descending"}]},
+        {"assignmentOptions": {"maxAssignmentsPerVendor": 1, "maxHalfTableProportionPerSection": 50}},
+        {"assignmentOptions": {"maxAssignmentsPerVendor": 2, "maxHalfTableProportionPerSection": 10}},
+    ],
+)
+def test_after_the_assignment_a_rule_cannot_change(market, phase, change):
+    collection = market(phase=phase, setupObject=STORED_RULES)
+
+    with pytest.raises(ValueError, match="settled"):
+        MarketsApi.save_plan("market-123", {"setupObject": {**STORED_RULES, **change}}, "user-1")
+
+    assert collection.last_update is None
+
+
+@pytest.mark.parametrize("phase", SETTLED)
+def test_after_the_assignment_restating_the_rules_is_not_a_change(market, phase):
+    """The plan saves as the organizer types, in every phase, and always carries the rules it holds."""
+    collection = market(phase=phase, setupObject=STORED_RULES)
+
+    edited = {**STORED_RULES, "locations": [{"name": "Main Hall"}, {"name": "Annex"}]}
+    MarketsApi.save_plan("market-123", {"setupObject": edited}, "user-1")
+
+    assert collection.last_update["$set"]["setupObject"]["locations"][1] == {"name": "Annex"}
+
+
+@pytest.mark.parametrize("phase", OPEN)
+def test_up_to_and_including_the_assignment_the_rules_save(market, phase):
+    collection = market(phase=phase, setupObject=STORED_RULES)
+
+    changed = {**STORED_RULES, "priority": []}
+    MarketsApi.save_plan("market-123", {"setupObject": changed}, "user-1")
+
+    assert collection.last_update["$set"]["setupObject"]["priority"] == []

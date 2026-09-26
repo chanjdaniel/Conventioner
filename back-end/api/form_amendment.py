@@ -31,7 +31,7 @@ import api.applications as ApplicationsApi
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 from datatypes import ApplicationForm, Market, MarketPhase, MarketRole, phase_label
-from guards import TRANSITION_GUARDS, VALID_TRANSITIONS, PreconditionResult
+from guards import TRANSITION_GUARDS, PreconditionResult, route_between
 from market_documents import market_doc_key, market_doc_set
 from assignment.utils import convert_keys_to_camel_case
 
@@ -88,26 +88,11 @@ class AmendmentPlan:
 def _route_to_draft(from_phase: str) -> Optional[List[str]]:
     """The shortest existing route from ``from_phase`` down to ``draft``.
 
-    A breadth-first walk of ``VALID_TRANSITIONS``, so this file states no route of its own: an
-    edge added or removed in ``guards.py`` changes the chain here with no edit, and an edge that
-    does not exist cannot be taken by a chain that believed it did.
+    Walked by ``guards.route_between``, so this file states no route of its own: an edge added or
+    removed in ``guards.py`` changes the chain here with no edit, and an edge that does not exist
+    cannot be taken by a chain that believed it did.
     """
-    queue: List[tuple[str, List[str]]] = [(from_phase, [])]
-    seen = {from_phase}
-    while queue:
-        at, path = queue.pop(0)
-        if at == MarketPhase.DRAFT.value:
-            return path
-        for source, target in sorted(VALID_TRANSITIONS):
-            if source != at or target in seen:
-                continue
-            # Archiving is a route to nowhere useful - it is terminal, and a chain that took it
-            # would end the market rather than amend its form.
-            if target == MarketPhase.ARCHIVED.value:
-                continue
-            seen.add(target)
-            queue.append((target, path + [target]))
-    return None
+    return route_between(from_phase, MarketPhase.DRAFT.value)
 
 
 def plan_for(market: Market) -> AmendmentPlan:
@@ -295,7 +280,7 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
         _clear_intent(market_id)
         return {"phase": target, "hops": 0}
 
-    steps = _route_between(market.phase.value, target)
+    steps = route_between(market.phase.value, target)
     if steps is None:
         raise AmendmentUnavailable(
             f"There is no route from '{phase_label(market.phase)}' back to "
@@ -306,22 +291,6 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
     _walk(market_id, steps, plan)
     _clear_intent(market_id)
     return {"phase": target, "hops": len(steps)}
-
-
-def _route_between(from_phase: str, to_phase: str) -> Optional[List[str]]:
-    """The shortest existing route between two phases, archiving excluded."""
-    queue: List[tuple[str, List[str]]] = [(from_phase, [])]
-    seen = {from_phase}
-    while queue:
-        at, path = queue.pop(0)
-        if at == to_phase:
-            return path
-        for source, target in sorted(VALID_TRANSITIONS):
-            if source != at or target in seen or target == MarketPhase.ARCHIVED.value:
-                continue
-            seen.add(target)
-            queue.append((target, path + [target]))
-    return None
 
 
 def stall_payload(error: AmendmentStalled) -> Dict[str, Any]:
