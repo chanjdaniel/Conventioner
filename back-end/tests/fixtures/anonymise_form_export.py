@@ -46,6 +46,7 @@ PLACEHOLDERS = frozenset({"test"})
 
 EMAIL = re.compile(r"[^\s@,;<>()]+@[^\s@,;<>()]+\.[A-Za-z]{2,}")
 URL = re.compile(r"(?:https?://|www\.)[^\s,;<>()]+", re.IGNORECASE)
+URL_DELIMITERS_PATTERN = r"[/?=&#.:]+"
 HANDLE = re.compile(r"(?<![\w@])@[A-Za-z0-9_.]{2,}")
 PHONE = re.compile(r"\+?\d[\d\s().-]{7,}\d")
 TOKEN = re.compile(rf"(?P<email>{EMAIL.pattern})|(?P<url>{URL.pattern})|(?P<handle>{HANDLE.pattern})"
@@ -166,7 +167,7 @@ class _Inventor:
     No two source values share a stand-in, so the count of distinct applicants survives.
     """
 
-    def __init__(self, rows: List[List[str]], key: int):
+    def __init__(self, rows: List[List[str]], key: int, keys: List[str]):
         # Every stand-in is keyed on the whole source, so hashing a guessed name or email
         # reproduces nothing without the file it came from.
         self._key = key
@@ -175,6 +176,7 @@ class _Inventor:
             match.group(0).lower()
             for _, _, cell in _cells(rows) for match in TOKEN.finditer(cell)
         }
+        self._shared_link_parts = _shared_link_parts(rows, keys)
         self._memo: Dict[Tuple[str, str], str] = {}
         self._owner: Dict[str, str] = {}
 
@@ -207,14 +209,24 @@ class _Inventor:
         if match.group("email"):
             return self._email(text)
         if match.group("url"):
-            return self._unique("url", text, lambda n: ("https://example.com/" if text.lower()
-                                .startswith("http") else "www.example.com/")
-                                + f"{self._hash('url', text.lower(), n) % 10**6:06d}")
+            return self._unique("url", text, lambda n: self._link(text, n))
         if match.group("handle"):
             return "@" + self._word(text[1:].lower(), f"handle:{text.lower()}", attempt)
         if match.group("digits"):
             return self._digits(text, source, match.start(), attempt)
         return _recase(self._word(text.lower(), f"{source.lower()}:{match.start()}", attempt), text)
+
+    def _link(self, text: str, attempt: int) -> str:
+        """A link keeps its scheme and each part three applicants' links share - a Drive upload's
+        host and path, a platform's domain - and invents the rest: the file id, someone's own site,
+        their handle.
+        """
+        return "".join(
+            part if not part or re.fullmatch(URL_DELIMITERS_PATTERN, part)
+            or part.lower() in self._shared_link_parts or part.lower() in STAND_IN_WORDS
+            else TOKEN.sub(lambda match: self._token(match, f"{text}#{index}", attempt), part)
+            for index, part in enumerate(_link_parts(text))
+        )
 
     def _email(self, text: str) -> str:
         local = text.split("@", 1)[0].lower()
@@ -257,6 +269,21 @@ class _Inventor:
     def _unheard_of(self, invented: str) -> bool:
         """Not a word the source holds - or too short to leak, where there may be none left."""
         return len(invented) < LEAK_MIN_LENGTH or invented not in self._source_words
+
+
+def _link_parts(url: str) -> List[str]:
+    """A link split at its delimiters, the delimiters kept, so the parts join back into it."""
+    return re.split(f"({URL_DELIMITERS_PATTERN})", url)
+
+
+def _shared_link_parts(rows: List[List[str]], keys: List[str]) -> Set[str]:
+    people: Dict[str, Set[str]] = {}
+    for index, _, cell in _cells(rows):
+        for match in URL.finditer(cell):
+            for part in _link_parts(match.group(0)):
+                if part and not re.fullmatch(URL_DELIMITERS_PATTERN, part):
+                    people.setdefault(part.lower(), set()).add(keys[index])
+    return {part for part, who in people.items() if len(who) >= SHARED_BY}
 
 
 def _recase(invented: str, like: str) -> str:
@@ -310,7 +337,7 @@ class LeakRefused(Exception):
 def anonymise(rows: List[List[str]]) -> List[List[str]]:
     keys = applicant_keys(rows)
     shared = _shared_values(rows, keys)
-    inventor = _Inventor(rows, _file_key(rows))
+    inventor = _Inventor(rows, _file_key(rows), keys)
     offset = _timestamp_offset(rows)
 
     def stand_in(column: int, cell: str) -> str:
@@ -376,9 +403,17 @@ def find_leaks(source: List[List[str]], output: List[List[str]]) -> List[str]:
             options.setdefault((column, option.lower()), set()).add(keys[index])
         for match in TOKEN.finditer(cell):
             tokens.setdefault(match.group(0).lower(), set()).add(keys[index])
+        # A link's parts are counted too, as the anonymiser keeps them: "drive" is one applicant's
+        # word in a comment and everyone's inside an upload link.
+        for match in URL.finditer(cell):
+            for part in _link_parts(match.group(0)):
+                tokens.setdefault(part.lower(), set()).add(keys[index])
 
     shared = {found for found, people in options.items() if len(people) >= SHARED_BY}
-    rare = {value for (_, value), people in options.items() if len(people) < SHARED_BY}
+    # A whole answer one applicant gave is still no secret when it is a word three applicants
+    # wrote: "Etsy" alone as an answer, and inside every Etsy shop link.
+    rare = {value for (_, value), people in options.items()
+            if len(people) < SHARED_BY and len(tokens.get(value, ())) < SHARED_BY}
     rare |= {token for token, people in tokens.items()
              if len(people) < SHARED_BY and token not in STAND_IN_WORDS}
     rare = {value for value in rare

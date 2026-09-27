@@ -262,6 +262,12 @@ class TestTheLeakCheck:
         output = _answers([["Craft"], ["Woodwork"]])
         assert anonymiser.find_leaks(source, output) == []
 
+    def test_a_rare_answer_that_is_a_shared_word_is_no_leak(self):
+        source = _people([["Shop"], ["Etsy"], ["my etsy shop"], ["etsy and markets"],
+                          ["etsy mostly"]])
+        output = _answers([["Shop"], ["Etsy"]])
+        assert anonymiser.find_leaks(source, output) == []
+
     def test_a_rare_combination_of_shared_options_is_no_leak(self):
         # Ticket 01, amended by 03: the options are what is counted, not the answer that joins them.
         answers = [["Clubs"], ["Pottery"], ["Pottery"], ["Pottery"], ["Zines"], ["Zines"],
@@ -293,6 +299,22 @@ class TestRefusals:
 
 
 class TestTheStandIns:
+    def test_a_link_keeps_the_parts_three_applicants_links_share(self):
+        # A Google Forms upload is a Drive link: the host and path are every uploader's, the id
+        # is one person's file.
+        source = [["Email", "Proof", "Website"]] + [
+            [f"p{i}@mail.test", f"https://drive.google.com/open?id=1Ab{i}CdEfGh", website]
+            for i, website in enumerate(["https://wrenokafor.com/shop", "", ""])
+        ]
+        out = anonymiser.anonymise(source)
+        for before, after in zip(source[1:], out[1:]):
+            assert after[1].startswith("https://drive.google.com/open?id=")
+            assert after[1] != before[1]
+            assert len(after[1]) == len(before[1])
+        assert "wrenokafor" not in out[1][2]
+        assert out[1][2].startswith("https://")
+
+
     def test_a_stand_in_cannot_be_recomputed_without_the_whole_source(self):
         # Keyed on the file, so hashing a guessed name or email reproduces nothing.
         source = _export()
