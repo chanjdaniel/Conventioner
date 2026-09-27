@@ -13,6 +13,7 @@ import api.placements as PlacementsApi
 import api.form_amendment as FormAmendmentApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
+import csv_start as CsvStart
 import typesafe_client as TypeSafe
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
@@ -1781,6 +1782,29 @@ def propose_from_csv(market_id: str) -> Response:
         return jsonify(result), status_code
     except Exception as e:
         logger.error(f"Error in propose_from_csv {market_id}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/csv-proposal/confirm', methods=['POST'])
+@login_required
+def confirm_csv_proposal(market_id: str) -> Response:
+    """Write the reviewed proposal: plan facts, form, ceiling and import mapping, in one update,
+    or nothing. The file is sent again and not kept. Requires ADMIN+, as the proposal does."""
+    try:
+        market_doc, error, status_code = _admin_market_document(
+            market_id, authenticated_email(),
+            "User does not have permission to set up this market")
+        if error:
+            return jsonify(error), status_code
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "A JSON body is required"}), 400
+        result, status_code = CsvStart.confirm(market_doc, data)
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in confirm_csv_proposal {market_id}: {e}")
         logger.error(traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
 

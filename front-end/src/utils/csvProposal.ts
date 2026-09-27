@@ -209,6 +209,23 @@ export function takenBy(draft: ProposalDraft, target: string, row: number): numb
   return found ? Number(found[0]) : null;
 }
 
+/** What confirm sends besides the file and the year: each row's final shape, the settled values
+ * and the ceiling. The server reads the file again for everything else. */
+export function confirmChoices(draft: ProposalDraft) {
+  return {
+    rows: Object.entries(draft.rows).map(([first, choice]) => ({
+      column: Number(first),
+      fate: choice.fate,
+      essential: choice.essential,
+      type: choice.type,
+      required: choice.required,
+      kept: isChoice(choice.type) ? (choice.kept[choice.type] ?? []) : [],
+    })),
+    settled: draft.settled,
+    ceiling: draft.ceiling.days,
+  };
+}
+
 /* ── The ledger ───────────────────────────────────────────────────────────────────────────── */
 
 /** One row of the ledger: a column, or a grid's columns together. */
