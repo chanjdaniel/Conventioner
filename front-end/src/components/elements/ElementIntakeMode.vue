@@ -52,7 +52,7 @@ function choose(value: IntakeMode) {
     <label
       v-for="choice in CHOICES"
       :key="choice.value"
-      class="intake-choice"
+      class="choice-card"
       :class="{ chosen: chosen === choice.value, disabled: !editable }"
       :data-testid="`setup-intake-mode-${choice.value}`"
     >
@@ -64,9 +64,9 @@ function choose(value: IntakeMode) {
         :disabled="!editable"
         @change="choose(choice.value)"
       />
-      <span class="intake-choice-text">
-        <span class="intake-choice-label">{{ choice.label }}</span>
-        <span class="intake-choice-help">{{ choice.help }}</span>
+      <span class="choice-card-text">
+        <span class="choice-card-label">{{ choice.label }}</span>
+        <span class="choice-card-help">{{ choice.help }}</span>
       </span>
     </label>
 
@@ -84,53 +84,6 @@ function choose(value: IntakeMode) {
   flex-direction: column;
   gap: var(--space-2);
   width: 100%;
-}
-
-.intake-choice {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-2);
-
-  padding: var(--space-3);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
-  cursor: pointer;
-  text-align: left;
-}
-
-.intake-choice.chosen {
-  border-color: var(--mm-green);
-}
-
-.intake-choice.disabled {
-  cursor: not-allowed;
-  background: var(--mm-beige);
-}
-
-.intake-choice input {
-  margin-top: var(--space-hairline);
-  flex: 0 0 auto;
-}
-
-.intake-choice-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-hairline);
-}
-
-.intake-choice-label {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-/* The beige-safe muted ink, because the chosen-and-frozen card's ground IS beige: `--mm-text-muted`
-   is 4.63 on white and 4.23 on beige, and this help text sits on both. */
-.intake-choice-help {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted-on-beige);
-  line-height: 1.4;
 }
 
 .intake-frozen {

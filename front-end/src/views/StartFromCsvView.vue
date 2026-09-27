@@ -109,9 +109,7 @@ async function acceptFile(file: File | undefined) {
       csvContent: csvContent.value,
     });
     proposal.value = data;
-    Object.assign(draft, draftFrom(data));
-    // The plan's own ceiling wins, so there is nothing to check about the file's.
-    if (planCeiling.value) setCeiling(draft, planCeiling.value);
+    Object.assign(draft, draftFrom(data, planCeiling.value));
     year.value = initialYear(data.plan);
     step.value = 'review';
     if (data.plan.dates.length) openYear();
@@ -216,7 +214,7 @@ function leave() {
       <p v-if="error" class="error" role="alert" data-testid="start-from-csv-error">{{ error }}</p>
 
       <section v-if="refusal" class="panel" data-testid="start-from-csv-refused">
-        <h2>This market can't start from a CSV</h2>
+        <h2>This market can't start from your Google Form</h2>
         <p class="help">{{ refusal }}</p>
         <button type="button" class="btn btn--secondary" @click="leave">
           Back to Market Setup

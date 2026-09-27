@@ -33,3 +33,5 @@ Order: F01/S01 (done, PR #85), F02/S01, F02/S02, F02/S03, F03/S01, F03/S02, F03/
 - F03/S03 reviewed and fixed: the plan keeps its own ceiling, a choice with nothing kept becomes a text question, value fixes are scoped to their targets, an unsettled plan disagreement is left for the import, and the confirm writes under the canonical filter.
 - F04/S02 built: the "How vendors apply" card carries "Start from my Google Form's responses", disabled with the served reason.
   Found and fixed on the way: `parseMarketFromApi` dropped `csvStartRefusal`, so the flow's refusal had never reached the browser.
+- F04 reviewed and fixed: the choice card is a primitive (`.choice-card`), the plan flushes before the flow opens, a plan ceiling is marked as the plan's, refusals say "Google Form's responses", and out-of-draft is tested.
+- Full Playwright suite: 208 passed before the F04 fixes; the affected specs pass after.

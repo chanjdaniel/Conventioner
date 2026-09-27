@@ -18,6 +18,7 @@ import ValueFixes from '@/components/ValueFixes.vue';
 import {
   choiceOfTarget,
   draftRows,
+  keepsNoOption,
   notAsked,
   planRowsToCheck,
   proposalCounts,
@@ -229,7 +230,7 @@ function onSettle(kind: string, value: string, choice: string) {
           </td>
           <td>
             <div class="becomes">
-              <div v-if="planCeiling" data-testid="proposal-plan-ceiling-kept">
+              <div v-if="planCeiling" class="muted" data-testid="proposal-plan-ceiling-kept">
                 Your plan already allows at most {{ planCeiling }} day{{
                   planCeiling === 1 ? '' : 's'
                 }}; that stays
@@ -376,12 +377,7 @@ function onSettle(kind: string, value: string, choice: string) {
               </div>
 
               <div
-                v-if="
-                  row.fate === 'custom' &&
-                  row.field &&
-                  ['select', 'multi_select'].includes(row.field.type) &&
-                  !row.field.options.some((o) => o.keep)
-                "
+                v-if="row.fate === 'custom' && row.field && keepsNoOption(row.field)"
                 class="muted"
                 data-testid="proposal-row-no-options"
               >

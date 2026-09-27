@@ -823,11 +823,11 @@ def refusal(market_doc: Dict[str, Any]) -> Optional[str]:
     questions of its own, so the proposal never has to merge with questions already written.
     """
     if phase_from_market_document(market_doc) != MarketPhase.DRAFT:
-        return "Only a draft market can be started from a CSV."
+        return "Only a draft market can be started from a Google Form's responses."
     form = market_doc_field(market_doc, "application_form") or {}
     if form.get("fields"):
         return ("This market's form already has questions of its own, so it can't be started "
-                "from a CSV.")
+                "from a Google Form's responses.")
     return None
 
 
