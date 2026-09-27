@@ -16,6 +16,7 @@ The service is called over plain HTTP rather than through its SDK: the SDK is pr
 a newer pydantic than this back end runs, and one POST is all that is needed.
 """
 import os
+from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
 import requests
@@ -28,25 +29,38 @@ MODEL = "jev-1.13.0"
 # How long a proposal waits for every answer together; past it, the rules stand.
 DEADLINE_SECONDS = 5.0
 
-# Wording "C" of ticket 04: neutral choice names, each side described by who writes the answers.
-TEAM_COLUMN_INSTRUCTIONS = (
-    "This column comes from a spreadsheet of vendor applications to a market. Is it one of the "
-    "application form's questions, or a column the market's staff added to record their review of "
-    "each application?")
-TEAM_COLUMN_CRITERIA = {
-    "form_question": "A question on the application form; each vendor wrote their own answer.",
-    "review_column": "A column staff added afterwards; staff wrote the values about each vendor.",
-}
-FORM_QUESTION, TEAM_COLUMN = "form_question", "review_column"
 
-CEILING_INSTRUCTIONS = (
-    "This is the text of a question on a multi-day market's vendor application form. What is the "
-    "most days any single vendor may be assigned, if the text states such a limit?")
+@dataclass(frozen=True, eq=False)
+class Question:
+    """One of the two questions TypeSafe is asked, worded as it was measured. Each is one object,
+    compared by identity."""
+    instructions: str
+    criteria: Dict[str, str]
+
+
+# Wording "C" of ticket 04: neutral choice names, each side described by who writes the answers.
+FORM_QUESTION, STAFF_COLUMN = "form_question", "review_column"
+TEAM_COLUMN = Question(
+    instructions=(
+        "This column comes from a spreadsheet of vendor applications to a market. Is it one of "
+        "the application form's questions, or a column the market's staff added to record their "
+        "review of each application?"),
+    criteria={
+        FORM_QUESTION: "A question on the application form; each vendor wrote their own answer.",
+        STAFF_COLUMN: "A column staff added afterwards; staff wrote the values about each vendor.",
+    },
+)
+
 NO_CEILING = "none"
-CEILING_CRITERIA = {NO_CEILING: "The text states no limit on how many days one vendor may be "
-                                "assigned."}
-CEILING_CRITERIA.update({str(n): f"At most {n} day{'s' if n > 1 else ''} per vendor."
-                         for n in range(1, 11)})
+CEILING = Question(
+    instructions=(
+        "This is the text of a question on a multi-day market's vendor application form. What is "
+        "the most days any single vendor may be assigned, if the text states such a limit?"),
+    criteria={
+        NO_CEILING: "The text states no limit on how many days one vendor may be assigned.",
+        **{str(n): f"At most {n} day{'s' if n > 1 else ''} per vendor." for n in range(1, 11)},
+    },
+)
 
 # state, instructions, criteria -> probability of each choice.
 Asker = Callable[[str, str, Dict[str, str]], Dict[str, float]]
@@ -74,6 +88,8 @@ def asker() -> Optional[Asker]:
         )
         response.raise_for_status()
         answer = response.json()["answers"]["q"]
-        return dict(answer.get("probabilities") or {answer["choice"]: answer["confidence"]})
+        if answer.get("probabilities"):
+            return dict(answer["probabilities"])
+        return {answer["choice"]: answer["confidence"]}
 
     return ask

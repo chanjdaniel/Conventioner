@@ -30,7 +30,7 @@ class Stub:
         self.calls = []
 
     def __call__(self, state, instructions, criteria):
-        question = "team" if instructions == TypeSafe.TEAM_COLUMN_INSTRUCTIONS else "ceiling"
+        question = "team" if instructions == TypeSafe.TEAM_COLUMN.instructions else "ceiling"
         self.calls.append({"state": state, "instructions": instructions, "criteria": criteria,
                            "question": question})
         answer = self.answers[question]
@@ -97,7 +97,7 @@ class TestWhatIsSent:
         stub = Stub(team=FORM, ceiling=TWO)
         _propose(stub)
         assert {call["instructions"] for call in stub.calls} <= {
-            TypeSafe.TEAM_COLUMN_INSTRUCTIONS, TypeSafe.CEILING_INSTRUCTIONS}
+            TypeSafe.TEAM_COLUMN.instructions, TypeSafe.CEILING.instructions}
         assert {call["question"] for call in stub.calls} == {"team", "ceiling"}
 
     def test_each_call_is_one_column_and_no_row(self):
@@ -112,12 +112,17 @@ class TestWhatIsSent:
                 # No two of one applicant's answers ever travel together.
                 assert sum(1 for cell in row if cell and cell in call["state"]) <= 1
 
-    def test_no_answer_fewer_than_three_applicants_gave_and_no_email_or_link(self):
+    def test_the_team_question_carries_a_shape_and_no_answer_at_all(self):
+        # The shape ticket 04 measured the threshold on: no value, not even one 3 applicants share.
         stub = Stub(team=FORM, ceiling=TWO)
         _propose(stub)
         team = next(call for call in stub.calls if call["question"] == "team")
-        assert "chase payment" in team["state"]
-        assert "late form" not in team["state"]
+        assert "chase payment" not in team["state"] and "late form" not in team["state"]
+        assert "typical answer: prose, around" in team["state"]
+
+    def test_no_email_or_link_is_sent(self):
+        stub = Stub(team=FORM, ceiling=TWO)
+        _propose(stub)
         for call in stub.calls:
             assert "@" not in call["state"]
             assert not re.search(r"https?://|www\.", call["state"])
@@ -127,6 +132,21 @@ class TestWhatIsSent:
         _propose(stub)
         asked = [call["state"] for call in stub.calls if call["question"] == "team"]
         assert len(asked) == 1 and TEAM_NOTES in asked[0]
+
+    def test_a_header_holding_contact_details_is_not_sent(self):
+        headers, rows = _file()
+        headers[5] = "Notes (ask jo@market.test)"
+        stub = Stub(team=FORM, ceiling=TWO)
+        CsvProposal.proposal(headers, rows, None, asker=stub)
+        assert all("@" not in call["state"] for call in stub.calls)
+
+    def test_a_number_answer_is_never_sent_as_a_range(self):
+        headers, rows = _file()
+        for i, row in enumerate(rows):
+            row[5] = "6045551234" if i == 0 else ("" if i % 3 else str(10 + i))
+        stub = Stub(team=FORM, ceiling=TWO)
+        CsvProposal.proposal(headers, rows, None, asker=stub)
+        assert all("6045551234" not in call["state"] for call in stub.calls)
 
     def test_the_ceiling_is_not_asked_when_the_rules_read_it(self):
         headers, rows = _file()
