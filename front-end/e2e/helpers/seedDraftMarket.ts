@@ -17,6 +17,7 @@ export async function seedDraftMarket(
   email: string,
   password: string,
   name = `E2E Draft ${Date.now()}`,
+  intakeMode?: 'csv' | 'form',
 ): Promise<DraftMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
@@ -29,6 +30,7 @@ export async function seedDraftMarket(
       roles: { [userId]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      ...(intakeMode ? { intakeMode } : {}),
     },
   });
   if (!createRes.ok()) {

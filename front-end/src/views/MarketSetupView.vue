@@ -361,6 +361,8 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :setupObject="setupObject"
           :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
+          :csvStartPath="marketPath(marketId, 'start-from-csv')"
+          :csvStartRefusal="market?.csvStartRefusal ?? null"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
           @choosePath="showPathChoice = true"

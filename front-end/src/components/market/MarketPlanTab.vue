@@ -39,6 +39,10 @@ const props = defineProps<{
   /** The plan's working copy of how vendors reach this market, not the stored value. */
   intakeMode: IntakeMode | undefined;
   intakeEditable: boolean;
+  /** Where starting from a Google Form's responses opens (E24/F04/S02). */
+  csvStartPath: string;
+  /** Why it cannot, as the server serves it on the market; null when it can. */
+  csvStartRefusal: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -140,6 +144,31 @@ const intakeEditable = computed(() => props.intakeEditable);
           :editable="intakeEditable"
           @update:intakeMode="(value) => emit('update:intakeMode', value)"
         />
+        <!-- Seeding this market's form from last year's responses works for either intake, so it
+             leaves the choice above as it is (E24/F04/S02). -->
+        <div class="csv-start" data-testid="plan-start-from-csv">
+          <RouterLink
+            v-if="!csvStartRefusal"
+            :to="csvStartPath"
+            class="btn btn--secondary"
+            data-testid="plan-start-from-csv-link"
+          >
+            Start from my Google Form's responses
+          </RouterLink>
+          <template v-else>
+            <button
+              type="button"
+              class="btn btn--secondary"
+              disabled
+              data-testid="plan-start-from-csv-disabled"
+            >
+              Start from my Google Form's responses
+            </button>
+            <p class="csv-start-reason" data-testid="plan-start-from-csv-reason">
+              {{ csvStartRefusal }}
+            </p>
+          </template>
+        </div>
       </template>
     </ElementSettingContainer>
 
@@ -175,6 +204,20 @@ const intakeEditable = computed(() => props.intakeEditable);
 </template>
 
 <style scoped>
+.csv-start {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.csv-start-reason {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
 .plan-form-gate,
 .plan-form-ready {
   margin: 0;
