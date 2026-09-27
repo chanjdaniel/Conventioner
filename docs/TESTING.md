@@ -55,6 +55,8 @@ rather than beside it.
 `test_anonymise_form_export.py` covers the script that turns a real Google Form export into a
 committable fixture, on a synthetic export: a value survives only when 3 distinct applicants gave
 it, and the leak check refuses output that holds a rarer one.
+`test_google_forms_corpus.py` pins the five exports that script made (`tests/test_data/google_forms/`):
+each one's row count, header row and table-size answer counts.
 
 A test count is deliberately not quoted here: it goes stale on the next commit, and the suite
 either passes or it does not.
