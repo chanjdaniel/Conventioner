@@ -2,7 +2,7 @@
 id: E24/F03/S02
 title: The organizer corrects the proposal
 type: story
-status: ready
+status: in-progress
 blocked_by: [E24/F03/S01]
 pr: []
 ---
@@ -20,7 +20,7 @@ Correcting never blocks: an unchecked row is a suggestion, not an error, and con
 
 ## Acceptance criteria
 
-- [ ] Each correction above changes what `S03` would write, and is covered by a component test of the ledger's working copy.
-- [ ] Two columns cannot both become the same essential question or the same who-applied target, as in the import.
-- [ ] The plan-disagreement fix is the import's own control, not a second one.
-- [ ] Playwright: on a fixture, keep a rare option, turn a "one choice" question into "several choices", bring a left-out column back, and see the rail's counts change.
+- [x] Each correction above changes what `S03` would write, and is covered by a component test of the ledger's working copy.
+- [x] Two columns cannot both become the same essential question or the same who-applied target, as in the import.
+- [x] The plan-disagreement fix is the import's own control, not a second one.
+- [x] Playwright: on a fixture, keep a rare option, turn a "one choice" question into "several choices", bring a left-out column back, and see the rail's counts change.

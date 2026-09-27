@@ -139,4 +139,47 @@ test.describe('Start from your Google Form', () => {
     await page.reload();
     await expect(flow.upload).toBeVisible();
   });
+
+  test('the organizer corrects the proposal, and the rail follows', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const flow = new StartFromCsvPage(page);
+    await flow.open(marketId);
+    await flow.chooseFile(join(CORPUS, 'spring-2026.csv'));
+    await flow.answerYear();
+    const toCheck = await flow.count('to-check');
+    const custom = await flow.count('custom');
+    const leftOut = await flow.count('left-out');
+
+    // A left-out column brought back as a question.
+    const status = flow.row('STATUS');
+    await status.getByTestId('proposal-row-fate').selectOption('custom');
+    await expect(page.getByTestId('proposal-count-custom')).toHaveText(String(custom + 1));
+    await expect(page.getByTestId('proposal-count-left-out')).toHaveText(String(leftOut - 1));
+    await expect(flow.toCheck).toHaveText(String(toCheck - 1));
+
+    // One choice turned into several: the clubs question the rules read as one choice.
+    const clubs = flow.row('Which clubs are you a member of?');
+    await expect(
+      clubs.getByTestId('proposal-check').filter({ hasText: 'Could allow several answers' }),
+    ).toHaveCount(1);
+    await clubs.getByTestId('proposal-row-type').selectOption('multi_select');
+    await expect(clubs.getByTestId('proposal-check')).toHaveCount(0);
+    await expect(flow.toCheck).toHaveText(String(toCheck - 2));
+
+    // A rare option kept.
+    const student = flow.row('Are you a UBC student or alumni?');
+    const rare = student.getByTestId('proposal-option').filter({ hasText: 'keep?' }).first();
+    await rare.locator('input').check();
+    await expect(rare.locator('input')).toBeChecked();
+    await expect(student.getByTestId('proposal-check')).toHaveCount(0);
+    await expect(flow.toCheck).toHaveText(String(toCheck - 3));
+  });
 });

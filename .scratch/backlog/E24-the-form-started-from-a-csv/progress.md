@@ -21,3 +21,7 @@ Order: F01/S01 (done, PR #85), F02/S01, F02/S02, F02/S03, F03/S01, F03/S02, F03/
 - F03/S01 built: `/markets/:id/start-from-csv` (`StartFromCsvView`, `ProposalLedger`, `utils/csvProposal.ts`).
   `MarketFrame` now publishes its pinned height as `--market-frame-h`, declared in `base.css`, so a screen's own column can stick under it.
   Playwright walks all five fixtures; screenshots at 1920 and 1280 checked, and three layout faults fixed.
+- F03/S01 reviewed and fixed: the refusal is served on the market (`csvStartRefusal`), the year note only states what is true, plan rows with a disagreement count as rows to check.
+- F03/S02 built: the working copy (`draftFrom`, `correct`, `toggleOption`, `settle`, `takenBy` in `utils/csvProposal.ts`) and the ledger's controls.
+  The import's value-fix control is now `components/ValueFixes.vue`, used by the import and the ledger alike.
+  The server sends each question's options for both choice types, so one choice turned into several re-reads the answers.

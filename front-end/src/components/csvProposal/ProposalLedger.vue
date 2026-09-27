@@ -1,78 +1,132 @@
 <script setup lang="ts">
 /**
- * The proposal ledger (E24/F03/S01, variant A of the form-started-from-a-CSV ticket 05).
+ * The proposal ledger (E24/F03, variant A of the form-started-from-a-CSV ticket 05).
  *
  * The import's own ledger, in the file's order, so the organizer learns one screen: a row per
  * column - a grid's columns are one - saying what it becomes, under a band of what the file says
  * about the plan, and over a band of the essential questions no column answers. A row worth a
  * second look carries a yellow edge and the reason. Beside it, a rail sticks under the market's
  * frame with the counts, the promise that nothing is written yet, and the way out.
+ *
+ * Every row can be corrected where it stands (S02): what the column becomes, and for a question of
+ * the organizer's own its type, whether it is required and which options to keep; a value the plan
+ * lacks gets the import's own fix. The corrections are the view's working copy, so this emits them
+ * and never changes what it was handed.
  */
 import { computed } from 'vue';
+import ValueFixes from '@/components/ValueFixes.vue';
 import {
-  ledgerRows,
+  choiceOfTarget,
+  draftRows,
+  planRowsToCheck,
   proposalCounts,
+  takenBy,
+  targetOf,
+  type DisagreementKind,
+  type FieldType,
   type LedgerRow,
   type Proposal,
+  type ProposalDraft,
   type ProposedDate,
+  type RowChoice,
 } from '@/utils/csvProposal';
-import { essentialLabel } from '@/utils/essentialFields';
+import { ESSENTIAL_KEYS, essentialLabel } from '@/utils/essentialFields';
 import { FIELD_TYPES } from '@/utils/applicationForm';
+import { getFormattedDate } from '@/utils/utils';
 
 const props = defineProps<{
   proposal: Proposal;
+  draft: ProposalDraft;
   year: number;
-  /** Confirm is S03's; until it is wired the rail says so rather than offering a dead button. */
-  canConfirm?: boolean;
+  /** The plan's own dates and tiers, which a value the file holds may be settled to. */
+  planDates: string[];
+  planTiers: string[];
+  busy?: boolean;
 }>();
-const emit = defineEmits<{ cancel: []; confirm: [] }>();
+const emit = defineEmits<{
+  correct: [row: number, change: Partial<RowChoice>];
+  toggle: [row: number, value: string];
+  settle: [kind: DisagreementKind, value: string, choice: string];
+  cancel: [];
+  confirm: [];
+}>();
 
-const rows = computed(() => ledgerRows(props.proposal));
-const counts = computed(() => proposalCounts(props.proposal));
+const rows = computed(() => draftRows(props.proposal, props.draft));
+const counts = computed(() => proposalCounts(props.proposal, props.draft));
 const plan = computed(() => props.proposal.plan);
+const planChecks = computed(() => planRowsToCheck(props.proposal, props.draft));
 
-const FATE_LABELS: Record<LedgerRow['fate'], string> = {
-  submitted_at: 'When they applied',
-  applicant_email: "The applicant's email",
-  essential: 'An essential question',
-  custom: 'Your question',
-  left_out: 'Left out',
-};
+const WHO_APPLIED = [
+  { target: 'submitted_at', label: 'When they applied' },
+  { target: 'applicant_email', label: "The applicant's email" },
+];
 
-function typeLabel(type: string): string {
+function typeLabel(type: FieldType): string {
   return FIELD_TYPES.find((t) => t.value === type)?.label ?? type;
 }
 
-function dateLabel(date: ProposedDate): string {
-  return date.text;
+function oneLine(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function first(row: LedgerRow): number {
+  return row.indexes[0];
+}
+
+/** Why a target is not on offer for this row: another column already is it. */
+function takenNote(target: string, row: LedgerRow): string {
+  const other = takenBy(props.draft, target, first(row));
+  return other === null ? '' : ` (column ${other + 1})`;
+}
+
+function chooseFate(row: LedgerRow, event: Event) {
+  emit('correct', first(row), choiceOfTarget((event.target as HTMLSelectElement).value));
+}
+
+function chooseType(row: LedgerRow, event: Event) {
+  emit('correct', first(row), { type: (event.target as HTMLSelectElement).value as FieldType });
+}
+
+function sources(dates: ProposedDate[]): string {
+  const from = new Set(dates.map((d) => d.from));
+  const names = [...from].map((f) =>
+    f === 'header' ? 'the grid of days' : 'answers that are dates',
+  );
+  return names.join(' and ');
 }
 
 const datesNote = computed(() => {
   const dates = plan.value.dates;
-  if (!dates.length) return '';
-  const matched = dates.filter((d) => d.matches).length;
-  if (
-    dates.some((d) => d.matches !== null) ||
-    plan.value.disagreements.some((d) => d.kind === 'date')
-  )
-    return `${matched} of ${dates.length} are your plan's dates`;
-  return `Become your plan's dates in ${props.year}`;
+  if (!props.planDates.length) return `Become your plan's dates in ${props.year}`;
+  return `${dates.filter((d) => d.matches).length} of ${dates.length} are your plan's dates`;
 });
 
 const tiersNote = computed(() => {
   const tiers = plan.value.tiers;
-  if (!tiers.length) return '';
-  if (plan.value.disagreements.some((d) => d.kind === 'tier') || tiers.some((t) => t.matches))
-    return `${tiers.filter((t) => t.matches).length} of ${tiers.length} are your plan's tiers`;
-  return "Become your plan's tiers";
+  if (!props.planTiers.length) return "Become your plan's tiers";
+  return `${tiers.filter((t) => t.matches).length} of ${tiers.length} are your plan's tiers`;
 });
 
-function source(from: string): string {
-  return from === 'header' ? 'the grid of days' : 'answers that are dates';
+function disagreements(kind: DisagreementKind) {
+  return plan.value.disagreements
+    .filter((d) => d.kind === kind)
+    .map((d) => ({
+      target: kind,
+      value: d.value,
+      offered: kind === 'date' ? props.planDates : props.planTiers,
+    }));
 }
 
-function headerOf(row: LedgerRow): string {
-  return row.header.replace(/\s+/g, ' ').trim();
+function settledAs(kind: string, value: string): string {
+  return props.draft.settled[kind as DisagreementKind]?.[value] ?? '';
+}
+
+function offeredLabel(kind: string, choice: string): string {
+  return kind === 'date' ? (getFormattedDate(choice) ?? choice) : choice;
+}
+
+function onSettle(kind: string, value: string, choice: string) {
+  emit('settle', kind as DisagreementKind, value, choice);
 }
 </script>
 
@@ -94,24 +148,51 @@ function headerOf(row: LedgerRow): string {
         <tr
           v-if="plan.dates.length"
           data-testid="proposal-plan-dates"
-          :class="{ checking: plan.disagreements.some((d) => d.kind === 'date') }"
+          :class="{ checking: planChecks.dates }"
         >
           <td>
             <strong>Market dates</strong>
-            <div class="muted">from {{ source(plan.dates[0].from) }}</div>
+            <div class="muted">from {{ sources(plan.dates) }}</div>
           </td>
-          <td>{{ plan.dates.map(dateLabel).join(' · ') }}</td>
-          <td>{{ datesNote }}</td>
+          <td>{{ plan.dates.map((d) => d.text).join(' · ') }}</td>
+          <td>
+            <div class="becomes">
+              <div>{{ datesNote }}</div>
+              <ValueFixes
+                v-if="disagreements('date').length"
+                :entries="disagreements('date')"
+                :resolution-for="settledAs"
+                :label-for="offeredLabel"
+                against="your plan"
+                @resolve="onSettle"
+              />
+            </div>
+          </td>
         </tr>
-        <tr v-if="plan.tiers.length" data-testid="proposal-plan-tiers">
+        <tr
+          v-if="plan.tiers.length"
+          data-testid="proposal-plan-tiers"
+          :class="{ checking: planChecks.tiers }"
+        >
           <td>
             <strong>Tiers, best first</strong>
             <div class="muted">from the grid's answers</div>
           </td>
           <td>{{ plan.tiers.map((t) => t.name).join(' · ') }}</td>
-          <td>{{ tiersNote }}</td>
+          <td>
+            <div class="becomes">
+              <div>{{ tiersNote }}</div>
+              <ValueFixes
+                v-if="disagreements('tier').length"
+                :entries="disagreements('tier')"
+                :resolution-for="settledAs"
+                against="your plan"
+                @resolve="onSettle"
+              />
+            </div>
+          </td>
         </tr>
-        <tr data-testid="proposal-plan-ceiling" :class="{ checking: plan.check.length }">
+        <tr data-testid="proposal-plan-ceiling" :class="{ checking: planChecks.ceiling }">
           <td>
             <strong>Most days one vendor may get</strong>
             <div class="muted">an assignment rule</div>
@@ -124,15 +205,17 @@ function headerOf(row: LedgerRow): string {
             <span v-else class="muted">No limit stated</span>
           </td>
           <td>
-            <div v-if="plan.ceiling">Becomes the most days per vendor</div>
-            <div v-else class="muted">Nothing to write</div>
-            <span
-              v-for="reason in plan.check"
-              :key="reason"
-              class="chip chip--attention"
-              data-testid="proposal-check"
-              >{{ reason }}</span
-            >
+            <div class="becomes">
+              <div v-if="plan.ceiling">Becomes the most days per vendor</div>
+              <div v-else class="muted">Nothing to write</div>
+              <span
+                v-for="reason in plan.check"
+                :key="reason"
+                class="chip chip--attention"
+                data-testid="proposal-check"
+                >{{ reason }}</span
+              >
+            </div>
           </td>
         </tr>
 
@@ -146,9 +229,9 @@ function headerOf(row: LedgerRow): string {
           :data-fate="row.fate"
           :class="{ checking: row.check.length, out: row.fate === 'left_out' }"
         >
-          <td class="column">
-            <div class="header-text" :title="headerOf(row)" data-testid="proposal-row-header">
-              {{ headerOf(row) }}
+          <td>
+            <div class="header-text" :title="oneLine(row.header)" data-testid="proposal-row-header">
+              {{ oneLine(row.header) }}
             </div>
             <div v-if="row.members.length > 1" class="muted" data-testid="proposal-row-members">
               {{ row.members.length }} columns: {{ row.members.join(' · ') }}
@@ -161,31 +244,92 @@ function headerOf(row: LedgerRow): string {
           </td>
           <td>
             <div class="becomes">
-              <div>
-                <strong data-testid="proposal-row-fate">{{ FATE_LABELS[row.fate] }}</strong>
-                <span v-if="row.essential">: {{ essentialLabel(row.essential) }}</span>
-              </div>
+              <select
+                class="field field--select fate"
+                :value="targetOf(row)"
+                :aria-label="`What ${oneLine(row.header)} becomes`"
+                data-testid="proposal-row-fate"
+                @change="chooseFate(row, $event)"
+              >
+                <optgroup label="Who applied">
+                  <option
+                    v-for="who in WHO_APPLIED"
+                    :key="who.target"
+                    :value="who.target"
+                    :disabled="takenBy(draft, who.target, first(row)) !== null"
+                  >
+                    {{ who.label }}{{ takenNote(who.target, row) }}
+                  </option>
+                </optgroup>
+                <optgroup label="An essential question">
+                  <option
+                    v-for="key in ESSENTIAL_KEYS"
+                    :key="key"
+                    :value="`essential:${key}`"
+                    :disabled="takenBy(draft, `essential:${key}`, first(row)) !== null"
+                  >
+                    Essential: {{ essentialLabel(key) }}{{ takenNote(`essential:${key}`, row) }}
+                  </option>
+                </optgroup>
+                <option value="custom" :disabled="!row.field">Your question</option>
+                <option value="left_out">Left out</option>
+              </select>
+
               <div v-if="row.fate === 'custom' && row.field" class="field-line">
-                {{ typeLabel(row.field.type) }}
-                <span class="muted">·</span>
-                {{ row.field.required ? 'Required' : 'Optional' }}
+                <select
+                  class="field field--select type"
+                  :value="row.field.type"
+                  aria-label="Question type"
+                  data-testid="proposal-row-type"
+                  @change="chooseType(row, $event)"
+                >
+                  <option v-for="type in FIELD_TYPES" :key="type.value" :value="type.value">
+                    {{ typeLabel(type.value) }}
+                  </option>
+                </select>
+                <label class="required">
+                  <input
+                    type="checkbox"
+                    :checked="row.field.required"
+                    data-testid="proposal-row-required"
+                    @change="
+                      emit('correct', first(row), {
+                        required: ($event.target as HTMLInputElement).checked,
+                      })
+                    "
+                  />
+                  Required
+                </label>
               </div>
+
               <div
                 v-if="row.fate === 'custom' && row.field?.options.length"
                 class="options"
                 data-testid="proposal-row-options"
               >
-                <span
+                <label
                   v-for="option in row.field.options"
                   :key="option.value"
                   class="option"
-                  :class="{ off: !option.keep }"
-                  >{{ option.value }} <span class="muted">{{ option.count }}</span></span
+                  :class="{ rare: option.rare }"
+                  data-testid="proposal-option"
                 >
+                  <input
+                    type="checkbox"
+                    :checked="option.keep"
+                    @change="emit('toggle', first(row), option.value)"
+                  />
+                  {{ option.value }}
+                  <span class="muted">{{
+                    option.rare ? `chosen by ${option.count} - keep?` : option.count
+                  }}</span>
+                </label>
                 <span v-if="row.field.unlistedOptions" class="muted"
-                  >and {{ row.field.unlistedOptions }} one-off answers</span
+                  >and {{ row.field.unlistedOptions }} one-off answers, which the form builder can
+                  add</span
                 >
               </div>
+
               <div class="muted">{{ row.why }}</div>
               <span
                 v-for="reason in row.check"
@@ -240,7 +384,7 @@ function headerOf(row: LedgerRow): string {
       <button
         type="button"
         class="btn btn--primary"
-        :disabled="!canConfirm"
+        :disabled="busy"
         data-testid="proposal-confirm"
         @click="emit('confirm')"
       >
@@ -249,6 +393,7 @@ function headerOf(row: LedgerRow): string {
       <button
         type="button"
         class="btn btn--secondary"
+        :disabled="busy"
         data-testid="proposal-cancel"
         @click="emit('cancel')"
       >
@@ -283,11 +428,11 @@ function headerOf(row: LedgerRow): string {
 }
 
 .ledger thead th:first-child {
-  width: 36%;
+  width: 34%;
 }
 
 .ledger thead th:nth-child(2) {
-  width: 24%;
+  width: 22%;
 }
 
 .ledger td {
@@ -328,14 +473,48 @@ function headerOf(row: LedgerRow): string {
   gap: var(--space-2);
 }
 
+/* A field primitive is full width by default; in a ledger cell it is as wide as its words. */
+.becomes .fate {
+  width: auto;
+  max-width: 100%;
+}
+
+.field-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.field-line .type {
+  width: auto;
+  min-width: 160px;
+}
+
+.required {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+/* The box, the option and its count on one baseline; a long option wraps, its count never splits. */
+.option {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.option .muted {
+  white-space: nowrap;
+}
+
 .options {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-3);
 }
 
-/* Not kept yet: a rare option waits for the organizer, so it is quieter, not crossed out. */
-.option.off {
+.option.rare {
   color: var(--mm-text-muted);
 }
 

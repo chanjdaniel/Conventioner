@@ -39,6 +39,19 @@ export class StartFromCsvPage {
     this.cancel = page.getByTestId('proposal-cancel');
   }
 
+  /** The ledger row whose column header starts with `header`. */
+  row(header: string): Locator {
+    const starts = new RegExp(`^\\s*${header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+    return this.rows.filter({
+      has: this.page.getByTestId('proposal-row-header').filter({ hasText: starts }),
+    });
+  }
+
+  async count(which: 'to-check' | 'custom' | 'left-out' | 'essential'): Promise<number> {
+    const id = which === 'to-check' ? 'proposal-to-check' : `proposal-count-${which}`;
+    return Number(await this.page.getByTestId(id).innerText());
+  }
+
   async open(marketId: string) {
     await this.page.goto(`/markets/${marketId}/start-from-csv`);
     await expect(this.view).toBeVisible();
