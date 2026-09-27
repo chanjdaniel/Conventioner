@@ -118,6 +118,9 @@
      banner itself, and nothing else could know it - so the market frame, which sticks directly
      beneath the banner, would have had to measure it with a script. The same value, now named. */
   --banner-h: clamp(30px, 5vh, 100px);
+  /* The market frame's pinned block (bar, phase rail, page row): measured by MarketFrame and set on
+     its card, so a screen's own sticky column can sit under it. Zero outside a frame. */
+  --market-frame-h: 0px;
   /* A screen of cards (E23/F01/S01, `.card-grid` in primitives.css): the gap between cards, and the
      room below which two tracks become one. */
   --card-grid-gap: var(--space-8);

@@ -18,3 +18,6 @@ Order: F01/S01 (done, PR #85), F02/S01, F02/S02, F02/S03, F03/S01, F03/S02, F03/
   Live-checked once with synthetic text only: the HTTP shape works.
 - F02/S03 reviewed and fixed: both questions now send exactly the state ticket 04 measured, and no value at all (a number range had leaked one applicant's answer).
   A header holding contact details is never sent.
+- F03/S01 built: `/markets/:id/start-from-csv` (`StartFromCsvView`, `ProposalLedger`, `utils/csvProposal.ts`).
+  `MarketFrame` now publishes its pinned height as `--market-frame-h`, declared in `base.css`, so a screen's own column can stick under it.
+  Playwright walks all five fixtures; screenshots at 1920 and 1280 checked, and three layout faults fixed.

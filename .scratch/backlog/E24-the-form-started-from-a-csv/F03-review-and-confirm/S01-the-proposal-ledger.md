@@ -2,7 +2,7 @@
 id: E24/F03/S01
 title: The proposal ledger
 type: story
-status: ready
+status: in-progress
 blocked_by: [E24/F02/S01, E24/F02/S02]
 pr: []
 ---
@@ -22,9 +22,9 @@ Back, Cancel and leaving write nothing, and a reload keeps the organizer on the 
 
 ## Acceptance criteria
 
-- [ ] On each `F01` fixture, every column appears once, in file order, saying what it becomes; a grid is one row.
-- [ ] The rows to check are exactly those the proposal marked, and the rail's count matches them.
-- [ ] The year dialog opens on the fitting year for every fixture with dates, and does not open for one without.
-- [ ] Leaving at any step writes nothing: the market reads back unchanged.
-- [ ] It meets the design language at 1920x1080 and 1280x800: tokens and primitives only, no scroller of its own, the rail sticking under the market frame; the design-language lint lists its files.
-- [ ] Playwright: upload a fixture, answer the year, and see the ledger, from a draft market's address.
+- [x] On each `F01` fixture, every column appears once, in file order, saying what it becomes; a grid is one row.
+- [x] The rows to check are exactly those the proposal marked, and the rail's count matches them.
+- [x] The year dialog opens on the fitting year for every fixture with dates, and does not open for one without.
+- [x] Leaving at any step writes nothing: the market reads back unchanged.
+- [x] It meets the design language at 1920x1080 and 1280x800: tokens and primitives only, no scroller of its own, the rail sticking under the market frame; the design-language lint lists its files.
+- [x] Playwright: upload a fixture, answer the year, and see the ledger, from a draft market's address.
