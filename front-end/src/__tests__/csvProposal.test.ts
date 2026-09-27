@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  confirmChoices,
   correct,
   dateInYear,
   draftFrom,
@@ -235,6 +236,27 @@ describe('the working copy', () => {
     setCeiling(draft, 2);
     expect(proposalCounts(p, draft).toCheck).toBe(0);
     expect(draft.ceiling.days).toBe(2);
+  });
+
+  it('sends confirm the options kept in the reading the row now uses', () => {
+    const p = proposal([choiceColumn(0)]);
+    const draft = draftFrom(p);
+    correct(draft, 0, { type: 'multi_select' });
+    setCeiling(draft, 3);
+    expect(confirmChoices(draft)).toEqual({
+      rows: [
+        {
+          column: 0,
+          fate: 'custom',
+          essential: null,
+          type: 'multi_select',
+          required: false,
+          kept: ['Pottery', 'Zines'],
+        },
+      ],
+      settled: {},
+      ceiling: 3,
+    });
   });
 
   it('loses its check mark once corrected, and the counts follow', () => {

@@ -17,6 +17,7 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import ProposalLedger from '@/components/csvProposal/ProposalLedger.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import {
+  confirmChoices,
   correct,
   draftFrom,
   initialYear,
@@ -148,6 +149,29 @@ function onSettle(kind: DisagreementKind, value: string, choice: string) {
   settle(draft, kind, value, choice);
 }
 
+/**
+ * Write it all: the server reads the file once more with the organizer's choices, writes the plan
+ * facts, the form, the ceiling and the mapping in one update, or nothing. Then the market is
+ * re-read, as after every write, and the organizer lands on the form they now have.
+ */
+async function confirm() {
+  step.value = 'confirming';
+  error.value = '';
+  try {
+    await api.post(`/markets/${marketId.value}/csv-proposal/confirm`, {
+      csvContent: csvContent.value,
+      year: proposal.value?.plan.dates.length ? year.value : null,
+      ...confirmChoices(draft),
+    });
+    csvContent.value = '';
+    await refresh();
+    void router.push(marketPath(marketId.value, 'form'));
+  } catch (e) {
+    error.value = getApiErrorMessage(e, 'The form and plan could not be created.');
+    step.value = 'review';
+  }
+}
+
 function leave() {
   void router.push(marketPath(marketId.value, 'setup'));
 }
@@ -229,7 +253,7 @@ function leave() {
         <p class="help">{{ fileName }}</p>
       </section>
 
-      <template v-else-if="proposal">
+      <template v-else-if="proposal && (step === 'review' || step === 'confirming')">
         <p class="help">
           Here is what each column of your form's responses would become. Rows with a yellow edge
           are the ones worth a second look.
@@ -246,6 +270,7 @@ function leave() {
           @settle="onSettle"
           @ceiling="(days: number | null) => setCeiling(draft, days)"
           @cancel="leave"
+          @confirm="confirm"
         />
       </template>
     </div>

@@ -3,6 +3,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
+import { CsvImportPage } from './pages/CsvImportPage';
+import { transitionMarket } from './helpers/seedPhaseMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { marketSetupPath } from './helpers/marketScreens';
 
@@ -181,5 +183,36 @@ test.describe('Start from your Google Form', () => {
     await expect(rare.locator('input')).toBeChecked();
     await expect(student.getByTestId('proposal-check')).toHaveCount(0);
     await expect(flow.toCheck).toHaveText(String(toCheck - 3));
+  });
+
+  test('the seam: confirm, open applications, and the import of the same file asks nothing', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const flow = new StartFromCsvPage(page);
+    await flow.open(marketId);
+    await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
+    await flow.answerYear();
+    await page.getByTestId('proposal-confirm').click();
+
+    // Landed on the form, with the organizer's own questions in the file's order.
+    await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+    await expect(page.getByText('Are you a UBC student or alumni?').first()).toBeVisible();
+
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+    const importer = new CsvImportPage(page);
+    await importer.open({ id: marketId });
+    await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));
+    await expect(importer.restoredBanner).toBeVisible();
+    await expect(importer.allMapped).toBeVisible();
+    await expect(importer.restoredNew).toHaveCount(0);
+    await expect(importer.valueFixes).toHaveCount(0);
+    await expect(importer.unresolvedWarning).toHaveCount(0);
   });
 });

@@ -216,7 +216,7 @@ def column_groups(headers: Sequence[str]) -> List[ColumnGroup]:
     return [found[stem] for stem in order if len(found[stem].columns) > 1]
 
 
-def _normalize(value: str) -> str:
+def normalize_value(value: str) -> str:
     """The form in which two values are "the same" for matching purposes.
 
     Space and capitalisation are noise here: a form answer of " gold " and a tier named "Gold" are
@@ -324,15 +324,15 @@ def resolve_value(
     if not text:
         return None, True
 
-    normalized = _normalize(text)
+    normalized = normalize_value(text)
     for candidate in offered:
-        if _normalize(candidate) == normalized:
+        if normalize_value(candidate) == normalized:
             return candidate, True
 
     if text in resolutions:
         return resolutions[text], True
     for key, value in resolutions.items():
-        if _normalize(key) == normalized:
+        if normalize_value(key) == normalized:
             return value, True
     return None, False
 
@@ -1136,6 +1136,19 @@ def save_mapping(
     resolutions: Dict[str, Dict[str, Optional[str]]],
 ) -> None:
     """Store the mapping by header text, for the next import to restore."""
+    markets_collection.update_one(
+        {"id": market_id},
+        {"$set": {market_doc_key("import_mapping"): mapping_payload(headers, resolved, resolutions)}},
+    )
+
+
+def mapping_payload(
+    headers: Sequence[str],
+    resolved: Dict[str, List[int]],
+    resolutions: Dict[str, Dict[str, Optional[str]]],
+) -> Dict[str, Any]:
+    """A mapping as it is stored: by header text, never position. The one format there is - the
+    import saves it, and a market started from a CSV saves the same thing (E24/F03/S03)."""
     mapping = ImportMapping(
         targets={
             key: [str(headers[index]).strip() for index in indexes if index < len(headers)]
@@ -1146,8 +1159,4 @@ def save_mapping(
         saved_at=datetime.now(timezone.utc).isoformat(),
     )
     dumped = mapping.model_dump()
-    payload = {camel: dumped[snake] for snake, camel in _MAPPING_FIELDS.items()}
-    markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {market_doc_key("import_mapping"): payload}},
-    )
+    return {camel: dumped[snake] for snake, camel in _MAPPING_FIELDS.items()}

@@ -25,3 +25,7 @@ Order: F01/S01 (done, PR #85), F02/S01, F02/S02, F02/S03, F03/S01, F03/S02, F03/
 - F03/S02 built: the working copy (`draftFrom`, `correct`, `toggleOption`, `settle`, `takenBy` in `utils/csvProposal.ts`) and the ledger's controls.
   The import's value-fix control is now `components/ValueFixes.vue`, used by the import and the ledger alike.
   The server sends each question's options for both choice types, so one choice turned into several re-reads the answers.
+- F02/S02 review fixes (options per reading, live not-asked, ceiling control, grid rows) committed.
+- F03/S03 built: `back-end/csv_start.py` and `POST /markets/:id/csv-proposal/confirm`; the view confirms and lands on the Application Form tab.
+  The seam holds end to end: the import of the same fixture restores every column and asks about no value.
+  Found and fixed on the way: the import's rail did not count a tier grid as answering availability.

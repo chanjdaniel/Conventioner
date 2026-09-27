@@ -191,19 +191,24 @@ const ledgerRows = computed(() => {
 });
 
 const requiredTargets = computed(() => targets.value.filter((t) => t.required));
-const mappedKeys = computed(
-  () =>
-    new Set(
-      [
-        ...Object.entries(columnTarget.value)
-          .filter(([index]) => !groupedColumns.value.has(Number(index)))
-          .map(([, key]) => key)
-          // The ledger's dead-end sentinel is not a target; it must not satisfy a required question.
-          .filter((key) => key !== NEEDS_A_FIELD),
-        ...activeGroups.value.map((g) => groupTarget.value[g.stem]),
-      ].filter(Boolean),
-    ),
-);
+const mappedKeys = computed(() => {
+  const keys = new Set(
+    [
+      ...Object.entries(columnTarget.value)
+        .filter(([index]) => !groupedColumns.value.has(Number(index)))
+        .map(([, key]) => key)
+        // The ledger's dead-end sentinel is not a target; it must not satisfy a required question.
+        .filter((key) => key !== NEEDS_A_FIELD),
+      ...activeGroups.value.map((g) => groupTarget.value[g.stem]),
+    ].filter(Boolean),
+  );
+  // A per-date tier grid answers availability too: the days a vendor named tiers for are the days
+  // they can come. The server's `unserved_required` says so, and the rail must agree with it, or a
+  // real form's grid - the shape every Google Form export has - reads as missing a question.
+  if (activeGroups.value.some((g) => groupTarget.value[g.stem] === TIER_PREFERENCE_KEY))
+    keys.add(AVAILABLE_DATES_KEY);
+  return keys;
+});
 
 /** What shape a mapped target is being read from, said plainly so a wrong guess is visible. */
 function shapeLabel(group: ColumnGroup): string {

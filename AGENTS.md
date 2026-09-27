@@ -297,10 +297,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `back-end/api/markets.py`. A market's application form is editable only in `draft` phase
   and only while no application exists for it; once an applicant has submitted, the form is
   frozen for good.
-- **`Market.application_form` has one writer on an existing market:** `PUT
-  /markets/<id>/application-form`, which is what makes the lock unbypassable. Do not add a second
-  (the whole-market PUT that was one is deleted, E21/F03/S06). `POST /markets` may carry a form,
-  and it runs through the same validator.
+- **`Market.application_form` is written through one judgement:** `prepared_application_form`
+  (`api/markets.py`) - the lock and the validator - which `PUT /markets/<id>/application-form` writes
+  alone and the CSV start's confirm writes in one update with the plan and the mapping. That shared
+  judgement is what makes the lock unbypassable; do not add a writer that skips it (the whole-market
+  PUT that did is deleted, E21/F03/S06). `POST /markets` may carry a form, and it runs through the
+  same validator. `prepared_plan` is the plan write's equivalent.
 - E2E reaches the locked state with `seedApplication()`
   (`front-end/e2e/helpers/seedApplication.ts`), which writes the document straight into Mongo
   via `mongosh`, because no applicant-facing submit endpoint exists yet.
@@ -661,6 +663,22 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   where it stopped and offers to finish.
 - The form is still written by `save_application_form` in `draft`, so the D9 lock stays
   unbypassable. The chain is ADMIN, because it moves phases.
+
+## Starting a Form from a CSV (Conventioner sharp edge)
+
+- **A draft can be started from its Google Form's responses** (E24): `POST /markets/:id/csv-proposal`
+  returns a **proposal** (`back-end/csv_proposal.py`) and writes nothing; `.../csv-proposal/confirm`
+  (`back-end/csv_start.py`) writes the plan facts, the form, the ceiling and the import mapping in
+  ONE conditioned update, or nothing. The file is sent twice and stored never.
+- **The proposal writes the import's own mapping, and there is one mapping format**
+  (`csv_import.mapping_payload`). The first import of a later export restores every column and
+  matches every value; a value fewer than 3 applicants gave, which the proposal never offered, is
+  saved as ignored. Do not give the proposal a mapping shape of its own.
+- **What may be sent to hosted TypeSafe is ticket 01's rule, narrowed to what ticket 04 measured**
+  (`typesafe_client.py`): a heading, how many answered, how many are distinct, and a shape - never
+  a value. The key is optional and never a boot requirement.
+- The rules are held to the hand-written answer key on the five anonymised exports
+  (`tests/test_csv_proposal.py`); change a rule against that, not beside it.
 
 ## Agent skills
 
