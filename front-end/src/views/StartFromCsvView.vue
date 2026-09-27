@@ -79,6 +79,10 @@ const planTiers = computed(() =>
   (market.value?.setupObject?.tiers ?? []).map((t) => t.name).filter(Boolean),
 );
 
+const planCeiling = computed(
+  () => market.value?.setupObject?.assignmentOptions?.maxAssignmentsPerVendor ?? null,
+);
+
 const columnCount = computed(() => proposal.value?.columns.length ?? 0);
 
 async function onFileChosen(event: Event) {
@@ -106,6 +110,8 @@ async function acceptFile(file: File | undefined) {
     });
     proposal.value = data;
     Object.assign(draft, draftFrom(data));
+    // The plan's own ceiling wins, so there is nothing to check about the file's.
+    if (planCeiling.value) setCeiling(draft, planCeiling.value);
     year.value = initialYear(data.plan);
     step.value = 'review';
     if (data.plan.dates.length) openYear();
@@ -264,6 +270,7 @@ function leave() {
           :year="year"
           :plan-dates="planDates"
           :plan-tiers="planTiers"
+          :plan-ceiling="planCeiling"
           :busy="step === 'confirming'"
           @correct="onCorrect"
           @toggle="onToggle"

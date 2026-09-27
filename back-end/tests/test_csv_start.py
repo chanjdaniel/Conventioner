@@ -139,3 +139,34 @@ def test_the_import_skips_a_saved_target_whose_question_was_deleted():
     restored, missing, _new = CsvImport.restore_mapping(
         headers, CsvImport.stored_mapping(after), CsvImport.import_targets(after))
     assert deleted["key"] not in restored and missing == []
+
+
+def test_a_plan_that_already_has_a_ceiling_keeps_it():
+    doc = _draft(setupObject={"priority": [], "locations": [], "sections": [], "marketDates": [],
+                              "tiers": [], "assignmentOptions": {"maxAssignmentsPerVendor": 4}})
+    update = CsvStart.confirmed_update(doc, _csv("spring-2024"), {"year": 2024, "ceiling": 3})
+    assert update["setupObject"]["assignmentOptions"]["maxAssignmentsPerVendor"] == 4
+
+
+def test_a_choice_with_no_option_kept_becomes_a_question_answered_in_words():
+    update = CsvStart.confirmed_update(_draft(), _csv("spring-2024"), {"year": 2024, "rows": [
+        {"column": 16, "type": "select", "kept": []}]})
+    club = next(f for f in update["applicationForm"]["fields"] if f["key"].startswith("which_clubs"))
+    assert club["type"] == "text" and club["options"] == []
+
+
+def test_an_unsettled_day_the_plan_lacks_is_left_for_the_import_to_ask():
+    doc = _draft(setupObject={"priority": [], "locations": [], "sections": [], "tiers": [],
+                              "assignmentOptions": {},
+                              "marketDates": [{"date": "2025-11-17"}, {"date": "2025-11-18"}]})
+    update = CsvStart.confirmed_update(doc, _csv("fall-2025"), {"year": 2025})
+    tiers = update["importMapping"]["resolutions"][EssentialFields.TIER_PREFERENCE_KEY]
+    assert tiers["Monday, November 17"] == "2025-11-17"
+    assert "Wednesday, November 19" not in tiers
+
+
+def test_a_legacy_draft_with_no_phase_is_written_under_its_own_shape():
+    doc = _draft()
+    del doc["phase"]
+    condition = CsvStart.still_startable(doc)
+    assert condition["phase"] == {"$exists": False} and condition["id"] == "market-1"

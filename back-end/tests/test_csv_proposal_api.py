@@ -45,6 +45,10 @@ def _matches(doc, query):
             if not any(_matches(doc, branch) for branch in expected):
                 return False
             continue
+        if key == "$and":
+            if not all(_matches(doc, branch) for branch in expected):
+                return False
+            continue
         value = _field(doc, key)
         if isinstance(expected, dict) and "$exists" in expected:
             if (value is not _MISSING) != expected["$exists"]:

@@ -30,3 +30,4 @@ Order: F01/S01 (done, PR #85), F02/S01, F02/S02, F02/S03, F03/S01, F03/S02, F03/
   The seam holds end to end: the import of the same fixture restores every column and asks about no value.
   Found and fixed on the way: the import's rail did not count a tier grid as answering availability.
 - F04/S01 built: the new-market dialog asks how to start; "I already have a Google Form" stores CSV intake and lands on Upload.
+- F03/S03 reviewed and fixed: the plan keeps its own ceiling, a choice with nothing kept becomes a text question, value fixes are scoped to their targets, an unsettled plan disagreement is left for the import, and the confirm writes under the canonical filter.
