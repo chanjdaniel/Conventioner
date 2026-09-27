@@ -76,7 +76,7 @@ NONE_WORDS = {"none", "n/a", "na", "not available", "unavailable", "-"}
 NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
 # The ceiling on days per vendor, as a form's instructions state it.
 CEILING = re.compile(
-    r"\b(?:up to|a maximum of|at most|no more than)\s+(\d+|one|two|three|four|five|six|seven)"
+    rf"\b(?:up to|a maximum of|at most|no more than)\s+(\d+|{'|'.join(NUMBER_WORDS)})"
     r"\s+(?:market\s+)?days?\b", re.IGNORECASE)
 # How far either side of the year the file was filled in a fitting year is looked for. Two
 # found exactly one in every corpus file; five found two in some.
@@ -459,15 +459,13 @@ def _plan(columns: List[_Column], decisions: List[Dict[str, Any]],
     The organizer's plan wins: where it already has dates or tiers, the file's are matched as the
     import matches values, and a difference comes back to settle, never to be added.
     """
-    setup = (market_doc_field(market_doc, "setup_object") or {}) if market_doc else {}
-    plan_dates = [d.get("date") for d in setup.get("marketDates") or [] if d.get("date")]
-    plan_tiers = [t.get("name") for t in setup.get("tiers") or [] if t.get("name")]
+    offering = EssentialFields.effective_essential_options(market_doc) if market_doc else None
+    plan_dates = list(offering.dates) if offering else []
+    plan_tiers = list(offering.tiers) if offering else []
 
     found = _dates(columns, decisions)
     for found_date in found:
-        found_date["matches"] = next(
-            (d for d in plan_dates if d[5:] == f"{found_date['month']:02d}-{found_date['day']:02d}"),
-            None)
+        found_date["matches"] = next((d for d in plan_dates if _same_day(found_date, d)), None)
     tiers = [{"name": name, "matches": resolve_value(name, plan_tiers, {})[0]}
              for name in _tiers(columns, decisions)]
 
@@ -483,6 +481,17 @@ def _plan(columns: List[_Column], decisions: List[Dict[str, Any]],
         "ceiling": _ceiling(columns),
         "disagreements": disagreements,
     }
+
+
+def _same_day(found: Dict[str, Any], plan_date: str) -> bool:
+    """A plan date is the file's day when month and day agree, and the weekday too if the file
+    states one: "Sunday, March 8" is not a plan's Saturday 8 March of another year."""
+    try:
+        day = date.fromisoformat(plan_date)
+    except ValueError:
+        return False
+    return (day.month, day.day) == (found["month"], found["day"]) and (
+        found["weekday"] is None or day.weekday() == found["weekday"])
 
 
 def _dates(columns: List[_Column], decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -574,7 +583,9 @@ def _ceiling(columns: List[_Column]) -> Optional[Dict[str, Any]]:
     """The most days one vendor may get, from the first header whose prose states it, with the
     sentence it came from. An assignment rule, not a plan card."""
     for index, column in enumerate(columns):
-        for sentence in re.split(r"(?<=[.?!])\s+", column.label):
+        lines = str(column.header).splitlines()
+        sentences = [s for line in lines for s in re.split(r"(?<=[.?!])\s+", line.strip())]
+        for sentence in sentences:
             match = CEILING.search(sentence)
             if match:
                 amount = match.group(1).lower()

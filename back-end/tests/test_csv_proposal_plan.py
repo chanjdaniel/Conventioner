@@ -82,7 +82,7 @@ def _tier_file(days, tiers_per_row):
 
 
 def test_weekdays_that_fit_no_year_propose_none():
-    # 17 March is never a Monday and a Tuesday at once.
+    # The same weekday on two consecutive days: no calendar has it.
     headers, rows = _tier_file(["Monday, March 17", "Monday, March 18"], ["Gold"] * 5)
     assert _proposal(headers, rows)["year"] is None
 
@@ -123,6 +123,23 @@ def test_the_plans_dates_are_matched_by_month_and_day():
     matches = {_month_day(d): d["matches"] for d in plan["dates"]}
     assert matches == {"03-07": "2026-03-07", "03-08": None}
     assert {"kind": "date", "value": "Sunday, March 8"} in plan["disagreements"]
+
+
+def test_a_plan_date_whose_weekday_disagrees_is_not_the_files_day():
+    # 8 March 2025 was a Saturday; the file says Sunday.
+    headers, rows = _tier_file(["Sunday, March 8"], ["Gold"] * 5)
+    plan = _proposal(headers, rows, _market_with(dates=["2025-03-08"]))
+    assert plan["dates"][0]["matches"] is None
+    assert {"kind": "date", "value": "Sunday, March 8"} in plan["disagreements"]
+
+
+def test_the_ceilings_sentence_stops_at_a_line_break():
+    headers = ["Timestamp", "Email Address",
+               "You may book up to 3 days\nWhich days can you come? [Saturday, March 7]",
+               "Which days can you come? [Sunday, March 8]"]
+    rows = [[f"1/{i + 1}/2026 9:00:00", f"p{i}@mail.test", "Gold", "Gold"] for i in range(5)]
+    ceiling = _proposal(headers, rows)["ceiling"]
+    assert ceiling["days"] == 3 and ceiling["sentence"] == "You may book up to 3 days"
 
 
 def test_a_plan_with_nothing_yet_takes_the_files_values_without_disagreeing():
