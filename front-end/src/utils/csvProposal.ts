@@ -115,12 +115,13 @@ export interface ProposalDraft {
   rows: Record<number, RowChoice>;
   /** A plan disagreement's value, per kind, to the plan's value it is, or IGNORE_VALUE. */
   settled: Partial<Record<DisagreementKind, Record<string, string>>>;
-  /** The most days one vendor may get: null for no limit. */
-  ceiling: { days: number | null; corrected: boolean };
+  /** The most days one vendor may get: null for no limit. `fromPlan` when the plan already had
+   * one, which wins and leaves nothing to check. */
+  ceiling: { days: number | null; corrected: boolean; fromPlan?: boolean };
 }
 
 /** The working copy as the proposal made it: nothing corrected, nothing settled. */
-export function draftFrom(proposal: Proposal): ProposalDraft {
+export function draftFrom(proposal: Proposal, planCeiling: number | null = null): ProposalDraft {
   const rows: Record<number, RowChoice> = {};
   for (const row of ledgerRows(proposal)) {
     const kept: RowChoice['kept'] = {};
@@ -140,7 +141,9 @@ export function draftFrom(proposal: Proposal): ProposalDraft {
   return {
     rows,
     settled: {},
-    ceiling: { days: proposal.plan.ceiling?.days ?? null, corrected: false },
+    ceiling: planCeiling
+      ? { days: planCeiling, corrected: false, fromPlan: true }
+      : { days: proposal.plan.ceiling?.days ?? null, corrected: false },
   };
 }
 
@@ -165,6 +168,12 @@ export function toggleOption(draft: ProposalDraft, row: number, value: string): 
 /** State the most days one vendor may get; null for no limit. */
 export function setCeiling(draft: ProposalDraft, days: number | null): void {
   draft.ceiling = { days, corrected: true };
+}
+
+/** A choice question the organizer kept no option of, which confirm makes a question answered in
+ * words (`csv_start._form`). */
+export function keepsNoOption(field: ProposedField): boolean {
+  return isChoice(field.type) && !field.options.some((o) => o.keep);
 }
 
 function isChoice(type: FieldType): type is ChoiceType {
@@ -339,7 +348,7 @@ export function planRowsToCheck(
   return {
     dates: unsettled('date'),
     tiers: unsettled('tier'),
-    ceiling: proposal.plan.check.length > 0 && !draft.ceiling.corrected,
+    ceiling: proposal.plan.check.length > 0 && !draft.ceiling.corrected && !draft.ceiling.fromPlan,
   };
 }
 

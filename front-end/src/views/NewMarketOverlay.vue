@@ -166,14 +166,14 @@ const handleSubmit = async () => {
       <label
         v-for="choice in STARTS"
         :key="choice.value"
-        class="start-choice"
+        class="choice-card"
         :class="{ chosen: start === choice.value }"
         :data-testid="`new-market-start-${choice.value}`"
       >
         <input v-model="start" type="radio" name="new-market-start" :value="choice.value" />
-        <span class="start-text">
-          <span>{{ choice.label }}</span>
-          <span class="start-help">{{ choice.help }}</span>
+        <span class="choice-card-text">
+          <span class="choice-card-label">{{ choice.label }}</span>
+          <span class="choice-card-help">{{ choice.help }}</span>
         </span>
       </label>
     </fieldset>
@@ -194,34 +194,9 @@ const handleSubmit = async () => {
   gap: var(--space-2);
 }
 
-.start-choice {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-}
-
-.start-choice.chosen {
-  border-color: var(--mm-green);
-}
-
-.start-choice input {
-  margin-top: var(--space-hairline);
-}
-
-.start-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-hairline);
-  font-size: var(--text-sm);
-}
-
-.start-help {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+/* A legend is inset by the browser; this one lines up with the labels above it. */
+.starts legend {
+  padding: 0;
 }
 
 .error-message {

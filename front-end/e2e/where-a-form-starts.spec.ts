@@ -105,6 +105,22 @@ test.describe("Start from a draft's Market Setup", () => {
     await expect(flow.upload).toHaveCount(0);
   });
 
+  test('a market out of draft is refused, and says why', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedPhaseMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+    await page.goto(marketSetupPath(marketId));
+    await expect(page.getByTestId('plan-start-from-csv-disabled')).toBeDisabled();
+    await expect(page.getByTestId('plan-start-from-csv-reason')).toContainText('Only a draft');
+  });
+
   test('a market whose vendors apply on its page keeps doing so', async ({
     authenticatedPage: page,
     request,
@@ -115,8 +131,7 @@ test.describe("Start from a draft's Market Setup", () => {
       BACKEND_URL,
       TEST_USER.email,
       TEST_USER.password,
-      name,
-      'form',
+      { name, intakeMode: 'form' },
     );
     await page.goto(marketSetupPath(marketId));
     await page.getByTestId('plan-start-from-csv-link').click();

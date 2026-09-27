@@ -16,9 +16,9 @@ export async function seedDraftMarket(
   baseURL: string,
   email: string,
   password: string,
-  name = `E2E Draft ${Date.now()}`,
-  intakeMode?: 'csv' | 'form',
+  options: { name?: string; intakeMode?: 'csv' | 'form' } = {},
 ): Promise<DraftMarketSeed> {
+  const { name = `E2E Draft ${Date.now()}`, intakeMode } = options;
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
   const createRes = await request.post(`${baseURL}/markets`, {
