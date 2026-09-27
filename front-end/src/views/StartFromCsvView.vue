@@ -20,6 +20,7 @@ import {
   correct,
   draftFrom,
   initialYear,
+  setCeiling,
   settle,
   toggleOption,
   weekdayNote,
@@ -46,7 +47,11 @@ const fileName = ref('');
 const csvContent = ref('');
 const proposal = ref<Proposal | null>(null);
 /** The organizer's corrections: the proposal's working copy, and nothing else holds it. */
-const draft = reactive<ProposalDraft>({ rows: {}, settled: {} });
+const draft = reactive<ProposalDraft>({
+  rows: {},
+  settled: {},
+  ceiling: { days: null, corrected: false },
+});
 const year = ref(new Date().getFullYear());
 const yearOpen = ref(false);
 const yearDraft = ref('');
@@ -239,6 +244,7 @@ function leave() {
           @correct="onCorrect"
           @toggle="onToggle"
           @settle="onSettle"
+          @ceiling="(days: number | null) => setCeiling(draft, days)"
           @cancel="leave"
         />
       </template>

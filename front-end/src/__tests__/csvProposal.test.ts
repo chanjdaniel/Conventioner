@@ -4,6 +4,8 @@ import {
   dateInYear,
   draftFrom,
   draftRows,
+  notAsked,
+  setCeiling,
   settle,
   takenBy,
   toggleOption,
@@ -198,6 +200,41 @@ describe('the working copy', () => {
       'Pottery',
       'Zines',
     ]);
+  });
+
+  it('unticks an option kept by default after one choice is turned into several', () => {
+    const p = proposal([choiceColumn(0)]);
+    const draft = draftFrom(p);
+    correct(draft, 0, { type: 'multi_select' });
+    toggleOption(draft, 0, 'Zines');
+    const kept = draftRows(p, draft)[0]
+      .field?.options.filter((o) => o.keep)
+      .map((o) => o.value);
+    expect(kept).toEqual(['Pottery']);
+    // And back: one choice keeps what it kept.
+    correct(draft, 0, { type: 'select' });
+    expect(
+      draftRows(p, draft)[0]
+        .field?.options.filter((o) => o.keep)
+        .map((o) => o.value),
+    ).toEqual(['Pottery', 'Pottery, Zines', 'Zines']);
+  });
+
+  it('lists as not asked every essential question no column answers now', () => {
+    const p = proposal([column(0, { fate: 'essential', essential: 'essential_full_name' })]);
+    const draft = draftFrom(p);
+    expect(notAsked(p, draft).map((q) => q.key)).not.toContain('essential_full_name');
+    correct(draft, 0, { fate: 'left_out' });
+    expect(notAsked(p, draft).map((q) => q.key)).toContain('essential_full_name');
+  });
+
+  it("clears the ceiling's check once the organizer states it", () => {
+    const p = proposal([], { check: ["Couldn't reach TypeSafe"] });
+    const draft = draftFrom(p);
+    expect(proposalCounts(p, draft).toCheck).toBe(1);
+    setCeiling(draft, 2);
+    expect(proposalCounts(p, draft).toCheck).toBe(0);
+    expect(draft.ceiling.days).toBe(2);
   });
 
   it('loses its check mark once corrected, and the counts follow', () => {

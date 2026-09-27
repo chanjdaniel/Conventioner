@@ -3,6 +3,11 @@ import { mount } from '@vue/test-utils';
 import ProposalLedger from '@/components/csvProposal/ProposalLedger.vue';
 import { draftFrom, type Proposal, type ProposedColumn } from '@/utils/csvProposal';
 
+const OPTIONS = [
+  { value: 'Yes', count: 8, rare: false, keep: true },
+  { value: 'Maybe', count: 2, rare: true, keep: false },
+];
+
 function column(index: number, overrides: Partial<ProposedColumn> = {}): ProposedColumn {
   return {
     index,
@@ -21,13 +26,10 @@ function column(index: number, overrides: Partial<ProposedColumn> = {}): Propose
       helpText: null,
       type: 'select',
       required: false,
-      options: [
-        { value: 'Yes', count: 8, rare: false, keep: true },
-        { value: 'Maybe', count: 2, rare: true, keep: false },
-      ],
+      options: OPTIONS,
       unlistedOptions: 0,
       upload: false,
-      optionsByType: {},
+      optionsByType: { select: { options: OPTIONS, unlisted: 0 } },
     },
     ...overrides,
   };
@@ -87,7 +89,7 @@ describe('the proposal ledger', () => {
 
   it("settles a tier the plan does not have with the import's own fix", async () => {
     const wrapper = ledger();
-    await wrapper.find('[data-testid="import-fix-Bronze"]').setValue('Silver');
+    await wrapper.find('[data-testid="proposal-fix-Bronze"]').setValue('Silver');
     expect(wrapper.emitted('settle')?.[0]).toEqual(['tier', 'Bronze', 'Silver']);
   });
 });
