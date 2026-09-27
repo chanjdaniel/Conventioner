@@ -65,6 +65,8 @@ services:
       - DISABLE_EMAIL=${DISABLE_EMAIL:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Optional: hosted TypeSafe helps read a Google Form's CSV. Unset means the rules alone.
+      - TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-}
     ports:
       - "5000:5000"
     volumes:
