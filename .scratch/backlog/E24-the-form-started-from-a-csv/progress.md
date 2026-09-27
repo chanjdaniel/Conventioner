@@ -29,3 +29,4 @@ Order: F01/S01 (done, PR #85), F02/S01, F02/S02, F02/S03, F03/S01, F03/S02, F03/
 - F03/S03 built: `back-end/csv_start.py` and `POST /markets/:id/csv-proposal/confirm`; the view confirms and lands on the Application Form tab.
   The seam holds end to end: the import of the same fixture restores every column and asks about no value.
   Found and fixed on the way: the import's rail did not count a tier grid as answering availability.
+- F04/S01 built: the new-market dialog asks how to start; "I already have a Google Form" stores CSV intake and lands on Upload.
