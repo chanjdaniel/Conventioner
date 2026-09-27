@@ -70,6 +70,8 @@
         "src/views/AttendanceCheckinView.vue",
         "src/views/AttendanceStatusView.vue",
         "src/views/CsvImportView.vue",
+        "src/views/StartFromCsvView.vue",
+        "src/components/csvProposal/ProposalLedger.vue",
         "src/views/DashboardView.vue",
         "src/views/EmailVerificationView.vue",
         "src/views/InitView.vue",

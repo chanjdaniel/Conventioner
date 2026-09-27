@@ -236,6 +236,14 @@ const ESSENTIAL_ORDER: ReadonlyArray<[string, string, (value: unknown) => unknow
   ],
 ];
 
+/** An essential question's label, by its key; the key itself for one this build does not know. */
+export function essentialLabel(key: string): string {
+  return ESSENTIAL_ORDER.find(([k]) => k === key)?.[1] ?? key;
+}
+
+/** The essential questions, in the order the form asks them. */
+export const ESSENTIAL_KEYS: readonly string[] = ESSENTIAL_ORDER.map(([key]) => key);
+
 /**
  * One stored answer as text. A map is keyed by date (the tier answer), so its keys are dates.
  *

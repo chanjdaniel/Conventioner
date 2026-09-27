@@ -18,7 +18,7 @@ export type MarketPage =
   'setup' | 'form' | 'applications' | 'assignment' | 'result' | 'vendors' | 'attendance';
 
 /** A flow entered from a tab, rather than a page of one. */
-export type MarketFlow = 'import' | 'floorplan';
+export type MarketFlow = 'import' | 'floorplan' | 'start-from-csv';
 
 export type MarketTab = 'setup' | 'form' | 'applications' | 'assignment' | 'attendance';
 
@@ -76,7 +76,11 @@ export const PAGE_LABELS: Record<MarketPage, string> = {
   attendance: 'Attendance',
 };
 
-const FLOW_TAB: Record<MarketFlow, MarketTab> = { import: 'applications', floorplan: 'setup' };
+const FLOW_TAB: Record<MarketFlow, MarketTab> = {
+  import: 'applications',
+  floorplan: 'setup',
+  'start-from-csv': 'setup',
+};
 
 /** A market whose check-in page is on the air, or was: the only kind with an Attendance tab. */
 const PUBLISHED: string[] = [MarketPhase.MarketDays, MarketPhase.Archived];
@@ -156,6 +160,8 @@ export function pageOfRoute(
       return 'import';
     case 'floorplan-editor':
       return 'floorplan';
+    case 'start-from-csv':
+      return 'start-from-csv';
     default:
       return null;
   }
