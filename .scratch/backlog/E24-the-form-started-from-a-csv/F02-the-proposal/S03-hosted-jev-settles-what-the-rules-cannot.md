@@ -25,7 +25,9 @@ The key is already in the back end's local template; the compose template and th
 
 **Decided while building (2026-09-27):** TypeSafe is called over plain HTTP (`POST /v1/systemone`, model pinned to `jev-1.13.0`, the one the threshold was measured on), not through `typesafe-sdk`: the SDK is pre-1.0 and needs a newer pydantic than the back end runs.
 The team question is asked of the optional free-text questions after the form's last certain column; the ceiling question of the first heading sentence that names a number of days the rule did not read.
-`GET /csv-proposal/typesafe` tells the upload step whether to show its one line.
+`GET /csv-proposal/typesafe` tells the upload step whether to show its one line; the line itself is built with the upload step (F03/S01).
+Both questions send exactly the state ticket 04 measured the 0.8 threshold on: the team question a heading, how many answered and how many distinct, and a shape with no value at all; the ceiling question the heading's text.
+That is narrower than ticket 01 allows, which is the point: a threshold means nothing on input it was not measured with.
 
 ## Acceptance criteria
 

@@ -52,8 +52,7 @@ CHECK_UNREACHABLE = "Couldn't reach TypeSafe"
 
 # TypeSafe's answer is taken at this probability or above, and never below (ticket 04).
 CONFIDENT = 0.8
-# Values sent to TypeSafe for one column, at most (ticket 01).
-SENT_VALUES = 10
+
 
 FATE_SUBMITTED_AT = "submitted_at"
 FATE_APPLICANT_EMAIL = "applicant_email"
@@ -207,8 +206,6 @@ class _Column:
         self.link = share(URL.search)
         self.length_median = sorted(len(value) for value in filled)[len(filled) // 2] \
             if filled else 0
-        numbers = [float(value.strip().lstrip("$")) for value in filled if NUMBER.match(value)]
-        self.number_range = (min(numbers), max(numbers)) if numbers else None
         self.words_median = sorted(len(value.split()) for value in filled)[len(filled) // 2] \
             if filled else 0
         pairs = [(value.strip().lower(), email) for value, email in zip(values, row_emails)
@@ -622,54 +619,55 @@ DAYS_MENTIONED = re.compile(
 
 
 def _shape(column: _Column) -> str:
-    """What a column's answers look like, computed here and holding none of them (ticket 01)."""
+    """What a column's answers look like, computed here and holding none of them (ticket 01).
+
+    Never a value, not even a range: the smallest and largest answers are each one applicant's,
+    and in a free-text column that can be a phone or student number.
+    """
     if column.email >= 0.9:
-        kind = "email addresses"
-    elif column.link >= 0.9:
-        kind = "links"
-    elif column.number_range:
-        low, high = column.number_range
-        kind = f"numbers from {low:g} to {high:g}"
-    else:
-        kind = f"prose, around {column.length_median} characters"
-    return kind
+        return "email addresses"
+    if column.link >= 0.9:
+        return "links"
+    if column.numeric >= 0.9:
+        return "numbers"
+    return f"prose, around {column.length_median} characters"
 
 
 def _team_column_state(column: _Column) -> str:
-    """One column, never a row: its header, how it was answered, and either the answers at least
-    3 applicants gave (most common first, none holding an email, link, handle or phone number) or
-    a shape computed here."""
-    lines = [f'Column header: "{column.label}"',
-             f"Answered in {column.filled / column.responses:.0%} of applications; "
-             f"{column.distinct_ratio:.0%} of answers are distinct."]
-    if column.shared_options:
-        shown = ", ".join(f'"{value}" ({count})' for value, count in
-                          column.shared_options[:SENT_VALUES])
-        lines.append(f"Answers at least 3 applicants gave, with how many: {shown}.")
-    else:
-        lines.append(f"Typical answer: {_shape(column)}.")
-    return "\n".join(lines)
+    """One column, never a row, in the shape ticket 04 measured the 0.8 threshold on: the
+    header, how many answered and how many distinct, and a typical answer's shape. Ticket 01 would
+    allow the answers 3 applicants share as well; the threshold was not measured with them."""
+    return (f'Column header: "{column.label}"\n'
+            f"Answered in {column.filled / column.responses:.0%} of rows; "
+            f"{column.distinct_ratio:.0%} of answers are distinct; "
+            f"typical answer: {_shape(column)}.")
 
 
-def _ceiling_state(sentence: str) -> str:
-    return f'Question text: "{sentence}"'
+def _ceiling_state(column: _Column) -> str:
+    """The question's own text, which is the organizer's words, as ticket 04 measured it."""
+    return f'Question text: "{column.label}"'
 
 
-def _team_candidates(columns: List[_Column], proposed: List[Dict[str, Any]]) -> List[int]:
+def _team_candidates(proposed: List[Dict[str, Any]]) -> List[int]:
     """The optional free-text questions after the form's last certain one: where a team's notes
-    headed like a question ("Comments (internal)") would sit, and the rules cannot tell."""
+    headed like a question ("Comments (internal)") would sit, and the rules cannot tell. A header
+    that itself holds an email, link, handle or phone number is not sent, and is not asked."""
     certain = [c["index"] for c in proposed
                if c["fate"] in (FATE_SUBMITTED_AT, FATE_APPLICANT_EMAIL, FATE_ESSENTIAL)
                or (c["fate"] == FATE_CUSTOM and c["field"] and c["field"]["required"])]
     after = max(certain, default=-1)
     return [c["index"] for c in proposed
             if c["index"] > after and c["fate"] == FATE_CUSTOM and c["field"]
-            and c["field"]["type"] == "text" and not c["field"]["required"]]
+            and c["field"]["type"] == "text" and not c["field"]["required"]
+            and not _identifying(c["header"])]
 
 
 def _ceiling_candidate(columns: List[_Column]) -> Optional[Tuple[int, str]]:
-    """The first header sentence that names a number of days the ceiling rule did not read."""
+    """The first header naming a number of days the ceiling rule did not read, and the sentence
+    that names it, which is what the proposal quotes back."""
     for index, column in enumerate(columns):
+        if _identifying(column.header):
+            continue
         for sentence in _sentences(column.header):
             if DAYS_MENTIONED.search(sentence):
                 return index, sentence
@@ -683,20 +681,18 @@ def _ask_typesafe(asker: TypeSafe.Asker, columns: List[_Column], proposed: List[
     An answer is taken at CONFIDENT or above; below it, or on any failure, the rules' answer stands
     and the row says why it is worth a look. Returns whether anything was asked.
     """
-    questions = {("team", index): (_team_column_state(columns[index]),
-                                   TypeSafe.TEAM_COLUMN_INSTRUCTIONS,
-                                   TypeSafe.TEAM_COLUMN_CRITERIA)
-                 for index in _team_candidates(columns, proposed)}
+    questions = {(TypeSafe.TEAM_COLUMN, index): _team_column_state(columns[index])
+                 for index in _team_candidates(proposed)}
     ceiling = None if plan["ceiling"] else _ceiling_candidate(columns)
     if ceiling:
-        questions[("ceiling", ceiling[0])] = (_ceiling_state(ceiling[1]),
-                                              TypeSafe.CEILING_INSTRUCTIONS,
-                                              TypeSafe.CEILING_CRITERIA)
+        questions[(TypeSafe.CEILING, ceiling[0])] = _ceiling_state(columns[ceiling[0]])
     if not questions:
         return False
 
     pool = ThreadPoolExecutor(max_workers=len(questions))
-    futures = {key: pool.submit(asker, *asked) for key, asked in questions.items()}
+    futures = {(question, index): pool.submit(asker, state, question.instructions,
+                                              question.criteria)
+               for (question, index), state in questions.items()}
     wait(futures.values(), timeout=TypeSafe.DEADLINE_SECONDS)
     pool.shutdown(wait=False, cancel_futures=True)
 
@@ -704,15 +700,16 @@ def _ask_typesafe(asker: TypeSafe.Asker, columns: List[_Column], proposed: List[
         answer = None
         if future.done() and not future.cancelled() and future.exception() is None:
             answer = future.result()
+        # An empty answer is as good as none: nothing came back to choose between.
         choice = max(answer, key=answer.get) if answer else None
         sure = choice is not None and answer[choice] >= CONFIDENT
-        if question == "team":
+        if question is TypeSafe.TEAM_COLUMN:
             row = proposed[index]
             if not answer:
                 row["check"].append(CHECK_UNREACHABLE)
             elif not sure:
                 row["check"].append(CHECK_MAYBE_TEAM)
-            elif choice == TypeSafe.TEAM_COLUMN:
+            elif choice == TypeSafe.STAFF_COLUMN:
                 row.update(fate=FATE_LEFT_OUT, leftOut=LEFT_OUT_ORGANIZER,
                            why="TypeSafe read it as a column your team added")
                 row["check"] = [CHECK_ORGANIZER]
