@@ -13,3 +13,4 @@ Order: F01/S01 (done, PR #85), F02/S01, F02/S02, F02/S03, F03/S01, F03/S02, F03/
   The essential questions' order now lives once, in `essential_fields.ESSENTIAL_QUESTIONS`.
 - F02/S02 built: the proposal's `plan` carries the dates, the fitting year, the tiers best first and the ceiling with its sentence.
   All five fixtures match ticket 03's answers, and a plan's own dates and tiers are matched rather than added to.
+- F02/S02 reviewed and fixed: a plan date matches only when the file's weekday agrees, the ceiling's sentence stops at a line break, and the plan is read through `essential_fields`.
