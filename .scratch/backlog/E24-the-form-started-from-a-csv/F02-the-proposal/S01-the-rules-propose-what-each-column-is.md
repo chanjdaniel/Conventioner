@@ -23,6 +23,10 @@ The rules are the value-based ones measured in [03](../../../wayfinding/the-form
 - label, help text and key follow [06](../../../wayfinding/the-form-started-from-a-csv/issues/06-one-answer-two-uses.md) (first line, or first sentence past 120 characters; the rest verbatim as help text; a slug capped at 40 characters);
 - an essential question no column answers is proposed as not asked.
 
+**Decided while building (2026-09-27):** "a type from the eight" was wrong: the application form accepts seven, and no file type exists in it or in the applicant form.
+A Google Forms upload column is proposed as a text question asking for a link, marked `upload` and "check this", since the export holds a Drive link either way.
+A choice question lists its common options and then rare ones up to 20 in all, and counts the rest; a checkbox question's "Other" answers run to hundreds.
+
 A guess carries a "check this" reason: could allow several answers; read as an organizer's column; an option chosen by fewer than 3.
 
 ## Acceptance criteria

@@ -252,26 +252,13 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     options = EssentialFields.effective_essential_options(market_doc)
     asked = EssentialFields.asked_essential_keys(options)
 
-    # One entry per essential question, in the order the form asks them. Which of these are
-    # actually offered is NOT decided here: ``asked_essential_keys`` is the single statement of
+    # One entry per essential question, in the order the form asks them
+    # (``EssentialFields.ESSENTIAL_QUESTIONS``). Which of these are actually offered is NOT decided
+    # here: ``asked_essential_keys`` is the single statement of
     # that rule, and this used to re-implement it (``options.dates``, ``len(options.sections) > 1``)
     # - a second copy that could not see a market's declaration that it does not ask a question,
     # and that would have drifted from the applicant validator and the solver the moment either
     # moved.
-    essential_order = (
-        # First, and asked by every market: a column of names maps straight across, which is what
-        # the Fall 2025 export's "Full Legal Name" had nowhere to go before.
-        (EssentialFields.FULL_NAME_KEY, EssentialFields.FULL_NAME_LABEL),
-        # The column beside it in that same export, which had nowhere to go until E19/F02/S01.
-        (EssentialFields.PREFERRED_NAME_KEY, EssentialFields.PREFERRED_NAME_LABEL),
-        (EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL),
-        (EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL),
-        (EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL),
-        (EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_EMAIL_LABEL),
-        (EssentialFields.TIER_PREFERENCE_KEY, EssentialFields.TIER_PREFERENCE_LABEL),
-        (EssentialFields.SECTION_RANKING_KEY, EssentialFields.SECTION_RANKING_LABEL),
-        (EssentialFields.TABLE_TYPE_RANKING_KEY, EssentialFields.TABLE_TYPE_RANKING_LABEL),
-    )
 
     targets = [
         ImportTarget(APPLICANT_EMAIL_TARGET, APPLICANT_EMAIL_LABEL, True, "identity"),
@@ -279,7 +266,7 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     ]
     targets += [
         ImportTarget(key, label, key in EssentialFields.REQUIRED_ESSENTIAL_KEYS, "essential")
-        for key, label in essential_order
+        for key, label in EssentialFields.ESSENTIAL_QUESTIONS
         if key in asked
     ]
 

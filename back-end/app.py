@@ -1713,11 +1713,11 @@ def review_application(market_id: str, application_id: str) -> Response:
         return jsonify({"error": "Internal server error"}), 500
 
 
-def _import_context(market_id: str, requesting_user: str):
-    """Load the market and check ADMIN for both import endpoints.
+def _admin_market_document(market_id: str, requesting_user: str, refused: str):
+    """The stored market document, once ADMIN is established; ``refused`` is the 403's words.
 
-    Returns ``(market_doc, error_response, status)``; the market document is the raw stored one,
-    because that is what the essential-offering derivation and the shared write path both read.
+    Returns ``(market_doc, error_response, status)``; the document is the raw stored one, because
+    that is what the essential-offering derivation and the shared write path both read.
 
     ``requesting_user`` is the session's identity, so it is always present - every caller passes
     ``authenticated_email()`` from behind ``@login_required``.
@@ -1730,11 +1730,20 @@ def _import_context(market_id: str, requesting_user: str):
     if not PermissionsApi.user_has_permission(
         requesting_user, context.market, MarketRole.ADMIN, context.organization
     ):
-        return None, {"error": "User does not have permission to import applications"}, 403
+        return None, {"error": refused}, 403
 
     market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
     if not market_doc:
         return None, {"error": "Market not found"}, 404
+    return market_doc, None, 200
+
+
+def _import_context(market_id: str, requesting_user: str):
+    """Load the market and check ADMIN and the phase for the import endpoints."""
+    market_doc, error, status = _admin_market_document(
+        market_id, requesting_user, "User does not have permission to import applications")
+    if error:
+        return None, error, status
 
     # Enforced here rather than by hiding the entry point: a hidden button is not a rule, and all
     # three import endpoints are reachable directly.
@@ -1750,18 +1759,11 @@ def propose_from_csv(market_id: str) -> Response:
     """What a Google Form's responses CSV proposes this draft becomes. Writes nothing and keeps
     nothing: the file is read and let go. Requires ADMIN+, as the import it prepares does."""
     try:
-        context = MarketsApi.load_market_context(market_id)
-        if context is None:
-            return jsonify({"error": "Market not found"}), 404
-        if context.market is None:
-            return jsonify({"error": "Invalid market data"}), 400
-        if not PermissionsApi.user_has_permission(
-            authenticated_email(), context.market, MarketRole.ADMIN, context.organization
-        ):
-            return jsonify({"error": "User does not have permission to set up this market"}), 403
-        market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
-        if not market_doc:
-            return jsonify({"error": "Market not found"}), 404
+        market_doc, error, status_code = _admin_market_document(
+            market_id, authenticated_email(),
+            "User does not have permission to set up this market")
+        if error:
+            return jsonify(error), status_code
 
         data = request.get_json(silent=True)
         if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):

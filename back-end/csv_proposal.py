@@ -36,10 +36,11 @@ SHARED_BY = 3
 # say which questions the form required, so this is read from how many answered.
 REQUIRED_SHARE = 0.97
 
-# The reasons a guess carries, shown beside it as "check this".
+# Why a row of the proposal is worth a second look, shown beside it as "check this".
 CHECK_SEVERAL_ANSWERS = "Could allow several answers"
 CHECK_ORGANIZER = "Read as a column your team added"
-CHECK_RARE_OPTIONS = "Has options fewer than 3 applicants chose"
+CHECK_RARE_OPTIONS = "Has options few applicants chose"
+CHECK_UPLOAD = "A file upload in your Google Form: applicants here paste a link instead"
 
 FATE_SUBMITTED_AT = "submitted_at"
 FATE_APPLICANT_EMAIL = "applicant_email"
@@ -93,20 +94,6 @@ OPTIONS_LISTED = 20
 
 LABEL_MAX = 120
 KEY_MAX = 40
-
-# In the order the form asks them, which is the order "not asked" lists them.
-ESSENTIALS = (
-    (EssentialFields.FULL_NAME_KEY, EssentialFields.FULL_NAME_LABEL),
-    (EssentialFields.PREFERRED_NAME_KEY, EssentialFields.PREFERRED_NAME_LABEL),
-    (EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL),
-    (EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL),
-    (EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL),
-    (EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_EMAIL_LABEL),
-    (EssentialFields.TIER_PREFERENCE_KEY, EssentialFields.TIER_PREFERENCE_LABEL),
-    (EssentialFields.SECTION_RANKING_KEY, EssentialFields.SECTION_RANKING_LABEL),
-    (EssentialFields.TABLE_TYPE_RANKING_KEY, EssentialFields.TABLE_TYPE_RANKING_LABEL),
-)
-
 
 # --- Reading answers ----------------------------------------------------------------------------
 
@@ -251,17 +238,36 @@ def label_and_help(header: str) -> Tuple[str, Optional[str]]:
     first, _, rest = text.partition("\n")
     first, rest = first.strip(), rest.strip()
     if len(first) > LABEL_MAX:
-        sentence = re.match(r"^(.+?[?.])(\s|$)", first)
-        if sentence:
-            rest = (first[sentence.end():].strip() + ("\n" + rest if rest else "")).strip()
-            first = sentence.group(1).strip()
+        cut = _first_sentence_end(first)
+        if cut is None:
+            # No sentence ends before the line does: the last whole word that fits.
+            cut = first.rfind(" ", 0, LABEL_MAX + 1)
+            cut = cut if cut > 0 else LABEL_MAX
+        head, tail = first[:cut].strip(), first[cut:].strip()
+        rest = (tail + ("\n" + rest if rest else "")).strip()
+        first = head
     return first, rest or None
+
+
+def _first_sentence_end(text: str) -> Optional[int]:
+    """Just past the first "?" or "." that ends a sentence: followed by a space or the end, and
+    outside parentheses, so "(e.g. your timetable)" does not end one."""
+    depth = 0
+    for position, char in enumerate(text):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth = max(depth - 1, 0)
+        elif char in "?." and depth == 0 and (position + 1 == len(text) or text[position + 1] == " "):
+            return position + 1
+    return None
 
 
 def key_for(label: str, taken: Set[str]) -> str:
     """The label's slug, capped at KEY_MAX characters on a word boundary, ``_2`` on for a repeat.
 
-    Held to the form's key rule (``^[a-z0-9_]+$``, and never the reserved essential prefix).
+    A slug is made of the form's key characters by construction; the reserved essential prefix is
+    the one thing it could still collide with. The form's validator judges it again on confirm.
     """
     slug = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_") or "question"
     if len(slug) > KEY_MAX:
@@ -285,9 +291,13 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
     field: Dict[str, Any] = {
         "key": key_for(label, taken_keys), "label": label, "helpText": help_text,
         "required": column.answered_share >= REQUIRED_SHARE, "options": [], "unlistedOptions": 0,
+        "upload": False,
     }
     if column.drive_upload >= 0.9:
-        field["type"] = "file"
+        # A Google Forms upload. The application form takes no files, so the question asks for a
+        # link, which is also what the export holds.
+        field["type"] = "text"
+        field["upload"] = True
     elif column.email >= 0.9:
         field["type"] = "email"
     elif ((column.shared and column.shared[0][1] / column.filled >= REQUIRED_SHARE)
@@ -317,17 +327,20 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
 def _options(counts: Dict[str, int], filled: int, share_floor: float) -> List[Dict[str, Any]]:
     """The options the whole file shows, most chosen first, with how many applicants chose each.
 
-    One fewer than 3 chose is rare and off by default: the organizer decides whether to keep it.
-    Rare ones are listed only while the list stays short, since a checkbox question's "Other"
-    answers run to hundreds, each one person's; ``_unlisted`` counts the rest.
+    One few applicants chose - fewer than 3, or for a checkbox question under OPTION_SHARE of its
+    answers - is rare and off by default, with its count: the organizer decides whether to keep it.
+    The list stops at OPTIONS_LISTED, since a checkbox question's "Other" answers run to hundreds,
+    each one person's; ``_unlisted`` counts the rest, and the form builder can add any of them.
     """
+    def rare(count: int) -> bool:
+        return count < SHARED_BY or count / filled < share_floor
+
     ordered = _most_common(counts.items())
-    common = [(value, count) for value, count in ordered if count >= SHARED_BY]
-    rare = [(value, count) for value, count in ordered if count < SHARED_BY]
-    listed = common + rare[:max(OPTIONS_LISTED - len(common), 0)]
+    kept = [(value, count) for value, count in ordered if not rare(count)]
+    others = [(value, count) for value, count in ordered if rare(count)]
+    listed = kept + others[:max(OPTIONS_LISTED - len(kept), 0)]
     return [
-        {"value": value, "count": count, "rare": count < SHARED_BY,
-         "keep": count >= SHARED_BY and count / filled >= share_floor}
+        {"value": value, "count": count, "rare": rare(count), "keep": not rare(count)}
         for value, count in listed
     ]
 
@@ -362,7 +375,7 @@ def _classify(columns: List[_Column]) -> List[Dict[str, Any]]:
         if timestamp is not None and index < timestamp:
             decided.append(left_out(LEFT_OUT_ORGANIZER, "It sits before the form's first column"))
             continue
-        if ORGANIZER_HEADER.match(header) or (len(header) <= 3 and not grid):
+        if ORGANIZER_HEADER.match(header):
             decided.append(left_out(LEFT_OUT_ORGANIZER, "Its heading is one your team would add"))
             continue
         if lowered[index] == TIMESTAMP_HEADER:
@@ -451,14 +464,21 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> Dict[str,
 
     groups = {index: group.stem for group in column_groups(list(headers))
               for index in group.columns}
+    decisions = _classify(columns)
+    # The organizer's own questions take their keys first: only theirs are ever stored, so a
+    # "Notes" column left out must not push a question called "Notes" to ``notes_2``.
     taken_keys: Set[str] = set()
+    order = sorted(range(len(columns)), key=lambda i: decisions[i]["fate"] != FATE_CUSTOM)
+    fields = {i: _field(columns[i], taken_keys) if columns[i].filled else None for i in order}
     proposed = []
-    for index, (column, decided) in enumerate(zip(columns, _classify(columns))):
-        field = _field(column, taken_keys) if column.filled else None
+    for index, (column, decided) in enumerate(zip(columns, decisions)):
+        field = fields[index]
         check = []
         if decided.get("leftOut") == LEFT_OUT_ORGANIZER:
             check.append(CHECK_ORGANIZER)
         if decided["fate"] == FATE_CUSTOM and field:
+            if field["upload"]:
+                check.append(CHECK_UPLOAD)
             if field["type"] == "select" and column.joins_its_options():
                 check.append(CHECK_SEVERAL_ANSWERS)
             if any(option["rare"] for option in field["options"]):
@@ -484,7 +504,7 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> Dict[str,
         "columns": proposed,
         "notAsked": [
             {"key": key, "label": label, "why": "No column in your file answers it"}
-            for key, label in ESSENTIALS if key not in answered
+            for key, label in EssentialFields.ESSENTIAL_QUESTIONS if key not in answered
         ],
     }
 
