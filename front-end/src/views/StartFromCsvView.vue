@@ -4,23 +4,35 @@
  * form-started-from-a-CSV ticket 05).
  *
  * Four steps at one address: Upload the CSV, answer the Year its dates are in, Review the proposal
- * in the ledger, Confirm. The file is read in the browser, sent once for a proposal, and never kept:
- * a reload lands back on Upload. Nothing about the market changes until Confirm - Back, Cancel and
- * leaving write nothing - which is why the proposal lives here and not in the market store.
+ * in the ledger and correct it, Confirm. The file is read in the browser, sent for a proposal, and
+ * never kept: a reload lands back on Upload. Nothing about the market changes until Confirm - Back,
+ * Cancel and leaving write nothing - which is why the proposal and the organizer's corrections live
+ * here, as a working copy, and not in the market store.
  */
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { MarketPhase } from '@/assets/types/datatypes';
 import AppDialog from '@/components/AppDialog.vue';
 import MarketArrival from '@/components/MarketArrival.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import ProposalLedger from '@/components/csvProposal/ProposalLedger.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
-import { initialYear, weekdayNote, type Proposal } from '@/utils/csvProposal';
+import {
+  correct,
+  draftFrom,
+  initialYear,
+  settle,
+  toggleOption,
+  weekdayNote,
+  weekdaysFit,
+  type DisagreementKind,
+  type Proposal,
+  type ProposalDraft,
+  type RowChoice,
+} from '@/utils/csvProposal';
 import { marketPath } from '@/utils/market';
 import { useOpenMarket } from '@/utils/openMarket';
 
-type Step = 'upload' | 'reading' | 'review';
+type Step = 'upload' | 'reading' | 'review' | 'confirming';
 
 const route = useRoute();
 const router = useRouter();
@@ -30,9 +42,12 @@ const { market, status, refresh } = useOpenMarket(marketId);
 const step = ref<Step>('upload');
 const error = ref('');
 const fileName = ref('');
+/** The file's text, held only while the flow is open: confirm reads it once more, then it is gone. */
+const csvContent = ref('');
 const proposal = ref<Proposal | null>(null);
+/** The organizer's corrections: the proposal's working copy, and nothing else holds it. */
+const draft = reactive<ProposalDraft>({ rows: {}, settled: {} });
 const year = ref(new Date().getFullYear());
-const yearFits = ref(true);
 const yearOpen = ref(false);
 const yearDraft = ref('');
 const dragging = ref(false);
@@ -48,18 +63,15 @@ onMounted(async () => {
   }
 });
 
-/**
- * Why this market cannot be started from a file, mirroring the server's refusal: a hidden control is
- * not the rule, and the server refuses the proposal regardless.
- */
-const refusal = computed(() => {
-  if (!market.value) return '';
-  if (market.value.phase && market.value.phase !== MarketPhase.Draft)
-    return 'Only a draft market can be started from a CSV.';
-  if (market.value.applicationForm?.fields?.length)
-    return "This market's form already has questions of its own, so it can't be started from a CSV.";
-  return '';
-});
+/** Why this market cannot be started from a file: the proposal's own refusal, served on the market. */
+const refusal = computed(() => market.value?.csvStartRefusal ?? '');
+
+const planDates = computed(() =>
+  (market.value?.setupObject?.marketDates ?? []).map((d) => d.date).filter(Boolean),
+);
+const planTiers = computed(() =>
+  (market.value?.setupObject?.tiers ?? []).map((t) => t.name).filter(Boolean),
+);
 
 const columnCount = computed(() => proposal.value?.columns.length ?? 0);
 
@@ -82,13 +94,13 @@ async function acceptFile(file: File | undefined) {
   fileName.value = file.name;
   step.value = 'reading';
   try {
+    csvContent.value = await file.text();
     const { data } = await api.post<Proposal>(`/markets/${marketId.value}/csv-proposal`, {
-      csvContent: await file.text(),
+      csvContent: csvContent.value,
     });
     proposal.value = data;
-    const opening = initialYear(data.plan);
-    year.value = opening.year;
-    yearFits.value = opening.fits;
+    Object.assign(draft, draftFrom(data));
+    year.value = initialYear(data.plan);
     step.value = 'review';
     if (data.plan.dates.length) openYear();
   } catch (e) {
@@ -107,15 +119,29 @@ const yearValid = computed(() => /^\d{4}$/.test(yearDraft.value.trim()));
 function confirmYear() {
   if (!yearValid.value) return;
   year.value = Number(yearDraft.value.trim());
-  yearFits.value = proposal.value?.plan.year === year.value;
   yearOpen.value = false;
 }
 
-const yearNote = computed(() =>
-  proposal.value
-    ? weekdayNote(proposal.value.plan.dates, Number(yearDraft.value) || year.value)
-    : '',
+/** The year typed, judged against the weekdays the form states - never a fact that is not so. */
+const typedYear = computed(() => Number(yearDraft.value.trim()) || year.value);
+const typedYearFits = computed(() =>
+  proposal.value ? weekdaysFit(proposal.value.plan.dates, typedYear.value) : null,
 );
+const yearNote = computed(() =>
+  proposal.value ? weekdayNote(proposal.value.plan.dates, typedYear.value) : '',
+);
+
+function onCorrect(row: number, change: Partial<RowChoice>) {
+  correct(draft, row, change);
+}
+
+function onToggle(row: number, value: string) {
+  toggleOption(draft, row, value);
+}
+
+function onSettle(kind: DisagreementKind, value: string, choice: string) {
+  settle(draft, kind, value, choice);
+}
 
 function leave() {
   void router.push(marketPath(marketId.value, 'setup'));
@@ -144,11 +170,11 @@ function leave() {
             </template>
           </p>
         </div>
-        <ol class="steps">
-          <li :class="{ current: step !== 'review' }">1 Upload</li>
+        <ol v-if="!refusal" class="steps">
+          <li :class="{ current: step === 'upload' || step === 'reading' }">1 Upload</li>
           <li :class="{ current: yearOpen }">2 Year</li>
           <li :class="{ current: step === 'review' && !yearOpen }">3 Review</li>
-          <li>4 Confirm</li>
+          <li :class="{ current: step === 'confirming' }">4 Confirm</li>
         </ol>
       </header>
 
@@ -203,7 +229,18 @@ function leave() {
           Here is what each column of your form's responses would become. Rows with a yellow edge
           are the ones worth a second look.
         </p>
-        <ProposalLedger :proposal="proposal" :year="year" @cancel="leave" />
+        <ProposalLedger
+          :proposal="proposal"
+          :draft="draft"
+          :year="year"
+          :plan-dates="planDates"
+          :plan-tiers="planTiers"
+          :busy="step === 'confirming'"
+          @correct="onCorrect"
+          @toggle="onToggle"
+          @settle="onSettle"
+          @cancel="leave"
+        />
       </template>
     </div>
   </MarketFrame>
@@ -229,11 +266,18 @@ function leave() {
       inputmode="numeric"
       data-testid="start-from-csv-year-input"
     />
-    <p v-if="yearFits && yearNote" class="help" data-testid="start-from-csv-year-note">
+    <p v-if="typedYearFits === true" class="help" data-testid="start-from-csv-year-note">
       {{ yearNote }}.
     </p>
-    <p v-else class="warning" data-testid="start-from-csv-year-warning">
-      The weekdays in your form fit no year near this one, so check it.
+    <p
+      v-else-if="typedYearFits === false"
+      class="warning"
+      data-testid="start-from-csv-year-warning"
+    >
+      {{ yearNote }}, so check the year.
+    </p>
+    <p v-else class="help" data-testid="start-from-csv-year-note">
+      Your form's dates name no weekday, so there is nothing to check the year against.
     </p>
   </AppDialog>
 </template>

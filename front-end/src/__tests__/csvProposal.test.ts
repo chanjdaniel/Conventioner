@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
+  correct,
   dateInYear,
+  draftFrom,
+  draftRows,
+  settle,
+  takenBy,
+  toggleOption,
+  weekdaysFit,
   initialYear,
   ledgerRows,
   proposalCounts,
   weekdayNote,
   type Proposal,
   type ProposedColumn,
+  type ProposedField,
 } from '@/utils/csvProposal';
 
 function column(index: number, overrides: Partial<ProposedColumn> = {}): ProposedColumn {
@@ -30,6 +38,7 @@ function column(index: number, overrides: Partial<ProposedColumn> = {}): Propose
       options: [],
       unlistedOptions: 0,
       upload: false,
+      optionsByType: {},
     },
     ...overrides,
   };
@@ -114,25 +123,130 @@ describe('the year', () => {
   ];
 
   it('opens on the year the weekdays fit', () => {
-    expect(initialYear(proposal([], { dates, year: 2025 }).plan, new Date(2026, 8, 27))).toEqual({
-      year: 2025,
-      fits: true,
-    });
+    expect(initialYear(proposal([], { dates, year: 2025 }).plan, new Date(2026, 8, 27))).toBe(2025);
   });
 
-  it('opens on this year, with a warning, when no year fits', () => {
-    expect(initialYear(proposal([], { dates, year: null }).plan, new Date(2026, 8, 27))).toEqual({
-      year: 2026,
-      fits: false,
-    });
+  it('opens on this year when no year fits', () => {
+    expect(initialYear(proposal([], { dates, year: null }).plan, new Date(2026, 8, 27))).toBe(2026);
   });
 
   it('says which weekday it read the year from', () => {
     expect(weekdayNote(dates, 2025)).toBe('Monday, November 17 is a Monday in 2025');
+    expect(weekdayNote(dates, 2026)).toBe('Monday, November 17 is a Tuesday in 2026, not a Monday');
     expect(weekdayNote([{ ...dates[0], weekday: null }], 2025)).toBe('');
   });
 
   it('makes a market date of a month and a day', () => {
     expect(dateInYear(dates[0], 2025)).toBe('2025-11-17');
+  });
+});
+
+describe('the working copy', () => {
+  function choiceColumn(index: number, overrides: Partial<ProposedColumn> = {}): ProposedColumn {
+    const one = [
+      { value: 'Pottery', count: 9, rare: false, keep: true },
+      { value: 'Pottery, Zines', count: 3, rare: false, keep: true },
+      { value: 'Zines', count: 6, rare: false, keep: true },
+      { value: 'VASA', count: 1, rare: true, keep: false },
+    ];
+    const several = [
+      { value: 'Pottery', count: 12, rare: false, keep: true },
+      { value: 'Zines', count: 9, rare: false, keep: true },
+      { value: 'VASA', count: 1, rare: true, keep: false },
+    ];
+    const base = column(index, { check: ['Could allow several answers'], ...overrides });
+    return {
+      ...base,
+      field: {
+        ...(base.field as ProposedField),
+        type: 'select',
+        options: one,
+        optionsByType: {
+          select: { options: one, unlisted: 0 },
+          multi_select: { options: several, unlisted: 0 },
+        },
+      },
+    };
+  }
+
+  it('starts as the proposal', () => {
+    const p = proposal([choiceColumn(0)]);
+    const rows = draftRows(p, draftFrom(p));
+    expect(rows[0].fate).toBe('custom');
+    expect(rows[0].field?.options.filter((o) => o.keep).map((o) => o.value)).toEqual([
+      'Pottery',
+      'Pottery, Zines',
+      'Zines',
+    ]);
+    expect(rows[0].check).toEqual(['Could allow several answers']);
+  });
+
+  it('keeps a rare option the organizer ticks', () => {
+    const p = proposal([choiceColumn(0)]);
+    const draft = draftFrom(p);
+    toggleOption(draft, 0, 'VASA');
+    expect(draftRows(p, draft)[0].field?.options.find((o) => o.value === 'VASA')?.keep).toBe(true);
+  });
+
+  it('turns one choice into several with the options inside the answers', () => {
+    const p = proposal([choiceColumn(0)]);
+    const draft = draftFrom(p);
+    correct(draft, 0, { type: 'multi_select' });
+    const row = draftRows(p, draft)[0];
+    expect(row.field?.type).toBe('multi_select');
+    expect(row.field?.options.filter((o) => o.keep).map((o) => o.value)).toEqual([
+      'Pottery',
+      'Zines',
+    ]);
+  });
+
+  it('loses its check mark once corrected, and the counts follow', () => {
+    const p = proposal([choiceColumn(0), column(1)]);
+    const draft = draftFrom(p);
+    expect(proposalCounts(p, draft).toCheck).toBe(1);
+    correct(draft, 0, { required: true });
+    expect(draftRows(p, draft)[0].check).toEqual([]);
+    expect(proposalCounts(p, draft).toCheck).toBe(0);
+  });
+
+  it('brings a left-out column back as a question', () => {
+    const p = proposal([column(0, { fate: 'left_out', leftOut: 'organizer' })]);
+    const draft = draftFrom(p);
+    correct(draft, 0, { fate: 'custom' });
+    expect(proposalCounts(p, draft)).toMatchObject({ custom: 1, leftOut: 0 });
+  });
+
+  it('lets one column answer an essential question, or say who applied, and no second', () => {
+    const p = proposal([
+      column(0, { fate: 'essential', essential: 'essential_full_name' }),
+      column(1),
+      column(2, { fate: 'applicant_email' }),
+    ]);
+    const draft = draftFrom(p);
+    expect(takenBy(draft, 'essential:essential_full_name', 1)).toBe(0);
+    expect(takenBy(draft, 'essential:essential_full_name', 0)).toBeNull();
+    expect(takenBy(draft, 'applicant_email', 1)).toBe(2);
+    expect(takenBy(draft, 'essential:essential_preferred_name', 1)).toBeNull();
+  });
+
+  it('settles a disagreement with the plan, which stops it counting', () => {
+    const p = proposal([], {
+      tiers: [{ name: 'Bronze', matches: null }],
+      disagreements: [{ kind: 'tier', value: 'Bronze' }],
+    });
+    const draft = draftFrom(p);
+    expect(proposalCounts(p, draft).toCheck).toBe(1);
+    settle(draft, 'tier', 'Bronze', 'Silver');
+    expect(proposalCounts(p, draft).toCheck).toBe(0);
+    expect(draft.settled).toEqual({ tier: { Bronze: 'Silver' } });
+  });
+});
+
+describe('whether the weekdays fit a year', () => {
+  const monday17 = { text: 'Monday, November 17', month: 11, day: 17, weekday: 0 };
+  it('says yes, no, or that nothing states a weekday', () => {
+    expect(weekdaysFit([monday17], 2025)).toBe(true);
+    expect(weekdaysFit([monday17], 2026)).toBe(false);
+    expect(weekdaysFit([{ ...monday17, weekday: null }], 2025)).toBeNull();
   });
 });

@@ -72,6 +72,7 @@
         "src/views/CsvImportView.vue",
         "src/views/StartFromCsvView.vue",
         "src/components/csvProposal/ProposalLedger.vue",
+        "src/components/ValueFixes.vue",
         "src/views/DashboardView.vue",
         "src/views/EmailVerificationView.vue",
         "src/views/InitView.vue",

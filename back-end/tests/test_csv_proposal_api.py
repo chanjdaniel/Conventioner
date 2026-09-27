@@ -44,7 +44,7 @@ class FakeMarketsCollection:
 
 def _market(phase="draft", fields=None):
     return {
-        "id": "market-1", "name": "Test Market", "creationDate": "2026-01-01",
+        "_id": "stored-1", "id": "market-1", "name": "Test Market", "creationDate": "2026-01-01",
         "roles": {OWNER_ID: "owner"}, "modificationList": [], "assignmentObject": {},
         "isDraft": phase == "draft", "phase": phase,
         "applicationForm": {"fields": fields or []},

@@ -103,6 +103,8 @@ Two other rules were prototyped and rejected: two columns by purpose truncated t
 **A market screen's frame stays put** (E21/F04, from [the-market-frame ticket 01](../.scratch/wayfinding/the-market-frame/issues/01-how-the-frame-stays-put.md)).
 `MarketFrame` pins the screen's bar and the whole phase rail directly under the app banner, at `top: var(--banner-h)`, while the page scrolls; whatever the rail grows is pinned with it.
 `--banner-h` (`clamp(30px, 5vh, 100px)`) is the banner's height as a token, so nothing measures the banner at run time.
+The frame's own pinned block is the one thing that is measured: it grows with whatever the rail shows, so no token could state it.
+`MarketFrame` measures it and publishes `--market-frame-h` on its card (declared as `0px` in `base.css`, which is what it is outside a frame), and a screen's own sticky column - the proposal ledger's rail - sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
 A frame screen never scrolls inside its card: a sticky element inside an `overflow` ancestor stops sticking.
 
 **Columns are sized by need, not by count.** `repeat(3, minmax(0, 1fr))` is what makes the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs. The codebase already accepts this: `.plan-row--asymmetric` is `3fr 2fr`.

@@ -33,6 +33,7 @@ from assignment.assignment import (
 )
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
 import api.applications as ApplicationsApi
+import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
 from market_documents import (
     market_doc_field,
@@ -508,6 +509,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
     # from the market it holds, rather than deciding the phases for itself.
     market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
+    # And why this market cannot be started from a Google Form's CSV (E24/F03): the flow and the
+    # Market Setup action mirror the proposal's own refusal rather than deciding it for themselves.
+    market_dict['csvStartRefusal'] = CsvProposal.refusal(market_dict)
     # Which of the rules, the plan and the approved applications changed since the stored
     # assignment ran (E22/F03/S01). Computed on read, never stored; empty when nothing has, or when
     # the assignment predates the fingerprints and so is not known to be out of date. Only in

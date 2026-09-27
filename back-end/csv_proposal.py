@@ -335,16 +335,25 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
         multi = column.is_multi()
         if covered >= 0.9 and column.distinct <= 12 and not multi:
             field["type"] = "select"
-            field["options"] = _options(column.answer_counts, column.filled, share_floor=0)
-            field["unlistedOptions"] = _unlisted(column.answer_counts, field["options"])
         elif multi and any(n / column.filled >= OPTION_SHARE for _, n in column.shared_options):
             field["type"] = "multi_select"
-            field["options"] = _options(column.option_counts, column.filled,
-                                        share_floor=OPTION_SHARE)
-            field["unlistedOptions"] = _unlisted(column.option_counts, field["options"])
         else:
             field["type"] = "text"
+    # Both ways of reading the answers as choices, so the organizer can turn one choice into several
+    # (or back) and get the options that reading gives: whole answers, or the options inside them.
+    field["optionsByType"] = {
+        "select": _choices(column.answer_counts, column.filled, share_floor=0),
+        "multi_select": _choices(column.option_counts, column.filled, share_floor=OPTION_SHARE),
+    } if column.filled else {}
+    chosen = field["optionsByType"].get(field["type"])
+    if chosen:
+        field["options"], field["unlistedOptions"] = chosen["options"], chosen["unlisted"]
     return field
+
+
+def _choices(counts: Dict[str, int], filled: int, share_floor: float) -> Dict[str, Any]:
+    options = _options(counts, filled, share_floor)
+    return {"options": options, "unlisted": _unlisted(counts, options)}
 
 
 def _options(counts: Dict[str, int], filled: int, share_floor: float) -> List[Dict[str, Any]]:
