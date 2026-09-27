@@ -11,8 +11,9 @@ Why it is not the real file: the sources are hundreds of real applicants' names,
 links to their documents, and what they wrote about themselves.
 
 What is kept is decided by how many people share a value, never by what a column is called. That is
-the privacy rule of the form-started-from-a-CSV map (``.scratch/wayfinding/the-form-started-from-a-
-csv/issues/01``): the header row verbatim, and any value - or option inside a multi-select answer -
+the privacy rule of the form-started-from-a-CSV map, ticket 01:
+``.scratch/wayfinding/the-form-started-from-a-csv/issues/01-what-hosted-jev-may-be-sent.md``.
+The header row stays verbatim, and any value - or option inside a multi-select answer -
 that at least 3 distinct applicants gave, counted by applicant email rather than by row, so one
 applicant who submitted three times shares nothing. Everything else is invented in the same shape:
 the same length, letter case, punctuation and digit count, an address for an email, a link for a
@@ -28,14 +29,13 @@ If one does, nothing is written and the column is named - the value never is.
 Usage:
     python tests/fixtures/anonymise_form_export.py <real-export.csv> <output.csv>
 """
-import bisect
 import csv
 import hashlib
 import json
 import re
 import sys
 from datetime import datetime, timedelta
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterator, List, NamedTuple, Optional, Set, Tuple
 
 SHARED_BY = 3
 LEAK_MIN_LENGTH = 4
@@ -51,10 +51,22 @@ PHONE = re.compile(r"\+?\d[\d\s().-]{7,}\d")
 TOKEN = re.compile(rf"(?P<email>{EMAIL.pattern})|(?P<url>{URL.pattern})|(?P<handle>{HANDLE.pattern})"
                    r"|(?P<digits>\d+)|(?P<word>[^\W\d_]+)", re.IGNORECASE)
 
+
+
+class _TimestampFormat(NamedTuple):
+    shape: "re.Pattern[str]"
+    read: str
+    write: Callable[[datetime], str]
+
+
 TIMESTAMP_FORMATS = (
     # Google Sheets: unpadded month, day and hour - "9/27/2025 9:04:01".
-    (re.compile(r"\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2}"), "%m/%d/%Y %H:%M:%S", False),
-    (re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"), "%Y-%m-%d %H:%M:%S", True),
+    _TimestampFormat(
+        re.compile(r"\d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}:\d{2}"), "%m/%d/%Y %H:%M:%S",
+        lambda m: f"{m.month}/{m.day}/{m.year} {m.hour}:{m.minute:02d}:{m.second:02d}"),
+    _TimestampFormat(
+        re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"), "%Y-%m-%d %H:%M:%S",
+        lambda m: m.strftime("%Y-%m-%d %H:%M:%S")),
 )
 
 WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
@@ -80,9 +92,16 @@ def split_options(value: str) -> List[str]:
     return [part for part in parts if part]
 
 
+class NoApplicantEmails(Exception):
+    def __init__(self):
+        super().__init__("refusing to write: no column holds the applicants' emails, so there is no "
+                         "telling one applicant's submissions from several applicants")
+
+
 def applicant_keys(rows: List[List[str]]) -> List[str]:
-    """Who wrote each data row: its applicant's email when the export collects one, so that
-    "shared by 3" counts people rather than submissions. Otherwise every row is its own person."""
+    """Who wrote each data row: its applicant's email, so that "shared by 3" counts people rather
+    than submissions. A row with no email there (a TEST row) is its own person. An export that
+    collects no email is refused, since counting rows would let one person's answer through."""
     body = rows[1:]
     width = max((len(row) for row in rows), default=0)
     for column in range(width):
@@ -93,7 +112,7 @@ def applicant_keys(rows: List[List[str]]) -> List[str]:
                 if column < len(row) and EMAIL.fullmatch(row[column].strip()) else f"row {index}"
                 for index, row in enumerate(body)
             ]
-    return [f"row {index}" for index in range(len(body))]
+    raise NoApplicantEmails()
 
 
 def _identifies_on_sight(value: str) -> bool:
@@ -147,7 +166,10 @@ class _Inventor:
     No two source values share a stand-in, so the count of distinct applicants survives.
     """
 
-    def __init__(self, rows: List[List[str]]):
+    def __init__(self, rows: List[List[str]], key: int):
+        # Every stand-in is keyed on the whole source, so hashing a guessed name or email
+        # reproduces nothing without the file it came from.
+        self._key = key
         self._source_values = {cell.strip().lower() for _, _, cell in _cells(rows)}
         self._source_words = {
             match.group(0).lower()
@@ -160,11 +182,11 @@ class _Inventor:
         return self._unique("value", source, lambda attempt: TOKEN.sub(
             lambda match: self._token(match, source, attempt), source))
 
-    def _unique(self, kind: str, source: str, make) -> str:
+    def _unique(self, kind: str, source: str, make: Callable[[int], str]) -> str:
         key = (kind, source.lower())
         if key in self._memo:
-            # Same letters, the source's own case: "Juniper.Vale@..." is "juniper.vale@...".
-            return _recase(self._memo[key], source) if kind == "value" else self._memo[key]
+            # Same letters in the source's own case, so "WREN OKAFOR" reads as "Wren Okafor" did.
+            return _recase(self._memo[key], source)
         attempt = 0
         while True:
             invented = make(attempt)
@@ -187,7 +209,7 @@ class _Inventor:
         if match.group("url"):
             return self._unique("url", text, lambda n: ("https://example.com/" if text.lower()
                                 .startswith("http") else "www.example.com/")
-                                + f"{_digest('url', text.lower(), n) % 10**6:06d}")
+                                + f"{self._hash('url', text.lower(), n) % 10**6:06d}")
         if match.group("handle"):
             return "@" + self._word(text[1:].lower(), f"handle:{text.lower()}", attempt)
         if match.group("digits"):
@@ -200,35 +222,41 @@ class _Inventor:
         def make(attempt: int) -> str:
             invented = re.sub(r"[^\W\d_]+", lambda m: self._word(
                 m.group(0), f"email:{text.lower()}:{m.start()}", attempt), local)
-            invented = re.sub(r"\d", lambda m: str(_digest(text.lower(), m.start(), attempt) % 10),
+            invented = re.sub(r"\d", lambda m: str(self._hash(text.lower(), m.start(), attempt) % 10),
                               invented)
             return f"{invented}@example.com"
 
         return self._unique("email", text, make)
 
     def _word(self, word: str, salt: str, attempt: int) -> str:
-        """Pronounceable letters of the same length, never a word the source contains - short of
-        LEAK_MIN_LENGTH, where there may be no such word left and none could leak."""
+        """Pronounceable letters of the same length, never a word the source contains."""
         while True:
-            seed = _digest(salt, attempt)
+            seed = self._hash(salt, attempt)
             start = seed % 2
             letters = []
             for position in range(len(word)):
                 pool = VOWELS if (position + start) % 2 else CONSONANTS
-                seed = _digest(seed, position)
+                seed = self._hash(seed, position)
                 letters.append(pool[seed % len(pool)])
             invented = "".join(letters)
-            if len(invented) < LEAK_MIN_LENGTH or invented not in self._source_words:
+            if self._unheard_of(invented):
                 return invented
             attempt += 1_000
 
     def _digits(self, text: str, source: str, offset: int, attempt: int) -> str:
         while True:
-            invented = "".join(str(_digest(source.lower(), offset, attempt, i) % 10)
+            invented = "".join(str(self._hash(source.lower(), offset, attempt, i) % 10)
                                for i in range(len(text)))
-            if len(invented) < LEAK_MIN_LENGTH or invented not in self._source_words:
+            if self._unheard_of(invented):
                 return invented
             attempt += 1_000
+
+    def _hash(self, *parts: object) -> int:
+        return _digest(self._key, *parts)
+
+    def _unheard_of(self, invented: str) -> bool:
+        """Not a word the source holds - or too short to leak, where there may be none left."""
+        return len(invented) < LEAK_MIN_LENGTH or invented not in self._source_words
 
 
 def _recase(invented: str, like: str) -> str:
@@ -241,30 +269,27 @@ def _recase(invented: str, like: str) -> str:
 # --- Timestamps ----------------------------------------------------------------------------------
 
 
-def _timestamp_format(value: str) -> Optional[Tuple[str, bool]]:
-    for pattern, fmt, padded in TIMESTAMP_FORMATS:
-        if pattern.fullmatch(value.strip()):
-            return fmt, padded
+def _timestamp_format(value: str) -> Optional[_TimestampFormat]:
+    for candidate in TIMESTAMP_FORMATS:
+        if candidate.shape.fullmatch(value.strip()):
+            return candidate
     return None
 
 
-def _format_timestamp(moment: datetime, fmt: str, padded: bool) -> str:
-    if padded:
-        return moment.strftime(fmt)
-    return (f"{moment.month}/{moment.day}/{moment.year} "
-            f"{moment.hour}:{moment.minute:02d}:{moment.second:02d}")
-
-
 def _shift(value: str, offset: timedelta) -> str:
-    fmt, padded = _timestamp_format(value)
-    return _format_timestamp(datetime.strptime(value.strip(), fmt) + offset, fmt, padded)
+    form = _timestamp_format(value)
+    return form.write(datetime.strptime(value.strip(), form.read) + offset)
+
+
+def _file_key(rows: List[List[str]]) -> int:
+    return _digest(json.dumps(rows))
 
 
 def _timestamp_offset(rows: List[List[str]]) -> timedelta:
     """One offset for the whole file, between one and six hours, derived from the source so it is
     not published here, and moved on until no shifted timestamp lands on a real one."""
     stamps = {cell.strip() for _, _, cell in _cells(rows) if _timestamp_format(cell)}
-    seconds = 3600 + _digest(json.dumps(rows)) % (5 * 3600)
+    seconds = 3600 + _digest("offset", _file_key(rows)) % (5 * 3600)
     while True:
         offset = timedelta(seconds=seconds)
         if not any(_shift(stamp, offset) in stamps for stamp in stamps):
@@ -277,15 +302,15 @@ def _timestamp_offset(rows: List[List[str]]) -> timedelta:
 
 class LeakRefused(Exception):
     def __init__(self, columns: List[str]):
-        super().__init__("refusing to write: a value fewer than 3 applicants gave appears in "
-                         + ", ".join(repr(column) for column in columns))
+        super().__init__(f"refusing to write: a value fewer than {SHARED_BY} applicants gave "
+                         "appears in " + ", ".join(columns))
         self.columns = columns
 
 
 def anonymise(rows: List[List[str]]) -> List[List[str]]:
     keys = applicant_keys(rows)
     shared = _shared_values(rows, keys)
-    inventor = _Inventor(rows)
+    inventor = _Inventor(rows, _file_key(rows))
     offset = _timestamp_offset(rows)
 
     def stand_in(column: int, cell: str) -> str:
@@ -324,49 +349,60 @@ def _occurrences(text: str, needle: str) -> Iterator[int]:
         start = text.find(needle, start + 1)
 
 
-class _Haystack:
-    """Data cells joined into one lower-cased text, remembering where each cell starts."""
+# The fixed parts of a stand-in link or address, which no applicant wrote.
+STAND_IN_WORDS = frozenset({"example", "http", "https", "www"})
 
-    def __init__(self, rows: List[List[str]]):
-        self.starts: List[int] = []
-        self.cells: List[Tuple[int, int]] = []
-        pieces, position = [], 0
-        for index, column, cell in _cells(rows):
-            self.starts.append(position)
-            self.cells.append((index, column))
-            pieces.append(cell.lower())
-            position += len(cell) + 1
-        self.text = "\n".join(pieces)
 
-    def cells_holding(self, needle: str) -> Iterator[Tuple[int, int]]:
-        for position in _occurrences(self.text, needle):
-            yield self.cells[bisect.bisect_right(self.starts, position) - 1]
+def _column_label(header: List[str], column: int) -> str:
+    """By number and header, since a form export repeats headers ("Email Address" twice)."""
+    text = " ".join(header[column].split()) if column < len(header) else ""
+    return f'column {column + 1} "{text[:60]}"' if text else f"column {column + 1}"
 
 
 def find_leaks(source: List[List[str]], output: List[List[str]]) -> List[str]:
-    """The headers of the output columns holding a source value of LEAK_MIN_LENGTH or more
-    characters that fewer than SHARED_BY applicants wrote. The header row is the organizer's and is
-    copied on purpose, so only answers are searched. A rare value found inside answers enough
-    people gave ("Full" inside "Full table") says nothing about anyone, so it is not rare."""
+    """The output columns holding something fewer than SHARED_BY applicants wrote and at least
+    LEAK_MIN_LENGTH characters long: an answer or option, or a single word or number inside one,
+    so a surname in a comment counts. Judged on its own terms, not on how stand-ins were made.
+
+    Only answers are searched: the header row is the organizer's and is copied on purpose. An
+    output option that is, in its own column, an answer SHARED_BY applicants gave is passed over
+    whole - "Full table" may hold one applicant's "Full" and says nothing about them.
+    """
     keys = applicant_keys(source)
-    candidates: Dict[str, Set[str]] = {}
-    for index, _, cell in _cells(source):
-        for value in split_options(cell):
-            if len(value) >= LEAK_MIN_LENGTH and not _is_placeholder(value):
-                candidates.setdefault(value.lower(), set()).add(keys[index])
+    options: Dict[Tuple[int, str], Set[str]] = {}
+    tokens: Dict[str, Set[str]] = {}
+    for index, column, cell in _cells(source):
+        for option in split_options(cell):
+            options.setdefault((column, option.lower()), set()).add(keys[index])
+        for match in TOKEN.finditer(cell):
+            tokens.setdefault(match.group(0).lower(), set()).add(keys[index])
 
-    haystack = _Haystack(source)
-    rare = [
-        value for value, people in candidates.items()
-        if len(people) < SHARED_BY
-        and len({keys[index] for index, _ in haystack.cells_holding(value)}) < SHARED_BY
-    ]
+    shared = {found for found, people in options.items() if len(people) >= SHARED_BY}
+    rare = {value for (_, value), people in options.items() if len(people) < SHARED_BY}
+    rare |= {token for token, people in tokens.items()
+             if len(people) < SHARED_BY and token not in STAND_IN_WORDS}
+    rare = {value for value in rare
+            if len(value) >= LEAK_MIN_LENGTH and not _is_placeholder(value)}
 
-    produced = _Haystack(output)
+    searched: Dict[int, List[str]] = {}
+    leaking: Set[int] = set()
+    for _, column, cell in _cells(output):
+        for option in split_options(cell):
+            if (column, option.lower()) in shared or _is_placeholder(option):
+                continue
+            if _timestamp_format(option):
+                # Judged whole: its year is every applicant's, and only the whole moment is theirs.
+                if option.lower() in rare:
+                    leaking.add(column)
+                continue
+            searched.setdefault(column, []).append(option.lower())
+
+    for column, answers in searched.items():
+        text = "\n".join(answers)
+        if any(next(_occurrences(text, value), None) is not None for value in rare):
+            leaking.add(column)
     header = output[0] if output else []
-    columns = sorted({column for value in rare for _, column in produced.cells_holding(value)})
-    return [header[column] if column < len(header) and header[column].strip()
-            else f"column {column + 1}" for column in columns]
+    return [_column_label(header, column) for column in sorted(leaking)]
 
 
 def main() -> int:
@@ -378,7 +414,7 @@ def main() -> int:
         rows = list(csv.reader(handle))
     try:
         anonymised = anonymise(rows)
-    except LeakRefused as refusal:
+    except (LeakRefused, NoApplicantEmails) as refusal:
         print(refusal, file=sys.stderr)
         return 1
     with open(destination, "w", newline="", encoding="utf-8") as handle:

@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import datetime
 
 import pytest
 
@@ -37,6 +38,8 @@ HEADER = [
     "Email Address",
     "",
 ]
+
+STAMP, EMAIL, NAME, DAYS_COLUMN, SIZE, PARTNER, LINK, COMMENT, REPEATED_EMAIL = range(1, 10)
 
 DAYS = "Saturday, March 7, Sunday, March 8"
 SATURDAY = "Saturday, March 7"
@@ -86,16 +89,16 @@ class TestWhatIsKept:
 
     def test_a_value_three_applicants_share_is_kept(self):
         out = anonymiser.anonymise(_export())
-        assert _column(out, 5)[:3] == ["Full table"] * 3
+        assert _column(out, SIZE)[:3] == ["Full table"] * 3
 
     def test_a_value_one_applicant_gave_three_times_is_replaced(self):
         # "Half table" is on three rows, all of them Juniper's.
         out = anonymiser.anonymise(_export())
-        assert "Half table" not in _column(out, 5)
+        assert "Half table" not in _column(out, SIZE)
 
     def test_an_option_three_applicants_chose_is_kept_inside_a_rarer_answer(self):
         out = anonymiser.anonymise(_export())
-        days = _column(out, 4)
+        days = _column(out, DAYS_COLUMN)
         # Saturday, March 7 was chosen by Wren, Ilse, Tomasz and Juniper; Sunday by only two.
         assert days[1] == SATURDAY
         assert days[0].startswith(f"{SATURDAY}, ")
@@ -103,14 +106,15 @@ class TestWhatIsKept:
 
     def test_an_option_holding_a_comma_is_one_option(self):
         out = anonymiser.anonymise(_export())
-        tomasz = _column(out, 4)[2]
+        tomasz = _column(out, DAYS_COLUMN)[2]
         assert "crochet" not in tomasz
         assert tomasz.startswith(f"{SATURDAY}, ")
 
     def test_the_test_row_is_kept_as_it_is(self):
         source = _export()
         out = anonymiser.anonymise(source)
-        assert out[-1][:1] + out[-1][2:] == source[-1][:1] + source[-1][2:]
+        # Every cell but its timestamp, which moves like every other.
+        assert out[-1][:STAMP] + out[-1][STAMP + 1:] == source[-1][:STAMP] + source[-1][STAMP + 1:]
 
 
 class TestWhatIsInvented:
@@ -124,12 +128,12 @@ class TestWhatIsInvented:
 
     def test_an_email_becomes_an_email(self):
         out = anonymiser.anonymise(_export())
-        for email in _column(out, 2)[:-1]:
+        for email in _column(out, EMAIL)[:-1]:
             assert re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-z]+", email)
 
     def test_one_applicant_keeps_one_invented_email_everywhere(self):
         out = anonymiser.anonymise(_export())
-        emails, repeated, partners = _column(out, 2), _column(out, 9), _column(out, 6)
+        emails, repeated, partners = _column(out, EMAIL), _column(out, REPEATED_EMAIL), _column(out, PARTNER)
         assert emails == repeated
         assert partners[1] == emails[0]
         # Case differences in the source are the same person.
@@ -137,40 +141,41 @@ class TestWhatIsInvented:
 
     def test_different_applicants_get_different_emails(self):
         out = anonymiser.anonymise(_export())
-        assert len(set(_column(out, 2)[:-1])) == 4
+        assert len(set(_column(out, EMAIL)[:-1])) == 4
 
     def test_a_name_becomes_a_name(self):
         out = anonymiser.anonymise(_export())
-        for name in _column(out, 3)[:-1]:
+        for name in _column(out, NAME)[:-1]:
             assert re.fullmatch(r"[A-Z][a-z]+ [A-Z][a-z]+", name)
 
     def test_a_link_becomes_a_link(self):
         out = anonymiser.anonymise(_export())
-        assert re.fullmatch(r"https://\S+", _column(out, 7)[0])
+        assert re.fullmatch(r"https://\S+", _column(out, LINK)[0])
 
     def test_prose_becomes_prose_of_the_same_length(self):
         source = _export()
         out = anonymiser.anonymise(source)
-        before, after = _column(source, 8)[0], _column(out, 8)[0]
+        before, after = _column(source, COMMENT)[0], _column(out, COMMENT)[0]
         assert after != before
         assert len(after) == len(before)
         assert after.count(" ") == before.count(" ")
 
 
+def _parse(stamp):
+    return datetime.strptime(stamp, "%m/%d/%Y %H:%M:%S")
+
+
 class TestTimestamps:
     def test_every_timestamp_moves_by_one_offset(self):
-        from datetime import datetime
-
         source = _export()
         out = anonymiser.anonymise(source)
-        parse = lambda s: datetime.strptime(s, "%m/%d/%Y %H:%M:%S")
-        shifts = {parse(a) - parse(b) for a, b in zip(_column(out, 1), _column(source, 1))}
+        shifts = {_parse(a) - _parse(b) for a, b in zip(_column(out, STAMP), _column(source, STAMP))}
         assert len(shifts) == 1
         assert shifts.pop().total_seconds() != 0
 
     def test_timestamps_keep_their_unpadded_format(self):
         out = anonymiser.anonymise(_export())
-        for stamp in _column(out, 1):
+        for stamp in _column(out, STAMP):
             assert re.fullmatch(r"[1-9]\d?/[1-9]\d?/\d{4} [1-9]?\d:\d\d:\d\d", stamp)
 
     def test_an_iso_timestamp_stays_iso(self):
@@ -198,48 +203,100 @@ class TestDeterminism:
         assert outputs[0] == outputs[1]
 
 
+def _people(rows):
+    """Give every data row its own applicant email, as the first column."""
+    return [["Email"] + rows[0]] + [[f"p{i}@mail.test"] + row for i, row in enumerate(rows[1:])]
+
+
+def _answers(rows):
+    """An output with the email column blanked, so only the answers under test are searched."""
+    return [["Email"] + rows[0]] + [[""] + row for row in rows[1:]]
+
+
 class TestTheLeakCheck:
     """``find_leaks`` is the refusal's own judgement, independent of how values were invented."""
 
-    SOURCE = [
+    SOURCE = _people([
         ["Name", "Table size", "Notes"],
         ["Wren Okafor", "Full table", ""],
         ["Ilse Marchetti", "Full table", ""],
         ["Tomasz Bright", "Full table", ""],
         ["Juniper Vale", "Full", "Okafor sent me"],
-    ]
+    ])
 
-    def test_a_rare_value_in_the_output_names_its_column(self):
-        output = [["Name", "Table size", "Notes"],
-                  ["A B", "Full table", ""],
-                  ["C D", "Full table", "met Ilse Marchetti there"]]
-        assert anonymiser.find_leaks(self.SOURCE, output) == ["Notes"]
+    def test_a_rare_value_in_the_output_names_its_column_by_number_and_header(self):
+        output = _answers([["Name", "Table size", "Notes"],
+                           ["A B", "Full table", ""],
+                           ["C D", "Full table", "met Ilse Marchetti there"]])
+        assert anonymiser.find_leaks(self.SOURCE, output) == ['column 4 "Notes"']
 
-    def test_a_rare_value_inside_a_shared_one_is_no_leak(self):
-        # "Full" alone is one applicant's answer, but three applicants wrote it inside "Full table".
-        output = [["Name", "Table size", "Notes"], ["A B", "Full table", ""]]
+    def test_a_rare_word_inside_free_text_is_a_leak(self):
+        # "Okafor" is one of Wren's names and a word in Juniper's note: two applicants.
+        output = _answers([["Name", "Table size", "Notes"], ["A B", "Full table", "ask okafor"]])
+        assert anonymiser.find_leaks(self.SOURCE, output) == ['column 4 "Notes"']
+
+    def test_a_rare_name_others_mention_is_still_a_leak(self):
+        # Three applicants wrote "Wren Okafor", but only Wren gave it as her own answer: kept
+        # anywhere but inside an answer three applicants gave, it points at her.
+        source = _people([["Name", "Partner"], ["Wren Okafor", ""], ["Ilse Marchetti",
+                          "Wren Okafor"], ["Tomasz Bright", "Wren Okafor"]])
+        output = _answers([["Name", "Partner"], ["Wren Okafor", ""]])
+        assert anonymiser.find_leaks(source, output) == ['column 2 "Name"']
+
+    def test_a_rare_value_inside_a_shared_answer_is_no_leak(self):
+        # "Full" alone is one applicant's answer, but "Full table" is three applicants' answer.
+        output = _answers([["Name", "Table size", "Notes"], ["A B", "Full table", ""]])
         assert anonymiser.find_leaks(self.SOURCE, output) == []
 
     def test_a_value_shorter_than_four_characters_is_no_leak(self):
-        source = [["Days"], ["Sat"], ["Sun"]]
-        assert anonymiser.find_leaks(source, source) == []
+        source = _people([["Days"], ["Sat"], ["Sun"]])
+        assert anonymiser.find_leaks(source, _answers([["Days"], ["Sat"], ["Sun"]])) == []
 
     def test_the_header_row_is_not_searched(self):
-        source = [["Wren Okafor?"], ["Wren Okafor"]]
-        output = [["Wren Okafor?"], ["Avery Silva"]]
+        source = _people([["Wren Okafor?"], ["Wren Okafor"]])
+        output = _answers([["Wren Okafor?"], ["Avery Silva"]])
         assert anonymiser.find_leaks(source, output) == []
 
     def test_a_word_inside_a_longer_word_is_no_leak(self):
-        source = [["Craft"], ["Wood"]]
-        output = [["Craft"], ["Woodwork"]]
+        source = _people([["Craft"], ["Wood"]])
+        output = _answers([["Craft"], ["Woodwork"]])
         assert anonymiser.find_leaks(source, output) == []
 
     def test_a_rare_combination_of_shared_options_is_no_leak(self):
         # Ticket 01, amended by 03: the options are what is counted, not the answer that joins them.
-        source = [["Clubs"], ["Pottery"], ["Pottery"], ["Pottery"], ["Zines"], ["Zines"],
-                  ["Zines"], ["Pottery, Zines"]]
-        assert anonymiser.find_leaks(source, source) == []
+        answers = [["Clubs"], ["Pottery"], ["Pottery"], ["Pottery"], ["Zines"], ["Zines"],
+                   ["Zines"], ["Pottery, Zines"]]
+        assert anonymiser.find_leaks(_people(answers), _answers(answers)) == []
 
     def test_the_anonymised_export_has_no_leaks(self):
         source = _export()
         assert anonymiser.find_leaks(source, anonymiser.anonymise(source)) == []
+
+
+class TestRefusals:
+    def test_an_export_without_applicant_emails_is_refused(self):
+        # Without an email there is no telling one applicant's three submissions from three
+        # applicants, and "shared by 3" would count rows.
+        with pytest.raises(anonymiser.NoApplicantEmails):
+            anonymiser.anonymise([["Name"], ["Wren Okafor"], ["Wren Okafor"], ["Wren Okafor"]])
+
+    def test_a_leak_writes_nothing_and_names_the_column(self, tmp_path, monkeypatch, capsys):
+        source = tmp_path / "export.csv"
+        with open(source, "w", newline="", encoding="utf-8") as handle:
+            csv.writer(handle).writerows(_export())
+        destination = tmp_path / "out.csv"
+        monkeypatch.setattr(anonymiser, "find_leaks", lambda *_: ['column 9 "Additional comments"'])
+        monkeypatch.setattr(sys, "argv", ["anonymise", str(source), str(destination)])
+        assert anonymiser.main() == 1
+        assert not destination.exists()
+        assert 'column 9 "Additional comments"' in capsys.readouterr().err
+
+
+class TestTheStandIns:
+    def test_a_stand_in_cannot_be_recomputed_without_the_whole_source(self):
+        # Keyed on the file, so hashing a guessed name or email reproduces nothing.
+        source = _export()
+        other = _export()
+        other[1][COMMENT] = "Loves glaze"
+        assert (_column(anonymiser.anonymise(source), NAME)[0]
+                != _column(anonymiser.anonymise(other), NAME)[0])
