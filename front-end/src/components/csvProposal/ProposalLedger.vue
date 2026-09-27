@@ -18,6 +18,7 @@ import ValueFixes from '@/components/ValueFixes.vue';
 import {
   choiceOfTarget,
   draftRows,
+  notAsked,
   planRowsToCheck,
   proposalCounts,
   takenBy,
@@ -47,6 +48,7 @@ const emit = defineEmits<{
   correct: [row: number, change: Partial<RowChoice>];
   toggle: [row: number, value: string];
   settle: [kind: DisagreementKind, value: string, choice: string];
+  ceiling: [days: number | null];
   cancel: [];
   confirm: [];
 }>();
@@ -55,6 +57,23 @@ const rows = computed(() => draftRows(props.proposal, props.draft));
 const counts = computed(() => proposalCounts(props.proposal, props.draft));
 const plan = computed(() => props.proposal.plan);
 const planChecks = computed(() => planRowsToCheck(props.proposal, props.draft));
+const unasked = computed(() => notAsked(props.proposal, props.draft));
+
+/** A ceiling from 1 to 10 days, as the rule and TypeSafe read one. */
+const CEILINGS = Array.from({ length: 10 }, (_, i) => i + 1);
+
+function chooseCeiling(event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  emit('ceiling', value === '' ? null : Number(value));
+}
+
+/**
+ * A grid's columns are one question with a column per option, which only an essential question
+ * reads that way; as one question of the organizer's own, or as who applied, it would be several.
+ */
+function onlyEssential(row: LedgerRow): boolean {
+  return row.members.length > 1;
+}
 
 const WHO_APPLIED = [
   { target: 'submitted_at', label: 'When they applied' },
@@ -160,6 +179,7 @@ function onSettle(kind: string, value: string, choice: string) {
               <div>{{ datesNote }}</div>
               <ValueFixes
                 v-if="disagreements('date').length"
+                testid="proposal"
                 :entries="disagreements('date')"
                 :resolution-for="settledAs"
                 :label-for="offeredLabel"
@@ -184,6 +204,7 @@ function onSettle(kind: string, value: string, choice: string) {
               <div>{{ tiersNote }}</div>
               <ValueFixes
                 v-if="disagreements('tier').length"
+                testid="proposal"
                 :entries="disagreements('tier')"
                 :resolution-for="settledAs"
                 against="your plan"
@@ -206,15 +227,27 @@ function onSettle(kind: string, value: string, choice: string) {
           </td>
           <td>
             <div class="becomes">
-              <div v-if="plan.ceiling">Becomes the most days per vendor</div>
-              <div v-else class="muted">Nothing to write</div>
-              <span
-                v-for="reason in plan.check"
-                :key="reason"
-                class="chip chip--attention"
-                data-testid="proposal-check"
-                >{{ reason }}</span
+              <select
+                class="field field--select fate"
+                :value="draft.ceiling.days ?? ''"
+                aria-label="Most days one vendor may get"
+                data-testid="proposal-plan-ceiling-days"
+                @change="chooseCeiling"
               >
+                <option value="">No limit</option>
+                <option v-for="days in CEILINGS" :key="days" :value="days">
+                  At most {{ days }} day{{ days === 1 ? '' : 's' }}
+                </option>
+              </select>
+              <template v-if="planChecks.ceiling">
+                <span
+                  v-for="reason in plan.check"
+                  :key="reason"
+                  class="chip chip--attention"
+                  data-testid="proposal-check"
+                  >{{ reason }}</span
+                >
+              </template>
             </div>
           </td>
         </tr>
@@ -256,7 +289,9 @@ function onSettle(kind: string, value: string, choice: string) {
                     v-for="who in WHO_APPLIED"
                     :key="who.target"
                     :value="who.target"
-                    :disabled="takenBy(draft, who.target, first(row)) !== null"
+                    :disabled="
+                      onlyEssential(row) || takenBy(draft, who.target, first(row)) !== null
+                    "
                   >
                     {{ who.label }}{{ takenNote(who.target, row) }}
                   </option>
@@ -271,7 +306,9 @@ function onSettle(kind: string, value: string, choice: string) {
                     Essential: {{ essentialLabel(key) }}{{ takenNote(`essential:${key}`, row) }}
                   </option>
                 </optgroup>
-                <option value="custom" :disabled="!row.field">Your question</option>
+                <option value="custom" :disabled="!row.field || onlyEssential(row)">
+                  Your question
+                </option>
                 <option value="left_out">Left out</option>
               </select>
 
@@ -342,15 +379,11 @@ function onSettle(kind: string, value: string, choice: string) {
           </td>
         </tr>
 
-        <template v-if="proposal.notAsked.length">
+        <template v-if="unasked.length">
           <tr class="band">
             <th colspan="3" scope="rowgroup">Essential questions no column answers</th>
           </tr>
-          <tr
-            v-for="question in proposal.notAsked"
-            :key="question.key"
-            data-testid="proposal-not-asked"
-          >
+          <tr v-for="question in unasked" :key="question.key" data-testid="proposal-not-asked">
             <td>
               <strong>{{ question.label }}</strong>
             </td>

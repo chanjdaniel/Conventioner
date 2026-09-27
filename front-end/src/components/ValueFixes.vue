@@ -23,8 +23,14 @@ const props = withDefaults(
     labelFor?: (target: string, choice: string) => string;
     /** What the values did not match, as the organizer calls it. */
     against?: string;
+    /** Test id prefix, the view's own: `<testid>-value-fixes`, `-unmatched-value`, `-fix-<value>`. */
+    testid?: string;
   }>(),
-  { labelFor: (_target: string, choice: string) => choice, against: 'your market' },
+  {
+    labelFor: (_target: string, choice: string) => choice,
+    against: 'your market',
+    testid: 'import',
+  },
 );
 const emit = defineEmits<{ resolve: [target: string, value: string, choice: string] }>();
 
@@ -34,20 +40,20 @@ function choose(entry: ValueFix, event: Event) {
 </script>
 
 <template>
-  <div class="ledger-fixes" data-testid="import-value-fixes">
+  <div class="ledger-fixes" :data-testid="`${testid}-value-fixes`">
     <p class="ledger-fixes-title">
       {{ entries.length }} value{{ entries.length === 1 ? '' : 's' }} did not match
       {{ against }}
     </p>
     <div v-for="entry in entries" :key="`${entry.target}-${entry.value}`" class="ledger-fix">
-      <code data-testid="import-unmatched-value">{{ entry.value }}</code>
+      <code :data-testid="`${testid}-unmatched-value`">{{ entry.value }}</code>
       <span v-if="entry.rows !== undefined" class="ledger-fix-rows"
         >{{ entry.rows }} row{{ entry.rows === 1 ? '' : 's' }}</span
       >
       <select
-        class="ledger-fix-select"
+        class="field field--select ledger-fix-select"
         :value="props.resolutionFor(entry.target, entry.value)"
-        :data-testid="`import-fix-${entry.value}`"
+        :data-testid="`${testid}-fix-${entry.value}`"
         @change="choose(entry, $event)"
       >
         <option value="">Choose…</option>
@@ -95,12 +101,8 @@ function choose(entry: ValueFix, event: Event) {
   color: var(--mm-text-muted);
 }
 
+/* The field primitive, as wide as its words rather than the row. */
 .ledger-fix-select {
-  height: 30px;
-  padding: var(--space-hairline) var(--space-1);
-  font-size: var(--text-xs);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
+  width: auto;
 }
 </style>

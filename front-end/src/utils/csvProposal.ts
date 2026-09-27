@@ -9,6 +9,7 @@
  * to check.
  */
 import { FIELD_TYPES } from '@/utils/applicationForm';
+import { ESSENTIAL_KEYS, essentialLabel } from '@/utils/essentialFields';
 
 export type Fate = 'submitted_at' | 'applicant_email' | 'essential' | 'custom' | 'left_out';
 
@@ -91,14 +92,20 @@ export interface Proposal {
 
 /* ── The working copy ─────────────────────────────────────────────────────────────────────── */
 
+type ChoiceType = 'select' | 'multi_select';
+
 /** What the organizer has made of one ledger row. */
 export interface RowChoice {
   fate: Fate;
   essential: string | null;
   type: FieldType;
   required: boolean;
-  /** The options kept, by value. */
-  kept: string[];
+  /**
+   * The options kept, by value, for each way of reading the answers as choices: whole answers for
+   * one choice, the options inside them for several. Each keeps its own, so switching back and
+   * forth never loses what the organizer ticked.
+   */
+  kept: Partial<Record<ChoiceType, string[]>>;
   /** Once the organizer touches a row it is theirs, and no longer one to check. */
   corrected: boolean;
 }
@@ -108,22 +115,33 @@ export interface ProposalDraft {
   rows: Record<number, RowChoice>;
   /** A plan disagreement's value, per kind, to the plan's value it is, or IGNORE_VALUE. */
   settled: Partial<Record<DisagreementKind, Record<string, string>>>;
+  /** The most days one vendor may get: null for no limit. */
+  ceiling: { days: number | null; corrected: boolean };
 }
 
 /** The working copy as the proposal made it: nothing corrected, nothing settled. */
 export function draftFrom(proposal: Proposal): ProposalDraft {
   const rows: Record<number, RowChoice> = {};
   for (const row of ledgerRows(proposal)) {
+    const kept: RowChoice['kept'] = {};
+    for (const type of ['select', 'multi_select'] as ChoiceType[]) {
+      const read = row.field?.optionsByType[type]?.options;
+      if (read) kept[type] = read.filter((o) => o.keep).map((o) => o.value);
+    }
     rows[row.indexes[0]] = {
       fate: row.fate,
       essential: row.essential,
       type: row.field?.type ?? 'text',
       required: row.field?.required ?? false,
-      kept: (row.field?.options ?? []).filter((o) => o.keep).map((o) => o.value),
+      kept,
       corrected: false,
     };
   }
-  return { rows, settled: {} };
+  return {
+    rows,
+    settled: {},
+    ceiling: { days: proposal.plan.ceiling?.days ?? null, corrected: false },
+  };
 }
 
 /** Change one row: its fate, which essential, its type or whether it is required. */
@@ -135,14 +153,22 @@ export function correct(draft: ProposalDraft, row: number, change: Partial<RowCh
   draft.rows[row] = next;
 }
 
-/** Keep an option, or stop keeping it. */
+/** Keep an option, or stop keeping it, in the reading the row's type uses. */
 export function toggleOption(draft: ProposalDraft, row: number, value: string): void {
   const current = draft.rows[row];
-  if (!current) return;
-  const kept = current.kept.includes(value)
-    ? current.kept.filter((v) => v !== value)
-    : [...current.kept, value];
-  correct(draft, row, { kept });
+  if (!current || !isChoice(current.type)) return;
+  const kept = current.kept[current.type] ?? [];
+  const next = kept.includes(value) ? kept.filter((v) => v !== value) : [...kept, value];
+  correct(draft, row, { kept: { ...current.kept, [current.type]: next } });
+}
+
+/** State the most days one vendor may get; null for no limit. */
+export function setCeiling(draft: ProposalDraft, days: number | null): void {
+  draft.ceiling = { days, corrected: true };
+}
+
+function isChoice(type: FieldType): type is ChoiceType {
+  return type === 'select' || type === 'multi_select';
 }
 
 /** Settle a value the plan does not have: one of the plan's values, or ignored. */
@@ -260,20 +286,30 @@ function optionsFor(
   field: ProposedField,
   choice: RowChoice,
 ): Pick<ProposedField, 'options' | 'unlistedOptions'> {
-  if (choice.type !== 'select' && choice.type !== 'multi_select')
-    return { options: [], unlistedOptions: 0 };
+  if (!isChoice(choice.type)) return { options: [], unlistedOptions: 0 };
   const read = field.optionsByType[choice.type];
-  if (!read) return { options: field.options, unlistedOptions: field.unlistedOptions };
-  // A type the organizer switched to keeps what that reading keeps by default, and whatever
-  // they ticked themselves since.
-  const switched = choice.type !== field.type;
+  if (!read) return { options: [], unlistedOptions: 0 };
+  const kept = choice.kept[choice.type] ?? [];
   return {
-    options: read.options.map((o) => ({
-      ...o,
-      keep: switched && !choice.kept.includes(o.value) ? o.keep : choice.kept.includes(o.value),
-    })),
+    options: read.options.map((o) => ({ ...o, keep: kept.includes(o.value) })),
     unlistedOptions: read.unlisted,
   };
+}
+
+/** The essential questions no column answers now, with why - the proposal's reason where it gave
+ * one, and the organizer's own move where they took the column away. */
+export function notAsked(
+  proposal: Proposal,
+  draft: ProposalDraft,
+): Array<{ key: string; label: string; why: string }> {
+  const answered = new Set(Object.values(draft.rows).map((r) => r.essential));
+  return ESSENTIAL_KEYS.filter((key) => !answered.has(key)).map((key) => ({
+    key,
+    label: essentialLabel(key),
+    why:
+      proposal.notAsked.find((q) => q.key === key)?.why ??
+      'You gave the column that answered it another use',
+  }));
 }
 
 /** Which of the plan's rows still need the organizer: a value the plan lacks, or a doubt. */
@@ -286,7 +322,7 @@ export function planRowsToCheck(
   return {
     dates: unsettled('date'),
     tiers: unsettled('tier'),
-    ceiling: proposal.plan.check.length > 0,
+    ceiling: proposal.plan.check.length > 0 && !draft.ceiling.corrected,
   };
 }
 
@@ -300,7 +336,7 @@ export interface ProposalCounts {
 /** The rail's numbers: the rows still to check, and what the columns become. */
 export function proposalCounts(proposal: Proposal, draft?: ProposalDraft): ProposalCounts {
   const rows = draft ? draftRows(proposal, draft) : ledgerRows(proposal);
-  const plan = planRowsToCheck(proposal, draft ?? { rows: {}, settled: {} });
+  const plan = planRowsToCheck(proposal, draft ?? draftFrom(proposal));
   return {
     toCheck: rows.filter((r) => r.check.length).length + Object.values(plan).filter(Boolean).length,
     essential: rows.filter((r) => r.fate === 'essential').length,
