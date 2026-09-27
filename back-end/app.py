@@ -13,6 +13,7 @@ import api.placements as PlacementsApi
 import api.form_amendment as FormAmendmentApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
+import typesafe_client as TypeSafe
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
@@ -1751,6 +1752,13 @@ def _import_context(market_id: str, requesting_user: str):
     if refusal:
         return None, {"error": refusal, "phase": market_doc.get("phase")}, 409
     return market_doc, None, 200
+
+
+@app.route('/csv-proposal/typesafe', methods=['GET'])
+@login_required
+def csv_proposal_typesafe() -> Response:
+    """Whether a CSV proposal may consult hosted TypeSafe, so the upload step can say so."""
+    return jsonify({"configured": bool(TypeSafe.configured_key())}), 200
 
 
 @app.route('/markets/<market_id>/csv-proposal', methods=['POST'])

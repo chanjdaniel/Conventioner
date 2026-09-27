@@ -24,10 +24,12 @@ cannot give - every option of a choice question, with how many chose it - comes 
 file, which never leaves the server.
 """
 import re
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import essential_fields as EssentialFields
+import typesafe_client as TypeSafe
 from csv_import import (
     GRID_HEADER, collapse_header, column_groups, normalized_submitted_at, parse_csv, resolve_value,
 )
@@ -44,6 +46,14 @@ CHECK_SEVERAL_ANSWERS = "Could allow several answers"
 CHECK_ORGANIZER = "Read as a column your team added"
 CHECK_RARE_OPTIONS = "Has options few applicants chose"
 CHECK_UPLOAD = "A file upload in your Google Form: applicants here paste a link instead"
+CHECK_MAYBE_TEAM = "Could be a column your team added"
+CHECK_CEILING_UNSURE = "A heading mentions a number of days: check whether it limits days per vendor"
+CHECK_UNREACHABLE = "Couldn't reach TypeSafe"
+
+# TypeSafe's answer is taken at this probability or above, and never below (ticket 04).
+CONFIDENT = 0.8
+# Values sent to TypeSafe for one column, at most (ticket 01).
+SENT_VALUES = 10
 
 FATE_SUBMITTED_AT = "submitted_at"
 FATE_APPLICANT_EMAIL = "applicant_email"
@@ -194,6 +204,11 @@ class _Column:
         self.date_like = share(DATE_LIKE.match)
         self.comma = share(lambda value: ", " in value)
         self.capitalised = share(lambda value: all(word[:1].isupper() for word in value.split()))
+        self.link = share(URL.search)
+        self.length_median = sorted(len(value) for value in filled)[len(filled) // 2] \
+            if filled else 0
+        numbers = [float(value.strip().lstrip("$")) for value in filled if NUMBER.match(value)]
+        self.number_range = (min(numbers), max(numbers)) if numbers else None
         self.words_median = sorted(len(value.split()) for value in filled)[len(filled) // 2] \
             if filled else 0
         pairs = [(value.strip().lower(), email) for value, email in zip(values, row_emails)
@@ -480,6 +495,7 @@ def _plan(columns: List[_Column], decisions: List[Dict[str, Any]],
         "tiers": tiers,
         "ceiling": _ceiling(columns),
         "disagreements": disagreements,
+        "check": [],
     }
 
 
@@ -583,24 +599,146 @@ def _ceiling(columns: List[_Column]) -> Optional[Dict[str, Any]]:
     """The most days one vendor may get, from the first header whose prose states it, with the
     sentence it came from. An assignment rule, not a plan card."""
     for index, column in enumerate(columns):
-        lines = str(column.header).splitlines()
-        sentences = [s for line in lines for s in re.split(r"(?<=[.?!])\s+", line.strip())]
-        for sentence in sentences:
+        for sentence in _sentences(column.header):
             match = CEILING.search(sentence)
             if match:
                 amount = match.group(1).lower()
                 return {"days": int(amount) if amount.isdigit() else NUMBER_WORDS[amount],
-                        "sentence": sentence.strip(), "column": index}
+                        "sentence": sentence, "column": index, "from": "rules"}
     return None
+
+
+def _sentences(header: str) -> List[str]:
+    """A header's sentences, never running across a line break."""
+    return [sentence.strip() for line in str(header).splitlines()
+            for sentence in re.split(r"(?<=[.?!])\s+", line.strip()) if sentence.strip()]
+
+
+# --- What TypeSafe is asked ---------------------------------------------------------------------
+
+# A number of days, however a header puts it: the prose the ceiling rule could not read.
+DAYS_MENTIONED = re.compile(
+    rf"\b(\d+|{'|'.join(NUMBER_WORDS)})\s+(?:market\s+)?days?\b", re.IGNORECASE)
+
+
+def _shape(column: _Column) -> str:
+    """What a column's answers look like, computed here and holding none of them (ticket 01)."""
+    if column.email >= 0.9:
+        kind = "email addresses"
+    elif column.link >= 0.9:
+        kind = "links"
+    elif column.number_range:
+        low, high = column.number_range
+        kind = f"numbers from {low:g} to {high:g}"
+    else:
+        kind = f"prose, around {column.length_median} characters"
+    return kind
+
+
+def _team_column_state(column: _Column) -> str:
+    """One column, never a row: its header, how it was answered, and either the answers at least
+    3 applicants gave (most common first, none holding an email, link, handle or phone number) or
+    a shape computed here."""
+    lines = [f'Column header: "{column.label}"',
+             f"Answered in {column.filled / column.responses:.0%} of applications; "
+             f"{column.distinct_ratio:.0%} of answers are distinct."]
+    if column.shared_options:
+        shown = ", ".join(f'"{value}" ({count})' for value, count in
+                          column.shared_options[:SENT_VALUES])
+        lines.append(f"Answers at least 3 applicants gave, with how many: {shown}.")
+    else:
+        lines.append(f"Typical answer: {_shape(column)}.")
+    return "\n".join(lines)
+
+
+def _ceiling_state(sentence: str) -> str:
+    return f'Question text: "{sentence}"'
+
+
+def _team_candidates(columns: List[_Column], proposed: List[Dict[str, Any]]) -> List[int]:
+    """The optional free-text questions after the form's last certain one: where a team's notes
+    headed like a question ("Comments (internal)") would sit, and the rules cannot tell."""
+    certain = [c["index"] for c in proposed
+               if c["fate"] in (FATE_SUBMITTED_AT, FATE_APPLICANT_EMAIL, FATE_ESSENTIAL)
+               or (c["fate"] == FATE_CUSTOM and c["field"] and c["field"]["required"])]
+    after = max(certain, default=-1)
+    return [c["index"] for c in proposed
+            if c["index"] > after and c["fate"] == FATE_CUSTOM and c["field"]
+            and c["field"]["type"] == "text" and not c["field"]["required"]]
+
+
+def _ceiling_candidate(columns: List[_Column]) -> Optional[Tuple[int, str]]:
+    """The first header sentence that names a number of days the ceiling rule did not read."""
+    for index, column in enumerate(columns):
+        for sentence in _sentences(column.header):
+            if DAYS_MENTIONED.search(sentence):
+                return index, sentence
+    return None
+
+
+def _ask_typesafe(asker: TypeSafe.Asker, columns: List[_Column], proposed: List[Dict[str, Any]],
+                  plan: Dict[str, Any]) -> bool:
+    """Ask what the rules left, all at once, and wait at most the deadline for the answers.
+
+    An answer is taken at CONFIDENT or above; below it, or on any failure, the rules' answer stands
+    and the row says why it is worth a look. Returns whether anything was asked.
+    """
+    questions = {("team", index): (_team_column_state(columns[index]),
+                                   TypeSafe.TEAM_COLUMN_INSTRUCTIONS,
+                                   TypeSafe.TEAM_COLUMN_CRITERIA)
+                 for index in _team_candidates(columns, proposed)}
+    ceiling = None if plan["ceiling"] else _ceiling_candidate(columns)
+    if ceiling:
+        questions[("ceiling", ceiling[0])] = (_ceiling_state(ceiling[1]),
+                                              TypeSafe.CEILING_INSTRUCTIONS,
+                                              TypeSafe.CEILING_CRITERIA)
+    if not questions:
+        return False
+
+    pool = ThreadPoolExecutor(max_workers=len(questions))
+    futures = {key: pool.submit(asker, *asked) for key, asked in questions.items()}
+    wait(futures.values(), timeout=TypeSafe.DEADLINE_SECONDS)
+    pool.shutdown(wait=False, cancel_futures=True)
+
+    for (question, index), future in futures.items():
+        answer = None
+        if future.done() and not future.cancelled() and future.exception() is None:
+            answer = future.result()
+        choice = max(answer, key=answer.get) if answer else None
+        sure = choice is not None and answer[choice] >= CONFIDENT
+        if question == "team":
+            row = proposed[index]
+            if not answer:
+                row["check"].append(CHECK_UNREACHABLE)
+            elif not sure:
+                row["check"].append(CHECK_MAYBE_TEAM)
+            elif choice == TypeSafe.TEAM_COLUMN:
+                row.update(fate=FATE_LEFT_OUT, leftOut=LEFT_OUT_ORGANIZER,
+                           why="TypeSafe read it as a column your team added")
+                row["check"] = [CHECK_ORGANIZER]
+        else:
+            if not answer:
+                plan["check"].append(CHECK_UNREACHABLE)
+            elif not sure:
+                plan["check"].append(CHECK_CEILING_UNSURE)
+            elif choice != TypeSafe.NO_CEILING:
+                plan["ceiling"] = {"days": int(choice), "sentence": ceiling[1], "column": index,
+                                   "from": "typesafe"}
+    return True
 
 
 # --- The whole file -----------------------------------------------------------------------------
 
 
 def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
-             market_doc: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+             market_doc: Optional[Dict[str, Any]] = None,
+             asker: Optional[TypeSafe.Asker] = None) -> Dict[str, Any]:
     """What every column of this file becomes, in the file's order, and what it says about the
-    plan, matched against ``market_doc``'s when one is given. Reads; writes nothing."""
+    plan, matched against ``market_doc``'s when one is given. Reads; writes nothing.
+
+    With an ``asker``, hosted TypeSafe settles the two questions the rules leave, sent only what
+    ticket 01 allows; without one, this is the rules alone.
+    """
     width = len(headers)
     body = [(list(row) + [""] * width)[:width] for row in rows]
     applicant = _applicant_column(body, width)
@@ -655,12 +793,16 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
             "field": field,
         })
 
+    plan = _plan(columns, decisions, market_doc)
+    asked = _ask_typesafe(asker, columns, proposed, plan) if asker else False
+
     answered = {column["essential"] for column in proposed if column["essential"]}
     return {
         "rowCount": len(body),
         "responses": responses,
         "columns": proposed,
-        "plan": _plan(columns, decisions, market_doc),
+        "plan": plan,
+        "typesafe": {"asked": asked},
         "notAsked": [
             {"key": key, "label": label, "why": "No column in your file answers it"}
             for key, label in EssentialFields.ESSENTIAL_QUESTIONS if key not in answered
@@ -691,4 +833,4 @@ def propose(market_doc: Dict[str, Any], csv_content: str) -> Tuple[Dict[str, Any
     error, headers, rows = parse_csv(csv_content)
     if error:
         return {"error": error}, 400
-    return proposal(headers, rows, market_doc), 200
+    return proposal(headers, rows, market_doc, asker=TypeSafe.asker()), 200
