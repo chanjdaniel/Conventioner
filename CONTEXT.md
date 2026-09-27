@@ -36,6 +36,13 @@ _Avoid_: Published, closed
 **Intake mode**:
 How a market receives its vendors - by importing a CSV, or through the public application form. Exactly one, chosen while the market is a draft and frozen thereafter. It decides whether the public applicant surface answers, but never gates check-in, and never gates authoring the form itself: a CSV market still has an application form, because the essential questions define the offering the CSV maps onto.
 
+**CSV import**:
+Turning each row of a CSV the organizer already collected into an application, by saying which question each column answers. It fills in applications and never writes the form: a column with nowhere to go needs the form changed first.
+
+**Form started from a CSV**:
+An application form the product proposes from a CSV's columns, for the organizer to edit before it is theirs. Saying what each column is happens once: the same answer shapes the form and maps that file's later CSV import.
+_Avoid_: Draft form, drafted form (Draft is a phase)
+
 ### Applying
 
 **Applicant**:
