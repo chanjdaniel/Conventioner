@@ -43,6 +43,10 @@ Turning each row of a CSV the organizer already collected into an application, b
 An application form the product proposes from a CSV's columns, for the organizer to edit before it is theirs. Saying what each column is happens once: the same answer shapes the form and maps that file's later CSV import.
 _Avoid_: Draft form, drafted form (Draft is a phase)
 
+**Proposal**:
+What the product suggests each column of a CSV becomes - a plan fact, an essential question, a question of the organizer's own, or left out - before the organizer confirms it. Written nowhere until confirmed; confirming writes the plan facts, the form and that file's import mapping at once.
+_Avoid_: Draft (a phase), suggestion, guess
+
 ### Applying
 
 **Applicant**:

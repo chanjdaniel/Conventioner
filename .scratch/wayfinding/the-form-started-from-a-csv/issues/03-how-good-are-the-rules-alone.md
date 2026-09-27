@@ -81,3 +81,5 @@ Two changes to the sending rule, recorded on that ticket:
 
 - **Count applicants, not rows.** One applicant who submitted three times put a full name past "shared by 3". Threshold by distinct applicant email.
 - **Count options inside a multi-select answer.** A combination ("Stickers, Prints, Keychains") is rarer than any of its options, so thresholding whole answers withheld common options ("Ceramic" chosen by 14). Each option sent is still one at least 3 applicants chose. Recall 0.81 to 0.98.
+
+Built by [E24](../../../backlog/E24-the-form-started-from-a-csv/epic.md).

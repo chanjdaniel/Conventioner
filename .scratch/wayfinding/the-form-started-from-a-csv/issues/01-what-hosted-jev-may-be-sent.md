@@ -65,3 +65,5 @@ Measuring the rules exposed two faults in step 2, fixed here:
 
 - **"3 applicants" counts people, not rows.** One applicant who submitted three times put their full name past the threshold. A value is counted once per distinct applicant email.
 - **In a multi-select answer, the options are what is counted**, not the joined answer: each option sent is one at least 3 applicants chose. A combination is rarer than its parts, so counting whole answers withheld common options.
+
+Built by [E24](../../../backlog/E24-the-form-started-from-a-csv/epic.md).

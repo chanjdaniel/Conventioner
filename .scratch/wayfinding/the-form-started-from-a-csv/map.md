@@ -1,8 +1,8 @@
 # Map: The form started from a CSV
 
-Status: open
+Status: closed
 
-Charted 2026-09-27, from Topic 4 of the [2026-09-26 brain dump](../../brain-dump/2026-09-26.md).
+Charted and closed 2026-09-27, from Topic 4 of the [2026-09-26 brain dump](../../brain-dump/2026-09-26.md).
 
 ## Destination
 
@@ -62,12 +62,23 @@ These frame every ticket and are not open for re-litigation without redrawing th
 - [03: How good are the rules alone?](issues/03-how-good-are-the-rules-alone.md):
   **every column's kind right on the corpus and about one correction per file; rules that read values survive other organizers' wording, header keywords did not.**
   The privacy view scores better than the whole column. The leftovers are organizer notes after the questions and a ceiling in unusual prose (possibly a model's), and single-versus-multi choice and rare options (only the organizer's). The weekdays pin the year.
+- [04: Does a model beat the rules?](issues/04-does-a-model-beat-the-rules.md):
+  **hosted Jev: go, only for the two judgements the rules leave (organizer column or question; a ceiling in prose), only at 0.8 or above, and optional; local: no-go on memory and speed, Kev-0.8B bookmarked.**
+  On unseen wording Jev took Q1 from 70% to 85% and Q2 from 50% to 95% with no costly error added, in about a second a file.
+- [05: How do you review what the CSV proposes?](issues/05-how-you-review-what-the-csv-proposes.md):
+  **the import's own ledger in file order, plan facts on top, a "check this" mark with a reason on guesses, a sticky rail, and one confirm that writes plan, form, ceiling and mapping together.**
+  Entered at creation ("I already have a Google Form", which sets CSV intake) or from a draft's Market Setup (intake untouched), only while the form has no custom fields; the year is asked after upload; the file is not kept.
+- [06: One answer, two uses](issues/06-one-answer-two-uses.md):
+  **confirm writes the import's existing mapping (targets, header row, value fixes including each grid column's date) through its own save path; later files that differ are handled as the import handles them today.**
+  Label is the header's first line (or first sentence past 120 characters), the rest is help text, the key its slug; an edited key or deleted field is simply unmapped next import. **Proposal** entered the glossary.
+- [07: Anonymise the corpus](issues/07-anonymise-the-corpus.md):
+  **extend the existing anonymiser to all five files, keep what at least 3 applicants share (the rule of 01), invent the rest in the same shape, and refuse to write any rarer source value; files in `back-end/tests/test_data/google_forms/`.**
+  Producing them is the epic's first story.
 
 ## Not yet specified
 
-- **A form that already has fields.** Starting from a CSV on a form the organizer has begun: replace, merge by label, or refuse? Depends on how the review looks ([05](issues/05-how-you-review-what-the-csv-proposes.md)).
-- **Waiting on a model.** If a model earns its place, does the proposal wait on the request or run as a background job the page watches? Roughly 1 s per question on CPU times 4 questions times 30 columns is minutes; hosted is faster. Depends on [04](issues/04-does-a-model-beat-the-rules.md).
-- **A form-intake organizer's entry point**, if [05](issues/05-how-you-review-what-the-csv-proposes.md) leaves them one at all.
+Nothing: the way is clear. All the work is [E24 The form started from a CSV](../../backlog/E24-the-form-started-from-a-csv/epic.md).
+
 
 ## Out of scope
 
