@@ -27,7 +27,13 @@ SHARE = EssentialFields.TABLE_SHARE_EMAIL_KEY
 
 
 def c(type_, required, options=None):
-    return {"type": type_, "required": required, "options": options}
+    return {"type": type_, "required": required, "options": options, "upload": False}
+
+
+def upload(required):
+    """A Google Forms file upload. The answer key of ticket 03 said ``file``; the application form
+    takes no files, so the question is proposed as text asking for a link, marked as an upload."""
+    return {"type": "text", "required": required, "options": None, "upload": True}
 
 
 UBC = ["Yes, I am a CURRENT UBC student", "Yes, I am an UBC alumni/staff"]
@@ -43,7 +49,7 @@ ANSWER_KEY = {
         3: ("Full Legal Name", FULL), 4: ("Preferred Name", PREF), 5: ("Email Address", DUP),
         6: ("Are you a UBC student or alumni?", c("select", True, UBC)),
         7: ("Please provide your UBC/alumni/staff", c("email", False)),
-        8: ("If you do not have an UBC email", c("file", False)),
+        8: ("If you do not have an UBC email", upload(False)),
         9: ("Discord Username", c("text", True)), 10: ("Business Name", c("text", True)),
         11: ("URL to Business", c("text", False)),
         12: ("Do you have any tabling experience", c("text", False)),
@@ -54,7 +60,7 @@ ANSWER_KEY = {
         16: ("I certify that the work I will be selling abides", c("checkbox", True)),
         17: ("Which clubs are you a member of?",
              c("select", True, [NONE_CLUB, ART, ANI, PRINT, "Visual Art Students’ Association"])),
-        18: ("If applicable, please attach proof", c("file", False)),
+        18: ("If applicable, please attach proof", upload(False)),
         **{k: ("For each day, choose all table tiers", TIERS) for k in range(19, 24)},
         24: ("Maximum number of days", MAXD), 25: ("Do you want to have a half table", CHOICE),
         26: ("If you chose half table", SHARE),
@@ -74,7 +80,7 @@ ANSWER_KEY = {
         14: ("I certify that the work", c("checkbox", True)),
         15: ("Are you a UBC student?", c("select", True, ["Yes", "No"])),
         16: ("Which clubs are you a member of?", c("multi_select", True, [NONE_CLUB, ART, PRINT])),
-        17: ("If applicable, please attach proof", c("file", False)),
+        17: ("If applicable, please attach proof", upload(False)),
         **{k: ("For each day, choose all table tiers", TIERS) for k in range(18, 22)},
         22: ("Do you want to have a half table", CHOICE), 23: ("If you chose half table", SHARE),
         24: ("I understand that there will be no table", c("checkbox", True)),
@@ -87,7 +93,7 @@ ANSWER_KEY = {
         3: ("Preferred Name", PREF), 4: ("Email Address", EMAIL),
         5: ("Are you a UBC student or alumni?", c("select", True, UBC)),
         6: ("Please provide your UBC/alumni/staff", c("email", False)),
-        7: ("If you do not have an UBC email", c("file", False)),
+        7: ("If you do not have an UBC email", upload(False)),
         8: ("Discord Username", c("text", True)), 9: ("Business Name", c("text", True)),
         10: ("URL to Business", c("text", False)),
         11: ("Do you have any tabling experience", c("text", False)),
@@ -98,7 +104,7 @@ ANSWER_KEY = {
         15: ("I certify that the work I will be selling abides", c("checkbox", True)),
         16: ("Which clubs are you a member of?",
              c("multi_select", True, [NONE_CLUB, ART, ANI, PRINT])),
-        17: ("If applicable, please attach proof", c("file", False)),
+        17: ("If applicable, please attach proof", upload(False)),
         **{k: ("For each day, choose all table tiers", TIERS) for k in range(18, 23)},
         23: ("Do you want to have a half table", CHOICE), 24: ("If you chose half table", SHARE),
         25: ("I understand that there will be no table", c("checkbox", True)),
@@ -123,15 +129,15 @@ ANSWER_KEY = {
         3: ("Full Legal Name", FULL), 4: ("Preferred Name", PREF), 5: ("Email Address", DUP),
         6: ("Are you a UBC student or alumni?", c("select", True, UBC + [UBC_NO])),
         7: ("Please provide your UBC/alumni/staff", c("email", False)),
-        8: ("If you do not have an UBC email", c("file", False)),
+        8: ("If you do not have an UBC email", upload(False)),
         9: ("Discord Username", c("text", True)), 10: ("Business Name", c("text", True)),
         11: ("URL to Business", c("text", False)),
         12: ("Do you have any tabling experience", c("text", False)),
         13: ("What will you be selling", c("multi_select", True,
                                            SELL + ["Woven (crochet, knitting, etc)"])),
         14: ("If you plan to sell press-on nails", c("text", False)),
-        15: ("Please submit one video", c("file", False)),
-        16: ("Please submit any additional drafts", c("file", False)),
+        15: ("Please submit one video", upload(False)),
+        16: ("Please submit any additional drafts", upload(False)),
         17: ("Please provide a link to your portfolio", c("text", True)),
         18: ("I certify that the work I will be selling is my own", c("checkbox", True)),
         19: ("UBC Makers Market's mission", c("checkbox", True)),
@@ -139,7 +145,7 @@ ANSWER_KEY = {
         21: ("I certify that the work I will be selling abides", c("checkbox", True)),
         22: ("Which clubs are you a member of?",
              c("multi_select", True, [NONE_CLUB, ART, ANI, PRINT])),
-        23: ("If applicable, please attach proof", c("file", False)),
+        23: ("If applicable, please attach proof", upload(False)),
         **{k: ("For each day, choose all table tiers", TIERS) for k in range(24, 29)},
         29: ("Maximum number of days", MAXD), 30: ("Do you want to have a half table", CHOICE),
         31: ("If you chose half table", SHARE),
@@ -209,6 +215,18 @@ class TestTheAnswerKey:
                 if isinstance(want, dict) and proposal["columns"][index]["field"]["type"] != want["type"]:
                     misses.add((name, index))
         assert misses == KNOWN_TYPE_MISSES
+
+    def test_every_upload_is_found_and_marked_to_check(self):
+        wrong = []
+        for name, key, _, proposal in _proposals():
+            for index, (_, want) in key.items():
+                if not isinstance(want, dict):
+                    continue
+                column = proposal["columns"][index]
+                marked = CsvProposal.CHECK_UPLOAD in column["check"]
+                if column["field"]["upload"] != want["upload"] or marked != want["upload"]:
+                    wrong.append((name, index))
+        assert wrong == []
 
     def test_the_known_misses_are_marked_to_check(self):
         for name, key, _, proposal in _proposals():
@@ -282,6 +300,33 @@ class TestWhatAColumnCarries:
         label, help_text = CsvProposal.label_and_help(long)
         assert label == "Please provide a link to your portfolio."
         assert help_text.startswith("Instagram, a website")
+
+    def test_a_sentence_does_not_end_inside_parentheses(self):
+        long = ("If you do not have an UBC email, please attach proof of affiliation (e.g. a "
+                "Workday timetable or a staff card photo). We only use it to check eligibility.")
+        label, help_text = CsvProposal.label_and_help(long)
+        assert label.endswith("staff card photo).")
+        assert help_text == "We only use it to check eligibility."
+
+    def test_a_long_first_line_with_no_sentence_end_breaks_on_a_word(self):
+        long = "word " * 40
+        label, help_text = CsvProposal.label_and_help(long)
+        assert len(label) <= CsvProposal.LABEL_MAX and not label.endswith(" ")
+        assert help_text
+
+    def test_a_short_header_is_a_question_not_a_teams_column(self):
+        headers = ["Timestamp", "Email Address", "Age"]
+        rows = [[f"1/{i + 1}/2026 9:00:00", f"p{i}@mail.test", str(20 + i)] for i in range(5)]
+        assert CsvProposal.proposal(headers, rows)["columns"][2]["fate"] == "custom"
+
+    def test_the_organizers_questions_take_their_keys_first(self):
+        # A column the team keeps before the form's first one, headed like a question.
+        headers = ["Business name", "Timestamp", "Email Address", "Business name"]
+        rows = [[f"x{i}", f"1/{i + 1}/2026 9:00:00", f"p{i}@mail.test", f"shop {i}"]
+                for i in range(5)]
+        columns = CsvProposal.proposal(headers, rows)["columns"]
+        assert columns[0]["fate"] == "left_out"
+        assert columns[3]["fate"] == "custom" and columns[3]["field"]["key"] == "business_name"
 
     def test_a_header_with_a_line_break_splits_into_label_and_help_text(self):
         headers = ["Timestamp", "Email Address", "Business name\nAs it should appear on your sign"]
