@@ -2,9 +2,9 @@
 id: E24/F03/S01
 title: The proposal ledger
 type: story
-status: in-progress
+status: done
 blocked_by: [E24/F02/S01, E24/F02/S02]
-pr: []
+pr: [86]
 ---
 
 ## What to build

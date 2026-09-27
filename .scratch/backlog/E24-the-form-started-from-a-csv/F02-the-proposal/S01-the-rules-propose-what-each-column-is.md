@@ -2,9 +2,9 @@
 id: E24/F02/S01
 title: The rules propose what each column is
 type: story
-status: in-progress
+status: done
 blocked_by: [E24/F01/S01]
-pr: []
+pr: [86]
 ---
 
 ## What to build

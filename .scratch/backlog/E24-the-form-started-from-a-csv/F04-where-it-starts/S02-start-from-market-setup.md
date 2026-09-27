@@ -2,9 +2,9 @@
 id: E24/F04/S02
 title: Start from a draft's Market Setup
 type: story
-status: in-progress
+status: done
 blocked_by: [E24/F03/S01]
-pr: []
+pr: [86]
 ---
 
 ## What to build

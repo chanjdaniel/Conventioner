@@ -2,9 +2,9 @@
 id: E24/F03/S03
 title: One confirm writes it all
 type: story
-status: in-progress
+status: done
 blocked_by: [E24/F03/S02]
-pr: []
+pr: [86]
 ---
 
 ## What to build

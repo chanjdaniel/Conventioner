@@ -2,9 +2,9 @@
 id: E24/F03/S02
 title: The organizer corrects the proposal
 type: story
-status: in-progress
+status: done
 blocked_by: [E24/F03/S01]
-pr: []
+pr: [86]
 ---
 
 ## What to build

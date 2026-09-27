@@ -2,9 +2,9 @@
 id: E24
 title: The form started from a CSV
 type: epic
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [85, 86]
 ---
 
 ## Outcome

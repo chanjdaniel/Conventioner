@@ -2,9 +2,9 @@
 id: E24/F02/S02
 title: The file proposes the plan
 type: story
-status: in-progress
+status: done
 blocked_by: [E24/F02/S01]
-pr: []
+pr: [86]
 ---
 
 ## What to build
