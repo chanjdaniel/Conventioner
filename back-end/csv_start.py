@@ -28,7 +28,9 @@ import api.markets as MarketsApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
-from market_documents import market_doc_field, market_doc_key, market_from_document
+from market_documents import (
+    market_doc_field, market_doc_filter, market_doc_key, market_from_document,
+)
 
 # The browser's "ignore this value", stored as None in a mapping's resolutions.
 IGNORE_VALUE = "__ignore__"
@@ -103,14 +105,18 @@ def _form(proposal: Dict[str, Any], choices: Dict[int, Dict[str, Any]]) -> Dict[
         if choice["fate"] != CsvProposal.FATE_CUSTOM:
             continue
         field = by_row[first]["field"]
-        options: List[str] = []
-        if choice["type"] in CHOICE_TYPES:
-            read = (field.get("optionsByType") or {}).get(choice["type"]) or {"options": []}
+        field_type, options = choice["type"], []
+        if field_type in CHOICE_TYPES:
+            read = (field.get("optionsByType") or {}).get(field_type) or {"options": []}
             kept = set(choice["kept"] or [])
             options = [o["value"] for o in read["options"] if o["value"] in kept]
+            # A choice with nothing kept to choose from is a question answered in words; the ledger
+            # says so before confirm, rather than the whole confirm failing on it.
+            if not options:
+                field_type = "text"
         fields.append({
             "key": field["key"], "label": field["label"], "help_text": field["helpText"],
-            "type": choice["type"], "required": bool(choice["required"]), "options": options,
+            "type": field_type, "required": bool(choice["required"]), "options": options,
             "order": len(fields),
         })
     answered = {c["essential"] for c in choices.values() if c["fate"] == CsvProposal.FATE_ESSENTIAL}
@@ -143,51 +149,71 @@ def _plan(market_doc: Dict[str, Any], proposal: Dict[str, Any], year: Optional[i
     if not setup.get("tiers") and plan["tiers"]:
         setup["tiers"] = [{"id": i, "name": t["name"]} for i, t in enumerate(plan["tiers"])]
     setup.setdefault("tiers", [])
-    if ceiling is not None:
+    # The plan's own ceiling wins, as its dates and tiers do.
+    if ceiling is not None and not setup["assignmentOptions"].get("maxAssignmentsPerVendor"):
         setup["assignmentOptions"] = {**setup["assignmentOptions"],
                                       "maxAssignmentsPerVendor": int(ceiling)}
     return setup
 
 
+# The targets whose answers name the market's days, and the one whose answers name its tiers. A
+# tier grid is both: its bracket texts are days and its cells are tiers.
+DATE_TARGETS = (EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.TIER_PREFERENCE_KEY)
+TIER_TARGETS = (EssentialFields.TIER_PREFERENCE_KEY,)
+
+
 def _resolutions(
-    hypothetical: Dict[str, Any], csv_content: str, mapping: Dict[str, List[int]],
+    would_be: Dict[str, Any], csv_content: str, mapping: Dict[str, List[int]],
     proposal: Dict[str, Any], year: Optional[int], settled: Dict[str, Dict[str, str]],
 ) -> Dict[str, Dict[str, Optional[str]]]:
-    """Every value the import would stop to ask about, answered now.
+    """Every value the import would stop to ask about, answered now where it can be.
 
-    A day named the way the file names it becomes the date the confirmed year makes of it (or the
-    plan's own date it is); a value the plan lacks is what the organizer settled it to. Anything
-    left - a value fewer than 3 applicants gave, which the proposal never made part of the plan or
-    the form, such as a TEST row's "TEST" - is saved as ignored, the same fate as a rare option the
-    organizer did not keep: the organizer saw what the form offers, and the import does not ask
-    again about what it left out.
+    ``would_be`` is the market as confirm would leave it. In a target that names the market's days,
+    a day as the file names it becomes the date the confirmed year makes of it, or the plan's own
+    date it is; a day or a tier the plan lacks is what the organizer settled it to - or, unsettled,
+    is left for the import to ask about, since the organizer was shown it and did not decide.
+
+    What is left is a value the proposal never offered: fewer than 3 applicants gave it, so it is
+    not in the plan or the form (a TEST row's "TEST"), or it is a rare option the organizer did not
+    keep. That is saved as ignored, so the import does not ask again about what the organizer
+    already chose to leave out.
     """
-    preview, _ = CsvImport.preview_values(hypothetical, csv_content, mapping, {})
-    # A tier grid's entries offer the tiers even for its dates, so a date is checked against the
+    preview, _ = CsvImport.preview_values(would_be, csv_content, mapping, {})
+    # A tier grid's entries offer the tiers even for its dates, so a day is checked against the
     # plan's own dates rather than against what the entry offers.
-    plan_dates = set(EssentialFields.effective_essential_options(hypothetical).dates)
-    days = {}
-    for found in proposal["plan"]["dates"]:
-        days[CsvImport.normalize_value(found["text"])] = found
+    plan_dates = set(EssentialFields.effective_essential_options(would_be).dates)
+    days = {CsvImport.normalize_value(found["text"]): found for found in proposal["plan"]["dates"]}
+    disputed = {(d["kind"], CsvImport.normalize_value(d["value"]))
+                for d in proposal["plan"]["disagreements"]}
+
     resolutions: Dict[str, Dict[str, Optional[str]]] = {}
     for entry in preview.get("unmatched", []):
         target, value = entry["target"], entry["value"]
-        choice: Optional[str] = None
-        for kind in ("date", "tier"):
-            if value in (settled.get(kind) or {}):
-                picked = settled[kind][value]
-                choice = None if picked == IGNORE_VALUE else picked
-                break
+        normalized = CsvImport.normalize_value(value)
+        kind = ("date" if target in DATE_TARGETS and (normalized in days
+                                                      or CsvProposal.parse_date(value))
+                else "tier" if target in TIER_TARGETS else None)
+        if kind and value in (settled.get(kind) or {}):
+            picked = settled[kind][value]
+            resolutions.setdefault(target, {})[value] = None if picked == IGNORE_VALUE else picked
+        elif kind and (kind, normalized) in disputed:
+            continue  # shown to the organizer, not decided: the import asks
+        elif kind == "date":
+            resolutions.setdefault(target, {})[value] = _day(value, days, year, plan_dates)
         else:
-            parsed = CsvProposal.parse_date(value)
-            found = days.get(CsvImport.normalize_value(value))
-            if found or parsed:
-                month, day = (found["month"], found["day"]) if found else parsed[:2]
-                wanted = (found or {}).get("matches") or (
-                    _date_in_year({"month": month, "day": day}, year) if year else None)
-                choice = wanted if wanted in plan_dates else None
-        resolutions.setdefault(target, {})[value] = choice
+            resolutions.setdefault(target, {})[value] = None
     return resolutions
+
+
+def _day(value: str, days: Dict[str, Dict[str, Any]], year: Optional[int],
+         plan_dates: Set[str]) -> Optional[str]:
+    """The plan date a file's day is: the one it matched, or the one the year makes of it."""
+    found = days.get(CsvImport.normalize_value(value))
+    if found and found.get("matches"):
+        return found["matches"]
+    month_day = (found["month"], found["day"]) if found else CsvProposal.parse_date(value)[:2]
+    made = _date_in_year({"month": month_day[0], "day": month_day[1]}, year) if year else None
+    return made if made in plan_dates else None
 
 
 def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
@@ -236,11 +262,11 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
         if target:
             mapping[target] = ledger[first]
 
-    hypothetical = {**market_doc, market_doc_key("setup_object"): setup,
-                    market_doc_key("application_form"): form}
+    would_be = {**market_doc, market_doc_key("setup_object"): setup,
+                market_doc_key("application_form"): form}
     settled = {kind: values for kind, values in (body.get("settled") or {}).items()
                if isinstance(values, dict)}
-    resolutions = _resolutions(hypothetical, csv_content, mapping, proposal, year, settled)
+    resolutions = _resolutions(would_be, csv_content, mapping, proposal, year, settled)
     return {
         **plan_update,
         market_doc_key("application_form"): form,
@@ -248,14 +274,18 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
     }
 
 
-def still_startable() -> Dict[str, Any]:
-    """The filter a confirm writes under: still a draft, its form still without questions of its
-    own. A market that changed since the proposal was read is written nothing."""
+def still_startable(market_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """The filter a confirm writes under: the market as it was read - its id, and its phase as
+    stored, so a legacy draft with no phase field is matched as the refusal judged it - and its form
+    still without questions of its own. A market that changed since is written nothing."""
+    phase = market_doc_key("phase")
     fields = f"{market_doc_key('application_form')}.fields"
+    stored_phase = market_doc_field(market_doc, "phase")
     return {
-        "phase": "draft",
-        "$or": [{fields: {"$exists": False}}, {fields: {"$size": 0}},
-                {market_doc_key("application_form"): None}],
+        **market_doc_filter("id", market_doc["id"]),
+        **({phase: stored_phase} if stored_phase is not None else {phase: {"$exists": False}}),
+        "$and": [{"$or": [{fields: {"$exists": False}}, {fields: {"$size": 0}},
+                          {market_doc_key("application_form"): None}]}],
     }
 
 
@@ -272,8 +302,8 @@ def confirm(market_doc: Dict[str, Any], body: Dict[str, Any]) -> Tuple[Dict[str,
     except ValueError as invalid:
         return {"error": str(invalid)}, 400
 
-    result = MarketsApi.markets_collection.update_one(
-        {"id": market_doc["id"], **still_startable()}, {"$set": update})
+    result = MarketsApi.markets_collection.update_one(still_startable(market_doc),
+                                                      {"$set": update})
     if not result.matched_count:
         return {"error": "This market changed since its file was read, so nothing was written. "
                          "Start again from its Market Setup."}, 409

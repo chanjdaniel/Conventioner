@@ -666,19 +666,17 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Starting a Form from a CSV (Conventioner sharp edge)
 
-- **A draft can be started from its Google Form's responses** (E24): `POST /markets/:id/csv-proposal`
-  returns a **proposal** (`back-end/csv_proposal.py`) and writes nothing; `.../csv-proposal/confirm`
-  (`back-end/csv_start.py`) writes the plan facts, the form, the ceiling and the import mapping in
-  ONE conditioned update, or nothing. The file is sent twice and stored never.
-- **The proposal writes the import's own mapping, and there is one mapping format**
-  (`csv_import.mapping_payload`). The first import of a later export restores every column and
-  matches every value; a value fewer than 3 applicants gave, which the proposal never offered, is
-  saved as ignored. Do not give the proposal a mapping shape of its own.
-- **What may be sent to hosted TypeSafe is ticket 01's rule, narrowed to what ticket 04 measured**
-  (`typesafe_client.py`): a heading, how many answered, how many are distinct, and a shape - never
-  a value. The key is optional and never a boot requirement.
-- The rules are held to the hand-written answer key on the five anonymised exports
-  (`tests/test_csv_proposal.py`); change a rule against that, not beside it.
+- **A draft can be started from its Google Form's responses** (E24).
+  `POST /markets/:id/csv-proposal` returns a **proposal** (`back-end/csv_proposal.py`) and writes nothing.
+  `.../csv-proposal/confirm` (`back-end/csv_start.py`) writes the plan facts, the form, the ceiling and the import mapping in ONE conditioned update, or nothing.
+  The file is sent twice and stored never.
+- **The proposal writes the import's own mapping, and there is one mapping format** (`csv_import.mapping_payload`).
+  The first import of a later export restores every column and matches every value.
+  A value the proposal never offered (fewer than 3 applicants gave it) is saved as ignored; a day or tier the plan lacks that the organizer did not settle is left for the import to ask.
+  Do not give the proposal a mapping shape of its own.
+- **What may be sent to hosted TypeSafe is ticket 01's rule, narrowed to what ticket 04 measured** (`typesafe_client.py`): a heading, how many answered, how many are distinct, and a shape - never a value.
+  The key is optional and never a boot requirement.
+- The rules are held to the hand-written answer key on the five anonymised exports (`tests/test_csv_proposal.py`); change a rule against that, not beside it.
 
 ## Agent skills
 

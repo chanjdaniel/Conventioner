@@ -59,6 +59,7 @@ function ledger() {
       year: 2026,
       planDates: [],
       planTiers: ['Gold', 'Silver'],
+      planCeiling: null,
     },
   });
 }

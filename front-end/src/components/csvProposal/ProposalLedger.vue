@@ -42,6 +42,8 @@ const props = defineProps<{
   /** The plan's own dates and tiers, which a value the file holds may be settled to. */
   planDates: string[];
   planTiers: string[];
+  /** The plan's own ceiling, which wins over the file's, or null. */
+  planCeiling: number | null;
   busy?: boolean;
 }>();
 const emit = defineEmits<{
@@ -227,7 +229,13 @@ function onSettle(kind: string, value: string, choice: string) {
           </td>
           <td>
             <div class="becomes">
+              <div v-if="planCeiling" data-testid="proposal-plan-ceiling-kept">
+                Your plan already allows at most {{ planCeiling }} day{{
+                  planCeiling === 1 ? '' : 's'
+                }}; that stays
+              </div>
               <select
+                v-else
                 class="field field--select fate"
                 :value="draft.ceiling.days ?? ''"
                 aria-label="Most days one vendor may get"
@@ -367,6 +375,18 @@ function onSettle(kind: string, value: string, choice: string) {
                 >
               </div>
 
+              <div
+                v-if="
+                  row.fate === 'custom' &&
+                  row.field &&
+                  ['select', 'multi_select'].includes(row.field.type) &&
+                  !row.field.options.some((o) => o.keep)
+                "
+                class="muted"
+                data-testid="proposal-row-no-options"
+              >
+                No option is kept, so this becomes a question answered in words.
+              </div>
               <div class="muted">{{ row.why }}</div>
               <span
                 v-for="reason in row.check"
