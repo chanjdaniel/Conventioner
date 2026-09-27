@@ -52,6 +52,9 @@ form of only the essential questions is still a form, so such a market can actua
 applications its phase lets it open.
 `test_assignment_behaviour.py` is the solver's behavioural suite; change placement against it
 rather than beside it.
+`test_anonymise_form_export.py` covers the script that turns a real Google Form export into a
+committable fixture, on a synthetic export: a value survives only when 3 distinct applicants gave
+it, and the leak check refuses output that holds a rarer one.
 
 A test count is deliberately not quoted here: it goes stale on the next commit, and the suite
 either passes or it does not.
