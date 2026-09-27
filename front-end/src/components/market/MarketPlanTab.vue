@@ -39,6 +39,9 @@ const props = defineProps<{
   /** The plan's working copy of how vendors reach this market, not the stored value. */
   intakeMode: IntakeMode | undefined;
   intakeEditable: boolean;
+  /** Why starting from a Google Form's responses cannot, as the server serves it on the market;
+   * null when it can (E24/F04/S02). */
+  csvStartRefusal: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -46,6 +49,8 @@ const emit = defineEmits<{
   (event: 'update:intakeMode', value: IntakeMode): void;
   (event: 'choosePath'): void;
   (event: 'openForm'): void;
+  /** Open the flow that starts this draft from its Google Form's responses. */
+  (event: 'startFromCsv'): void;
 }>();
 
 /** What the plan is still missing before the form can ask anything, or null when it is ready. */
@@ -140,6 +145,37 @@ const intakeEditable = computed(() => props.intakeEditable);
           :editable="intakeEditable"
           @update:intakeMode="(value) => emit('update:intakeMode', value)"
         />
+        <!-- Seeding this market's form from last year's responses works for either intake, so it
+             leaves the choice above as it is (E24/F04/S02). -->
+        <div class="csv-start" data-testid="plan-start-from-csv">
+          <button
+            v-if="!csvStartRefusal"
+            type="button"
+            class="btn btn--secondary"
+            data-testid="plan-start-from-csv-link"
+            @click="emit('startFromCsv')"
+          >
+            Start from my Google Form's responses
+          </button>
+          <template v-else>
+            <button
+              type="button"
+              class="btn btn--secondary"
+              disabled
+              aria-describedby="plan-start-from-csv-reason"
+              data-testid="plan-start-from-csv-disabled"
+            >
+              Start from my Google Form's responses
+            </button>
+            <p
+              id="plan-start-from-csv-reason"
+              class="csv-start-reason"
+              data-testid="plan-start-from-csv-reason"
+            >
+              {{ csvStartRefusal }}
+            </p>
+          </template>
+        </div>
       </template>
     </ElementSettingContainer>
 
@@ -175,6 +211,20 @@ const intakeEditable = computed(() => props.intakeEditable);
 </template>
 
 <style scoped>
+.csv-start {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.csv-start-reason {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
 .plan-form-gate,
 .plan-form-ready {
   margin: 0;

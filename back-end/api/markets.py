@@ -33,6 +33,7 @@ from assignment.assignment import (
 )
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
 import api.applications as ApplicationsApi
+import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
 from market_documents import (
     market_doc_field,
@@ -508,6 +509,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
     # from the market it holds, rather than deciding the phases for itself.
     market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
+    # And why this market cannot be started from a Google Form's CSV (E24/F03): the flow and the
+    # Market Setup action mirror the proposal's own refusal rather than deciding it for themselves.
+    market_dict['csvStartRefusal'] = CsvProposal.refusal(market_dict)
     # Which of the rules, the plan and the approved applications changed since the stored
     # assignment ran (E22/F03/S01). Computed on read, never stored; empty when nothing has, or when
     # the assignment predates the fingerprints and so is not known to be out of date. Only in
@@ -1383,7 +1387,16 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
         raise ValueError("setupObject is required.")
 
     market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    markets_collection.update_one(market_doc_filter("id", market_id),
+                                  {"$set": prepared_plan(market, body)})
 
+
+def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
+    """The plan write's ``$set``, judged against ``market`` and not yet written.
+
+    The one statement of what a plan write may carry and when; ``save_plan`` writes it, and the
+    CSV start writes it in the same update as the form and the mapping it makes.
+    """
     try:
         plan = SetupObject(**convert_keys_to_snake_case(body["setupObject"]))
     except ValidationError as e:
@@ -1408,8 +1421,7 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     settled = assignment_rules_lock_reason(market.phase)
     if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
         raise ValueError(settled)
-
-    markets_collection.update_one(market_doc_filter("id", market_id), {"$set": update})
+    return update
 
 
 def save_review_highlights(
@@ -1454,6 +1466,22 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
     """
     market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    form_dict = prepared_application_form(market, application_form_data)
+    markets_collection.update_one(
+        {"id": market_id},
+        {"$set": {"applicationForm": form_dict}}
+    )
+
+    return form_dict
+
+
+def prepared_application_form(market: Market, application_form_data: dict) -> dict:
+    """The form as it would be stored, judged against ``market`` - its lock, its validator - and
+    not yet written.
+
+    The one statement of what a form write may be; ``save_application_form`` writes it, and the
+    CSV start writes it in the same update as the plan and the mapping it makes.
+    """
     _assert_application_form_editable(market)
 
     try:
@@ -1467,14 +1495,7 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         published_at=stored_form.published_at if stored_form else None,
         essential_options=stored_form.essential_options if stored_form else None,
     )
-
-    form_dict = convert_keys_to_camel_case(application_form.model_dump())
-    markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {"applicationForm": form_dict}}
-    )
-
-    return form_dict
+    return convert_keys_to_camel_case(application_form.model_dump())
 
 
 def get_application_form(market_id: str, requesting_user: str) -> dict:

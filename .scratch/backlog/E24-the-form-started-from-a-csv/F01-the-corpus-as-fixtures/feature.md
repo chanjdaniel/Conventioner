@@ -2,9 +2,9 @@
 id: E24/F01
 title: The corpus as fixtures
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [85]
 ---
 
 ## Outcome

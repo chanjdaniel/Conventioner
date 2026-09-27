@@ -2,9 +2,9 @@
 id: E24/F02
 title: The proposal
 type: feature
-status: ready
+status: done
 blocked_by: [E24/F01]
-pr: []
+pr: [86]
 ---
 
 ## Outcome

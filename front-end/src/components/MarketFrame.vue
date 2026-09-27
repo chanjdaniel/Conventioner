@@ -14,6 +14,7 @@
  * this may scroll inside its card. The card is at least the height of the window under the banner,
  * so a short surface fills it rather than ending mid-screen.
  */
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import type { Market } from '@/assets/types/datatypes';
 import MarketBar from '@/components/MarketBar.vue';
 import MarketPages from '@/components/MarketPages.vue';
@@ -24,11 +25,28 @@ defineProps<{
   /** Awaited before any transition is posted: the plan flushes its pending edits here. */
   beforeTransition?: () => Promise<void> | void;
 }>();
+
+/*
+ * The pinned block's height, measured rather than guessed, as `--market-frame-h` on the card: a
+ * screen's own sticky column sits under the frame at `top: calc(var(--banner-h) +
+ * var(--market-frame-h))`. The rail grows (blockers, errors), so a fixed number would be wrong.
+ */
+const card = ref<HTMLElement | null>(null);
+const frame = ref<HTMLElement | null>(null);
+let observer: ResizeObserver | null = null;
+onMounted(() => {
+  if (!frame.value || typeof ResizeObserver === 'undefined') return;
+  observer = new ResizeObserver(() => {
+    card.value?.style.setProperty('--market-frame-h', `${frame.value?.offsetHeight ?? 0}px`);
+  });
+  observer.observe(frame.value);
+});
+onBeforeUnmount(() => observer?.disconnect());
 </script>
 
 <template>
-  <div class="market-frame-card" data-testid="market-frame-card">
-    <div class="market-frame" data-testid="market-frame">
+  <div ref="card" class="market-frame-card" data-testid="market-frame-card">
+    <div ref="frame" class="market-frame" data-testid="market-frame">
       <!-- The market's name and its tabs, the same on every market page (E22/F04/S02). -->
       <MarketBar :market="market" />
       <PhaseRail :market="market" :beforeTransition="beforeTransition" />

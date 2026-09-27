@@ -2,9 +2,9 @@
 id: E24/F04/S01
 title: I already have a Google Form, at creation
 type: story
-status: ready
+status: done
 blocked_by: [E24/F03/S01]
-pr: []
+pr: [86]
 ---
 
 ## What to build
@@ -16,7 +16,7 @@ The market exists from the dialog's submit, as today: leaving the flow leaves an
 
 ## Acceptance criteria
 
-- [ ] The choice defaults to "Start from scratch", so today's path is one click as before.
-- [ ] "I already have a Google Form" stores CSV intake and lands on the Upload step.
-- [ ] The dialog keeps the product's dialog contract: Enter submits, the choice is reachable by keyboard.
-- [ ] Playwright: create a market this way, leave at Upload, and find a draft with CSV intake and nothing else written.
+- [x] The choice defaults to "Start from scratch", so today's path is one click as before.
+- [x] "I already have a Google Form" stores CSV intake and lands on the Upload step.
+- [x] The dialog keeps the product's dialog contract: Enter submits, the choice is reachable by keyboard.
+- [x] Playwright: create a market this way, leave at Upload, and find a draft with CSV intake and nothing else written.

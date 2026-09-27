@@ -3,16 +3,7 @@ import { computed } from 'vue';
 import { type FormField } from '@/assets/types/datatypes';
 import IconAddRound from '@/components/icons/IconAddRound.vue';
 import IconCloseRound from '@/components/icons/IconCloseRound.vue';
-
-const FIELD_TYPES = [
-  { value: 'text', label: 'Text' },
-  { value: 'number', label: 'Number' },
-  { value: 'select', label: 'Select' },
-  { value: 'multi_select', label: 'Multi-Select' },
-  { value: 'checkbox', label: 'Checkbox' },
-  { value: 'date', label: 'Date' },
-  { value: 'email', label: 'Email' },
-];
+import { FIELD_TYPES } from '@/utils/applicationForm';
 
 const props = withDefaults(
   defineProps<{

@@ -2,9 +2,9 @@
 id: E24/F02/S01
 title: The rules propose what each column is
 type: story
-status: ready
+status: done
 blocked_by: [E24/F01/S01]
-pr: []
+pr: [86]
 ---
 
 ## What to build
@@ -23,12 +23,16 @@ The rules are the value-based ones measured in [03](../../../wayfinding/the-form
 - label, help text and key follow [06](../../../wayfinding/the-form-started-from-a-csv/issues/06-one-answer-two-uses.md) (first line, or first sentence past 120 characters; the rest verbatim as help text; a slug capped at 40 characters);
 - an essential question no column answers is proposed as not asked.
 
+**Decided while building (2026-09-27):** "a type from the eight" was wrong: the application form accepts seven, and no file type exists in it or in the applicant form.
+A Google Forms upload column is proposed as a text question asking for a link, marked `upload` and "check this", since the export holds a Drive link either way.
+A choice question lists its common options and then rare ones up to 20 in all, and counts the rest; a checkbox question's "Other" answers run to hundreds.
+
 A guess carries a "check this" reason: could allow several answers; read as an organizer's column; an option chosen by fewer than 3.
 
 ## Acceptance criteria
 
-- [ ] On the five fixtures of `F01`, the proposal matches the hand-written answers of [03](../../../wayfinding/the-form-started-from-a-csv/issues/03-how-good-are-the-rules-alone.md): every column's kind, 72 of 74 custom types, every required flag, options with recall of at least 0.98 and no option invented; the answer key is committed as a test.
-- [ ] The two known misses (a clubs question read as one choice) come back marked "check this", not silently wrong.
-- [ ] A market that is not a draft, or whose form already has custom fields, is refused with the reason ([05](../../../wayfinding/the-form-started-from-a-csv/issues/05-how-you-review-what-the-csv-proposes.md)).
-- [ ] Nothing is stored: not the file, not the proposal.
-- [ ] One module owns reading a CSV into a proposal, beside the import's own module and sharing its grid grouping and header collapsing rather than copying them.
+- [x] On the five fixtures of `F01`, the proposal matches the hand-written answers of [03](../../../wayfinding/the-form-started-from-a-csv/issues/03-how-good-are-the-rules-alone.md): every column's kind, 72 of 74 custom types, every required flag, options with recall of at least 0.98 and no option invented; the answer key is committed as a test.
+- [x] The two known misses (a clubs question read as one choice) come back marked "check this", not silently wrong.
+- [x] A market that is not a draft, or whose form already has custom fields, is refused with the reason ([05](../../../wayfinding/the-form-started-from-a-csv/issues/05-how-you-review-what-the-csv-proposes.md)).
+- [x] Nothing is stored: not the file, not the proposal.
+- [x] One module owns reading a CSV into a proposal, beside the import's own module and sharing its grid grouping and header collapsing rather than copying them.

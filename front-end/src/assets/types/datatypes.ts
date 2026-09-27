@@ -207,6 +207,12 @@ export interface Market {
    * exists - and never writable. Undefined on a read that does not carry it, such as the list.
    */
   applicationFormLockReason?: string | null;
+  /**
+   * Why this market cannot be started from a Google Form's responses CSV, or null when it can
+   * (E24/F03): the proposal's own refusal, served on the market so the flow and the Market Setup
+   * action mirror it rather than deciding it. Undefined on a read that does not carry it.
+   */
+  csvStartRefusal?: string | null;
   /** Why the assignment rules can no longer change, or null while they can (E22/F02/S02). */
   assignmentRulesLockReason?: string | null;
   /** Which of the solver's inputs changed since the assignment ran (E22/F03/S01). */

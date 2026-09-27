@@ -129,6 +129,18 @@ It is a **build-time** variable, not a runtime one - Vite bakes it into the bund
 The one exemption is `VITE_ALLOW_INSECURE_LOCAL_DEV=true`, which `front-end/.env.example` and `docker-compose.yml` set and which warns on every build it lets through.
 It must never be set on a deployed build.
 
+### Optional: hosted TypeSafe
+
+| Variable | What it is | What an unset value does |
+|----------|------------|--------------------------|
+| `TYPESAFE_API_KEY` | A TypeSafe API key ([console](https://console.typesafe.ai)). When an organizer starts a market from their Google Form's responses CSV, the proposal asks TypeSafe's Jev model two questions the rules leave: whether a trailing optional column is a question or a column the organizer's team added, and what ceiling on days per vendor a heading states in words the rules cannot read. | Nothing breaks: the rules alone decide, and those rows are left for the organizer to check. |
+
+It is not a boot requirement, and a blank or placeholder value counts as unset (`back-end/utils/configured_secret.py`).
+What a request sends is one column and never a row: the column's heading, and either the answers at least 3 distinct applicants gave (most common first, at most 10, none holding an email, link, handle or phone number) or a shape computed on the server, such as "prose, around 80 characters".
+A ceiling question sends one sentence of one heading.
+The upload step tells the organizer this in one line, shown only when the key is set.
+A failure, a rate limit or a wait past 5 seconds leaves the rules' answer, marked "Couldn't reach TypeSafe".
+
 ## Pre-Deploy: Database Migrations
 
 Migrations are never run automatically - rewriting stored documents is a deliberate operator action.

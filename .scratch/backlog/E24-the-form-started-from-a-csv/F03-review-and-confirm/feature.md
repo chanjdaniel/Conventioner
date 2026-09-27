@@ -2,9 +2,9 @@
 id: E24/F03
 title: Review and confirm
 type: feature
-status: ready
+status: done
 blocked_by: [E24/F02/S01, E24/F02/S02]
-pr: []
+pr: [86]
 ---
 
 ## Outcome

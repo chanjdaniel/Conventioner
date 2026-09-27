@@ -2,9 +2,9 @@
 id: E24/F04
 title: Where it starts
 type: feature
-status: ready
+status: done
 blocked_by: [E24/F03/S01]
-pr: []
+pr: [86]
 ---
 
 ## Outcome
