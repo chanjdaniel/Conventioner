@@ -24,10 +24,13 @@ cannot give - every option of a choice question, with how many chose it - comes 
 file, which never leaves the server.
 """
 import re
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import essential_fields as EssentialFields
-from csv_import import GRID_HEADER, collapse_header, column_groups, parse_csv
+from csv_import import (
+    GRID_HEADER, collapse_header, column_groups, normalized_submitted_at, parse_csv, resolve_value,
+)
 from datatypes import MarketPhase, phase_from_market_document
 from market_documents import market_doc_field
 
@@ -70,6 +73,14 @@ DATE_TEXT = re.compile(
     r"^(?:(?P<weekday>[a-z]+),?\s+)?(?P<month>[a-z]+)\.?\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?$",
     re.IGNORECASE)
 NONE_WORDS = {"none", "n/a", "na", "not available", "unavailable", "-"}
+NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
+# The ceiling on days per vendor, as a form's instructions state it.
+CEILING = re.compile(
+    r"\b(?:up to|a maximum of|at most|no more than)\s+(\d+|one|two|three|four|five|six|seven)"
+    r"\s+(?:market\s+)?days?\b", re.IGNORECASE)
+# How far either side of the year the file was filled in a fitting year is looked for. Two
+# found exactly one in every corpus file; five found two in some.
+YEAR_SPREAD = 2
 
 # Google writes this header itself; it is the one header word read as a fact.
 TIMESTAMP_HEADER = "timestamp"
@@ -438,11 +449,147 @@ def _classify(columns: List[_Column]) -> List[Dict[str, Any]]:
     return decided
 
 
+# --- What the file says about the plan ----------------------------------------------------------
+
+
+def _plan(columns: List[_Column], decisions: List[Dict[str, Any]],
+          market_doc: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """The dates, the tiers best first and the ceiling the file states, matched against the plan.
+
+    The organizer's plan wins: where it already has dates or tiers, the file's are matched as the
+    import matches values, and a difference comes back to settle, never to be added.
+    """
+    setup = (market_doc_field(market_doc, "setup_object") or {}) if market_doc else {}
+    plan_dates = [d.get("date") for d in setup.get("marketDates") or [] if d.get("date")]
+    plan_tiers = [t.get("name") for t in setup.get("tiers") or [] if t.get("name")]
+
+    found = _dates(columns, decisions)
+    for found_date in found:
+        found_date["matches"] = next(
+            (d for d in plan_dates if d[5:] == f"{found_date['month']:02d}-{found_date['day']:02d}"),
+            None)
+    tiers = [{"name": name, "matches": resolve_value(name, plan_tiers, {})[0]}
+             for name in _tiers(columns, decisions)]
+
+    disagreements = []
+    if plan_dates:
+        disagreements += [{"kind": "date", "value": d["text"]} for d in found if not d["matches"]]
+    if plan_tiers:
+        disagreements += [{"kind": "tier", "value": t["name"]} for t in tiers if not t["matches"]]
+    return {
+        "dates": found,
+        "year": _fitting_year(found, columns, decisions),
+        "tiers": tiers,
+        "ceiling": _ceiling(columns),
+        "disagreements": disagreements,
+    }
+
+
+def _dates(columns: List[_Column], decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The market's days: a date grid's bracketed headers, or answers that are dates."""
+    found: Dict[Tuple[int, int], Dict[str, Any]] = {}
+
+    def add(text: str, source: str) -> None:
+        parsed = parse_date(text)
+        if parsed and parsed[:2] not in found:
+            month, day, weekday = parsed
+            found[(month, day)] = {"text": text, "month": month, "day": day,
+                                   "weekday": weekday, "from": source}
+
+    for column, decided in zip(columns, decisions):
+        if decided.get("essential") not in (EssentialFields.TIER_PREFERENCE_KEY,
+                                            EssentialFields.AVAILABLE_DATES_KEY):
+            continue
+        grid = GRID_HEADER.match(column.label)
+        if grid and parse_date(grid.group("option")):
+            add(collapse_header(grid.group("option")), "header")
+        elif decided["essential"] == EssentialFields.AVAILABLE_DATES_KEY:
+            for option, _ in column.shared_options:
+                add(option, "answers")
+    return [found[key] for key in sorted(found)]
+
+
+def _tiers(columns: List[_Column], decisions: List[Dict[str, Any]]) -> List[str]:
+    """The tier grid's options other than "none", best first.
+
+    Google writes a checkbox answer's options in the form's order, and a form lists tiers best
+    first, so a tier's usual place in the joined answers is its rank.
+    """
+    places: Dict[str, List[float]] = {}
+    for column, decided in zip(columns, decisions):
+        if decided.get("essential") != EssentialFields.TIER_PREFERENCE_KEY:
+            continue
+        for value, count in column.shared:
+            parts = [p for p in split_options(value) if p.lower() not in NONE_WORDS]
+            for position, part in enumerate(parts):
+                places.setdefault(part, []).extend([position / max(len(parts) - 1, 1)] * count)
+        # A tier only ever chosen alongside others, never enough times alone to be in the view.
+        for option, count in column.shared_options:
+            if option.lower() not in NONE_WORDS and option not in places:
+                places[option] = [1.0] * count
+    return sorted(places, key=lambda t: (sum(places[t]) / len(places[t]), -len(places[t])))
+
+
+def _fitting_year(found: List[Dict[str, Any]], columns: List[_Column],
+                  decisions: List[Dict[str, Any]]) -> Optional[int]:
+    """The one year near when the file was filled in whose calendar every stated weekday fits.
+
+    Near the submissions' year, or this year for an export without timestamps. None when no year
+    fits, or when more than one does (dates without weekdays fit every year).
+    """
+    if not found:
+        return None
+    around = _submitted_year(columns, decisions) or date.today().year
+    fitting = [
+        year for year in range(around - YEAR_SPREAD, around + YEAR_SPREAD + 1)
+        if all(_weekday_fits(year, d) for d in found)
+    ]
+    return fitting[0] if len(fitting) == 1 else None
+
+
+def _weekday_fits(year: int, found: Dict[str, Any]) -> bool:
+    try:
+        return found["weekday"] is None or \
+            date(year, found["month"], found["day"]).weekday() == found["weekday"]
+    except ValueError:
+        return False  # 29 February in a year without one
+
+
+def _submitted_year(columns: List[_Column], decisions: List[Dict[str, Any]]) -> Optional[int]:
+    column = next((c for c, d in zip(columns, decisions) if d["fate"] == FATE_SUBMITTED_AT), None)
+    if column is None:
+        return None
+    years = []
+    for value in column.values:
+        try:
+            stamp = normalized_submitted_at(value)
+        except ValueError:
+            continue
+        if stamp:
+            years.append(datetime.fromisoformat(stamp).year)
+    return sorted(years)[len(years) // 2] if years else None
+
+
+def _ceiling(columns: List[_Column]) -> Optional[Dict[str, Any]]:
+    """The most days one vendor may get, from the first header whose prose states it, with the
+    sentence it came from. An assignment rule, not a plan card."""
+    for index, column in enumerate(columns):
+        for sentence in re.split(r"(?<=[.?!])\s+", column.label):
+            match = CEILING.search(sentence)
+            if match:
+                amount = match.group(1).lower()
+                return {"days": int(amount) if amount.isdigit() else NUMBER_WORDS[amount],
+                        "sentence": sentence.strip(), "column": index}
+    return None
+
+
 # --- The whole file -----------------------------------------------------------------------------
 
 
-def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> Dict[str, Any]:
-    """What every column of this file becomes, in the file's order. Reads; writes nothing."""
+def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
+             market_doc: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """What every column of this file becomes, in the file's order, and what it says about the
+    plan, matched against ``market_doc``'s when one is given. Reads; writes nothing."""
     width = len(headers)
     body = [(list(row) + [""] * width)[:width] for row in rows]
     applicant = _applicant_column(body, width)
@@ -502,6 +649,7 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> Dict[str,
         "rowCount": len(body),
         "responses": responses,
         "columns": proposed,
+        "plan": _plan(columns, decisions, market_doc),
         "notAsked": [
             {"key": key, "label": label, "why": "No column in your file answers it"}
             for key, label in EssentialFields.ESSENTIAL_QUESTIONS if key not in answered
@@ -532,4 +680,4 @@ def propose(market_doc: Dict[str, Any], csv_content: str) -> Tuple[Dict[str, Any
     error, headers, rows = parse_csv(csv_content)
     if error:
         return {"error": error}, 400
-    return proposal(headers, rows), 200
+    return proposal(headers, rows, market_doc), 200
