@@ -12,6 +12,7 @@ import api.markets as MarketsApi
 import api.placements as PlacementsApi
 import api.form_amendment as FormAmendmentApi
 import csv_import as CsvImport
+import csv_proposal as CsvProposal
 import api.attendance as AttendanceApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
@@ -1741,6 +1742,37 @@ def _import_context(market_id: str, requesting_user: str):
     if refusal:
         return None, {"error": refusal, "phase": market_doc.get("phase")}, 409
     return market_doc, None, 200
+
+
+@app.route('/markets/<market_id>/csv-proposal', methods=['POST'])
+@login_required
+def propose_from_csv(market_id: str) -> Response:
+    """What a Google Form's responses CSV proposes this draft becomes. Writes nothing and keeps
+    nothing: the file is read and let go. Requires ADMIN+, as the import it prepares does."""
+    try:
+        context = MarketsApi.load_market_context(market_id)
+        if context is None:
+            return jsonify({"error": "Market not found"}), 404
+        if context.market is None:
+            return jsonify({"error": "Invalid market data"}), 400
+        if not PermissionsApi.user_has_permission(
+            authenticated_email(), context.market, MarketRole.ADMIN, context.organization
+        ):
+            return jsonify({"error": "User does not have permission to set up this market"}), 403
+        market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
+        if not market_doc:
+            return jsonify({"error": "Market not found"}), 404
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get('csvContent'), str):
+            return jsonify({"error": "csvContent is required"}), 400
+
+        result, status_code = CsvProposal.propose(market_doc, data['csvContent'])
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in propose_from_csv {market_id}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route('/markets/<market_id>/applications/import/inspect', methods=['POST'])

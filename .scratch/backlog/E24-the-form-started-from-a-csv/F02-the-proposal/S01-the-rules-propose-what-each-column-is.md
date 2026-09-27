@@ -2,7 +2,7 @@
 id: E24/F02/S01
 title: The rules propose what each column is
 type: story
-status: ready
+status: in-progress
 blocked_by: [E24/F01/S01]
 pr: []
 ---
@@ -27,8 +27,8 @@ A guess carries a "check this" reason: could allow several answers; read as an o
 
 ## Acceptance criteria
 
-- [ ] On the five fixtures of `F01`, the proposal matches the hand-written answers of [03](../../../wayfinding/the-form-started-from-a-csv/issues/03-how-good-are-the-rules-alone.md): every column's kind, 72 of 74 custom types, every required flag, options with recall of at least 0.98 and no option invented; the answer key is committed as a test.
-- [ ] The two known misses (a clubs question read as one choice) come back marked "check this", not silently wrong.
-- [ ] A market that is not a draft, or whose form already has custom fields, is refused with the reason ([05](../../../wayfinding/the-form-started-from-a-csv/issues/05-how-you-review-what-the-csv-proposes.md)).
-- [ ] Nothing is stored: not the file, not the proposal.
-- [ ] One module owns reading a CSV into a proposal, beside the import's own module and sharing its grid grouping and header collapsing rather than copying them.
+- [x] On the five fixtures of `F01`, the proposal matches the hand-written answers of [03](../../../wayfinding/the-form-started-from-a-csv/issues/03-how-good-are-the-rules-alone.md): every column's kind, 72 of 74 custom types, every required flag, options with recall of at least 0.98 and no option invented; the answer key is committed as a test.
+- [x] The two known misses (a clubs question read as one choice) come back marked "check this", not silently wrong.
+- [x] A market that is not a draft, or whose form already has custom fields, is refused with the reason ([05](../../../wayfinding/the-form-started-from-a-csv/issues/05-how-you-review-what-the-csv-proposes.md)).
+- [x] Nothing is stored: not the file, not the proposal.
+- [x] One module owns reading a CSV into a proposal, beside the import's own module and sharing its grid grouping and header collapsing rather than copying them.

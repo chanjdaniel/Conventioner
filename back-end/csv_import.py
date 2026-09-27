@@ -178,7 +178,7 @@ def collapse_header(header: Any) -> str:
 # every header the tests used to write, and no header a real form produces. The five day columns of
 # a real export arrived as five unrelated columns, each competing for the same single target, and
 # the import could not be completed at all.
-_GRID_HEADER = re.compile(r"^(?P<stem>.+?)\s*\[(?P<option>.+)\]$", re.DOTALL)
+GRID_HEADER = re.compile(r"^(?P<stem>.+?)\s*\[(?P<option>.+)\]$", re.DOTALL)
 
 
 class ColumnGroup:
@@ -202,7 +202,7 @@ def column_groups(headers: Sequence[str]) -> List[ColumnGroup]:
     order: List[str] = []
     found: Dict[str, ColumnGroup] = {}
     for index, header in enumerate(headers):
-        match = _GRID_HEADER.match(str(header).strip())
+        match = GRID_HEADER.match(str(header).strip())
         if not match:
             continue
         # The stem labels the group in the organizer's ledger, so it is collapsed to one line.
@@ -541,7 +541,7 @@ def _split_multi(raw: str) -> List[str]:
 
 def _grid_option(header: str) -> str:
     """The option a grid column stands for: the text in brackets, or the whole header."""
-    match = _GRID_HEADER.match(str(header).strip())
+    match = GRID_HEADER.match(str(header).strip())
     return match.group("option").strip() if match else str(header).strip()
 
 

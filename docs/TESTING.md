@@ -55,6 +55,9 @@ rather than beside it.
 `test_anonymise_form_export.py` covers the script that turns a real Google Form export into a
 committable fixture, on a synthetic export: a value survives only when 3 distinct applicants gave
 it, and the leak check refuses output that holds a rarer one.
+`test_csv_proposal.py` holds the rules that read a Google Form's responses into a proposal to the
+answer key they were measured against on those five exports, and `test_csv_proposal_api.py` pins
+that asking for one writes nothing.
 `test_google_forms_corpus.py` pins the five exports that script made (`tests/test_data/google_forms/`):
 each one's row count, header row and table-size answer counts.
 
