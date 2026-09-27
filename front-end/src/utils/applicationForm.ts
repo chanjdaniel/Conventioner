@@ -1,6 +1,17 @@
 import type { ApplicationForm, FormField } from '@/assets/types/datatypes';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 
+/** The types a question of the organizer's own can be, as the form builder names them. */
+export const FIELD_TYPES = [
+  { value: 'text', label: 'Text' },
+  { value: 'number', label: 'Number' },
+  { value: 'select', label: 'Select' },
+  { value: 'multi_select', label: 'Multi-Select' },
+  { value: 'checkbox', label: 'Checkbox' },
+  { value: 'date', label: 'Date' },
+  { value: 'email', label: 'Email' },
+] as const;
+
 /** The charset the back-end holds field keys to; they become document keys on every answer. */
 export const FIELD_KEY_PATTERN = /^[a-z0-9_]+$/;
 

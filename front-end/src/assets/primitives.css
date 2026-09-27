@@ -393,3 +393,54 @@
 .note a {
   color: var(--mm-text-link);
 }
+
+/*
+ * A choice between a few ways of doing something, each a card with its label and a line of help
+ * (E24/F04): how vendors apply, and how a new market starts. One idiom, decided here, rather than
+ * each place re-deciding the border, the chosen edge and the frozen ground.
+ */
+.choice-card {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--radius-control);
+  background: white;
+  cursor: pointer;
+  text-align: left;
+}
+
+.choice-card.chosen {
+  border-color: var(--mm-green);
+}
+
+.choice-card.disabled {
+  cursor: not-allowed;
+  background: var(--mm-beige);
+}
+
+.choice-card input {
+  margin-top: var(--space-hairline);
+  flex: 0 0 auto;
+}
+
+.choice-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-hairline);
+}
+
+.choice-card-label {
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+/* The beige-safe muted ink, because a frozen card's ground IS beige: `--mm-text-muted` is 4.63 on
+   white and 4.23 on beige, and this help text sits on both. */
+.choice-card-help {
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted-on-beige);
+  line-height: 1.4;
+}

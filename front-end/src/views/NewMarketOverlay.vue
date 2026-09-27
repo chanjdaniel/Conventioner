@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Creating a market: a name and an organization, and nothing else (E20/F01/S01).
+ * Creating a market: a name, an organization, and how the organizer starts (E20/F01/S01, E24/F04/S01).
  *
  * It stays a modal and stays minimal. `draft` is a full-width ordered page where everything else
  * about a market is decided in sequence, so this dialog's whole job is to give the market an
@@ -21,7 +21,7 @@ import { marketPath } from '@/utils/market';
 import AppDialog from '@/components/AppDialog.vue';
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { type Market, MarketRole } from '@/assets/types/datatypes.ts';
+import { IntakeMode, type Market, MarketRole } from '@/assets/types/datatypes.ts';
 import axios from 'axios';
 import { api } from '@/utils/api';
 
@@ -38,6 +38,26 @@ const marketName = ref('');
 const selectedOrgId = ref('');
 const errorMessage = ref('');
 const creating = ref(false);
+
+/**
+ * How the organizer starts. From scratch is today's path and the default, so creating a market is
+ * one click as before; an organizer who already collects applications with their own Google Form
+ * starts from its responses instead, which is also how vendors will reach this market - by CSV.
+ */
+type Start = 'scratch' | 'google-form';
+const start = ref<Start>('scratch');
+const STARTS: Array<{ value: Start; label: string; help: string }> = [
+  {
+    value: 'scratch',
+    label: 'Start from scratch',
+    help: 'Plan the market and write its application form here.',
+  },
+  {
+    value: 'google-form',
+    label: 'I already have a Google Form',
+    help: "Upload its responses, and we'll set up the plan and the form from them.",
+  },
+];
 
 watch(selectedOrgId, () => {
   errorMessage.value = '';
@@ -67,6 +87,7 @@ const handleSubmit = async () => {
         [userEmail]: MarketRole.Owner,
       },
       setupObject: null,
+      ...(start.value === 'google-form' ? { intakeMode: IntakeMode.Csv } : {}),
       modificationList: [],
       assignmentObject: {
         vendorAssignments: [],
@@ -80,8 +101,9 @@ const handleSubmit = async () => {
     const createResponse = await api.post('/markets', newMarket);
     const marketId = createResponse.data.market_id;
 
-    // A new market is a draft, and a draft is planned first.
-    router.push(marketPath(marketId, 'setup'));
+    // A new market is a draft, and a draft is planned first - or, started from a Google Form,
+    // read from its responses first.
+    router.push(marketPath(marketId, start.value === 'google-form' ? 'start-from-csv' : 'setup'));
   } catch (error) {
     if (
       axios.isAxiosError(error) &&
@@ -138,6 +160,23 @@ const handleSubmit = async () => {
         {{ errorMessage }}
       </p>
     </div>
+
+    <fieldset class="dialog-field starts">
+      <legend class="field-label">How do you want to start?</legend>
+      <label
+        v-for="choice in STARTS"
+        :key="choice.value"
+        class="choice-card"
+        :class="{ chosen: start === choice.value }"
+        :data-testid="`new-market-start-${choice.value}`"
+      >
+        <input v-model="start" type="radio" name="new-market-start" :value="choice.value" />
+        <span class="choice-card-text">
+          <span class="choice-card-label">{{ choice.label }}</span>
+          <span class="choice-card-help">{{ choice.help }}</span>
+        </span>
+      </label>
+    </fieldset>
   </AppDialog>
 </template>
 
@@ -146,6 +185,18 @@ const handleSubmit = async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+.starts {
+  margin: 0;
+  padding: 0;
+  border: none;
+  gap: var(--space-2);
+}
+
+/* A legend is inset by the browser; this one lines up with the labels above it. */
+.starts legend {
+  padding: 0;
 }
 
 .error-message {

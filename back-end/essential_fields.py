@@ -161,6 +161,25 @@ SOLVER_RELEVANT_KEYS = (
 )
 
 
+# Every essential question with its label, in the order the form asks them. The import lists its
+# targets in this order and the CSV proposal lists the questions no column answers in it; one list,
+# so neither can drift from the other.
+ESSENTIAL_QUESTIONS = (
+    # First, and asked by every market: a column of names maps straight across, which is what the
+    # Fall 2025 export's "Full Legal Name" had nowhere to go before.
+    (FULL_NAME_KEY, FULL_NAME_LABEL),
+    # The column beside it in that same export, which had nowhere to go until E19/F02/S01.
+    (PREFERRED_NAME_KEY, PREFERRED_NAME_LABEL),
+    (AVAILABLE_DATES_KEY, AVAILABLE_DATES_LABEL),
+    (MAX_DATES_KEY, MAX_DATES_LABEL),
+    (TABLE_CHOICE_KEY, TABLE_CHOICE_LABEL),
+    (TABLE_SHARE_EMAIL_KEY, TABLE_SHARE_EMAIL_LABEL),
+    (TIER_PREFERENCE_KEY, TIER_PREFERENCE_LABEL),
+    (SECTION_RANKING_KEY, SECTION_RANKING_LABEL),
+    (TABLE_TYPE_RANKING_KEY, TABLE_TYPE_RANKING_LABEL),
+)
+
+
 # Every essential question except the table-share partner, which is optional by design: most
 # applicants have nobody in mind, and one who names nobody is paired with whoever else wants a
 # half table.

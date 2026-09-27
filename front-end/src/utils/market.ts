@@ -128,6 +128,8 @@ export function parseMarketFromApi(market: any): Market {
     applicationFormLockReason: market.applicationFormLockReason,
     // Why the assignment rules can no longer change, or null while they can (E22/F02/S02).
     assignmentRulesLockReason: market.assignmentRulesLockReason,
+    // Why this market cannot be started from a Google Form's CSV, or null while it can (E24/F03).
+    csvStartRefusal: market.csvStartRefusal,
     // Which of the rules, the plan and the approved applications changed since the stored
     // assignment ran (E22/F03/S01): computed by the server on every read of one market.
     assignmentOutOfDate: market.assignmentOutOfDate,

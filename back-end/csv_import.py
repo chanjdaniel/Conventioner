@@ -178,7 +178,7 @@ def collapse_header(header: Any) -> str:
 # every header the tests used to write, and no header a real form produces. The five day columns of
 # a real export arrived as five unrelated columns, each competing for the same single target, and
 # the import could not be completed at all.
-_GRID_HEADER = re.compile(r"^(?P<stem>.+?)\s*\[(?P<option>.+)\]$", re.DOTALL)
+GRID_HEADER = re.compile(r"^(?P<stem>.+?)\s*\[(?P<option>.+)\]$", re.DOTALL)
 
 
 class ColumnGroup:
@@ -202,7 +202,7 @@ def column_groups(headers: Sequence[str]) -> List[ColumnGroup]:
     order: List[str] = []
     found: Dict[str, ColumnGroup] = {}
     for index, header in enumerate(headers):
-        match = _GRID_HEADER.match(str(header).strip())
+        match = GRID_HEADER.match(str(header).strip())
         if not match:
             continue
         # The stem labels the group in the organizer's ledger, so it is collapsed to one line.
@@ -216,7 +216,7 @@ def column_groups(headers: Sequence[str]) -> List[ColumnGroup]:
     return [found[stem] for stem in order if len(found[stem].columns) > 1]
 
 
-def _normalize(value: str) -> str:
+def normalize_value(value: str) -> str:
     """The form in which two values are "the same" for matching purposes.
 
     Space and capitalisation are noise here: a form answer of " gold " and a tier named "Gold" are
@@ -252,26 +252,13 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     options = EssentialFields.effective_essential_options(market_doc)
     asked = EssentialFields.asked_essential_keys(options)
 
-    # One entry per essential question, in the order the form asks them. Which of these are
-    # actually offered is NOT decided here: ``asked_essential_keys`` is the single statement of
+    # One entry per essential question, in the order the form asks them
+    # (``EssentialFields.ESSENTIAL_QUESTIONS``). Which of these are actually offered is NOT decided
+    # here: ``asked_essential_keys`` is the single statement of
     # that rule, and this used to re-implement it (``options.dates``, ``len(options.sections) > 1``)
     # - a second copy that could not see a market's declaration that it does not ask a question,
     # and that would have drifted from the applicant validator and the solver the moment either
     # moved.
-    essential_order = (
-        # First, and asked by every market: a column of names maps straight across, which is what
-        # the Fall 2025 export's "Full Legal Name" had nowhere to go before.
-        (EssentialFields.FULL_NAME_KEY, EssentialFields.FULL_NAME_LABEL),
-        # The column beside it in that same export, which had nowhere to go until E19/F02/S01.
-        (EssentialFields.PREFERRED_NAME_KEY, EssentialFields.PREFERRED_NAME_LABEL),
-        (EssentialFields.AVAILABLE_DATES_KEY, EssentialFields.AVAILABLE_DATES_LABEL),
-        (EssentialFields.MAX_DATES_KEY, EssentialFields.MAX_DATES_LABEL),
-        (EssentialFields.TABLE_CHOICE_KEY, EssentialFields.TABLE_CHOICE_LABEL),
-        (EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_EMAIL_LABEL),
-        (EssentialFields.TIER_PREFERENCE_KEY, EssentialFields.TIER_PREFERENCE_LABEL),
-        (EssentialFields.SECTION_RANKING_KEY, EssentialFields.SECTION_RANKING_LABEL),
-        (EssentialFields.TABLE_TYPE_RANKING_KEY, EssentialFields.TABLE_TYPE_RANKING_LABEL),
-    )
 
     targets = [
         ImportTarget(APPLICANT_EMAIL_TARGET, APPLICANT_EMAIL_LABEL, True, "identity"),
@@ -279,7 +266,7 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     ]
     targets += [
         ImportTarget(key, label, key in EssentialFields.REQUIRED_ESSENTIAL_KEYS, "essential")
-        for key, label in essential_order
+        for key, label in EssentialFields.ESSENTIAL_QUESTIONS
         if key in asked
     ]
 
@@ -337,15 +324,15 @@ def resolve_value(
     if not text:
         return None, True
 
-    normalized = _normalize(text)
+    normalized = normalize_value(text)
     for candidate in offered:
-        if _normalize(candidate) == normalized:
+        if normalize_value(candidate) == normalized:
             return candidate, True
 
     if text in resolutions:
         return resolutions[text], True
     for key, value in resolutions.items():
-        if _normalize(key) == normalized:
+        if normalize_value(key) == normalized:
             return value, True
     return None, False
 
@@ -541,7 +528,7 @@ def _split_multi(raw: str) -> List[str]:
 
 def _grid_option(header: str) -> str:
     """The option a grid column stands for: the text in brackets, or the whole header."""
-    match = _GRID_HEADER.match(str(header).strip())
+    match = GRID_HEADER.match(str(header).strip())
     return match.group("option").strip() if match else str(header).strip()
 
 
@@ -1149,6 +1136,19 @@ def save_mapping(
     resolutions: Dict[str, Dict[str, Optional[str]]],
 ) -> None:
     """Store the mapping by header text, for the next import to restore."""
+    markets_collection.update_one(
+        {"id": market_id},
+        {"$set": {market_doc_key("import_mapping"): mapping_payload(headers, resolved, resolutions)}},
+    )
+
+
+def mapping_payload(
+    headers: Sequence[str],
+    resolved: Dict[str, List[int]],
+    resolutions: Dict[str, Dict[str, Optional[str]]],
+) -> Dict[str, Any]:
+    """A mapping as it is stored: by header text, never position. The one format there is - the
+    import saves it, and a market started from a CSV saves the same thing (E24/F03/S03)."""
     mapping = ImportMapping(
         targets={
             key: [str(headers[index]).strip() for index in indexes if index < len(headers)]
@@ -1159,8 +1159,4 @@ def save_mapping(
         saved_at=datetime.now(timezone.utc).isoformat(),
     )
     dumped = mapping.model_dump()
-    payload = {camel: dumped[snake] for snake, camel in _MAPPING_FIELDS.items()}
-    markets_collection.update_one(
-        {"id": market_id},
-        {"$set": {market_doc_key("import_mapping"): payload}},
-    )
+    return {camel: dumped[snake] for snake, camel in _MAPPING_FIELDS.items()}

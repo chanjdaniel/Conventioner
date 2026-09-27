@@ -21,6 +21,7 @@ Submission dates are read from the anonymised timestamps, which the anonymiser m
 The header row is copied verbatim, newlines included: it is the organizer's question text, and it is what the proposal reads.
 An answer, or one option inside a multi-select answer, is kept verbatim only when at least 3 distinct applicants gave it, counted by applicant email.
 Everything else is invented in the same shape: same length, letter case, punctuation and digit count, an address for an email and a link for a link.
+A link keeps its scheme and each part at least 3 applicants' links share, so a Drive upload still reads `https://drive.google.com/open?id=` and an Instagram link still names Instagram, while the file id, the handle and anyone's own site are invented.
 One applicant's email becomes the same invented address everywhere it appears, including other applicants' table-share answers.
 Blanks, row order, the `TEST` row, organizer columns, duplicate columns and trailing empty columns are as the export had them.
 Every timestamp moves by one offset.

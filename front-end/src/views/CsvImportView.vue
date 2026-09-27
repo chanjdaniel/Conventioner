@@ -22,6 +22,8 @@ import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { canImportInto, importRefusal } from '@/utils/importPhase';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
+import ValueFixes from '@/components/ValueFixes.vue';
+import { IGNORE_VALUE } from '@/utils/valueFixes';
 import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
 import type { ApplicationForm, EssentialFormOptions } from '@/assets/types/datatypes';
 import {
@@ -41,9 +43,6 @@ const MULTI_VALUE_TARGETS = new Set<string>([
 ]);
 
 type Step = 'upload' | 'map' | 'preview' | 'done';
-
-/** Sentinel for "this value means nothing; leave it out" - distinct from "not yet decided". */
-const IGNORE_VALUE = '__ignore__';
 
 /**
  * Sentinel for "I want this column and there is no target for it". Not a mapping - it never
@@ -192,19 +191,24 @@ const ledgerRows = computed(() => {
 });
 
 const requiredTargets = computed(() => targets.value.filter((t) => t.required));
-const mappedKeys = computed(
-  () =>
-    new Set(
-      [
-        ...Object.entries(columnTarget.value)
-          .filter(([index]) => !groupedColumns.value.has(Number(index)))
-          .map(([, key]) => key)
-          // The ledger's dead-end sentinel is not a target; it must not satisfy a required question.
-          .filter((key) => key !== NEEDS_A_FIELD),
-        ...activeGroups.value.map((g) => groupTarget.value[g.stem]),
-      ].filter(Boolean),
-    ),
-);
+const mappedKeys = computed(() => {
+  const keys = new Set(
+    [
+      ...Object.entries(columnTarget.value)
+        .filter(([index]) => !groupedColumns.value.has(Number(index)))
+        .map(([, key]) => key)
+        // The ledger's dead-end sentinel is not a target; it must not satisfy a required question.
+        .filter((key) => key !== NEEDS_A_FIELD),
+      ...activeGroups.value.map((g) => groupTarget.value[g.stem]),
+    ].filter(Boolean),
+  );
+  // A per-date tier grid answers availability too: the days a vendor named tiers for are the days
+  // they can come. The server's `unserved_required` says so, and the rail must agree with it, or a
+  // real form's grid - the shape every Google Form export has - reads as missing a question.
+  if (activeGroups.value.some((g) => groupTarget.value[g.stem] === TIER_PREFERENCE_KEY))
+    keys.add(AVAILABLE_DATES_KEY);
+  return keys;
+});
 
 /** What shape a mapped target is being read from, said plainly so a wrong guess is visible. */
 function shapeLabel(group: ColumnGroup): string {
@@ -814,46 +818,13 @@ function startOver() {
                     </select>
 
                     <!-- Values the market does not recognise, fixed in the row that owns them. -->
-                    <div
+                    <ValueFixes
                       v-if="unmatchedFor(groupTarget[row.group.stem]).length"
-                      class="ledger-fixes"
-                      data-testid="import-value-fixes"
-                    >
-                      <p class="ledger-fixes-title">
-                        {{ unmatchedFor(groupTarget[row.group.stem]).length }} value{{
-                          unmatchedFor(groupTarget[row.group.stem]).length === 1 ? '' : 's'
-                        }}
-                        did not match your market
-                      </p>
-                      <div
-                        v-for="entry in unmatchedFor(groupTarget[row.group.stem])"
-                        :key="entry.value"
-                        class="ledger-fix"
-                      >
-                        <code :data-testid="`import-unmatched-value`">{{ entry.value }}</code>
-                        <span class="ledger-fix-rows"
-                          >{{ entry.rows }} row{{ entry.rows === 1 ? '' : 's' }}</span
-                        >
-                        <select
-                          class="ledger-fix-select"
-                          :value="resolutionFor(entry.target, entry.value)"
-                          :data-testid="`import-fix-${entry.value}`"
-                          @change="
-                            setResolution(
-                              entry.target,
-                              entry.value,
-                              ($event.target as HTMLSelectElement).value,
-                            )
-                          "
-                        >
-                          <option value="">Choose…</option>
-                          <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                            {{ offeredLabel(entry.target, choice) }}
-                          </option>
-                          <option :value="IGNORE_VALUE">Ignore this value</option>
-                        </select>
-                      </div>
-                    </div>
+                      :entries="unmatchedFor(groupTarget[row.group.stem])"
+                      :resolution-for="resolutionFor"
+                      :label-for="offeredLabel"
+                      @resolve="setResolution"
+                    />
                   </td>
                 </tr>
                 <tr
@@ -971,46 +942,13 @@ function startOver() {
                   </p>
 
                   <!-- Values the market does not recognise, fixed in the row that owns them. -->
-                  <div
+                  <ValueFixes
                     v-if="unmatchedFor(columnTarget[row.index]).length"
-                    class="ledger-fixes"
-                    data-testid="import-value-fixes"
-                  >
-                    <p class="ledger-fixes-title">
-                      {{ unmatchedFor(columnTarget[row.index]).length }} value{{
-                        unmatchedFor(columnTarget[row.index]).length === 1 ? '' : 's'
-                      }}
-                      did not match your market
-                    </p>
-                    <div
-                      v-for="entry in unmatchedFor(columnTarget[row.index])"
-                      :key="entry.value"
-                      class="ledger-fix"
-                    >
-                      <code :data-testid="`import-unmatched-value`">{{ entry.value }}</code>
-                      <span class="ledger-fix-rows"
-                        >{{ entry.rows }} row{{ entry.rows === 1 ? '' : 's' }}</span
-                      >
-                      <select
-                        class="ledger-fix-select"
-                        :value="resolutionFor(entry.target, entry.value)"
-                        :data-testid="`import-fix-${entry.value}`"
-                        @change="
-                          setResolution(
-                            entry.target,
-                            entry.value,
-                            ($event.target as HTMLSelectElement).value,
-                          )
-                        "
-                      >
-                        <option value="">Choose…</option>
-                        <option v-for="choice in entry.offered" :key="choice" :value="choice">
-                          {{ offeredLabel(entry.target, choice) }}
-                        </option>
-                        <option :value="IGNORE_VALUE">Ignore this value</option>
-                      </select>
-                    </div>
-                  </div>
+                    :entries="unmatchedFor(columnTarget[row.index])"
+                    :resolution-for="resolutionFor"
+                    :label-for="offeredLabel"
+                    @resolve="setResolution"
+                  />
                 </td>
               </tr>
             </template>
@@ -1469,49 +1407,6 @@ function startOver() {
 .ledger-badge.new {
   background: rgba(228, 166, 41, 0.18);
   color: var(--mm-text-yellow);
-}
-
-.ledger-fixes {
-  margin-top: 10px;
-  padding: 10px;
-  border: 1px solid var(--mm-red);
-  border-radius: var(--radius-control);
-  background: rgba(192, 57, 43, 0.14);
-}
-
-.ledger-fixes-title {
-  margin: 0 0 6px;
-  font-size: var(--text-xs);
-  color: var(--mm-red);
-}
-
-.ledger-fix {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.ledger-fix code {
-  padding: 2px 6px;
-  border-radius: var(--radius-control);
-  background: var(--mm-beige);
-  font-size: var(--text-xs);
-}
-
-.ledger-fix-rows {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.ledger-fix-select {
-  height: 30px;
-  padding: 2px 6px;
-  font-size: var(--text-xs);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
 }
 
 .ledger-split {

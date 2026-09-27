@@ -125,6 +125,12 @@ const router = createRouter({
     },
     { path: '/import-applications', redirect: '/markets' },
     {
+      // Starting a draft's plan and form from a Google Form's responses (E24/F03).
+      path: '/markets/:marketId/start-from-csv',
+      name: 'start-from-csv',
+      component: () => import('@/views/StartFromCsvView.vue'),
+    },
+    {
       path: '/markets/:marketId/floorplan',
       name: 'floorplan-editor',
       component: () => import('@/views/FloorplanEditorView.vue'),
