@@ -3,7 +3,7 @@
 ## `google_forms_export.csv`
 
 A real Google Forms response export with the people replaced.
-231 applications to a five-day market, 31 columns, produced by `tests/fixtures/anonymise_form_export.py`.
+231 applications to a five-day market, 31 columns, produced by an earlier version of `tests/fixtures/anonymise_form_export.py`.
 
 ### Why it exists
 
@@ -30,12 +30,11 @@ A regenerated fixture missing any of them is not doing its job, and `tests/test_
 - **Roughly 232 rows**, so scale behaviour is exercised.
 
 The header row is copied **verbatim**, newlines included.
-Only identifying cells are rewritten, and every generated value is deterministic, so regenerating the fixture from the same source produces an identical file.
+Only identifying cells were rewritten, chosen by header words (`email`, `name`, `discord` and so on).
 
-### Regenerating it
+### Why it is not regenerated
 
-```
-python tests/fixtures/anonymise_form_export.py <real-export.csv> tests/test_data/google_forms_export.csv
-```
-
-Do not commit the real export, and do not hand-edit the fixture: change the anonymiser instead, so the next person can tell what was done to the data.
+The anonymiser has since changed what it keeps: a value stays only when at least 3 distinct applicants gave it, whatever its column is called (E24/F01/S01).
+This file's source export is not among the ones that version was run on, so the file stays as the earlier version produced it.
+Do not hand-edit it: a change it needs is a reason to replace it with one of the exports made by the current anonymiser.
+Do not commit a real export.

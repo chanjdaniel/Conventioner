@@ -380,7 +380,8 @@ Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
 - **Email verification**: The seed fixture creates users with `email_verified=true`
   via `back-end/create_test_user.py` so they can log in immediately.
 - **The Google Forms fixture**: `back-end/tests/test_data/google_forms_export.csv` is a real
-  response export with the people replaced, built by `back-end/tests/fixtures/anonymise_form_export.py`.
+  response export with the people replaced, built by an earlier version of
+  `back-end/tests/fixtures/anonymise_form_export.py`.
   It exists because three MVP blockers came from the *shape* of a real export and every CSV test
   before it wrote its own short single-line headers.
   `back-end/tests/test_data/README.md` lists the six properties it must preserve, and
