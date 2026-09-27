@@ -1,5 +1,43 @@
 # Test data
 
+## `google_forms/`
+
+Five real Google Form application exports, one per market, with the people replaced by `tests/fixtures/anonymise_form_export.py` (E24/F01/S01).
+They are the only realistic responses this suite has, and the form started from a CSV is built and measured against them.
+
+| File | Market days | Applications submitted | Rows | Columns |
+|---|---|---|---|---|
+| `fall-2023.csv` | Mon 20 - Fri 24 November 2023 | 19 September - 10 October 2023 | 294 | 12 |
+| `spring-2024.csv` | Mon 25 - Thu 28 March 2024 | 28 January - 13 February 2024 | 361 | 30 |
+| `spring-2025.csv` | Mon 17 - Fri 21 March 2025 | not recorded: this export has no timestamp column | 237 | 28 |
+| `fall-2025.csv` | Mon 17 - Fri 21 November 2025 | 12 - 28 September 2025 | 237 | 30 |
+| `spring-2026.csv` | Mon 23 - Fri 27 March 2026 | 26 January - 9 February 2026 | 250 | 35 |
+
+All five are UBC Makers Market application forms.
+Submission dates are read from the anonymised timestamps, which the anonymiser moves by a few hours, so a boundary day may be off by one.
+
+### What was kept and what was invented
+
+The header row is copied verbatim, newlines included: it is the organizer's question text, and it is what the proposal reads.
+An answer, or one option inside a multi-select answer, is kept verbatim only when at least 3 distinct applicants gave it, counted by applicant email.
+Everything else is invented in the same shape: same length, letter case, punctuation and digit count, an address for an email and a link for a link.
+One applicant's email becomes the same invented address everywhere it appears, including other applicants' table-share answers.
+Blanks, row order, the `TEST` row, organizer columns, duplicate columns and trailing empty columns are as the export had them.
+Every timestamp moves by one offset.
+
+The anonymiser refuses to write a file in which any source value of 4 or more characters that fewer than 3 applicants wrote appears, down to a single word inside a comment.
+`tests/test_google_forms_corpus.py` pins each file's row count, header row and table-size answer counts.
+
+### Regenerating them
+
+```
+python tests/fixtures/anonymise_form_export.py <real-export.csv> tests/test_data/google_forms/<name>.csv
+```
+
+The real exports live only on the maintainer's machine.
+The output is deterministic, so regenerating from the same export produces an identical file.
+Never commit a real export, and never hand-edit a copy: change the anonymiser, so the next person can tell what was done to the data.
+
 ## `google_forms_export.csv`
 
 A real Google Forms response export with the people replaced.
