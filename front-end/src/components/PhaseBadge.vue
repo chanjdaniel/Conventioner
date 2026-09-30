@@ -2,7 +2,7 @@
 /** One phase chip: the phase's name, in the tone its state calls for, wherever a phase is shown. */
 import { computed } from 'vue';
 import { MarketPhase } from '@/assets/types/datatypes';
-import { phaseLabel } from '@/utils/phase';
+import { effectivePhase, phaseLabel } from '@/utils/phase';
 
 const props = defineProps<{ phase?: string | null }>();
 
@@ -35,7 +35,7 @@ const TONE: Record<string, string> = {
   [MarketPhase.Archived]: 'neutral',
 };
 
-const current = computed(() => String(props.phase ?? MarketPhase.Draft));
+const current = computed(() => effectivePhase(props.phase));
 const label = computed(() => phaseLabel(current.value));
 /** A phase this build does not recognise is neutral rather than unstyled. */
 const tone = computed(() => TONE[current.value] ?? 'neutral');
