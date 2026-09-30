@@ -1,0 +1,21 @@
+---
+id: E26/F09/S01
+title: Auto-Place fills the plan
+type: story
+status: proposed
+blocked_by: []
+pr: []
+---
+
+
+## What to build
+
+Auto-Place asks how many tables of each type to place, shows what it placed, the calibration result is labelled the right way round, a drag started off the image still draws, and the choice dialog's copy matches the wizard.
+
+Closes bugs 38 in `docs/MVP_BUGS.md`; each one's reproduction there is the starting E2E.
+
+## Acceptance criteria
+
+- [ ] Auto-Place with a count of 20 places 20 tables where they fit, and says how many it placed.
+- [ ] The calibration result reads px per mm correctly.
+- [ ] The choice dialog makes no claim the wizard does not deliver.
