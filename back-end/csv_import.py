@@ -605,6 +605,38 @@ def _tier_grid(
     return per_date
 
 
+# How another form words the three table choices. A Google Form writes whatever the organizer typed
+# - "Full table", "Half table", "Either" - and none of those is a trivial variant of "A whole table
+# to myself", so exact matching left them unmatched: the import asked about them by hand, and a
+# market started from its form saved them as ignored and refused every one of those applicants
+# (bug 3). An answer naming both sizes, or saying the applicant does not mind, is "either".
+_FULL_TABLE_WORDS = re.compile(r"\b(full|whole|entire)\b")
+_HALF_TABLE_WORDS = re.compile(r"\bhalf\b")
+_EITHER_TABLE_WORDS = re.compile(
+    r"\b(either|both|whichever|no preference|don'?t mind|doesn'?t matter)\b",
+)
+
+
+def _table_choice_in_words(text: str) -> Optional[str]:
+    """The table choice another form's wording names, or None when it names none of them."""
+    lowered = text.casefold().replace("’", "'")
+    full = bool(_FULL_TABLE_WORDS.search(lowered))
+    half = bool(_HALF_TABLE_WORDS.search(lowered))
+    if _EITHER_TABLE_WORDS.search(lowered) or (full and half):
+        return EssentialFields.TABLE_CHOICE_EITHER
+    if full:
+        return EssentialFields.TABLE_CHOICE_FULL
+    if half:
+        return EssentialFields.TABLE_CHOICE_HALF
+    return None
+
+
+# The only answers that mean a box was left unticked. A Google Form exports a ticked box as the
+# box's own text ("I certify that...") and an unticked one as nothing at all, so reading only
+# "true"/"yes" as ticked refused every applicant on a required certification (bug 2).
+_UNTICKED = {"false", "no", "n", "0", "unchecked", "off"}
+
+
 def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> Any:
     """One cell, as the answer shape its target expects.
 
@@ -616,7 +648,7 @@ def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> 
         # Spoken in the applicant's words, which is what this target's offering is now made of.
         # A file that already holds the stored code says the same thing, so it is translated here
         # rather than sent round the reconciliation screen to be told that ``full`` means ``full``.
-        code = EssentialFields.table_choice_for_label(text)
+        code = EssentialFields.table_choice_for_label(text) or _table_choice_in_words(text)
         return EssentialFields.TABLE_CHOICE_LABELS[code] if code else text
     if target.key in _MULTI_VALUE_ESSENTIALS:
         return _split_multi(text)
@@ -627,7 +659,7 @@ def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> 
         if field_type == "multi_select":
             return _split_multi(text)
         if field_type == "checkbox":
-            return text.lower() in ("true", "yes", "1", "checked")
+            return bool(text) and text.casefold() not in _UNTICKED
         if field_type == "number":
             return text
     return text

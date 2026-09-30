@@ -214,5 +214,34 @@ test.describe('Start from your Google Form', () => {
     await expect(importer.restoredNew).toHaveCount(0);
     await expect(importer.valueFixes).toHaveCount(0);
     await expect(importer.unresolvedWarning).toHaveCount(0);
+
+    // And through Preview and Confirm, where it used to import nothing (bugs 2 and 3): Google
+    // exports a ticked certification box as the box's own text, and "Full table" and "Half table"
+    // name two of the three table choices. Neither may cost an applicant their application.
+    await importer.clickPreview();
+    await expect(importer.previewCounts).toBeVisible();
+    const failures = await importer.previewFailureRows.allInnerTexts();
+    expect(failures.filter((f) => /I certify|I understand/.test(f))).toEqual([]);
+    expect(failures.filter((f) => f.includes("'Table choice' is required"))).toEqual([]);
+    // The 30 still refused are one row with no name and 29 whose every answer was an option too
+    // rare to keep (bug 4).
+    await expect(importer.previewCounts).toContainText('207 of 237 rows');
+    const imported = 207;
+
+    await importer.clickConfirm();
+    await expect(importer.resultSummary).toContainText(`Imported ${imported} new applications`);
+
+    const res = await request.get(`${BACKEND_URL}/markets/${marketId}/applications`);
+    const { applications } = (await res.json()) as {
+      applications: { formData: Record<string, unknown> }[];
+    };
+    expect(applications).toHaveLength(imported);
+    const choices = new Set(applications.map((a) => a.formData.essential_table_choice));
+    expect([...choices].sort()).toEqual(['either', 'full', 'half']);
+
+    // Nothing the organizer did not choose to leave out is saved as ignored.
+    const body = await (await request.get(`${BACKEND_URL}/markets/${marketId}`)).json();
+    const saved = (body.market ?? body).importMapping.resolutions ?? {};
+    expect(saved.essential_table_choice ?? {}).toEqual({});
   });
 });

@@ -456,6 +456,42 @@ class TestWhatASingleColumnCannotSay:
         assert "craft" not in body["commaBearingTargets"]
 
 
+class TestACheckboxQuestion:
+    """A Google Form exports a ticked box as the box's own text, and an unticked one as nothing.
+
+    Reading only "true"/"yes" as ticked turned every ticked certification into an unticked one, so
+    a market started from its Google Form refused every applicant on a required box (bug 2).
+    """
+
+    CERTIFY = "I certify that the work is my own"
+    FIELDS = FORM_FIELDS + [{
+        "key": "certify", "label": CERTIFY, "type": "checkbox", "required": True,
+        "options": [], "order": 1,
+    }]
+
+    def _import(self, cell):
+        markets = FakeMarketsCollection(_market_doc(fields=self.FIELDS))
+        csv_text = "\n".join([",".join([*HEADERS, self.CERTIFY]), f"{GOOD_ROW},{cell}"])
+        return CsvImport.import_applications(
+            markets, markets.doc, csv_text, {**MAPPING, "certify": len(HEADERS)},
+        )
+
+    @pytest.mark.parametrize("cell", [f'"{CERTIFY}"', "Yes", "TRUE", "checked"])
+    def test_a_ticked_box_reads_as_ticked(self, applications, cell):
+        body, _ = self._import(cell)
+
+        assert body["created"] == 1, body
+        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        assert stored["form_data"]["certify"] is True
+
+    @pytest.mark.parametrize("cell", ["", "No", "FALSE", "0"])
+    def test_an_unticked_box_still_fails_a_required_certification(self, applications, cell):
+        body, _ = self._import(cell)
+
+        assert body["created"] == 0
+        assert body["failures"][0]["error"] == f"'{self.CERTIFY}' is required."
+
+
 class TestColumnGroups:
     def test_a_grid_is_detected_as_one_question(self, markets):
         body, _ = CsvImport.inspect(markets.doc, _grid_csv(GRID_ROW))
@@ -655,8 +691,47 @@ class TestMatchingCellValues:
         data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
         assert data["essential_table_choice"] == "half"
 
+    @pytest.mark.parametrize("answer, code", [
+        ("Full table", "full"),
+        ("Half table", "half"),
+        ("Either", "either"),
+        ("Half table (I have a partner)", "half"),
+        ("Whole table please", "full"),
+        ("Full or half, I don’t mind", "either"),
+        ("No preference", "either"),
+    ])
+    def test_another_forms_wording_names_the_table_choice(
+        self, markets, applications, answer, code,
+    ):
+        """How a Google Form words the choices is not a trivial variant of this product's own
+        sentences, and matching only those saved "Full table" and "Half table" as ignored on every
+        market started from its form, refusing each of those applicants (bug 3)."""
+        row = GOOD_ROW.replace(",half,", f',"{answer}",')
+
+        preview, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
+        body, status = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+
+        assert preview["unmatched"] == []
+        assert status == 200 and body["created"] == 1, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_table_choice"] == code
+
+    def test_a_stored_ignore_does_not_outrank_a_recognised_choice(self, markets, applications):
+        """Markets started before the fix saved {"Full table": null}; a recognised value matches
+        before a saved decision is consulted, so those markets import without a migration."""
+        resolutions = {EssentialFields.TABLE_CHOICE_KEY: {"Full table": None}}
+        row = GOOD_ROW.replace(",half,", ",Full table,")
+
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(row), MAPPING, resolutions,
+        )
+
+        assert body["created"] == 1, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_table_choice"] == "full"
+
     def test_an_unmatched_table_choice_is_offered_the_sentences_to_pick_from(self, markets):
-        row = GOOD_ROW.replace(",half,", ",No preference really,")
+        row = GOOD_ROW.replace(",half,", ",Depends on the price,")
 
         body, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
 
