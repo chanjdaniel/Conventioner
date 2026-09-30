@@ -2,9 +2,9 @@
 id: E25
 title: Finding a market
 type: epic
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [87]
 ---
 
 ## Outcome

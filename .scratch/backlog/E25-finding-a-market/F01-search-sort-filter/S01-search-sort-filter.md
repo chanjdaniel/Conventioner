@@ -2,9 +2,9 @@
 id: E25/F01/S01
 title: Search, sort and filter the Markets page
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [87]
 ---
 
 ## What to build
@@ -37,15 +37,15 @@ Out of scope: the same controls on the Dashboard and the Load Market dialog; ser
 
 ## Acceptance criteria
 
-- [ ] Typing "tes" narrows the list to markets whose name contains "tes" in any case, as it is typed; clearing the box restores the list.
-- [ ] Search ignores accents ("cafe" matches "Café Market") and leading or trailing spaces.
-- [ ] The Organization filter lists every organization the organizer belongs to, including one with no markets, and narrows the list to that organization's markets.
-- [ ] The Phase filter accepts several phases and shows markets in any of them.
-- [ ] Sort by Market date, Name and Created each order the list as described; markets with no dates sort last under Market date.
-- [ ] Search, filters and sort compose: e.g. search "fair" + one organization + phases Review and Assignment, sorted by Name.
-- [ ] Every control round-trips through the address: reloading, and Back after opening a market, restore the same view.
-- [ ] An address naming an unknown organization or phase is ignored, not an empty list.
-- [ ] No match shows "No markets match these filters" with a working Clear filters; an organizer with no markets still sees "No markets found".
-- [ ] The controls use the shared primitives and tokens, pass `lint:css` as a migrated file, and fit the app's narrowest supported window without scrolling sideways (the shell's 1000px floor; the product is not laid out for a phone).
-- [ ] Vitest: the pure filter/sort function covers matching, accents, composition, date ordering and stale values.
-- [ ] Playwright: an organizer with several seeded markets across two organizations and several phases searches, filters, sorts, opens a market, goes Back, and finds the same view.
+- [x] Typing "tes" narrows the list to markets whose name contains "tes" in any case, as it is typed; clearing the box restores the list.
+- [x] Search ignores accents ("cafe" matches "Café Market") and leading or trailing spaces.
+- [x] The Organization filter lists every organization the organizer belongs to, including one with no markets, and narrows the list to that organization's markets.
+- [x] The Phase filter accepts several phases and shows markets in any of them.
+- [x] Sort by Market date, Name and Created each order the list as described; markets with no dates sort last under Market date.
+- [x] Search, filters and sort compose: e.g. search "fair" + one organization + phases Review and Assignment, sorted by Name.
+- [x] Every control round-trips through the address: reloading, and Back after opening a market, restore the same view.
+- [x] An address naming an unknown organization or phase is ignored, not an empty list.
+- [x] No match shows "No markets match these filters" with a working Clear filters; an organizer with no markets still sees "No markets found".
+- [x] The controls use the shared primitives and tokens, pass `lint:css` as a migrated file, and fit the app's narrowest supported window without scrolling sideways (the shell's 1000px floor; the product is not laid out for a phone).
+- [x] Vitest: the pure filter/sort function covers matching, accents, composition, date ordering and stale values.
+- [x] Playwright: an organizer with several seeded markets across two organizations and several phases searches, filters, sorts, opens a market, goes Back, and finds the same view.
