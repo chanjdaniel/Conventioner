@@ -37,6 +37,7 @@ import {
   TIER_PREFERENCE_KEY,
   TIER_PREFERENCE_LABEL,
   formattedEssentialDate,
+  isEssentialAsked,
   reconciledDatesAndTiers,
 } from '@/utils/essentialFields';
 import RankedChoiceInput from './RankedChoiceInput.vue';
@@ -71,6 +72,19 @@ function tiersOn(date: string): string[] {
   return tiersByDate.value[date] ?? [];
 }
 
+/**
+ * A ranking is asked when there are two or more options AND the market has not switched it off
+ * ("Ask this", E01/F06). The switch was honoured by the server and ignored here, so applicants
+ * were still shown, and told they must answer, a question the organizer had turned off.
+ */
+const asksSectionRanking = computed(
+  () => props.options.sections.length > 1 && isEssentialAsked(SECTION_RANKING_KEY, props.options),
+);
+const asksTableTypeRanking = computed(
+  () =>
+    props.options.tableTypes.length > 1 && isEssentialAsked(TABLE_TYPE_RANKING_KEY, props.options),
+);
+
 const sectionRanking = computed(
   () => (props.modelValue[SECTION_RANKING_KEY] as string[]) ?? props.options.sections,
 );
@@ -88,10 +102,10 @@ watch(
   (options) => {
     if (props.disabled) return;
     const seeded: Record<string, unknown> = {};
-    if (options.sections.length > 1 && !props.modelValue[SECTION_RANKING_KEY]) {
+    if (asksSectionRanking.value && !props.modelValue[SECTION_RANKING_KEY]) {
       seeded[SECTION_RANKING_KEY] = [...options.sections];
     }
-    if (options.tableTypes.length > 1 && !props.modelValue[TABLE_TYPE_RANKING_KEY]) {
+    if (asksTableTypeRanking.value && !props.modelValue[TABLE_TYPE_RANKING_KEY]) {
       seeded[TABLE_TYPE_RANKING_KEY] = [...options.tableTypes];
     }
     if (Object.keys(seeded).length) {
@@ -452,7 +466,7 @@ function errorFor(key: string): string {
 
     <!-- Section preference -->
     <div
-      v-if="options.sections.length > 1"
+      v-if="asksSectionRanking"
       class="essential-field"
       :data-testid="`${prefix}-essential-section-ranking`"
     >
@@ -471,7 +485,7 @@ function errorFor(key: string): string {
 
     <!-- Table type preference -->
     <div
-      v-if="options.tableTypes.length > 1"
+      v-if="asksTableTypeRanking"
       class="essential-field"
       :data-testid="`${prefix}-essential-table-type-ranking`"
     >
