@@ -22,7 +22,9 @@ const CSS = readFileSync(join(SRC, 'assets/primitives.css'), 'utf8');
 
 /** Every innermost rule block whose selector list contains `selector`, in source order. */
 function blocks(selector: string): string[] {
-  const inList = new RegExp(`(^|,)\\s*${selector.replace(/[.\\-]/g, '\\$&')}\\s*(,|$)`);
+  const inList = new RegExp(
+    `(^|,)\\s*${selector.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')}\\s*(,|$)`,
+  );
   const found: string[] = [];
   for (const chunk of CSS.replace(/\/\*[\s\S]*?\*\//g, '').split('}')) {
     const opens = chunk.lastIndexOf('{');
@@ -74,6 +76,14 @@ describe('the primitives exist and own what tokens cannot', () => {
   it('has exactly three button intents', () => {
     const intents = [...CSS.matchAll(/^\.btn--([a-z]+)\s*\{/gm)].map((m) => m[1]);
     expect(intents.sort()).toEqual(['compact', 'destructive', 'primary', 'secondary']);
+  });
+
+  it('marks a pressed toggle with the positive tint and its measured ink', () => {
+    // A state, not an intent: the phase filter's toggles stay secondary buttons when pressed.
+    expect(declaration(".btn[aria-pressed='true']", 'color')).toBe('var(--mm-text-green)');
+    expect(declaration(".btn[aria-pressed='true']", 'background')).toBe(
+      declaration('.chip--positive', 'background'),
+    );
   });
 
   it('has one disabled state, and it does not rely on text contrast', () => {
