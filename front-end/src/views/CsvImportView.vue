@@ -80,6 +80,13 @@ interface ImportFailure {
   error: string;
 }
 
+/** An earlier submission, replaced by the same applicant's later row in the file. */
+interface ImportRepeat {
+  row: number;
+  email: string;
+  latestRow: number;
+}
+
 const router = useRouter();
 
 /**
@@ -159,6 +166,8 @@ const absentApplications = ref(0);
 const absentEmails = ref<string[]>([]);
 const returningToReview = ref(0);
 const returningEmails = ref<string[]>([]);
+/** Rows the file holds more than once for one applicant: each applicant is one application. */
+const repeats = ref<ImportRepeat[]>([]);
 
 onMounted(() => {
   if (!marketId.value) {
@@ -621,6 +630,7 @@ async function checkValues() {
     absentEmails.value = data.absentEmails ?? [];
     returningToReview.value = data.returningToReview ?? 0;
     returningEmails.value = data.returningEmails ?? [];
+    repeats.value = data.repeats ?? [];
     if (unmatched.value.length === 0) step.value = 'preview';
   } catch (e) {
     error.value = getApiErrorMessage(e, 'That file could not be checked.');
@@ -641,6 +651,7 @@ async function runImport() {
     created.value = data.created ?? 0;
     updated.value = data.updated ?? 0;
     failures.value = data.failures ?? [];
+    repeats.value = data.repeats ?? [];
     step.value = 'done';
     // Applications now exist, which locks the form: part of the market every screen reads.
     void refreshMarket();
@@ -1055,6 +1066,20 @@ function startOver() {
         >.
       </p>
 
+      <!-- A vendor who applied twice is one application, not two rows judged in turn (bug 34). -->
+      <div v-if="repeats.length" class="import-note" data-testid="import-repeat-note">
+        <p>
+          {{ repeats.length }} earlier submission{{ repeats.length === 1 ? '' : 's' }} will be
+          replaced by the same applicant's later row. Each applicant is imported once, from their
+          latest row, keeping the time they first applied.
+        </p>
+        <ul>
+          <li v-for="repeat in repeats" :key="repeat.row">
+            Row {{ repeat.row }} ({{ repeat.email }}) is replaced by row {{ repeat.latestRow }}
+          </li>
+        </ul>
+      </div>
+
       <!-- Already here, not in this file. Left alone: absence is almost always a filtered export,
            not a withdrawal, and guessing otherwise would destroy review state on a guess. -->
       <p v-if="absentApplications" class="import-note" data-testid="import-absent-note">
@@ -1131,6 +1156,10 @@ function startOver() {
         }}<span v-if="updated">, updated {{ updated }}</span
         >.
       </h2>
+      <p v-if="repeats.length" class="import-note" data-testid="import-result-repeat-note">
+        {{ repeats.length }} earlier submission{{ repeats.length === 1 ? ' was' : 's were' }}
+        replaced by the same applicant's later row.
+      </p>
       <div v-if="failures.length" class="import-failures" data-testid="import-failures">
         <h3>{{ failures.length }} row{{ failures.length === 1 ? '' : 's' }} skipped</h3>
         <p class="import-help">
@@ -1661,6 +1690,15 @@ function startOver() {
   background: var(--mm-beige);
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
+}
+
+.import-note p {
+  margin: 0;
+}
+
+.import-note ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
 }
 
 .import-failures {

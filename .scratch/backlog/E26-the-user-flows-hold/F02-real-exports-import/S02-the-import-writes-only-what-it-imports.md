@@ -2,7 +2,7 @@
 id: E26/F02/S02
 title: The import writes only what it imports
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,6 +16,6 @@ Closes bugs 5, 34, 35 in `docs/MVP_BUGS.md`; each one's reproduction there is th
 
 ## Acceptance criteria
 
-- [ ] An import with skipped rows leaves the market holding exactly the imported rows.
-- [ ] A row with an invalid email is skipped, naming why.
-- [ ] Re-importing a file with repeat rows leaves an unchanged applicant's decision alone, and the preview and result counts agree.
+- [x] An import with skipped rows leaves the market holding exactly the imported rows.
+- [x] A row with an invalid email is skipped, naming why.
+- [x] Re-importing a file with repeat rows leaves an unchanged applicant's decision alone, and the preview and result counts agree.

@@ -53,6 +53,7 @@ export class CsvImportPage {
   readonly previewFailureRows: Locator;
   readonly absentNote: Locator;
   readonly returningNote: Locator;
+  readonly repeatNote: Locator;
 
   // The write, and what it did
   readonly confirmButton: Locator;
@@ -96,6 +97,7 @@ export class CsvImportPage {
     this.previewFailureRows = page.getByTestId('import-preview-failure-row');
     this.absentNote = page.getByTestId('import-absent-note');
     this.returningNote = page.getByTestId('import-returning-note');
+    this.repeatNote = page.getByTestId('import-repeat-note');
 
     this.confirmButton = page.getByTestId('import-confirm-button');
     this.resultSummary = page.getByTestId('import-result-summary');

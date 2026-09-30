@@ -134,6 +134,11 @@ _UNREADABLE_TIMESTAMP = "\x00unreadable:"
 APPLICANT_EMAIL_TARGET = "applicant_email"
 APPLICANT_EMAIL_LABEL = "Applicant email"
 
+# Something either side of a single @, and a dot in the domain. Deliberately loose: the point is to
+# refuse what is plainly not an address - a name, or a timestamp from a row whose cells shifted -
+# because every vendor-facing flow keys on it, not to second-guess one a mail server would accept.
+_EMAIL_ADDRESS = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
 # Also not a form answer. Google Forms emits it as the first column of every export, and a
 # priority rule ordering by submission time reads it. Optional: a market with no time-based
 # priority does not need it, and warning beats blocking.
@@ -800,6 +805,68 @@ def _assembled_rows(
     return assembled
 
 
+def _submission_moment(submitted_at: str) -> Optional[datetime]:
+    """A normalised ``submitted_at`` as a comparable moment, or None when the row has none.
+
+    Aware times are compared in UTC, so a file mixing offsets still orders by when things happened.
+    """
+    if not submitted_at or submitted_at.startswith(_UNREADABLE_TIMESTAMP):
+        return None
+    moment = datetime.fromisoformat(submitted_at.replace("Z", "+00:00"))
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(timezone.utc).replace(tzinfo=None)
+    return moment
+
+
+def _latest_rows(
+    assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
+) -> Tuple[List[Tuple[int, str, str, Dict[str, Any]]], List[Dict[str, Any]]]:
+    """One row per applicant - their latest - and the earlier rows it replaces.
+
+    A Google Form keeps every submission, so a vendor who applied twice is two rows, and real
+    exports have them. They are one application: judged on the latest answers, which is what the
+    vendor last said, and dated by the FIRST submission, which is when they joined a
+    first-come-first-served queue. Taking each row in turn instead compared an earlier row against
+    the stored application, which holds the later row's answers, so an unchanged repeat applicant
+    read as changed and lost their approval on every re-import (bug 34).
+
+    "Latest" is by submission time when every one of the applicant's rows has one, and by position
+    in the file otherwise. Rows with no usable address are left as they are, each to be refused on
+    its own line by ``_row_faults``; grouping them would hide all but one.
+    """
+    by_email: Dict[str, List[Tuple[int, str, str, Dict[str, Any]]]] = {}
+    kept: List[Tuple[int, str, str, Dict[str, Any]]] = []
+    for entry in assembled:
+        if _EMAIL_ADDRESS.fullmatch(entry[1]):
+            by_email.setdefault(entry[1], []).append(entry)
+        else:
+            kept.append(entry)
+
+    repeats: List[Dict[str, Any]] = []
+    for email, entries in by_email.items():
+        moments = [_submission_moment(submitted_at) for _line, _email, submitted_at, _data in entries]
+        if all(moment is not None for moment in moments):
+            latest = max(zip(moments, entries), key=lambda pair: (pair[0], pair[1][0]))[1]
+        else:
+            latest = max(entries, key=lambda entry: entry[0])
+
+        line, _email, submitted_at, form_data = latest
+        dated = [(moment, entry[2]) for moment, entry in zip(moments, entries) if moment is not None]
+        # An unreadable time on the latest row stays, so that row is refused naming it rather
+        # than quietly taking an earlier row's time.
+        if dated and not submitted_at.startswith(_UNREADABLE_TIMESTAMP):
+            submitted_at = min(dated)[1]
+        kept.append((line, email, submitted_at, form_data))
+        repeats.extend(
+            {"row": entry[0], "email": email, "latestRow": line}
+            for entry in entries if entry is not latest
+        )
+
+    kept.sort(key=lambda entry: entry[0])
+    repeats.sort(key=lambda repeat: repeat["row"])
+    return kept, repeats
+
+
 def _row_faults(
     market_doc: Dict[str, Any], assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
 ) -> List[Dict[str, Any]]:
@@ -808,6 +875,9 @@ def _row_faults(
     for line, email, submitted_at, form_data in assembled:
         if not email:
             faults.append({"row": line, "email": "", "error": "No email address."})
+            continue
+        if not _EMAIL_ADDRESS.fullmatch(email):
+            faults.append({"row": line, "email": "", "error": f"{email!r} is not an email address."})
             continue
         if submitted_at.startswith(_UNREADABLE_TIMESTAMP):
             raw = submitted_at[len(_UNREADABLE_TIMESTAMP):]
@@ -884,6 +954,7 @@ def preview_values(
         "unmatched": unmatched_payload,
         "validRows": 0,
         "failures": [],
+        "repeats": [],
     }
 
     # Row-by-row validity is only meaningful once the mapping is complete and every value has been
@@ -898,11 +969,14 @@ def preview_values(
     if unmatched_payload or unserved:
         return result, 200
 
-    assembled = _assembled_rows(market_doc, headers, rows, resolved, resolutions)
-    failures = _row_faults(market_doc, assembled)
+    applicants, repeats = _latest_rows(
+        _assembled_rows(market_doc, headers, rows, resolved, resolutions),
+    )
+    failures = _row_faults(market_doc, applicants)
     result["failures"] = failures
-    result["validRows"] = len(rows) - len(failures)
-    result.update(_merge_shape(market_doc.get("id", ""), assembled, failures, market_doc))
+    result["repeats"] = repeats
+    result["validRows"] = len(applicants) - len(failures)
+    result.update(_merge_shape(market_doc.get("id", ""), applicants, failures, market_doc))
     return result, 200
 
 
@@ -1063,21 +1137,22 @@ def import_applications(
     created = 0
     updated = 0
     returned_to_review = 0
-    failures: List[Dict[str, Any]] = []
+
+    # Judged exactly as the preview judged them: one row per applicant, and every refusal decided
+    # before anything is written. Creating first and validating after left an empty application
+    # behind for every row the preview had promised to skip (bug 5).
+    applicants, repeats = _latest_rows(
+        _assembled_rows(market_doc, headers, rows, resolved, resolutions),
+    )
+    failures = _row_faults(market_doc, applicants)
+    refused = {failure["row"] for failure in failures}
 
     # Counted before the writes, so it means "already here and not in this file" rather than
     # being confused by the rows this run is about to add.
-    assembled_all = _assembled_rows(market_doc, headers, rows, resolved, resolutions)
-    shape_before = _merge_shape(
-        market_id, assembled_all, _row_faults(market_doc, assembled_all), market_doc,
-    )
-    absent_before = shape_before["absentApplications"]
+    absent_before = _merge_shape(market_id, applicants, failures, market_doc)["absentApplications"]
 
-    for row_number, email, submitted_at, form_data in _assembled_rows(
-        market_doc, headers, rows, resolved, resolutions,
-    ):
-        if not email:
-            failures.append({"row": row_number, "email": "", "error": "No email address."})
+    for row_number, email, submitted_at, form_data in applicants:
+        if row_number in refused:
             continue
 
         existing = ApplicationsApi.find_application_by_email(market_id, email)
@@ -1099,6 +1174,10 @@ def import_applications(
             markets_collection, market_doc, app_doc, form_data,
         )
         if row_error:
+            # Only reachable if the offering froze differently between the check and the write.
+            # The application this run just created must not outlive the answers it was for.
+            if not existing:
+                ApplicationsApi.delete_application(app_doc.get("id", ""))
             failures.append({"row": row_number, "email": email, "error": row_error})
             continue
 
@@ -1122,7 +1201,8 @@ def import_applications(
         "updated": updated,
         "skipped": len(failures),
         "rowCount": len(rows),
-        "failures": failures,
+        "failures": sorted(failures, key=lambda failure: failure["row"]),
+        "repeats": repeats,
         "absentApplications": absent_before,
         "returnedToReview": returned_to_review,
     }, 200
