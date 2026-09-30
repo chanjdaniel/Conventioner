@@ -2,7 +2,7 @@
 id: E26/F03/S01
 title: "Ask this" stays off after a field edit
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,4 +16,4 @@ Closes bugs 29 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] Untick "Ask this", edit a custom field, Save Form: Section preference is still not asked, and the import does not require it.
+- [x] Untick "Ask this", edit a custom field, Save Form: Section preference is still not asked, and the import does not require it.

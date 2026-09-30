@@ -401,7 +401,7 @@ export function essentialValidationErrors(
   // Fewer than two options is not a question - there is exactly one order. Rankings only: a
   // single offered date or tier is still asked, since the applicant may not want it.
   const rankingError = (key: string, label: string, offered: string[]) => {
-    if (offered.length < 2) return;
+    if (offered.length < 2 || !isEssentialAsked(key, options)) return;
     const ranked = formData[key];
     if (!Array.isArray(ranked) || ranked.length !== offered.length) {
       errors[key] = `'${label}' is required. Rank every option, best first.`;

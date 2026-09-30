@@ -52,6 +52,20 @@ afterEach(() => {
 });
 
 describe('FormBuilder', () => {
+  it('keeps the questions the market does not ask when a field changes (bug 29)', async () => {
+    const { wrapper, form } = mountWithParent({
+      fields: [],
+      publishedAt: undefined,
+      unaskedEssentials: ['essential_section_ranking'],
+    });
+
+    await wrapper.get('[data-testid="form-builder-add-field-button"]').trigger('click');
+    await wrapper.get('[data-testid="form-field-label-input"]').setValue('Business Name');
+
+    expect(form.value?.fields.map((f) => f.label)).toEqual(['Business Name']);
+    expect(form.value?.unaskedEssentials).toEqual(['essential_section_ranking']);
+  });
+
   it('does not re-enter its own updates when the parent feeds the form back', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { wrapper, form } = mountWithParent(null);

@@ -2,7 +2,7 @@
 id: E26/F03
 title: The form keeps what it asks
 type: feature
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
