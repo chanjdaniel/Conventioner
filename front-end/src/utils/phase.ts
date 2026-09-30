@@ -18,9 +18,17 @@ export const PHASE_LABELS: Record<string, string> = {
   [MarketPhase.Archived]: 'Archived',
 };
 
+/**
+ * The phase a market is in, reading none as a draft - how a market written before `phase` existed
+ * is read everywhere a phase is shown or filtered on.
+ */
+export function effectivePhase(phase: string | undefined | null): string {
+  return String(phase ?? MarketPhase.Draft);
+}
+
 /** A phase as a human reads it. A value this build does not know is shown as it is stored. */
 export function phaseLabel(phase: string | undefined | null): string {
-  const stored = String(phase ?? MarketPhase.Draft);
+  const stored = effectivePhase(phase);
   return PHASE_LABELS[stored] ?? stored;
 }
 

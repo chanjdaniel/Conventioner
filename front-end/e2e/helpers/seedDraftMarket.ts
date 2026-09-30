@@ -16,11 +16,13 @@ export async function seedDraftMarket(
   baseURL: string,
   email: string,
   password: string,
-  options: { name?: string; intakeMode?: 'csv' | 'form' } = {},
+  options: { name?: string; intakeMode?: 'csv' | 'form'; organizationId?: string } = {},
 ): Promise<DraftMarketSeed> {
   const { name = `E2E Draft ${Date.now()}`, intakeMode } = options;
   const userId = await loginViaApi(request, baseURL, email, password);
-  const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
+  // The user's first organization unless the caller names one of theirs.
+  const orgId =
+    options.organizationId ?? (await ensureTestOrgAuthenticated(request, baseURL, email));
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: { 'Content-Type': 'application/json' },
     data: {

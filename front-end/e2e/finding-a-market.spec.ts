@@ -2,6 +2,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { test, expect, BACKEND_URL, LoginPage } from './fixtures';
 import { loginViaApi } from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
+import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { transitionMarket } from './helpers/seedPhaseMarket';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { MarketsPage } from './pages/MarketsPage';
@@ -53,24 +54,14 @@ async function createOrg(request: APIRequestContext, name: string): Promise<stri
 
 async function createMarket(
   request: APIRequestContext,
-  userId: string,
-  orgId: string,
+  organizationId: string,
   name: string,
   dates: string[],
 ): Promise<string> {
-  const res = await request.post(`${BACKEND_URL}/markets`, {
-    headers,
-    data: {
-      name,
-      creationDate: new Date().toISOString(),
-      organizationId: orgId,
-      roles: { [userId]: 'owner' },
-      modificationList: [],
-      assignmentObject: {},
-    },
+  const { marketId } = await seedDraftMarket(request, BACKEND_URL, USER.email, USER.password, {
+    name,
+    organizationId,
   });
-  expect(res.ok(), await res.text()).toBe(true);
-  const { market_id: marketId } = (await res.json()) as { market_id: string };
   await savePlan(request, BACKEND_URL, USER.email, marketId, plan(dates));
   return marketId;
 }
@@ -83,15 +74,15 @@ const ATTIC = `Attic Sale ${RUN}`;
 test.describe('Finding a market', () => {
   test.beforeAll(async ({ request }) => {
     ensureVerifiedUser(USER.email, USER.password);
-    const userId = await loginViaApi(request, BACKEND_URL, USER.email, USER.password);
+    await loginViaApi(request, BACKEND_URL, USER.email, USER.password);
     const orgA = await createOrg(request, `Finder North ${RUN}`);
     const orgB = await createOrg(request, `Finder South ${RUN}`);
     await createOrg(request, `Finder Empty ${RUN}`);
 
-    await createMarket(request, userId, orgA, TEST_FAIR, [dayFromToday(10)]);
-    const cafe = await createMarket(request, userId, orgA, CAFE, [dayFromToday(40)]);
-    const winter = await createMarket(request, userId, orgB, WINTER, [dayFromToday(-60)]);
-    await createMarket(request, userId, orgA, ATTIC, []);
+    await createMarket(request, orgA, TEST_FAIR, [dayFromToday(10)]);
+    const cafe = await createMarket(request, orgA, CAFE, [dayFromToday(40)]);
+    const winter = await createMarket(request, orgB, WINTER, [dayFromToday(-60)]);
+    await createMarket(request, orgA, ATTIC, []);
 
     // Applications open needs a form that asks something; the plan's dates are essential
     // questions, so that alone is a form.
@@ -127,11 +118,17 @@ test.describe('Finding a market', () => {
     await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
 
     // An organization with no markets is still offered, and says so rather than "No markets found".
+    // Clear filters clears all three at once, with text in the box as well as without.
     await markets.orgSelect.selectOption({ label: `Finder Empty ${RUN}` });
+    await markets.phaseToggle('draft').click();
+    await markets.searchInput.fill('fair');
     await expect(markets.noMatch).toContainText('No markets match these filters');
     await markets.clearFiltersButton.click();
     await markets.expectNames([TEST_FAIR, CAFE, WINTER, ATTIC]);
     await expect(markets.orgSelect).toHaveValue('');
+    await expect(markets.searchInput).toHaveValue('');
+    await expect(markets.allPhasesToggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(page).toHaveURL(/\/markets$/);
 
     // Organization + phase + sort together.
     await markets.orgSelect.selectOption({ label: `Finder North ${RUN}` });
@@ -148,7 +145,8 @@ test.describe('Finding a market', () => {
     await markets.expectNames([ATTIC, CAFE, TEST_FAIR]);
     await markets.searchInput.fill('sale');
     await markets.expectNames([ATTIC]);
-    await markets.searchInput.fill('');
+    await markets.searchInput.fill('e');
+    await markets.expectNames([ATTIC, CAFE, TEST_FAIR]);
 
     // Opening a market and coming Back returns to the same narrowed, ordered list.
     await markets.openMarket(CAFE);
@@ -156,6 +154,7 @@ test.describe('Finding a market', () => {
     await page.goBack();
     await markets.expectNames([ATTIC, CAFE, TEST_FAIR]);
     await expect(markets.sortSelect).toHaveValue('name');
+    await expect(markets.searchInput).toHaveValue('e');
     await expect(markets.phaseToggle('draft')).toHaveAttribute('aria-pressed', 'true');
 
     // And so does a reload.

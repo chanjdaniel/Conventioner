@@ -24,6 +24,12 @@ const route = useRoute();
 const router = useRouter();
 const markets = ref<Market[]>([]);
 const organizations = ref<Organization[]>([]);
+/** False while they are loading, or when they failed to: an organization filter cannot then be
+ * told from a stale one, so the address's is kept rather than dropped (see `queryFromAddress`). */
+const organizationsLoaded = ref(false);
+const organizationIds = computed(() => organizations.value.map((org) => org.id));
+/** The viewer's calendar day, re-read on every load, which splits upcoming markets from past. */
+const today = ref(localToday());
 const loading = ref(true);
 const errorMessage = ref('');
 const newOpen = ref(false);
@@ -33,16 +39,23 @@ const manageMarket = ref<Market | null>(null);
 async function loadMarkets() {
   loading.value = true;
   errorMessage.value = '';
+  today.value = localToday();
   try {
-    // Together, so the list is never narrowed by an organization filter that cannot yet be told
-    // from a stale one. The organizations only fill the filter: failing to load them leaves the
-    // list whole rather than failing the page.
+    // Together, so the list is never shown narrowed by an organization filter that cannot yet be
+    // judged. The organizations only fill the filter: failing to load them leaves the list whole
+    // rather than failing the page.
     const [loadedMarkets, loadedOrganizations] = await Promise.all([
       fetchMarkets(),
-      fetchOrganizations().catch(() => [] as Organization[]),
+      fetchOrganizations().then(
+        (orgs) => ({ ok: true, orgs }),
+        () => ({ ok: false, orgs: [] as Organization[] }),
+      ),
     ]);
     markets.value = loadedMarkets;
-    organizations.value = [...loadedOrganizations].sort((a, b) => a.name.localeCompare(b.name));
+    organizations.value = [...loadedOrganizations.orgs].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    organizationsLoaded.value = loadedOrganizations.ok;
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to load markets');
     markets.value = [];
@@ -57,51 +70,45 @@ onMounted(() => {
 
 /*
  * The page's address holds the search, the filters and the order (E25/F01/S01), so Back from an
- * opened market returns to the same narrowed list. The search box alone is also held locally: the
- * list follows each keystroke at once, not a router round trip later.
+ * opened market returns to the same narrowed list.
+ *
+ * The page works from ONE local copy, `query`, and the address follows it. Each change is a single
+ * `router.replace` built from that copy, never from the address: a replace resolves a tick later,
+ * so building from the address let a second change in the same tick (Clear filters emptying the
+ * search box and the filters together) write back the filters the first had just cleared. The copy
+ * is only re-read from the address when the address moves on its own - Back, a link, a reload.
  */
-const addressed = computed(() =>
-  marketListQueryFromRoute(
-    route.query,
-    organizations.value.map((org) => org.id),
-  ),
+const queryFromAddress = computed(() =>
+  marketListQueryFromRoute(route.query, organizationsLoaded.value ? organizationIds.value : null),
 );
-const search = ref(addressed.value.search);
-watch(
-  () => addressed.value.search,
-  (fromAddress) => {
-    if (fromAddress !== search.value) search.value = fromAddress;
-  },
-);
-
-const query = computed<MarketListQuery>(() => ({ ...addressed.value, search: search.value }));
-
-function update(change: Partial<MarketListQuery>) {
-  router.replace({ query: marketListQueryToRoute({ ...query.value, ...change }) });
-}
-
-watch(search, (text) => {
-  if (text !== addressed.value.search) update({ search: text });
+const query = ref<MarketListQuery>(queryFromAddress.value);
+watch(queryFromAddress, (fromAddress) => {
+  if (JSON.stringify(fromAddress) !== JSON.stringify(query.value)) query.value = fromAddress;
 });
 
-const shown = computed(() => viewMarkets(markets.value, query.value, localToday()));
+function setQuery(change: Partial<MarketListQuery>) {
+  query.value = { ...query.value, ...change };
+  router.replace({ query: marketListQueryToRoute(query.value) });
+}
+
+const visibleMarkets = computed(() => viewMarkets(markets.value, query.value, today.value));
 const narrowed = computed(
   () =>
     query.value.search.trim() !== '' ||
     !!query.value.organizationId ||
     query.value.phases.length > 0,
 );
+const marketsWord = computed(() => (markets.value.length === 1 ? 'market' : 'markets'));
 
 function togglePhase(phase: MarketPhase) {
   const phases = query.value.phases.includes(phase)
     ? query.value.phases.filter((p) => p !== phase)
     : [...query.value.phases, phase];
-  update({ phases });
+  setQuery({ phases });
 }
 
 function clearFilters() {
-  search.value = '';
-  update({ search: '', organizationId: null, phases: [] });
+  setQuery({ search: '', organizationId: null, phases: [] });
 }
 
 function handleOpen(market: Market) {
@@ -135,21 +142,24 @@ function handleNewClose() {
     </div>
 
     <div class="markets-block">
-      <p v-if="loading" class="empty-state">Loading markets...</p>
+      <!-- Only before the first answer: a re-read after a dialog closes keeps the list and the finder
+           on screen, rather than unmounting the control the organizer was using. -->
+      <p v-if="loading && markets.length === 0" class="empty-state">Loading markets...</p>
       <p v-else-if="errorMessage" class="error-state">{{ errorMessage }}</p>
-      <p v-else-if="markets.length === 0" class="empty-state">No markets found</p>
+      <p v-else-if="!loading && markets.length === 0" class="empty-state">No markets found</p>
       <template v-else>
         <div class="finder" role="search" aria-label="Find a market" data-testid="markets-finder">
           <div class="finder-row">
             <label class="finder-search">
               <span class="field-label">Search</span>
               <input
-                v-model="search"
+                :value="query.search"
                 type="search"
                 class="field"
                 placeholder="Market name"
                 autocomplete="off"
                 data-testid="markets-search-input"
+                @input="setQuery({ search: ($event.target as HTMLInputElement).value })"
               />
             </label>
             <label>
@@ -159,7 +169,7 @@ function handleNewClose() {
                 :value="query.organizationId ?? ''"
                 data-testid="markets-org-select"
                 @change="
-                  update({ organizationId: ($event.target as HTMLSelectElement).value || null })
+                  setQuery({ organizationId: ($event.target as HTMLSelectElement).value || null })
                 "
               >
                 <option value="">All organizations</option>
@@ -174,7 +184,9 @@ function handleNewClose() {
                 class="field field--select"
                 :value="query.sort"
                 data-testid="markets-sort-select"
-                @change="update({ sort: ($event.target as HTMLSelectElement).value as MarketSort })"
+                @change="
+                  setQuery({ sort: ($event.target as HTMLSelectElement).value as MarketSort })
+                "
               >
                 <option v-for="sort in MARKET_SORTS" :key="sort.value" :value="sort.value">
                   {{ sort.label }}
@@ -190,7 +202,7 @@ function handleNewClose() {
                 class="btn btn--compact btn--secondary phase-toggle"
                 :aria-pressed="query.phases.length === 0"
                 data-testid="markets-phase-toggle-all"
-                @click="update({ phases: [] })"
+                @click="setQuery({ phases: [] })"
               >
                 All phases
               </button>
@@ -210,16 +222,11 @@ function handleNewClose() {
         </div>
 
         <p class="result-count" aria-live="polite" data-testid="markets-result-count">
-          <template v-if="narrowed">
-            {{ shown.length }} of {{ markets.length }}
-            {{ markets.length === 1 ? 'market' : 'markets' }}
-          </template>
-          <template v-else>
-            {{ markets.length }} {{ markets.length === 1 ? 'market' : 'markets' }}
-          </template>
+          <template v-if="narrowed">{{ visibleMarkets.length }} of </template>{{ markets.length }}
+          {{ marketsWord }}
         </p>
 
-        <div v-if="shown.length === 0" class="no-match" data-testid="markets-no-match">
+        <div v-if="visibleMarkets.length === 0" class="no-match" data-testid="markets-no-match">
           <p class="empty-state">No markets match these filters</p>
           <button
             type="button"
@@ -232,7 +239,7 @@ function handleNewClose() {
         </div>
         <div v-else class="markets-container">
           <MarketSummaryCard
-            v-for="market in shown"
+            v-for="market in visibleMarkets"
             :key="market.id"
             :market="market"
             showManage
@@ -313,8 +320,8 @@ function handleNewClose() {
   color: var(--mm-red);
 }
 
-/* The finder: search, organization and sort on one row that wraps at phone width, the phase
-   toggles under it. Every control is a primitive; all this decides is where they sit. */
+/* The finder: search, organization and sort on one row that wraps when the room runs out, the
+   phase toggles under it. Every control is a primitive; all this decides is where they sit. */
 .finder {
   display: flex;
   flex-direction: column;
@@ -336,15 +343,6 @@ function handleNewClose() {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-
-/* A pressed toggle is filled, so which phases are on reads at a glance - the same fill and ink as
-   a primary button, which is already measured for contrast. */
-.phase-toggle[aria-pressed='true'] {
-  background: var(--mm-green);
-  border-color: var(--mm-green);
-  color: white;
-  font-weight: 600;
 }
 
 .result-count {
