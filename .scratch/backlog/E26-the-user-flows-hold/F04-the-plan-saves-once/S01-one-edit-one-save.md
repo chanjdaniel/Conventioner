@@ -2,7 +2,7 @@
 id: E26/F04/S01
 title: One edit, one save
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,5 +16,5 @@ Closes bugs 25 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] After one edit, exactly one save is sent.
-- [ ] A location added in a second tab survives while the first tab stays open.
+- [x] After one edit, exactly one save is sent.
+- [x] A location added in a second tab survives while the first tab stays open.
