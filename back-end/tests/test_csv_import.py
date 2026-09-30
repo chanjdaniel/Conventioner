@@ -687,7 +687,9 @@ class TestPreviewingRowValidity:
     """
 
     def test_a_clean_file_previews_every_row_as_valid(self, markets):
-        body, status = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, GOOD_ROW), MAPPING)
+        other = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca", 1)
+
+        body, status = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, other), MAPPING)
 
         assert status == 200
         assert body["validRows"] == 2
@@ -707,8 +709,9 @@ class TestPreviewingRowValidity:
 
     def test_an_all_invalid_file_previews_nothing_as_valid(self, markets):
         bad = GOOD_ROW.replace(",2,Gold,", ",lots,Gold,")
+        other = bad.replace("nadia@ember.ca", "kai@ember.ca", 1)
 
-        body, _ = CsvImport.preview_values(markets.doc, _csv(bad, bad), MAPPING)
+        body, _ = CsvImport.preview_values(markets.doc, _csv(bad, other), MAPPING)
 
         assert body["validRows"] == 0
         assert len(body["failures"]) == 2
@@ -1028,6 +1031,148 @@ class TestReviewsInvalidatedByAReImport:
         assert applications.find_one({"id": app_id})["status"] == (
             ApplicationStatus.REVIEWER_APPROVED.value
         )
+
+
+class TestImportingOnlyWhatItImports:
+    """A row the preview says it will skip is not written at all (E26/F02/S02).
+
+    The import used to create each row's application before validating its answers, so every
+    skipped row stayed behind as an empty application - counted by the form lock, blocking the
+    all-reviewed guard, and one of them keyed by a timestamp (bugs 5 and 35).
+    """
+
+    def test_a_skipped_row_leaves_no_application_behind(self, markets, applications):
+        bad = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",2,Gold,", ",lots,Gold,")
+
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW, bad), MAPPING)
+
+        assert body["created"] == 1 and body["skipped"] == 1
+        assert [doc["applicant_email"] for doc in applications.documents] == ["nadia@ember.ca"]
+
+    @pytest.mark.parametrize("address", ["not-an-email", "9/12/2025 18:22:56", "nadia@ember"])
+    def test_an_address_that_is_not_one_is_refused_by_name(self, markets, applications, address):
+        row = GOOD_ROW.replace("nadia@ember.ca", address, 1)
+
+        preview, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+
+        assert preview["validRows"] == 0
+        assert preview["failures"] == [
+            {"row": 2, "email": "", "error": f"{address!r} is not an email address."},
+        ]
+        assert body["failures"] == preview["failures"]
+        assert applications.documents == []
+
+    def test_a_create_whose_answers_are_then_refused_is_undone(
+        self, markets, applications, monkeypatch,
+    ):
+        """The check and the write judge alike unless the offering froze in between; if it did,
+        the application just created must not outlive the answers it was created for."""
+        monkeypatch.setattr(
+            CsvImport, "record_application_answers", lambda *_args: ("Refused.", None),
+        )
+
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        assert body["created"] == 0
+        assert body["failures"] == [{"row": 2, "email": "nadia@ember.ca", "error": "Refused."}]
+        assert applications.documents == []
+
+
+class TestAnApplicantListedMoreThanOnce:
+    """A Google Form keeps every submission, so a vendor who applied twice is two rows.
+
+    They are one application: the latest row's answers, dated by the first submission. Taking the
+    rows in turn compared an earlier row against the stored application, which held the later
+    row's answers, so an unchanged applicant lost their approval on every re-import (bug 34).
+    """
+
+    FIRST = (
+        GOOD_ROW.replace("2026/05/02 9:14:03", "2026/05/01 16:20:00")
+        .replace("Ember Ceramics", "Ember")
+        .replace('"2026-08-01, 2026-08-08",2', "2026-08-01,1")
+    )
+    OTHER = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca", 1)
+
+    def _one(self, applications):
+        matching = [d for d in applications.documents if d["applicant_email"] == "nadia@ember.ca"]
+        assert len(matching) == 1
+        return matching[0]
+
+    def test_is_one_application_with_their_latest_answers(self, markets, applications):
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(self.FIRST, GOOD_ROW), MAPPING,
+        )
+
+        assert body["created"] == 1 and body["updated"] == 0
+        stored = self._one(applications)
+        assert stored["form_data"]["business_name"] == "Ember Ceramics"
+        assert stored["form_data"]["essential_available_dates"] == DATES
+
+    def test_is_dated_by_their_first_submission(self, markets, applications):
+        """When they joined a first-come-first-served queue, not when they last edited."""
+        CsvImport.import_applications(markets, markets.doc, _csv(self.FIRST, GOOD_ROW), MAPPING)
+
+        assert self._one(applications)["submitted_at"] == "2026-05-01T16:20:00"
+
+    def test_latest_means_latest_submitted_not_lowest_in_the_file(self, markets, applications):
+        """A sheet sorted by name or newest-first must not import someone's older answers."""
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW, self.FIRST), MAPPING)
+
+        stored = self._one(applications)
+        assert stored["form_data"]["business_name"] == "Ember Ceramics"
+        assert stored["submitted_at"] == "2026-05-01T16:20:00"
+
+    def test_the_preview_names_each_replaced_row_and_counts_applicants(self, markets):
+        body, _ = CsvImport.preview_values(
+            markets.doc, _csv(self.FIRST, GOOD_ROW, self.OTHER), MAPPING,
+        )
+
+        assert body["rowCount"] == 3
+        assert body["validRows"] == 2
+        assert body["repeats"] == [{"row": 2, "email": "nadia@ember.ca", "latestRow": 3}]
+        assert body["newRows"] == 2
+
+    def test_an_unchanged_repeat_keeps_its_approval_on_re_import(self, markets, applications):
+        file = _csv(self.FIRST, GOOD_ROW, self.OTHER)
+        CsvImport.import_applications(markets, markets.doc, file, MAPPING)
+        for doc in applications.documents:
+            doc["status"] = ApplicationStatus.REVIEWER_APPROVED.value
+
+        preview, _ = CsvImport.preview_values(markets.doc, file, MAPPING)
+        body, _ = CsvImport.import_applications(markets, markets.doc, file, MAPPING)
+
+        assert preview["returningToReview"] == 0
+        assert body["returnedToReview"] == 0
+        assert {doc["status"] for doc in applications.documents} == {
+            ApplicationStatus.REVIEWER_APPROVED.value,
+        }
+        # And the two screens count the same thing: applicants, not rows.
+        assert (preview["newRows"], preview["updatedRows"]) == (body["created"], body["updated"])
+
+    def test_a_refused_latest_row_is_not_replaced_by_an_earlier_one(self, markets, applications):
+        """The latest row is what the vendor last said; importing their older answers instead
+        would be a guess. It is skipped and named, so the organizer can fix it."""
+        broken = GOOD_ROW.replace(",2,Gold,", ",lots,Gold,")
+
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(self.FIRST, broken), MAPPING,
+        )
+
+        assert body["created"] == 0
+        assert [failure["row"] for failure in body["failures"]] == [3]
+        assert body["repeats"] == [{"row": 2, "email": "nadia@ember.ca", "latestRow": 3}]
+        assert applications.documents == []
+
+    def test_an_unreadable_time_on_the_latest_row_is_still_refused(self, markets, applications):
+        unreadable = GOOD_ROW.replace("2026/05/02 9:14:03", "yesterday")
+
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(self.FIRST, unreadable), MAPPING,
+        )
+
+        assert [failure["row"] for failure in body["failures"]] == [3]
+        assert "'yesterday' is not a date and time" in body["failures"][0]["error"]
 
 
 class TestWhenImportingIsAllowed:

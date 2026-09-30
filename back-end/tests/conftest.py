@@ -434,6 +434,12 @@ class FakeApplicationsCollection:
             return dict(doc)
         return before
 
+    def delete_one(self, query):
+        doc = self._find(query)
+        if doc is not None:
+            self.documents.remove(doc)
+        return SimpleNamespace(deleted_count=0 if doc is None else 1)
+
     def count_documents(self, query):
         matched = sum(1 for doc in self.documents if self._matches(doc, query))
         return self.count + matched
