@@ -136,6 +136,38 @@ describe('the plan saves itself', () => {
     expect(wrapper.find('[data-testid="market-setup-plan-saved"]').exists()).toBe(false);
   });
 
+  it('takes a card reporting the re-read after a save for an echo, not an edit', async () => {
+    // Every plan card deep-watches the working copy and reports any change to it. Adopting the
+    // re-read after a save replaces the working copy, so each card reported it back, and that
+    // report scheduled the next save: one edit saved every 625 ms until the page was left
+    // (E26/F04/S01, bug 25).
+    let stored: Record<string, unknown> = PLAN;
+    api.put.mockImplementation((_url: string, body: { setupObject: Record<string, unknown> }) => {
+      stored = JSON.parse(JSON.stringify(body.setupObject));
+      return Promise.resolve({ data: {} });
+    });
+    serveMarket(api.get, { id: 'market-1', name: 'Riverside', phase: 'draft', setupObject: PLAN });
+    api.get.mockImplementation(() =>
+      Promise.resolve({
+        data: {
+          market: { id: 'market-1', name: 'Riverside', phase: 'draft', setupObject: stored },
+        },
+      }),
+    );
+    const wrapper = await mountPlan();
+
+    await edit(wrapper, { ...PLAN, marketDates: [{ date: '2026-08-02' }] });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(api.put).toHaveBeenCalledTimes(1);
+
+    const card = wrapper.findComponent(ElementMarketDates);
+    card.vm.$emit('update:setupObject', card.props('setupObject'));
+    await wrapper.vm.$nextTick();
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(api.put).toHaveBeenCalledTimes(1);
+  });
+
   it('sends a pending edit when the organizer leaves before it fires', async () => {
     const wrapper = await mountPlan();
 

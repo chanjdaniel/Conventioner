@@ -139,6 +139,22 @@ const planIntakeMode = ref<IntakeMode | undefined>(undefined);
 let planEdits = 0;
 let planSavedEdits = 0;
 
+/**
+ * The plan exactly as the server last sent it, serialized, so an edit can be told from an echo.
+ *
+ * The plan cards deep-watch the working copy and report every change to it as an edit. Adopting a
+ * re-read replaces the working copy, so each card reported the page's own replacement as one, and
+ * every save's re-read scheduled the next save: after a single edit the page saved every 625 ms
+ * until it was left, and each cycle re-sent a copy that overwrote any other editor's work
+ * (E26/F04/S01, bug 25). A change is an edit only if the plan now differs from what the server
+ * holds; a report that leaves it identical is the replacement coming back, and is not counted.
+ */
+let serverPlan = '';
+
+function workingPlan(): string {
+  return JSON.stringify({ setupObject, intakeMode: planIntakeMode.value });
+}
+
 watch(
   market,
   (fresh, previous) => {
@@ -154,6 +170,7 @@ watch(
       Object.assign(setupObject, fresh.setupObject);
     }
     planIntakeMode.value = fresh.intakeMode;
+    serverPlan = workingPlan();
   },
   { immediate: true },
 );
@@ -277,6 +294,8 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
   nextTick(() => {
     if (market.value) {
       Object.assign(setupObject, newSetupObject);
+      // A card reporting the re-read the page just adopted, not the organizer (see `serverPlan`).
+      if (planEdits === planSavedEdits && workingPlan() === serverPlan) return;
       planEdits += 1;
       schedulePlanSave();
     }
