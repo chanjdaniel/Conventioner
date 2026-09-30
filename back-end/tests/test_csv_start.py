@@ -55,6 +55,36 @@ def test_the_seam_the_import_of_the_same_file_has_nothing_to_ask(name):
     assert preview["unmatched"] == []
 
 
+# The exports whose every required question has a column. The other three have no "how many days"
+# column, so the import stops at the mapping before any row is judged (bug 24).
+COMPLETE = ("fall-2025", "spring-2026")
+
+
+@pytest.mark.parametrize("name", COMPLETE)
+def test_the_seam_keeps_ticked_boxes_and_table_choices(name):
+    """Past the mapping, where the seam test above stops: every export imported nothing, because
+    a ticked certification read as unticked (bug 2) and "Full table"/"Half table" were saved as
+    ignored (bug 3). Neither may cost an applicant their application now."""
+    doc = _draft()
+    csv_text = _csv(name)
+    after = _written(doc, CsvStart.confirmed_update(doc, csv_text, {"year": YEARS[name]}))
+    saved = CsvImport.stored_mapping(after)
+    ignored = saved["resolutions"].get(EssentialFields.TABLE_CHOICE_KEY, {})
+    # A TEST row's "TEST" is rightly ignored; a table size never is.
+    assert not {"Full table", "Half table", "Either"} & set(ignored)
+
+    _error, headers, _rows = CsvImport.parse_csv(csv_text)
+    restored, _missing, _new = CsvImport.restore_mapping(
+        headers, saved, CsvImport.import_targets(after))
+    preview, _ = CsvImport.preview_values(after, csv_text, restored, saved["resolutions"])
+
+    boxes = [f["label"] for f in after["applicationForm"]["fields"] if f["type"] == "checkbox"]
+    refusals = [f["error"] for f in preview["failures"]]
+    assert [r for r in refusals if "'Table choice' is required" in r] == []
+    assert [r for r in refusals if any(f"'{label}' is required" in r for label in boxes)] == []
+    assert preview["validRows"] > 0
+
+
 def test_the_plan_facts_form_and_ceiling_are_written():
     doc = _draft()
     update = CsvStart.confirmed_update(doc, _csv("spring-2024"), {"year": 2024})
