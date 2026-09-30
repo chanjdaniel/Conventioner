@@ -85,6 +85,20 @@
 }
 
 /*
+ * A toggle that is on (E25/F01/S01): any `.btn` with `aria-pressed="true"`. A state rather than a
+ * fourth intent, because the toggle's intent does not change when it is pressed - the markets
+ * list's phase filter is nine secondary buttons, several of them on at once. Tinted with coloured
+ * ink, as the positive chip is, rather than filled: a row of solid green pills would compete with
+ * the list it filters. The ink is 5.34:1 on that tint (`contrast.test.ts`).
+ */
+.btn[aria-pressed='true'] {
+  background: rgba(54, 130, 111, 0.16);
+  border-color: var(--mm-green);
+  color: var(--mm-text-green);
+  font-weight: 600;
+}
+
+/*
  * ONE disabled state. The product had four, and one of them - white on `--mm-border` - rendered at
  * 1.74:1. This does not rely on text contrast at all: the control keeps its own foreground and
  * loses its affordance, so it reads as unavailable rather than as unreadable.

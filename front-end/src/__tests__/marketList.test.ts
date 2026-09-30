@@ -211,6 +211,11 @@ describe('the address', () => {
     ]);
   });
 
+  it("keeps the organization while the organizer's organizations are not known", () => {
+    expect(marketListQueryFromRoute({ org: 'org-a' }, null).organizationId).toBe('org-a');
+    expect(marketListQueryFromRoute({}, null).organizationId).toBeNull();
+  });
+
   it('ignores an unknown sort', () => {
     expect(marketListQueryFromRoute({ sort: 'bogus' }, orgIds).sort).toBe('date');
   });

@@ -1,5 +1,6 @@
 import type { LocationQuery, LocationQueryRaw } from 'vue-router';
 import { type Market, MarketPhase } from '@/assets/types/datatypes';
+import { effectivePhase } from '@/utils/phase';
 
 /**
  * Finding a market on the Markets page (E25/F01/S01): a search, an organization, phases and an
@@ -40,11 +41,6 @@ export const PHASES_IN_ORDER: readonly MarketPhase[] = Object.values(MarketPhase
 /** Case, accents and surrounding whitespace do not count: "cafe" finds "Café Market". */
 function folded(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
-}
-
-/** A market with no phase is read as a draft, as its badge reads it. */
-function phaseOf(market: Market): string {
-  return market.phase ?? MarketPhase.Draft;
 }
 
 function byName(a: Market, b: Market): number {
@@ -95,7 +91,8 @@ export function viewMarkets(markets: Market[], query: MarketListQuery, today: st
     (market) =>
       (!search || folded(market.name ?? '').includes(search)) &&
       (!query.organizationId || market.organizationId === query.organizationId) &&
-      (query.phases.length === 0 || (query.phases as string[]).includes(phaseOf(market))),
+      (query.phases.length === 0 ||
+        (query.phases as string[]).includes(effectivePhase(market.phase))),
   );
   const compare =
     query.sort === 'name' ? byName : query.sort === 'created' ? byCreated : byDate(today);
@@ -117,17 +114,21 @@ function first(value: LocationQuery[string] | undefined): string {
  * The query the page's address holds. A value that no longer means anything - an organization the
  * organizer has left, a phase this build does not know - is dropped rather than narrowing the list
  * to nothing, so an old bookmark still opens onto markets.
+ *
+ * `organizationIds` is null when the organizer's organizations are not known (still loading, or
+ * failed to load). The address's organization is then kept: dropping it would let the next change
+ * rewrite the address without it, and a transient error would erase a bookmarked filter.
  */
 export function marketListQueryFromRoute(
   route: LocationQuery,
-  organizationIds: readonly string[],
+  organizationIds: readonly string[] | null,
 ): MarketListQuery {
   const org = first(route.org);
   const phases = new Set(first(route.phase).split(','));
   const sort = first(route.sort);
   return {
     search: first(route.q),
-    organizationId: organizationIds.includes(org) ? org : null,
+    organizationId: org && (!organizationIds || organizationIds.includes(org)) ? org : null,
     phases: PHASES_IN_ORDER.filter((phase) => phases.has(phase)),
     sort: MARKET_SORTS.some((s) => s.value === sort)
       ? (sort as MarketSort)

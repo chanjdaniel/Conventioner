@@ -2,7 +2,7 @@
 id: E25
 title: Finding a market
 type: epic
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -20,4 +20,4 @@ Not charted as a Wayfinder map: every question was settled in one grilling round
 
 ## Features
 
-- `F01` - search, sort and filter on the Markets page. Startable now.
+- `F01` - search, sort and filter on the Markets page.

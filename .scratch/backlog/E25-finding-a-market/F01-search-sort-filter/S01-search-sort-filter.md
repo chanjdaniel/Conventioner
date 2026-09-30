@@ -2,7 +2,7 @@
 id: E25/F01/S01
 title: Search, sort and filter the Markets page
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -22,6 +22,7 @@ Above the list on the Markets page, four controls that act together on the marke
   Market date puts the soonest upcoming market first, then past markets most recent first, then markets with no dates; Name is A-Z; Created is newest first.
 
 Search, both filters and the sort compose: the list is the markets matching every active control, in the chosen order.
+An "All phases" toggle leads the phase toggles and is on while none is, and a line above the list says how many markets are shown ("2 of 4 markets" while anything narrows it).
 The logic is one pure function over the market list, kept out of the view, so the Dashboard and the Load Market dialog can adopt it later.
 
 All four live in the page's address (query parameters), so Back from an opened market returns to the same narrowed list and the view can be bookmarked or shared.

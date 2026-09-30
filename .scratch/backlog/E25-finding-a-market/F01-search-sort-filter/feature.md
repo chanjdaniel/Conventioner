@@ -2,7 +2,7 @@
 id: E25/F01
 title: Search, sort and filter the Markets page
 type: feature
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
