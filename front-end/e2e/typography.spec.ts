@@ -81,15 +81,19 @@ async function renderedFaces(page: Page): Promise<Rendered[]> {
 }
 
 async function expectNoUserAgentFont(page: Page, screen: string): Promise<void> {
-  // The faces have to be real before their names mean anything - see the header.
+  const rendered = await renderedFaces(page);
+  expect(rendered.length, `${screen} rendered nothing to check`).toBeGreaterThan(0);
+
+  // The faces have to be real before their names mean anything - see the header. Only the faces
+  // this screen's elements actually name: a browser loads a webfont when something uses it, so a
+  // declared face no element on the screen uses is never loaded, and demanding it was demanding
+  // that some unrelated element happen to be in the DOM (the hidden navigation drawer used to be).
+  const named = DECLARED_FACES.filter((face) => rendered.some((r) => r.family === face));
   const missing = await page.evaluate(async (faces) => {
     await document.fonts.ready;
     return faces.filter((face) => !document.fonts.check(`16px "${face}"`));
-  }, DECLARED_FACES);
+  }, named);
   expect(missing, `${screen} names faces the browser never loaded`).toEqual([]);
-
-  const rendered = await renderedFaces(page);
-  expect(rendered.length, `${screen} rendered nothing to check`).toBeGreaterThan(0);
 
   const fallenThrough = rendered
     .filter((r) => USER_AGENT_DEFAULTS.test(r.family))

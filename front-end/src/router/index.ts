@@ -19,6 +19,7 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: { public: true },
     },
     {
       path: '/register',
@@ -29,16 +30,19 @@ const router = createRouter({
       path: '/verify-email',
       name: 'verify-email',
       component: EmailVerificationView,
+      meta: { public: true },
     },
     {
       path: '/reset-password-request',
       name: 'reset-password-request',
       component: PasswordResetRequestView,
+      meta: { public: true },
     },
     {
       path: '/reset-password',
       name: 'reset-password',
       component: PasswordResetView,
+      meta: { public: true },
     },
     {
       path: '/init',
@@ -188,18 +192,21 @@ const router = createRouter({
   ],
 });
 
+/**
+ * A page is public when its route says `meta.public`, and nowhere else (E26/F01/S01).
+ *
+ * The account pages used to be public only through a list of paths here, while the shell
+ * (`App.vue`) reads `meta.public` to decide whether to probe the organizer's session. The two
+ * disagreed, so a signed-out person opening a password-reset or verification link was let in by
+ * this guard and then sent to `/login` by the shell's failed probe before the page could be used.
+ */
 router.beforeEach((to, _from, next) => {
-  const publicPages = [
-    '/login',
-    '/register',
-    '/verify-email',
-    '/reset-password-request',
-    '/reset-password',
-  ];
   const user = JSON.parse(localStorage.getItem('user') || 'null');
 
-  if (publicPages.includes(to.path)) {
-    next();
+  // Before the public check, or it can never fire: `/login` is public. A stale `user` costs one
+  // hop, since the dashboard's session probe clears it and comes back here.
+  if (user && to.path === '/login') {
+    next('/dashboard');
     return;
   }
 
@@ -210,11 +217,6 @@ router.beforeEach((to, _from, next) => {
 
   if (!user) {
     next('/login');
-    return;
-  }
-
-  if (user && to.path === '/login') {
-    next('/dashboard');
     return;
   }
 
