@@ -308,6 +308,79 @@ test.describe('CSV vendor import', () => {
     });
   });
 
+  test('a tier grid headed by days as Google writes them imports, by hand', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 26 (E26/F02/S05): a day heading was offered only tiers to match, so no heading but an
+    // ISO one could ever import, and "Not available" was one more tier nobody offered.
+    const headers = [
+      'Timestamp',
+      'Email Address',
+      'Full Legal Name',
+      'Business name',
+      'Which tiers would you take? [Saturday, August 1]',
+      'Which tiers would you take? [Second Saturday]',
+      'Which tiers would you take? [Saturday, August 15, 2026]',
+      'How many days do you want?',
+      'Full or half table?',
+      'Rank the sections',
+      'What do you sell?',
+    ];
+    const file = [
+      headers.map((h) => (h.includes(',') ? `"${h}"` : h)).join(','),
+      '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,Gold,Not available,Silver,2,half,"Garden, Main Hall",Pottery',
+      '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,Thorn & Thistle,None,"Gold, Silver",Not available,1,full,"Main Hall, Garden",Dried flowers',
+    ].join('\n');
+
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapGroup(
+      headers,
+      'Which tiers would you take? [Saturday, August 1]',
+      'essential_tier_preference',
+    );
+    await importPage.mapColumns(headers, {
+      'Full Legal Name': 'essential_full_name',
+      'How many days do you want?': 'essential_max_dates',
+      'Full or half table?': 'essential_table_choice',
+      'Rank the sections': 'essential_section_ranking',
+      'Business name': 'business_name',
+      'What do you sell?': 'product_type',
+    });
+    await importPage.clickPreview();
+
+    // A day the heading names is recognised, with or without its year; only the one heading that
+    // names no date is asked about - and it is offered the market's dates, not its tiers.
+    await expect(importPage.unmatchedValues).toHaveText(['Second Saturday']);
+    const fix = page.getByTestId('import-fix-Second Saturday');
+    await expect(fix.locator('option[value="2026-08-08"]')).toHaveCount(1);
+    await expect(fix.locator('option[value="Gold"]')).toHaveCount(0);
+    await importPage.resolveValue('Second Saturday', '2026-08-08');
+    await importPage.clickPreview();
+
+    await expect(importPage.previewCounts).toContainText('2 of 2 rows');
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('Imported 2 new applications');
+
+    const applications = await listApplications(request, seed.marketId);
+    const answers = Object.fromEntries(
+      applications.map((a) => [
+        a.applicantEmail,
+        [a.formData.essential_available_dates, a.formData.essential_tier_preference],
+      ]),
+    );
+    expect(answers).toEqual({
+      'nadia@ember.test': [
+        ['2026-08-01', '2026-08-15'],
+        { '2026-08-01': ['Gold'], '2026-08-15': ['Silver'] },
+      ],
+      'theo@thistle.test': [['2026-08-08'], { '2026-08-08': ['Gold', 'Silver'] }],
+    });
+  });
+
   test('a grid the detection got wrong can be split apart', async ({
     authenticatedPage: page,
     request,
@@ -661,16 +734,10 @@ test.describe('CSV vendor import', () => {
     await importPage.mapColumns(HEADERS, FULL_MAPPING);
     await importPage.clickPreview();
 
-    // One decision per day, not one per half of it.
-    await expect(importPage.unmatchedValues).toHaveText([
-      'Saturday, August 1st',
-      'Saturday, August 8th',
-    ]);
-    await importPage.resolveValue('Saturday, August 1st', '2026-08-01');
-    await importPage.resolveValue('Saturday, August 8th', '2026-08-08');
-    await importPage.clickPreview();
-
+    // Each day is read whole, and as the market day it names - no halves to match, and no
+    // decision at all (bug 26 taught the import to read a day written in words).
     await expect(importPage.previewCounts).toContainText('2 of 2 rows');
+    await expect(importPage.valueFixes).toHaveCount(0);
     await importPage.clickConfirm();
     await expect(importPage.resultSummary).toContainText('Imported 2 new applications');
 

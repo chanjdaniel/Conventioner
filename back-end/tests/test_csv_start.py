@@ -144,8 +144,9 @@ def test_a_plan_that_already_has_tiers_keeps_them_and_settles_the_rest_as_value_
     assert [t["name"] for t in update["setupObject"]["tiers"]] == ["Gold", "Silver"]
     resolutions = update["importMapping"]["resolutions"][EssentialFields.TIER_PREFERENCE_KEY]
     assert resolutions["Bronze"] == "Silver"
-    # Each grid column's bracket text is the date the year made of it.
-    assert resolutions["Monday, November 17"] == "2025-11-17"
+    # A grid column's bracket text names a plan date the import reads for itself (bug 26), so
+    # there is no decision to save for it.
+    assert "Monday, November 17" not in resolutions
 
 
 def test_two_columns_cannot_answer_the_same_essential_question():
@@ -193,9 +194,21 @@ def test_an_unsettled_day_the_plan_lacks_is_left_for_the_import_to_ask():
                               "assignmentOptions": {},
                               "marketDates": [{"date": "2025-11-17"}, {"date": "2025-11-18"}]})
     update = CsvStart.confirmed_update(doc, _csv("fall-2025"), {"year": 2025})
-    tiers = update["importMapping"]["resolutions"][EssentialFields.TIER_PREFERENCE_KEY]
-    assert tiers["Monday, November 17"] == "2025-11-17"
+    tiers = update["importMapping"]["resolutions"].get(EssentialFields.TIER_PREFERENCE_KEY, {})
     assert "Wednesday, November 19" not in tiers
+
+    # The import reads the days the plan has, and asks about the one it lacks - offering the
+    # plan's days to match it to, not its tiers (bug 26).
+    after = _written(doc, update)
+    csv_text = _csv("fall-2025")
+    _error, headers, _rows = CsvImport.parse_csv(csv_text)
+    saved = CsvImport.stored_mapping(after)
+    restored, *_ = CsvImport.restore_mapping(headers, saved, CsvImport.import_targets(after))
+    preview, _ = CsvImport.preview_values(after, csv_text, restored, saved["resolutions"])
+    days = {u["value"]: u["offered"] for u in preview["unmatched"]
+            if u["target"] == EssentialFields.TIER_PREFERENCE_KEY and "November" in u["value"]}
+    assert "Monday, November 17" not in days
+    assert days["Wednesday, November 19"] == ["2025-11-17", "2025-11-18"]
 
 
 def test_a_legacy_draft_with_no_phase_is_written_under_its_own_shape():

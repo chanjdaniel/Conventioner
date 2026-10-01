@@ -518,6 +518,68 @@ class TestSplittingAnAnswer:
         assert data["essential_available_dates"] == ["2026-08-01"]
 
 
+class TestADayInWords:
+    """A Google Form names a day as the organizer typed it, and only an ISO date used to match, so
+    a tier grid's day headings could not be matched at all (bug 26)."""
+
+    PLAN = ["2026-10-03", "2026-10-10"]
+
+    @pytest.mark.parametrize("text, date", [
+        ("Saturday, October 3", "2026-10-03"),
+        ("Saturday, October 3, 2026", "2026-10-03"),
+        ("Oct 10th", "2026-10-10"),
+        ("Saturday, October 3, 2025", None),   # a year that disagrees
+        ("Sunday, October 3", None),           # a weekday that disagrees
+        ("October 17", None),                  # not a plan date
+        ("Second Saturday", None),             # not a date at all
+    ])
+    def test_a_day_names_the_one_plan_date_it_means(self, text, date):
+        assert CsvImport.plan_date_named(text, self.PLAN) == date
+
+    def test_a_day_two_plan_dates_share_names_neither(self):
+        assert CsvImport.plan_date_named("October 3", ["2025-10-03", "2026-10-03"]) is None
+
+    HEADERS = [
+        "Timestamp", "Email Address", "Full Legal Name", "Business name",
+        '"Tiers? [Saturday, August 1]"', '"Tiers? [Second Saturday]"',
+        "How many days do you want?", "Full or half table?", "Rank the sections",
+    ]
+    GRID_MAPPING = {
+        CsvImport.SUBMITTED_AT_TARGET: 0,
+        CsvImport.APPLICANT_EMAIL_TARGET: 1,
+        EssentialFields.FULL_NAME_KEY: 2,
+        "business_name": 3,
+        EssentialFields.TIER_PREFERENCE_KEY: [4, 5],
+        EssentialFields.MAX_DATES_KEY: 6,
+        EssentialFields.TABLE_CHOICE_KEY: 7,
+        EssentialFields.SECTION_RANKING_KEY: 8,
+    }
+
+    def _file(self, *cells):
+        row = '2026/05/02 9:14:03,nadia@ember.ca,Nadia Okonkwo,Ember Ceramics,{},{},1,half,"Garden, Main Hall"'
+        return "\n".join([",".join(self.HEADERS), row.format(*cells)])
+
+    def test_a_heading_that_names_no_date_is_offered_the_plans_dates(self, markets):
+        body, _ = CsvImport.preview_values(markets.doc, self._file("Gold", "Silver"), self.GRID_MAPPING)
+
+        assert [(u["value"], u["offered"]) for u in body["unmatched"]] == [
+            ("Second Saturday", DATES),
+        ]
+
+    @pytest.mark.parametrize("unavailable", ["None", "Not available", "N/A", "Unavailable"])
+    def test_not_available_means_not_available(self, markets, applications, unavailable):
+        resolutions = {EssentialFields.TIER_PREFERENCE_KEY: {"Second Saturday": "2026-08-08"}}
+
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, self._file("Gold", unavailable), self.GRID_MAPPING, resolutions,
+        )
+
+        assert body["created"] == 1, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_tier_preference"] == {"2026-08-01": ["Gold"]}
+        assert data["essential_available_dates"] == ["2026-08-01"]
+
+
 class TestAFormThatNeverAskedHowManyDays:
     """Most real forms never asked how many dates an applicant wants, and demanding the column
     blocked three of five real exports with no way through (bug 24). A row without it has no
