@@ -440,6 +440,12 @@ class FakeApplicationsCollection:
             self.documents.remove(doc)
         return SimpleNamespace(deleted_count=0 if doc is None else 1)
 
+    def delete_many(self, query):
+        doomed = [doc for doc in self.documents if self._matches(doc, query)]
+        for doc in doomed:
+            self.documents.remove(doc)
+        return SimpleNamespace(deleted_count=len(doomed))
+
     def count_documents(self, query):
         matched = sum(1 for doc in self.documents if self._matches(doc, query))
         return self.count + matched
@@ -453,6 +459,29 @@ def applications(monkeypatch):
     fake = FakeApplicationsCollection()
     monkeypatch.setattr(ApplicationsApi, "applications_collection", fake)
     return fake
+
+
+@pytest.fixture(autouse=True)
+def market_records(monkeypatch):
+    """The other records a market keeps beside itself, which deleting it deletes (bug 47).
+
+    Off the real database for the same reason as applications: the suite points Mongo at a port
+    nothing listens on, and a delete against it would wait out the server-selection timeout.
+    """
+    if STUBBED_MODULES:
+        return None
+    import api.applicant_auth as ApplicantAuth
+    import api.attendance as AttendanceApi
+    import placement_history as PlacementHistory
+
+    fakes = SimpleNamespace(
+        attendance=FakeApplicationsCollection(), challenges=FakeApplicationsCollection(),
+        history=FakeApplicationsCollection(),
+    )
+    monkeypatch.setattr(AttendanceApi, "attendance_collection", fakes.attendance)
+    monkeypatch.setattr(ApplicantAuth, "challenges_collection", fakes.challenges)
+    monkeypatch.setattr(PlacementHistory, "placement_history_collection", fakes.history)
+    return fakes
 
 # app.py refuses to boot unless the market-key migration is recorded as applied, and it fails
 # closed when it cannot read the marker at all -- which is exactly what would happen here, since

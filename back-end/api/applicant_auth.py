@@ -413,3 +413,8 @@ def verify_login_code(market_slug: str) -> tuple:
         return jsonify(response), 200
 
     return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
+
+
+def delete_challenges_for_market(market_id: str) -> int:
+    """Take a market's outstanding sign-in codes with the market (``market_deletion``)."""
+    return challenges_collection.delete_many({MARKET_ID_FIELD: market_id}).deleted_count

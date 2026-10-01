@@ -341,7 +341,9 @@ function toggleAddUser() {
           </button>
         </div>
         <div v-else class="delete-confirm">
-          <p class="confirm-text">Are you sure? This cannot be undone.</p>
+          <p class="confirm-text" data-testid="manage-market-delete-consequence">
+            This deletes the market with its applications and check-in records. It cannot be undone.
+          </p>
           <div class="confirm-buttons">
             <button
               type="button"

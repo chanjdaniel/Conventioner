@@ -9,6 +9,7 @@ from datatypes import MarketPhase, Organization, market_name_slug, phase_from_ma
 from db_config import get_database
 from market_documents import market_doc_filter, market_doc_key
 import deletion_trail as DeletionTrail
+import market_deletion as MarketDeletion
 import api.users as UsersApi
 
 db = get_database()
@@ -256,7 +257,7 @@ def delete_organization(org_id: str, requesting_user_email: str) -> DeleteResult
     )
 
     for market in preview["markets_to_delete"]:
-        markets_collection.delete_one({"id": market["id"]})
+        MarketDeletion.delete_market_and_records(markets_collection, market["id"])
 
     users_collection.update_many(
         {},
