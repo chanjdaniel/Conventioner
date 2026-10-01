@@ -2,7 +2,7 @@
 id: E26/F04
 title: The plan saves once, and every plan can be assigned
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: []
 ---

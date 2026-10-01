@@ -111,14 +111,19 @@ function parseFiniteNumber(v: unknown): number | null {
  * It used to also require four spreadsheet columns to be mapped - which vendor answer lived
  * where. The application form supplies all four now, so what is left is what the organizer
  * actually decides.
+ *
+ * The ceiling is not required: blank means the organizer named none, as its help text says and
+ * the solver reads it. Requiring one kept Assign disabled on every market that left it blank, and
+ * on every market started from a Google Form whose proposal said "No limit" (bug 7).
  */
 const assignmentOptionsComplete = computed(() => {
   const ao = setupObject.assignmentOptions;
   const numMarketDates = setupObject.marketDates.length;
 
   const maxPer = parseFiniteInt(ao.maxAssignmentsPerVendor);
-  if (maxPer === null || maxPer < 1) return false;
-  if (numMarketDates > 0 && maxPer > numMarketDates) return false;
+  if (maxPer !== null && (maxPer < 1 || (numMarketDates > 0 && maxPer > numMarketDates))) {
+    return false;
+  }
 
   const halfProp = parseFiniteNumber(ao.maxHalfTableProportionPerSection);
   if (halfProp === null || halfProp < 0 || halfProp > 100) return false;
