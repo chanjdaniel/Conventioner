@@ -88,7 +88,8 @@ class SolverVendor:
     max_dates: Optional[int]
     # Which tiers this vendor accepts ON EACH DATE. Tier is a hard filter and it sets the price,
     # so it is per-date: a single set for the whole application would let a vendor be placed at a
-    # tier they offered on one day, and charged for it, on another (E01/F05).
+    # tier they offered on one day, and charged for it, on another (E01/F05). Empty when the market
+    # never asked, which accepts every tier (``accepts_tier_on``).
     accepted_tiers_by_date: Mapping[str, FrozenSet[str]]
     table_choice: Optional[str]
     table_share_email: Optional[str]
@@ -117,8 +118,13 @@ class SolverVendor:
         That is deliberately not the same as a vendor who accepts no tier on that date: they belong
         at no table that day, which is how "the organizer dropped that tier after applications were
         in" should read - the applicant goes unassigned rather than the market going unassignable.
+
+        A vendor never ASKED accepts every tier: their answer is empty because the form froze
+        before the market had tiers, not because they refused any. Treating it as refusing all
+        placed nobody once the organizer added a tier (bug 23). An applicant who was asked and
+        answered nothing never gets here - the run refuses them as incomplete.
         """
-        if tier_name is None:
+        if tier_name is None or not self.accepted_tiers_by_date:
             return True
         return tier_name in self.accepted_tiers_by_date.get(date, frozenset())
 
