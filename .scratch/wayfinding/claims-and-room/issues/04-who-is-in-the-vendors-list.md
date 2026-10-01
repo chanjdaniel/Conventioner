@@ -1,7 +1,7 @@
 # 04: Who is in the Vendors list?
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: -
 
 ## Question
@@ -46,3 +46,18 @@ If the answer widens the glossary, amend `CONTEXT.md` in the same session - it i
 Note the adjacent case this must not break: an approved vendor who genuinely cannot be placed **does** belong in the list with a reason, and E12 built the card for exactly that.
 
 Findings: F11 in `.lavish/qc-2026-09-20.html`.
+
+## Answer
+
+Decided 2026-10-01 with the user, as part of E26; built as [E26/F05/S04](../../../backlog/E26-the-user-flows-hold/F05-placements-tell-the-truth/S04-reasons-and-the-vendors-list.md).
+
+**The list is vendors, so rejected applicants leave it.** The glossary was right and the screen was wrong; `CONTEXT.md` is unchanged.
+
+The Vendors page lists the applications the solver places - approved, main applications - and takes that list from `GET /markets/:id/tables`, which serves the run's own vendors.
+So the denominator in "N of M vendors assigned" and Result's "N of M vendors placed" count the same people by construction, rather than by two filters that agree today.
+
+Everyone who applied, rejected included, is seen on the Applications tab, whose reviewed list keeps each verdict.
+That answers the question this option raised: the review queue empties as it is worked, but the reviewed list does not.
+
+The adjacent case holds: an approved vendor who cannot be placed is still listed, with a reason.
+The usage run of 2026-09-30 found those reasons missing two (bug 33): a vendor at their own date limit, or at the market's ceiling, is now told so, and offered no "Place them".

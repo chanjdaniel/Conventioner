@@ -147,12 +147,23 @@ async function loadVendors(): Promise<void> {
     const [applicationList, statsResp, tablesResp] = await Promise.all([
       fetchMarketApplications(id),
       api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
-      api.get<{ rows: MarketTableRowResponse[]; vendorNames: VendorNames }>(
-        `/markets/${encoded}/tables`,
-      ),
+      api.get<{
+        rows: MarketTableRowResponse[];
+        vendorNames: VendorNames;
+        vendors?: { email: string }[];
+      }>(`/markets/${encoded}/tables`),
     ]);
 
-    applications.value = Array.isArray(applicationList) ? applicationList : [];
+    // A vendor is an applicant being placed (CONTEXT.md), so this page lists the applications the
+    // solver places and nobody else: a rejected applicant was counted as an unassigned vendor, and
+    // the page disagreed with Result (bug 10, claims-and-room 04). The list comes from `/tables`,
+    // which serves the run's own vendors, so the two pages cannot count different people.
+    const placeable = new Set(
+      (tablesResp.data?.vendors ?? []).map((vendor) => vendor.email.trim().toLowerCase()),
+    );
+    applications.value = (Array.isArray(applicationList) ? applicationList : []).filter(
+      (application) => placeable.has((application.applicantEmail ?? '').trim().toLowerCase()),
+    );
 
     unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
     placementOverrides.value = overrideIndex(statsResp.data?.overriddenPlacements ?? []);
@@ -444,7 +455,7 @@ useInertBehind(
           >
             Unassigned only &times;
           </button>
-          <div class="summary-line">
+          <div class="summary-line" data-testid="vendors-summary">
             <span class="summary-strong">{{ assignedVendorCount }}</span>
             of
             <span class="summary-strong">{{ totalVendorCount }}</span>

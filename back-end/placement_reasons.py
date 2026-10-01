@@ -34,6 +34,10 @@ class PlacementReason(str, Enum):
 
     #: They did not tick that date.
     NOT_AVAILABLE = "not_available"
+    #: They already hold as many dates as they asked for.
+    AT_THEIR_LIMIT = "at_their_limit"
+    #: They already hold as many dates as the market allows one vendor.
+    AT_MARKET_CEILING = "at_market_ceiling"
     #: The plan has no section at any tier they named, so there is no table for them on any date.
     NO_TABLE_AT_THEIR_TIER = "no_table_at_their_tier"
     #: Tables they would accept exist on that date, and every one is occupied.
@@ -99,6 +103,7 @@ def unplaced_dates(
 
     dates = [market_date.date for market_date in setup_object.market_dates]
     sections = list(setup_object.sections)
+    ceiling = setup_object.assignment_options.max_assignments_per_vendor
 
     placed: Set[Tuple[str, str]] = set()
     # (date, table_code) -> the table choices placed there, so "is there room" is a lookup.
@@ -117,6 +122,7 @@ def unplaced_dates(
     unplaced: List[UnplacedDate] = []
     for vendor in vendors:
         email = (vendor.email or "").strip().lower()
+        dates_held = sum(1 for date in dates if (email, date) in placed)
         for date in dates:
             if (email, date) in placed:
                 continue
@@ -124,7 +130,7 @@ def unplaced_dates(
                 UnplacedDate(
                     email=email,
                     date=date,
-                    reason=_reason_for(vendor, date, sections, occupancy),
+                    reason=_reason_for(vendor, date, sections, occupancy, dates_held, ceiling),
                 )
             )
     return unplaced
@@ -135,14 +141,29 @@ def _reason_for(
     date: str,
     sections: Sequence[Any],
     occupancy: Dict[Tuple[str, str], List[str]],
+    dates_held: int,
+    ceiling: Optional[int],
 ) -> PlacementReason:
     """Why this vendor holds no table on this date.
 
-    The order is the order an organizer would ask it in: did they even want this day, is there
-    anything here they would accept, and if so has someone else taken it.
+    The order is the order an organizer would ask it in: did they even want this day, have they
+    already got as many days as they may have, is there anything here they would accept, and if so
+    has someone else taken it.
+
+    The limits come before the tables because they are what the solver stopped at: a vendor with
+    every date they asked for is left off the rest however many tables are free, and calling one of
+    those dates FREE invited the organizer to break the limit (bug 33). Their own answer is named
+    when it is the lower of the two, since it is the one they gave.
     """
     if date not in vendor.available_dates:
         return PlacementReason.NOT_AVAILABLE
+
+    if vendor.max_dates is not None and dates_held >= vendor.max_dates and (
+        ceiling is None or vendor.max_dates <= ceiling
+    ):
+        return PlacementReason.AT_THEIR_LIMIT
+    if ceiling is not None and dates_held >= ceiling:
+        return PlacementReason.AT_MARKET_CEILING
 
     # A section with no tables is no tables. Counting it as acceptable would answer "every table
     # they accept is taken" for a market that has none to take.

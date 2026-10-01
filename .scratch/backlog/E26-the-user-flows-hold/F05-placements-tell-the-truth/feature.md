@@ -2,7 +2,7 @@
 id: E26/F05
 title: Placements tell the truth
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: []
 ---
