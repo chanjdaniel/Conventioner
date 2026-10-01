@@ -485,6 +485,9 @@ class TestSplittingAnAnswer:
         ("prints, CARDS and zines", ("Prints, cards and zines",), ["prints, CARDS and zines"]),
         ("Gold Plus, Gold", ("Gold", "Gold Plus"), ["Gold Plus", "Gold"]),
         ("Gold, Silver", ("Gold", "Silver"), ["Gold", "Silver"]),
+        # Typed by hand: no space after the comma, or one left at the end.
+        ("Stickers,Apparel,", ("Stickers", "Apparel"), ["Stickers", "Apparel"]),
+        ("Prints,cards and zines", ("Prints, cards and zines",), ["Prints, cards and zines"]),
     ])
     def test_an_option_with_a_comma_of_its_own_stays_whole(self, cell, known, parts):
         assert CsvImport.split_options(cell, known) == parts
@@ -516,6 +519,40 @@ class TestSplittingAnAnswer:
         assert body["created"] == 1, body
         data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
         assert data["essential_available_dates"] == ["2026-08-01"]
+
+
+class TestTheImportReportsHonestly:
+    """Bug 40: what the import said about a file was not what it did with it."""
+
+    def test_a_ragged_file_is_refused_with_the_row_and_why(self):
+        text = "Timestamp,Email Address,Name, if any,Business name\n1/1/2026,a@b.ca,Ada,Shop\n\n"
+
+        error, _headers, _rows = CsvImport.parse_csv(text)
+
+        assert error.startswith("Row 2 has 4 cells where the header has 5")
+
+    def test_trailing_commas_and_blank_lines_are_not_ragged(self):
+        error, headers, rows = CsvImport.parse_csv("A,B\n1,2,,\n\n3,4\n")
+
+        assert error is None and rows == [["1", "2", "", ""], ["3", "4"]]
+
+    def test_a_skipped_row_names_every_problem(self, markets):
+        row = GOOD_ROW.replace("Nadia Okonkwo", "").replace(",half,", ",,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
+
+        error = body["failures"][0]["error"]
+        assert "'Full name' is required." in error and "'Table choice' is required." in error
+
+    def test_the_sample_is_rows_that_will_import_as_they_will_be_stored(self, markets):
+        skipped = GOOD_ROW.replace("nadia@ember.ca", "jan@ember.ca").replace(",2,Gold,", ",x,Gold,")
+        second = GOOD_ROW.replace("nadia@ember.ca", "kai@ember.ca").replace(",half,", ",full,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(skipped, GOOD_ROW, second), MAPPING)
+
+        assert [s["row"] for s in body["samples"]] == [3, 4]
+        assert body["samples"][0]["formData"]["essential_table_choice"] == "half"
+        assert body["samples"][0]["formData"]["essential_available_dates"] == DATES
 
 
 class TestTheDecisionsInPlay:
@@ -1166,11 +1203,13 @@ class TestMergingAgainstWhatIsAlreadyHere:
 
         assert applications.find_one({"applicant_email": "nadia@ember.ca"})["id"] == first_id
 
+    CHANGED = GOOD_ROW.replace("Ember Ceramics", "Ember Studio")
+
     def test_a_mixed_file_is_counted_as_new_and_updated(self, markets, applications):
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
         body, _ = CsvImport.import_applications(
-            markets, markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING,
+            markets, markets.doc, _csv(self.CHANGED, self.SECOND), MAPPING,
         )
 
         assert body["created"] == 1
@@ -1179,11 +1218,30 @@ class TestMergingAgainstWhatIsAlreadyHere:
     def test_the_preview_says_which_rows_are_new_and_which_update(self, markets, applications):
         CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
 
-        body, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING)
+        body, _ = CsvImport.preview_values(markets.doc, _csv(self.CHANGED, self.SECOND), MAPPING)
 
         assert body["newRows"] == 1
         assert body["updatedRows"] == 1
         assert body["absentApplications"] == 0
+
+    def test_an_applicant_whose_answers_did_not_change_is_unchanged_not_updated(
+        self, markets, applications,
+    ):
+        """It counted every matching row as updated: "272 updated" when four had changed (bug 40)."""
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW, self.SECOND), MAPPING)
+        before = dict(applications.find_one({"applicant_email": "kai@ember.ca"}))
+
+        preview, _ = CsvImport.preview_values(
+            markets.doc, _csv(self.CHANGED, self.SECOND), MAPPING,
+        )
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(self.CHANGED, self.SECOND), MAPPING,
+        )
+
+        assert (preview["updatedRows"], preview["unchangedRows"]) == (1, 1)
+        assert (body["updated"], body["unchanged"]) == (1, 1)
+        # Nothing to write for the unchanged one, so nothing is written.
+        assert applications.find_one({"applicant_email": "kai@ember.ca"}) == before
 
     def test_an_application_absent_from_the_file_is_left_alone_and_counted(
         self, markets, applications,

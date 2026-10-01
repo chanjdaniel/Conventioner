@@ -24,7 +24,7 @@ import { canImportInto, importRefusal } from '@/utils/importPhase';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
-import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
+import { EMPTY_ESSENTIAL_OPTIONS, applicationAnswerRows } from '@/utils/essentialFields';
 import type { ApplicationForm, EssentialFormOptions } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_KEY,
@@ -162,6 +162,8 @@ const resolutions = ref<Record<string, Record<string, string>>>({});
 
 const created = ref(0);
 const updated = ref(0);
+/** Applications already here whose answers this file does not change: nothing is written. */
+const unchanged = ref(0);
 const failures = ref<ImportFailure[]>([]);
 /** What the dry run said would import, and what it said would be skipped. */
 const validRows = ref(0);
@@ -169,6 +171,7 @@ const previewFailures = ref<ImportFailure[]>([]);
 /** How the file lands against what is already here. */
 const newRows = ref(0);
 const updatedRows = ref(0);
+const unchangedRows = ref(0);
 const absentApplications = ref(0);
 const absentEmails = ref<string[]>([]);
 const returningToReview = ref(0);
@@ -228,7 +231,11 @@ const mappedKeys = computed(() => {
 
 /** What shape a mapped target is being read from, said plainly so a wrong guess is visible. */
 function shapeLabel(group: ColumnGroup): string {
-  return `${group.columns.length} columns · one per option`;
+  // A grid mapped to the days is one column per day - a tier grid's options ARE days, and calling
+  // them options described the columns as the tiers they hold (bug 40).
+  const target = groupTarget.value[group.stem];
+  const perDay = target === TIER_PREFERENCE_KEY || target === AVAILABLE_DATES_KEY;
+  return `${group.columns.length} columns · one per ${perDay ? 'day' : 'option'}`;
 }
 
 function singleShapeLabel(index: number): string {
@@ -314,59 +321,27 @@ function sourceLabelFor(key: string): string {
 }
 
 /**
- * The first few rows as the applications they will become: each mapped question and the answer
- * this file gives it.
+ * The first rows that will import, as the applications they will become (bug 40).
  *
- * The step is called Preview, and until now it previewed only the mapping - the same recap the
- * previous step already showed, with no cell of the organizer's own data anywhere in it. Deciding
- * to write 232 applications on a restated mapping means trusting that the mapping means what you
- * think it means, which is the one thing a preview exists to check.
- *
- * A grid target is spelled out per option, because that is the shape the answer takes: the cell
- * under "Saturday" is the answer for Saturday, and a joined list would hide which is which.
+ * The server sends them already read through the mapping and the same validators the write runs,
+ * and they render through the same reader as the review card. Built here from the file's first
+ * cells instead, the sample showed a row listed as skipped a few lines above, and read availability
+ * as "no answer" when a tier grid had answered it.
  */
-const SAMPLE_ROWS = 3;
+const previewSamples = ref<
+  Array<{ row: number; email: string; formData: Record<string, unknown> | null }>
+>([]);
 
-interface SampleAnswer {
-  key: string;
-  label: string;
-  value: string;
-}
-
-const sampleApplications = computed<Array<{ row: number; answers: SampleAnswer[] }>>(() => {
-  // How many rows there are to show. `Math.max(0, ...)` rather than a spread alone: a file of
-  // headers and nothing else parses fine, and an empty spread would have left the default,
-  // previewing three rows a file with no rows in it does not have.
-  const depth = Math.min(SAMPLE_ROWS, Math.max(0, ...sampleValues.value.map((c) => c.length)));
-  if (depth < 1) return [];
-
-  const cell = (column: number, row: number) => (sampleValues.value[column]?.[row] ?? '').trim();
-
-  const rows = [];
-  for (let row = 0; row < depth; row += 1) {
-    const answers = targets.value
-      .filter((target) => mappedKeys.value.has(target.key))
-      .map((target) => {
-        const source = sourceFor(target.key);
-        if (source.kind === 'group') {
-          const perOption = source.group.columns
-            .map(
-              (column, position) =>
-                [source.group.options[position] ?? '', cell(column, row)] as const,
-            )
-            .filter(([, value]) => value !== '')
-            .map(([option, value]) => `${option}: ${value}`);
-          return { key: target.key, label: target.label, value: perOption.join(' · ') };
-        }
-        return {
-          key: target.key,
-          label: target.label,
-          value: source.kind === 'column' ? cell(source.index, row) : '',
-        };
-      });
-    rows.push({ row, answers });
-  }
-  return rows;
+const sampleApplications = computed(() => {
+  const fields = (market.value as { applicationForm?: ApplicationForm } | null)?.applicationForm
+    ?.fields;
+  return previewSamples.value
+    .filter((sample) => sample.formData)
+    .map((sample) => {
+      const { essential, custom } = applicationAnswerRows(sample.formData ?? {}, fields ?? []);
+      const email = { key: 'applicant_email', label: 'Applicant email', value: sample.email };
+      return { row: sample.row, answers: [email, ...essential, ...custom] };
+    });
 });
 
 function isNewHeader(index: number): boolean {
@@ -660,6 +635,8 @@ async function readValues(advance: boolean) {
   previewFailures.value = data.failures ?? [];
   newRows.value = data.newRows ?? 0;
   updatedRows.value = data.updatedRows ?? 0;
+  unchangedRows.value = data.unchangedRows ?? 0;
+  previewSamples.value = data.samples ?? [];
   absentApplications.value = data.absentApplications ?? 0;
   absentEmails.value = data.absentEmails ?? [];
   returningToReview.value = data.returningToReview ?? 0;
@@ -679,6 +656,7 @@ async function runImport() {
     });
     created.value = data.created ?? 0;
     updated.value = data.updated ?? 0;
+    unchanged.value = data.unchanged ?? 0;
     failures.value = data.failures ?? [];
     repeats.value = data.repeats ?? [];
     step.value = 'done';
@@ -1072,7 +1050,7 @@ function startOver() {
           data-testid="import-declare-unasked"
         >
           <p>
-            Your form never asked <strong>{{ target.label }}</strong
+            No column in this file answers <strong>{{ target.label }}</strong
             >. It is a preference, not a constraint, so this market can stop asking it and treat
             every applicant equally.
           </p>
@@ -1098,8 +1076,12 @@ function startOver() {
         {{ validRows }} of {{ rowCount }} row{{ rowCount === 1 ? '' : 's' }} will be imported
       </h2>
       <p class="import-help" data-testid="import-preview-merge">
-        <template v-if="updatedRows">{{ newRows }} new, {{ updatedRows }} updated. </template>Each
-        imported row becomes an application awaiting your review. Nothing has been written yet.
+        <template v-if="updatedRows || unchangedRows"
+          >{{ newRows }} new, {{ updatedRows }} updated<template v-if="unchangedRows"
+            >, {{ unchangedRows }} unchanged</template
+          >. </template
+        >Each imported row becomes an application awaiting your review. Nothing has been written
+        yet.
       </p>
 
       <!-- An approval the import would invalidate. Said before it happens, because silently
@@ -1202,7 +1184,7 @@ function startOver() {
       <h2 data-testid="import-result-summary">
         Imported {{ created }} new application{{ created === 1 ? '' : 's'
         }}<span v-if="updated">, updated {{ updated }}</span
-        >.
+        >.{{ unchanged ? ` ${unchanged} unchanged.` : '' }}
       </h2>
       <p v-if="repeats.length" class="import-note" data-testid="import-result-repeat-note">
         {{ repeats.length }} earlier submission{{ repeats.length === 1 ? ' was' : 's were' }}

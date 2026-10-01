@@ -126,7 +126,11 @@ def _applicant_column(rows: List[List[str]], width: int) -> Optional[int]:
 
 def _responses(rows: List[List[str]]) -> int:
     """Rows someone submitted: a row an organizer typed a status into alone is not one."""
-    return sum(1 for row in rows if sum(1 for cell in row if cell.strip()) >= 3)
+    return sum(1 for row in rows if _is_response(row))
+
+
+def _is_response(row: List[str]) -> bool:
+    return sum(1 for cell in row if cell.strip()) >= 3
 
 
 class _Column:
@@ -773,7 +777,11 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
             "index": index,
             "header": column.header,
             "group": groups.get(index),
-            "answered": column.filled,
+            # Counted over the same rows as the responses it is shown against: counting every
+            # filled cell, an organizer's status-only row included, said "answered by 360 of
+            # 359" (bug 40).
+            "answered": sum(1 for value, row in zip(column.values, body)
+                            if value.strip() and _is_response(row)),
             "firstAnswers": [value for value in column.values if value.strip()][:3],
             "fate": decided["fate"],
             "essential": decided.get("essential"),

@@ -796,6 +796,84 @@ test.describe('CSV vendor import', () => {
     });
   });
 
+  test('the preview reports honestly: its sample, every problem, and what really changed', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 40 (E26/F02/S08), items 1, 3 and 4.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    const broken = ROWS[2].replace('8:02:10,,Jan van der Berg', '8:02:10,jan@driftwood.test,');
+    const file = [HEADERS.join(','), broken.replace(',either,', ',,'), ROWS[0], ROWS[1]].join('\n');
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+
+    // Every problem the skipped row has, so one round in the spreadsheet fixes it.
+    await expect(importPage.previewFailureRows).toHaveCount(1);
+    await expect(importPage.previewFailureRows.first()).toContainText("'Full name' is required.");
+    await expect(importPage.previewFailureRows.first()).toContainText(
+      "'Table choice' is required.",
+    );
+    // The sample is rows that will import - not the file's first three, one of them skipped - and
+    // reads as the applicant's answers will be stored.
+    await expect(importPage.sampleRows).toHaveCount(2);
+    await expect(importPage.sampleRows.first()).toContainText('Ember Ceramics');
+    await expect(importPage.sampleRows.first()).toContainText('Saturday, August 1, 2026');
+    await expect(importPage.sampleRows.first()).toContainText('Half a table, shared');
+    await expect(importPage.preview).not.toContainText('Driftwood Prints');
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toHaveText('Imported 2 new applications.');
+
+    // Imported again with one applicant's answers changed: one updated, one unchanged - not two
+    // "updated" for a file in which one thing moved.
+    const changed = [
+      HEADERS.join(','),
+      ROWS[0].replace('Ember Ceramics', 'Ember Ceramics Studio'),
+      ROWS[1],
+    ].join('\n');
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(changed);
+    await importPage.clickPreview();
+    await expect(importPage.previewMerge).toContainText('0 new, 1 updated, 1 unchanged');
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toHaveText(
+      'Imported 0 new applications, updated 1. 1 unchanged.',
+    );
+  });
+
+  test('a ragged file is refused, and a day grid and an unmapped question are described truly', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 40 items 5, 6 and 7.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    await openImport(importPage, request, seed.marketId);
+
+    // A heading with an unquoted comma: every later column is one place off on every row.
+    await importPage.chooseFile(
+      [
+        'Timestamp,Email Address,Name, if any,Business name',
+        ROWS[0].split(',').slice(0, 4).join(','),
+      ].join('\n'),
+    );
+    await expect(page.getByTestId('import-error')).toContainText('Row 2 has 4 cells');
+    await expect(page.getByTestId('import-error')).toContainText('header has 5');
+
+    const gridHeaders = ['Email Address', 'Tiers? [2026-08-01]', 'Tiers? [2026-08-08]'];
+    await importPage.open({ id: seed.marketId });
+    await importPage.chooseFile([gridHeaders.join(','), 'nadia@ember.test,Gold,Silver'].join('\n'));
+    await importPage.mapGroup(gridHeaders, 'Tiers? [2026-08-01]', 'essential_tier_preference');
+    await expect(importPage.groupShape.first()).toHaveText('2 columns · one per day');
+    // Not "Your form never asked it": this market's own online form does ask it.
+    await expect(page.getByTestId('import-declare-unasked').first()).toContainText(
+      'No column in this file answers',
+    );
+  });
+
   test('a skipped row is not written, and an address that is not one is skipped', async ({
     authenticatedPage: page,
     request,
@@ -889,10 +967,10 @@ test.describe('CSV vendor import', () => {
     await importPage.clickPreview();
 
     // Nothing changed, so nobody's decision is undone - and both screens count the same thing.
-    await expect(importPage.previewMerge).toContainText('0 new, 2 updated');
+    await expect(importPage.previewMerge).toContainText('0 new, 0 updated, 2 unchanged');
     await expect(importPage.returningNote).toHaveCount(0);
     await importPage.clickConfirm();
-    await expect(importPage.resultSummary).toHaveText('Imported 0 new applications, updated 2.');
+    await expect(importPage.resultSummary).toHaveText('Imported 0 new applications. 2 unchanged.');
 
     const after = await listApplications(request, seed.marketId);
     expect(after.map(statusOf)).toEqual(['reviewer_approved', 'reviewer_approved']);
