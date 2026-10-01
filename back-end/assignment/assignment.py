@@ -111,14 +111,26 @@ class Vendor:
 
 
 class Table:
-    def __init__(self, date: MarketDateObject, table_code: str, section: SectionObject, tier: TierObject, location: LocationObject):
+    def __init__(self, date: MarketDateObject, table_code: str, section: SectionObject,
+                 tier: Optional[TierObject], location: Optional[LocationObject]):
         self.date = date
         self.table_code = table_code
         self.section = section
         self.tier = tier
         self.location = location
         self.assignment = []
-        
+
+    # A section may have no tier and no location: the plan editor accepts both, so the solver
+    # must too. Reading ``table.tier.name`` failed every run on such a plan with a bare 500
+    # (bug 23); a placement there records no tier, and an untiered table takes anyone.
+    @property
+    def tier_name(self) -> str:
+        return self.tier.name if self.tier else ""
+
+    @property
+    def location_name(self) -> str:
+        return self.location.name if self.location else ""
+
     def __repr__(self):
         return f"{vars(self)}"
 
@@ -581,8 +593,8 @@ class MarketAssignment:
                 table_code=table.table_code,
                 table_choice=free_side,
                 section=table.section.name,
-                tier=table.tier.name,
-                location=table.location.name
+                tier=table.tier_name,
+                location=table.location_name
             ))
             self.half_tables[market_date.date][table.section.name] = (
                 self.half_tables[market_date.date].get(table.section.name, 0) + 1
@@ -598,8 +610,8 @@ class MarketAssignment:
                 table_code=table.table_code,
                 table_choice=FULL_TABLE_LABEL,
                 section=table.section.name,
-                tier=table.tier.name,
-                location=table.location.name
+                tier=table.tier_name,
+                location=table.location_name
             )
             vendor_list[0].assign(market_date, assignment)
         else:
@@ -612,8 +624,8 @@ class MarketAssignment:
                     table_code=table.table_code,
                     table_choice=table_choice,
                     section=table.section.name,
-                    tier=table.tier.name,
-                    location=table.location.name
+                    tier=table.tier_name,
+                    location=table.location_name
                 )
                 vendor.assign(market_date, assignment)
                 self.half_tables[market_date.date][table.section.name] = self.half_tables[market_date.date].get(table.section.name, 0) + 1
@@ -671,7 +683,9 @@ class MarketAssignment:
         # translate: a date had two names only while a spreadsheet column heading stood in for it.
 
         for assignment in vendor_assignments:
-            assignments_per_tier[assignment.tier] += 1
+            # A placement at an untiered table has no tier to count under (bug 23).
+            if assignment.tier:
+                assignments_per_tier[assignment.tier] += 1
             assignments_per_section[assignment.section] += 1
             assignments_per_table_choice[assignment.table_choice] += 1
             assignments_per_date[assignment.date] += 1

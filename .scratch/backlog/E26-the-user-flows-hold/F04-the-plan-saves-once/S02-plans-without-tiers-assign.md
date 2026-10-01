@@ -2,7 +2,7 @@
 id: E26/F04/S02
 title: Plans without tiers assign
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,6 +16,6 @@ Closes bugs 23 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] A market with untiered sections assigns its approved vendors.
-- [ ] Adding a tier after the import places vendors instead of nobody.
-- [ ] The solver never raises on a plan the editor accepted.
+- [x] A market with untiered sections assigns its approved vendors.
+- [x] Adding a tier after the import places vendors instead of nobody.
+- [x] The solver never raises on a plan the editor accepted.

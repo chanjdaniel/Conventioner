@@ -505,7 +505,8 @@ function swapSeats(withEmail: string): void {
                   </option>
                 </select>
               </label>
-              <label class="filter-picker">
+              <!-- A market planned without tiers has nothing to filter by tier (bug 23). -->
+              <label v-if="tierOptions.length" class="filter-picker">
                 <span class="filter-picker-label">Tier</span>
                 <select
                   :value="tierFilter"
