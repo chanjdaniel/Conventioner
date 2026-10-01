@@ -74,7 +74,7 @@ const handleProportionInput = (value: number) => {
     <div class="rows" ref="rows">
       <div class="row-container row">
         <div class="row-item">
-          <h3>Max assignments per vendor</h3>
+          <h3 id="assignment-option-ceiling">Max assignments per vendor</h3>
           <p class="option-help">
             The most dates any one vendor can be given. Leave blank for no ceiling.
           </p>
@@ -89,7 +89,9 @@ const handleProportionInput = (value: number) => {
               inputmode="numeric"
               v-model="assignmentOptions.maxAssignmentsPerVendor"
               @input="handleDaysInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
-              style="all: unset; font-size: var(--text-sm); width: 100%"
+              class="field"
+              placeholder="No ceiling"
+              aria-labelledby="assignment-option-ceiling"
               data-testid="setup-options-max-assignments-input"
               :disabled="readonly"
             />
@@ -101,7 +103,7 @@ const handleProportionInput = (value: number) => {
       </div>
       <div class="row-container row">
         <div class="row-item">
-          <h3>Max half table proportion per section (%)</h3>
+          <h3 id="assignment-option-halves">Max half table proportion per section (%)</h3>
           <p class="option-help">
             A table seats two vendors side by side. This is the most of a section's tables that may
             be split in half rather than given to one vendor each.
@@ -119,7 +121,8 @@ const handleProportionInput = (value: number) => {
               @blur="
                 handleProportionInput(Number(($event.target as HTMLInputElement)?.value || NaN))
               "
-              style="all: unset; font-size: var(--text-sm); width: 100%"
+              class="field"
+              aria-labelledby="assignment-option-halves"
               data-testid="setup-options-max-proportion-input"
               :disabled="readonly"
             />
@@ -290,17 +293,11 @@ select.datatype-dropdown {
   color: var(--mm-black);
 }
 
+/* Holds the field and no more: the field primitive draws the box and sets its height (bug 13 -
+   the input used to unset every style and render as a blank white area with no border). */
 .input-container {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
   width: 80%;
-  /* A field, not a panel. `height: 100%` grew it to whatever the label cell beside it needed,
-     so a one-line number box rendered as a five-line empty square. */
-  height: 34px;
   flex: 0 0 auto;
-  border-radius: var(--radius-card);
 }
 
 input::-webkit-outer-spin-button,
