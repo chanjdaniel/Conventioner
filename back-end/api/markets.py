@@ -1061,6 +1061,13 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
                     "email": vendor.email,
                     "tableChoice": vendor.table_choice,
                     "availableDates": sorted(vendor.available_dates),
+                    # And the two answers a hand change could override without a word (bugs 18
+                    # and 32): the tiers they accept on each date - empty when never asked, which
+                    # accepts any - and how many dates they want, None for no personal limit.
+                    "acceptedTiersByDate": {
+                        date: sorted(tiers) for date, tiers in vendor.accepted_tiers_by_date.items()
+                    },
+                    "maxDates": vendor.max_dates,
                 }
                 for vendor in vendors
             ],

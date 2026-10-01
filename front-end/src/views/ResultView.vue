@@ -356,7 +356,13 @@ function openPlace(row: MarketTableRow, seat: Seat | null): void {
 
 function openOccupied(row: MarketTableRow, email: string): void {
   placementError.value = '';
-  openSeat.value = { mode: 'occupied', row, seat: null, occupantEmail: email };
+  openSeat.value = { mode: 'occupied', row, seat: seatHeldBy(row, email), occupantEmail: email };
+}
+
+/** Which seat at this table a vendor holds: the whole of it, or one side. */
+function seatHeldBy(row: MarketTableRow, email: string): Seat {
+  if (rowStatus(row).isFull) return FULL_TABLE;
+  return row.assignmentSlots?.[0] === email ? HALF_TABLE_LEFT : HALF_TABLE_RIGHT;
 }
 
 function closePlacement(): void {
@@ -364,24 +370,24 @@ function closePlacement(): void {
   placementError.value = '';
 }
 
-/** Who already holds a table on one date - the people who cannot be placed again that day. */
-function seatedOn(date: string): Set<string> {
-  const seated = new Set<string>();
+/**
+ * The dates each vendor holds a seat on, keyed by lowercased address - who cannot be placed again
+ * on a date, and how many dates a placement would give them against their own limit and the
+ * market's ceiling.
+ */
+const datesHeld = computed((): Record<string, string[]> => {
+  const held: Record<string, Set<string>> = {};
   for (const row of allRows.value) {
-    if (row.date !== date) continue;
     for (const email of row.assignmentSlots ?? []) {
-      if (email) seated.add(email.toLowerCase());
+      if (email) (held[email.toLowerCase()] ??= new Set()).add(row.date);
     }
   }
-  return seated;
-}
-
-const placementCandidates = computed((): PlaceableVendor[] => {
-  const seat = openSeat.value;
-  if (!seat || seat.mode !== 'place') return [];
-  const seated = seatedOn(seat.row.date);
-  return vendors.value.filter((vendor) => !seated.has(vendor.email.toLowerCase()));
+  return Object.fromEntries(Object.entries(held).map(([email, dates]) => [email, [...dates]]));
 });
+
+const marketCeiling = computed(
+  () => market.value?.setupObject?.assignmentOptions?.maxAssignmentsPerVendor ?? null,
+);
 
 const swapTargets = computed((): SwapTarget[] => {
   const seat = openSeat.value;
@@ -389,15 +395,15 @@ const swapTargets = computed((): SwapTarget[] => {
   const targets: SwapTarget[] = [];
   for (const row of allRows.value) {
     if (row.date !== seat.row.date) continue;
-    const status = rowStatus(row);
     const seen = new Set<string>();
-    for (const [index, email] of (row.assignmentSlots ?? []).entries()) {
+    for (const email of row.assignmentSlots ?? []) {
       if (!email || email === seat.occupantEmail || seen.has(email)) continue;
       seen.add(email);
       targets.push({
         email,
         tableCode: row.tableCode,
-        seat: status.isFull ? FULL_TABLE : index === 0 ? HALF_TABLE_LEFT : HALF_TABLE_RIGHT,
+        tier: row.tier,
+        seat: seatHeldBy(row, email),
       });
     }
   }
@@ -789,7 +795,9 @@ function swapSeats(withEmail: string): void {
       :tier="openSeat.row.tier"
       :seat="openSeat.seat"
       :occupantEmail="openSeat.occupantEmail"
-      :candidates="placementCandidates"
+      :vendors="vendors"
+      :datesHeld="datesHeld"
+      :marketCeiling="marketCeiling"
       :swapTargets="swapTargets"
       :vendorNames="vendorNames"
       :busy="placementBusy"
