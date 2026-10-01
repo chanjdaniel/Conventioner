@@ -13,7 +13,7 @@
  * lacks gets the import's own fix. The corrections are the view's working copy, so this emits them
  * and never changes what it was handed.
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import ValueFixes from '@/components/ValueFixes.vue';
 import {
   choiceOfTarget,
@@ -57,6 +57,35 @@ const emit = defineEmits<{
 }>();
 
 const rows = computed(() => draftRows(props.proposal, props.draft));
+
+/**
+ * How many options a question shows before "Show all answers". A checkbox question's one-off
+ * answers run to hundreds; every one is there to keep, but listing them all at once buried the
+ * ledger (bug 4).
+ */
+const FIRST_OPTIONS = 20;
+const showingAll = ref<Set<number>>(new Set());
+
+function shownOptions(row: LedgerRow) {
+  const options = row.field?.options ?? [];
+  return showingAll.value.has(first(row)) ? options : options.slice(0, FIRST_OPTIONS);
+}
+
+function toggleShowAll(row: LedgerRow) {
+  const next = new Set(showingAll.value);
+  if (next.has(first(row))) next.delete(first(row));
+  else next.add(first(row));
+  showingAll.value = next;
+}
+
+/** Keep every option of the row's reading, one-offs included, in one click (bug 4). */
+function keepAll(row: LedgerRow) {
+  const choice = props.draft.rows[first(row)];
+  if (!choice || !row.field) return;
+  emit('correct', first(row), {
+    kept: { ...choice.kept, [choice.type]: row.field.options.map((o) => o.value) },
+  });
+}
 const counts = computed(() => proposalCounts(props.proposal, props.draft));
 const plan = computed(() => props.proposal.plan);
 const planChecks = computed(() => planRowsToCheck(props.proposal, props.draft));
@@ -354,7 +383,7 @@ function onSettle(kind: string, value: string, choice: string) {
                 data-testid="proposal-row-options"
               >
                 <label
-                  v-for="option in row.field.options"
+                  v-for="option in shownOptions(row)"
                   :key="option.value"
                   class="option"
                   :class="{ rare: option.rare }"
@@ -370,11 +399,46 @@ function onSettle(kind: string, value: string, choice: string) {
                     option.rare ? `chosen by ${option.count} - keep?` : option.count
                   }}</span>
                 </label>
-                <span v-if="row.field.unlistedOptions" class="muted"
-                  >and {{ row.field.unlistedOptions }} one-off answers, which the form builder can
-                  add</span
-                >
               </div>
+              <div
+                v-if="row.fate === 'custom' && row.field?.options.length"
+                class="options-actions"
+              >
+                <button
+                  v-if="row.field.options.length > FIRST_OPTIONS"
+                  type="button"
+                  class="btn btn--compact btn--secondary"
+                  data-testid="proposal-row-show-all"
+                  @click="toggleShowAll(row)"
+                >
+                  {{
+                    showingAll.has(first(row))
+                      ? 'Show fewer answers'
+                      : `Show all answers (${row.field.options.length - FIRST_OPTIONS} more)`
+                  }}
+                </button>
+                <button
+                  v-if="row.field.options.some((o) => !o.keep)"
+                  type="button"
+                  class="btn btn--compact btn--secondary"
+                  data-testid="proposal-row-keep-all"
+                  @click="keepAll(row)"
+                >
+                  Keep all {{ row.field.options.length }}
+                </button>
+              </div>
+              <!-- Said before it happens: a required question an applicant has no kept answer to
+                   refuses their whole application at the import (bug 4). -->
+              <p
+                v-if="row.fate === 'custom' && row.field?.required && row.field.dropped"
+                class="dropped"
+                data-testid="proposal-row-dropped"
+              >
+                {{ row.field.dropped }} applicant{{ row.field.dropped === 1 ? '' : 's' }} answered
+                only options that are left out, so
+                {{ row.field.dropped === 1 ? 'their application' : 'their applications' }} would not
+                import. Keep their answers, or make this question optional.
+              </p>
 
               <div
                 v-if="row.fate === 'custom' && row.field && keepsNoOption(row.field)"
@@ -565,6 +629,19 @@ function onSettle(kind: string, value: string, choice: string) {
 
 .option.rare {
   color: var(--mm-text-muted);
+}
+
+.options-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.dropped {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-yellow);
 }
 
 .quote {

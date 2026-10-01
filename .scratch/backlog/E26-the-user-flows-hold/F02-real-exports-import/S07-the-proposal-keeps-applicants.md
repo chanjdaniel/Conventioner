@@ -2,7 +2,7 @@
 id: E26/F02/S07
 title: The proposal keeps applicants and whole labels
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -17,7 +17,7 @@ Closes bugs 4, 41 in `docs/MVP_BUGS.md`; each one's reproduction there is the st
 
 ## Acceptance criteria
 
-- [ ] "Keep all" keeps every answer of that question.
-- [ ] "Show all answers" lists the one-off answers with checkboxes.
-- [ ] A required question says how many applicants its left-out options would drop.
-- [ ] No proposed label ends mid-sentence on the five anonymised exports.
+- [x] "Keep all" keeps every answer of that question.
+- [x] "Show all answers" lists the one-off answers with checkboxes.
+- [x] A required question says how many applicants its left-out options would drop.
+- [x] No proposed label ends mid-sentence on the five anonymised exports.

@@ -25,9 +25,10 @@ export interface ProposedOption {
 }
 
 export interface ProposedChoices {
+  /** Every option, one-offs included: an answer that is not listed cannot be kept (bug 4). */
   options: ProposedOption[];
-  /** Answers not listed, one applicant's each. */
-  unlisted: number;
+  /** What each applicant answered, as indexes into `options`, one list per applicant. */
+  answers: number[][];
 }
 
 export interface ProposedField {
@@ -37,7 +38,11 @@ export interface ProposedField {
   type: FieldType;
   required: boolean;
   options: ProposedOption[];
-  unlistedOptions: number;
+  /**
+   * How many applicants answered only options that are not kept, so would have no answer here.
+   * Worked out by the ledger from the answers, for whichever options are kept.
+   */
+  dropped?: number;
   /** A file upload in the Google Form, proposed as a question asking for a link. */
   upload: boolean;
   /** The options each choice type reads from the answers: whole answers, or options inside them. */
@@ -311,15 +316,27 @@ export function draftRows(proposal: Proposal, draft: ProposalDraft): LedgerRow[]
 function optionsFor(
   field: ProposedField,
   choice: RowChoice,
-): Pick<ProposedField, 'options' | 'unlistedOptions'> {
-  if (!isChoice(choice.type)) return { options: [], unlistedOptions: 0 };
+): Pick<ProposedField, 'options' | 'dropped'> {
+  if (!isChoice(choice.type)) return { options: [], dropped: 0 };
   const read = field.optionsByType[choice.type];
-  if (!read) return { options: [], unlistedOptions: 0 };
-  const kept = choice.kept[choice.type] ?? [];
+  if (!read) return { options: [], dropped: 0 };
+  const kept = new Set(choice.kept[choice.type] ?? []);
   return {
-    options: read.options.map((o) => ({ ...o, keep: kept.includes(o.value) })),
-    unlistedOptions: read.unlisted,
+    options: read.options.map((o) => ({ ...o, keep: kept.has(o.value) })),
+    dropped: droppedBy(read, kept),
   };
+}
+
+/**
+ * How many applicants answered only options outside `kept`. A required question then has no
+ * answer from them, and the import refuses their whole application (bug 4). Nothing kept at all is
+ * not this case: confirm makes that a question answered in words, which keeps every answer.
+ */
+export function droppedBy(read: ProposedChoices, kept: Set<string>): number {
+  if (kept.size === 0) return 0;
+  return read.answers.filter(
+    (answer) => answer.length > 0 && !answer.some((i) => kept.has(read.options[i]?.value ?? '')),
+  ).length;
 }
 
 /** The essential questions no column answers now, with what becomes of each and why - the
