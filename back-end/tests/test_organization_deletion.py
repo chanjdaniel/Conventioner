@@ -288,3 +288,55 @@ class TestTheTrail:
         assert written[0]["organization_name"] == "Ember Markets"
         assert written[0]["markets"][0]["name"] == "Winter Market"
         assert written[0]["actor_email"] == OWNER_EMAIL
+
+
+class TestAMarketsRecordsGoWithIt:
+    """A market's applications, check-ins, sign-in codes and placement trail are kept beside it
+    and deleted with it, by either door (bug 47). Deleting the document alone left every vendor's
+    name, email and answers behind for ever, describing a market nobody could reach."""
+
+    @staticmethod
+    def _plant(applications, market_records, market_id):
+        applications.documents.append({"id": f"app-{market_id}", "market_id": market_id})
+        market_records.attendance.documents.append({"market_id": market_id, "email": "v@x.test"})
+        market_records.challenges.documents.append({"market_id": market_id, "email": "v@x.test"})
+        market_records.history.documents.append({"market_id": market_id})
+
+    @staticmethod
+    def _left(applications, market_records):
+        return sorted({
+            doc["market_id"]
+            for collection in (applications, market_records.attendance,
+                               market_records.challenges, market_records.history)
+            for doc in collection.documents
+        })
+
+    def test_deleting_the_organization_deletes_its_markets_records(
+        self, org, applications, market_records,
+    ):
+        org(_market("m-1", MarketPhase.DRAFT), _market("m-2", MarketPhase.ARCHIVED))
+        for market_id in ("m-1", "m-2", "elsewhere"):
+            self._plant(applications, market_records, market_id)
+
+        OrgsApi.delete_organization(ORG_ID, OWNER_EMAIL)
+
+        assert self._left(applications, market_records) == ["elsewhere"]
+
+    def test_deleting_the_market_deletes_its_records(
+        self, monkeypatch, applications, market_records,
+    ):
+        import api.markets as MarketsApi
+        from conftest import FakeMarketsCollection, stored_market
+        from datatypes import MarketRole
+
+        markets = FakeMarketsCollection(stored_market(id="m-1"))
+        monkeypatch.setattr(MarketsApi, "markets_collection", markets)
+        monkeypatch.setattr(
+            MarketsApi.PermissionsApi, "get_user_market_role", lambda *_a, **_k: MarketRole.OWNER,
+        )
+        for market_id in ("m-1", "elsewhere"):
+            self._plant(applications, market_records, market_id)
+
+        MarketsApi.delete_market("m-1", OWNER_EMAIL)
+
+        assert self._left(applications, market_records) == ["elsewhere"]

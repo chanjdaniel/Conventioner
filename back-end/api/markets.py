@@ -44,6 +44,7 @@ from market_documents import (
     market_from_document,
 )
 import api.permissions as PermissionsApi
+import market_deletion as MarketDeletion
 import placement_history as PlacementHistory
 import api.organizations as OrgsApi
 import api.users as UsersApi
@@ -1311,14 +1312,9 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
         except Exception as e:
             logger.warning(f"Failed to remove market from organization: {e}")
 
-    # The placement trail is kept WITH the market, not beyond it (E11/F04/S01). It names the
-    # organizers who made each change, so leaving it behind would outlive the thing it describes.
-    try:
-        PlacementHistory.delete_for_market(market_id)
-    except Exception as e:
-        logger.warning(f"Failed to delete placement history for market {market_id}: {e}")
-
-    return markets_collection.delete_one({"id": market_id})
+    # Its applications, check-ins, sign-in codes and placement trail go with it (bug 47): each
+    # names people, and leaving them behind would outlive the thing they describe.
+    return MarketDeletion.delete_market_and_records(markets_collection, market_id)
 
 
 RENAME_REFUSED_AFTER_DRAFT = (

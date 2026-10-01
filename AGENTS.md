@@ -657,6 +657,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   air and destroys the record of a market that ran. Reaffirmed 2026-09-22. The confirmation
   therefore names what each deletion destroys per market, and `back-end/deletion_trail.py` records
   it - written BEFORE anything is destroyed, and allowed to fail the whole operation.
+- **A market's records go with it, by either door** (bug 47): `back-end/market_deletion.py` deletes
+  its applications, check-ins, applicant sign-in codes and placement trail, then the market. A new
+  collection keyed by `market_id` belongs there; deleting the market document alone once left every
+  vendor's name, email and answers behind for ever.
 - **`back-end/api/form_amendment.py` fixes the application form from inside the import** (E20/F03).
   It **adds no transition edge**: the route is a breadth-first walk of `VALID_TRANSITIONS`, two hops
   from `applications_open` and four from `applications_closed`, and the market returns to the phase

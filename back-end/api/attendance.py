@@ -228,3 +228,8 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
         "assignments": matched,
     }
     return convert_keys_to_camel_case(payload), 200
+
+
+def delete_attendance_for_market(market_id: str) -> int:
+    """Take a market's check-ins with the market (``market_deletion``). Returns how many went."""
+    return attendance_collection.delete_many({"market_id": market_id}).deleted_count
