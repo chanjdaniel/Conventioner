@@ -249,7 +249,10 @@ function isRestored(key: string | undefined): boolean {
  * only its text changes.
  */
 function offeredLabel(target: string, value: string): string {
-  if (target === AVAILABLE_DATES_KEY) return getFormattedDate(value) ?? value;
+  // A market day reads as a day wherever it is offered: for availability, and for a tier grid's
+  // day headings, which are matched to days rather than tiers (bug 26).
+  const day = target === AVAILABLE_DATES_KEY || target === TIER_PREFERENCE_KEY;
+  if (day && /^\d{4}-\d{2}-\d{2}$/.test(value)) return getFormattedDate(value) ?? value;
   return value;
 }
 

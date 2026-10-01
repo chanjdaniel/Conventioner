@@ -26,7 +26,7 @@ import io
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
@@ -329,12 +329,17 @@ def offered_values(
 
 def resolve_value(
     raw: str, offered: List[str], resolutions: Dict[str, Optional[str]],
+    recognise: Optional[Callable[[str], Optional[str]]] = None,
 ) -> Tuple[Optional[str], bool]:
     """One cell value against what the market offers.
 
     Returns ``(value, resolved)``. ``value`` is None when the organizer has explicitly chosen to
     ignore this value; ``resolved`` is False when nobody has said what it means yet, which is what
     blocks the import.
+
+    ``recognise`` reads a value the market offers under another spelling (a date in words). It
+    runs before the saved decisions, as an exact match does: a value the import can read needs no
+    decision, and a stale "ignore" saved for it must not outrank it.
     """
     text = str(raw).strip()
     if not text:
@@ -344,6 +349,10 @@ def resolve_value(
     for candidate in offered:
         if normalize_value(candidate) == normalized:
             return candidate, True
+
+    recognised = recognise(text) if recognise else None
+    if recognised is not None:
+        return recognised, True
 
     if text in resolutions:
         return resolutions[text], True
@@ -540,6 +549,62 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
 
 WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
             "mon", "tue", "wed", "thu", "fri", "sat", "sun")
+MONTHS = {month: number for number, month in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+WEEKDAY_NUMBER = {day: number for number, day in enumerate(
+    ["mon", "tue", "wed", "thu", "fri", "sat", "sun"])}
+# "Monday, November 20th", "Nov 20", "Saturday, October 3, 2026".
+DATE_TEXT = re.compile(
+    r"^(?:(?P<weekday>[a-z]+),?\s+)?(?P<month>[a-z]+)\.?\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?"
+    r"(?:,?\s+(?P<year>\d{4}))?$",
+    re.IGNORECASE)
+# Answers that mean "not on this day" in a per-day grid. The applicant form itself offers "Not
+# available", so reading only "None" left every such cell as a tier nobody offered (bug 26).
+NONE_WORDS = {"none", "n/a", "na", "not available", "unavailable", "-"}
+
+
+def parse_date(text: str) -> Optional[Tuple[int, int, Optional[int]]]:
+    """``(month, day, weekday)`` from "Monday, November 20th" or "Nov 20", or None."""
+    parts = _date_parts(text)
+    return parts[:3] if parts else None
+
+
+def _date_parts(text: str) -> Optional[Tuple[int, int, Optional[int], Optional[int]]]:
+    match = DATE_TEXT.match(str(text).strip())
+    if not match or match.group("month")[:3].lower() not in MONTHS:
+        return None
+    weekday = (match.group("weekday") or "")[:3].lower()
+    year = match.group("year")
+    return (MONTHS[match.group("month")[:3].lower()], int(match.group("day")),
+            WEEKDAY_NUMBER.get(weekday), int(year) if year else None)
+
+
+def plan_date_named(text: str, plan_dates: Sequence[str]) -> Optional[str]:
+    """The one plan date a date written in words names, or None.
+
+    A Google Form names a day as the organizer typed it - "Saturday, October 3" - and only an ISO
+    heading used to match, so every real day heading had to be matched by hand, and a tier grid's
+    could not be matched at all (bug 26). The month and day must name exactly one of the plan's
+    dates, and a weekday or a year, when given, must agree with it.
+    """
+    parts = _date_parts(text)
+    if not parts:
+        return None
+    month, day, weekday, year = parts
+    named = []
+    for iso in plan_dates:
+        try:
+            when = datetime.strptime(str(iso), "%Y-%m-%d")
+        except ValueError:
+            continue
+        if (when.month, when.day) != (month, day):
+            continue
+        if year is not None and when.year != year:
+            continue
+        if weekday is not None and when.weekday() != weekday:
+            continue
+        named.append(str(iso))
+    return named[0] if len(named) == 1 else None
 # What follows a weekday when the two are one day: "Monday, November 20th" or "Monday, 20 November".
 _DAY_OF_MONTH = re.compile(r"^\s*(\d|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b)",
                            re.IGNORECASE)
@@ -665,7 +730,7 @@ def _tier_grid(
     for index in columns:
         date = _grid_option(headers[index])
         cell = str(row[index]).strip() if index < len(row) else ""
-        tiers = [name for name in _split_multi(cell, known) if name.lower() != "none"]
+        tiers = [name for name in _split_multi(cell, known) if name.lower() not in NONE_WORDS]
         if tiers:
             per_date[date] = tiers
     return per_date
@@ -777,7 +842,7 @@ def unserved_required(targets: Sequence[ImportTarget], resolved: Dict[str, Any])
 
 def _matched_tiers_by_date(
     value: Any, options: Any, resolutions: Dict[str, Optional[str]],
-) -> Tuple[Any, List[str]]:
+) -> Tuple[Any, List[str], List[str]]:
     """Match a per-date tier answer, whose keys and values are drawn from different offerings.
 
     A tier grid is the one answer with two vocabularies in it: the KEYS are market dates, spelled
@@ -785,24 +850,44 @@ def _matched_tiers_by_date(
     tier names. Each half is matched against its own offering, so the organizer resolves a date
     heading once and a tier name once - not once per row, and never the two confused for each
     other.
+
+    Returns ``(answer, unmatched days, unmatched tiers)``: kept apart because each is matched
+    against its own offering, and a day heading offered only tiers to choose from could never be
+    matched at all (bug 26).
     """
     if not isinstance(value, dict):
-        return _matched(value, list(options.tiers or []), resolutions)
+        kept_tiers, unmatched_tiers = _matched(value, list(options.tiers or []), resolutions)
+        return kept_tiers, [], unmatched_tiers
 
+    dates = list(options.dates or [])
     kept: Dict[str, List[str]] = {}
-    unmatched: List[str] = []
+    unmatched_dates: List[str] = []
+    unmatched_tiers: List[str] = []
     for raw_date, raw_tiers in value.items():
-        date, date_unmatched = _matched(raw_date, list(options.dates or []), resolutions)
+        date, date_unmatched = _matched(raw_date, dates, resolutions, _date_reader(dates))
         tiers, tier_unmatched = _matched(list(raw_tiers or []), list(options.tiers or []), resolutions)
-        unmatched.extend(date_unmatched)
-        unmatched.extend(tier_unmatched)
+        unmatched_dates.extend(date_unmatched)
+        unmatched_tiers.extend(tier_unmatched)
         if date and tiers:
             kept[date] = tiers
-    return kept, unmatched
+    return kept, unmatched_dates, unmatched_tiers
+
+
+def _date_reader(dates: Sequence[str]) -> Callable[[str], Optional[str]]:
+    """Reads a date in words as the one plan date it names."""
+    return lambda text: plan_date_named(text, dates)
+
+
+def _recogniser(key: str, options: Any) -> Optional[Callable[[str], Optional[str]]]:
+    """What reads a target's answers under another spelling: the days, for availability."""
+    if key == EssentialFields.AVAILABLE_DATES_KEY:
+        return _date_reader(list(options.dates or []))
+    return None
 
 
 def _matched(
     value: Any, offered: List[str], resolutions: Dict[str, Optional[str]],
+    recognise: Optional[Callable[[str], Optional[str]]] = None,
 ) -> Tuple[Any, List[str]]:
     """Apply the market's own names to a target's answer.
 
@@ -813,7 +898,7 @@ def _matched(
         kept: List[str] = []
         unmatched: List[str] = []
         for item in value:
-            resolved, known = resolve_value(item, offered, resolutions)
+            resolved, known = resolve_value(item, offered, resolutions, recognise)
             if not known:
                 unmatched.append(str(item).strip())
             elif resolved is not None and resolved not in kept:
@@ -822,7 +907,7 @@ def _matched(
                 kept.append(resolved)
         return kept, unmatched
 
-    resolved, known = resolve_value(value, offered, resolutions)
+    resolved, known = resolve_value(value, offered, resolutions, recognise)
     if not known:
         return value, [str(value).strip()]
     return (resolved if resolved is not None else ""), []
@@ -877,13 +962,15 @@ def _assembled_rows(
             known = _known_values(target, options, field, resolutions.get(key, {}))
             value = _raw_values(target, headers, row, indexes, field, known)
             if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(value, dict):
-                value, _unmatched = _matched_tiers_by_date(
+                value, _days, _tiers = _matched_tiers_by_date(
                     value, options, resolutions.get(key, {}),
                 )
             else:
                 offered = offered_values(target, options, field)
                 if offered is not None:
-                    value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
+                    value, _unmatched = _matched(
+                        value, offered, resolutions.get(key, {}), _recogniser(key, options),
+                    )
             form_data[key] = _stored_answer(key, value)
 
         # How the two answers become the stored shape is the contract's own rule, not the
@@ -1030,6 +1117,7 @@ def preview_values(
 
     tally: Dict[Tuple[str, str], int] = {}
     order: List[Tuple[str, str]] = []
+    offered_for: Dict[Tuple[str, str], List[str]] = {}
     for row in rows:
         for key, value in mapping.items():
             target = targets.get(key)
@@ -1046,14 +1134,21 @@ def preview_values(
             )
             raw = _raw_values(target, headers, row, indexes, fields_by_key.get(key), known)
             if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(raw, dict):
-                _kept, unmatched = _matched_tiers_by_date(raw, options, resolutions.get(key, {}))
+                _kept, days, tiers = _matched_tiers_by_date(raw, options, resolutions.get(key, {}))
+                # A day heading is matched to one of the market's days, a cell to one of its tiers.
+                misses = [(item, list(options.dates or [])) for item in days]
+                misses += [(item, offered) for item in tiers]
             else:
-                _kept, unmatched = _matched(raw, offered, resolutions.get(key, {}))
-            for item in unmatched:
+                _kept, unmatched = _matched(
+                    raw, offered, resolutions.get(key, {}), _recogniser(key, options),
+                )
+                misses = [(item, offered) for item in unmatched]
+            for item, choices in misses:
                 slot = (key, item)
                 if slot not in tally:
                     tally[slot] = 0
                     order.append(slot)
+                    offered_for[slot] = choices
                 tally[slot] += 1
 
     unmatched_payload = [
@@ -1062,7 +1157,7 @@ def preview_values(
             "targetLabel": targets[key].label,
             "value": item,
             "rows": tally[(key, item)],
-            "offered": offered_values(targets[key], options, fields_by_key.get(key)) or [],
+            "offered": offered_for[(key, item)],
         }
         for key, item in order
     ]

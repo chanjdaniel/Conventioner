@@ -31,8 +31,8 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 import essential_fields as EssentialFields
 import typesafe_client as TypeSafe
 from csv_import import (
-    GRID_HEADER, collapse_header, column_groups, normalized_submitted_at, parse_csv, resolve_value,
-    split_options,
+    GRID_HEADER, NONE_WORDS, collapse_header, column_groups, normalized_submitted_at,
+    parse_csv, parse_date, resolve_value, split_options,
 )
 from datatypes import MarketPhase, phase_from_market_document
 from market_documents import market_doc_field
@@ -73,14 +73,6 @@ NUMBER = re.compile(r"^\s*\$?\d+(\.\d+)?\s*$")
 DRIVE_UPLOAD = re.compile(r"^https://drive\.google\.com/open\?id=")
 DATE_LIKE = re.compile(r"^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}$")
 
-MONTHS = {month: number for number, month in enumerate(
-    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
-WEEKDAY_NUMBER = {day: number for number, day in enumerate(
-    ["mon", "tue", "wed", "thu", "fri", "sat", "sun"])}
-DATE_TEXT = re.compile(
-    r"^(?:(?P<weekday>[a-z]+),?\s+)?(?P<month>[a-z]+)\.?\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?$",
-    re.IGNORECASE)
-NONE_WORDS = {"none", "n/a", "na", "not available", "unavailable", "-"}
 NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
 # The ceiling on days per vendor, as a form's instructions state it.
 CEILING = re.compile(
@@ -117,16 +109,6 @@ LABEL_MAX = 120
 KEY_MAX = 40
 
 # --- Reading answers ----------------------------------------------------------------------------
-
-
-def parse_date(text: str) -> Optional[Tuple[int, int, Optional[int]]]:
-    """``(month, day, weekday)`` from "Monday, November 20th" or "Nov 20", or None."""
-    match = DATE_TEXT.match(str(text).strip())
-    if not match or match.group("month")[:3].lower() not in MONTHS:
-        return None
-    weekday = (match.group("weekday") or "")[:3].lower()
-    return (MONTHS[match.group("month")[:3].lower()], int(match.group("day")),
-            WEEKDAY_NUMBER.get(weekday))
 
 
 def _identifying(value: str) -> bool:

@@ -2,7 +2,7 @@
 id: E26/F02/S05
 title: A tier grid's day headings match dates
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,6 +16,6 @@ Closes bugs 26 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] A grid headed "[Saturday, October 3]" imports into a market on 3 October.
-- [ ] An unmatched heading offers the market's dates to match.
-- [ ] "Not available" and "None" both mean unavailable.
+- [x] A grid headed "[Saturday, October 3]" imports into a market on 3 October.
+- [x] An unmatched heading offers the market's dates to match.
+- [x] "Not available" and "None" both mean unavailable.
