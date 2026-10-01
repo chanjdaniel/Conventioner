@@ -74,6 +74,11 @@ interface UnmatchedValue {
   offered: string[];
 }
 
+/** A value a saved decision settles, with that decision: listed so it can be changed. */
+interface DecidedValue extends UnmatchedValue {
+  choice: string | null;
+}
+
 interface ImportFailure {
   row: number;
   email: string;
@@ -150,6 +155,8 @@ const groupTarget = ref<Record<string, string>>({});
 const splitStems = ref<Set<string>>(new Set());
 
 const unmatched = ref<UnmatchedValue[]>([]);
+/** The file's values a decision already settles - restored, saved by the proposal, or made here. */
+const decided = ref<DecidedValue[]>([]);
 /** target -> raw value -> the market's own name for it, or '' meaning "ignore this value". */
 const resolutions = ref<Record<string, Record<string, string>>>({});
 
@@ -233,6 +240,11 @@ function singleShapeLabel(index: number): string {
 function unmatchedFor(key: string | undefined): UnmatchedValue[] {
   if (!key) return [];
   return unmatched.value.filter((entry) => entry.target === key);
+}
+
+function decidedFor(key: string | undefined): DecidedValue[] {
+  if (!key) return [];
+  return decided.value.filter((entry) => entry.target === key);
 }
 
 /** Was this row's target restored from last time, rather than chosen just now? */
@@ -518,6 +530,8 @@ async function onAmended() {
   groupTarget.value = { ...groupTarget.value, ...keptGroups };
   resolutions.value = { ...keptResolutions };
   step.value = keptStep;
+  // What the values mean follows the decisions just put back, not the ones inspect restored.
+  await readValues(false).catch(() => {});
   await loadAmendAvailability();
 }
 
@@ -538,6 +552,7 @@ async function inspect() {
     columnTarget.value = {};
     groupTarget.value = {};
     unmatched.value = [];
+    decided.value = [];
     resolutions.value = {};
     // Seed every column with '' - the "Ignore this column" option's value. Left undefined, the
     // select matches no option, reports selectedIndex -1 and renders completely blank, so an
@@ -581,6 +596,9 @@ async function inspect() {
       ]),
     );
     step.value = 'map';
+    // A restored mapping carries decisions about this file's values: read them now, so they are on
+    // the page to be seen and changed before anything is previewed (bug 28).
+    if (Object.keys(data.restoredMapping ?? {}).length) await readValues(false);
   } catch (e) {
     error.value = getApiErrorMessage(e, 'That file could not be read.');
   } finally {
@@ -621,27 +639,33 @@ async function checkValues() {
   busy.value = true;
   error.value = '';
   try {
-    const { data } = await api.post(`/markets/${marketId.value}/applications/import/preview`, {
-      csvContent: csvContent.value,
-      mapping: currentMapping(),
-      resolutions: currentResolutions(),
-    });
-    unmatched.value = data.unmatched ?? [];
-    validRows.value = data.validRows ?? 0;
-    previewFailures.value = data.failures ?? [];
-    newRows.value = data.newRows ?? 0;
-    updatedRows.value = data.updatedRows ?? 0;
-    absentApplications.value = data.absentApplications ?? 0;
-    absentEmails.value = data.absentEmails ?? [];
-    returningToReview.value = data.returningToReview ?? 0;
-    returningEmails.value = data.returningEmails ?? [];
-    repeats.value = data.repeats ?? [];
-    if (unmatched.value.length === 0) step.value = 'preview';
+    await readValues(true);
   } catch (e) {
     error.value = getApiErrorMessage(e, 'That file could not be checked.');
   } finally {
     busy.value = false;
   }
+}
+
+/** The dry run: what the file's values mean, and - with `advance` - on to the preview. */
+async function readValues(advance: boolean) {
+  const { data } = await api.post(`/markets/${marketId.value}/applications/import/preview`, {
+    csvContent: csvContent.value,
+    mapping: currentMapping(),
+    resolutions: currentResolutions(),
+  });
+  unmatched.value = data.unmatched ?? [];
+  decided.value = data.decided ?? [];
+  validRows.value = data.validRows ?? 0;
+  previewFailures.value = data.failures ?? [];
+  newRows.value = data.newRows ?? 0;
+  updatedRows.value = data.updatedRows ?? 0;
+  absentApplications.value = data.absentApplications ?? 0;
+  absentEmails.value = data.absentEmails ?? [];
+  returningToReview.value = data.returningToReview ?? 0;
+  returningEmails.value = data.returningEmails ?? [];
+  repeats.value = data.repeats ?? [];
+  if (advance && unmatched.value.length === 0) step.value = 'preview';
 }
 
 async function runImport() {
@@ -841,6 +865,15 @@ function startOver() {
                       :label-for="offeredLabel"
                       @resolve="setResolution"
                     />
+                    <ValueFixes
+                      v-if="decidedFor(groupTarget[row.group.stem]).length"
+                      :entries="decidedFor(groupTarget[row.group.stem])"
+                      :resolution-for="resolutionFor"
+                      :label-for="offeredLabel"
+                      decided
+                      testid="import-decided"
+                      @resolve="setResolution"
+                    />
                   </td>
                 </tr>
                 <tr
@@ -963,6 +996,16 @@ function startOver() {
                     :entries="unmatchedFor(columnTarget[row.index])"
                     :resolution-for="resolutionFor"
                     :label-for="offeredLabel"
+                    @resolve="setResolution"
+                  />
+                  <!-- And the values a decision already settles, so a wrong one can be put right. -->
+                  <ValueFixes
+                    v-if="decidedFor(columnTarget[row.index]).length"
+                    :entries="decidedFor(columnTarget[row.index])"
+                    :resolution-for="resolutionFor"
+                    :label-for="offeredLabel"
+                    decided
+                    testid="import-decided"
                     @resolve="setResolution"
                   />
                 </td>

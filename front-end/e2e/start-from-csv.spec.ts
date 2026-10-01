@@ -260,6 +260,9 @@ test.describe('Start from your Google Form', () => {
     await expect(importer.restoredNew).toHaveCount(0);
     await expect(importer.valueFixes).toHaveCount(0);
     await expect(importer.unresolvedWarning).toHaveCount(0);
+    // Nothing to ask - but what the proposal decided about the file's values is on the page, in
+    // the row it belongs to, where a wrong decision can be changed (bug 28).
+    await expect(importer.decidedValues.first()).toBeVisible();
 
     // And through Preview and Confirm, where it used to import nothing (bugs 2 and 3): Google
     // exports a ticked certification box as the box's own text, and "Full table" and "Half table"

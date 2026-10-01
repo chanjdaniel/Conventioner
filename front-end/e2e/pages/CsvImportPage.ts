@@ -42,6 +42,8 @@ export class CsvImportPage {
   readonly valueFixes: Locator;
   readonly unmatchedValues: Locator;
   readonly unresolvedWarning: Locator;
+  readonly decidedValues: Locator;
+  readonly backButton: Locator;
 
   // The dry run
   readonly previewButton: Locator;
@@ -87,6 +89,8 @@ export class CsvImportPage {
     this.valueFixes = page.getByTestId('import-value-fixes');
     this.unmatchedValues = page.getByTestId('import-unmatched-value');
     this.unresolvedWarning = page.getByTestId('import-unresolved-warning');
+    this.decidedValues = page.getByTestId('import-decided-unmatched-value');
+    this.backButton = page.getByTestId('import-back-button');
 
     this.previewButton = page.getByTestId('import-preview-button');
     this.previewCounts = page.getByTestId('import-preview-counts');
@@ -174,6 +178,11 @@ export class CsvImportPage {
   /** Resolve an unrecognised cell value onto one the market knows. */
   async resolveValue(value: string, to: string): Promise<void> {
     await this.valueFix(value).selectOption(to);
+  }
+
+  /** The select holding a decision already made about a value - restored, or made earlier. */
+  decision(value: string): Locator {
+    return this.page.getByTestId(`import-decided-fix-${value}`);
   }
 
   /** Ask for the dry run. Writes nothing. */

@@ -6,6 +6,7 @@
  * The import's control, and the proposal ledger's for a tier or a date the plan does not have:
  * one control, so an organizer settles a stray value the same way wherever they meet one.
  */
+import { computed, ref } from 'vue';
 import { IGNORE_VALUE } from '@/utils/valueFixes';
 
 export interface ValueFix {
@@ -25,14 +26,32 @@ const props = withDefaults(
     against?: string;
     /** Test id prefix, the view's own: `<testid>-value-fixes`, `-unmatched-value`, `-fix-<value>`. */
     testid?: string;
+    /**
+     * Values already decided rather than waiting on a decision (bug 28): listed so a decision -
+     * restored from the last import, saved by the proposal, or made a moment ago - can be seen and
+     * changed, in a quiet box because nothing here is wrong.
+     */
+    decided?: boolean;
   }>(),
   {
     labelFor: (_target: string, choice: string) => choice,
     against: 'your market',
     testid: 'import',
+    decided: false,
   },
 );
 const emit = defineEmits<{ resolve: [target: string, value: string, choice: string] }>();
+
+/**
+ * A long list of decisions is shown a few at a time. A market started from its Google Form can
+ * carry a hundred "ignore" decisions for one question, and listing every one buried the column
+ * rows under thousands of pixels of them. Values still waiting on a decision are always all shown.
+ */
+const FIRST_DECIDED = 6;
+const expanded = ref(false);
+const shown = computed(() =>
+  props.decided && !expanded.value ? props.entries.slice(0, FIRST_DECIDED) : props.entries,
+);
 
 function choose(entry: ValueFix, event: Event) {
   emit('resolve', entry.target, entry.value, (event.target as HTMLSelectElement).value);
@@ -40,12 +59,20 @@ function choose(entry: ValueFix, event: Event) {
 </script>
 
 <template>
-  <div class="ledger-fixes" :data-testid="`${testid}-value-fixes`">
-    <p class="ledger-fixes-title">
+  <div
+    class="ledger-fixes"
+    :class="{ 'ledger-fixes--decided': decided }"
+    :data-testid="`${testid}-value-fixes`"
+  >
+    <p v-if="decided" class="ledger-fixes-title">
+      {{ entries.length }} value{{ entries.length === 1 ? '' : 's' }} already decided - change any
+      that are wrong
+    </p>
+    <p v-else class="ledger-fixes-title">
       {{ entries.length }} value{{ entries.length === 1 ? '' : 's' }} did not match
       {{ against }}
     </p>
-    <div v-for="entry in entries" :key="`${entry.target}-${entry.value}`" class="ledger-fix">
+    <div v-for="entry in shown" :key="`${entry.target}-${entry.value}`" class="ledger-fix">
       <code :data-testid="`${testid}-unmatched-value`">{{ entry.value }}</code>
       <span v-if="entry.rows !== undefined" class="ledger-fix-rows"
         >{{ entry.rows }} row{{ entry.rows === 1 ? '' : 's' }}</span
@@ -63,6 +90,15 @@ function choose(entry: ValueFix, event: Event) {
         <option :value="IGNORE_VALUE">Ignore this value</option>
       </select>
     </div>
+    <button
+      v-if="decided && entries.length > FIRST_DECIDED"
+      type="button"
+      class="btn btn--compact btn--secondary ledger-fixes-more"
+      :data-testid="`${testid}-show-all`"
+      @click="expanded = !expanded"
+    >
+      {{ expanded ? 'Show fewer' : `Show all ${entries.length}` }}
+    </button>
   </div>
 </template>
 
@@ -79,6 +115,23 @@ function choose(entry: ValueFix, event: Event) {
   margin: 0 0 var(--space-1);
   font-size: var(--text-xs);
   color: var(--mm-red);
+}
+
+.ledger-fixes-more {
+  margin-top: var(--space-2);
+}
+
+.ledger-fixes--decided {
+  border-color: var(--mm-border);
+  background: var(--mm-beige);
+}
+
+.ledger-fixes--decided .ledger-fixes-title {
+  color: var(--mm-text-muted);
+}
+
+.ledger-fixes--decided .ledger-fix code {
+  background: white;
 }
 
 .ledger-fix {
