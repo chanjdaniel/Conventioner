@@ -873,6 +873,28 @@ def _matched_tiers_by_date(
     return kept, unmatched_dates, unmatched_tiers
 
 
+def _saved_decision(
+    raw: Any, offered: Sequence[str], resolutions: Dict[str, Optional[str]],
+    recognise: Optional[Callable[[str], Optional[str]]] = None,
+) -> Optional[str]:
+    """The saved decision a value is settled by - its key - or None when it needs none.
+
+    A value the market offers, or one the import reads for itself, is settled without one; so is
+    a blank. Only what is left consults the decisions, exactly as ``resolve_value`` does.
+    """
+    text = str(raw).strip()
+    if not text:
+        return None
+    normalized = normalize_value(text)
+    if any(normalize_value(candidate) == normalized for candidate in offered):
+        return None
+    if recognise and recognise(text) is not None:
+        return None
+    if text in resolutions:
+        return text
+    return next((key for key in resolutions if normalize_value(key) == normalized), None)
+
+
 def _date_reader(dates: Sequence[str]) -> Callable[[str], Optional[str]]:
     """Reads a date in words as the one plan date it names."""
     return lambda text: plan_date_named(text, dates)
@@ -1118,6 +1140,9 @@ def preview_values(
     tally: Dict[Tuple[str, str], int] = {}
     order: List[Tuple[str, str]] = []
     offered_for: Dict[Tuple[str, str], List[str]] = {}
+    decided_tally: Dict[Tuple[str, str], int] = {}
+    decided_order: List[Tuple[str, str]] = []
+    decided_offered: Dict[Tuple[str, str], List[str]] = {}
     for row in rows:
         for key, value in mapping.items():
             target = targets.get(key)
@@ -1133,16 +1158,20 @@ def preview_values(
                 target, options, fields_by_key.get(key), resolutions.get(key, {}),
             )
             raw = _raw_values(target, headers, row, indexes, fields_by_key.get(key), known)
+            saved = resolutions.get(key, {})
             if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(raw, dict):
-                _kept, days, tiers = _matched_tiers_by_date(raw, options, resolutions.get(key, {}))
+                _kept, days, tiers = _matched_tiers_by_date(raw, options, saved)
                 # A day heading is matched to one of the market's days, a cell to one of its tiers.
-                misses = [(item, list(options.dates or [])) for item in days]
+                dates = list(options.dates or [])
+                misses = [(item, dates) for item in days]
                 misses += [(item, offered) for item in tiers]
+                read = [(item, dates, _date_reader(dates)) for item in raw]
+                read += [(item, offered, None) for tiers_of in raw.values() for item in tiers_of]
             else:
-                _kept, unmatched = _matched(
-                    raw, offered, resolutions.get(key, {}), _recogniser(key, options),
-                )
+                _kept, unmatched = _matched(raw, offered, saved, _recogniser(key, options))
                 misses = [(item, offered) for item in unmatched]
+                read = [(item, offered, _recogniser(key, options))
+                        for item in (raw if isinstance(raw, list) else [raw])]
             for item, choices in misses:
                 slot = (key, item)
                 if slot not in tally:
@@ -1150,6 +1179,19 @@ def preview_values(
                     order.append(slot)
                     offered_for[slot] = choices
                 tally[slot] += 1
+            # Each value a saved decision settles, so the organizer can see it and change it.
+            # Applied silently, a decision restored from the last import - or saved by the
+            # proposal - could be neither found nor undone (bug 28).
+            for item, choices, recognise in read:
+                spoken = _saved_decision(item, choices, saved, recognise)
+                if spoken is None:
+                    continue
+                slot = (key, spoken)
+                if slot not in decided_tally:
+                    decided_tally[slot] = 0
+                    decided_order.append(slot)
+                    decided_offered[slot] = choices
+                decided_tally[slot] += 1
 
     unmatched_payload = [
         {
@@ -1162,9 +1204,23 @@ def preview_values(
         for key, item in order
     ]
 
+    decided_payload = [
+        {
+            "target": key,
+            "targetLabel": targets[key].label,
+            # The decision's own spelling, which is how the organizer changes it.
+            "value": item,
+            "rows": decided_tally[(key, item)],
+            "offered": decided_offered[(key, item)],
+            "choice": resolutions.get(key, {}).get(item),
+        }
+        for key, item in decided_order
+    ]
+
     result: Dict[str, Any] = {
         "rowCount": len(rows),
         "unmatched": unmatched_payload,
+        "decided": decided_payload,
         "validRows": 0,
         "failures": [],
         "repeats": [],

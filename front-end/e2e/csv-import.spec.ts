@@ -489,6 +489,51 @@ test.describe('CSV vendor import', () => {
     await expect(importPage.preview).toBeVisible();
   });
 
+  test('a value decision stays on the mapping step, and a restored one can be changed', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 28 (E26/F02/S06): a matched value vanished once the preview ran, Back did not bring it
+    // back, and a decision restored from the last import was applied silently with no way to see
+    // or change it short of starting over.
+    const file = [HEADERS.join(','), ROWS[0].replace(',Gold,', ',Gold Tier,')].join('\n');
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+    await importPage.resolveValue('Gold Tier', 'Gold');
+    await importPage.clickPreview();
+    await expect(importPage.previewCounts).toBeVisible();
+
+    // Back from the preview: the decision is still on the page, and still what was chosen.
+    await importPage.backButton.click();
+    await expect(importPage.decidedValues).toHaveText(['Gold Tier']);
+    await expect(importPage.decision('Gold Tier')).toHaveValue('Gold');
+    await importPage.clickPreview();
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('Imported 1 new application');
+
+    // The next import restores that decision - and shows it, before any preview, to be changed.
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await expect(importPage.restoredBanner).toBeVisible();
+    await expect(importPage.decidedValues).toHaveText(['Gold Tier']);
+    await expect(importPage.decision('Gold Tier')).toHaveValue('Gold');
+    await importPage.decision('Gold Tier').selectOption('Silver');
+    await importPage.clickPreview();
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('updated 1');
+
+    const [nadia] = await listApplications(request, seed.marketId);
+    expect(nadia.formData.essential_tier_preference).toEqual({
+      '2026-08-01': ['Silver'],
+      '2026-08-08': ['Silver'],
+    });
+  });
+
   test('a re-import updates who is already here and leaves the absent alone', async ({
     authenticatedPage: page,
     request,

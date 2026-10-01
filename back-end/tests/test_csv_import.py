@@ -518,6 +518,48 @@ class TestSplittingAnAnswer:
         assert data["essential_available_dates"] == ["2026-08-01"]
 
 
+class TestTheDecisionsInPlay:
+    """Every value a saved decision settles is reported, so the organizer can see and change it.
+
+    A decision restored from the last import, or saved by the proposal, was applied silently and
+    could be neither found nor undone (bug 28).
+    """
+
+    def test_a_value_settled_by_a_saved_decision_is_reported_with_its_choice(self, markets):
+        resolutions = {EssentialFields.TIER_PREFERENCE_KEY: {"Gold Tier": "Gold"}}
+        row = GOOD_ROW.replace(",Gold,", ",Gold Tier,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(row, row.replace("nadia", "kai")),
+                                           MAPPING, resolutions)
+
+        assert body["unmatched"] == []
+        assert body["decided"] == [{
+            "target": EssentialFields.TIER_PREFERENCE_KEY, "targetLabel": "Tier preference",
+            "value": "Gold Tier", "rows": 2, "offered": TIERS, "choice": "Gold",
+        }]
+
+    def test_an_ignore_is_reported_as_a_decision_too(self, markets):
+        resolutions = {EssentialFields.TIER_PREFERENCE_KEY: {"gold tier": None}}
+        row = GOOD_ROW.replace(",Gold,", ",Gold Tier,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING, resolutions)
+
+        # Under the decision's own spelling, which is the key the organizer changes.
+        assert [(d["value"], d["choice"]) for d in body["decided"]] == [("gold tier", None)]
+
+    def test_a_value_that_needs_no_decision_is_not_reported(self, markets):
+        """An offered value, or a date the import reads for itself, outranks a stale decision."""
+        resolutions = {
+            EssentialFields.TIER_PREFERENCE_KEY: {"Gold": "Silver"},
+            EssentialFields.AVAILABLE_DATES_KEY: {"Saturday, August 1": None},
+        }
+        row = GOOD_ROW.replace('"2026-08-01, 2026-08-08"', '"Saturday, August 1, 2026-08-08"')
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING, resolutions)
+
+        assert body["decided"] == []
+
+
 class TestADayInWords:
     """A Google Form names a day as the organizer typed it, and only an ISO date used to match, so
     a tier grid's day headings could not be matched at all (bug 26)."""
