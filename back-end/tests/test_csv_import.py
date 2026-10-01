@@ -456,6 +456,48 @@ class TestWhatASingleColumnCannotSay:
         assert "craft" not in body["commaBearingTargets"]
 
 
+class TestAFormThatNeverAskedHowManyDays:
+    """Most real forms never asked how many dates an applicant wants, and demanding the column
+    blocked three of five real exports with no way through (bug 24). A row without it has no
+    personal limit; the solver bounds it by availability and the market's ceiling."""
+
+    NO_DAYS = {k: v for k, v in MAPPING.items() if k != EssentialFields.MAX_DATES_KEY}
+
+    def test_it_is_not_a_required_target(self, markets):
+        targets = {t.key: t for t in CsvImport.import_targets(markets.doc)}
+
+        assert not targets[EssentialFields.MAX_DATES_KEY].required
+        resolved = {key: [index] for key, index in self.NO_DAYS.items()}
+        assert CsvImport.unserved_required(list(targets.values()), resolved) == []
+
+    def test_a_file_without_the_column_imports_with_no_personal_limit(self, markets, applications):
+        preview, _ = CsvImport.preview_values(markets.doc, _csv(GOOD_ROW), self.NO_DAYS)
+        body, status = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW), self.NO_DAYS,
+        )
+
+        assert preview["validRows"] == 1
+        assert status == 200 and body["created"] == 1, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_max_dates"] is None
+
+    def test_a_blank_answer_in_a_mapped_column_is_no_personal_limit_too(self, markets, applications):
+        row = GOOD_ROW.replace(",2,Gold,", ",,Gold,")
+
+        body, _ = CsvImport.import_applications(markets, markets.doc, _csv(row), MAPPING)
+
+        assert body["created"] == 1, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_max_dates"] is None
+
+    def test_an_answer_that_is_not_a_number_is_still_refused(self, markets):
+        row = GOOD_ROW.replace(",2,Gold,", ",lots,Gold,")
+
+        body, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING)
+
+        assert "whole number" in body["failures"][0]["error"]
+
+
 class TestACheckboxQuestion:
     """A Google Form exports a ticked box as the box's own text, and an unticked one as nothing.
 
@@ -1144,7 +1186,7 @@ class TestImportingOnlyWhatItImports:
         """The check and the write judge alike unless the offering froze in between; if it did,
         the application just created must not outlive the answers it was created for."""
         monkeypatch.setattr(
-            CsvImport, "record_application_answers", lambda *_args: ("Refused.", None),
+            CsvImport, "record_application_answers", lambda *_args, **_kwargs: ("Refused.", None),
         )
 
         body, _ = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)

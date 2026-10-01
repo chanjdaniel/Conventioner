@@ -9,7 +9,7 @@
  * to check.
  */
 import { FIELD_TYPES } from '@/utils/applicationForm';
-import { ESSENTIAL_KEYS, essentialLabel } from '@/utils/essentialFields';
+import { ESSENTIAL_KEYS, MAX_DATES_KEY, essentialLabel } from '@/utils/essentialFields';
 
 export type Fate = 'submitted_at' | 'applicant_email' | 'essential' | 'custom' | 'left_out';
 
@@ -322,16 +322,20 @@ function optionsFor(
   };
 }
 
-/** The essential questions no column answers now, with why - the proposal's reason where it gave
- * one, and the organizer's own move where they took the column away. */
+/** The essential questions no column answers now, with what becomes of each and why - the
+ * proposal's reason where it gave one, and the organizer's own move where they took the column away.
+ *
+ * "Number of dates you want" is still asked online, but an imported row without it has no personal
+ * limit (bug 24), so it is not "not asked". */
 export function notAsked(
   proposal: Proposal,
   draft: ProposalDraft,
-): Array<{ key: string; label: string; why: string }> {
+): Array<{ key: string; label: string; status: string; why: string }> {
   const answered = new Set(Object.values(draft.rows).map((r) => r.essential));
   return ESSENTIAL_KEYS.filter((key) => !answered.has(key)).map((key) => ({
     key,
     label: essentialLabel(key),
+    status: key === MAX_DATES_KEY ? 'No personal limit' : 'Not asked',
     why:
       proposal.notAsked.find((q) => q.key === key)?.why ??
       'You gave the column that answered it another use',

@@ -37,6 +37,10 @@ offering one table type does not ask for a table-type ranking, so an empty ranki
 answer, not a missing one - and in MVP that is *every* market, since table type is stubbed to a
 single type. Requiring it unconditionally would reject every application in the product.
 
+One asked question may still be unanswered: "Number of dates you want". An application imported
+from a form that never asked it has no personal limit (``max_dates`` None), which the solver reads
+as bounded only by the dates the vendor can attend and the market's ceiling.
+
 An answer the market does not offer
 -----------------------------------
 Values that are not in the offering are **dropped**, not carried and not treated as an error.
@@ -259,9 +263,10 @@ def _solver_vendor(
     section_ranking = answer(EF.SECTION_RANKING_KEY, EF.SECTION_RANKING_LABEL)
     table_type_ranking = answer(EF.TABLE_TYPE_RANKING_KEY, EF.TABLE_TYPE_RANKING_LABEL)
 
+    # No answer is an answer here: no personal limit. Only an imported row can carry it - the online
+    # form requires the question - and it comes from a form that never asked (bug 24). The solver
+    # then bounds the vendor by the dates they can attend and the market's ceiling.
     max_dates = _whole_number(answers.get(EF.MAX_DATES_KEY))
-    if EF.MAX_DATES_KEY in asked and max_dates is None:
-        missing.append(EF.MAX_DATES_LABEL)
 
     # Lower-cased for the same reason the form stores it lower-cased: the choices are a fixed
     # vocabulary, and an imported row spelling one 'Half' should not read as no answer at all.

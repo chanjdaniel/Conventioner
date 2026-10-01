@@ -620,6 +620,26 @@ class TestTheOrganizersCapOnAssignmentsPerVendor:
 
         assert len(dates_for(market, "keen@example.com")) == 6
 
+    def test_no_personal_limit_is_bounded_by_the_market_cap(self):
+        """An applicant imported from a form that never asked how many dates (bug 24)."""
+        market = assign(
+            [VendorWant("imported@example.com", available=MANY_DATES, tiers=[GOLD])],
+            dates=MANY_DATES,
+            max_per_vendor=3,
+        )
+
+        assert len(dates_for(market, "imported@example.com")) == 3
+
+    def test_no_personal_limit_and_no_cap_is_every_date_they_can_attend(self):
+        available = MANY_DATES[:4]
+        market = assign(
+            [VendorWant("imported@example.com", available=available, tiers=[GOLD])],
+            dates=MANY_DATES,
+            max_per_vendor=None,
+        )
+
+        assert dates_for(market, "imported@example.com") == sorted(available)
+
     def test_a_vendor_wanting_twelve_dates_is_not_capped_at_one(self):
         """The CSV era read one character of the answer, so twelve became one."""
         market = assign(

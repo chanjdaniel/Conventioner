@@ -263,6 +263,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   the applicant validator and the solver's translation. Two copies would drift, and the drift
   would surface as the solver rejecting answers the form had just accepted. Table type is stubbed
   to one type in MVP, so a fixed list would reject every application in the product.
+- **No personal limit is an answer, not a gap** (E26/F02/S03). "Number of dates you want" is
+  required online but not of an import, because most real forms never asked it. A missing answer
+  is `max_dates` None, bounded by the vendor's availability and the market ceiling. The import's
+  only door to that is `record_application_answers(imported=True)`; the applicant path never
+  passes it.
 - **A placement is dated by the market date itself.** It used to be dated by the spreadsheet
   column heading, which is why check-in, the table rows and the statistics each built a map from
   headings back to dates. Those maps are gone; do not reintroduce one.

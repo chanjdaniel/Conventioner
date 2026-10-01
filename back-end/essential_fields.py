@@ -536,13 +536,18 @@ def freeze_and_effective_essential_options(
 
 
 def validated_essential_answers(
-    incoming: Dict[str, Any], options: EssentialFormOptions,
+    incoming: Dict[str, Any], options: EssentialFormOptions, *, limit_required: bool = True,
 ) -> Tuple[Optional[str], Dict[str, Any]]:
     """Validate an applicant's essential answers against what the form offered.
 
     Returns ``(error_message, stored_answers)``; when ``error_message`` is not None the save
     must be refused. Questions whose offering is empty are not asked, so they are not required
     and store their empty value.
+
+    ``limit_required=False`` accepts no answer to "Number of dates you want" and stores None,
+    meaning no personal limit: the applicant is bounded only by the dates they can attend and the
+    market's ceiling. That is for a row imported from a form that never asked, which most real
+    forms did not (E26/F02/S03, bug 24). The online form always asks, so it always requires it.
 
     STUBBED PRODUCT DECISIONS (deliberately minimal until the product owner rules):
       - Rankings are TOTAL: an applicant ranks every offered section / table type, and the
@@ -564,7 +569,7 @@ def validated_essential_answers(
     if error:
         return error, {}
 
-    error = _validate_max_dates(incoming, options, stored)
+    error = _validate_max_dates(incoming, options, stored, limit_required)
     if error:
         return error, {}
 
@@ -734,6 +739,7 @@ def _validate_accepted_subset(
 
 def _validate_max_dates(
     incoming: Dict[str, Any], options: EssentialFormOptions, stored: Dict[str, Any],
+    required: bool = True,
 ) -> Optional[str]:
     if not options.dates:
         stored[MAX_DATES_KEY] = None
@@ -741,6 +747,9 @@ def _validate_max_dates(
 
     raw = incoming.get(MAX_DATES_KEY)
     if raw is None or (isinstance(raw, str) and not raw.strip()):
+        if not required:
+            stored[MAX_DATES_KEY] = None
+            return None
         return f"'{MAX_DATES_LABEL}' is required."
 
     if isinstance(raw, bool):

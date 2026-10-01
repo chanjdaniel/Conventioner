@@ -351,6 +351,25 @@ class TestWhatAColumnCarries:
         assert PREF in not_asked and TIERS in not_asked
         assert FULL not in not_asked
 
+    def test_no_days_column_is_said_to_mean_no_personal_limit(self):
+        """Said where the organizer decides, not discovered at the import (bug 24)."""
+        headers, rows = _read("fall-2023")
+        why = {e["key"]: e["why"] for e in CsvProposal.proposal(headers, rows)["notAsked"]}
+        assert "up to your ceiling" in why["essential_max_dates"]
+        assert "Online applicants are still asked" in why["essential_max_dates"]
+
+    def test_a_how_many_days_question_answered_with_numbers_is_the_limit(self):
+        headers = ["Email Address", "How many days would you like to table?"]
+        rows = [[f"p{i}@mail.test", str(1 + i % 3)] for i in range(9)]
+        column = CsvProposal.proposal(headers, rows)["columns"][1]
+        assert column["essential"] == "essential_max_dates"
+
+    def test_a_number_question_about_anything_else_stays_the_organizers(self):
+        headers = ["Email Address", "How many years have you been making?"]
+        rows = [[f"p{i}@mail.test", str(1 + i % 3)] for i in range(9)]
+        column = CsvProposal.proposal(headers, rows)["columns"][1]
+        assert column["essential"] is None
+
 
 def _market(phase="draft", fields=None):
     return {"id": "market-1", "phase": phase, "applicationForm": {"fields": fields or []}}

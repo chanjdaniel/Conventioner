@@ -229,6 +229,13 @@ describe('the working copy', () => {
     expect(notAsked(p, draft).map((q) => q.key)).toContain('essential_full_name');
   });
 
+  it('says a missing days column means no personal limit, not that nobody is asked', () => {
+    const p = proposal([column(0, { fate: 'essential', essential: 'essential_full_name' })]);
+    const status = Object.fromEntries(notAsked(p, draftFrom(p)).map((q) => [q.key, q.status]));
+    expect(status.essential_max_dates).toBe('No personal limit');
+    expect(status.essential_tier_preference).toBe('Not asked');
+  });
+
   it("clears the ceiling's check once the organizer states it", () => {
     const p = proposal([], { check: ["Couldn't reach TypeSafe"] });
     const draft = draftFrom(p);

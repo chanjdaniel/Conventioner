@@ -102,6 +102,8 @@ CHECKBOX_LEAD = re.compile(r"^(i certify|i understand|i agree|i confirm|i acknow
 DECISIONS = {"accepted", "rejected", "approved", "declined", "waitlist", "waitlisted", "pending",
              "true", "false", "y", "n", "accept", "reject"}
 YES_NO = {"yes", "no", "available", "x"}
+# A question asking how many days, whose answers are then bare numbers ("3") rather than "3 days".
+DAY_COUNT_QUESTION = re.compile(r"\b(how many|number of|max(imum)?)\b.*\bdays?\b")
 
 VIEW_VALUES = 10
 VIEW_OPTIONS = 15
@@ -461,6 +463,11 @@ def _classify(columns: List[_Column]) -> List[Dict[str, Any]]:
             decided.append(essential(EssentialFields.MAX_DATES_KEY,
                                      "Its answers are a number of days"))
             continue
+        if (values and all(re.fullmatch(r"\d+", value) for value in values)
+                and DAY_COUNT_QUESTION.search(header.lower())):
+            decided.append(essential(EssentialFields.MAX_DATES_KEY,
+                                     "It asks how many days, answered with a number"))
+            continue
         joined = " ".join(options).lower()
         if "half" in joined and "full" in joined and len(options) <= 4:
             decided.append(essential(EssentialFields.TABLE_CHOICE_KEY,
@@ -810,10 +817,23 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
         "plan": plan,
         "typesafe": {"asked": asked},
         "notAsked": [
-            {"key": key, "label": label, "why": "No column in your file answers it"}
+            {"key": key, "label": label, **_unanswered(key)}
             for key, label in EssentialFields.ESSENTIAL_QUESTIONS if key not in answered
         ],
     }
+
+
+def _unanswered(key: str) -> Dict[str, str]:
+    """Why an essential question has no column, said where the organizer decides.
+
+    "Number of dates you want" is still asked online, but a file without it imports with no
+    personal limit (bug 24), which is worth saying before the import rather than after.
+    """
+    if key == EssentialFields.MAX_DATES_KEY:
+        return {"why": "No column in your file answers it, so each imported applicant may be "
+                       "placed on every date they can attend, up to your ceiling. Online "
+                       "applicants are still asked."}
+    return {"why": "No column in your file answers it"}
 
 
 def refusal(market_doc: Dict[str, Any]) -> Optional[str]:
