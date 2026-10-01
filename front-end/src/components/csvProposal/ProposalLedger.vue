@@ -405,7 +405,7 @@ function onSettle(kind: string, value: string, choice: string) {
             </td>
             <td class="muted">-</td>
             <td>
-              Not asked <span class="muted">· {{ question.why }}</span>
+              {{ question.status }} <span class="muted">· {{ question.why }}</span>
             </td>
           </tr>
         </template>

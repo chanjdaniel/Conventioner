@@ -2,7 +2,7 @@
 id: E26/F02/S03
 title: No days column means no personal limit
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -17,6 +17,6 @@ Closes bugs 24 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] The anonymised 2024 and spring 2025 exports can be started from and reach the preview.
-- [ ] An imported applicant with no limit is placed on as many dates as they are available for, up to the market ceiling.
-- [ ] The online form still requires the question.
+- [x] The anonymised 2024 and spring 2025 exports can be started from and reach the preview.
+- [x] An imported applicant with no limit is placed on as many dates as they are available for, up to the market ceiling.
+- [x] The online form still requires the question.

@@ -102,6 +102,52 @@ test.describe('Start from your Google Form', () => {
     });
   }
 
+  // Three of the five exports never asked how many days an applicant wants (bug 24). They used to
+  // stop at the mapping with "Still unmapped: Number of dates you want" and no way through.
+  for (const file of ['fall-2023', 'spring-2024', 'spring-2025']) {
+    test(`${file}: a form that never asked how many days is imported with no personal limit`, async ({
+      authenticatedPage: page,
+      request,
+    }) => {
+      const { marketId } = await seedDraftMarket(
+        request,
+        BACKEND_URL,
+        TEST_USER.email,
+        TEST_USER.password,
+      );
+      const flow = new StartFromCsvPage(page);
+      await flow.open(marketId);
+      await flow.chooseFile(join(CORPUS, `${file}.csv`));
+      await flow.answerYear();
+
+      // Said on the proposal, where the organizer decides - not discovered at the import.
+      const limit = flow.notAsked.filter({ hasText: 'Number of dates you want' });
+      await expect(limit).toContainText('No personal limit');
+      await page.getByTestId('proposal-confirm').click();
+      await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+
+      await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+      const importer = new CsvImportPage(page);
+      await importer.open({ id: marketId });
+      await importer.chooseFile(readFileSync(join(CORPUS, `${file}.csv`), 'utf8'));
+      await expect(importer.allMapped).toBeVisible();
+      await importer.clickPreview();
+      await expect(importer.previewCounts).toBeVisible();
+      const counts = (await importer.previewCounts.innerText()).match(/(\d+) of (\d+) rows/);
+      const imported = Number(counts![1]);
+      expect(imported).toBeGreaterThan(0);
+
+      await importer.clickConfirm();
+      await expect(importer.resultSummary).toContainText(`Imported ${imported} new applications`);
+      const res = await request.get(`${BACKEND_URL}/markets/${marketId}/applications`);
+      const { applications } = (await res.json()) as {
+        applications: { formData: Record<string, unknown> }[];
+      };
+      expect(applications).toHaveLength(imported);
+      expect(applications.every((a) => a.formData.essential_max_dates == null)).toBe(true);
+    });
+  }
+
   test('a file with no dates asks no year', async ({ authenticatedPage: page, request }) => {
     const { marketId } = await seedDraftMarket(
       request,

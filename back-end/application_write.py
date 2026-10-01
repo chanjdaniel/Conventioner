@@ -59,7 +59,7 @@ NO_FORM_ERROR = "This market does not have an application form configured."
 
 
 def validate_application_answers(
-    market_doc: Dict[str, Any], form_data: Dict[str, Any],
+    market_doc: Dict[str, Any], form_data: Dict[str, Any], *, imported: bool = False,
 ) -> Optional[str]:
     """Would these answers be accepted? Returns the refusal, or None.
 
@@ -77,7 +77,9 @@ def validate_application_answers(
         return error
 
     options = EssentialFields.effective_essential_options(market_doc)
-    essential_error, _answers = EssentialFields.validated_essential_answers(form_data, options)
+    essential_error, _answers = EssentialFields.validated_essential_answers(
+        form_data, options, limit_required=not imported,
+    )
     return essential_error
 
 
@@ -86,12 +88,17 @@ def record_application_answers(
     market_doc: Dict[str, Any],
     app_doc: Dict[str, Any],
     form_data: Dict[str, Any],
+    *,
+    imported: bool = False,
 ) -> Tuple[Optional[str], Optional[Application]]:
     """Validate, freeze, persist and status an applicant's answers. The whole sequence, once.
 
     ``market_doc`` is the raw stored (camelCase) market; ``app_doc`` the raw stored application.
     Returns ``(error_message, application)``: when the message is not None nothing was written and
     the caller must refuse the save.
+
+    ``imported`` is a row from a form this product did not write, which may never have asked how
+    many dates the applicant wants; its absence then means no personal limit (bug 24).
 
     The freeze happens BEFORE the answers are persisted so no answer is ever recorded against an
     unfrozen offering, and a concurrent first save that froze a different offering is handled by
@@ -108,7 +115,7 @@ def record_application_answers(
     # The essential answers are merged last so no custom answer can ever shadow one.
     essential_options = EssentialFields.effective_essential_options(market_doc)
     essential_error, essential_answers = EssentialFields.validated_essential_answers(
-        form_data, essential_options,
+        form_data, essential_options, limit_required=not imported,
     )
     if essential_error:
         return essential_error, None
@@ -119,7 +126,7 @@ def record_application_answers(
     )
     if frozen_options != essential_options:
         essential_error, essential_answers = EssentialFields.validated_essential_answers(
-            form_data, frozen_options,
+            form_data, frozen_options, limit_required=not imported,
         )
         if essential_error:
             return essential_error, None

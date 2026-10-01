@@ -247,6 +247,13 @@ class ImportTarget:
         }
 
 
+# Asked of every online applicant, but not needed from a file: most real forms never asked how many
+# days an applicant wants, and demanding the column blocked three of five real exports with no way
+# through (bug 24). A row without it has no personal limit - bounded by the dates the applicant can
+# attend and the market's ceiling - which is what the solver already does with no limit.
+_OPTIONAL_AT_IMPORT = frozenset({EssentialFields.MAX_DATES_KEY})
+
+
 def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     """Every target this market's columns can be mapped to, in the order the form asks them.
 
@@ -270,7 +277,11 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
         ImportTarget(SUBMITTED_AT_TARGET, SUBMITTED_AT_LABEL, False, "meta"),
     ]
     targets += [
-        ImportTarget(key, label, key in EssentialFields.REQUIRED_ESSENTIAL_KEYS, "essential")
+        ImportTarget(
+            key, label,
+            key in EssentialFields.REQUIRED_ESSENTIAL_KEYS and key not in _OPTIONAL_AT_IMPORT,
+            "essential",
+        )
         for key, label in EssentialFields.ESSENTIAL_QUESTIONS
         if key in asked
     ]
@@ -918,7 +929,7 @@ def _row_faults(
                 "error": f"{raw!r} is not a date and time this import can read.",
             })
             continue
-        error = validate_application_answers(market_doc, form_data)
+        error = validate_application_answers(market_doc, form_data, imported=True)
         if error:
             faults.append({"row": line, "email": email, "error": error})
     return faults
@@ -1028,7 +1039,9 @@ def _would_return_to_review(
         return False
 
     options = EssentialFields.effective_essential_options(market_doc)
-    error, incoming = EssentialFields.validated_essential_answers(form_data, options)
+    error, incoming = EssentialFields.validated_essential_answers(
+        form_data, options, limit_required=False,
+    )
     if error:
         return False
     return EssentialFields.solver_relevant_change(existing.get("form_data") or {}, incoming)
@@ -1203,7 +1216,7 @@ def import_applications(
             app_doc = {**app_doc, "submitted_at": submitted_at}
 
         row_error, _ = record_application_answers(
-            markets_collection, market_doc, app_doc, form_data,
+            markets_collection, market_doc, app_doc, form_data, imported=True,
         )
         if row_error:
             # Only reachable if the offering froze differently between the check and the write.

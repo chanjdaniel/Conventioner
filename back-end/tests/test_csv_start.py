@@ -55,12 +55,14 @@ def test_the_seam_the_import_of_the_same_file_has_nothing_to_ask(name):
     assert preview["unmatched"] == []
 
 
-# The exports whose every required question has a column. The other three have no "how many days"
-# column, so the import stops at the mapping before any row is judged (bug 24).
-COMPLETE = ("fall-2025", "spring-2026")
+# How many rows of each export import. Every other row is refused for a reason of its own: no email,
+# an address that is not one, or an applicant whose every answer was an option too rare to keep
+# (bug 4). Three of these never reached a single row while "how many days" was required (bug 24).
+IMPORTED = {"fall-2023": 246, "spring-2024": 290, "spring-2025": 195, "fall-2025": 207,
+            "spring-2026": 211}
 
 
-@pytest.mark.parametrize("name", COMPLETE)
+@pytest.mark.parametrize("name", YEARS)
 def test_the_seam_keeps_ticked_boxes_and_table_choices(name):
     """Past the mapping, where the seam test above stops: every export imported nothing, because
     a ticked certification read as unticked (bug 2) and "Full table"/"Half table" were saved as
@@ -82,7 +84,7 @@ def test_the_seam_keeps_ticked_boxes_and_table_choices(name):
     refusals = [f["error"] for f in preview["failures"]]
     assert [r for r in refusals if "'Table choice' is required" in r] == []
     assert [r for r in refusals if any(f"'{label}' is required" in r for label in boxes)] == []
-    assert preview["validRows"] > 0
+    assert preview["validRows"] == IMPORTED[name]
 
 
 def test_the_plan_facts_form_and_ceiling_are_written():

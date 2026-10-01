@@ -209,6 +209,23 @@ class TestValidatedEssentialAnswers:
 
         assert "cannot exceed" in error
 
+    def test_an_import_may_carry_no_personal_limit(self):
+        """A row from a form that never asked how many dates has none (bug 24). The online form
+        asks, so it still requires an answer - and an answer given is still checked."""
+        answers = {k: v for k, v in VALID_ANSWERS.items() if k != "essential_max_dates"}
+
+        required, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
+        error, stored = EssentialFields.validated_essential_answers(
+            {**answers, "essential_max_dates": " "}, OPTIONS, limit_required=False,
+        )
+        wrong, _ = EssentialFields.validated_essential_answers(
+            {**answers, "essential_max_dates": 0}, OPTIONS, limit_required=False,
+        )
+
+        assert required == "'Number of dates you want' is required."
+        assert error is None and stored["essential_max_dates"] is None
+        assert "at least 1" in wrong
+
     def test_max_dates_may_exceed_the_available_dates(self):
         """STUB (product decision pending): max > len(available) is accepted; consumers treat
         the effective cap as min(max_dates, len(available_dates))."""
