@@ -2,10 +2,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import api.applications as ApplicationsApi
-from assignment.assignment import assign_market
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from db_config import get_database
-from market_documents import market_from_document, published_market_by_slug
+from market_documents import published_market_by_slug
 
 db = get_database()
 attendance_collection = db["attendance"]
@@ -14,6 +13,14 @@ markets_collection = db["markets"]
 
 def _normalize_email(email: str) -> str:
     return (email or "").strip().lower()
+
+
+def _stored_assignment_rows(market_doc: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The market's stored placements, snake_cased: the one thing check-in reads, both to tell a
+    vendor where to go and to record that they came."""
+    market_snake = convert_keys_to_snake_case(market_doc.copy())
+    assignment_object = market_snake.get("assignment_object") or {}
+    return list(assignment_object.get("vendor_assignments") or [])
 
 
 def get_published_market_by_slug(market_slug: str) -> Optional[Dict[str, Any]]:
@@ -91,9 +98,7 @@ def record_attendance(market_id: str, vendor_email: str, date: str) -> Tuple[Dic
     if not market_doc:
         return {"error": "Market not found"}, 404
 
-    market_snake = convert_keys_to_snake_case(market_doc.copy())
-    assignment_object = market_snake.get("assignment_object") or {}
-    vendor_assignments = assignment_object.get("vendor_assignments") or []
+    vendor_assignments = _stored_assignment_rows(market_doc)
 
     target_email = _normalize_email(vendor_email)
     target_date = date.strip()
@@ -160,42 +165,23 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
         return {"error": "Market not found"}, 404
 
     market_id = market_doc.get("id")
-    market_snake = convert_keys_to_snake_case(market_doc.copy())
 
-    if "setup_object" in market_snake and market_snake["setup_object"]:
-        if "assignment_options" not in market_snake["setup_object"]:
-            market_snake["setup_object"]["assignment_options"] = {
-                "max_assignments_per_vendor": None,
-                "max_half_table_proportion_per_section": None,
-            }
-    market_snake["assignment_object"] = {
-        "vendor_assignments": [],
-        "assignment_date": "",
-        "assignment_statistics": None,
-    }
-
-    try:
-        market = market_from_document(market_doc, market_snake)
-    except Exception:
-        return {"error": "Invalid market data"}, 400
-
-    try:
-        assigned_market = assign_market(market)
-    except Exception:
-        return {"error": "Unable to derive assignments"}, 500
-
-    matched: List[Dict[str, Any]] = []
-    for assignment in assigned_market.assignment_object.vendor_assignments:
-        if _normalize_email(assignment.email) != target_email:
-            continue
-        matched.append({
-            "date": assignment.date,
-            "table_code": assignment.table_code,
-            "table_choice": assignment.table_choice,
-            "section": assignment.section,
-            "tier": assignment.tier,
-            "location": assignment.location,
-        })
+    # The stored assignment, exactly as check-in will record against it: every swap, hand
+    # placement and freed seat the organizer made. This ran the solver afresh on every lookup,
+    # ignoring all of them, so a vendor moved by hand was sent to their old seat - by then another
+    # vendor's - and could check in there (bug 1). It also ran the solver for anyone on the web.
+    matched: List[Dict[str, Any]] = [
+        {
+            "date": str(row.get("date", "")),
+            "table_code": row.get("table_code"),
+            "table_choice": row.get("table_choice"),
+            "section": row.get("section"),
+            "tier": row.get("tier"),
+            "location": row.get("location"),
+        }
+        for row in _stored_assignment_rows(market_doc)
+        if _normalize_email(str(row.get("email", ""))) == target_email
+    ]
 
     if not matched:
         return {"error": "No assignment found for this email"}, 404
