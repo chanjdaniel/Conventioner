@@ -57,9 +57,10 @@ def test_the_seam_the_import_of_the_same_file_has_nothing_to_ask(name):
 
 # How many rows of each export import. Every other row is refused for a reason of its own: no email,
 # an address that is not one, or an applicant whose every answer was an option too rare to keep
-# (bug 4). Three of these never reached a single row while "how many days" was required (bug 24).
-IMPORTED = {"fall-2023": 246, "spring-2024": 290, "spring-2025": 195, "fall-2025": 207,
-            "spring-2026": 211}
+# (bug 4). Three of these never reached a single row while "how many days" was required (bug 24),
+# and splitting "Woven (crochet, knitting, etc)" at its commas cost dozens more (bug 27).
+IMPORTED = {"fall-2023": 246, "spring-2024": 314, "spring-2025": 211, "fall-2025": 221,
+            "spring-2026": 225}
 
 
 @pytest.mark.parametrize("name", YEARS)

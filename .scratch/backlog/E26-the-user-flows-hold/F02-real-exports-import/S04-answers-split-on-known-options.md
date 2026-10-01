@@ -2,7 +2,7 @@
 id: E26/F02/S04
 title: Answers split on known options
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,6 +16,6 @@ Closes bugs 27 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] "Woven (crochet, knitting, etc)" imports as that option.
-- [ ] Day answers like "Monday, November 20th, Tuesday, November 21st" import after one match per day, or none when the dates are recognised.
-- [ ] Matching both halves of a split date no longer refuses the row.
+- [x] "Woven (crochet, knitting, etc)" imports as that option.
+- [x] Day answers like "Monday, November 20th, Tuesday, November 21st" import after one match per day, or none when the dates are recognised.
+- [x] Matching both halves of a split date no longer refuses the row.

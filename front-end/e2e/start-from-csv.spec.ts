@@ -269,10 +269,10 @@ test.describe('Start from your Google Form', () => {
     const failures = await importer.previewFailureRows.allInnerTexts();
     expect(failures.filter((f) => /I certify|I understand/.test(f))).toEqual([]);
     expect(failures.filter((f) => f.includes("'Table choice' is required"))).toEqual([]);
-    // The 30 still refused are one row with no name and 29 whose every answer was an option too
+    // The 16 still refused are one row with no name and 15 whose every answer was an option too
     // rare to keep (bug 4).
-    await expect(importer.previewCounts).toContainText('207 of 237 rows');
-    const imported = 207;
+    await expect(importer.previewCounts).toContainText('221 of 237 rows');
+    const imported = 221;
 
     await importer.clickConfirm();
     await expect(importer.resultSummary).toContainText(`Imported ${imported} new applications`);
@@ -289,5 +289,15 @@ test.describe('Start from your Google Form', () => {
     const body = await (await request.get(`${BACKEND_URL}/markets/${marketId}`)).json();
     const saved = (body.market ?? body).importMapping.resolutions ?? {};
     expect(saved.essential_table_choice ?? {}).toEqual({});
+
+    // An option with a comma of its own is one answer (bug 27). It was split into "Woven (crochet"
+    // and "etc)", both saved as ignored, so everyone who chose only it lost their answer.
+    const WOVEN = 'Woven (crochet, knitting, etc)';
+    const fragments = Object.values(saved).flatMap((byValue) => Object.keys(byValue as object));
+    expect(fragments.filter((v) => v.startsWith('Woven (') || v === 'etc)')).toEqual([]);
+    const chose = applications.filter((a) =>
+      Object.values(a.formData).some((answer) => Array.isArray(answer) && answer.includes(WOVEN)),
+    );
+    expect(chose.length).toBeGreaterThan(30);
   });
 });

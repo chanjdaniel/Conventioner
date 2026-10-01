@@ -32,6 +32,7 @@ import essential_fields as EssentialFields
 import typesafe_client as TypeSafe
 from csv_import import (
     GRID_HEADER, collapse_header, column_groups, normalized_submitted_at, parse_csv, resolve_value,
+    split_options,
 )
 from datatypes import MarketPhase, phase_from_market_document
 from market_documents import market_doc_field
@@ -72,8 +73,6 @@ NUMBER = re.compile(r"^\s*\$?\d+(\.\d+)?\s*$")
 DRIVE_UPLOAD = re.compile(r"^https://drive\.google\.com/open\?id=")
 DATE_LIKE = re.compile(r"^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}$")
 
-WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-            "mon", "tue", "wed", "thu", "fri", "sat", "sun")
 MONTHS = {month: number for number, month in enumerate(
     ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
 WEEKDAY_NUMBER = {day: number for number, day in enumerate(
@@ -118,23 +117,6 @@ LABEL_MAX = 120
 KEY_MAX = 40
 
 # --- Reading answers ----------------------------------------------------------------------------
-
-
-def split_options(value: str) -> List[str]:
-    """A checkbox answer's options: Google joins them with ", ", and an option can itself hold
-    ", " - inside parentheses ("Woven (crochet, knitting, etc)") or after a weekday ("Monday,
-    November 20th")."""
-    parts, depth, current = [], 0, []
-    for piece in str(value).split(", "):
-        current.append(piece)
-        depth += piece.count("(") - piece.count(")")
-        if depth > 0 or piece.strip().lower() in WEEKDAYS:
-            continue
-        parts.append(", ".join(current).strip())
-        current = []
-    if current:
-        parts.append(", ".join(current).strip())
-    return [part for part in parts if part]
 
 
 def parse_date(text: str) -> Optional[Tuple[int, int, Optional[int]]]:

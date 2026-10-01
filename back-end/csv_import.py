@@ -466,10 +466,10 @@ def comma_bearing_targets(market_doc: Dict[str, Any]) -> List[str]:
     """Targets a single comma-split column cannot answer reliably.
 
     A checkbox question exports one column holding the selected option labels **comma-joined**.
-    When the labels themselves contain commas - and a date label like "Saturday, November 21,
-    2026" does - the export is ambiguous to any reader, because the separator information was
-    thrown away before the file was written. Splitting on commas anyway turns one answer into six
-    fragments, every one of them reported as not matching the market with no word about why.
+    An option with a comma of its own is read whole (``split_options`` takes known options first),
+    so that alone is no longer a problem. What stays ambiguous to any reader is an option made of
+    other options: offered "Prints, Cards" beside "Prints" and "Cards", the cell "Prints, Cards"
+    says one answer or two and nothing in the file can tell which.
 
     Only multi-value targets are listed: a single-value answer is the whole cell and is never
     split, so a comma in one of its labels costs nothing.
@@ -477,11 +477,6 @@ def comma_bearing_targets(market_doc: Dict[str, Any]) -> List[str]:
     This says the offering *contains* such a label. Whether a single column is mapped to it is a
     question about the organizer's mapping, which changes without a round trip, so the mapping
     screen decides that half and this decides the half only the market knows.
-
-    Note what is deliberately NOT here: any attempt to parse the cell. Greedy matching of the
-    offering's labels against the raw text was considered and rejected - organizers name tiers and
-    sections freely, so "Gold" inside "Gold Plus" breaks longest-match, and that failure is silent
-    and wrong rather than loud and right.
     """
     options = EssentialFields.effective_essential_options(market_doc)
     form = market_doc_field(market_doc, "application_form") or {}
@@ -495,7 +490,12 @@ def comma_bearing_targets(market_doc: Dict[str, Any]) -> List[str]:
         ):
             continue
         offered = offered_values(target, options, fields_by_key.get(target.key)) or []
-        if any("," in str(label) for label in offered):
+        names = {normalize_value(label) for label in offered}
+        if any(
+            ", " in str(label)
+            and all(normalize_value(piece) in names for piece in str(label).split(", "))
+            for label in offered
+        ):
             bearing.append(target.key)
     return bearing
 
@@ -538,8 +538,63 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
     }, 200
 
 
-def _split_multi(raw: str) -> List[str]:
-    return [part.strip() for part in str(raw).split(",") if part.strip()]
+WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+            "mon", "tue", "wed", "thu", "fri", "sat", "sun")
+# What follows a weekday when the two are one day: "Monday, November 20th" or "Monday, 20 November".
+_DAY_OF_MONTH = re.compile(r"^\s*(\d|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b)",
+                           re.IGNORECASE)
+
+
+def split_options(value: str, known: Sequence[str] = ()) -> List[str]:
+    """A checkbox answer's options. Google joins them with ", ", and an option can hold ", " too.
+
+    Splitting at every comma turned "Woven (crochet, knitting, etc)" into three answers and
+    "Monday, November 20th" into two, so the organizer matched halves, ignored fragments, and
+    applicants who chose only such an option lost their answer (bug 27). So:
+
+    - A ``known`` option - what the question offers, and every value the organizer has already
+      matched - is taken whole wherever its pieces appear in a row, the longest first. Only whole
+      pieces are compared, so "Gold" never matches inside "Gold Plus".
+    - Otherwise a comma inside parentheses, or after a weekday that a day of the month follows,
+      belongs to the option; every other comma separates two.
+    """
+    pieces = str(value).split(", ")
+    whole = {normalize_value(option) for option in known if ", " in str(option)}
+    longest = max((str(option).count(", ") + 1 for option in known if ", " in str(option)),
+                  default=1)
+
+    parts: List[str] = []
+    current: List[str] = []
+    depth = 0
+    i = 0
+    while i < len(pieces):
+        if not current and whole:
+            for j in range(min(len(pieces), i + longest), i + 1, -1):
+                if normalize_value(", ".join(pieces[i:j])) in whole:
+                    parts.append(", ".join(pieces[i:j]).strip())
+                    i = j
+                    break
+            else:
+                j = 0
+            if j:
+                continue
+        piece = pieces[i]
+        i += 1
+        current.append(piece)
+        depth += piece.count("(") - piece.count(")")
+        followed_by_day = i < len(pieces) and _DAY_OF_MONTH.match(pieces[i])
+        if depth > 0 or (piece.strip().lower() in WEEKDAYS and followed_by_day):
+            continue
+        parts.append(", ".join(current).strip())
+        current = []
+        depth = 0
+    if current:
+        parts.append(", ".join(current).strip())
+    return [part for part in parts if part]
+
+
+def _split_multi(raw: str, known: Sequence[str] = ()) -> List[str]:
+    return split_options(raw, known)
 
 
 def _grid_option(header: str) -> str:
@@ -594,7 +649,7 @@ def _whole_number_text(text: str) -> str:
 
 
 def _tier_grid(
-    headers: Sequence[str], row: Sequence[str], columns: Sequence[int],
+    headers: Sequence[str], row: Sequence[str], columns: Sequence[int], known: Sequence[str] = (),
 ) -> Dict[str, List[str]]:
     """A per-date tier answer, which is the shape a real form's day grid already has.
 
@@ -610,7 +665,7 @@ def _tier_grid(
     for index in columns:
         date = _grid_option(headers[index])
         cell = str(row[index]).strip() if index < len(row) else ""
-        tiers = [name for name in _split_multi(cell) if name.lower() != "none"]
+        tiers = [name for name in _split_multi(cell, known) if name.lower() != "none"]
         if tiers:
             per_date[date] = tiers
     return per_date
@@ -648,7 +703,9 @@ def _table_choice_in_words(text: str) -> Optional[str]:
 _UNTICKED = {"false", "no", "n", "0", "unchecked", "off"}
 
 
-def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> Any:
+def _coerce(
+    target: ImportTarget, raw: str, field: Optional[Dict[str, Any]], known: Sequence[str] = (),
+) -> Any:
     """One cell, as the answer shape its target expects.
 
     Multi-value answers arrive comma-separated in a single column, which is what a Google Form
@@ -662,13 +719,13 @@ def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> 
         code = EssentialFields.table_choice_for_label(text) or _table_choice_in_words(text)
         return EssentialFields.TABLE_CHOICE_LABELS[code] if code else text
     if target.key in _MULTI_VALUE_ESSENTIALS:
-        return _split_multi(text)
+        return _split_multi(text, known)
     if target.key == EssentialFields.MAX_DATES_KEY:
         return _whole_number_text(text)
     if target.kind == "custom" and field:
         field_type = field.get("type", "text")
         if field_type == "multi_select":
-            return _split_multi(text)
+            return _split_multi(text, known)
         if field_type == "checkbox":
             return bool(text) and text.casefold() not in _UNTICKED
         if field_type == "number":
@@ -682,15 +739,27 @@ def _raw_values(
     row: Sequence[str],
     indexes: Sequence[int],
     field: Optional[Dict[str, Any]],
+    known: Sequence[str] = (),
 ) -> Any:
-    """A target's answer for one row, before its values are matched against the market."""
+    """A target's answer for one row, before its values are matched against the market.
+
+    ``known`` is every value the answer could name whole - see ``split_options``.
+    """
     if len(indexes) > 1:
         if target.key == EssentialFields.TIER_PREFERENCE_KEY:
-            return _tier_grid(headers, row, indexes)
+            return _tier_grid(headers, row, indexes, known)
         return _grid_values(target, headers, row, indexes)
     index = indexes[0]
     cell = row[index] if index < len(row) else ""
-    return _coerce(target, cell, field)
+    return _coerce(target, cell, field, known)
+
+
+def _known_values(
+    target: ImportTarget, options: Any, field: Optional[Dict[str, Any]],
+    resolutions: Dict[str, Optional[str]],
+) -> List[str]:
+    """What one answer may name whole: what the market offers, and what the organizer matched."""
+    return [*(offered_values(target, options, field) or []), *resolutions]
 
 
 def unserved_required(targets: Sequence[ImportTarget], resolved: Dict[str, Any]) -> List[ImportTarget]:
@@ -747,7 +816,9 @@ def _matched(
             resolved, known = resolve_value(item, offered, resolutions)
             if not known:
                 unmatched.append(str(item).strip())
-            elif resolved is not None:
+            elif resolved is not None and resolved not in kept:
+                # Once: one day spelled two ways is still one day (bug 27), and keeping both
+                # refused the whole row for repeating it.
                 kept.append(resolved)
         return kept, unmatched
 
@@ -803,7 +874,8 @@ def _assembled_rows(
             if target is None:
                 continue
             field = fields_by_key.get(key)
-            value = _raw_values(target, headers, row, indexes, field)
+            known = _known_values(target, options, field, resolutions.get(key, {}))
+            value = _raw_values(target, headers, row, indexes, field, known)
             if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(value, dict):
                 value, _unmatched = _matched_tiers_by_date(
                     value, options, resolutions.get(key, {}),
@@ -969,7 +1041,10 @@ def preview_values(
             offered = offered_values(target, options, fields_by_key.get(key))
             if offered is None:
                 continue
-            raw = _raw_values(target, headers, row, indexes, fields_by_key.get(key))
+            known = _known_values(
+                target, options, fields_by_key.get(key), resolutions.get(key, {}),
+            )
+            raw = _raw_values(target, headers, row, indexes, fields_by_key.get(key), known)
             if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(raw, dict):
                 _kept, unmatched = _matched_tiers_by_date(raw, options, resolutions.get(key, {}))
             else:

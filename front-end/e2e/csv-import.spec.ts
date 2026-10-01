@@ -639,6 +639,51 @@ test.describe('CSV vendor import', () => {
     expect(panel.lead).toBeGreaterThan(0);
   });
 
+  test('a day spelled with a comma is one answer, and a date matched twice counts once', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 27 (E26/F02/S04): Google joins a checkbox answer's options with ", ", and a day like
+    // "Saturday, August 1st" has a comma of its own. Every comma was a split, so the organizer
+    // matched "Saturday" and "August 1st" separately - and matching both halves to the same date
+    // refused the row for repeating it.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    const file = [
+      HEADERS.join(','),
+      ROWS[0].replace('"2026-08-01, 2026-08-08"', '"Saturday, August 1st, Saturday, August 8th"'),
+      // The same day twice, once as the market spells it and once as the form did.
+      ROWS[1].replace(',2026-08-01,1,', ',"2026-08-01, Saturday, August 1st",1,'),
+    ].join('\n');
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+
+    // One decision per day, not one per half of it.
+    await expect(importPage.unmatchedValues).toHaveText([
+      'Saturday, August 1st',
+      'Saturday, August 8th',
+    ]);
+    await importPage.resolveValue('Saturday, August 1st', '2026-08-01');
+    await importPage.resolveValue('Saturday, August 8th', '2026-08-08');
+    await importPage.clickPreview();
+
+    await expect(importPage.previewCounts).toContainText('2 of 2 rows');
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('Imported 2 new applications');
+
+    const applications = await listApplications(request, seed.marketId);
+    const dates = Object.fromEntries(
+      applications.map((a) => [a.applicantEmail, a.formData.essential_available_dates]),
+    );
+    expect(dates).toEqual({
+      'nadia@ember.test': ['2026-08-01', '2026-08-08'],
+      'theo@thistle.test': ['2026-08-01'],
+    });
+  });
+
   test('a skipped row is not written, and an address that is not one is skipped', async ({
     authenticatedPage: page,
     request,
