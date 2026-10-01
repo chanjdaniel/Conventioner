@@ -219,6 +219,13 @@ export interface Market {
   assignmentOutOfDate?: string[];
   /** Hand placements at a seat the plan no longer has (bug 31); Publish is refused while any. */
   orphanedPins?: Array<{ email: string; date: string; tableCode: string }>;
+  /**
+   * Every phase the market is known to have entered (E26/F06/S03), served from its phase history.
+   * Read with `phaseRecordComplete`: when that is false the market predates the record, and a
+   * phase missing here is unknown rather than never reached.
+   */
+  phasesReached?: string[];
+  phaseRecordComplete?: boolean;
   userRole?: MarketRole; // User's effective role (added by API)
 }
 

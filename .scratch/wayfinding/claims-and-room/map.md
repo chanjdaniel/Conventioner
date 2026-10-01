@@ -73,6 +73,10 @@ These frame every ticket and are not open for re-litigation without redrawing th
   that select**. Buildable work is
   [E16/F03](../../backlog/E16-one-design-language/F03-the-sizing-model/feature.md); it also closes
   H1, H10, H13, O1 and O2 from `.lavish/aesthetics-2026-09-20.html` without separate work.
+- [02: What is the source of truth for the market a screen is showing?](issues/02-source-of-truth-for-the-market-on-screen.md):
+  **route by market id, one store, re-read after every write** - settled on the next map as
+  [the-market-frame 03](../the-market-frame/issues/03-one-market-every-surface-reads.md) and built
+  in E21/E22; closed here when 06, which it blocked, was resolved.
 - [04: Who is in the Vendors list?](issues/04-who-is-in-the-vendors-list.md):
   **vendors, as the glossary says - rejected applicants leave it.** The page lists the run's own
   vendors, served by `/tables`, so it and Result count the same people; everyone who applied is on
@@ -84,6 +88,11 @@ These frame every ticket and are not open for re-litigation without redrawing th
   the market's ceiling; a swap warns each vendor about the tier and size of the seat they move into.
   The list is "Fits this seat" then "Would override their answers". Built as
   [E26/F05/S03](../../backlog/E26-the-user-flows-hold/F05-placements-tell-the-truth/S03-overrides-are-warned.md).
+- [06: Does a market remember where it has been?](issues/06-does-a-market-remember-where-it-has-been.md):
+  **yes - a phase log on the market document**, pushed by the one phase writer in the update that
+  moves the phase. `phase_record.py` answers how far a market got and whether it ran; a market
+  older than the record says only what it can prove. Built as
+  [E26/F06/S03](../../backlog/E26-the-user-flows-hold/F06-an-archive-is-a-record/S03-a-market-remembers-where-it-has-been.md).
 
 ## Not yet specified
 

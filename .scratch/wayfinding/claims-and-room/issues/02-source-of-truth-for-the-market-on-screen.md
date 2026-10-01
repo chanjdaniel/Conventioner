@@ -1,7 +1,7 @@
 # 02: What is the source of truth for the market a screen is showing?
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: -
 
 ## Question
@@ -50,3 +50,10 @@ A cached id cannot go stale about a lifecycle.
 The problem is only changes made anywhere else.
 
 Findings: F7 in `.lavish/qc-2026-09-20.html`.
+
+## Answer
+
+**Route by market id, and hold the market in one store that re-reads the server after every write.**
+Settled on the next map rather than here: [the-market-frame 03](../../the-market-frame/issues/03-one-market-every-surface-reads.md), built across E21 and E22.
+Every market page has its own address, every screen reads `front-end/src/stores/market.ts` through `useOpenMarket`, and nothing about a market is stored in the browser.
+Closed on 2026-10-02 when ticket [06](06-does-a-market-remember-where-it-has-been.md), which it blocked, was resolved: the phase record 06 adds reaches every screen through that one store.

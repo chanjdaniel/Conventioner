@@ -2,7 +2,7 @@
 id: E26/F06/S03
 title: A market remembers where it has been
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -17,5 +17,5 @@ Closes bugs 8 in `docs/MVP_BUGS.md`; each one's reproduction there is the starti
 
 ## Acceptance criteria
 
-- [ ] A market archived after Market Days says it ran.
-- [ ] A market archived after opening applications says it took applications.
+- [x] A market archived after Market Days says it ran.
+- [x] A market archived after opening applications says it took applications.

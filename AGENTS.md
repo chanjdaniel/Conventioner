@@ -191,9 +191,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `phase-rail-menu-button`. A spec that clicks `phase-transition-<phase>` for a back or
   destructive edge must open that menu first.
 - **A terminal state is stated in words.** Strikethrough alone reads as *stopped*, not as
-  *archived* - the prototype proved it. There is no record of which phases a market passed
-  through, so an archived market's frozen stage is read off evidence it holds (a stored
-  assignment, a published application form), never off history it does not.
+  *archived* - the prototype proved it. An archived market's frozen stage is the furthest phase
+  in `phasesReached` (see Phase Transitions); it once was read off evidence, and told a market
+  that ran that no check-in page ever went on the air (bug 8). Without a complete record the rail
+  says only what is proven and strikes nothing through.
 - Screens routed by market id get their `Market` from `useOpenMarket`
   (`front-end/src/utils/openMarket.ts`), a reader of the one market store
   (`front-end/src/stores/market.ts`); a transition from the rail is followed by the store
@@ -398,8 +399,17 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
   stay that way. `_validate_registry()` runs at import and refuses to load tables that disagree,
   so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
-- `Market.phase` is server-owned: `create_market()` stamps `draft`, and the transition endpoint is
-  the only writer on an existing market.
+- `Market.phase` is server-owned: `create_market()` stamps `draft`, and
+  `apply_phase_transition()` (`api/markets.py`) is the only writer on an existing market - the
+  transition endpoint and the form amendment chain both move a market through it. Do not add a
+  second copy of that write: the endpoint carried one until E26, which is how stamps drift.
+- **A market remembers every phase it entered** (E26/F06/S03): `phaseHistory` on the document,
+  one `{phase, enteredAt, by}` per move, pushed in the same update that moves the phase.
+  `back-end/phase_record.py` owns it, and `phases_reached()` is the one answer to "how far did this
+  market get" and "did it run" - served on `GET /markets/:id` as `phasesReached` and
+  `phaseRecordComplete`. A market older than the record is read from what it can PROVE (a
+  check-in, a stored assignment, a published form) and served `phaseRecordComplete: false`; only a
+  complete record may say a market never reached a phase.
 - **`phase` is the single source of truth for the market lifecycle; `is_draft` is derived from
   it.** `Market.is_draft` is a Pydantic `@computed_field` (true iff `phase == draft`) and is
   never independently writable: no request body can set it, and it is recomputed from the stored
@@ -409,8 +419,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `phase` is missing or unrecognized - a fallback that contradicted the phase would answer
   confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
   `Market` re-stamp `isDraft` from the effective phase before responding.
-- **Publishing a market is the `draft` → `archived` transition** (no guards), fired by the
-  Done button in `GenerateAssignmentView.vue`. A market can also leave `draft` via
+- **Publishing a market is `assignment` → `market_days`**, which puts its check-in page on the
+  air. `draft` → `archived` is abandoning a draft, not publishing it (that was the old flow's
+  Done button, long gone). A market leaves `draft` for its lifecycle via
   `draft` → `applications_open` (guarded by `FormHasFieldsGuard`).
   A legacy published market (`phase: "draft"` + `isDraft: false`) reads back as a *draft*, since
   `draft` is a phase this build recognizes and takes at face value - hence the migration below.

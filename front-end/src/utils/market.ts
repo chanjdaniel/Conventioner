@@ -136,5 +136,9 @@ export function parseMarketFromApi(market: any): Market {
     // Hand placements at a seat the plan no longer has (bug 31): marked on Result and the vendor's
     // panel, and the reason Publish is refused.
     orphanedPins: market.orphanedPins ?? [],
+    // Where the market has been, from its phase history (E26/F06/S03): what the archived rail
+    // says it reached. Undefined on a read that does not carry it, such as the list.
+    phasesReached: market.phasesReached,
+    phaseRecordComplete: market.phaseRecordComplete,
   };
 }

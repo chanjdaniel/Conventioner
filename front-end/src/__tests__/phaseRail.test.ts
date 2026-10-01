@@ -111,25 +111,71 @@ describe('a market that left the spine', () => {
     );
   });
 
-  it('freezes at the stage it can evidence reaching, and says what became of it', () => {
-    const assigned = railFor(MarketPhase.Archived, {
-      assignmentObject: {
-        vendorAssignments: [{ email: 'a@b.test' }],
-      },
-    } as unknown as Partial<Market>);
-
-    expect(assigned.get('[data-testid="phase-rail-frozen"]').text()).toContain('never published');
-    const states = Object.fromEntries(
-      assigned
+  function statesOf(rail: ReturnType<typeof railFor>) {
+    return Object.fromEntries(
+      rail
         .findAll('.phase-step')
         .map((s) => [s.attributes('data-phase'), s.attributes('data-state')]),
     );
+  }
+
+  function archivedHaving(phasesReached: string[], phaseRecordComplete = true) {
+    return railFor(MarketPhase.Archived, { phasesReached, phaseRecordComplete });
+  }
+
+  it('freezes at the furthest stage its record reached, and says what became of it', () => {
+    const assigned = archivedHaving(['draft', 'applications_open', 'assignment', 'archived']);
+
+    expect(assigned.get('[data-testid="phase-rail-frozen"]').text()).toContain('never published');
+    const states = statesOf(assigned);
     expect(states.assignment).toBe('done');
     expect(states.market_days).toBe('frozen');
   });
 
-  it('says it was abandoned when nothing evidences it ever ran', () => {
-    expect(railFor(MarketPhase.Archived).text()).toContain('abandoned before it ran');
+  it('says a market that ran ran, which evidence alone never could (bug 8)', () => {
+    const ran = archivedHaving(['draft', 'assignment', 'market_days', 'archived']);
+
+    expect(ran.get('[data-testid="phase-rail-frozen"]').text()).toContain(
+      'It was published and ran its market days.',
+    );
+    expect(statesOf(ran).market_days).toBe('done');
+  });
+
+  it('says a market opened applications though it went back to draft after', () => {
+    const reopened = archivedHaving(['draft', 'applications_open', 'archived']);
+
+    expect(reopened.text()).toContain('It opened applications but was never assigned.');
+  });
+
+  it('says it was abandoned when its record never left draft', () => {
+    expect(archivedHaving(['draft', 'archived']).text()).toContain(
+      'abandoned before it opened applications',
+    );
+  });
+
+  describe('when the market predates its record', () => {
+    it('says what it can prove and nothing about what it cannot', () => {
+      const rail = archivedHaving(['draft', 'assignment', 'archived'], false);
+      const note = rail.get('[data-testid="phase-rail-frozen"]').text();
+
+      expect(note).toContain('It was assigned.');
+      expect(note).not.toContain('never');
+    });
+
+    it('strikes nothing through, since a stage it is not known to have reached is unknown', () => {
+      const states = statesOf(archivedHaving(['draft', 'assignment', 'archived'], false));
+
+      expect(states.assignment).toBe('done');
+      expect(states.market_days).toBe('todo');
+    });
+
+    it('says only that it is archived when it can prove nothing', () => {
+      const note = archivedHaving(['draft', 'archived'], false)
+        .get('[data-testid="phase-rail-frozen"]')
+        .text();
+
+      expect(note.trim()).toBe('This market is archived.');
+    });
   });
 });
 
