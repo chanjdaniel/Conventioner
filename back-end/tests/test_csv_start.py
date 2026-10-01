@@ -76,15 +76,28 @@ def test_the_seam_keeps_ticked_boxes_and_table_choices(name):
     # A TEST row's "TEST" is rightly ignored; a table size never is.
     assert not {"Full table", "Half table", "Either"} & set(ignored)
 
-    _error, headers, _rows = CsvImport.parse_csv(csv_text)
+    _error, headers, rows = CsvImport.parse_csv(csv_text)
     restored, _missing, _new = CsvImport.restore_mapping(
         headers, saved, CsvImport.import_targets(after))
     preview, _ = CsvImport.preview_values(after, csv_text, restored, saved["resolutions"])
 
-    boxes = [f["label"] for f in after["applicationForm"]["fields"] if f["type"] == "checkbox"]
-    refusals = [f["error"] for f in preview["failures"]]
-    assert [r for r in refusals if "'Table choice' is required" in r] == []
-    assert [r for r in refusals if any(f"'{label}' is required" in r for label in boxes)] == []
+    # A row is refused on a question only when it left that question blank. Each refusal names
+    # every problem (bug 40), so a row that answered nothing names these too - rightly.
+    # A value the proposal rightly ignored (a TEST row's "TEST") is no answer either.
+    def answered(line, columns):
+        row = rows[line - 2]
+        return any(index < len(row) and row[index].strip()
+                   and ignored.get(row[index].strip(), "kept") is not None for index in columns)
+
+    choice_columns = restored.get(EssentialFields.TABLE_CHOICE_KEY, [])
+    box_columns = {f["label"]: restored.get(f["key"], [])
+                   for f in after["applicationForm"]["fields"] if f["type"] == "checkbox"}
+    for failure in preview["failures"]:
+        if answered(failure["row"], choice_columns):
+            assert "'Table choice' is required" not in failure["error"], failure
+        for label, columns in box_columns.items():
+            if answered(failure["row"], columns):
+                assert f"'{label}' is required" not in failure["error"], failure
     assert preview["validRows"] == IMPORTED[name]
 
 

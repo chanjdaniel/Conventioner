@@ -161,60 +161,88 @@ def validated_form_data(
     asks anything at all is ``_asks_nothing``'s question, because only it can see both halves.
     """
     stored: Dict[str, Any] = {}
-
     for field_def in fields:
-        key = field_def.get("key")
-        if not key:
-            continue
-        field_type = field_def.get("type", "text")
-        required = field_def.get("required", False)
-        label = field_def.get("label", key)
-
-        raw = incoming.get(key)
-        answered = _is_answered(raw, field_type)
-
-        if not answered:
-            if required:
-                return f"'{label}' is required.", {}
-            stored[key] = _unanswered_value(field_type)
-            continue
-
-        # Type-specific validation
-        if field_type == "number":
-            try:
-                stored[key] = _as_number(raw)
-            except (TypeError, ValueError) as e:
-                return f"'{label}' must be a number: {e}", {}
-            continue
-
-        if field_type in ("select", "multi_select"):
-            options = field_def.get("options") or []
-            if field_type == "select":
-                raw_str = str(raw).strip()
-                if raw_str not in options:
-                    return f"'{label}' must be one of: {', '.join(options)}", {}
-                stored[key] = raw_str
-            else:
-                if not isinstance(raw, list):
-                    return f"'{label}' requires one or more selections.", {}
-                for val in raw:
-                    if str(val).strip() not in options:
-                        return f"'{label}' contains an invalid option: {val}", {}
-                stored[key] = [str(v).strip() for v in raw]
-            continue
-
-        if field_type == "checkbox":
-            if not isinstance(raw, bool):
-                return f"'{label}' must be true or false.", {}
-            stored[key] = raw
-            continue
-
-        # text, email, date: store as trimmed string
-        if not isinstance(raw, str):
-            return f"'{label}' must be text.", {}
-        stored[key] = raw.strip()
-
+        error = _field_answer(field_def, incoming, stored)
+        if error:
+            return error, {}
     return None, stored
+
+
+def form_data_errors(incoming: Dict[str, Any], fields: List[Dict[str, Any]]) -> List[str]:
+    """Every custom question these answers would be refused on - for the import's report of a
+    skipped row, which named one problem at a time (bug 40)."""
+    stored: Dict[str, Any] = {}
+    return [error for error in (_field_answer(f, incoming, stored) for f in fields) if error]
+
+
+def answer_errors(
+    market_doc: Dict[str, Any], form_data: Dict[str, Any], *, imported: bool = False,
+) -> List[str]:
+    """Every reason ``validate_application_answers`` would refuse these answers, not the first."""
+    application_form = market_doc_field(market_doc, "application_form")
+    fields = (application_form or {}).get("fields") or []
+    if _asks_nothing(market_doc, fields):
+        return [NO_FORM_ERROR]
+    options = EssentialFields.effective_essential_options(market_doc)
+    return (EssentialFields.essential_answer_errors(form_data, options, limit_required=not imported)
+            + form_data_errors(form_data, fields))
+
+
+def _field_answer(
+    field_def: Dict[str, Any], incoming: Dict[str, Any], stored: Dict[str, Any],
+) -> Optional[str]:
+    """One custom question's answer into ``stored``, or the reason it is refused."""
+    key = field_def.get("key")
+    if not key:
+        return None
+    field_type = field_def.get("type", "text")
+    required = field_def.get("required", False)
+    label = field_def.get("label", key)
+
+    raw = incoming.get(key)
+    answered = _is_answered(raw, field_type)
+
+    if not answered:
+        if required:
+            return f"'{label}' is required."
+        stored[key] = _unanswered_value(field_type)
+        return None
+
+    # Type-specific validation
+    if field_type == "number":
+        try:
+            stored[key] = _as_number(raw)
+        except (TypeError, ValueError) as e:
+            return f"'{label}' must be a number: {e}"
+        return None
+
+    if field_type in ("select", "multi_select"):
+        options = field_def.get("options") or []
+        if field_type == "select":
+            raw_str = str(raw).strip()
+            if raw_str not in options:
+                return f"'{label}' must be one of: {', '.join(options)}"
+            stored[key] = raw_str
+        else:
+            if not isinstance(raw, list):
+                return f"'{label}' requires one or more selections."
+            for val in raw:
+                if str(val).strip() not in options:
+                    return f"'{label}' contains an invalid option: {val}"
+            stored[key] = [str(v).strip() for v in raw]
+        return None
+
+    if field_type == "checkbox":
+        if not isinstance(raw, bool):
+            return f"'{label}' must be true or false."
+        stored[key] = raw
+        return None
+
+    # text, email, date: store as trimmed string
+    if not isinstance(raw, str):
+        return f"'{label}' must be text."
+    stored[key] = raw.strip()
+    return None
 
 
 def _is_answered(value: Any, field_type: str) -> bool:

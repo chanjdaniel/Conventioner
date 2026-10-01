@@ -2,7 +2,7 @@
 id: E26/F02/S08
 title: The import reports honestly
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,4 +16,4 @@ Closes bugs 40 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] Each item of bug 40 is fixed and pinned by a unit or E2E test.
+- [x] Each item of bug 40 is fixed and pinned by a unit or E2E test.

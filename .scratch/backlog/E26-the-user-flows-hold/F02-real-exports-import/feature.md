@@ -2,7 +2,7 @@
 id: E26/F02
 title: Real exports import
 type: feature
-status: in-progress
+status: done
 blocked_by: []
 pr: []
 ---

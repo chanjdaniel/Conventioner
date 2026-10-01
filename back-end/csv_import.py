@@ -30,7 +30,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
-from application_write import record_application_answers, validate_application_answers
+from application_write import answer_errors, record_application_answers, validated_form_data
 from datatypes import (
     SUBMITTED_AT_RULE_TARGET,
     Application,
@@ -130,6 +130,9 @@ def normalized_submitted_at(raw: Any) -> Optional[str]:
 # A row whose mapped timestamp will not parse. Prefixed rather than dropped, so the refusal can
 # quote what the organizer actually typed.
 _UNREADABLE_TIMESTAMP = "\x00unreadable:"
+
+# How many rows the preview shows as they will be imported.
+SAMPLE_ROWS = 3
 
 APPLICANT_EMAIL_TARGET = "applicant_email"
 APPLICANT_EMAIL_LABEL = "Applicant email"
@@ -379,7 +382,25 @@ def parse_csv(csv_content: str) -> Tuple[Optional[str], List[str], List[List[str
     headers = [str(cell).strip() for cell in parsed[0]]
     if not any(headers):
         return "The first row of the file is empty, so there are no columns to map.", [], []
-    return None, headers, parsed[1:]
+
+    # A row whose cells do not line up with the header puts every later answer under the wrong
+    # question, and was accepted silently (bug 40). A blank line is no row at all, and empty cells
+    # past the header's last column are only trailing commas.
+    rows = [row for row in parsed[1:] if row]
+    ragged = [
+        (line, len(row)) for line, row in enumerate(rows, start=2)
+        if len(row) < len(headers) or any(cell.strip() for cell in row[len(headers):])
+    ]
+    if ragged:
+        line, cells = ragged[0]
+        more = f" (and {len(ragged) - 1} more)" if len(ragged) > 1 else ""
+        return (
+            f"Row {line}{more} has {cells} cells where the header has {len(headers)}, so its "
+            "answers would land under the wrong questions. A heading or an answer with a comma in "
+            "it has probably lost its quotes: download the responses from Google Sheets again "
+            "rather than editing the file by hand.", [], []
+        )
+    return None, headers, rows
 
 
 def suggested_mapping(headers: List[str], targets: List[ImportTarget]) -> Dict[str, int]:
@@ -610,6 +631,14 @@ _DAY_OF_MONTH = re.compile(r"^\s*(\d|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|no
                            re.IGNORECASE)
 
 
+_COMMA = re.compile(r",\s*")
+
+
+def _comma_spaced(text: str) -> str:
+    """``normalize_value``, with every comma followed by exactly one space."""
+    return normalize_value(_COMMA.sub(", ", str(text)))
+
+
 def split_options(value: str, known: Sequence[str] = ()) -> List[str]:
     """A checkbox answer's options. Google joins them with ", ", and an option can hold ", " too.
 
@@ -623,9 +652,11 @@ def split_options(value: str, known: Sequence[str] = ()) -> List[str]:
     - Otherwise a comma inside parentheses, or after a weekday that a day of the month follows,
       belongs to the option; every other comma separates two.
     """
-    pieces = str(value).split(", ")
-    whole = {normalize_value(option) for option in known if ", " in str(option)}
-    longest = max((str(option).count(", ") + 1 for option in known if ", " in str(option)),
+    # At a comma with or without a space after it: an "Other" answer typed by hand writes
+    # "Apparel,Keychains" or ends "Keychains," as often as Google writes ", ".
+    pieces = [piece.strip() for piece in _COMMA.split(str(value))]
+    whole = {_comma_spaced(option) for option in known if "," in str(option)}
+    longest = max((len(_COMMA.split(str(option))) for option in known if "," in str(option)),
                   default=1)
 
     parts: List[str] = []
@@ -635,7 +666,7 @@ def split_options(value: str, known: Sequence[str] = ()) -> List[str]:
     while i < len(pieces):
         if not current and whole:
             for j in range(min(len(pieces), i + longest), i + 1, -1):
-                if normalize_value(", ".join(pieces[i:j])) in whole:
+                if _comma_spaced(", ".join(pieces[i:j])) in whole:
                     parts.append(", ".join(pieces[i:j]).strip())
                     i = j
                     break
@@ -1094,25 +1125,26 @@ def _latest_rows(
 def _row_faults(
     market_doc: Dict[str, Any], assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
 ) -> List[Dict[str, Any]]:
-    """Rows that would be refused, each with the reason and its line in the organizer's file."""
+    """Rows that would be refused, each with every reason and its line in the organizer's file.
+
+    Every reason, not the first: an organizer who fixed one problem in the spreadsheet used to meet
+    the next on the next attempt (bug 40).
+    """
     faults = []
     for line, email, submitted_at, form_data in assembled:
+        problems = []
+        shown_email = email
         if not email:
-            faults.append({"row": line, "email": "", "error": "No email address."})
-            continue
-        if not _EMAIL_ADDRESS.fullmatch(email):
-            faults.append({"row": line, "email": "", "error": f"{email!r} is not an email address."})
-            continue
+            problems.append("No email address.")
+        elif not _EMAIL_ADDRESS.fullmatch(email):
+            problems.append(f"{email!r} is not an email address.")
+            shown_email = ""
         if submitted_at.startswith(_UNREADABLE_TIMESTAMP):
             raw = submitted_at[len(_UNREADABLE_TIMESTAMP):]
-            faults.append({
-                "row": line, "email": email,
-                "error": f"{raw!r} is not a date and time this import can read.",
-            })
-            continue
-        error = validate_application_answers(market_doc, form_data, imported=True)
-        if error:
-            faults.append({"row": line, "email": email, "error": error})
+            problems.append(f"{raw!r} is not a date and time this import can read.")
+        problems += answer_errors(market_doc, form_data, imported=True)
+        if problems:
+            faults.append({"row": line, "email": shown_email, "error": " ".join(problems)})
     return faults
 
 
@@ -1245,8 +1277,34 @@ def preview_values(
     result["failures"] = failures
     result["repeats"] = repeats
     result["validRows"] = len(applicants) - len(failures)
+    # The first rows that WILL import, as they will be stored: the file's own first rows included a
+    # skipped one, and read availability from a column a tier grid had answered instead (bug 40).
+    refused = {failure["row"] for failure in failures}
+    result["samples"] = [
+        {"row": line, "email": email, "formData": _answers_as_stored(market_doc, data)}
+        for line, email, _submitted, data in applicants if line not in refused
+    ][:SAMPLE_ROWS]
     result.update(_merge_shape(market_doc.get("id", ""), applicants, failures, market_doc))
     return result, 200
+
+
+def _answers_as_stored(
+    market_doc: Dict[str, Any], form_data: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """A row's answers in the shape they would be stored in, or None when they would be refused.
+
+    The same validators the write runs, so the preview's sample reads as the applications will
+    (bug 40) and a re-import can tell an applicant whose answers changed from one whose did not.
+    """
+    options = EssentialFields.effective_essential_options(market_doc)
+    error, essential = EssentialFields.validated_essential_answers(
+        form_data, options, limit_required=False,
+    )
+    form = market_doc_field(market_doc, "application_form") or {}
+    custom_error, custom = validated_form_data(form_data, form.get("fields") or [])
+    if error or custom_error:
+        return None
+    return {**custom, **essential}
 
 
 def _would_return_to_review(
@@ -1271,6 +1329,14 @@ def _would_return_to_review(
     if error:
         return False
     return EssentialFields.solver_relevant_change(existing.get("form_data") or {}, incoming)
+
+
+def _unchanged(
+    market_doc: Dict[str, Any], existing: Dict[str, Any], form_data: Dict[str, Any],
+) -> bool:
+    """Would importing this row store exactly what the application holds already?"""
+    incoming = _answers_as_stored(market_doc, form_data)
+    return incoming is not None and incoming == (existing.get("form_data") or {})
 
 
 def _merge_shape(
@@ -1303,16 +1369,23 @@ def _merge_shape(
     absent = sorted(existing_emails - in_file)
 
     returning = []
+    unchanged = set()
     if market_doc is not None:
         for line, email, _submitted, data in assembled:
             if not email or line in skipped_lines:
                 continue
-            if _would_return_to_review(market_doc, existing_by_email.get(email), data):
+            existing = existing_by_email.get(email)
+            if _would_return_to_review(market_doc, existing, data):
                 returning.append(email)
+            if existing and _unchanged(market_doc, existing, data):
+                unchanged.add(email)
 
+    # "Updated" is an application whose answers change. It counted every matching row, so a
+    # re-export in which four answers moved said 272 updated (bug 40).
     return {
         "newRows": len(in_file - existing_emails),
-        "updatedRows": len(in_file & existing_emails),
+        "updatedRows": len((in_file & existing_emails) - unchanged),
+        "unchangedRows": len(unchanged),
         "absentApplications": len(absent),
         "absentEmails": absent[:20],
         "returningToReview": len(returning),
@@ -1407,6 +1480,7 @@ def import_applications(
 
     created = 0
     updated = 0
+    unchanged = 0
     returned_to_review = 0
 
     # Judged exactly as the preview judged them: one row per applicant, and every refusal decided
@@ -1427,6 +1501,10 @@ def import_applications(
             continue
 
         existing = ApplicationsApi.find_application_by_email(market_id, email)
+        if existing and _unchanged(market_doc, existing, form_data):
+            # Nothing to write, and nothing to call an update.
+            unchanged += 1
+            continue
         # Decided BEFORE the write, while the stored answers are still the ones the organizer
         # approved: afterwards there is nothing left to compare against.
         stale_review = _would_return_to_review(market_doc, existing, form_data)
@@ -1470,6 +1548,7 @@ def import_applications(
     return {
         "created": created,
         "updated": updated,
+        "unchanged": unchanged,
         "skipped": len(failures),
         "rowCount": len(rows),
         "failures": sorted(failures, key=lambda failure: failure["row"]),

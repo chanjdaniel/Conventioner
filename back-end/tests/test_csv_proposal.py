@@ -374,6 +374,15 @@ class TestWhatAColumnCarries:
         assert len(first) <= 40 and not first.endswith("_")
         assert second == f"{first}_2"
 
+    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025", "fall-2025",
+                                      "spring-2026"])
+    def test_no_column_is_answered_by_more_than_responded(self, name):
+        """A status-only row an organizer typed is not a response, so its cells are not answers:
+        counting them said "answered by 360 of 359" (bug 40)."""
+        headers, rows = _read(name)
+        proposal = CsvProposal.proposal(headers, rows)
+        assert all(c["answered"] <= proposal["responses"] for c in proposal["columns"])
+
     def test_an_essential_no_column_answers_is_not_asked(self):
         headers, rows = _read("fall-2023")
         not_asked = {e["key"] for e in CsvProposal.proposal(headers, rows)["notAsked"]}
