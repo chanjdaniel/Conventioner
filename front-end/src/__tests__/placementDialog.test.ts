@@ -8,9 +8,25 @@
 import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
 import PlacementDialog from '@/components/PlacementDialog.vue';
-import { FULL_TABLE, HALF_TABLE_RIGHT } from '@/utils/placementChange';
+import {
+  FULL_TABLE,
+  HALF_TABLE_LEFT,
+  HALF_TABLE_RIGHT,
+  type PlaceableVendor,
+} from '@/utils/placementChange';
 
 const DATE = '2026-08-01';
+
+function applicant(email: string, overrides: Partial<PlaceableVendor> = {}): PlaceableVendor {
+  return {
+    email,
+    tableChoice: 'full',
+    availableDates: [DATE],
+    acceptedTiersByDate: {},
+    maxDates: null,
+    ...overrides,
+  };
+}
 
 function dialog(props: Record<string, unknown> = {}) {
   return mount(PlacementDialog, {
@@ -23,7 +39,9 @@ function dialog(props: Record<string, unknown> = {}) {
       section: 'Front',
       tier: 'Gold',
       seat: null,
-      candidates: [{ email: 'nadia@ember.test', tableChoice: 'full', availableDates: [DATE] }],
+      vendors: [applicant('nadia@ember.test')],
+      datesHeld: {},
+      marketCeiling: null,
       swapTargets: [],
       vendorNames: { 'nadia@ember.test': 'Nadia Ember' },
       ...props,
@@ -87,13 +105,55 @@ describe('filling a seat', () => {
       'Nadia Ember (nadia@ember.test)',
     );
   });
+
+  it('offers who the seat fits apart from who it would override, and hides neither', () => {
+    const wrapper = dialog({
+      vendors: [
+        applicant('nadia@ember.test'),
+        applicant('lee@ember.test', { acceptedTiersByDate: { [DATE]: ['Silver'] } }),
+      ],
+    });
+
+    expect(wrapper.get('[data-testid="placement-dialog-fits"]').text()).toContain('Nadia Ember');
+    expect(wrapper.get('[data-testid="placement-dialog-overrides"]').text()).toContain(
+      'lee@ember.test',
+    );
+  });
+
+  it('does not offer a vendor who already has a table on this date', () => {
+    const wrapper = dialog({ datesHeld: { 'nadia@ember.test': [DATE] } });
+
+    expect(wrapper.get('[data-testid="placement-dialog-vendor"]').text()).not.toContain('Nadia');
+    expect(wrapper.text()).toContain('already has a table on this date');
+  });
+
+  it("warns, without blocking, when it passes their limit and the market's ceiling", async () => {
+    const wrapper = dialog({
+      vendors: [applicant('nadia@ember.test', { maxDates: 1 })],
+      datesHeld: { 'nadia@ember.test': ['2026-08-02'] },
+      marketCeiling: 1,
+    });
+
+    await wrapper.get('[data-testid="placement-dialog-vendor"]').setValue('nadia@ember.test');
+
+    const warning = wrapper.get('[data-testid="placement-dialog-warning"]').text();
+    expect(warning).toContain('they asked for at most 1');
+    expect(warning).toContain('the market allows at most 1 per vendor');
+    expect(
+      wrapper.get('[data-testid="placement-dialog-confirm"]').attributes('disabled'),
+    ).toBeUndefined();
+  });
 });
 
 describe('a seat somebody holds', () => {
   const occupied = {
     mode: 'occupied',
+    seat: FULL_TABLE,
     occupantEmail: 'nadia@ember.test',
-    swapTargets: [{ email: 'lee@ember.test', tableCode: 'Front 2', seat: FULL_TABLE }],
+    vendors: [applicant('nadia@ember.test'), applicant('lee@ember.test')],
+    swapTargets: [
+      { email: 'lee@ember.test', tableCode: 'Front 2', tier: 'Gold', seat: FULL_TABLE },
+    ],
   };
 
   it('offers a trade and a way to free the seat, and no way to displace them', () => {
@@ -125,5 +185,40 @@ describe('a seat somebody holds', () => {
     const wrapper = dialog({ ...occupied, swapTargets: [] });
 
     expect(wrapper.text()).toContain('nobody to trade with');
+  });
+
+  it('warns for each vendor what the seat they move into overrides (bug 18)', async () => {
+    const wrapper = dialog({
+      ...occupied,
+      vendors: [
+        applicant('nadia@ember.test', { acceptedTiersByDate: { [DATE]: ['Gold'] } }),
+        applicant('lee@ember.test', { tableChoice: 'half' }),
+      ],
+      swapTargets: [
+        { email: 'lee@ember.test', tableCode: 'Back 2', tier: 'Bronze', seat: HALF_TABLE_LEFT },
+      ],
+    });
+
+    await wrapper.get('[data-testid="placement-dialog-swap-target"]').setValue('lee@ember.test');
+
+    const warning = wrapper.get('[data-testid="placement-dialog-swap-warning"]');
+    const nadia = warning.get('[data-vendor-email="nadia@ember.test"]').text();
+    expect(nadia).toContain('Nadia Ember');
+    expect(nadia).toContain('They did not accept the Bronze tier on this date');
+    expect(nadia).toContain('They asked for a whole table. This gives them half of one.');
+    expect(warning.get('[data-vendor-email="lee@ember.test"]').text()).toContain(
+      'They asked to share a table. This gives them a whole one.',
+    );
+    expect(
+      wrapper.get('[data-testid="placement-dialog-swap"]').attributes('disabled'),
+    ).toBeUndefined();
+  });
+
+  it('says nothing about a trade that overrides nobody', async () => {
+    const wrapper = dialog(occupied);
+
+    await wrapper.get('[data-testid="placement-dialog-swap-target"]').setValue('lee@ember.test');
+
+    expect(wrapper.find('[data-testid="placement-dialog-swap-warning"]').exists()).toBe(false);
   });
 });

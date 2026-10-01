@@ -73,6 +73,12 @@ These frame every ticket and are not open for re-litigation without redrawing th
   that select**. Buildable work is
   [E16/F03](../../backlog/E16-one-design-language/F03-the-sizing-model/feature.md); it also closes
   H1, H10, H13, O1 and O2 from `.lavish/aesthetics-2026-09-20.html` without separate work.
+- [05: What does the dialog tell you before you override a vendor's answer?](issues/05-before-you-override-an-answer.md):
+  **every answer a hand change can cross is said first, and the candidate list is grouped, never
+  filtered.** Placing warns about availability, tier, table size, the vendor's own date limit and
+  the market's ceiling; a swap warns each vendor about the tier and size of the seat they move into.
+  The list is "Fits this seat" then "Would override their answers". Built as
+  [E26/F05/S03](../../backlog/E26-the-user-flows-hold/F05-placements-tell-the-truth/S03-overrides-are-warned.md).
 
 ## Not yet specified
 

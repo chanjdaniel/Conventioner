@@ -2,7 +2,7 @@
 id: E26/F05/S03
 title: Overrides are warned before they happen
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -17,6 +17,6 @@ Closes bugs 18, 32 in `docs/MVP_BUGS.md`; each one's reproduction there is the s
 
 ## Acceptance criteria
 
-- [ ] Each override kind produces its warning in the place dialog.
-- [ ] The swap dialog warns for both vendors.
-- [ ] Warnings never block the change.
+- [x] Each override kind produces its warning in the place dialog.
+- [x] The swap dialog warns for both vendors.
+- [x] Warnings never block the change.

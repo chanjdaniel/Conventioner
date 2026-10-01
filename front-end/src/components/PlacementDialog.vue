@@ -14,8 +14,10 @@ import {
   FULL_TABLE,
   HALF_TABLE_LEFT,
   HALF_TABLE_RIGHT,
+  groupCandidates,
   placementWarnings,
   seatLabel,
+  seatWarnings,
   type PlaceableVendor,
   type Seat,
 } from '@/utils/placementChange';
@@ -24,7 +26,8 @@ import {
 export interface SwapTarget {
   email: string;
   tableCode: string;
-  seat: string;
+  tier: string;
+  seat: Seat;
 }
 
 const props = defineProps<{
@@ -36,10 +39,18 @@ const props = defineProps<{
   tableCode: string;
   section: string;
   tier: string;
-  /** Fixed when only one side is free; null when the whole table is, and the seat is a choice. */
+  /**
+   * The seat that was opened. Placing: fixed when only one side is free, null when the whole
+   * table is and the seat is a choice. Occupied: the seat the occupant holds.
+   */
   seat: Seat | null;
   occupantEmail?: string | null;
-  candidates: PlaceableVendor[];
+  /** Every vendor who could be placed, with their answers - a change is judged against them. */
+  vendors: PlaceableVendor[];
+  /** The dates each vendor holds a seat on, keyed by lowercased address. */
+  datesHeld: Record<string, string[]>;
+  /** The organizer's ceiling on dates per vendor; null when they set none. */
+  marketCeiling: number | null;
   swapTargets: SwapTarget[];
   vendorNames: VendorNames;
   busy?: boolean;
@@ -74,10 +85,55 @@ const seatChoices: Seat[] = [FULL_TABLE, HALF_TABLE_LEFT, HALF_TABLE_RIGHT];
 /** A fixed seat is not a choice: only one side of this table is free. */
 const seatIsFixed = computed(() => props.seat !== null);
 
-const chosenVendor = computed(() => props.candidates.find((v) => v.email === chosenEmail.value));
-const warnings = computed(() =>
-  placementWarnings(chosenVendor.value, props.date, chosenSeat.value),
+function datesHeldBy(email: string): string[] {
+  return props.datesHeld[email.toLowerCase()] ?? [];
+}
+
+function vendorFor(email: string | null | undefined): PlaceableVendor | undefined {
+  const address = String(email ?? '').toLowerCase();
+  return props.vendors.find((vendor) => vendor.email.toLowerCase() === address);
+}
+
+/** Anyone not already at a table on this date - one seat per vendor per date. */
+const candidates = computed(() =>
+  props.vendors.filter((vendor) => !datesHeldBy(vendor.email).includes(props.date)),
 );
+const groups = computed(() =>
+  groupCandidates(
+    candidates.value,
+    { date: props.date, tier: props.tier, seat: props.seat, marketCeiling: props.marketCeiling },
+    datesHeldBy,
+  ),
+);
+
+const warnings = computed(() =>
+  placementWarnings(vendorFor(chosenEmail.value), {
+    date: props.date,
+    tier: props.tier,
+    seat: chosenSeat.value,
+    datesHeld: datesHeldBy(chosenEmail.value),
+    marketCeiling: props.marketCeiling,
+  }),
+);
+
+/**
+ * What a trade overrides, for each of the two vendors (bug 18): each takes the other's table, so
+ * each is judged against the seat they are moving into. Only the vendors it overrides are listed.
+ */
+const swapWarnings = computed(() => {
+  const target = props.swapTargets.find((t) => t.email === swapWith.value);
+  if (!target || !props.occupantEmail || !props.seat) return [];
+  return [
+    {
+      email: props.occupantEmail,
+      warnings: seatWarnings(vendorFor(props.occupantEmail), props.date, target.tier, target.seat),
+    },
+    {
+      email: target.email,
+      warnings: seatWarnings(vendorFor(target.email), props.date, props.tier, props.seat),
+    },
+  ].filter((side) => side.warnings.length > 0);
+});
 const canPlace = computed(() => Boolean(chosenEmail.value) && !props.busy);
 const canSwap = computed(() => Boolean(swapWith.value) && !props.busy);
 
@@ -110,6 +166,12 @@ function label(email: string | null | undefined): string {
   const name = vendorName(address, props.vendorNames);
   return name ? `${name} (${address})` : address;
 }
+
+/** A swap partner's table, in words: "Hall B 1, left half" rather than a stored spelling. */
+function whereTheySit(target: SwapTarget): string {
+  if (target.seat === FULL_TABLE) return target.tableCode;
+  return `${target.tableCode}, ${target.seat === HALF_TABLE_LEFT ? 'left' : 'right'} half`;
+}
 </script>
 
 <template>
@@ -117,6 +179,7 @@ function label(email: string | null | undefined): string {
     :open="open"
     :title="tableCode"
     testid="placement-dialog"
+    wide
     :confirm-label="mode === 'place' ? 'Place them here' : 'Swap seats'"
     :confirm-disabled="mode === 'place' ? !canPlace : !canSwap"
     :error="errorMessage"
@@ -137,9 +200,26 @@ function label(email: string | null | undefined): string {
           data-testid="placement-dialog-vendor"
         >
           <option value="">Choose a vendor…</option>
-          <option v-for="vendor in candidates" :key="vendor.email" :value="vendor.email">
-            {{ label(vendor.email) }}
-          </option>
+          <!-- Grouped, never filtered (claims-and-room 05): overriding an answer stays possible,
+               it just is not mixed in with the vendors this seat fits. -->
+          <optgroup
+            v-if="groups.fits.length"
+            label="Fits this seat"
+            data-testid="placement-dialog-fits"
+          >
+            <option v-for="vendor in groups.fits" :key="vendor.email" :value="vendor.email">
+              {{ label(vendor.email) }}
+            </option>
+          </optgroup>
+          <optgroup
+            v-if="groups.overrides.length"
+            label="Would override their answers"
+            data-testid="placement-dialog-overrides"
+          >
+            <option v-for="vendor in groups.overrides" :key="vendor.email" :value="vendor.email">
+              {{ label(vendor.email) }}
+            </option>
+          </optgroup>
         </select>
       </label>
       <p v-if="candidates.length === 0" class="placement-note">
@@ -184,13 +264,26 @@ function label(email: string | null | undefined): string {
         >
           <option value="">Choose a vendor to trade seats with…</option>
           <option v-for="target in swapTargets" :key="target.email" :value="target.email">
-            {{ label(target.email) }} - {{ target.tableCode }} ({{ target.seat }})
+            {{ label(target.email) }} - {{ whereTheySit(target) }}
           </option>
         </select>
       </label>
       <p v-if="swapTargets.length === 0" class="placement-note">
         Nobody else holds a table on this date, so there is nobody to trade with.
       </p>
+
+      <div
+        v-if="swapWarnings.length"
+        class="placement-swap-warnings"
+        data-testid="placement-dialog-swap-warning"
+      >
+        <div v-for="side in swapWarnings" :key="side.email" :data-vendor-email="side.email">
+          <p class="placement-swap-name">{{ label(side.email) }}</p>
+          <ul class="placement-warnings">
+            <li v-for="warning in side.warnings" :key="warning">{{ warning }}</li>
+          </ul>
+        </div>
+      </div>
 
       <p class="placement-note">
         Freeing this seat leaves them with no table on this date until they are placed again.
@@ -278,5 +371,18 @@ function label(email: string | null | undefined): string {
   padding-left: var(--space-4);
   font-size: var(--text-xs);
   color: var(--mm-text-yellow-on-tint);
+}
+
+.placement-swap-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.placement-swap-name {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--mm-black);
 }
 </style>
