@@ -768,23 +768,19 @@ def create_market() -> Response:
         if not data:
             return jsonify({"error": "No data provided"}), 400
         
-        # Validate the market data using Pydantic
-        data = convert_keys_to_snake_case(data)
-        market = Market(**data)
-
         owner_email = authenticated_email()
-
-        # Check that owner exists
         owner = UsersApi.get_user(owner_email)
         if not owner:
             return jsonify({"error": "Owner not found"}), 404
-        
-        # Validate that market has exactly one owner in roles
-        roles = market.roles if hasattr(market, 'roles') else {}
-        owner_count = sum(1 for role in roles.values() if role == MarketRole.OWNER)
-        if owner_count != 1:
-            return jsonify({"error": "Market must have exactly one owner in roles dict"}), 400
-        
+
+        # Whoever creates a market owns it, and only they do. The body's roles were taken on
+        # trust, so a client could create a market owned by another user or by an id that is
+        # nobody, which then sat in the organization with no one able to manage it (bug 46).
+        # Anyone else is added afterwards, through the endpoints that manage a market's people.
+        data = convert_keys_to_snake_case(data)
+        data["roles"] = {owner.id: MarketRole.OWNER.value}
+        market = Market(**data)
+
         refusal = MarketsApi.organization_refusal(owner_email, data.get('organization_id'))
         if refusal:
             return jsonify({"error": refusal}), 400
