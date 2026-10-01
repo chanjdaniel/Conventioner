@@ -53,7 +53,7 @@ import logging
 from assignment.csv_output import market_csv_to_string
 from guards import route_between
 from assignment.made_from import assignment_rules, changed_since_run
-from placement_reasons import overridden_placements, unplaced_dates
+from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
 
 logging.basicConfig(level=logging.INFO)
@@ -521,6 +521,15 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignmentOutOfDate'] = (
         changed_since_run(market) if market.phase is MarketPhase.ASSIGNMENT else []
     )
+    # Hand placements at a seat the plan no longer has, for Result and the vendor's panel to mark
+    # (bug 31). The guard refuses Publish on the same list; reading it here keeps the pages from
+    # deciding for themselves which seats exist.
+    market_dict['orphanedPins'] = [
+        {"email": pin.email, "date": pin.date, "tableCode": pin.table_code}
+        for pin in orphaned_pins(
+            market.setup_object, market.assignment_object.vendor_assignments or [],
+        )
+    ]
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}

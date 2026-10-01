@@ -418,7 +418,7 @@ class NoOrphanedPinGuard:
             passed=False,
             message=(
                 f"{len(orphans)} hand {pin_word} the plan no longer has: {named}. "
-                "Restore the seat in the plan, or move those vendors, before assigning."
+                "Restore the seat in the plan, or move or free those vendors."
             ),
             # Two remedies again, on two pages: restoring the seat is Market Setup, and moving a
             # vendor is the Result page. This used to say `?tab=assignment`, which holds neither.
@@ -463,7 +463,9 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
     # a half-built rule scores every vendor alike, which is silent rather than wrong.
     "assignment": [_ALL_REVIEWED, _NO_ORPHANED_PIN],
     "offers": [_NO_APPROVED],
-    "market_days": [_ASSIGNMENT_COMPUTED],
+    # A market that is already in assignment never re-enters it, so an orphaned pin made there -
+    # a seat dropped from the plan after the run - met no guard and was published (bug 31).
+    "market_days": [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN],
 }
 
 # (from_phase, to_phase) -> list of guard instances. This is the table evaluate_transition
@@ -486,8 +488,8 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     ("applications_open", "draft"): [_NO_APPLICATIONS_YET],
     ("review", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR, _NO_ORPHANED_PIN],
     ("assignment", "offers"): [_NO_APPROVED],
-    ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED],
-    ("offers", "market_days"): [_ASSIGNMENT_COMPUTED],
+    ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN],
+    ("offers", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN],
 }
 
 

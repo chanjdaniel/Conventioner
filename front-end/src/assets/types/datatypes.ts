@@ -217,6 +217,8 @@ export interface Market {
   assignmentRulesLockReason?: string | null;
   /** Which of the solver's inputs changed since the assignment ran (E22/F03/S01). */
   assignmentOutOfDate?: string[];
+  /** Hand placements at a seat the plan no longer has (bug 31); Publish is refused while any. */
+  orphanedPins?: Array<{ email: string; date: string; tableCode: string }>;
   userRole?: MarketRole; // User's effective role (added by API)
 }
 

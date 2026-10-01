@@ -65,6 +65,14 @@ const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
 const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
 
+/**
+ * Tables the plan no longer has that a hand placement still names (bug 31): shown with the vendor
+ * still in them, so they are marked, since Publish is refused until each is moved or freed.
+ */
+const orphanedSeats = computed(
+  () => new Set((market.value?.orphanedPins ?? []).map((pin) => `${pin.date}|${pin.tableCode}`)),
+);
+
 /** A failed arrival retries both halves: the market the rail draws, and this screen's own rows. */
 function retryArrival(): void {
   void refreshMarket();
@@ -662,6 +670,12 @@ function swapSeats(withEmail: string): void {
                       </span>
                       <span v-if="row.tier" class="meta-tag">{{ row.tier }}</span>
                       <span v-if="row.location" class="meta-tag">{{ row.location }}</span>
+                      <span
+                        v-if="orphanedSeats.has(`${row.date}|${row.tableCode}`)"
+                        class="chip chip--attention"
+                        data-testid="tables-orphaned"
+                        >No longer in the plan - move or free this vendor</span
+                      >
                     </div>
 
                     <!-- Every seat is a control: an empty one is filled, an occupied one is

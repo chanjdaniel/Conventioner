@@ -2,7 +2,7 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { savePlan } from './helpers/savePlan';
 import { SEED_MARKET_DATE } from './helpers/seeds';
-import { marketScreenPath } from './helpers/marketScreens';
+import { marketSetupPath } from './helpers/marketScreens';
 
 /**
  * The two assignment options (E26/F04/S03).
@@ -32,7 +32,7 @@ test('a blank ceiling runs with no ceiling, and both options are named fields', 
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: 50 },
   });
 
-  await page.goto(marketScreenPath(marketId, 'assignment'));
+  await page.goto(marketSetupPath(marketId, 'assignment'));
   const ceiling = page.getByRole('spinbutton', { name: 'Max assignments per vendor' });
   const halves = page.getByRole('spinbutton', { name: /Max half table proportion/ });
   await expect(ceiling).toHaveValue('');

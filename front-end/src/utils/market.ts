@@ -133,5 +133,8 @@ export function parseMarketFromApi(market: any): Market {
     // Which of the rules, the plan and the approved applications changed since the stored
     // assignment ran (E22/F03/S01): computed by the server on every read of one market.
     assignmentOutOfDate: market.assignmentOutOfDate,
+    // Hand placements at a seat the plan no longer has (bug 31): marked on Result and the vendor's
+    // panel, and the reason Publish is refused.
+    orphanedPins: market.orphanedPins ?? [],
   };
 }
