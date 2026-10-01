@@ -3,7 +3,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { SEED_MARKET_DATE, ensureTestOrg, seedMarketWithVendors } from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
-import { marketScreenPath } from './helpers/marketScreens';
+import { marketSetupPath } from './helpers/marketScreens';
 import { mongoContainer } from './helpers/containerNames';
 
 /**
@@ -42,7 +42,7 @@ async function walkToAssignment(request: APIRequestContext, marketId: string) {
 
 /** Run the assignment the way an organizer does, and count who it placed. */
 async function assignFromThePage(page: Page, request: APIRequestContext, marketId: string) {
-  await page.goto(marketScreenPath(marketId, 'assignment'));
+  await page.goto(marketSetupPath(marketId, 'assignment'));
   await page.getByTestId('market-setup-assign-button').click();
   await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/result$`), { timeout: 15000 });
   const res = await request.get(`${BACKEND_URL}/markets/${marketId}`);

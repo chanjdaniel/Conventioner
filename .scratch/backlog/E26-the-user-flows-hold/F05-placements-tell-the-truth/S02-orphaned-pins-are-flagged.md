@@ -2,7 +2,7 @@
 id: E26/F05/S02
 title: Orphaned pins are flagged and block publishing
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,5 +16,5 @@ Closes bugs 31 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] An orphaned pin shows a marker on Result and the vendor panel.
-- [ ] Publish Market is refused, naming the vendor, table and date.
+- [x] An orphaned pin shows a marker on Result and the vendor panel.
+- [x] Publish Market is refused, naming the vendor, table and date.

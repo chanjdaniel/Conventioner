@@ -79,6 +79,14 @@ const route = useRoute();
  */
 const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+
+/** Is this vendor's placement on this date at a table the plan no longer has (bug 31)? */
+function isOrphaned(email: string, date: string): boolean {
+  const target = email.trim().toLowerCase();
+  return (market.value?.orphanedPins ?? []).some(
+    (pin) => pin.date === date && pin.email.trim().toLowerCase() === target,
+  );
+}
 const applications = ref<Application[]>([]);
 const tableRows = ref<MarketTableRowResponse[]>([]);
 const vendorNames = ref<VendorNames>({});
@@ -569,6 +577,7 @@ useInertBehind(
               :reason="reasonFor(selectedVendor.email, date.date)"
               :overrides="overridesFor(selectedVendor.email, date.date)"
               :placeHref="resultLinkFor(date.date)"
+              :orphaned="isOrphaned(selectedVendor.email, date.date)"
               @place="goToResult(date.date)"
             />
           </ul>
