@@ -384,11 +384,12 @@ class TestTheNameIsAnImportTarget:
 
 
 class TestWhatASingleColumnCannotSay:
-    """A checkbox question's export is ambiguous when its own labels contain commas.
+    """A checkbox question's export is ambiguous only when an option is made of other options.
 
-    Google joins the selected labels with commas and throws the separator information away, so
-    "Saturday, November 21, 2026" comes back indistinguishable from three separate answers. The
-    product cannot recover it, and says so rather than producing fragments in silence.
+    Google joins the selected labels with commas and throws the separator information away. An
+    option with a comma of its own is read whole, because the import knows the options (bug 27);
+    but offered "Prints, Cards" beside "Prints" and "Cards", the cell "Prints, Cards" is one answer
+    or two and nothing can tell which. The product says so rather than guessing.
     """
 
     def test_a_market_whose_every_label_is_comma_free_names_nothing(self, markets):
@@ -422,8 +423,7 @@ class TestWhatASingleColumnCannotSay:
         assert EssentialFields.TABLE_CHOICE_KEY not in body["commaBearingTargets"]
         assert CsvImport.APPLICANT_EMAIL_TARGET not in body["commaBearingTargets"]
 
-    def test_a_section_the_organizer_named_with_a_comma_is_named_too(self, markets):
-        """The rule follows the market's own words, not a fixed list of targets."""
+    def test_a_section_named_with_a_comma_is_read_whole_and_not_named(self, markets):
         doc = _market_doc(setup={**SETUP_CAMEL, "sections": [
             {"name": "Hall A, west end", "count": 4},
             {"name": "Garden", "count": 4},
@@ -431,9 +431,21 @@ class TestWhatASingleColumnCannotSay:
 
         body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
 
-        assert EssentialFields.SECTION_RANKING_KEY in body["commaBearingTargets"]
+        assert EssentialFields.SECTION_RANKING_KEY not in body["commaBearingTargets"]
 
-    def test_the_organizers_own_multi_select_question_is_named_too(self):
+    def test_an_option_made_of_other_options_is_named(self):
+        """The rule follows the market's own words, not a fixed list of targets."""
+        doc = _market_doc(fields=[{
+            "key": "craft", "label": "What do you make?", "type": "multi_select",
+            "required": False, "order": 0,
+            "options": ["Prints", "Cards", "Prints, Cards"],
+        }])
+
+        body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
+
+        assert "craft" in body["commaBearingTargets"]
+
+    def test_an_option_with_a_comma_of_its_own_is_not_named(self):
         doc = _market_doc(fields=[{
             "key": "craft", "label": "What do you make?", "type": "multi_select",
             "required": False, "order": 0,
@@ -442,7 +454,7 @@ class TestWhatASingleColumnCannotSay:
 
         body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
 
-        assert "craft" in body["commaBearingTargets"]
+        assert "craft" not in body["commaBearingTargets"]
 
     def test_a_single_select_question_is_not_named_however_its_options_read(self):
         doc = _market_doc(fields=[{
@@ -454,6 +466,56 @@ class TestWhatASingleColumnCannotSay:
         body, _ = CsvImport.inspect(doc, _csv(GOOD_ROW))
 
         assert "craft" not in body["commaBearingTargets"]
+
+
+class TestSplittingAnAnswer:
+    """Google joins a checkbox answer's options with ", ", and an option can hold ", " too.
+
+    Splitting at every comma cost applicants their answers and made the organizer match halves of
+    days (bug 27).
+    """
+
+    @pytest.mark.parametrize("cell, known, parts", [
+        ("Woven (crochet, knitting, etc), Prints", (), ["Woven (crochet, knitting, etc)", "Prints"]),
+        ("Monday, November 20th, Tuesday, November 21st", (),
+         ["Monday, November 20th", "Tuesday, November 21st"]),
+        ("Saturday, Sunday", (), ["Saturday", "Sunday"]),
+        ("Prints, cards and zines, Stickers", ("Prints, cards and zines", "Stickers"),
+         ["Prints, cards and zines", "Stickers"]),
+        ("prints, CARDS and zines", ("Prints, cards and zines",), ["prints, CARDS and zines"]),
+        ("Gold Plus, Gold", ("Gold", "Gold Plus"), ["Gold Plus", "Gold"]),
+        ("Gold, Silver", ("Gold", "Silver"), ["Gold", "Silver"]),
+    ])
+    def test_an_option_with_a_comma_of_its_own_stays_whole(self, cell, known, parts):
+        assert CsvImport.split_options(cell, known) == parts
+
+    def test_an_option_the_organizer_already_matched_is_read_whole(self, markets, applications):
+        """A value matched once names itself thereafter, so its commas are its own too."""
+        resolutions = {EssentialFields.AVAILABLE_DATES_KEY: {
+            "Sat Aug 1, morning": "2026-08-01", "Sat Aug 8, morning": "2026-08-08",
+        }}
+        row = GOOD_ROW.replace('"2026-08-01, 2026-08-08"', '"Sat Aug 1, morning, Sat Aug 8, morning"')
+
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(row), MAPPING, resolutions,
+        )
+
+        assert body["created"] == 1, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_available_dates"] == DATES
+
+    def test_one_day_spelled_two_ways_is_one_day(self, markets, applications):
+        """Matching two spellings to one date refused the row for repeating it."""
+        resolutions = {EssentialFields.AVAILABLE_DATES_KEY: {"Saturday, August 1st": "2026-08-01"}}
+        row = GOOD_ROW.replace('"2026-08-01, 2026-08-08"', '"2026-08-01, Saturday, August 1st"')
+
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(row), MAPPING, resolutions,
+        )
+
+        assert body["created"] == 1, body
+        data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
+        assert data["essential_available_dates"] == ["2026-08-01"]
 
 
 class TestAFormThatNeverAskedHowManyDays:

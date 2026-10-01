@@ -254,7 +254,9 @@ function offeredLabel(target: string, value: string): string {
 }
 
 /**
- * Whether one column mapped to this target cannot be split reliably.
+ * Whether one column mapped to this target cannot be split reliably: one of its options is made of
+ * others ("Prints, Cards" beside "Prints" and "Cards"). An option with a comma of its own is read
+ * whole, so it is not this case (bug 27).
  *
  * A **grid** mapping is silent: its option comes from the column header and nothing is split, and
  * that is the shape a real export of this question has. Only the single-column case is ambiguous.
@@ -946,10 +948,10 @@ function startOver() {
                     data-testid="import-cannot-split"
                   >
                     One column cannot answer
-                    <strong>{{ labelForTarget(columnTarget[row.index]) }}</strong> reliably: some of
-                    its options have commas in their own names, and this column separates answers
-                    with commas too, so there is no way to tell which comma is which. Re-export this
-                    question as a grid, one column per option, or rename the options without commas.
+                    <strong>{{ labelForTarget(columnTarget[row.index]) }}</strong> reliably: one of
+                    its options is other options joined by commas, and this column separates answers
+                    with commas too, so there is no way to tell one answer from two. Re-export this
+                    question as a grid, one column per option, or rename that option.
                   </p>
 
                   <!-- Values the market does not recognise, fixed in the row that owns them. -->
