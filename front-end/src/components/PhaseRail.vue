@@ -20,7 +20,6 @@
  * that the spine wraps rather than compressing, because labels painting over each other is worse
  * than a rail two lines tall.
  */
-import { hasAssignment } from '@/utils/marketPage';
 import { computed, ref } from 'vue';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
@@ -79,23 +78,26 @@ const currentIndex = computed(() => spine.value.indexOf(currentPhase.value));
 const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
 
 /**
- * An archived market froze; the rail says so at the stage it can evidence reaching.
+ * Where this market has been, from the phase history the server keeps (E26/F06/S03).
  *
- * There is no record of which phases a market passed through, so this is read off what it holds:
- * a stored assignment means it reached `assignment`, a published application form means it
- * reached `applications_open`, and otherwise it never left `draft`. Evidence, not history - which
- * is why the words beside the spine carry the meaning and the spine only reinforces them.
+ * It used to be read off evidence - a stored assignment meant Assignment, a published form meant
+ * Applications Open - and no evidence told "assigned, then archived" from "published, ran, then
+ * archived", so a market that ran was told no check-in page ever went on the air (bug 8).
  */
+const reached = computed(() => new Set(props.market?.phasesReached ?? []));
+/**
+ * Whether a stage missing from `reached` was never reached, or only is not known to have been: a
+ * market that predates the record is served what it can prove, and says no more than that.
+ */
+const recordComplete = computed(() => props.market?.phaseRecordComplete === true);
+
+/** An archived market froze at the furthest stage it reached. */
 const frozenAtIndex = computed(() => {
-  const market = props.market;
-  if (!market) return 0;
-  if (hasAssignment(market)) {
-    return spine.value.indexOf(MarketPhase.Assignment);
-  }
-  if (market.applicationForm?.publishedAt) {
-    return spine.value.indexOf(MarketPhase.ApplicationsOpen);
-  }
-  return 0;
+  let furthest = 0;
+  spine.value.forEach((phase, index) => {
+    if (phase !== MarketPhase.Archived && reached.value.has(phase)) furthest = index;
+  });
+  return furthest;
 });
 
 /**
@@ -103,24 +105,31 @@ const frozenAtIndex = computed(() => {
  *
  * The prototype settled this: strikethrough alone reads as *stopped*, not as *archived* - a
  * reader cannot tell a deliberately-ended rail from a broken one. Words are the fix and the
- * strikethrough stays as reinforcement.
+ * strikethrough stays as reinforcement. Only a whole record may say what did NOT happen.
  */
 const frozenNote = computed(() => {
   if (!isArchived.value) return '';
-  const reached = spine.value[frozenAtIndex.value];
-  if (reached === MarketPhase.Assignment) {
-    return 'It was assigned but never published, so no check-in page went on the air.';
+  const has = (...phases: MarketPhase[]) => phases.some((phase) => reached.value.has(phase));
+  const whole = recordComplete.value;
+  if (has(MarketPhase.MarketDays)) return 'It was published and ran its market days.';
+  if (has(MarketPhase.Assignment, MarketPhase.Offers)) {
+    return whole
+      ? 'It was assigned but never published, so no check-in page went on the air.'
+      : 'It was assigned.';
   }
-  if (reached === MarketPhase.ApplicationsOpen) {
-    return 'It took applications but was never assigned.';
+  if (has(MarketPhase.ApplicationsOpen, MarketPhase.ApplicationsClosed, MarketPhase.Review)) {
+    return whole ? 'It opened applications but was never assigned.' : 'It opened applications.';
   }
-  return 'It was abandoned before it ran.';
+  return whole ? 'It was abandoned before it opened applications.' : '';
 });
 
 function stepState(index: number): 'done' | 'current' | 'todo' | 'frozen' {
   if (isArchived.value) {
     if (spine.value[index] === MarketPhase.Archived) return 'current';
-    return index <= frozenAtIndex.value ? 'done' : 'frozen';
+    if (index <= frozenAtIndex.value) return 'done';
+    // Struck through only when the record says it was never reached; otherwise it is unknown,
+    // and striking it would be the guess this replaced.
+    return recordComplete.value ? 'frozen' : 'todo';
   }
   if (index < currentIndex.value) return 'done';
   if (index === currentIndex.value) return 'current';

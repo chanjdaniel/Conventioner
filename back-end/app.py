@@ -33,13 +33,12 @@ from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
-from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole, phase_from_market_document
+from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from guards import PreconditionResult, VALID_TRANSITIONS, evaluate_transition
 from market_documents import (
     MarketKeyMigrationError,
     assert_market_key_migration_recorded,
-    market_doc_key,
 )
 import db_config
 from dataclasses import asdict
@@ -1119,37 +1118,20 @@ def transition_market(market_id: str) -> Response:
                 "blockers": [asdict(b) for b in blockers],
             })), 409
 
-        phase_key = market_doc_key("phase")
-        is_draft_key = market_doc_key("is_draft")
-        stored_phase = (
-            context.document[phase_key] if phase_key in context.document
-            else {"$exists": False}
-        )
-        # One atomic update. A failure between the phase and the stamp would leave a market whose
-        # two answers disagree, which is the class of bug migrate_is_draft_consistency exists to
-        # repair - and this endpoint is the only writer of either.
-        result = MarketsApi.markets_collection.update_one(
-            {"id": market_id, phase_key: stored_phase},
-            {"$set": {
-                phase_key: to_phase.value,
-                is_draft_key: to_phase == MarketPhase.DRAFT,
-                **MarketsApi.finalization_update(
-                    from_phase, to_phase.value, context.document
-                ),
-            }},
-        )
-
-        if result.matched_count == 0:
-            latest_doc = MarketsApi.markets_collection.find_one({"id": market_id})
-            if latest_doc is None:
-                return jsonify({"error": "Market not found"}), 404
-
-            actual_phase = phase_from_market_document(latest_doc).value
+        # Through the one phase writer, so the phase, its two stamps and the phase history move in
+        # one atomic update (E26/F06/S03). This endpoint used to carry its own copy of that write.
+        try:
+            MarketsApi.apply_phase_transition(
+                market_id, context.document, to_phase.value, by=user_email
+            )
+        except MarketsApi.MarketNotFoundError:
+            return jsonify({"error": "Market not found"}), 404
+        except MarketsApi.PhaseChangedUnderRequest as changed:
             conflict = PreconditionResult(
                 id="phase_changed",
                 passed=False,
                 message=(
-                    f"This market moved to the '{actual_phase}' phase while the "
+                    f"This market moved to the '{changed.actual_phase}' phase while the "
                     f"request was in flight, so it can no longer move to "
                     f"'{to_phase.value}' from '{from_phase}'. "
                     "Reload the market and try again."
@@ -1157,7 +1139,7 @@ def transition_market(market_id: str) -> Response:
             )
             return jsonify(convert_keys_to_camel_case({
                 "error": "phase_changed",
-                "current_phase": actual_phase,
+                "current_phase": changed.actual_phase,
                 "target_phase": to_phase.value,
                 "blockers": [asdict(conflict)],
             })), 409

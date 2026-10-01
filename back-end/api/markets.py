@@ -46,6 +46,7 @@ from market_documents import (
 import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
 import placement_history as PlacementHistory
+import phase_record as PhaseRecord
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import traceback
@@ -530,6 +531,11 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
             market.setup_object, market.assignment_object.vendor_assignments or [],
         )
     ]
+    # Where this market has been (E26/F06/S03), for the archived rail to say how far it got.
+    # `phaseRecordComplete` false means a phase missing from the list is unknown, not never.
+    reached = PhaseRecord.phases_reached(market_dict)
+    market_dict['phasesReached'] = sorted(reached.phases)
+    market_dict['phaseRecordComplete'] = reached.complete
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -665,6 +671,11 @@ def create_market(market: Market, owner_email: str) -> tuple:
     _strip_persisted_assignment_statistics(market_dict)
     market_dict["phase"] = MarketPhase.DRAFT.value
     market_dict["is_draft"] = True  # phase is always DRAFT at creation; kept in sync as the phase fallback
+    # Server-owned, like the phase: whatever a create body carried is replaced by the one entry
+    # every market starts with (E26/F06/S03).
+    market_dict["phase_history"] = [
+        PhaseRecord.phase_entry(MarketPhase.DRAFT.value, owner_email).model_dump()
+    ]
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -1098,9 +1109,9 @@ def finalization_update(
     answers exactly one question: is this form finalized right now?
 
     **It is not a restatement of ``phase != draft``**, because ``draft -> archived`` also exists -
-    the publish path - and does NOT stamp. A market published straight from draft never opened its
+    abandoning a draft - and does NOT stamp. A market archived straight from draft never opened its
     form to anybody, and the two fields therefore say different things: ``phase`` is where the
-    market is now, this is whether the form was ever opened to applicants.
+    market is now, this is whether the form is opened to applicants.
 
     If that edge is ever retired, this field becomes derivable and should be DELETED rather than
     maintained. Left here so that is a decision next time and not an archaeology problem.
@@ -1138,17 +1149,20 @@ class PhaseChangedUnderRequest(Exception):
         super().__init__(f"Market is in '{actual_phase}'")
 
 
-def apply_phase_transition(market_id: str, document: Dict[str, Any], to_phase: str) -> None:
+def apply_phase_transition(
+    market_id: str, document: Dict[str, Any], to_phase: str, by: Optional[str] = None,
+) -> None:
     """Write one phase change, conditional on the market still being where the caller thinks.
 
-    Extracted from the transition endpoint so the form-amendment chain (E20/F03/S01) walks the
-    market with the SAME writer rather than a second copy of it. A second copy is how the
-    `isDraft` stamp and the finalization stamp come to disagree with `phase`.
+    The ONE writer of a market's phase: the transition endpoint and the form-amendment chain
+    (E20/F03/S01) both move a market through it. A second copy is how the `isDraft` stamp and the
+    finalization stamp come to disagree with `phase` - and how a move goes unrecorded.
 
     ONE atomic update, and one conditional on the stored phase: a failure between the phase and
     the stamp would leave a market whose two answers disagree, which is the class of bug
     `migrate_is_draft_consistency` exists to repair, and a lost update would move a market a
-    concurrent request had already moved.
+    concurrent request had already moved. The same update records the phase entered, and who
+    moved it there, in the market's phase history (E26/F06/S03).
 
     Raises:
         PhaseChangedUnderRequest: the stored phase moved under this request.
@@ -1161,11 +1175,14 @@ def apply_phase_transition(market_id: str, document: Dict[str, Any], to_phase: s
 
     result = markets_collection.update_one(
         {"id": market_id, phase_key: stored_phase},
-        {"$set": {
-            phase_key: to_phase,
-            is_draft_key: to_phase == MarketPhase.DRAFT.value,
-            **finalization_update(from_phase, to_phase, document),
-        }},
+        {
+            "$set": {
+                phase_key: to_phase,
+                is_draft_key: to_phase == MarketPhase.DRAFT.value,
+                **finalization_update(from_phase, to_phase, document),
+            },
+            "$push": PhaseRecord.push_entries(document, to_phase, by),
+        },
     )
 
     if result.matched_count:
