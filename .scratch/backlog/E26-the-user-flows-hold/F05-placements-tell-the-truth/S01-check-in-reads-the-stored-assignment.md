@@ -2,7 +2,7 @@
 id: E26/F05/S01
 title: Check-in reads the stored assignment
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,4 +16,4 @@ Closes bugs 1 in `docs/MVP_BUGS.md`; each one's reproduction there is the starti
 
 ## Acceptance criteria
 
-- [ ] After a swap, a placement into an empty seat and a freed seat, each affected vendor's check-in shows the stored seat.
+- [x] After a swap, a placement into an empty seat and a freed seat, each affected vendor's check-in shows the stored seat.

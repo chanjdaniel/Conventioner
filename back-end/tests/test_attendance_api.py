@@ -121,45 +121,40 @@ def test_get_vendor_assignment_summary_404_when_market_missing(monkeypatch):
 
 def test_get_vendor_assignment_summary_404_when_no_assignment(monkeypatch):
     market = _market_with_assignment()
+    market["assignmentObject"]["vendorAssignments"][0]["email"] = "someone@else.com"
     monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda slug: market)
-
-    assigned = SimpleNamespace(
-        setup_object=None,
-        assignment_object=SimpleNamespace(vendor_assignments=[
-            SimpleNamespace(
-                email="someone@else.com", date="2026-05-01",
-                table_code="A1", table_choice="Full Table",
-                section="A", tier="Gold", location="Main Hall",
-            )
-        ]),
-    )
-    monkeypatch.setattr(AttendanceApi, "assign_market", lambda m: assigned)
 
     result, status = AttendanceApi.get_vendor_assignment_summary("test-market", "vendor@example.com")
     assert status == 404
     assert "No assignment" in result["error"]
 
 
+def test_the_lookup_reads_the_stored_assignment_and_never_runs_the_solver(monkeypatch):
+    """Bug 1: it ran the solver afresh on every lookup, so a vendor moved by hand was sent to their
+    old seat - another vendor's by then - and could check in there."""
+    market = _market_with_assignment()
+    row = market["assignmentObject"]["vendorAssignments"][0]
+    row.update({"tableCode": "B7", "handPlaced": True})  # where the organizer moved them
+    monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda slug: market)
+    monkeypatch.setattr(AttendanceApi, "attendance_collection", FakeAttendanceCollection())
+
+    def no_solver(*_args, **_kwargs):
+        raise AssertionError("a check-in lookup ran the solver")
+
+    monkeypatch.setattr(AttendanceApi, "assign_market", no_solver, raising=False)
+
+    result, status = AttendanceApi.get_vendor_assignment_summary("test-market", "vendor@example.com")
+    assert status == 200
+    assert [a["tableCode"] for a in result["assignments"]] == ["B7"]
+
+
 def test_get_vendor_assignment_summary_returns_camel_case_with_attendance_flag(monkeypatch):
     market = _market_with_assignment()
+    market["assignmentObject"]["vendorAssignments"].append({
+        "email": "vendor@example.com", "date": "2026-05-02", "tableCode": "A2",
+        "tableChoice": "Full Table", "section": "A", "tier": "Gold", "location": "Main Hall",
+    })
     monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda slug: market)
-
-    assigned = SimpleNamespace(
-        setup_object=SimpleNamespace(market_dates=[SimpleNamespace(date="2026-05-01")]),
-        assignment_object=SimpleNamespace(vendor_assignments=[
-            SimpleNamespace(
-                email="vendor@example.com", date="2026-05-01",
-                table_code="A1", table_choice="Full Table",
-                section="A", tier="Gold", location="Main Hall",
-            ),
-            SimpleNamespace(
-                email="vendor@example.com", date="2026-05-02",
-                table_code="A2", table_choice="Full Table",
-                section="A", tier="Gold", location="Main Hall",
-            ),
-        ]),
-    )
-    monkeypatch.setattr(AttendanceApi, "assign_market", lambda m: assigned)
 
     fake_coll = FakeAttendanceCollection()
     fake_coll.docs.append({
