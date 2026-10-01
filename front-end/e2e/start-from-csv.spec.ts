@@ -148,6 +148,54 @@ test.describe('Start from your Google Form', () => {
     });
   }
 
+  test('keeping every answer of a question keeps every applicant who gave one', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 4 (E26/F02/S07): an option few applicants chose was left out, and an applicant whose
+    // every answer was such an option lost their answer to a required question - and with it their
+    // application. One-off answers past the first twenty could not be kept at all.
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const flow = new StartFromCsvPage(page);
+    await flow.open(marketId);
+    await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
+    await flow.answerYear();
+
+    const selling = flow.row('What will you be selling at the event?');
+    // Said before it happens: how many applicants the left-out options would cost.
+    await expect(selling.getByTestId('proposal-row-dropped')).toContainText(
+      /\d+ applicants? answered only options that are left out/,
+    );
+
+    // Every answer can be seen and ticked, one-offs included.
+    const listed = await selling.getByTestId('proposal-option').count();
+    await selling.getByTestId('proposal-row-show-all').click();
+    expect(await selling.getByTestId('proposal-option').count()).toBeGreaterThan(listed + 50);
+
+    // And one click keeps them all.
+    await selling.getByTestId('proposal-row-keep-all').click();
+    await expect(selling.getByTestId('proposal-row-dropped')).toHaveCount(0);
+    await expect(
+      selling.locator('[data-testid="proposal-option"] input:not(:checked)'),
+    ).toHaveCount(0);
+
+    await page.getByTestId('proposal-confirm').click();
+    await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+    const importer = new CsvImportPage(page);
+    await importer.open({ id: marketId });
+    await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));
+    await importer.clickPreview();
+    await expect(importer.previewCounts).toBeVisible();
+    const refusals = await importer.previewFailureRows.allInnerTexts();
+    expect(refusals.filter((r) => r.includes('What will you be selling'))).toEqual([]);
+  });
+
   test('a file with no dates asks no year', async ({ authenticatedPage: page, request }) => {
     const { marketId } = await seedDraftMarket(
       request,

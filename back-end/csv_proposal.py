@@ -103,7 +103,6 @@ VIEW_OPTIONS = 15
 OPTION_SHARE = 0.04
 
 # How many options a choice question lists before the rare ones are counted instead.
-OPTIONS_LISTED = 20
 
 LABEL_MAX = 120
 KEY_MAX = 40
@@ -145,11 +144,17 @@ class _Column:
 
         whole: Dict[str, Set[str]] = {}
         options: Dict[str, Set[str]] = {}
+        # What each applicant answered, both ways: so the ledger can say how many applicants a
+        # set of left-out options would leave with no answer at all (bug 4).
+        self.answers_of: Dict[str, Set[str]] = {}
+        self.options_of: Dict[str, Set[str]] = {}
         for value, person in zip(values, people):
             if value.strip():
                 whole.setdefault(value.strip(), set()).add(person)
+                self.answers_of.setdefault(person, set()).add(value.strip())
                 for option in split_options(value):
                     options.setdefault(option, set()).add(person)
+                    self.options_of.setdefault(person, set()).add(option)
         self.answer_counts = {value: len(who) for value, who in whole.items()}
         self.option_counts = {option: len(who) for option, who in options.items()}
         self.shared = _most_common(
@@ -222,32 +227,35 @@ def _most_common(pairs) -> List[Tuple[str, int]]:
 
 def label_and_help(header: str) -> Tuple[str, Optional[str]]:
     """The header's first line is the label and the rest, verbatim, its help text. A first line
-    over LABEL_MAX characters keeps its first sentence as the label and gives the rest away."""
+    over LABEL_MAX characters keeps its first sentence as the label and gives the rest away.
+
+    Never mid-sentence: a long line with no sentence end in it stays whole. Cutting it at the last
+    word that fit put "...at UBC Makers" on the form and "Market! (e.g. Google Drive...)" under it
+    (bug 41) - a long label reads fine, a broken one does not.
+    """
     text = str(header).replace("\r\n", "\n").replace("\r", "\n").strip()
     first, _, rest = text.partition("\n")
     first, rest = first.strip(), rest.strip()
     if len(first) > LABEL_MAX:
         cut = _first_sentence_end(first)
-        if cut is None:
-            # No sentence ends before the line does: the last whole word that fits.
-            cut = first.rfind(" ", 0, LABEL_MAX + 1)
-            cut = cut if cut > 0 else LABEL_MAX
-        head, tail = first[:cut].strip(), first[cut:].strip()
-        rest = (tail + ("\n" + rest if rest else "")).strip()
-        first = head
+        if cut is not None and cut < len(first):
+            head, tail = first[:cut].strip(), first[cut:].strip()
+            rest = (tail + ("\n" + rest if rest else "")).strip()
+            first = head
     return first, rest or None
 
 
 def _first_sentence_end(text: str) -> Optional[int]:
-    """Just past the first "?" or "." that ends a sentence: followed by a space or the end, and
-    outside parentheses, so "(e.g. your timetable)" does not end one."""
+    """Just past the first "?", "!" or "." that ends a sentence: followed by a space or the end,
+    and outside parentheses, so "(e.g. your timetable)" does not end one."""
     depth = 0
     for position, char in enumerate(text):
         if char == "(":
             depth += 1
         elif char == ")":
             depth = max(depth - 1, 0)
-        elif char in "?." and depth == 0 and (position + 1 == len(text) or text[position + 1] == " "):
+        elif char in "?.!" and depth == 0 and (position + 1 == len(text)
+                                                or text[position + 1] == " "):
             return position + 1
     return None
 
@@ -279,8 +287,7 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
     label, help_text = label_and_help(column.header)
     field: Dict[str, Any] = {
         "key": key_for(label, taken_keys), "label": label, "helpText": help_text,
-        "required": column.answered_share >= REQUIRED_SHARE, "options": [], "unlistedOptions": 0,
-        "upload": False,
+        "required": column.answered_share >= REQUIRED_SHARE, "options": [], "upload": False,
     }
     if column.drive_upload >= 0.9:
         # A Google Forms upload. The application form takes no files, so the question asks for a
@@ -308,43 +315,49 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
     # Both ways of reading the answers as choices, so the organizer can turn one choice into several
     # (or back) and get the options that reading gives: whole answers, or the options inside them.
     field["optionsByType"] = {
-        "select": _choices(column.answer_counts, column.filled, share_floor=0),
-        "multi_select": _choices(column.option_counts, column.filled, share_floor=OPTION_SHARE),
+        "select": _choices(column.answer_counts, column.answers_of, column.filled, share_floor=0),
+        "multi_select": _choices(column.option_counts, column.options_of, column.filled,
+                                 share_floor=OPTION_SHARE),
     } if column.filled else {}
     chosen = field["optionsByType"].get(field["type"])
     if chosen:
-        field["options"], field["unlistedOptions"] = chosen["options"], chosen["unlisted"]
+        field["options"] = chosen["options"]
     return field
 
 
-def _choices(counts: Dict[str, int], filled: int, share_floor: float) -> Dict[str, Any]:
+def _choices(counts: Dict[str, int], held: Dict[str, Set[str]], filled: int,
+             share_floor: float) -> Dict[str, Any]:
+    """Every option, and what each applicant answered as indexes into them.
+
+    The answers are what let the ledger say how many applicants a set of left-out options would
+    leave with nothing, for whichever options the organizer keeps - a count per option cannot,
+    because one applicant can choose several (bug 4). Indexes, sorted, in no row order.
+    """
     options = _options(counts, filled, share_floor)
-    return {"options": options, "unlisted": _unlisted(counts, options)}
+    position = {option["value"]: index for index, option in enumerate(options)}
+    answers = sorted(sorted(position[value] for value in values) for values in held.values())
+    return {"options": options, "answers": answers}
 
 
 def _options(counts: Dict[str, int], filled: int, share_floor: float) -> List[Dict[str, Any]]:
-    """The options the whole file shows, most chosen first, with how many applicants chose each.
+    """Every option the file shows, most chosen first, with how many applicants chose each.
 
     One few applicants chose - fewer than 3, or for a checkbox question under OPTION_SHARE of its
     answers - is rare and off by default, with its count: the organizer decides whether to keep it.
-    The list stops at OPTIONS_LISTED, since a checkbox question's "Other" answers run to hundreds,
-    each one person's; ``_unlisted`` counts the rest, and the form builder can add any of them.
+    All of them are listed, one-offs included: an answer that could not be listed could not be
+    kept, so an applicant who gave only such answers lost their application (bug 4). How many to
+    show at first is the ledger's business.
     """
     def rare(count: int) -> bool:
         return count < SHARED_BY or count / filled < share_floor
 
     ordered = _most_common(counts.items())
-    kept = [(value, count) for value, count in ordered if not rare(count)]
-    others = [(value, count) for value, count in ordered if rare(count)]
-    listed = kept + others[:max(OPTIONS_LISTED - len(kept), 0)]
+    listed = ([(value, count) for value, count in ordered if not rare(count)]
+              + [(value, count) for value, count in ordered if rare(count)])
     return [
         {"value": value, "count": count, "rare": rare(count), "keep": not rare(count)}
         for value, count in listed
     ]
-
-
-def _unlisted(counts: Dict[str, int], listed: List[Dict[str, Any]]) -> int:
-    return len(counts) - len(listed)
 
 
 def _classify(columns: List[_Column]) -> List[Dict[str, Any]]:
