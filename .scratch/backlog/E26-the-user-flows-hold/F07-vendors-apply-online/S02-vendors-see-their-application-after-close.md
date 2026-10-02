@@ -2,7 +2,7 @@
 id: E26/F07/S02
 title: Vendors see their application after close
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,4 +16,4 @@ Closes bugs 20 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] After Publish Results and Close Applications, a signed-in vendor sees their verdict.
+- [x] After Publish Results and Close Applications, a signed-in vendor sees their verdict.

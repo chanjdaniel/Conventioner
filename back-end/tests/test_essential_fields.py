@@ -608,6 +608,51 @@ class TestAFirstTimeVendor:
         assert body["application"]["id"] == "app-1"
 
 
+class TestAfterApplicationsClose:
+    """Reading stays open; applying does not (bug 20, E26/F07/S02)."""
+
+    @pytest.fixture
+    def closed(self, monkeypatch):
+        doc = _applicant_market_doc()
+        doc["phase"] = "applications_closed"
+        markets = FakeSlugMarketsCollection(doc)
+
+        class _Db(dict):
+            def __getitem__(self, name):
+                return markets
+
+        monkeypatch.setattr(test_db_config, "get_database", lambda *_a, **_kw: _Db())
+        return markets
+
+    def test_a_vendor_can_still_read_their_application(self, closed, applications):
+        _seed_application(applications)
+
+        body, status = get_applicant_application("test-market", _token())
+
+        assert status == 200
+        assert body["application"]["id"] == "app-1"
+
+    def test_a_save_is_refused_in_words_and_writes_nothing(self, closed, applications):
+        _seed_application(applications)
+
+        body, status = save_applicant_application(
+            "test-market", _token(), {**VALID_ANSWERS, "business_name": "Changed"},
+        )
+
+        assert status == 403
+        assert "no longer open" in body["error"]
+        assert applications.find_one({"id": "app-1"})["form_data"] == {}
+
+    def test_a_stranger_cannot_apply_either(self, closed, applications):
+        body, status = save_applicant_application(
+            "test-market", _token(email="stranger@example.com"),
+            {**VALID_ANSWERS, "business_name": "Late"},
+        )
+
+        assert status == 403
+        assert applications.find_one({"applicant_email": "stranger@example.com"}) is None
+
+
 class TestApplicantSave:
     def test_a_save_stores_the_essential_answers_beside_the_custom_ones(
         self, applicant_db, applications,
@@ -661,7 +706,7 @@ class TestApplicantSave:
         doc = _applicant_market_doc()
         doc["applicationForm"]["essentialOptions"] = {
             "dates": ["2026-08-01"], "sections": ["Main Hall"], "tableTypes": ["Full Table"],
-                "tiers": [],
+            "tiers": [],
         }
         markets = FakeSlugMarketsCollection(doc)
 

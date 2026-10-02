@@ -327,11 +327,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   in pytest and in the e2e seeds alike. A fixture that does not is a market whose applicant
   endpoints answer 404, which is the default doing its job.
 - **`applicant_intake_market_by_slug()` (`back-end/market_documents.py`) is the single expression of
-  the gate**, layered on `published_market_by_slug` and read by exactly the five applicant-intake
-  endpoints. It cannot move into `published_market_by_slug`, because check-in shares that lookup and
-  must stay open to every published market: how a vendor entered has no bearing on whether they can
-  scan in on the day. It is one lookup rather than a check in each endpoint, because five checks are
-  five chances to forget the sixth.
+  the gate**, read by exactly the five applicant endpoints. It serves a form market in every phase
+  but draft (`APPLICANT_SURFACE_PHASES`, E26/F07/S02): an applicant may always sign in and read their
+  own application and verdict - closing the surface with applications hid every verdict (bug 20).
+  APPLYING stays `applications_open`-only, refused in words by `save_applicant_application`. It is
+  not the check-in lookup, because check-in must stay open to every market that runs: how a vendor
+  entered has no bearing on whether they can scan in on the day. It is one lookup rather than a
+  check in each endpoint, because five checks are five chances to forget the sixth.
 - **A gated market answers exactly as a market that does not exist.** Never add a "not accepting
   applications online" message: it confirms to any stranger guessing slugs that the market is real.
   The two applicant-login endpoints keep their *uniform* response rather than gaining a 404 of their
