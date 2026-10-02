@@ -123,10 +123,11 @@ test.describe('Plan cards share a row', () => {
       expect(b.intake.y, 'How vendors apply and Application form share a row').toBe(b.form.y);
       expect(b.intake.x).toBeLessThan(b.form.x);
 
-      // The wide cards span the row: as wide as the two halves and the gap between them.
+      // The wide cards span the row: as wide as the two halves and the gap between them. Each edge
+      // is rounded on its own, so a row of odd width lands a pixel either way.
       const row = b.locations.x + b.locations.w - b.tiers.x;
-      expect(b.dates.w).toBe(row);
-      expect(b.sections.w).toBe(row);
+      expect(Math.abs(b.dates.w - row)).toBeLessThanOrEqual(1);
+      expect(Math.abs(b.sections.w - row)).toBeLessThanOrEqual(1);
       expect(b.tiers.w).toBe(b.locations.w);
 
       // A card ends at its own content: three tiers beside nine locations do not stretch to match.

@@ -696,7 +696,9 @@ test.describe('CSV vendor import', () => {
       await page.evaluate(() => {
         const view = document.querySelector('.import-view')!;
         const box = view.getBoundingClientRect();
-        const de = document.documentElement;
+        // The page's own width: the root reserves the scrollbar's room whether or not it scrolls,
+        // and `clientWidth` does not count that room out.
+        const page = document.body.getBoundingClientRect();
         const boxed = Array.from(document.querySelectorAll('*'))
           .filter((el) => {
             const style = getComputedStyle(el);
@@ -706,7 +708,7 @@ test.describe('CSV vendor import', () => {
         return {
           width: Math.round(box.width),
           left: Math.round(box.left),
-          right: Math.round(de.clientWidth - box.right),
+          right: Math.round(page.right - box.right),
           boxed,
         };
       });

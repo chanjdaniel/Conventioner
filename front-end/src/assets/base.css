@@ -159,6 +159,15 @@
   font-weight: 400;
 }
 
+/*
+ * The scrollbar's room is kept whether or not the page scrolls (E26/F10/S01). Where scrollbars take
+ * space, a market page taller than the window was 15px narrower than one that was not, so moving
+ * between a market's pages moved its frame.
+ */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   min-height: 100vh;
   color: var(--color-text);

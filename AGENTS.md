@@ -649,6 +649,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   bar and whole phase rail stick at `top: var(--banner-h)` - the banner's height as a token - on the
   same principle as the banner itself. The card fills at least the window under the banner. Never
   give a frame screen an `overflow` scroller of its own: the sticky block silently stops sticking.
+  **The frame places itself and says what shows until the market arrives** (E26/F10/S01): the
+  page gutter, the card, and the loading, missing and failed states are its own, and it renders a
+  screen's content only once the market is in hand (`@retry` lets a screen refetch its own data).
+  The import and floorplan flows stand in it too. A screen that pads itself or renders its own
+  `MarketArrival` is how one market's pages came to put the frame in four different places.
 - **A screen is one of two widths and never caps its own height.** `--workspace-max` (1440) or
   `--list-max` (1100); the PAGE scrolls. **Every market screen is `--workspace-max`, set by
   `MarketFrame`** (E22/F04/S01): a screen in the frame sets no width of its own, or moving between

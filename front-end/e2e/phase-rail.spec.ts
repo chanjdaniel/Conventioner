@@ -75,7 +75,7 @@ test.describe('The phase rail', () => {
     await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
     const chip = page.getByTestId('phase-rail-checkin');
     await expect(chip).toBeVisible({ timeout: 15000 });
-    const url = await chip.locator('a').innerText();
+    const url = (await chip.locator('a').getAttribute('href')) ?? '';
     expect(url.length).toBeGreaterThan(60);
 
     const smallestGap = await page.evaluate(() => {
@@ -101,7 +101,9 @@ test.describe('The phase rail', () => {
 
     const chip = page.getByTestId('phase-rail-checkin');
     await expect(chip).toBeVisible({ timeout: 15000 });
-    const url = await chip.locator('a').innerText();
+    // The whole address is the link; what it shows is shortened to fit the rail (bug 11).
+    const url = (await chip.locator('a').getAttribute('href')) ?? '';
+    await expect(chip.locator('a')).toHaveAttribute('title', url);
 
     await page.getByTestId('phase-rail-checkin-copy').click();
     await expect(page.getByTestId('phase-rail-checkin-copy')).toHaveText('Copied');

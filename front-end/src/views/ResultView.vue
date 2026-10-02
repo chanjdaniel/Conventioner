@@ -17,7 +17,6 @@ import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.v
 import ResultSeat from '@/components/ResultSeat.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
-import MarketArrival from '@/components/MarketArrival.vue';
 import ResultSummary from '@/components/ResultSummary.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import {
@@ -63,7 +62,7 @@ const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
-const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 
 /**
  * Tables the plan no longer has that a hand placement still names (bug 31): shown with the vendor
@@ -73,11 +72,6 @@ const orphanedSeats = computed(
   () => new Set((market.value?.orphanedPins ?? []).map((pin) => `${pin.date}|${pin.tableCode}`)),
 );
 
-/** A failed arrival retries both halves: the market the rail draws, and this screen's own rows. */
-function retryArrival(): void {
-  void refreshMarket();
-  void loadTables();
-}
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
 const vendorNames = ref<VendorNames>({});
@@ -483,10 +477,8 @@ function swapSeats(withEmail: string): void {
 
 <template>
   <div class="tables-view">
-    <MarketFrame class="tables-card" :market="market">
-      <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
-
-      <div v-if="marketStatus !== 'missing'" class="tables-body">
+    <MarketFrame :market="market" @retry="loadTables">
+      <div class="tables-body">
         <!-- The Result page (E22/F04/S04): how the assignment came out, then the tables it sits on,
              then who changed what. -->
         <ResultSummary v-if="market" :market="market" />
@@ -779,19 +771,8 @@ function swapSeats(withEmail: string): void {
 
 <style scoped>
 .tables-view {
+  /* The frame places itself on the page (E26/F10/S01); this holds it and the placement dialog. */
   width: 100%;
-  padding: 0 var(--space-4) var(--space-4);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  background-color: var(--mm-beige);
-}
-
-.tables-card {
-  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
-     banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
-     card at the viewport and scroll a body inside it. */
-  border-radius: var(--radius-card);
 }
 
 .tables-body {
