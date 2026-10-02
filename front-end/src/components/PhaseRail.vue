@@ -225,8 +225,13 @@ function transitionLabel(toPhase: string): string {
   return TRANSITION_LABELS[toPhase] ?? `Move to ${phaseLabel(toPhase)}`;
 }
 
+/**
+ * The moves this person may make. None when moving the phase is not theirs to do (bug 37): an
+ * Editor or a Viewer was offered every move, and each failed with a 403 in small red text under
+ * the rail. The rail still says where the market stands.
+ */
 const availableTransitions = computed(() =>
-  props.market
+  props.market && !props.market.adminActionsReason
     ? VALID_TRANSITIONS.filter(([from]) => from === currentPhase.value).map(([, to]) => to)
     : [],
 );

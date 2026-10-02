@@ -98,6 +98,19 @@ describe('the actions', () => {
 
     expect(rail.find('.rail-button--forward').exists()).toBe(false);
   });
+
+  it('offers no phase move to someone whose role does not make them (bug 37)', () => {
+    // Moving the phase is an admin action; an Editor or a Viewer was offered every move, and each
+    // failed with a 403 in small red text under the rail.
+    const rail = railFor(MarketPhase.Review, {
+      adminActionsReason: 'Moving this market phase is for its owner and admins.',
+    });
+
+    expect(rail.find('.rail-button--forward').exists()).toBe(false);
+    expect(rail.find('[data-testid="phase-rail-menu-button"]').exists()).toBe(false);
+    // The rail still says where the market stands.
+    expect(rail.find('[data-testid="phase-rail-current"]').text()).toContain('Review');
+  });
 });
 
 describe('a market that left the spine', () => {

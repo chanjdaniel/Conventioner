@@ -415,8 +415,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `_load_market_to_change()` (`api/markets.py`), which refuses an archived market with
   `MarketArchivedError` - a `PermissionError`, so each write route already answers it with a 403;
   a route that loads its own market asks `archived_refusal()`. A new write must load through the
-  change loader, never `_load_market_for`. The market read serves `readOnlyReason`, and a screen
-  draws no editing control while it is set. Roles and deletion are not changes to the record.
+  change loader, never `_load_market_for`. Roles and deletion are not changes to the record.
+- **A screen offers each person only what their role lets them do** (E26/F08/S01). The market read
+  serves two per-person reasons, asked through the same `user_has_permission` the writes ask:
+  `readOnlyReason` (`change_refusal`: archived, or below EDITOR - the plan, form, placements,
+  highlights) and `adminActionsReason` (`admin_actions_refusal`: below ADMIN - phase moves, verdicts,
+  publishing results, importing, starting from a CSV). A screen draws no control while the reason
+  for it is set; never decide a role threshold on the front end beside them.
 - **A market remembers every phase it entered** (E26/F06/S03): `phaseHistory` on the document,
   one `{phase, enteredAt, by}` per move, pushed in the same update that moves the phase.
   `back-end/phase_record.py` owns it, and `phases_reached()` is the one answer to "how far did this

@@ -110,8 +110,10 @@ const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(m
  * before the organizer picks a file beats letting them choose one and then refusing it.
  */
 const marketPhase = computed(() => String((market.value as { phase?: string })?.phase ?? ''));
-const takingApplications = computed(() => canImportInto(marketPhase.value));
-const phaseRefusal = computed(() => importRefusal(marketPhase.value));
+/** Importing is an admin action: who is asking comes before the phase (bug 37). */
+const roleRefusal = computed(() => market.value?.adminActionsReason ?? null);
+const takingApplications = computed(() => canImportInto(marketPhase.value) && !roleRefusal.value);
+const phaseRefusal = computed(() => roleRefusal.value || importRefusal(marketPhase.value));
 
 const step = ref<Step>('upload');
 
@@ -714,7 +716,13 @@ function startOver() {
       class="import-panel"
       data-testid="import-wrong-phase"
     >
-      <h2>This market is not taking applications right now</h2>
+      <h2>
+        {{
+          roleRefusal
+            ? 'Importing into this market is not yours to do'
+            : 'This market is not taking applications right now'
+        }}
+      </h2>
       <p class="import-help">{{ phaseRefusal }}</p>
       <button type="button" class="button-secondary" @click="leaveImport">
         Back to the market

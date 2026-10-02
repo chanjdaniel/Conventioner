@@ -180,19 +180,27 @@ watch(
   { immediate: true },
 );
 
-const importRefusalReason = computed(() => importRefusal(market.value?.phase));
+/**
+ * Why this person cannot import here, or null. Importing is an admin action, so who is asking
+ * comes first (bug 37); then whether the phase takes applications at all.
+ */
+const importRefusalReason = computed(
+  () => market.value?.adminActionsReason || importRefusal(market.value?.phase),
+);
 
 /**
- * Why the assignment cannot be run in this market's phase, or null (`E10/F03/S02`).
+ * Why the assignment cannot be run, or null (`E10/F03/S02`): by this person (bug 37), then in this
+ * market's phase.
  *
  * The same arrangement as importing: the server enforces it, and this lets the button say no
  * before it is pressed rather than after. Safe to freeze now that a placement can be changed by
  * hand from the Tables view - shipping the freeze first would have stranded an organizer on
  * market day with archiving a running market as their only move.
  */
-const assignRefusalReason = computed(() => assignRefusal(market.value?.phase));
+const assignRefusalReason = computed(
+  () => market.value?.readOnlyReason || assignRefusal(market.value?.phase),
+);
 
-/** Guidance for a form the organizer has not finished starting; not a mistake to flag in red. */
 /**
  * How vendors reach this market. Settable while it is a draft and frozen afterwards, which is what
  * the back end enforces - this only stops an organizer reaching for something that would be
@@ -393,7 +401,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :setupObject="setupObject"
           :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
-          :csvStartRefusal="market?.csvStartRefusal ?? null"
+          :csvStartRefusal="market?.adminActionsReason || market?.csvStartRefusal || null"
           :readOnlyReason="market?.readOnlyReason ?? null"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
@@ -421,7 +429,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignmentOptionsComplete="assignmentOptionsComplete"
           :assignRefusalReason="assignRefusalReason"
           :assignError="assignError"
-          :rulesLockReason="market?.assignmentRulesLockReason ?? null"
+          :rulesLockReason="market?.assignmentRulesLockReason || market?.readOnlyReason || null"
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
