@@ -670,10 +670,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   market belonging to nothing is a state `POST /markets` refuses to produce.
   The check lives with the organization API, NOT in `guards.py`, which is validated against the
   transition table and is for transitions.
-- **An archived market is still publicly served**, so deleting one takes a live check-in URL off the
-  air and destroys the record of a market that ran. Reaffirmed 2026-09-22. The confirmation
-  therefore names what each deletion destroys per market, and `back-end/deletion_trail.py` records
-  it - written BEFORE anything is destroyed, and allowed to fail the whole operation.
+- **An archived market that ran is still publicly served, as a record** (reaffirmed 2026-09-22,
+  built E26/F06/S02): `AttendanceApi.get_check_in_market` serves a running market, or an archived
+  one whose phase record says it ran, marked `ended` - its page shows each vendor's seats and
+  check-ins and takes no check-in (writes answer 409). Archiving one that never ran leaves no page.
+  So deleting an archived market that ran takes a live URL off the air and destroys the record of
+  a market that happened; the confirmation names what each deletion destroys per market, and
+  `back-end/deletion_trail.py` records it - written BEFORE anything is destroyed, and allowed to
+  fail the whole operation.
 - **A market's records go with it, by either door** (bug 47): `back-end/market_deletion.py` deletes
   its applications, check-ins, applicant sign-in codes and placement trail, then the market. A new
   collection keyed by `market_id` belongs there; deleting the market document alone once left every

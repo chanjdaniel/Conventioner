@@ -28,7 +28,7 @@ from api.floorplans_calibrate import floorplans_calibrate_bp
 from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
@@ -1484,6 +1484,17 @@ def public_checkin_page(market_slug: str) -> Response:
         return jsonify({"error": "Internal server error"}), 500
 
 
+def _no_check_in_at(market_slug: str) -> Tuple[Response, int]:
+    """Why nobody can check in at this address: it has ended, or there is no market here.
+
+    An ended market's check-in page is a record and offers no check-in (bug 9), so a write there is
+    told so rather than told the market does not exist - the page has just said it does.
+    """
+    if AttendanceApi.get_check_in_market(market_slug):
+        return jsonify({"error": AttendanceApi.ENDED_REFUSAL}), 409
+    return jsonify({"error": "Market not found"}), 404
+
+
 @app.route('/public/markets/<market_slug>/attendance/checkin', methods=['DELETE'])
 def public_attendance_undo(market_slug: str) -> Response:
     """Undo a check-in made on the wrong day, by slug + vendor email + date."""
@@ -1494,7 +1505,7 @@ def public_attendance_undo(market_slug: str) -> Response:
 
         market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
         if not market_doc:
-            return jsonify({"error": "Market not found"}), 404
+            return _no_check_in_at(market_slug)
 
         result, status_code = AttendanceApi.undo_attendance(
             market_doc.get("id", ""), vendor_email, date,
@@ -1516,7 +1527,7 @@ def public_attendance_checkin(market_slug: str) -> Response:
 
         market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
         if not market_doc:
-            return jsonify({"error": "Market not found"}), 404
+            return _no_check_in_at(market_slug)
 
         result, status_code = AttendanceApi.record_attendance(
             market_doc.get("id", ""), vendor_email, date,

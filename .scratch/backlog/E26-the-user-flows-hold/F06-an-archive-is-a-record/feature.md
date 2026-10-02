@@ -2,7 +2,7 @@
 id: E26/F06
 title: An archive is a record
 type: feature
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---

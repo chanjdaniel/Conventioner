@@ -107,7 +107,7 @@ class TestTheAssignmentCsv:
 class TestTheCheckInLookup:
     def _summary(self, monkeypatch, names):
         monkeypatch.setattr(
-            AttendanceApi, "get_published_market_by_slug",
+            AttendanceApi, "get_check_in_market",
             lambda _slug: {
                 "id": "market-1", "name": "Winter Market", "isDraft": False, "phase": "market_days",
                 "setupObject": {

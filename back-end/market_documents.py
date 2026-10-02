@@ -299,6 +299,11 @@ _SLUG_LOOKUP_FIELDS: Tuple[str, ...] = ("name", "phase", "is_draft")
 # no assignment to check anyone in against.
 CHECK_IN_PHASES = (MarketPhase.MARKET_DAYS,)
 
+# Where a vendor can still look up where they sat (E26/F06/S02): a running market, and an archived
+# one - but only one that RAN, which a phase cannot say. The phase record can, so the check-in
+# surface narrows ARCHIVED itself (`AttendanceApi.get_check_in_market`); this only prunes.
+CHECK_IN_RECORD_PHASES = (MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED)
+
 # Stricter than it was, and the safe direction: a stranger applying to a market that has already
 # closed applications - or already assigned - was the old behaviour, and it was wrong.
 APPLICANT_INTAKE_PHASES = (MarketPhase.APPLICATIONS_OPEN,)
@@ -325,14 +330,16 @@ def non_draft_market_prefilter() -> Dict[str, Any]:
 def published_market_by_slug(
     collection: Any, market_slug: str, fields: Optional[Sequence[str]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """The published (phase != draft) market whose slugified name equals ``market_slug``.
+    """The running market - in ``market_days`` - whose slugified name equals ``market_slug``.
+
+    The market a vendor can check in at. An archived market that ran still shows its record on the
+    check-in page, but is looked up by ``market_by_slug`` with ``CHECK_IN_RECORD_PHASES``.
 
     The candidates come from the stored slug, which is indexed (``ensure_market_slug_index``), so
     this is one indexed query rather than a pass over every published market. That matters because
-    every caller of this is unauthenticated: the public check-in page, the applicant's application
-    form, and the applicant login endpoints all resolve their market this way, and a lookup that
-    decoded the collection per call would be an O(markets) scan any stranger could drive at will,
-    with a slug that matches nothing costing exactly as much as one that matches.
+    every public lookup is unauthenticated - the check-in page and the applicant endpoints alike -
+    and a lookup that decoded the collection per call would be an O(markets) scan any stranger
+    could drive at will, with a slug that matches nothing costing exactly as much as one that does.
 
     The stored slug narrows; it does not decide. The name is what the rule is defined over
     (``market_name_slug``, the same rule the front end builds its links from), so the name of each
@@ -359,17 +366,10 @@ def published_market_by_slug(
     public surface with no captcha in front of it. A caller that genuinely needs the whole document
     (check-in does) names no fields and is served it.
     """
-    if not market_slug:
-        return None
-    target = market_slug.strip().lower()
-    query = {**non_draft_market_prefilter(), **market_doc_filter("slug", target)}
-    projection = (
-        None if fields is None else market_doc_projection((*_SLUG_LOOKUP_FIELDS, *fields))
-    )
-    return _market_by_slug(collection, market_slug, CHECK_IN_PHASES, fields)
+    return market_by_slug(collection, market_slug, CHECK_IN_PHASES, fields)
 
 
-def _market_by_slug(
+def market_by_slug(
     collection: Any,
     market_slug: str,
     serving_phases: Sequence[MarketPhase],
@@ -450,7 +450,7 @@ def applicant_intake_market_by_slug(
     CSV, so every form market would look gated.
     """
     projected = None if fields is None else (*fields, "intake_mode")
-    market_doc = _market_by_slug(
+    market_doc = market_by_slug(
         collection, market_slug, APPLICANT_INTAKE_PHASES, fields=projected,
     )
     if market_doc is None:

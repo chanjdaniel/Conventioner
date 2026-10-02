@@ -2,7 +2,7 @@
 id: E26/F06/S02
 title: An archived market's check-in page is served read only
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,5 +16,5 @@ Closes bugs 9 in `docs/MVP_BUGS.md`; each one's reproduction there is the starti
 
 ## Acceptance criteria
 
-- [ ] Archived check-in lookups answer with the stored seats and no Check in button.
-- [ ] The archive dialog says what happens to the check-in page.
+- [x] Archived check-in lookups answer with the stored seats and no Check in button.
+- [x] The archive dialog says what happens to the check-in page.

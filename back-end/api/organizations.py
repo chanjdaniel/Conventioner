@@ -10,6 +10,8 @@ from db_config import get_database
 from market_documents import market_doc_filter, market_doc_key
 import deletion_trail as DeletionTrail
 import market_deletion as MarketDeletion
+import phase_record as PhaseRecord
+import api.attendance as AttendanceApi
 import api.users as UsersApi
 
 db = get_database()
@@ -170,19 +172,22 @@ def _market_summary(document: Dict[str, Any]) -> Dict[str, Any]:
     assignment = document.get(market_doc_key("assignment_object")) or {}
     placements = assignment.get(market_doc_key("vendor_assignments")) or []
     name = document.get("name") or ""
+    # Whether it ran is the phase record's to say (E26/F06/S03). Placements were read as proof,
+    # and they are not: a market can be assigned and archived without ever being published.
+    ran = (
+        phase == MarketPhase.ARCHIVED
+        and PhaseRecord.phases_reached(document, AttendanceApi.market_has_attendance).ran
+    )
     return {
         "id": document.get("id"),
         "name": name,
         "phase": phase.value,
         "phase_label": phase_label(phase),
-        # Archived is the phase a market reaches by being published, so an archived market with
-        # placements is one that ran. Said plainly rather than left to be inferred from a phase.
-        "ran": phase == MarketPhase.ARCHIVED and bool(placements),
+        "ran": ran,
         "placements": len(placements),
-        # Only a published market has a public URL at all; a draft's slug resolves to nothing.
-        "public_slug": document.get("slug") or market_name_slug(name)
-        if phase != MarketPhase.DRAFT
-        else None,
+        # The check-in page an archived market keeps is the one URL deleting it takes off the air
+        # (E26/F06/S02), and only a market that ran has one; any other slug resolves to nothing.
+        "public_slug": (document.get("slug") or market_name_slug(name)) if ran else None,
     }
 
 

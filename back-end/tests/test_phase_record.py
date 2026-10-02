@@ -5,7 +5,6 @@ assigned but never published, so no check-in page went on the air" (bug 8). A ma
 every phase it enters, and a market that predates the record says only what it can prove.
 """
 from conftest import FakeMarketsCollection, client_market, stored_market
-import api.attendance as AttendanceApi
 import api.markets as MarketsApi
 import phase_record as PhaseRecord
 from datatypes import MarketPhase
@@ -15,8 +14,16 @@ def dated(phase, by="owner@example.com"):
     return {"phase": phase, "enteredAt": "2026-09-01T00:00:00+00:00", "by": by}
 
 
-def reached(doc):
-    return PhaseRecord.phases_reached(doc)
+def nobody_checked_in(_market_id):
+    return False
+
+
+def somebody_checked_in(_market_id):
+    return True
+
+
+def reached(doc, checked_in=nobody_checked_in):
+    return PhaseRecord.phases_reached(doc, checked_in)
 
 
 class TestWritingIt:
@@ -123,20 +130,24 @@ class TestAMarketThatPredatesIt:
 
         assert "applications_open" in reached(doc).phases
 
-    def test_a_check_in_proves_it_ran(self, market_records):
-        market_records.attendance.insert_one({"market_id": "market-123", "vendor_email": "a@x"})
+    def test_a_check_in_proves_it_ran(self):
+        assert reached(stored_market(MarketPhase.ARCHIVED), somebody_checked_in).ran
 
-        assert reached(stored_market(MarketPhase.ARCHIVED)).ran
+    def test_check_ins_are_asked_about_this_market(self):
+        asked = []
 
-    def test_a_record_begun_partway_is_still_partial_and_still_proven(self, market_records):
-        market_records.attendance.insert_one({"market_id": "market-123", "vendor_email": "a@x"})
+        reached(stored_market(MarketPhase.ARCHIVED), lambda market_id: asked.append(market_id))
+
+        assert asked == ["market-123"]
+
+    def test_a_record_begun_partway_is_still_partial_and_still_proven(self):
         doc = stored_market(
             MarketPhase.ARCHIVED,
             phaseHistory=[{"phase": "market_days", "enteredAt": None, "by": None},
                           dated("archived")],
         )
 
-        result = reached(doc)
+        result = reached(doc, somebody_checked_in)
 
         assert not result.complete
         assert result.ran
@@ -151,11 +162,10 @@ class TestAMarketThatPredatesIt:
         assert not reached(doc).complete
 
 
-def test_attendance_is_not_read_for_a_whole_record(monkeypatch):
+def test_check_ins_are_not_asked_about_for_a_whole_record():
     def refuse(_market_id):
         raise AssertionError("a market with a whole record needs no proof")
 
-    monkeypatch.setattr(AttendanceApi, "market_has_attendance", refuse)
     doc = stored_market(MarketPhase.ARCHIVED, phaseHistory=[dated("draft"), dated("archived")])
 
-    assert reached(doc).complete
+    assert reached(doc, refuse).complete
