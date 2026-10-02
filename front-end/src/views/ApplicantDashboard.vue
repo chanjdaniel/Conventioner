@@ -156,6 +156,16 @@ function logout() {
     </template>
 
     <div class="dash-actions">
+      <!-- The way back to the form while it can still change (bug 21): there was none, so a vendor
+           who wanted to correct an answer had no route to it from here. -->
+      <RouterLink
+        v-if="application && isOpen"
+        class="btn btn--primary"
+        :to="{ name: 'apply', params: { marketSlug } }"
+        data-testid="applicant-dashboard-edit-link"
+      >
+        Change your answers
+      </RouterLink>
       <button
         class="dash-btn dash-btn-secondary"
         @click="logout"

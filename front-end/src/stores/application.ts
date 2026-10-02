@@ -10,11 +10,55 @@ import {
 } from '@/utils/applicantApi';
 import type { Application } from '@/assets/types/datatypes';
 
+/**
+ * Where a vendor's sign-in is kept: this tab's sessionStorage (decided 2026-10-02, bug 36).
+ *
+ * It lived only in memory, so a reload - of a long form, half filled - signed the vendor out, and
+ * the next code was a minute's wait away. The tab is the right lifetime: it survives a reload and
+ * moving between Your Application and the form, a new tab asks to sign in again, and closing the
+ * tab ends it. The token itself still expires after 30 minutes on the server.
+ *
+ * Every read and write is guarded: storage can be unavailable (a private window, blocked site
+ * data), and then the sign-in simply lasts as long as the page, as it always did.
+ */
+const SESSION_KEY = 'conventioner.applicantSession';
+
+interface StoredSession {
+  marketId: string;
+  marketSlug: string;
+  applicantEmail: string;
+  token: string;
+}
+
+function storedSession(): StoredSession | null {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? 'null') as unknown;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const session = parsed as Partial<StoredSession>;
+    if (!session.marketId || !session.marketSlug || !session.applicantEmail || !session.token) {
+      return null;
+    }
+    return session as StoredSession;
+  } catch {
+    return null;
+  }
+}
+
+function keepSession(session: StoredSession | null): void {
+  try {
+    if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // Unavailable storage: the sign-in lasts as long as the page.
+  }
+}
+
 export const useApplicationStore = defineStore('application', () => {
-  const marketId = ref<string | null>(null);
-  const marketSlug = ref<string | null>(null);
-  const applicantEmail = ref<string | null>(null);
-  const token = ref<string | null>(null);
+  const kept = storedSession();
+  const marketId = ref<string | null>(kept?.marketId ?? null);
+  const marketSlug = ref<string | null>(kept?.marketSlug ?? null);
+  const applicantEmail = ref<string | null>(kept?.applicantEmail ?? null);
+  const token = ref<string | null>(kept?.token ?? null);
   const application = ref<Application | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -51,6 +95,12 @@ export const useApplicationStore = defineStore('application', () => {
       marketSlug.value = slug;
       applicantEmail.value = result.applicantEmail;
       token.value = result.token;
+      keepSession({
+        marketId: result.marketId,
+        marketSlug: slug,
+        applicantEmail: result.applicantEmail,
+        token: result.token,
+      });
       return true;
     } catch (err: unknown) {
       error.value = verifyErrorFrom(err);
@@ -109,6 +159,7 @@ export const useApplicationStore = defineStore('application', () => {
     token.value = null;
     application.value = null;
     error.value = null;
+    keepSession(null);
   }
 
   function logout(): void {

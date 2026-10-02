@@ -30,25 +30,46 @@ const saving = ref(false);
 const sortedFields = computed(() => sortedFormFields(fields.value));
 const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value));
 
+function toSignIn() {
+  router.push({
+    name: 'applicant-login',
+    params: { marketSlug: marketSlug.value },
+    query: { redirect: 'apply' },
+  });
+}
+
+/**
+ * The form, and what this vendor already answered on it (bug 21).
+ *
+ * It started from an empty object and never loaded the stored application, so a returning vendor
+ * had to answer every required question again, and "Not available" came pre-ticked on days they
+ * had answered. Both arrive before the form is drawn, so the form's own defaults - a ranking seeded
+ * in the plan's order - fill only what the vendor never answered, and never race their answers.
+ */
 async function loadForm() {
   loading.value = true;
-  const form = await fetchPublicApplicationForm(marketSlug.value);
+  const [form, saved] = await Promise.all([
+    fetchPublicApplicationForm(marketSlug.value),
+    store.fetchApplication(),
+  ]);
+  // The sign-in expired: the store has said so and cleared it.
+  if (!signedIn.value) {
+    toSignIn();
+    return;
+  }
   loadFailed.value = form.failed;
   fields.value = form.fields;
   essentialOptions.value = form.essentialOptions;
   marketName.value = form.marketName;
   phaseLabel.value = form.phaseLabel;
   isOpen.value = form.isOpen;
+  formData.value = { ...(saved?.formData ?? {}) };
   loading.value = false;
 }
 
 onMounted(async () => {
   if (!signedIn.value) {
-    router.push({
-      name: 'applicant-login',
-      params: { marketSlug: marketSlug.value },
-      query: { redirect: 'apply' },
-    });
+    toSignIn();
     return;
   }
 
