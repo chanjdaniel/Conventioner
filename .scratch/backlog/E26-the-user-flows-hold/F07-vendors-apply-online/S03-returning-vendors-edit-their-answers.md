@@ -2,7 +2,7 @@
 id: E26/F07/S03
 title: Returning vendors edit their saved answers
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,6 +16,6 @@ Closes bugs 21, 36 in `docs/MVP_BUGS.md`; each one's reproduction there is the s
 
 ## Acceptance criteria
 
-- [ ] A vendor with an application sees their answers on the apply page.
-- [ ] Your Application has an edit link while applications are open.
-- [ ] Reloading the apply page keeps the vendor signed in.
+- [x] A vendor with an application sees their answers on the apply page.
+- [x] Your Application has an edit link while applications are open.
+- [x] Reloading the apply page keeps the vendor signed in.
