@@ -403,6 +403,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `apply_phase_transition()` (`api/markets.py`) is the only writer on an existing market - the
   transition endpoint and the form amendment chain both move a market through it. Do not add a
   second copy of that write: the endpoint carried one until E26, which is how stamps drift.
+- **An archived market is read-only** (E26/F06/S01). Every market write loads through
+  `_load_market_to_change()` (`api/markets.py`), which refuses an archived market with
+  `MarketArchivedError` - a `PermissionError`, so each write route already answers it with a 403;
+  a route that loads its own market asks `archived_refusal()`. A new write must load through the
+  change loader, never `_load_market_for`. The market read serves `readOnlyReason`, and a screen
+  draws no editing control while it is set. Roles and deletion are not changes to the record.
 - **A market remembers every phase it entered** (E26/F06/S03): `phaseHistory` on the document,
   one `{phase, enteredAt, by}` per move, pushed in the same update that moves the phase.
   `back-end/phase_record.py` owns it, and `phases_reached()` is the one answer to "how far did this

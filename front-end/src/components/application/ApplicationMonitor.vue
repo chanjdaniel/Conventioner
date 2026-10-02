@@ -239,8 +239,14 @@ function skip() {
   cursor.value = (cursor.value + 1) % undecided.value.length;
 }
 
+/**
+ * A market that cannot change shows its verdicts and takes none (bug 30): its applications are
+ * read, never decided, and nothing here posts. The server refuses each of these writes as well.
+ */
+const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
+
 function onKey(event: KeyboardEvent) {
-  if (!props.visible || !current.value) return;
+  if (!props.visible || !current.value || readOnly.value) return;
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   const target = event.target as HTMLElement | null;
   if (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable)) {
@@ -288,7 +294,7 @@ function submittedOn(app: Application): string {
   <div v-if="visible && market" class="monitor-panel" data-testid="app-monitor-panel">
     <div class="monitor-header">
       <h2>Applications</h2>
-      <div v-if="marketHasApplicants" class="monitor-actions">
+      <div v-if="marketHasApplicants && !readOnly" class="monitor-actions">
         <button
           v-if="!resultsPublished"
           class="publish-button"
@@ -416,7 +422,7 @@ function submittedOn(app: Application): string {
           Nothing here touches `cursor`, so a reviewer on card twelve stays on card twelve: the
           marks change what the card SHOWS, never which application is up.
         -->
-        <div class="choose-highlights">
+        <div v-if="!readOnly" class="choose-highlights">
           <button
             type="button"
             class="choose-highlights-toggle"
@@ -443,7 +449,7 @@ function submittedOn(app: Application): string {
           </div>
         </div>
 
-        <div class="card-actions">
+        <div v-if="!readOnly" class="card-actions">
           <button
             class="reject-button"
             :disabled="saving"
@@ -495,7 +501,7 @@ function submittedOn(app: Application): string {
               {{ statusLabel(app.status) }}
             </span>
             <button
-              v-if="app.status === ApplicationStatus.ReviewerRejected"
+              v-if="!readOnly && app.status === ApplicationStatus.ReviewerRejected"
               class="approve-button small"
               :disabled="saving"
               @click="decide(app, ApplicationStatus.ReviewerApproved)"
@@ -504,7 +510,7 @@ function submittedOn(app: Application): string {
               Approve instead
             </button>
             <button
-              v-else-if="reDecidable(app)"
+              v-else-if="!readOnly && reDecidable(app)"
               class="reject-button small"
               :disabled="saving"
               @click="decide(app, ApplicationStatus.ReviewerRejected)"

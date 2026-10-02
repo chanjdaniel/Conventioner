@@ -242,7 +242,9 @@ const planSaveTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const planSavedTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 
 async function savePlan() {
-  if (!market.value?.id) return;
+  // A plan that cannot change is never sent (bug 30): its controls are disabled, and this is the
+  // one door every edit reaches the server through, so nothing slips past them.
+  if (!market.value?.id || market.value.readOnlyReason) return;
   planSaveStatus.value = 'saving';
   planSaveError.value = '';
   try {
@@ -281,13 +283,13 @@ async function flushPlanSave(): Promise<void> {
   await savePlan();
 }
 
-/** A pending edit must not be lost to leaving the page, so it is sent without waiting. */
 /** The plan's pending edits land first: the proposal reads the plan's dates and tiers. */
 async function startFromCsv(): Promise<void> {
   await flushPlanSave();
   void router.push(marketPath(marketId.value, 'start-from-csv'));
 }
 
+/** A pending edit must not be lost to leaving the page, so it is sent without waiting. */
 onUnmounted(() => {
   if (planSaveTimer.value === null) return;
   clearTimeout(planSaveTimer.value);
@@ -392,6 +394,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
           :csvStartRefusal="market?.csvStartRefusal ?? null"
+          :readOnlyReason="market?.readOnlyReason ?? null"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
           @choosePath="showPathChoice = true"

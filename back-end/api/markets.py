@@ -129,6 +129,46 @@ def _load_market_for(market_id: str, requesting_user: str, role: MarketRole, act
     return market
 
 
+ARCHIVED_REFUSAL = (
+    "This market is archived. An archived market is the record of what happened, "
+    "so nothing in it can be changed."
+)
+
+
+class MarketArchivedError(PermissionError):
+    """A write to an archived market (bug 30, E26/F06/S01).
+
+    A ``PermissionError``, because that is what it is - nobody, whatever their role, may change a
+    market's record - and because every write route already answers one with a 403 carrying its
+    words. A refusal that needed a new branch in each route would be one forgotten branch from a 500.
+    """
+
+
+def archived_refusal(market: Market) -> Optional[str]:
+    """Why this market cannot be changed, or None while it can.
+
+    The one statement of the rule, for the routes that load a market themselves; everything that
+    loads through ``_load_market_to_change`` meets it there.
+    """
+    return ARCHIVED_REFUSAL if market.phase is MarketPhase.ARCHIVED else None
+
+
+def _load_market_to_change(
+    market_id: str, requesting_user: str, role: MarketRole, action: str,
+) -> Market:
+    """``_load_market_for``, for a write: an archived market is refused whoever is asking.
+
+    Every write that loads its market here meets the archived rule without saying so, so a new
+    write that loads through this cannot forget it. Roles and deletion do not come through here:
+    who may see a record, and whether to keep it, are decisions about the record, not changes to it.
+    """
+    market = _load_market_for(market_id, requesting_user, role, action)
+    refusal = archived_refusal(market)
+    if refusal:
+        raise MarketArchivedError(refusal)
+    return market
+
+
 def application_form_lock_reason(market: Market) -> Optional[str]:
     """The single source of truth for whether a market's application form may be edited.
 
@@ -536,6 +576,9 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     reached = PhaseRecord.phases_reached(market_dict)
     market_dict['phasesReached'] = sorted(reached.phases)
     market_dict['phaseRecordComplete'] = reached.complete
+    # Why this person cannot change this market, or null while they can (E26/F06/S01): the same
+    # rule every write meets, served so each screen offers no control the server would refuse.
+    market_dict['readOnlyReason'] = archived_refusal(market)
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -1371,7 +1414,7 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
     if not name:
         raise ValueError("A market needs a name.")
 
-    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "rename")
+    market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "rename")
     if market.phase is not MarketPhase.DRAFT:
         raise ValueError(RENAME_REFUSED_AFTER_DRAFT)
     if name == market.name:
@@ -1415,7 +1458,7 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     if "setupObject" not in body:
         raise ValueError("setupObject is required.")
 
-    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
     markets_collection.update_one(market_doc_filter("id", market_id),
                                   {"$set": prepared_plan(market, body)})
 
@@ -1468,7 +1511,7 @@ def save_review_highlights(
     organizer learns which answers they needed by reading real applications. A highlight that
     inherited the form's lock would be settable only before anyone could know what to set.
     """
-    _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
 
     seen: List[str] = []
     for key in keys:
@@ -1494,7 +1537,7 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         PermissionError: user lacks EDITOR+ permission
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
     """
-    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
     form_dict = prepared_application_form(market, application_form_data)
     markets_collection.update_one(
         {"id": market_id},

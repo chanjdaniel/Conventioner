@@ -14,7 +14,6 @@ const tiers = toRef(setupObject.value, 'tiers');
 
 const container = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
-const tableCount = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
 
 watch(
@@ -159,9 +158,7 @@ const countTables = () => {
         <IconAddRound class="add-row__icon" />
       </button>
     </div>
-    <div ref="tableCount" style="position: absolute; left: 5px; bottom: -10px">
-      <h3 style="font-size: var(--text-sm)">Total tables: {{ countTables() }}</h3>
-    </div>
+    <p class="table-count">Total tables: {{ countTables() }}</p>
   </div>
 </template>
 
@@ -180,6 +177,16 @@ const countTables = () => {
   align-items: center;
 
   /* gap: 15px; */
+}
+
+/* In the flow, under the rows. It was positioned absolutely below the card, and cleared the last
+   row only because the add button happened to sit between them - so on a plan with no add button
+   (an archived one, bug 30) it sat on top of the row. */
+.table-count {
+  align-self: flex-start;
+  margin: var(--space-2) 0 0 5px;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 /* One template, shared, so a heading always sits over the control it names. */

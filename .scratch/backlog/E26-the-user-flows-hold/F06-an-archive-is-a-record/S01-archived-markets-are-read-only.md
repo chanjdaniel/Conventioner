@@ -2,7 +2,7 @@
 id: E26/F06/S01
 title: Archived markets are read only
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,5 +16,5 @@ Closes bugs 30 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] Plan, form, placement and review writes to an archived market are refused.
-- [ ] Archived market pages show no editing controls, and no Attendance tab for a market that never ran.
+- [x] Plan, form, placement and review writes to an archived market are refused.
+- [x] Archived market pages show no editing controls, and no Attendance tab for a market that never ran.

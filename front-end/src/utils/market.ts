@@ -140,5 +140,7 @@ export function parseMarketFromApi(market: any): Market {
     // says it reached. Undefined on a read that does not carry it, such as the list.
     phasesReached: market.phasesReached,
     phaseRecordComplete: market.phaseRecordComplete,
+    // Why this person cannot change this market, or null while they can (E26/F06/S01).
+    readOnlyReason: market.readOnlyReason,
   };
 }

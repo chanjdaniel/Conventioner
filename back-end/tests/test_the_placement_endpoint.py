@@ -557,7 +557,7 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
         MarketPhase.REVIEW,
         MarketPhase.OFFERS,
         MarketPhase.MARKET_DAYS,
-        MarketPhase.ARCHIVED,
+        # Not ARCHIVED: that refuses every write before the phase is asked (bug 30).
     ])
     def test_the_endpoint_refuses_outside_assignment(self, monkeypatch, phase):
         """The endpoint is reachable directly, so a hidden button is not the rule."""

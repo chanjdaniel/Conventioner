@@ -224,7 +224,7 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     handed; with ``assignment_object`` server-owned that round-trip no longer stores anything,
     and it should never have been the client's job to decide what the solver said.
     """
-    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
 
     refusal = assign_phase_refusal(market.phase)
     if refusal is not None:
@@ -284,7 +284,7 @@ def write_placement(
     operation of its own (E11/F03/S01), because a write that quietly displaces an occupant is
     how a vendor is silently unassigned on market day.
     """
-    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
 
     placement = _placement_for(
         market,
@@ -331,7 +331,7 @@ def remove_placement(
     Removing a placement nobody holds is not an error: the caller asked for that seat to be
     empty, and it is.
     """
-    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
 
     email = (email or "").strip()
     date = (date or "").strip()
@@ -371,7 +371,7 @@ def swap_placements(
     This exists instead of a "move" that displaces whoever is already there. A move is how a
     vendor is silently unassigned; a swap says out loud that two people are changing places.
     """
-    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
 
     date = (date or "").strip()
     first_email = (first_email or "").strip()

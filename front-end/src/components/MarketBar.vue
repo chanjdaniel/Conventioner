@@ -35,8 +35,8 @@ const assigned = computed(() => hasAssignment(props.market));
 const current = computed(() => currentPage(props.market?.phase, assigned.value));
 const activeTab = computed(() => (here.value ? tabOf(here.value) : null));
 
-/** Attendance once the market is published, and only then. */
-const tabs = computed((): MarketTab[] => tabsFor(props.market?.phase));
+/** Attendance once the market runs, and after only if it did. */
+const tabs = computed((): MarketTab[] => tabsFor(props.market));
 
 function linkFor(tab: MarketTab): string {
   return marketPath(props.market!.id, pageForTab(tab, props.market?.phase, assigned.value));
