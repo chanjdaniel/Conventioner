@@ -51,8 +51,7 @@ export function getFormattedDate(dateString: string): string | null {
 export function getShortDate(dateString: string): string {
   const date = calendarDay(dateString);
   if (!date) return String(dateString ?? '');
-  const month = MONTHS[date.getUTCMonth()].slice(0, 3);
-  return `${month} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
+  return `${shortMonth(date)} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
 }
 
 /**
@@ -62,6 +61,10 @@ export function getShortDate(dateString: string): string {
  * where the creation date used to be. It is a range of the earliest and latest day, in the same
  * family as the short form above rather than a fourth spelling of a date: month abbreviated, year
  * always present, day-of-month collapsed when the two ends share a month and a year.
+ *
+ * A range says every day between its ends, so two days that are not consecutive are named both -
+ * "Oct 3 and 10, 2026" - and a span with gaps in it says how many days it holds (bug 14). "Oct
+ * 3-10, 2026" read as eight days for a market on two Saturdays.
  */
 export function getDateRange(dates: readonly string[] | undefined | null): string {
   const days = (dates ?? [])
@@ -73,28 +76,38 @@ export function getDateRange(dates: readonly string[] | undefined | null): strin
 
   const first = days[0];
   const last = days[days.length - 1];
-  const extra = days.length > 2 ? ` (${days.length} days)` : '';
-
-  const month = (day: Date) => MONTHS[day.getUTCMonth()].slice(0, 3);
   if (first.getTime() === last.getTime()) {
-    return `${month(first)} ${first.getUTCDate()}, ${first.getUTCFullYear()}`;
+    return `${shortMonth(first)} ${first.getUTCDate()}, ${first.getUTCFullYear()}`;
   }
+  if (days.length === 2 && !consecutive(first, last)) return pair(first, last, ' and ', ' and ');
+  const extra = days.length > 2 ? ` (${days.length} days)` : '';
+  return pair(first, last, '-', ' - ') + extra;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function consecutive(day: Date, next: Date): boolean {
+  return next.getTime() - day.getTime() === DAY_MS;
+}
+
+function shortMonth(day: Date): string {
+  return MONTHS[day.getUTCMonth()].slice(0, 3);
+}
+
+/**
+ * Two days with what they share said once: the year always, the month when it is the same.
+ * `tight` joins two days of one month ("3-10"), `spaced` anything longer ("Oct 31 - Nov 7").
+ */
+function pair(first: Date, last: Date, tight: string, spaced: string): string {
+  const a = `${shortMonth(first)} ${first.getUTCDate()}`;
+  const b = `${shortMonth(last)} ${last.getUTCDate()}`;
   if (first.getUTCFullYear() !== last.getUTCFullYear()) {
-    return (
-      `${month(first)} ${first.getUTCDate()}, ${first.getUTCFullYear()} - ` +
-      `${month(last)} ${last.getUTCDate()}, ${last.getUTCFullYear()}${extra}`
-    );
+    return `${a}, ${first.getUTCFullYear()}${spaced}${b}, ${last.getUTCFullYear()}`;
   }
   if (first.getUTCMonth() !== last.getUTCMonth()) {
-    return (
-      `${month(first)} ${first.getUTCDate()} - ` +
-      `${month(last)} ${last.getUTCDate()}, ${last.getUTCFullYear()}${extra}`
-    );
+    return `${a}${spaced}${b}, ${last.getUTCFullYear()}`;
   }
-  return (
-    `${month(first)} ${first.getUTCDate()}-${last.getUTCDate()}, ` +
-    `${first.getUTCFullYear()}${extra}`
-  );
+  return `${a}${tight}${last.getUTCDate()}, ${last.getUTCFullYear()}`;
 }
 
 /** An instant as a Date, or null when it is not one. */

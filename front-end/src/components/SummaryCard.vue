@@ -62,7 +62,10 @@ defineEmits<{ select: [] }>();
   box-shadow: var(--shadow-card);
 
   display: grid;
-  grid-template-columns: minmax(200px, 20rem) minmax(0, 1fr) auto;
+  /* The name's column is as wide as the facts can spare, and the same on every row so the facts
+     line up down the list (bug 14). At 20rem an ordinary name wrapped while the facts beside it
+     sat in half their room. */
+  grid-template-columns: minmax(200px, 28rem) minmax(0, 1fr) auto;
   align-items: center;
   gap: 24px;
 }
@@ -93,12 +96,17 @@ defineEmits<{ select: [] }>();
   min-width: 0;
 }
 
+/* One line, so every card in a list is one height; a name longer than its column is shortened,
+   and the slot gives it its whole name as hover text (bug 14). */
 .summary-card-name :slotted(h3) {
   margin: 0;
+  min-width: 0;
   color: var(--mm-black);
   font-size: var(--text-lg);
   font-weight: 600;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* A fixed label column, so the labels line up across every row of the list and not merely
