@@ -1,7 +1,9 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import type { APIRequestContext } from '@playwright/test';
 import { OrganizationsPage } from './pages/OrganizationsPage';
-import { loginViaApi } from './helpers/seeds';
+import { SEED_MARKET_DATE, loginViaApi } from './helpers/seeds';
+import { seedApprovedVendor } from './helpers/seedApplication';
+import { savePlan } from './helpers/savePlan';
 
 /**
  * Deleting an organization is safe (E20/F04/S01).
@@ -11,10 +13,10 @@ import { loginViaApi } from './helpers/seeds';
  * `POST /markets` refuses to produce, and one that made those markets invisible to everyone who
  * reached them through the organization.
  *
- * The risk is recorded rather than argued: an ARCHIVED market is still publicly served and holds
- * the placement record of a market that ran, and deleting one takes a live check-in URL off the
- * air with no undo. Reaffirmed on 2026-09-22 - which is why the confirmation has to NAME what
- * each deletion destroys.
+ * The risk is recorded rather than argued: an archived market that RAN is still publicly served and
+ * holds the placement record of a market that happened, and deleting one takes a live check-in URL
+ * off the air with no undo. Reaffirmed on 2026-09-22 - which is why the confirmation has to NAME
+ * what each deletion destroys.
  */
 
 async function makeOrg(request: APIRequestContext, name: string): Promise<string> {
@@ -57,6 +59,41 @@ async function transition(request: APIRequestContext, marketId: string, toPhase:
     data: { toPhase },
   });
   expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
+}
+
+/**
+ * Run a market for real - a form, a plan, an approved vendor, assigned and published - then
+ * archive it. Only a market that ran keeps a public check-in page (E26/F06/S02); archiving one
+ * straight from draft is abandoning it, and leaves no page to lose.
+ */
+async function runThenArchive(request: APIRequestContext, marketId: string) {
+  await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
+    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    data: { fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }] },
+  });
+  seedApprovedVendor(marketId, 'ran-vendor@example.com', {
+    dates: [SEED_MARKET_DATE],
+    tiers: ['Gold'],
+  });
+  await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
+    priority: [],
+    marketDates: [{ date: SEED_MARKET_DATE }],
+    tiers: [{ id: 0, name: 'Gold' }],
+    locations: [{ name: 'Main Hall' }],
+    sections: [
+      { name: 'A', location: { name: 'Main Hall' }, tier: { id: 0, name: 'Gold' }, count: 2 },
+    ],
+    assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
+  });
+  for (const toPhase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
+    await transition(request, marketId, toPhase);
+  }
+  const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+  });
+  expect(run.ok(), await run.text()).toBeTruthy();
+  await transition(request, marketId, 'market_days');
+  await transition(request, marketId, 'archived');
 }
 
 test.describe('Deleting an organization', () => {
@@ -116,10 +153,13 @@ test.describe('Deleting an organization', () => {
     const orgId = await makeOrg(request, orgName);
     const draftName = `Forgotten Draft ${Date.now()}`;
     const archivedName = `Market That Ran ${Date.now()}`;
+    const abandonedName = `Abandoned Market ${Date.now()}`;
     const draft = await makeMarket(request, orgId, draftName);
     const archived = await makeMarket(request, orgId, archivedName);
-    // draft -> archived is the publish path, which is what gives it a public check-in URL.
-    await transition(request, archived, 'archived');
+    const abandoned = await makeMarket(request, orgId, abandonedName);
+    await runThenArchive(request, archived);
+    // Archived straight from draft: abandoned, never on the air.
+    await transition(request, abandoned, 'archived');
 
     const orgs = new OrganizationsPage(page);
     await orgs.goto();
@@ -131,17 +171,21 @@ test.describe('Deleting an organization', () => {
     await orgs.clickDelete();
 
     await expect(orgs.deleteWindow).toBeVisible({ timeout: 5000 });
-    await expect(orgs.doomedMarkets).toHaveCount(2, { timeout: 10000 });
-    // A COUNT of markets does not let an organizer decide. Both are named.
+    await expect(orgs.doomedMarkets).toHaveCount(3, { timeout: 10000 });
+    // A COUNT of markets does not let an organizer decide. Each is named.
     await expect(orgs.doomedMarkets.filter({ hasText: draftName })).toBeVisible();
     await expect(orgs.doomedMarkets.filter({ hasText: archivedName })).toBeVisible();
+    await expect(orgs.doomedMarkets.filter({ hasText: abandonedName })).toBeVisible();
 
-    // The URL that stops resolving is named, for the archived market and not for the draft.
+    // The URL that stops resolving is named for the market that ran - and only for it: a draft
+    // and a market abandoned before it ran have no page to lose.
     const archivedRow = orgs.doomedMarkets.filter({ hasText: archivedName });
     await expect(archivedRow.getByTestId('delete-org-public-url')).toBeVisible();
-    await expect(
-      orgs.doomedMarkets.filter({ hasText: draftName }).getByTestId('delete-org-public-url'),
-    ).toHaveCount(0);
+    for (const name of [draftName, abandonedName]) {
+      await expect(
+        orgs.doomedMarkets.filter({ hasText: name }).getByTestId('delete-org-public-url'),
+      ).toHaveCount(0);
+    }
 
     // One of the two irreversible actions in the product; it gets looked at.
     await page.screenshot({ path: testInfo.outputPath('01-delete-org-confirmation.png') });
@@ -149,8 +193,8 @@ test.describe('Deleting an organization', () => {
     await orgs.confirmDelete();
     await expect(card).not.toBeVisible({ timeout: 10000 });
 
-    // Both markets went with it - not detached, gone.
-    for (const marketId of [draft, archived]) {
+    // Every market went with it - not detached, gone.
+    for (const marketId of [draft, archived, abandoned]) {
       const gone = await request.get(`${BACKEND_URL}/markets/${marketId}`, {
         headers: { 'X-Owner-Email': TEST_USER.email },
       });
