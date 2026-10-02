@@ -560,7 +560,7 @@ function swapSeats(withEmail: string): void {
                 @click="clearFilter('date')"
                 data-testid="tables-filter-chip-date"
               >
-                Date: {{ dateFilter }}
+                Date: {{ formatDisplayDate(dateFilter) }}
                 <span class="filter-chip-close" aria-hidden="true">×</span>
                 <span class="visually-hidden">Remove date filter</span>
               </button>
@@ -668,13 +668,17 @@ function swapSeats(withEmail: string): void {
                   >
                     <div class="table-row-head">
                       <span class="table-code">{{ row.tableCode }}</span>
+                      <!-- The size its occupants chose; a table nobody is at has none (bug 43 - an
+                           empty table was badged "FULL TABLE"). -->
                       <span
-                        class="choice-badge"
+                        v-if="rowStatus(row).label !== 'empty'"
+                        class="chip"
                         :class="
                           row.tableChoice.toLowerCase().includes('full')
-                            ? 'choice-badge--full'
-                            : 'choice-badge--half'
+                            ? 'chip--positive'
+                            : 'chip--neutral'
                         "
+                        data-testid="tables-table-choice"
                       >
                         {{ row.tableChoice }}
                       </span>
@@ -1022,25 +1026,6 @@ function swapSeats(withEmail: string): void {
   font-size: var(--text-lg);
   color: var(--mm-black);
   letter-spacing: 0.5px;
-}
-
-.choice-badge {
-  font-size: var(--text-xs);
-  padding: 2px 10px;
-  border-radius: var(--radius-card);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.choice-badge--full {
-  background-color: var(--mm-green);
-  color: white;
-}
-
-.choice-badge--half {
-  background-color: var(--mm-beige);
-  color: var(--mm-black);
-  border: 1px solid var(--mm-border);
 }
 
 .meta-tag {

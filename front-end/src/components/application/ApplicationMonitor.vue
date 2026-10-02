@@ -59,21 +59,22 @@ const statusLabels: Record<string, string> = {
   cancelled: 'Cancelled',
 };
 
-// These are fills carrying white text (`.app-status` sets `color: white`), so each must reach
-// WCAG AA against white. The Material 500 shades they were taken from do not: blue was 3.12,
-// orange 2.16, green 2.78, red 3.68 and grey 2.68. Darkened to the lightest shade of the same hue
-// that passes, so the palette still reads as itself. Purple was already 6.3 and is unchanged.
-const statusColors: Record<string, string> = {
-  open: 'var(--mm-blue)',
-  under_review: '#ab6600',
-  reviewer_approved: 'var(--mm-green)',
-  reviewer_rejected: '#d93c30',
-  unassigned: '#767676',
-  assigned: 'var(--mm-blue)',
-  assignment_sent: '#9c27b0',
-  vendor_accepted: 'var(--mm-green)',
-  vendor_refused: '#d93c30',
-  cancelled: '#767676',
+/*
+ * A status is a chip, tinted, in the product's tones (bug 43). These were solid fills, so in the
+ * reviewed list "Rejected" sat beside "Approve instead" as two filled pills in the same two
+ * colours, and nothing said which was the verdict and which the action.
+ */
+const statusTones: Record<string, string> = {
+  open: 'informational',
+  under_review: 'attention',
+  reviewer_approved: 'positive',
+  reviewer_rejected: 'destructive',
+  unassigned: 'neutral',
+  assigned: 'informational',
+  assignment_sent: 'neutral',
+  vendor_accepted: 'positive',
+  vendor_refused: 'destructive',
+  cancelled: 'neutral',
 };
 
 /** Awaiting a verdict. Anything else has been reviewed, and does not come back to the queue. */
@@ -287,8 +288,8 @@ function statusLabel(status: string): string {
   return statusLabels[status] ?? status;
 }
 
-function statusColor(status: string): string {
-  return statusColors[status] ?? '#767676';
+function statusChip(status: string): string {
+  return `chip chip--${statusTones[status] ?? 'neutral'}`;
 }
 
 function submittedOn(app: Application): string {
@@ -368,11 +369,7 @@ function submittedOn(app: Application): string {
           <span class="app-email" data-testid="app-monitor-email">
             {{ current.applicantEmail }}
           </span>
-          <span
-            class="app-status"
-            :style="{ background: statusColor(current.status) }"
-            data-testid="app-monitor-status"
-          >
+          <span :class="statusChip(current.status)" data-testid="app-monitor-status">
             {{ statusLabel(current.status) }}
           </span>
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
@@ -381,7 +378,7 @@ function submittedOn(app: Application): string {
         <!-- What this market said a reviewer reads first (E19/F03/S01). -->
         <dl v-if="leading.length" class="answers" data-testid="app-monitor-leading">
           <template v-for="answer in leading" :key="answer.key">
-            <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
+            <dt>{{ answer.label }}</dt>
             <dd>{{ answer.value }}</dd>
           </template>
         </dl>
@@ -408,7 +405,7 @@ function submittedOn(app: Application): string {
           </summary>
           <dl class="answers">
             <template v-for="answer in rest" :key="answer.key">
-              <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
+              <dt>{{ answer.label }}</dt>
               <dd>{{ answer.value }}</dd>
             </template>
           </dl>
@@ -416,7 +413,7 @@ function submittedOn(app: Application): string {
 
         <dl v-else-if="rest.length" class="answers" data-testid="app-monitor-answers">
           <template v-for="answer in rest" :key="answer.key">
-            <dt :class="{ custom: answer.custom }">{{ answer.label }}</dt>
+            <dt>{{ answer.label }}</dt>
             <dd>{{ answer.value }}</dd>
           </template>
         </dl>
@@ -499,16 +496,14 @@ function submittedOn(app: Application): string {
             <span class="app-email" data-testid="app-monitor-decided-email">
               {{ app.applicantEmail }}
             </span>
-            <span
-              class="app-status"
-              :style="{ background: statusColor(app.status) }"
-              data-testid="app-monitor-decided-status"
-            >
+            <span :class="statusChip(app.status)" data-testid="app-monitor-decided-status">
               {{ statusLabel(app.status) }}
             </span>
+            <!-- The action is a quiet button beside the verdict, never a second verdict. -->
             <button
               v-if="decides && app.status === ApplicationStatus.ReviewerRejected"
-              class="approve-button small"
+              type="button"
+              class="btn btn--secondary btn--compact"
               :disabled="saving"
               @click="decide(app, ApplicationStatus.ReviewerApproved)"
               data-testid="app-monitor-decided-approve-button"
@@ -517,7 +512,8 @@ function submittedOn(app: Application): string {
             </button>
             <button
               v-else-if="decides && reDecidable(app)"
-              class="reject-button small"
+              type="button"
+              class="btn btn--secondary btn--compact"
               :disabled="saving"
               @click="decide(app, ApplicationStatus.ReviewerRejected)"
               data-testid="app-monitor-decided-reject-button"
@@ -652,19 +648,11 @@ function submittedOn(app: Application): string {
   word-break: break-all;
 }
 
-.app-status {
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: white;
-  padding: 2px 8px;
-  border-radius: var(--radius-control);
-  text-transform: capitalize;
-  white-space: nowrap;
-}
-
+/* The card is beige, where --mm-text-muted is 4.23: its quiet text takes the ink made for that
+   ground (bug 43, found by the contrast sweep once it opened a review card). */
 .app-date {
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
 }
 
 .answers {
@@ -676,13 +664,8 @@ function submittedOn(app: Application): string {
 }
 
 .answers dt {
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
   overflow-wrap: anywhere;
-}
-
-.answers dt.custom {
-  color: var(--mm-black);
-  font-weight: 400;
 }
 
 .answers dd {
@@ -708,7 +691,7 @@ function submittedOn(app: Application): string {
 
 .answers-rest summary {
   font-size: var(--text-sm);
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
   cursor: pointer;
   list-style: none;
   display: flex;
@@ -750,7 +733,7 @@ function submittedOn(app: Application): string {
   background: none;
   padding: 0;
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
+  color: var(--mm-text-muted-on-beige);
   cursor: pointer;
   text-decoration: underline;
 }
@@ -836,10 +819,12 @@ function submittedOn(app: Application): string {
   cursor: not-allowed;
 }
 
+/* Boxed in its own button's ink, so it shows on Skip's white as on the two fills: a white border
+   left the "S" with no box at all (bug 43). */
 .card-actions kbd {
   font-family: monospace;
   font-size: var(--text-xs);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid color-mix(in srgb, currentColor 60%, transparent);
   border-radius: var(--radius-control);
   padding: 0 4px;
   margin-left: 6px;
@@ -881,12 +866,6 @@ function submittedOn(app: Application): string {
 .decided-list .app-email {
   flex: 1 1 12rem;
   font-size: var(--text-sm);
-}
-
-.approve-button.small,
-.reject-button.small {
-  padding: 5px 12px;
-  font-size: var(--text-xs);
 }
 
 @media (max-width: 640px) {

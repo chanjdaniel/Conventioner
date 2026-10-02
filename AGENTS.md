@@ -629,7 +629,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   the states it walks**, so dialogs, menus, disabled controls and empty states must be opened
   deliberately. A twenty-screen pass missed the invisible button because nobody opened that dialog.
 - **A token is only AA on the ground it was measured against.** `--mm-green` is 4.59:1 on white and
-  4.43:1 on the phase rail's `#FBFBFA`.
+  4.43:1 on the phase rail's `#FBFBFA`. So a chip carries its own ground: `--mm-chip-*` are opaque
+  (the tint already laid over white), each asserted with its ink in `contrast.test.ts`. Translucent
+  tints took on the beige review card beneath them and fell below AA there (E26/F10/S01).
+- **Weight does not inherit here.** A global reset gives every element `font-weight: 400`, so a
+  span inside a 600 cell is 400 until it says otherwise.
 - **Form controls do not inherit `font-family`.** Setting `font: inherit` on them alone is wrong while
   `body` declares Inter - it makes every control Inter while the 274 Outfit rules around them stay
   Outfit. `body` becomes Outfit first (`E15/F01/S01`). And `font` is a SHORTHAND: it carries
