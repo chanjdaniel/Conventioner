@@ -114,7 +114,7 @@ function canManage(org: Organization): boolean {
           data-testid="organization-card"
         >
           <template #name>
-            <h3>{{ org.name }}</h3>
+            <h3 :title="org.name">{{ org.name }}</h3>
           </template>
           <template #badge>
             <span
@@ -127,11 +127,13 @@ function canManage(org: Organization): boolean {
             </span>
           </template>
           <template #actions>
+            <!-- The same Manage as on Markets: it was solid black here and outlined there (bug 43). -->
             <button
               v-if="canManage(org)"
-              @click="handleManage(org)"
-              class="manage-button"
+              type="button"
+              class="btn btn--secondary"
               data-testid="organizations-manage-button"
+              @click="handleManage(org)"
             >
               Manage
             </button>
@@ -258,22 +260,6 @@ function canManage(org: Organization): boolean {
 .role-member {
   background: rgba(54, 130, 111, 0.16);
   color: var(--mm-green);
-}
-
-.manage-button {
-  padding: 8px 20px;
-  background: var(--mm-black);
-  color: white;
-  border: none;
-  border-radius: var(--radius-control);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: 400;
-  white-space: nowrap;
-}
-
-.manage-button:hover {
-  opacity: 0.9;
 }
 
 .content-block::-webkit-scrollbar {
