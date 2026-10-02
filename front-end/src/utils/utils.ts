@@ -110,6 +110,14 @@ function pair(first: Date, last: Date, tight: string, spaced: string): string {
   return `${a}${tight}${last.getUTCDate()}, ${last.getUTCFullYear()}`;
 }
 
+/**
+ * A CSV column's heading on one line. A Google Form writes the question as asked, line breaks and
+ * all, and both ledgers that show one clamp it to two lines with the whole of it as hover text.
+ */
+export function oneLine(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
 /** An instant as a Date, or null when it is not one. */
 function instant(iso: string | null | undefined): Date | null {
   if (!iso) return null;

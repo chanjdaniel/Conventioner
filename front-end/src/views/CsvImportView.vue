@@ -18,7 +18,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useOpenMarket } from '@/utils/openMarket';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
-import { getFormattedDate } from '@/utils/utils';
+import { getFormattedDate, oneLine } from '@/utils/utils';
 import { canImportInto, importRefusal } from '@/utils/importPhase';
 import AmendFormDialog from '@/components/application/AmendFormDialog.vue';
 import ValueFixes from '@/components/ValueFixes.vue';
@@ -523,10 +523,8 @@ async function inspect() {
     rowCount.value = data.rowCount ?? 0;
     targets.value = data.targets ?? [];
     groups.value = data.groups ?? [];
-    groupTarget.value = {};
     splitStems.value = new Set();
     columnTarget.value = {};
-    groupTarget.value = {};
     unmatched.value = [];
     decided.value = [];
     resolutions.value = {};
@@ -536,6 +534,9 @@ async function inspect() {
     headers.value.forEach((_header, index) => {
       columnTarget.value[index] = '';
     });
+    // And every grid with its "Ignore these columns", for the same reason (bug 43): the columns
+    // were seeded and the grids were not, so a grid's select read blank until it was chosen.
+    groupTarget.value = Object.fromEntries(groups.value.map((group) => [group.stem, '']));
     for (const [key, index] of Object.entries(data.suggestedMapping ?? {})) {
       columnTarget.value[Number(index)] = key;
     }
@@ -803,7 +804,9 @@ function startOver() {
                 <template v-if="row.kind === 'group'">
                   <tr class="ledger-group-row" data-testid="import-group-row">
                     <td class="ledger-header">
-                      {{ row.group.stem }}
+                      <span class="ledger-header-text" :title="oneLine(row.group.stem)">{{
+                        oneLine(row.group.stem)
+                      }}</span>
                       <span
                         v-if="isRestored(groupTarget[row.group.stem])"
                         class="ledger-badge"
@@ -882,7 +885,11 @@ function startOver() {
                 <!-- An ordinary column. -->
                 <tr v-else data-testid="import-column-row">
                   <td class="ledger-header">
-                    {{ headers[row.index] || `(column ${row.index + 1})` }}
+                    <!-- Two lines at most, as the proposal shows the same headings (bug 43): one
+                         export's terms-and-conditions question ran to twenty. -->
+                    <span class="ledger-header-text" :title="oneLine(headers[row.index] ?? '')">{{
+                      oneLine(headers[row.index] ?? '') || `(column ${row.index + 1})`
+                    }}</span>
                     <span
                       v-if="isRestored(columnTarget[row.index])"
                       class="ledger-badge"
@@ -1404,6 +1411,16 @@ function startOver() {
 .ledger-header {
   font-weight: 600;
   max-width: 260px;
+}
+
+/* Its own weight: the reset gives every element 400, so the cell's 600 does not reach it. */
+.ledger-header-text {
+  font-weight: 600;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .ledger-samples.empty {
