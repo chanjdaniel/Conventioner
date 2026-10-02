@@ -1,6 +1,8 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { ensureTestOrg, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedApplicantMarket } from './helpers/seedApplicantMarket';
+import { seedApplication } from './helpers/seedApplication';
 import type { Page } from '@playwright/test';
 
 /**
@@ -284,6 +286,30 @@ test.describe('Every rendered text node reaches AA', () => {
     await expect(tab).toBeVisible({ timeout: 15000 });
     await tab.hover();
     await expectAA(page, 'a hovered market tab');
+  });
+
+  test('a review card, and the verdicts already given', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // A status is a tinted chip now, on the card's own beige ground as well as on white (bug 43),
+    // and no screen above opens either.
+    const { marketId: reviewing } = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    for (const email of ['nadia@ember.test', 'rafi@kiln.test', 'theo@thistle.test']) {
+      seedApplication(reviewing, email, { business_name: 'Ember Ceramics', product_type: 'Pots' });
+    }
+    await page.goto(marketSetupPath(reviewing, 'applications'));
+    await expect(page.getByTestId('app-monitor-card')).toBeVisible({ timeout: 15000 });
+    await page.getByTestId('app-monitor-approve-button').click();
+    await page.getByTestId('app-monitor-reject-button').click();
+    await page.getByTestId('app-monitor-decided-toggle').click();
+    await expect(page.getByTestId('app-monitor-decided-row')).toHaveCount(2);
+    await expectAA(page, 'a review card and its verdicts');
   });
 
   test('the new-market dialog, where a disabled primary lives', async ({

@@ -72,9 +72,11 @@ const emit = defineEmits<{ open: [] }>();
   display: flex;
   align-items: baseline;
   gap: 8px;
-  /* Sized to its occupant, not to the row. A full-width button lit the whole row on hover, which
-     reads as "this table" rather than "this seat" - and a table holds two of them. */
+  /* One width for every seat, never the row's. A full-width button lit the whole row on hover,
+     which reads as "this table" rather than "this seat" - and a table holds two of them. Sized to
+     its occupant instead, every box on the page was a different width (bug 43). */
   align-self: flex-start;
+  width: 20rem;
   max-width: 100%;
   min-width: 0;
   text-align: left;
