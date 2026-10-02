@@ -287,7 +287,7 @@ class TestRequestCodeIndistinguishable:
 
         assert status == 200
         assert body.get_json() == {
-            "message": "If an account exists for this email, we've sent a code."
+            "message": "We've sent a code to this address."
         }
 
     def test_missing_email_produces_same_response(
@@ -307,7 +307,7 @@ class TestRequestCodeIndistinguishable:
 
         assert status == 200
         assert body.get_json() == {
-            "message": "If an account exists for this email, we've sent a code."
+            "message": "We've sent a code to this address."
         }
 
     def test_invalid_email_produces_same_response(
@@ -327,7 +327,7 @@ class TestRequestCodeIndistinguishable:
 
         assert status == 200
         assert body.get_json() == {
-            "message": "If an account exists for this email, we've sent a code."
+            "message": "We've sent a code to this address."
         }
 
 
@@ -807,7 +807,7 @@ class TestEdgeCases:
         assert status == 200
         # Should get the same response as "market not found" - indistinguishable
         assert body.get_json() == {
-            "message": "If an account exists for this email, we've sent a code."
+            "message": "We've sent a code to this address."
         }
 
         # No challenge should be created since the market was not resolved
@@ -865,10 +865,13 @@ class TestTimingOracleClosed:
             "_send_code_email was not called at all"
         )
 
-    def test_unknown_address_does_not_fire_email_thread(
+    def test_an_address_that_has_not_applied_is_sent_its_code(
         self, applicant_auth_module, test_db, monkeypatch
     ):
-        """No email thread should be started for unknown addresses."""
+        """A first-time vendor needs a code to sign in and apply (bug 6, E26/F07/S01).
+
+        This asserted the opposite - no email for an unknown address - which is the rule that kept
+        every new vendor out. Sending to every address also makes the work identical for all."""
         from flask import Flask
         import time
 
@@ -887,6 +890,7 @@ class TestTimingOracleClosed:
         ):
             applicant_auth_module.request_login_code("test-market")
 
-        assert len(call_recorded) == 0, (
-            "Email should not be dispatched for unknown address"
-        )
+        deadline = time.time() + 2
+        while not call_recorded and time.time() < deadline:
+            time.sleep(0.01)
+        assert len(call_recorded) == 1, "the code was not sent to an address with no application"

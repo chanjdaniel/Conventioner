@@ -25,9 +25,12 @@ constraints:
    captain specified.
 
 6. **Timing is also a channel.** Identical response bodies are worthless if one
-   path is measurably slower. The known-address branch does an extra email send;
-   the unknown-address branch does nothing materially different but the response
-   goes out as soon as the challenge is stored.
+   path is measurably slower. Every address is sent its code (E26/F07/S01), so the
+   work is the same for all, and the send runs on a thread so the response goes out
+   as soon as the challenge is stored.
+
+A first-time vendor signs in exactly as a returning one does: the token names the
+address and the market, not an application, and their first save creates it.
 """
 import hashlib
 import logging
@@ -42,8 +45,6 @@ from db_config import get_database
 from market_documents import applicant_intake_market_by_slug
 from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
 from utils.application_token import generate_application_token
-
-import api.applications as ApplicationsApi
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,9 @@ def _verify_code(stored: str, candidate: str) -> bool:
 # Stored as plain dicts because jsonify() requires an application context and
 # cannot be called at module import time.
 
-_REQUEST_CODE_BODY = {"message": "If an account exists for this email, we've sent a code."}
+# True of every address, because every address is sent a code (E26/F07/S01). It hedged while codes
+# went only to known ones, which was what kept a first-time vendor from ever signing in (bug 6).
+_REQUEST_CODE_BODY = {"message": "We've sent a code to this address."}
 _REQUEST_CODE_STATUS = 200
 
 _VERIFY_FAILURE_BODY = {"message": "Invalid or expired code."}
@@ -337,25 +340,19 @@ def request_login_code(market_slug: str) -> tuple:
     expires_at = _code_expiry()
     _store_challenge(market_id, email, code, expires_at)
 
-    # Check whether this email actually has an application at this market.
-    # Do NOT prevent the Application document from being created - the captain
-    # has explicitly forbidden that. The D9 lock engages on the first
-    # Application document, and this endpoint does not create one.
-    apps_collection = db["applications"]
-    has_application = apps_collection.find_one(
-        {"market_id": market_id, "applicant_email": email}
-    ) is not None
-
-    # Only send the email when the address is actually an applicant.
-    # The send is dispatched to a daemon thread so it does NOT block the
-    # response. This closes the timing oracle: a real applicant and a stranger
-    # get the same response latency regardless of whether an email goes out.
-    if has_application:
-        threading.Thread(
-            target=_send_code_email,
-            args=(email, code, market_name, market_id),
-            daemon=True,
-        ).start()
+    # Every address is sent its code, applicant or not (E26/F07/S01). Codes went only to addresses
+    # with an application, and nothing creates a first application before sign-in, so a vendor
+    # who had never applied could never sign in to apply (bug 6). Sending to all is also the
+    # strongest form of the ruling: the work is now identical for every address, not merely the
+    # response. This endpoint still creates no Application document - the first save does, and
+    # with it the D9 lock, exactly as specified.
+    #
+    # The send is dispatched to a daemon thread so it does NOT block the response.
+    threading.Thread(
+        target=_send_code_email,
+        args=(email, code, market_name, market_id),
+        daemon=True,
+    ).start()
 
     return jsonify(_REQUEST_CODE_BODY), _REQUEST_CODE_STATUS
 
@@ -396,21 +393,17 @@ def verify_login_code(market_slug: str) -> tuple:
     # Consume and verify. All failure branches inside this function return the
     # same observable outcome.
     if _consume_and_verify(market_id, email, code):
-        app_doc = ApplicationsApi.find_application_by_email(market_id, email)
-        token = None
-        if app_doc and app_doc.get("id"):
-            token = generate_application_token(
-                app_doc["id"], market_id, email,
-            )
-
-        response = {
+        # A token for whoever proved the address, applied or not (E26/F07/S01). It used to be
+        # issued only when an application existed, so a new vendor holding a good code got a 200
+        # with no token and was sent back to "Sign In" without a word (bug 6). Telling the person
+        # who just read the code whether they have applied leaks nothing; the ruling is about
+        # strangers, and every failure below still collapses to one response.
+        return jsonify({
             "success": True,
             "marketId": market_id,
             "applicantEmail": email,
-        }
-        if token:
-            response["token"] = token
-        return jsonify(response), 200
+            "token": generate_application_token(market_id, email),
+        }), 200
 
     return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
 

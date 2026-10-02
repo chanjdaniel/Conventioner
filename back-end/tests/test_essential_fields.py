@@ -15,7 +15,11 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import db_config as test_db_config
 import essential_fields as EssentialFields
-from api.applicants import get_public_application_form, save_applicant_application
+from api.applicants import (
+    get_applicant_application,
+    get_public_application_form,
+    save_applicant_application,
+)
 from datatypes import Application, ApplicationForm, ApplicationStatus, EssentialFormOptions
 
 
@@ -561,6 +565,49 @@ def _seed_application(applications):
     ).model_dump())
 
 
+class TestAFirstTimeVendor:
+    """A vendor who signed in but has never applied (bug 6, E26/F07/S01)."""
+
+    def test_has_no_application_and_is_told_so_rather_than_refused(
+        self, applicant_db, applications,
+    ):
+        body, status = get_applicant_application("test-market", _token())
+
+        assert status == 200
+        assert body == {"application": None}
+
+    def test_their_first_save_creates_their_application(self, applicant_db, applications):
+        body, status = save_applicant_application(
+            "test-market", _token(), {**VALID_ANSWERS, "business_name": "Acme"},
+        )
+
+        assert status == 200, body
+        stored = applications.find_one({"applicant_email": "vendor@example.com"})
+        assert stored["form_data"]["business_name"] == "Acme"
+        assert stored["market_id"] == "market-123"
+        assert body["application"]["applicantEmail"] == "vendor@example.com"
+
+    def test_a_refused_first_save_leaves_no_application_behind(self, applicant_db, applications):
+        """An empty application would sit in the organizer's review queue (the importer's bug 5)."""
+        _, status = save_applicant_application(
+            "test-market", _token(), {**A_NAME, "business_name": "Acme"},
+        )
+
+        assert status == 422
+        assert applications.find_one({"applicant_email": "vendor@example.com"}) is None
+
+    def test_their_application_is_found_by_who_they_are_not_by_an_id_in_the_token(
+        self, applicant_db, applications,
+    ):
+        _seed_application(applications)
+        token = {"market_id": "market-123", "email": "vendor@example.com"}
+
+        body, status = get_applicant_application("test-market", token)
+
+        assert status == 200
+        assert body["application"]["id"] == "app-1"
+
+
 class TestApplicantSave:
     def test_a_save_stores_the_essential_answers_beside_the_custom_ones(
         self, applicant_db, applications,
@@ -605,7 +652,6 @@ class TestApplicantSave:
             "dates": DATES, "sections": SECTIONS, "tableTypes": STUB_TABLE_TYPES,
             "tiers": TIERS,
             "unasked": [],
-            "tiers": TIERS,
         }
 
     def test_answers_are_validated_against_the_frozen_offering_not_the_live_plan(

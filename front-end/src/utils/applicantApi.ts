@@ -56,18 +56,18 @@ export function requestErrorFrom(err: unknown): string {
 }
 
 /**
- * Fetch the authenticated applicant's application.
+ * Fetch the authenticated applicant's application, or null when they have not applied yet.
  * GET /public/markets/<slug>/applicant/application
  * Requires Bearer token in Authorization header.
  */
 export async function fetchApplicantApplication(
   marketSlug: string,
   token: string,
-): Promise<Application> {
+): Promise<Application | null> {
   const { data } = await api.get(`/public/markets/${marketSlug}/applicant/application`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return data.application as Application;
+  return (data.application as Application | null) ?? null;
 }
 
 /**

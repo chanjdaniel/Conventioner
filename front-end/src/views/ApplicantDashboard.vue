@@ -17,6 +17,8 @@ const marketName = ref('');
 const loading = ref(true);
 const application = ref<Application | null>(null);
 const formFields = ref<FormField[]>([]);
+/** Whether the market is taking applications now - what a vendor with none can do about it. */
+const isOpen = ref(false);
 
 const statusLabels: Record<string, string> = {
   open: 'Submitted',
@@ -55,6 +57,7 @@ onMounted(async () => {
   const form = await fetchPublicApplicationForm(marketSlug.value);
   marketName.value = form.marketName;
   formFields.value = form.fields;
+  isOpen.value = form.isOpen;
 
   const app = await store.fetchApplication();
   if (app) {
@@ -134,12 +137,21 @@ function logout() {
       </div>
     </template>
 
+    <!-- Signed in, and not applied (E26/F07/S01): a vendor who has never applied can sign in
+         now, so this says what is true for them rather than waiting on the organizer. -->
     <template v-else>
       <div class="dash-info" data-testid="applicant-dashboard-info">
-        <p>
-          You are signed in to view your application for this market. Your application status and
-          form will appear here once the market organizer opens applications.
-        </p>
+        <template v-if="isOpen">
+          <p>You have not applied to this market yet.</p>
+          <RouterLink
+            class="btn btn--primary"
+            :to="{ name: 'apply', params: { marketSlug } }"
+            data-testid="applicant-dashboard-apply-link"
+          >
+            Apply now
+          </RouterLink>
+        </template>
+        <p v-else>You have no application at this market, and it is not taking applications.</p>
       </div>
     </template>
 
@@ -197,6 +209,10 @@ function logout() {
 }
 
 .dash-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
   background: #e7f1ff;
   border: 1px solid #86b7fe;
   border-radius: 6px;
@@ -204,6 +220,10 @@ function logout() {
   font-size: var(--text-sm);
   line-height: 1.5;
   color: #084298;
+}
+
+.dash-info p {
+  margin: 0;
 }
 
 .dash-status-card {

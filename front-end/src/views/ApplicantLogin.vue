@@ -131,8 +131,10 @@ function goBack() {
         data-testid="applicant-login-email-step"
         @submit.prevent="requestCode"
       >
+        <!-- For a vendor applying for the first time as much as for one coming back (bug 6): it
+             said "the email address you used to apply", to someone who had not. -->
         <p class="login-instruction">
-          Enter the email address you used to apply. We'll send you a verification code.
+          Enter your email address. We'll send you a code to sign in with.
         </p>
         <input
           v-model="email"
@@ -157,7 +159,8 @@ function goBack() {
 
     <template v-else>
       <form class="login-step" data-testid="applicant-login-code-step" @submit.prevent="verifyCode">
-        <p class="login-instruction">If an account exists for this email, we've sent a code.</p>
+        <!-- The same words for every address, and true for every address: each is sent a code. -->
+        <p class="login-instruction">We've sent a code to {{ requestedEmail }}.</p>
         <input
           v-model="code"
           class="login-input login-code-input"
