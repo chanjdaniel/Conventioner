@@ -36,7 +36,8 @@ export class ManageMarketPage {
     this.renameInput = page.getByTestId('manage-market-rename-input');
     this.renameSaveButton = page.getByTestId('manage-market-rename-save-button');
     this.deleteButton = page.getByTestId('manage-market-delete-button');
-    this.deleteConfirmButton = page.getByTestId('manage-market-delete-confirm-button');
+    // Its own destructive dialog (bug 43), so its buttons are that dialog's.
+    this.deleteConfirmButton = page.getByTestId('manage-market-delete-submit-button');
     this.deleteCancelButton = page.getByTestId('manage-market-delete-cancel-button');
   }
 

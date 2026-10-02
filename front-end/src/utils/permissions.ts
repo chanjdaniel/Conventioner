@@ -51,26 +51,26 @@ export function canManageRoles(userRole: MarketRole, targetRole: MarketRole): bo
 }
 
 /**
- * Check if current user can change the target user's role.
+ * Whether the current user may change the target user's role, as `update_market_role` rules: never
+ * an owner's (bug 43 - the owner's own row offered a select the server refused every use of), an
+ * admin's only by an owner, and otherwise whoever may manage that role.
  */
 export function canChangeRole(currentUserRole: MarketRole, targetRole: MarketRole): boolean {
+  if (targetRole === MarketRole.Owner) return false;
   return canManageRoles(currentUserRole, targetRole);
 }
 
 /**
- * Get roles that the target can be changed to (based on current user's permissions).
+ * The roles the target may be changed TO: those the current user may grant, other than the one
+ * they hold. Never Owner - a market has one, and handing it on is a transfer, not a role change.
  */
 export function getRolesForChange(
   targetRole: MarketRole,
   currentUserRole: MarketRole,
 ): MarketRole[] {
-  if (currentUserRole === MarketRole.Owner) {
-    return [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer];
-  }
-  if (currentUserRole === MarketRole.Admin) {
-    return [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer];
-  }
-  return [];
+  return [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer].filter(
+    (role) => role !== targetRole && canManageRoles(currentUserRole, role),
+  );
 }
 
 /**
