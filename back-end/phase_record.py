@@ -25,9 +25,8 @@ reader takes a phase missing from them to mean the market never got there.
 """
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, FrozenSet, List, Optional
+from typing import Any, Callable, Dict, FrozenSet, List, Optional
 
-import api.attendance as AttendanceApi
 from assignment.utils import convert_keys_to_camel_case
 from datatypes import MarketPhase, PhaseEntry, phase_from_market_document
 from market_documents import market_doc_field, market_doc_key
@@ -81,11 +80,15 @@ class PhasesReached:
         return MarketPhase.MARKET_DAYS.value in self.phases
 
 
-def phases_reached(document: Dict[str, Any]) -> PhasesReached:
+def phases_reached(
+    document: Dict[str, Any], checked_in: Callable[[str], bool],
+) -> PhasesReached:
     """Where this stored market has been, from its record and, where that is partial, from proof.
 
-    Attendance is read only for a market whose record is partial: a check-in is the one proof
-    that a market ran, and a market with a whole record needs no proof.
+    ``checked_in`` answers whether anyone has checked in at a market, by id - the one proof that a
+    market ran. It is asked only for a market whose record is partial, since a whole record needs
+    no proof, and it is a parameter so this module reads documents and nothing else: the check-in
+    surface needs this answer, and could not import a module that imported it.
     """
     record = _record(document)
     entered = {entry["phase"] for entry in record if isinstance(entry.get("phase"), str)}
@@ -104,6 +107,6 @@ def phases_reached(document: Dict[str, Any]) -> PhasesReached:
     assignment = market_doc_field(document, "assignment_object")
     if isinstance(assignment, dict) and assignment.get(market_doc_key("vendor_assignments")):
         entered.add(MarketPhase.ASSIGNMENT.value)
-    if AttendanceApi.market_has_attendance(document.get("id", "")):
+    if checked_in(document.get("id", "")):
         entered.add(MarketPhase.MARKET_DAYS.value)
     return PhasesReached(frozenset(entered), complete=False)

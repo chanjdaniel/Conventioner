@@ -47,6 +47,7 @@ import api.permissions as PermissionsApi
 import market_deletion as MarketDeletion
 import placement_history as PlacementHistory
 import phase_record as PhaseRecord
+import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import traceback
@@ -573,7 +574,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     ]
     # Where this market has been (E26/F06/S03), for the archived rail to say how far it got.
     # `phaseRecordComplete` false means a phase missing from the list is unknown, not never.
-    reached = PhaseRecord.phases_reached(market_dict)
+    reached = PhaseRecord.phases_reached(market_dict, AttendanceApi.market_has_attendance)
     market_dict['phasesReached'] = sorted(reached.phases)
     market_dict['phaseRecordComplete'] = reached.complete
     # Why this person cannot change this market, or null while they can (E26/F06/S01): the same

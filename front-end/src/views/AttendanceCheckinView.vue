@@ -30,6 +30,8 @@ interface SummaryResponse {
   /** Empty for an application written before names existed; the page then shows the address. */
   vendorName: string;
   assignments: AssignmentRow[];
+  /** The market is archived: this is the record of where they sat, not a door (bug 9). */
+  ended: boolean;
 }
 
 const route = useRoute();
@@ -46,18 +48,47 @@ const undoingDate = ref<string | null>(null);
 /** Named from the slug alone, so the page says where the vendor is before they do anything. */
 const marketName = ref('');
 
+/**
+ * Whether there is a check-in page at this address at all. A dead address used to show the form,
+ * let a vendor type their email, and only then say "Market not found" (bug 9): the answer arrived
+ * after the work, and it was known before it.
+ */
+const pageState = ref<'loading' | 'open' | 'missing'>('loading');
+
+/**
+ * The market is archived, after it ran: its page is the record of where each vendor sat, and
+ * nobody checks in any more (bug 9). It used to go off the air altogether.
+ */
+const ended = ref(false);
+
 onMounted(async () => {
-  if (!marketSlug.value) return;
+  if (!marketSlug.value) {
+    pageState.value = 'missing';
+    return;
+  }
   try {
-    const resp = await api.get<{ marketName: string }>(
+    const resp = await api.get<{ marketName: string; ended?: boolean }>(
       `/public/markets/${encodeURIComponent(marketSlug.value)}/check-in`,
     );
     marketName.value = resp.data.marketName ?? '';
-  } catch {
-    // A market that does not answer is not worth an error here: the lookup below says so, in the
-    // one message a vendor at a door can act on.
-    marketName.value = '';
+    ended.value = resp.data.ended === true;
+    pageState.value = 'open';
+  } catch (err: unknown) {
+    const status =
+      err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+    // Only "there is no market here" closes the page. Anything else - the network, the server -
+    // leaves the form up, and the lookup says what went wrong, in the one message a vendor at a
+    // door can act on.
+    pageState.value = status === 404 ? 'missing' : 'open';
   }
+});
+
+/** The heading: the market's name, never the page's name again under the eyebrow that says it. */
+const heading = computed(() => {
+  if (pageState.value === 'missing') return 'No market at this address';
+  return marketName.value || summary.value?.marketName || '';
 });
 
 /**
@@ -110,6 +141,7 @@ async function fetchSummary(): Promise<void> {
       `/public/markets/${encodeURIComponent(marketSlug.value)}/vendors/${encodeURIComponent(email.value.trim())}/assignments`,
     );
     summary.value = resp.data;
+    ended.value = ended.value || resp.data.ended === true;
   } catch (err: unknown) {
     summary.value = null;
     const status =
@@ -173,11 +205,21 @@ async function undoCheckIn(date: string): Promise<void> {
     <div class="attendance-card" data-testid="attendance-checkin-card">
       <header class="attendance-header">
         <p class="attendance-eyebrow">Vendor check-in</p>
-        <h1 data-testid="attendance-checkin-market-name">
-          {{ marketName || summary?.marketName || 'Vendor Check-in' }}
-        </h1>
+        <h1 data-testid="attendance-checkin-market-name">{{ heading }}</h1>
       </header>
-      <div class="attendance-body">
+      <div v-if="pageState === 'missing'" class="attendance-body">
+        <p class="not-found" data-testid="attendance-checkin-not-found">
+          There is no check-in page at this address. Check the link you were given, or ask the
+          market's organizer.
+        </p>
+      </div>
+      <div v-else class="attendance-body">
+        <!-- Before the form, so a vendor knows what the page will and will not do before they
+             type anything. -->
+        <p v-if="ended" class="ended-note" data-testid="attendance-checkin-ended">
+          This market has ended. You can still look up where you were placed, and when you checked
+          in.
+        </p>
         <form class="lookup-form" @submit.prevent="fetchSummary">
           <label for="vendor-email">Your email</label>
           <p class="field-help">Use the address you applied with.</p>
@@ -217,7 +259,11 @@ async function undoCheckIn(date: string): Promise<void> {
           <!-- Today is the one a vendor at the door means. It is not merely styled differently:
                every other day's button is secondary, so a mis-tap takes a deliberate press on a
                control that does not look like the primary one. -->
-          <p v-if="!todayIsAMarketDay" class="not-today-note" data-testid="attendance-not-today">
+          <p
+            v-if="!ended && !todayIsAMarketDay"
+            class="not-today-note"
+            data-testid="attendance-not-today"
+          >
             Today is not one of your days at this market. You can still check in for a day below.
           </p>
           <article
@@ -239,7 +285,20 @@ async function undoCheckIn(date: string): Promise<void> {
               <div><strong>Tier:</strong> {{ row.tier }}</div>
               <div><strong>Location:</strong> {{ row.location }}</div>
             </div>
-            <div class="assignment-action">
+            <!-- An ended market's page is a record: it says whether they came, and takes nothing. -->
+            <div v-if="ended" class="assignment-action">
+              <span
+                v-if="row.checkedInAt"
+                class="checked-in-pill"
+                data-testid="attendance-checkin-confirmation-pill"
+              >
+                Checked in &#10003; {{ formatTimestamp(row.checkedInAt) }}
+              </span>
+              <span v-else class="not-checked-in" data-testid="attendance-checkin-not-checked-in">
+                Not checked in
+              </span>
+            </div>
+            <div v-else class="assignment-action">
               <button
                 v-if="!row.checkedInAt"
                 type="button"
@@ -333,6 +392,18 @@ async function undoCheckIn(date: string): Promise<void> {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-text-yellow);
+}
+
+.ended-note,
+.not-found {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+.not-checked-in {
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
 }
 
 .attendance-body {

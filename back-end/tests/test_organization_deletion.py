@@ -32,8 +32,11 @@ MID_LIFECYCLE = [
 ]
 
 
-def _market(market_id, phase, name=None, placements=0):
-    """A stored market document, camelCase as every write leaves one."""
+def _market(market_id, phase, name=None, placements=0, reached=None):
+    """A stored market document, camelCase as every write leaves one.
+
+    ``reached`` is its phase history, the record of where it has been (E26/F06/S03).
+    """
     return {
         "id": market_id,
         "name": name or f"Market {market_id}",
@@ -44,6 +47,10 @@ def _market(market_id, phase, name=None, placements=0):
         "assignmentObject": {
             "vendorAssignments": [{"vendorEmail": f"v{i}@example.com"} for i in range(placements)]
         },
+        "phaseHistory": [
+            {"phase": entered, "enteredAt": "2026-01-01T00:00:00+00:00", "by": OWNER_EMAIL}
+            for entered in (reached or ["draft", phase.value])
+        ],
     }
 
 
@@ -191,7 +198,10 @@ class TestWhatGoesWithIt:
 class TestTheConfirmationCanSayWhatItDestroys:
     def test_it_describes_each_market_rather_than_counting_them(self, org):
         org(
-            _market("m-1", MarketPhase.ARCHIVED, name="Winter Market 2025", placements=34),
+            _market(
+                "m-1", MarketPhase.ARCHIVED, name="Winter Market 2025", placements=34,
+                reached=["draft", "assignment", "market_days", "archived"],
+            ),
             _market("m-2", MarketPhase.DRAFT, name="Untitled"),
         )
 
@@ -204,6 +214,19 @@ class TestTheConfirmationCanSayWhatItDestroys:
         assert archived["ran"] is True
         assert archived["placements"] == 34
         assert archived["public_slug"] == "m-1", "the URL that stops resolving is named"
+
+    def test_a_market_assigned_but_never_published_did_not_run(self, org):
+        """Placements are not proof it ran (bug 9): it was never on the air, so no URL is lost."""
+        org(_market(
+            "m-1", MarketPhase.ARCHIVED, placements=12,
+            reached=["draft", "assignment", "archived"],
+        ))
+
+        preview = OrgsApi.organization_deletion_preview(ORG_ID, OWNER_EMAIL)
+
+        archived = preview["markets_to_delete"][0]
+        assert archived["ran"] is False
+        assert archived["public_slug"] is None
 
     def test_a_draft_has_no_public_url_to_lose(self, org):
         org(_market("m-1", MarketPhase.DRAFT))

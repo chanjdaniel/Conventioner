@@ -91,6 +91,11 @@ const reached = computed(() => new Set(props.market?.phasesReached ?? []));
  */
 const recordComplete = computed(() => props.market?.phaseRecordComplete === true);
 
+/** Did it run - is there a check-in page that archiving would turn into a record? */
+const ran = computed(
+  () => currentPhase.value === MarketPhase.MarketDays || reached.value.has(MarketPhase.MarketDays),
+);
+
 /** An archived market froze at the furthest stage it reached. */
 const frozenAtIndex = computed(() => {
   let furthest = 0;
@@ -469,6 +474,12 @@ function cancelPending() {
       <p class="rail-confirm-text">
         Archiving is permanent. Once archived, a market cannot be returned to an active phase. This
         action cannot be undone.
+      </p>
+      <!-- What happens to the one public page a market that ran has (bug 9): said here, before
+           it happens, rather than discovered at the door. -->
+      <p v-if="ran" class="rail-confirm-text" data-testid="archive-confirm-check-in">
+        Its check-in page stays up as a record: vendors can still look up where they were placed,
+        but nobody can check in.
       </p>
     </AppDialog>
   </Teleport>

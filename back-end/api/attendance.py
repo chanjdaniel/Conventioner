@@ -2,13 +2,17 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import api.applications as ApplicationsApi
+import phase_record as PhaseRecord
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
+from datatypes import MarketPhase, phase_from_market_document
 from db_config import get_database
-from market_documents import published_market_by_slug
+from market_documents import CHECK_IN_RECORD_PHASES, market_by_slug, published_market_by_slug
 
 db = get_database()
 attendance_collection = db["attendance"]
 markets_collection = db["markets"]
+
+ENDED_REFUSAL = "This market has ended, so check-in is closed."
 
 
 def _normalize_email(email: str) -> str:
@@ -24,8 +28,32 @@ def _stored_assignment_rows(market_doc: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def get_published_market_by_slug(market_slug: str) -> Optional[Dict[str, Any]]:
-    """Find a published (phase != draft) market whose slugified name equals slug."""
+    """The running market at this slug: the one a vendor can check in at."""
     return published_market_by_slug(markets_collection, market_slug)
+
+
+def get_check_in_market(market_slug: str) -> Optional[Dict[str, Any]]:
+    """The market a check-in page serves: one running now, or one archived after it ran (bug 9).
+
+    An archived market is the record of what happened, and its check-in page is part of that
+    record: a vendor can still look up where they sat and when they checked in. Archiving used to
+    take the page off the air, against the docs and the organization-deletion preview, which both
+    said an archived market is still served. One archived without ever running had no check-in
+    page, and still has none - which only the phase record can tell apart.
+    """
+    market_doc = market_by_slug(markets_collection, market_slug, CHECK_IN_RECORD_PHASES)
+    if market_doc is None:
+        return None
+    if market_has_ended(market_doc) and not PhaseRecord.phases_reached(
+        market_doc, market_has_attendance,
+    ).ran:
+        return None
+    return market_doc
+
+
+def market_has_ended(market_doc: Dict[str, Any]) -> bool:
+    """Is this check-in page a record rather than a door? Nobody checks in at an archived market."""
+    return phase_from_market_document(market_doc) is MarketPhase.ARCHIVED
 
 
 def get_checkin_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
@@ -35,15 +63,15 @@ def get_checkin_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
     code at a door had to enter their address to find out whether they were at the right market's
     page - the confirmation arriving after the work rather than before it.
 
-    Open to every published market, like the rest of check-in and unlike the applicant-intake
+    Open to every market check-in serves, like the rest of check-in and unlike the applicant-intake
     surface: how a vendor entered a market has no bearing on whether they can scan in on the day.
-    It answers only for a market that is published and reachable at this slug, which is the same
-    fact an accepted lookup already reveals.
+    It answers only for a market reachable at this slug, which is the same fact an accepted lookup
+    already reveals - and says whether it has ended, so the page offers a record rather than a door.
     """
     if not isinstance(market_slug, str) or not market_slug.strip():
         return {"error": "market slug is required"}, 400
 
-    market_doc = get_published_market_by_slug(market_slug)
+    market_doc = get_check_in_market(market_slug)
     if not market_doc:
         return {"error": "Market not found"}, 404
 
@@ -57,6 +85,7 @@ def get_checkin_page(market_slug: str) -> Tuple[Dict[str, Any], int]:
         "marketName": market_doc.get("name", ""),
         "marketSlug": market_slug,
         "marketDates": sorted(dates),
+        "ended": market_has_ended(market_doc),
     }, 200
 
 
@@ -152,7 +181,9 @@ def get_attendance_for_market(market_id: str) -> Tuple[List[Dict[str, Any]], int
 
 
 def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[Dict[str, Any], int]:
-    """Return a single vendor's assignments for a published market, with check-in status."""
+    """A vendor's seats at a market check-in serves, with when they checked in to each.
+
+    Served for an ended market too, marked so: there it is the record of where they sat."""
     if not isinstance(market_slug, str) or not market_slug.strip():
         return {"error": "market slug is required"}, 400
     if not isinstance(vendor_email, str) or not vendor_email.strip():
@@ -160,7 +191,7 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
 
     target_email = _normalize_email(vendor_email)
 
-    market_doc = get_published_market_by_slug(market_slug)
+    market_doc = get_check_in_market(market_slug)
     if not market_doc:
         return {"error": "Market not found"}, 404
 
@@ -212,6 +243,7 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
         "vendor_email": target_email,
         "vendor_name": names.get(target_email, ""),
         "assignments": matched,
+        "ended": market_has_ended(market_doc),
     }
     return convert_keys_to_camel_case(payload), 200
 
