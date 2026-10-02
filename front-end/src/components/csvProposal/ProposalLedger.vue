@@ -34,7 +34,7 @@ import {
 } from '@/utils/csvProposal';
 import { ESSENTIAL_KEYS, essentialLabel } from '@/utils/essentialFields';
 import { FIELD_TYPES } from '@/utils/applicationForm';
-import { getFormattedDate } from '@/utils/utils';
+import { getFormattedDate, oneLine } from '@/utils/utils';
 
 const props = defineProps<{
   proposal: Proposal;
@@ -114,10 +114,6 @@ const WHO_APPLIED = [
 
 function typeLabel(type: FieldType): string {
   return FIELD_TYPES.find((t) => t.value === type)?.label ?? type;
-}
-
-function oneLine(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
 }
 
 function first(row: LedgerRow): number {
@@ -394,10 +390,14 @@ function onSettle(kind: string, value: string, choice: string) {
                     :checked="option.keep"
                     @change="emit('toggle', first(row), option.value)"
                   />
-                  {{ option.value }}
-                  <span class="muted">{{
-                    option.rare ? `chosen by ${option.count} - keep?` : option.count
-                  }}</span>
+                  <!-- One run of text, so the count follows the option's last word (bug 43): as
+                       two flex items, a long option took the line and pushed it to the far edge. -->
+                  <span class="option-text"
+                    >{{ option.value }}
+                    <span class="muted">{{
+                      option.rare ? `chosen by ${option.count} - keep?` : option.count
+                    }}</span></span
+                  >
                 </label>
               </div>
               <div
@@ -447,7 +447,7 @@ function onSettle(kind: string, value: string, choice: string) {
               >
                 No option is kept, so this becomes a question answered in words.
               </div>
-              <div class="muted">{{ row.why }}</div>
+              <div v-if="row.why" class="muted">{{ row.why }}</div>
               <span
                 v-for="reason in row.check"
                 :key="reason"
@@ -586,10 +586,12 @@ function onSettle(kind: string, value: string, choice: string) {
   gap: var(--space-2);
 }
 
-/* A field primitive is full width by default; in a ledger cell it is as wide as its words. */
+/* One width for every choice in the column, so they read as one column (bug 43). As wide as its
+   words, the ceiling's select was half the width of the rest, and a long "already used" note
+   widened its own row's. */
 .becomes .fate {
-  width: auto;
-  max-width: 100%;
+  width: 100%;
+  max-width: 18rem;
 }
 
 .field-line {

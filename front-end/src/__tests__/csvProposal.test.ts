@@ -184,6 +184,20 @@ describe('the working copy', () => {
     expect(rows[0].check).toEqual(['Could allow several answers']);
   });
 
+  /*
+   * The reason is the proposal's for what IT proposed. A column the organizer made the essential
+   * "Number of dates you want" kept saying "A question of your own" beneath its new choice.
+   */
+  it("drops the proposal's reason once the organizer gives a column another fate", () => {
+    const p = proposal([column(0)]);
+    const draft = draftFrom(p);
+    correct(draft, 0, { type: 'number' });
+    expect(draftRows(p, draft)[0].why).toBe('A question of your own');
+
+    correct(draft, 0, { fate: 'essential', essential: 'essential_max_dates' });
+    expect(draftRows(p, draft)[0].why).toBe('');
+  });
+
   it('keeps a rare option the organizer ticks', () => {
     const p = proposal([choiceColumn(0)]);
     const draft = draftFrom(p);

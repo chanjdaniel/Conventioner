@@ -74,8 +74,11 @@ function choose(entry: ValueFix, event: Event) {
     </p>
     <div v-for="entry in shown" :key="`${entry.target}-${entry.value}`" class="ledger-fix">
       <code :data-testid="`${testid}-unmatched-value`">{{ entry.value }}</code>
-      <span v-if="entry.rows !== undefined" class="ledger-fix-rows"
-        >{{ entry.rows }} row{{ entry.rows === 1 ? '' : 's' }}</span
+      <!-- Always a cell, even empty, so every select sits in the same column. -->
+      <span class="ledger-fix-rows"
+        ><template v-if="entry.rows !== undefined"
+          >{{ entry.rows }} row{{ entry.rows === 1 ? '' : 's' }}</template
+        ></span
       >
       <select
         class="field field--select ledger-fix-select"
@@ -103,7 +106,16 @@ function choose(entry: ValueFix, event: Event) {
 </template>
 
 <style scoped>
+/*
+ * One grid for every value, so the selects line up in a column of their own (bug 43). Each row was
+ * its own flex line, so each "Choose…" started wherever its value ended, and a long value pushed it
+ * onto a line of its own.
+ */
 .ledger-fixes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(9rem, 14rem);
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
   margin-top: var(--space-2);
   padding: var(--space-2);
   border: 1px solid var(--mm-red);
@@ -111,14 +123,20 @@ function choose(entry: ValueFix, event: Event) {
   background: rgba(192, 57, 43, 0.14);
 }
 
+.ledger-fixes-title,
+.ledger-fixes-more {
+  grid-column: 1 / -1;
+}
+
 .ledger-fixes-title {
-  margin: 0 0 var(--space-1);
+  margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-red);
 }
 
 .ledger-fixes-more {
-  margin-top: var(--space-2);
+  justify-self: start;
+  margin-top: var(--space-1);
 }
 
 .ledger-fixes--decided {
@@ -134,15 +152,14 @@ function choose(entry: ValueFix, event: Event) {
   background: white;
 }
 
+/* Its three cells are the grid's own, which is what lines them up across values. */
 .ledger-fix {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
+  display: contents;
 }
 
 .ledger-fix code {
+  justify-self: start;
+  overflow-wrap: anywhere;
   padding: var(--space-hairline) var(--space-1);
   border-radius: var(--radius-control);
   background: var(--mm-beige);
@@ -152,10 +169,6 @@ function choose(entry: ValueFix, event: Event) {
 .ledger-fix-rows {
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
-}
-
-/* The field primitive, as wide as its words rather than the row. */
-.ledger-fix-select {
-  width: auto;
+  white-space: nowrap;
 }
 </style>

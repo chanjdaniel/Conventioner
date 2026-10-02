@@ -303,10 +303,13 @@ export function draftRows(proposal: Proposal, draft: ProposalDraft): LedgerRow[]
       required: choice.required,
       ...optionsFor(row.field, choice),
     };
+    // The proposal's reason is for what it proposed; beneath another fate it says something untrue.
+    const proposed = choice.fate === row.fate && choice.essential === row.essential;
     return {
       ...row,
       fate: choice.fate,
       essential: choice.essential,
+      why: proposed ? row.why : '',
       check: choice.corrected ? [] : row.check,
       field,
     };
