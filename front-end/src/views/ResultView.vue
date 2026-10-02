@@ -13,8 +13,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { type VendorNames } from '@/utils/vendorIdentity';
-import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
+import ResultSeat from '@/components/ResultSeat.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import MarketArrival from '@/components/MarketArrival.vue';
@@ -359,6 +359,18 @@ function openOccupied(row: MarketTableRow, email: string): void {
   openSeat.value = { mode: 'occupied', row, seat: seatHeldBy(row, email), occupantEmail: email };
 }
 
+/** One side of a shared table: changed if somebody holds it, filled if nobody does. */
+function openHalf(row: MarketTableRow, email: string | null, side: Seat): void {
+  if (email) openOccupied(row, email);
+  else openPlace(row, side);
+}
+
+/**
+ * Nothing on this page may change the market (bug 30): it is archived, and so a record. The
+ * server refuses every placement write on it; the seats say so by offering none.
+ */
+const readOnly = computed(() => Boolean(market.value?.readOnlyReason));
+
 /** Which seat at this table a vendor holds: the whole of it, or one side. */
 function seatHeldBy(row: MarketTableRow, email: string): Seat {
   if (rowStatus(row).isFull) return FULL_TABLE;
@@ -686,91 +698,46 @@ function swapSeats(withEmail: string): void {
 
                     <!-- Every seat is a control: an empty one is filled, an occupied one is
                          freed or traded. A table holds two seats, so a seat - not a table - is
-                         what a placement names (E11/F03/S01). -->
+                         what a placement names (E11/F03/S01). On a market that cannot change,
+                         every seat is a record instead (bug 30). -->
                     <div class="table-row-assignment">
-                      <template v-if="rowStatus(row).label === 'empty'">
-                        <button
-                          type="button"
-                          class="seat-button seat-button--vacant"
-                          data-testid="tables-seat-empty"
-                          @click="openPlace(row, null)"
-                        >
-                          <span class="assignment-empty">Unassigned</span>
-                          <span class="seat-button-hint">Place someone</span>
-                        </button>
-                      </template>
-                      <template v-else-if="rowStatus(row).isFull">
-                        <button
-                          type="button"
-                          class="seat-button"
-                          data-testid="tables-seat-occupied"
-                          :data-vendor-email="rowStatus(row).leftEmail"
-                          @click="openOccupied(row, rowStatus(row).leftEmail!)"
-                        >
-                          <VendorIdentity
-                            class="assignment-email assignment-email--full"
-                            :email="rowStatus(row).leftEmail"
-                            :names="vendorNames"
-                          />
-                          <span class="seat-button-hint">Change</span>
-                        </button>
-                      </template>
+                      <ResultSeat
+                        v-if="rowStatus(row).label === 'empty'"
+                        :email="null"
+                        vacantLabel="Unassigned"
+                        :names="vendorNames"
+                        :readOnly="readOnly"
+                        @open="openPlace(row, null)"
+                      />
+                      <ResultSeat
+                        v-else-if="rowStatus(row).isFull"
+                        :email="rowStatus(row).leftEmail"
+                        vacantLabel="Unassigned"
+                        whole
+                        :names="vendorNames"
+                        :readOnly="readOnly"
+                        @open="openOccupied(row, rowStatus(row).leftEmail!)"
+                      />
                       <template v-else>
                         <div class="half-slot">
                           <span class="half-slot-label">Left</span>
-                          <button
-                            v-if="rowStatus(row).leftEmail"
-                            type="button"
-                            class="seat-button"
-                            data-testid="tables-seat-occupied"
-                            :data-vendor-email="rowStatus(row).leftEmail"
-                            @click="openOccupied(row, rowStatus(row).leftEmail!)"
-                          >
-                            <VendorIdentity
-                              class="assignment-email"
-                              :email="rowStatus(row).leftEmail"
-                              :names="vendorNames"
-                            />
-                            <span class="seat-button-hint">Change</span>
-                          </button>
-                          <button
-                            v-else
-                            type="button"
-                            class="seat-button seat-button--vacant"
-                            data-testid="tables-seat-empty"
-                            @click="openPlace(row, HALF_TABLE_LEFT)"
-                          >
-                            <span class="assignment-email assignment-email--vacant">Vacant</span>
-                            <span class="seat-button-hint">Place someone</span>
-                          </button>
+                          <ResultSeat
+                            :email="rowStatus(row).leftEmail"
+                            vacantLabel="Vacant"
+                            :names="vendorNames"
+                            :readOnly="readOnly"
+                            @open="openHalf(row, rowStatus(row).leftEmail, HALF_TABLE_LEFT)"
+                          />
                         </div>
                         <div class="half-slot">
                           <span class="half-slot-label">Right</span>
-                          <button
-                            v-if="rowStatus(row).rightEmail"
-                            type="button"
-                            class="seat-button"
-                            data-testid="tables-seat-occupied"
-                            :data-vendor-email="rowStatus(row).rightEmail"
-                            @click="openOccupied(row, rowStatus(row).rightEmail!)"
-                          >
-                            <VendorIdentity
-                              class="assignment-email"
-                              :email="rowStatus(row).rightEmail"
-                              :names="vendorNames"
-                            />
-                            <span class="seat-button-hint">Change</span>
-                          </button>
-                          <button
-                            v-else
-                            type="button"
-                            class="seat-button seat-button--vacant"
-                            data-testid="tables-seat-empty"
-                            @click="openPlace(row, HALF_TABLE_RIGHT)"
-                          >
-                            <span class="assignment-email assignment-email--vacant">Vacant</span>
-                            <span class="seat-button-hint">Place someone</span>
-                          </button>
+                          <ResultSeat
+                            :email="rowStatus(row).rightEmail"
+                            vacantLabel="Vacant"
+                            :names="vendorNames"
+                            :readOnly="readOnly"
+                            @open="openHalf(row, rowStatus(row).rightEmail, HALF_TABLE_RIGHT)"
+                          />
                         </div>
                       </template>
                     </div>
@@ -1109,96 +1076,12 @@ function swapSeats(withEmail: string): void {
   border-top: 1px dashed var(--mm-border);
 }
 
-.assignment-email {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  word-break: break-word;
-}
-
-.assignment-email--full {
-  font-weight: 600;
-}
-
-.assignment-email--vacant {
-  color: var(--mm-black);
-  opacity: 0.5;
-  font-style: italic;
-}
-
-.assignment-empty {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  opacity: 0.6;
-  font-style: italic;
-}
-
 .half-slot {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
   flex: 1;
-}
-
-/* A seat is a control, so it looks like one: bordered, hovering, focusable. It stays quiet at
-   rest because a page of twenty-four tables is a page of forty-eight of these, and a grid of
-   buttons shouting at once is harder to read than the list it replaced. */
-.seat-button {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  /* Sized to its occupant, not to the row. A full-width button lit the whole row on hover, which
-     reads as "this table" rather than "this seat" - and a table holds two of them. */
-  align-self: flex-start;
-  max-width: 100%;
-  min-width: 0;
-  text-align: left;
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-/* Bordered at rest, not only on hover. A vendor's name with no box around it does not look like
-   anything you can press, and an organizer who cannot tell a seat is a control has no way to
-   reach the change they came for (E09/F03). */
-.seat-button {
-  border-color: var(--mm-border);
-}
-
-.seat-button:hover {
-  border-color: var(--mm-green);
-  background: var(--mm-beige);
-}
-
-.seat-button:focus-visible {
-  outline: 2px solid var(--mm-green);
-  outline-offset: 1px;
-}
-
-/* Dashed for a seat with nobody in it, solid for one with somebody: the difference between an
-   opening and a person is worth reading before any of the text is. */
-.seat-button--vacant {
-  border-style: dashed;
-}
-
-/* Shown only on hover or focus: at rest the word "Vacant" is the whole message, and repeating
-   "Place someone" on every empty seat turns a floor plan into a wall of instructions. */
-/* Shown on hover or focus, but its space is reserved always: a hint that appears and pushes the
-   row taller makes the grid jump under the pointer. `nowrap` keeps it beside the label rather
-   than below it, so a vacant seat is exactly as tall as an occupied one. */
-.seat-button-hint {
-  font-size: var(--text-xs);
-  white-space: nowrap;
-  color: var(--mm-text-link);
-  opacity: 0;
-}
-
-.seat-button:hover .seat-button-hint,
-.seat-button:focus-visible .seat-button-hint {
-  opacity: 1;
 }
 
 .filter-pickers {

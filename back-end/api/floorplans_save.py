@@ -95,6 +95,10 @@ def save_floorplan_to_market():
             return jsonify({
                 "error": "User does not have permission to edit this market"
             }), 403
+        # It writes the plan, and an archived market's plan is part of its record (bug 30).
+        refusal = MarketsApi.archived_refusal(context.market)
+        if refusal:
+            return jsonify({"error": refusal}), 403
 
         # ── 3. Extract sections and locations from floorplan ───────────────
         sections_data = []

@@ -1669,6 +1669,9 @@ def review_application(market_id: str, application_id: str) -> Response:
             requesting_user, context.market, MarketRole.ADMIN, context.organization
         ):
             return jsonify({"error": "User does not have permission to review applications"}), 403
+        refusal = MarketsApi.archived_refusal(context.market)
+        if refusal:
+            return jsonify({"error": refusal}), 403
 
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
@@ -1711,6 +1714,10 @@ def _admin_market_document(market_id: str, requesting_user: str, refused: str):
         requesting_user, context.market, MarketRole.ADMIN, context.organization
     ):
         return None, {"error": refused}, 403
+    # Every caller prepares or makes a write, and an archived market takes none (bug 30).
+    archived = MarketsApi.archived_refusal(context.market)
+    if archived:
+        return None, {"error": archived}, 403
 
     market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
     if not market_doc:
@@ -1890,6 +1897,9 @@ def publish_market_results(market_id: str) -> Response:
             requesting_user, context.market, MarketRole.ADMIN, context.organization
         ):
             return jsonify({"error": "User does not have permission to publish results"}), 403
+        refusal = MarketsApi.archived_refusal(context.market)
+        if refusal:
+            return jsonify({"error": refusal}), 403
 
         result, status_code = ApplicantsApi.publish_results(market_id)
         return jsonify(result), status_code

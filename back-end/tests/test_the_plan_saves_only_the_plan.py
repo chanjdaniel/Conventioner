@@ -89,7 +89,8 @@ def test_a_body_without_the_plan_is_refused(market):
 
 
 @pytest.mark.parametrize(
-    "phase", [phase for phase in MarketPhase if phase != MarketPhase.DRAFT]
+    # Archived refuses the whole write first (bug 30).
+    "phase", [p for p in MarketPhase if p not in (MarketPhase.DRAFT, MarketPhase.ARCHIVED)]
 )
 def test_the_intake_mode_cannot_change_after_draft(market, phase):
     collection = market(phase=phase)
@@ -128,6 +129,9 @@ def test_a_malformed_plan_is_refused(market):
 # so the test is an independent statement of which phases those are.
 SETTLED = [MarketPhase.OFFERS, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED]
 OPEN = [phase for phase in MarketPhase if phase not in SETTLED]
+# An archived market refuses every write before the rules are asked (bug 30), so the plan's own
+# refusals are tested where a plan can still be written: `test_an_archive_is_read_only.py` has it.
+WRITABLE_SETTLED = [phase for phase in SETTLED if phase is not MarketPhase.ARCHIVED]
 
 STORED_RULES = {
     **PLAN,
@@ -136,7 +140,7 @@ STORED_RULES = {
 }
 
 
-@pytest.mark.parametrize("phase", SETTLED)
+@pytest.mark.parametrize("phase", WRITABLE_SETTLED)
 @pytest.mark.parametrize(
     "change",
     [
@@ -155,7 +159,7 @@ def test_after_the_assignment_a_rule_cannot_change(market, phase, change):
     assert collection.last_update is None
 
 
-@pytest.mark.parametrize("phase", SETTLED)
+@pytest.mark.parametrize("phase", WRITABLE_SETTLED)
 def test_after_the_assignment_restating_the_rules_is_not_a_change(market, phase):
     """The plan saves as the organizer types, in every phase, and always carries the rules it holds."""
     collection = market(phase=phase, setupObject=STORED_RULES)

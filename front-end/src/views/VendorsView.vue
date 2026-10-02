@@ -374,10 +374,12 @@ function overridesFor(email: string, date: string): PlacementOverride[] | undefi
  * no organizer could invoke (`E11/F03/S02`). The vendor rides along, naming whose placement the
  * organizer came to change.
  */
+/** Where to change this vendor's seat on a date; null when there is nowhere to, as on a market
+ *  that cannot change - its dates are a record, and offer nothing to press (bug 30). */
 function resultLinkFor(date: string): string | null {
   const id = market.value?.id;
   const vendor = selectedVendor.value?.email;
-  if (!id || !vendor) return null;
+  if (!id || !vendor || market.value?.readOnlyReason) return null;
   const query = new URLSearchParams({ date, vendor });
   return `${marketPath(id, 'result')}?${query.toString()}`;
 }

@@ -7,7 +7,12 @@ import IconClickDrag from '../icons/IconClickDrag.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
 import { type TierObject } from '@/assets/types/datatypes';
 
-const props = defineProps<{ setupObject: SetupObject }>();
+const props = defineProps<{
+  setupObject: SetupObject;
+  /** A plan that cannot change (bug 30). Its controls sit in a disabled fieldset, which a drag
+   *  handle does not respect, so the tiers say it themselves. */
+  readonly?: boolean;
+}>();
 const emit = defineEmits(['update:setupObject']);
 
 const setupObject = toRef(props, 'setupObject');
@@ -100,7 +105,7 @@ const hoverParentIndex = ref(null);
 
 const dragOptions = computed(() => ({
   group: 'rows',
-  disabled: false,
+  disabled: Boolean(props.readonly),
   ghostClass: 'sortable-chosen',
   chosenClass: 'sortable-ghost',
   dragClass: 'sortable-ghost',

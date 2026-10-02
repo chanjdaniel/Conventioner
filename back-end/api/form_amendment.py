@@ -228,7 +228,7 @@ def amend_application_form(
     ADMIN, not EDITOR: this moves the market's phase, and the phase endpoint's own bar is ADMIN.
     An amendment that let an EDITOR walk a market through draft would be a way around that bar.
     """
-    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.ADMIN, "amend")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.ADMIN, "amend")
     plan = plan_for(market)
 
     availability = amendment_availability(market)
@@ -271,7 +271,7 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
     replaying what was left of the old walk, because the reason a chain stalls is that the market
     is no longer where the walk believed.
     """
-    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.ADMIN, "amend")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.ADMIN, "amend")
     pending = market.form_amendment
     if pending is None:
         raise AmendmentUnavailable("This market has no unfinished form amendment.")

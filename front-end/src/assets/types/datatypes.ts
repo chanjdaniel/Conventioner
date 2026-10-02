@@ -226,6 +226,12 @@ export interface Market {
    */
   phasesReached?: string[];
   phaseRecordComplete?: boolean;
+  /**
+   * Why the person reading cannot change this market, or null while they can (E26/F06/S01): the
+   * rule every write meets on the server, served so a screen offers no control it would refuse.
+   * Undefined on a read that does not carry it, such as the list.
+   */
+  readOnlyReason?: string | null;
   userRole?: MarketRole; // User's effective role (added by API)
 }
 
