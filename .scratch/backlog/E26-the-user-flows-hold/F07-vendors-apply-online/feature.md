@@ -2,7 +2,7 @@
 id: E26/F07
 title: Vendors can apply online
 type: feature
-status: proposed
+status: in-progress
 blocked_by: []
 pr: []
 ---

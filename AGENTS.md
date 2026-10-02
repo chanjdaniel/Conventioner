@@ -338,6 +338,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   own, because a 404 there would be an oracle saying "this slug is a CSV market" where every other
   answer says nothing. `front-end/e2e/intake-mode.spec.ts` asserts the gated and absent renders are
   identical rather than asserting each alone.
+- **A vendor signs in before they have applied** (E26/F07/S01). Every address that asks is sent a
+  code - which also makes the work identical for all, the strongest form of the login ruling - the
+  token (`utils/application_token.py`) names the market and the address, never an application, and
+  the first VALID save creates the application (`save_applicant_application`). Do not reintroduce
+  "send only to known addresses" or "token only with an application": together they made the
+  "Vendors apply on this market's page" option unable to take a single new application (bug 6).
 - **Intake mode does not gate the form builder.** A CSV market still has an application form,
   because the essential questions define the offering the CSV maps onto. Intake mode decides who
   fills the form in, not whether one exists.

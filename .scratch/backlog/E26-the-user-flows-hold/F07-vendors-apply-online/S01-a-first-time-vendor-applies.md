@@ -2,7 +2,7 @@
 id: E26/F07/S01
 title: A first-time vendor applies
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,4 +16,4 @@ Closes bugs 6 in `docs/MVP_BUGS.md`; each one's reproduction there is the starti
 
 ## Acceptance criteria
 
-- [ ] A brand-new address requests a code, signs in, submits and sees Submitted on Your Application.
+- [x] A brand-new address requests a code, signs in, submits and sees Submitted on Your Application.

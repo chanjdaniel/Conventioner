@@ -37,7 +37,7 @@ const KNOWN_CODE = '123456';
 
 /** The exact body the back end returns on every request-code call. */
 const REQUEST_CODE_MESSAGE = {
-  message: "If an account exists for this email, we've sent a code.",
+  message: "We've sent a code to this address.",
 };
 
 /** The exact body the back end returns on every verify-code failure. */
@@ -152,10 +152,10 @@ test.describe('Public applicant login - anti-oracle', () => {
 
     await login.requestCode(APPLICANT_EMAIL);
 
-    // After requesting a code the page transitions to the code input step,
-    // showing the anti-oracle instruction text.
+    // After requesting a code the page transitions to the code input step, saying the same thing
+    // to every address - and true of every address, since each is sent a code (E26/F07/S01).
     await expect(login.codeInput).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('If an account exists for this email')).toBeVisible();
+    await expect(page.getByText(`We've sent a code to ${APPLICANT_EMAIL}.`)).toBeVisible();
   });
 
   test('verify-code failure shows the same error message through the UI', async ({ page }) => {

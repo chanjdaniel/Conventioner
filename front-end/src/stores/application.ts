@@ -40,12 +40,17 @@ export const useApplicationStore = defineStore('application', () => {
     error.value = null;
     try {
       const result = await verifyLoginCode(slug, email, code);
+      // Every successful sign-in carries a token now, applied or not (E26/F07/S01). Without one
+      // this reported success and the page went back to "Sign In" with no word (bug 6), so a
+      // reply without one is a failure, said as one.
+      if (!result.token) {
+        error.value = 'Sign-in did not complete. Please request a new code and try again.';
+        return false;
+      }
       marketId.value = result.marketId;
       marketSlug.value = slug;
       applicantEmail.value = result.applicantEmail;
-      if (result.token) {
-        token.value = result.token;
-      }
+      token.value = result.token;
       return true;
     } catch (err: unknown) {
       error.value = verifyErrorFrom(err);

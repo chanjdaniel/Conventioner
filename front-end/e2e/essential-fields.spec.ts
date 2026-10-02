@@ -86,7 +86,7 @@ async function signInApplicant(page: Page, marketId: string, marketSlug: string)
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ message: "If an account exists for this email, we've sent a code." }),
+      body: JSON.stringify({ message: "We've sent a code to this address." }),
     });
   });
 
