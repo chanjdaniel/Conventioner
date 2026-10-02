@@ -97,7 +97,7 @@ test('deleting a market deletes its applications, check-ins and trail', async ({
   await manage.deleteButton.click();
   // Said before it happens, now that it is true.
   await expect(page.getByTestId('manage-market-delete-consequence')).toContainText(
-    'with its applications and check-in records',
+    'with its applications, its assignment, its check-in records',
   );
   await manage.deleteConfirmButton.click();
   await expect(card).toHaveCount(0);
