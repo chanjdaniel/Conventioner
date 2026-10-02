@@ -87,6 +87,19 @@ function changeableRoles(role: MarketRole): MarketRole[] {
   return getRolesForChange(role, userRole);
 }
 
+/**
+ * The roles this person may grant, in the order they are offered. Empty for a Viewer or an Editor,
+ * who were shown "Add user" and refused with a 403 (bug 37).
+ */
+const grantableRoles = computed(() => {
+  const userRole = marketData.value?.userRole;
+  if (!userRole) return [];
+  return addableRoles.filter((role) => canManageRoles(userRole, role));
+});
+
+/** Deleting a market is its owner's alone, as the server rules. */
+const canDelete = computed(() => marketData.value?.userRole === MarketRole.Owner);
+
 function canRemoveUser(targetRole: MarketRole): boolean {
   if (targetRole === MarketRole.Owner) return false;
   const userRole = marketData.value?.userRole;
@@ -249,6 +262,7 @@ function toggleAddUser() {
           <p v-if="getUserList().length === 0" class="empty-state">No users with explicit access</p>
         </div>
         <button
+          v-if="grantableRoles.length"
           type="button"
           class="btn btn--compact"
           :class="showAddUserForm ? 'btn--secondary' : 'btn--primary'"
@@ -272,7 +286,7 @@ function toggleAddUser() {
               class="field field--select"
               data-testid="manage-market-add-user-select"
             >
-              <option v-for="r in addableRoles" :key="r" :value="r">
+              <option v-for="r in grantableRoles" :key="r" :value="r">
                 {{ getRoleDisplayName(r) }}
               </option>
             </select>
@@ -308,7 +322,15 @@ function toggleAddUser() {
 
       <section class="section">
         <h3>Rename market</h3>
-        <p v-if="!renameAllowed" class="form-hint" data-testid="manage-market-rename-fixed">
+        <!-- Whoever cannot change the market cannot rename it either (bug 37). -->
+        <p
+          v-if="marketData.readOnlyReason"
+          class="form-hint"
+          data-testid="manage-market-rename-refused"
+        >
+          {{ marketData.readOnlyReason }}
+        </p>
+        <p v-else-if="!renameAllowed" class="form-hint" data-testid="manage-market-rename-fixed">
           This market's public web address comes from its name, and it has already been shared, so
           its name can no longer change.
         </p>
@@ -328,7 +350,7 @@ function toggleAddUser() {
         </p>
       </section>
 
-      <section class="section danger-section">
+      <section v-if="canDelete" class="section danger-section">
         <h3>Delete market</h3>
         <div v-if="!deleteConfirming">
           <button

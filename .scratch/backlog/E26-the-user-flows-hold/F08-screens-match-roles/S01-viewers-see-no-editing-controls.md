@@ -2,7 +2,7 @@
 id: E26/F08/S01
 title: Viewers see no editing controls
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,5 +16,5 @@ Closes bugs 37 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] A Viewer's market pages show no editing controls and no phase moves.
-- [ ] An Editor sees plan and form controls but no phase moves.
+- [x] A Viewer's market pages show no editing controls and no phase moves.
+- [x] An Editor sees plan and form controls but no phase moves.

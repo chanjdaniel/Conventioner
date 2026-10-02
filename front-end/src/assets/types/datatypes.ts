@@ -232,6 +232,12 @@ export interface Market {
    * Undefined on a read that does not carry it, such as the list.
    */
   readOnlyReason?: string | null;
+  /**
+   * Why the person reading cannot take this market's admin actions - moving its phase, deciding
+   * applications, publishing results, importing - or null while they can (E26/F08/S01). Served
+   * beside `readOnlyReason`, from the same permission check the writes ask.
+   */
+  adminActionsReason?: string | null;
   userRole?: MarketRole; // User's effective role (added by API)
 }
 

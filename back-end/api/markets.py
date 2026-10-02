@@ -154,6 +154,51 @@ def archived_refusal(market: Market) -> Optional[str]:
     return ARCHIVED_REFUSAL if market.phase is MarketPhase.ARCHIVED else None
 
 
+VIEWER_REFUSAL = (
+    "You can view this market but not change it. Its owner or an admin can give you editing "
+    "access."
+)
+EDITOR_REFUSAL = (
+    "Moving this market's phase, deciding its applications and importing them are for its owner "
+    "and admins."
+)
+
+
+def change_refusal(
+    user_email: str, market: Market, organization: Optional[Organization],
+) -> Optional[str]:
+    """Why this person cannot change this market, or None while they can (E26/F08/S01).
+
+    The bar every plan, form, placement and highlight write sets - EDITOR - asked through the same
+    permission check those writes ask, and the archived rule above it. Served on the market as
+    ``readOnlyReason``, so a screen offers no control its write would refuse: a Viewer was shown
+    every one, and each edit appeared to work until its save failed with a 403 (bug 37).
+    """
+    archived = archived_refusal(market)
+    if archived:
+        return archived
+    if PermissionsApi.user_has_permission(user_email, market, MarketRole.EDITOR, organization):
+        return None
+    return VIEWER_REFUSAL
+
+
+def admin_actions_refusal(
+    user_email: str, market: Market, organization: Optional[Organization],
+) -> Optional[str]:
+    """Why this person cannot take the ADMIN actions - moving the phase, deciding applications,
+    publishing results, importing - or None while they can (E26/F08/S01).
+
+    Served as ``adminActionsReason``. An Editor changes the plan and the seats but runs none of
+    these, and the rail offered them every phase move all the same.
+    """
+    refused = change_refusal(user_email, market, organization)
+    if refused:
+        return refused
+    if PermissionsApi.user_has_permission(user_email, market, MarketRole.ADMIN, organization):
+        return None
+    return EDITOR_REFUSAL
+
+
 def _load_market_to_change(
     market_id: str, requesting_user: str, role: MarketRole, action: str,
 ) -> Market:
@@ -577,9 +622,13 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     reached = PhaseRecord.phases_reached(market_dict, AttendanceApi.market_has_attendance)
     market_dict['phasesReached'] = sorted(reached.phases)
     market_dict['phaseRecordComplete'] = reached.complete
-    # Why this person cannot change this market, or null while they can (E26/F06/S01): the same
-    # rule every write meets, served so each screen offers no control the server would refuse.
-    market_dict['readOnlyReason'] = archived_refusal(market)
+    # Why this person cannot change this market, or take its admin actions; null while they can
+    # (E26/F06/S01, E26/F08/S01). The same rules every write meets, served so each screen offers
+    # no control the server would refuse.
+    market_dict['readOnlyReason'] = change_refusal(user_email, market, context.organization)
+    market_dict['adminActionsReason'] = admin_actions_refusal(
+        user_email, market, context.organization,
+    )
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
