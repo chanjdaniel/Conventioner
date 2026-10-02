@@ -1,7 +1,7 @@
 # 07: Why is a published market's rail four times taller than a draft's?
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: -
 
 ## Question
@@ -41,3 +41,15 @@ Do not re-litigate the two widths; ticket 01 settled those. If the answer here i
 The public check-in page is out of scope, as everywhere on this map.
 
 Evidence: ticket 01's answer, and `.lavish/aesthetics-2026-09-20.html` (the rail is visible at 111px in the Tables and Vendors captures).
+
+## Answer
+
+Decided 2026-10-03, building [E26/F10/S01](../../../backlog/E26-the-user-flows-hold/F10-polish-copy-and-accessibility/S01-layout-polish.md) (bug 11, which found the application-page chip in Applications Open to be a second case of the same cause).
+
+**The address gives way, and the rail's end travels as one piece.**
+
+- **The chip is the one flexible part of the row.** Its address shortens with an ellipsis and drops the scheme every address shares, so the part that names the market is what shows. The whole address is still the link, its hover text and what Copy copies, so nothing is lost by shortening it. At 1440 the rail is one row, 61px, the same with an address as without.
+- **The addresses and the actions are one item of the row.** Where the row cannot hold them beside the spine at a useful width, they take a second row together: addresses at its start, actions at its end. That is the designed two-row rail the question asked for, rather than today's overflow, which left "Close Applications" alone on a row beside an empty band.
+- **The third option was already taken.** E22/F04/S01 gave every market screen the workspace width, so Tables, Vendors and Attendance no longer sit below the break at 1100. Nothing here amends `--list-max`.
+
+Two things found on the way, both fixed in the same story: the chip was a pixel taller than the buttons, so the rail grew by one whenever an address appeared, and every market screen placed the frame itself, so the rail sat at a different x on four of them.

@@ -64,6 +64,9 @@ function linkFor(tab: MarketTab): string {
         </RouterLink>
       </nav>
     </template>
+    <!-- Where the name will be, while the market is on its way: an empty black band read as broken
+         (bug 43). The words are below it, in the card. -->
+    <span v-else class="market-bar-loading" data-testid="market-bar-loading" aria-hidden="true" />
   </div>
 </template>
 
@@ -91,6 +94,13 @@ function linkFor(tab: MarketTab): string {
   white-space: nowrap;
   font-size: var(--text-2xl);
   color: white;
+}
+
+.market-bar-loading {
+  width: 18rem;
+  height: var(--space-6);
+  border-radius: var(--radius-control);
+  background-color: color-mix(in srgb, var(--mm-text-muted-on-dark) 20%, transparent);
 }
 
 .market-bar-tabs {

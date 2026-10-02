@@ -20,7 +20,6 @@ import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
-import MarketArrival from '@/components/MarketArrival.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 
 const router = useRouter();
@@ -67,7 +66,7 @@ watch(
  * server says.
  */
 const marketId = computed(() => String(route.params.marketId ?? ''));
-const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 
 /**
  * The questions a priority rule can order by: the market's own form, as the server holds it.
@@ -378,21 +377,13 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 </script>
 
 <template>
-  <!-- Nothing about a market is kept in the browser, so until the server answers there is nothing
-       to paint but the state of asking (E21/F02/S02). -->
-  <div v-if="!market" class="market-setup-view">
-    <div class="market-setup-body">
-      <MarketFrame class="settings-container" :market="null">
-        <MarketArrival :status="marketStatus" @retry="refreshMarket()" />
-      </MarketFrame>
-    </div>
-  </div>
-  <div v-else class="market-setup-view">
-    <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
-    <div class="market-setup-body">
-      <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
-           banner while the page scrolls. -->
-      <MarketFrame class="settings-container" :market="market" :beforeTransition="flushPlanSave">
+  <div class="market-setup-view">
+    <ChoosePathOverlay v-if="market && showPathChoice" @select="handlePathChoice" />
+    <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
+         banner while the page scrolls. Nothing about a market is kept in the browser, so until the
+         server answers the frame paints the state of asking (E21/F02/S02). -->
+    <MarketFrame :market="market" :beforeTransition="flushPlanSave">
+      <template v-if="market">
         <!-- Application Form Tab -->
         <MarketFormTab v-if="activeTab === 'form'" :market="market" :setupObject="setupObject" />
 
@@ -419,9 +410,9 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
         />
 
         <!-- Assignment, a tab rather than a place the organizer is pushed to. Reachable
-             in every phase, and nothing on it posts a transition: publishing is a step on the
-             phase strip above, and "I have finished looking at this" is what leaving a page
-             already is. -->
+               in every phase, and nothing on it posts a transition: publishing is a step on the
+               phase strip above, and "I have finished looking at this" is what leaving a page
+               already is. -->
         <MarketAssignmentTab
           v-if="activeTab === 'assignment'"
           :setupObject="setupObject"
@@ -434,37 +425,35 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         />
-      </MarketFrame>
-      <!-- A real, wired feature that sat here as a bare URL box between Back and Next, saying
-           nothing about what it sends, when, or that it is optional. Silence about a working
-           feature is worse than silence about a stub: the organizer who skips it never learns
-           what they skipped, and the one who fills it in does not know what they just armed. -->
-      <div v-if="activeTab === 'setup'" class="plan-actions">
+
         <!-- Whether what the organizer just typed is on the server. Nothing else on this page
-             says so now that Next is gone. -->
-        <span
-          v-if="planSaveStatus === 'saving'"
-          class="plan-save-status"
-          data-testid="market-setup-plan-saving"
-        >
-          Saving…
-        </span>
-        <span
-          v-else-if="planSaveStatus === 'saved'"
-          class="plan-save-status plan-save-status--saved"
-          data-testid="market-setup-plan-saved"
-        >
-          Plan saved
-        </span>
-        <span
-          v-else-if="planSaveStatus === 'error'"
-          class="plan-save-status plan-save-status--error"
-          data-testid="market-setup-plan-save-error"
-        >
-          {{ planSaveError }}
-        </span>
-      </div>
-    </div>
+             says so now that Next is gone. At the foot of the card, which it belongs to: it sat
+             below it, on the page. -->
+        <div v-if="activeTab === 'setup'" class="plan-actions">
+          <span
+            v-if="planSaveStatus === 'saving'"
+            class="plan-save-status"
+            data-testid="market-setup-plan-saving"
+          >
+            Saving…
+          </span>
+          <span
+            v-else-if="planSaveStatus === 'saved'"
+            class="plan-save-status plan-save-status--saved"
+            data-testid="market-setup-plan-saved"
+          >
+            Plan saved
+          </span>
+          <span
+            v-else-if="planSaveStatus === 'error'"
+            class="plan-save-status plan-save-status--error"
+            data-testid="market-setup-plan-save-error"
+          >
+            {{ planSaveError }}
+          </span>
+        </div>
+      </template>
+    </MarketFrame>
   </div>
 </template>
 
@@ -515,82 +504,10 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   align-items: center;
 }
 
-/*
- * A card of the workspace width that grows to its content, while the PAGE scrolls (E16/F03).
- *
- * This was `width: 80%; height: 80%`, which `git log -S` dates to the first commit of this view in
- * Feb 2025 - scaffolding nobody chose. At 1920x1080 it gave the plan a 547px window for 1,032px of
- * content and could not scroll the page at all, so the organizer scrolled inside a box on a screen
- * that was 19% empty at the sides. Even the emptiest possible plan is 812px, so no market ever fit.
- */
-.market-setup-body {
-  width: 100%;
-
-  /*
-   * A gutter on three sides (E17/F02/S02), so the panel reads as a card sitting on the page rather
-   * than as the page itself. Top is deliberately absent: the panel meets the header above it.
-   */
-  padding: 0 var(--space-4) var(--space-4);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.settings-container {
-  align-self: stretch;
-}
-
-.settings-right-container {
-  display: grid;
-  grid-template-rows: 48% 4% 48%;
-}
-
 .settings-body {
   align-self: stretch;
   display: flex;
   gap: 30px;
   padding: 40px;
-}
-
-/* Each of these lays its cards out in a single row. The row must be `minmax(0, 1fr)`:
-   an auto row grows to its tallest card's content, which the cards then resolve their
-   `height: 100%` against, so the whole settings panel outgrows the viewport. */
-.single-column-body {
-  align-self: stretch;
-  flex-grow: 1;
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 30px;
-  min-height: 0;
-  flex: 1;
-}
-
-/*
- * Height, padding, radius, type, focus and the disabled state come from `.btn btn--primary`
- * (E17/F03/S02). This re-decided all of them, and set its label at `--text-lg` - which the scale
- * documents as "section headings, card titles", two steps above the `--text-sm` it names for
- * BUTTONS. Only the minimum footprint is this screen's own.
- */
-.done-button {
-  margin-top: 15px;
-  min-width: 100px;
-}
-
-.assign-disabled-hint {
-  margin: 6px 0 0;
-  font-size: var(--text-xs);
-  color: rgba(39, 35, 35, 0.65);
-}
-
-.assign-error-banner {
-  margin-top: 10px;
-  max-width: 520px;
-}
-
-.retry-button:hover {
-  background: var(--mm-red);
-  color: white;
 }
 </style>

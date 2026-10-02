@@ -179,6 +179,15 @@ const applyUrl = computed(() => {
   return `${window.location.origin}/${slug}/apply`;
 });
 
+/**
+ * An address as the chip shows it: without its scheme, which every one of them shares, so the part
+ * that names this market is what shows when the chip is too narrow for all of it. The link, its
+ * hover text and Copy carry the whole address.
+ */
+function shown(url: string): string {
+  return url.replace(/^https?:\/\//, '');
+}
+
 /** Which chip last confirmed a copy, so two chips do not share one "Copied". */
 const copiedUrl = ref('');
 
@@ -190,8 +199,8 @@ async function copyUrl(url: string): Promise<void> {
       if (copiedUrl.value === url) copiedUrl.value = '';
     }, 2000);
   } catch {
-    // Clipboard access can be refused, and the URL is on screen either way - so the copy is a
-    // convenience, never the only way to get it.
+    // Clipboard access can be refused, and the URL is the link and its hover text either way - so
+    // the copy is a convenience, never the only way to get it.
     copiedUrl.value = '';
   }
 }
@@ -352,71 +361,88 @@ function cancelPending() {
         </li>
       </ol>
 
-      <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
-      <div v-if="applyUrl" class="url-chip" data-testid="phase-rail-apply">
-        <span class="url-chip-label">Application page</span>
-        <a class="url-chip-url" :href="applyUrl" target="_blank" rel="noopener">{{ applyUrl }}</a>
-        <button
-          type="button"
-          class="url-chip-copy"
-          data-testid="phase-rail-apply-copy"
-          @click="copyUrl(applyUrl)"
-        >
-          {{ copiedUrl === applyUrl ? 'Copied' : 'Copy' }}
-        </button>
-      </div>
-
-      <div v-if="checkInUrl" class="url-chip" data-testid="phase-rail-checkin">
-        <span class="url-chip-label">Check-in page</span>
-        <a class="url-chip-url" :href="checkInUrl" target="_blank" rel="noopener">{{
-          checkInUrl
-        }}</a>
-        <button
-          type="button"
-          class="url-chip-copy"
-          data-testid="phase-rail-checkin-copy"
-          @click="copyUrl(checkInUrl)"
-        >
-          {{ copiedUrl === checkInUrl ? 'Copied' : 'Copy' }}
-        </button>
-      </div>
-
-      <div class="phase-rail-actions">
-        <button
-          v-if="forwardTransition"
-          type="button"
-          class="rail-button rail-button--forward"
-          :disabled="transitioning"
-          :data-testid="`phase-transition-${forwardTransition}`"
-          @click="handleTransitionClick(forwardTransition)"
-        >
-          {{ transitionLabel(forwardTransition) }}
-        </button>
-
-        <div v-if="otherTransitions.length" class="rail-menu">
+      <!-- The rail's end: the public addresses and the actions travel together, so a row that cannot
+           hold them all gives them a second row of their own rather than leaving a lone button
+           beside an empty band (bug 11, claims-and-room 07). -->
+      <div class="phase-rail-end" :class="{ 'phase-rail-end--addresses': applyUrl || checkInUrl }">
+        <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
+        <div v-if="applyUrl" class="url-chip" data-testid="phase-rail-apply">
+          <span class="url-chip-label">Application page</span>
+          <a
+            class="url-chip-url"
+            :href="applyUrl"
+            :title="applyUrl"
+            target="_blank"
+            rel="noopener"
+            >{{ shown(applyUrl) }}</a
+          >
           <button
             type="button"
-            class="rail-button rail-button--menu"
-            :aria-expanded="menuOpen"
-            data-testid="phase-rail-menu-button"
-            @click="menuOpen = !menuOpen"
+            class="url-chip-copy"
+            data-testid="phase-rail-apply-copy"
+            @click="copyUrl(applyUrl)"
           >
-            More…
+            {{ copiedUrl === applyUrl ? 'Copied' : 'Copy' }}
           </button>
-          <div v-if="menuOpen" class="rail-menu-list" data-testid="phase-rail-menu">
+        </div>
+
+        <div v-if="checkInUrl" class="url-chip" data-testid="phase-rail-checkin">
+          <span class="url-chip-label">Check-in page</span>
+          <a
+            class="url-chip-url"
+            :href="checkInUrl"
+            :title="checkInUrl"
+            target="_blank"
+            rel="noopener"
+            >{{ shown(checkInUrl) }}</a
+          >
+          <button
+            type="button"
+            class="url-chip-copy"
+            data-testid="phase-rail-checkin-copy"
+            @click="copyUrl(checkInUrl)"
+          >
+            {{ copiedUrl === checkInUrl ? 'Copied' : 'Copy' }}
+          </button>
+        </div>
+
+        <div class="phase-rail-actions">
+          <button
+            v-if="forwardTransition"
+            type="button"
+            class="rail-button rail-button--forward"
+            :disabled="transitioning"
+            :data-testid="`phase-transition-${forwardTransition}`"
+            @click="handleTransitionClick(forwardTransition)"
+          >
+            {{ transitionLabel(forwardTransition) }}
+          </button>
+
+          <div v-if="otherTransitions.length" class="rail-menu">
             <button
-              v-for="toPhase in otherTransitions"
-              :key="toPhase"
               type="button"
-              class="rail-menu-item"
-              :class="`rail-menu-item--${directionOf(toPhase)}`"
-              :disabled="transitioning"
-              :data-direction="directionOf(toPhase)"
-              :data-testid="`phase-transition-${toPhase}`"
-              @click="handleTransitionClick(toPhase)"
+              class="rail-button rail-button--menu"
+              :aria-expanded="menuOpen"
+              data-testid="phase-rail-menu-button"
+              @click="menuOpen = !menuOpen"
             >
-              {{ transitionLabel(toPhase) }}
+              More…
             </button>
+            <div v-if="menuOpen" class="rail-menu-list" data-testid="phase-rail-menu">
+              <button
+                v-for="toPhase in otherTransitions"
+                :key="toPhase"
+                type="button"
+                class="rail-menu-item"
+                :class="`rail-menu-item--${directionOf(toPhase)}`"
+                :disabled="transitioning"
+                :data-direction="directionOf(toPhase)"
+                :data-testid="`phase-transition-${toPhase}`"
+                @click="handleTransitionClick(toPhase)"
+              >
+                {{ transitionLabel(toPhase) }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -508,10 +534,10 @@ function cancelPending() {
 .phase-rail-row {
   display: flex;
   align-items: center;
-  gap: 24px;
-  /* Wraps rather than compressing. The spine is the flexible element on the row, so without this
-     the check-in URL takes its pixels and the labels paint over each other - which the prototype
-     measured at 1366 and below. Two lines tall beats an unreadable smear. */
+  gap: var(--space-3) var(--space-6);
+  /* Wraps rather than compressing the spine, whose labels then paint over each other - which the
+     prototype measured at 1366 and below. Two rows beat an unreadable smear; what goes onto the
+     second is the rail's end as a whole (below). */
   flex-wrap: wrap;
 }
 
@@ -589,30 +615,59 @@ function cancelPending() {
   color: var(--mm-text-muted);
 }
 
+/*
+ * The addresses and the actions, as one item of the row (bug 11). With only actions it is as wide as
+ * they are. With an address it asks for room enough to show a useful part of one beside them, and
+ * takes a row of its own where the row has less - so at the workspace width the rail is one row, and
+ * below it the second row is designed: addresses at its start, actions at its end.
+ */
+.phase-rail-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.phase-rail-end--addresses {
+  flex: 1 1 34rem;
+}
+
 /* One chip, two users: the application page and the check-in page (E18/F04/S02). */
 .url-chip {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
-  padding: 4px 10px;
+  /* Never taller than the buttons beside it, and stretched to theirs: at 4px it was a pixel taller,
+     so the rail grew by one whenever an address appeared. */
+  padding: 3px 4px 3px 10px;
+  align-self: stretch;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
   font-size: var(--text-xs);
+  /* The one part of the rail that gives way: its address shortens, and nothing else does. */
+  flex: 0 1 auto;
   min-width: 0;
 }
 
 .url-chip-label {
   color: var(--mm-text-muted);
   white-space: nowrap;
+  flex: none;
 }
 
 .url-chip-url {
   color: var(--mm-text-link);
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .url-chip-copy {
+  flex: none;
   border: 1px solid var(--mm-border);
   background: white;
   border-radius: var(--radius-control);
@@ -633,6 +688,7 @@ function cancelPending() {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: none;
   margin-left: auto;
 }
 

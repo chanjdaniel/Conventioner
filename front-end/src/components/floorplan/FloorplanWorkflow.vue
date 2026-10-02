@@ -112,7 +112,7 @@ function onSaved(payload: { market_id: string }) {
     </div>
 
     <!-- ── Step 0: Upload ─────────────────────────────────────── -->
-    <div v-if="step === 0" class="step-body">
+    <div v-if="step === 0" class="step-body step-body--upload">
       <FloorplanUploader @uploaded="onUploaded" />
     </div>
 
@@ -228,6 +228,11 @@ function onSaved(payload: { market_id: string }) {
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+
+/* The drop zone's dashed edge sat flush against the card's, as though cut off by it. */
+.step-body--upload {
+  padding: var(--space-6);
 }
 
 /* ── Step 2: Place ──────────────────────────────────────────────── */

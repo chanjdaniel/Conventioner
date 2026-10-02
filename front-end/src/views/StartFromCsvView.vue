@@ -12,7 +12,6 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppDialog from '@/components/AppDialog.vue';
-import MarketArrival from '@/components/MarketArrival.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import ProposalLedger from '@/components/csvProposal/ProposalLedger.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
@@ -39,7 +38,7 @@ type Step = 'upload' | 'reading' | 'review' | 'confirming';
 const route = useRoute();
 const router = useRouter();
 const marketId = computed(() => String(route.params.marketId ?? ''));
-const { market, status, refresh } = useOpenMarket(marketId);
+const { market, refresh } = useOpenMarket(marketId);
 
 const step = ref<Step>('upload');
 const error = ref('');
@@ -182,9 +181,10 @@ function leave() {
 </script>
 
 <template>
-  <div v-if="!market" class="start-view"><MarketArrival :status="status" @retry="refresh()" /></div>
-  <MarketFrame v-else :market="market">
-    <div class="start-view" data-testid="start-from-csv">
+  <!-- One root, so the class the router hands this page lands on it (bug 12): two roots dropped it,
+       with a warning, and the frame sat flush to the window's edge. -->
+  <MarketFrame :market="market">
+    <div v-if="market" class="start-view" data-testid="start-from-csv">
       <header class="start-header">
         <div>
           <h1>Start from your Google Form</h1>
@@ -279,43 +279,43 @@ function leave() {
         />
       </template>
     </div>
-  </MarketFrame>
 
-  <AppDialog
-    :open="yearOpen"
-    title="Which year are these dates in?"
-    testid="start-from-csv-year-dialog"
-    confirm-label="Use this year"
-    :confirm-disabled="!yearValid"
-    @close="yearOpen = false"
-    @submit="confirmYear"
-  >
-    <p class="help">
-      Your form's dates name a month and a day but no year:
-      {{ proposal?.plan.dates.map((d) => d.text).join(', ') }}.
-    </p>
-    <label class="field-label" for="start-from-csv-year-input">Year</label>
-    <input
-      id="start-from-csv-year-input"
-      v-model="yearDraft"
-      class="field"
-      inputmode="numeric"
-      data-testid="start-from-csv-year-input"
-    />
-    <p v-if="typedYearFits === true" class="help" data-testid="start-from-csv-year-note">
-      {{ yearNote }}.
-    </p>
-    <p
-      v-else-if="typedYearFits === false"
-      class="warning"
-      data-testid="start-from-csv-year-warning"
+    <AppDialog
+      :open="yearOpen"
+      title="Which year are these dates in?"
+      testid="start-from-csv-year-dialog"
+      confirm-label="Use this year"
+      :confirm-disabled="!yearValid"
+      @close="yearOpen = false"
+      @submit="confirmYear"
     >
-      {{ yearNote }}, so check the year.
-    </p>
-    <p v-else class="help" data-testid="start-from-csv-year-note">
-      Your form's dates name no weekday, so there is nothing to check the year against.
-    </p>
-  </AppDialog>
+      <p class="help">
+        Your form's dates name a month and a day but no year:
+        {{ proposal?.plan.dates.map((d) => d.text).join(', ') }}.
+      </p>
+      <label class="field-label" for="start-from-csv-year-input">Year</label>
+      <input
+        id="start-from-csv-year-input"
+        v-model="yearDraft"
+        class="field"
+        inputmode="numeric"
+        data-testid="start-from-csv-year-input"
+      />
+      <p v-if="typedYearFits === true" class="help" data-testid="start-from-csv-year-note">
+        {{ yearNote }}.
+      </p>
+      <p
+        v-else-if="typedYearFits === false"
+        class="warning"
+        data-testid="start-from-csv-year-warning"
+      >
+        {{ yearNote }}, so check the year.
+      </p>
+      <p v-else class="help" data-testid="start-from-csv-year-note">
+        Your form's dates name no weekday, so there is nothing to check the year against.
+      </p>
+    </AppDialog>
+  </MarketFrame>
 </template>
 
 <style scoped>

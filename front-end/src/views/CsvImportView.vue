@@ -16,8 +16,7 @@ import { computed, onMounted, ref } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import { useOpenMarket } from '@/utils/openMarket';
-import MarketArrival from '@/components/MarketArrival.vue';
-import MarketBar from '@/components/MarketBar.vue';
+import MarketFrame from '@/components/MarketFrame.vue';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { canImportInto, importRefusal } from '@/utils/importPhase';
@@ -102,7 +101,7 @@ const router = useRouter();
  */
 const route = useRoute();
 const marketId = computed(() => String(route.params.marketId ?? ''));
-const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 
 /**
  * Importing belongs to the phases that take applications. The server enforces this - all three
@@ -688,172 +687,306 @@ function startOver() {
 </script>
 
 <template>
-  <div v-if="!market" class="import-view">
-    <MarketArrival :status="marketStatus" @retry="refreshMarket()" />
-  </div>
-  <div v-else class="import-view" data-testid="import-view">
-    <!-- A flow entered from Applications, so it carries the market's bar with that tab active
-         (E22/F04/S02). -->
-    <MarketBar class="import-bar" :market="market" />
-    <header class="import-header">
-      <div>
-        <h1>Import applications</h1>
-        <p v-if="fileName" class="import-subtitle" data-testid="import-filename">{{ fileName }}</p>
-      </div>
-      <ol class="import-steps">
-        <li :class="{ current: step === 'upload' }">1 Upload</li>
-        <li :class="{ current: step === 'map' }">2 Map columns</li>
-        <li :class="{ current: step === 'preview' }">3 Preview</li>
-        <li :class="{ current: step === 'done' }">4 Confirm</li>
-      </ol>
-    </header>
+  <!-- A flow entered from Applications, standing in the frame like every market page: the bar with
+       that tab active (E22/F04/S02), and the rail (bug 12). -->
+  <MarketFrame :market="market">
+    <div class="import-view" data-testid="import-view">
+      <header class="import-header">
+        <div>
+          <h1>Import applications</h1>
+          <p v-if="fileName" class="import-subtitle" data-testid="import-filename">
+            {{ fileName }}
+          </p>
+        </div>
+        <ol class="import-steps">
+          <li :class="{ current: step === 'upload' }">1 Upload</li>
+          <li :class="{ current: step === 'map' }">2 Map columns</li>
+          <li :class="{ current: step === 'preview' }">3 Preview</li>
+          <li :class="{ current: step === 'done' }">4 Confirm</li>
+        </ol>
+      </header>
 
-    <p v-if="error" class="import-error" data-testid="import-error">{{ error }}</p>
+      <p v-if="error" class="import-error" data-testid="import-error">{{ error }}</p>
 
-    <!-- Not taking applications: say so instead of offering a file picker. -->
-    <section
-      v-if="step === 'upload' && marketId && !takingApplications"
-      class="import-panel"
-      data-testid="import-wrong-phase"
-    >
-      <h2>
-        {{
-          roleRefusal
-            ? 'Importing into this market is not yours to do'
-            : 'This market is not taking applications right now'
-        }}
-      </h2>
-      <p class="import-help">{{ phaseRefusal }}</p>
-      <button type="button" class="button-secondary" @click="leaveImport">
-        Back to the market
-      </button>
-    </section>
+      <!-- Not taking applications: say so instead of offering a file picker. -->
+      <section
+        v-if="step === 'upload' && marketId && !takingApplications"
+        class="import-panel"
+        data-testid="import-wrong-phase"
+      >
+        <h2>
+          {{
+            roleRefusal
+              ? 'Importing into this market is not yours to do'
+              : 'This market is not taking applications right now'
+          }}
+        </h2>
+        <p class="import-help">{{ phaseRefusal }}</p>
+        <button type="button" class="button-secondary" @click="leaveImport">
+          Back to the market
+        </button>
+      </section>
 
-    <!-- 1. Upload -->
-    <section
-      v-if="step === 'upload' && takingApplications"
-      class="import-panel"
-      data-testid="import-upload"
-    >
-      <h2>Choose the CSV your form produced</h2>
-      <!-- Which market this writes into. The organizer reached this page from one market's
+      <!-- 1. Upload -->
+      <section
+        v-if="step === 'upload' && takingApplications"
+        class="import-panel"
+        data-testid="import-upload"
+      >
+        <h2>Choose the CSV your form produced</h2>
+        <!-- Which market this writes into. The organizer reached this page from one market's
            Applications tab, but the page itself said nothing about which, and an import is
            232 applications landing somewhere. -->
-      <p v-if="market" class="import-help" data-testid="import-target-market">
-        Importing into <strong>{{ market.name }}</strong
-        >. Nothing is written until you confirm.
-      </p>
-      <label
-        class="drop-zone"
-        :class="{ dragging, busy }"
-        data-testid="import-drop-zone"
-        @dragover.prevent="dragging = true"
-        @dragenter.prevent="dragging = true"
-        @dragleave="dragging = false"
-        @drop.prevent="onFileDropped"
-      >
-        <input
-          type="file"
-          accept=".csv,text/csv"
-          :disabled="busy"
-          data-testid="import-file-input"
-          @change="onFileChosen"
-        />
-        <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
-        <span class="drop-zone-hint">
-          Any form tool or spreadsheet that exports CSV will do. Every column comes across; you
-          decide which ones mean something on the next step.
-        </span>
-      </label>
-    </section>
-
-    <!-- 2. Map columns -->
-    <section v-if="step === 'map'" class="import-map" data-testid="import-map">
-      <div class="import-ledger">
-        <div v-if="hasSavedMapping" class="import-restored" data-testid="import-restored-banner">
-          <strong>Restored from your last import.</strong>
-          <span v-if="restoredMissing.length" data-testid="import-restored-missing">
-            <template v-for="(entry, position) in restoredMissing" :key="entry.target">
-              {{ position ? '; ' : '' }}{{ labelForTarget(entry.target) }} lost
-              {{ entry.missingHeaders.join(', ') }}
-            </template>
-            - map {{ restoredMissing.length === 1 ? 'it' : 'them' }} again.
-          </span>
-          <span v-if="newHeaders.length" data-testid="import-restored-new">
-            {{ newHeaders.length }} column{{ newHeaders.length === 1 ? ' is' : 's are' }} new since
-            then.
-          </span>
-        </div>
-        <h2>{{ headers.length }} columns in this file</h2>
-        <p class="import-help">
-          Every column, in file order. Leave a column unmapped to ignore it.
+        <p v-if="market" class="import-help" data-testid="import-target-market">
+          Importing into <strong>{{ market.name }}</strong
+          >. Nothing is written until you confirm.
         </p>
-        <table class="ledger-table">
-          <thead>
-            <tr>
-              <th>CSV column</th>
-              <th>First rows</th>
-              <th>Maps to</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template
-              v-for="row in ledgerRows"
-              :key="row.kind === 'group' ? row.group.stem : row.index"
-            >
-              <!-- A grid: one question spread across several columns, mapped once. -->
-              <template v-if="row.kind === 'group'">
-                <tr class="ledger-group-row" data-testid="import-group-row">
+        <label
+          class="drop-zone"
+          :class="{ dragging, busy }"
+          data-testid="import-drop-zone"
+          @dragover.prevent="dragging = true"
+          @dragenter.prevent="dragging = true"
+          @dragleave="dragging = false"
+          @drop.prevent="onFileDropped"
+        >
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            :disabled="busy"
+            data-testid="import-file-input"
+            @change="onFileChosen"
+          />
+          <span class="drop-zone-main">Drop your CSV here, or choose a file</span>
+          <span class="drop-zone-hint">
+            Any form tool or spreadsheet that exports CSV will do. Every column comes across; you
+            decide which ones mean something on the next step.
+          </span>
+        </label>
+      </section>
+
+      <!-- 2. Map columns -->
+      <section v-if="step === 'map'" class="import-map" data-testid="import-map">
+        <div class="import-ledger">
+          <div v-if="hasSavedMapping" class="import-restored" data-testid="import-restored-banner">
+            <strong>Restored from your last import.</strong>
+            <span v-if="restoredMissing.length" data-testid="import-restored-missing">
+              <template v-for="(entry, position) in restoredMissing" :key="entry.target">
+                {{ position ? '; ' : '' }}{{ labelForTarget(entry.target) }} lost
+                {{ entry.missingHeaders.join(', ') }}
+              </template>
+              - map {{ restoredMissing.length === 1 ? 'it' : 'them' }} again.
+            </span>
+            <span v-if="newHeaders.length" data-testid="import-restored-new">
+              {{ newHeaders.length }} column{{ newHeaders.length === 1 ? ' is' : 's are' }} new
+              since then.
+            </span>
+          </div>
+          <h2>{{ headers.length }} columns in this file</h2>
+          <p class="import-help">
+            Every column, in file order. Leave a column unmapped to ignore it.
+          </p>
+          <table class="ledger-table">
+            <thead>
+              <tr>
+                <th>CSV column</th>
+                <th>First rows</th>
+                <th>Maps to</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template
+                v-for="row in ledgerRows"
+                :key="row.kind === 'group' ? row.group.stem : row.index"
+              >
+                <!-- A grid: one question spread across several columns, mapped once. -->
+                <template v-if="row.kind === 'group'">
+                  <tr class="ledger-group-row" data-testid="import-group-row">
+                    <td class="ledger-header">
+                      {{ row.group.stem }}
+                      <span
+                        v-if="isRestored(groupTarget[row.group.stem])"
+                        class="ledger-badge"
+                        data-testid="import-restored-badge"
+                      >
+                        restored from last import
+                      </span>
+                      <span class="ledger-shape" data-testid="import-group-shape">
+                        {{ shapeLabel(row.group) }}
+                      </span>
+                    </td>
+                    <td class="ledger-samples">
+                      <button
+                        class="ledger-split"
+                        :data-testid="`import-split-group-${row.group.columns[0]}`"
+                        @click="splitGroup(row.group.stem)"
+                      >
+                        Not one question - split
+                      </button>
+                    </td>
+                    <td>
+                      <select
+                        v-model="groupTarget[row.group.stem]"
+                        class="ledger-select"
+                        :data-testid="`import-group-select-${row.group.columns[0]}`"
+                      >
+                        <option value="">Ignore these columns</option>
+                        <option
+                          v-for="target in targets"
+                          :key="target.key"
+                          :value="target.key"
+                          :disabled="takenBy(target.key, null, row.group.stem)"
+                        >
+                          {{ target.label }}{{ target.required ? ' *' : '' }}
+                        </option>
+                      </select>
+
+                      <!-- Values the market does not recognise, fixed in the row that owns them. -->
+                      <ValueFixes
+                        v-if="unmatchedFor(groupTarget[row.group.stem]).length"
+                        :entries="unmatchedFor(groupTarget[row.group.stem])"
+                        :resolution-for="resolutionFor"
+                        :label-for="offeredLabel"
+                        @resolve="setResolution"
+                      />
+                      <ValueFixes
+                        v-if="decidedFor(groupTarget[row.group.stem]).length"
+                        :entries="decidedFor(groupTarget[row.group.stem])"
+                        :resolution-for="resolutionFor"
+                        :label-for="offeredLabel"
+                        decided
+                        testid="import-decided"
+                        @resolve="setResolution"
+                      />
+                    </td>
+                  </tr>
+                  <tr
+                    v-for="(option, position) in row.group.options"
+                    :key="`${row.group.stem}-${option}`"
+                    class="ledger-member-row"
+                    data-testid="import-group-member"
+                  >
+                    <td class="ledger-member">↳ {{ option }}</td>
+                    <td
+                      class="ledger-samples"
+                      :class="{
+                        empty: samplesFor(row.group.columns[position]).startsWith('no values'),
+                      }"
+                    >
+                      {{ samplesFor(row.group.columns[position]) }}
+                    </td>
+                    <td class="ledger-member-note">part of the question above</td>
+                  </tr>
+                </template>
+
+                <!-- An ordinary column. -->
+                <tr v-else data-testid="import-column-row">
                   <td class="ledger-header">
-                    {{ row.group.stem }}
+                    {{ headers[row.index] || `(column ${row.index + 1})` }}
                     <span
-                      v-if="isRestored(groupTarget[row.group.stem])"
+                      v-if="isRestored(columnTarget[row.index])"
                       class="ledger-badge"
                       data-testid="import-restored-badge"
                     >
                       restored from last import
                     </span>
-                    <span class="ledger-shape" data-testid="import-group-shape">
-                      {{ shapeLabel(row.group) }}
+                    <span
+                      v-else-if="isNewHeader(row.index)"
+                      class="ledger-badge new"
+                      data-testid="import-new-badge"
+                    >
+                      new since last import
+                    </span>
+                    <span
+                      v-if="singleShapeLabel(row.index)"
+                      class="ledger-shape"
+                      data-testid="import-column-shape"
+                    >
+                      {{ singleShapeLabel(row.index) }}
                     </span>
                   </td>
-                  <td class="ledger-samples">
-                    <button
-                      class="ledger-split"
-                      :data-testid="`import-split-group-${row.group.columns[0]}`"
-                      @click="splitGroup(row.group.stem)"
-                    >
-                      Not one question - split
-                    </button>
+                  <td
+                    class="ledger-samples"
+                    :class="{ empty: samplesFor(row.index).startsWith('no values') }"
+                  >
+                    {{ samplesFor(row.index) }}
                   </td>
                   <td>
                     <select
-                      v-model="groupTarget[row.group.stem]"
+                      v-model="columnTarget[row.index]"
                       class="ledger-select"
-                      :data-testid="`import-group-select-${row.group.columns[0]}`"
+                      :data-testid="`import-target-select-${row.index}`"
                     >
-                      <option value="">Ignore these columns</option>
+                      <option value="">Ignore this column</option>
                       <option
                         v-for="target in targets"
                         :key="target.key"
                         :value="target.key"
-                        :disabled="takenBy(target.key, null, row.group.stem)"
+                        :disabled="takenBy(target.key, row.index, null)"
                       >
                         {{ target.label }}{{ target.required ? ' *' : '' }}
                       </option>
+                      <option :value="NEEDS_A_FIELD">This column has nowhere to go…</option>
                     </select>
+
+                    <!--
+                    WAS the dead end (E03/F04), and is now a way through (E20/F03/S01). It still
+                    does not write the form from here: the dialog calls the amendment endpoint,
+                    which walks the market to draft and goes through
+                    PUT /markets/<id>/application-form like everything else - which is what keeps
+                    the D9 lock unbypassable.
+                  -->
+                    <div
+                      v-if="columnTarget[row.index] === NEEDS_A_FIELD"
+                      class="ledger-deadend"
+                      data-testid="import-needs-a-field"
+                    >
+                      <p>
+                        Nothing here answers this column. To keep it, this market has to ask for it.
+                      </p>
+                      <button
+                        v-if="amendAvailability?.available"
+                        type="button"
+                        class="btn btn--compact btn--primary"
+                        data-testid="import-add-a-field-button"
+                        @click="openAmend({ fieldLabel: headers[row.index] })"
+                      >
+                        Add a question for it
+                      </button>
+                      <p v-else-if="amendAvailability" class="ledger-deadend-why">
+                        {{ amendAvailability.reason }}
+                      </p>
+                    </div>
+
+                    <!-- Warn, do not block: the reconciliation screen below already refuses to
+                       advance until every unmatched value is spoken for, so nothing wrong imports
+                       silently either way, and blocking would strand an organizer whose only copy
+                       of the data is this file. -->
+                    <p
+                      v-if="cannotSplitReliably(columnTarget[row.index])"
+                      class="ledger-deadend"
+                      data-testid="import-cannot-split"
+                    >
+                      One column cannot answer
+                      <strong>{{ labelForTarget(columnTarget[row.index]) }}</strong> reliably: one
+                      of its options is other options joined by commas, and this column separates
+                      answers with commas too, so there is no way to tell one answer from two.
+                      Re-export this question as a grid, one column per option, or rename that
+                      option.
+                    </p>
 
                     <!-- Values the market does not recognise, fixed in the row that owns them. -->
                     <ValueFixes
-                      v-if="unmatchedFor(groupTarget[row.group.stem]).length"
-                      :entries="unmatchedFor(groupTarget[row.group.stem])"
+                      v-if="unmatchedFor(columnTarget[row.index]).length"
+                      :entries="unmatchedFor(columnTarget[row.index])"
                       :resolution-for="resolutionFor"
                       :label-for="offeredLabel"
                       @resolve="setResolution"
                     />
+                    <!-- And the values a decision already settles, so a wrong one can be put right. -->
                     <ValueFixes
-                      v-if="decidedFor(groupTarget[row.group.stem]).length"
-                      :entries="decidedFor(groupTarget[row.group.stem])"
+                      v-if="decidedFor(columnTarget[row.index]).length"
+                      :entries="decidedFor(columnTarget[row.index])"
                       :resolution-for="resolutionFor"
                       :label-for="offeredLabel"
                       decided
@@ -862,422 +995,290 @@ function startOver() {
                     />
                   </td>
                 </tr>
-                <tr
-                  v-for="(option, position) in row.group.options"
-                  :key="`${row.group.stem}-${option}`"
-                  class="ledger-member-row"
-                  data-testid="import-group-member"
-                >
-                  <td class="ledger-member">↳ {{ option }}</td>
-                  <td
-                    class="ledger-samples"
-                    :class="{
-                      empty: samplesFor(row.group.columns[position]).startsWith('no values'),
-                    }"
-                  >
-                    {{ samplesFor(row.group.columns[position]) }}
-                  </td>
-                  <td class="ledger-member-note">part of the question above</td>
-                </tr>
               </template>
+            </tbody>
+          </table>
+        </div>
 
-              <!-- An ordinary column. -->
-              <tr v-else data-testid="import-column-row">
-                <td class="ledger-header">
-                  {{ headers[row.index] || `(column ${row.index + 1})` }}
-                  <span
-                    v-if="isRestored(columnTarget[row.index])"
-                    class="ledger-badge"
-                    data-testid="import-restored-badge"
-                  >
-                    restored from last import
-                  </span>
-                  <span
-                    v-else-if="isNewHeader(row.index)"
-                    class="ledger-badge new"
-                    data-testid="import-new-badge"
-                  >
-                    new since last import
-                  </span>
-                  <span
-                    v-if="singleShapeLabel(row.index)"
-                    class="ledger-shape"
-                    data-testid="import-column-shape"
-                  >
-                    {{ singleShapeLabel(row.index) }}
-                  </span>
-                </td>
-                <td
-                  class="ledger-samples"
-                  :class="{ empty: samplesFor(row.index).startsWith('no values') }"
-                >
-                  {{ samplesFor(row.index) }}
-                </td>
-                <td>
-                  <select
-                    v-model="columnTarget[row.index]"
-                    class="ledger-select"
-                    :data-testid="`import-target-select-${row.index}`"
-                  >
-                    <option value="">Ignore this column</option>
-                    <option
-                      v-for="target in targets"
-                      :key="target.key"
-                      :value="target.key"
-                      :disabled="takenBy(target.key, row.index, null)"
-                    >
-                      {{ target.label }}{{ target.required ? ' *' : '' }}
-                    </option>
-                    <option :value="NEEDS_A_FIELD">This column has nowhere to go…</option>
-                  </select>
-
-                  <!--
-                    WAS the dead end (E03/F04), and is now a way through (E20/F03/S01). It still
-                    does not write the form from here: the dialog calls the amendment endpoint,
-                    which walks the market to draft and goes through
-                    PUT /markets/<id>/application-form like everything else - which is what keeps
-                    the D9 lock unbypassable.
-                  -->
-                  <div
-                    v-if="columnTarget[row.index] === NEEDS_A_FIELD"
-                    class="ledger-deadend"
-                    data-testid="import-needs-a-field"
-                  >
-                    <p>
-                      Nothing here answers this column. To keep it, this market has to ask for it.
-                    </p>
-                    <button
-                      v-if="amendAvailability?.available"
-                      type="button"
-                      class="btn btn--compact btn--primary"
-                      data-testid="import-add-a-field-button"
-                      @click="openAmend({ fieldLabel: headers[row.index] })"
-                    >
-                      Add a question for it
-                    </button>
-                    <p v-else-if="amendAvailability" class="ledger-deadend-why">
-                      {{ amendAvailability.reason }}
-                    </p>
-                  </div>
-
-                  <!-- Warn, do not block: the reconciliation screen below already refuses to
-                       advance until every unmatched value is spoken for, so nothing wrong imports
-                       silently either way, and blocking would strand an organizer whose only copy
-                       of the data is this file. -->
-                  <p
-                    v-if="cannotSplitReliably(columnTarget[row.index])"
-                    class="ledger-deadend"
-                    data-testid="import-cannot-split"
-                  >
-                    One column cannot answer
-                    <strong>{{ labelForTarget(columnTarget[row.index]) }}</strong> reliably: one of
-                    its options is other options joined by commas, and this column separates answers
-                    with commas too, so there is no way to tell one answer from two. Re-export this
-                    question as a grid, one column per option, or rename that option.
-                  </p>
-
-                  <!-- Values the market does not recognise, fixed in the row that owns them. -->
-                  <ValueFixes
-                    v-if="unmatchedFor(columnTarget[row.index]).length"
-                    :entries="unmatchedFor(columnTarget[row.index])"
-                    :resolution-for="resolutionFor"
-                    :label-for="offeredLabel"
-                    @resolve="setResolution"
-                  />
-                  <!-- And the values a decision already settles, so a wrong one can be put right. -->
-                  <ValueFixes
-                    v-if="decidedFor(columnTarget[row.index]).length"
-                    :entries="decidedFor(columnTarget[row.index])"
-                    :resolution-for="resolutionFor"
-                    :label-for="offeredLabel"
-                    decided
-                    testid="import-decided"
-                    @resolve="setResolution"
-                  />
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
-
-      <aside class="import-rail">
-        <h3>Required questions</h3>
-        <ul class="rail-list">
-          <li
-            v-for="target in requiredTargets"
-            :key="target.key"
-            :class="{ served: mappedKeys.has(target.key) }"
-            data-testid="import-required-target"
-          >
-            <span class="rail-tick">{{ mappedKeys.has(target.key) ? '✓' : '○' }}</span>
-            {{ target.label }}
-          </li>
-        </ul>
-        <p v-if="canPreview" class="rail-ok" data-testid="import-all-mapped">
-          All required questions are mapped.
-        </p>
-        <!-- Mapping no timestamp is legal - a market with no time-based priority does not need one.
+        <aside class="import-rail">
+          <h3>Required questions</h3>
+          <ul class="rail-list">
+            <li
+              v-for="target in requiredTargets"
+              :key="target.key"
+              :class="{ served: mappedKeys.has(target.key) }"
+              data-testid="import-required-target"
+            >
+              <span class="rail-tick">{{ mappedKeys.has(target.key) ? '✓' : '○' }}</span>
+              {{ target.label }}
+            </li>
+          </ul>
+          <p v-if="canPreview" class="rail-ok" data-testid="import-all-mapped">
+            All required questions are mapped.
+          </p>
+          <!-- Mapping no timestamp is legal - a market with no time-based priority does not need one.
              But this market has a rule that orders by when the application arrived, and with
              nothing feeding it that rule decides nothing. Saying so here is the point: it used to
              fail silently. -->
-        <p
-          v-if="ordersBySubmittedAt && !mappedKeys.has('submitted_at')"
-          class="rail-warning"
-          data-testid="import-no-submitted-at-warning"
-        >
-          This market orders vendors by when they applied, but no column is mapped to “Submitted
-          at”. That rule will order nothing.
-        </p>
-        <p v-if="unresolvedCount" class="rail-warning" data-testid="import-unresolved-warning">
-          {{
-            unresolvedCount === 1 ? '1 value still needs' : `${unresolvedCount} values still need`
-          }}
-          a match.
-        </p>
-        <!-- Only when something actually is unmapped. This was `v-else` on the unresolved-values
+          <p
+            v-if="ordersBySubmittedAt && !mappedKeys.has('submitted_at')"
+            class="rail-warning"
+            data-testid="import-no-submitted-at-warning"
+          >
+            This market orders vendors by when they applied, but no column is mapped to “Submitted
+            at”. That rule will order nothing.
+          </p>
+          <p v-if="unresolvedCount" class="rail-warning" data-testid="import-unresolved-warning">
+            {{
+              unresolvedCount === 1 ? '1 value still needs' : `${unresolvedCount} values still need`
+            }}
+            a match.
+          </p>
+          <!-- Only when something actually is unmapped. This was `v-else` on the unresolved-values
              warning above, so a fully mapped file showed a red "Still unmapped:" with an empty list
              directly under the green "All required questions are mapped." -->
-        <p
-          v-else-if="unservedRequired.length"
-          class="rail-warning"
-          data-testid="import-unmapped-warning"
-        >
-          Still unmapped: {{ unservedRequired.map((t) => t.label).join(', ') }}
-        </p>
+          <p
+            v-else-if="unservedRequired.length"
+            class="rail-warning"
+            data-testid="import-unmapped-warning"
+          >
+            Still unmapped: {{ unservedRequired.map((t) => t.label).join(', ') }}
+          </p>
 
-        <!-- Turning a question off is a change to the FORM, and a form is editable only in draft
+          <!-- Turning a question off is a change to the FORM, and a form is editable only in draft
              (D9). This wizard runs in TWO phases - `applications_open` and `applications_closed` -
              and the form is editable in neither, so it points at where to do it rather than
              offering a button that would be refused here. Same shape as the unmapped-column dead
              end in the ledger, and E20/F03 is the story that removes both. -->
-        <div
-          v-for="target in declarableUnasked"
-          :key="target.key"
-          class="rail-unasked"
-          data-testid="import-declare-unasked"
-        >
-          <p>
-            No column in this file answers <strong>{{ target.label }}</strong
-            >. It is a preference, not a constraint, so this market can stop asking it and treat
-            every applicant equally.
-          </p>
-          <button
-            v-if="amendAvailability?.available"
-            type="button"
-            class="btn btn--compact btn--primary"
-            :data-testid="`import-stop-asking-${target.key}`"
-            @click="openAmend({ unasked: target.key })"
+          <div
+            v-for="target in declarableUnasked"
+            :key="target.key"
+            class="rail-unasked"
+            data-testid="import-declare-unasked"
           >
-            Stop asking it
-          </button>
-          <p v-else-if="amendAvailability" class="rail-unasked-how">
-            {{ amendAvailability.reason }}
-          </p>
-        </div>
-      </aside>
-    </section>
+            <p>
+              No column in this file answers <strong>{{ target.label }}</strong
+              >. It is a preference, not a constraint, so this market can stop asking it and treat
+              every applicant equally.
+            </p>
+            <button
+              v-if="amendAvailability?.available"
+              type="button"
+              class="btn btn--compact btn--primary"
+              :data-testid="`import-stop-asking-${target.key}`"
+              @click="openAmend({ unasked: target.key })"
+            >
+              Stop asking it
+            </button>
+            <p v-else-if="amendAvailability" class="rail-unasked-how">
+              {{ amendAvailability.reason }}
+            </p>
+          </div>
+        </aside>
+      </section>
 
-    <!-- 3. Preview -->
-    <section v-if="step === 'preview'" class="import-panel" data-testid="import-preview">
-      <h2 data-testid="import-preview-counts">
-        {{ validRows }} of {{ rowCount }} row{{ rowCount === 1 ? '' : 's' }} will be imported
-      </h2>
-      <p class="import-help" data-testid="import-preview-merge">
-        <template v-if="updatedRows || unchangedRows"
-          >{{ newRows }} new, {{ updatedRows }} updated<template v-if="unchangedRows"
-            >, {{ unchangedRows }} unchanged</template
-          >. </template
-        >Each imported row becomes an application awaiting your review. Nothing has been written
-        yet.
-      </p>
+      <!-- 3. Preview -->
+      <section v-if="step === 'preview'" class="import-panel" data-testid="import-preview">
+        <h2 data-testid="import-preview-counts">
+          {{ validRows }} of {{ rowCount }} row{{ rowCount === 1 ? '' : 's' }} will be imported
+        </h2>
+        <p class="import-help" data-testid="import-preview-merge">
+          <template v-if="updatedRows || unchangedRows"
+            >{{ newRows }} new, {{ updatedRows }} updated<template v-if="unchangedRows"
+              >, {{ unchangedRows }} unchanged</template
+            >. </template
+          >Each imported row becomes an application awaiting your review. Nothing has been written
+          yet.
+        </p>
 
-      <!-- An approval the import would invalidate. Said before it happens, because silently
+        <!-- An approval the import would invalidate. Said before it happens, because silently
            un-approving someone the organizer already decided on is not acceptable either way. -->
-      <p v-if="returningToReview" class="import-note warn" data-testid="import-returning-note">
-        {{ returningToReview }} approved application{{ returningToReview === 1 ? '' : 's' }} will
-        return to review because
-        {{ returningToReview === 1 ? 'its answers have' : 'their answers have' }} changed<span
-          v-if="returningEmails.length"
-        >
-          ({{ returningEmails.join(', ') }})</span
-        >.
-      </p>
-
-      <!-- A vendor who applied twice is one application, not two rows judged in turn (bug 34). -->
-      <div v-if="repeats.length" class="import-note" data-testid="import-repeat-note">
-        <p>
-          {{ repeats.length }} earlier submission{{ repeats.length === 1 ? '' : 's' }} will be
-          replaced by the same applicant's later row. Each applicant is imported once, from their
-          latest row, keeping the time they first applied.
-        </p>
-        <ul>
-          <li v-for="repeat in repeats" :key="repeat.row">
-            Row {{ repeat.row }} ({{ repeat.email }}) is replaced by row {{ repeat.latestRow }}
-          </li>
-        </ul>
-      </div>
-
-      <!-- Already here, not in this file. Left alone: absence is almost always a filtered export,
-           not a withdrawal, and guessing otherwise would destroy review state on a guess. -->
-      <p v-if="absentApplications" class="import-note" data-testid="import-absent-note">
-        {{ absentApplications }} existing application{{ absentApplications === 1 ? '' : 's' }}
-        {{ absentApplications === 1 ? 'is' : 'are' }} not in this file<span
-          v-if="absentEmails.length"
-        >
-          ({{ absentEmails.join(', ') }})</span
-        >. They will be left exactly as they are.
-      </p>
-
-      <!-- Everything that would be skipped, before it is skipped. -->
-      <div
-        v-if="previewFailures.length"
-        class="import-failures"
-        data-testid="import-preview-failures"
-      >
-        <h3>
-          {{ previewFailures.length }} row{{ previewFailures.length === 1 ? '' : 's' }} will be
-          skipped
-        </h3>
-        <p class="import-help">
-          These will not be imported. Import the rest, or go back and fix them in your spreadsheet.
-        </p>
-        <ul>
-          <li
-            v-for="failure in previewFailures"
-            :key="failure.row"
-            data-testid="import-preview-failure-row"
+        <p v-if="returningToReview" class="import-note warn" data-testid="import-returning-note">
+          {{ returningToReview }} approved application{{ returningToReview === 1 ? '' : 's' }} will
+          return to review because
+          {{ returningToReview === 1 ? 'its answers have' : 'their answers have' }} changed<span
+            v-if="returningEmails.length"
           >
-            <strong>Row {{ failure.row }}</strong>
-            <span v-if="failure.email"> ({{ failure.email }})</span>: {{ failure.error }}
-          </li>
-        </ul>
-      </div>
-      <!-- The organizer's own data, read through the mapping they just chose. Without a cell of
-           it on screen, "Preview" only restates the previous step. -->
-      <div v-if="sampleApplications.length" class="preview-samples" data-testid="import-samples">
-        <h3>
-          The first
-          {{ sampleApplications.length === 1 ? 'row' : sampleApplications.length + ' rows' }}, as
-          {{ sampleApplications.length === 1 ? 'it' : 'they' }} will be imported
-        </h3>
-        <div class="sample-grid">
-          <article
-            v-for="sample in sampleApplications"
-            :key="sample.row"
-            class="sample-card"
-            data-testid="import-sample-row"
-          >
-            <dl>
-              <template v-for="answer in sample.answers" :key="answer.key">
-                <dt>{{ answer.label }}</dt>
-                <dd :class="{ blank: !answer.value }">{{ answer.value || 'no answer' }}</dd>
-              </template>
-            </dl>
-          </article>
+            ({{ returningEmails.join(', ') }})</span
+          >.
+        </p>
+
+        <!-- A vendor who applied twice is one application, not two rows judged in turn (bug 34). -->
+        <div v-if="repeats.length" class="import-note" data-testid="import-repeat-note">
+          <p>
+            {{ repeats.length }} earlier submission{{ repeats.length === 1 ? '' : 's' }} will be
+            replaced by the same applicant's later row. Each applicant is imported once, from their
+            latest row, keeping the time they first applied.
+          </p>
+          <ul>
+            <li v-for="repeat in repeats" :key="repeat.row">
+              Row {{ repeat.row }} ({{ repeat.email }}) is replaced by row {{ repeat.latestRow }}
+            </li>
+          </ul>
         </div>
-      </div>
 
-      <h3 class="preview-mapping-heading">Where each answer comes from</h3>
-      <ul class="preview-mapping">
-        <li v-for="target in targets" :key="target.key" v-show="mappedKeys.has(target.key)">
-          <strong>{{ target.label }}</strong>
-          <span data-testid="import-preview-source">{{ sourceLabelFor(target.key) }}</span>
-        </li>
-      </ul>
-    </section>
-
-    <!-- 4. Done -->
-    <section v-if="step === 'done'" class="import-panel" data-testid="import-done">
-      <h2 data-testid="import-result-summary">
-        Imported {{ created }} new application{{ created === 1 ? '' : 's'
-        }}<span v-if="updated">, updated {{ updated }}</span
-        >.{{ unchanged ? ` ${unchanged} unchanged.` : '' }}
-      </h2>
-      <p v-if="repeats.length" class="import-note" data-testid="import-result-repeat-note">
-        {{ repeats.length }} earlier submission{{ repeats.length === 1 ? ' was' : 's were' }}
-        replaced by the same applicant's later row.
-      </p>
-      <div v-if="failures.length" class="import-failures" data-testid="import-failures">
-        <h3>{{ failures.length }} row{{ failures.length === 1 ? '' : 's' }} skipped</h3>
-        <p class="import-help">
-          These were not imported. Fix them in your spreadsheet and import again.
+        <!-- Already here, not in this file. Left alone: absence is almost always a filtered export,
+           not a withdrawal, and guessing otherwise would destroy review state on a guess. -->
+        <p v-if="absentApplications" class="import-note" data-testid="import-absent-note">
+          {{ absentApplications }} existing application{{ absentApplications === 1 ? '' : 's' }}
+          {{ absentApplications === 1 ? 'is' : 'are' }} not in this file<span
+            v-if="absentEmails.length"
+          >
+            ({{ absentEmails.join(', ') }})</span
+          >. They will be left exactly as they are.
         </p>
-        <ul>
-          <li v-for="failure in failures" :key="failure.row" data-testid="import-failure-row">
-            <strong>Row {{ failure.row }}</strong>
-            <span v-if="failure.email"> ({{ failure.email }})</span>: {{ failure.error }}
+
+        <!-- Everything that would be skipped, before it is skipped. -->
+        <div
+          v-if="previewFailures.length"
+          class="import-failures"
+          data-testid="import-preview-failures"
+        >
+          <h3>
+            {{ previewFailures.length }} row{{ previewFailures.length === 1 ? '' : 's' }} will be
+            skipped
+          </h3>
+          <p class="import-help">
+            These will not be imported. Import the rest, or go back and fix them in your
+            spreadsheet.
+          </p>
+          <ul>
+            <li
+              v-for="failure in previewFailures"
+              :key="failure.row"
+              data-testid="import-preview-failure-row"
+            >
+              <strong>Row {{ failure.row }}</strong>
+              <span v-if="failure.email"> ({{ failure.email }})</span>: {{ failure.error }}
+            </li>
+          </ul>
+        </div>
+        <!-- The organizer's own data, read through the mapping they just chose. Without a cell of
+           it on screen, "Preview" only restates the previous step. -->
+        <div v-if="sampleApplications.length" class="preview-samples" data-testid="import-samples">
+          <h3>
+            The first
+            {{ sampleApplications.length === 1 ? 'row' : sampleApplications.length + ' rows' }}, as
+            {{ sampleApplications.length === 1 ? 'it' : 'they' }} will be imported
+          </h3>
+          <div class="sample-grid">
+            <article
+              v-for="sample in sampleApplications"
+              :key="sample.row"
+              class="sample-card"
+              data-testid="import-sample-row"
+            >
+              <dl>
+                <template v-for="answer in sample.answers" :key="answer.key">
+                  <dt>{{ answer.label }}</dt>
+                  <dd :class="{ blank: !answer.value }">{{ answer.value || 'no answer' }}</dd>
+                </template>
+              </dl>
+            </article>
+          </div>
+        </div>
+
+        <h3 class="preview-mapping-heading">Where each answer comes from</h3>
+        <ul class="preview-mapping">
+          <li v-for="target in targets" :key="target.key" v-show="mappedKeys.has(target.key)">
+            <strong>{{ target.label }}</strong>
+            <span data-testid="import-preview-source">{{ sourceLabelFor(target.key) }}</span>
           </li>
         </ul>
-      </div>
-    </section>
+      </section>
 
-    <footer class="import-actions">
-      <!-- The way out. Upload, Map columns, Preview and the value reconciliation had none at all -
+      <!-- 4. Done -->
+      <section v-if="step === 'done'" class="import-panel" data-testid="import-done">
+        <h2 data-testid="import-result-summary">
+          Imported {{ created }} new application{{ created === 1 ? '' : 's'
+          }}<span v-if="updated">, updated {{ updated }}</span
+          >.{{ unchanged ? ` ${unchanged} unchanged.` : '' }}
+        </h2>
+        <p v-if="repeats.length" class="import-note" data-testid="import-result-repeat-note">
+          {{ repeats.length }} earlier submission{{ repeats.length === 1 ? ' was' : 's were' }}
+          replaced by the same applicant's later row.
+        </p>
+        <div v-if="failures.length" class="import-failures" data-testid="import-failures">
+          <h3>{{ failures.length }} row{{ failures.length === 1 ? '' : 's' }} skipped</h3>
+          <p class="import-help">
+            These were not imported. Fix them in your spreadsheet and import again.
+          </p>
+          <ul>
+            <li v-for="failure in failures" :key="failure.row" data-testid="import-failure-row">
+              <strong>Row {{ failure.row }}</strong>
+              <span v-if="failure.email"> ({{ failure.email }})</span>: {{ failure.error }}
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <footer class="import-actions">
+        <!-- The way out. Upload, Map columns, Preview and the value reconciliation had none at all -
            no Cancel, no breadcrumb - so an organizer who opened this by mistake, or hit a file the
            product could not read, had the browser's back button and nothing else. Nothing is
            written until the final confirm, so leaving costs only the mapping. -->
-      <button
-        v-if="step !== 'done'"
-        class="button-secondary"
-        data-testid="import-leave-button"
-        @click="leaveImport"
-      >
-        Cancel import
-      </button>
-      <button
-        v-if="step !== 'upload' && step !== 'done'"
-        class="button-secondary"
-        data-testid="import-back-button"
-        @click="step === 'map' ? startOver() : (step = step === 'preview' ? 'map' : 'preview')"
-      >
-        Back
-      </button>
-      <button
-        v-if="step === 'map'"
-        class="button-primary"
-        :disabled="!canPreview || busy || unresolvedCount > 0"
-        data-testid="import-preview-button"
-        @click="checkValues"
-      >
-        {{ unmatched.length ? 'Re-check values' : 'Preview import' }}
-      </button>
-      <button
-        v-if="step === 'preview'"
-        class="button-primary"
-        :disabled="busy || validRows === 0"
-        data-testid="import-confirm-button"
-        @click="runImport"
-      >
-        Import {{ validRows }} row{{ validRows === 1 ? '' : 's' }}
-      </button>
-      <button
-        v-if="step === 'done'"
-        class="button-primary"
-        data-testid="import-finish-button"
-        @click="leaveImport()"
-      >
-        Back to market setup
-      </button>
-    </footer>
+        <button
+          v-if="step !== 'done'"
+          class="button-secondary"
+          data-testid="import-leave-button"
+          @click="leaveImport"
+        >
+          Cancel import
+        </button>
+        <button
+          v-if="step !== 'upload' && step !== 'done'"
+          class="button-secondary"
+          data-testid="import-back-button"
+          @click="step === 'map' ? startOver() : (step = step === 'preview' ? 'map' : 'preview')"
+        >
+          Back
+        </button>
+        <button
+          v-if="step === 'map'"
+          class="button-primary"
+          :disabled="!canPreview || busy || unresolvedCount > 0"
+          data-testid="import-preview-button"
+          @click="checkValues"
+        >
+          {{ unmatched.length ? 'Re-check values' : 'Preview import' }}
+        </button>
+        <button
+          v-if="step === 'preview'"
+          class="button-primary"
+          :disabled="busy || validRows === 0"
+          data-testid="import-confirm-button"
+          @click="runImport"
+        >
+          Import {{ validRows }} row{{ validRows === 1 ? '' : 's' }}
+        </button>
+        <button
+          v-if="step === 'done'"
+          class="button-primary"
+          data-testid="import-finish-button"
+          @click="leaveImport()"
+        >
+          Back to market setup
+        </button>
+      </footer>
 
-    <AmendFormDialog
-      :open="amendOpen"
-      :market-id="marketId"
-      :application-form="amendForm"
-      :essential-options="amendOptions"
-      :suggested-field-label="amendFieldLabel"
-      :suggested-unasked="amendUnasked"
-      :intake-is-form="intakeIsForm"
-      @close="amendOpen = false"
-      @amended="onAmended()"
-    />
-  </div>
+      <AmendFormDialog
+        :open="amendOpen"
+        :market-id="marketId"
+        :application-form="amendForm"
+        :essential-options="amendOptions"
+        :suggested-field-label="amendFieldLabel"
+        :suggested-unasked="amendUnasked"
+        :intake-is-form="intakeIsForm"
+        @close="amendOpen = false"
+        @amended="onAmended()"
+      />
+    </div>
+  </MarketFrame>
 </template>
 
 <style scoped>
 /*
- * A screen is one of two named widths, centred, and the PAGE scrolls (E20/F02/S01).
+ * The frame's width, and the PAGE scrolls (E20/F02/S01; in the frame since E26/F10/S01).
  *
  * This view never joined that model: it was uncapped, so at 1920 its 720px panel sat pinned to the
  * left of a full-bleed header with 1,200px of nothing beside it, and Cancel was the width of the
@@ -1293,9 +1294,6 @@ function startOver() {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  width: 100%;
-  max-width: var(--workspace-max);
-  margin: 0 auto;
   padding: 24px 32px 96px;
   color: var(--mm-black);
 }

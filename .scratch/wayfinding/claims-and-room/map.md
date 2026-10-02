@@ -93,6 +93,11 @@ These frame every ticket and are not open for re-litigation without redrawing th
   moves the phase. `phase_record.py` answers how far a market got and whether it ran; a market
   older than the record says only what it can prove. Built as
   [E26/F06/S03](../../backlog/E26-the-user-flows-hold/F06-an-archive-is-a-record/S03-a-market-remembers-where-it-has-been.md).
+- [07: Why is a published market's rail four times taller than a draft's?](issues/07-the-rails-second-row.md):
+  **the address gives way, and the rail's end travels as one piece.** The chip's address shortens
+  (the link, hover text and Copy keep it whole), and the addresses and actions share a designed
+  second row where the row cannot hold them. One row at 1440. Built as
+  [E26/F10/S01](../../backlog/E26-the-user-flows-hold/F10-polish-copy-and-accessibility/S01-layout-polish.md).
 
 ## Not yet specified
 

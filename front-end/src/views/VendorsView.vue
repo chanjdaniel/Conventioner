@@ -7,7 +7,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 import { useOpenMarket } from '@/utils/openMarket';
-import MarketArrival from '@/components/MarketArrival.vue';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useInertBehind } from '@/utils/useInertBehind';
@@ -78,7 +77,7 @@ const route = useRoute();
  * `localStorage`, because `/vendors` carried no id.
  */
 const marketId = computed(() => String(route.params.marketId ?? ''));
-const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+const { market } = useOpenMarket(marketId);
 
 /** Is this vendor's placement on this date at a table the plan no longer has (bug 31)? */
 function isOrphaned(email: string, date: string): boolean {
@@ -214,12 +213,6 @@ watch(
   },
   { immediate: true },
 );
-
-/** A failed arrival retries both halves: the market the rail draws, and this screen's own list. */
-function retryArrival(): void {
-  void refreshMarket();
-  void loadVendors();
-}
 
 const setup = computed(() => market.value?.setupObject ?? null);
 const marketDates = computed<MarketDateObject[]>(() => setup.value?.marketDates ?? []);
@@ -432,7 +425,7 @@ useInertBehind(
 
 <template>
   <div class="vendors-view">
-    <MarketFrame class="vendors-card" :market="market">
+    <MarketFrame :market="market" @retry="loadVendors">
       <!-- The search stays in view with the frame; it used to stick inside the card's own
            scroller, which is gone (E21/F04/S02). -->
       <template #pinned>
@@ -467,57 +460,51 @@ useInertBehind(
       </template>
 
       <div class="vendors-body">
-        <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
+        <p v-if="loadError" class="error-text">{{ loadError }}</p>
 
-        <template v-else>
-          <p v-if="loadError" class="error-text">{{ loadError }}</p>
+        <div v-if="isLoading" class="loading-state">
+          <div class="spinner" aria-hidden="true" />
+          <span>Loading vendors…</span>
+        </div>
 
-          <div v-if="isLoading" class="loading-state">
-            <div class="spinner" aria-hidden="true" />
-            <span>Loading vendors…</span>
-          </div>
+        <div v-else-if="filteredVendors.length === 0" class="empty-state empty-state--inline">
+          <p v-if="totalVendorCount === 0">No vendors found.</p>
+          <p v-else-if="onlyUnassigned && !filterText.trim()">Every vendor has a table.</p>
+          <p v-else>No vendors match "{{ filterText }}".</p>
+        </div>
 
-          <div v-else-if="filteredVendors.length === 0" class="empty-state empty-state--inline">
-            <p v-if="totalVendorCount === 0">No vendors found.</p>
-            <p v-else-if="onlyUnassigned && !filterText.trim()">Every vendor has a table.</p>
-            <p v-else>No vendors match "{{ filterText }}".</p>
-          </div>
-
-          <ul v-else class="vendor-list">
-            <li
-              v-for="vendor in filteredVendors"
-              :key="vendor.rowIndex"
-              class="vendor-row"
-              :class="{ 'vendor-row--active': vendor.rowIndex === selectedRowIndex }"
+        <ul v-else class="vendor-list">
+          <li
+            v-for="vendor in filteredVendors"
+            :key="vendor.rowIndex"
+            class="vendor-row"
+            :class="{ 'vendor-row--active': vendor.rowIndex === selectedRowIndex }"
+          >
+            <button
+              type="button"
+              class="vendor-row-button"
+              @click="selectVendor(vendor.rowIndex)"
+              data-testid="vendors-list-item"
             >
-              <button
-                type="button"
-                class="vendor-row-button"
-                @click="selectVendor(vendor.rowIndex)"
-                data-testid="vendors-list-item"
-              >
-                <VendorIdentity
-                  class="vendor-email"
-                  :email="vendor.displayEmail"
-                  :names="vendorNames"
-                />
-                <span class="vendor-meta">
-                  <span
-                    class="vendor-badge"
-                    :class="
-                      vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'
-                    "
-                  >
-                    {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
-                  </span>
-                  <span class="vendor-date-count">
-                    {{ vendor.assignedDateCount }} / {{ totalDateCount }} dates
-                  </span>
+              <VendorIdentity
+                class="vendor-email"
+                :email="vendor.displayEmail"
+                :names="vendorNames"
+              />
+              <span class="vendor-meta">
+                <span
+                  class="vendor-badge"
+                  :class="vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'"
+                >
+                  {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
                 </span>
-              </button>
-            </li>
-          </ul>
-        </template>
+                <span class="vendor-date-count">
+                  {{ vendor.assignedDateCount }} / {{ totalDateCount }} dates
+                </span>
+              </span>
+            </button>
+          </li>
+        </ul>
       </div>
     </MarketFrame>
 
@@ -613,20 +600,8 @@ useInertBehind(
 
 <style scoped>
 .vendors-view {
+  /* The frame places itself on the page (E26/F10/S01); this holds it and the vendor detail. */
   width: 100%;
-  padding: 0 var(--space-4) var(--space-4);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  background-color: var(--mm-beige);
-  position: relative;
-}
-
-.vendors-card {
-  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title, the rail and the search
-     under the banner, and a sticky element inside an `overflow` ancestor stops sticking. This used
-     to cap the card at the viewport and scroll a body inside it. */
-  border-radius: var(--radius-card);
 }
 
 .vendors-body {
