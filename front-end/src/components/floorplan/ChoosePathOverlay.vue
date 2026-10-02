@@ -58,14 +58,17 @@ const modalRoot = useModalRoot(open);
             </li>
             <li>
               <i class="pi pi-check-circle feature-check" />
-              <span>Familiar step-by-step setup flow</span>
+              <span>All on one page</span>
             </li>
           </ul>
 
           <button class="card-action" type="button">Get started</button>
         </div>
 
-        <!-- ─── Floorplan AI Card ─── -->
+        <!-- ─── Floorplan Card ───
+             Nothing here may promise what the wizard does not do (bug 38): it called itself "AI"
+             and offered to auto-detect walls, while it makes no model call and the walls are
+             drawn by hand. -->
         <div
           class="path-card card-floorplan"
           @click="$emit('select', 'floorplan')"
@@ -77,8 +80,8 @@ const modalRoot = useModalRoot(open);
             <i class="pi pi-image card-icon" />
           </div>
 
-          <h3 class="card-title">Floorplan AI</h3>
-          <p class="card-desc">Upload an image, auto-detect layout, place tables visually</p>
+          <h3 class="card-title">From a floorplan</h3>
+          <p class="card-desc">Upload your floor plan, set its scale, and place tables on it.</p>
 
           <ul class="card-features">
             <li>
@@ -87,11 +90,11 @@ const modalRoot = useModalRoot(open);
             </li>
             <li>
               <i class="pi pi-check-circle feature-check" />
-              <span>Auto-detect walls &amp; obstacles</span>
+              <span>Draw walls &amp; obstacles on it</span>
             </li>
             <li>
               <i class="pi pi-check-circle feature-check" />
-              <span>Place &amp; arrange tables visually</span>
+              <span>Auto-place as many tables as you need</span>
             </li>
             <li>
               <i class="pi pi-check-circle feature-check" />

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
+import { canvasColor } from '@/utils/canvasColor';
 import type { WallSegment, ObstacleZone } from '@/assets/types/datatypes';
 import type Konva from 'konva';
 
@@ -166,7 +167,7 @@ function vertexConfig(wall: WallSegment, vertex: 'start' | 'end', px: number, py
     hoveredVertex.value?.wallId === wall.id && hoveredVertex.value?.vertex === vertex;
   const isSelected = selectedWallId.value === wall.id;
 
-  const fill = isHovered ? 'var(--mm-yellow)' : isSelected ? 'var(--mm-yellow)' : 'var(--mm-green)';
+  const fill = canvasColor(isHovered || isSelected ? 'var(--mm-yellow)' : 'var(--mm-green)');
 
   return {
     x: px,

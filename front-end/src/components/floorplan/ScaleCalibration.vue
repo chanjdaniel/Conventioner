@@ -3,6 +3,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
+import { canvasColor } from '@/utils/canvasColor';
 
 // ── Props & Emits ───────────────────────────────────────────────────
 const props = defineProps<{
@@ -147,15 +148,27 @@ function toOriginalCoords(stageX: number, stageY: number): { x: number; y: numbe
   };
 }
 
-function isOnImage(stageX: number, stageY: number): boolean {
+/**
+ * The nearest point on the image to a point on the stage.
+ *
+ * A reference line measures the plan, so its ends belong on the image - but a drag that started in
+ * the empty canvas beside it used to do nothing at all, with no hint why (bug 38). It now starts
+ * at the image's edge, which is what someone dragging in from outside means.
+ */
+function clampToImage(stageX: number, stageY: number): { x: number; y: number } {
   const cfg = bgImageConfig.value;
-  if (!cfg.x && cfg.x !== 0) return true;
-  return (
-    stageX >= (cfg.x as number) &&
-    stageX <= (cfg.x as number) + (cfg.width as number) &&
-    stageY >= (cfg.y as number) &&
-    stageY <= (cfg.y as number) + (cfg.height as number)
-  );
+  if (!cfg.x && cfg.x !== 0) return { x: stageX, y: stageY };
+  const left = cfg.x as number;
+  const top = cfg.y as number;
+  return {
+    x: Math.min(Math.max(stageX, left), left + (cfg.width as number)),
+    y: Math.min(Math.max(stageY, top), top + (cfg.height as number)),
+  };
+}
+
+/** A reading for a person: one decimal under a hundred, whole numbers with separators above. */
+function readable(value: number): string {
+  return value < 100 ? value.toFixed(1) : Math.round(value).toLocaleString();
 }
 
 // ── Drawing state ───────────────────────────────────────────────────
@@ -172,9 +185,7 @@ function handleMouseDown(e: any) {
   const pos = stage.getPointerPosition();
   if (!pos) return;
 
-  if (!isOnImage(pos.x, pos.y)) return;
-
-  startPoint.value = { x: pos.x, y: pos.y };
+  startPoint.value = clampToImage(pos.x, pos.y);
   endPoint.value = null;
   isDrawing.value = true;
   phase.value = 'drawing';
@@ -189,7 +200,7 @@ function handleMouseMove(e: any) {
   const pos = stage.getPointerPosition();
   if (!pos) return;
 
-  endPoint.value = { x: pos.x, y: pos.y };
+  endPoint.value = clampToImage(pos.x, pos.y);
 }
 
 function handleMouseUp(_e: any) {
@@ -229,7 +240,7 @@ const calibrationLine = computed(() => {
   if (!startPoint.value || !endPoint.value) return null;
   return {
     points: [startPoint.value.x, startPoint.value.y, endPoint.value.x, endPoint.value.y],
-    stroke: 'var(--mm-red)',
+    stroke: canvasColor('var(--mm-red)'),
     strokeWidth: 2,
     dash: [8, 4],
     listening: false,
@@ -242,7 +253,7 @@ const startMarker = computed(() => {
     x: startPoint.value.x,
     y: startPoint.value.y,
     radius: 5,
-    fill: 'var(--mm-red)',
+    fill: canvasColor('var(--mm-red)'),
     stroke: '#ffffff',
     strokeWidth: 2,
     listening: false,
@@ -255,7 +266,7 @@ const endMarker = computed(() => {
     x: endPoint.value.x,
     y: endPoint.value.y,
     radius: 5,
-    fill: 'var(--mm-red)',
+    fill: canvasColor('var(--mm-red)'),
     stroke: '#ffffff',
     strokeWidth: 2,
     listening: false,
@@ -279,7 +290,7 @@ const pixelDistanceLabel = computed(() => {
     text: `${Math.round(originalDist)} px`,
     fontSize: 14,
     fontFamily: 'Outfit, sans-serif',
-    fill: 'var(--mm-red)',
+    fill: canvasColor('var(--mm-red)'),
     align: 'center',
     width: 200,
     listening: false,
@@ -544,21 +555,26 @@ onUnmounted(() => {
           <h3 class="cal-dialog-title">Calibration Complete</h3>
 
           <div class="cal-result-grid">
+            <!-- The stored value is pixels per millimetre; the two lines below are its readings
+                 for a person. They were each other's inverse, labelled the wrong way round:
+                 "1 px = 0.0145 mm" for a plan where one pixel spans 69 mm (bug 38). -->
             <div class="cal-result-item">
               <span class="cal-result-label">Reference line</span>
-              <span class="cal-result-value">
+              <span class="cal-result-value" data-testid="floorplan-calibrate-reference">
                 {{ Math.round(originalPixelDistance) }} px &asymp;
                 {{ calibratedLengthMm.toFixed(1) }} mm
               </span>
             </div>
             <div class="cal-result-item">
               <span class="cal-result-label">Scale</span>
-              <span class="cal-result-value"> 1 px = {{ computedPxPerMm.toFixed(4) }} mm </span>
+              <span class="cal-result-value" data-testid="floorplan-calibrate-scale">
+                1 px &asymp; {{ readable(1 / computedPxPerMm) }} mm
+              </span>
             </div>
             <div class="cal-result-item">
               <span class="cal-result-label">Inverse</span>
-              <span class="cal-result-value">
-                1 m = {{ Math.round(1000 / computedPxPerMm).toLocaleString() }} px
+              <span class="cal-result-value" data-testid="floorplan-calibrate-inverse">
+                1 m &asymp; {{ readable(1000 * computedPxPerMm) }} px
               </span>
             </div>
           </div>
@@ -597,7 +613,10 @@ onUnmounted(() => {
   flex-direction: column;
   width: 100%;
   height: 100%;
-  min-height: 400px;
+  /* A canvas needs a definite height, and the page above gives none - `height: 100%` resolves to
+     nothing - so this was its 400px floor on any screen, the plan small and the window half empty.
+     Most of the window instead, never less than that floor. */
+  min-height: max(400px, 65vh);
   background: var(--mm-beige);
   border-radius: 10px;
   border: 2px solid var(--mm-border);

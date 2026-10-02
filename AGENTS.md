@@ -128,6 +128,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   progression keeps auto-placed tables; when a floorplan already exists it just
   refreshes the background image fields. This replaced an earlier
   snapshot/restore workaround in the e2e page object.
+- **The room is the floor plan** (bug 38): with no walls drawn, Auto-Place packs
+  into the uploaded image's extent at the calibrated scale (`room_mm`), never a
+  fixed square, and refuses without either. The organizer asks for a count per
+  table type. The solver is bounded by its own `time_limit`
+  (`SOLVER_TIME_LIMIT_S`); a thread timeout around it bounded nothing.
+- **Konva cannot read a CSS variable**: handed `var(--mm-red)` it silently keeps
+  its previous colour. Pass a canvas colour through `canvasColor()`
+  (`front-end/src/utils/canvasColor.ts`).
 
 ## E2E Seed Helpers for Published Markets
 

@@ -2,7 +2,7 @@
 id: E26/F09/S01
 title: Auto-Place fills the plan
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,6 +16,6 @@ Closes bugs 38 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] Auto-Place with a count of 20 places 20 tables where they fit, and says how many it placed.
-- [ ] The calibration result reads px per mm correctly.
-- [ ] The choice dialog makes no claim the wizard does not deliver.
+- [x] Auto-Place with a count of 20 places 20 tables where they fit, and says how many it placed.
+- [x] The calibration result reads px per mm correctly.
+- [x] The choice dialog makes no claim the wizard does not deliver.

@@ -2,7 +2,7 @@
 id: E26/F09
 title: The floorplan beta places tables
 type: feature
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---

@@ -40,6 +40,7 @@ def place_tables():
             ],
             "counts": {"type_6ft": 10},
             "scale_px_per_mm": 0.1,
+            "room_mm": {"width_mm": 55000, "height_mm": 41000},
             "aisle_config": {
                 "wallBufferMm": 1500,
                 "tableSpacingMm": 1200
@@ -77,6 +78,19 @@ def place_tables():
         counts = data["counts"]
         scale_px_per_mm = data["scale_px_per_mm"]
         aisle_config = data.get("aisle_config")
+        # The floor plan's own extent in millimetres - the room when no walls are drawn (bug 38).
+        room_mm = data.get("room_mm")
+        if room_mm is not None and not (
+            isinstance(room_mm, dict)
+            and all(isinstance(room_mm.get(k), (int, float)) and room_mm[k] > 0
+                    for k in ("width_mm", "height_mm"))
+        ):
+            return jsonify({"error": "room_mm must give a positive width_mm and height_mm"}), 400
+        if not walls and room_mm is None:
+            return jsonify({
+                "error": "The floor plan's size is needed to place tables: calibrate it first, "
+                         "or draw its walls.",
+            }), 400
 
         # Type checks
         if not isinstance(walls, list):
@@ -98,6 +112,7 @@ def place_tables():
             counts=counts,
             scale_px_per_mm=scale_px_per_mm,
             aisle_config=aisle_config,
+            room_mm=room_mm,
         )
 
         return jsonify({"placed_tables": placed}), 200

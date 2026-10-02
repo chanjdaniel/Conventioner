@@ -7,7 +7,6 @@ Works entirely in millimetre coordinates.
 
 from __future__ import annotations
 
-import concurrent.futures
 import logging
 import math
 from typing import Dict, List, Optional, Tuple
@@ -113,16 +112,24 @@ def _order_wall_vertices(
 
 # ── room polygon ───────────────────────────────────────────────────────────────
 
-def _build_room_polygon(walls: List[WallSegment]) -> Polygon:
-    """Build the room boundary polygon from wall segments.
+def _build_room_polygon(
+    walls: List[WallSegment], room_mm: Optional[Dict[str, float]] = None,
+) -> Polygon:
+    """Build the room boundary polygon from wall segments, or from the floor plan's extent.
 
     Attempts to order vertices into a closed loop first; falls back to the
     convex hull of all wall endpoints when the segments don't form a clean
     closed chain.
+
+    With no walls the room is the floor plan itself - the calibrated image, from its top-left corner,
+    in millimetres - which is where the editor draws a table at (x_mm, y_mm). It was a fixed 10 m
+    square centred on the origin whatever was uploaded, so a 55 m hall had a 49 m² placement zone and
+    every table landed off the image, up and to the left of it (bug 38).
     """
     if not walls:
-        # Default: 10×10 m room centred at origin
-        return box(-5000, -5000, 5000, 5000)
+        if room_mm is None:
+            raise ValueError("A room needs its walls or the floor plan's size.")
+        return box(0, 0, room_mm["width_mm"], room_mm["height_mm"])
 
     all_points: List[Tuple[float, float]] = []
     for w in walls:
@@ -148,8 +155,10 @@ def _build_room_polygon(walls: List[WallSegment]) -> Polygon:
     if isinstance(hull, Polygon) and not hull.is_empty:
         return hull
 
-    # Ultimate fallback
-    return box(-5000, -5000, 5000, 5000)
+    # The walls enclose nothing: fall back to the floor plan's extent when it is known.
+    if room_mm is not None:
+        return box(0, 0, room_mm["width_mm"], room_mm["height_mm"])
+    raise ValueError("The walls drawn do not enclose a room.")
 
 
 # ── placement zone ─────────────────────────────────────────────────────────────
@@ -201,18 +210,25 @@ def _compute_placement_zone(
 
 # ── pyckingsolver primary path ─────────────────────────────────────────────────
 
+#: How long the solver may search, in seconds. It is an anytime solver - it returns the best packing
+#: found by then - so this is what bounds the request. The browser gives up at 30 s, and a limit
+#: wrapped around the call from outside never stopped it: the old 30 s timeout raised in the caller
+#: while the solver ran on (to its own 60 s default) and the request waited for it (bug 38).
+SOLVER_TIME_LIMIT_S = 10.0
+
+
 def _pyckingsolver_place(
     zone: Polygon,
     tables: List[TableTypeObject],
     counts: Dict[str, int],
     spacing_mm: float,
-    time_limit_s: float = 30.0,
+    time_limit_s: float = SOLVER_TIME_LIMIT_S,
 ) -> List[Dict]:
     """Use pyckingsolver for optimal bin-packing of tables into *zone*.
 
     Raises an exception on failure so the caller can fall back to grid placement.
     """
-    from pyckingsolver import nest, Objective
+    from pyckingsolver import nest, Objective, SolverParams
 
     # Build item list (one Shapely box per table instance) and metadata
     items: List[Polygon] = []
@@ -238,22 +254,17 @@ def _pyckingsolver_place(
         len(items), zone.area,
     )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(
-            nest,
-            items=items,
-            bins=[zone],
-            objective=Objective.KNAPSACK,
-            spacing=spacing_mm,
-            allowed_rotations=[(0, 0), (90, 90)],  # 0° and 90° only
-            group_identical=False,                  # 1:1 item-to-type mapping
-        )
-        try:
-            result = future.result(timeout=time_limit_s)
-        except concurrent.futures.TimeoutError:
-            raise TimeoutError(
-                f"pyckingsolver timed out after {time_limit_s}s"
-            )
+    result = nest(
+        items=items,
+        bins=[zone],
+        objective=Objective.KNAPSACK,
+        spacing=spacing_mm,
+        allowed_rotations=[(0, 0), (90, 90)],  # 0° and 90° only
+        group_identical=False,                  # 1:1 item-to-type mapping
+        params=SolverParams(time_limit=time_limit_s),
+    )
+    if result is None:
+        raise RuntimeError("pyckingsolver found no packing")
 
     placed: List[Dict] = []
     for item in result.all_items():
@@ -377,6 +388,7 @@ def auto_place_tables(
     counts: Dict[str, int],
     scale_px_per_mm: float,
     aisle_config: Optional[Dict] = None,
+    room_mm: Optional[Dict[str, float]] = None,
 ) -> List[Dict]:
     """Auto-place rectangular tables inside the room boundary.
 
@@ -400,6 +412,9 @@ def auto_place_tables(
         Optional dict with ``wallBufferMm`` and ``tableSpacingMm`` keys
         (see :class:`AisleConfigObject`).  Defaults to 1500 mm wall buffer
         and 1200 mm table spacing.
+    room_mm:
+        The floor plan's extent, ``width_mm`` by ``height_mm`` from its top-left corner: the room
+        when no walls are drawn. Required then; there is no default room.
 
     Returns
     -------
@@ -422,7 +437,7 @@ def auto_place_tables(
     table_spacing = aisle.table_spacing_mm
 
     # ── geometry prep ─────────────────────────────────────────────────────
-    room = _build_room_polygon(wall_objects)
+    room = _build_room_polygon(wall_objects, room_mm)
     zone = _compute_placement_zone(room, obstacle_objects, wall_buffer)
 
     if zone.is_empty or zone.area <= 0:
