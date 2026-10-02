@@ -64,6 +64,8 @@ const canProceed = computed(() => {
 
 function onUploaded(payload: { gridfs_id: string; width: number; height: number }) {
   gridfsId.value = payload.gridfs_id;
+  // The room's size, once calibrated: Auto-Place needs it two steps before the editor loads.
+  store.setImageSize(payload.width, payload.height);
 }
 
 function onCalibrated(_payload: {
@@ -123,6 +125,14 @@ function onSaved(payload: { market_id: string }) {
     <div v-if="step === 2" class="step-place">
       <TableTypePanel />
       <AutoPlaceButton @placed="onPlaced" />
+      <!-- Where the tables went, before moving on (bug 38): the step showed no plan, so nothing
+           said Auto-Place had worked. Read-only here; the next step is where they are moved. -->
+      <FloorplanEditor
+        v-if="store.placedTables.length"
+        :edit-mode="false"
+        :initial-floorplan-id="safeGridfsId"
+        data-testid="floorplan-place-preview"
+      />
     </div>
 
     <!-- ── Step 3: Edit Layout ────────────────────────────────── -->

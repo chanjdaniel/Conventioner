@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useFloorplanStore } from '@/stores/floorplan';
 import { api } from '@/utils/api';
 import { useUndoRedo } from '@/components/floorplan/useUndoRedo';
+import { canvasColor } from '@/utils/canvasColor';
 import type { PlacedTableObject, WallSegment } from '@/assets/types/datatypes';
 import type Konva from 'konva';
 
@@ -256,7 +257,7 @@ function handleStageMouseUp() {
 // ── Table helpers ──────────────────────────────────────────────────
 function getTableColor(table: PlacedTableObject): string {
   const tt = store.tableTypes.find((t) => t.id === table.tableTypeId);
-  return tt?.color || 'var(--mm-green)';
+  return canvasColor(tt?.color || 'var(--mm-green)');
 }
 
 function tableRectConfig(table: PlacedTableObject) {
