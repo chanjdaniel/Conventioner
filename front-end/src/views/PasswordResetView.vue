@@ -89,16 +89,18 @@ const submitReset = async () => {
 <template>
   <div class="container">
     <div class="reset-window">
-      <h1>Reset Password</h1>
-      <p class="description">Enter your new password below.</p>
+      <h1>Reset your password</h1>
+      <p class="description">Choose a new password for your account.</p>
 
       <form @submit.prevent="submitReset" class="reset-form" data-testid="password-reset-form">
-        <div class="input-group">
+        <label class="field-label" for="reset-new-password">New password</label>
+        <div class="password-field">
           <input
+            id="reset-new-password"
             :type="showPassword ? 'text' : 'password'"
             v-model="newPassword"
-            placeholder="New Password (min 8 characters)"
             class="password-input"
+            autocomplete="new-password"
             required
             :disabled="isLoading"
             data-testid="password-reset-new-password-input"
@@ -112,29 +114,38 @@ const submitReset = async () => {
             {{ showPassword ? 'Hide' : 'Show' }}
           </button>
         </div>
+        <p class="field-help">At least 8 characters.</p>
 
-        <div class="input-group">
+        <label class="field-label" for="reset-confirm-password">Confirm password</label>
+        <div class="password-field">
           <input
+            id="reset-confirm-password"
             :type="showPassword ? 'text' : 'password'"
             v-model="confirmPassword"
-            placeholder="Confirm password"
             class="password-input"
+            autocomplete="new-password"
             required
             :disabled="isLoading"
             data-testid="password-reset-confirm-password-input"
           />
         </div>
 
-        <h3 class="error-message" v-show="errorMessage" data-testid="password-reset-error-message">
+        <p
+          class="error-message"
+          role="alert"
+          v-show="errorMessage"
+          data-testid="password-reset-error-message"
+        >
           {{ errorMessage }}
-        </h3>
-        <h3
+        </p>
+        <p
           class="success-message"
+          role="status"
           v-show="successMessage"
           data-testid="password-reset-success-message"
         >
           {{ successMessage }}
-        </h3>
+        </p>
 
         <button
           type="submit"
@@ -142,7 +153,7 @@ const submitReset = async () => {
           :disabled="isLoading"
           data-testid="password-reset-submit-button"
         >
-          {{ isLoading ? 'Resetting...' : 'Reset Password' }}
+          {{ isLoading ? 'Resetting…' : 'Reset password' }}
         </button>
 
         <div class="form-links">
@@ -151,7 +162,7 @@ const submitReset = async () => {
             @click.prevent="router.push('/login')"
             class="link"
             data-testid="password-reset-back-link"
-            >Back to Login</a
+            >Back to sign in</a
           >
         </div>
       </form>
@@ -160,6 +171,13 @@ const submitReset = async () => {
 </template>
 
 <style scoped>
+/*
+ * Sign in's card, in Sign in's terms (bug 43): sentence case, a left-aligned heading over a
+ * left-aligned line, persistent labels, and the field primitive's metrics. This page had its own
+ * dialect - Title Case, a left-aligned title over a centred subtitle, a fixed 500px card with a
+ * band of nothing in it, and an input 10px wider than its box, which painted over the box's right
+ * border.
+ */
 .container {
   width: 100%;
   height: 100%;
@@ -171,100 +189,102 @@ const submitReset = async () => {
 
 .reset-window {
   width: 600px;
-  min-height: 500px;
   background-color: white;
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  padding: 60px;
+  padding: var(--space-8);
+}
+
+h1 {
+  margin: 0;
 }
 
 .description {
+  margin: var(--space-2) 0 0;
   color: var(--mm-text-muted);
-  font-size: var(--text-md);
-  margin-bottom: 30px;
-  text-align: center;
+  font-size: var(--text-sm);
 }
 
 .reset-form {
   display: flex;
   flex-direction: column;
-  padding-top: 20px;
+  padding-top: var(--space-2);
 }
 
-.input-group {
+.field-label {
+  margin-top: var(--space-4);
+}
+
+.field-help {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
+/* A password and its Show toggle, wearing `.field`'s metrics, as Sign in's does. */
+.password-field {
   height: 36px;
-  padding-left: 10px;
-  margin-top: 30px;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-control);
   border: 1px solid var(--mm-border);
-  font-size: var(--text-sm);
   display: flex;
-  flex-direction: row;
-  background-color: transparent;
+  align-items: center;
+  background-color: white;
 }
 
-.input-group:focus-within {
-  border-color: blue;
+.password-field:focus-within {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
 }
 
-.input-group:has(input:disabled) {
-  opacity: 0.6;
+.password-field:has(input:disabled) {
   background-color: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
 }
 
 .password-input {
-  width: auto;
+  min-width: 0;
+  flex: 1;
   border: none;
-  font-size: var(--text-sm);
-  flex-grow: 1;
   outline: none;
+  background: transparent;
+  font-size: var(--text-sm);
 }
 
+/* Its focus ring is the primitives' own: this set `outline: none`, so a keyboard user could not
+   see they were on it. */
 .show-button {
   border: none;
   background-color: transparent;
-  width: fit-content;
-  padding-right: 20px;
-  color: var(--mm-text-muted);
-  font-size: var(--text-sm);
+  padding: 0 0 0 var(--space-2);
+  color: var(--mm-text-link);
+  font-size: var(--text-xs);
   cursor: pointer;
-  outline: none;
+}
+
+/* Messages, not headings: they were `h3`s, in the outline beside the page's title. */
+.error-message,
+.success-message {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
 }
 
 .error-message {
-  color: red;
-  text-align: right;
-  font-size: var(--text-sm);
-  margin-top: 10px;
-  margin-bottom: 0;
+  color: var(--mm-red);
 }
 
 .success-message {
-  color: green;
-  text-align: center;
-  font-size: var(--text-sm);
-  margin-top: 10px;
-  margin-bottom: 0;
+  color: var(--mm-text-green);
 }
 
-/* `.btn btn--primary` carries the height, radius, fill, weight, focus ring and disabled state.
-   It was a 60px, 30px-radius pill with 20px text - the auth screens' own dialect (E16/F05). */
+/* `.btn btn--primary` carries the height, radius, fill, weight, focus ring and disabled state. */
 .submit-button {
   width: 100%;
   margin-top: var(--space-6);
 }
 
-.submit-button:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.submit-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .form-links {
-  margin-top: 20px;
+  margin-top: var(--space-4);
   text-align: center;
 }
 

@@ -7,7 +7,7 @@ defineProps<{
 </script>
 
 <template>
-  <RouterLink :to="to" @click="$emit('menuClose')">
+  <RouterLink :to="to" class="nav-link" @click="$emit('menuClose')">
     <div class="item">
       <slot name="icon"></slot>
       <slot></slot>
@@ -16,6 +16,14 @@ defineProps<{
 </template>
 
 <style scoped>
+/* Without the 3px every link is given (`main.css`), so a link row is exactly as wide, as tall and
+   as inset as the Sign out button below it. With it, Sign out sat 3px off the rows above, 6px
+   shorter, and with a wider divider (bug 43). */
+.nav-link {
+  display: block;
+  padding: 0;
+}
+
 .item {
   display: flex;
   flex-direction: row;
