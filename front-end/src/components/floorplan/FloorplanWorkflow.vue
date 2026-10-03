@@ -274,10 +274,6 @@ function onSaved(payload: { market_id: string }) {
   user-select: none;
 }
 
-.wall-toggle input[type='checkbox'] {
-  accent-color: var(--mm-green);
-}
-
 .step-edit-canvas-area {
   flex: 1;
   min-height: 0;

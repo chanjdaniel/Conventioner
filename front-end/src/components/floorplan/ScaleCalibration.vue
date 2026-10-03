@@ -799,7 +799,6 @@ onUnmounted(() => {
 }
 
 .cal-unit-radio {
-  accent-color: var(--mm-green);
   cursor: pointer;
   width: 15px;
   height: 15px;

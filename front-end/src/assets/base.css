@@ -184,6 +184,10 @@ body {
   min-height: 100vh;
   color: var(--color-text);
   background: var(--color-background);
+  /* Every native check, radio and range is the product's green. Five components each said so for
+     their own inputs, and the rest - the choice cards, the form builder, the vendor's form - were the
+     browser's blue inside a green-edged card (E26 re-walk). It inherits, so it is said once. */
+  accent-color: var(--mm-green);
   transition:
     color 0.5s,
     background-color 0.5s;

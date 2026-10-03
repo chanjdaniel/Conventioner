@@ -23,6 +23,19 @@ test.describe('I already have a Google Form, at creation', () => {
     await page.getByTestId('markets-create-button').click();
     await dialog.waitForOverlay();
     await expect(page.getByTestId('new-market-start-scratch').locator('input')).toBeChecked();
+    // The radio is the product's green, like the card edge around it - not the browser's blue.
+    const accent = await page
+      .getByTestId('new-market-start-scratch')
+      .locator('input')
+      .evaluate((input) => {
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--mm-green)';
+        document.body.append(probe);
+        const green = getComputedStyle(probe).color;
+        probe.remove();
+        return { radio: getComputedStyle(input).accentColor, green };
+      });
+    expect(accent.radio).toBe(accent.green);
     await dialog.selectFirstOrg();
     await dialog.fillMarketName(`Scratch E2E ${Date.now()}`);
     // Enter submits the dialog, as every dialog in the product does.

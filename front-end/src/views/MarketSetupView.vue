@@ -480,6 +480,9 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
+  /* In the plan's own 40px gutter, under its cards' right edge: with none, "Plan saved" sat in the
+     card's bottom-right corner, touching both edges (E26 re-walk). */
+  padding: 0 40px var(--space-6);
 }
 
 .plan-save-status {

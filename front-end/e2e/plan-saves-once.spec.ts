@@ -37,6 +37,15 @@ test.describe('The plan saves once per edit', () => {
 
     await page.getByTestId('setup-location-name-input-0').fill('Pier Hall');
     await expect.poll(saves.count).toBe(1);
+
+    // Said under the plan's cards, in their gutter: it sat in the card's corner, touching both
+    // edges (E26 re-walk).
+    const saved = await page.getByTestId('market-setup-plan-saved').boundingBox();
+    const plan = await page.getByTestId('plan-card-form').boundingBox();
+    const card = await page.getByTestId('market-frame-card').boundingBox();
+    expect(Math.abs(saved!.x + saved!.width - (plan!.x + plan!.width))).toBeLessThanOrEqual(1);
+    expect(card!.y + card!.height - (saved!.y + saved!.height)).toBeGreaterThanOrEqual(16);
+
     await page.waitForTimeout(QUIET);
     expect(saves.count()).toBe(1);
   });
