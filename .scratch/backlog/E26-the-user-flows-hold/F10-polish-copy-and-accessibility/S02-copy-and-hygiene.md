@@ -2,7 +2,7 @@
 id: E26/F10/S02
 title: Copy and hygiene
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,4 +16,4 @@ Closes bugs 16, 17, 19, 42 in `docs/MVP_BUGS.md`; each one's reproduction there 
 
 ## Acceptance criteria
 
-- [ ] Each item of bugs 16, 17, 19 and 42 is fixed.
+- [x] Each item of bugs 16, 17, 19 and 42 is fixed.

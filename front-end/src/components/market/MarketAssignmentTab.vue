@@ -20,7 +20,8 @@
 import ElementSettingContainer from '@/components/elements/ElementSettingContainer.vue';
 import ElementAssignmentPriority from '@/components/elements/ElementAssignmentPriority.vue';
 import ElementAssignmentOptions from '@/components/elements/ElementAssignmentOptions.vue';
-import type { FormField, SetupObject } from '@/assets/types/datatypes';
+import type { FormField, IncompleteApplication, SetupObject } from '@/assets/types/datatypes';
+import { marketPath } from '@/utils/market';
 
 defineProps<{
   setupObject: SetupObject;
@@ -28,6 +29,9 @@ defineProps<{
   assignmentOptionsComplete: boolean;
   assignRefusalReason: string | null;
   assignError: string;
+  /** The applications a refused run named, each linked to where it can be dealt with (bug 42). */
+  assignIncomplete: IncompleteApplication[];
+  marketId: string;
   /** Why the rules can no longer change, from the market (E22/F02/S02); null while they can. */
   rulesLockReason: string | null;
   /** How many hand placements the stored assignment holds; null when nothing has been run yet. */
@@ -114,7 +118,31 @@ const emit = defineEmits<{
         Set the half table proportion above to run the assignment.
       </p>
       <div v-if="assignError" class="assign-error-banner" data-testid="market-setup-assign-error">
-        <span>{{ assignError }}</span>
+        <!-- A refusal that names applicants hands the organizer to each one: their name with
+             nothing to follow left them to go and find it (bug 42). -->
+        <template v-if="assignIncomplete.length">
+          <span>
+            {{ assignIncomplete.length }} approved application{{
+              assignIncomplete.length === 1 ? '' : 's'
+            }}
+            cannot be assigned until {{ assignIncomplete.length === 1 ? 'its' : 'their' }} answers
+            are complete:
+          </span>
+          <ul class="assign-incomplete">
+            <li
+              v-for="applicant in assignIncomplete"
+              :key="applicant.applicationId"
+              data-testid="market-setup-assign-incomplete"
+            >
+              <RouterLink
+                :to="`${marketPath(marketId, 'applications')}?application=${encodeURIComponent(applicant.applicationId)}`"
+                >{{ applicant.applicantEmail || 'An applicant' }}</RouterLink
+              >
+              - no {{ applicant.missing.join(', ') }}
+            </li>
+          </ul>
+        </template>
+        <span v-else>{{ assignError }}</span>
       </div>
     </div>
   </div>
@@ -169,5 +197,16 @@ const emit = defineEmits<{
   color: var(--mm-red);
   font-size: var(--text-xs);
   line-height: 1.4;
+}
+
+.assign-incomplete {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+}
+
+.assign-incomplete a {
+  padding: 0;
+  color: var(--mm-text-link);
+  text-decoration: underline;
 }
 </style>

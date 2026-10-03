@@ -389,6 +389,15 @@ class TestWhatAColumnCarries:
         assert PREF in not_asked and TIERS in not_asked
         assert FULL not in not_asked
 
+    @pytest.mark.parametrize("name", ["fall-2025", "spring-2024", "spring-2025", "spring-2026"])
+    def test_a_tier_grid_answers_the_dates_as_well(self, name):
+        """A day's row in the grid is a day the applicant can come: the import reads availability
+        from it (``unserved_required``), so the proposal must not list the dates as unanswered
+        beside it (bug 42)."""
+        headers, rows = _read(name)
+        not_asked = {e["key"] for e in CsvProposal.proposal(headers, rows)["notAsked"]}
+        assert DATES not in not_asked
+
     def test_no_days_column_is_said_to_mean_no_personal_limit(self):
         """Said where the organizer decides, not discovered at the import (bug 24)."""
         headers, rows = _read("fall-2023")

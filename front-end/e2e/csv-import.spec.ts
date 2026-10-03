@@ -188,6 +188,13 @@ test.describe('CSV vendor import', () => {
     // Stored as a moment, not as the text the form wrote (E01/F04/S02): every reader - the
     // solver's priority rule and the review queue's sort - compares this one stored value.
     expect(nadia!.submittedAt).toBe('2026-05-02T09:14:03');
+
+    // And the way out says where it goes (bug 16): it read "Back to market setup" and went to
+    // Applications.
+    const finish = page.getByTestId('import-finish-button');
+    await expect(finish).toHaveText('Back to applications');
+    await finish.click();
+    await expect(page).toHaveURL(/\/applications$/);
   });
 
   test('a file of headers and nothing else previews no rows, rather than three empty ones', async ({
@@ -650,7 +657,8 @@ test.describe('CSV vendor import', () => {
       { headers: { 'X-Owner-Email': TEST_USER.email }, data: { csvContent: CSV } },
     );
     expect(direct.status()).toBe(409);
-    expect(await direct.text()).toContain('Reopen applications');
+    // By the name of the move the rail offers (bug 42): "Reopen Applications" is a different one.
+    expect(await direct.text()).toContain('Return to Applications Closed');
 
     // And the screen says so before asking for a file.
     await openImport(importPage, request, seed.marketId);

@@ -44,6 +44,10 @@ const props = defineProps<{
   csvStartRefusal: string | null;
   /** Why this plan cannot change at all, as the server serves it; null while it can (bug 30). */
   readOnlyReason: string | null;
+  /** How many questions of its own the market's form asks: the card says what the form IS. */
+  formQuestions: number;
+  /** Why the form can no longer change, as the server serves it; null while it can. */
+  formLockReason: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -207,6 +211,23 @@ const intakeEditable = computed(() => props.intakeEditable);
       <template #setting-content>
         <p v-if="formGateReason" class="plan-form-gate" data-testid="plan-form-gate">
           {{ formGateReason }}
+        </p>
+        <!-- What the form is now, not only what it could be (bug 16): this said "Build the
+             application form" over a form that was locked, and over one with 21 questions. -->
+        <p v-else-if="formLockReason" class="plan-form-ready" data-testid="plan-form-locked">
+          {{ formLockReason }}
+          <button type="button" class="plan-form-link" @click="emit('openForm')">
+            See the application form
+          </button>
+        </p>
+        <p v-else-if="formQuestions" class="plan-form-ready" data-testid="plan-form-built">
+          Your application form asks {{ formQuestions }} question{{
+            formQuestions === 1 ? '' : 's'
+          }}
+          of your own, beside the essential ones.
+          <button type="button" class="plan-form-link" @click="emit('openForm')">
+            Open the application form
+          </button>
         </p>
         <p v-else class="plan-form-ready" data-testid="plan-form-ready">
           Your plan offers something to apply for, so the form can ask about it.

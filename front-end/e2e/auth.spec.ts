@@ -224,7 +224,9 @@ test.describe('Authentication journeys', () => {
       await loginPage.otpSubmitButton.click();
 
       await expect(loginPage.otpErrorMessage).toBeVisible({ timeout: 10000 });
-      await expect(loginPage.otpErrorMessage).toContainText(/Invalid OTP|Too many failed attempts/);
+      await expect(loginPage.otpErrorMessage).toContainText(
+        /That code is not right|Too many wrong codes/,
+      );
     });
   });
 });

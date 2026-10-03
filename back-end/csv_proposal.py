@@ -32,7 +32,7 @@ import essential_fields as EssentialFields
 import typesafe_client as TypeSafe
 from csv_import import (
     GRID_HEADER, NONE_WORDS, collapse_header, column_groups, normalized_submitted_at,
-    parse_csv, parse_date, resolve_value, split_options,
+    parse_csv, parse_date, resolve_value, split_options, tiers_answer_dates,
 )
 from datatypes import MarketPhase, phase_from_market_document
 from market_documents import market_doc_field
@@ -795,6 +795,9 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
     asked = _ask_typesafe(asker, columns, proposed, plan) if asker else False
 
     answered = {column["essential"] for column in proposed if column["essential"]}
+    tier_columns = [c for c in proposed if c["essential"] == EssentialFields.TIER_PREFERENCE_KEY]
+    if tiers_answer_dates(tier_columns):
+        answered.add(EssentialFields.AVAILABLE_DATES_KEY)
     return {
         "rowCount": len(body),
         "responses": responses,

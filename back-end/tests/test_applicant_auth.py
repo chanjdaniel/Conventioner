@@ -894,3 +894,33 @@ class TestTimingOracleClosed:
         while not call_recorded and time.time() < deadline:
             time.sleep(0.01)
         assert len(call_recorded) == 1, "the code was not sent to an address with no application"
+
+
+class TestTheCodeEmail:
+    """What a vendor receives (E26/F10/S02).
+
+    Its text linked to ``/markets/<id>/login``, an address the product has no page for, so a vendor
+    who followed it met "not found"; and it called the code a "login code" where every screen says
+    sign-in.
+    """
+
+    def test_it_links_to_the_markets_own_sign_in_page(self, monkeypatch):
+        # Not the module fixture: it replaces the very function under test.
+        import resend
+        from api import applicant_auth as applicant_auth_module
+
+        sent = []
+        monkeypatch.setattr(applicant_auth_module, "_email_disabled", lambda: False)
+        monkeypatch.setattr(applicant_auth_module, "ready_mailer", lambda: True)
+        monkeypatch.setattr(applicant_auth_module, "frontend_url", lambda: "https://app.test")
+        monkeypatch.setattr(
+            resend.Emails, "send", lambda payload: sent.append(payload) or SimpleNamespace(id="m1")
+        )
+
+        assert applicant_auth_module._send_code_email(
+            "vendor@example.com", "123456", "Harbour Night Market", "harbour-night-market"
+        )
+
+        assert "https://app.test/harbour-night-market/applicant-login" in sent[0]["text"]
+        assert "/markets/" not in sent[0]["text"]
+        assert sent[0]["subject"] == "Your sign-in code for Harbour Night Market"

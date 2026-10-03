@@ -13,7 +13,7 @@
  * approved set is the solver's entire input - `assign_market` reads `reviewer_approved` and
  * nothing else. An escape hatch here would be the feature everyone uses.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { ApplicationStatus, IntakeMode } from '@/assets/types/datatypes';
 import {
@@ -31,6 +31,11 @@ import { getTimestampDate } from '@/utils/utils';
 const props = defineProps<{
   market: Market | null;
   visible: boolean;
+  /**
+   * An application to open at, by id: an assignment refused for incomplete answers links to each
+   * one it names (bug 42), so the organizer lands on that application rather than hunting for it.
+   */
+  named?: string;
 }>();
 
 const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void }>();
@@ -101,9 +106,6 @@ const decided = computed(() => applications.value.filter((a) => !AWAITING.includ
  * `applicant_intake_market_by_slug`, which serves form-intake markets only. On a CSV market the
  * flag has no reader at all, so the button was a no-op with a confident label. It is absent
  * there, and the endpoint refuses too, because a hidden button is not a rule.
- *
- * Intake mode has no organizer control yet, so in practice this removes the button from MVP -
- * which is the honest outcome, and the code keeps the concept rather than losing it.
  */
 const marketHasApplicants = computed(() => props.market?.intakeMode === IntakeMode.Form);
 
@@ -189,6 +191,25 @@ watch(
   { immediate: true },
 );
 
+/**
+ * Open at the named application: on the card if it is still to decide, otherwise in the reviewed
+ * list, opened, scrolled to and marked.
+ */
+function showNamed() {
+  const id = props.named;
+  if (!id) return;
+  const waiting = undecided.value.findIndex((app) => app.id === id);
+  if (waiting >= 0) {
+    cursor.value = waiting;
+    return;
+  }
+  if (!decided.value.some((app) => app.id === id)) return;
+  showDecided.value = true;
+  void nextTick(() =>
+    document.querySelector(`[data-application-id="${id}"]`)?.scrollIntoView({ block: 'center' }),
+  );
+}
+
 async function loadApplications() {
   if (!props.market) return;
   loading.value = true;
@@ -196,6 +217,7 @@ async function loadApplications() {
   try {
     applications.value = await fetchMarketApplications(props.market.id);
     cursor.value = 0;
+    showNamed();
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
   } finally {
@@ -492,7 +514,13 @@ function submittedOn(app: Application): string {
           {{ showDecided ? 'Hide' : 'Show' }} {{ decided.length }} reviewed
         </button>
         <ul v-if="showDecided" class="decided-list" data-testid="app-monitor-decided-list">
-          <li v-for="app in decided" :key="app.id" data-testid="app-monitor-decided-row">
+          <li
+            v-for="app in decided"
+            :key="app.id"
+            :class="{ named: app.id === named }"
+            :data-application-id="app.id"
+            data-testid="app-monitor-decided-row"
+          >
             <span class="app-email" data-testid="app-monitor-decided-email">
               {{ app.applicantEmail }}
             </span>
@@ -861,6 +889,12 @@ function submittedOn(app: Application): string {
   padding: 8px 14px;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
+}
+
+/* The application a link opened the page at. */
+.decided-list li.named {
+  border-color: var(--mm-green);
+  outline: 1px solid var(--mm-green);
 }
 
 .decided-list .app-email {

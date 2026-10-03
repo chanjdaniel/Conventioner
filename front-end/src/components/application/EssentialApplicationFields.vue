@@ -279,9 +279,11 @@ function errorFor(key: string): string {
         {{ MAX_DATES_LABEL }}
         <span class="essential-required">*</span>
       </label>
+      <!-- The days are answered below, in the tier grid's "Not available": this pointed "above",
+           at a question the form no longer asks on its own. -->
       <p class="essential-help">
-        Being available doesn't commit you: you'll be assigned at most this many of the dates you
-        ticked above.
+        Being free on a day doesn't commit you to it: you'll be given at most this many of the days
+        you can come.
       </p>
       <input
         :id="`${prefix}-essential-max-dates-input`"

@@ -157,8 +157,11 @@ _VERIFY_FAILURE_STATUS = 401
 
 # ── Email sending ─────────────────────────────────────────────────────────
 
-def _send_code_email(email: str, code: str, market_name: str, market_id: str) -> bool:
-    """Send the login code to the applicant's email address.
+def _send_code_email(email: str, code: str, market_name: str, market_slug: str) -> bool:
+    """Send the sign-in code to the applicant's email address.
+
+    It links to the market's own sign-in page, by its public address. It linked to
+    ``/markets/<id>/login``, which the product has no page for (E26/F10/S02).
 
     Returns True when the email was accepted by the provider (or disabled in dev),
     False when it was not.
@@ -174,7 +177,7 @@ def _send_code_email(email: str, code: str, market_name: str, market_id: str) ->
     import resend
 
     base_url = frontend_url()
-    login_url = f"{base_url}/markets/{market_id}/login"
+    login_url = f"{base_url}/{market_slug}/applicant-login"
 
     html_content = f"""
     <!DOCTYPE html>
@@ -182,29 +185,29 @@ def _send_code_email(email: str, code: str, market_name: str, market_id: str) ->
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your Login Code</title>
+        <title>Your sign-in code</title>
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #4CAF50;">Your Login Code</h1>
+        <h1 style="color: #36826f;">Your sign-in code</h1>
         <p>You requested access to your application for <strong>{market_name}</strong>.</p>
-        <div style="background-color: #f5f5f5; border: 2px dashed #4CAF50; padding: 20px; text-align: center; margin: 30px 0;">
-            <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #4CAF50; margin: 0;">{code}</p>
+        <div style="background-color: #f5f5f5; border: 2px dashed #36826f; padding: 20px; text-align: center; margin: 30px 0;">
+            <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #36826f; margin: 0;">{code}</p>
         </div>
-        <p>Enter this code on the login page to access your application.</p>
-        <p style="color: #999; font-size: 12px; margin-top: 30px;">This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.</p>
-        <p style="color: #999; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+        <p>Enter it on <a href="{login_url}">the sign-in page</a> to see your application.</p>
+        <p style="color: #777474; font-size: 12px; margin-top: 30px;">This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.</p>
+        <p style="color: #777474; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
     </body>
     </html>
     """
 
     text_content = f"""
-    Your Login Code
+    Your sign-in code
 
     You requested access to your application for "{market_name}".
 
     Your code: {code}
 
-    Enter this code on the login page: {login_url}
+    Enter it on the sign-in page: {login_url}
 
     This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.
 
@@ -215,12 +218,12 @@ def _send_code_email(email: str, code: str, market_name: str, market_id: str) ->
         response = resend.Emails.send({
             "from": from_email(),
             "to": [email],
-            "subject": f"Your login code for {market_name}",
+            "subject": f"Your sign-in code for {market_name}",
             "html": html_content,
             "text": text_content,
         })
         if response and hasattr(response, "id"):
-            logger.info("Applicant login code sent to %s for market %s", email, market_id)
+            logger.info("Applicant login code sent to %s for market %s", email, market_slug)
             return True
         logger.error("Applicant login code send returned unexpected response: %s", response)
         return False
@@ -350,7 +353,7 @@ def request_login_code(market_slug: str) -> tuple:
     # The send is dispatched to a daemon thread so it does NOT block the response.
     threading.Thread(
         target=_send_code_email,
-        args=(email, code, market_name, market_id),
+        args=(email, code, market_name, market_slug),
         daemon=True,
     ).start()
 

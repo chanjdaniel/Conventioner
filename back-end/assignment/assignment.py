@@ -796,10 +796,30 @@ class IncompleteApplicationsError(ValueError):
             f"{item.applicant_email or item.application_id} ({', '.join(item.reasons)})"
             for item in self.incomplete
         )
+        if len(self.incomplete) == 1:
+            return (
+                f"1 approved application cannot be assigned until its answers are complete: "
+                f"{applicants}"
+            )
         return (
-            f"{len(self.incomplete)} approved application(s) cannot be assigned until their "
-            f"answers are complete: {applicants}"
+            f"{len(self.incomplete)} approved applications cannot be assigned until their answers "
+            f"are complete: {applicants}"
         )
+
+    def applicants(self) -> List[Dict[str, Any]]:
+        """Each applicant, with the id a page links to and what their application lacks (bug 42).
+
+        A name alone left the organizer to go and find the application; this is what lets the
+        refusal hand them to it.
+        """
+        return [
+            {
+                "applicationId": item.application_id,
+                "applicantEmail": item.applicant_email,
+                "missing": list(item.reasons),
+            }
+            for item in self.incomplete
+        ]
 
 
 NOTHING_TO_ASSIGN = (

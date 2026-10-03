@@ -169,7 +169,7 @@ const requestOTP = async () => {
 
     if (response.status === 200) {
       otpRequested.value = true;
-      otpSuccessMessage.value = response.data.msg || 'OTP sent to your email';
+      otpSuccessMessage.value = response.data.msg || 'A sign-in code has been sent to your email.';
     }
   } catch (_e: unknown) {
     const error = _e as {
@@ -178,7 +178,8 @@ const requestOTP = async () => {
       message?: string;
     };
     if (error.response) {
-      otpErrorMessage.value = error.response.data?.msg || 'Failed to send OTP';
+      otpErrorMessage.value =
+        error.response.data?.msg || 'The sign-in code could not be sent. Please try again.';
     } else if (error.request) {
       otpErrorMessage.value = 'Unable to connect to server. Please try again.';
     } else {
@@ -191,7 +192,7 @@ const submitOTPLogin = async () => {
   otpErrorMessage.value = '';
 
   if (!otpEmail.value || !otpCode.value) {
-    otpErrorMessage.value = 'Email and OTP code are required';
+    otpErrorMessage.value = 'Enter your email address and the code.';
     return;
   }
 
@@ -223,7 +224,7 @@ const submitOTPLogin = async () => {
       message?: string;
     };
     if (error.response) {
-      otpErrorMessage.value = error.response.data?.msg || 'Invalid OTP';
+      otpErrorMessage.value = error.response.data?.msg || 'That code is not right.';
     } else if (error.request) {
       otpErrorMessage.value = 'Unable to connect to server. Please try again.';
     } else {

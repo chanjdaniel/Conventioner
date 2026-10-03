@@ -12,7 +12,9 @@
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_LABEL,
+  FULL_NAME_LABEL,
   MAX_DATES_LABEL,
+  PREFERRED_NAME_LABEL,
   SECTION_RANKING_KEY,
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_LABEL,
@@ -65,6 +67,26 @@ function asks(key: string): boolean {
       </div>
       <p class="essential-item-detail">
         Collected when the applicant signs in; every notification goes there.
+      </p>
+    </div>
+
+    <!-- Both names are asked of every form, whatever the plan - this list omitted them while the
+         preview beside it and every review card showed them (bug 17). -->
+    <div class="essential-item" data-testid="essential-item-full-name">
+      <div class="essential-item-header">
+        <span class="essential-item-label">{{ FULL_NAME_LABEL }}</span>
+        <span class="essential-type-badge">text</span>
+      </div>
+      <p class="essential-item-detail">Required. The name the applicant goes by officially.</p>
+    </div>
+
+    <div class="essential-item" data-testid="essential-item-preferred-name">
+      <div class="essential-item-header">
+        <span class="essential-item-label">{{ PREFERRED_NAME_LABEL }}</span>
+        <span class="essential-type-badge">text</span>
+      </div>
+      <p class="essential-item-detail">
+        Optional. What they would like to be called, shown on lists and beside their table.
       </p>
     </div>
 
