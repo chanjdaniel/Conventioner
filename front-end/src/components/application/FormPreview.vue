@@ -54,7 +54,13 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
         class="preview-field"
         :data-testid="`form-preview-field-${field.key}`"
       >
-        <label class="preview-label">
+        <!-- Each question names its control, as the live form does: the preview's labels pointed at
+             nothing, so a screen reader announced every field here as unnamed (bug 44). -->
+        <label
+          :id="`preview-${field.key}-label`"
+          class="preview-label"
+          :for="field.type === 'multi_select' ? undefined : `preview-${field.key}`"
+        >
           {{ field.label }}
           <span v-if="field.required" class="preview-required">*</span>
         </label>
@@ -63,6 +69,7 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 
         <input
           v-if="field.type === 'text' || field.type === 'email'"
+          :id="`preview-${field.key}`"
           class="preview-input"
           :type="field.type === 'email' ? 'email' : 'text'"
           :placeholder="`Enter ${field.label.toLowerCase()}`"
@@ -71,29 +78,47 @@ const essentialPreviewData = computed<Record<string, unknown>>(() => ({
 
         <input
           v-else-if="field.type === 'number'"
+          :id="`preview-${field.key}`"
           class="preview-input"
           type="number"
           :placeholder="`Enter ${field.label.toLowerCase()}`"
           disabled
         />
 
-        <input v-else-if="field.type === 'date'" class="preview-input" type="date" disabled />
+        <input
+          v-else-if="field.type === 'date'"
+          :id="`preview-${field.key}`"
+          class="preview-input"
+          type="date"
+          disabled
+        />
 
         <input
           v-else-if="field.type === 'checkbox'"
+          :id="`preview-${field.key}`"
           class="preview-checkbox"
           type="checkbox"
           disabled
         />
 
-        <select v-else-if="field.type === 'select'" class="preview-input" disabled>
+        <select
+          v-else-if="field.type === 'select'"
+          :id="`preview-${field.key}`"
+          class="preview-input"
+          disabled
+        >
           <option value="">-- Select --</option>
           <option v-for="(opt, optIdx) in field.options" :key="optIdx" :value="opt">
             {{ opt }}
           </option>
         </select>
 
-        <div v-else-if="field.type === 'multi_select'" class="preview-multiselect">
+        <div
+          v-else-if="field.type === 'multi_select'"
+          class="preview-multiselect"
+          role="group"
+          :aria-labelledby="`preview-${field.key}-label`"
+        >
           <label
             v-for="(opt, optIdx) in field.options"
             :key="optIdx"

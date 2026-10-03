@@ -634,6 +634,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   tints took on the beige review card beneath them and fell below AA there (E26/F10/S01).
 - **Weight does not inherit here.** A global reset gives every element `font-weight: 400`, so a
   span inside a 600 cell is 400 until it says otherwise.
+- **Every control has a name, and a placeholder is not one** (E26/F10/S03): a `<label for>`, an
+  `aria-label` or `aria-labelledby`. `e2e/every-control-is-named.spec.ts` walks the screens with
+  `namelessControls()` (`e2e/helpers/accessibleNames.ts`); a new screen or dialog joins that walk.
+  A field styled `all: unset` loses its focus ring with everything else, so its container draws one.
 - **Form controls do not inherit `font-family`.** Setting `font: inherit` on them alone is wrong while
   `body` declares Inter - it makes every control Inter while the 274 Outfit rules around them stay
   Outfit. `body` becomes Outfit first (`E15/F01/S01`). And `font` is a SHORTHAND: it carries
@@ -648,7 +652,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   migrated file** (`.stylelintrc.json` `overrides`). A rule that fails the build on a pre-existing
   backlog gets switched off, so a slice adds its files to that list when it lands. Everything MVP
   serves is on the list, the applicant views included since vendors apply online (E26/F07); the
-  141 remaining warnings are the floorplan GUI, a beta.
+  128 remaining warnings are the floorplan GUI, a beta.
 - **A market screen stands in `MarketFrame`** (`front-end/src/components/MarketFrame.vue`), whose
   bar and whole phase rail stick at `top: var(--banner-h)` - the banner's height as a token - on the
   same principle as the banner itself. The card fills at least the window under the banner. Never

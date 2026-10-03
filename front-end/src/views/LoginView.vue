@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import axios from 'axios';
-import { ref, inject } from 'vue';
+import { ref, inject, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { executeRecaptcha } from '@/utils/captcha';
 
@@ -9,7 +9,45 @@ const hostname = import.meta.env.VITE_FLASK_HOST;
 const router = useRouter();
 
 // Mode: 'login' | 'register' | 'otp'
-const mode = ref<'login' | 'register' | 'otp'>('login');
+type Mode = 'login' | 'register' | 'otp';
+const mode = ref<Mode>('login');
+
+/** The ways in, in tab order; `testid` keeps the ids the specs already address them by. */
+const MODE_TABS: ReadonlyArray<{ mode: Mode; label: string; testid: string }> = [
+  { mode: 'login', label: 'Sign in', testid: 'login' },
+  { mode: 'register', label: 'Register', testid: 'register' },
+  { mode: 'otp', label: 'Sign-in code', testid: 'otp' },
+];
+
+/** Open a way in, with nothing carried over from the last one. */
+function selectMode(next: Mode) {
+  mode.value = next;
+  errorMessage.value = '';
+  registerErrorMessage.value = '';
+  otpErrorMessage.value = '';
+  if (next === 'otp') otpRequested.value = false;
+}
+
+/** The tab pattern's keys: arrows move to the next or previous tab and open it, Home and End to
+ * the ends; focus follows, since only the open tab is in the tab order. */
+function onTabKey(event: KeyboardEvent) {
+  const at = MODE_TABS.findIndex((tab) => tab.mode === mode.value);
+  const last = MODE_TABS.length - 1;
+  const to =
+    event.key === 'ArrowRight'
+      ? (at + 1) % MODE_TABS.length
+      : event.key === 'ArrowLeft'
+        ? (at + last) % MODE_TABS.length
+        : event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? last
+            : null;
+  if (to === null) return;
+  event.preventDefault();
+  selectMode(MODE_TABS[to].mode);
+  void nextTick(() => document.getElementById(`login-tab-${MODE_TABS[to].mode}`)?.focus());
+}
 
 // Login fields
 const email = ref('');
@@ -237,52 +275,38 @@ const submitOTPLogin = async () => {
 <template>
   <div class="container">
     <div class="login-window">
-      <!-- Mode Tabs -->
-      <div class="mode-tabs">
+      <!--
+        A tab list, not a row of buttons (bug 44): the three ways in are announced as tabs of one
+        set, the open one as selected, and the arrow keys move between them as on any tab list.
+      -->
+      <div class="mode-tabs" role="tablist" aria-label="How to sign in">
         <button
+          v-for="tab in MODE_TABS"
+          :id="`login-tab-${tab.mode}`"
+          :key="tab.mode"
+          type="button"
+          role="tab"
           class="mode-tab"
-          :class="{ active: mode === 'login' }"
-          @click="
-            mode = 'login';
-            errorMessage = '';
-            registerErrorMessage = '';
-            otpErrorMessage = '';
-          "
-          data-testid="login-tab-login"
+          :class="{ active: mode === tab.mode }"
+          :aria-selected="mode === tab.mode"
+          :aria-controls="`login-panel-${tab.mode}`"
+          :tabindex="mode === tab.mode ? 0 : -1"
+          :data-testid="`login-tab-${tab.testid}`"
+          @click="selectMode(tab.mode)"
+          @keydown="onTabKey"
         >
-          Sign in
-        </button>
-        <button
-          class="mode-tab"
-          :class="{ active: mode === 'register' }"
-          @click="
-            mode = 'register';
-            errorMessage = '';
-            registerErrorMessage = '';
-            otpErrorMessage = '';
-          "
-          data-testid="login-tab-register"
-        >
-          Register
-        </button>
-        <button
-          class="mode-tab"
-          :class="{ active: mode === 'otp' }"
-          @click="
-            mode = 'otp';
-            errorMessage = '';
-            registerErrorMessage = '';
-            otpErrorMessage = '';
-            otpRequested = false;
-          "
-          data-testid="login-tab-otp"
-        >
-          Sign-in code
+          {{ tab.label }}
         </button>
       </div>
 
       <!-- Login Form -->
-      <div v-if="mode === 'login'" class="form-container">
+      <div
+        v-if="mode === 'login'"
+        id="login-panel-login"
+        class="form-container"
+        role="tabpanel"
+        aria-labelledby="login-tab-login"
+      >
         <h1>Sign in</h1>
         <form
           id="login-form"
@@ -351,7 +375,13 @@ const submitOTPLogin = async () => {
       </div>
 
       <!-- Registration Form -->
-      <div v-if="mode === 'register'" class="form-container">
+      <div
+        v-if="mode === 'register'"
+        id="login-panel-register"
+        class="form-container"
+        role="tabpanel"
+        aria-labelledby="login-tab-register"
+      >
         <h1>Create account</h1>
         <form
           id="register-form"
@@ -435,7 +465,13 @@ const submitOTPLogin = async () => {
       </div>
 
       <!-- OTP Login Form -->
-      <div v-if="mode === 'otp'" class="form-container">
+      <div
+        v-if="mode === 'otp'"
+        id="login-panel-otp"
+        class="form-container"
+        role="tabpanel"
+        aria-labelledby="login-tab-otp"
+      >
         <h1>Sign in with a code</h1>
         <form
           id="otp-form"
@@ -443,24 +479,29 @@ const submitOTPLogin = async () => {
           @submit.prevent="otpRequested ? submitOTPLogin() : requestOTP()"
           data-testid="login-otp-form"
         >
+          <label class="field-label" for="otp-email">Email</label>
           <div class="login-input">
             <input
               id="otp-email"
               type="email"
               v-model="otpEmail"
-              placeholder="Email"
+              placeholder="you@example.com"
               class="email-input"
               required
               :disabled="otpRequested"
               data-testid="login-otp-email-input"
             />
           </div>
+          <!-- Named, not only hinted: the placeholder went the moment typing started (bug 44). -->
+          <label v-if="otpRequested" class="field-label" for="otp-code">Sign-in code</label>
           <div v-if="otpRequested" class="login-input">
             <input
               id="otp-code"
               type="text"
               v-model="otpCode"
-              placeholder="Enter 6-digit code"
+              placeholder="6 digits"
+              inputmode="numeric"
+              autocomplete="one-time-code"
               class="email-input"
               required
               maxlength="6"
@@ -468,22 +509,28 @@ const submitOTPLogin = async () => {
               data-testid="login-otp-code-input"
             />
           </div>
-          <h3 class="error-message" v-show="otpErrorMessage" data-testid="login-otp-error-message">
+          <p
+            class="error-message"
+            role="alert"
+            v-show="otpErrorMessage"
+            data-testid="login-otp-error-message"
+          >
             {{ otpErrorMessage }}
-          </h3>
-          <h3
+          </p>
+          <p
             class="success-message"
+            role="status"
             v-show="otpSuccessMessage"
             data-testid="login-otp-success-message"
           >
             {{ otpSuccessMessage }}
-          </h3>
+          </p>
           <button
             type="submit"
             class="btn btn--primary submit-button"
             data-testid="login-otp-submit-button"
           >
-            {{ otpRequested ? 'Login' : 'Send Code' }}
+            {{ otpRequested ? 'Sign in' : 'Send code' }}
           </button>
           <div v-if="otpRequested" class="form-links">
             <a
@@ -495,7 +542,7 @@ const submitOTPLogin = async () => {
               "
               class="link"
               data-testid="login-otp-different-email-link"
-              >Use different email</a
+              >Use a different email</a
             >
           </div>
         </form>

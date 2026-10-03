@@ -159,10 +159,13 @@ function canManage(org: Organization): boolean {
       @close="handleNewClose"
       @submit="handleCreateOrg"
     >
+      <!-- Named by a label, not a placeholder that goes when typing starts (bug 44). -->
+      <label class="field-label" for="new-org-name">Name</label>
       <input
+        id="new-org-name"
         v-model="newOrgName"
         type="text"
-        placeholder="Organization name"
+        placeholder="e.g. Harbour Makers Collective"
         class="field"
         data-testid="organizations-create-name-input"
       />
