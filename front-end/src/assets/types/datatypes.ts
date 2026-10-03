@@ -169,6 +169,14 @@ export enum IntakeMode {
   Form = 'form',
 }
 
+/** An approved application a run cannot place, as the refusal names it (bug 42). */
+export interface IncompleteApplication {
+  applicationId: string;
+  applicantEmail: string;
+  /** The questions it never answered, by their labels. */
+  missing: string[];
+}
+
 export interface Market {
   id: string;
   name: string;

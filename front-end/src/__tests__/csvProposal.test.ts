@@ -260,6 +260,33 @@ describe('the working copy', () => {
     expect(droppedBy(read, new Set())).toBe(0);
   });
 
+  /*
+   * A day's row in a tier grid is a day the applicant can come, and the import reads the dates
+   * from it - so the proposal listed "Available dates" as not asked beside the grid that answers it
+   * (bug 42). One tiers column does not answer the dates.
+   */
+  it('counts a tier grid as answering the dates, and a single tiers column as not', () => {
+    const grid = 'For each day, choose all table tiers';
+    const p = proposal(
+      [0, 1, 2].map((i) =>
+        column(i, {
+          header: `${grid} [Day ${i + 1}]`,
+          group: grid,
+          fate: 'essential',
+          essential: 'essential_tier_preference',
+        }),
+      ),
+    );
+    expect(notAsked(p, draftFrom(p)).map((q) => q.key)).not.toContain('essential_available_dates');
+
+    const single = proposal([
+      column(0, { fate: 'essential', essential: 'essential_tier_preference' }),
+    ]);
+    expect(notAsked(single, draftFrom(single)).map((q) => q.key)).toContain(
+      'essential_available_dates',
+    );
+  });
+
   it('says a missing days column means no personal limit, not that nobody is asked', () => {
     const p = proposal([column(0, { fate: 'essential', essential: 'essential_full_name' })]);
     const status = Object.fromEntries(notAsked(p, draftFrom(p)).map((q) => [q.key, q.status]));

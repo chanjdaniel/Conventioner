@@ -11,9 +11,9 @@
  */
 import { computed, ref } from 'vue';
 import { marketPath } from '@/utils/market';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
-import { MarketPhase, type Market } from '@/assets/types/datatypes';
+import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 
 const props = defineProps<{
   market: Market | null;
@@ -22,6 +22,10 @@ const props = defineProps<{
 }>();
 
 const router = useRouter();
+const route = useRoute();
+
+/** The application this page's address names, as an assignment that refused links to it (bug 42). */
+const namedApplication = computed(() => String(route.query.application ?? ''));
 
 /** Published by the review queue, so this surface can lead with it while reviewing. */
 const undecided = ref(0);
@@ -45,7 +49,11 @@ const condition = computed(() => {
     undecided.value === 1 ? '1 application' : `${undecided.value} applications`;
   switch (props.market?.phase) {
     case MarketPhase.ApplicationsOpen:
-      return 'This market is open for applications. New ones will keep arriving here.';
+      // Only a form market's applications arrive by themselves; a CSV market's come in by import
+      // (bug 16).
+      return props.market?.intakeMode === IntakeMode.Form
+        ? 'This market is open for applications. New ones will keep arriving here.'
+        : "This market is open for applications. Import them from your form's responses as they come in.";
     case MarketPhase.ApplicationsClosed:
       return 'This market is no longer receiving applications. You can still import the ones you collected elsewhere.';
     case MarketPhase.Review:
@@ -96,6 +104,7 @@ const condition = computed(() => {
     <ApplicationMonitor
       :market="market"
       :visible="visible"
+      :named="namedApplication"
       @update:undecidedCount="undecided = $event"
     />
   </div>

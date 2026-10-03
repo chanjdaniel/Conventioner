@@ -5,7 +5,11 @@ import { useRoute, useRouter } from 'vue-router';
 
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
-import { type SetupObject, type FormField } from '@/assets/types/datatypes';
+import {
+  type SetupObject,
+  type FormField,
+  type IncompleteApplication,
+} from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
@@ -317,6 +321,8 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
 };
 
 const assignError = ref('');
+/** The applications a refused run named, each with what it lacks (bug 42). */
+const assignIncomplete = ref<IncompleteApplication[]>([]);
 
 /** How many hand placements the stored assignment holds; null until one has been run. */
 const handPlacements = computed((): number | null => {
@@ -339,6 +345,7 @@ const handleAssign = async () => {
     return;
   }
   assignError.value = '';
+  assignIncomplete.value = [];
   try {
     await updateMarket();
 
@@ -353,8 +360,13 @@ const handleAssign = async () => {
     // A run lands on the result it produced (E22/F04/S03).
     showTab('result');
   } catch (err: unknown) {
-    const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-    assignError.value = detail || 'Assignment failed. Please try again.';
+    const data = (
+      err as {
+        response?: { data?: { error?: string; incomplete?: IncompleteApplication[] } };
+      }
+    )?.response?.data;
+    assignError.value = data?.error || 'Assignment failed. Please try again.';
+    assignIncomplete.value = data?.incomplete ?? [];
   }
 };
 
@@ -394,6 +406,8 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :intakeEditable="intakeEditable"
           :csvStartRefusal="market?.adminActionsReason || market?.csvStartRefusal || null"
           :readOnlyReason="market?.readOnlyReason ?? null"
+          :formQuestions="market.applicationForm?.fields?.length ?? 0"
+          :formLockReason="market.applicationFormLockReason ?? null"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
           @choosePath="showPathChoice = true"
@@ -420,6 +434,8 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignmentOptionsComplete="assignmentOptionsComplete"
           :assignRefusalReason="assignRefusalReason"
           :assignError="assignError"
+          :assignIncomplete="assignIncomplete"
+          :marketId="market.id"
           :rulesLockReason="market?.assignmentRulesLockReason || market?.readOnlyReason || null"
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"

@@ -236,8 +236,8 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     try:
         vendors = solver_vendors_for(market)
     except IncompleteApplicationsError as incomplete:
-        # The organizer has to go and fix something, so say who.
-        return {"error": incomplete.message()}, 400
+        # The organizer has to go and fix something, so say who - and where each one is.
+        return {"error": incomplete.message(), "incomplete": incomplete.applicants()}, 400
 
     # Refused here for the same reason ``get_assigned_market`` refuses it: a run over nobody
     # produces a screen indistinguishable from a run that failed.

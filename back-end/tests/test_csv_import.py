@@ -1545,12 +1545,28 @@ class TestWhenImportingIsAllowed:
             assert phase.value.replace("_", " ") in refusal
 
     def test_the_refusal_points_at_the_way_through(self):
+        """By the rail's own name for the move (bug 42): "Reopen Applications" is a different one."""
         doc = _market_doc()
         doc["phase"] = MarketPhase.REVIEW.value
 
         refusal = CsvImport.import_phase_refusal(doc)
 
-        assert "Reopen applications" in refusal
+        assert "Return to Applications Closed" in refusal
+
+    def test_past_review_it_offers_no_way_back_that_does_not_exist(self):
+        """From Assignment on there is no route back to the intake phases, so none is offered.
+
+        It used to tell a market in Assignment to "move back to applications closed" - a move the
+        transition table does not have.
+        """
+        for phase in (MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED):
+            doc = _market_doc()
+            doc["phase"] = phase.value
+
+            refusal = CsvImport.import_phase_refusal(doc)
+
+            assert "Applications Closed" not in refusal, phase
+            assert "no more applications" in refusal, phase
 
     def test_a_draft_is_refused_for_its_own_reason(self):
         """Not "reopen applications" - a draft has never opened them."""

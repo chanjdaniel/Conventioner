@@ -1,3 +1,5 @@
+import { VALID_TRANSITIONS } from '@/utils/phase';
+
 /**
  * Whether a market can be imported into, and if not, why - in words that name an action the
  * organizer can take from the phase they are actually in.
@@ -15,6 +17,9 @@
  */
 export const IMPORT_PHASES = ['applications_open', 'applications_closed'];
 
+/** The phase that still takes an import and is reachable going back, by the rail's own name. */
+const WAY_BACK = 'applications_closed';
+
 export function canImportInto(phase: string | undefined | null): boolean {
   return IMPORT_PHASES.includes(String(phase ?? ''));
 }
@@ -27,5 +32,26 @@ export function importRefusal(phase: string | undefined | null): string | null {
     return 'This market is still a draft, so it is not taking applications yet. Open applications first, then import.';
   }
   const readable = current.replace(/_/g, ' ');
-  return `This market is in the ${readable} phase, so importing would change who has applied under a review that has already begun. Reopen applications first - move back to applications closed - then import.`;
+  // The way back only where the transition table has one (bug 42): this told a market in
+  // Assignment to "move back to applications closed", which no move does.
+  if (!reachable(current, WAY_BACK)) {
+    return `This market is in the ${readable} phase, past review, so it takes no more applications and nothing more can be imported.`;
+  }
+  return `This market is in the ${readable} phase, so importing would change who has applied while their applications are being decided. Use Return to Applications Closed, under More… on the phase rail, then import.`;
+}
+
+/** Whether the transition table leads from one phase to another, archiving aside. */
+function reachable(from: string, to: string): boolean {
+  const seen = new Set([from]);
+  const queue = [from];
+  while (queue.length) {
+    const at = queue.shift()!;
+    if (at === to) return true;
+    for (const [source, target] of VALID_TRANSITIONS) {
+      if (source !== at || seen.has(target) || target === 'archived') continue;
+      seen.add(target);
+      queue.push(target);
+    }
+  }
+  return false;
 }

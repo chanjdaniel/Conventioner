@@ -577,6 +577,33 @@ class TestAnIncompleteApplicationStopsTheRun:
 
         assert "broken@example.com" in str(raised.value)
 
+    def test_the_refusal_counts_in_words_and_says_where_each_one_is(self, applications):
+        """"1 approved application(s)" read as a form letter, and a name with nothing to follow
+        left the organizer to go and find it (bug 42). Each applicant comes back with the id the
+        page links to, and what their application lacks."""
+        from assignment.assignment import IncompleteApplicationsError
+
+        market = market_for([])
+        self._store_incomplete(applications, market, "broken@example.com")
+
+        with pytest.raises(IncompleteApplicationsError) as raised:
+            assign_market(market)
+
+        assert str(raised.value).startswith(
+            "1 approved application cannot be assigned until its answers are complete"
+        )
+        [one] = raised.value.applicants()
+        assert one["applicantEmail"] == "broken@example.com"
+        assert one["applicationId"]
+        assert one["missing"]
+
+        self._store_incomplete(applications, market, "also-broken@example.com")
+        with pytest.raises(IncompleteApplicationsError) as raised:
+            assign_market(market)
+        assert str(raised.value).startswith(
+            "2 approved applications cannot be assigned until their answers are complete"
+        )
+
     def test_no_partial_assignment_is_produced(self, applications):
         from assignment.assignment import IncompleteApplicationsError
 

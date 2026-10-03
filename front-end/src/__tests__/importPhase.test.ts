@@ -21,11 +21,19 @@ describe('importRefusal', () => {
     expect(reason).not.toContain('back');
   });
 
-  it('sends a market past review backwards, which is where its way in is', () => {
+  it('sends a market in review back, by the name of the move the rail offers', () => {
     const reason = importRefusal('review');
 
-    expect(reason).toContain('applications closed');
+    expect(reason).toContain('Return to Applications Closed');
     expect(reason).toContain('review phase');
+  });
+
+  it('offers no way back past review, where the transition table has none (bug 42)', () => {
+    for (const phase of ['assignment', 'market_days', 'archived']) {
+      const reason = importRefusal(phase);
+      expect(reason).toContain('no more applications');
+      expect(reason).not.toContain('Applications Closed');
+    }
   });
 
   it('names whatever phase it is given, rather than a list it has to be kept in step with', () => {

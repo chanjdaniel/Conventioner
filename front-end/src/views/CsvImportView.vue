@@ -1264,7 +1264,7 @@ function startOver() {
           data-testid="import-finish-button"
           @click="leaveImport()"
         >
-          Back to market setup
+          Back to applications
         </button>
       </footer>
 

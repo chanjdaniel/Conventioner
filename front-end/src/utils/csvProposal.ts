@@ -9,7 +9,13 @@
  * to check.
  */
 import { FIELD_TYPES } from '@/utils/applicationForm';
-import { ESSENTIAL_KEYS, MAX_DATES_KEY, essentialLabel } from '@/utils/essentialFields';
+import {
+  AVAILABLE_DATES_KEY,
+  ESSENTIAL_KEYS,
+  MAX_DATES_KEY,
+  TIER_PREFERENCE_KEY,
+  essentialLabel,
+} from '@/utils/essentialFields';
 
 export type Fate = 'submitted_at' | 'applicant_email' | 'essential' | 'custom' | 'left_out';
 
@@ -352,6 +358,15 @@ export function notAsked(
   draft: ProposalDraft,
 ): Array<{ key: string; label: string; status: string; why: string }> {
   const answered = new Set(Object.values(draft.rows).map((r) => r.essential));
+  // A tier GRID answers the dates too - each day's row is a day they can come - as the import reads
+  // it (`tiers_answer_dates` in csv_import.py). One tiers column does not (bug 42).
+  if (
+    draftRows(proposal, draft).some(
+      (row) => row.essential === TIER_PREFERENCE_KEY && row.indexes.length > 1,
+    )
+  ) {
+    answered.add(AVAILABLE_DATES_KEY);
+  }
   return ESSENTIAL_KEYS.filter((key) => !answered.has(key)).map((key) => ({
     key,
     label: essentialLabel(key),

@@ -65,10 +65,19 @@ def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
             f"This market is still a draft, so it is not taking applications yet. "
             f"Open applications first, then import."
         )
+    # The way back is offered only where the transition table has one (bug 42): this told a market
+    # in Assignment to "move back to applications closed", which no move does.
+    from guards import route_between
+
+    if route_between(phase.value, MarketPhase.APPLICATIONS_CLOSED.value) is None:
+        return (
+            f"This market is in the {readable} phase, past review, so it takes no more "
+            f"applications and nothing more can be imported."
+        )
     return (
-        f"This market is in the {readable} phase, so importing would change the applicant set "
-        f"under a review that has already begun. Reopen applications first (move back to "
-        f"applications closed), then import."
+        f"This market is in the {readable} phase, so importing would change who has applied "
+        f"while their applications are being decided. Use Return to Applications Closed, under "
+        f"More… on the phase rail, then import."
     )
 
 
@@ -858,6 +867,17 @@ def _known_values(
     return [*(offered_values(target, options, field) or []), *resolutions]
 
 
+def tiers_answer_dates(tier_columns: Sequence[Any]) -> bool:
+    """Whether the columns answering tier preference answer availability as well.
+
+    A per-date tier grid does - each day's row is a day the applicant can come, and
+    ``_assembled_rows`` reads the dates from it - and a single tiers column does not. One statement
+    for the import and the proposal: the proposal listed the dates as unanswered beside a grid the
+    import was about to read them from (bug 42).
+    """
+    return len(tier_columns) > 1
+
+
 def unserved_required(targets: Sequence[ImportTarget], resolved: Dict[str, Any]) -> List[ImportTarget]:
     """Required targets this mapping does not answer.
 
@@ -866,7 +886,7 @@ def unserved_required(targets: Sequence[ImportTarget], resolved: Dict[str, Any])
     (``_assembled_rows`` reads the dates from it). The other refused the very shape a real form has.
     """
     satisfied = set(resolved)
-    if len(resolved.get(EssentialFields.TIER_PREFERENCE_KEY) or []) > 1:
+    if tiers_answer_dates(resolved.get(EssentialFields.TIER_PREFERENCE_KEY) or []):
         satisfied.add(EssentialFields.AVAILABLE_DATES_KEY)
     return [t for t in targets if t.required and t.key not in satisfied]
 

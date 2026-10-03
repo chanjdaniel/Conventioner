@@ -365,7 +365,7 @@ def request_otp(request):
     
     if not user_doc:
         # Don't reveal if user exists for security
-        return jsonify({"msg": "If an account exists, an OTP has been sent"}), 200
+        return jsonify({"msg": "If an account exists for that address, a sign-in code has been sent to it."}), 200
 
     # Check if email is verified
     if not user_doc.get("email_verified", False):
@@ -381,7 +381,7 @@ def request_otp(request):
             time_since_last = datetime.now(timezone.utc) - last_otp
             if time_since_last < timedelta(hours=1):
                 # Count requests in last hour (simple check)
-                return jsonify({"msg": "Please wait before requesting another OTP"}), 429
+                return jsonify({"msg": "Please wait a moment before asking for another code."}), 429
         except (ValueError, AttributeError):
             pass
 
@@ -404,9 +404,9 @@ def request_otp(request):
     # Send OTP email
     email_sent = send_otp_email(email, otp)
     if not email_sent:
-        return jsonify({"msg": "Failed to send OTP email"}), 500
+        return jsonify({"msg": "The sign-in code could not be sent. Please try again."}), 500
 
-    return jsonify({"msg": "If an account exists, an OTP has been sent"}), 200
+    return jsonify({"msg": "If an account exists for that address, a sign-in code has been sent to it."}), 200
 
 
 def login_with_otp(login_user, request):
@@ -416,7 +416,7 @@ def login_with_otp(login_user, request):
     otp = data.get("otp")
 
     if not email or not otp:
-        return jsonify({"msg": "Email and OTP required"}), 400
+        return jsonify({"msg": "Enter your email address and the code."}), 400
 
     # Find user
     user_doc = users_collection.find_one({"email": email})
@@ -440,14 +440,14 @@ def login_with_otp(login_user, request):
                 {"email": email},
                 {"$set": {"otp": None, "otp_expires": None, "otp_attempts": 0}}
             )
-            return jsonify({"msg": "Too many failed attempts. Please request a new OTP"}), 429
+            return jsonify({"msg": "Too many wrong codes. Ask for a new one."}), 429
         
-        return jsonify({"msg": "Invalid OTP"}), 401
+        return jsonify({"msg": "That code is not right."}), 401
 
     # Check if OTP has expired
     expires_at = user_doc.get("otp_expires")
     if not verify_token_expiry(expires_at):
-        return jsonify({"msg": "OTP has expired"}), 400
+        return jsonify({"msg": "That code has expired. Ask for a new one."}), 400
 
     # Check if email is verified
     if not user_doc.get("email_verified", False):
