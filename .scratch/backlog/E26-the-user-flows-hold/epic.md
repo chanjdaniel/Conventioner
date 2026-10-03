@@ -2,7 +2,7 @@
 id: E26
 title: The user flows hold
 type: epic
-status: in-progress
+status: done
 blocked_by: []
 pr: []
 ---
@@ -38,3 +38,4 @@ Open Wayfinder tickets this epic settles: `claims-and-room` 04 (who is in the ve
 - `F08` - screens match the person's role.
 - `F09` - the floorplan beta places tables.
 - `F10` - polish, copy and accessibility.
+- `F11` - the re-walk holds.

@@ -1,5 +1,7 @@
 # Map: Claims we can support, and room to show them
 
+Status: closed 2026-10-03 - the way is clear.
+
 Charted 2026-09-20, from the findings in `.lavish/qc-2026-09-20.html`.
 
 ## Destination
@@ -77,6 +79,13 @@ These frame every ticket and are not open for re-litigation without redrawing th
   **route by market id, one store, re-read after every write** - settled on the next map as
   [the-market-frame 03](../the-market-frame/issues/03-one-market-every-surface-reads.md) and built
   in E21/E22; closed here when 06, which it blocked, was resolved.
+- [03: What does the importer do when the form never asked something the plan requires?](issues/03-when-the-form-never-asked.md):
+  **only a preference may go unasked, switched off from the import itself.** A ranking can be
+  declared unasked ("Ask this"); a constraint cannot. The advisory's "Stop asking it" does the walk
+  it used to describe, and a file with no days column means no personal limit. Built as
+  [E01/F06](../../backlog/E01-csv-vendor-intake/F06-a-question-not-asked/feature.md),
+  [E20/F03](../../backlog/E20-dialogs-and-the-dead-ends-they-remove/F03-fixing-the-form-without-leaving-the-import/feature.md)
+  and E26.
 - [04: Who is in the Vendors list?](issues/04-who-is-in-the-vendors-list.md):
   **vendors, as the glossary says - rejected applicants leave it.** The page lists the run's own
   vendors, served by `/tables`, so it and Result count the same people; everyone who applied is on
