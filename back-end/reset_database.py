@@ -28,6 +28,10 @@ APP_COLLECTIONS = (
     'applicant_login_challenges',
     'floorplan_templates',
     'source_data',
+    # Missed until 2026-10-03, so every reset left the trail of who moved whom, and the record of
+    # every deletion, pointing at markets and organizations that no longer existed.
+    'placement_history',
+    'deletion_trail',
 )
 
 # GridFS buckets, which are a pair of collections each and are not listed above.
