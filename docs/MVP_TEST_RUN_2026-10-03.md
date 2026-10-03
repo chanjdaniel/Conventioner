@@ -106,6 +106,8 @@ Each is written up, with what fixing it would take, in [MVP_KNOWN_GAPS.md](MVP_K
 
 ## Test markets left on the slot-1 stack
 
+These were cleared, with the rest of the test database, later on 2026-10-03; the stack now holds only what `scripts/seed_fixture.sh` creates.
+
 | Market | Id | State | Used for |
 | --- | --- | --- | --- |
 | Retest March Makers 2026 | `747f169d-b689-475f-be00-65f95785add1` | Archived, after Market Days | P2 |
