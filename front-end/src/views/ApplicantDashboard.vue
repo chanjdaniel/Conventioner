@@ -7,6 +7,7 @@ import type { Application, FormField } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
 import { getTimestampDate } from '@/utils/utils';
+import AnswerValue from '@/components/AnswerValue.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -131,7 +132,7 @@ function logout() {
             :data-testid="`applicant-dashboard-answer-${row.key}`"
           >
             <dt>{{ row.label }}</dt>
-            <dd>{{ row.value }}</dd>
+            <dd><AnswerValue :value="row.value" /></dd>
           </div>
         </dl>
       </div>
