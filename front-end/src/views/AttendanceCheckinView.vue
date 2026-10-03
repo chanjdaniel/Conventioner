@@ -597,6 +597,10 @@ async function undoCheckIn(date: string): Promise<void> {
   }
 
   .lookup-row input {
+    /* Stacked, `flex: 1` is a zero HEIGHT basis: the field shrank to its 22px line box under a 44px
+       button. Its own height, the button's touch target. */
+    flex: none;
+    min-height: 44px;
     min-width: 0;
     font-size: var(--text-md); /* iOS zooms the page in on a focused input below 16px. */
   }

@@ -68,12 +68,22 @@ test.describe('Things meant to line up do', () => {
   });
 
   test('the check-in field and its button are the same height', async ({ page }) => {
-    await page.goto(`/${marketSlug}/check-in`);
-    const input = page.getByTestId('attendance-checkin-email-input');
-    const button = page.getByTestId('attendance-checkin-lookup-button');
-    await expect(input).toBeVisible({ timeout: 10000 });
+    // On a phone too, where they stack: the field's `flex: 1` became a zero height basis in the
+    // column, and it shrank to a 22px line box under a 44px button (E26 re-walk).
+    for (const size of [
+      { width: 1280, height: 800 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(size);
+      await page.goto(`/${marketSlug}/check-in`);
+      const input = page.getByTestId('attendance-checkin-email-input');
+      const button = page.getByTestId('attendance-checkin-lookup-button');
+      await expect(input).toBeVisible({ timeout: 10000 });
 
-    const [i, b] = await Promise.all([input.boundingBox(), button.boundingBox()]);
-    expect(Math.round(i!.height), 'field and button disagree').toBe(Math.round(b!.height));
+      const [i, b] = await Promise.all([input.boundingBox(), button.boundingBox()]);
+      expect(Math.round(i!.height), `field and button disagree at ${size.width}px`).toBe(
+        Math.round(b!.height),
+      );
+    }
   });
 });
