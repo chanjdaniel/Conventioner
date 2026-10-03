@@ -142,3 +142,27 @@ class TestTheHeaderTheBrowserIsAnsweredWith:
     def test_a_dev_machine_answers_loopback_and_nothing_else(self, monkeypatch, local_dev):
         assert _allow_origin_for("http://localhost:5174", monkeypatch) == "http://localhost:5174"
         assert _allow_origin_for(EVIL, monkeypatch) is None
+
+    def test_a_public_website_is_not_let_into_the_private_network(self, monkeypatch, deployed):
+        """A preflight asking to reach a private-network address is not answered "allowed".
+
+        flask-cors 4 answered every one with ``Access-Control-Allow-Private-Network: true`` by
+        default, which tells a browser a public website may send requests to this API on a private
+        network. Nothing here asks for that, so it must not be granted by default.
+        """
+        monkeypatch.setenv(CORS_ALLOWED_ORIGINS_VAR, "https://app.example.com")
+        app = Flask(__name__)
+
+        @app.route("/markets")
+        def markets():
+            return {"markets": []}
+
+        install_cors(app, allowed_origins())
+        with app.test_client() as client:
+            response = client.options("/markets", headers={
+                "Origin": "https://app.example.com",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Private-Network": "true",
+            })
+
+        assert response.headers.get("Access-Control-Allow-Private-Network") != "true"
