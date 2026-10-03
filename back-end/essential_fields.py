@@ -36,7 +36,7 @@ atomically before the answer itself is stored, so no answer ever lands against a
 offering - and every later read serves that snapshot, so an applicant can never have answered
 a question that moved. There is deliberately no way to refresh it afterwards.
 """
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from assignment.utils import (
     convert_keys_to_camel_case,
@@ -536,13 +536,18 @@ def freeze_and_effective_essential_options(
 
 
 def validated_essential_answers(
-    incoming: Dict[str, Any], options: EssentialFormOptions,
+    incoming: Dict[str, Any], options: EssentialFormOptions, *, limit_required: bool = True,
 ) -> Tuple[Optional[str], Dict[str, Any]]:
     """Validate an applicant's essential answers against what the form offered.
 
     Returns ``(error_message, stored_answers)``; when ``error_message`` is not None the save
     must be refused. Questions whose offering is empty are not asked, so they are not required
     and store their empty value.
+
+    ``limit_required=False`` accepts no answer to "Number of dates you want" and stores None,
+    meaning no personal limit: the applicant is bounded only by the dates they can attend and the
+    market's ceiling. That is for a row imported from a form that never asked, which most real
+    forms did not (E26/F02/S03, bug 24). The online form always asks, so it always requires it.
 
     STUBBED PRODUCT DECISIONS (deliberately minimal until the product owner rules):
       - Rankings are TOTAL: an applicant ranks every offered section / table type, and the
@@ -553,52 +558,69 @@ def validated_essential_answers(
         effective cap as ``min(max_dates, len(available_dates))``.
     """
     stored: Dict[str, Any] = {}
+    for _key, step in _essential_steps(incoming, options, stored, limit_required):
+        error = step()
+        if error:
+            return error, {}
+    return None, stored
 
-    error = _validate_full_name(incoming, stored)
-    if error:
-        return error, {}
 
-    error = _validate_accepted_subset(
-        incoming, AVAILABLE_DATES_KEY, AVAILABLE_DATES_LABEL, "date", options.dates, stored,
-    )
-    if error:
-        return error, {}
+def essential_answer_errors(
+    incoming: Dict[str, Any], options: EssentialFormOptions, *, limit_required: bool = True,
+) -> List[str]:
+    """Every reason these answers would be refused, not only the first.
 
-    error = _validate_max_dates(incoming, options, stored)
-    if error:
-        return error, {}
+    For the import's report of a skipped row: naming one problem at a time meant an organizer who
+    fixed it in the spreadsheet met the next on the next attempt (bug 40). The same steps as
+    ``validated_essential_answers``, so the two cannot disagree; the tiers, which are judged
+    against the dates, are not judged when the dates themselves were refused.
+    """
+    stored: Dict[str, Any] = {}
+    errors: List[str] = []
+    refused = set()
+    for key, step in _essential_steps(incoming, options, stored, limit_required):
+        if key == TIER_PREFERENCE_KEY and AVAILABLE_DATES_KEY in refused:
+            continue
+        error = step()
+        if error:
+            errors.append(error)
+            refused.add(key)
+    return errors
 
-    error = _validate_tiers_per_date(incoming, options, stored)
-    if error:
-        return error, {}
 
-    error = _validate_table_choice(incoming, options, stored)
-    if error:
-        return error, {}
-
-    _store_table_share_email(incoming, options, stored)
-
+def _essential_steps(
+    incoming: Dict[str, Any], options: EssentialFormOptions, stored: Dict[str, Any],
+    limit_required: bool,
+) -> List[Tuple[str, Callable[[], Optional[str]]]]:
+    """Each essential question's check, in the order the form asks them, writing ``stored``."""
     # A question the market declared it does not ask offers nothing, which is the path
     # ``_validate_ranking`` already takes for a question with nothing to offer: it stores the empty
     # value and requires no answer. Routing "unasked" through the SAME path rather than adding a
     # second one is what keeps ``asked_essential_keys`` the one statement of requiredness.
     asked = asked_essential_keys(options)
 
-    error = _validate_ranking(
-        incoming, SECTION_RANKING_KEY, SECTION_RANKING_LABEL,
-        options.sections if SECTION_RANKING_KEY in asked else [], stored,
-    )
-    if error:
-        return error, {}
+    def share_email() -> Optional[str]:
+        _store_table_share_email(incoming, options, stored)
+        return None
 
-    error = _validate_ranking(
-        incoming, TABLE_TYPE_RANKING_KEY, TABLE_TYPE_RANKING_LABEL,
-        options.table_types if TABLE_TYPE_RANKING_KEY in asked else [], stored,
-    )
-    if error:
-        return error, {}
-
-    return None, stored
+    return [
+        (FULL_NAME_KEY, lambda: _validate_full_name(incoming, stored)),
+        (AVAILABLE_DATES_KEY, lambda: _validate_accepted_subset(
+            incoming, AVAILABLE_DATES_KEY, AVAILABLE_DATES_LABEL, "date", options.dates, stored,
+        )),
+        (MAX_DATES_KEY, lambda: _validate_max_dates(incoming, options, stored, limit_required)),
+        (TIER_PREFERENCE_KEY, lambda: _validate_tiers_per_date(incoming, options, stored)),
+        (TABLE_CHOICE_KEY, lambda: _validate_table_choice(incoming, options, stored)),
+        (TABLE_SHARE_EMAIL_KEY, share_email),
+        (SECTION_RANKING_KEY, lambda: _validate_ranking(
+            incoming, SECTION_RANKING_KEY, SECTION_RANKING_LABEL,
+            options.sections if SECTION_RANKING_KEY in asked else [], stored,
+        )),
+        (TABLE_TYPE_RANKING_KEY, lambda: _validate_ranking(
+            incoming, TABLE_TYPE_RANKING_KEY, TABLE_TYPE_RANKING_LABEL,
+            options.table_types if TABLE_TYPE_RANKING_KEY in asked else [], stored,
+        )),
+    ]
 
 
 def _validate_full_name(incoming: Dict[str, Any], stored: Dict[str, Any]) -> Optional[str]:
@@ -734,6 +756,7 @@ def _validate_accepted_subset(
 
 def _validate_max_dates(
     incoming: Dict[str, Any], options: EssentialFormOptions, stored: Dict[str, Any],
+    required: bool = True,
 ) -> Optional[str]:
     if not options.dates:
         stored[MAX_DATES_KEY] = None
@@ -741,6 +764,9 @@ def _validate_max_dates(
 
     raw = incoming.get(MAX_DATES_KEY)
     if raw is None or (isinstance(raw, str) and not raw.strip()):
+        if not required:
+            stored[MAX_DATES_KEY] = None
+            return None
         return f"'{MAX_DATES_LABEL}' is required."
 
     if isinstance(raw, bool):

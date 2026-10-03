@@ -1,5 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { SEED_MARKET_DATE, seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { CheckinPage } from './pages/CheckinPage';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
 
@@ -194,5 +194,64 @@ test.describe('Public vendor check-in', () => {
       return card ? Math.round(card.getBoundingClientRect().bottom) : Infinity;
     });
     expect(cardBottomAfterScrolling).toBeLessThanOrEqual(squeezed.clientHeight + 2);
+  });
+
+  test('a vendor is sent to the seat stored for them, after a swap, a freed seat and a placement', async ({
+    page,
+    request,
+  }) => {
+    // Bug 1 (E26/F05/S01): the lookup ran the solver afresh on every request, so a vendor moved by
+    // hand was sent to their old seat - now another vendor's - and could check in there.
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const date = SEED_MARKET_DATE;
+    const stored = async () => {
+      const res = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`);
+      const { market } = (await res.json()) as {
+        market: { assignmentObject: { vendorAssignments: { email: string; tableCode: string }[] } };
+      };
+      return Object.fromEntries(
+        market.assignmentObject.vendorAssignments.map((row) => [row.email, row.tableCode]),
+      );
+    };
+    const checkinPage = new CheckinPage(page);
+    const lookUp = async (email: string) => {
+      await checkinPage.goto(seed.marketSlug);
+      await checkinPage.fillEmail(email);
+      await checkinPage.clickLookup();
+    };
+
+    const before = await stored();
+    const swapped = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/placements/swap`, {
+      data: { emails: ['alice@example.com', 'bob@example.com'], date },
+    });
+    expect(swapped.ok(), await swapped.text()).toBeTruthy();
+    const after = await stored();
+    expect(after['alice@example.com']).toBe(before['bob@example.com']);
+
+    await lookUp('alice@example.com');
+    await expect(checkinPage.card).toContainText(after['alice@example.com']);
+    await expect(checkinPage.card).not.toContainText(before['alice@example.com']);
+
+    // Freed: no seat to go to, and none to check in at.
+    const freed = await request.delete(`${BACKEND_URL}/markets/${seed.marketId}/placements`, {
+      data: { email: 'bob@example.com', date },
+    });
+    expect(freed.ok(), await freed.text()).toBeTruthy();
+    await lookUp('bob@example.com');
+    await expect(checkinPage.checkinButtons).toHaveCount(0);
+
+    // Placed by hand into the seat nobody had.
+    const empty = ['A 1', 'A 2', 'A 3'].find((code) => !Object.values(after).includes(code));
+    const placed = await request.put(`${BACKEND_URL}/markets/${seed.marketId}/placements`, {
+      data: { email: 'bob@example.com', date, table_code: empty, table_choice: 'Full Table' },
+    });
+    expect(placed.ok(), await placed.text()).toBeTruthy();
+    await lookUp('bob@example.com');
+    await expect(checkinPage.card).toContainText(empty!);
   });
 });

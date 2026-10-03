@@ -75,9 +75,12 @@ function updateOption(idx: number, value: string) {
 
 <template>
   <div class="field-editor">
+    <!-- Each label names its control (bug 44): they were labels for nothing, so every field of
+         every question was announced unnamed. `index` keeps the ids apart between questions. -->
     <div class="field-row">
-      <label class="field-label">Label</label>
+      <label class="field-label" :for="`question-${index}-label`">Label</label>
       <input
+        :id="`question-${index}-label`"
         class="field-input"
         :value="local.label"
         @input="updateLabel(($event.target as HTMLInputElement).value)"
@@ -88,8 +91,9 @@ function updateOption(idx: number, value: string) {
     </div>
 
     <div class="field-row">
-      <label class="field-label">Key</label>
+      <label class="field-label" :for="`question-${index}-key`">Key</label>
       <input
+        :id="`question-${index}-key`"
         class="field-input field-input-sm"
         :value="local.key"
         @input="updateKey(($event.target as HTMLInputElement).value)"
@@ -101,8 +105,9 @@ function updateOption(idx: number, value: string) {
     </div>
 
     <div class="field-row">
-      <label class="field-label">Type</label>
+      <label class="field-label" :for="`question-${index}-type`">Type</label>
       <select
+        :id="`question-${index}-type`"
         class="field-input"
         :value="local.type"
         @change="emitUpdate({ type: ($event.target as HTMLSelectElement).value })"
@@ -116,8 +121,9 @@ function updateOption(idx: number, value: string) {
     </div>
 
     <div class="field-row field-row-checkbox">
-      <label class="field-label">Required</label>
+      <label class="field-label" :for="`question-${index}-required`">Required</label>
       <input
+        :id="`question-${index}-required`"
         type="checkbox"
         :checked="local.required"
         @change="emitUpdate({ required: ($event.target as HTMLInputElement).checked })"
@@ -127,8 +133,8 @@ function updateOption(idx: number, value: string) {
     </div>
 
     <div class="field-row" v-if="local.type === 'select' || local.type === 'multi_select'">
-      <label class="field-label">Options</label>
-      <div class="options-list">
+      <span :id="`question-${index}-options`" class="field-label">Options</span>
+      <div class="options-list" role="group" :aria-labelledby="`question-${index}-options`">
         <div v-for="(opt, optIdx) in local.options" :key="optIdx" class="option-row">
           <input
             class="field-input"
@@ -136,11 +142,14 @@ function updateOption(idx: number, value: string) {
             @input="updateOption(optIdx, ($event.target as HTMLInputElement).value)"
             :disabled="readonly"
             :placeholder="`Option ${optIdx + 1}`"
+            :aria-label="`Option ${optIdx + 1}`"
             data-testid="form-field-option-input"
           />
           <button
             v-if="!readonly"
+            type="button"
             class="icon-button icon-remove"
+            :aria-label="`Remove option ${optIdx + 1}`"
             @click="removeOption(optIdx)"
             data-testid="form-field-remove-option-button"
           >
@@ -149,6 +158,7 @@ function updateOption(idx: number, value: string) {
         </div>
         <button
           v-if="!readonly"
+          type="button"
           class="add-option-btn"
           @click="addOption"
           data-testid="form-field-add-option-button"
@@ -159,8 +169,9 @@ function updateOption(idx: number, value: string) {
     </div>
 
     <div class="field-row">
-      <label class="field-label">Help Text</label>
+      <label class="field-label" :for="`question-${index}-help`">Help text</label>
       <input
+        :id="`question-${index}-help`"
         class="field-input"
         :value="local.helpText || ''"
         @input="emitUpdate({ helpText: ($event.target as HTMLInputElement).value || undefined })"

@@ -44,7 +44,10 @@ from market_documents import (
     market_from_document,
 )
 import api.permissions as PermissionsApi
+import market_deletion as MarketDeletion
 import placement_history as PlacementHistory
+import phase_record as PhaseRecord
+import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import traceback
@@ -52,7 +55,7 @@ import logging
 from assignment.csv_output import market_csv_to_string
 from guards import route_between
 from assignment.made_from import assignment_rules, changed_since_run
-from placement_reasons import overridden_placements, unplaced_dates
+from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
 
 logging.basicConfig(level=logging.INFO)
@@ -124,6 +127,91 @@ def _load_market_for(market_id: str, requesting_user: str, role: MarketRole, act
     if not PermissionsApi.user_has_permission(requesting_user, market, role, organization):
         raise PermissionError(f"User does not have permission to {action} this market")
 
+    return market
+
+
+ARCHIVED_REFUSAL = (
+    "This market is archived. An archived market is the record of what happened, "
+    "so nothing in it can be changed."
+)
+
+
+class MarketArchivedError(PermissionError):
+    """A write to an archived market (bug 30, E26/F06/S01).
+
+    A ``PermissionError``, because that is what it is - nobody, whatever their role, may change a
+    market's record - and because every write route already answers one with a 403 carrying its
+    words. A refusal that needed a new branch in each route would be one forgotten branch from a 500.
+    """
+
+
+def archived_refusal(market: Market) -> Optional[str]:
+    """Why this market cannot be changed, or None while it can.
+
+    The one statement of the rule, for the routes that load a market themselves; everything that
+    loads through ``_load_market_to_change`` meets it there.
+    """
+    return ARCHIVED_REFUSAL if market.phase is MarketPhase.ARCHIVED else None
+
+
+VIEWER_REFUSAL = (
+    "You can view this market but not change it. Its owner or an admin can give you editing "
+    "access."
+)
+EDITOR_REFUSAL = (
+    "Moving this market's phase, deciding its applications and importing them are for its owner "
+    "and admins."
+)
+
+
+def change_refusal(
+    user_email: str, market: Market, organization: Optional[Organization],
+) -> Optional[str]:
+    """Why this person cannot change this market, or None while they can (E26/F08/S01).
+
+    The bar every plan, form, placement and highlight write sets - EDITOR - asked through the same
+    permission check those writes ask, and the archived rule above it. Served on the market as
+    ``readOnlyReason``, so a screen offers no control its write would refuse: a Viewer was shown
+    every one, and each edit appeared to work until its save failed with a 403 (bug 37).
+    """
+    archived = archived_refusal(market)
+    if archived:
+        return archived
+    if PermissionsApi.user_has_permission(user_email, market, MarketRole.EDITOR, organization):
+        return None
+    return VIEWER_REFUSAL
+
+
+def admin_actions_refusal(
+    user_email: str, market: Market, organization: Optional[Organization],
+) -> Optional[str]:
+    """Why this person cannot take the ADMIN actions - moving the phase, deciding applications,
+    publishing results, importing - or None while they can (E26/F08/S01).
+
+    Served as ``adminActionsReason``. An Editor changes the plan and the seats but runs none of
+    these, and the rail offered them every phase move all the same.
+    """
+    refused = change_refusal(user_email, market, organization)
+    if refused:
+        return refused
+    if PermissionsApi.user_has_permission(user_email, market, MarketRole.ADMIN, organization):
+        return None
+    return EDITOR_REFUSAL
+
+
+def _load_market_to_change(
+    market_id: str, requesting_user: str, role: MarketRole, action: str,
+) -> Market:
+    """``_load_market_for``, for a write: an archived market is refused whoever is asking.
+
+    Every write that loads its market here meets the archived rule without saying so, so a new
+    write that loads through this cannot forget it. Roles and deletion do not come through here:
+    who may see a record, and whether to keep it, are decisions about the record, not changes to it.
+    """
+    market = _load_market_for(market_id, requesting_user, role, action)
+    refusal = archived_refusal(market)
+    if refusal:
+        raise MarketArchivedError(refusal)
     return market
 
 
@@ -520,6 +608,27 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['assignmentOutOfDate'] = (
         changed_since_run(market) if market.phase is MarketPhase.ASSIGNMENT else []
     )
+    # Hand placements at a seat the plan no longer has, for Result and the vendor's panel to mark
+    # (bug 31). The guard refuses Publish on the same list; reading it here keeps the pages from
+    # deciding for themselves which seats exist.
+    market_dict['orphanedPins'] = [
+        {"email": pin.email, "date": pin.date, "tableCode": pin.table_code}
+        for pin in orphaned_pins(
+            market.setup_object, market.assignment_object.vendor_assignments or [],
+        )
+    ]
+    # Where this market has been (E26/F06/S03), for the archived rail to say how far it got.
+    # `phaseRecordComplete` false means a phase missing from the list is unknown, not never.
+    reached = PhaseRecord.phases_reached(market_dict, AttendanceApi.market_has_attendance)
+    market_dict['phasesReached'] = sorted(reached.phases)
+    market_dict['phaseRecordComplete'] = reached.complete
+    # Why this person cannot change this market, or take its admin actions; null while they can
+    # (E26/F06/S01, E26/F08/S01). The same rules every write meets, served so each screen offers
+    # no control the server would refuse.
+    market_dict['readOnlyReason'] = change_refusal(user_email, market, context.organization)
+    market_dict['adminActionsReason'] = admin_actions_refusal(
+        user_email, market, context.organization,
+    )
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -655,6 +764,11 @@ def create_market(market: Market, owner_email: str) -> tuple:
     _strip_persisted_assignment_statistics(market_dict)
     market_dict["phase"] = MarketPhase.DRAFT.value
     market_dict["is_draft"] = True  # phase is always DRAFT at creation; kept in sync as the phase fallback
+    # Server-owned, like the phase: whatever a create body carried is replaced by the one entry
+    # every market starts with (E26/F06/S03).
+    market_dict["phase_history"] = [
+        PhaseRecord.phase_entry(MarketPhase.DRAFT.value, owner_email).model_dump()
+    ]
     market_dict["application_form"] = (
         _normalized_application_form(market.application_form).model_dump()
         if market.application_form
@@ -1051,6 +1165,13 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
                     "email": vendor.email,
                     "tableChoice": vendor.table_choice,
                     "availableDates": sorted(vendor.available_dates),
+                    # And the two answers a hand change could override without a word (bugs 18
+                    # and 32): the tiers they accept on each date - empty when never asked, which
+                    # accepts any - and how many dates they want, None for no personal limit.
+                    "acceptedTiersByDate": {
+                        date: sorted(tiers) for date, tiers in vendor.accepted_tiers_by_date.items()
+                    },
+                    "maxDates": vendor.max_dates,
                 }
                 for vendor in vendors
             ],
@@ -1081,9 +1202,9 @@ def finalization_update(
     answers exactly one question: is this form finalized right now?
 
     **It is not a restatement of ``phase != draft``**, because ``draft -> archived`` also exists -
-    the publish path - and does NOT stamp. A market published straight from draft never opened its
+    abandoning a draft - and does NOT stamp. A market archived straight from draft never opened its
     form to anybody, and the two fields therefore say different things: ``phase`` is where the
-    market is now, this is whether the form was ever opened to applicants.
+    market is now, this is whether the form is opened to applicants.
 
     If that edge is ever retired, this field becomes derivable and should be DELETED rather than
     maintained. Left here so that is a decision next time and not an archaeology problem.
@@ -1121,17 +1242,20 @@ class PhaseChangedUnderRequest(Exception):
         super().__init__(f"Market is in '{actual_phase}'")
 
 
-def apply_phase_transition(market_id: str, document: Dict[str, Any], to_phase: str) -> None:
+def apply_phase_transition(
+    market_id: str, document: Dict[str, Any], to_phase: str, by: Optional[str] = None,
+) -> None:
     """Write one phase change, conditional on the market still being where the caller thinks.
 
-    Extracted from the transition endpoint so the form-amendment chain (E20/F03/S01) walks the
-    market with the SAME writer rather than a second copy of it. A second copy is how the
-    `isDraft` stamp and the finalization stamp come to disagree with `phase`.
+    The ONE writer of a market's phase: the transition endpoint and the form-amendment chain
+    (E20/F03/S01) both move a market through it. A second copy is how the `isDraft` stamp and the
+    finalization stamp come to disagree with `phase` - and how a move goes unrecorded.
 
     ONE atomic update, and one conditional on the stored phase: a failure between the phase and
     the stamp would leave a market whose two answers disagree, which is the class of bug
     `migrate_is_draft_consistency` exists to repair, and a lost update would move a market a
-    concurrent request had already moved.
+    concurrent request had already moved. The same update records the phase entered, and who
+    moved it there, in the market's phase history (E26/F06/S03).
 
     Raises:
         PhaseChangedUnderRequest: the stored phase moved under this request.
@@ -1144,11 +1268,14 @@ def apply_phase_transition(market_id: str, document: Dict[str, Any], to_phase: s
 
     result = markets_collection.update_one(
         {"id": market_id, phase_key: stored_phase},
-        {"$set": {
-            phase_key: to_phase,
-            is_draft_key: to_phase == MarketPhase.DRAFT.value,
-            **finalization_update(from_phase, to_phase, document),
-        }},
+        {
+            "$set": {
+                phase_key: to_phase,
+                is_draft_key: to_phase == MarketPhase.DRAFT.value,
+                **finalization_update(from_phase, to_phase, document),
+            },
+            "$push": PhaseRecord.push_entries(document, to_phase, by),
+        },
     )
 
     if result.matched_count:
@@ -1311,14 +1438,9 @@ def delete_market(market_id: str, requesting_user: str) -> DeleteResult:
         except Exception as e:
             logger.warning(f"Failed to remove market from organization: {e}")
 
-    # The placement trail is kept WITH the market, not beyond it (E11/F04/S01). It names the
-    # organizers who made each change, so leaving it behind would outlive the thing it describes.
-    try:
-        PlacementHistory.delete_for_market(market_id)
-    except Exception as e:
-        logger.warning(f"Failed to delete placement history for market {market_id}: {e}")
-
-    return markets_collection.delete_one({"id": market_id})
+    # Its applications, check-ins, sign-in codes and placement trail go with it (bug 47): each
+    # names people, and leaving them behind would outlive the thing they describe.
+    return MarketDeletion.delete_market_and_records(markets_collection, market_id)
 
 
 RENAME_REFUSED_AFTER_DRAFT = (
@@ -1342,7 +1464,7 @@ def rename_market(market_id: str, name: str, requesting_user: str) -> None:
     if not name:
         raise ValueError("A market needs a name.")
 
-    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "rename")
+    market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "rename")
     if market.phase is not MarketPhase.DRAFT:
         raise ValueError(RENAME_REFUSED_AFTER_DRAFT)
     if name == market.name:
@@ -1386,7 +1508,7 @@ def save_plan(market_id: str, body: Dict[str, Any], requesting_user: str) -> Non
     if "setupObject" not in body:
         raise ValueError("setupObject is required.")
 
-    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
     markets_collection.update_one(market_doc_filter("id", market_id),
                                   {"$set": prepared_plan(market, body)})
 
@@ -1439,7 +1561,7 @@ def save_review_highlights(
     organizer learns which answers they needed by reading real applications. A highlight that
     inherited the form's lock would be settable only before anyone could know what to set.
     """
-    _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
 
     seen: List[str] = []
     for key in keys:
@@ -1465,7 +1587,7 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         PermissionError: user lacks EDITOR+ permission
         ApplicationFormLockedError: phase gate or D9 lock prevents editing
     """
-    market = _load_market_for(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
     form_dict = prepared_application_form(market, application_form_data)
     markets_collection.update_one(
         {"id": market_id},

@@ -135,16 +135,9 @@ test.describe('Authentication journeys', () => {
         expect(token).toBeTruthy();
         expect(token.length).toBeGreaterThanOrEqual(10);
 
-        // Step 4: Navigate to the reset page with the real token.
-        // App.vue's onMounted calls /check-session and redirects on
-        // failure; intercept it so the reset page can render.
-        await page.route('**/check-session', async (route) => {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ email }),
-          });
-        });
+        // Step 4: Navigate to the reset page with the real token, signed out, the way the
+        // person the email went to arrives. `/check-session` is deliberately not stubbed: it
+        // answering 401 is the condition this page has to survive (E26/F01/S01).
 
         // Intercept the reset-password API call to verify the correct
         // payload is sent and to return success.
@@ -231,7 +224,9 @@ test.describe('Authentication journeys', () => {
       await loginPage.otpSubmitButton.click();
 
       await expect(loginPage.otpErrorMessage).toBeVisible({ timeout: 10000 });
-      await expect(loginPage.otpErrorMessage).toContainText(/Invalid OTP|Too many failed attempts/);
+      await expect(loginPage.otpErrorMessage).toContainText(
+        /That code is not right|Too many wrong codes/,
+      );
     });
   });
 });

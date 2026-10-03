@@ -113,7 +113,7 @@ def test_record_attendance_upserts_with_timestamp(monkeypatch):
 
 
 def test_get_vendor_assignment_summary_404_when_market_missing(monkeypatch):
-    monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda slug: None)
+    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda slug: None)
     result, status = AttendanceApi.get_vendor_assignment_summary("nope", "v@example.com")
     assert status == 404
     assert result["error"] == "Market not found"
@@ -121,45 +121,40 @@ def test_get_vendor_assignment_summary_404_when_market_missing(monkeypatch):
 
 def test_get_vendor_assignment_summary_404_when_no_assignment(monkeypatch):
     market = _market_with_assignment()
-    monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda slug: market)
-
-    assigned = SimpleNamespace(
-        setup_object=None,
-        assignment_object=SimpleNamespace(vendor_assignments=[
-            SimpleNamespace(
-                email="someone@else.com", date="2026-05-01",
-                table_code="A1", table_choice="Full Table",
-                section="A", tier="Gold", location="Main Hall",
-            )
-        ]),
-    )
-    monkeypatch.setattr(AttendanceApi, "assign_market", lambda m: assigned)
+    market["assignmentObject"]["vendorAssignments"][0]["email"] = "someone@else.com"
+    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda slug: market)
 
     result, status = AttendanceApi.get_vendor_assignment_summary("test-market", "vendor@example.com")
     assert status == 404
     assert "No assignment" in result["error"]
 
 
+def test_the_lookup_reads_the_stored_assignment_and_never_runs_the_solver(monkeypatch):
+    """Bug 1: it ran the solver afresh on every lookup, so a vendor moved by hand was sent to their
+    old seat - another vendor's by then - and could check in there."""
+    market = _market_with_assignment()
+    row = market["assignmentObject"]["vendorAssignments"][0]
+    row.update({"tableCode": "B7", "handPlaced": True})  # where the organizer moved them
+    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda slug: market)
+    monkeypatch.setattr(AttendanceApi, "attendance_collection", FakeAttendanceCollection())
+
+    def no_solver(*_args, **_kwargs):
+        raise AssertionError("a check-in lookup ran the solver")
+
+    monkeypatch.setattr(AttendanceApi, "assign_market", no_solver, raising=False)
+
+    result, status = AttendanceApi.get_vendor_assignment_summary("test-market", "vendor@example.com")
+    assert status == 200
+    assert [a["tableCode"] for a in result["assignments"]] == ["B7"]
+
+
 def test_get_vendor_assignment_summary_returns_camel_case_with_attendance_flag(monkeypatch):
     market = _market_with_assignment()
-    monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda slug: market)
-
-    assigned = SimpleNamespace(
-        setup_object=SimpleNamespace(market_dates=[SimpleNamespace(date="2026-05-01")]),
-        assignment_object=SimpleNamespace(vendor_assignments=[
-            SimpleNamespace(
-                email="vendor@example.com", date="2026-05-01",
-                table_code="A1", table_choice="Full Table",
-                section="A", tier="Gold", location="Main Hall",
-            ),
-            SimpleNamespace(
-                email="vendor@example.com", date="2026-05-02",
-                table_code="A2", table_choice="Full Table",
-                section="A", tier="Gold", location="Main Hall",
-            ),
-        ]),
-    )
-    monkeypatch.setattr(AttendanceApi, "assign_market", lambda m: assigned)
+    market["assignmentObject"]["vendorAssignments"].append({
+        "email": "vendor@example.com", "date": "2026-05-02", "tableCode": "A2",
+        "tableChoice": "Full Table", "section": "A", "tier": "Gold", "location": "Main Hall",
+    })
+    monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda slug: market)
 
     fake_coll = FakeAttendanceCollection()
     fake_coll.docs.append({
@@ -296,7 +291,7 @@ def test_get_published_market_by_slug_skips_draft_phase(monkeypatch):
     assert AttendanceApi.get_published_market_by_slug("draft-market") is None
 
 
-def test_get_published_market_by_slug_finds_archived_phase(monkeypatch):
+def test_get_published_market_by_slug_finds_a_running_market(monkeypatch):
     fake = FakeSlugMarketsCollection([
         _slug_market("Draft Market", phase="draft", isDraft=True),
         _slug_market("Live Market", phase="market_days", isDraft=False),
@@ -470,7 +465,7 @@ class TestNamingTheMarketBeforeAnythingIsTyped:
 
     def test_names_a_published_market_from_its_slug_alone(self, monkeypatch):
         monkeypatch.setattr(
-            AttendanceApi, "get_published_market_by_slug",
+            AttendanceApi, "get_check_in_market",
             lambda _slug: {
                 "id": "market-123",
                 "name": "Winter Market 2026",
@@ -485,7 +480,7 @@ class TestNamingTheMarketBeforeAnythingIsTyped:
         assert result["marketDates"] == ["2026-11-21", "2026-11-22"]
 
     def test_answers_nothing_for_a_market_that_is_not_published(self, monkeypatch):
-        monkeypatch.setattr(AttendanceApi, "get_published_market_by_slug", lambda _slug: None)
+        monkeypatch.setattr(AttendanceApi, "get_check_in_market", lambda _slug: None)
 
         result, status = AttendanceApi.get_checkin_page("no-such-market")
 
@@ -494,7 +489,7 @@ class TestNamingTheMarketBeforeAnythingIsTyped:
 
     def test_a_market_with_no_plan_still_names_itself(self, monkeypatch):
         monkeypatch.setattr(
-            AttendanceApi, "get_published_market_by_slug",
+            AttendanceApi, "get_check_in_market",
             lambda _slug: {"id": "m", "name": "Bare Market"},
         )
 

@@ -290,6 +290,48 @@ def test_get_market_tables_returns_camel_case_rows(monkeypatch):
     assert result["vendorNames"] == {"a@example.com": "Ana Rivera"}
 
 
+def test_get_market_tables_sends_every_answer_a_hand_change_can_override(monkeypatch):
+    """The place and swap dialogs warn before a change, so they need the answers it would cross:
+    the tiers accepted on each date and the vendor's own limit, beside availability and table
+    choice (bugs 18 and 32, E26/F05/S03)."""
+    from assignment.vendor_input import SolverVendor
+
+    monkeypatch.setattr(
+        MarketsApi.markets_collection,
+        "find_one",
+        lambda query: _sample_market_doc_with_setup(),
+    )
+    monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
+    monkeypatch.setattr(MarketsApi, "assign_market", lambda market, vendors=None: SimpleNamespace())
+    monkeypatch.setattr(MarketsApi, "derive_market_table_rows", lambda assigned_market: [])
+    monkeypatch.setattr(MarketsApi.ApplicationsApi, "vendor_names_for_market", lambda _id: {})
+    vendor = SolverVendor(
+        application_id="app-1",
+        email="carol@example.com",
+        available_dates=frozenset({"2026-01-02", "2026-01-01"}),
+        max_dates=1,
+        accepted_tiers_by_date={"2026-01-01": frozenset({"Silver", "Gold"})},
+        table_choice="half",
+        table_share_email=None,
+        section_ranking=(),
+        table_type_ranking=(),
+    )
+    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [vendor])
+
+    result, status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
+
+    assert status == 200
+    assert result["vendors"] == [
+        {
+            "email": "carol@example.com",
+            "tableChoice": "half",
+            "availableDates": ["2026-01-01", "2026-01-02"],
+            "acceptedTiersByDate": {"2026-01-01": ["Gold", "Silver"]},
+            "maxDates": 1,
+        }
+    ]
+
+
 def test_derive_market_table_rows_includes_unassigned_tables():
     assigned_market = SimpleNamespace(
         setup_object=SimpleNamespace(

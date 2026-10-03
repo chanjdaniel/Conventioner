@@ -15,7 +15,11 @@ import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 import db_config as test_db_config
 import essential_fields as EssentialFields
-from api.applicants import get_public_application_form, save_applicant_application
+from api.applicants import (
+    get_applicant_application,
+    get_public_application_form,
+    save_applicant_application,
+)
 from datatypes import Application, ApplicationForm, ApplicationStatus, EssentialFormOptions
 
 
@@ -208,6 +212,23 @@ class TestValidatedEssentialAnswers:
         error, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
 
         assert "cannot exceed" in error
+
+    def test_an_import_may_carry_no_personal_limit(self):
+        """A row from a form that never asked how many dates has none (bug 24). The online form
+        asks, so it still requires an answer - and an answer given is still checked."""
+        answers = {k: v for k, v in VALID_ANSWERS.items() if k != "essential_max_dates"}
+
+        required, _ = EssentialFields.validated_essential_answers(answers, OPTIONS)
+        error, stored = EssentialFields.validated_essential_answers(
+            {**answers, "essential_max_dates": " "}, OPTIONS, limit_required=False,
+        )
+        wrong, _ = EssentialFields.validated_essential_answers(
+            {**answers, "essential_max_dates": 0}, OPTIONS, limit_required=False,
+        )
+
+        assert required == "'Number of dates you want' is required."
+        assert error is None and stored["essential_max_dates"] is None
+        assert "at least 1" in wrong
 
     def test_max_dates_may_exceed_the_available_dates(self):
         """STUB (product decision pending): max > len(available) is accepted; consumers treat
@@ -544,6 +565,94 @@ def _seed_application(applications):
     ).model_dump())
 
 
+class TestAFirstTimeVendor:
+    """A vendor who signed in but has never applied (bug 6, E26/F07/S01)."""
+
+    def test_has_no_application_and_is_told_so_rather_than_refused(
+        self, applicant_db, applications,
+    ):
+        body, status = get_applicant_application("test-market", _token())
+
+        assert status == 200
+        assert body == {"application": None}
+
+    def test_their_first_save_creates_their_application(self, applicant_db, applications):
+        body, status = save_applicant_application(
+            "test-market", _token(), {**VALID_ANSWERS, "business_name": "Acme"},
+        )
+
+        assert status == 200, body
+        stored = applications.find_one({"applicant_email": "vendor@example.com"})
+        assert stored["form_data"]["business_name"] == "Acme"
+        assert stored["market_id"] == "market-123"
+        assert body["application"]["applicantEmail"] == "vendor@example.com"
+
+    def test_a_refused_first_save_leaves_no_application_behind(self, applicant_db, applications):
+        """An empty application would sit in the organizer's review queue (the importer's bug 5)."""
+        _, status = save_applicant_application(
+            "test-market", _token(), {**A_NAME, "business_name": "Acme"},
+        )
+
+        assert status == 422
+        assert applications.find_one({"applicant_email": "vendor@example.com"}) is None
+
+    def test_their_application_is_found_by_who_they_are_not_by_an_id_in_the_token(
+        self, applicant_db, applications,
+    ):
+        _seed_application(applications)
+        token = {"market_id": "market-123", "email": "vendor@example.com"}
+
+        body, status = get_applicant_application("test-market", token)
+
+        assert status == 200
+        assert body["application"]["id"] == "app-1"
+
+
+class TestAfterApplicationsClose:
+    """Reading stays open; applying does not (bug 20, E26/F07/S02)."""
+
+    @pytest.fixture
+    def closed(self, monkeypatch):
+        doc = _applicant_market_doc()
+        doc["phase"] = "applications_closed"
+        markets = FakeSlugMarketsCollection(doc)
+
+        class _Db(dict):
+            def __getitem__(self, name):
+                return markets
+
+        monkeypatch.setattr(test_db_config, "get_database", lambda *_a, **_kw: _Db())
+        return markets
+
+    def test_a_vendor_can_still_read_their_application(self, closed, applications):
+        _seed_application(applications)
+
+        body, status = get_applicant_application("test-market", _token())
+
+        assert status == 200
+        assert body["application"]["id"] == "app-1"
+
+    def test_a_save_is_refused_in_words_and_writes_nothing(self, closed, applications):
+        _seed_application(applications)
+
+        body, status = save_applicant_application(
+            "test-market", _token(), {**VALID_ANSWERS, "business_name": "Changed"},
+        )
+
+        assert status == 403
+        assert "no longer open" in body["error"]
+        assert applications.find_one({"id": "app-1"})["form_data"] == {}
+
+    def test_a_stranger_cannot_apply_either(self, closed, applications):
+        body, status = save_applicant_application(
+            "test-market", _token(email="stranger@example.com"),
+            {**VALID_ANSWERS, "business_name": "Late"},
+        )
+
+        assert status == 403
+        assert applications.find_one({"applicant_email": "stranger@example.com"}) is None
+
+
 class TestApplicantSave:
     def test_a_save_stores_the_essential_answers_beside_the_custom_ones(
         self, applicant_db, applications,
@@ -588,7 +697,6 @@ class TestApplicantSave:
             "dates": DATES, "sections": SECTIONS, "tableTypes": STUB_TABLE_TYPES,
             "tiers": TIERS,
             "unasked": [],
-            "tiers": TIERS,
         }
 
     def test_answers_are_validated_against_the_frozen_offering_not_the_live_plan(
@@ -598,7 +706,7 @@ class TestApplicantSave:
         doc = _applicant_market_doc()
         doc["applicationForm"]["essentialOptions"] = {
             "dates": ["2026-08-01"], "sections": ["Main Hall"], "tableTypes": ["Full Table"],
-                "tiers": [],
+            "tiers": [],
         }
         markets = FakeSlugMarketsCollection(doc)
 

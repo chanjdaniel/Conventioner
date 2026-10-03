@@ -94,7 +94,9 @@ function toggle(key: string, on: boolean) {
         @change="toggle(candidate.key, ($event.target as HTMLInputElement).checked)"
       />
       <span class="highlight-label">{{ candidate.label }}</span>
-      <span v-if="!candidate.custom" class="highlight-kind">asked by every market</span>
+      <!-- What KIND of question, never a claim about every market: a market can stop asking
+           Section preference, and a plan with no tiers asks no Tier preference (bug 42). -->
+      <span v-if="!candidate.custom" class="highlight-kind">essential question</span>
     </label>
   </div>
 </template>

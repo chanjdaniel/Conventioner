@@ -93,8 +93,9 @@ describe('every modal holds the page inert', () => {
      * idiom spreads, and lowering it is a migration landing rather than a rule being weakened.
      * What must never fall is the shell itself, which is why it is named below. Six since
      * `VendorsModal` went with the old results page (E22/F04/S04): a modal removed, not unwired.
+     * Five since the floorplan path choice moved onto the shell (E26/F10/S03).
      */
-    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(6);
+    expect(fullViewportCovers().length).toBeGreaterThanOrEqual(5);
   });
 
   it('includes the dialog shell, which paints the cover for every dialog built on it', () => {

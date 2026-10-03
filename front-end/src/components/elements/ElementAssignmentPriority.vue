@@ -226,6 +226,7 @@ const dragOptions = computed(() => ({
             <div class="row-item click-item">
               <select
                 class="dropdown"
+                :aria-label="`Rule ${parentIndex + 1}: what it orders by`"
                 data-testid="priority-target-select"
                 :disabled="readonly"
                 v-model="priorityObjects[parentIndex].target"
@@ -262,6 +263,7 @@ const dragOptions = computed(() => ({
               >
                 <select
                   class="dropdown"
+                  :aria-label="`Rule ${parentIndex + 1}: which end comes first`"
                   data-testid="priority-direction-select"
                   :disabled="readonly"
                   v-model="priorityObjects[parentIndex].direction"
@@ -308,18 +310,23 @@ const dragOptions = computed(() => ({
                         <h3>{{ childIndex + 1 }}</h3>
                       </div>
                       <h3 class="sorting-answer">{{ answer }}</h3>
-                      <IconCloseRound
+                      <button
                         v-if="!readonly"
-                        class="close-round"
+                        type="button"
+                        class="remove-button"
+                        :aria-label="`Remove ${answer} from rule ${parentIndex + 1}`"
                         data-testid="priority-ordering-remove"
                         @click="removeOrderingItem(parentIndex, childIndex)"
-                      />
+                      >
+                        <IconCloseRound />
+                      </button>
                     </div>
                   </template>
                 </draggable>
                 <select
                   v-if="!readonly"
                   class="dropdown add-answer"
+                  :aria-label="`Rule ${parentIndex + 1}: add an answer`"
                   data-testid="priority-ordering-add"
                   :value="''"
                   @change="
@@ -348,12 +355,16 @@ const dragOptions = computed(() => ({
               </div>
             </div>
             <div class="row-item">
-              <IconCloseRound
+              <button
                 v-if="!readonly"
-                class="close-round"
+                type="button"
+                class="remove-button"
+                :aria-label="`Remove rule ${parentIndex + 1}`"
                 data-testid="priority-rule-remove"
                 @click="removePriorityRow(parentIndex)"
-              />
+              >
+                <IconCloseRound />
+              </button>
             </div>
           </div>
         </template>
@@ -505,6 +516,12 @@ h3 {
   text-overflow: ellipsis;
 }
 
+/* Its outline is off for the pointer; the keyboard still gets the product's ring (bug 44). */
+.dropdown:focus-visible {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
+}
+
 .click-item {
   cursor: pointer;
   display: flex;
@@ -533,10 +550,25 @@ h3 {
   left: 0;
 }
 
-.icon-close-round {
-  width: 20px;
-  height: 20px;
+/* Buttons, not icons with a click handler: a keyboard could not remove a rule or an answer, and
+   nothing named either (bug 44, found again on the E26 re-walk). */
+.remove-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--mm-black);
   cursor: pointer;
+}
+
+.remove-button:focus-visible {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
 }
 
 .sorting-order-container {

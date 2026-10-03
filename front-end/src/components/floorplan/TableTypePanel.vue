@@ -54,9 +54,12 @@ const UNIT_OPTIONS = [
 // ── Inline add form ────────────────────────────────────────────────
 const showForm = ref(false);
 
+/** A new type seats two, as a table does everywhere else in the product - it seated one (bug 38). */
+const DEFAULT_CAPACITY = 2;
+
 const form = reactive<{ name: string; maxCapacity: 1 | 2 }>({
   name: '',
-  maxCapacity: 1,
+  maxCapacity: DEFAULT_CAPACITY,
 });
 const formWidthMm = ref<number | null>(null);
 const formHeightMm = ref<number | null>(null);
@@ -68,7 +71,7 @@ function resetForm() {
   form.name = '';
   formWidthMm.value = null;
   formHeightMm.value = null;
-  form.maxCapacity = 1;
+  form.maxCapacity = DEFAULT_CAPACITY;
   selectedUnit.value = 'mm';
   formError.value = '';
 }
@@ -321,6 +324,7 @@ const selectOptions = [
             option-label="label"
             option-value="value"
             class="tt-select-btn"
+            data-testid="floorplan-table-type-capacity"
           />
         </div>
 

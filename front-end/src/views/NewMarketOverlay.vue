@@ -21,7 +21,7 @@ import { marketPath } from '@/utils/market';
 import AppDialog from '@/components/AppDialog.vue';
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { IntakeMode, type Market, MarketRole } from '@/assets/types/datatypes.ts';
+import { IntakeMode, type Market } from '@/assets/types/datatypes.ts';
 import axios from 'axios';
 import { api } from '@/utils/api';
 
@@ -77,15 +77,12 @@ const handleSubmit = async () => {
   creating.value = true;
 
   try {
-    const userEmail = JSON.parse(localStorage.getItem('user') || 'null');
-    const newMarket: Omit<Market, 'id'> & { id?: string } = {
+    // No roles: whoever creates a market owns it, and the server says so (bug 46).
+    const newMarket: Omit<Market, 'id' | 'roles'> = {
       name: marketName.value,
       creationDate: new Date().toISOString(),
       isDraft: true,
       organizationId: selectedOrgId.value,
-      roles: {
-        [userEmail]: MarketRole.Owner,
-      },
       setupObject: null,
       ...(start.value === 'google-form' ? { intakeMode: IntakeMode.Csv } : {}),
       modificationList: [],

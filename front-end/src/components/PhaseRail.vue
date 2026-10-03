@@ -20,8 +20,7 @@
  * that the spine wraps rather than compressing, because labels painting over each other is worse
  * than a rail two lines tall.
  */
-import { hasAssignment } from '@/utils/marketPage';
-import { computed, ref } from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
@@ -79,23 +78,31 @@ const currentIndex = computed(() => spine.value.indexOf(currentPhase.value));
 const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
 
 /**
- * An archived market froze; the rail says so at the stage it can evidence reaching.
+ * Where this market has been, from the phase history the server keeps (E26/F06/S03).
  *
- * There is no record of which phases a market passed through, so this is read off what it holds:
- * a stored assignment means it reached `assignment`, a published application form means it
- * reached `applications_open`, and otherwise it never left `draft`. Evidence, not history - which
- * is why the words beside the spine carry the meaning and the spine only reinforces them.
+ * It used to be read off evidence - a stored assignment meant Assignment, a published form meant
+ * Applications Open - and no evidence told "assigned, then archived" from "published, ran, then
+ * archived", so a market that ran was told no check-in page ever went on the air (bug 8).
  */
+const reached = computed(() => new Set(props.market?.phasesReached ?? []));
+/**
+ * Whether a stage missing from `reached` was never reached, or only is not known to have been: a
+ * market that predates the record is served what it can prove, and says no more than that.
+ */
+const recordComplete = computed(() => props.market?.phaseRecordComplete === true);
+
+/** Did it run - is there a check-in page that archiving would turn into a record? */
+const ran = computed(
+  () => currentPhase.value === MarketPhase.MarketDays || reached.value.has(MarketPhase.MarketDays),
+);
+
+/** An archived market froze at the furthest stage it reached. */
 const frozenAtIndex = computed(() => {
-  const market = props.market;
-  if (!market) return 0;
-  if (hasAssignment(market)) {
-    return spine.value.indexOf(MarketPhase.Assignment);
-  }
-  if (market.applicationForm?.publishedAt) {
-    return spine.value.indexOf(MarketPhase.ApplicationsOpen);
-  }
-  return 0;
+  let furthest = 0;
+  spine.value.forEach((phase, index) => {
+    if (phase !== MarketPhase.Archived && reached.value.has(phase)) furthest = index;
+  });
+  return furthest;
 });
 
 /**
@@ -103,24 +110,31 @@ const frozenAtIndex = computed(() => {
  *
  * The prototype settled this: strikethrough alone reads as *stopped*, not as *archived* - a
  * reader cannot tell a deliberately-ended rail from a broken one. Words are the fix and the
- * strikethrough stays as reinforcement.
+ * strikethrough stays as reinforcement. Only a whole record may say what did NOT happen.
  */
 const frozenNote = computed(() => {
   if (!isArchived.value) return '';
-  const reached = spine.value[frozenAtIndex.value];
-  if (reached === MarketPhase.Assignment) {
-    return 'It was assigned but never published, so no check-in page went on the air.';
+  const has = (...phases: MarketPhase[]) => phases.some((phase) => reached.value.has(phase));
+  const whole = recordComplete.value;
+  if (has(MarketPhase.MarketDays)) return 'It was published and ran its market days.';
+  if (has(MarketPhase.Assignment, MarketPhase.Offers)) {
+    return whole
+      ? 'It was assigned but never published, so no check-in page went on the air.'
+      : 'It was assigned.';
   }
-  if (reached === MarketPhase.ApplicationsOpen) {
-    return 'It took applications but was never assigned.';
+  if (has(MarketPhase.ApplicationsOpen, MarketPhase.ApplicationsClosed, MarketPhase.Review)) {
+    return whole ? 'It opened applications but was never assigned.' : 'It opened applications.';
   }
-  return 'It was abandoned before it ran.';
+  return whole ? 'It was abandoned before it opened applications.' : '';
 });
 
 function stepState(index: number): 'done' | 'current' | 'todo' | 'frozen' {
   if (isArchived.value) {
     if (spine.value[index] === MarketPhase.Archived) return 'current';
-    return index <= frozenAtIndex.value ? 'done' : 'frozen';
+    if (index <= frozenAtIndex.value) return 'done';
+    // Struck through only when the record says it was never reached; otherwise it is unknown,
+    // and striking it would be the guess this replaced.
+    return recordComplete.value ? 'frozen' : 'todo';
   }
   if (index < currentIndex.value) return 'done';
   if (index === currentIndex.value) return 'current';
@@ -165,6 +179,15 @@ const applyUrl = computed(() => {
   return `${window.location.origin}/${slug}/apply`;
 });
 
+/**
+ * An address as the chip shows it: without its scheme, which every one of them shares, so the part
+ * that names this market is what shows when the chip is too narrow for all of it. The link, its
+ * hover text and Copy carry the whole address.
+ */
+function shown(url: string): string {
+  return url.replace(/^https?:\/\//, '');
+}
+
 /** Which chip last confirmed a copy, so two chips do not share one "Copied". */
 const copiedUrl = ref('');
 
@@ -176,8 +199,8 @@ async function copyUrl(url: string): Promise<void> {
       if (copiedUrl.value === url) copiedUrl.value = '';
     }, 2000);
   } catch {
-    // Clipboard access can be refused, and the URL is on screen either way - so the copy is a
-    // convenience, never the only way to get it.
+    // Clipboard access can be refused, and the URL is the link and its hover text either way - so
+    // the copy is a convenience, never the only way to get it.
     copiedUrl.value = '';
   }
 }
@@ -211,8 +234,13 @@ function transitionLabel(toPhase: string): string {
   return TRANSITION_LABELS[toPhase] ?? `Move to ${phaseLabel(toPhase)}`;
 }
 
+/**
+ * The moves this person may make. None when moving the phase is not theirs to do (bug 37): an
+ * Editor or a Viewer was offered every move, and each failed with a 403 in small red text under
+ * the rail. The rail still says where the market stands.
+ */
 const availableTransitions = computed(() =>
-  props.market
+  props.market && !props.market.adminActionsReason
     ? VALID_TRANSITIONS.filter(([from]) => from === currentPhase.value).map(([, to]) => to)
     : [],
 );
@@ -229,8 +257,63 @@ const otherTransitions = computed(() =>
   availableTransitions.value.filter((to) => to !== forwardTransition.value),
 );
 
+/*
+ * "More…" is a menu (bug 44): a menu button that opens into its items, whose arrow keys walk them,
+ * and whose Escape - or a click anywhere else - closes it and hands focus back. It opened a list of
+ * plain buttons that a screen reader announced as nothing in particular, and stayed open until
+ * the button was pressed again.
+ */
 const menuOpen = ref(false);
-useEscapeToClose(menuOpen, () => (menuOpen.value = false));
+const menuButton = ref<HTMLButtonElement | null>(null);
+const menuList = ref<HTMLElement | null>(null);
+
+function closeMenu(returnFocus: boolean) {
+  menuOpen.value = false;
+  if (returnFocus) void nextTick(() => menuButton.value?.focus());
+}
+useEscapeToClose(menuOpen, () => closeMenu(true));
+
+function menuItems(): HTMLButtonElement[] {
+  return Array.from(menuList.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? []);
+}
+
+watch(menuOpen, (open) => {
+  if (open) void nextTick(() => menuItems()[0]?.focus());
+});
+
+function onMenuKey(event: KeyboardEvent) {
+  const items = menuItems();
+  const at = items.indexOf(document.activeElement as HTMLButtonElement);
+  const last = items.length - 1;
+  const to =
+    event.key === 'ArrowDown'
+      ? (at + 1) % items.length
+      : event.key === 'ArrowUp'
+        ? (at + last) % items.length
+        : event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? last
+            : null;
+  if (event.key === 'Tab') {
+    closeMenu(false);
+    return;
+  }
+  if (to === null) return;
+  event.preventDefault();
+  items[to]?.focus();
+}
+
+/** A press outside the menu closes it, as it would any menu. */
+function onPointerDown(event: PointerEvent) {
+  const menu = menuButton.value?.parentElement;
+  if (menu && !menu.contains(event.target as Node)) closeMenu(false);
+}
+watch(menuOpen, (open) => {
+  if (open) document.addEventListener('pointerdown', onPointerDown);
+  else document.removeEventListener('pointerdown', onPointerDown);
+});
+onUnmounted(() => document.removeEventListener('pointerdown', onPointerDown));
 
 function directionOf(toPhase: string): string {
   return transitionDirection(currentPhase.value, toPhase, spine.value);
@@ -333,71 +416,103 @@ function cancelPending() {
         </li>
       </ol>
 
-      <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
-      <div v-if="applyUrl" class="url-chip" data-testid="phase-rail-apply">
-        <span class="url-chip-label">Application page</span>
-        <a class="url-chip-url" :href="applyUrl" target="_blank" rel="noopener">{{ applyUrl }}</a>
-        <button
-          type="button"
-          class="url-chip-copy"
-          data-testid="phase-rail-apply-copy"
-          @click="copyUrl(applyUrl)"
-        >
-          {{ copiedUrl === applyUrl ? 'Copied' : 'Copy' }}
-        </button>
-      </div>
-
-      <div v-if="checkInUrl" class="url-chip" data-testid="phase-rail-checkin">
-        <span class="url-chip-label">Check-in page</span>
-        <a class="url-chip-url" :href="checkInUrl" target="_blank" rel="noopener">{{
-          checkInUrl
-        }}</a>
-        <button
-          type="button"
-          class="url-chip-copy"
-          data-testid="phase-rail-checkin-copy"
-          @click="copyUrl(checkInUrl)"
-        >
-          {{ copiedUrl === checkInUrl ? 'Copied' : 'Copy' }}
-        </button>
-      </div>
-
-      <div class="phase-rail-actions">
-        <button
-          v-if="forwardTransition"
-          type="button"
-          class="rail-button rail-button--forward"
-          :disabled="transitioning"
-          :data-testid="`phase-transition-${forwardTransition}`"
-          @click="handleTransitionClick(forwardTransition)"
-        >
-          {{ transitionLabel(forwardTransition) }}
-        </button>
-
-        <div v-if="otherTransitions.length" class="rail-menu">
+      <!-- The rail's end: the public addresses and the actions travel together, so a row that cannot
+           hold them all gives them a second row of their own rather than leaving a lone button
+           beside an empty band (bug 11, claims-and-room 07). -->
+      <div class="phase-rail-end" :class="{ 'phase-rail-end--addresses': applyUrl || checkInUrl }">
+        <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
+        <div v-if="applyUrl" class="url-chip" data-testid="phase-rail-apply">
+          <span class="url-chip-label">Application page</span>
+          <a
+            class="url-chip-url"
+            :href="applyUrl"
+            :title="applyUrl"
+            target="_blank"
+            rel="noopener"
+            >{{ shown(applyUrl) }}</a
+          >
           <button
             type="button"
-            class="rail-button rail-button--menu"
-            :aria-expanded="menuOpen"
-            data-testid="phase-rail-menu-button"
-            @click="menuOpen = !menuOpen"
+            class="url-chip-copy"
+            data-testid="phase-rail-apply-copy"
+            @click="copyUrl(applyUrl)"
           >
-            More…
+            {{ copiedUrl === applyUrl ? 'Copied' : 'Copy' }}
           </button>
-          <div v-if="menuOpen" class="rail-menu-list" data-testid="phase-rail-menu">
+        </div>
+
+        <div v-if="checkInUrl" class="url-chip" data-testid="phase-rail-checkin">
+          <span class="url-chip-label">Check-in page</span>
+          <a
+            class="url-chip-url"
+            :href="checkInUrl"
+            :title="checkInUrl"
+            target="_blank"
+            rel="noopener"
+            >{{ shown(checkInUrl) }}</a
+          >
+          <button
+            type="button"
+            class="url-chip-copy"
+            data-testid="phase-rail-checkin-copy"
+            @click="copyUrl(checkInUrl)"
+          >
+            {{ copiedUrl === checkInUrl ? 'Copied' : 'Copy' }}
+          </button>
+        </div>
+
+        <div class="phase-rail-actions">
+          <button
+            v-if="forwardTransition"
+            type="button"
+            class="rail-button rail-button--forward"
+            :disabled="transitioning"
+            :data-testid="`phase-transition-${forwardTransition}`"
+            @click="handleTransitionClick(forwardTransition)"
+          >
+            {{ transitionLabel(forwardTransition) }}
+          </button>
+
+          <div v-if="otherTransitions.length" class="rail-menu">
             <button
-              v-for="toPhase in otherTransitions"
-              :key="toPhase"
+              id="phase-rail-menu-button"
+              ref="menuButton"
               type="button"
-              class="rail-menu-item"
-              :class="`rail-menu-item--${directionOf(toPhase)}`"
-              :disabled="transitioning"
-              :data-direction="directionOf(toPhase)"
-              :data-testid="`phase-transition-${toPhase}`"
-              @click="handleTransitionClick(toPhase)"
+              class="rail-button rail-button--menu"
+              aria-haspopup="menu"
+              aria-controls="phase-rail-menu"
+              :aria-expanded="menuOpen"
+              data-testid="phase-rail-menu-button"
+              @click="menuOpen = !menuOpen"
             >
-              {{ transitionLabel(toPhase) }}
+              More…
             </button>
+            <div
+              v-if="menuOpen"
+              id="phase-rail-menu"
+              ref="menuList"
+              class="rail-menu-list"
+              role="menu"
+              aria-labelledby="phase-rail-menu-button"
+              data-testid="phase-rail-menu"
+              @keydown="onMenuKey"
+            >
+              <button
+                v-for="toPhase in otherTransitions"
+                :key="toPhase"
+                type="button"
+                role="menuitem"
+                tabindex="-1"
+                class="rail-menu-item"
+                :class="`rail-menu-item--${directionOf(toPhase)}`"
+                :disabled="transitioning"
+                :data-direction="directionOf(toPhase)"
+                :data-testid="`phase-transition-${toPhase}`"
+                @click="handleTransitionClick(toPhase)"
+              >
+                {{ transitionLabel(toPhase) }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -461,6 +576,12 @@ function cancelPending() {
         Archiving is permanent. Once archived, a market cannot be returned to an active phase. This
         action cannot be undone.
       </p>
+      <!-- What happens to the one public page a market that ran has (bug 9): said here, before
+           it happens, rather than discovered at the door. -->
+      <p v-if="ran" class="rail-confirm-text" data-testid="archive-confirm-check-in">
+        Its check-in page stays up as a record: vendors can still look up where they were placed,
+        but nobody can check in.
+      </p>
     </AppDialog>
   </Teleport>
 </template>
@@ -483,10 +604,10 @@ function cancelPending() {
 .phase-rail-row {
   display: flex;
   align-items: center;
-  gap: 24px;
-  /* Wraps rather than compressing. The spine is the flexible element on the row, so without this
-     the check-in URL takes its pixels and the labels paint over each other - which the prototype
-     measured at 1366 and below. Two lines tall beats an unreadable smear. */
+  gap: var(--space-3) var(--space-6);
+  /* Wraps rather than compressing the spine, whose labels then paint over each other - which the
+     prototype measured at 1366 and below. Two rows beat an unreadable smear; what goes onto the
+     second is the rail's end as a whole (below). */
   flex-wrap: wrap;
 }
 
@@ -564,30 +685,59 @@ function cancelPending() {
   color: var(--mm-text-muted);
 }
 
+/*
+ * The addresses and the actions, as one item of the row (bug 11). With only actions it is as wide as
+ * they are. With an address it asks for room enough to show a useful part of one beside them, and
+ * takes a row of its own where the row has less - so at the workspace width the rail is one row, and
+ * below it the second row is designed: addresses at its start, actions at its end.
+ */
+.phase-rail-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.phase-rail-end--addresses {
+  flex: 1 1 34rem;
+}
+
 /* One chip, two users: the application page and the check-in page (E18/F04/S02). */
 .url-chip {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
-  padding: 4px 10px;
+  /* Never taller than the buttons beside it, and stretched to theirs: at 4px it was a pixel taller,
+     so the rail grew by one whenever an address appeared. */
+  padding: 3px 4px 3px 10px;
+  align-self: stretch;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
   font-size: var(--text-xs);
+  /* The one part of the rail that gives way: its address shortens, and nothing else does. */
+  flex: 0 1 auto;
   min-width: 0;
 }
 
 .url-chip-label {
   color: var(--mm-text-muted);
   white-space: nowrap;
+  flex: none;
 }
 
 .url-chip-url {
   color: var(--mm-text-link);
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .url-chip-copy {
+  flex: none;
   border: 1px solid var(--mm-border);
   background: white;
   border-radius: var(--radius-control);
@@ -608,6 +758,7 @@ function cancelPending() {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: none;
   margin-left: auto;
 }
 

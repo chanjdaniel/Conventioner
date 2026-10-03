@@ -162,7 +162,6 @@ class TestReportingAnIncompleteApplication:
         "key,label",
         [
             (EF.AVAILABLE_DATES_KEY, EF.AVAILABLE_DATES_LABEL),
-            (EF.MAX_DATES_KEY, EF.MAX_DATES_LABEL),
             (EF.TIER_PREFERENCE_KEY, EF.TIER_PREFERENCE_LABEL),
             (EF.TABLE_CHOICE_KEY, EF.TABLE_CHOICE_LABEL),
             (EF.SECTION_RANKING_KEY, EF.SECTION_RANKING_LABEL),
@@ -178,6 +177,16 @@ class TestReportingAnIncompleteApplication:
         assert incomplete[0].applicant_email == "vendor@example.com"
         assert incomplete[0].application_id == "app-1"
         assert label in incomplete[0].missing
+
+    def test_no_personal_limit_is_an_answer_not_a_gap(self):
+        """An application imported from a form that never asked how many dates has none, which
+        means no personal limit (bug 24): the solver bounds it by availability and the ceiling."""
+        app = application(**{EF.MAX_DATES_KEY: None})
+
+        vendors, incomplete = solver_vendors_from_applications([app], FULL_OFFERING)
+
+        assert incomplete == []
+        assert [v.max_dates for v in vendors] == [None]
 
     def test_an_incomplete_application_never_becomes_a_blank_answered_vendor(self):
         app = application(**{EF.AVAILABLE_DATES_KEY: []})
@@ -209,7 +218,7 @@ class TestReportingAnIncompleteApplication:
     def test_the_complete_applications_still_build(self):
         good = application(email="good@example.com", app_id="app-good")
         bad = application(
-            email="bad@example.com", app_id="app-bad", **{EF.MAX_DATES_KEY: None}
+            email="bad@example.com", app_id="app-bad", **{EF.TABLE_CHOICE_KEY: None}
         )
 
         vendors, incomplete = solver_vendors_from_applications(
@@ -392,7 +401,7 @@ class TestOnlyApprovedApplicationsFeedTheSolver:
 
     def test_an_incomplete_approved_application_is_reported_not_dropped(self, applications):
         bad = application(email="bad@example.com", app_id="app-bad")
-        bad.form_data[EF.MAX_DATES_KEY] = None
+        bad.form_data[EF.TABLE_CHOICE_KEY] = None
         self._store(applications, [bad.model_dump(mode="json")])
 
         vendors, incomplete = approved_solver_vendors("market-1", FULL_OFFERING)

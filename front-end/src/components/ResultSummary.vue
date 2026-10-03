@@ -82,13 +82,19 @@ watch(
 /**
  * The satisfaction score, or a statement that there was nothing to score: `null` from the server
  * means no vendor could be scored, which "0%" would misreport as a run that satisfied nobody.
+ *
+ * Before the statistics arrive it is "…", as every other figure in the strip is. It said "Not
+ * applicable" while loading, and "0 unassigned" beside it - both answers, neither of them known.
  */
 const satisfaction = computed(() => {
-  const score = statistics.value?.satisfactionScore;
+  if (!statistics.value) return '…';
+  const score = statistics.value.satisfactionScore;
   return score === null || score === undefined ? 'Not applicable' : `${Math.round(score * 100)}%`;
 });
 
-const unassignedCount = computed(() => statistics.value?.unassignedVendors?.length ?? 0);
+const unassignedCount = computed(() =>
+  statistics.value ? (statistics.value.unassignedVendors?.length ?? 0) : '…',
+);
 
 const downloadError = ref('');
 const isDownloading = ref(false);

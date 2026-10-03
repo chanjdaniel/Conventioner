@@ -9,7 +9,13 @@
  * to check.
  */
 import { FIELD_TYPES } from '@/utils/applicationForm';
-import { ESSENTIAL_KEYS, essentialLabel } from '@/utils/essentialFields';
+import {
+  AVAILABLE_DATES_KEY,
+  ESSENTIAL_KEYS,
+  MAX_DATES_KEY,
+  TIER_PREFERENCE_KEY,
+  essentialLabel,
+} from '@/utils/essentialFields';
 
 export type Fate = 'submitted_at' | 'applicant_email' | 'essential' | 'custom' | 'left_out';
 
@@ -25,9 +31,10 @@ export interface ProposedOption {
 }
 
 export interface ProposedChoices {
+  /** Every option, one-offs included: an answer that is not listed cannot be kept (bug 4). */
   options: ProposedOption[];
-  /** Answers not listed, one applicant's each. */
-  unlisted: number;
+  /** What each applicant answered, as indexes into `options`, one list per applicant. */
+  answers: number[][];
 }
 
 export interface ProposedField {
@@ -37,7 +44,11 @@ export interface ProposedField {
   type: FieldType;
   required: boolean;
   options: ProposedOption[];
-  unlistedOptions: number;
+  /**
+   * How many applicants answered only options that are not kept, so would have no answer here.
+   * Worked out by the ledger from the answers, for whichever options are kept.
+   */
+  dropped?: number;
   /** A file upload in the Google Form, proposed as a question asking for a link. */
   upload: boolean;
   /** The options each choice type reads from the answers: whole answers, or options inside them. */
@@ -298,10 +309,13 @@ export function draftRows(proposal: Proposal, draft: ProposalDraft): LedgerRow[]
       required: choice.required,
       ...optionsFor(row.field, choice),
     };
+    // The proposal's reason is for what it proposed; beneath another fate it says something untrue.
+    const proposed = choice.fate === row.fate && choice.essential === row.essential;
     return {
       ...row,
       fate: choice.fate,
       essential: choice.essential,
+      why: proposed ? row.why : '',
       check: choice.corrected ? [] : row.check,
       field,
     };
@@ -311,27 +325,52 @@ export function draftRows(proposal: Proposal, draft: ProposalDraft): LedgerRow[]
 function optionsFor(
   field: ProposedField,
   choice: RowChoice,
-): Pick<ProposedField, 'options' | 'unlistedOptions'> {
-  if (!isChoice(choice.type)) return { options: [], unlistedOptions: 0 };
+): Pick<ProposedField, 'options' | 'dropped'> {
+  if (!isChoice(choice.type)) return { options: [], dropped: 0 };
   const read = field.optionsByType[choice.type];
-  if (!read) return { options: [], unlistedOptions: 0 };
-  const kept = choice.kept[choice.type] ?? [];
+  if (!read) return { options: [], dropped: 0 };
+  const kept = new Set(choice.kept[choice.type] ?? []);
   return {
-    options: read.options.map((o) => ({ ...o, keep: kept.includes(o.value) })),
-    unlistedOptions: read.unlisted,
+    options: read.options.map((o) => ({ ...o, keep: kept.has(o.value) })),
+    dropped: droppedBy(read, kept),
   };
 }
 
-/** The essential questions no column answers now, with why - the proposal's reason where it gave
- * one, and the organizer's own move where they took the column away. */
+/**
+ * How many applicants answered only options outside `kept`. A required question then has no
+ * answer from them, and the import refuses their whole application (bug 4). Nothing kept at all is
+ * not this case: confirm makes that a question answered in words, which keeps every answer.
+ */
+export function droppedBy(read: ProposedChoices, kept: Set<string>): number {
+  if (kept.size === 0) return 0;
+  return read.answers.filter(
+    (answer) => answer.length > 0 && !answer.some((i) => kept.has(read.options[i]?.value ?? '')),
+  ).length;
+}
+
+/** The essential questions no column answers now, with what becomes of each and why - the
+ * proposal's reason where it gave one, and the organizer's own move where they took the column away.
+ *
+ * "Number of dates you want" is still asked online, but an imported row without it has no personal
+ * limit (bug 24), so it is not "not asked". */
 export function notAsked(
   proposal: Proposal,
   draft: ProposalDraft,
-): Array<{ key: string; label: string; why: string }> {
+): Array<{ key: string; label: string; status: string; why: string }> {
   const answered = new Set(Object.values(draft.rows).map((r) => r.essential));
+  // A tier GRID answers the dates too - each day's row is a day they can come - as the import reads
+  // it (`tiers_answer_dates` in csv_import.py). One tiers column does not (bug 42).
+  if (
+    draftRows(proposal, draft).some(
+      (row) => row.essential === TIER_PREFERENCE_KEY && row.indexes.length > 1,
+    )
+  ) {
+    answered.add(AVAILABLE_DATES_KEY);
+  }
   return ESSENTIAL_KEYS.filter((key) => !answered.has(key)).map((key) => ({
     key,
     label: essentialLabel(key),
+    status: key === MAX_DATES_KEY ? 'No personal limit' : 'Not asked',
     why:
       proposal.notAsked.find((q) => q.key === key)?.why ??
       'You gave the column that answered it another use',

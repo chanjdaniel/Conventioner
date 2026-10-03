@@ -82,12 +82,21 @@ const FLOW_TAB: Record<MarketFlow, MarketTab> = {
   'start-from-csv': 'setup',
 };
 
-/** A market whose check-in page is on the air, or was: the only kind with an Attendance tab. */
-const PUBLISHED: string[] = [MarketPhase.MarketDays, MarketPhase.Archived];
-
-export function tabsFor(phase: string | undefined | null): MarketTab[] {
+/**
+ * The tabs a market shows: Attendance only for one whose check-in page is on the air, or was.
+ *
+ * "Was" is read off the market's phase history (E26/F06/S03), not off `archived`: an archived
+ * market that never reached Market Days had no check-in page and has no attendance to show, and
+ * offering the tab said otherwise (bug 30).
+ */
+export function tabsFor(
+  market: Pick<Market, 'phase' | 'phasesReached'> | null | undefined,
+): MarketTab[] {
   const four: MarketTab[] = ['setup', 'form', 'applications', 'assignment'];
-  return PUBLISHED.includes(String(phase)) ? [...four, 'attendance'] : four;
+  const ran =
+    market?.phase === MarketPhase.MarketDays ||
+    (market?.phasesReached ?? []).includes(MarketPhase.MarketDays);
+  return ran ? [...four, 'attendance'] : four;
 }
 
 /** The tab a page or a flow stands under. */

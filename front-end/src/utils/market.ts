@@ -133,5 +133,16 @@ export function parseMarketFromApi(market: any): Market {
     // Which of the rules, the plan and the approved applications changed since the stored
     // assignment ran (E22/F03/S01): computed by the server on every read of one market.
     assignmentOutOfDate: market.assignmentOutOfDate,
+    // Hand placements at a seat the plan no longer has (bug 31): marked on Result and the vendor's
+    // panel, and the reason Publish is refused.
+    orphanedPins: market.orphanedPins ?? [],
+    // Where the market has been, from its phase history (E26/F06/S03): what the archived rail
+    // says it reached. Undefined on a read that does not carry it, such as the list.
+    phasesReached: market.phasesReached,
+    phaseRecordComplete: market.phaseRecordComplete,
+    // Why this person cannot change this market, or take its admin actions; null while they can
+    // (E26/F06/S01, E26/F08/S01).
+    readOnlyReason: market.readOnlyReason,
+    adminActionsReason: market.adminActionsReason,
   };
 }

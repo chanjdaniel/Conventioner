@@ -27,9 +27,8 @@ function column(index: number, overrides: Partial<ProposedColumn> = {}): Propose
       type: 'select',
       required: false,
       options: OPTIONS,
-      unlistedOptions: 0,
       upload: false,
-      optionsByType: { select: { options: OPTIONS, unlisted: 0 } },
+      optionsByType: { select: { options: OPTIONS, answers: [] } },
     },
     ...overrides,
   };

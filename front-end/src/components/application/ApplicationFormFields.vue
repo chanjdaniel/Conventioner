@@ -56,7 +56,11 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
     class="form-field"
     :data-testid="`${prefix}-field-${field.key}`"
   >
-    <label class="form-label" :for="`${prefix}-${field.key}`">
+    <label
+      :id="`${prefix}-${field.key}-label`"
+      class="form-label"
+      :for="field.type === 'multi_select' ? undefined : `${prefix}-${field.key}`"
+    >
       {{ field.label }}
       <span v-if="field.required" class="form-required">*</span>
     </label>
@@ -100,8 +104,11 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
     />
 
     <!-- checkbox -->
+    <!-- The id ties the question's own label to it too: on its own the box was named only "Yes"
+         (bug 44). -->
     <label v-else-if="field.type === 'checkbox'" class="form-checkbox-label">
       <input
+        :id="`${prefix}-${field.key}`"
         type="checkbox"
         :checked="!!modelValue[field.key]"
         @change="onFieldChange(field, ($event.target as HTMLInputElement).checked)"
@@ -131,6 +138,8 @@ function toggleOption(field: FormField, option: string, checked: boolean) {
       v-else-if="field.type === 'multi_select'"
       class="form-multiselect"
       :class="{ error: errorFor(field) }"
+      role="group"
+      :aria-labelledby="`${prefix}-${field.key}-label`"
     >
       <label v-for="opt in field.options" :key="opt" class="form-checkbox-label">
         <input

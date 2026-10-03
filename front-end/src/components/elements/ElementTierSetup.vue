@@ -7,7 +7,12 @@ import IconClickDrag from '../icons/IconClickDrag.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
 import { type TierObject } from '@/assets/types/datatypes';
 
-const props = defineProps<{ setupObject: SetupObject }>();
+const props = defineProps<{
+  setupObject: SetupObject;
+  /** A plan that cannot change (bug 30). Its controls sit in a disabled fieldset, which a drag
+   *  handle does not respect, so the tiers say it themselves. */
+  readonly?: boolean;
+}>();
 const emit = defineEmits(['update:setupObject']);
 
 const setupObject = toRef(props, 'setupObject');
@@ -100,7 +105,7 @@ const hoverParentIndex = ref(null);
 
 const dragOptions = computed(() => ({
   group: 'rows',
-  disabled: false,
+  disabled: Boolean(props.readonly),
   ghostClass: 'sortable-chosen',
   chosenClass: 'sortable-ghost',
   dragClass: 'sortable-ghost',
@@ -138,6 +143,7 @@ const dragOptions = computed(() => ({
                 <input
                   type="text"
                   v-model="tierObjects[parentIndex].name"
+                  :aria-label="`Tier ${parentIndex + 1} name`"
                   :data-testid="'setup-tier-name-input-' + parentIndex"
                   style="
                     all: unset;
@@ -338,19 +344,6 @@ h3 {
   scrollbar-width: none;
 }
 
-.dropdown {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  font-size: var(--text-sm);
-  padding-right: 5px;
-  background-color: white;
-}
-
 .click-item {
   cursor: pointer;
   display: flex;
@@ -449,5 +442,11 @@ h3 {
   margin-right: 5px;
   padding-left: 5px;
   padding-right: 5px;
+}
+/* The field inside is unstyled (`all: unset`), which takes its focus ring with it; the ring is
+   drawn here, so a keyboard user can see which name they are typing into (bug 44). */
+.input-container:focus-within {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
 }
 </style>

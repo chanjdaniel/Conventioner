@@ -53,7 +53,10 @@ def test_it_requires_the_role_renaming_always_required(market):
     assert market.checked["role"] == MarketRole.EDITOR
 
 
-@pytest.mark.parametrize("phase", [phase for phase in MarketPhase if phase != MarketPhase.DRAFT])
+# Archived is refused before this rule is asked, as every write to it is (bug 30).
+@pytest.mark.parametrize(
+    "phase", [p for p in MarketPhase if p not in (MarketPhase.DRAFT, MarketPhase.ARCHIVED)]
+)
 def test_after_draft_the_name_is_the_address_that_was_shared(market, phase):
     collection = market(phase=phase)
 

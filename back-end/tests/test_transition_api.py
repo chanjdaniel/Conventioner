@@ -149,6 +149,18 @@ class TestTransitionSuccess:
         assert response.get_json() == {"phase": "applications_open"}
         assert collection.doc["phase"] == "applications_open"
 
+    def test_the_move_is_recorded_with_who_made_it_in_the_same_update(self, client, markets):
+        """The market's phase history (E26/F06/S03) is written by the phase writer, atomically."""
+        collection = markets(_market_doc(fields=[{"key": "name", "label": "Name", "type": "text"}]))
+
+        assert response_ok(_post(client, {"toPhase": "applications_open"}))
+
+        [(_, update)] = collection.updates
+        entered = update["$push"]["phaseHistory"]["$each"][-1]
+        assert entered["phase"] == "applications_open"
+        assert entered["by"] == OWNER_EMAIL
+        assert update["$set"]["phase"] == "applications_open"
+
     def test_opening_applications_stamps_the_form_in_the_same_update(self, client, markets):
         """Leaving draft IS finalizing (E18/F03/S01), and the stamp lands atomically with the phase.
 

@@ -31,6 +31,9 @@
   /* Green as INK on a green TINT. --mm-green is 4.59 on white but only 3.75 on its own 16% tint,
      so a chip cannot reuse it - the same reason --mm-text-yellow exists beside --mm-yellow. */
   --mm-text-green: #2a6858; /* 5.34 on rgba(54,130,111,.16) over white */
+  /* The destructive chip's ink. --mm-red is 4.41 on that chip's ground, which no walked screen
+     showed until the reviewed list put a "Rejected" chip on it (bug 43). 5.35 there. */
+  --mm-text-red-on-tint: #a93226;
 
   /* ---- Ink on a dark ground (--mm-black). Its own family, because one muted grey cannot serve
      both grounds - and pretending it could is how the phase panel came to paint
@@ -65,6 +68,15 @@
      the markets list and "Open" on the triage card. */
   --mm-red: #c0392b; /* white text on it: 5.44 */
   --mm-blue: #1a6f8b; /* white text on it: 5.69 */
+
+  /* ---- A chip's ground: its tone at a light tint, already laid over white, so it is the same
+     ground wherever the chip sits (bug 43). The tints were translucent, so a chip measured on
+     white took on the beige of the review card beneath it and fell below AA there. Each is
+     asserted with its ink in `contrast.test.ts`. ---- */
+  --mm-chip-positive: #dfebe8; /* rgba(54, 130, 111, 0.16) over white */
+  --mm-chip-attention: #faefd8; /* rgba(228, 166, 41, 0.18) over white */
+  --mm-chip-informational: #dfebef; /* rgba(26, 111, 139, 0.14) over white */
+  --mm-chip-destructive: #f6e3e1; /* rgba(192, 57, 43, 0.14) over white */
 
   /* ---- Lines and states. Never carry text, so exempt from the contrast rule. ---- */
   --mm-border: rgba(39, 35, 35, 0.25);
@@ -159,10 +171,23 @@
   font-weight: 400;
 }
 
+/*
+ * The scrollbar's room is kept whether or not the page scrolls (E26/F10/S01). Where scrollbars take
+ * space, a market page taller than the window was 15px narrower than one that was not, so moving
+ * between a market's pages moved its frame.
+ */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   min-height: 100vh;
   color: var(--color-text);
   background: var(--color-background);
+  /* Every native check, radio and range is the product's green. Five components each said so for
+     their own inputs, and the rest - the choice cards, the form builder, the vendor's form - were the
+     browser's blue inside a green-edged card (E26 re-walk). It inherits, so it is said once. */
+  accent-color: var(--mm-green);
   transition:
     color 0.5s,
     background-color 0.5s;

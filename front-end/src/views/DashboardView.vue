@@ -95,7 +95,9 @@ const emptyState = computed(() => {
     // make one, which is an instruction the organizer cannot follow: there is no market to open
     // yet. Say what is true and hand them the step that starts it.
     testid: 'dashboard-no-market-yet',
-    text: 'You have not set up a market yet. A market belongs to an organization, and the next screen will make one with you as its owner if you have none.',
+    // Said as it is (bug 42): this promised the next screen would make an organization for them,
+    // and the next screen offers a link to Organizations, where they make it themselves.
+    text: 'You have not set up a market yet. Every market belongs to an organization - if you are not in one yet, create it under Organizations first.',
     action: 'Set up your first market',
     actionTestid: 'dashboard-create-market-button',
   };

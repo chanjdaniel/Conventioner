@@ -31,7 +31,8 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 import essential_fields as EssentialFields
 import typesafe_client as TypeSafe
 from csv_import import (
-    GRID_HEADER, collapse_header, column_groups, normalized_submitted_at, parse_csv, resolve_value,
+    GRID_HEADER, NONE_WORDS, collapse_header, column_groups, normalized_submitted_at,
+    parse_csv, parse_date, resolve_value, split_options, tiers_answer_dates,
 )
 from datatypes import MarketPhase, phase_from_market_document
 from market_documents import market_doc_field
@@ -72,16 +73,6 @@ NUMBER = re.compile(r"^\s*\$?\d+(\.\d+)?\s*$")
 DRIVE_UPLOAD = re.compile(r"^https://drive\.google\.com/open\?id=")
 DATE_LIKE = re.compile(r"^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}$")
 
-WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-            "mon", "tue", "wed", "thu", "fri", "sat", "sun")
-MONTHS = {month: number for number, month in enumerate(
-    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
-WEEKDAY_NUMBER = {day: number for number, day in enumerate(
-    ["mon", "tue", "wed", "thu", "fri", "sat", "sun"])}
-DATE_TEXT = re.compile(
-    r"^(?:(?P<weekday>[a-z]+),?\s+)?(?P<month>[a-z]+)\.?\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?$",
-    re.IGNORECASE)
-NONE_WORDS = {"none", "n/a", "na", "not available", "unavailable", "-"}
 NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
 # The ceiling on days per vendor, as a form's instructions state it.
 CEILING = re.compile(
@@ -102,6 +93,8 @@ CHECKBOX_LEAD = re.compile(r"^(i certify|i understand|i agree|i confirm|i acknow
 DECISIONS = {"accepted", "rejected", "approved", "declined", "waitlist", "waitlisted", "pending",
              "true", "false", "y", "n", "accept", "reject"}
 YES_NO = {"yes", "no", "available", "x"}
+# A question asking how many days, whose answers are then bare numbers ("3") rather than "3 days".
+DAY_COUNT_QUESTION = re.compile(r"\b(how many|number of|max(imum)?)\b.*\bdays?\b")
 
 VIEW_VALUES = 10
 VIEW_OPTIONS = 15
@@ -110,39 +103,11 @@ VIEW_OPTIONS = 15
 OPTION_SHARE = 0.04
 
 # How many options a choice question lists before the rare ones are counted instead.
-OPTIONS_LISTED = 20
 
 LABEL_MAX = 120
 KEY_MAX = 40
 
 # --- Reading answers ----------------------------------------------------------------------------
-
-
-def split_options(value: str) -> List[str]:
-    """A checkbox answer's options: Google joins them with ", ", and an option can itself hold
-    ", " - inside parentheses ("Woven (crochet, knitting, etc)") or after a weekday ("Monday,
-    November 20th")."""
-    parts, depth, current = [], 0, []
-    for piece in str(value).split(", "):
-        current.append(piece)
-        depth += piece.count("(") - piece.count(")")
-        if depth > 0 or piece.strip().lower() in WEEKDAYS:
-            continue
-        parts.append(", ".join(current).strip())
-        current = []
-    if current:
-        parts.append(", ".join(current).strip())
-    return [part for part in parts if part]
-
-
-def parse_date(text: str) -> Optional[Tuple[int, int, Optional[int]]]:
-    """``(month, day, weekday)`` from "Monday, November 20th" or "Nov 20", or None."""
-    match = DATE_TEXT.match(str(text).strip())
-    if not match or match.group("month")[:3].lower() not in MONTHS:
-        return None
-    weekday = (match.group("weekday") or "")[:3].lower()
-    return (MONTHS[match.group("month")[:3].lower()], int(match.group("day")),
-            WEEKDAY_NUMBER.get(weekday))
 
 
 def _identifying(value: str) -> bool:
@@ -161,7 +126,11 @@ def _applicant_column(rows: List[List[str]], width: int) -> Optional[int]:
 
 def _responses(rows: List[List[str]]) -> int:
     """Rows someone submitted: a row an organizer typed a status into alone is not one."""
-    return sum(1 for row in rows if sum(1 for cell in row if cell.strip()) >= 3)
+    return sum(1 for row in rows if _is_response(row))
+
+
+def _is_response(row: List[str]) -> bool:
+    return sum(1 for cell in row if cell.strip()) >= 3
 
 
 class _Column:
@@ -179,11 +148,17 @@ class _Column:
 
         whole: Dict[str, Set[str]] = {}
         options: Dict[str, Set[str]] = {}
+        # What each applicant answered, both ways: so the ledger can say how many applicants a
+        # set of left-out options would leave with no answer at all (bug 4).
+        self.answers_of: Dict[str, Set[str]] = {}
+        self.options_of: Dict[str, Set[str]] = {}
         for value, person in zip(values, people):
             if value.strip():
                 whole.setdefault(value.strip(), set()).add(person)
+                self.answers_of.setdefault(person, set()).add(value.strip())
                 for option in split_options(value):
                     options.setdefault(option, set()).add(person)
+                    self.options_of.setdefault(person, set()).add(option)
         self.answer_counts = {value: len(who) for value, who in whole.items()}
         self.option_counts = {option: len(who) for option, who in options.items()}
         self.shared = _most_common(
@@ -256,32 +231,35 @@ def _most_common(pairs) -> List[Tuple[str, int]]:
 
 def label_and_help(header: str) -> Tuple[str, Optional[str]]:
     """The header's first line is the label and the rest, verbatim, its help text. A first line
-    over LABEL_MAX characters keeps its first sentence as the label and gives the rest away."""
+    over LABEL_MAX characters keeps its first sentence as the label and gives the rest away.
+
+    Never mid-sentence: a long line with no sentence end in it stays whole. Cutting it at the last
+    word that fit put "...at UBC Makers" on the form and "Market! (e.g. Google Drive...)" under it
+    (bug 41) - a long label reads fine, a broken one does not.
+    """
     text = str(header).replace("\r\n", "\n").replace("\r", "\n").strip()
     first, _, rest = text.partition("\n")
     first, rest = first.strip(), rest.strip()
     if len(first) > LABEL_MAX:
         cut = _first_sentence_end(first)
-        if cut is None:
-            # No sentence ends before the line does: the last whole word that fits.
-            cut = first.rfind(" ", 0, LABEL_MAX + 1)
-            cut = cut if cut > 0 else LABEL_MAX
-        head, tail = first[:cut].strip(), first[cut:].strip()
-        rest = (tail + ("\n" + rest if rest else "")).strip()
-        first = head
+        if cut is not None and cut < len(first):
+            head, tail = first[:cut].strip(), first[cut:].strip()
+            rest = (tail + ("\n" + rest if rest else "")).strip()
+            first = head
     return first, rest or None
 
 
 def _first_sentence_end(text: str) -> Optional[int]:
-    """Just past the first "?" or "." that ends a sentence: followed by a space or the end, and
-    outside parentheses, so "(e.g. your timetable)" does not end one."""
+    """Just past the first "?", "!" or "." that ends a sentence: followed by a space or the end,
+    and outside parentheses, so "(e.g. your timetable)" does not end one."""
     depth = 0
     for position, char in enumerate(text):
         if char == "(":
             depth += 1
         elif char == ")":
             depth = max(depth - 1, 0)
-        elif char in "?." and depth == 0 and (position + 1 == len(text) or text[position + 1] == " "):
+        elif char in "?.!" and depth == 0 and (position + 1 == len(text)
+                                                or text[position + 1] == " "):
             return position + 1
     return None
 
@@ -313,8 +291,7 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
     label, help_text = label_and_help(column.header)
     field: Dict[str, Any] = {
         "key": key_for(label, taken_keys), "label": label, "helpText": help_text,
-        "required": column.answered_share >= REQUIRED_SHARE, "options": [], "unlistedOptions": 0,
-        "upload": False,
+        "required": column.answered_share >= REQUIRED_SHARE, "options": [], "upload": False,
     }
     if column.drive_upload >= 0.9:
         # A Google Forms upload. The application form takes no files, so the question asks for a
@@ -342,43 +319,49 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
     # Both ways of reading the answers as choices, so the organizer can turn one choice into several
     # (or back) and get the options that reading gives: whole answers, or the options inside them.
     field["optionsByType"] = {
-        "select": _choices(column.answer_counts, column.filled, share_floor=0),
-        "multi_select": _choices(column.option_counts, column.filled, share_floor=OPTION_SHARE),
+        "select": _choices(column.answer_counts, column.answers_of, column.filled, share_floor=0),
+        "multi_select": _choices(column.option_counts, column.options_of, column.filled,
+                                 share_floor=OPTION_SHARE),
     } if column.filled else {}
     chosen = field["optionsByType"].get(field["type"])
     if chosen:
-        field["options"], field["unlistedOptions"] = chosen["options"], chosen["unlisted"]
+        field["options"] = chosen["options"]
     return field
 
 
-def _choices(counts: Dict[str, int], filled: int, share_floor: float) -> Dict[str, Any]:
+def _choices(counts: Dict[str, int], held: Dict[str, Set[str]], filled: int,
+             share_floor: float) -> Dict[str, Any]:
+    """Every option, and what each applicant answered as indexes into them.
+
+    The answers are what let the ledger say how many applicants a set of left-out options would
+    leave with nothing, for whichever options the organizer keeps - a count per option cannot,
+    because one applicant can choose several (bug 4). Indexes, sorted, in no row order.
+    """
     options = _options(counts, filled, share_floor)
-    return {"options": options, "unlisted": _unlisted(counts, options)}
+    position = {option["value"]: index for index, option in enumerate(options)}
+    answers = sorted(sorted(position[value] for value in values) for values in held.values())
+    return {"options": options, "answers": answers}
 
 
 def _options(counts: Dict[str, int], filled: int, share_floor: float) -> List[Dict[str, Any]]:
-    """The options the whole file shows, most chosen first, with how many applicants chose each.
+    """Every option the file shows, most chosen first, with how many applicants chose each.
 
     One few applicants chose - fewer than 3, or for a checkbox question under OPTION_SHARE of its
     answers - is rare and off by default, with its count: the organizer decides whether to keep it.
-    The list stops at OPTIONS_LISTED, since a checkbox question's "Other" answers run to hundreds,
-    each one person's; ``_unlisted`` counts the rest, and the form builder can add any of them.
+    All of them are listed, one-offs included: an answer that could not be listed could not be
+    kept, so an applicant who gave only such answers lost their application (bug 4). How many to
+    show at first is the ledger's business.
     """
     def rare(count: int) -> bool:
         return count < SHARED_BY or count / filled < share_floor
 
     ordered = _most_common(counts.items())
-    kept = [(value, count) for value, count in ordered if not rare(count)]
-    others = [(value, count) for value, count in ordered if rare(count)]
-    listed = kept + others[:max(OPTIONS_LISTED - len(kept), 0)]
+    listed = ([(value, count) for value, count in ordered if not rare(count)]
+              + [(value, count) for value, count in ordered if rare(count)])
     return [
         {"value": value, "count": count, "rare": rare(count), "keep": not rare(count)}
         for value, count in listed
     ]
-
-
-def _unlisted(counts: Dict[str, int], listed: List[Dict[str, Any]]) -> int:
-    return len(counts) - len(listed)
 
 
 def _classify(columns: List[_Column]) -> List[Dict[str, Any]]:
@@ -460,6 +443,11 @@ def _classify(columns: List[_Column]) -> List[Dict[str, Any]]:
         if values and len(day_counts) / len(values) >= 0.8:
             decided.append(essential(EssentialFields.MAX_DATES_KEY,
                                      "Its answers are a number of days"))
+            continue
+        if (values and all(re.fullmatch(r"\d+", value) for value in values)
+                and DAY_COUNT_QUESTION.search(header.lower())):
+            decided.append(essential(EssentialFields.MAX_DATES_KEY,
+                                     "It asks how many days, answered with a number"))
             continue
         joined = " ".join(options).lower()
         if "half" in joined and "full" in joined and len(options) <= 4:
@@ -789,7 +777,11 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
             "index": index,
             "header": column.header,
             "group": groups.get(index),
-            "answered": column.filled,
+            # Counted over the same rows as the responses it is shown against: counting every
+            # filled cell, an organizer's status-only row included, said "answered by 360 of
+            # 359" (bug 40).
+            "answered": sum(1 for value, row in zip(column.values, body)
+                            if value.strip() and _is_response(row)),
             "firstAnswers": [value for value in column.values if value.strip()][:3],
             "fate": decided["fate"],
             "essential": decided.get("essential"),
@@ -803,6 +795,9 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
     asked = _ask_typesafe(asker, columns, proposed, plan) if asker else False
 
     answered = {column["essential"] for column in proposed if column["essential"]}
+    tier_columns = [c for c in proposed if c["essential"] == EssentialFields.TIER_PREFERENCE_KEY]
+    if tiers_answer_dates(tier_columns):
+        answered.add(EssentialFields.AVAILABLE_DATES_KEY)
     return {
         "rowCount": len(body),
         "responses": responses,
@@ -810,10 +805,23 @@ def proposal(headers: Sequence[str], rows: Sequence[Sequence[str]],
         "plan": plan,
         "typesafe": {"asked": asked},
         "notAsked": [
-            {"key": key, "label": label, "why": "No column in your file answers it"}
+            {"key": key, "label": label, **_unanswered(key)}
             for key, label in EssentialFields.ESSENTIAL_QUESTIONS if key not in answered
         ],
     }
+
+
+def _unanswered(key: str) -> Dict[str, str]:
+    """Why an essential question has no column, said where the organizer decides.
+
+    "Number of dates you want" is still asked online, but a file without it imports with no
+    personal limit (bug 24), which is worth saying before the import rather than after.
+    """
+    if key == EssentialFields.MAX_DATES_KEY:
+        return {"why": "No column in your file answers it, so each imported applicant may be "
+                       "placed on every date they can attend, up to your ceiling. Online "
+                       "applicants are still asked."}
+    return {"why": "No column in your file answers it"}
 
 
 def refusal(market_doc: Dict[str, Any]) -> Optional[str]:

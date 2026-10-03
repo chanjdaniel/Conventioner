@@ -96,7 +96,9 @@ class TestPhaseGate:
     def test_every_non_draft_phase_is_refused(self, monkeypatch, applications):
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
         for phase in MarketPhase:
-            if phase == MarketPhase.DRAFT:
+            # An archived market refuses every write before this lock is asked (bug 30):
+            # `test_an_archive_is_read_only.py`.
+            if phase in (MarketPhase.DRAFT, MarketPhase.ARCHIVED):
                 continue
             monkeypatch.setattr(
                 MarketsApi, "markets_collection",

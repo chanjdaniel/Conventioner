@@ -148,6 +148,22 @@ class TestRecordApplicationAnswers:
         assert error is not None and "'Business Name' is required" in error
         assert app is None
 
+    def test_an_online_applicant_must_say_how_many_dates_they_want(self, markets, applications):
+        """Only an import may carry no personal limit (bug 24): the online form asks, so an
+        applicant who leaves it out is refused there."""
+        applications.insert_one(_app_doc())
+        no_limit = {k: v for k, v in ANSWERS.items() if k != "essential_max_dates"}
+
+        error, app = record_application_answers(markets, markets.doc, _app_doc(), no_limit)
+        imported, stored = record_application_answers(
+            markets, markets.doc, _app_doc(), no_limit, imported=True,
+        )
+
+        assert error == "'Number of dates you want' is required." and app is None
+        assert imported is None and stored.form_data["essential_max_dates"] is None
+        assert validate_application_answers(markets.doc, no_limit) == error
+        assert validate_application_answers(markets.doc, no_limit, imported=True) is None
+
     def test_a_frozen_offering_governs_over_the_live_plan(self, applications):
         """An answer is validated against what the form actually offered, not what it offers now."""
         applications.insert_one(_app_doc())

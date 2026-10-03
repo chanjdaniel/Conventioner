@@ -67,10 +67,21 @@ describe('the tabs', () => {
       MarketPhase.Assignment,
       MarketPhase.Offers,
     ]) {
-      expect(tabsFor(phase), phase).toEqual(four);
+      expect(tabsFor({ phase }), phase).toEqual(four);
     }
-    expect(tabsFor(MarketPhase.MarketDays)).toEqual([...four, 'attendance']);
-    expect(tabsFor(MarketPhase.Archived)).toEqual([...four, 'attendance']);
+    expect(tabsFor({ phase: MarketPhase.MarketDays })).toEqual([...four, 'attendance']);
+  });
+
+  it('keep Attendance on an archived market that ran, and only on one that did (bug 30)', () => {
+    const four = ['setup', 'form', 'applications', 'assignment'];
+    const ran = ['draft', 'assignment', 'market_days', 'archived'];
+    const stopped = ['draft', 'assignment', 'archived'];
+
+    expect(tabsFor({ phase: MarketPhase.Archived, phasesReached: ran })).toEqual([
+      ...four,
+      'attendance',
+    ]);
+    expect(tabsFor({ phase: MarketPhase.Archived, phasesReached: stopped })).toEqual(four);
   });
 
   it('put every page under exactly one tab', () => {

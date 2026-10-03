@@ -30,25 +30,48 @@ const saving = ref(false);
 const sortedFields = computed(() => sortedFormFields(fields.value));
 const signedIn = computed(() => store.isAuthenticatedFor(marketSlug.value));
 
+function toSignIn() {
+  router.push({
+    name: 'applicant-login',
+    params: { marketSlug: marketSlug.value },
+    query: { redirect: 'apply' },
+  });
+}
+
+/**
+ * The form, and what this vendor already answered on it (bug 21).
+ *
+ * It started from an empty object and never loaded the stored application, so a returning vendor
+ * had to answer every required question again, and "Not available" came pre-ticked on days they
+ * had answered. Both arrive before the form is drawn, so the form's own defaults - a ranking seeded
+ * in the plan's order - fill only what the vendor never answered, and never race their answers.
+ */
 async function loadForm() {
   loading.value = true;
-  const form = await fetchPublicApplicationForm(marketSlug.value);
-  loadFailed.value = form.failed;
+  const [form, saved] = await Promise.all([
+    fetchPublicApplicationForm(marketSlug.value),
+    store.fetchApplication(),
+  ]);
+  // The sign-in expired: the store has said so and cleared it.
+  if (!signedIn.value) {
+    toSignIn();
+    return;
+  }
+  // Either read failing is a page that did not load: an empty form over answers the vendor saved
+  // would be filled in again, and saved over them.
+  loadFailed.value = form.failed || saved.failed;
   fields.value = form.fields;
   essentialOptions.value = form.essentialOptions;
   marketName.value = form.marketName;
   phaseLabel.value = form.phaseLabel;
   isOpen.value = form.isOpen;
+  formData.value = { ...(saved.application?.formData ?? {}) };
   loading.value = false;
 }
 
 onMounted(async () => {
   if (!signedIn.value) {
-    router.push({
-      name: 'applicant-login',
-      params: { marketSlug: marketSlug.value },
-      query: { redirect: 'apply' },
-    });
+    toSignIn();
     return;
   }
 
@@ -101,15 +124,26 @@ async function submitForm() {
       <p>
         This market's application form could not be loaded. Check your connection and try again.
       </p>
-      <button type="button" data-testid="apply-retry-button" @click="loadForm">Try again</button>
+      <button
+        type="button"
+        class="btn btn--secondary"
+        data-testid="apply-retry-button"
+        @click="loadForm"
+      >
+        Try again
+      </button>
     </div>
 
     <template v-else>
       <header class="apply-header">
         <h1 data-testid="apply-market-name">Apply for {{ marketName || marketSlug }}</h1>
-        <div class="phase-badge" :class="{ open: isOpen }" data-testid="apply-phase-badge">
-          {{ isOpen ? 'Applications Open' : `Market Status: ${phaseLabel}` }}
-        </div>
+        <span
+          class="chip"
+          :class="isOpen ? 'chip--positive' : 'chip--neutral'"
+          data-testid="apply-phase-badge"
+        >
+          {{ isOpen ? 'Applications open' : phaseLabel }}
+        </span>
       </header>
 
       <div v-if="!isOpen" class="apply-closed" data-testid="apply-closed">
@@ -147,11 +181,11 @@ async function submitForm() {
           <div class="apply-actions">
             <button
               type="submit"
-              class="apply-submit-btn"
+              class="btn btn--primary"
               :disabled="!sortedFields.length || saving"
               data-testid="apply-submit-button"
             >
-              {{ saving ? 'Saving...' : 'Save Application' }}
+              {{ saving ? 'Saving…' : 'Save application' }}
             </button>
           </div>
           <div v-if="store.error" class="apply-error" data-testid="apply-error">
@@ -165,6 +199,7 @@ async function submitForm() {
 
 <style scoped>
 .apply-page {
+  width: 100%;
   max-width: 640px;
   margin: 40px auto;
   padding: 0 16px;
@@ -177,16 +212,6 @@ async function submitForm() {
   gap: 12px;
   padding: 24px;
   font-size: var(--text-sm);
-}
-
-.apply-load-failed button {
-  height: 36px;
-  padding: 0 16px;
-  border-radius: 6px;
-  border: 1px solid var(--mm-border);
-  background: white;
-  font-size: var(--text-sm);
-  cursor: pointer;
 }
 
 .apply-loading {
@@ -213,27 +238,15 @@ async function submitForm() {
   margin: 0;
 }
 
-.phase-badge {
-  font-size: var(--text-xs);
-  border-radius: 4px;
-  padding: 4px 10px;
-  background: var(--mm-beige);
-  color: var(--mm-text-muted);
-}
-
-.phase-badge.open {
-  background: var(--mm-green);
-  color: white;
-}
-
+/* The attention tone, with the ink measured on it: `--mm-text-yellow` is 3.96 on this ground. */
 .apply-closed {
-  background: rgba(228, 166, 41, 0.18);
+  background: var(--mm-chip-attention);
   border: 1px solid var(--mm-yellow);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 16px;
   margin-bottom: 24px;
   font-size: var(--text-sm);
-  color: var(--mm-text-yellow);
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .apply-no-form {
@@ -266,29 +279,13 @@ async function submitForm() {
   padding-top: 8px;
 }
 
-.apply-submit-btn {
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: 5px;
-  padding: 10px 24px;
-  cursor: pointer;
-  font-family: 'Merge One';
-  font-size: var(--text-md);
-}
-
-.apply-submit-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .apply-error {
   margin-top: 4px;
-  background: #f8d7da;
+  background: var(--mm-chip-destructive);
   border: 1px solid var(--mm-red);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 12px 16px;
   font-size: var(--text-sm);
-  color: #721c24;
+  color: var(--mm-text-red-on-tint);
 }
 </style>

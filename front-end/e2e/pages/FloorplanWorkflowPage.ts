@@ -181,7 +181,7 @@ export class FloorplanWorkflowPage {
 
   // ─── Path Choice (in MarketSetupView context) ───────────────────
 
-  /** Select the Floorplan AI path from the ChoosePathOverlay. */
+  /** Select the floorplan path from the ChoosePathOverlay. */
   async selectFloorplanPath(): Promise<void> {
     // The choice is offered from the Section Setup card now, not opened over the page
     // (E10/F02/S01).
@@ -237,7 +237,7 @@ export class FloorplanWorkflowPage {
    * Complete calibration by entering the reference length and selecting the unit.
    * Assumes the input dialog is already visible after drawing the line.
    */
-  async completeCalibration(length: string = '3.5'): Promise<void> {
+  async completeCalibration(length: string = '30'): Promise<void> {
     // Fill length and select unit (default meters = 'm')
     await this.calibrateLengthInput.fill(length);
     await this.calibrateBtnCalibrate.click();
@@ -272,6 +272,11 @@ export class FloorplanWorkflowPage {
     );
     await this.tableTypeSaveBtn.click();
     await this.tableTypeSaveBtn.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+  }
+
+  /** Say how many of the (first) table type Auto-Place should place (bug 38: it never asked). */
+  async setAutoPlaceCount(count: number): Promise<void> {
+    await this.page.getByTestId('floorplan-auto-place-count').first().fill(String(count));
   }
 
   /** Click the Auto-Place Tables button and wait for placement to complete. */
@@ -372,12 +377,15 @@ export class FloorplanWorkflowPage {
     // Step 1: Calibrate
     await this.calibrateStage.waitFor({ state: 'visible', timeout: 10000 });
     await this.drawCalibrationLine();
-    await this.completeCalibration('3.5');
+    // A hall-sized plan. The room is the calibrated image now (bug 38), and at 3.5 m across it was
+    // too small to hold four tables with their aisles - which Auto-Place would rightly report.
+    await this.completeCalibration('30');
     // Auto-advances to step 2
 
     // Step 2: Table Types + Auto-Place
     await this.tableTypeAddBtn.waitFor({ state: 'visible', timeout: 5000 });
     await this.addTableType(tableTypeName, tableWidth, tableHeight);
+    await this.setAutoPlaceCount(4);
     await this.autoPlaceTables();
     await this.waitForNextEnabled();
     await this.clickNext();

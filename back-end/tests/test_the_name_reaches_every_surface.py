@@ -107,7 +107,7 @@ class TestTheAssignmentCsv:
 class TestTheCheckInLookup:
     def _summary(self, monkeypatch, names):
         monkeypatch.setattr(
-            AttendanceApi, "get_published_market_by_slug",
+            AttendanceApi, "get_check_in_market",
             lambda _slug: {
                 "id": "market-1", "name": "Winter Market", "isDraft": False, "phase": "market_days",
                 "setupObject": {
@@ -116,17 +116,12 @@ class TestTheCheckInLookup:
                 },
                 "creationDate": "2026-01-01T00:00:00Z", "roles": {"o@t.com": "owner"},
                 "modificationList": [],
-            },
-        )
-        monkeypatch.setattr(
-            AttendanceApi, "assign_market",
-            lambda _market: type("M", (), {"assignment_object": type("A", (), {
-                "vendor_assignments": [type("R", (), {
+                "assignmentObject": {"vendorAssignments": [{
                     "email": "nadia@ember.test", "date": "2026-08-01",
-                    "table_code": "Front Row 1", "table_choice": "Full Table",
+                    "tableCode": "Front Row 1", "tableChoice": "Full Table",
                     "section": "Front Row", "tier": "Gold", "location": "Main Hall",
-                })()],
-            })()})(),
+                }]},
+            },
         )
         monkeypatch.setattr(
             AttendanceApi.attendance_collection, "find", lambda _q: iter([]),

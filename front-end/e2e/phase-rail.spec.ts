@@ -75,7 +75,7 @@ test.describe('The phase rail', () => {
     await openMarket(page, marketSetupPath(seed.marketId, 'setup'));
     const chip = page.getByTestId('phase-rail-checkin');
     await expect(chip).toBeVisible({ timeout: 15000 });
-    const url = await chip.locator('a').innerText();
+    const url = (await chip.locator('a').getAttribute('href')) ?? '';
     expect(url.length).toBeGreaterThan(60);
 
     const smallestGap = await page.evaluate(() => {
@@ -101,7 +101,9 @@ test.describe('The phase rail', () => {
 
     const chip = page.getByTestId('phase-rail-checkin');
     await expect(chip).toBeVisible({ timeout: 15000 });
-    const url = await chip.locator('a').innerText();
+    // The whole address is the link; what it shows is shortened to fit the rail (bug 11).
+    const url = (await chip.locator('a').getAttribute('href')) ?? '';
+    await expect(chip.locator('a')).toHaveAttribute('title', url);
 
     await page.getByTestId('phase-rail-checkin-copy').click();
     await expect(page.getByTestId('phase-rail-checkin-copy')).toHaveText('Copied');
@@ -156,8 +158,11 @@ test.describe('The phase rail', () => {
     const frozen = page.getByTestId('phase-rail-frozen');
     await expect(frozen).toBeVisible({ timeout: 15000 });
     await expect(frozen).toContainText('This market is archived');
-    // Strikethrough is reinforcement, never the only signal.
-    await expect(page.locator('.phase-step--frozen').first()).toBeVisible();
+    // This market was published earlier in the file, and its phase history says so: it ran, so
+    // nothing is struck through (E26/F06/S03). Strikethrough is only ever reinforcement for the
+    // words; `market-remembers-phases.spec.ts` covers a market that stopped short.
+    await expect(frozen).toContainText('It was published and ran its market days.');
+    await expect(page.locator('[data-phase="market_days"]')).toHaveAttribute('data-state', 'done');
     await expect(page.locator('.rail-button--forward')).toHaveCount(0);
   });
 });

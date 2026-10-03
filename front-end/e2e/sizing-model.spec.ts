@@ -151,7 +151,7 @@ test.describe('Every organizer screen sizes itself the same way', () => {
       page.evaluate(() => {
         const banner = document.querySelector('.app-container > header') as HTMLElement;
         const title = document.querySelector('[data-testid="market-bar-title"]') as HTMLElement;
-        const card = title.closest('.settings-container') as HTMLElement;
+        const card = title.closest('[data-testid="market-frame-card"]') as HTMLElement;
         return Math.round(card.getBoundingClientRect().top - banner.getBoundingClientRect().bottom);
       });
 

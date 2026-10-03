@@ -30,7 +30,7 @@ SILVER = TierObject(id=2, name="Silver")
 HALL = LocationObject(name="Main Hall")
 
 
-def plan(section_counts=((GOLD, 2),), dates=DATES):
+def plan(section_counts=((GOLD, 2),), dates=DATES, ceiling=None):
     return SetupObject(
         priority=[],
         market_dates=[MarketDateObject(date=date) for date in dates],
@@ -40,16 +40,18 @@ def plan(section_counts=((GOLD, 2),), dates=DATES):
             SectionObject(name=f"Section {tier.name}", location=HALL, tier=tier, count=count)
             for tier, count in section_counts
         ],
-        assignment_options=AssignmentOptionObject(),
+        assignment_options=AssignmentOptionObject(max_assignments_per_vendor=ceiling),
     )
 
 
-def vendor(email="nadia@ember.test", available=DATES, tiers=("Gold",), table_choice="full"):
+def vendor(
+    email="nadia@ember.test", available=DATES, tiers=("Gold",), table_choice="full", max_dates=None,
+):
     return SolverVendor(
         application_id=f"app-{email}",
         email=email,
         available_dates=frozenset(available),
-        max_dates=len(available),
+        max_dates=len(available) if max_dates is None else max_dates,
         accepted_tiers_by_date={date: frozenset(tiers) for date in available},
         table_choice=table_choice,
         table_share_email=None,
@@ -146,6 +148,76 @@ class TestAPartiallyPlacedVendor:
         result = reasons(setup, [vendor()], placed)
 
         assert result[("nadia@ember.test", DATES[1])] == PlacementReason.TAKEN
+
+
+class TestTheLimits:
+    """A vendor with every date they may have is left off the rest however many tables are free.
+
+    Calling one of those dates FREE offered "Place them" and invited the organizer to break the
+    limit (bug 33).
+    """
+
+    def test_a_vendor_with_the_dates_they_asked_for_is_at_their_limit(self):
+        placed = [placement("nadia@ember.test", DATES[0], "Section Gold 1")]
+
+        result = reasons(plan(), [vendor(max_dates=1)], placed)
+
+        assert result[("nadia@ember.test", DATES[1])] == PlacementReason.AT_THEIR_LIMIT
+
+    def test_a_vendor_the_market_allows_no_more_is_at_the_ceiling(self):
+        placed = [placement("nadia@ember.test", DATES[0], "Section Gold 1")]
+
+        result = reasons(plan(ceiling=1), [vendor(max_dates=2)], placed)
+
+        assert result[("nadia@ember.test", DATES[1])] == PlacementReason.AT_MARKET_CEILING
+
+    def test_their_own_answer_is_named_when_both_limits_are_reached(self):
+        placed = [placement("nadia@ember.test", DATES[0], "Section Gold 1")]
+
+        result = reasons(plan(ceiling=1), [vendor(max_dates=1)], placed)
+
+        assert result[("nadia@ember.test", DATES[1])] == PlacementReason.AT_THEIR_LIMIT
+
+    def test_a_vendor_placed_by_hand_past_their_limit_is_still_at_it(self):
+        three = DATES + ["2026-08-15"]
+        placed = [
+            placement("nadia@ember.test", DATES[0], "Section Gold 1"),
+            placement("nadia@ember.test", DATES[1], "Section Gold 1"),
+        ]
+
+        result = reasons(plan(dates=three), [vendor(available=three, max_dates=1)], placed)
+
+        assert result[("nadia@ember.test", "2026-08-15")] == PlacementReason.AT_THEIR_LIMIT
+
+    def test_a_date_they_did_not_offer_is_still_that_first(self):
+        placed = [placement("nadia@ember.test", DATES[0], "Section Gold 1")]
+
+        result = reasons(plan(), [vendor(available=[DATES[0]], max_dates=1)], placed)
+
+        assert result[("nadia@ember.test", DATES[1])] == PlacementReason.NOT_AVAILABLE
+
+    def test_under_both_limits_the_tables_decide(self):
+        placed = [placement("nadia@ember.test", DATES[0], "Section Gold 1")]
+
+        result = reasons(plan(ceiling=2), [vendor(max_dates=2)], placed)
+
+        assert result[("nadia@ember.test", DATES[1])] == PlacementReason.FREE
+
+    def test_no_limit_and_no_ceiling_is_no_limit(self):
+        unasked = SolverVendor(
+            application_id="app-1",
+            email="nadia@ember.test",
+            available_dates=frozenset(DATES),
+            max_dates=None,
+            accepted_tiers_by_date={},
+            table_choice="full",
+            table_share_email=None,
+            section_ranking=(),
+            table_type_ranking=(),
+        )
+        placed = [placement("nadia@ember.test", DATES[0], "Section Gold 1")]
+
+        assert reasons(plan(), [unasked], placed)[(unasked.email, DATES[1])] == PlacementReason.FREE
 
 
 class TestComputedRatherThanRecorded:

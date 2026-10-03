@@ -26,11 +26,11 @@ import io
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
-from application_write import record_application_answers, validate_application_answers
+from application_write import answer_errors, record_application_answers, validated_form_data
 from datatypes import (
     SUBMITTED_AT_RULE_TARGET,
     Application,
@@ -65,10 +65,19 @@ def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
             f"This market is still a draft, so it is not taking applications yet. "
             f"Open applications first, then import."
         )
+    # The way back is offered only where the transition table has one (bug 42): this told a market
+    # in Assignment to "move back to applications closed", which no move does.
+    from guards import route_between
+
+    if route_between(phase.value, MarketPhase.APPLICATIONS_CLOSED.value) is None:
+        return (
+            f"This market is in the {readable} phase, past review, so it takes no more "
+            f"applications and nothing more can be imported."
+        )
     return (
-        f"This market is in the {readable} phase, so importing would change the applicant set "
-        f"under a review that has already begun. Reopen applications first (move back to "
-        f"applications closed), then import."
+        f"This market is in the {readable} phase, so importing would change who has applied "
+        f"while their applications are being decided. Use Return to Applications Closed, under "
+        f"More… on the phase rail, then import."
     )
 
 
@@ -131,8 +140,16 @@ def normalized_submitted_at(raw: Any) -> Optional[str]:
 # quote what the organizer actually typed.
 _UNREADABLE_TIMESTAMP = "\x00unreadable:"
 
+# How many rows the preview shows as they will be imported.
+SAMPLE_ROWS = 3
+
 APPLICANT_EMAIL_TARGET = "applicant_email"
 APPLICANT_EMAIL_LABEL = "Applicant email"
+
+# Something either side of a single @, and a dot in the domain. Deliberately loose: the point is to
+# refuse what is plainly not an address - a name, or a timestamp from a row whose cells shifted -
+# because every vendor-facing flow keys on it, not to second-guess one a mail server would accept.
+_EMAIL_ADDRESS = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 # Also not a form answer. Google Forms emits it as the first column of every export, and a
 # priority rule ordering by submission time reads it. Optional: a market with no time-based
@@ -242,6 +259,13 @@ class ImportTarget:
         }
 
 
+# Asked of every online applicant, but not needed from a file: most real forms never asked how many
+# days an applicant wants, and demanding the column blocked three of five real exports with no way
+# through (bug 24). A row without it has no personal limit - bounded by the dates the applicant can
+# attend and the market's ceiling - which is what the solver already does with no limit.
+_OPTIONAL_AT_IMPORT = frozenset({EssentialFields.MAX_DATES_KEY})
+
+
 def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     """Every target this market's columns can be mapped to, in the order the form asks them.
 
@@ -265,7 +289,11 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
         ImportTarget(SUBMITTED_AT_TARGET, SUBMITTED_AT_LABEL, False, "meta"),
     ]
     targets += [
-        ImportTarget(key, label, key in EssentialFields.REQUIRED_ESSENTIAL_KEYS, "essential")
+        ImportTarget(
+            key, label,
+            key in EssentialFields.REQUIRED_ESSENTIAL_KEYS and key not in _OPTIONAL_AT_IMPORT,
+            "essential",
+        )
         for key, label in EssentialFields.ESSENTIAL_QUESTIONS
         if key in asked
     ]
@@ -313,12 +341,17 @@ def offered_values(
 
 def resolve_value(
     raw: str, offered: List[str], resolutions: Dict[str, Optional[str]],
+    recognise: Optional[Callable[[str], Optional[str]]] = None,
 ) -> Tuple[Optional[str], bool]:
     """One cell value against what the market offers.
 
     Returns ``(value, resolved)``. ``value`` is None when the organizer has explicitly chosen to
     ignore this value; ``resolved`` is False when nobody has said what it means yet, which is what
     blocks the import.
+
+    ``recognise`` reads a value the market offers under another spelling (a date in words). It
+    runs before the saved decisions, as an exact match does: a value the import can read needs no
+    decision, and a stale "ignore" saved for it must not outrank it.
     """
     text = str(raw).strip()
     if not text:
@@ -328,6 +361,10 @@ def resolve_value(
     for candidate in offered:
         if normalize_value(candidate) == normalized:
             return candidate, True
+
+    recognised = recognise(text) if recognise else None
+    if recognised is not None:
+        return recognised, True
 
     if text in resolutions:
         return resolutions[text], True
@@ -354,7 +391,25 @@ def parse_csv(csv_content: str) -> Tuple[Optional[str], List[str], List[List[str
     headers = [str(cell).strip() for cell in parsed[0]]
     if not any(headers):
         return "The first row of the file is empty, so there are no columns to map.", [], []
-    return None, headers, parsed[1:]
+
+    # A row whose cells do not line up with the header puts every later answer under the wrong
+    # question, and was accepted silently (bug 40). A blank line is no row at all, and empty cells
+    # past the header's last column are only trailing commas.
+    rows = [row for row in parsed[1:] if row]
+    ragged = [
+        (line, len(row)) for line, row in enumerate(rows, start=2)
+        if len(row) < len(headers) or any(cell.strip() for cell in row[len(headers):])
+    ]
+    if ragged:
+        line, cells = ragged[0]
+        more = f" (and {len(ragged) - 1} more)" if len(ragged) > 1 else ""
+        return (
+            f"Row {line}{more} has {cells} cells where the header has {len(headers)}, so its "
+            "answers would land under the wrong questions. A heading or an answer with a comma in "
+            "it has probably lost its quotes: download the responses from Google Sheets again "
+            "rather than editing the file by hand.", [], []
+        )
+    return None, headers, rows
 
 
 def suggested_mapping(headers: List[str], targets: List[ImportTarget]) -> Dict[str, int]:
@@ -450,10 +505,10 @@ def comma_bearing_targets(market_doc: Dict[str, Any]) -> List[str]:
     """Targets a single comma-split column cannot answer reliably.
 
     A checkbox question exports one column holding the selected option labels **comma-joined**.
-    When the labels themselves contain commas - and a date label like "Saturday, November 21,
-    2026" does - the export is ambiguous to any reader, because the separator information was
-    thrown away before the file was written. Splitting on commas anyway turns one answer into six
-    fragments, every one of them reported as not matching the market with no word about why.
+    An option with a comma of its own is read whole (``split_options`` takes known options first),
+    so that alone is no longer a problem. What stays ambiguous to any reader is an option made of
+    other options: offered "Prints, Cards" beside "Prints" and "Cards", the cell "Prints, Cards"
+    says one answer or two and nothing in the file can tell which.
 
     Only multi-value targets are listed: a single-value answer is the whole cell and is never
     split, so a comma in one of its labels costs nothing.
@@ -461,11 +516,6 @@ def comma_bearing_targets(market_doc: Dict[str, Any]) -> List[str]:
     This says the offering *contains* such a label. Whether a single column is mapped to it is a
     question about the organizer's mapping, which changes without a round trip, so the mapping
     screen decides that half and this decides the half only the market knows.
-
-    Note what is deliberately NOT here: any attempt to parse the cell. Greedy matching of the
-    offering's labels against the raw text was considered and rejected - organizers name tiers and
-    sections freely, so "Gold" inside "Gold Plus" breaks longest-match, and that failure is silent
-    and wrong rather than loud and right.
     """
     options = EssentialFields.effective_essential_options(market_doc)
     form = market_doc_field(market_doc, "application_form") or {}
@@ -479,7 +529,12 @@ def comma_bearing_targets(market_doc: Dict[str, Any]) -> List[str]:
         ):
             continue
         offered = offered_values(target, options, fields_by_key.get(target.key)) or []
-        if any("," in str(label) for label in offered):
+        names = {normalize_value(label) for label in offered}
+        if any(
+            ", " in str(label)
+            and all(normalize_value(piece) in names for piece in str(label).split(", "))
+            for label in offered
+        ):
             bearing.append(target.key)
     return bearing
 
@@ -522,8 +577,129 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
     }, 200
 
 
-def _split_multi(raw: str) -> List[str]:
-    return [part.strip() for part in str(raw).split(",") if part.strip()]
+WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+            "mon", "tue", "wed", "thu", "fri", "sat", "sun")
+MONTHS = {month: number for number, month in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+WEEKDAY_NUMBER = {day: number for number, day in enumerate(
+    ["mon", "tue", "wed", "thu", "fri", "sat", "sun"])}
+# "Monday, November 20th", "Nov 20", "Saturday, October 3, 2026".
+DATE_TEXT = re.compile(
+    r"^(?:(?P<weekday>[a-z]+),?\s+)?(?P<month>[a-z]+)\.?\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?"
+    r"(?:,?\s+(?P<year>\d{4}))?$",
+    re.IGNORECASE)
+# Answers that mean "not on this day" in a per-day grid. The applicant form itself offers "Not
+# available", so reading only "None" left every such cell as a tier nobody offered (bug 26).
+NONE_WORDS = {"none", "n/a", "na", "not available", "unavailable", "-"}
+
+
+def parse_date(text: str) -> Optional[Tuple[int, int, Optional[int]]]:
+    """``(month, day, weekday)`` from "Monday, November 20th" or "Nov 20", or None."""
+    parts = _date_parts(text)
+    return parts[:3] if parts else None
+
+
+def _date_parts(text: str) -> Optional[Tuple[int, int, Optional[int], Optional[int]]]:
+    match = DATE_TEXT.match(str(text).strip())
+    if not match or match.group("month")[:3].lower() not in MONTHS:
+        return None
+    weekday = (match.group("weekday") or "")[:3].lower()
+    year = match.group("year")
+    return (MONTHS[match.group("month")[:3].lower()], int(match.group("day")),
+            WEEKDAY_NUMBER.get(weekday), int(year) if year else None)
+
+
+def plan_date_named(text: str, plan_dates: Sequence[str]) -> Optional[str]:
+    """The one plan date a date written in words names, or None.
+
+    A Google Form names a day as the organizer typed it - "Saturday, October 3" - and only an ISO
+    heading used to match, so every real day heading had to be matched by hand, and a tier grid's
+    could not be matched at all (bug 26). The month and day must name exactly one of the plan's
+    dates, and a weekday or a year, when given, must agree with it.
+    """
+    parts = _date_parts(text)
+    if not parts:
+        return None
+    month, day, weekday, year = parts
+    named = []
+    for iso in plan_dates:
+        try:
+            when = datetime.strptime(str(iso), "%Y-%m-%d")
+        except ValueError:
+            continue
+        if (when.month, when.day) != (month, day):
+            continue
+        if year is not None and when.year != year:
+            continue
+        if weekday is not None and when.weekday() != weekday:
+            continue
+        named.append(str(iso))
+    return named[0] if len(named) == 1 else None
+# What follows a weekday when the two are one day: "Monday, November 20th" or "Monday, 20 November".
+_DAY_OF_MONTH = re.compile(r"^\s*(\d|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b)",
+                           re.IGNORECASE)
+
+
+_COMMA = re.compile(r",\s*")
+
+
+def _comma_spaced(text: str) -> str:
+    """``normalize_value``, with every comma followed by exactly one space."""
+    return normalize_value(_COMMA.sub(", ", str(text)))
+
+
+def split_options(value: str, known: Sequence[str] = ()) -> List[str]:
+    """A checkbox answer's options. Google joins them with ", ", and an option can hold ", " too.
+
+    Splitting at every comma turned "Woven (crochet, knitting, etc)" into three answers and
+    "Monday, November 20th" into two, so the organizer matched halves, ignored fragments, and
+    applicants who chose only such an option lost their answer (bug 27). So:
+
+    - A ``known`` option - what the question offers, and every value the organizer has already
+      matched - is taken whole wherever its pieces appear in a row, the longest first. Only whole
+      pieces are compared, so "Gold" never matches inside "Gold Plus".
+    - Otherwise a comma inside parentheses, or after a weekday that a day of the month follows,
+      belongs to the option; every other comma separates two.
+    """
+    # At a comma with or without a space after it: an "Other" answer typed by hand writes
+    # "Apparel,Keychains" or ends "Keychains," as often as Google writes ", ".
+    pieces = [piece.strip() for piece in _COMMA.split(str(value))]
+    whole = {_comma_spaced(option) for option in known if "," in str(option)}
+    longest = max((len(_COMMA.split(str(option))) for option in known if "," in str(option)),
+                  default=1)
+
+    parts: List[str] = []
+    current: List[str] = []
+    depth = 0
+    i = 0
+    while i < len(pieces):
+        if not current and whole:
+            for j in range(min(len(pieces), i + longest), i + 1, -1):
+                if _comma_spaced(", ".join(pieces[i:j])) in whole:
+                    parts.append(", ".join(pieces[i:j]).strip())
+                    i = j
+                    break
+            else:
+                j = 0
+            if j:
+                continue
+        piece = pieces[i]
+        i += 1
+        current.append(piece)
+        depth += piece.count("(") - piece.count(")")
+        followed_by_day = i < len(pieces) and _DAY_OF_MONTH.match(pieces[i])
+        if depth > 0 or (piece.strip().lower() in WEEKDAYS and followed_by_day):
+            continue
+        parts.append(", ".join(current).strip())
+        current = []
+        depth = 0
+    if current:
+        parts.append(", ".join(current).strip())
+    return [part for part in parts if part]
+
+
+def _split_multi(raw: str, known: Sequence[str] = ()) -> List[str]:
+    return split_options(raw, known)
 
 
 def _grid_option(header: str) -> str:
@@ -578,7 +754,7 @@ def _whole_number_text(text: str) -> str:
 
 
 def _tier_grid(
-    headers: Sequence[str], row: Sequence[str], columns: Sequence[int],
+    headers: Sequence[str], row: Sequence[str], columns: Sequence[int], known: Sequence[str] = (),
 ) -> Dict[str, List[str]]:
     """A per-date tier answer, which is the shape a real form's day grid already has.
 
@@ -594,13 +770,47 @@ def _tier_grid(
     for index in columns:
         date = _grid_option(headers[index])
         cell = str(row[index]).strip() if index < len(row) else ""
-        tiers = [name for name in _split_multi(cell) if name.lower() != "none"]
+        tiers = [name for name in _split_multi(cell, known) if name.lower() not in NONE_WORDS]
         if tiers:
             per_date[date] = tiers
     return per_date
 
 
-def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> Any:
+# How another form words the three table choices. A Google Form writes whatever the organizer typed
+# - "Full table", "Half table", "Either" - and none of those is a trivial variant of "A whole table
+# to myself", so exact matching left them unmatched: the import asked about them by hand, and a
+# market started from its form saved them as ignored and refused every one of those applicants
+# (bug 3). An answer naming both sizes, or saying the applicant does not mind, is "either".
+_FULL_TABLE_WORDS = re.compile(r"\b(full|whole|entire)\b")
+_HALF_TABLE_WORDS = re.compile(r"\bhalf\b")
+_EITHER_TABLE_WORDS = re.compile(
+    r"\b(either|both|whichever|no preference|don'?t mind|doesn'?t matter)\b",
+)
+
+
+def _table_choice_in_words(text: str) -> Optional[str]:
+    """The table choice another form's wording names, or None when it names none of them."""
+    lowered = text.casefold().replace("’", "'")
+    full = bool(_FULL_TABLE_WORDS.search(lowered))
+    half = bool(_HALF_TABLE_WORDS.search(lowered))
+    if _EITHER_TABLE_WORDS.search(lowered) or (full and half):
+        return EssentialFields.TABLE_CHOICE_EITHER
+    if full:
+        return EssentialFields.TABLE_CHOICE_FULL
+    if half:
+        return EssentialFields.TABLE_CHOICE_HALF
+    return None
+
+
+# The only answers that mean a box was left unticked. A Google Form exports a ticked box as the
+# box's own text ("I certify that...") and an unticked one as nothing at all, so reading only
+# "true"/"yes" as ticked refused every applicant on a required certification (bug 2).
+_UNTICKED = {"false", "no", "n", "0", "unchecked", "off"}
+
+
+def _coerce(
+    target: ImportTarget, raw: str, field: Optional[Dict[str, Any]], known: Sequence[str] = (),
+) -> Any:
     """One cell, as the answer shape its target expects.
 
     Multi-value answers arrive comma-separated in a single column, which is what a Google Form
@@ -611,18 +821,18 @@ def _coerce(target: ImportTarget, raw: str, field: Optional[Dict[str, Any]]) -> 
         # Spoken in the applicant's words, which is what this target's offering is now made of.
         # A file that already holds the stored code says the same thing, so it is translated here
         # rather than sent round the reconciliation screen to be told that ``full`` means ``full``.
-        code = EssentialFields.table_choice_for_label(text)
+        code = EssentialFields.table_choice_for_label(text) or _table_choice_in_words(text)
         return EssentialFields.TABLE_CHOICE_LABELS[code] if code else text
     if target.key in _MULTI_VALUE_ESSENTIALS:
-        return _split_multi(text)
+        return _split_multi(text, known)
     if target.key == EssentialFields.MAX_DATES_KEY:
         return _whole_number_text(text)
     if target.kind == "custom" and field:
         field_type = field.get("type", "text")
         if field_type == "multi_select":
-            return _split_multi(text)
+            return _split_multi(text, known)
         if field_type == "checkbox":
-            return text.lower() in ("true", "yes", "1", "checked")
+            return bool(text) and text.casefold() not in _UNTICKED
         if field_type == "number":
             return text
     return text
@@ -634,15 +844,38 @@ def _raw_values(
     row: Sequence[str],
     indexes: Sequence[int],
     field: Optional[Dict[str, Any]],
+    known: Sequence[str] = (),
 ) -> Any:
-    """A target's answer for one row, before its values are matched against the market."""
+    """A target's answer for one row, before its values are matched against the market.
+
+    ``known`` is every value the answer could name whole - see ``split_options``.
+    """
     if len(indexes) > 1:
         if target.key == EssentialFields.TIER_PREFERENCE_KEY:
-            return _tier_grid(headers, row, indexes)
+            return _tier_grid(headers, row, indexes, known)
         return _grid_values(target, headers, row, indexes)
     index = indexes[0]
     cell = row[index] if index < len(row) else ""
-    return _coerce(target, cell, field)
+    return _coerce(target, cell, field, known)
+
+
+def _known_values(
+    target: ImportTarget, options: Any, field: Optional[Dict[str, Any]],
+    resolutions: Dict[str, Optional[str]],
+) -> List[str]:
+    """What one answer may name whole: what the market offers, and what the organizer matched."""
+    return [*(offered_values(target, options, field) or []), *resolutions]
+
+
+def tiers_answer_dates(tier_columns: Sequence[Any]) -> bool:
+    """Whether the columns answering tier preference answer availability as well.
+
+    A per-date tier grid does - each day's row is a day the applicant can come, and
+    ``_assembled_rows`` reads the dates from it - and a single tiers column does not. One statement
+    for the import and the proposal: the proposal listed the dates as unanswered beside a grid the
+    import was about to read them from (bug 42).
+    """
+    return len(tier_columns) > 1
 
 
 def unserved_required(targets: Sequence[ImportTarget], resolved: Dict[str, Any]) -> List[ImportTarget]:
@@ -653,14 +886,14 @@ def unserved_required(targets: Sequence[ImportTarget], resolved: Dict[str, Any])
     (``_assembled_rows`` reads the dates from it). The other refused the very shape a real form has.
     """
     satisfied = set(resolved)
-    if len(resolved.get(EssentialFields.TIER_PREFERENCE_KEY) or []) > 1:
+    if tiers_answer_dates(resolved.get(EssentialFields.TIER_PREFERENCE_KEY) or []):
         satisfied.add(EssentialFields.AVAILABLE_DATES_KEY)
     return [t for t in targets if t.required and t.key not in satisfied]
 
 
 def _matched_tiers_by_date(
     value: Any, options: Any, resolutions: Dict[str, Optional[str]],
-) -> Tuple[Any, List[str]]:
+) -> Tuple[Any, List[str], List[str]]:
     """Match a per-date tier answer, whose keys and values are drawn from different offerings.
 
     A tier grid is the one answer with two vocabularies in it: the KEYS are market dates, spelled
@@ -668,24 +901,66 @@ def _matched_tiers_by_date(
     tier names. Each half is matched against its own offering, so the organizer resolves a date
     heading once and a tier name once - not once per row, and never the two confused for each
     other.
+
+    Returns ``(answer, unmatched days, unmatched tiers)``: kept apart because each is matched
+    against its own offering, and a day heading offered only tiers to choose from could never be
+    matched at all (bug 26).
     """
     if not isinstance(value, dict):
-        return _matched(value, list(options.tiers or []), resolutions)
+        kept_tiers, unmatched_tiers = _matched(value, list(options.tiers or []), resolutions)
+        return kept_tiers, [], unmatched_tiers
 
+    dates = list(options.dates or [])
     kept: Dict[str, List[str]] = {}
-    unmatched: List[str] = []
+    unmatched_dates: List[str] = []
+    unmatched_tiers: List[str] = []
     for raw_date, raw_tiers in value.items():
-        date, date_unmatched = _matched(raw_date, list(options.dates or []), resolutions)
+        date, date_unmatched = _matched(raw_date, dates, resolutions, _date_reader(dates))
         tiers, tier_unmatched = _matched(list(raw_tiers or []), list(options.tiers or []), resolutions)
-        unmatched.extend(date_unmatched)
-        unmatched.extend(tier_unmatched)
+        unmatched_dates.extend(date_unmatched)
+        unmatched_tiers.extend(tier_unmatched)
         if date and tiers:
             kept[date] = tiers
-    return kept, unmatched
+    return kept, unmatched_dates, unmatched_tiers
+
+
+def _saved_decision(
+    raw: Any, offered: Sequence[str], resolutions: Dict[str, Optional[str]],
+    recognise: Optional[Callable[[str], Optional[str]]] = None,
+) -> Optional[str]:
+    """The saved decision a value is settled by - its key - or None when it needs none.
+
+    A value the market offers, or one the import reads for itself, is settled without one; so is
+    a blank. Only what is left consults the decisions, exactly as ``resolve_value`` does.
+    """
+    text = str(raw).strip()
+    if not text:
+        return None
+    normalized = normalize_value(text)
+    if any(normalize_value(candidate) == normalized for candidate in offered):
+        return None
+    if recognise and recognise(text) is not None:
+        return None
+    if text in resolutions:
+        return text
+    return next((key for key in resolutions if normalize_value(key) == normalized), None)
+
+
+def _date_reader(dates: Sequence[str]) -> Callable[[str], Optional[str]]:
+    """Reads a date in words as the one plan date it names."""
+    return lambda text: plan_date_named(text, dates)
+
+
+def _recogniser(key: str, options: Any) -> Optional[Callable[[str], Optional[str]]]:
+    """What reads a target's answers under another spelling: the days, for availability."""
+    if key == EssentialFields.AVAILABLE_DATES_KEY:
+        return _date_reader(list(options.dates or []))
+    return None
 
 
 def _matched(
     value: Any, offered: List[str], resolutions: Dict[str, Optional[str]],
+    recognise: Optional[Callable[[str], Optional[str]]] = None,
 ) -> Tuple[Any, List[str]]:
     """Apply the market's own names to a target's answer.
 
@@ -696,14 +971,16 @@ def _matched(
         kept: List[str] = []
         unmatched: List[str] = []
         for item in value:
-            resolved, known = resolve_value(item, offered, resolutions)
+            resolved, known = resolve_value(item, offered, resolutions, recognise)
             if not known:
                 unmatched.append(str(item).strip())
-            elif resolved is not None:
+            elif resolved is not None and resolved not in kept:
+                # Once: one day spelled two ways is still one day (bug 27), and keeping both
+                # refused the whole row for repeating it.
                 kept.append(resolved)
         return kept, unmatched
 
-    resolved, known = resolve_value(value, offered, resolutions)
+    resolved, known = resolve_value(value, offered, resolutions, recognise)
     if not known:
         return value, [str(value).strip()]
     return (resolved if resolved is not None else ""), []
@@ -721,18 +998,35 @@ def _stored_answer(key: str, value: Any) -> Any:
     return EssentialFields.table_choice_for_label(value) or value
 
 
+class _Row(NamedTuple):
+    """One row of the file, read through the mapping."""
+
+    # Row 1 is the header, so the first data row is line 2 in the organizer's own file - which is
+    # what they need in order to find it.
+    line: int
+    email: str
+    submitted_at: str
+    form_data: Dict[str, Any]
+    # The questions this row answered only with values the organizer chose to ignore. Its answer is
+    # then empty, and "'Selling' is required" told an organizer looking at a filled-in cell that the
+    # applicant had not answered (E26 re-walk).
+    ignored: Tuple[str, ...] = ()
+
+
+def _has_answer(value: Any) -> bool:
+    if isinstance(value, list):
+        return any(str(item).strip() for item in value)
+    return bool(str(value or "").strip())
+
+
 def _assembled_rows(
     market_doc: Dict[str, Any],
     headers: Sequence[str],
     rows: Sequence[Sequence[str]],
     resolved: Dict[str, List[int]],
     resolutions: Dict[str, Dict[str, Optional[str]]],
-) -> List[Tuple[int, str, str, Dict[str, Any]]]:
-    """Every row as ``(spreadsheet line, email, submitted_at, form_data)``.
-
-    Row 1 is the header, so the first data row is line 2 in the organizer's own file - which is
-    what they need in order to find it.
-    """
+) -> List[_Row]:
+    """Every row of the file, as the import reads it."""
     options = EssentialFields.effective_essential_options(market_doc)
     by_key = {t.key: t for t in import_targets(market_doc)}
     form = market_doc_field(market_doc, "application_form") or {}
@@ -748,6 +1042,7 @@ def _assembled_rows(
             return row[index] if index < len(row) else ""
 
         form_data: Dict[str, Any] = {}
+        ignored: List[str] = []
         for key, indexes in resolved.items():
             if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET):
                 continue
@@ -755,15 +1050,21 @@ def _assembled_rows(
             if target is None:
                 continue
             field = fields_by_key.get(key)
-            value = _raw_values(target, headers, row, indexes, field)
+            known = _known_values(target, options, field, resolutions.get(key, {}))
+            value = _raw_values(target, headers, row, indexes, field, known)
             if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(value, dict):
-                value, _unmatched = _matched_tiers_by_date(
+                value, _days, _tiers = _matched_tiers_by_date(
                     value, options, resolutions.get(key, {}),
                 )
             else:
                 offered = offered_values(target, options, field)
                 if offered is not None:
-                    value, _unmatched = _matched(value, offered, resolutions.get(key, {}))
+                    matched, unmatched = _matched(
+                        value, offered, resolutions.get(key, {}), _recogniser(key, options),
+                    )
+                    if _has_answer(value) and not _has_answer(matched) and not unmatched:
+                        ignored.append(target.label)
+                    value = matched
             form_data[key] = _stored_answer(key, value)
 
         # How the two answers become the stored shape is the contract's own rule, not the
@@ -791,34 +1092,112 @@ def _assembled_rows(
         except ValueError:
             submitted_at = _UNREADABLE_TIMESTAMP + raw_submitted
 
-        assembled.append((
+        assembled.append(_Row(
             offset + 2,
             str(cell(APPLICANT_EMAIL_TARGET) or "").strip().lower(),
             submitted_at,
             form_data,
+            tuple(ignored),
         ))
     return assembled
 
 
-def _row_faults(
-    market_doc: Dict[str, Any], assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
-    """Rows that would be refused, each with the reason and its line in the organizer's file."""
+def _submission_moment(submitted_at: str) -> Optional[datetime]:
+    """A normalised ``submitted_at`` as a comparable moment, or None when the row has none.
+
+    Aware times are compared in UTC, so a file mixing offsets still orders by when things happened.
+    """
+    if not submitted_at or submitted_at.startswith(_UNREADABLE_TIMESTAMP):
+        return None
+    moment = datetime.fromisoformat(submitted_at.replace("Z", "+00:00"))
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(timezone.utc).replace(tzinfo=None)
+    return moment
+
+
+def _latest_rows(assembled: Sequence[_Row]) -> Tuple[List[_Row], List[Dict[str, Any]]]:
+    """One row per applicant - their latest - and the earlier rows it replaces.
+
+    A Google Form keeps every submission, so a vendor who applied twice is two rows, and real
+    exports have them. They are one application: judged on the latest answers, which is what the
+    vendor last said, and dated by the FIRST submission, which is when they joined a
+    first-come-first-served queue. Taking each row in turn instead compared an earlier row against
+    the stored application, which holds the later row's answers, so an unchanged repeat applicant
+    read as changed and lost their approval on every re-import (bug 34).
+
+    "Latest" is by submission time when every one of the applicant's rows has one, and by position
+    in the file otherwise. Rows with no usable address are left as they are, each to be refused on
+    its own line by ``_row_faults``; grouping them would hide all but one.
+    """
+    by_email: Dict[str, List[_Row]] = {}
+    kept: List[_Row] = []
+    for entry in assembled:
+        if _EMAIL_ADDRESS.fullmatch(entry.email):
+            by_email.setdefault(entry.email, []).append(entry)
+        else:
+            kept.append(entry)
+
+    repeats: List[Dict[str, Any]] = []
+    for email, entries in by_email.items():
+        moments = [_submission_moment(entry.submitted_at) for entry in entries]
+        if all(moment is not None for moment in moments):
+            latest = max(zip(moments, entries), key=lambda pair: (pair[0], pair[1].line))[1]
+        else:
+            latest = max(entries, key=lambda entry: entry.line)
+
+        submitted_at = latest.submitted_at
+        dated = [(moment, entry.submitted_at) for moment, entry in zip(moments, entries)
+                 if moment is not None]
+        # An unreadable time on the latest row stays, so that row is refused naming it rather
+        # than quietly taking an earlier row's time.
+        if dated and not submitted_at.startswith(_UNREADABLE_TIMESTAMP):
+            submitted_at = min(dated)[1]
+        kept.append(latest._replace(submitted_at=submitted_at))
+        repeats.extend(
+            {"row": entry.line, "email": email, "latestRow": latest.line}
+            for entry in entries if entry is not latest
+        )
+
+    kept.sort(key=lambda entry: entry.line)
+    repeats.sort(key=lambda repeat: repeat["row"])
+    return kept, repeats
+
+
+def _row_faults(market_doc: Dict[str, Any], assembled: Sequence[_Row]) -> List[Dict[str, Any]]:
+    """Rows that would be refused, each with every reason and its line in the organizer's file.
+
+    Every reason, not the first: an organizer who fixed one problem in the spreadsheet used to meet
+    the next on the next attempt (bug 40).
+    """
     faults = []
-    for line, email, submitted_at, form_data in assembled:
-        if not email:
-            faults.append({"row": line, "email": "", "error": "No email address."})
+    for line, email, submitted_at, form_data, ignored in assembled:
+        if not email and not submitted_at and not any(map(_has_answer, form_data.values())):
+            # Said once. A blank line in an export listed eight reasons, one per required question,
+            # none of which was the reason (E26 re-walk).
+            faults.append({"row": line, "email": "", "error": "Every column this import reads is empty."})
             continue
+        problems = []
+        shown_email = email
+        if not email:
+            problems.append("No email address.")
+        elif not _EMAIL_ADDRESS.fullmatch(email):
+            problems.append(f"{email!r} is not an email address.")
+            shown_email = ""
         if submitted_at.startswith(_UNREADABLE_TIMESTAMP):
             raw = submitted_at[len(_UNREADABLE_TIMESTAMP):]
-            faults.append({
-                "row": line, "email": email,
-                "error": f"{raw!r} is not a date and time this import can read.",
-            })
-            continue
-        error = validate_application_answers(market_doc, form_data)
-        if error:
-            faults.append({"row": line, "email": email, "error": error})
+            problems.append(f"{raw!r} is not a date and time this import can read.")
+        errors = answer_errors(market_doc, form_data, imported=True)
+        for label in ignored:
+            # Said as what happened, in place of the validator's "is required", which reads as an
+            # applicant who left it blank - the fix is on the import's previous step, not in the file.
+            about = [error for error in errors if error.startswith(f"'{label}'")]
+            if about:
+                errors = [error for error in errors if error not in about]
+                problems.append(
+                    f"Every answer to '{label}' is one you chose to ignore, and it is required.")
+        problems += errors
+        if problems:
+            faults.append({"row": line, "email": shown_email, "error": " ".join(problems)})
     return faults
 
 
@@ -845,6 +1224,10 @@ def preview_values(
 
     tally: Dict[Tuple[str, str], int] = {}
     order: List[Tuple[str, str]] = []
+    offered_for: Dict[Tuple[str, str], List[str]] = {}
+    decided_tally: Dict[Tuple[str, str], int] = {}
+    decided_order: List[Tuple[str, str]] = []
+    decided_offered: Dict[Tuple[str, str], List[str]] = {}
     for row in rows:
         for key, value in mapping.items():
             target = targets.get(key)
@@ -856,17 +1239,44 @@ def preview_values(
             offered = offered_values(target, options, fields_by_key.get(key))
             if offered is None:
                 continue
-            raw = _raw_values(target, headers, row, indexes, fields_by_key.get(key))
+            known = _known_values(
+                target, options, fields_by_key.get(key), resolutions.get(key, {}),
+            )
+            raw = _raw_values(target, headers, row, indexes, fields_by_key.get(key), known)
+            saved = resolutions.get(key, {})
             if key == EssentialFields.TIER_PREFERENCE_KEY and isinstance(raw, dict):
-                _kept, unmatched = _matched_tiers_by_date(raw, options, resolutions.get(key, {}))
+                _kept, days, tiers = _matched_tiers_by_date(raw, options, saved)
+                # A day heading is matched to one of the market's days, a cell to one of its tiers.
+                dates = list(options.dates or [])
+                misses = [(item, dates) for item in days]
+                misses += [(item, offered) for item in tiers]
+                read = [(item, dates, _date_reader(dates)) for item in raw]
+                read += [(item, offered, None) for tiers_of in raw.values() for item in tiers_of]
             else:
-                _kept, unmatched = _matched(raw, offered, resolutions.get(key, {}))
-            for item in unmatched:
+                _kept, unmatched = _matched(raw, offered, saved, _recogniser(key, options))
+                misses = [(item, offered) for item in unmatched]
+                read = [(item, offered, _recogniser(key, options))
+                        for item in (raw if isinstance(raw, list) else [raw])]
+            for item, choices in misses:
                 slot = (key, item)
                 if slot not in tally:
                     tally[slot] = 0
                     order.append(slot)
+                    offered_for[slot] = choices
                 tally[slot] += 1
+            # Each value a saved decision settles, so the organizer can see it and change it.
+            # Applied silently, a decision restored from the last import - or saved by the
+            # proposal - could be neither found nor undone (bug 28).
+            for item, choices, recognise in read:
+                spoken = _saved_decision(item, choices, saved, recognise)
+                if spoken is None:
+                    continue
+                slot = (key, spoken)
+                if slot not in decided_tally:
+                    decided_tally[slot] = 0
+                    decided_order.append(slot)
+                    decided_offered[slot] = choices
+                decided_tally[slot] += 1
 
     unmatched_payload = [
         {
@@ -874,16 +1284,31 @@ def preview_values(
             "targetLabel": targets[key].label,
             "value": item,
             "rows": tally[(key, item)],
-            "offered": offered_values(targets[key], options, fields_by_key.get(key)) or [],
+            "offered": offered_for[(key, item)],
         }
         for key, item in order
+    ]
+
+    decided_payload = [
+        {
+            "target": key,
+            "targetLabel": targets[key].label,
+            # The decision's own spelling, which is how the organizer changes it.
+            "value": item,
+            "rows": decided_tally[(key, item)],
+            "offered": decided_offered[(key, item)],
+            "choice": resolutions.get(key, {}).get(item),
+        }
+        for key, item in decided_order
     ]
 
     result: Dict[str, Any] = {
         "rowCount": len(rows),
         "unmatched": unmatched_payload,
+        "decided": decided_payload,
         "validRows": 0,
         "failures": [],
+        "repeats": [],
     }
 
     # Row-by-row validity is only meaningful once the mapping is complete and every value has been
@@ -898,12 +1323,41 @@ def preview_values(
     if unmatched_payload or unserved:
         return result, 200
 
-    assembled = _assembled_rows(market_doc, headers, rows, resolved, resolutions)
-    failures = _row_faults(market_doc, assembled)
+    applicants, repeats = _latest_rows(
+        _assembled_rows(market_doc, headers, rows, resolved, resolutions),
+    )
+    failures = _row_faults(market_doc, applicants)
     result["failures"] = failures
-    result["validRows"] = len(rows) - len(failures)
-    result.update(_merge_shape(market_doc.get("id", ""), assembled, failures, market_doc))
+    result["repeats"] = repeats
+    result["validRows"] = len(applicants) - len(failures)
+    # The first rows that WILL import, as they will be stored: the file's own first rows included a
+    # skipped one, and read availability from a column a tier grid had answered instead (bug 40).
+    refused = {failure["row"] for failure in failures}
+    result["samples"] = [
+        {"row": line, "email": email, "formData": _answers_as_stored(market_doc, data)}
+        for line, email, _submitted, data, _ignored in applicants if line not in refused
+    ][:SAMPLE_ROWS]
+    result.update(_merge_shape(market_doc.get("id", ""), applicants, failures, market_doc))
     return result, 200
+
+
+def _answers_as_stored(
+    market_doc: Dict[str, Any], form_data: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """A row's answers in the shape they would be stored in, or None when they would be refused.
+
+    The same validators the write runs, so the preview's sample reads as the applications will
+    (bug 40) and a re-import can tell an applicant whose answers changed from one whose did not.
+    """
+    options = EssentialFields.effective_essential_options(market_doc)
+    error, essential = EssentialFields.validated_essential_answers(
+        form_data, options, limit_required=False,
+    )
+    form = market_doc_field(market_doc, "application_form") or {}
+    custom_error, custom = validated_form_data(form_data, form.get("fields") or [])
+    if error or custom_error:
+        return None
+    return {**custom, **essential}
 
 
 def _would_return_to_review(
@@ -922,15 +1376,25 @@ def _would_return_to_review(
         return False
 
     options = EssentialFields.effective_essential_options(market_doc)
-    error, incoming = EssentialFields.validated_essential_answers(form_data, options)
+    error, incoming = EssentialFields.validated_essential_answers(
+        form_data, options, limit_required=False,
+    )
     if error:
         return False
     return EssentialFields.solver_relevant_change(existing.get("form_data") or {}, incoming)
 
 
+def _unchanged(
+    market_doc: Dict[str, Any], existing: Dict[str, Any], form_data: Dict[str, Any],
+) -> bool:
+    """Would importing this row store exactly what the application holds already?"""
+    incoming = _answers_as_stored(market_doc, form_data)
+    return incoming is not None and incoming == (existing.get("form_data") or {})
+
+
 def _merge_shape(
     market_id: str,
-    assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
+    assembled: Sequence[_Row],
     failures: Sequence[Dict[str, Any]],
     market_doc: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -944,8 +1408,8 @@ def _merge_shape(
     """
     skipped_lines = {failure["row"] for failure in failures}
     in_file = {
-        email for line, email, _submitted, _data in assembled
-        if email and line not in skipped_lines
+        row.email for row in assembled
+        if row.email and row.line not in skipped_lines
     }
 
     existing_by_email = {}
@@ -958,16 +1422,23 @@ def _merge_shape(
     absent = sorted(existing_emails - in_file)
 
     returning = []
+    unchanged = set()
     if market_doc is not None:
-        for line, email, _submitted, data in assembled:
+        for line, email, _submitted, data, _ignored in assembled:
             if not email or line in skipped_lines:
                 continue
-            if _would_return_to_review(market_doc, existing_by_email.get(email), data):
+            existing = existing_by_email.get(email)
+            if _would_return_to_review(market_doc, existing, data):
                 returning.append(email)
+            if existing and _unchanged(market_doc, existing, data):
+                unchanged.add(email)
 
+    # "Updated" is an application whose answers change. It counted every matching row, so a
+    # re-export in which four answers moved said 272 updated (bug 40).
     return {
         "newRows": len(in_file - existing_emails),
-        "updatedRows": len(in_file & existing_emails),
+        "updatedRows": len((in_file & existing_emails) - unchanged),
+        "unchangedRows": len(unchanged),
         "absentApplications": len(absent),
         "absentEmails": absent[:20],
         "returningToReview": len(returning),
@@ -1062,25 +1533,31 @@ def import_applications(
 
     created = 0
     updated = 0
+    unchanged = 0
     returned_to_review = 0
-    failures: List[Dict[str, Any]] = []
+
+    # Judged exactly as the preview judged them: one row per applicant, and every refusal decided
+    # before anything is written. Creating first and validating after left an empty application
+    # behind for every row the preview had promised to skip (bug 5).
+    applicants, repeats = _latest_rows(
+        _assembled_rows(market_doc, headers, rows, resolved, resolutions),
+    )
+    failures = _row_faults(market_doc, applicants)
+    refused = {failure["row"] for failure in failures}
 
     # Counted before the writes, so it means "already here and not in this file" rather than
     # being confused by the rows this run is about to add.
-    assembled_all = _assembled_rows(market_doc, headers, rows, resolved, resolutions)
-    shape_before = _merge_shape(
-        market_id, assembled_all, _row_faults(market_doc, assembled_all), market_doc,
-    )
-    absent_before = shape_before["absentApplications"]
+    absent_before = _merge_shape(market_id, applicants, failures, market_doc)["absentApplications"]
 
-    for row_number, email, submitted_at, form_data in _assembled_rows(
-        market_doc, headers, rows, resolved, resolutions,
-    ):
-        if not email:
-            failures.append({"row": row_number, "email": "", "error": "No email address."})
+    for row_number, email, submitted_at, form_data, _ignored in applicants:
+        if row_number in refused:
             continue
 
         existing = ApplicationsApi.find_application_by_email(market_id, email)
+        if existing and _unchanged(market_doc, existing, form_data):
+            # Nothing to write, and nothing to call an update.
+            unchanged += 1
+            continue
         # Decided BEFORE the write, while the stored answers are still the ones the organizer
         # approved: afterwards there is nothing left to compare against.
         stale_review = _would_return_to_review(market_doc, existing, form_data)
@@ -1096,9 +1573,13 @@ def import_applications(
             app_doc = {**app_doc, "submitted_at": submitted_at}
 
         row_error, _ = record_application_answers(
-            markets_collection, market_doc, app_doc, form_data,
+            markets_collection, market_doc, app_doc, form_data, imported=True,
         )
         if row_error:
+            # Only reachable if the offering froze differently between the check and the write.
+            # The application this run just created must not outlive the answers it was for.
+            if not existing:
+                ApplicationsApi.delete_application(app_doc.get("id", ""))
             failures.append({"row": row_number, "email": email, "error": row_error})
             continue
 
@@ -1120,9 +1601,11 @@ def import_applications(
     return {
         "created": created,
         "updated": updated,
+        "unchanged": unchanged,
         "skipped": len(failures),
         "rowCount": len(rows),
-        "failures": failures,
+        "failures": sorted(failures, key=lambda failure: failure["row"]),
+        "repeats": repeats,
         "absentApplications": absent_before,
         "returnedToReview": returned_to_review,
     }, 200

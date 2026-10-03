@@ -142,6 +142,22 @@ describe('getDateRange', () => {
     );
   });
 
+  /*
+   * Two days apart are two days, not a range (bug 14). "Oct 3-10, 2026" read as eight consecutive
+   * days for a market on two Saturdays, and only a market of three or more days said how many.
+   */
+  it('names both days when two are not consecutive, rather than spanning them', () => {
+    expect(getDateRange(['2026-10-03', '2026-10-10'])).toBe('Oct 3 and 10, 2026');
+    expect(getDateRange(['2026-10-31', '2026-11-07'])).toBe('Oct 31 and Nov 7, 2026');
+    expect(getDateRange(['2026-12-26', '2027-01-02'])).toBe('Dec 26, 2026 and Jan 2, 2027');
+  });
+
+  it('counts the days of a span that has gaps in it', () => {
+    expect(getDateRange(['2026-10-03', '2026-10-10', '2026-10-17'])).toBe(
+      'Oct 3-17, 2026 (3 days)',
+    );
+  });
+
   it('reads the ends off the dates rather than trusting their order', () => {
     expect(getDateRange(['2026-11-22', '2026-11-21'])).toBe('Nov 21-22, 2026');
   });

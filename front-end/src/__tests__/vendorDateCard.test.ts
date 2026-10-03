@@ -96,15 +96,18 @@ describe('a free table is actionable, the other reasons are reports', () => {
     expect(wrapper.emitted('place')).toHaveLength(1);
   });
 
-  it.each(['not_available', 'no_table_at_their_tier', 'taken'])(
-    'offers nothing to press for %s, because the answer is elsewhere',
-    (reason) => {
-      const wrapper = card({ placement: null, reason, placeHref: '/markets/m/tables' });
+  it.each([
+    'not_available',
+    'at_their_limit',
+    'at_market_ceiling',
+    'no_table_at_their_tier',
+    'taken',
+  ])('offers nothing to press for %s, because the answer is elsewhere', (reason) => {
+    const wrapper = card({ placement: null, reason, placeHref: '/markets/m/tables' });
 
-      expect(wrapper.find('[data-testid="vendor-date-card-place-link"]').exists()).toBe(false);
-      expect(reasonIsActionable(reason as never)).toBe(false);
-    },
-  );
+    expect(wrapper.find('[data-testid="vendor-date-card-place-link"]').exists()).toBe(false);
+    expect(reasonIsActionable(reason as never)).toBe(false);
+  });
 
   it('leads to the Tables view from a placed date too, to change it', () => {
     // The trigger for every change is a person, and this panel is where the organizer is looking
@@ -135,5 +138,14 @@ describe('a free table is actionable, the other reasons are reports', () => {
 describe('placementReasonText', () => {
   it('falls back to a plain fact for a reason this build does not know', () => {
     expect(placementReasonText('something_new' as never)).toBe('Not placed');
+  });
+
+  it("says which limit stopped a vendor, theirs or the market's (bug 33)", () => {
+    expect(placementReasonText('at_their_limit')).toBe(
+      'Already has as many dates as they asked for',
+    );
+    expect(placementReasonText('at_market_ceiling')).toBe(
+      'Already has as many dates as the market allows per vendor',
+    );
   });
 });

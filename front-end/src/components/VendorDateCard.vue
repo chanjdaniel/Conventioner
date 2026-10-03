@@ -36,6 +36,8 @@ const props = defineProps<{
   overrides?: PlacementOverride[];
   /** Where the organizer can go to act on a `free` reason. */
   placeHref?: string | null;
+  /** The placement names a table the plan no longer has (bug 31). */
+  orphaned?: boolean;
 }>();
 
 defineEmits<{ place: [] }>();
@@ -44,7 +46,7 @@ const placed = computed(() => !!props.placement);
 const overridden = computed(() => (props.overrides?.length ?? 0) > 0);
 const state = computed(() => {
   if (!placed.value) return 'unplaced';
-  return overridden.value ? 'overridden' : 'placed';
+  return overridden.value || props.orphaned ? 'overridden' : 'placed';
 });
 /**
  * The way from this card to the screen that can change it (`E11/F03/S02`).
@@ -81,6 +83,9 @@ const canPlace = computed(() => placed.value || reasonIsActionable(props.reason)
       </a>
       <span v-if="overridden" class="vendor-date-card-flag" data-testid="vendor-date-card-override">
         {{ overrideText(overrides) }}
+      </span>
+      <span v-if="orphaned" class="vendor-date-card-flag" data-testid="vendor-date-card-orphaned">
+        This table is no longer in the plan. Move them or free the seat before publishing.
       </span>
     </div>
 

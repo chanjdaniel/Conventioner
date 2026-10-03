@@ -120,6 +120,8 @@ describe('the palette carries a contrast contract', () => {
     // tint, which is how two phase labels shipped below AA - so the chip has its own, and this
     // asserts it on white while the rendered sweep measures the tint pairing.
     '--mm-text-yellow-on-tint',
+    // The destructive chip's ink, for the same reason: `--mm-red` is 4.41 on that chip's ground.
+    '--mm-text-red-on-tint',
     '--mm-text-link',
     // Ink on a green TINT, and on white it is darker still - so white is the harder of its two
     // grounds to state here, and the tint pairing is measured by the rendered sweep.
@@ -132,12 +134,13 @@ describe('the palette carries a contrast contract', () => {
 
   for (const token of INK_ON_LIGHT) {
     for (const [groundName, ground] of LIGHT_GROUNDS) {
-      // Beige is a card fill, not a page ground. Two tokens are set on it - `--mm-black`, and the
-      // disabled ink, which exists BECAUSE `--mm-text-muted` is 4.63 on white and 4.23 on beige.
-      // Hold the rest to white only, and say so rather than silently skipping.
+      // Beige is a card fill, not a page ground. Three tokens are set on it - `--mm-black`, the
+      // disabled ink, which exists BECAUSE `--mm-text-muted` is 4.63 on white and 4.23 on beige,
+      // and the link in an answer on the review card. Hold the rest to white only, and say so
+      // rather than silently skipping.
       if (
         groundName === '--mm-beige' &&
-        !['--mm-black', '--mm-text-muted-on-beige'].includes(token)
+        !['--mm-black', '--mm-text-muted-on-beige', '--mm-text-link'].includes(token)
       )
         continue;
       it(`${token} is legible on ${groundName}`, () => {
@@ -188,6 +191,28 @@ describe('the palette carries a contrast contract', () => {
     });
   }
 
+  /*
+   * A chip is its ink on its own ground, and the ground is opaque - its tint already laid over white
+   * (bug 43). A translucent tint took on whatever it sat on, so a chip measured on white fell below
+   * AA on the beige review card; and the destructive chip's red was 4.41 on its own tint even over
+   * white, which nothing measured because no walked screen showed one.
+   */
+  const CHIPS: Array<[string, string]> = [
+    ['--mm-chip-positive', '--mm-text-green'],
+    ['--mm-chip-attention', '--mm-text-yellow-on-tint'],
+    ['--mm-chip-informational', '--mm-blue'],
+    ['--mm-chip-destructive', '--mm-text-red-on-tint'],
+  ];
+
+  for (const [ground, ink] of CHIPS) {
+    it(`${ink} is legible on the ${ground} ground`, () => {
+      expect(alphaOf(tokens[ground])).toBe(1);
+      expect(contrast(inkOn(ink, resolve(ground)), resolve(ground))).toBeGreaterThanOrEqual(
+        AA_NORMAL,
+      );
+    });
+  }
+
   it('white is never put on --mm-yellow, which is a black-text fill', () => {
     // Stated as a test so the reason survives: white on this yellow is 2.15, and someone will
     // eventually reach for it because every other fill in the product takes white.
@@ -204,6 +229,7 @@ describe('the palette carries a contrast contract', () => {
       '--color-text',
       '--color-background',
       ...FILLS.map(([f]) => f),
+      ...CHIPS.map(([ground]) => ground),
       // Lines and hover states. These never sit under text.
       '--mm-border',
       '--hover-grey',

@@ -53,7 +53,7 @@ const facts = computed<SummaryFact[]>(() => [
     @select="$emit('open')"
   >
     <template #name>
-      <h3 data-testid="market-card-name">{{ market.name }}</h3>
+      <h3 data-testid="market-card-name" :title="market.name">{{ market.name }}</h3>
     </template>
     <template #badge>
       <PhaseBadge :phase="market.phase" />
@@ -65,7 +65,7 @@ const facts = computed<SummaryFact[]>(() => [
       <button
         v-if="showManage && canManage"
         type="button"
-        class="manage-button"
+        class="btn btn--secondary"
         data-testid="market-card-manage-button"
         @click="$emit('manage')"
       >
@@ -74,20 +74,3 @@ const facts = computed<SummaryFact[]>(() => [
     </template>
   </SummaryCard>
 </template>
-
-<style scoped>
-.manage-button {
-  height: 34px;
-  padding: 0 16px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--mm-border);
-  background: white;
-  color: var(--mm-black);
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-
-.manage-button:hover {
-  border-color: var(--mm-black);
-}
-</style>

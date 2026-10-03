@@ -5,6 +5,7 @@ import {
   dateInYear,
   draftFrom,
   draftRows,
+  droppedBy,
   notAsked,
   setCeiling,
   settle,
@@ -39,7 +40,6 @@ function column(index: number, overrides: Partial<ProposedColumn> = {}): Propose
       type: 'text',
       required: false,
       options: [],
-      unlistedOptions: 0,
       upload: false,
       optionsByType: {},
     },
@@ -165,8 +165,8 @@ describe('the working copy', () => {
         type: 'select',
         options: one,
         optionsByType: {
-          select: { options: one, unlisted: 0 },
-          multi_select: { options: several, unlisted: 0 },
+          select: { options: one, answers: [] },
+          multi_select: { options: several, answers: [] },
         },
       },
     };
@@ -182,6 +182,20 @@ describe('the working copy', () => {
       'Zines',
     ]);
     expect(rows[0].check).toEqual(['Could allow several answers']);
+  });
+
+  /*
+   * The reason is the proposal's for what IT proposed. A column the organizer made the essential
+   * "Number of dates you want" kept saying "A question of your own" beneath its new choice.
+   */
+  it("drops the proposal's reason once the organizer gives a column another fate", () => {
+    const p = proposal([column(0)]);
+    const draft = draftFrom(p);
+    correct(draft, 0, { type: 'number' });
+    expect(draftRows(p, draft)[0].why).toBe('A question of your own');
+
+    correct(draft, 0, { fate: 'essential', essential: 'essential_max_dates' });
+    expect(draftRows(p, draft)[0].why).toBe('');
   });
 
   it('keeps a rare option the organizer ticks', () => {
@@ -227,6 +241,57 @@ describe('the working copy', () => {
     expect(notAsked(p, draft).map((q) => q.key)).not.toContain('essential_full_name');
     correct(draft, 0, { fate: 'left_out' });
     expect(notAsked(p, draft).map((q) => q.key)).toContain('essential_full_name');
+  });
+
+  it('counts the applicants whose every answer is left out (bug 4)', () => {
+    const read = {
+      options: ['Prints', 'Stickers', 'Crochet plushies'].map((value, i) => ({
+        value,
+        count: 1,
+        rare: i === 2,
+        keep: i !== 2,
+      })),
+      // Prints only; Prints and plushies; plushies only; nothing at all.
+      answers: [[0], [0, 2], [2], []],
+    };
+    expect(droppedBy(read, new Set(['Prints', 'Stickers']))).toBe(1);
+    expect(droppedBy(read, new Set(['Prints', 'Stickers', 'Crochet plushies']))).toBe(0);
+    // Nothing kept becomes a question answered in words, which keeps every answer.
+    expect(droppedBy(read, new Set())).toBe(0);
+  });
+
+  /*
+   * A day's row in a tier grid is a day the applicant can come, and the import reads the dates
+   * from it - so the proposal listed "Available dates" as not asked beside the grid that answers it
+   * (bug 42). One tiers column does not answer the dates.
+   */
+  it('counts a tier grid as answering the dates, and a single tiers column as not', () => {
+    const grid = 'For each day, choose all table tiers';
+    const p = proposal(
+      [0, 1, 2].map((i) =>
+        column(i, {
+          header: `${grid} [Day ${i + 1}]`,
+          group: grid,
+          fate: 'essential',
+          essential: 'essential_tier_preference',
+        }),
+      ),
+    );
+    expect(notAsked(p, draftFrom(p)).map((q) => q.key)).not.toContain('essential_available_dates');
+
+    const single = proposal([
+      column(0, { fate: 'essential', essential: 'essential_tier_preference' }),
+    ]);
+    expect(notAsked(single, draftFrom(single)).map((q) => q.key)).toContain(
+      'essential_available_dates',
+    );
+  });
+
+  it('says a missing days column means no personal limit, not that nobody is asked', () => {
+    const p = proposal([column(0, { fate: 'essential', essential: 'essential_full_name' })]);
+    const status = Object.fromEntries(notAsked(p, draftFrom(p)).map((q) => [q.key, q.status]));
+    expect(status.essential_max_dates).toBe('No personal limit');
+    expect(status.essential_tier_preference).toBe('Not asked');
   });
 
   it("clears the ceiling's check once the organizer states it", () => {

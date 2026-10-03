@@ -1,8 +1,13 @@
-"""Application-scoped JWT utility for the applicant email-key login flow.
+"""The JWT an applicant holds after signing in with an emailed code.
 
-Generates short-lived (30 min) tokens that carry the application id, market id,
-and applicant email. The token is verified on every applicant endpoint request.
-No Flask session is created.
+Short-lived (30 min). It says who signed in, and to which market: the address that proved itself
+by reading the code, and the market it signed in at. It is verified on every applicant endpoint
+request. No Flask session is created.
+
+It names no application. It did, and was only issued to an address that already had one, so a
+vendor who had never applied could prove their address and still be turned away (bug 6, E26/F07/
+S01). An applicant's application is found by market and address - its identity - and is created by
+their first save, so the token stands for the person whether or not they have applied yet.
 
 This token is the *only* thing standing between a caller and any applicant's application, so the
 secret it is signed with is fetched from ``utils.secret_key`` -- which has no fallback, and no
@@ -12,9 +17,9 @@ secret cannot have signed anything before the boot check got the chance to refus
 Token payload::
 
     {
-        "application_id": str,
         "market_id": str,
         "email": str,
+        "iat": int (unix timestamp),
         "exp": int (unix timestamp)
     }
 """
@@ -28,22 +33,10 @@ from utils.secret_key import signing_secret
 APPLICATION_TOKEN_EXPIRY_SECONDS = 30 * 60  # 30 minutes
 
 
-def generate_application_token(
-    application_id: str, market_id: str, email: str,
-) -> str:
-    """Generate a signed JWT for an authenticated applicant.
-
-    Args:
-        application_id: The Application document id.
-        market_id: The Market id this application belongs to.
-        email: The applicant's email address.
-
-    Returns:
-        A signed JWT string.
-    """
+def generate_application_token(market_id: str, email: str) -> str:
+    """Sign a token for an applicant who has just proved their address at this market."""
     now = int(time.time())
     payload: Dict[str, Any] = {
-        "application_id": application_id,
         "market_id": market_id,
         "email": email,
         "iat": now,
@@ -53,21 +46,12 @@ def generate_application_token(
 
 
 def verify_application_token(token: str) -> Optional[Dict[str, Any]]:
-    """Verify and decode an application-scoped JWT.
-
-    Args:
-        token: The JWT string from the ``Authorization: Bearer`` header.
-
-    Returns:
-        The decoded payload dict on success, or ``None`` when the token is
-        expired, malformed, or otherwise invalid.
-    """
+    """The payload of a valid applicant token, or ``None`` when it is expired, malformed, forged,
+    or does not say both who signed in and where."""
     try:
         payload = jwt.decode(token, signing_secret(), algorithms=["HS256"])
-        if "application_id" not in payload or "email" not in payload:
-            return None
-        return payload
-    except jwt.ExpiredSignatureError:
-        return None
     except jwt.InvalidTokenError:
         return None
+    if not payload.get("market_id") or not payload.get("email"):
+        return None
+    return payload

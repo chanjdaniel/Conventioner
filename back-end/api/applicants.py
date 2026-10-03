@@ -22,7 +22,7 @@ Publication gate (captain ruling 2026-07-13):
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from application_write import record_application_answers
+from application_write import record_application_answers, validate_application_answers
 from market_documents import (
     applicant_intake_market_by_slug,
     market_doc_field,
@@ -147,10 +147,12 @@ def get_public_application_form(
 ) -> Tuple[Dict[str, Any], int]:
     """Return the public application form for a market.
 
-    Accessible without authentication. The form is returned for every published market, in every
-    phase, alongside the phase and an ``is_open`` flag that says whether the market is still taking
-    applications. It is not phase-gated on purpose: the applicant dashboard renders stored answers
-    against this field list, so a market that has closed still has to be able to hand it over.
+    Accessible without authentication. The form is returned for every market the applicant intake
+    lookup serves - a form market, in every phase but draft (``APPLICANT_SURFACE_PHASES``) - alongside
+    the phase and an ``is_open`` flag that says whether the market is still taking applications. It
+    is not gated on applications being open, on purpose: the applicant dashboard renders stored
+    answers against this field list, so a market that has closed still has to be able to hand it
+    over (bug 20).
 
     Args:
         market_slug: The URL-safe slug of the market.
@@ -231,14 +233,11 @@ def get_applicant_application(
     if token_market_id != market_id:
         return {"error": "Your sign-in is for a different market. Please sign in again."}, 403
 
-    app_id = token_payload.get("application_id", "")
-    app_doc = ApplicationsApi.find_application_by_id(app_id)
+    # Found by its identity - this market, this address - which is what the token proves. A vendor
+    # who has signed in but not yet applied has none, and that is an answer, not an error.
+    app_doc = ApplicationsApi.find_application_by_email(market_id, token_payload.get("email", ""))
     if not app_doc:
-        return {"error": "Application not found."}, 404
-
-    # Verify the application belongs to the token's email
-    if app_doc.get("applicant_email") != token_payload.get("email"):
-        return {"error": "Application not found."}, 404
+        return {"application": None}, 200
 
     app = Application(**app_doc)
     results_published = bool(market_doc.get("resultsPublished"))
@@ -295,18 +294,31 @@ def save_applicant_application(
                      f"The market is in the {phase_label} phase.",
         }, 403
 
-    app_id = token_payload.get("application_id", "")
-    app_doc = ApplicationsApi.find_application_by_id(app_id)
-    if not app_doc:
-        return {"error": "Application not found."}, 404
+    email = token_payload.get("email", "")
+    existing = ApplicationsApi.find_application_by_email(market_id, email)
 
-    if app_doc.get("applicant_email") != token_payload.get("email"):
-        return {"error": "Application not found."}, 404
+    # A first save creates the application (E26/F07/S01) - and only once the answers would be
+    # accepted, so a refused first try leaves nothing behind for the organizer to review as an
+    # empty application (the importer learned that as bug 5).
+    if existing is None:
+        refusal = validate_application_answers(market_doc, form_data)
+        if refusal:
+            return {"error": refusal}, 422
+    app_doc = existing or ApplicationsApi.find_or_create_application(Application(
+        market_id=market_id,
+        applicant_email=email,
+        form_data={},
+        status=ApplicationStatus.OPEN,
+    )).model_dump()
 
     # Validation, the offering freeze, the write and the status all live in one place, so an
     # imported application and a form-submitted one cannot drift apart.
     error, app = record_application_answers(db["markets"], market_doc, app_doc, form_data)
     if error:
+        # Only reachable for a new application if the offering froze differently between the
+        # check and the write; the application made for these answers must not outlive them.
+        if existing is None:
+            ApplicationsApi.delete_application(app_doc.get("id", ""))
         return {"error": error}, 422
 
     results_published = bool(market_doc.get("resultsPublished"))

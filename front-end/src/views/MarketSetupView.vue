@@ -5,7 +5,11 @@ import { useRoute, useRouter } from 'vue-router';
 
 import ChoosePathOverlay from '@/components/floorplan/ChoosePathOverlay.vue';
 import MarketPlanTab from '@/components/market/MarketPlanTab.vue';
-import { type SetupObject, type FormField } from '@/assets/types/datatypes';
+import {
+  type SetupObject,
+  type FormField,
+  type IncompleteApplication,
+} from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { importRefusal } from '@/utils/importPhase';
 import { assignRefusal } from '@/utils/assignPhase';
@@ -20,7 +24,6 @@ import MarketApplicationsTab from '@/components/market/MarketApplicationsTab.vue
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import MarketAssignmentTab from '@/components/market/MarketAssignmentTab.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
-import MarketArrival from '@/components/MarketArrival.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 
 const router = useRouter();
@@ -67,7 +70,7 @@ watch(
  * server says.
  */
 const marketId = computed(() => String(route.params.marketId ?? ''));
-const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 
 /**
  * The questions a priority rule can order by: the market's own form, as the server holds it.
@@ -111,14 +114,19 @@ function parseFiniteNumber(v: unknown): number | null {
  * It used to also require four spreadsheet columns to be mapped - which vendor answer lived
  * where. The application form supplies all four now, so what is left is what the organizer
  * actually decides.
+ *
+ * The ceiling is not required: blank means the organizer named none, as its help text says and
+ * the solver reads it. Requiring one kept Assign disabled on every market that left it blank, and
+ * on every market started from a Google Form whose proposal said "No limit" (bug 7).
  */
 const assignmentOptionsComplete = computed(() => {
   const ao = setupObject.assignmentOptions;
   const numMarketDates = setupObject.marketDates.length;
 
   const maxPer = parseFiniteInt(ao.maxAssignmentsPerVendor);
-  if (maxPer === null || maxPer < 1) return false;
-  if (numMarketDates > 0 && maxPer > numMarketDates) return false;
+  if (maxPer !== null && (maxPer < 1 || (numMarketDates > 0 && maxPer > numMarketDates))) {
+    return false;
+  }
 
   const halfProp = parseFiniteNumber(ao.maxHalfTableProportionPerSection);
   if (halfProp === null || halfProp < 0 || halfProp > 100) return false;
@@ -139,6 +147,22 @@ const planIntakeMode = ref<IntakeMode | undefined>(undefined);
 let planEdits = 0;
 let planSavedEdits = 0;
 
+/**
+ * The plan exactly as the server last sent it, serialized, so an edit can be told from an echo.
+ *
+ * The plan cards deep-watch the working copy and report every change to it as an edit. Adopting a
+ * re-read replaces the working copy, so each card reported the page's own replacement as one, and
+ * every save's re-read scheduled the next save: after a single edit the page saved every 625 ms
+ * until it was left, and each cycle re-sent a copy that overwrote any other editor's work
+ * (E26/F04/S01, bug 25). A change is an edit only if the plan now differs from what the server
+ * holds; a report that leaves it identical is the replacement coming back, and is not counted.
+ */
+let serverPlan = '';
+
+function workingPlan(): string {
+  return JSON.stringify({ setupObject, intakeMode: planIntakeMode.value });
+}
+
 watch(
   market,
   (fresh, previous) => {
@@ -154,23 +178,32 @@ watch(
       Object.assign(setupObject, fresh.setupObject);
     }
     planIntakeMode.value = fresh.intakeMode;
+    serverPlan = workingPlan();
   },
   { immediate: true },
 );
 
-const importRefusalReason = computed(() => importRefusal(market.value?.phase));
+/**
+ * Why this person cannot import here, or null. Importing is an admin action, so who is asking
+ * comes first (bug 37); then whether the phase takes applications at all.
+ */
+const importRefusalReason = computed(
+  () => market.value?.adminActionsReason || importRefusal(market.value?.phase),
+);
 
 /**
- * Why the assignment cannot be run in this market's phase, or null (`E10/F03/S02`).
+ * Why the assignment cannot be run, or null (`E10/F03/S02`): by this person (bug 37), then in this
+ * market's phase.
  *
  * The same arrangement as importing: the server enforces it, and this lets the button say no
  * before it is pressed rather than after. Safe to freeze now that a placement can be changed by
  * hand from the Tables view - shipping the freeze first would have stranded an organizer on
  * market day with archiving a running market as their only move.
  */
-const assignRefusalReason = computed(() => assignRefusal(market.value?.phase));
+const assignRefusalReason = computed(
+  () => market.value?.readOnlyReason || assignRefusal(market.value?.phase),
+);
 
-/** Guidance for a form the organizer has not finished starting; not a mistake to flag in red. */
 /**
  * How vendors reach this market. Settable while it is a draft and frozen afterwards, which is what
  * the back end enforces - this only stops an organizer reaching for something that would be
@@ -220,7 +253,9 @@ const planSaveTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const planSavedTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 
 async function savePlan() {
-  if (!market.value?.id) return;
+  // A plan that cannot change is never sent (bug 30): its controls are disabled, and this is the
+  // one door every edit reaches the server through, so nothing slips past them.
+  if (!market.value?.id || market.value.readOnlyReason) return;
   planSaveStatus.value = 'saving';
   planSaveError.value = '';
   try {
@@ -259,13 +294,13 @@ async function flushPlanSave(): Promise<void> {
   await savePlan();
 }
 
-/** A pending edit must not be lost to leaving the page, so it is sent without waiting. */
 /** The plan's pending edits land first: the proposal reads the plan's dates and tiers. */
 async function startFromCsv(): Promise<void> {
   await flushPlanSave();
   void router.push(marketPath(marketId.value, 'start-from-csv'));
 }
 
+/** A pending edit must not be lost to leaving the page, so it is sent without waiting. */
 onUnmounted(() => {
   if (planSaveTimer.value === null) return;
   clearTimeout(planSaveTimer.value);
@@ -277,6 +312,8 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
   nextTick(() => {
     if (market.value) {
       Object.assign(setupObject, newSetupObject);
+      // A card reporting the re-read the page just adopted, not the organizer (see `serverPlan`).
+      if (planEdits === planSavedEdits && workingPlan() === serverPlan) return;
       planEdits += 1;
       schedulePlanSave();
     }
@@ -284,6 +321,8 @@ const handleUpdateSetupObject = (newSetupObject: SetupObject) => {
 };
 
 const assignError = ref('');
+/** The applications a refused run named, each with what it lacks (bug 42). */
+const assignIncomplete = ref<IncompleteApplication[]>([]);
 
 /** How many hand placements the stored assignment holds; null until one has been run. */
 const handPlacements = computed((): number | null => {
@@ -306,6 +345,7 @@ const handleAssign = async () => {
     return;
   }
   assignError.value = '';
+  assignIncomplete.value = [];
   try {
     await updateMarket();
 
@@ -320,8 +360,13 @@ const handleAssign = async () => {
     // A run lands on the result it produced (E22/F04/S03).
     showTab('result');
   } catch (err: unknown) {
-    const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-    assignError.value = detail || 'Assignment failed. Please try again.';
+    const data = (
+      err as {
+        response?: { data?: { error?: string; incomplete?: IncompleteApplication[] } };
+      }
+    )?.response?.data;
+    assignError.value = data?.error || 'Assignment failed. Please try again.';
+    assignIncomplete.value = data?.incomplete ?? [];
   }
 };
 
@@ -344,21 +389,13 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
 </script>
 
 <template>
-  <!-- Nothing about a market is kept in the browser, so until the server answers there is nothing
-       to paint but the state of asking (E21/F02/S02). -->
-  <div v-if="!market" class="market-setup-view">
-    <div class="market-setup-body">
-      <MarketFrame class="settings-container" :market="null">
-        <MarketArrival :status="marketStatus" @retry="refreshMarket()" />
-      </MarketFrame>
-    </div>
-  </div>
-  <div v-else class="market-setup-view">
-    <ChoosePathOverlay v-if="showPathChoice" @select="handlePathChoice" />
-    <div class="market-setup-body">
-      <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
-           banner while the page scrolls. -->
-      <MarketFrame class="settings-container" :market="market" :beforeTransition="flushPlanSave">
+  <div class="market-setup-view">
+    <ChoosePathOverlay v-if="market && showPathChoice" @select="handlePathChoice" />
+    <!-- The frame (E21/F04/S01): the market's bar and the whole phase rail stay put under the
+         banner while the page scrolls. Nothing about a market is kept in the browser, so until the
+         server answers the frame paints the state of asking (E21/F02/S02). -->
+    <MarketFrame :market="market" :beforeTransition="flushPlanSave">
+      <template v-if="market">
         <!-- Application Form Tab -->
         <MarketFormTab v-if="activeTab === 'form'" :market="market" :setupObject="setupObject" />
 
@@ -367,7 +404,10 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :setupObject="setupObject"
           :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
-          :csvStartRefusal="market?.csvStartRefusal ?? null"
+          :csvStartRefusal="market?.adminActionsReason || market?.csvStartRefusal || null"
+          :readOnlyReason="market?.readOnlyReason ?? null"
+          :formQuestions="market.applicationForm?.fields?.length ?? 0"
+          :formLockReason="market.applicationFormLockReason ?? null"
           @update:setupObject="handleUpdateSetupObject"
           @update:intakeMode="handleUpdateIntakeMode"
           @choosePath="showPathChoice = true"
@@ -384,9 +424,9 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
         />
 
         <!-- Assignment, a tab rather than a place the organizer is pushed to. Reachable
-             in every phase, and nothing on it posts a transition: publishing is a step on the
-             phase strip above, and "I have finished looking at this" is what leaving a page
-             already is. -->
+               in every phase, and nothing on it posts a transition: publishing is a step on the
+               phase strip above, and "I have finished looking at this" is what leaving a page
+               already is. -->
         <MarketAssignmentTab
           v-if="activeTab === 'assignment'"
           :setupObject="setupObject"
@@ -394,42 +434,42 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :assignmentOptionsComplete="assignmentOptionsComplete"
           :assignRefusalReason="assignRefusalReason"
           :assignError="assignError"
-          :rulesLockReason="market?.assignmentRulesLockReason ?? null"
+          :assignIncomplete="assignIncomplete"
+          :marketId="market.id"
+          :rulesLockReason="market?.assignmentRulesLockReason || market?.readOnlyReason || null"
           :handPlacements="handPlacements"
           @update:setupObject="handleUpdateSetupObject"
           @assign="handleAssign"
         />
-      </MarketFrame>
-      <!-- A real, wired feature that sat here as a bare URL box between Back and Next, saying
-           nothing about what it sends, when, or that it is optional. Silence about a working
-           feature is worse than silence about a stub: the organizer who skips it never learns
-           what they skipped, and the one who fills it in does not know what they just armed. -->
-      <div v-if="activeTab === 'setup'" class="plan-actions">
+
         <!-- Whether what the organizer just typed is on the server. Nothing else on this page
-             says so now that Next is gone. -->
-        <span
-          v-if="planSaveStatus === 'saving'"
-          class="plan-save-status"
-          data-testid="market-setup-plan-saving"
-        >
-          Saving…
-        </span>
-        <span
-          v-else-if="planSaveStatus === 'saved'"
-          class="plan-save-status plan-save-status--saved"
-          data-testid="market-setup-plan-saved"
-        >
-          Plan saved
-        </span>
-        <span
-          v-else-if="planSaveStatus === 'error'"
-          class="plan-save-status plan-save-status--error"
-          data-testid="market-setup-plan-save-error"
-        >
-          {{ planSaveError }}
-        </span>
-      </div>
-    </div>
+             says so now that Next is gone. At the foot of the card, which it belongs to: it sat
+             below it, on the page. -->
+        <div v-if="activeTab === 'setup'" class="plan-actions">
+          <span
+            v-if="planSaveStatus === 'saving'"
+            class="plan-save-status"
+            data-testid="market-setup-plan-saving"
+          >
+            Saving…
+          </span>
+          <span
+            v-else-if="planSaveStatus === 'saved'"
+            class="plan-save-status plan-save-status--saved"
+            data-testid="market-setup-plan-saved"
+          >
+            Plan saved
+          </span>
+          <span
+            v-else-if="planSaveStatus === 'error'"
+            class="plan-save-status plan-save-status--error"
+            data-testid="market-setup-plan-save-error"
+          >
+            {{ planSaveError }}
+          </span>
+        </div>
+      </template>
+    </MarketFrame>
   </div>
 </template>
 
@@ -440,6 +480,9 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
+  /* In the plan's own 40px gutter, under its cards' right edge: with none, "Plan saved" sat in the
+     card's bottom-right corner, touching both edges (E26 re-walk). */
+  padding: 0 40px var(--space-6);
 }
 
 .plan-save-status {
@@ -480,82 +523,10 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
   align-items: center;
 }
 
-/*
- * A card of the workspace width that grows to its content, while the PAGE scrolls (E16/F03).
- *
- * This was `width: 80%; height: 80%`, which `git log -S` dates to the first commit of this view in
- * Feb 2025 - scaffolding nobody chose. At 1920x1080 it gave the plan a 547px window for 1,032px of
- * content and could not scroll the page at all, so the organizer scrolled inside a box on a screen
- * that was 19% empty at the sides. Even the emptiest possible plan is 812px, so no market ever fit.
- */
-.market-setup-body {
-  width: 100%;
-
-  /*
-   * A gutter on three sides (E17/F02/S02), so the panel reads as a card sitting on the page rather
-   * than as the page itself. Top is deliberately absent: the panel meets the header above it.
-   */
-  padding: 0 var(--space-4) var(--space-4);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.settings-container {
-  align-self: stretch;
-}
-
-.settings-right-container {
-  display: grid;
-  grid-template-rows: 48% 4% 48%;
-}
-
 .settings-body {
   align-self: stretch;
   display: flex;
   gap: 30px;
   padding: 40px;
-}
-
-/* Each of these lays its cards out in a single row. The row must be `minmax(0, 1fr)`:
-   an auto row grows to its tallest card's content, which the cards then resolve their
-   `height: 100%` against, so the whole settings panel outgrows the viewport. */
-.single-column-body {
-  align-self: stretch;
-  flex-grow: 1;
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 30px;
-  min-height: 0;
-  flex: 1;
-}
-
-/*
- * Height, padding, radius, type, focus and the disabled state come from `.btn btn--primary`
- * (E17/F03/S02). This re-decided all of them, and set its label at `--text-lg` - which the scale
- * documents as "section headings, card titles", two steps above the `--text-sm` it names for
- * BUTTONS. Only the minimum footprint is this screen's own.
- */
-.done-button {
-  margin-top: 15px;
-  min-width: 100px;
-}
-
-.assign-disabled-hint {
-  margin: 6px 0 0;
-  font-size: var(--text-xs);
-  color: rgba(39, 35, 35, 0.65);
-}
-
-.assign-error-banner {
-  margin-top: 10px;
-  max-width: 520px;
-}
-
-.retry-button:hover {
-  background: var(--mm-red);
-  color: white;
 }
 </style>

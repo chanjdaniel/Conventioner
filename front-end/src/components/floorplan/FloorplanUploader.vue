@@ -302,7 +302,6 @@ onUnmounted(() => {
 }
 
 .page-radio {
-  accent-color: var(--mm-green);
   cursor: pointer;
 }
 

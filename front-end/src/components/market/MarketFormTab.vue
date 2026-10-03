@@ -59,7 +59,11 @@ const formLoadError = ref<string | null>(null);
  * contradicted. The server computes it on every read of the market, and the store re-reads the
  * market after every write - a transition included - so it is right the moment one lands.
  */
-const formLockReason = computed(() => market.value?.applicationFormLockReason ?? null);
+/** The form's own lock first - the phase and the first application - then whether this person may
+ *  change the market at all (bug 37). */
+const formLockReason = computed(
+  () => market.value?.applicationFormLockReason || market.value?.readOnlyReason || null,
+);
 const formLockKnown = computed(() => market.value?.applicationFormLockReason !== undefined);
 const formLocked = computed(() => formLockReason.value !== null);
 /**

@@ -92,7 +92,7 @@
  * the list it filters. The ink is 5.34:1 on that tint (`contrast.test.ts`).
  */
 .btn[aria-pressed='true'] {
-  background: rgba(54, 130, 111, 0.16);
+  background: var(--mm-chip-positive);
   border-color: var(--mm-green);
   color: var(--mm-text-green);
   font-weight: 600;
@@ -203,31 +203,32 @@
   white-space: nowrap;
 }
 
-/* Each tone is a token at 16% over white, with that token as the ink. Both are measured in
-   `contrast.test.ts`, and the rendered pairing is measured by `e2e/contrast-sweep.spec.ts`. */
+/* Each tone is an opaque ground - its tint already laid over white, so it reads the same on beige
+   as on white - with its own ink. Each pair is asserted in `contrast.test.ts`, and the rendered
+   pairing is measured by `e2e/contrast-sweep.spec.ts`. */
 .chip--neutral {
   background: var(--mm-beige);
   color: var(--mm-black);
 }
 
 .chip--positive {
-  background: rgba(54, 130, 111, 0.16);
-  color: var(--mm-text-green); /* 5.34 on that tint */
+  background: var(--mm-chip-positive);
+  color: var(--mm-text-green); /* 5.34 on that ground */
 }
 
 .chip--attention {
-  background: rgba(228, 166, 41, 0.18);
+  background: var(--mm-chip-attention);
   color: var(--mm-text-yellow-on-tint);
 }
 
 .chip--informational {
-  background: rgba(26, 111, 139, 0.14);
+  background: var(--mm-chip-informational);
   color: var(--mm-blue);
 }
 
 .chip--destructive {
-  background: rgba(192, 57, 43, 0.14);
-  color: var(--mm-red);
+  background: var(--mm-chip-destructive);
+  color: var(--mm-text-red-on-tint);
 }
 
 /* ============================================================================================

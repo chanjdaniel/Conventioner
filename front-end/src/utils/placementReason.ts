@@ -11,7 +11,13 @@
  */
 
 /** Mirrors `PlacementReason` in `back-end/placement_reasons.py`. */
-export type PlacementReason = 'not_available' | 'no_table_at_their_tier' | 'taken' | 'free';
+export type PlacementReason =
+  | 'not_available'
+  | 'at_their_limit'
+  | 'at_market_ceiling'
+  | 'no_table_at_their_tier'
+  | 'taken'
+  | 'free';
 
 /** One date a vendor holds no table on, as the statistics report it. */
 export interface UnplacedDate {
@@ -22,6 +28,8 @@ export interface UnplacedDate {
 
 const WORDING: Record<PlacementReason, string> = {
   not_available: 'Not available on this date',
+  at_their_limit: 'Already has as many dates as they asked for',
+  at_market_ceiling: 'Already has as many dates as the market allows per vendor',
   no_table_at_their_tier: 'No table at a tier they accept',
   taken: 'Every table they accept is taken',
   free: 'A table is free - they could be placed',
@@ -36,8 +44,9 @@ export function placementReasonText(reason: PlacementReason | undefined): string
 /**
  * Is this reason something the organizer can act on right now?
  *
- * Only `free` is: a table they would accept is open, so the Tables view can place them. The other
- * three are reports - the answer is elsewhere, in the plan or in the vendor's own answers.
+ * Only `free` is: a table they would accept is open, so the Tables view can place them. The others
+ * are reports - the answer is elsewhere, in the plan or in the vendor's own answers. A vendor at a
+ * limit is the plainest case: offering "Place them" there invited the organizer to break it.
  */
 export function reasonIsActionable(reason: PlacementReason | undefined): boolean {
   return reason === 'free';

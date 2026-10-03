@@ -128,6 +128,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   progression keeps auto-placed tables; when a floorplan already exists it just
   refreshes the background image fields. This replaced an earlier
   snapshot/restore workaround in the e2e page object.
+- **The room is the floor plan** (bug 38): with no walls drawn, Auto-Place packs
+  into the uploaded image's extent at the calibrated scale (`room_mm`), never a
+  fixed square, and refuses without either. The organizer asks for a count per
+  table type. The solver is bounded by its own `time_limit`
+  (`SOLVER_TIME_LIMIT_S`); a thread timeout around it bounded nothing.
+- **Konva cannot read a CSS variable**: handed `var(--mm-red)` it silently keeps
+  its previous colour. Pass a canvas colour through `canvasColor()`
+  (`front-end/src/utils/canvasColor.ts`).
 
 ## E2E Seed Helpers for Published Markets
 
@@ -191,9 +199,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `phase-rail-menu-button`. A spec that clicks `phase-transition-<phase>` for a back or
   destructive edge must open that menu first.
 - **A terminal state is stated in words.** Strikethrough alone reads as *stopped*, not as
-  *archived* - the prototype proved it. There is no record of which phases a market passed
-  through, so an archived market's frozen stage is read off evidence it holds (a stored
-  assignment, a published application form), never off history it does not.
+  *archived* - the prototype proved it. An archived market's frozen stage is the furthest phase
+  in `phasesReached` (see Phase Transitions); it once was read off evidence, and told a market
+  that ran that no check-in page ever went on the air (bug 8). Without a complete record the rail
+  says only what is proven and strikes nothing through.
 - Screens routed by market id get their `Market` from `useOpenMarket`
   (`front-end/src/utils/openMarket.ts`), a reader of the one market store
   (`front-end/src/stores/market.ts`); a transition from the rail is followed by the store
@@ -263,6 +272,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   the applicant validator and the solver's translation. Two copies would drift, and the drift
   would surface as the solver rejecting answers the form had just accepted. Table type is stubbed
   to one type in MVP, so a fixed list would reject every application in the product.
+- **No personal limit is an answer, not a gap** (E26/F02/S03). "Number of dates you want" is
+  required online but not of an import, because most real forms never asked it. A missing answer
+  is `max_dates` None, bounded by the vendor's availability and the market ceiling. The import's
+  only door to that is `record_application_answers(imported=True)`; the applicant path never
+  passes it.
 - **A placement is dated by the market date itself.** It used to be dated by the spreadsheet
   column heading, which is why check-in, the table rows and the statistics each built a map from
   headings back to dates. Those maps are gone; do not reintroduce one.
@@ -321,17 +335,25 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   in pytest and in the e2e seeds alike. A fixture that does not is a market whose applicant
   endpoints answer 404, which is the default doing its job.
 - **`applicant_intake_market_by_slug()` (`back-end/market_documents.py`) is the single expression of
-  the gate**, layered on `published_market_by_slug` and read by exactly the five applicant-intake
-  endpoints. It cannot move into `published_market_by_slug`, because check-in shares that lookup and
-  must stay open to every published market: how a vendor entered has no bearing on whether they can
-  scan in on the day. It is one lookup rather than a check in each endpoint, because five checks are
-  five chances to forget the sixth.
+  the gate**, read by exactly the five applicant endpoints. It serves a form market in every phase
+  but draft (`APPLICANT_SURFACE_PHASES`, E26/F07/S02): an applicant may always sign in and read their
+  own application and verdict - closing the surface with applications hid every verdict (bug 20).
+  APPLYING stays `applications_open`-only, refused in words by `save_applicant_application`. It is
+  not the check-in lookup, because check-in must stay open to every market that runs: how a vendor
+  entered has no bearing on whether they can scan in on the day. It is one lookup rather than a
+  check in each endpoint, because five checks are five chances to forget the sixth.
 - **A gated market answers exactly as a market that does not exist.** Never add a "not accepting
   applications online" message: it confirms to any stranger guessing slugs that the market is real.
   The two applicant-login endpoints keep their *uniform* response rather than gaining a 404 of their
   own, because a 404 there would be an oracle saying "this slug is a CSV market" where every other
   answer says nothing. `front-end/e2e/intake-mode.spec.ts` asserts the gated and absent renders are
   identical rather than asserting each alone.
+- **A vendor signs in before they have applied** (E26/F07/S01). Every address that asks is sent a
+  code - which also makes the work identical for all, the strongest form of the login ruling - the
+  token (`utils/application_token.py`) names the market and the address, never an application, and
+  the first VALID save creates the application (`save_applicant_application`). Do not reintroduce
+  "send only to known addresses" or "token only with an application": together they made the
+  "Vendors apply on this market's page" option unable to take a single new application (bug 6).
 - **Intake mode does not gate the form builder.** A CSV market still has an application form,
   because the essential questions define the offering the CSV maps onto. Intake mode decides who
   fills the form in, not whether one exists.
@@ -393,8 +415,28 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
   stay that way. `_validate_registry()` runs at import and refuses to load tables that disagree,
   so a misspelled phase or a dropped entry invariant is a startup error, not a silent no-op.
-- `Market.phase` is server-owned: `create_market()` stamps `draft`, and the transition endpoint is
-  the only writer on an existing market.
+- `Market.phase` is server-owned: `create_market()` stamps `draft`, and
+  `apply_phase_transition()` (`api/markets.py`) is the only writer on an existing market - the
+  transition endpoint and the form amendment chain both move a market through it. Do not add a
+  second copy of that write: the endpoint carried one until E26, which is how stamps drift.
+- **An archived market is read-only** (E26/F06/S01). Every market write loads through
+  `_load_market_to_change()` (`api/markets.py`), which refuses an archived market with
+  `MarketArchivedError` - a `PermissionError`, so each write route already answers it with a 403;
+  a route that loads its own market asks `archived_refusal()`. A new write must load through the
+  change loader, never `_load_market_for`. Roles and deletion are not changes to the record.
+- **A screen offers each person only what their role lets them do** (E26/F08/S01). The market read
+  serves two per-person reasons, asked through the same `user_has_permission` the writes ask:
+  `readOnlyReason` (`change_refusal`: archived, or below EDITOR - the plan, form, placements,
+  highlights) and `adminActionsReason` (`admin_actions_refusal`: below ADMIN - phase moves, verdicts,
+  publishing results, importing, starting from a CSV). A screen draws no control while the reason
+  for it is set; never decide a role threshold on the front end beside them.
+- **A market remembers every phase it entered** (E26/F06/S03): `phaseHistory` on the document,
+  one `{phase, enteredAt, by}` per move, pushed in the same update that moves the phase.
+  `back-end/phase_record.py` owns it, and `phases_reached()` is the one answer to "how far did this
+  market get" and "did it run" - served on `GET /markets/:id` as `phasesReached` and
+  `phaseRecordComplete`. A market older than the record is read from what it can PROVE (a
+  check-in, a stored assignment, a published form) and served `phaseRecordComplete: false`; only a
+  complete record may say a market never reached a phase.
 - **`phase` is the single source of truth for the market lifecycle; `is_draft` is derived from
   it.** `Market.is_draft` is a Pydantic `@computed_field` (true iff `phase == draft`) and is
   never independently writable: no request body can set it, and it is recomputed from the stored
@@ -404,8 +446,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `phase` is missing or unrecognized - a fallback that contradicted the phase would answer
   confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
   `Market` re-stamp `isDraft` from the effective phase before responding.
-- **Publishing a market is the `draft` → `archived` transition** (no guards), fired by the
-  Done button in `GenerateAssignmentView.vue`. A market can also leave `draft` via
+- **Publishing a market is `assignment` → `market_days`**, which puts its check-in page on the
+  air. `draft` → `archived` is abandoning a draft, not publishing it (that was the old flow's
+  Done button, long gone). A market leaves `draft` for its lifecycle via
   `draft` → `applications_open` (guarded by `FormHasFieldsGuard`).
   A legacy published market (`phase: "draft"` + `isDraft: false`) reads back as a *draft*, since
   `draft` is a phase this build recognizes and takes at face value - hence the migration below.
@@ -586,7 +629,20 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   the states it walks**, so dialogs, menus, disabled controls and empty states must be opened
   deliberately. A twenty-screen pass missed the invisible button because nobody opened that dialog.
 - **A token is only AA on the ground it was measured against.** `--mm-green` is 4.59:1 on white and
-  4.43:1 on the phase rail's `#FBFBFA`.
+  4.43:1 on the phase rail's `#FBFBFA`. So a chip carries its own ground: `--mm-chip-*` are opaque
+  (the tint already laid over white), each asserted with its ink in `contrast.test.ts`. Translucent
+  tints took on the beige review card beneath them and fell below AA there (E26/F10/S01).
+- **Weight does not inherit here.** A global reset gives every element `font-weight: 400`, so a
+  span inside a 600 cell is 400 until it says otherwise.
+- **Every control has a name, and a placeholder is not one** (E26/F10/S03): a `<label for>`, an
+  `aria-label` or `aria-labelledby`. `e2e/every-control-is-named.spec.ts` walks the screens with
+  `namelessControls()` (`e2e/helpers/accessibleNames.ts`); a new screen or dialog joins that walk.
+  The walk only sees the rows it seeds: the rules page walked with no rule on it missed every control
+  inside one (bug 50).
+  A field styled `all: unset` loses its focus ring with everything else, so its container draws one.
+- **Native checks and radios take `accent-color` from `body`, and no link pads itself**: set
+  neither per component (bug 52). An answer is rendered through `AnswerValue.vue`, which links its
+  `http(s)` addresses and nothing else.
 - **Form controls do not inherit `font-family`.** Setting `font: inherit` on them alone is wrong while
   `body` declares Inter - it makes every control Inter while the 274 Outfit rules around them stay
   Outfit. `body` becomes Outfit first (`E15/F01/S01`). And `font` is a SHORTHAND: it carries
@@ -600,12 +656,17 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **`npm run lint:css` is the design-language gate**, and it is **warnings globally, errors per
   migrated file** (`.stylelintrc.json` `overrides`). A rule that fails the build on a pre-existing
   backlog gets switched off, so a slice adds its files to that list when it lands. Everything MVP
-  serves is on the list; the 174 remaining warnings are the floorplan GUI and the applicant views,
-  both switched off in MVP.
+  serves is on the list, the applicant views included since vendors apply online (E26/F07); the
+  128 remaining warnings are the floorplan GUI, a beta.
 - **A market screen stands in `MarketFrame`** (`front-end/src/components/MarketFrame.vue`), whose
   bar and whole phase rail stick at `top: var(--banner-h)` - the banner's height as a token - on the
   same principle as the banner itself. The card fills at least the window under the banner. Never
   give a frame screen an `overflow` scroller of its own: the sticky block silently stops sticking.
+  **The frame places itself and says what shows until the market arrives** (E26/F10/S01): the
+  page gutter, the card, and the loading, missing and failed states are its own, and it renders a
+  screen's content only once the market is in hand (`@retry` lets a screen refetch its own data).
+  The import and floorplan flows stand in it too. A screen that pads itself or renders its own
+  `MarketArrival` is how one market's pages came to put the frame in four different places.
 - **A screen is one of two widths and never caps its own height.** `--workspace-max` (1440) or
   `--list-max` (1100); the PAGE scrolls. **Every market screen is `--workspace-max`, set by
   `MarketFrame`** (E22/F04/S01): a screen in the frame sets no width of its own, or moving between
@@ -648,10 +709,18 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   market belonging to nothing is a state `POST /markets` refuses to produce.
   The check lives with the organization API, NOT in `guards.py`, which is validated against the
   transition table and is for transitions.
-- **An archived market is still publicly served**, so deleting one takes a live check-in URL off the
-  air and destroys the record of a market that ran. Reaffirmed 2026-09-22. The confirmation
-  therefore names what each deletion destroys per market, and `back-end/deletion_trail.py` records
-  it - written BEFORE anything is destroyed, and allowed to fail the whole operation.
+- **An archived market that ran is still publicly served, as a record** (reaffirmed 2026-09-22,
+  built E26/F06/S02): `AttendanceApi.get_check_in_market` serves a running market, or an archived
+  one whose phase record says it ran, marked `ended` - its page shows each vendor's seats and
+  check-ins and takes no check-in (writes answer 409). Archiving one that never ran leaves no page.
+  So deleting an archived market that ran takes a live URL off the air and destroys the record of
+  a market that happened; the confirmation names what each deletion destroys per market, and
+  `back-end/deletion_trail.py` records it - written BEFORE anything is destroyed, and allowed to
+  fail the whole operation.
+- **A market's records go with it, by either door** (bug 47): `back-end/market_deletion.py` deletes
+  its applications, check-ins, applicant sign-in codes and placement trail, then the market. A new
+  collection keyed by `market_id` belongs there; deleting the market document alone once left every
+  vendor's name, email and answers behind for ever.
 - **`back-end/api/form_amendment.py` fixes the application form from inside the import** (E20/F03).
   It **adds no transition edge**: the route is a breadth-first walk of `VALID_TRANSITIONS`, two hops
   from `applications_open` and four from `applications_closed`, and the market returns to the phase

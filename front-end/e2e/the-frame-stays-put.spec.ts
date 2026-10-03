@@ -105,7 +105,7 @@ test.describe('The frame stays put', () => {
     await expect(page.getByTestId('phase-rail')).toBeVisible({ timeout: 15000 });
 
     const gap = await page.evaluate(() => {
-      const card = document.querySelector('.settings-container') as HTMLElement;
+      const card = document.querySelector('[data-testid="market-frame-card"]') as HTMLElement;
       return Math.round(window.innerHeight - card.getBoundingClientRect().bottom);
     });
     // The card reaches the bottom of the viewport, less the page's own bottom gutter.

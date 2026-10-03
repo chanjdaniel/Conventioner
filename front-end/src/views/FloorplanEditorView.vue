@@ -3,8 +3,7 @@ import { computed } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRouter, useRoute } from 'vue-router';
 import FloorplanWorkflow from '@/components/floorplan/FloorplanWorkflow.vue';
-import MarketArrival from '@/components/MarketArrival.vue';
-import MarketBar from '@/components/MarketBar.vue';
+import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 
 const router = useRouter();
@@ -17,7 +16,7 @@ const marketId = computed(() => String(route.params.marketId ?? ''));
  * one this organizer cannot reach - reads as such, rather than opening an editor that will fail on
  * save.
  */
-const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+const { market } = useOpenMarket(marketId);
 
 function handleSaved(payload: { market_id: string }) {
   // Back to the plan, where the sections it just described are listed.
@@ -26,31 +25,21 @@ function handleSaved(payload: { market_id: string }) {
 </script>
 
 <template>
-  <div class="floorplan-editor-view">
-    <!-- A flow entered from Market Setup, so it carries the market's bar with that tab active
-         (E22/F04/S02). -->
-    <MarketBar :market="market" />
-    <div class="editor-wrapper">
-      <FloorplanWorkflow v-if="market" :marketId="market.id" @saved="handleSaved" />
-      <MarketArrival v-else :status="marketStatus" @retry="refreshMarket()" />
-    </div>
-  </div>
+  <!-- A flow entered from Market Setup, standing in the frame like every market page (bug 43): the
+       bar with that tab active (E22/F04/S02), and the rail. It was full-bleed, with neither. -->
+  <MarketFrame :market="market">
+    <FloorplanWorkflow
+      v-if="market"
+      class="floorplan-flow"
+      :marketId="market.id"
+      @saved="handleSaved"
+    />
+  </MarketFrame>
 </template>
 
 <style scoped>
-.floorplan-editor-view {
-  width: 100%;
-  min-width: 1000px;
+/* The whole card, so each step's Next sits at its foot rather than above an empty band. */
+.floorplan-flow {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--mm-beige);
-}
-
-.editor-wrapper {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
 }
 </style>
