@@ -8,6 +8,7 @@ Usage:
 """
 
 from db_config import get_database
+from lookup_indexes import ensure_lookup_indexes
 from api.applications import (
     APPLICANT_EMAIL_FIELD,
     APPLICANT_IDENTITY_INDEX,
@@ -63,6 +64,10 @@ def init_database():
     # unauthenticated endpoint. See ``market_documents.ensure_market_slug_index``.
     ensure_market_slug_index(db)
     print(f"✅ Ensured index {MARKET_SLUG_INDEX} on {MARKETS_COLLECTION}")
+
+    # Every field a document is looked up by. See ``lookup_indexes``.
+    for built in ensure_lookup_indexes(db):
+        print(f"✅ Built lookup index {built}")
 
     # Verify collections exist
     existing_collections = db.list_collection_names()

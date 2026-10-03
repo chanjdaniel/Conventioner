@@ -126,9 +126,6 @@ class FakeMarketsCollection:
                 return SimpleNamespace(deleted_count=1)
         return SimpleNamespace(deleted_count=0)
 
-    def aggregate(self, _pipeline):
-        return iter([])
-
 
 class FakeSchemaCollection:
     """The one document the startup check reads, and the migration's upsert of it."""

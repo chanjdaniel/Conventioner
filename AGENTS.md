@@ -402,6 +402,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   against `market_name_slug`. **One address, one market** (E21/F03/S03): creation and rename both
   ask `public_address_refusal()`, so "Cafe Market" is refused beside "Café Market"; uniqueness
   on the exact name alone let two markets share a public URL.
+- **Every field a document is looked up by is indexed at boot, from one list:**
+  `back-end/lookup_indexes.py` (`LOOKUP_INDEXES`). A new query on a new field belongs there when it
+  is written. The ids were once indexed only on databases old enough to have run
+  `migrate_to_uuid.py`, so every newer database scanned whole collections for its commonest reads.
+  A role is a key of a market's `roles` map, so "markets this person has a role on" is
+  `{"roles.<user id>": {"$exists": true}}`, served by the wildcard index `roles.$**`.
 - **Parse stored markets with `market_from_document()`**, never `Market(**snake_dict)`.
   `Market.phase` defaults to `draft`, so a raw parse silently mislabels every market written
   before the field existed. `phase_from_market_document()` (`back-end/datatypes.py`) is the one
