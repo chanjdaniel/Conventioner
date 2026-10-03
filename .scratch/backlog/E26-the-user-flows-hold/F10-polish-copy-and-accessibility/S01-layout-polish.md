@@ -4,7 +4,7 @@ title: Layout polish
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

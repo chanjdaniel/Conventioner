@@ -4,7 +4,7 @@ title: Viewers see no editing controls
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

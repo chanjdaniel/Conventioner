@@ -4,7 +4,7 @@ title: No days column means no personal limit
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

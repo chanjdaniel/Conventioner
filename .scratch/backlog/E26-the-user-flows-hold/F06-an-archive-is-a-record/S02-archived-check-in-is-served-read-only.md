@@ -4,7 +4,7 @@ title: An archived market's check-in page is served read only
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

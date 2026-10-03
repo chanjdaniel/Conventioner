@@ -4,7 +4,7 @@ title: Reasons know limits, and Vendors lists vendors
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

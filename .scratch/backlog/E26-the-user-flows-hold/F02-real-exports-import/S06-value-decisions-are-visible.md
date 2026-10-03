@@ -4,7 +4,7 @@ title: Value decisions are visible and changeable
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

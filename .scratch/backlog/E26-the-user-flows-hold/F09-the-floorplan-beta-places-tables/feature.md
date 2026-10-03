@@ -4,7 +4,7 @@ title: The floorplan beta places tables
 type: feature
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

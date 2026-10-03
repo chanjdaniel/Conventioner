@@ -4,7 +4,7 @@ title: Orphaned pins are flagged and block publishing
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

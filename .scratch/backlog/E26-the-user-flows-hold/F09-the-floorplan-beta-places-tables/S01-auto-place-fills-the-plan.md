@@ -4,7 +4,7 @@ title: Auto-Place fills the plan
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

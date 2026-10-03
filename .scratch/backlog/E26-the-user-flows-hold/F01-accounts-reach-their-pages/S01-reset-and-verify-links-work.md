@@ -4,7 +4,7 @@ title: Reset and verification links work signed out
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

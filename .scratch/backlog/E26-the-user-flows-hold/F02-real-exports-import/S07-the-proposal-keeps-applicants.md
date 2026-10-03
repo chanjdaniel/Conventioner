@@ -4,7 +4,7 @@ title: The proposal keeps applicants and whole labels
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

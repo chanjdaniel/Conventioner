@@ -4,7 +4,7 @@ title: A first-time vendor applies
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

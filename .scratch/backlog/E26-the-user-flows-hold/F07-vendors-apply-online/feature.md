@@ -4,7 +4,7 @@ title: Vendors can apply online
 type: feature
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 

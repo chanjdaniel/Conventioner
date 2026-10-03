@@ -4,7 +4,7 @@ title: Vendors see their application after close
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [88]
 ---
 
 
