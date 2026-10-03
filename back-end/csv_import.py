@@ -26,7 +26,7 @@ import io
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
@@ -998,18 +998,35 @@ def _stored_answer(key: str, value: Any) -> Any:
     return EssentialFields.table_choice_for_label(value) or value
 
 
+class _Row(NamedTuple):
+    """One row of the file, read through the mapping."""
+
+    # Row 1 is the header, so the first data row is line 2 in the organizer's own file - which is
+    # what they need in order to find it.
+    line: int
+    email: str
+    submitted_at: str
+    form_data: Dict[str, Any]
+    # The questions this row answered only with values the organizer chose to ignore. Its answer is
+    # then empty, and "'Selling' is required" told an organizer looking at a filled-in cell that the
+    # applicant had not answered (E26 re-walk).
+    ignored: Tuple[str, ...] = ()
+
+
+def _has_answer(value: Any) -> bool:
+    if isinstance(value, list):
+        return any(str(item).strip() for item in value)
+    return bool(str(value or "").strip())
+
+
 def _assembled_rows(
     market_doc: Dict[str, Any],
     headers: Sequence[str],
     rows: Sequence[Sequence[str]],
     resolved: Dict[str, List[int]],
     resolutions: Dict[str, Dict[str, Optional[str]]],
-) -> List[Tuple[int, str, str, Dict[str, Any]]]:
-    """Every row as ``(spreadsheet line, email, submitted_at, form_data)``.
-
-    Row 1 is the header, so the first data row is line 2 in the organizer's own file - which is
-    what they need in order to find it.
-    """
+) -> List[_Row]:
+    """Every row of the file, as the import reads it."""
     options = EssentialFields.effective_essential_options(market_doc)
     by_key = {t.key: t for t in import_targets(market_doc)}
     form = market_doc_field(market_doc, "application_form") or {}
@@ -1025,6 +1042,7 @@ def _assembled_rows(
             return row[index] if index < len(row) else ""
 
         form_data: Dict[str, Any] = {}
+        ignored: List[str] = []
         for key, indexes in resolved.items():
             if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET):
                 continue
@@ -1041,9 +1059,12 @@ def _assembled_rows(
             else:
                 offered = offered_values(target, options, field)
                 if offered is not None:
-                    value, _unmatched = _matched(
+                    matched, unmatched = _matched(
                         value, offered, resolutions.get(key, {}), _recogniser(key, options),
                     )
+                    if _has_answer(value) and not _has_answer(matched) and not unmatched:
+                        ignored.append(target.label)
+                    value = matched
             form_data[key] = _stored_answer(key, value)
 
         # How the two answers become the stored shape is the contract's own rule, not the
@@ -1071,11 +1092,12 @@ def _assembled_rows(
         except ValueError:
             submitted_at = _UNREADABLE_TIMESTAMP + raw_submitted
 
-        assembled.append((
+        assembled.append(_Row(
             offset + 2,
             str(cell(APPLICANT_EMAIL_TARGET) or "").strip().lower(),
             submitted_at,
             form_data,
+            tuple(ignored),
         ))
     return assembled
 
@@ -1093,9 +1115,7 @@ def _submission_moment(submitted_at: str) -> Optional[datetime]:
     return moment
 
 
-def _latest_rows(
-    assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
-) -> Tuple[List[Tuple[int, str, str, Dict[str, Any]]], List[Dict[str, Any]]]:
+def _latest_rows(assembled: Sequence[_Row]) -> Tuple[List[_Row], List[Dict[str, Any]]]:
     """One row per applicant - their latest - and the earlier rows it replaces.
 
     A Google Form keeps every submission, so a vendor who applied twice is two rows, and real
@@ -1109,49 +1129,53 @@ def _latest_rows(
     in the file otherwise. Rows with no usable address are left as they are, each to be refused on
     its own line by ``_row_faults``; grouping them would hide all but one.
     """
-    by_email: Dict[str, List[Tuple[int, str, str, Dict[str, Any]]]] = {}
-    kept: List[Tuple[int, str, str, Dict[str, Any]]] = []
+    by_email: Dict[str, List[_Row]] = {}
+    kept: List[_Row] = []
     for entry in assembled:
-        if _EMAIL_ADDRESS.fullmatch(entry[1]):
-            by_email.setdefault(entry[1], []).append(entry)
+        if _EMAIL_ADDRESS.fullmatch(entry.email):
+            by_email.setdefault(entry.email, []).append(entry)
         else:
             kept.append(entry)
 
     repeats: List[Dict[str, Any]] = []
     for email, entries in by_email.items():
-        moments = [_submission_moment(submitted_at) for _line, _email, submitted_at, _data in entries]
+        moments = [_submission_moment(entry.submitted_at) for entry in entries]
         if all(moment is not None for moment in moments):
-            latest = max(zip(moments, entries), key=lambda pair: (pair[0], pair[1][0]))[1]
+            latest = max(zip(moments, entries), key=lambda pair: (pair[0], pair[1].line))[1]
         else:
-            latest = max(entries, key=lambda entry: entry[0])
+            latest = max(entries, key=lambda entry: entry.line)
 
-        line, _email, submitted_at, form_data = latest
-        dated = [(moment, entry[2]) for moment, entry in zip(moments, entries) if moment is not None]
+        submitted_at = latest.submitted_at
+        dated = [(moment, entry.submitted_at) for moment, entry in zip(moments, entries)
+                 if moment is not None]
         # An unreadable time on the latest row stays, so that row is refused naming it rather
         # than quietly taking an earlier row's time.
         if dated and not submitted_at.startswith(_UNREADABLE_TIMESTAMP):
             submitted_at = min(dated)[1]
-        kept.append((line, email, submitted_at, form_data))
+        kept.append(latest._replace(submitted_at=submitted_at))
         repeats.extend(
-            {"row": entry[0], "email": email, "latestRow": line}
+            {"row": entry.line, "email": email, "latestRow": latest.line}
             for entry in entries if entry is not latest
         )
 
-    kept.sort(key=lambda entry: entry[0])
+    kept.sort(key=lambda entry: entry.line)
     repeats.sort(key=lambda repeat: repeat["row"])
     return kept, repeats
 
 
-def _row_faults(
-    market_doc: Dict[str, Any], assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
-) -> List[Dict[str, Any]]:
+def _row_faults(market_doc: Dict[str, Any], assembled: Sequence[_Row]) -> List[Dict[str, Any]]:
     """Rows that would be refused, each with every reason and its line in the organizer's file.
 
     Every reason, not the first: an organizer who fixed one problem in the spreadsheet used to meet
     the next on the next attempt (bug 40).
     """
     faults = []
-    for line, email, submitted_at, form_data in assembled:
+    for line, email, submitted_at, form_data, ignored in assembled:
+        if not email and not submitted_at and not any(map(_has_answer, form_data.values())):
+            # Said once. A blank line in an export listed eight reasons, one per required question,
+            # none of which was the reason (E26 re-walk).
+            faults.append({"row": line, "email": "", "error": "Every column this import reads is empty."})
+            continue
         problems = []
         shown_email = email
         if not email:
@@ -1162,7 +1186,16 @@ def _row_faults(
         if submitted_at.startswith(_UNREADABLE_TIMESTAMP):
             raw = submitted_at[len(_UNREADABLE_TIMESTAMP):]
             problems.append(f"{raw!r} is not a date and time this import can read.")
-        problems += answer_errors(market_doc, form_data, imported=True)
+        errors = answer_errors(market_doc, form_data, imported=True)
+        for label in ignored:
+            # Said as what happened, in place of the validator's "is required", which reads as an
+            # applicant who left it blank - the fix is on the import's previous step, not in the file.
+            about = [error for error in errors if error.startswith(f"'{label}'")]
+            if about:
+                errors = [error for error in errors if error not in about]
+                problems.append(
+                    f"Every answer to '{label}' is one you chose to ignore, and it is required.")
+        problems += errors
         if problems:
             faults.append({"row": line, "email": shown_email, "error": " ".join(problems)})
     return faults
@@ -1302,7 +1335,7 @@ def preview_values(
     refused = {failure["row"] for failure in failures}
     result["samples"] = [
         {"row": line, "email": email, "formData": _answers_as_stored(market_doc, data)}
-        for line, email, _submitted, data in applicants if line not in refused
+        for line, email, _submitted, data, _ignored in applicants if line not in refused
     ][:SAMPLE_ROWS]
     result.update(_merge_shape(market_doc.get("id", ""), applicants, failures, market_doc))
     return result, 200
@@ -1361,7 +1394,7 @@ def _unchanged(
 
 def _merge_shape(
     market_id: str,
-    assembled: Sequence[Tuple[int, str, str, Dict[str, Any]]],
+    assembled: Sequence[_Row],
     failures: Sequence[Dict[str, Any]],
     market_doc: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -1375,8 +1408,8 @@ def _merge_shape(
     """
     skipped_lines = {failure["row"] for failure in failures}
     in_file = {
-        email for line, email, _submitted, _data in assembled
-        if email and line not in skipped_lines
+        row.email for row in assembled
+        if row.email and row.line not in skipped_lines
     }
 
     existing_by_email = {}
@@ -1391,7 +1424,7 @@ def _merge_shape(
     returning = []
     unchanged = set()
     if market_doc is not None:
-        for line, email, _submitted, data in assembled:
+        for line, email, _submitted, data, _ignored in assembled:
             if not email or line in skipped_lines:
                 continue
             existing = existing_by_email.get(email)
@@ -1516,7 +1549,7 @@ def import_applications(
     # being confused by the rows this run is about to add.
     absent_before = _merge_shape(market_id, applicants, failures, market_doc)["absentApplications"]
 
-    for row_number, email, submitted_at, form_data in applicants:
+    for row_number, email, submitted_at, form_data, _ignored in applicants:
         if row_number in refused:
             continue
 

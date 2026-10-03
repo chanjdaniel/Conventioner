@@ -898,6 +898,8 @@ test.describe('CSV vendor import', () => {
       ROWS[1].replace('theo@thistle.test', 'not-an-email'),
       // A real address, but no name - a required answer - so the row cannot be imported.
       ROWS[2].replace('8:02:10,,Jan van der Berg', '8:02:10,jan@driftwood.test,'),
+      // A blank line, as real exports have: said to be blank, not refused once per question.
+      ','.repeat(HEADERS.length - 1),
     ].join('\n');
 
     await openImport(importPage, request, seed.marketId);
@@ -905,18 +907,21 @@ test.describe('CSV vendor import', () => {
     await importPage.mapColumns(HEADERS, FULL_MAPPING);
     await importPage.clickPreview();
 
-    await expect(importPage.previewCounts).toContainText('1 of 3 rows');
-    await expect(importPage.previewFailureRows).toHaveCount(2);
+    await expect(importPage.previewCounts).toContainText('1 of 4 rows');
+    await expect(importPage.previewFailureRows).toHaveCount(3);
     await expect(importPage.previewFailureRows.nth(0)).toContainText('Row 3');
     await expect(importPage.previewFailureRows.nth(0)).toContainText(
       "'not-an-email' is not an email address",
     );
     await expect(importPage.previewFailureRows.nth(1)).toContainText('Row 4');
     await expect(importPage.previewFailureRows.nth(1)).toContainText('jan@driftwood.test');
+    await expect(importPage.previewFailureRows.nth(2)).toHaveText(
+      'Row 5: Every column this import reads is empty.',
+    );
 
     await importPage.clickConfirm();
     await expect(importPage.resultSummary).toContainText('Imported 1 new application.');
-    await expect(importPage.failureRows).toHaveCount(2);
+    await expect(importPage.failureRows).toHaveCount(3);
 
     // Exactly what the preview promised: the skipped rows are not in the market at all.
     const applications = await listApplications(request, seed.marketId);
