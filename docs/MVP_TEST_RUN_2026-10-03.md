@@ -93,7 +93,8 @@ Market "Retest Harbour Night 2026": two dates, two tiers, two sections, "Vendors
 ## Still standing: usability observations
 
 The 2026-09-30 run listed things a user test is likely to surface that are not defects.
-E26 was scoped to bugs, so these stand, and the re-walk met several again:
+E26 was scoped to bugs, so these stand, and the re-walk met several again.
+Each is written up, with what fixing it would take, in [MVP_KNOWN_GAPS.md](MVP_KNOWN_GAPS.md):
 
 - **The import suggests only Timestamp and Email Address**, even where a heading is word for word a question's label; P1 mapped nine columns by hand.
 - **Attendance lists only vendors who have checked in**, by email, so on market day it cannot say who is missing.
