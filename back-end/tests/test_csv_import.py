@@ -245,6 +245,19 @@ class TestImportApplications:
         assert status == 400 and "not in this file" in body["error"]
         assert applications.documents == []
 
+    def test_a_blank_row_is_skipped_as_blank(self, markets, applications):
+        """One reason, not a "required" per question: none of those was why (E26 re-walk)."""
+        blank = "," * (len(HEADERS) - 1)
+
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(GOOD_ROW, blank), MAPPING,
+        )
+
+        assert body["created"] == 1
+        assert body["failures"] == [
+            {"row": 3, "email": "", "error": "Every column this import reads is empty."},
+        ]
+
     def test_a_row_with_no_email_is_skipped_and_named(self, markets, applications):
         blank = GOOD_ROW.replace("nadia@ember.ca,Nadia Okonkwo", ",Nadia Okonkwo")
 
@@ -885,6 +898,29 @@ class TestMatchingCellValues:
         assert status == 200, body
         data = applications.find_one({"applicant_email": "nadia@ember.ca"})["form_data"]
         assert data["essential_available_dates"] == ["2026-08-01"]
+
+    @pytest.mark.parametrize("old, new, target, label", [
+        ('"2026-08-01, 2026-08-08"', '"Maybe Sunday"', EssentialFields.AVAILABLE_DATES_KEY,
+         "Available dates"),
+        (",half,", ",Sharing is fine,", EssentialFields.TABLE_CHOICE_KEY, "Table choice"),
+    ])
+    def test_a_row_answered_only_with_ignored_values_says_so(
+        self, markets, applications, old, new, target, label,
+    ):
+        """The applicant answered; the organizer's own decision emptied it. "'Table choice' is
+        required" sent them to a cell in their file that was filled in (E26 re-walk)."""
+        row = GOOD_ROW.replace(old, new)
+        resolutions = {target: {new.strip(',"'): None}}
+
+        preview, _ = CsvImport.preview_values(markets.doc, _csv(row), MAPPING, resolutions)
+        body, _ = CsvImport.import_applications(
+            markets, markets.doc, _csv(row), MAPPING, resolutions,
+        )
+
+        [failure] = body["failures"]
+        assert f"Every answer to '{label}' is one you chose to ignore" in failure["error"]
+        assert f"'{label}' is required" not in failure["error"]
+        assert preview["failures"] == body["failures"]
 
     def test_free_text_answers_are_never_matched(self, markets):
         """A business name is the applicant's own words and has nothing to match against."""

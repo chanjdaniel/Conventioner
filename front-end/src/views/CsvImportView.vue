@@ -1148,8 +1148,8 @@ function startOver() {
             skipped
           </h3>
           <p class="import-help">
-            These will not be imported. Import the rest, or go back and fix them in your
-            spreadsheet.
+            These will not be imported. Import the rest, or fix them first: in your spreadsheet, or
+            with Back for an answer you chose to ignore.
           </p>
           <ul>
             <li
@@ -1210,7 +1210,8 @@ function startOver() {
         <div v-if="failures.length" class="import-failures" data-testid="import-failures">
           <h3>{{ failures.length }} row{{ failures.length === 1 ? '' : 's' }} skipped</h3>
           <p class="import-help">
-            These were not imported. Fix them in your spreadsheet and import again.
+            These were not imported. Fix them and import again: in your spreadsheet, or, for an
+            answer you chose to ignore, when you map the columns.
           </p>
           <ul>
             <li v-for="failure in failures" :key="failure.row" data-testid="import-failure-row">

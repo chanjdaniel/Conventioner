@@ -196,6 +196,50 @@ test.describe('Start from your Google Form', () => {
     expect(refusals.filter((r) => r.includes('What will you be selling'))).toEqual([]);
   });
 
+  test('an applicant whose every answer was left out is skipped for that, not as unanswered', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // E26 re-walk: left out on the proposal, their answers are ignored by the import, and the
+    // preview said "'What will you be selling at the event?' is required" - sending the organizer to
+    // a cell in their file that was filled in, when the fix is on the import's previous step.
+    const { marketId } = await seedDraftMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const flow = new StartFromCsvPage(page);
+    await flow.open(marketId);
+    await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
+    await flow.answerYear();
+    await expect(
+      flow.row('What will you be selling at the event?').getByTestId('proposal-row-dropped'),
+    ).toBeVisible();
+    await page.getByTestId('proposal-confirm').click();
+    await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+
+    const importer = new CsvImportPage(page);
+    await importer.open({ id: marketId });
+    await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));
+    await importer.clickPreview();
+    await expect(importer.previewCounts).toBeVisible();
+    const selling = (await importer.previewFailureRows.allInnerTexts()).filter((r) =>
+      r.includes('What will you be selling'),
+    );
+    expect(selling.length).toBeGreaterThan(0);
+    for (const refusal of selling) {
+      expect(refusal).toContain(
+        "Every answer to 'What will you be selling at the event?' is one you chose to ignore",
+      );
+      expect(refusal).not.toContain("'What will you be selling at the event?' is required");
+    }
+    await expect(page.getByTestId('import-preview-failures')).toContainText(
+      'with Back for an answer you chose to ignore',
+    );
+  });
+
   test('a file with no dates asks no year', async ({ authenticatedPage: page, request }) => {
     const { marketId } = await seedDraftMarket(
       request,
