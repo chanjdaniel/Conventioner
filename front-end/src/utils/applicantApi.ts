@@ -56,6 +56,16 @@ export function requestErrorFrom(err: unknown): string {
 }
 
 /**
+ * How long an applicant waits for a read before being told it did not load. Generous, because a
+ * phone on a bad connection is the normal case, but bounded - an unbounded request leaves the
+ * page on its loading state for ever, with nothing to retry and nothing to read.
+ *
+ * One bound for every read an applicant page waits on. The apply page waits on two at once, and
+ * when only the form's was bounded, a stall in the other kept the page loading for ever anyway.
+ */
+export const APPLICANT_READ_TIMEOUT_MS = 15000;
+
+/**
  * Fetch the authenticated applicant's application, or null when they have not applied yet.
  * GET /public/markets/<slug>/applicant/application
  * Requires Bearer token in Authorization header.
@@ -66,6 +76,7 @@ export async function fetchApplicantApplication(
 ): Promise<Application | null> {
   const { data } = await api.get(`/public/markets/${marketSlug}/applicant/application`, {
     headers: { Authorization: `Bearer ${token}` },
+    timeout: APPLICANT_READ_TIMEOUT_MS,
   });
   return (data.application as Application | null) ?? null;
 }

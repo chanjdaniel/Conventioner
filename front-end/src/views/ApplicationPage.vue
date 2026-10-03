@@ -57,13 +57,15 @@ async function loadForm() {
     toSignIn();
     return;
   }
-  loadFailed.value = form.failed;
+  // Either read failing is a page that did not load: an empty form over answers the vendor saved
+  // would be filled in again, and saved over them.
+  loadFailed.value = form.failed || saved.failed;
   fields.value = form.fields;
   essentialOptions.value = form.essentialOptions;
   marketName.value = form.marketName;
   phaseLabel.value = form.phaseLabel;
   isOpen.value = form.isOpen;
-  formData.value = { ...(saved?.formData ?? {}) };
+  formData.value = { ...(saved.application?.formData ?? {}) };
   loading.value = false;
 }
 

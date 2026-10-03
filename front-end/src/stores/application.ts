@@ -10,6 +10,12 @@ import {
 } from '@/utils/applicantApi';
 import type { Application } from '@/assets/types/datatypes';
 
+/** What reading the vendor's own application found. */
+export interface ApplicationRead {
+  application: Application | null;
+  failed: boolean;
+}
+
 /**
  * Where a vendor's sign-in is kept: this tab's sessionStorage (decided 2026-10-02, bug 36).
  *
@@ -110,22 +116,30 @@ export const useApplicationStore = defineStore('application', () => {
     }
   }
 
-  async function fetchApplication(): Promise<Application | null> {
-    if (!token.value || !marketSlug.value) return null;
+  /**
+   * The vendor's own application: theirs, none yet, or `failed` when the read got no answer.
+   *
+   * A failed read is never reported as "none". It was, and on a slow connection Your Application
+   * told a vendor who had applied that they had not, and the apply page opened empty over answers
+   * a save would then replace.
+   */
+  async function fetchApplication(): Promise<ApplicationRead> {
+    if (!token.value || !marketSlug.value) return { application: null, failed: false };
     loading.value = true;
     error.value = null;
     try {
       const app = await fetchApplicantApplication(marketSlug.value, token.value);
       application.value = app;
-      return app;
+      return { application: app, failed: false };
     } catch (err: unknown) {
       if ((err as { response?: { status?: number } })?.response?.status === 401) {
+        // Not a failure to load: the sign-in has ended, and the caller sends them to sign in.
         clearSession();
         error.value = 'Your session has expired. Please sign in again.';
-      } else {
-        error.value = requestErrorFrom(err);
+        return { application: null, failed: false };
       }
-      return null;
+      error.value = requestErrorFrom(err);
+      return { application: null, failed: true };
     } finally {
       loading.value = false;
     }

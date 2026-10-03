@@ -82,3 +82,59 @@ test('a returning vendor sees their answers, changes one, and stays signed in th
   await page.goto(`/${market.marketSlug}/apply`);
   await expect(page.getByTestId('apply-closed')).toBeVisible({ timeout: 30000 });
 });
+
+test('a saved application that does not arrive is said so, never shown as none, and a retry brings it', async ({
+  page,
+  request,
+}) => {
+  // Loading the saved answers (bug 21) added a second request to the apply page with no time
+  // limit beside the form's 15 s one, so a stalled stack left the page loading for ever - the
+  // state E06/F01/S01 had removed - and the same failure on Your Application read as "You have
+  // not applied to this market yet." (E26, found as a CI flake on #88).
+  test.setTimeout(90_000);
+  const market = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { setupObject: planSetupObject([DATE]) },
+  );
+  seedApprovedVendor(market.marketId, 'stalled-vendor@example.com', {
+    dates: [DATE],
+    tiers: ['Gold'],
+    maxDates: 1,
+    sections: ['Main Hall', 'Garden'],
+    fullName: 'Sam Stalled',
+    extra: { business_name: 'Stalled Prints', product_type: 'Prints' },
+  });
+  const saved = `**/public/markets/${market.marketSlug}/applicant/application`;
+  const login = new ApplicantLoginPage(page);
+  await page.goto(`/${market.marketSlug}/applicant-login`);
+  await login.requestCode('stalled-vendor@example.com');
+  createApplicantLoginChallenge(market.marketId, 'stalled-vendor@example.com', CODE);
+
+  // Your Application: the read fails outright.
+  await page.route(saved, (route) =>
+    route.request().method() === 'GET' ? route.abort('failed') : route.continue(),
+  );
+  await login.enterCode(CODE);
+  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
+  await expect(page.getByTestId('applicant-dashboard-load-failed')).toBeVisible();
+  await expect(page.getByTestId('applicant-dashboard-info')).toHaveCount(0);
+  await page.unroute(saved);
+  await page.getByTestId('applicant-dashboard-retry-button').click();
+  await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Stalled Prints');
+
+  // The apply page: the read never answers, as on a stalled stack.
+  const held: Array<{ abort: () => Promise<void> }> = [];
+  await page.route(saved, (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    held.push(route);
+  });
+  await page.goto(`/${market.marketSlug}/apply`);
+  await expect(page.getByTestId('apply-load-failed')).toBeVisible({ timeout: 25_000 });
+  await page.unroute(saved);
+  await Promise.all(held.map((route) => route.abort().catch(() => undefined)));
+  await page.getByTestId('apply-retry-button').click();
+  await expect(new ApplyPage(page).input('business_name')).toHaveValue('Stalled Prints');
+});
