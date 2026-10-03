@@ -647,8 +647,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **`npm run lint:css` is the design-language gate**, and it is **warnings globally, errors per
   migrated file** (`.stylelintrc.json` `overrides`). A rule that fails the build on a pre-existing
   backlog gets switched off, so a slice adds its files to that list when it lands. Everything MVP
-  serves is on the list; the 174 remaining warnings are the floorplan GUI and the applicant views,
-  both switched off in MVP.
+  serves is on the list, the applicant views included since vendors apply online (E26/F07); the
+  141 remaining warnings are the floorplan GUI, a beta.
 - **A market screen stands in `MarketFrame`** (`front-end/src/components/MarketFrame.vue`), whose
   bar and whole phase rail stick at `top: var(--banner-h)` - the banner's height as a token - on the
   same principle as the banner itself. The card fills at least the window under the banner. Never

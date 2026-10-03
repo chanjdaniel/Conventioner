@@ -75,16 +75,16 @@ h1 {
 }
 .slug-hint {
   margin: 0;
-  color: #666;
+  color: var(--mm-text-muted);
   font-size: var(--text-sm);
 }
 .market-home-loading {
-  color: #666;
+  color: var(--mm-text-muted);
   font-size: var(--text-sm);
 }
 .market-home-missing p {
   margin: 0;
-  color: #666;
+  color: var(--mm-text-muted);
   font-size: var(--text-sm);
 }
 </style>

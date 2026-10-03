@@ -27,6 +27,7 @@ not call ``Session(app)`` at all.
 import logging
 import os
 
+from cachelib.file import FileSystemCache
 from flask import Flask
 from flask_session import Session
 
@@ -104,11 +105,24 @@ def install_session_storage(app: Flask, backend: str) -> None:
     cookie, which is what a serverless function needs and what flask-session cannot give it - there
     is no ``null`` backend, and ``Session(app)`` raises on one.
     """
-    app.config[SESSION_TYPE_VAR] = backend
-
     if backend != ON_DISK:
+        app.config[SESSION_TYPE_VAR] = backend
         return
 
+    # On disk, through cachelib's file cache handed to flask-session directly. Its own `filesystem`
+    # interface is deprecated and said so in every test run (E26/F10/S02); this is the store it
+    # wraps, at the same 500-entry threshold and owner-only file mode, so nothing changes but the
+    # warning. `SESSION_TYPE` here is flask-session's name for the backend, not this variable's.
     os.makedirs(SESSION_FOLDER, exist_ok=True)
-    app.config["SESSION_FILE_DIR"] = SESSION_FOLDER
+    app.config[SESSION_TYPE_VAR] = "cachelib"
+    app.config["SESSION_CACHELIB"] = FileSystemCache(SESSION_FOLDER, threshold=500, mode=0o600)
     Session(app)
+
+
+def keeps_sessions_on_disk(app: Flask) -> bool:
+    """Whether this app's sessions are files in ``SESSION_FOLDER``: the one store that needs sweeping.
+
+    Asked of what was installed rather than of ``SESSION_TYPE``, which holds flask-session's name
+    for the backend (``cachelib``) and not this app's (``filesystem``).
+    """
+    return isinstance(app.config.get("SESSION_CACHELIB"), FileSystemCache)

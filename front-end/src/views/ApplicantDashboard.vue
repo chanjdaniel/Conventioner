@@ -91,7 +91,7 @@ function logout() {
 <template>
   <div class="dashboard-page" data-testid="applicant-dashboard-page">
     <header class="dash-header">
-      <h1>Your Application</h1>
+      <h1>Your application</h1>
     </header>
 
     <p class="dash-market" data-testid="applicant-dashboard-market">
@@ -167,7 +167,8 @@ function logout() {
         Change your answers
       </RouterLink>
       <button
-        class="dash-btn dash-btn-secondary"
+        type="button"
+        class="btn btn--secondary"
         @click="logout"
         data-testid="applicant-dashboard-logout-btn"
       >
@@ -178,7 +179,9 @@ function logout() {
 </template>
 
 <style scoped>
+/* A column of its own width, not its content's: it shrank to the width of a one-line notice. */
 .dashboard-page {
+  width: 100%;
   max-width: 640px;
   margin: 40px auto;
   padding: 0 16px;
@@ -223,13 +226,13 @@ function logout() {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-3);
-  background: #e7f1ff;
-  border: 1px solid #86b7fe;
-  border-radius: 6px;
+  background: var(--mm-chip-informational);
+  border: 1px solid var(--mm-blue);
+  border-radius: var(--radius-control);
   padding: 16px;
   font-size: var(--text-sm);
   line-height: 1.5;
-  color: #084298;
+  color: var(--mm-blue);
 }
 
 .dash-info p {
@@ -241,32 +244,34 @@ function logout() {
   flex-direction: column;
   gap: 4px;
   padding: 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   margin-bottom: 24px;
 }
 
+/* A verdict in the chip tones, each ink measured on its own ground (`contrast.test.ts`). These
+   were Material tints with an orange "in review" at 3.0:1 on its own fill. */
 .dash-status-card.status-neutral {
-  background: #e3f2fd;
-  border: 1px solid #90caf9;
+  background: var(--mm-chip-informational);
+  border: 1px solid var(--mm-blue);
   color: var(--mm-blue);
 }
 
 .dash-status-card.status-approved {
-  background: rgba(54, 130, 111, 0.16);
-  border: 1px solid #81c784;
-  color: var(--mm-green);
+  background: var(--mm-chip-positive);
+  border: 1px solid var(--mm-green);
+  color: var(--mm-text-green);
 }
 
 .dash-status-card.status-rejected {
-  background: #ffebee;
-  border: 1px solid #ef9a9a;
-  color: var(--mm-red);
+  background: var(--mm-chip-destructive);
+  border: 1px solid var(--mm-red);
+  color: var(--mm-text-red-on-tint);
 }
 
 .dash-status-card.status-review {
-  background: #fff3e0;
-  border: 1px solid #ffb74d;
-  color: #e65100;
+  background: var(--mm-chip-attention);
+  border: 1px solid var(--mm-yellow);
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .status-label {
@@ -296,8 +301,8 @@ function logout() {
 .answer-row {
   padding: 10px 14px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
-  background: #fafafa;
+  border-radius: var(--radius-control);
+  background: white;
 }
 
 .answer-row dt {
@@ -326,20 +331,5 @@ function logout() {
   flex-direction: row;
   gap: 12px;
   margin-top: 24px;
-}
-
-.dash-btn {
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-family: 'Merge One';
-  font-size: var(--text-sm);
-  border: none;
-}
-
-.dash-btn-secondary {
-  background: transparent;
-  color: var(--mm-text-muted);
-  border: 1px solid var(--mm-border);
 }
 </style>

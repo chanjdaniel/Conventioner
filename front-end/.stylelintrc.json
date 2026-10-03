@@ -88,7 +88,12 @@
         "src/views/PasswordResetRequestView.vue",
         "src/views/PasswordResetView.vue",
         "src/views/ResultView.vue",
-        "src/views/VendorsView.vue"
+        "src/views/VendorsView.vue",
+        "src/views/ApplicantDashboard.vue",
+        "src/views/ApplicantLogin.vue",
+        "src/views/ApplicationPage.vue",
+        "src/views/MarketHomeView.vue",
+        "src/views/FloorplanEditorView.vue"
       ],
       "rules": {
         "color-no-hex": [
