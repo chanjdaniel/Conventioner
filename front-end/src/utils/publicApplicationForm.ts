@@ -1,5 +1,6 @@
 import type { EssentialFormOptions, FormField } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
+import { APPLICANT_READ_TIMEOUT_MS } from '@/utils/applicantApi';
 import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
 
 export interface PublicApplicationForm {
@@ -24,20 +25,13 @@ export interface PublicApplicationForm {
   notFound: boolean;
 }
 
-/**
- * How long an applicant waits for this before being told it did not load. Generous, because a
- * phone on a bad connection is the normal case, but bounded - an unbounded request leaves the
- * page on its loading state for ever, with nothing to retry and nothing to read.
- */
-const REQUEST_TIMEOUT_MS = 15000;
-
 /** Fetch the market's public information for applicant screens. */
 export async function fetchPublicApplicationForm(
   marketSlug: string,
 ): Promise<PublicApplicationForm> {
   try {
     const { data } = await api.get(`/public/markets/${marketSlug}/application-form`, {
-      timeout: REQUEST_TIMEOUT_MS,
+      timeout: APPLICANT_READ_TIMEOUT_MS,
     });
     const form = data.application_form || data.applicationForm || {};
     const essential = data.essential_options || data.essentialOptions || {};

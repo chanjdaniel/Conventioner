@@ -20,6 +20,8 @@ const application = ref<Application | null>(null);
 const formFields = ref<FormField[]>([]);
 /** Whether the market is taking applications now - what a vendor with none can do about it. */
 const isOpen = ref(false);
+/** A read got no answer. Distinct from having no application, which it used to be reported as. */
+const loadFailed = ref(false);
 
 const statusLabels: Record<string, string> = {
   open: 'Submitted',
@@ -54,18 +56,30 @@ onMounted(async () => {
     return;
   }
 
+  await load();
+});
+
+/**
+ * The market and the vendor's application, together. A read that gets no answer says so and offers
+ * another try: reported as no application, it told a vendor who had applied that they had not.
+ */
+async function load() {
   loading.value = true;
-  const form = await fetchPublicApplicationForm(marketSlug.value);
+  const [form, read] = await Promise.all([
+    fetchPublicApplicationForm(marketSlug.value),
+    store.fetchApplication(),
+  ]);
+  if (!store.isAuthenticatedFor(marketSlug.value)) {
+    router.push({ name: 'applicant-login', params: { marketSlug: marketSlug.value } });
+    return;
+  }
+  loadFailed.value = form.failed || read.failed;
   marketName.value = form.marketName;
   formFields.value = form.fields;
   isOpen.value = form.isOpen;
-
-  const app = await store.fetchApplication();
-  if (app) {
-    application.value = app;
-  }
+  application.value = read.application;
   loading.value = false;
-});
+}
 
 /**
  * What the applicant answered, in the order the form asked: the essential questions first, then
@@ -105,6 +119,22 @@ function logout() {
 
     <div v-if="loading" class="dash-loading" data-testid="applicant-dashboard-loading">
       Loading...
+    </div>
+
+    <div
+      v-else-if="loadFailed"
+      class="dash-load-failed"
+      data-testid="applicant-dashboard-load-failed"
+    >
+      <p>Your application could not be loaded. Check your connection and try again.</p>
+      <button
+        type="button"
+        class="btn btn--secondary"
+        data-testid="applicant-dashboard-retry-button"
+        @click="load"
+      >
+        Try again
+      </button>
     </div>
 
     <template v-else-if="application">
@@ -220,6 +250,14 @@ function logout() {
   padding: 40px;
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
+}
+
+.dash-load-failed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
 }
 
 .dash-info {

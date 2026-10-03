@@ -176,6 +176,25 @@ failure, which now carries the evidence:
 - If it is starvation, the fix is scheduling, not code: serialise the heavy steps, or give CI more
   cores, and the product's timeout and retry behaviour stays as the correct client response.
 
+## Recurred 2026-10-03, on PR #88, with a different signature
+
+Run `37101516955`: `essential-fields.spec.ts › the applicant answers the essential questions…` failed
+once and passed on retry, and `failOnFlakyTests` failed the job, as it should.
+
+This time the page did not reach its load-failed state at 15 s: `apply-loading` was still visible
+when `signInApplicant`'s 30 s wait ran out, so the retry above never got its chance. That part is
+explained, and it was a regression on the branch, not the stall: E26's fix for bug 21 made the apply
+page wait on the vendor's saved application beside the form, and that second request had no time
+limit. A stall in it kept the page loading for ever - the state S01 removed - and a failed read was
+reported as "no application", which Your Application showed as "You have not applied". Every
+applicant read now shares one bound (`APPLICANT_READ_TIMEOUT_MS`), a failed read is a failed load on
+both pages, and `returning-vendors-edit-their-answers.spec.ts` holds a stalled read to prove it.
+
+**The stall itself is still unexplained**, and this story stays open: something kept a request
+unanswered for 15 s or more on the CI runner again. With the regression gone, a recurrence returns
+to the signature above (load-failed at 15 s, then the test's retry); CI prints both containers' logs
+in its "Docker compose logs" step.
+
 ## Superseded closure note, 2026-09-13
 
 **Closed by the epic owner's decision, on the assumption that the stall is environmental. The cause
