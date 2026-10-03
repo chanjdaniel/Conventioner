@@ -79,6 +79,7 @@ from utils.session_storage import (
     SESSION_FOLDER,
     SessionStorageNotConfiguredError,
     install_session_storage,
+    keeps_sessions_on_disk,
     session_backend,
 )
 
@@ -1950,7 +1951,7 @@ def get_market_attendance(market_id: str) -> Response:
 
 def cleanup_sessions() -> None:
     """Clean up expired session files. Only runs for filesystem sessions."""
-    if app.config["SESSION_TYPE"] == ON_DISK:
+    if keeps_sessions_on_disk(app):
         now = time.time()
         for session_file in glob.glob(os.path.join(SESSION_FOLDER, "*")):
             if os.stat(session_file).st_mtime < now - SESSION_MAX_AGE:

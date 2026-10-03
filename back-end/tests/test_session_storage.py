@@ -10,21 +10,26 @@ So it is configuration now, and an unset value is a refusal that names itself ra
 ``OSError`` on a read-only filesystem at import.
 """
 
+import warnings
+
 import pytest
 
 from conftest import skip_without_real_dependencies
 
 skip_without_real_dependencies()
 
+from cachelib.file import FileSystemCache
 from flask import Flask
 
 from utils.deployment import INSECURE_LOCAL_DEV_VAR
 from utils.session_storage import (
     IN_COOKIE,
     ON_DISK,
+    SESSION_FOLDER,
     SESSION_TYPE_VAR,
     SessionStorageNotConfiguredError,
     install_session_storage,
+    keeps_sessions_on_disk,
     session_backend,
 )
 
@@ -99,11 +104,16 @@ class TestInstallingIt:
         app = Flask(__name__)
         app.config["SECRET_KEY"] = "a-secret-the-signer-can-be-built-against"
 
-        install_session_storage(app, ON_DISK)
+        with warnings.catch_warnings():
+            # flask-session's own `filesystem` interface is deprecated, and said so on every run.
+            warnings.simplefilter("error", DeprecationWarning)
+            install_session_storage(app, ON_DISK)
 
-        assert app.config["SESSION_TYPE"] == ON_DISK
-        assert app.config["SESSION_FILE_DIR"]
-        assert type(app.session_interface).__name__ == "FileSystemSessionInterface"
+        assert type(app.session_interface).__name__ == "CacheLibSessionInterface"
+        assert isinstance(app.config["SESSION_CACHELIB"], FileSystemCache)
+        assert (tmp_path / SESSION_FOLDER).is_dir()
+        # What sweeps expired session files asks this, so it has to say yes here.
+        assert keeps_sessions_on_disk(app)
 
     def test_the_cookie_only_store_installs_nothing(self, tmp_path, monkeypatch):
         """flask-session has no `null` backend: handing it one raises `ValueError` at import, which
@@ -120,6 +130,7 @@ class TestInstallingIt:
         assert app.session_interface is default_interface
         assert app.config["SESSION_TYPE"] == IN_COOKIE
         assert "SESSION_FILE_DIR" not in app.config
+        assert not keeps_sessions_on_disk(app)
 
     def test_the_cookie_only_store_touches_no_disk(self, tmp_path, monkeypatch):
         """The failure this closes: `os.makedirs` on a read-only serverless filesystem, at import,

@@ -147,10 +147,12 @@ def get_public_application_form(
 ) -> Tuple[Dict[str, Any], int]:
     """Return the public application form for a market.
 
-    Accessible without authentication. The form is returned for every published market, in every
-    phase, alongside the phase and an ``is_open`` flag that says whether the market is still taking
-    applications. It is not phase-gated on purpose: the applicant dashboard renders stored answers
-    against this field list, so a market that has closed still has to be able to hand it over.
+    Accessible without authentication. The form is returned for every market the applicant intake
+    lookup serves - a form market, in every phase but draft (``APPLICANT_SURFACE_PHASES``) - alongside
+    the phase and an ``is_open`` flag that says whether the market is still taking applications. It
+    is not gated on applications being open, on purpose: the applicant dashboard renders stored
+    answers against this field list, so a market that has closed still has to be able to hand it
+    over (bug 20).
 
     Args:
         market_slug: The URL-safe slug of the market.

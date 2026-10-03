@@ -110,7 +110,7 @@ function goBack() {
 <template>
   <div class="login-page" data-testid="applicant-login-page">
     <header class="login-header">
-      <h1>Sign In</h1>
+      <h1>Sign in</h1>
       <p class="login-market" data-testid="applicant-login-market">
         {{ marketName || marketSlug }}
       </p>
@@ -138,21 +138,21 @@ function goBack() {
         </p>
         <input
           v-model="email"
-          class="login-input"
+          class="field"
           type="email"
           placeholder="you@example.com"
           data-testid="applicant-login-email-input"
         />
         <button
           type="submit"
-          class="login-btn"
+          class="btn btn--primary"
           :disabled="submitting || !email.trim() || cooldownApplies"
           data-testid="applicant-login-request-btn"
         >
           <template v-if="cooldownApplies"
             >Code already sent - retry in {{ cooldownRemaining }}s</template
           >
-          <template v-else>{{ submitting ? 'Sending...' : 'Send Code' }}</template>
+          <template v-else>{{ submitting ? 'Sending…' : 'Send code' }}</template>
         </button>
       </form>
     </template>
@@ -163,7 +163,7 @@ function goBack() {
         <p class="login-instruction">We've sent a code to {{ requestedEmail }}.</p>
         <input
           v-model="code"
-          class="login-input login-code-input"
+          class="field login-code-input"
           type="text"
           inputmode="numeric"
           maxlength="6"
@@ -172,11 +172,11 @@ function goBack() {
         />
         <button
           type="submit"
-          class="login-btn"
+          class="btn btn--primary"
           :disabled="submitting || code.trim().length !== 6"
           data-testid="applicant-login-verify-btn"
         >
-          {{ submitting ? 'Verifying...' : 'Verify & Sign In' }}
+          {{ submitting ? 'Signing in…' : 'Sign in' }}
         </button>
         <div class="login-alt">
           <!-- `type="button"`: inside a form, a button with no type submits it. -->
@@ -205,7 +205,10 @@ function goBack() {
 </template>
 
 <style scoped>
+/* A fixed column, so it does not change width as its steps change words: as wide as its content, it
+   moved by a few pixels between asking for the address and asking for the code. */
 .login-page {
+  width: 100%;
   max-width: 420px;
   margin: 60px auto;
   padding: 0 16px;
@@ -230,13 +233,13 @@ function goBack() {
 }
 
 .login-error {
-  background: #f8d7da;
+  background: var(--mm-chip-destructive);
   border: 1px solid var(--mm-red);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   padding: 12px 16px;
   margin-bottom: 16px;
   font-size: var(--text-sm);
-  color: #721c24;
+  color: var(--mm-text-red-on-tint);
 }
 
 .login-step {
@@ -252,34 +255,12 @@ function goBack() {
   line-height: 1.5;
 }
 
-.login-input {
-  height: 44px;
-  padding: 4px 12px;
-  font-size: var(--text-md);
-  border: 1px solid var(--mm-border);
-  border-radius: 5px;
-}
-
+/* The field and button primitives carry the rest; the code is the one field read at a glance. */
 .login-code-input {
+  height: 48px;
   letter-spacing: 12px;
   text-align: center;
   font-size: var(--text-xl);
-}
-
-.login-btn {
-  height: 44px;
-  background: var(--mm-green);
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-family: 'Merge One';
-  font-size: var(--text-md);
-}
-
-.login-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .login-alt {
@@ -301,8 +282,10 @@ function goBack() {
   padding: 0;
 }
 
+/* Still read in full while it waits: it says when the code can be sent again, which a 50% fade
+   left below AA. Not underlined, so it does not read as something to press yet. */
 .login-link-btn:disabled {
-  opacity: 0.5;
+  text-decoration: none;
   cursor: not-allowed;
 }
 
