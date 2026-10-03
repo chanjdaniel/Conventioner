@@ -67,3 +67,29 @@ describe('the answers next to it are not collateral', () => {
     expect(customRow({ power_required: '', years_trading: null })).toEqual([]);
   });
 });
+
+describe('an imported applicant with no limit on how many dates', () => {
+  // Most real forms never asked, so an imported row has no answer, which means no personal limit
+  // (E26/F02/S03, bug 24). That is an answer a reviewer needs, not a blank to drop.
+  const limitRow = (formData: Record<string, unknown>) =>
+    applicationAnswerRows(formData).essential.find((row) => row.key === 'essential_max_dates');
+
+  it('reads as no personal limit', () => {
+    expect(
+      limitRow({ essential_available_dates: ['2026-08-01'], essential_max_dates: null })?.value,
+    ).toBe('No personal limit');
+    expect(limitRow({ essential_available_dates: ['2026-08-01'] })?.value).toBe(
+      'No personal limit',
+    );
+  });
+
+  it('still reads a number given as that number', () => {
+    expect(
+      limitRow({ essential_available_dates: ['2026-08-01'], essential_max_dates: 2 })?.value,
+    ).toBe('2');
+  });
+
+  it('says nothing for a market with no dates, where the question is not asked', () => {
+    expect(limitRow({ essential_max_dates: null })).toBeUndefined();
+  });
+});

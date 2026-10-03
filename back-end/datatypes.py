@@ -452,6 +452,10 @@ class Market(BaseModel):
     import_mapping: Optional["ImportMapping"] = None
     # Organizer-settable while the market is a draft, through the plan write; fixed once it is not.
     intake_mode: IntakeMode = IntakeMode.CSV
+    # Every phase this market entered, in order (E26/F06/S03). Server-owned: `create_market` writes
+    # the first entry and `apply_phase_transition` the rest, in the update that moves the phase;
+    # no request body can write it. `phase_record` reads it. Empty on a market that predates it.
+    phase_history: List["PhaseEntry"] = Field(default_factory=list)
 
     @computed_field
     def is_draft(self) -> bool:
@@ -592,6 +596,22 @@ class FormAmendment(BaseModel):
 
     return_phase: str
     started_at: str
+
+
+class PhaseEntry(BaseModel):
+    """One phase a market entered: which, when, and who moved it there (E26/F06/S03).
+
+    ``phase`` is a plain string, not ``MarketPhase``: Pydantic validates an enum on construction, so
+    a stored phase this build does not recognize would fail the whole market's parse - the reason
+    ``market_from_document`` withholds ``phase`` itself.
+
+    ``entered_at`` is None on exactly one kind of entry: the first of a record begun partway
+    through a market's life, naming the phase it was already in (``phase_record.push_entries``).
+    """
+
+    phase: str
+    entered_at: Optional[str] = None
+    by: Optional[str] = None
 
 
 class ApplicationForm(BaseModel):

@@ -184,6 +184,41 @@ class TestAVendorOnlyGetsWhatTheyAskedFor:
         assert len(dates) == len(set(dates))
 
 
+class TestTierIsAFilterOnlyWhenAsked:
+    """A plan whose sections have no tier failed every run with a 500, and a market that added a
+    tier after its form froze placed nobody (bug 23)."""
+
+    @staticmethod
+    def _untiered(wants):
+        market = market_for(wants)
+        market.setup_object.tiers = []
+        for section in market.setup_object.sections:
+            section.tier = None
+            section.location = None
+        market.assignment_object = AssignmentObject()
+        return assign_market(market, [want.as_solver_vendor() for want in wants])
+
+    def test_a_plan_without_tiers_or_locations_assigns(self):
+        market = self._untiered([VendorWant("a@example.com", available=DATES, tiers={})])
+
+        placed = placements(market)
+        assert len(placed) == len(DATES)
+        assert {(p[5], market.assignment_object.vendor_assignments[0].location) for p in placed} \
+            == {("", "")}
+        assert "" not in (market.assignment_object.assignment_statistics.assignments_per_tier or {})
+
+    def test_a_vendor_never_asked_about_tiers_takes_any_tier(self):
+        """Their answer is empty because the form froze before the market had tiers."""
+        market = assign([VendorWant("unasked@example.com", available=DATES, tiers={})])
+
+        assert len(dates_for(market, "unasked@example.com")) == len(DATES)
+
+    def test_a_vendor_asked_still_takes_only_the_tiers_they_accept(self):
+        market = assign([VendorWant("silver@example.com", available=DATES, tiers=[SILVER])])
+
+        assert {p[5] for p in placements(market)} == {SILVER}
+
+
 class TestTheCapOnHowManyDates:
     def test_a_vendor_never_exceeds_the_dates_they_asked_for(self):
         market = assign([
@@ -542,6 +577,33 @@ class TestAnIncompleteApplicationStopsTheRun:
 
         assert "broken@example.com" in str(raised.value)
 
+    def test_the_refusal_counts_in_words_and_says_where_each_one_is(self, applications):
+        """"1 approved application(s)" read as a form letter, and a name with nothing to follow
+        left the organizer to go and find it (bug 42). Each applicant comes back with the id the
+        page links to, and what their application lacks."""
+        from assignment.assignment import IncompleteApplicationsError
+
+        market = market_for([])
+        self._store_incomplete(applications, market, "broken@example.com")
+
+        with pytest.raises(IncompleteApplicationsError) as raised:
+            assign_market(market)
+
+        assert str(raised.value).startswith(
+            "1 approved application cannot be assigned until its answers are complete"
+        )
+        [one] = raised.value.applicants()
+        assert one["applicantEmail"] == "broken@example.com"
+        assert one["applicationId"]
+        assert one["missing"]
+
+        self._store_incomplete(applications, market, "also-broken@example.com")
+        with pytest.raises(IncompleteApplicationsError) as raised:
+            assign_market(market)
+        assert str(raised.value).startswith(
+            "2 approved applications cannot be assigned until their answers are complete"
+        )
+
     def test_no_partial_assignment_is_produced(self, applications):
         from assignment.assignment import IncompleteApplicationsError
 
@@ -619,6 +681,26 @@ class TestTheOrganizersCapOnAssignmentsPerVendor:
         )
 
         assert len(dates_for(market, "keen@example.com")) == 6
+
+    def test_no_personal_limit_is_bounded_by_the_market_cap(self):
+        """An applicant imported from a form that never asked how many dates (bug 24)."""
+        market = assign(
+            [VendorWant("imported@example.com", available=MANY_DATES, tiers=[GOLD])],
+            dates=MANY_DATES,
+            max_per_vendor=3,
+        )
+
+        assert len(dates_for(market, "imported@example.com")) == 3
+
+    def test_no_personal_limit_and_no_cap_is_every_date_they_can_attend(self):
+        available = MANY_DATES[:4]
+        market = assign(
+            [VendorWant("imported@example.com", available=available, tiers=[GOLD])],
+            dates=MANY_DATES,
+            max_per_vendor=None,
+        )
+
+        assert dates_for(market, "imported@example.com") == sorted(available)
 
     def test_a_vendor_wanting_twelve_dates_is_not_capped_at_one(self):
         """The CSV era read one character of the answer, so twelve became one."""

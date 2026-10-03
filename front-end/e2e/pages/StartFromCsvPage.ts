@@ -20,6 +20,7 @@ export class StartFromCsvPage {
   readonly rows: Locator;
   readonly checkedRows: Locator;
   readonly toCheck: Locator;
+  readonly notAsked: Locator;
   readonly cancel: Locator;
 
   constructor(page: Page) {
@@ -36,6 +37,7 @@ export class StartFromCsvPage {
     this.rows = page.getByTestId('proposal-row');
     this.checkedRows = page.locator('[data-testid="proposal-row"].checking');
     this.toCheck = page.getByTestId('proposal-to-check');
+    this.notAsked = page.getByTestId('proposal-not-asked');
     this.cancel = page.getByTestId('proposal-cancel');
   }
 

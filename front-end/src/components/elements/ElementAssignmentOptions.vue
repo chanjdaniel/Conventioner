@@ -74,7 +74,7 @@ const handleProportionInput = (value: number) => {
     <div class="rows" ref="rows">
       <div class="row-container row">
         <div class="row-item">
-          <h3>Max assignments per vendor</h3>
+          <h3 id="assignment-option-ceiling">Max assignments per vendor</h3>
           <p class="option-help">
             The most dates any one vendor can be given. Leave blank for no ceiling.
           </p>
@@ -89,7 +89,9 @@ const handleProportionInput = (value: number) => {
               inputmode="numeric"
               v-model="assignmentOptions.maxAssignmentsPerVendor"
               @input="handleDaysInput(Number(($event.target as HTMLInputElement)?.value || NaN))"
-              style="all: unset; font-size: var(--text-sm); width: 100%"
+              class="field"
+              placeholder="No ceiling"
+              aria-labelledby="assignment-option-ceiling"
               data-testid="setup-options-max-assignments-input"
               :disabled="readonly"
             />
@@ -101,7 +103,7 @@ const handleProportionInput = (value: number) => {
       </div>
       <div class="row-container row">
         <div class="row-item">
-          <h3>Max half table proportion per section (%)</h3>
+          <h3 id="assignment-option-halves">Max half table proportion per section (%)</h3>
           <p class="option-help">
             A table seats two vendors side by side. This is the most of a section's tables that may
             be split in half rather than given to one vendor each.
@@ -119,7 +121,8 @@ const handleProportionInput = (value: number) => {
               @blur="
                 handleProportionInput(Number(($event.target as HTMLInputElement)?.value || NaN))
               "
-              style="all: unset; font-size: var(--text-sm); width: 100%"
+              class="field"
+              aria-labelledby="assignment-option-halves"
               data-testid="setup-options-max-proportion-input"
               :disabled="readonly"
             />
@@ -149,17 +152,6 @@ const handleProportionInput = (value: number) => {
   font-size: var(--text-xs);
   color: var(--mm-text-yellow);
   margin: 4px 0 0;
-}
-
-/* Match ElementMarketDates.vue select behavior: left-aligned text, ellipsis for overflow */
-option {
-  text-align: left;
-}
-
-select.datatype-dropdown {
-  max-width: 100%;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .container {
@@ -248,59 +240,11 @@ select.datatype-dropdown {
   cursor: pointer;
 }
 
-/* Native select arrows ignore padding; use appearance:none + background chevron for consistent inset */
-.datatype-dropdown {
-  width: 100%;
-  height: 100%;
-  min-height: 32px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  text-align: left;
-  text-align-last: left;
-  direction: ltr;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  font-size: var(--text-md);
-  padding-left: 8px;
-  /* Text stops before icon; chevron sits inset from the right edge */
-  padding-right: 1.5rem;
-  box-sizing: border-box;
-  border-radius: var(--radius-card);
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-color: white;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23333333' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.375rem center;
-  background-size: 1.125rem 1.125rem;
-}
-
-.datatype-dropdown::-ms-expand {
-  display: none;
-}
-
-.datatype-dropdown,
-.datatype-dropdown option {
-  font-family: inherit;
-  font-size: var(--text-md);
-  color: var(--mm-black);
-}
-
+/* Holds the field and no more: the field primitive draws the box and sets its height (bug 13 -
+   the input used to unset every style and render as a blank white area with no border). */
 .input-container {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
   width: 80%;
-  /* A field, not a panel. `height: 100%` grew it to whatever the label cell beside it needed,
-     so a one-line number box rendered as a five-line empty square. */
-  height: 34px;
   flex: 0 0 auto;
-  border-radius: var(--radius-card);
 }
 
 input::-webkit-outer-spin-button,

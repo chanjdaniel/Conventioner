@@ -28,18 +28,17 @@ from api.floorplans_calibrate import floorplans_calibrate_bp
 from api.floorplans_export import floorplans_export_bp
 from api.floorplans_save import floorplans_save_bp
 
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
-from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole, phase_from_market_document
+from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from guards import PreconditionResult, VALID_TRANSITIONS, evaluate_transition
 from market_documents import (
     MarketKeyMigrationError,
     assert_market_key_migration_recorded,
-    market_doc_key,
 )
 import db_config
 from dataclasses import asdict
@@ -80,6 +79,7 @@ from utils.session_storage import (
     SESSION_FOLDER,
     SessionStorageNotConfiguredError,
     install_session_storage,
+    keeps_sessions_on_disk,
     session_backend,
 )
 
@@ -768,23 +768,19 @@ def create_market() -> Response:
         if not data:
             return jsonify({"error": "No data provided"}), 400
         
-        # Validate the market data using Pydantic
-        data = convert_keys_to_snake_case(data)
-        market = Market(**data)
-
         owner_email = authenticated_email()
-
-        # Check that owner exists
         owner = UsersApi.get_user(owner_email)
         if not owner:
             return jsonify({"error": "Owner not found"}), 404
-        
-        # Validate that market has exactly one owner in roles
-        roles = market.roles if hasattr(market, 'roles') else {}
-        owner_count = sum(1 for role in roles.values() if role == MarketRole.OWNER)
-        if owner_count != 1:
-            return jsonify({"error": "Market must have exactly one owner in roles dict"}), 400
-        
+
+        # Whoever creates a market owns it, and only they do. The body's roles were taken on
+        # trust, so a client could create a market owned by another user or by an id that is
+        # nobody, which then sat in the organization with no one able to manage it (bug 46).
+        # Anyone else is added afterwards, through the endpoints that manage a market's people.
+        data = convert_keys_to_snake_case(data)
+        data["roles"] = {owner.id: MarketRole.OWNER.value}
+        market = Market(**data)
+
         refusal = MarketsApi.organization_refusal(owner_email, data.get('organization_id'))
         if refusal:
             return jsonify({"error": refusal}), 400
@@ -1123,37 +1119,20 @@ def transition_market(market_id: str) -> Response:
                 "blockers": [asdict(b) for b in blockers],
             })), 409
 
-        phase_key = market_doc_key("phase")
-        is_draft_key = market_doc_key("is_draft")
-        stored_phase = (
-            context.document[phase_key] if phase_key in context.document
-            else {"$exists": False}
-        )
-        # One atomic update. A failure between the phase and the stamp would leave a market whose
-        # two answers disagree, which is the class of bug migrate_is_draft_consistency exists to
-        # repair - and this endpoint is the only writer of either.
-        result = MarketsApi.markets_collection.update_one(
-            {"id": market_id, phase_key: stored_phase},
-            {"$set": {
-                phase_key: to_phase.value,
-                is_draft_key: to_phase == MarketPhase.DRAFT,
-                **MarketsApi.finalization_update(
-                    from_phase, to_phase.value, context.document
-                ),
-            }},
-        )
-
-        if result.matched_count == 0:
-            latest_doc = MarketsApi.markets_collection.find_one({"id": market_id})
-            if latest_doc is None:
-                return jsonify({"error": "Market not found"}), 404
-
-            actual_phase = phase_from_market_document(latest_doc).value
+        # Through the one phase writer, so the phase, its two stamps and the phase history move in
+        # one atomic update (E26/F06/S03). This endpoint used to carry its own copy of that write.
+        try:
+            MarketsApi.apply_phase_transition(
+                market_id, context.document, to_phase.value, by=user_email
+            )
+        except MarketsApi.MarketNotFoundError:
+            return jsonify({"error": "Market not found"}), 404
+        except MarketsApi.PhaseChangedUnderRequest as changed:
             conflict = PreconditionResult(
                 id="phase_changed",
                 passed=False,
                 message=(
-                    f"This market moved to the '{actual_phase}' phase while the "
+                    f"This market moved to the '{changed.actual_phase}' phase while the "
                     f"request was in flight, so it can no longer move to "
                     f"'{to_phase.value}' from '{from_phase}'. "
                     "Reload the market and try again."
@@ -1161,7 +1140,7 @@ def transition_market(market_id: str) -> Response:
             )
             return jsonify(convert_keys_to_camel_case({
                 "error": "phase_changed",
-                "current_phase": actual_phase,
+                "current_phase": changed.actual_phase,
                 "target_phase": to_phase.value,
                 "blockers": [asdict(conflict)],
             })), 409
@@ -1506,6 +1485,17 @@ def public_checkin_page(market_slug: str) -> Response:
         return jsonify({"error": "Internal server error"}), 500
 
 
+def _no_check_in_at(market_slug: str) -> Tuple[Response, int]:
+    """Why nobody can check in at this address: it has ended, or there is no market here.
+
+    An ended market's check-in page is a record and offers no check-in (bug 9), so a write there is
+    told so rather than told the market does not exist - the page has just said it does.
+    """
+    if AttendanceApi.get_check_in_market(market_slug):
+        return jsonify({"error": AttendanceApi.ENDED_REFUSAL}), 409
+    return jsonify({"error": "Market not found"}), 404
+
+
 @app.route('/public/markets/<market_slug>/attendance/checkin', methods=['DELETE'])
 def public_attendance_undo(market_slug: str) -> Response:
     """Undo a check-in made on the wrong day, by slug + vendor email + date."""
@@ -1516,7 +1506,7 @@ def public_attendance_undo(market_slug: str) -> Response:
 
         market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
         if not market_doc:
-            return jsonify({"error": "Market not found"}), 404
+            return _no_check_in_at(market_slug)
 
         result, status_code = AttendanceApi.undo_attendance(
             market_doc.get("id", ""), vendor_email, date,
@@ -1538,7 +1528,7 @@ def public_attendance_checkin(market_slug: str) -> Response:
 
         market_doc = AttendanceApi.get_published_market_by_slug(market_slug)
         if not market_doc:
-            return jsonify({"error": "Market not found"}), 404
+            return _no_check_in_at(market_slug)
 
         result, status_code = AttendanceApi.record_attendance(
             market_doc.get("id", ""), vendor_email, date,
@@ -1691,6 +1681,9 @@ def review_application(market_id: str, application_id: str) -> Response:
             requesting_user, context.market, MarketRole.ADMIN, context.organization
         ):
             return jsonify({"error": "User does not have permission to review applications"}), 403
+        refusal = MarketsApi.archived_refusal(context.market)
+        if refusal:
+            return jsonify({"error": refusal}), 403
 
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
@@ -1733,6 +1726,10 @@ def _admin_market_document(market_id: str, requesting_user: str, refused: str):
         requesting_user, context.market, MarketRole.ADMIN, context.organization
     ):
         return None, {"error": refused}, 403
+    # Every caller prepares or makes a write, and an archived market takes none (bug 30).
+    archived = MarketsApi.archived_refusal(context.market)
+    if archived:
+        return None, {"error": archived}, 403
 
     market_doc = MarketsApi.markets_collection.find_one({"id": market_id})
     if not market_doc:
@@ -1912,6 +1909,9 @@ def publish_market_results(market_id: str) -> Response:
             requesting_user, context.market, MarketRole.ADMIN, context.organization
         ):
             return jsonify({"error": "User does not have permission to publish results"}), 403
+        refusal = MarketsApi.archived_refusal(context.market)
+        if refusal:
+            return jsonify({"error": refusal}), 403
 
         result, status_code = ApplicantsApi.publish_results(market_id)
         return jsonify(result), status_code
@@ -1951,7 +1951,7 @@ def get_market_attendance(market_id: str) -> Response:
 
 def cleanup_sessions() -> None:
     """Clean up expired session files. Only runs for filesystem sessions."""
-    if app.config["SESSION_TYPE"] == ON_DISK:
+    if keeps_sessions_on_disk(app):
         now = time.time()
         for session_file in glob.glob(os.path.join(SESSION_FOLDER, "*")):
             if os.stat(session_file).st_mtime < now - SESSION_MAX_AGE:

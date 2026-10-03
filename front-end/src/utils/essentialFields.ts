@@ -303,8 +303,15 @@ export function applicationAnswerRows(
     if (text) rows.push({ key, label, value: text, custom: isCustom });
   };
 
+  // An application imported from a form that never asked how many dates carries no answer, which
+  // means no personal limit (bug 24) - an answer a reviewer needs, not a blank to drop.
+  const available = formData[AVAILABLE_DATES_KEY];
+  const noLimit =
+    formData[MAX_DATES_KEY] == null && Array.isArray(available) && available.length > 0;
+
   for (const [key, label, present] of ESSENTIAL_ORDER) {
-    if (key in formData) push(essential, key, label, present(formData[key]), false);
+    if (key === MAX_DATES_KEY && noLimit) push(essential, key, label, 'No personal limit', false);
+    else if (key in formData) push(essential, key, label, present(formData[key]), false);
   }
 
   // The form's declared order, so every card lists the same questions the same way round.
@@ -401,7 +408,7 @@ export function essentialValidationErrors(
   // Fewer than two options is not a question - there is exactly one order. Rankings only: a
   // single offered date or tier is still asked, since the applicant may not want it.
   const rankingError = (key: string, label: string, offered: string[]) => {
-    if (offered.length < 2) return;
+    if (offered.length < 2 || !isEssentialAsked(key, options)) return;
     const ranked = formData[key];
     if (!Array.isArray(ranked) || ranked.length !== offered.length) {
       errors[key] = `'${label}' is required. Rank every option, best first.`;

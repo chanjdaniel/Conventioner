@@ -213,7 +213,6 @@ function toggleDropdown() {
 }
 
 .export-option input[type='checkbox'] {
-  accent-color: var(--mm-green);
   width: 15px;
   height: 15px;
   cursor: pointer;

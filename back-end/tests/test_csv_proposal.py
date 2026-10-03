@@ -273,11 +273,22 @@ class TestWhatAColumnCarries:
         assert rare and all(not o["keep"] and o["count"] < 3 for o in rare)
         assert CsvProposal.CHECK_RARE_OPTIONS in self._column("spring-2026", 6)["check"]
 
-    def test_a_checkbox_questions_one_off_answers_are_counted_not_listed(self):
+    def test_a_checkbox_questions_one_off_answers_are_listed_to_be_kept(self):
+        """An answer that could not be listed could not be kept, so an applicant who gave only such
+        answers lost their application (bug 4). All are listed; only the shared ones are kept."""
         field = self._column("spring-2024", 12)["field"]
-        assert len(field["options"]) <= CsvProposal.OPTIONS_LISTED
-        assert field["unlistedOptions"] > 100
+        one_offs = [o for o in field["options"] if o["count"] == 1]
+        assert len(one_offs) > 100 and not any(o["keep"] for o in one_offs)
         assert all(o["count"] >= 3 for o in field["options"] if o["keep"])
+
+    def test_each_applicants_answers_say_who_a_left_out_option_would_drop(self):
+        """Indexes into the options, one list per applicant, so the ledger can count the applicants
+        left with no answer for whichever options the organizer keeps."""
+        read = self._column("spring-2024", 12)["field"]["optionsByType"]["multi_select"]
+        options, answers = read["options"], read["answers"]
+        assert all(0 <= index < len(options) for answer in answers for index in answer)
+        dropped = [a for a in answers if a and not any(options[i]["keep"] for i in a)]
+        assert dropped, "some applicants answered only options left out by default"
 
     def test_an_organizers_column_is_left_out_and_marked(self):
         column = self._column("fall-2025", 29)
@@ -308,11 +319,29 @@ class TestWhatAColumnCarries:
         assert label.endswith("staff card photo).")
         assert help_text == "We only use it to check eligibility."
 
-    def test_a_long_first_line_with_no_sentence_end_breaks_on_a_word(self):
-        long = "word " * 40
+    def test_a_long_first_line_with_no_sentence_end_stays_whole(self):
+        """Cut at the last word that fit, it put half a sentence on the form (bug 41)."""
+        long = ("If you do not have an UBC email, please attach proof of UBC affiliation (e.g. "
+                "Workday timetable for this term, alumni card, grad certificate, etc.)")
+        assert CsvProposal.label_and_help(long) == (long, None)
+
+    def test_an_exclamation_ends_a_sentence(self):
+        long = ("Please provide a link to your portfolio or any samples of your work that you will "
+                "be selling at UBC Makers Market! (e.g. Google Drive, website, Instagram)")
         label, help_text = CsvProposal.label_and_help(long)
-        assert len(label) <= CsvProposal.LABEL_MAX and not label.endswith(" ")
-        assert help_text
+        assert label.endswith("UBC Makers Market!")
+        assert help_text == "(e.g. Google Drive, website, Instagram)"
+
+    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025", "fall-2025",
+                                      "spring-2026"])
+    def test_no_label_on_the_five_exports_ends_mid_sentence(self, name):
+        headers, rows = _read(name)
+        for column in CsvProposal.proposal(headers, rows)["columns"]:
+            field = column["field"]
+            if not field:
+                continue
+            first_line = column["header"].replace("\r\n", "\n").strip().split("\n")[0].strip()
+            assert field["label"] == first_line or field["label"][-1] in ".?!", field["label"]
 
     def test_a_short_header_is_a_question_not_a_teams_column(self):
         headers = ["Timestamp", "Email Address", "Age"]
@@ -345,11 +374,48 @@ class TestWhatAColumnCarries:
         assert len(first) <= 40 and not first.endswith("_")
         assert second == f"{first}_2"
 
+    @pytest.mark.parametrize("name", ["fall-2023", "spring-2024", "spring-2025", "fall-2025",
+                                      "spring-2026"])
+    def test_no_column_is_answered_by_more_than_responded(self, name):
+        """A status-only row an organizer typed is not a response, so its cells are not answers:
+        counting them said "answered by 360 of 359" (bug 40)."""
+        headers, rows = _read(name)
+        proposal = CsvProposal.proposal(headers, rows)
+        assert all(c["answered"] <= proposal["responses"] for c in proposal["columns"])
+
     def test_an_essential_no_column_answers_is_not_asked(self):
         headers, rows = _read("fall-2023")
         not_asked = {e["key"] for e in CsvProposal.proposal(headers, rows)["notAsked"]}
         assert PREF in not_asked and TIERS in not_asked
         assert FULL not in not_asked
+
+    @pytest.mark.parametrize("name", ["fall-2025", "spring-2024", "spring-2025", "spring-2026"])
+    def test_a_tier_grid_answers_the_dates_as_well(self, name):
+        """A day's row in the grid is a day the applicant can come: the import reads availability
+        from it (``unserved_required``), so the proposal must not list the dates as unanswered
+        beside it (bug 42)."""
+        headers, rows = _read(name)
+        not_asked = {e["key"] for e in CsvProposal.proposal(headers, rows)["notAsked"]}
+        assert DATES not in not_asked
+
+    def test_no_days_column_is_said_to_mean_no_personal_limit(self):
+        """Said where the organizer decides, not discovered at the import (bug 24)."""
+        headers, rows = _read("fall-2023")
+        why = {e["key"]: e["why"] for e in CsvProposal.proposal(headers, rows)["notAsked"]}
+        assert "up to your ceiling" in why["essential_max_dates"]
+        assert "Online applicants are still asked" in why["essential_max_dates"]
+
+    def test_a_how_many_days_question_answered_with_numbers_is_the_limit(self):
+        headers = ["Email Address", "How many days would you like to table?"]
+        rows = [[f"p{i}@mail.test", str(1 + i % 3)] for i in range(9)]
+        column = CsvProposal.proposal(headers, rows)["columns"][1]
+        assert column["essential"] == "essential_max_dates"
+
+    def test_a_number_question_about_anything_else_stays_the_organizers(self):
+        headers = ["Email Address", "How many years have you been making?"]
+        rows = [[f"p{i}@mail.test", str(1 + i % 3)] for i in range(9)]
+        column = CsvProposal.proposal(headers, rows)["columns"][1]
+        assert column["essential"] is None
 
 
 def _market(phase="draft", fields=None):

@@ -42,6 +42,12 @@ const props = defineProps<{
   /** Why starting from a Google Form's responses cannot, as the server serves it on the market;
    * null when it can (E24/F04/S02). */
   csvStartRefusal: string | null;
+  /** Why this plan cannot change at all, as the server serves it; null while it can (bug 30). */
+  readOnlyReason: string | null;
+  /** How many questions of its own the market's form asks: the card says what the form IS. */
+  formQuestions: number;
+  /** Why the form can no longer change, as the server serves it; null while it can. */
+  formLockReason: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -77,7 +83,12 @@ const intakeEditable = computed(() => props.intakeEditable);
        lives entirely within Tier, Location and Section Setup, and the only other one is that the market's
        dates bound the max-assignments clamp, which the organizer can now see move. Paging it
        was the same mistake as the wizard pretending to be the lifecycle, one level down. -->
-  <div class="plan-body card-grid">
+  <!-- A fieldset, so a plan that cannot change disables every control in it at once (bug 30): one
+       attribute rather than one prop per card, and a card added later is covered without asking. -->
+  <fieldset class="plan-body card-grid" :disabled="Boolean(readOnlyReason)">
+    <p v-if="readOnlyReason" class="note card-grid__wide" data-testid="market-read-only">
+      {{ readOnlyReason }}
+    </p>
     <ElementSettingContainer class="card-grid__wide" data-testid="plan-card-dates">
       <template #setting-title>
         <h2>Market Dates</h2>
@@ -97,6 +108,7 @@ const intakeEditable = computed(() => props.intakeEditable);
       <template #setting-content>
         <ElementTierSetup
           :setupObject="setupObject"
+          :readonly="Boolean(readOnlyReason)"
           @update:setupObject="(value) => emit('update:setupObject', value)"
         />
       </template>
@@ -120,7 +132,7 @@ const intakeEditable = computed(() => props.intakeEditable);
         <!-- The choice belongs here, where sections are described, rather than over the
                whole page - and it is offered rather than imposed. -->
         <button
-          v-if="sectionsUndescribed"
+          v-if="sectionsUndescribed && !readOnlyReason"
           type="button"
           class="section-path-button"
           @click="emit('choosePath')"
@@ -147,7 +159,7 @@ const intakeEditable = computed(() => props.intakeEditable);
         />
         <!-- Seeding this market's form from last year's responses works for either intake, so it
              leaves the choice above as it is (E24/F04/S02). -->
-        <div class="csv-start" data-testid="plan-start-from-csv">
+        <div v-if="!readOnlyReason" class="csv-start" data-testid="plan-start-from-csv">
           <button
             v-if="!csvStartRefusal"
             type="button"
@@ -191,13 +203,31 @@ const intakeEditable = computed(() => props.intakeEditable);
       It names what is missing rather than merely being disabled. That is the difference between a
       guided page and a broken one.
     -->
-    <ElementSettingContainer data-testid="plan-card-form">
+    <!-- Guidance for building a form, which a record has no use for. -->
+    <ElementSettingContainer v-if="!readOnlyReason" data-testid="plan-card-form">
       <template #setting-title>
         <h2>Application form</h2>
       </template>
       <template #setting-content>
         <p v-if="formGateReason" class="plan-form-gate" data-testid="plan-form-gate">
           {{ formGateReason }}
+        </p>
+        <!-- What the form is now, not only what it could be (bug 16): this said "Build the
+             application form" over a form that was locked, and over one with 21 questions. -->
+        <p v-else-if="formLockReason" class="plan-form-ready" data-testid="plan-form-locked">
+          {{ formLockReason }}
+          <button type="button" class="plan-form-link" @click="emit('openForm')">
+            See the application form
+          </button>
+        </p>
+        <p v-else-if="formQuestions" class="plan-form-ready" data-testid="plan-form-built">
+          Your application form asks {{ formQuestions }} question{{
+            formQuestions === 1 ? '' : 's'
+          }}
+          of your own, beside the essential ones.
+          <button type="button" class="plan-form-link" @click="emit('openForm')">
+            Open the application form
+          </button>
         </p>
         <p v-else class="plan-form-ready" data-testid="plan-form-ready">
           Your plan offers something to apply for, so the form can ask about it.
@@ -207,7 +237,7 @@ const intakeEditable = computed(() => props.intakeEditable);
         </p>
       </template>
     </ElementSettingContainer>
-  </div>
+  </fieldset>
 </template>
 
 <style scoped>
@@ -249,6 +279,26 @@ const intakeEditable = computed(() => props.intakeEditable);
 .plan-body {
   align-self: stretch;
   padding: 40px;
+  /* A fieldset's own defaults: a border and margin nobody chose, and a min-content minimum width
+     that would hold the grid wider than its card. */
+  margin: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+/* A record's plan (bug 30) draws nothing that edits it. The add and remove controls and the drag
+   handles go, rather than sitting there disabled and looking pressable; the chosen days stay,
+   because they are the record, but no longer answer the pointer. */
+.plan-body:disabled :deep(:is(.add-row, .row-remove-button, .dates-remove, .drag-handle)) {
+  display: none;
+}
+
+.plan-body:disabled :deep(.calendar-day) {
+  cursor: default;
+}
+
+.plan-body:disabled :deep(.calendar-day:not(.chosen):hover) {
+  border-color: transparent;
 }
 
 .section-path-button {

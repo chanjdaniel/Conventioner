@@ -270,7 +270,8 @@ def test_configuring_is_what_installs_the_policy(configured):
 
     assert len(app.after_request_funcs.get(None, [])) == 1
     assert app.config["SECRET_KEY"] == A_REAL_SECRET
-    assert app.config["SESSION_TYPE"] == ON_DISK
+    # On disk, as declared: cachelib's file cache is flask-session's store for it.
+    assert type(app.session_interface).__name__ == "CacheLibSessionInterface"
     assert isinstance(app.wsgi_app, ProxyFix), (
         "the declared proxy hop is what makes remote_addr the caller's, which is the address "
         "organizer signup reports to reCAPTCHA"

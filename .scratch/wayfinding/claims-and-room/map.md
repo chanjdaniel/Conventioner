@@ -1,5 +1,7 @@
 # Map: Claims we can support, and room to show them
 
+Status: closed 2026-10-03 - the way is clear.
+
 Charted 2026-09-20, from the findings in `.lavish/qc-2026-09-20.html`.
 
 ## Destination
@@ -73,6 +75,38 @@ These frame every ticket and are not open for re-litigation without redrawing th
   that select**. Buildable work is
   [E16/F03](../../backlog/E16-one-design-language/F03-the-sizing-model/feature.md); it also closes
   H1, H10, H13, O1 and O2 from `.lavish/aesthetics-2026-09-20.html` without separate work.
+- [02: What is the source of truth for the market a screen is showing?](issues/02-source-of-truth-for-the-market-on-screen.md):
+  **route by market id, one store, re-read after every write** - settled on the next map as
+  [the-market-frame 03](../the-market-frame/issues/03-one-market-every-surface-reads.md) and built
+  in E21/E22; closed here when 06, which it blocked, was resolved.
+- [03: What does the importer do when the form never asked something the plan requires?](issues/03-when-the-form-never-asked.md):
+  **only a preference may go unasked, switched off from the import itself.** A ranking can be
+  declared unasked ("Ask this"); a constraint cannot. The advisory's "Stop asking it" does the walk
+  it used to describe, and a file with no days column means no personal limit. Built as
+  [E01/F06](../../backlog/E01-csv-vendor-intake/F06-a-question-not-asked/feature.md),
+  [E20/F03](../../backlog/E20-dialogs-and-the-dead-ends-they-remove/F03-fixing-the-form-without-leaving-the-import/feature.md)
+  and E26.
+- [04: Who is in the Vendors list?](issues/04-who-is-in-the-vendors-list.md):
+  **vendors, as the glossary says - rejected applicants leave it.** The page lists the run's own
+  vendors, served by `/tables`, so it and Result count the same people; everyone who applied is on
+  the Applications tab's reviewed list. Built as
+  [E26/F05/S04](../../backlog/E26-the-user-flows-hold/F05-placements-tell-the-truth/S04-reasons-and-the-vendors-list.md).
+- [05: What does the dialog tell you before you override a vendor's answer?](issues/05-before-you-override-an-answer.md):
+  **every answer a hand change can cross is said first, and the candidate list is grouped, never
+  filtered.** Placing warns about availability, tier, table size, the vendor's own date limit and
+  the market's ceiling; a swap warns each vendor about the tier and size of the seat they move into.
+  The list is "Fits this seat" then "Would override their answers". Built as
+  [E26/F05/S03](../../backlog/E26-the-user-flows-hold/F05-placements-tell-the-truth/S03-overrides-are-warned.md).
+- [06: Does a market remember where it has been?](issues/06-does-a-market-remember-where-it-has-been.md):
+  **yes - a phase log on the market document**, pushed by the one phase writer in the update that
+  moves the phase. `phase_record.py` answers how far a market got and whether it ran; a market
+  older than the record says only what it can prove. Built as
+  [E26/F06/S03](../../backlog/E26-the-user-flows-hold/F06-an-archive-is-a-record/S03-a-market-remembers-where-it-has-been.md).
+- [07: Why is a published market's rail four times taller than a draft's?](issues/07-the-rails-second-row.md):
+  **the address gives way, and the rail's end travels as one piece.** The chip's address shortens
+  (the link, hover text and Copy keep it whole), and the addresses and actions share a designed
+  second row where the row cannot hold them. One row at 1440. Built as
+  [E26/F10/S01](../../backlog/E26-the-user-flows-hold/F10-polish-copy-and-accessibility/S01-layout-polish.md).
 
 ## Not yet specified
 

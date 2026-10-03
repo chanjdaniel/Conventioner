@@ -267,12 +267,12 @@ class TestWhenItStopsPartway:
         hops: list = []
         real = MarketsApi.apply_phase_transition
 
-        def derail(market_id, document, to_phase):
+        def derail(market_id, document, to_phase, **kwargs):
             hops.append(to_phase)
             if len(hops) == 3:
                 # Somebody else moved it while the chain was walking back.
                 fake.doc["phase"] = "review"
-            return real(market_id, document, to_phase)
+            return real(market_id, document, to_phase, **kwargs)
 
         monkeypatch.setattr(MarketsApi, "apply_phase_transition", derail)
 

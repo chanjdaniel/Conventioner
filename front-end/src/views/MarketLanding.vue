@@ -10,7 +10,6 @@
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import MarketFrame from '@/components/MarketFrame.vue';
-import MarketArrival from '@/components/MarketArrival.vue';
 import { marketPath } from '@/utils/market';
 import { currentPage, hasAssignment } from '@/utils/marketPage';
 import { useOpenMarket } from '@/utils/openMarket';
@@ -18,7 +17,7 @@ import { useOpenMarket } from '@/utils/openMarket';
 const route = useRoute();
 const router = useRouter();
 const marketId = computed(() => String(route.params.marketId ?? ''));
-const { market, status, refresh } = useOpenMarket(marketId);
+const { market } = useOpenMarket(marketId);
 
 watch(
   market,
@@ -31,16 +30,6 @@ watch(
 </script>
 
 <template>
-  <div class="market-landing">
-    <MarketFrame :market="null">
-      <MarketArrival :status="status" @retry="refresh()" />
-    </MarketFrame>
-  </div>
+  <!-- The frame says what is shown while the market is on its way, as on every market page. -->
+  <MarketFrame :market="market" />
 </template>
-
-<style scoped>
-.market-landing {
-  width: 100%;
-  padding: 0 var(--space-4) var(--space-4);
-}
-</style>

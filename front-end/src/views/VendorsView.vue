@@ -7,7 +7,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 import { useOpenMarket } from '@/utils/openMarket';
-import MarketArrival from '@/components/MarketArrival.vue';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useInertBehind } from '@/utils/useInertBehind';
@@ -78,7 +77,15 @@ const route = useRoute();
  * `localStorage`, because `/vendors` carried no id.
  */
 const marketId = computed(() => String(route.params.marketId ?? ''));
-const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+const { market } = useOpenMarket(marketId);
+
+/** Is this vendor's placement on this date at a table the plan no longer has (bug 31)? */
+function isOrphaned(email: string, date: string): boolean {
+  const target = email.trim().toLowerCase();
+  return (market.value?.orphanedPins ?? []).some(
+    (pin) => pin.date === date && pin.email.trim().toLowerCase() === target,
+  );
+}
 const applications = ref<Application[]>([]);
 const tableRows = ref<MarketTableRowResponse[]>([]);
 const vendorNames = ref<VendorNames>({});
@@ -139,12 +146,23 @@ async function loadVendors(): Promise<void> {
     const [applicationList, statsResp, tablesResp] = await Promise.all([
       fetchMarketApplications(id),
       api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
-      api.get<{ rows: MarketTableRowResponse[]; vendorNames: VendorNames }>(
-        `/markets/${encoded}/tables`,
-      ),
+      api.get<{
+        rows: MarketTableRowResponse[];
+        vendorNames: VendorNames;
+        vendors?: { email: string }[];
+      }>(`/markets/${encoded}/tables`),
     ]);
 
-    applications.value = Array.isArray(applicationList) ? applicationList : [];
+    // A vendor is an applicant being placed (CONTEXT.md), so this page lists the applications the
+    // solver places and nobody else: a rejected applicant was counted as an unassigned vendor, and
+    // the page disagreed with Result (bug 10, claims-and-room 04). The list comes from `/tables`,
+    // which serves the run's own vendors, so the two pages cannot count different people.
+    const placeable = new Set(
+      (tablesResp.data?.vendors ?? []).map((vendor) => vendor.email.trim().toLowerCase()),
+    );
+    applications.value = (Array.isArray(applicationList) ? applicationList : []).filter(
+      (application) => placeable.has((application.applicantEmail ?? '').trim().toLowerCase()),
+    );
 
     unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
     placementOverrides.value = overrideIndex(statsResp.data?.overriddenPlacements ?? []);
@@ -195,12 +213,6 @@ watch(
   },
   { immediate: true },
 );
-
-/** A failed arrival retries both halves: the market the rail draws, and this screen's own list. */
-function retryArrival(): void {
-  void refreshMarket();
-  void loadVendors();
-}
 
 const setup = computed(() => market.value?.setupObject ?? null);
 const marketDates = computed<MarketDateObject[]>(() => setup.value?.marketDates ?? []);
@@ -355,10 +367,12 @@ function overridesFor(email: string, date: string): PlacementOverride[] | undefi
  * no organizer could invoke (`E11/F03/S02`). The vendor rides along, naming whose placement the
  * organizer came to change.
  */
+/** Where to change this vendor's seat on a date; null when there is nowhere to, as on a market
+ *  that cannot change - its dates are a record, and offer nothing to press (bug 30). */
 function resultLinkFor(date: string): string | null {
   const id = market.value?.id;
   const vendor = selectedVendor.value?.email;
-  if (!id || !vendor) return null;
+  if (!id || !vendor || market.value?.readOnlyReason) return null;
   const query = new URLSearchParams({ date, vendor });
   return `${marketPath(id, 'result')}?${query.toString()}`;
 }
@@ -411,7 +425,7 @@ useInertBehind(
 
 <template>
   <div class="vendors-view">
-    <MarketFrame class="vendors-card" :market="market">
+    <MarketFrame :market="market" @retry="loadVendors">
       <!-- The search stays in view with the frame; it used to stick inside the card's own
            scroller, which is gone (E21/F04/S02). -->
       <template #pinned>
@@ -436,7 +450,7 @@ useInertBehind(
           >
             Unassigned only &times;
           </button>
-          <div class="summary-line">
+          <div class="summary-line" data-testid="vendors-summary">
             <span class="summary-strong">{{ assignedVendorCount }}</span>
             of
             <span class="summary-strong">{{ totalVendorCount }}</span>
@@ -446,57 +460,51 @@ useInertBehind(
       </template>
 
       <div class="vendors-body">
-        <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
+        <p v-if="loadError" class="error-text">{{ loadError }}</p>
 
-        <template v-else>
-          <p v-if="loadError" class="error-text">{{ loadError }}</p>
+        <div v-if="isLoading" class="loading-state">
+          <div class="spinner" aria-hidden="true" />
+          <span>Loading vendors…</span>
+        </div>
 
-          <div v-if="isLoading" class="loading-state">
-            <div class="spinner" aria-hidden="true" />
-            <span>Loading vendors…</span>
-          </div>
+        <div v-else-if="filteredVendors.length === 0" class="empty-state empty-state--inline">
+          <p v-if="totalVendorCount === 0">No vendors found.</p>
+          <p v-else-if="onlyUnassigned && !filterText.trim()">Every vendor has a table.</p>
+          <p v-else>No vendors match "{{ filterText }}".</p>
+        </div>
 
-          <div v-else-if="filteredVendors.length === 0" class="empty-state empty-state--inline">
-            <p v-if="totalVendorCount === 0">No vendors found.</p>
-            <p v-else-if="onlyUnassigned && !filterText.trim()">Every vendor has a table.</p>
-            <p v-else>No vendors match "{{ filterText }}".</p>
-          </div>
-
-          <ul v-else class="vendor-list">
-            <li
-              v-for="vendor in filteredVendors"
-              :key="vendor.rowIndex"
-              class="vendor-row"
-              :class="{ 'vendor-row--active': vendor.rowIndex === selectedRowIndex }"
+        <ul v-else class="vendor-list">
+          <li
+            v-for="vendor in filteredVendors"
+            :key="vendor.rowIndex"
+            class="vendor-row"
+            :class="{ 'vendor-row--active': vendor.rowIndex === selectedRowIndex }"
+          >
+            <button
+              type="button"
+              class="vendor-row-button"
+              @click="selectVendor(vendor.rowIndex)"
+              data-testid="vendors-list-item"
             >
-              <button
-                type="button"
-                class="vendor-row-button"
-                @click="selectVendor(vendor.rowIndex)"
-                data-testid="vendors-list-item"
-              >
-                <VendorIdentity
-                  class="vendor-email"
-                  :email="vendor.displayEmail"
-                  :names="vendorNames"
-                />
-                <span class="vendor-meta">
-                  <span
-                    class="vendor-badge"
-                    :class="
-                      vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'
-                    "
-                  >
-                    {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
-                  </span>
-                  <span class="vendor-date-count">
-                    {{ vendor.assignedDateCount }} / {{ totalDateCount }} dates
-                  </span>
+              <VendorIdentity
+                class="vendor-email"
+                :email="vendor.displayEmail"
+                :names="vendorNames"
+              />
+              <span class="vendor-meta">
+                <span
+                  class="vendor-badge"
+                  :class="vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'"
+                >
+                  {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
                 </span>
-              </button>
-            </li>
-          </ul>
-        </template>
+                <span class="vendor-date-count">
+                  {{ vendor.assignedDateCount }} / {{ totalDateCount }} dates
+                </span>
+              </span>
+            </button>
+          </li>
+        </ul>
       </div>
     </MarketFrame>
 
@@ -569,6 +577,7 @@ useInertBehind(
               :reason="reasonFor(selectedVendor.email, date.date)"
               :overrides="overridesFor(selectedVendor.email, date.date)"
               :placeHref="resultLinkFor(date.date)"
+              :orphaned="isOrphaned(selectedVendor.email, date.date)"
               @place="goToResult(date.date)"
             />
           </ul>
@@ -591,20 +600,8 @@ useInertBehind(
 
 <style scoped>
 .vendors-view {
+  /* The frame places itself on the page (E26/F10/S01); this holds it and the vendor detail. */
   width: 100%;
-  padding: 0 var(--space-4) var(--space-4);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  background-color: var(--mm-beige);
-  position: relative;
-}
-
-.vendors-card {
-  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title, the rail and the search
-     under the banner, and a sticky element inside an `overflow` ancestor stops sticking. This used
-     to cap the card at the viewport and scroll a body inside it. */
-  border-radius: var(--radius-card);
 }
 
 .vendors-body {

@@ -21,6 +21,12 @@ export const useFloorplanStore = defineStore('floorplan', () => {
   // ── UI state ───────────────────────────────────────────────────────
   const selectedTableIds = ref<string[]>([]);
   const scalePxPerMm = ref<number>(1);
+  /**
+   * The floor plan image's own size in pixels - with the scale, the size of the room. Known from
+   * the upload on, because Auto-Place needs it before the editor has ever loaded the image: the
+   * room was a fixed 10 m square while this went unrecorded until a later step (bug 38).
+   */
+  const imageSizePx = ref<{ width: number; height: number } | null>(null);
   const stageConfig = ref({ x: 0, y: 0, scale: 1 });
   const isLoading = ref(false);
   const isDirty = ref(false);
@@ -84,7 +90,19 @@ export const useFloorplanStore = defineStore('floorplan', () => {
     placedTables.value = floorplan.value.placedTables;
     sections.value = floorplan.value.sections;
     scalePxPerMm.value = floorplan.value.scalePxPerUnit ?? 1;
+    adoptImageSize(floorplan.value);
     resetState();
+  }
+
+  /** Take the image size a floorplan carries, keeping the one already known when it has none. */
+  function adoptImageSize(fp: Partial<FloorplanObject>) {
+    if (fp.imageWidth && fp.imageHeight) {
+      imageSizePx.value = { width: fp.imageWidth, height: fp.imageHeight };
+    }
+  }
+
+  function setImageSize(width: number, height: number) {
+    imageSizePx.value = { width, height };
   }
 
   /** Hydrate the store from an existing floorplan object (e.g. from the API). */
@@ -96,6 +114,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
     placedTables.value = fp.placedTables ?? [];
     sections.value = fp.sections ?? [];
     scalePxPerMm.value = fp.scalePxPerUnit ?? 1;
+    adoptImageSize(fp);
     resetState();
   }
 
@@ -224,6 +243,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
     sections,
     selectedTableIds,
     scalePxPerMm,
+    imageSizePx,
     stageConfig,
     isLoading,
     isDirty,
@@ -240,6 +260,7 @@ export const useFloorplanStore = defineStore('floorplan', () => {
     // actions – lifecycle
     initFloorplan,
     setFloorplan,
+    setImageSize,
     resetState,
     markDirty,
 

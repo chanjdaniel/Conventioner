@@ -195,18 +195,19 @@ def _clear_intent(market_id: str) -> None:
     )
 
 
-def _walk(market_id: str, steps: List[str], plan: AmendmentPlan) -> None:
+def _walk(market_id: str, steps: List[str], plan: AmendmentPlan, by: str) -> None:
     """Take the given hops in order, re-reading the document before each.
 
     Re-read rather than carried: each write is conditional on the stored phase, so a stale
-    document would fail the second hop of every chain.
+    document would fail the second hop of every chain. Each hop is recorded in the market's phase
+    history under the organizer who ran the amendment, because each is a real phase it entered.
     """
     for index, target in enumerate(steps):
         document = MarketsApi.markets_collection.find_one({"id": market_id})
         if document is None:
             raise MarketsApi.MarketNotFoundError("Market not found")
         try:
-            MarketsApi.apply_phase_transition(market_id, document, target)
+            MarketsApi.apply_phase_transition(market_id, document, target, by=by)
         except MarketsApi.PhaseChangedUnderRequest as conflict:
             raise AmendmentStalled(
                 (
@@ -227,7 +228,7 @@ def amend_application_form(
     ADMIN, not EDITOR: this moves the market's phase, and the phase endpoint's own bar is ADMIN.
     An amendment that let an EDITOR walk a market through draft would be a way around that bar.
     """
-    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.ADMIN, "amend")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.ADMIN, "amend")
     plan = plan_for(market)
 
     availability = amendment_availability(market)
@@ -247,13 +248,13 @@ def amend_application_form(
 
     # Only now does anything move.
     _record_intent(market_id, plan)
-    _walk(market_id, plan.down, plan)
+    _walk(market_id, plan.down, plan, requesting_user)
 
     # In draft, which is the one phase the form is writable in - so this goes through the ordinary
     # writer and meets the ordinary lock, rather than around it.
     saved = MarketsApi.save_application_form(market_id, application_form_data, requesting_user)
 
-    _walk(market_id, plan.up, plan)
+    _walk(market_id, plan.up, plan, requesting_user)
     _clear_intent(market_id)
 
     return {
@@ -270,7 +271,7 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
     replaying what was left of the old walk, because the reason a chain stalls is that the market
     is no longer where the walk believed.
     """
-    market = MarketsApi._load_market_for(market_id, requesting_user, MarketRole.ADMIN, "amend")
+    market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.ADMIN, "amend")
     pending = market.form_amendment
     if pending is None:
         raise AmendmentUnavailable("This market has no unfinished form amendment.")
@@ -288,7 +289,7 @@ def resume_amendment(market_id: str, requesting_user: str) -> Dict[str, Any]:
         )
 
     plan = AmendmentPlan(return_phase=target, down=[], up=steps)
-    _walk(market_id, steps, plan)
+    _walk(market_id, steps, plan, requesting_user)
     _clear_intent(market_id)
     return {"phase": target, "hops": len(steps)}
 

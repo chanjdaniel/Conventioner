@@ -7,19 +7,13 @@ import type { VendorAttendance } from '@/assets/types/datatypes';
 import { getShortDate, getTimestampTime } from '@/utils/utils';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
-import MarketArrival from '@/components/MarketArrival.vue';
 
 const route = useRoute();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
-const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+const { market } = useOpenMarket(marketId);
 
-/** A failed arrival retries both halves: the market the rail draws, and this screen's own rows. */
-function retryArrival(): void {
-  void refreshMarket();
-  void loadAttendance();
-}
 const attendance = ref<VendorAttendance[]>([]);
 const errorMessage = ref('');
 const isLoading = ref(false);
@@ -87,62 +81,43 @@ onMounted(loadAttendance);
 </script>
 
 <template>
-  <div class="attendance-status-view">
-    <MarketFrame class="attendance-status-card" :market="market">
-      <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
-      <div v-if="marketStatus !== 'missing'" class="attendance-status-body">
-        <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-        <p v-if="isLoading">Loading…</p>
-        <div v-else-if="attendance.length === 0" class="empty-state">
-          <p>No check-ins recorded yet.</p>
-        </div>
-        <div v-else class="table-wrapper">
-          <table class="attendance-table">
-            <thead>
-              <tr>
-                <th>Vendor</th>
-                <th v-for="d in dates" :key="d">{{ formatHeaderDate(d) }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="vendor in vendors" :key="vendor">
-                <td class="vendor-cell" data-testid="attendance-status-vendor-cell">
-                  {{ vendor }}
-                </td>
-                <td
-                  v-for="d in dates"
-                  :key="d"
-                  :data-date="d"
-                  data-testid="attendance-status-date-cell"
-                >
-                  {{ cellFor(vendor, d) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+  <MarketFrame :market="market" @retry="loadAttendance">
+    <div class="attendance-status-body">
+      <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+      <p v-if="isLoading">Loading…</p>
+      <div v-else-if="attendance.length === 0" class="empty-state">
+        <p>No check-ins recorded yet.</p>
       </div>
-    </MarketFrame>
-  </div>
+      <div v-else class="table-wrapper">
+        <table class="attendance-table">
+          <thead>
+            <tr>
+              <th>Vendor</th>
+              <th v-for="d in dates" :key="d">{{ formatHeaderDate(d) }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="vendor in vendors" :key="vendor">
+              <td class="vendor-cell" data-testid="attendance-status-vendor-cell">
+                {{ vendor }}
+              </td>
+              <td
+                v-for="d in dates"
+                :key="d"
+                :data-date="d"
+                data-testid="attendance-status-date-cell"
+              >
+                {{ cellFor(vendor, d) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </MarketFrame>
 </template>
 
 <style scoped>
-.attendance-status-view {
-  width: 100%;
-  padding: 0 var(--space-4) var(--space-4);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  background-color: var(--mm-beige);
-}
-
-.attendance-status-card {
-  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
-     banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
-     card at the viewport and scroll a body inside it. */
-  border-radius: var(--radius-card);
-}
-
 .attendance-status-body {
   padding: 24px;
   min-height: 200px;

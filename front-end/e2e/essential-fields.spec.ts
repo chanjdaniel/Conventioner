@@ -86,7 +86,7 @@ async function signInApplicant(page: Page, marketId: string, marketSlug: string)
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ message: "If an account exists for this email, we've sent a code." }),
+      body: JSON.stringify({ message: "We've sent a code to this address." }),
     });
   });
 
@@ -264,7 +264,11 @@ test.describe('Essential form fields', () => {
     // Identity is settled before the form: the email rides along read-only.
     await expect(apply.essentialEmail).toContainText(APPLICANT_EMAIL);
 
-    // Identity: asked whatever the plan offers, and never split (E13/F01/S01).
+    // Identity: asked whatever the plan offers, and never split (E13/F01/S01). The full name is the
+    // official one; how they like to be called is the preferred name's question, not this one's.
+    await expect(page.getByTestId('apply-essential-full-name-help')).toContainText(
+      'as it appears officially',
+    );
     await apply.fullNameInput.fill('Jan van der Berg');
 
     // Availability is not its own question any more (E19/F01/S02) - it follows from the tier

@@ -214,10 +214,9 @@ export async function seedMarketWithVendors(
  * so that the assignment algorithm can compute assignments on-the-fly.
  *
  * Unlike seedMarketWithVendors(), this also configures the market's
- * setupObject (column mapping, dates, sections, tiers, locations) and
- * publishes the market via the transition endpoint (draft -> archived, the same
- * edge the product's Done button takes) so the check-in API and vendor/table
- * views work.
+ * setupObject (dates, sections, tiers, locations) and publishes the market by
+ * walking it through the transition endpoint to `market_days`, the phase the
+ * check-in page serves, so the check-in API and vendor/table views work.
  *
  * Vendors are seeded as approved applications, which is what the solver reads. They used to be
  * a fabricated CSV upload, back when the solver read a separate source_data collection.

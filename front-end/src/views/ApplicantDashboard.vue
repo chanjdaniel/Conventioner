@@ -7,6 +7,7 @@ import type { Application, FormField } from '@/assets/types/datatypes';
 import { ApplicationStatus } from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
 import { getTimestampDate } from '@/utils/utils';
+import AnswerValue from '@/components/AnswerValue.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -17,6 +18,10 @@ const marketName = ref('');
 const loading = ref(true);
 const application = ref<Application | null>(null);
 const formFields = ref<FormField[]>([]);
+/** Whether the market is taking applications now - what a vendor with none can do about it. */
+const isOpen = ref(false);
+/** A read got no answer. Distinct from having no application, which it used to be reported as. */
+const loadFailed = ref(false);
 
 const statusLabels: Record<string, string> = {
   open: 'Submitted',
@@ -51,17 +56,30 @@ onMounted(async () => {
     return;
   }
 
+  await load();
+});
+
+/**
+ * The market and the vendor's application, together. A read that gets no answer says so and offers
+ * another try: reported as no application, it told a vendor who had applied that they had not.
+ */
+async function load() {
   loading.value = true;
-  const form = await fetchPublicApplicationForm(marketSlug.value);
+  const [form, read] = await Promise.all([
+    fetchPublicApplicationForm(marketSlug.value),
+    store.fetchApplication(),
+  ]);
+  if (!store.isAuthenticatedFor(marketSlug.value)) {
+    router.push({ name: 'applicant-login', params: { marketSlug: marketSlug.value } });
+    return;
+  }
+  loadFailed.value = form.failed || read.failed;
   marketName.value = form.marketName;
   formFields.value = form.fields;
-
-  const app = await store.fetchApplication();
-  if (app) {
-    application.value = app;
-  }
+  isOpen.value = form.isOpen;
+  application.value = read.application;
   loading.value = false;
-});
+}
 
 /**
  * What the applicant answered, in the order the form asked: the essential questions first, then
@@ -88,7 +106,7 @@ function logout() {
 <template>
   <div class="dashboard-page" data-testid="applicant-dashboard-page">
     <header class="dash-header">
-      <h1>Your Application</h1>
+      <h1>Your application</h1>
     </header>
 
     <p class="dash-market" data-testid="applicant-dashboard-market">
@@ -101,6 +119,22 @@ function logout() {
 
     <div v-if="loading" class="dash-loading" data-testid="applicant-dashboard-loading">
       Loading...
+    </div>
+
+    <div
+      v-else-if="loadFailed"
+      class="dash-load-failed"
+      data-testid="applicant-dashboard-load-failed"
+    >
+      <p>Your application could not be loaded. Check your connection and try again.</p>
+      <button
+        type="button"
+        class="btn btn--secondary"
+        data-testid="applicant-dashboard-retry-button"
+        @click="load"
+      >
+        Try again
+      </button>
     </div>
 
     <template v-else-if="application">
@@ -128,24 +162,44 @@ function logout() {
             :data-testid="`applicant-dashboard-answer-${row.key}`"
           >
             <dt>{{ row.label }}</dt>
-            <dd>{{ row.value }}</dd>
+            <dd><AnswerValue :value="row.value" /></dd>
           </div>
         </dl>
       </div>
     </template>
 
+    <!-- Signed in, and not applied (E26/F07/S01): a vendor who has never applied can sign in
+         now, so this says what is true for them rather than waiting on the organizer. -->
     <template v-else>
       <div class="dash-info" data-testid="applicant-dashboard-info">
-        <p>
-          You are signed in to view your application for this market. Your application status and
-          form will appear here once the market organizer opens applications.
-        </p>
+        <template v-if="isOpen">
+          <p>You have not applied to this market yet.</p>
+          <RouterLink
+            class="btn btn--primary"
+            :to="{ name: 'apply', params: { marketSlug } }"
+            data-testid="applicant-dashboard-apply-link"
+          >
+            Apply now
+          </RouterLink>
+        </template>
+        <p v-else>You have no application at this market, and it is not taking applications.</p>
       </div>
     </template>
 
     <div class="dash-actions">
+      <!-- The way back to the form while it can still change (bug 21): there was none, so a vendor
+           who wanted to correct an answer had no route to it from here. -->
+      <RouterLink
+        v-if="application && isOpen"
+        class="btn btn--primary"
+        :to="{ name: 'apply', params: { marketSlug } }"
+        data-testid="applicant-dashboard-edit-link"
+      >
+        Change your answers
+      </RouterLink>
       <button
-        class="dash-btn dash-btn-secondary"
+        type="button"
+        class="btn btn--secondary"
         @click="logout"
         data-testid="applicant-dashboard-logout-btn"
       >
@@ -156,7 +210,9 @@ function logout() {
 </template>
 
 <style scoped>
+/* A column of its own width, not its content's: it shrank to the width of a one-line notice. */
 .dashboard-page {
+  width: 100%;
   max-width: 640px;
   margin: 40px auto;
   padding: 0 16px;
@@ -196,14 +252,30 @@ function logout() {
   color: var(--mm-text-muted);
 }
 
+.dash-load-failed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
 .dash-info {
-  background: #e7f1ff;
-  border: 1px solid #86b7fe;
-  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  background: var(--mm-chip-informational);
+  border: 1px solid var(--mm-blue);
+  border-radius: var(--radius-control);
   padding: 16px;
   font-size: var(--text-sm);
   line-height: 1.5;
-  color: #084298;
+  color: var(--mm-blue);
+}
+
+.dash-info p {
+  margin: 0;
 }
 
 .dash-status-card {
@@ -211,32 +283,34 @@ function logout() {
   flex-direction: column;
   gap: 4px;
   padding: 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   margin-bottom: 24px;
 }
 
+/* A verdict in the chip tones, each ink measured on its own ground (`contrast.test.ts`). These
+   were Material tints with an orange "in review" at 3.0:1 on its own fill. */
 .dash-status-card.status-neutral {
-  background: #e3f2fd;
-  border: 1px solid #90caf9;
+  background: var(--mm-chip-informational);
+  border: 1px solid var(--mm-blue);
   color: var(--mm-blue);
 }
 
 .dash-status-card.status-approved {
-  background: rgba(54, 130, 111, 0.16);
-  border: 1px solid #81c784;
-  color: var(--mm-green);
+  background: var(--mm-chip-positive);
+  border: 1px solid var(--mm-green);
+  color: var(--mm-text-green);
 }
 
 .dash-status-card.status-rejected {
-  background: #ffebee;
-  border: 1px solid #ef9a9a;
-  color: var(--mm-red);
+  background: var(--mm-chip-destructive);
+  border: 1px solid var(--mm-red);
+  color: var(--mm-text-red-on-tint);
 }
 
 .dash-status-card.status-review {
-  background: #fff3e0;
-  border: 1px solid #ffb74d;
-  color: #e65100;
+  background: var(--mm-chip-attention);
+  border: 1px solid var(--mm-yellow);
+  color: var(--mm-text-yellow-on-tint);
 }
 
 .status-label {
@@ -266,8 +340,8 @@ function logout() {
 .answer-row {
   padding: 10px 14px;
   border: 1px solid var(--mm-border);
-  border-radius: 6px;
-  background: #fafafa;
+  border-radius: var(--radius-control);
+  background: white;
 }
 
 .answer-row dt {
@@ -296,20 +370,5 @@ function logout() {
   flex-direction: row;
   gap: 12px;
   margin-top: 24px;
-}
-
-.dash-btn {
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-family: 'Merge One';
-  font-size: var(--text-sm);
-  border: none;
-}
-
-.dash-btn-secondary {
-  background: transparent;
-  color: var(--mm-text-muted);
-  border: 1px solid var(--mm-border);
 }
 </style>

@@ -37,6 +37,7 @@ import {
   TIER_PREFERENCE_KEY,
   TIER_PREFERENCE_LABEL,
   formattedEssentialDate,
+  isEssentialAsked,
   reconciledDatesAndTiers,
 } from '@/utils/essentialFields';
 import RankedChoiceInput from './RankedChoiceInput.vue';
@@ -71,6 +72,19 @@ function tiersOn(date: string): string[] {
   return tiersByDate.value[date] ?? [];
 }
 
+/**
+ * A ranking is asked when there are two or more options AND the market has not switched it off
+ * ("Ask this", E01/F06). The switch was honoured by the server and ignored here, so applicants
+ * were still shown, and told they must answer, a question the organizer had turned off.
+ */
+const asksSectionRanking = computed(
+  () => props.options.sections.length > 1 && isEssentialAsked(SECTION_RANKING_KEY, props.options),
+);
+const asksTableTypeRanking = computed(
+  () =>
+    props.options.tableTypes.length > 1 && isEssentialAsked(TABLE_TYPE_RANKING_KEY, props.options),
+);
+
 const sectionRanking = computed(
   () => (props.modelValue[SECTION_RANKING_KEY] as string[]) ?? props.options.sections,
 );
@@ -88,10 +102,10 @@ watch(
   (options) => {
     if (props.disabled) return;
     const seeded: Record<string, unknown> = {};
-    if (options.sections.length > 1 && !props.modelValue[SECTION_RANKING_KEY]) {
+    if (asksSectionRanking.value && !props.modelValue[SECTION_RANKING_KEY]) {
       seeded[SECTION_RANKING_KEY] = [...options.sections];
     }
-    if (options.tableTypes.length > 1 && !props.modelValue[TABLE_TYPE_RANKING_KEY]) {
+    if (asksTableTypeRanking.value && !props.modelValue[TABLE_TYPE_RANKING_KEY]) {
       seeded[TABLE_TYPE_RANKING_KEY] = [...options.tableTypes];
     }
     if (Object.keys(seeded).length) {
@@ -210,8 +224,10 @@ function errorFor(key: string): string {
         {{ FULL_NAME_LABEL }}
         <span class="essential-required">*</span>
       </label>
-      <p class="essential-help">
-        Your name as you would like it read out. One field: write it however you write it.
+      <!-- The official name, as the builder describes it. "As you would like it read out" was the
+           preferred name's job, asked just below (E26 re-walk). -->
+      <p class="essential-help" :data-testid="`${prefix}-essential-full-name-help`">
+        Your full name, as it appears officially. One field: write it however you write it.
       </p>
       <input
         :id="`${prefix}-essential-full-name-input`"
@@ -265,9 +281,11 @@ function errorFor(key: string): string {
         {{ MAX_DATES_LABEL }}
         <span class="essential-required">*</span>
       </label>
+      <!-- The days are answered below, in the tier grid's "Not available": this pointed "above",
+           at a question the form no longer asks on its own. -->
       <p class="essential-help">
-        Being available doesn't commit you: you'll be assigned at most this many of the dates you
-        ticked above.
+        Being free on a day doesn't commit you to it: you'll be given at most this many of the days
+        you can come.
       </p>
       <input
         :id="`${prefix}-essential-max-dates-input`"
@@ -452,7 +470,7 @@ function errorFor(key: string): string {
 
     <!-- Section preference -->
     <div
-      v-if="options.sections.length > 1"
+      v-if="asksSectionRanking"
       class="essential-field"
       :data-testid="`${prefix}-essential-section-ranking`"
     >
@@ -471,7 +489,7 @@ function errorFor(key: string): string {
 
     <!-- Table type preference -->
     <div
-      v-if="options.tableTypes.length > 1"
+      v-if="asksTableTypeRanking"
       class="essential-field"
       :data-testid="`${prefix}-essential-table-type-ranking`"
     >
@@ -591,7 +609,6 @@ function errorFor(key: string): string {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  accent-color: var(--mm-green);
   cursor: pointer;
 }
 

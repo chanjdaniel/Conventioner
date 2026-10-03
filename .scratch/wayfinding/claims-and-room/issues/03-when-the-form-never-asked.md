@@ -1,7 +1,7 @@
 # 03: What does the importer do when the form never asked something the plan requires?
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: -
 
 ## Question
@@ -46,3 +46,17 @@ This is a hard stop in the middle of a task, reached by the most ordinary path t
 Whatever the answer, the advisory's tone and precision are the model - it explains what the product cannot know and why. Keep that and fix where it points.
 
 Findings: F6 in `.lavish/qc-2026-09-20.html`.
+
+## Answer
+
+Answered by what was built while this ticket stayed open; recorded on 2026-10-03, at the end of E26, after the re-walk confirmed it.
+
+**Only a preference may go unasked, and the organizer switches it off where the import finds it missing.**
+
+- A preference ordering - section or table-type ranking - may be declared unasked on the form, with "Ask this" under the question in the essential-questions panel.
+  A constraint may not: dates, tiers and table choice decide where a vendor can go, so a default there would invent a commitment the solver then acts on.
+  Built as [E01/F06](../../../backlog/E01-csv-vendor-intake/F06-a-question-not-asked/feature.md); the switch stays off through later form edits, and the applicant form then asks no ranking ([E26/F03/S01](../../../backlog/E26-the-user-flows-hold/F03-the-form-keeps-what-it-asks/S01-ask-this-stays-off.md), bugs 29 and 45).
+- The advisory keeps its words and now does what it says: "Stop asking it" switches the question off from inside the import, keeping the upload and the mapping, while no application exists yet ([E20/F03](../../../backlog/E20-dialogs-and-the-dead-ends-they-remove/F03-fixing-the-form-without-leaving-the-import/feature.md)).
+- "Number of dates you want" is neither: a file that never asked it gives each applicant no personal limit, bounded by their availability and the market's ceiling ([E26/F02/S03](../../../backlog/E26-the-user-flows-hold/F02-real-exports-import/S03-no-days-column-means-no-personal-limit.md), bug 24).
+
+The re-walk of 2026-10-03 (`docs/MVP_TEST_RUN_2026-10-03.md`) imported two real exports into markets with two sections and no section question; neither import stopped.

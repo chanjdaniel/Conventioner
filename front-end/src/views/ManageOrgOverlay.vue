@@ -265,6 +265,7 @@ function handleDeleted() {
                 v-model="newAdminEmail"
                 type="email"
                 placeholder="User email"
+                aria-label="Email of the admin to add"
                 class="field"
                 data-testid="manage-org-add-admin-input"
               />
@@ -323,6 +324,7 @@ function handleDeleted() {
                 v-model="newMemberEmail"
                 type="email"
                 placeholder="User email"
+                aria-label="Email of the member to add"
                 class="field"
                 data-testid="manage-org-add-member-input"
               />
@@ -344,7 +346,12 @@ function handleDeleted() {
         <section v-if="canManage()" class="section">
           <h3>Rename organization</h3>
           <form class="rename-row" @submit.prevent="handleRename">
-            <input v-model="renameValue" class="field" data-testid="manage-org-rename-input" />
+            <input
+              v-model="renameValue"
+              class="field"
+              aria-label="Organization name"
+              data-testid="manage-org-rename-input"
+            />
             <button
               type="submit"
               class="btn btn--compact btn--primary"

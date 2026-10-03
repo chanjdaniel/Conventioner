@@ -256,6 +256,19 @@ def update_application_form_data(
     return result.matched_count > 0
 
 
+def delete_applications_for_market(market_id: str) -> int:
+    """Take a market's applications with the market (``market_deletion``). Returns how many went."""
+    return applications_collection.delete_many(market_filter(market_id)).deleted_count
+
+
+def delete_application(app_id: str) -> bool:
+    """Remove one application. Only for undoing a create whose answers were then refused, so a
+    write that failed leaves nothing behind: nothing an applicant or organizer did is ever deleted
+    through here."""
+    ensure_application_indexes()
+    return applications_collection.delete_one({"id": app_id}).deleted_count > 0
+
+
 def list_applications_with_status(
     market_id: str, status: str, application_type: Optional[str] = None,
 ) -> List[Dict[str, Any]]:

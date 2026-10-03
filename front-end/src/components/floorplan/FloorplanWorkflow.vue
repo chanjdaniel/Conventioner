@@ -64,6 +64,8 @@ const canProceed = computed(() => {
 
 function onUploaded(payload: { gridfs_id: string; width: number; height: number }) {
   gridfsId.value = payload.gridfs_id;
+  // The room's size, once calibrated: Auto-Place needs it two steps before the editor loads.
+  store.setImageSize(payload.width, payload.height);
 }
 
 function onCalibrated(_payload: {
@@ -110,7 +112,7 @@ function onSaved(payload: { market_id: string }) {
     </div>
 
     <!-- ── Step 0: Upload ─────────────────────────────────────── -->
-    <div v-if="step === 0" class="step-body">
+    <div v-if="step === 0" class="step-body step-body--upload">
       <FloorplanUploader @uploaded="onUploaded" />
     </div>
 
@@ -123,6 +125,14 @@ function onSaved(payload: { market_id: string }) {
     <div v-if="step === 2" class="step-place">
       <TableTypePanel />
       <AutoPlaceButton @placed="onPlaced" />
+      <!-- Where the tables went, before moving on (bug 38): the step showed no plan, so nothing
+           said Auto-Place had worked. Read-only here; the next step is where they are moved. -->
+      <FloorplanEditor
+        v-if="store.placedTables.length"
+        :edit-mode="false"
+        :initial-floorplan-id="safeGridfsId"
+        data-testid="floorplan-place-preview"
+      />
     </div>
 
     <!-- ── Step 3: Edit Layout ────────────────────────────────── -->
@@ -220,6 +230,11 @@ function onSaved(payload: { market_id: string }) {
   overflow: auto;
 }
 
+/* The drop zone's dashed edge sat flush against the card's, as though cut off by it. */
+.step-body--upload {
+  padding: var(--space-6);
+}
+
 /* ── Step 2: Place ──────────────────────────────────────────────── */
 .step-place {
   flex: 1;
@@ -257,10 +272,6 @@ function onSaved(payload: { market_id: string }) {
   color: var(--mm-black);
   cursor: pointer;
   user-select: none;
-}
-
-.wall-toggle input[type='checkbox'] {
-  accent-color: var(--mm-green);
 }
 
 .step-edit-canvas-area {

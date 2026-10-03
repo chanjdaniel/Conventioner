@@ -1,0 +1,20 @@
+---
+id: E26/F08/S01
+title: Viewers see no editing controls
+type: story
+status: done
+blocked_by: []
+pr: [88]
+---
+
+
+## What to build
+
+The market carries the requesting person's role, and every market page hides or disables what that role cannot do.
+
+Closes bugs 37 in `docs/MVP_BUGS.md`; each one's reproduction there is the starting E2E.
+
+## Acceptance criteria
+
+- [x] A Viewer's market pages show no editing controls and no phase moves.
+- [x] An Editor sees plan and form controls but no phase moves.

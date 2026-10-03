@@ -1,7 +1,7 @@
 # 06: Does a market remember where it has been?
 
 Type: grilling
-Status: open
+Status: resolved
 Blocked by: 02
 
 ## Question
@@ -43,3 +43,15 @@ Designing the field before knowing how a screen gets its market would be designi
 `placement_history` is the nearest precedent in the codebase: a separate collection, owned by one module, deleted with the market, deliberately narrow in scope. Its docstring argues for narrowness explicitly.
 
 Findings: F14 in `.lavish/qc-2026-09-20.html`.
+
+## Answer
+
+Decided 2026-10-01 with the user, as part of E26; built as [E26/F06/S03](../../../backlog/E26-the-user-flows-hold/F06-an-archive-is-a-record/S03-a-market-remembers-where-it-has-been.md).
+
+**Yes - record it, as a log on the market document.**
+
+- **A log, not one field.** The machine has back edges (Reopen for Editing, the form amendment chain), and the usage run of 2026-09-30 hit the consequence: a market that opened applications and went back to draft lost the form's published stamp, its only evidence, and was told it "was abandoned before it ran".
+  Each entry is `{phase, enteredAt, by}`, which also answers when applications opened and who published - the questions this ticket said to judge it by. Two stories in the same epic needed "did it run?" straight away: an archived market's Attendance tab and its check-in page.
+- **On the document, not beside it.** `placement_history` is a collection because placements are many and name vendors. A market enters a handful of phases, and every market screen reads them through the one market store that [02](02-source-of-truth-for-the-market-on-screen.md) settled, so the record reaches all four screens with nothing new to fetch.
+- **One writer.** `apply_phase_transition` pushes the entry in the update that moves the phase. The transition endpoint carried its own copy of that write until now; it goes through the shared writer, so the endpoint and the amendment chain cannot record differently.
+- **A market older than the record says less.** `back-end/phase_record.py` serves `phasesReached` and `phaseRecordComplete`. A market whose record did not begin at its creation is read from what it can prove - a check-in proves it ran, a stored assignment that it was assigned, a published form that it opened applications - and the rail then states those and strikes nothing through. Only a complete record may say a market never reached a phase.

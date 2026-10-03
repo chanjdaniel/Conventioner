@@ -188,6 +188,13 @@ test.describe('CSV vendor import', () => {
     // Stored as a moment, not as the text the form wrote (E01/F04/S02): every reader - the
     // solver's priority rule and the review queue's sort - compares this one stored value.
     expect(nadia!.submittedAt).toBe('2026-05-02T09:14:03');
+
+    // And the way out says where it goes (bug 16): it read "Back to market setup" and went to
+    // Applications.
+    const finish = page.getByTestId('import-finish-button');
+    await expect(finish).toHaveText('Back to applications');
+    await finish.click();
+    await expect(page).toHaveURL(/\/applications$/);
   });
 
   test('a file of headers and nothing else previews no rows, rather than three empty ones', async ({
@@ -308,6 +315,79 @@ test.describe('CSV vendor import', () => {
     });
   });
 
+  test('a tier grid headed by days as Google writes them imports, by hand', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 26 (E26/F02/S05): a day heading was offered only tiers to match, so no heading but an
+    // ISO one could ever import, and "Not available" was one more tier nobody offered.
+    const headers = [
+      'Timestamp',
+      'Email Address',
+      'Full Legal Name',
+      'Business name',
+      'Which tiers would you take? [Saturday, August 1]',
+      'Which tiers would you take? [Second Saturday]',
+      'Which tiers would you take? [Saturday, August 15, 2026]',
+      'How many days do you want?',
+      'Full or half table?',
+      'Rank the sections',
+      'What do you sell?',
+    ];
+    const file = [
+      headers.map((h) => (h.includes(',') ? `"${h}"` : h)).join(','),
+      '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,Gold,Not available,Silver,2,half,"Garden, Main Hall",Pottery',
+      '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,Thorn & Thistle,None,"Gold, Silver",Not available,1,full,"Main Hall, Garden",Dried flowers',
+    ].join('\n');
+
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapGroup(
+      headers,
+      'Which tiers would you take? [Saturday, August 1]',
+      'essential_tier_preference',
+    );
+    await importPage.mapColumns(headers, {
+      'Full Legal Name': 'essential_full_name',
+      'How many days do you want?': 'essential_max_dates',
+      'Full or half table?': 'essential_table_choice',
+      'Rank the sections': 'essential_section_ranking',
+      'Business name': 'business_name',
+      'What do you sell?': 'product_type',
+    });
+    await importPage.clickPreview();
+
+    // A day the heading names is recognised, with or without its year; only the one heading that
+    // names no date is asked about - and it is offered the market's dates, not its tiers.
+    await expect(importPage.unmatchedValues).toHaveText(['Second Saturday']);
+    const fix = page.getByTestId('import-fix-Second Saturday');
+    await expect(fix.locator('option[value="2026-08-08"]')).toHaveCount(1);
+    await expect(fix.locator('option[value="Gold"]')).toHaveCount(0);
+    await importPage.resolveValue('Second Saturday', '2026-08-08');
+    await importPage.clickPreview();
+
+    await expect(importPage.previewCounts).toContainText('2 of 2 rows');
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('Imported 2 new applications');
+
+    const applications = await listApplications(request, seed.marketId);
+    const answers = Object.fromEntries(
+      applications.map((a) => [
+        a.applicantEmail,
+        [a.formData.essential_available_dates, a.formData.essential_tier_preference],
+      ]),
+    );
+    expect(answers).toEqual({
+      'nadia@ember.test': [
+        ['2026-08-01', '2026-08-15'],
+        { '2026-08-01': ['Gold'], '2026-08-15': ['Silver'] },
+      ],
+      'theo@thistle.test': [['2026-08-08'], { '2026-08-08': ['Gold', 'Silver'] }],
+    });
+  });
+
   test('a grid the detection got wrong can be split apart', async ({
     authenticatedPage: page,
     request,
@@ -414,6 +494,51 @@ test.describe('CSV vendor import', () => {
 
     await importPage.clickPreview();
     await expect(importPage.preview).toBeVisible();
+  });
+
+  test('a value decision stays on the mapping step, and a restored one can be changed', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 28 (E26/F02/S06): a matched value vanished once the preview ran, Back did not bring it
+    // back, and a decision restored from the last import was applied silently with no way to see
+    // or change it short of starting over.
+    const file = [HEADERS.join(','), ROWS[0].replace(',Gold,', ',Gold Tier,')].join('\n');
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+    await importPage.resolveValue('Gold Tier', 'Gold');
+    await importPage.clickPreview();
+    await expect(importPage.previewCounts).toBeVisible();
+
+    // Back from the preview: the decision is still on the page, and still what was chosen.
+    await importPage.backButton.click();
+    await expect(importPage.decidedValues).toHaveText(['Gold Tier']);
+    await expect(importPage.decision('Gold Tier')).toHaveValue('Gold');
+    await importPage.clickPreview();
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('Imported 1 new application');
+
+    // The next import restores that decision - and shows it, before any preview, to be changed.
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await expect(importPage.restoredBanner).toBeVisible();
+    await expect(importPage.decidedValues).toHaveText(['Gold Tier']);
+    await expect(importPage.decision('Gold Tier')).toHaveValue('Gold');
+    await importPage.decision('Gold Tier').selectOption('Silver');
+    await importPage.clickPreview();
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('updated 1');
+
+    const [nadia] = await listApplications(request, seed.marketId);
+    expect(nadia.formData.essential_tier_preference).toEqual({
+      '2026-08-01': ['Silver'],
+      '2026-08-08': ['Silver'],
+    });
   });
 
   test('a re-import updates who is already here and leaves the absent alone', async ({
@@ -532,7 +657,8 @@ test.describe('CSV vendor import', () => {
       { headers: { 'X-Owner-Email': TEST_USER.email }, data: { csvContent: CSV } },
     );
     expect(direct.status()).toBe(409);
-    expect(await direct.text()).toContain('Reopen applications');
+    // By the name of the move the rail offers (bug 42): "Reopen Applications" is a different one.
+    expect(await direct.text()).toContain('Return to Applications Closed');
 
     // And the screen says so before asking for a file.
     await openImport(importPage, request, seed.marketId);
@@ -578,7 +704,9 @@ test.describe('CSV vendor import', () => {
       await page.evaluate(() => {
         const view = document.querySelector('.import-view')!;
         const box = view.getBoundingClientRect();
-        const de = document.documentElement;
+        // The page's own width: the root reserves the scrollbar's room whether or not it scrolls,
+        // and `clientWidth` does not count that room out.
+        const page = document.body.getBoundingClientRect();
         const boxed = Array.from(document.querySelectorAll('*'))
           .filter((el) => {
             const style = getComputedStyle(el);
@@ -588,7 +716,7 @@ test.describe('CSV vendor import', () => {
         return {
           width: Math.round(box.width),
           left: Math.round(box.left),
-          right: Math.round(de.clientWidth - box.right),
+          right: Math.round(page.right - box.right),
           boxed,
         };
       });
@@ -637,5 +765,229 @@ test.describe('CSV vendor import', () => {
     });
     expect(panel.lead, 'the panel is not centred within the shell').toBe(panel.trail);
     expect(panel.lead).toBeGreaterThan(0);
+  });
+
+  test('a day spelled with a comma is one answer, and a date matched twice counts once', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 27 (E26/F02/S04): Google joins a checkbox answer's options with ", ", and a day like
+    // "Saturday, August 1st" has a comma of its own. Every comma was a split, so the organizer
+    // matched "Saturday" and "August 1st" separately - and matching both halves to the same date
+    // refused the row for repeating it.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    const file = [
+      HEADERS.join(','),
+      ROWS[0].replace('"2026-08-01, 2026-08-08"', '"Saturday, August 1st, Saturday, August 8th"'),
+      // The same day twice, once as the market spells it and once as the form did.
+      ROWS[1].replace(',2026-08-01,1,', ',"2026-08-01, Saturday, August 1st",1,'),
+    ].join('\n');
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+
+    // Each day is read whole, and as the market day it names - no halves to match, and no
+    // decision at all (bug 26 taught the import to read a day written in words).
+    await expect(importPage.previewCounts).toContainText('2 of 2 rows');
+    await expect(importPage.valueFixes).toHaveCount(0);
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('Imported 2 new applications');
+
+    const applications = await listApplications(request, seed.marketId);
+    const dates = Object.fromEntries(
+      applications.map((a) => [a.applicantEmail, a.formData.essential_available_dates]),
+    );
+    expect(dates).toEqual({
+      'nadia@ember.test': ['2026-08-01', '2026-08-08'],
+      'theo@thistle.test': ['2026-08-01'],
+    });
+  });
+
+  test('the preview reports honestly: its sample, every problem, and what really changed', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 40 (E26/F02/S08), items 1, 3 and 4.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    const broken = ROWS[2].replace('8:02:10,,Jan van der Berg', '8:02:10,jan@driftwood.test,');
+    const file = [HEADERS.join(','), broken.replace(',either,', ',,'), ROWS[0], ROWS[1]].join('\n');
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+
+    // Every problem the skipped row has, so one round in the spreadsheet fixes it.
+    await expect(importPage.previewFailureRows).toHaveCount(1);
+    await expect(importPage.previewFailureRows.first()).toContainText("'Full name' is required.");
+    await expect(importPage.previewFailureRows.first()).toContainText(
+      "'Table choice' is required.",
+    );
+    // The sample is rows that will import - not the file's first three, one of them skipped - and
+    // reads as the applicant's answers will be stored.
+    await expect(importPage.sampleRows).toHaveCount(2);
+    await expect(importPage.sampleRows.first()).toContainText('Ember Ceramics');
+    await expect(importPage.sampleRows.first()).toContainText('Saturday, August 1, 2026');
+    await expect(importPage.sampleRows.first()).toContainText('Half a table, shared');
+    await expect(importPage.preview).not.toContainText('Driftwood Prints');
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toHaveText('Imported 2 new applications.');
+
+    // Imported again with one applicant's answers changed: one updated, one unchanged - not two
+    // "updated" for a file in which one thing moved.
+    const changed = [
+      HEADERS.join(','),
+      ROWS[0].replace('Ember Ceramics', 'Ember Ceramics Studio'),
+      ROWS[1],
+    ].join('\n');
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(changed);
+    await importPage.clickPreview();
+    await expect(importPage.previewMerge).toContainText('0 new, 1 updated, 1 unchanged');
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toHaveText(
+      'Imported 0 new applications, updated 1. 1 unchanged.',
+    );
+  });
+
+  test('a ragged file is refused, and a day grid and an unmapped question are described truly', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 40 items 5, 6 and 7.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    await openImport(importPage, request, seed.marketId);
+
+    // A heading with an unquoted comma: every later column is one place off on every row.
+    await importPage.chooseFile(
+      [
+        'Timestamp,Email Address,Name, if any,Business name',
+        ROWS[0].split(',').slice(0, 4).join(','),
+      ].join('\n'),
+    );
+    await expect(page.getByTestId('import-error')).toContainText('Row 2 has 4 cells');
+    await expect(page.getByTestId('import-error')).toContainText('header has 5');
+
+    const gridHeaders = ['Email Address', 'Tiers? [2026-08-01]', 'Tiers? [2026-08-08]'];
+    await importPage.open({ id: seed.marketId });
+    await importPage.chooseFile([gridHeaders.join(','), 'nadia@ember.test,Gold,Silver'].join('\n'));
+    await importPage.mapGroup(gridHeaders, 'Tiers? [2026-08-01]', 'essential_tier_preference');
+    await expect(importPage.groupShape.first()).toHaveText('2 columns · one per day');
+    // Not "Your form never asked it": this market's own online form does ask it.
+    await expect(page.getByTestId('import-declare-unasked').first()).toContainText(
+      'No column in this file answers',
+    );
+  });
+
+  test('a skipped row is not written, and an address that is not one is skipped', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bugs 5 and 35 (E26/F02/S02): a row the preview skipped was still created as an empty
+    // application, and any text at all in the email column was taken as the applicant's address.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    const file = [
+      HEADERS.join(','),
+      ROWS[0],
+      ROWS[1].replace('theo@thistle.test', 'not-an-email'),
+      // A real address, but no name - a required answer - so the row cannot be imported.
+      ROWS[2].replace('8:02:10,,Jan van der Berg', '8:02:10,jan@driftwood.test,'),
+      // A blank line, as real exports have: said to be blank, not refused once per question.
+      ','.repeat(HEADERS.length - 1),
+    ].join('\n');
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+
+    await expect(importPage.previewCounts).toContainText('1 of 4 rows');
+    await expect(importPage.previewFailureRows).toHaveCount(3);
+    await expect(importPage.previewFailureRows.nth(0)).toContainText('Row 3');
+    await expect(importPage.previewFailureRows.nth(0)).toContainText(
+      "'not-an-email' is not an email address",
+    );
+    await expect(importPage.previewFailureRows.nth(1)).toContainText('Row 4');
+    await expect(importPage.previewFailureRows.nth(1)).toContainText('jan@driftwood.test');
+    await expect(importPage.previewFailureRows.nth(2)).toHaveText(
+      'Row 5: Every column this import reads is empty.',
+    );
+
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('Imported 1 new application.');
+    await expect(importPage.failureRows).toHaveCount(3);
+
+    // Exactly what the preview promised: the skipped rows are not in the market at all.
+    const applications = await listApplications(request, seed.marketId);
+    expect(applications.map((a) => a.applicantEmail)).toEqual(['nadia@ember.test']);
+  });
+
+  test('an applicant listed twice is imported once, from their latest row, and a re-import of the same file keeps their approval', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // Bug 34 (E26/F02/S02): each row was compared in turn with the stored application, which
+    // holds the last row's answers, so an unchanged repeat applicant read as changed on every
+    // re-import and lost their approval. The preview counted applicants and the result rows.
+    const seed = await seedPlannedMarket(request);
+    const importPage = new CsvImportPage(page);
+    // Nadia applied, then applied again the next day with more dates. Google Forms keeps both.
+    const earlier = ROWS[0]
+      .replace('2026/05/02 9:14:03', '2026/05/01 16:20:00')
+      .replace('Ember Ceramics', 'Ember')
+      .replace('"2026-08-01, 2026-08-08",2', '2026-08-01,1');
+    const file = [HEADERS.join(','), earlier, ROWS[0], ROWS[1]].join('\n');
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await importPage.mapColumns(HEADERS, FULL_MAPPING);
+    await importPage.clickPreview();
+
+    await expect(importPage.previewCounts).toContainText('2 of 3 rows');
+    await expect(importPage.repeatNote).toContainText('Row 2 (nadia@ember.test)');
+    await expect(importPage.repeatNote).toContainText('latest row');
+    await expect(importPage.previewFailureRows).toHaveCount(0);
+    await expect(importPage.confirmButton).toContainText('Import 2 rows');
+
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toHaveText('Imported 2 new applications.');
+
+    const applications = await listApplications(request, seed.marketId);
+    expect(applications).toHaveLength(2);
+    const nadia = applications.find((a) => a.applicantEmail === 'nadia@ember.test')!;
+    // Their answers are their latest ones...
+    expect(nadia.formData.business_name).toBe('Ember Ceramics');
+    expect(nadia.formData.essential_available_dates).toEqual(['2026-08-01', '2026-08-08']);
+    // ...and their place in a first-come-first-served queue is when they first applied.
+    expect(nadia.submittedAt).toBe('2026-05-01T16:20:00');
+
+    // The organizer approves everyone, then imports the same export again.
+    for (const application of applications) {
+      const res = await request.put(
+        `${BACKEND_URL}/markets/${seed.marketId}/applications/${application.id}/review`,
+        { headers: { 'X-Owner-Email': TEST_USER.email }, data: { status: 'reviewer_approved' } },
+      );
+      expect(res.ok()).toBeTruthy();
+    }
+
+    await openImport(importPage, request, seed.marketId);
+    await importPage.chooseFile(file);
+    await expect(importPage.restoredBanner).toBeVisible();
+    await importPage.clickPreview();
+
+    // Nothing changed, so nobody's decision is undone - and both screens count the same thing.
+    await expect(importPage.previewMerge).toContainText('0 new, 0 updated, 2 unchanged');
+    await expect(importPage.returningNote).toHaveCount(0);
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toHaveText('Imported 0 new applications. 2 unchanged.');
+
+    const after = await listApplications(request, seed.marketId);
+    expect(after.map(statusOf)).toEqual(['reviewer_approved', 'reviewer_approved']);
   });
 });

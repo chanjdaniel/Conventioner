@@ -35,9 +35,12 @@ const fields = computed<FormField[]>({
   get: () => props.applicationForm?.fields ?? [],
   set: (newFields) => {
     if (props.readonly) return;
+    // The rest of the form rides along untouched. Rebuilding it from the fields alone dropped
+    // `unaskedEssentials`, so the next save asked a switched-off Section preference again
+    // (E26/F03/S01, bug 29).
     emit('update:applicationForm', {
+      ...props.applicationForm,
       fields: newFields.map((f, i) => ({ ...f, order: i })),
-      publishedAt: props.applicationForm?.publishedAt,
     });
   },
 });

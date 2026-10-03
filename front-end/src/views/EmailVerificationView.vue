@@ -97,7 +97,9 @@ const resendVerification = async () => {
       </div>
 
       <div v-else-if="message" class="success">
-        <p class="success-message">{{ message }}</p>
+        <p class="success-message" data-testid="email-verification-success-message">
+          {{ message }}
+        </p>
         <p class="redirect-message">Redirecting to login page...</p>
       </div>
 

@@ -13,11 +13,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
 import { type VendorNames } from '@/utils/vendorIdentity';
-import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
+import ResultSeat from '@/components/ResultSeat.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
-import MarketArrival from '@/components/MarketArrival.vue';
 import ResultSummary from '@/components/ResultSummary.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import {
@@ -63,13 +62,16 @@ const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
-const { market, status: marketStatus, refresh: refreshMarket } = useOpenMarket(marketId);
+const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 
-/** A failed arrival retries both halves: the market the rail draws, and this screen's own rows. */
-function retryArrival(): void {
-  void refreshMarket();
-  void loadTables();
-}
+/**
+ * Tables the plan no longer has that a hand placement still names (bug 31): shown with the vendor
+ * still in them, so they are marked, since Publish is refused until each is moved or freed.
+ */
+const orphanedSeats = computed(
+  () => new Set((market.value?.orphanedPins ?? []).map((pin) => `${pin.date}|${pin.tableCode}`)),
+);
+
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
 const vendorNames = ref<VendorNames>({});
@@ -348,7 +350,25 @@ function openPlace(row: MarketTableRow, seat: Seat | null): void {
 
 function openOccupied(row: MarketTableRow, email: string): void {
   placementError.value = '';
-  openSeat.value = { mode: 'occupied', row, seat: null, occupantEmail: email };
+  openSeat.value = { mode: 'occupied', row, seat: seatHeldBy(row, email), occupantEmail: email };
+}
+
+/** One side of a shared table: changed if somebody holds it, filled if nobody does. */
+function openHalf(row: MarketTableRow, email: string | null, side: Seat): void {
+  if (email) openOccupied(row, email);
+  else openPlace(row, side);
+}
+
+/**
+ * Nothing on this page may change the market (bug 30): it is archived, and so a record. The
+ * server refuses every placement write on it; the seats say so by offering none.
+ */
+const readOnly = computed(() => Boolean(market.value?.readOnlyReason));
+
+/** Which seat at this table a vendor holds: the whole of it, or one side. */
+function seatHeldBy(row: MarketTableRow, email: string): Seat {
+  if (rowStatus(row).isFull) return FULL_TABLE;
+  return row.assignmentSlots?.[0] === email ? HALF_TABLE_LEFT : HALF_TABLE_RIGHT;
 }
 
 function closePlacement(): void {
@@ -356,24 +376,24 @@ function closePlacement(): void {
   placementError.value = '';
 }
 
-/** Who already holds a table on one date - the people who cannot be placed again that day. */
-function seatedOn(date: string): Set<string> {
-  const seated = new Set<string>();
+/**
+ * The dates each vendor holds a seat on, keyed by lowercased address - who cannot be placed again
+ * on a date, and how many dates a placement would give them against their own limit and the
+ * market's ceiling.
+ */
+const datesHeld = computed((): Record<string, string[]> => {
+  const held: Record<string, Set<string>> = {};
   for (const row of allRows.value) {
-    if (row.date !== date) continue;
     for (const email of row.assignmentSlots ?? []) {
-      if (email) seated.add(email.toLowerCase());
+      if (email) (held[email.toLowerCase()] ??= new Set()).add(row.date);
     }
   }
-  return seated;
-}
-
-const placementCandidates = computed((): PlaceableVendor[] => {
-  const seat = openSeat.value;
-  if (!seat || seat.mode !== 'place') return [];
-  const seated = seatedOn(seat.row.date);
-  return vendors.value.filter((vendor) => !seated.has(vendor.email.toLowerCase()));
+  return Object.fromEntries(Object.entries(held).map(([email, dates]) => [email, [...dates]]));
 });
+
+const marketCeiling = computed(
+  () => market.value?.setupObject?.assignmentOptions?.maxAssignmentsPerVendor ?? null,
+);
 
 const swapTargets = computed((): SwapTarget[] => {
   const seat = openSeat.value;
@@ -381,15 +401,15 @@ const swapTargets = computed((): SwapTarget[] => {
   const targets: SwapTarget[] = [];
   for (const row of allRows.value) {
     if (row.date !== seat.row.date) continue;
-    const status = rowStatus(row);
     const seen = new Set<string>();
-    for (const [index, email] of (row.assignmentSlots ?? []).entries()) {
+    for (const email of row.assignmentSlots ?? []) {
       if (!email || email === seat.occupantEmail || seen.has(email)) continue;
       seen.add(email);
       targets.push({
         email,
         tableCode: row.tableCode,
-        seat: status.isFull ? FULL_TABLE : index === 0 ? HALF_TABLE_LEFT : HALF_TABLE_RIGHT,
+        tier: row.tier,
+        seat: seatHeldBy(row, email),
       });
     }
   }
@@ -457,10 +477,8 @@ function swapSeats(withEmail: string): void {
 
 <template>
   <div class="tables-view">
-    <MarketFrame class="tables-card" :market="market">
-      <MarketArrival v-if="!market" :status="marketStatus" @retry="retryArrival" />
-
-      <div v-if="marketStatus !== 'missing'" class="tables-body">
+    <MarketFrame :market="market" @retry="loadTables">
+      <div class="tables-body">
         <!-- The Result page (E22/F04/S04): how the assignment came out, then the tables it sits on,
              then who changed what. -->
         <ResultSummary v-if="market" :market="market" />
@@ -505,7 +523,8 @@ function swapSeats(withEmail: string): void {
                   </option>
                 </select>
               </label>
-              <label class="filter-picker">
+              <!-- A market planned without tiers has nothing to filter by tier (bug 23). -->
+              <label v-if="tierOptions.length" class="filter-picker">
                 <span class="filter-picker-label">Tier</span>
                 <select
                   :value="tierFilter"
@@ -541,7 +560,7 @@ function swapSeats(withEmail: string): void {
                 @click="clearFilter('date')"
                 data-testid="tables-filter-chip-date"
               >
-                Date: {{ dateFilter }}
+                Date: {{ formatDisplayDate(dateFilter) }}
                 <span class="filter-chip-close" aria-hidden="true">×</span>
                 <span class="visually-hidden">Remove date filter</span>
               </button>
@@ -649,107 +668,72 @@ function swapSeats(withEmail: string): void {
                   >
                     <div class="table-row-head">
                       <span class="table-code">{{ row.tableCode }}</span>
+                      <!-- The size its occupants chose; a table nobody is at has none (bug 43 - an
+                           empty table was badged "FULL TABLE"). -->
                       <span
-                        class="choice-badge"
+                        v-if="rowStatus(row).label !== 'empty'"
+                        class="chip"
                         :class="
                           row.tableChoice.toLowerCase().includes('full')
-                            ? 'choice-badge--full'
-                            : 'choice-badge--half'
+                            ? 'chip--positive'
+                            : 'chip--neutral'
                         "
+                        data-testid="tables-table-choice"
                       >
                         {{ row.tableChoice }}
                       </span>
                       <span v-if="row.tier" class="meta-tag">{{ row.tier }}</span>
                       <span v-if="row.location" class="meta-tag">{{ row.location }}</span>
+                      <span
+                        v-if="orphanedSeats.has(`${row.date}|${row.tableCode}`)"
+                        class="chip chip--attention"
+                        data-testid="tables-orphaned"
+                        >No longer in the plan - move or free this vendor</span
+                      >
                     </div>
 
                     <!-- Every seat is a control: an empty one is filled, an occupied one is
                          freed or traded. A table holds two seats, so a seat - not a table - is
-                         what a placement names (E11/F03/S01). -->
+                         what a placement names (E11/F03/S01). On a market that cannot change,
+                         every seat is a record instead (bug 30). -->
                     <div class="table-row-assignment">
-                      <template v-if="rowStatus(row).label === 'empty'">
-                        <button
-                          type="button"
-                          class="seat-button seat-button--vacant"
-                          data-testid="tables-seat-empty"
-                          @click="openPlace(row, null)"
-                        >
-                          <span class="assignment-empty">Unassigned</span>
-                          <span class="seat-button-hint">Place someone</span>
-                        </button>
-                      </template>
-                      <template v-else-if="rowStatus(row).isFull">
-                        <button
-                          type="button"
-                          class="seat-button"
-                          data-testid="tables-seat-occupied"
-                          :data-vendor-email="rowStatus(row).leftEmail"
-                          @click="openOccupied(row, rowStatus(row).leftEmail!)"
-                        >
-                          <VendorIdentity
-                            class="assignment-email assignment-email--full"
-                            :email="rowStatus(row).leftEmail"
-                            :names="vendorNames"
-                          />
-                          <span class="seat-button-hint">Change</span>
-                        </button>
-                      </template>
+                      <ResultSeat
+                        v-if="rowStatus(row).label === 'empty'"
+                        :email="null"
+                        vacantLabel="Unassigned"
+                        :names="vendorNames"
+                        :readOnly="readOnly"
+                        @open="openPlace(row, null)"
+                      />
+                      <ResultSeat
+                        v-else-if="rowStatus(row).isFull"
+                        :email="rowStatus(row).leftEmail"
+                        vacantLabel="Unassigned"
+                        whole
+                        :names="vendorNames"
+                        :readOnly="readOnly"
+                        @open="openOccupied(row, rowStatus(row).leftEmail!)"
+                      />
                       <template v-else>
                         <div class="half-slot">
                           <span class="half-slot-label">Left</span>
-                          <button
-                            v-if="rowStatus(row).leftEmail"
-                            type="button"
-                            class="seat-button"
-                            data-testid="tables-seat-occupied"
-                            :data-vendor-email="rowStatus(row).leftEmail"
-                            @click="openOccupied(row, rowStatus(row).leftEmail!)"
-                          >
-                            <VendorIdentity
-                              class="assignment-email"
-                              :email="rowStatus(row).leftEmail"
-                              :names="vendorNames"
-                            />
-                            <span class="seat-button-hint">Change</span>
-                          </button>
-                          <button
-                            v-else
-                            type="button"
-                            class="seat-button seat-button--vacant"
-                            data-testid="tables-seat-empty"
-                            @click="openPlace(row, HALF_TABLE_LEFT)"
-                          >
-                            <span class="assignment-email assignment-email--vacant">Vacant</span>
-                            <span class="seat-button-hint">Place someone</span>
-                          </button>
+                          <ResultSeat
+                            :email="rowStatus(row).leftEmail"
+                            vacantLabel="Vacant"
+                            :names="vendorNames"
+                            :readOnly="readOnly"
+                            @open="openHalf(row, rowStatus(row).leftEmail, HALF_TABLE_LEFT)"
+                          />
                         </div>
                         <div class="half-slot">
                           <span class="half-slot-label">Right</span>
-                          <button
-                            v-if="rowStatus(row).rightEmail"
-                            type="button"
-                            class="seat-button"
-                            data-testid="tables-seat-occupied"
-                            :data-vendor-email="rowStatus(row).rightEmail"
-                            @click="openOccupied(row, rowStatus(row).rightEmail!)"
-                          >
-                            <VendorIdentity
-                              class="assignment-email"
-                              :email="rowStatus(row).rightEmail"
-                              :names="vendorNames"
-                            />
-                            <span class="seat-button-hint">Change</span>
-                          </button>
-                          <button
-                            v-else
-                            type="button"
-                            class="seat-button seat-button--vacant"
-                            data-testid="tables-seat-empty"
-                            @click="openPlace(row, HALF_TABLE_RIGHT)"
-                          >
-                            <span class="assignment-email assignment-email--vacant">Vacant</span>
-                            <span class="seat-button-hint">Place someone</span>
-                          </button>
+                          <ResultSeat
+                            :email="rowStatus(row).rightEmail"
+                            vacantLabel="Vacant"
+                            :names="vendorNames"
+                            :readOnly="readOnly"
+                            @open="openHalf(row, rowStatus(row).rightEmail, HALF_TABLE_RIGHT)"
+                          />
                         </div>
                       </template>
                     </div>
@@ -774,7 +758,9 @@ function swapSeats(withEmail: string): void {
       :tier="openSeat.row.tier"
       :seat="openSeat.seat"
       :occupantEmail="openSeat.occupantEmail"
-      :candidates="placementCandidates"
+      :vendors="vendors"
+      :datesHeld="datesHeld"
+      :marketCeiling="marketCeiling"
       :swapTargets="swapTargets"
       :vendorNames="vendorNames"
       :busy="placementBusy"
@@ -789,19 +775,8 @@ function swapSeats(withEmail: string): void {
 
 <style scoped>
 .tables-view {
+  /* The frame places itself on the page (E26/F10/S01); this holds it and the placement dialog. */
   width: 100%;
-  padding: 0 var(--space-4) var(--space-4);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  background-color: var(--mm-beige);
-}
-
-.tables-card {
-  /* The page scrolls, not the card (E21/F04/S02): the frame pins the title and the rail under the
-     banner, and a sticky element inside an `overflow` ancestor stops sticking. This used to cap the
-     card at the viewport and scroll a body inside it. */
-  border-radius: var(--radius-card);
 }
 
 .tables-body {
@@ -1053,25 +1028,6 @@ function swapSeats(withEmail: string): void {
   letter-spacing: 0.5px;
 }
 
-.choice-badge {
-  font-size: var(--text-xs);
-  padding: 2px 10px;
-  border-radius: var(--radius-card);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.choice-badge--full {
-  background-color: var(--mm-green);
-  color: white;
-}
-
-.choice-badge--half {
-  background-color: var(--mm-beige);
-  color: var(--mm-black);
-  border: 1px solid var(--mm-border);
-}
-
 .meta-tag {
   font-size: var(--text-xs);
   color: var(--mm-black);
@@ -1086,96 +1042,12 @@ function swapSeats(withEmail: string): void {
   border-top: 1px dashed var(--mm-border);
 }
 
-.assignment-email {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  word-break: break-word;
-}
-
-.assignment-email--full {
-  font-weight: 600;
-}
-
-.assignment-email--vacant {
-  color: var(--mm-black);
-  opacity: 0.5;
-  font-style: italic;
-}
-
-.assignment-empty {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  opacity: 0.6;
-  font-style: italic;
-}
-
 .half-slot {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
   flex: 1;
-}
-
-/* A seat is a control, so it looks like one: bordered, hovering, focusable. It stays quiet at
-   rest because a page of twenty-four tables is a page of forty-eight of these, and a grid of
-   buttons shouting at once is harder to read than the list it replaced. */
-.seat-button {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  /* Sized to its occupant, not to the row. A full-width button lit the whole row on hover, which
-     reads as "this table" rather than "this seat" - and a table holds two of them. */
-  align-self: flex-start;
-  max-width: 100%;
-  min-width: 0;
-  text-align: left;
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-/* Bordered at rest, not only on hover. A vendor's name with no box around it does not look like
-   anything you can press, and an organizer who cannot tell a seat is a control has no way to
-   reach the change they came for (E09/F03). */
-.seat-button {
-  border-color: var(--mm-border);
-}
-
-.seat-button:hover {
-  border-color: var(--mm-green);
-  background: var(--mm-beige);
-}
-
-.seat-button:focus-visible {
-  outline: 2px solid var(--mm-green);
-  outline-offset: 1px;
-}
-
-/* Dashed for a seat with nobody in it, solid for one with somebody: the difference between an
-   opening and a person is worth reading before any of the text is. */
-.seat-button--vacant {
-  border-style: dashed;
-}
-
-/* Shown only on hover or focus: at rest the word "Vacant" is the whole message, and repeating
-   "Place someone" on every empty seat turns a floor plan into a wall of instructions. */
-/* Shown on hover or focus, but its space is reserved always: a hint that appears and pushes the
-   row taller makes the grid jump under the pointer. `nowrap` keeps it beside the label rather
-   than below it, so a vacant seat is exactly as tall as an occupied one. */
-.seat-button-hint {
-  font-size: var(--text-xs);
-  white-space: nowrap;
-  color: var(--mm-text-link);
-  opacity: 0;
-}
-
-.seat-button:hover .seat-button-hint,
-.seat-button:focus-visible .seat-button-hint {
-  opacity: 1;
 }
 
 .filter-pickers {

@@ -139,6 +139,7 @@ const indexOf = computed(() => {
               class="calendar-day"
               :class="{ chosen: isChosen(day) }"
               :aria-pressed="isChosen(day)"
+              :aria-label="getFormattedDate(day) ?? day"
               :data-testid="`setup-dates-day-${day}`"
               @click="toggle(day)"
             >

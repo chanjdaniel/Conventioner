@@ -15,13 +15,6 @@
   font-weight: 400;
 }
 
-.green {
-  text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
-}
-
 button,
 a {
   cursor: pointer;
@@ -40,10 +33,11 @@ a {
   opacity: 0.35;
 }
 
+/* No padding: the scaffold's `padding: 3px` pushed every link 3px off the text beside it, and the
+   links that leaned on it never said so (E26 re-walk). A link that wants room sets its own. */
 a {
   text-decoration: none;
   transition: 0.4s;
-  padding: 3px;
 }
 
 @font-face {

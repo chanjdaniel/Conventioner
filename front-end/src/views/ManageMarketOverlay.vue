@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { type Market, MarketPhase, MarketRole } from '@/assets/types/datatypes';
+import { IntakeMode, type Market, MarketPhase, MarketRole } from '@/assets/types/datatypes';
 import { api, getApiErrorMessage } from '@/utils/api';
 import { parseMarketFromApi } from '@/utils/market';
 import { useMarketStore } from '@/stores/market';
@@ -32,6 +32,8 @@ const addUserError = ref('');
 const renameError = ref('');
 const deleteConfirming = ref(false);
 const deleteError = ref('');
+/** A refused change to one person's access, said beneath their row. */
+const userError = ref<{ userId: string; message: string } | null>(null);
 
 const addableRoles = [MarketRole.Admin, MarketRole.Editor, MarketRole.Viewer];
 
@@ -44,6 +46,7 @@ watch(
       showAddUserForm.value = false;
       deleteConfirming.value = false;
       errorMessage.value = '';
+      userError.value = null;
       addUserError.value = '';
       renameError.value = '';
       deleteError.value = '';
@@ -87,6 +90,19 @@ function changeableRoles(role: MarketRole): MarketRole[] {
   return getRolesForChange(role, userRole);
 }
 
+/**
+ * The roles this person may grant, in the order they are offered. Empty for a Viewer or an Editor,
+ * who were shown "Add user" and refused with a 403 (bug 37).
+ */
+const grantableRoles = computed(() => {
+  const userRole = marketData.value?.userRole;
+  if (!userRole) return [];
+  return addableRoles.filter((role) => canManageRoles(userRole, role));
+});
+
+/** Deleting a market is its owner's alone, as the server rules. */
+const canDelete = computed(() => marketData.value?.userRole === MarketRole.Owner);
+
 function canRemoveUser(targetRole: MarketRole): boolean {
   if (targetRole === MarketRole.Owner) return false;
   const userRole = marketData.value?.userRole;
@@ -114,26 +130,30 @@ async function handleAddUser() {
 
 async function handleRemoveUser(userId: string) {
   if (!marketData.value) return;
+  userError.value = null;
   try {
     await api.delete(
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
     );
     await fetchMarket(false);
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to remove user');
+    userError.value = { userId, message: getApiErrorMessage(err, 'Failed to remove user') };
   }
 }
 
-async function handleRoleChange(userId: string, newRole: MarketRole) {
+/** A refused change puts the select back on the role they still hold, and says why under it. */
+async function handleRoleChange(userId: string, held: MarketRole, select: HTMLSelectElement) {
   if (!marketData.value) return;
+  userError.value = null;
   try {
     await api.put(
       `/markets/${encodeURIComponent(marketData.value.id)}/roles/${encodeURIComponent(userId)}`,
-      { role: newRole },
+      { role: select.value as MarketRole },
     );
     await fetchMarket(false);
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to update role');
+    select.value = held;
+    userError.value = { userId, message: getApiErrorMessage(err, 'Failed to update role') };
   }
 }
 
@@ -161,11 +181,31 @@ async function handleRename() {
   }
 }
 
+/**
+ * Which of its public pages go with it, in words: a form market's application page from the moment
+ * it opens, and a check-in page while it runs or kept as a record once it has (E26/F06/S02).
+ */
+const publicPages = computed(() => {
+  const market = marketData.value;
+  if (!market) return '';
+  const pages: string[] = [];
+  if (market.intakeMode === IntakeMode.Form && market.phase !== MarketPhase.Draft) {
+    pages.push('application page');
+  }
+  const ran = market.phasesReached?.includes(MarketPhase.MarketDays);
+  if (market.phase === MarketPhase.MarketDays || (market.phase === MarketPhase.Archived && ran)) {
+    pages.push('check-in page');
+  }
+  if (!pages.length) return '';
+  return `Its ${pages.join(' and ')} will stop working for anyone who has the link.`;
+});
+
 async function handleDeleteConfirm() {
   if (!marketData.value) return;
   deleteError.value = '';
   try {
     await api.delete(`/markets/${encodeURIComponent(marketData.value.id)}`);
+    deleteConfirming.value = false;
     emit('manageClose');
   } catch (err) {
     deleteError.value = getApiErrorMessage(err, 'Failed to delete market');
@@ -177,17 +217,11 @@ function handleDeleteCancel() {
   deleteError.value = '';
 }
 
-/**
- * The add toggles double as Cancel, so they must not stay green once they say it - a primary fill
- * is this product's word for "the thing to do here" (E20/F01/S03). Cancelling clears what was
- * typed and any error, so reopening does not hand back a rejected value.
- */
-function toggleAddUser() {
-  showAddUserForm.value = !showAddUserForm.value;
-  if (!showAddUserForm.value) {
-    newUserEmail.value = '';
-    addUserError.value = '';
-  }
+/** Cancelling clears what was typed and any error, so reopening does not hand back a rejected value. */
+function closeAddUser() {
+  showAddUserForm.value = false;
+  newUserEmail.value = '';
+  addUserError.value = '';
 }
 </script>
 
@@ -207,55 +241,67 @@ function toggleAddUser() {
       <section class="section">
         <h3>Users with access</h3>
         <div class="users-list">
-          <div v-for="{ userId, email, role } in getUserList()" :key="userId" class="user-card">
-            <span class="user-email">{{ email }}</span>
-            <!--
+          <div v-for="{ userId, email, role } in getUserList()" :key="userId" class="user-entry">
+            <div class="user-card">
+              <span class="user-email">{{ email }}</span>
+              <!--
               A role with nowhere to go is stated, not offered (E20/F01/S03). The owner's own row
               rendered a select whose only option was "Owner" - a control that looks like a
               decision and is not one, which is the same thing S01 settled for the org picker.
             -->
-            <span
-              v-if="!changeableRoles(role).length"
-              class="role-badge"
-              :class="`role-${(role as string).toLowerCase()}`"
+              <span
+                v-if="!changeableRoles(role).length"
+                class="role-badge"
+                :class="`role-${(role as string).toLowerCase()}`"
+              >
+                {{ getRoleDisplayName(role) }}
+              </span>
+              <select
+                v-else
+                :value="role"
+                :aria-label="`${email}'s role`"
+                class="field field--select role-select"
+                data-testid="manage-market-role-select"
+                @change="handleRoleChange(userId, role, $event.target as HTMLSelectElement)"
+              >
+                <option :value="role">{{ getRoleDisplayName(role) }}</option>
+                <option v-for="r in changeableRoles(role)" :key="r" :value="r">
+                  {{ getRoleDisplayName(r) }}
+                </option>
+              </select>
+              <button
+                v-if="canRemoveUser(role)"
+                type="button"
+                class="btn btn--destructive"
+                title="Remove user"
+                data-testid="manage-market-remove-user-button"
+                @click="handleRemoveUser(userId)"
+              >
+                Remove
+              </button>
+            </div>
+            <!-- Beneath the row that caused it: a refused change used to be reported at the foot of
+                 the dialog, far from the select that made it (bug 43). -->
+            <p
+              v-if="userError?.userId === userId"
+              class="form-error"
+              data-testid="manage-market-user-error"
             >
-              {{ getRoleDisplayName(role) }}
-            </span>
-            <select
-              v-else
-              :value="role"
-              class="field field--select role-select"
-              data-testid="manage-market-role-select"
-              @change="
-                handleRoleChange(userId, ($event.target as HTMLSelectElement).value as MarketRole)
-              "
-            >
-              <option :value="role">{{ getRoleDisplayName(role) }}</option>
-              <option v-for="r in changeableRoles(role)" :key="r" :value="r">
-                {{ getRoleDisplayName(r) }}
-              </option>
-            </select>
-            <button
-              v-if="canRemoveUser(role)"
-              type="button"
-              class="btn btn--compact btn--destructive"
-              title="Remove user"
-              data-testid="manage-market-remove-user-button"
-              @click="handleRemoveUser(userId)"
-            >
-              Remove
-            </button>
+              {{ userError.message }}
+            </p>
           </div>
           <p v-if="getUserList().length === 0" class="empty-state">No users with explicit access</p>
         </div>
+        <!-- Opens the row it adds; that row carries its own Cancel. The button used to turn into a
+             Cancel of its own, left alone above the row it cancelled (bug 43). -->
         <button
+          v-if="grantableRoles.length && !showAddUserForm"
           type="button"
-          class="btn btn--compact"
-          :class="showAddUserForm ? 'btn--secondary' : 'btn--primary'"
+          class="btn btn--secondary"
           data-testid="manage-market-add-user-button"
-          @click="toggleAddUser()"
+          @click="showAddUserForm = true"
         >
-          {{ showAddUserForm ? 'Cancel' : 'Add user' }}
+          Add user
         </button>
         <!-- Its own form, so Enter in the field adds the user through the very same handler. -->
         <form v-if="showAddUserForm" class="add-user-form" @submit.prevent="handleAddUser">
@@ -264,25 +310,35 @@ function toggleAddUser() {
               v-model="newUserEmail"
               type="email"
               placeholder="User email"
+              aria-label="Email of the person to add"
               class="field"
               data-testid="manage-market-add-user-input"
             />
             <select
               v-model="newUserRole"
+              aria-label="Their role"
               class="field field--select"
               data-testid="manage-market-add-user-select"
             >
-              <option v-for="r in addableRoles" :key="r" :value="r">
+              <option v-for="r in grantableRoles" :key="r" :value="r">
                 {{ getRoleDisplayName(r) }}
               </option>
             </select>
             <button
               type="submit"
-              class="btn btn--compact btn--primary"
+              class="btn btn--primary"
               :disabled="!newUserEmail.trim()"
               data-testid="manage-market-add-user-submit"
             >
               Add
+            </button>
+            <button
+              type="button"
+              class="btn btn--secondary"
+              data-testid="manage-market-add-user-cancel"
+              @click="closeAddUser"
+            >
+              Cancel
             </button>
           </div>
           <p v-if="addUserError" class="form-error" data-testid="manage-market-add-user-error">
@@ -308,15 +364,28 @@ function toggleAddUser() {
 
       <section class="section">
         <h3>Rename market</h3>
-        <p v-if="!renameAllowed" class="form-hint" data-testid="manage-market-rename-fixed">
+        <!-- Whoever cannot change the market cannot rename it either (bug 37). -->
+        <p
+          v-if="marketData.readOnlyReason"
+          class="form-hint"
+          data-testid="manage-market-rename-refused"
+        >
+          {{ marketData.readOnlyReason }}
+        </p>
+        <p v-else-if="!renameAllowed" class="form-hint" data-testid="manage-market-rename-fixed">
           This market's public web address comes from its name, and it has already been shared, so
           its name can no longer change.
         </p>
         <form v-else class="rename-row" @submit.prevent="handleRename">
-          <input v-model="renameValue" class="field" data-testid="manage-market-rename-input" />
+          <input
+            v-model="renameValue"
+            class="field"
+            aria-label="Market name"
+            data-testid="manage-market-rename-input"
+          />
           <button
             type="submit"
-            class="btn btn--compact btn--primary"
+            class="btn btn--primary"
             :disabled="!renameValue.trim() || renameValue.trim() === marketData.name"
             data-testid="manage-market-rename-save-button"
           >
@@ -328,42 +397,42 @@ function toggleAddUser() {
         </p>
       </section>
 
-      <section class="section danger-section">
+      <section v-if="canDelete" class="section danger-section">
         <h3>Delete market</h3>
-        <div v-if="!deleteConfirming">
-          <button
-            type="button"
-            class="btn btn--compact btn--destructive"
-            data-testid="manage-market-delete-button"
-            @click="deleteConfirming = true"
-          >
-            Delete market
-          </button>
-        </div>
-        <div v-else class="delete-confirm">
-          <p class="confirm-text">Are you sure? This cannot be undone.</p>
-          <div class="confirm-buttons">
-            <button
-              type="button"
-              class="btn btn--compact btn--destructive"
-              data-testid="manage-market-delete-confirm-button"
-              @click="handleDeleteConfirm"
-            >
-              Confirm
-            </button>
-            <button
-              type="button"
-              class="btn btn--compact btn--secondary"
-              data-testid="manage-market-delete-cancel-button"
-              @click="handleDeleteCancel"
-            >
-              Cancel
-            </button>
-          </div>
-          <p v-if="deleteError" class="form-error">{{ deleteError }}</p>
-        </div>
+        <button
+          type="button"
+          class="btn btn--destructive"
+          data-testid="manage-market-delete-button"
+          @click="deleteConfirming = true"
+        >
+          Delete market
+        </button>
       </section>
     </div>
+  </AppDialog>
+
+  <!--
+    The product's destructive dialog, as archiving and deleting an organization are (bug 43): it
+    names what goes, and opens on Cancel. It was an inline "Are you sure?" with Confirm before
+    Cancel and focus left on the page, so one stray Enter was the whole irreversible action.
+  -->
+  <AppDialog
+    :open="manageOpen && deleteConfirming && !!marketData"
+    :title="`Delete ${marketData?.name ?? 'this market'}?`"
+    testid="manage-market-delete"
+    destructive
+    confirm-label="Delete market"
+    :error="deleteError"
+    @close="handleDeleteCancel"
+    @submit="handleDeleteConfirm"
+  >
+    <p class="confirm-text" data-testid="manage-market-delete-consequence">
+      This deletes the market with its applications, its assignment, its check-in records and the
+      record of who changed what. It cannot be undone.
+    </p>
+    <p v-if="publicPages" class="confirm-text" data-testid="manage-market-delete-public">
+      {{ publicPages }}
+    </p>
   </AppDialog>
 </template>
 
@@ -394,6 +463,12 @@ function toggleAddUser() {
   flex-direction: column;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
+}
+
+.user-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .user-card {
@@ -488,20 +563,9 @@ function toggleAddUser() {
   border-top: 1px solid var(--mm-border);
 }
 
-.delete-confirm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
 .confirm-text {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--mm-black);
-}
-
-.confirm-buttons {
-  display: flex;
-  gap: var(--space-2);
 }
 </style>

@@ -17,9 +17,47 @@ const store = useFloorplanStore();
 const isLoading = ref(false);
 const errorMessage = ref('');
 
+/**
+ * How many of each table type to place, asked of the organizer (bug 38).
+ *
+ * There was no such question: it placed as many as were already placed, or ONE per type, so a
+ * first Auto-Place on a whole hall placed a single table, and nothing said that was all it did.
+ * Starts at what is placed already, so a second run keeps the layout's size unless told otherwise.
+ */
+const counts = ref<Record<string, number | null>>({});
+
+function countFor(typeId: string): number {
+  const asked = counts.value[typeId];
+  if (asked !== undefined) return Math.max(0, Math.floor(Number(asked) || 0));
+  return store.placedTables.filter((pt) => pt.tableTypeId === typeId).length;
+}
+
+const askedTotal = computed(() =>
+  store.tableTypes.reduce((total, tt) => total + countFor(tt.id), 0),
+);
+
+/** What the last run did, in words - including when the plan had no room for all of them. */
+const result = ref('');
+
+/**
+ * The floor plan's extent in millimetres: its image, at the calibrated scale. The room tables are
+ * placed in when no walls are drawn - which used to be a fixed 10 m square, whatever was uploaded
+ * (bug 38).
+ */
+const roomMm = computed(() => {
+  const size = store.imageSizePx;
+  if (!size || !store.scalePxPerMm) return null;
+  return { width_mm: size.width / store.scalePxPerMm, height_mm: size.height / store.scalePxPerMm };
+});
+
 // ── Computed ───────────────────────────────────────────────────────
 const isDisabled = computed(
-  () => isLoading.value || store.tableTypes.length === 0 || !store.scalePxPerMm,
+  () =>
+    isLoading.value ||
+    store.tableTypes.length === 0 ||
+    !store.scalePxPerMm ||
+    askedTotal.value === 0 ||
+    (!roomMm.value && store.walls.length === 0),
 );
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -46,18 +84,12 @@ function buildRequestBody() {
     max_capacity: tt.maxCapacity,
   }));
 
-  // Derive counts from existing placed tables, or default to 1 per type
-  const counts: Record<string, number> = {};
-  for (const tt of store.tableTypes) {
-    const existingCount = store.placedTables.filter((pt) => pt.tableTypeId === tt.id).length;
-    counts[tt.id] = existingCount > 0 ? existingCount : 1;
-  }
-
   return {
     walls,
     obstacles,
     table_types: tableTypes,
-    counts,
+    counts: Object.fromEntries(store.tableTypes.map((tt) => [tt.id, countFor(tt.id)])),
+    room_mm: roomMm.value,
     scale_px_per_mm: store.scalePxPerMm,
     aisle_config: {
       wallBufferMm: 1500,
@@ -95,6 +127,8 @@ async function triggerAutoPlace() {
 
   isLoading.value = true;
   errorMessage.value = '';
+  result.value = '';
+  const asked = askedTotal.value;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30_000);
@@ -108,6 +142,11 @@ async function triggerAutoPlace() {
 
     const placed = mapResponseToPlacedTables(data.placed_tables ?? []);
     store.setPlacedTables(placed);
+    const noun = asked === 1 ? 'table' : 'tables';
+    result.value =
+      placed.length >= asked
+        ? `Placed ${placed.length} ${noun}.`
+        : `Placed ${placed.length} of ${asked} ${noun} - there was no room for the rest.`;
     emit('placed', placed.length);
   } catch (_e: unknown) {
     const err = _e as {
@@ -133,6 +172,21 @@ async function triggerAutoPlace() {
 
 <template>
   <div class="auto-place-wrapper">
+    <div v-if="store.tableTypes.length" class="auto-place-counts">
+      <label v-for="tt in store.tableTypes" :key="tt.id" class="auto-place-count">
+        <span class="auto-place-count-label">How many {{ tt.name }}</span>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          class="field"
+          :value="counts[tt.id] ?? countFor(tt.id) ?? ''"
+          :placeholder="'0'"
+          data-testid="floorplan-auto-place-count"
+          @input="counts[tt.id] = ($event.target as HTMLInputElement).valueAsNumber"
+        />
+      </label>
+    </div>
     <button
       class="auto-place-btn"
       :disabled="isDisabled"
@@ -170,6 +224,14 @@ async function triggerAutoPlace() {
       </span>
     </button>
 
+    <p
+      v-if="result && !isLoading"
+      class="auto-place-result"
+      role="status"
+      data-testid="floorplan-auto-place-result"
+    >
+      {{ result }}
+    </p>
     <!-- Error display -->
     <div
       v-if="errorMessage && !isLoading"
@@ -187,6 +249,33 @@ async function triggerAutoPlace() {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
+}
+
+.auto-place-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.auto-place-count {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.auto-place-count .field {
+  width: 8rem;
+}
+
+.auto-place-count-label {
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
+.auto-place-result {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 /* ── Button ──────────────────────────────────────────────────── */

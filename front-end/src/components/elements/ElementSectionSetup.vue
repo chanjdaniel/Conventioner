@@ -14,7 +14,6 @@ const tiers = toRef(setupObject.value, 'tiers');
 
 const container = ref<HTMLElement | null>(null);
 const columnTitles = ref<HTMLElement | null>(null);
-const tableCount = ref<HTMLElement | null>(null);
 const rows = ref<HTMLElement | null>(null);
 
 watch(
@@ -82,6 +81,7 @@ const countTables = () => {
             <input
               type="text"
               v-model="sections[index].name"
+              :aria-label="`Section ${index + 1} name`"
               style="all: unset; font-size: var(--text-sm); width: 100%"
               :data-testid="'setup-section-name-input-' + index"
             />
@@ -91,6 +91,7 @@ const countTables = () => {
           <select
             class="dropdown"
             v-model="sections[index].location"
+            :aria-label="`Section ${index + 1} location`"
             :data-testid="'setup-section-location-select-' + index"
           >
             <!-- :value="null", not value="": a new row's location IS null, and a string ""
@@ -110,6 +111,7 @@ const countTables = () => {
           <select
             class="dropdown"
             v-model="sections[index].tier"
+            :aria-label="`Section ${index + 1} tier`"
             :data-testid="'setup-section-tier-select-' + index"
           >
             <option disabled :value="null">{{ 'Tier' }}</option>
@@ -133,6 +135,7 @@ const countTables = () => {
               "
               style="font-size: var(--text-sm); width: 100%"
               class="number-input"
+              :aria-label="`Section ${index + 1} tables`"
               :data-testid="'setup-section-count-input-' + index"
             />
           </div>
@@ -159,9 +162,7 @@ const countTables = () => {
         <IconAddRound class="add-row__icon" />
       </button>
     </div>
-    <div ref="tableCount" style="position: absolute; left: 5px; bottom: -10px">
-      <h3 style="font-size: var(--text-sm)">Total tables: {{ countTables() }}</h3>
-    </div>
+    <p class="table-count">Total tables: {{ countTables() }}</p>
   </div>
 </template>
 
@@ -180,6 +181,16 @@ const countTables = () => {
   align-items: center;
 
   /* gap: 15px; */
+}
+
+/* In the flow, under the rows. It was positioned absolutely below the card, and cleared the last
+   row only because the add button happened to sit between them - so on a plan with no add button
+   (an archived one, bug 30) it sat on top of the row. */
+.table-count {
+  align-self: flex-start;
+  margin: var(--space-2) 0 0 5px;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 /* One template, shared, so a heading always sits over the control it names. */
@@ -292,6 +303,12 @@ input[type='number'] {
   text-overflow: ellipsis;
 }
 
+/* Its outline is off for the pointer; the keyboard still gets the product's ring (bug 44). */
+.dropdown:focus-visible {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
+}
+
 .number-input {
   all: unset;
   font-size: var(--text-sm);
@@ -306,5 +323,11 @@ input[type='number'] {
 
 .number-input[type='number'] {
   -moz-appearance: textfield;
+}
+/* The field inside is unstyled (`all: unset`), which takes its focus ring with it; the ring is
+   drawn here, so a keyboard user can see which name they are typing into (bug 44). */
+.input-container:focus-within {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
 }
 </style>

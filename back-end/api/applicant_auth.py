@@ -25,9 +25,12 @@ constraints:
    captain specified.
 
 6. **Timing is also a channel.** Identical response bodies are worthless if one
-   path is measurably slower. The known-address branch does an extra email send;
-   the unknown-address branch does nothing materially different but the response
-   goes out as soon as the challenge is stored.
+   path is measurably slower. Every address is sent its code (E26/F07/S01), so the
+   work is the same for all, and the send runs on a thread so the response goes out
+   as soon as the challenge is stored.
+
+A first-time vendor signs in exactly as a returning one does: the token names the
+address and the market, not an application, and their first save creates it.
 """
 import hashlib
 import logging
@@ -42,8 +45,6 @@ from db_config import get_database
 from market_documents import applicant_intake_market_by_slug
 from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
 from utils.application_token import generate_application_token
-
-import api.applications as ApplicationsApi
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,9 @@ def _verify_code(stored: str, candidate: str) -> bool:
 # Stored as plain dicts because jsonify() requires an application context and
 # cannot be called at module import time.
 
-_REQUEST_CODE_BODY = {"message": "If an account exists for this email, we've sent a code."}
+# True of every address, because every address is sent a code (E26/F07/S01). It hedged while codes
+# went only to known ones, which was what kept a first-time vendor from ever signing in (bug 6).
+_REQUEST_CODE_BODY = {"message": "We've sent a code to this address."}
 _REQUEST_CODE_STATUS = 200
 
 _VERIFY_FAILURE_BODY = {"message": "Invalid or expired code."}
@@ -154,8 +157,11 @@ _VERIFY_FAILURE_STATUS = 401
 
 # ── Email sending ─────────────────────────────────────────────────────────
 
-def _send_code_email(email: str, code: str, market_name: str, market_id: str) -> bool:
-    """Send the login code to the applicant's email address.
+def _send_code_email(email: str, code: str, market_name: str, market_slug: str) -> bool:
+    """Send the sign-in code to the applicant's email address.
+
+    It links to the market's own sign-in page, by its public address. It linked to
+    ``/markets/<id>/login``, which the product has no page for (E26/F10/S02).
 
     Returns True when the email was accepted by the provider (or disabled in dev),
     False when it was not.
@@ -171,7 +177,7 @@ def _send_code_email(email: str, code: str, market_name: str, market_id: str) ->
     import resend
 
     base_url = frontend_url()
-    login_url = f"{base_url}/markets/{market_id}/login"
+    login_url = f"{base_url}/{market_slug}/applicant-login"
 
     html_content = f"""
     <!DOCTYPE html>
@@ -179,29 +185,29 @@ def _send_code_email(email: str, code: str, market_name: str, market_id: str) ->
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your Login Code</title>
+        <title>Your sign-in code</title>
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h1 style="color: #4CAF50;">Your Login Code</h1>
+        <h1 style="color: #36826f;">Your sign-in code</h1>
         <p>You requested access to your application for <strong>{market_name}</strong>.</p>
-        <div style="background-color: #f5f5f5; border: 2px dashed #4CAF50; padding: 20px; text-align: center; margin: 30px 0;">
-            <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #4CAF50; margin: 0;">{code}</p>
+        <div style="background-color: #f5f5f5; border: 2px dashed #36826f; padding: 20px; text-align: center; margin: 30px 0;">
+            <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #36826f; margin: 0;">{code}</p>
         </div>
-        <p>Enter this code on the login page to access your application.</p>
-        <p style="color: #999; font-size: 12px; margin-top: 30px;">This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.</p>
-        <p style="color: #999; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+        <p>Enter it on <a href="{login_url}">the sign-in page</a> to see your application.</p>
+        <p style="color: #777474; font-size: 12px; margin-top: 30px;">This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.</p>
+        <p style="color: #777474; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
     </body>
     </html>
     """
 
     text_content = f"""
-    Your Login Code
+    Your sign-in code
 
     You requested access to your application for "{market_name}".
 
     Your code: {code}
 
-    Enter this code on the login page: {login_url}
+    Enter it on the sign-in page: {login_url}
 
     This code will expire in {CODE_EXPIRY_MINUTES} minutes and can only be used once.
 
@@ -212,12 +218,12 @@ def _send_code_email(email: str, code: str, market_name: str, market_id: str) ->
         response = resend.Emails.send({
             "from": from_email(),
             "to": [email],
-            "subject": f"Your login code for {market_name}",
+            "subject": f"Your sign-in code for {market_name}",
             "html": html_content,
             "text": text_content,
         })
         if response and hasattr(response, "id"):
-            logger.info("Applicant login code sent to %s for market %s", email, market_id)
+            logger.info("Applicant login code sent to %s for market %s", email, market_slug)
             return True
         logger.error("Applicant login code send returned unexpected response: %s", response)
         return False
@@ -337,25 +343,19 @@ def request_login_code(market_slug: str) -> tuple:
     expires_at = _code_expiry()
     _store_challenge(market_id, email, code, expires_at)
 
-    # Check whether this email actually has an application at this market.
-    # Do NOT prevent the Application document from being created - the captain
-    # has explicitly forbidden that. The D9 lock engages on the first
-    # Application document, and this endpoint does not create one.
-    apps_collection = db["applications"]
-    has_application = apps_collection.find_one(
-        {"market_id": market_id, "applicant_email": email}
-    ) is not None
-
-    # Only send the email when the address is actually an applicant.
-    # The send is dispatched to a daemon thread so it does NOT block the
-    # response. This closes the timing oracle: a real applicant and a stranger
-    # get the same response latency regardless of whether an email goes out.
-    if has_application:
-        threading.Thread(
-            target=_send_code_email,
-            args=(email, code, market_name, market_id),
-            daemon=True,
-        ).start()
+    # Every address is sent its code, applicant or not (E26/F07/S01). Codes went only to addresses
+    # with an application, and nothing creates a first application before sign-in, so a vendor
+    # who had never applied could never sign in to apply (bug 6). Sending to all is also the
+    # strongest form of the ruling: the work is now identical for every address, not merely the
+    # response. This endpoint still creates no Application document - the first save does, and
+    # with it the D9 lock, exactly as specified.
+    #
+    # The send is dispatched to a daemon thread so it does NOT block the response.
+    threading.Thread(
+        target=_send_code_email,
+        args=(email, code, market_name, market_slug),
+        daemon=True,
+    ).start()
 
     return jsonify(_REQUEST_CODE_BODY), _REQUEST_CODE_STATUS
 
@@ -396,20 +396,21 @@ def verify_login_code(market_slug: str) -> tuple:
     # Consume and verify. All failure branches inside this function return the
     # same observable outcome.
     if _consume_and_verify(market_id, email, code):
-        app_doc = ApplicationsApi.find_application_by_email(market_id, email)
-        token = None
-        if app_doc and app_doc.get("id"):
-            token = generate_application_token(
-                app_doc["id"], market_id, email,
-            )
-
-        response = {
+        # A token for whoever proved the address, applied or not (E26/F07/S01). It used to be
+        # issued only when an application existed, so a new vendor holding a good code got a 200
+        # with no token and was sent back to "Sign In" without a word (bug 6). Telling the person
+        # who just read the code whether they have applied leaks nothing; the ruling is about
+        # strangers, and every failure below still collapses to one response.
+        return jsonify({
             "success": True,
             "marketId": market_id,
             "applicantEmail": email,
-        }
-        if token:
-            response["token"] = token
-        return jsonify(response), 200
+            "token": generate_application_token(market_id, email),
+        }), 200
 
     return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
+
+
+def delete_challenges_for_market(market_id: str) -> int:
+    """Take a market's outstanding sign-in codes with the market (``market_deletion``)."""
+    return challenges_collection.delete_many({MARKET_ID_FIELD: market_id}).deleted_count
