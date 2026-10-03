@@ -274,6 +274,8 @@ Not defects, but things a user test is likely to surface.
 
 ## Test markets left on the slot-1 stack
 
+These are gone from the stack as of 2026-10-03; the re-walk's markets are listed in [MVP_TEST_RUN_2026-10-03.md](MVP_TEST_RUN_2026-10-03.md).
+
 | Market | Id | State | Used for |
 | --- | --- | --- | --- |
 | Spring Makers Market 2026 | `5fba113b-11bc-4848-ab8c-c605014b9f20` | Archived | P2 with the March 2026 export, through to archive |

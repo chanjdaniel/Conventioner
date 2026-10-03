@@ -637,7 +637,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Every control has a name, and a placeholder is not one** (E26/F10/S03): a `<label for>`, an
   `aria-label` or `aria-labelledby`. `e2e/every-control-is-named.spec.ts` walks the screens with
   `namelessControls()` (`e2e/helpers/accessibleNames.ts`); a new screen or dialog joins that walk.
+  The walk only sees the rows it seeds: the rules page walked with no rule on it missed every control
+  inside one (bug 50).
   A field styled `all: unset` loses its focus ring with everything else, so its container draws one.
+- **Native checks and radios take `accent-color` from `body`, and no link pads itself**: set
+  neither per component (bug 52). An answer is rendered through `AnswerValue.vue`, which links its
+  `http(s)` addresses and nothing else.
 - **Form controls do not inherit `font-family`.** Setting `font: inherit` on them alone is wrong while
   `body` declares Inter - it makes every control Inter while the 274 Outfit rules around them stay
   Outfit. `body` becomes Outfit first (`E15/F01/S01`). And `font` is a SHORTHAND: it carries

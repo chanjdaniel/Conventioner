@@ -1,8 +1,9 @@
 # MVP user flows: from creating a market to market day
 
-As of 2026-09-30, on `dev` at `59677cf8` (E24 merged).
+As of 2026-10-03, on `fix/mvp-e2e-testing`, after epic E26 ("The user flows hold") fixed every bug the usage run found.
 Written from a read of the code, the backlog and the open Wayfinder maps, and a live walk of the app on a local stack.
 Statuses were then updated by a usage test run of every flow with five real Google Form exports; its results are in [MVP_TEST_RUN_2026-09-30.md](MVP_TEST_RUN_2026-09-30.md).
+After E26 the three intake paths were walked again live with the same exports; [MVP_TEST_RUN_2026-10-03.md](MVP_TEST_RUN_2026-10-03.md) records that re-walk, and the statuses below are as of it.
 
 This is every organizer and vendor flow the product implements or intends, in plain English, from signing up to the end of a market.
 It is organized two ways:
@@ -24,7 +25,9 @@ On-screen labels are quoted exactly as the product shows them.
 
 ## Status labels
 
-Every flow carries one status, and says whether it was walked live on 2026-09-30 or read from code.
+Every flow carries one status, and says whether it was walked live or read from code.
+"Walked live" means on the 2026-09-30 usage run, unless the re-walk of 2026-10-03 is named.
+A bug the status once named is linked where its fix changed what a step says.
 
 | Status | Meaning |
 | --- | --- |
@@ -185,10 +188,11 @@ They are written as intended; where a bug breaks one, the step says so.
 
 **Task:** "You collect applications with your own spreadsheet. Set up this year's market, bring in the applications, choose who gets in, give them tables, and run check-in on the day."
 
-**Status:** Works end to end only when every section has a tier and the file has a "how many days" column.
-Without a tier, the assignment crashes and cannot be rescued ([bug 23](MVP_BUGS.md#bug-23)); without the column, the import cannot start ([bug 24](MVP_BUGS.md#bug-24)).
-Otherwise it completes with [bug 5](MVP_BUGS.md#bug-5) (skipped rows become empty applications), [bug 25](MVP_BUGS.md#bug-25) (the plan re-saves itself), [bugs 27](MVP_BUGS.md#bug-27) and [28](MVP_BUGS.md#bug-28) at value matching, and, once anyone is placed by hand, [bug 1](MVP_BUGS.md#bug-1) (wrong table at check-in).
-Walked live end to end on the usage run with the 2023 export; `market-journey.spec.ts` walks it as far as assignment.
+**Status:** Works (re-walked live on 2026-10-03 with the 2023 export, through assignment).
+The plan's sections have no tier and the file has no "how many days" column, the two conditions that stopped it on the usage run ([bugs 23](MVP_BUGS.md#bug-23) and [24](MVP_BUGS.md#bug-24)).
+277 of the file's 294 rows import: ten repeat submissions fold into each applicant's latest row, and seven blank rows are skipped as blank. All 277 approved vendors are placed.
+Every column but Timestamp and Email Address is mapped by hand (H2a).
+`market-journey.spec.ts` walks it as far as assignment.
 
 | Step | Flows |
 | --- | --- |
@@ -209,10 +213,10 @@ Walked live end to end on the usage run with the 2023 export; `market-journey.sp
 
 This is the MVP's headline path (Wayfinder `real-market-readiness`: "an organizer can take a real Google Forms export from a real market through to a correct, published assignment").
 
-**Status:** Blocked at the import for all five real exports tried.
-Bugs [2](MVP_BUGS.md#bug-2), [3](MVP_BUGS.md#bug-3) and [4](MVP_BUGS.md#bug-4) stop the 2025 and 2026 exports (0 of 237 and 0 of 250 rows; 84 of 250 after every workaround the product allows), and [bug 24](MVP_BUGS.md#bug-24) stops the 2024 and 2025 screening exports before the preview.
-Along the way: [bug 27](MVP_BUGS.md#bug-27) (an option with commas), [bug 28](MVP_BUGS.md#bug-28) (saved "ignore" decisions cannot be undone) and [bug 29](MVP_BUGS.md#bug-29) (a form edit switches Section preference back on).
-Walked live to archive with the 84 applicants that did import.
+**Status:** Works (re-walked live on 2026-10-03 with the March 2026 export, from creation to archive).
+The proposal restores all 29 columns, and the first import previews 225 of 250 rows where the usage run imported none ([bugs 2](MVP_BUGS.md#bug-2), [3](MVP_BUGS.md#bug-3) and [4](MVP_BUGS.md#bug-4)).
+The 25 it skips are a blank row, malformed and test rows, and applicants whose only answers were options left out on the proposal; G4 warned of those before confirming, and "Keep all" would have kept them.
+The other four exports were not re-walked live; their anonymised copies are held to a hand-written answer key in `back-end/tests/test_csv_proposal.py`.
 
 | Step | Flows |
 | --- | --- |
@@ -230,9 +234,9 @@ Intended at the import: every row that answers the required questions imports, "
 **Task (organizer):** "Vendors should apply on your market's own page this year. Set that up and share the link."
 **Task (vendor):** "Apply to Harbour Night Market for both dates, then check whether you got in."
 
-**Status:** Blocked by [bug 6](MVP_BUGS.md#bug-6) for any vendor who has not applied before, and by [bug 20](MVP_BUGS.md#bug-20) for seeing a verdict once applications close; editing works with [bug 21](MVP_BUGS.md#bug-21) and [bug 36](MVP_BUGS.md#bug-36) (a reload signs the vendor out).
-A vendor already brought in by CSV import can sign in and edit (P4).
-All three bugs reproduced live on the usage run.
+**Status:** Works (re-walked live on 2026-10-03).
+A vendor who had never applied signed in with an emailed code, applied, stayed signed in across a reload, and read "Approved" once applications had closed and results were published ([bugs 6](MVP_BUGS.md#bug-6), [20](MVP_BUGS.md#bug-20), [21](MVP_BUGS.md#bug-21) and [36](MVP_BUGS.md#bug-36)).
+A vendor brought in by CSV import can sign in and edit too (P4).
 
 | Step | Flows |
 | --- | --- |
@@ -247,8 +251,8 @@ All three bugs reproduced live on the usage run.
 ### P4. Mixed intake: online form plus imported stragglers
 
 **Status:** Works (walked live): import is gated by phase only, so a form market can import too.
-A tier grid in the imported file only maps if its day headings are ISO dates ([bug 26](MVP_BUGS.md#bug-26)).
-An imported vendor then has an application, so they can sign in to the market's page and edit it (H3b), which is also today's only way round [bug 6](MVP_BUGS.md#bug-6).
+A tier grid in the imported file maps whatever its day headings say, matched to the market's dates (H2c).
+An imported vendor then has an application, so they can sign in to the market's page and edit it (H3b).
 Whether mixed intake is intended is not written down anywhere; confirm before testing it as a feature.
 
 | Step | Flows |
@@ -287,7 +291,7 @@ The Send Offers button already exists and is always refused ([M1](#m1-the-solver
 
 #### A1. Register and verify an organizer account
 
-**Status:** Blocked by [bug 22](MVP_BUGS.md#bug-22) at step 4 for a signed-out person: the verification page redirects to sign-in, so the confirmation is never seen.
+**Status:** Works; a signed-out person sees the confirmation at step 4 since [bug 22](MVP_BUGS.md#bug-22) was fixed (`auth.spec.ts`).
 Steps 1 to 3 walked live as far as reCAPTCHA allows (the slot-1 stack has real keys and refuses automated browsers).
 **Task:** "Create an account for yourself."
 
@@ -321,17 +325,17 @@ Covered by: `auth.spec.ts`, `smoke.spec.ts`.
 
 #### A3. Sign in with an emailed code
 
-**Status:** Works as far as it can be walked without a mailer (walked live); the screen says "OTP" ([bug 42](MVP_BUGS.md#bug-42)).
+**Status:** Works as far as it can be walked without a mailer (walked live).
 
-1. At `/login`, choose "Sign-in code", enter email, choose "Send Code".
-2. Enter the code from the email and choose "Login".
-3. "Use different email" returns to step 1.
+1. At `/login`, choose the "Sign-in code" tab, enter email, choose "Send code".
+2. Enter the code from the email and choose "Sign in".
+3. "Use a different email" returns to step 1.
 
 Covered by: none found.
 
 #### A4. Reset a forgotten password
 
-**Status:** Blocked by [bug 22](MVP_BUGS.md#bug-22) (walked live with a real token): step 1 works, but at step 2 a signed-out person is redirected to sign-in before the form appears.
+**Status:** Works; a signed-out person reaches the form at step 2 since [bug 22](MVP_BUGS.md#bug-22) was fixed (`auth.spec.ts`).
 
 1. At `/login`, choose "Forgot password?"; enter email on `/reset-password-request`.
 2. Follow the emailed link to `/reset-password`, set a new password.
@@ -361,7 +365,7 @@ Covered by: `tier2.spec.ts` ("Organization CRUD").
 
 #### B2. Add an admin or a member
 
-**Status:** Works (walked live); the member's market pages show editing controls a Viewer cannot use ([bug 37](MVP_BUGS.md#bug-37)).
+**Status:** Works (walked live); a Viewer's market pages draw no control they cannot use ([bug 37](MVP_BUGS.md#bug-37)).
 
 1. On an organization card, "Manage".
 2. Under Admins, "Add admin", enter an existing account's email, "Add"; under Members, "Add member" likewise.
@@ -393,8 +397,8 @@ Covered by: `org-deletion.spec.ts`.
   **Status:** Works (walked live).
   "This organization holds no markets, so nothing else goes with it."
 - **B5b. It holds only drafts and archived markets.**
-  **Status:** Works, with [bug 9](MVP_BUGS.md#bug-9) (walked live with a draft; the archived warning read from code).
-  Each market is listed with what is destroyed; the warning that archived markets' check-in pages "will stop working" is already true, because archiving took them offline.
+  **Status:** Works (walked live with a draft; the archived case read from code).
+  Each market is listed with what is destroyed, including, for an archived market that ran, the check-in page it keeps up as a record (L1, [bug 9](MVP_BUGS.md#bug-9)).
 - **B5c. It holds a market mid-lifecycle** (Applications Open through Market Days).
   **Status:** Works (walked live).
   Refused, naming each blocking market: "Archive or delete them first, then come back."
@@ -415,7 +419,7 @@ After sign-in the dashboard shows one of:
 - "Previously opened": a card for the last market this browser opened.
 - "N markets are open to you." with "Open a market".
 - "You have not set up a market yet…" with "Set up your first market", which opens the Markets list.
-  For a person with no organization it promises that "the next screen will make one with you as its owner", which is untrue (D4, [bug 42](MVP_BUGS.md#bug-42)).
+  It adds that every market belongs to an organization, which someone in none creates under Organizations first (D4).
 - "The market you last opened is no longer available…" when it was deleted or access was lost.
 
 "Markets" and "Organizations" lead to those lists.
@@ -423,8 +427,8 @@ Covered by: `dashboard-market-count.spec.ts`.
 
 #### C2. The markets list
 
-**Status:** Works, with [bug 14](MVP_BUGS.md#bug-14) (walked live).
-`/markets` lists every reachable market with its phase badge, dates ("Nov 17-21, 2025 (5 days)") and organization.
+**Status:** Works (walked live).
+`/markets` lists every reachable market with its phase badge, dates ("Nov 17-21, 2025 (5 days)"; two separate days are named both, "Oct 3 and 10, 2026") and organization; a long name is cut with an ellipsis rather than wrapped ([bug 14](MVP_BUGS.md#bug-14)).
 Clicking a card opens the market; "Manage" opens the Manage market dialog (L3 to L5).
 Covered by: `dashboard-market-count.spec.ts`, `access-control.spec.ts`.
 
@@ -467,7 +471,7 @@ Covered by: `new-market-org.spec.ts`, `dialog-idiom.spec.ts`.
 
 #### D2. Create a market that starts from a Google Form
 
-**Status:** Works (walked live); the path it starts is blocked later (P2).
+**Status:** Works (re-walked live on 2026-10-03, as P2).
 As D1, choosing "I already have a Google Form"; lands on `/markets/<id>/start-from-csv` (flow G).
 Covered by: `where-a-form-starts.spec.ts`.
 
@@ -479,10 +483,10 @@ Covered by: `dialog-idiom.spec.ts` ("with exactly one organization"), `new-marke
 
 #### D4. Create a market with no organization yet
 
-**Status:** Works (walked live), with [bug 42](MVP_BUGS.md#bug-42).
+**Status:** Works (walked live).
 With none, the dialog says "No organizations available. Create an organization" and keeps "Create market" disabled.
 The link goes to `/organizations` (the dialog and anything typed in it are lost); after creating an organization there, start again from "New market".
-The dashboard's promise that "the next screen will make one with you as its owner" is stale.
+The dashboard says the same: create the organization under Organizations first ([bug 42](MVP_BUGS.md#bug-42)).
 Covered by: `new-market-org.spec.ts` (the zero-organization user).
 
 #### D5. A name that is already someone's address
@@ -495,7 +499,7 @@ Covered by: `public-address.spec.ts`.
 
 Market Setup is one scrolling page of cards that saves itself.
 "Plan saved" appears after each edit (debounced about 0.6 s); a failed save says "Could not save the plan. Retry in a moment."
-Every planning flow below works, with [bug 25](MVP_BUGS.md#bug-25): after any edit the page keeps re-saving the plan until it is left, and overwrites edits made meanwhile in another tab.
+One edit is one save, and another tab's edits survive it ([bug 25](MVP_BUGS.md#bug-25), `plan-saves-once.spec.ts`).
 Any pending edit is saved before a phase move, so guards judge what the organizer sees.
 
 **Task for the section:** "Your market runs on two Saturdays in October in Pier Hall, with 4 premium tables in the North Row and 6 standard tables in the South Row. Set that up."
@@ -510,6 +514,7 @@ Any pending edit is saved before a phase move, so guards judge what the organize
 
 Dates are calendar days and must show as the same day in every time zone.
 The calendar opens on the current month and has no month or year jump, and it accepts dates in the past without comment.
+Each day is a toggle button named by its full date ("Monday, November 20, 2023").
 Covered by: `market-dates-by-month.spec.ts`, `date-display-timezone.spec.ts`.
 
 #### E2. Tiers
@@ -526,7 +531,7 @@ Covered by: `market-dates-by-month.spec.ts`, `date-display-timezone.spec.ts`.
 
 **Status:** Works (walked live).
 "+" adds a row of name, Location, Tier and Count; "Total tables" sums the counts; tables are named after their section ("North Row 1" to "North Row 4").
-A section with no tier is accepted, but the market can then never be assigned ([bug 23](MVP_BUGS.md#bug-23)); give every section a tier before applications arrive.
+A section may have no tier; a plan without tiers assigns, and its form asks no tier preference ([bug 23](MVP_BUGS.md#bug-23); re-walked live as P1).
 Covered by: `plan-cards-share-a-row.spec.ts`, `sizing-model.spec.ts`, `market-pipeline.spec.ts`.
 
 #### E5. How vendors apply
@@ -541,14 +546,14 @@ Covered by: `intake-mode.spec.ts`.
 
 #### E6. Sections from a floorplan
 
-**Status:** Beta, with [bug 38](MVP_BUGS.md#bug-38) (steps 1 to 4 walked live; grouping by lasso not driven).
+**Status:** Beta (steps 1 to 4 walked live; grouping by lasso not driven); "Auto-Place Tables" places the count asked for of each type ([bug 38](MVP_BUGS.md#bug-38)).
 Offered as "Set up sections from a floorplan instead" while the plan has no sections.
 
 1. "Choose your setup path": "Manual setup" (Recommended) or "Floorplan AI" (BETA), "Try the beta".
 2. `/markets/<id>/floorplan`, a five-step wizard with "← Back" and "Next →":
    1. **Upload:** drop or "Browse Files" (PNG, JPG, WebP, PDF; a PDF asks which page).
    2. **Calibrate:** drag a reference line starting on the image, "Enter Reference Length" with a unit, "Calibrate", "Done" (or "Redraw").
-   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which places one table per type.
+   3. **Place Tables:** define "Table Types" (name, width, height, unit, max capacity), optionally "Save as Template" / "Load Template", then "Auto-Place Tables", which asks how many of each type to place and says how many fitted.
    4. **Edit Layout:** draw walls and no-go zones with the "Wall Editor" toggle, move tables, "Group Sections" by lasso and "Assign Section" (name, location, optional tier), "Export PNG" with or without table codes and sections; "Next" stays disabled until sections are grouped.
    5. **Save:** "Review & Save Floorplan" lists totals, sections and locations with editable names; "Save & Continue" writes the sections to the plan.
 
@@ -558,8 +563,8 @@ Covered by: `floorplan.spec.ts` (grouping and editing are driven through store s
 
 #### E7. Edit the plan after Draft
 
-**Status:** Works (walked live), with [bug 30](MVP_BUGS.md#bug-30): an archived market's plan can still be edited too.
-The plan stays editable in every phase except where a rule says otherwise:
+**Status:** Works (walked live).
+The plan stays editable in every phase but Archived, where every page is read only ([bug 30](MVP_BUGS.md#bug-30)), and except where a rule says otherwise:
 
 - the intake mode freezes when the market leaves Draft (E5);
 - the essential questions' offering freezes at the first applicant answer, so later plan edits no longer change the form (F1);
@@ -568,8 +573,8 @@ The plan stays editable in every phase except where a rule says otherwise:
 
 #### E8. Application form readiness
 
-**Status:** Works, with [bug 16](MVP_BUGS.md#bug-16) (walked live).
-The "Application form" card says what the plan still lacks ("Add dates, tiers, two or more sections above…"), or offers "Build the application form" once it can.
+**Status:** Works (re-walked live on 2026-10-03).
+The "Application form" card says what the plan still lacks ("Add dates, tiers, two or more sections above…"), offers "Build the application form" once it can, and once the form has questions or is locked says so, with "Open the application form" or "See the application form" ([bug 16](MVP_BUGS.md#bug-16)).
 
 ### F. Building the application form
 
@@ -579,13 +584,13 @@ Page: Application Form; the Form Builder on the left, a live applicant Preview o
 
 #### F1. The essential questions
 
-**Status:** Works, with [bug 17](MVP_BUGS.md#bug-17) (walked live).
+**Status:** Works (re-walked live on 2026-10-03).
 
-1. The "Essential questions" panel ("Always included") lists the questions every form asks, derived from the plan and not removable: Email (from sign-in), Available dates, Number of dates you want, Tier preference (per date, with "Not available"), Table choice ("A whole table to myself", "Half a table, shared", "Either is fine"), Table-share partner (the only optional one), Section preference (a ranking, with an "Ask this" checkbox; needs 2 or more sections).
-2. The preview also asks Full name and Preferred name.
+1. The "Essential questions" panel ("Always included") lists the questions every form asks, derived from the plan and not removable: Email (from sign-in), Full name (the official one), Preferred name (optional; what they like to be called), Available dates, Number of dates you want, Tier preference (per date, with "Not available"), Table choice ("A whole table to myself", "Half a table, shared", "Either is fine"), Table-share partner (optional), Section preference (a ranking, with an "Ask this" checkbox; needs 2 or more sections) ([bug 17](MVP_BUGS.md#bug-17)).
+2. The preview asks them as an applicant will.
 3. A question with nothing to offer is hidden from applicants and says why ("No market dates yet…").
 4. Untick "Ask this" under Section preference to stop asking it; every applicant is then treated equally on sections.
-   It saves at once, but editing any custom field and then "Save Form" silently ticks it again ([bug 29](MVP_BUGS.md#bug-29)).
+   It saves at once, stays off through later form edits, and the applicant form then asks no ranking ([bugs 29](MVP_BUGS.md#bug-29) and [45](MVP_BUGS.md#bug-45)).
 
 Covered by: `essential-fields.spec.ts`, `section-preference.spec.ts`.
 
@@ -653,18 +658,19 @@ Disabled, with the reason, once the form has questions of its own: "This market'
 
 #### G4. Review and adjust the proposal
 
-**Status:** Works, with bugs [4](MVP_BUGS.md#bug-4), [24](MVP_BUGS.md#bug-24), [27](MVP_BUGS.md#bug-27) and [41](MVP_BUGS.md#bug-41) (walked live with three real exports).
-It can keep an option its own import cannot read, it says "Not asked" for "Number of dates you want" although the import will require it, and it cuts some labels mid-sentence.
+**Status:** Works (re-walked live on 2026-10-03 with the March 2026 export).
+Labels stay whole ([bug 41](MVP_BUGS.md#bug-41)), an option with commas in it stays one option ([bug 27](MVP_BUGS.md#bug-27)), and "Number of dates you want" may be left unasked, since the import does not require it of a file ([bug 24](MVP_BUGS.md#bug-24)).
 
 1. "What the file says about your plan": market dates, tiers best first, and "Most days one vendor may get" (an assignment rule, choosable).
 2. "Every column, in your file's order": each column's first answers and what it "Becomes": an essential question, "Your question" with a type, Required and kept options, or "Left out".
 3. Rows with a yellow edge are worth a second look; rare options are unticked by default ("chosen by 2 - keep?").
    Rare means fewer than 3 applicants, or, for a multi-select, under a set share of its answers, so an option chosen by 4 can be unticked too.
+   A required question whose unticked options would leave applicants with no answer says how many; "Show all answers" lists every one and "Keep all" ticks them ([bug 4](MVP_BUGS.md#bug-4)).
 4. The side panel counts "to check", "answer essential questions", "become your questions" and "left out".
 
 #### G5. Confirm
 
-**Status:** Works (walked live); the import it prepares is blocked (P2).
+**Status:** Works (re-walked live on 2026-10-03, as P2).
 "Create the form and plan" lands on Application Form with the questions in file order and the plan's dates and tiers filled; add locations and sections by hand (E3, E4).
 
 #### G6. Cancel
@@ -680,7 +686,7 @@ It can keep an option its own import cannot read, it says "Not asked" for "Numbe
 
 1. Rail: "Open Applications".
 2. Expect Applications Open, the Applications tab carrying the dot, the form locked (F4).
-3. For a form market, the rail shows "Application page" with the public URL and "Copy" ([bug 11](MVP_BUGS.md#bug-11): the rail wraps at 1440 px).
+3. For a form market, the rail shows "Application page" with the public URL and "Copy" on one line, shortening the address rather than wrapping ([bug 11](MVP_BUGS.md#bug-11)).
 
 Covered by: `phase-state-machine.spec.ts`, `phase-rail.spec.ts`.
 
@@ -700,36 +706,35 @@ Covered by: `csv-import.spec.ts`, `form-amendment.spec.ts`, `market-journey.spec
 
 ##### H2a. First import, everything maps
 
-**Status:** Works, with bugs [5](MVP_BUGS.md#bug-5), [35](MVP_BUGS.md#bug-35) and [40](MVP_BUGS.md#bug-40), when the file has a column for every required question (walked live).
-Blocked by [bug 24](MVP_BUGS.md#bug-24) when it has no "how many days" column, and, from a market started in G, by bugs [2](MVP_BUGS.md#bug-2), [3](MVP_BUGS.md#bug-3), [4](MVP_BUGS.md#bug-4), [27](MVP_BUGS.md#bug-27) and [28](MVP_BUGS.md#bug-28).
-On a first import only Timestamp and Email Address are mapped for you, even where a heading matches a question word for word.
+**Status:** Works (re-walked live on 2026-10-03 for P1 and P2).
+On a first import only Timestamp and Email Address are mapped for you, even where a heading matches a question word for word (a usability observation, not a bug).
 
 1. **Upload:** "Choose the CSV your form produced"; the page names the market ("Importing into …").
 2. **Map columns:** every column in file order with sample answers, mapped to a question or "Ignore this column"; "Required questions" ticks each one off; "All required questions are mapped."
-3. **Preview** ("Preview import"): "N of M rows will be imported", "Each imported row becomes an application awaiting your review.", sample rows, "Where each answer comes from".
-4. **Confirm** ("Import N rows"): "Imported N new applications"; "Back to market setup" returns to Applications ([bug 16](MVP_BUGS.md#bug-16)).
+3. **Preview** ("Preview import"): "N of M rows will be imported", "Each imported row becomes an application awaiting your review.", the first rows as they will be stored, "Where each answer comes from".
+4. **Confirm** ("Import N rows"): "Imported N new applications"; "Back to applications" returns to Applications ([bug 16](MVP_BUGS.md#bug-16)).
 5. Expect N applications, each Open and awaiting review.
 
 For a market started from a Google Form, step 2 opens "Restored from your last import." and needs no decisions.
 
 ##### H2b. Answers that match no option
 
-**Status:** Works, with [bug 27](MVP_BUGS.md#bug-27) and [bug 28](MVP_BUGS.md#bug-28) (walked live).
-Answers are split at every comma, even inside an option, so a day such as "Monday, November 20th" arrives as two values; match one and ignore the other.
-Once matched, a value disappears from the page and cannot be changed without starting again from Upload.
+**Status:** Works (re-walked live on 2026-10-03).
+Answers are split only where the comma is not inside an option, so "Monday, November 20th" arrives whole and reads as that market date ([bug 27](MVP_BUGS.md#bug-27)).
 "N values did not match …" lists each unmatched answer with "Choose…" to match it to an option, or "Ignore this value"; "Re-check values" re-runs the check.
+Values already decided, including those a Google Form start saved, are listed under "N values already decided - change any that are wrong" and can be changed ([bug 28](MVP_BUGS.md#bug-28)).
 "N values still need a match." blocks the preview until each is settled.
 
 ##### H2c. A question spread over several columns
 
-**Status:** Blocked by [bug 26](MVP_BUGS.md#bug-26) for a tier grid mapped by hand (walked live): its day headings are offered tiers, not dates, to match against.
-Grouping works; only ISO day headings ("[2026-10-03]") import.
+**Status:** Works (`csv-import.spec.ts`): a tier grid's day headings, in whatever words, are matched to the market's dates, and its cells to tiers ([bug 26](MVP_BUGS.md#bug-26)).
 Grid questions (one column per option or per day, such as a tier grid) are grouped as one row showing their columns; "Not one question - split" treats them separately.
 A column whose options contain commas while its answers are comma-separated says "One column cannot answer … reliably".
 
 ##### H2d. A required question has no column
 
-**Status:** Works as a block (walked live), but for "Number of dates you want" there is no way through ([bug 24](MVP_BUGS.md#bug-24)).
+**Status:** Works (walked live).
+"Number of dates you want" is not required of a file: a vendor with no answer is limited by their availability and the market's ceiling ([bug 24](MVP_BUGS.md#bug-24)).
 The preview stays disabled until every required question is mapped; "Required questions" shows which are missing ("Still unmapped: …").
 A custom question can be made optional by reopening for editing (F5, before any application exists); an essential constraint cannot be switched off, so the only fix is a new column in the spreadsheet.
 
@@ -748,7 +753,7 @@ Covered by: `form-amendment.spec.ts`.
 ##### H2f. Stop asking a preference the form never asked
 
 **Status:** Works (walked live), only while no application exists yet.
-It also appears, wrongly worded, on an online-form market whose form does ask the preference, before its column is mapped ([bug 40](MVP_BUGS.md#bug-40)).
+On an online-form market whose form does ask the preference it says the file has no column for it, not that the form never asked ([bug 40](MVP_BUGS.md#bug-40)).
 "Your form never asked <question>. It is a preference, not a constraint…" with "Stop asking it", which runs the same chain as H2e to switch that essential question off.
 
 ##### H2g. Finish a fix that stalled
@@ -758,7 +763,8 @@ If the H2e/H2f chain stops part way, the dialog says where it stopped and offers
 
 ##### H2h. Import a later export
 
-**Status:** Works, with [bug 34](MVP_BUGS.md#bug-34) and [bug 40](MVP_BUGS.md#bug-40) (walked live): an applicant listed more than once in the file returns to review every time, and "N updated" counts unchanged rows.
+**Status:** Works (walked live; re-walked on 2026-10-03, where ten repeat submissions folded into their latest rows).
+An applicant listed more than once is one application, from their latest row, dated by their first; an unchanged applicant keeps their approval, and "N updated" counts only changed answers ([bugs 34](MVP_BUGS.md#bug-34) and [40](MVP_BUGS.md#bug-40)).
 
 1. The mapping is restored by column heading; "N columns are new since then." and lost columns are named to map again.
 2. The preview also says how many approved applications "will return to review" because their answers changed, and how many existing applications are not in the file ("They will be left exactly as they are.").
@@ -768,17 +774,16 @@ A first-come-first-served priority rule with no column mapped to "Submitted at" 
 
 ##### H2i. Rows that cannot be imported
 
-**Status:** Blocked by [bug 5](MVP_BUGS.md#bug-5) (walked live).
-The preview lists "N rows will be skipped" with each row's reason.
-Intended: confirming imports only the good rows.
-Actual: every skipped row is also written as an empty Open application.
+**Status:** Works (re-walked live on 2026-10-03).
+The preview lists "N rows will be skipped" with every reason for each row, and confirming writes only the good rows ([bug 5](MVP_BUGS.md#bug-5)).
+A blank row says "Every column this import reads is empty."; an answer the organizer chose to ignore on a required question says so, rather than that the applicant left it blank, and the fix is on the previous step.
 
 ##### H2j. Import after applications close
 
 **Status:** Works (walked live).
 In Applications Closed the page says "You can still import the ones you collected elsewhere."
 From Review, import is refused until the market returns to Applications Closed.
-From Assignment onwards it is refused for good, although the message still says to "move back to applications closed" ([bug 42](MVP_BUGS.md#bug-42)).
+From Assignment onwards it is refused for good, and says so: "…it takes no more applications and nothing more can be imported." ([bug 42](MVP_BUGS.md#bug-42)).
 
 #### H3. Vendors apply online
 
@@ -787,35 +792,29 @@ Covered by: `applicant.spec.ts` (sign-in, seeding the application first), `intak
 
 ##### H3a. A new vendor applies
 
-**Status:** Blocked by [bug 6](MVP_BUGS.md#bug-6) (walked live).
+**Status:** Works (re-walked live on 2026-10-03 on a phone-sized window; [bug 6](MVP_BUGS.md#bug-6)).
 **Task (vendor):** "Apply to this market."
 
-Intended:
-
-1. The vendor opens the shared link `/<market-slug>/apply` and is sent to `/<market-slug>/applicant-login`.
-2. They enter their email, "Send Code"; the page says "If an account exists for this email, we've sent a code." whatever the address.
-3. The code arrives; they enter it, "Verify & Sign In".
-4. "Apply for <market>": the essential questions, then "More questions" (the custom ones); "Save Application".
-5. They land on "Your Application" (H3c) with status Submitted.
-
-Actual: no code is sent to an address with no application, and a correct code yields no session, so the vendor returns to "Sign In" with no message.
+1. The vendor opens the shared link `/<market-slug>/apply`; "Sign in" names the market.
+2. They enter their email, "Send code"; the page says "We've sent a code to <email>." whatever the address.
+3. The code arrives; they enter it under "Sign-in code" and choose "Sign in".
+4. "Apply for <market>": the essential questions, then "More questions" (the custom ones); "Save application".
+5. They land on "Your application" (H3c) with status Submitted.
 
 ##### H3b. A returning vendor edits their application
 
-**Status:** Works, with [bug 21](MVP_BUGS.md#bug-21) and [bug 36](MVP_BUGS.md#bug-36) (walked live with an imported vendor), while applications are open.
-Sign in as H3a steps 1 to 3 with an address that already has an application (applied before, or imported); signing in from the apply link lands on the apply page ("Your Application" has no link to it).
-Intended: the form opens with their saved answers; they change what they need and "Save Application", and land on "Your Application".
-Actual: the form opens empty, with "Not available" ticked on every day, so every required question must be answered again, and the saved answers are replaced by whatever is re-entered.
-A reload, a direct link or a new tab signs the vendor out and loses what they typed.
+**Status:** Works (re-walked live on 2026-10-03), while applications are open.
+Sign in as H3a steps 1 to 3 with an address that already has an application (applied before, or imported); "Your application" offers "Change your answers".
+The form opens with their saved answers; they change what they need and "Save application", and land on "Your application" ([bug 21](MVP_BUGS.md#bug-21)).
+A reload or a direct link in the same tab keeps them signed in; a new tab asks them to sign in again ([bug 36](MVP_BUGS.md#bug-36)).
 The first applicant save of any kind freezes the essential questions' offering (F1).
 
 ##### H3c. A vendor checks their application
 
-**Status:** Works while applications are open; blocked by [bug 20](MVP_BUGS.md#bug-20) afterwards (both walked live).
-"Your Application" shows "Signed in as", the status, "Submitted <date>", "Your Answers" and "Sign out", and no way back to the form.
+**Status:** Works (re-walked live on 2026-10-03, before and after applications closed; [bug 20](MVP_BUGS.md#bug-20)).
+"Your application" shows "Signed in as", the status, "Submitted <date>", "Your Answers", "Change your answers" while applications are open, and "Sign out".
 Statuses a vendor sees: Submitted, Under Review, and after Publish Results (I7) Approved or Not Accepted.
-Intended: the vendor can come back after applications close to see their verdict.
-Actual: once the market leaves Applications Open, the sign-in page shows the market's slug instead of its name, no code is issued, and the vendor's pages answer "Market not found".
+A vendor can sign in and read their application and verdict in every phase after Draft; applying and changing answers stop when applications close.
 
 ##### H3d. Codes that fail
 
@@ -853,7 +852,7 @@ Reviewing has no phase gate of its own, so it can start as soon as applications 
 **Status:** Works (walked live).
 
 1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") and one card at a time.
-2. A card shows the applicant's email, status, submitted date, the highlighted answers first, then "N more answers" (or "This application carries no answers.").
+2. A card shows the applicant's email, status, submitted date, the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
 3. "Reject" (R), "Skip" (S), "Approve" (A); the keyboard letters work.
 4. When the queue is empty: "All N reviewed", "Nothing left to review."
 
@@ -889,12 +888,11 @@ From Review, More…, "Return to Applications Closed", for example to import str
 
 #### I7. Publish results
 
-**Status:** Works for the organizer (walked live), in one click with no confirmation; what it is for is blocked by [bug 6](MVP_BUGS.md#bug-6) and [bug 20](MVP_BUGS.md#bug-20).
-An imported vendor saw "Approved" while applications were open, and could not reach it once they closed.
+**Status:** Works (re-walked live on 2026-10-03), in one click with no confirmation; the vendor read "Approved" after applications closed (H3c).
 Form markets only (hidden for CSV markets, and the back end refuses it there and on drafts).
 
 1. "Publish Results" (after at least one review); becomes "Results Published".
-2. Intended: each online applicant sees Approved or Not Accepted on "Your Application" (H3c).
+2. Each online applicant sees Approved or Not Accepted on "Your application" (H3c).
 
 ### J. Assigning tables
 
@@ -906,25 +904,24 @@ The Assignment tab holds three pages: Assignment (rules and run), Result (by tab
 
 **Status:** Works (walked live).
 "Add a rule", choose a question (form questions with a fixed set of answers, "When the application arrived", "Application type"), then add answers best first; unlisted answers sort last, or where "<All others>" is placed.
-Rules apply in order; "×" removes one.
+Rules apply in order; "×" (a button named "Remove rule N") removes one.
 Covered by: `market-pipeline.spec.ts`, `the-assignment-tabs-pages.spec.ts`.
 
 #### J2. Assignment options
 
 **Status:** Works (walked live).
-"Max assignments per vendor" (at most the number of market dates) and "Max half table proportion per section (%)" (0 to 100); Assign stays disabled until both are set.
+"Max assignments per vendor" (at most the number of market dates; blank for no ceiling) and "Max half table proportion per section (%)" (0 to 100); Assign stays disabled, and says why, until the proportion is set.
 
 ##### J2a. No ceiling on dates
 
-**Status:** Blocked by [bug 7](MVP_BUGS.md#bug-7) (walked live).
-Intended: leave "Max assignments per vendor" blank ("Leave blank for no ceiling") and run with no limit.
-Actual: Assign stays disabled.
+**Status:** Works (re-walked live on 2026-10-03; [bug 7](MVP_BUGS.md#bug-7)).
+Leave "Max assignments per vendor" blank ("No ceiling") and run with no limit.
 
 #### J3. Run the assignment
 
-**Status:** Works (walked live), except for a plan with an untiered section, where it fails with "Internal server error" ([bug 23](MVP_BUGS.md#bug-23)).
+**Status:** Works (re-walked live on 2026-10-03, with and without tiers; [bug 23](MVP_BUGS.md#bug-23)).
 "Assign" lands on Result.
-Dates fill in calendar order, so later days can end up nearly empty ([bug 39](MVP_BUGS.md#bug-39)).
+Dates fill in calendar order, so later days can end up nearly empty; that is known behaviour, kept as it is ([bug 39](MVP_BUGS.md#bug-39)).
 Covered by: `market-pipeline.spec.ts`, `the-result-page.spec.ts`.
 
 ##### J3a. Refused: an approved application is incomplete
@@ -950,28 +947,28 @@ Covered by: `the-result-page.spec.ts`, `tables.spec.ts`, `tier2.spec.ts` (CSV ex
 
 #### J5. The result is out of date
 
-**Status:** Works (walked live); after a section shrinks, the summary and the table grid disagree on the table count ([bug 31](MVP_BUGS.md#bug-31)).
+**Status:** Works (walked live).
 When the rules, the plan or the approved applications change after a run, a banner says so with "Run it again".
 Changing the plan does not unassign anyone until the run is repeated.
 Covered by: `the-result-knows-what-it-was-made-from.spec.ts`.
 
 #### J6. Place a vendor in an empty seat
 
-**Status:** Works (walked live), with [bug 32](MVP_BUGS.md#bug-32); at check-in, [bug 1](MVP_BUGS.md#bug-1).
+**Status:** Works (walked live); check-in sends the vendor to the seat placed ([bug 1](MVP_BUGS.md#bug-1), K2).
 Click "Place someone": choose the vendor ("Every vendor who applied already has a table on this date." when none is left) and, for a half table, the seat; "Place them here".
-Warnings name what the placement overrides (not available that date, asked for a whole table); a seat already taken is refused, naming its holder.
-A tier the vendor refused, or a vendor already at their date limit, gets no warning.
+Warnings name what the placement overrides (not available that date, asked for a whole table, a tier they refused, their date limit); a seat already taken is refused, naming its holder ([bug 32](MVP_BUGS.md#bug-32)).
 Covered by: `placement-edit.spec.ts`.
 
 #### J7. Swap two vendors
 
-**Status:** Works, with [bug 1](MVP_BUGS.md#bug-1), [bug 18](MVP_BUGS.md#bug-18) and [bug 32](MVP_BUGS.md#bug-32) (walked live).
+**Status:** Works (walked live).
 Click an occupied seat ("Change"), "Swap them with" any vendor seated that date, "Swap seats"; both seats change at once.
+The same warnings as J6 apply to both vendors, including a change of table size ([bugs 18](MVP_BUGS.md#bug-18) and [32](MVP_BUGS.md#bug-32)).
 Covered by: `placement-edit.spec.ts`.
 
 #### J8. Free a seat
 
-**Status:** Works (walked live); at check-in, [bug 1](MVP_BUGS.md#bug-1).
+**Status:** Works (walked live).
 "Free this seat" ("Freeing this seat leaves them with no table on this date until they are placed again.").
 Covered by: `placement-edit.spec.ts`.
 
@@ -983,23 +980,22 @@ Covered by: `placement-pins.spec.ts`.
 
 #### J10. A pin the plan no longer holds
 
-**Status:** Blocked by [bug 31](MVP_BUGS.md#bug-31) once the market is in Assignment (walked live).
+**Status:** Works (`placement-pins.spec.ts`; [bug 31](MVP_BUGS.md#bug-31)).
 Removing a pinned seat from the plan orphans the pin (never deletes it); it blocks the next Begin Assignment until moved or freed.
-Intended: the organizer is told, wherever the pin shows, and cannot publish with it.
-Actual: in Assignment nothing marks it, "Run again" keeps the vendor at the missing table, and Publish Market stays available.
+In Assignment the result pages mark it, and Publish Market is refused until it is re-placed or freed.
 Covered by: `placement-pins.spec.ts`.
 
 #### J11. Browse by vendor
 
-**Status:** Works, with [bug 10](MVP_BUGS.md#bug-10) (walked live).
-Vendors: "Search vendors" and "N of M vendors assigned"; each row shows Assigned or Unassigned and "N / M dates".
-There is no "Unassigned only" control; Result's "N unassigned" link is the way to that list.
+**Status:** Works (re-walked live on 2026-10-03).
+Vendors: "Search vendors" and "N of M vendors assigned", counting approved vendors only ([bug 10](MVP_BUGS.md#bug-10)); each row shows Assigned or Unassigned and "N / M dates".
+Result's "N unassigned" link opens this list filtered, with an "Unassigned only ×" chip to clear the filter.
 A vendor's panel shows their Submission, their Assignments per date with "Change placement", or "Not available on this date".
 Covered by: `vendors.spec.ts`.
 
 #### J12. Find out why a vendor was not placed
 
-**Status:** Works, with [bug 33](MVP_BUGS.md#bug-33) (walked live): a vendor at their date limit is told "A table is free - they could be placed".
+**Status:** Works (walked live); a vendor at their date limit, or at the market's ceiling, is told so ([bug 33](MVP_BUGS.md#bug-33)).
 An unplaced date on a vendor's panel states the reason the solver could not place them, with a link to place them by hand.
 
 #### J13. Placement history
@@ -1017,7 +1013,7 @@ Covered by: `the-assignment-rules-close.spec.ts`.
 
 #### K1. Publish the market
 
-**Status:** Works (walked live).
+**Status:** Works (re-walked live on 2026-10-03).
 **Task:** "Your assignment is final. Make it live so vendors can find their tables."
 
 1. Rail: "Publish Market".
@@ -1029,7 +1025,7 @@ Covered by: `phase-rail.spec.ts`, `phase-state-machine.spec.ts`.
 
 #### K2. A vendor looks up their table and checks in
 
-**Status:** Blocked by [bug 1](MVP_BUGS.md#bug-1) for anyone placed, swapped or freed by hand; works for everyone else (walked live).
+**Status:** Works (re-walked live on 2026-10-03 on a phone-sized window).
 **Task (vendor):** "You are at the market. Find your table and check in."
 
 1. `/<market-slug>/check-in` names the market before anything is typed.
@@ -1037,8 +1033,7 @@ Covered by: `phase-rail.spec.ts`, `phase-state-machine.spec.ts`.
 3. Expect a greeting by name, then one card per assigned date: table, table size, section, tier, location; today's first.
 4. "Check in"; expect "Checked in ✓ <time>" and "Undo".
 
-Intended: the cards show the stored assignment.
-Actual: they show a fresh solver run, so hand-placed vendors are sent to the wrong table.
+The cards show the stored assignment, so a vendor placed, swapped or freed by hand is sent where they were put ([bug 1](MVP_BUGS.md#bug-1)).
 Covered by: `checkin.spec.ts`.
 
 #### K3. Check in on a day that is not today
@@ -1054,8 +1049,8 @@ Covered by: `checkin.spec.ts` ("a check-in on the wrong day can be undone").
 
 #### K5. Watch attendance
 
-**Status:** Works (walked live).
-Attendance: vendors (by email) against dates with the check-in time in each cell, or "No check-ins recorded yet."; only vendors who checked in appear.
+**Status:** Works (re-walked live on 2026-10-03).
+Attendance: vendors (by email) against dates with the check-in time in each cell, or "No check-ins recorded yet."; only vendors who checked in appear, by design, so it does not show who is missing (a usability observation).
 Covered by: `checkin.spec.ts`.
 
 #### K6. Send offers instead of publishing
@@ -1067,20 +1062,17 @@ See [M2](#m2-send-offers).
 
 #### L1. Archive after market days
 
-**Status:** Works, with [bug 8](MVP_BUGS.md#bug-8), [bug 9](MVP_BUGS.md#bug-9) and [bug 30](MVP_BUGS.md#bug-30) (walked live).
+**Status:** Works (re-walked live on 2026-10-03).
 
-1. More…, "Archive Market"; "Archiving is permanent…", focus on Cancel; "Archive".
-2. Expect the rail frozen with "This market is archived." and how far it got; every page read only.
-   Actual: the plan and the seats can still be changed ([bug 30](MVP_BUGS.md#bug-30)).
-
-Intended: the note says the market ran, and (per AGENTS.md) its check-in page stays served, read only.
-Actual: the note says "It was assigned but never published, so no check-in page went on the air.", and the check-in page answers "Market not found".
+1. More…, "Archive Market"; "Archiving is permanent…" and "Its check-in page stays up as a record…", focus on Cancel; "Archive".
+2. Expect the rail frozen with "This market is archived. It was published and ran its market days." ([bug 8](MVP_BUGS.md#bug-8)); every page read only ([bug 30](MVP_BUGS.md#bug-30)).
+3. The check-in page stays up as a record: "This market has ended. You can still look up where you were placed, and when you checked in.", each date "Checked in" or "Not checked in", and no check-in ([bug 9](MVP_BUGS.md#bug-9)).
 Covered by: `phase-state-machine.spec.ts`.
 
 #### L2. Abandon a market early
 
-**Status:** Works, with [bug 8](MVP_BUGS.md#bug-8) and [bug 30](MVP_BUGS.md#bug-30) (walked live).
-Archive from any earlier phase; the note reads "It was abandoned before it ran.", "It took applications but was never assigned." or "It was assigned but never published…".
+**Status:** Works (walked live).
+Archive from any earlier phase; it is read only, and no check-in page is served; the note reads "It was abandoned before it ran.", "It took applications but was never assigned." or "It was assigned but never published…".
 
 #### L3. Manage who has access
 
@@ -1097,8 +1089,9 @@ Covered by: `public-address.spec.ts`.
 
 #### L5. Delete a market
 
-**Status:** Works (walked live); the confirmation is inline, puts "Confirm" first and leaves focus on the page ([bug 43](MVP_BUGS.md#bug-43)).
-Owner only: "Delete market", "Are you sure? This cannot be undone.", "Confirm".
+**Status:** Works (walked live).
+Owner only: "Delete market" opens "Delete <market>?", which names what goes ("This deletes the market with its applications, its assignment, its check-in records…") and opens on Cancel ([bug 43](MVP_BUGS.md#bug-43)).
+Everything the market kept beside itself is deleted with it ([bug 47](MVP_BUGS.md#bug-47)).
 Covered by: `tier2.spec.ts`.
 
 ### M. Offers and outcomes (planned)
@@ -1136,23 +1129,10 @@ Before any is sent, E05 requires a decision on imported addresses, which nobody 
 ## Not reachable yet
 
 Everything intended or built that an organizer or vendor cannot complete through the product today.
+No bug blocks a flow any more: the fourteen rows that once stood here for bugs were cleared by E26.
 
 | Flow | Kind | Why | What reaching it takes |
 | --- | --- | --- | --- |
-| A4 Reset a forgotten password; A1 see the verification confirmation | Blocked by bug | [Bug 22](MVP_BUGS.md#bug-22) | Mark the account pages public where `App.vue` looks |
-| P1 / J3 Assign a market planned without tiers | Blocked by bug | [Bug 23](MVP_BUGS.md#bug-23) | Require a tier on every section, or treat "no tier" as one tier |
-| P1, P2 / H2d Import a file with no "how many days" column | Blocked by bug | [Bug 24](MVP_BUGS.md#bug-24) | A default for "Number of dates you want" |
-| H2c Import a tier grid mapped by hand | Blocked by bug | [Bug 26](MVP_BUGS.md#bug-26) | Offer market dates when matching a grid's day headings |
-| J10 Be told about an orphaned pin in Assignment | Blocked by bug | [Bug 31](MVP_BUGS.md#bug-31) | Flag orphans on the result pages and before publishing |
-| H3a New vendor applies online | Blocked by bug | [Bug 6](MVP_BUGS.md#bug-6) | Issue a first session to an address with no application, keeping the anti-enumeration rules |
-| H3b Returning vendor edits their answers | Works, with bug | [Bug 21](MVP_BUGS.md#bug-21) | Load the saved application into the form |
-| H3c Vendor sees their verdict after applications close | Blocked by bug | [Bug 20](MVP_BUGS.md#bug-20) | Serve the applicant dashboard after Applications Open |
-| I7 Publish results, as seen by vendors | Blocked by bug | Bugs [6](MVP_BUGS.md#bug-6), [20](MVP_BUGS.md#bug-20) | Both of the above |
-| P2 / H2a Import a Google Form's responses into a market started from them | Blocked by bug | Bugs [2](MVP_BUGS.md#bug-2), [3](MVP_BUGS.md#bug-3), [4](MVP_BUGS.md#bug-4), [24](MVP_BUGS.md#bug-24), [27](MVP_BUGS.md#bug-27), [28](MVP_BUGS.md#bug-28), [29](MVP_BUGS.md#bug-29) | Read ticked checkboxes; map table-choice answers; keep applicants with only rare answers; default the days question; split on known options; show saved decisions; keep "Ask this" off |
-| H2i Import only the good rows | Blocked by bug | [Bug 5](MVP_BUGS.md#bug-5) | Validate before creating an application |
-| J2a Run with no ceiling on dates | Blocked by bug | [Bug 7](MVP_BUGS.md#bug-7) | Accept a blank ceiling |
-| K2 Correct table at check-in after hand placements | Blocked by bug | [Bug 1](MVP_BUGS.md#bug-1) | Read the stored assignment |
-| L1 Archived market states it ran; check-in stays served | Blocked by bug | Bugs [8](MVP_BUGS.md#bug-8), [9](MVP_BUGS.md#bug-9) | Record that a market reached Market Days; decide whether archived check-in is served |
 | A5 Delete my account | No screen | API only | A screen |
 | B6 Transfer an organization | No screen | API only | A screen |
 | C5 Old start screen | No screen | `/init` by URL | Remove it, or link it |
@@ -1171,21 +1151,21 @@ Everything intended or built that an organizer or vendor cannot complete through
 | D Creating | `new-market-org.spec.ts`, `dialog-idiom.spec.ts`, `public-address.spec.ts`, `where-a-form-starts.spec.ts` | none noted |
 | E Planning | `market-dates-by-month.spec.ts`, `plan-cards-share-a-row.spec.ts`, `intake-mode.spec.ts`, `floorplan.spec.ts` | E6 grouping as a real gesture |
 | F Form | `application-form.spec.ts`, `essential-fields.spec.ts`, `section-preference.spec.ts`, `review-highlights.spec.ts`, `phase-state-machine.spec.ts` | none noted |
-| G Start from a Google Form | `start-from-csv.spec.ts`, `where-a-form-starts.spec.ts` | **G5 then H2a with a real export, through Preview and Confirm** |
-| H2 Import | `csv-import.spec.ts`, `form-amendment.spec.ts`, `market-journey.spec.ts` | **H2i skipped rows write nothing** |
-| H3 Online applications | `applicant.spec.ts`, `intake-mode.spec.ts` | **H3a a new vendor applies end to end**; H3c after applications close |
-| I Reviewing | `market-journey.spec.ts`, `review-highlights.spec.ts`, `phase-state-machine.spec.ts` | I1 keyboard review; I7 as the vendor sees it |
-| J Assigning | `market-pipeline.spec.ts`, `the-result-page.spec.ts`, `tables.spec.ts`, `placement-edit.spec.ts`, `placement-pins.spec.ts`, `vendors.spec.ts`, `the-assignment-rules-close.spec.ts` | J2a no ceiling |
-| K Publishing and market days | `phase-rail.spec.ts`, `checkin.spec.ts` | **K2 after J6, J7 or J8** |
-| L Ending | `phase-state-machine.spec.ts`, `tier2.spec.ts`, `org-deletion.spec.ts` | L1 note for a market that ran |
+| G Start from a Google Form | `start-from-csv.spec.ts`, `where-a-form-starts.spec.ts` | none noted (G5 then H2a runs on an anonymised export) |
+| H2 Import | `csv-import.spec.ts`, `form-amendment.spec.ts`, `market-journey.spec.ts` | none noted |
+| H3 Online applications | `applicant.spec.ts`, `intake-mode.spec.ts`, `essential-fields.spec.ts` | none noted |
+| I Reviewing | `market-journey.spec.ts`, `review-highlights.spec.ts`, `phase-state-machine.spec.ts`, `result-and-review-read-cleanly.spec.ts` | I1 keyboard review |
+| J Assigning | `market-pipeline.spec.ts`, `the-result-page.spec.ts`, `tables.spec.ts`, `placement-edit.spec.ts`, `placement-pins.spec.ts`, `vendors.spec.ts`, `the-assignment-rules-close.spec.ts` | none noted |
+| K Publishing and market days | `phase-rail.spec.ts`, `checkin.spec.ts`, `alignment.spec.ts` | none noted |
+| L Ending | `phase-state-machine.spec.ts`, `tier2.spec.ts`, `org-deletion.spec.ts`, `market-records.spec.ts` | none noted |
 | Paths | `market-journey.spec.ts` walks P1 as far as assignment | **P1 and P2 whole, from creation to archive** |
 
 ## Bugs found while exploring
 
 The walk behind this document found 21 problems, from check-in sending vendors to the wrong table down to stale copy, and the usage test run with real exports found 23 more (bugs 22 to 44).
-They are written up, with reproductions and causes, in [MVP_BUGS.md](MVP_BUGS.md), and none is fixed yet.
-The run's flow-by-flow results are in [MVP_TEST_RUN_2026-09-30.md](MVP_TEST_RUN_2026-09-30.md).
-Flows link to them where they bite.
+Fixing them found three more (45 to 47), and the re-walk after the fixes found the last ones (48 onwards).
+They are written up, with reproductions, in [MVP_BUGS.md](MVP_BUGS.md); every one is fixed by epic E26 except bug 39, which is kept as known behaviour.
+The runs' flow-by-flow results are in [MVP_TEST_RUN_2026-09-30.md](MVP_TEST_RUN_2026-09-30.md) and [MVP_TEST_RUN_2026-10-03.md](MVP_TEST_RUN_2026-10-03.md).
 
 ## Test data recipes
 
