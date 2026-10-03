@@ -134,12 +134,13 @@ describe('the palette carries a contrast contract', () => {
 
   for (const token of INK_ON_LIGHT) {
     for (const [groundName, ground] of LIGHT_GROUNDS) {
-      // Beige is a card fill, not a page ground. Two tokens are set on it - `--mm-black`, and the
-      // disabled ink, which exists BECAUSE `--mm-text-muted` is 4.63 on white and 4.23 on beige.
-      // Hold the rest to white only, and say so rather than silently skipping.
+      // Beige is a card fill, not a page ground. Three tokens are set on it - `--mm-black`, the
+      // disabled ink, which exists BECAUSE `--mm-text-muted` is 4.63 on white and 4.23 on beige,
+      // and the link in an answer on the review card. Hold the rest to white only, and say so
+      // rather than silently skipping.
       if (
         groundName === '--mm-beige' &&
-        !['--mm-black', '--mm-text-muted-on-beige'].includes(token)
+        !['--mm-black', '--mm-text-muted-on-beige', '--mm-text-link'].includes(token)
       )
         continue;
       it(`${token} is legible on ${groundName}`, () => {

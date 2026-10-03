@@ -146,3 +146,37 @@ test('the review card reads as one card, and a verdict is not drawn like the act
     /chip--positive/,
   );
 });
+
+test('a web address in an answer is a link the reviewer can open, and nothing else is', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // E26 re-walk: a reviewer judges a vendor by their portfolio, and on the card it was plain text,
+  // to be copied into a new tab by hand for every applicant.
+  const { marketId } = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  seedApplication(marketId, 'nadia@ember.test', {
+    business_name: 'Ember Ceramics',
+    product_type: 'Stoneware - see https://ember.test/work. Not javascript:alert(1) though',
+    essential_full_name: 'Nadia Ember',
+  });
+
+  await page.goto(marketSetupPath(marketId, 'applications'));
+  const monitor = new ApplicationMonitorPage(page);
+  await monitor.waitForLoaded();
+
+  const links = monitor.answers.getByRole('link');
+  await expect(links).toHaveCount(1);
+  await expect(links.first()).toHaveText('https://ember.test/work');
+  await expect(links.first()).toHaveAttribute('href', 'https://ember.test/work');
+  await expect(links.first()).toHaveAttribute('target', '_blank');
+  await expect(links.first()).toHaveAttribute('rel', 'noopener noreferrer');
+  // The words around it are still there, the sentence's full stop outside the link.
+  await expect(monitor.answers).toContainText(
+    'Stoneware - see https://ember.test/work. Not javascript:alert(1) though',
+  );
+});

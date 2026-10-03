@@ -26,6 +26,7 @@ import { asksNothingDistinguishing, reviewAnswers } from '@/utils/reviewQueue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
+import AnswerValue from '@/components/AnswerValue.vue';
 import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
@@ -401,7 +402,7 @@ function submittedOn(app: Application): string {
         <dl v-if="leading.length" class="answers" data-testid="app-monitor-leading">
           <template v-for="answer in leading" :key="answer.key">
             <dt>{{ answer.label }}</dt>
-            <dd>{{ answer.value }}</dd>
+            <dd><AnswerValue :value="answer.value" /></dd>
           </template>
         </dl>
 
@@ -428,7 +429,7 @@ function submittedOn(app: Application): string {
           <dl class="answers">
             <template v-for="answer in rest" :key="answer.key">
               <dt>{{ answer.label }}</dt>
-              <dd>{{ answer.value }}</dd>
+              <dd><AnswerValue :value="answer.value" /></dd>
             </template>
           </dl>
         </details>
@@ -436,7 +437,7 @@ function submittedOn(app: Application): string {
         <dl v-else-if="rest.length" class="answers" data-testid="app-monitor-answers">
           <template v-for="answer in rest" :key="answer.key">
             <dt>{{ answer.label }}</dt>
-            <dd>{{ answer.value }}</dd>
+            <dd><AnswerValue :value="answer.value" /></dd>
           </template>
         </dl>
         <p v-else-if="!leading.length" class="no-answers">This application carries no answers.</p>
