@@ -6,7 +6,7 @@
 #
 # A fresh git checkout has no git-ignored files, so we recreate:
 #   - .env files (copied from the primary checkout)
-#   - node_modules (root + front-end)  -> front-end / JS tooling works locally
+#   - front-end/node_modules           -> front-end / JS tooling works locally
 #
 # Back-end Python is intentionally NOT set up as a local venv: the project runs
 # the back-end via Docker (python:3.11-slim, see docker-compose.yml), and this
@@ -31,10 +31,6 @@ for f in .env front-end/.env back-end/.env; do
 done
 
 # 2. Node dependencies (skip if already present — pool hit)
-if [ ! -d "$WORKTREE/node_modules" ]; then
-  echo "[treehouse]   npm install (root)"
-  npm install --prefix "$WORKTREE" --no-audit --no-fund --silent
-fi
 if [ ! -d "$WORKTREE/front-end/node_modules" ]; then
   echo "[treehouse]   npm install (front-end)"
   npm install --prefix "$WORKTREE/front-end" --no-audit --no-fund --silent
