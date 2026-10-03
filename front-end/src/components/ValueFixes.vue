@@ -83,6 +83,7 @@ function choose(entry: ValueFix, event: Event) {
       <select
         class="field field--select ledger-fix-select"
         :value="props.resolutionFor(entry.target, entry.value)"
+        :aria-label="`What ${entry.value} means`"
         :data-testid="`${testid}-fix-${entry.value}`"
         @change="choose(entry, $event)"
       >

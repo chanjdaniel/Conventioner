@@ -2,7 +2,7 @@
 id: E26/F10/S03
 title: Accessibility
 type: story
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---
@@ -16,4 +16,4 @@ Closes bugs 44 in `docs/MVP_BUGS.md`; each one's reproduction there is the start
 
 ## Acceptance criteria
 
-- [ ] Each item of bug 44 is fixed.
+- [x] Each item of bug 44 is fixed.

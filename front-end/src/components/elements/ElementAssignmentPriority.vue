@@ -505,6 +505,12 @@ h3 {
   text-overflow: ellipsis;
 }
 
+/* Its outline is off for the pointer; the keyboard still gets the product's ring (bug 44). */
+.dropdown:focus-visible {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
+}
+
 .click-item {
   cursor: pointer;
   display: flex;

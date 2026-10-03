@@ -259,6 +259,7 @@ function closeAddUser() {
               <select
                 v-else
                 :value="role"
+                :aria-label="`${email}'s role`"
                 class="field field--select role-select"
                 data-testid="manage-market-role-select"
                 @change="handleRoleChange(userId, role, $event.target as HTMLSelectElement)"
@@ -309,11 +310,13 @@ function closeAddUser() {
               v-model="newUserEmail"
               type="email"
               placeholder="User email"
+              aria-label="Email of the person to add"
               class="field"
               data-testid="manage-market-add-user-input"
             />
             <select
               v-model="newUserRole"
+              aria-label="Their role"
               class="field field--select"
               data-testid="manage-market-add-user-select"
             >
@@ -374,7 +377,12 @@ function closeAddUser() {
           its name can no longer change.
         </p>
         <form v-else class="rename-row" @submit.prevent="handleRename">
-          <input v-model="renameValue" class="field" data-testid="manage-market-rename-input" />
+          <input
+            v-model="renameValue"
+            class="field"
+            aria-label="Market name"
+            data-testid="manage-market-rename-input"
+          />
           <button
             type="submit"
             class="btn btn--primary"

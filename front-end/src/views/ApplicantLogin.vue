@@ -136,13 +136,18 @@ function goBack() {
         <p class="login-instruction">
           Enter your email address. We'll send you a code to sign in with.
         </p>
-        <input
-          v-model="email"
-          class="field"
-          type="email"
-          placeholder="you@example.com"
-          data-testid="applicant-login-email-input"
-        />
+        <div class="login-field">
+          <label class="field-label" for="applicant-login-email">Email</label>
+          <input
+            id="applicant-login-email"
+            v-model="email"
+            class="field"
+            type="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            data-testid="applicant-login-email-input"
+          />
+        </div>
         <button
           type="submit"
           class="btn btn--primary"
@@ -161,15 +166,20 @@ function goBack() {
       <form class="login-step" data-testid="applicant-login-code-step" @submit.prevent="verifyCode">
         <!-- The same words for every address, and true for every address: each is sent a code. -->
         <p class="login-instruction">We've sent a code to {{ requestedEmail }}.</p>
-        <input
-          v-model="code"
-          class="field login-code-input"
-          type="text"
-          inputmode="numeric"
-          maxlength="6"
-          placeholder="000000"
-          data-testid="applicant-login-code-input"
-        />
+        <div class="login-field">
+          <label class="field-label" for="applicant-login-code">Sign-in code</label>
+          <input
+            id="applicant-login-code"
+            v-model="code"
+            class="field login-code-input"
+            autocomplete="one-time-code"
+            type="text"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="000000"
+            data-testid="applicant-login-code-input"
+          />
+        </div>
         <button
           type="submit"
           class="btn btn--primary"
@@ -246,6 +256,12 @@ function goBack() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* A field and its label, held together rather than spaced like the step's other parts. */
+.login-field {
+  display: flex;
+  flex-direction: column;
 }
 
 .login-instruction {

@@ -830,6 +830,7 @@ function startOver() {
                     <td>
                       <select
                         v-model="groupTarget[row.group.stem]"
+                        :aria-label="`What ${oneLine(row.group.stem)} maps to`"
                         class="ledger-select"
                         :data-testid="`import-group-select-${row.group.columns[0]}`"
                       >
@@ -921,6 +922,7 @@ function startOver() {
                   <td>
                     <select
                       v-model="columnTarget[row.index]"
+                      :aria-label="`What ${oneLine(headers[row.index] ?? '') || `column ${row.index + 1}`} maps to`"
                       class="ledger-select"
                       :data-testid="`import-target-select-${row.index}`"
                     >

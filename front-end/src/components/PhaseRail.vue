@@ -20,7 +20,7 @@
  * that the spine wraps rather than compressing, because labels painting over each other is worse
  * than a rail two lines tall.
  */
-import { computed, ref } from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
@@ -257,8 +257,63 @@ const otherTransitions = computed(() =>
   availableTransitions.value.filter((to) => to !== forwardTransition.value),
 );
 
+/*
+ * "More…" is a menu (bug 44): a menu button that opens into its items, whose arrow keys walk them,
+ * and whose Escape - or a click anywhere else - closes it and hands focus back. It opened a list of
+ * plain buttons that a screen reader announced as nothing in particular, and stayed open until
+ * the button was pressed again.
+ */
 const menuOpen = ref(false);
-useEscapeToClose(menuOpen, () => (menuOpen.value = false));
+const menuButton = ref<HTMLButtonElement | null>(null);
+const menuList = ref<HTMLElement | null>(null);
+
+function closeMenu(returnFocus: boolean) {
+  menuOpen.value = false;
+  if (returnFocus) void nextTick(() => menuButton.value?.focus());
+}
+useEscapeToClose(menuOpen, () => closeMenu(true));
+
+function menuItems(): HTMLButtonElement[] {
+  return Array.from(menuList.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? []);
+}
+
+watch(menuOpen, (open) => {
+  if (open) void nextTick(() => menuItems()[0]?.focus());
+});
+
+function onMenuKey(event: KeyboardEvent) {
+  const items = menuItems();
+  const at = items.indexOf(document.activeElement as HTMLButtonElement);
+  const last = items.length - 1;
+  const to =
+    event.key === 'ArrowDown'
+      ? (at + 1) % items.length
+      : event.key === 'ArrowUp'
+        ? (at + last) % items.length
+        : event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? last
+            : null;
+  if (event.key === 'Tab') {
+    closeMenu(false);
+    return;
+  }
+  if (to === null) return;
+  event.preventDefault();
+  items[to]?.focus();
+}
+
+/** A press outside the menu closes it, as it would any menu. */
+function onPointerDown(event: PointerEvent) {
+  const menu = menuButton.value?.parentElement;
+  if (menu && !menu.contains(event.target as Node)) closeMenu(false);
+}
+watch(menuOpen, (open) => {
+  if (open) document.addEventListener('pointerdown', onPointerDown);
+  else document.removeEventListener('pointerdown', onPointerDown);
+});
+onUnmounted(() => document.removeEventListener('pointerdown', onPointerDown));
 
 function directionOf(toPhase: string): string {
   return transitionDirection(currentPhase.value, toPhase, spine.value);
@@ -420,19 +475,34 @@ function cancelPending() {
 
           <div v-if="otherTransitions.length" class="rail-menu">
             <button
+              id="phase-rail-menu-button"
+              ref="menuButton"
               type="button"
               class="rail-button rail-button--menu"
+              aria-haspopup="menu"
+              aria-controls="phase-rail-menu"
               :aria-expanded="menuOpen"
               data-testid="phase-rail-menu-button"
               @click="menuOpen = !menuOpen"
             >
               More…
             </button>
-            <div v-if="menuOpen" class="rail-menu-list" data-testid="phase-rail-menu">
+            <div
+              v-if="menuOpen"
+              id="phase-rail-menu"
+              ref="menuList"
+              class="rail-menu-list"
+              role="menu"
+              aria-labelledby="phase-rail-menu-button"
+              data-testid="phase-rail-menu"
+              @keydown="onMenuKey"
+            >
               <button
                 v-for="toPhase in otherTransitions"
                 :key="toPhase"
                 type="button"
+                role="menuitem"
+                tabindex="-1"
                 class="rail-menu-item"
                 :class="`rail-menu-item--${directionOf(toPhase)}`"
                 :disabled="transitioning"

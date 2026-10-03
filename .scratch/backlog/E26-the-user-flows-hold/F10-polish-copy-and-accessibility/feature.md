@@ -2,7 +2,7 @@
 id: E26/F10
 title: Polish, copy and accessibility
 type: feature
-status: proposed
+status: done
 blocked_by: []
 pr: []
 ---

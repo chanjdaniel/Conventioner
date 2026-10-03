@@ -154,17 +154,6 @@ const handleProportionInput = (value: number) => {
   margin: 4px 0 0;
 }
 
-/* Match ElementMarketDates.vue select behavior: left-aligned text, ellipsis for overflow */
-option {
-  text-align: left;
-}
-
-select.datatype-dropdown {
-  max-width: 100%;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 .container {
   width: 100%;
   height: 100%;
@@ -249,48 +238,6 @@ select.datatype-dropdown {
 
 .enum-item {
   cursor: pointer;
-}
-
-/* Native select arrows ignore padding; use appearance:none + background chevron for consistent inset */
-.datatype-dropdown {
-  width: 100%;
-  height: 100%;
-  min-height: 32px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  text-align: left;
-  text-align-last: left;
-  direction: ltr;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  font-size: var(--text-md);
-  padding-left: 8px;
-  /* Text stops before icon; chevron sits inset from the right edge */
-  padding-right: 1.5rem;
-  box-sizing: border-box;
-  border-radius: var(--radius-card);
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-color: white;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23333333' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.375rem center;
-  background-size: 1.125rem 1.125rem;
-}
-
-.datatype-dropdown::-ms-expand {
-  display: none;
-}
-
-.datatype-dropdown,
-.datatype-dropdown option {
-  font-family: inherit;
-  font-size: var(--text-md);
-  color: var(--mm-black);
 }
 
 /* Holds the field and no more: the field primitive draws the box and sets its height (bug 13 -
