@@ -30,23 +30,36 @@ test('every field on the plan, the rules and the form preview has a name', async
     TEST_USER.email,
     TEST_USER.password,
   );
+  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
+    data: {
+      fields: [
+        { key: 'business_name', label: 'Business name', type: 'text', required: true, order: 0 },
+        { key: 'insured', label: 'I have insurance', type: 'checkbox', required: false, order: 1 },
+        {
+          key: 'craft',
+          label: 'Craft',
+          type: 'select',
+          required: true,
+          order: 2,
+          options: ['Ceramics', 'Prints'],
+        },
+      ],
+    },
+  });
+  expect(form.ok(), await form.text()).toBeTruthy();
+  // One rule of each kind, so every control a rule draws is on screen: with none, the walk saw the
+  // card's "Add a rule" and nothing else, and every control inside a rule went unnamed (E26 re-walk).
   await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
-    priority: [],
+    priority: [
+      { id: 1, target: 'application.submitted_at', ordering: [], direction: 'ascending' },
+      { id: 2, target: 'craft', ordering: ['Ceramics'], direction: null },
+    ],
     marketDates: [{ date: '2099-05-01' }],
     tiers: [GOLD],
     locations: [{ name: 'Main Hall' }],
     sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 4 }],
     assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: 50 },
   });
-  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
-    data: {
-      fields: [
-        { key: 'business_name', label: 'Business name', type: 'text', required: true, order: 0 },
-        { key: 'insured', label: 'I have insurance', type: 'checkbox', required: false, order: 1 },
-      ],
-    },
-  });
-  expect(form.ok(), await form.text()).toBeTruthy();
 
   for (const tab of ['setup', 'assignment', 'form']) {
     await page.goto(marketSetupPath(marketId, tab));
@@ -54,6 +67,15 @@ test('every field on the plan, the rules and the form preview has a name', async
     await page.waitForLoadState('networkidle');
     expect(await namelessControls(page), `the ${tab} page`).toEqual([]);
   }
+
+  // Removing a rule, or one of its answers, is a named button a keyboard reaches.
+  await page.goto(marketSetupPath(marketId, 'assignment'));
+  await expect(page.getByTestId('priority-rule-row')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Remove rule 2' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove Ceramics from rule 2' })).toBeVisible();
+  await page.getByRole('button', { name: 'Remove rule 1' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('priority-rule-row')).toHaveCount(1);
 });
 
 test('the sign-in page is a tab list, and every field on it has a name', async ({ page }) => {
