@@ -219,7 +219,9 @@ test.describe('Every rendered text node reaches AA', () => {
   test('the screens', async ({ authenticatedPage: page }) => {
     await openTheSeededMarket(page);
     for (const [state, url, ready] of [
-      ['markets', '/markets', 'markets-create-button'],
+      // The count, not "New market": the button is drawn before the list arrives, and on a stack
+      // holding thousands of markets the sweep measured "Loading markets..." and nothing else.
+      ['markets', '/markets', 'markets-result-count'],
       ['market plan', marketSetupPath(marketId, 'setup'), 'setup-dates-date-display-0'],
       // The densest authoring surface in the product, and unwalked until E17/F03/S01 - which is
       // how a field-type badge shipped at 3.73:1 on it.

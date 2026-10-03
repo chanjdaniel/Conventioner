@@ -43,10 +43,13 @@ class FakeMarketsCollection:
                 return dict(doc)
         return None
 
-    def aggregate(self, _pipeline):
-        return iter([dict(doc) for doc in self.docs])
-
-    def find(self, _query):
+    def find(self, query):
+        """The markets a person holds a role on - a key of the roles map that exists - and nothing
+        for any other query, so these markets are listed by their role alone."""
+        ((key, condition),) = query.items()
+        if key.startswith("roles.") and condition == {"$exists": True}:
+            user_id = key.split(".", 1)[1]
+            return iter([dict(doc) for doc in self.docs if user_id in (doc.get("roles") or {})])
         return iter([])
 
 

@@ -510,6 +510,32 @@ class _MigratedProbeDatabase:
 
 db_config.get_migration_probe_database = lambda *_args, **_kwargs: _MigratedProbeDatabase()
 
+
+# app.py builds the lookup indexes at boot (``lookup_indexes``). Here they are built into a
+# stand-in that only holds indexes; what gets built is ``test_lookup_indexes.py``'s to check.
+class _IndexOnlyCollection:
+    def __init__(self):
+        self._indexes = {"_id_": {"key": [("_id", 1)]}}
+
+    def index_information(self):
+        return dict(self._indexes)
+
+    def create_index(self, keys, **_options):
+        name = "_".join(f"{field}_{direction}" for field, direction in keys)
+        self._indexes[name] = {"key": list(keys)}
+        return name
+
+
+class _IndexOnlyDatabase(dict):
+    def __missing__(self, name):
+        self[name] = _IndexOnlyCollection()
+        return self[name]
+
+
+import lookup_indexes
+
+lookup_indexes._boot_database = _IndexOnlyDatabase
+
 # app.py also refuses to boot unless it can build the unique index the application endpoint
 # rests on, and it builds it for real, against the collection the module holds. Here that
 # collection is the fake below -- installed at import, not only per test, because a test

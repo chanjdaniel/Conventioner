@@ -41,6 +41,7 @@ from market_documents import (
     assert_market_key_migration_recorded,
 )
 import db_config
+from lookup_indexes import ensure_lookup_indexes
 from dataclasses import asdict
 import json
 import os
@@ -164,6 +165,18 @@ def verify_applicant_login_indexes() -> None:
 
 
 verify_applicant_login_indexes()
+
+
+def build_lookup_indexes() -> None:
+    """Index every field a document is looked up by (``lookup_indexes``), once, at boot.
+
+    Not a refusal like the two above: these carry no guarantee, only speed. A database that cannot
+    build one cannot serve a request either, so its error is left to stop the boot as it is.
+    """
+    ensure_lookup_indexes()
+
+
+build_lookup_indexes()
 
 
 class PublicEndpointDefenseError(RuntimeError):

@@ -710,12 +710,12 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     user_orgs = OrgsApi.get_organizations_for_user(user_email)
     lookups = _SummaryLookups(user_orgs)
 
-    pipeline = [
-        {"$addFields": {"roles_array": {"$objectToArray": {"$ifNull": ["$roles", {}]}}}},
-        {"$match": {"roles_array": {"$elemMatch": {"k": user_id}}}},
-        {"$project": {"roles_array": 0}}
-    ]
-    markets_with_role = markets_collection.aggregate(pipeline)
+    # A role is a key of the market's roles map, so "has one" is that key existing - which the
+    # wildcard index on the map serves (``lookup_indexes``). It was read by turning every market's
+    # map into an array first, which no index can serve: every Markets page read every market.
+    markets_with_role = markets_collection.find(
+        {f"{market_doc_key('roles')}.{user_id}": {"$exists": True}}
+    )
 
     for market in markets_with_role:
         mid = market["id"]
