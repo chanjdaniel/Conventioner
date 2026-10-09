@@ -42,6 +42,7 @@ This map is in a tracked directory, so it quotes counts and the form's own quest
 The rehearsal ran and passes every criterion in [07](issues/07-what-counts-as-a-pass.md); the report is [docs/MVP_TEST_RUN_2026-10-09.md](../../../docs/MVP_TEST_RUN_2026-10-09.md).
 The pairing work [08](issues/08-how-table-share-pairs-are-read.md) called for was built as [E27 A table-share request finds its partner](../../backlog/E27-table-share-pairs/epic.md) before the run, and the run amended 08 twice with the user: an answer naming several addresses pairs with the first applicant, and the half-table share never blocks a pair.
 What the real market still needs from the product is in the report's "Standing" list, led by Attendance saying who is missing.
+A second run followed with the user's changes: no first-come rule, and a built-in tie-break placing the vendor with fewer tiers first among equals; it placed 209 of 211.
 
 ## Not yet specified
 

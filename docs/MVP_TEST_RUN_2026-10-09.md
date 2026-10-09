@@ -14,7 +14,7 @@ All 212 rows imported, an identical re-import changed nothing, and the stored as
 | --- | --- |
 | Import | 212 of 212 rows; re-import: 0 new, 0 updated, 212 unchanged |
 | Review | 211 approved, 1 rejected (165 from the organizer's sheet, 46 stand-ins, 1 withdrawn) |
-| Assignment | 207 of 211 vendors placed, 393 placements, 294 of 303 table-days, 88% satisfaction, in under 3 seconds |
+| Assignment | 207 of 211 vendors placed, 393 placements, 294 of 303 table-days, 88% satisfaction, in under 3 seconds; 209 of 211 on the second run |
 | Pairs | 36 table-share requests stand; every one shares on all 63 dates both are placed |
 | Publish and check-in | Published; 9 check-ins by 7 vendors across all three days on a phone; Attendance shows all 9 |
 
@@ -28,6 +28,30 @@ All 212 rows imported, an identical re-import changed nothing, and the stored as
 | Check-in table wording | "Table: A 1 (Half Table (Left))" on the phone | "Table: A 1, left half" |
 
 The one thing the run shows the market still needs is **Attendance cannot say who is missing** ([known gap 3](MVP_KNOWN_GAPS.md#3-attendance-cannot-say-who-is-missing)): with about 130 vendors a day it lists only those who have checked in, by email.
+
+## Second run: no first-come rule, and the most constrained first among equals
+
+Asked for by the user after reading the first run, where 4 Gold-only vendors were left out while 9 Silver tables sat empty on Wednesday.
+
+- **The rules** became current students first, then any listed club; the first-come rule was removed.
+- **The solver gained a built-in tie-break** after "fewest available days": fewest tiers across those days (Gold and Silver on three days is 6, Gold on one day is 1), then earliest submission.
+  It only separates vendors the organizer's rules leave equal; with a first-come rule it never runs.
+
+The same path on a fresh market, "UBC Makers Market November 2026 Rehearsal 2": the same plan, 212 of 212 imported, the same verdicts.
+
+| | First run | Second run |
+| --- | --- | --- |
+| Vendors placed | 207 of 211 | 209 of 211 |
+| Placements | 393 | 400 |
+| Table-days used | 294 of 303 | 301 of 303 |
+| Empty Silver on Wednesday | 9 | 2 |
+| Satisfaction | 88% | 90% |
+
+Every pass criterion holds again: no rule broken, every unplaced vendor and short-changed date says why, all 36 pairs together on all 64 dates they share, and every order question explained.
+Between the runs 14 vendor-dates moved from Gold to Silver and 9 the other way, 7 vendors gained a day and none lost one.
+
+The 2 still unplaced are alumni or staff in no club who want only Gold on Wednesday.
+Every current student outranks them, including students who would also take Silver, so placing them would mean moving a higher-ranked vendor down to Silver against their rank: a policy the market has not chosen (see "Standing").
 
 ## How it was run
 
@@ -115,6 +139,8 @@ The 9 table-days left empty are C and D on Wednesday 18: Silver demand that day 
 - **The 46 stand-in verdicts** are the agent's, not the organizer's, and four are flagged above.
 - **Table-share answers that pair nobody**: 11 hold no address, 2 name an address nobody applied with, 2 name a partner who wants a whole table, and 1 names someone whose own request comes first.
   Each is shown on its review card and in the vendor's detail, for the organizer to follow up on Discord.
+- **Whether a vendor who accepted Silver should move down to make room** for a lower-ranked Gold-only vendor when Silver would otherwise sit empty.
+  The form promises "the highest tier available among the selections made", which the solver keeps by rank; this would place the last 2 vendors of the second run.
 - **Two people naming the same partner** gives the partner to the earlier applicant, with no notice for the other.
   Provisional, and none of this file's pairs needs it.
 
@@ -133,3 +159,4 @@ The 9 table-days left empty are C and D on Wednesday 18: Silver demand that day 
 | Market | Id | State |
 | --- | --- | --- |
 | UBC Makers Market November 2026 Rehearsal | `0747d298-05d6-49ea-bce9-bd80d3100851` | Market Days, published, 9 check-ins; deliberately not archived |
+| UBC Makers Market November 2026 Rehearsal 2 | `77f4e0ed-3679-45e6-bb7a-89e795d84d12` | Assignment, assigned with the second run's rules; not published |
