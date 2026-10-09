@@ -40,6 +40,7 @@
         "src/components/SummaryCard.vue",
         "src/components/VendorDateCard.vue",
         "src/components/VendorIdentity.vue",
+        "src/components/TableShareNotice.vue",
         "src/components/AppDialog.vue",
         "src/components/DeleteOrgDialog.vue",
         "src/components/application/AmendFormDialog.vue",

@@ -12,6 +12,7 @@ from essential_fields import (
     effective_essential_options_for_market,
 )
 from assignment.vendor_input import IncompleteApplication, SolverVendor, approved_solver_vendors
+import table_share as TableShare
 
 
 # Deliberately not including "1" and "0": those are numbers, and a numeric target whose answer
@@ -89,6 +90,12 @@ class Vendor:
         # Days are what a vendor is actually scarce in; the CSV era summed comma-separated tier
         # tokens across dates, conflating "how many days" with "how many tiers".
         self.date_flexibility = len(want.available_dates)
+        # Then how many tiers across those days: Gold and Silver on three days is 6, Gold on one
+        # day is 1. A vendor who will take less is placed before one who will take more, among
+        # vendors the organizer's rules leave equal (decided after the November 2026 rehearsal).
+        self.tier_flexibility = sum(
+            len(want.accepted_tiers_by_date.get(date, ())) for date in want.available_dates
+        )
 
     def __repr__(self):
         return f"{vars(self)}"
@@ -243,6 +250,9 @@ class MarketAssignment:
             )
 
         self.vendors = [Vendor(want, setup_object.market_dates) for want in vendors]
+        # Table-share requests, read once: who each vendor's request in force names, and who names
+        # each vendor. Asked for every candidate of every table, so never recomputed per question.
+        self._requests_in_force, self._requested_by = self._table_share_requests()
 
         # Half tables taken per date per section, so the per-section proportion can be capped.
         # Keyed by the market date itself: a date IS its date, and the column heading a
@@ -435,7 +445,8 @@ class MarketAssignment:
             return (
                 vendor.num_assignments,                 # Fewest assignments first
                 self._calculate_priority_score(vendor), # The organizer's rules, in rule order
-                vendor.date_flexibility,                # Most constrained first
+                vendor.date_flexibility,                # Most constrained first: fewest days,
+                vendor.tier_flexibility,                # then fewest tiers across those days
                 vendor.want.submitted_at or "",         # Then whoever applied earlier
                 vendor.want.email,                      # Then something that is always distinct
             )
@@ -445,8 +456,14 @@ class MarketAssignment:
     def is_valid_vendor(self, vendor, market_date: MarketDateObject, table):
         return (
             vendor is not None
-            and vendor.is_available_on(market_date)
+            and self._can_still_sit(vendor, market_date)
             and vendor.accepts_tier(market_date, table.tier)
+        )
+
+    def _can_still_sit(self, vendor, market_date: MarketDateObject) -> bool:
+        """Could this vendor still be seated somewhere on this date, whatever the table?"""
+        return (
+            vendor.is_available_on(market_date)
             and not self.is_vendor_max_assigned(vendor)
             and not vendor.is_date_assigned(market_date)
         )
@@ -463,13 +480,44 @@ class MarketAssignment:
             if table.table_code == table_code:
                 return table
 
-    # given a vendor, return with the vendor associated with table_share_email, else return None
-    def get_table_share_vendor(self, vendor):
-        table_share_email = self._vendor_table_share_email_str(vendor)
-        for table_share_vendor in self.vendors:
-            if table_share_email == self.vendor_email(table_share_vendor):
-                return table_share_vendor
-        return None
+    def pair_mate(self, vendor):
+        """Who this vendor shares a table with, when anyone: their own request, else a request
+        naming them.
+
+        One-way is enough. The vendor named may be reached first, before whoever asked for them,
+        so a request is honoured from either end rather than only when the asker is placed. When
+        several name the same vendor, the earliest of them to apply is their mate.
+        """
+        own = self._requests_in_force.get(self.vendor_email(vendor))
+        if own is not None:
+            return own
+        askers = self._requested_by.get(self.vendor_email(vendor))
+        # The same one on every date, whoever the day's order reaches first: the earliest to apply.
+        return min(askers, key=lambda asker: (
+            asker.want.submitted_at or "", self.vendor_email(asker),
+        )) if askers else None
+
+    def _table_share_requests(self):
+        """Every request in force, as ``asker email -> named``, and its inverse.
+
+        The rule is ``table_share``'s, the same one the organizer's review screen reads.
+        """
+        by_email = {self.vendor_email(vendor): vendor for vendor in self.vendors}
+        in_force = TableShare.requests_in_force(
+            TableShare.ShareRequest(
+                email=email,
+                table_choice=vendor.want.table_choice,
+                partners=(self._vendor_table_share_email_str(vendor), *vendor.want.table_share_also),
+            )
+            for email, vendor in by_email.items()
+        )
+        requested_by = defaultdict(list)
+        for asker, named in in_force.items():
+            requested_by[named].append(by_email[asker])
+        return (
+            {asker: by_email[named] for asker, named in in_force.items()},
+            dict(requested_by),
+        )
 
     # get next valid vendor with highest priority
     def best_table_for(self, vendor: Vendor, market_date: MarketDateObject):
@@ -511,10 +559,24 @@ class MarketAssignment:
         ]
         if not candidates:
             return None
+        # A vendor to share with today sits where both of them can: the asker who would take Gold
+        # and the one named, who takes only Silver, meet at Silver rather than being split up.
+        mate = self.pair_mate(vendor) if self._spoken_for(vendor, market_date) else None
+
+        def apart(table) -> int:
+            if mate is None:
+                return 0
+            # A half already taken, by a pin, would seat them beside a stranger.
+            if table.assignment:
+                return 1
+            return 0 if self.is_valid_vendor(mate, market_date, table) else 1
+
         # Stable within a rank, so the table order still decides among equally-preferred tables
         # and a re-run of the same market produces the same assignment. A half-empty table sorts
         # ahead of an empty one of equal rank: the room is already paid for.
-        return min(candidates, key=lambda table: (rank(table), 0 if table.assignment else 1))
+        return min(candidates, key=lambda table: (
+            apart(table), rank(table), 0 if table.assignment else 1,
+        ))
 
 
     def get_valid_vendor(self, market_date: MarketDateObject, table):
@@ -539,18 +601,18 @@ class MarketAssignment:
         if table.assignment:
             return [next_vendor]
 
-        # check for valid table sharing partner
-        table_share_email = self._vendor_table_share_email_str(next_vendor)
-        if table_share_email != "" and not self._is_full_table_only(next_vendor):
-            table_share_vendor = self.get_table_share_vendor(next_vendor)
-            if self.is_valid_vendor(table_share_vendor, market_date, table):
-                self.table_sharing.append(next_vendor)
-                self.table_sharing.append(table_share_vendor)
-                return [next_vendor, table_share_vendor]
-
         # check if vendor selected full table only
         if self._is_full_table_only(next_vendor):
             return [next_vendor, next_vendor]
+
+        # Whoever this vendor is to share with, by their own request or by someone else's naming
+        # them. A pair is an exception to the half-table share (the user's ruling during the
+        # November 2026 rehearsal): it never stops two people who asked to share from sharing.
+        table_share_vendor = self.pair_mate(next_vendor)
+        if self.is_valid_vendor(table_share_vendor, market_date, table):
+            self.table_sharing.append(next_vendor)
+            self.table_sharing.append(table_share_vendor)
+            return [next_vendor, table_share_vendor]
 
         # check if vendor selected either and if there are max half tables for the section
         if self._is_either_table_choice(next_vendor):
@@ -566,16 +628,37 @@ class MarketAssignment:
                 continue
             if self.vendor_email(vendor) == self.vendor_email(next_vendor):
                 continue
+            if self._spoken_for(vendor, market_date):
+                continue
             if not self._is_full_table_only(vendor):
                 valid_vendors.append(vendor)
 
         return valid_vendors
 
+    def _spoken_for(self, vendor, market_date: MarketDateObject) -> bool:
+        """Is this vendor's other half already promised to somebody who can still take it today?
+
+        Filling a stranger's open half with them would break their pair for the day; a partner who
+        cannot attend that date, or is already seated, leaves them free to fill it.
+        """
+        mate = self.pair_mate(vendor)
+        return mate is not None and self._can_still_sit(mate, market_date)
+
 
     def is_max_half_tables(self, market_date: MarketDateObject, section_object: SectionObject):
         date_key = market_date.date
         section = section_object.name
-        return self.half_tables[date_key][section] / section_object.count >= MAX_HALF_TABLES_PER_SECTION
+        return self.half_tables[date_key][section] / section_object.count >= self._half_table_share()
+
+    def _half_table_share(self) -> float:
+        """The organizer's "max half table proportion per section", or 30% when they named none.
+
+        The plan screen offered the setting and the solver never read it, so every market ran at
+        the hard-coded 30% whatever it said (found while building E27). Unset keeps that 30%.
+        """
+        options = self.setup_object.assignment_options
+        percent = options.max_half_table_proportion_per_section if options else None
+        return MAX_HALF_TABLES_PER_SECTION if percent is None else percent / 100
 
     def assign_table(self, market_date: MarketDateObject, vendor_list, table):
 

@@ -24,9 +24,10 @@ import {
 import { getApiErrorMessage } from '@/utils/api';
 import { asksNothingDistinguishing, reviewAnswers } from '@/utils/reviewQueue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
-import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
+import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
+import TableShareNotice from '@/components/TableShareNotice.vue';
 import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
@@ -315,6 +316,11 @@ function statusChip(status: string): string {
   return `chip chip--${statusTones[status] ?? 'neutral'}`;
 }
 
+/** The applicant's own words in answer to the table-share question, for its notice. */
+function shareWords(app: Application): string {
+  return String(app.formData?.[TABLE_SHARE_ANSWER_KEY] ?? '');
+}
+
 function submittedOn(app: Application): string {
   return getTimestampDate(app.submittedAt);
 }
@@ -397,6 +403,15 @@ function submittedOn(app: Application): string {
           </span>
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
+
+        <!-- Above the answers, never behind the disclosure: it is something to act on (E27). -->
+        <TableShareNotice
+          v-if="current.tableShareNotice"
+          :notice="current.tableShareNotice"
+          :words="shareWords(current)"
+          testid="app-monitor-table-share-notice"
+          class="card-notice"
+        />
 
         <!-- What this market said a reviewer reads first (E19/F03/S01). -->
         <dl v-if="leading.length" class="answers" data-testid="app-monitor-leading">
@@ -702,6 +717,10 @@ function submittedOn(app: Application): string {
   color: var(--mm-black);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.card-notice {
+  margin-bottom: var(--space-3);
 }
 
 .no-answers {

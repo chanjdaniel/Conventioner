@@ -17,6 +17,7 @@ import {
   groupCandidates,
   placementWarnings,
   seatLabel,
+  tableInWords,
   seatWarnings,
   type PlaceableVendor,
   type Seat,
@@ -170,7 +171,7 @@ function label(email: string | null | undefined): string {
 /** A swap partner's table, in words: "Hall B 1, left half" rather than a stored spelling. */
 function whereTheySit(target: SwapTarget): string {
   if (target.seat === FULL_TABLE) return target.tableCode;
-  return `${target.tableCode}, ${target.seat === HALF_TABLE_LEFT ? 'left' : 'right'} half`;
+  return tableInWords(target.tableCode, target.seat);
 }
 </script>
 

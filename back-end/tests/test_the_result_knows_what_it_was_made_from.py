@@ -207,3 +207,18 @@ def test_a_hand_placement_leaves_what_the_run_was_made_from_alone(monkeypatch):
     )
 
     assert "assignmentObject.madeFrom" not in fake.last_update["$set"]
+
+
+def test_a_run_made_before_extra_share_addresses_existed_still_matches():
+    """E27 gave the solver's input the further addresses a table-share answer names. A vendor who
+    named none fingerprints exactly as before, or every stored assignment would read as out of date.
+
+    The literal is what the build before E27 computed for this vendor.
+    """
+    assert MadeFrom.fingerprint(plan(), [vendor()])["applications"] == (
+        "fe3cddcf1025e300d75e0147bf2c4d3412d04d3388c1187b8e417b83a07b093e"
+    )
+
+
+def test_further_share_addresses_are_part_of_what_a_run_was_made_from():
+    assert prints(vendors=[vendor(table_share_also=("pal@example.com",))]) != prints()

@@ -69,8 +69,23 @@ def _plain(value: Any) -> Any:
 def _applications(vendors: List[SolverVendor]) -> List[Dict[str, Any]]:
     """The approved applications as the solver reads them, in one order: by application."""
     return sorted(
-        (_plain(asdict(vendor)) for vendor in vendors), key=lambda vendor: vendor["application_id"]
+        (_plain(_as_fingerprinted(vendor)) for vendor in vendors),
+        key=lambda vendor: vendor["application_id"],
     )
+
+
+# Fields the solver's input gained after runs were already being fingerprinted, with the value
+# that means "nothing". Left out of the fingerprint while they hold it, so a run recorded before
+# the field existed still matches; otherwise every stored assignment would read as out of date.
+_ADDED_SINCE_FINGERPRINTS = {"table_share_also": ()}
+
+
+def _as_fingerprinted(vendor: SolverVendor) -> Dict[str, Any]:
+    fields = asdict(vendor)
+    for name, nothing in _ADDED_SINCE_FINGERPRINTS.items():
+        if fields.get(name) == nothing:
+            del fields[name]
+    return fields
 
 
 def _digest(value: Any) -> str:

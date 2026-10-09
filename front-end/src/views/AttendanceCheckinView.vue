@@ -12,6 +12,7 @@ import { useRoute } from 'vue-router';
 
 import { api } from '@/utils/api';
 import { getFormattedDate, getFormattedTimestamp } from '@/utils/utils';
+import { tableInWords } from '@/utils/placementChange';
 
 interface AssignmentRow {
   date: string;
@@ -280,7 +281,7 @@ async function undoCheckIn(date: string): Promise<void> {
               <span v-if="row.date === today" class="today-pill">Today</span>
             </div>
             <div class="assignment-meta">
-              <div><strong>Table:</strong> {{ row.tableCode }} ({{ row.tableChoice }})</div>
+              <div><strong>Table:</strong> {{ tableInWords(row.tableCode, row.tableChoice) }}</div>
               <div><strong>Section:</strong> {{ row.section }}</div>
               <div><strong>Tier:</strong> {{ row.tier }}</div>
               <div><strong>Location:</strong> {{ row.location }}</div>
