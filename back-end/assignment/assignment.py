@@ -500,7 +500,7 @@ class MarketAssignment:
             TableShare.ShareRequest(
                 email=email,
                 table_choice=vendor.want.table_choice,
-                partner=self._vendor_table_share_email_str(vendor),
+                partners=(self._vendor_table_share_email_str(vendor), *vendor.want.table_share_also),
             )
             for email, vendor in by_email.items()
         )

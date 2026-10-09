@@ -332,7 +332,8 @@ export interface ApplicationForm {
 }
 
 /**
- * Why an application's table-share request pairs nobody (E27/F01/S03), served on the organizer's
+ * Why an application's table-share request pairs nobody (E27/F01/S03), or, for one that stands,
+ * another applicant it named and did not use, served on the organizer's
  * applications list and derived from the market's other applications when read. `address` is the
  * one the request named; there is none when the answer held no address.
  */
@@ -342,7 +343,8 @@ export interface TableShareNotice {
     | 'no_applicant'
     | 'partner_wants_full_table'
     | 'partner_not_accepted'
-    | 'partner_asked_for_someone_else';
+    | 'partner_asked_for_someone_else'
+    | 'another_named_not_used';
   address?: string;
 }
 

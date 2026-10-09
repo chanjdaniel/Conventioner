@@ -85,6 +85,11 @@ TABLE_SHARE_EMAIL_KEY = "essential_table_share_email"
 # is read out of the answer into TABLE_SHARE_EMAIL_KEY and the words are kept here, for the
 # organizer. Not a question of its own: no import column or form field targets it.
 TABLE_SHARE_ANSWER_KEY = "essential_table_share_answer"
+# Any further addresses the answer names, in the order written; TABLE_SHARE_EMAIL_KEY holds the
+# first. Which of them is the partner depends on who applied, so the pairing chooses: the first
+# that belongs to an applicant (the user's ruling on the November 2026 export, where five answers
+# named two addresses).
+TABLE_SHARE_ALSO_KEY = "essential_table_share_also"
 SECTION_RANKING_KEY = "essential_section_ranking"
 TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 
@@ -162,6 +167,7 @@ SOLVER_RELEVANT_KEYS = (
     TIER_PREFERENCE_KEY,
     TABLE_CHOICE_KEY,
     TABLE_SHARE_EMAIL_KEY,
+    TABLE_SHARE_ALSO_KEY,
     SECTION_RANKING_KEY,
     TABLE_TYPE_RANKING_KEY,
 )
@@ -376,9 +382,16 @@ def solver_relevant_change(before: Dict[str, Any], after: Dict[str, Any]) -> boo
     un-approve a market's worth of vendors for nothing.
     """
     for key in SOLVER_RELEVANT_KEYS:
-        if before.get(key) != after.get(key):
+        if _compared(key, before) != _compared(key, after):
             return True
     return False
+
+
+def _compared(key: str, answers: Dict[str, Any]) -> Any:
+    # An application written before the further share addresses were kept holds none of them.
+    if key == TABLE_SHARE_ALSO_KEY:
+        return list(answers.get(key) or [])
+    return answers.get(key)
 
 
 def _unique_names(values: Any) -> List[str]:
@@ -844,13 +857,18 @@ def _store_table_share_email(
     stored.update(table_share_answers(incoming.get(TABLE_SHARE_EMAIL_KEY) if options.dates else None))
 
 
-def table_share_answers(raw: Any) -> Dict[str, str]:
-    """A table-share answer as it is stored: the address the solver pairs on, read out of the
-    applicant's words, and the words, which the organizer reads. The write and its migration
-    (``migrations/migrate_table_share_answer.py``) both store exactly this.
+def table_share_answers(raw: Any) -> Dict[str, Any]:
+    """A table-share answer as it is stored: the addresses the solver pairs on, read out of the
+    applicant's words in the order written, and the words, which the organizer reads. The write
+    and its migration (``migrations/migrate_table_share_answer.py``) both store exactly this.
     """
     answer = str(raw).strip() if raw is not None else ""
-    return {TABLE_SHARE_EMAIL_KEY: partner_address(answer), TABLE_SHARE_ANSWER_KEY: answer}
+    addresses = partner_addresses(answer)
+    return {
+        TABLE_SHARE_EMAIL_KEY: addresses[0] if addresses else "",
+        TABLE_SHARE_ALSO_KEY: addresses[1:],
+        TABLE_SHARE_ANSWER_KEY: answer,
+    }
 
 
 def answered_table_share(form_data: Dict[str, Any]) -> bool:
@@ -868,14 +886,17 @@ def answered_table_share(form_data: Dict[str, Any]) -> bool:
 _ADDRESS_IN_TEXT = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 
 
-def partner_address(answer: Any) -> str:
-    """The one address in a table-share answer, lowercased, or "" when it holds none or several.
+def partner_addresses(answer: Any) -> List[str]:
+    """Every address in a table-share answer, lowercased, once each, in the order written.
 
     Lowercased because applicant addresses are stored lowercased at import, and the pairing
-    compares the two. Several distinct addresses name nobody in particular, so they name nobody.
+    compares the two.
     """
-    found = {match.lower() for match in _ADDRESS_IN_TEXT.findall(str(answer or ""))}
-    return found.pop() if len(found) == 1 else ""
+    found: List[str] = []
+    for match in _ADDRESS_IN_TEXT.findall(str(answer or "")):
+        if match.lower() not in found:
+            found.append(match.lower())
+    return found
 
 
 def _validate_ranking(

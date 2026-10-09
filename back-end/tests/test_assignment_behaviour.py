@@ -44,7 +44,7 @@ class VendorWant:
     """
 
     def __init__(self, email, available, tiers, table_choice="full",
-                 share_with="", max_days=None, sections=()):
+                 share_with="", max_days=None, sections=(), share_also=()):
         self.email = email
         self.available = list(available)
         self.tiers = tiers
@@ -52,6 +52,7 @@ class VendorWant:
         self.share_with = share_with
         self.max_days = max_days
         self.sections = tuple(sections)
+        self.share_also = tuple(share_also)
 
     def tiers_by_date(self):
         """Tier is answered per date. A flat list means the same answer on every available date."""
@@ -68,6 +69,7 @@ class VendorWant:
             accepted_tiers_by_date=self.tiers_by_date(),
             table_choice=self.table_choice,
             table_share_email=self.share_with or None,
+            table_share_also=self.share_also,
             section_ranking=self.sections,
             table_type_ranking=(),
         )
@@ -462,6 +464,35 @@ class TestATableShareRequest:
             partners |= {p[0] for p in placements(market)
                          if p[1] == date and p[2] == table and p[0] != "b-named@example.com"}
         assert len(partners) == 1
+
+    def test_of_several_addresses_the_first_that_belongs_to_an_applicant_is_the_partner(self):
+        """A personal address nobody applied with, then the partner's own: the partner is found."""
+        market = assign([
+            VendorWant("a-asker@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="personal@example.com",
+                       share_also=["c-named@example.com"]),
+            VendorWant("b-filler@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+            VendorWant("c-named@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+        ])
+
+        assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
+                == seat_of(market, "c-named@example.com", DATES[0])[0])
+
+    def test_when_two_applicants_are_named_the_first_is_the_partner(self):
+        market = assign([
+            VendorWant("a-asker@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="d-first@example.com",
+                       share_also=["b-second@example.com"]),
+            VendorWant("b-second@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+            VendorWant("d-first@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+        ], section_counts=((GOLD, 2),))
+
+        assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
+                == seat_of(market, "d-first@example.com", DATES[0])[0])
 
     def test_a_pair_of_either_choosers_keeps_to_the_half_table_share(self):
         """With no half tables allowed, two who would take either get a whole table each."""
@@ -1458,27 +1489,33 @@ class TestTheSolverWorksAroundPins:
         assert dates_for(market, "pinned@example.com") == [DATES[0]]
 
     def test_a_half_table_pin_counts_against_the_sections_half_table_proportion(self):
-        """A pinned half is a real half on a real date, so the cap has to see it."""
+        """A pinned half is a real half on a real date, so the cap has to see it.
+
+        Three tables at a 30% share: the pinned half alone is a third of them, so the cap is met.
+        The first "either" vendor takes the pin's open half, which splits no new table; the other
+        two would share a table under a looser cap, and here each gets a whole one.
+        """
         market = assign(
             [
                 VendorWant("pinned@example.com", available=[DATES[0]], tiers=[GOLD],
                            table_choice="half"),
-                VendorWant("either@example.com", available=[DATES[0]], tiers=[GOLD],
-                           table_choice="either"),
+                *(VendorWant(f"either-{n}@example.com", available=[DATES[0]], tiers=[GOLD],
+                             table_choice="either") for n in (1, 2, 3)),
             ],
             pins=[
                 pin("pinned@example.com", DATES[0], f"Section {GOLD} 1", "Half Table (Left)")
             ],
             section_counts=((GOLD, 3),),
-            half_proportion=100,
+            half_proportion=30,
         )
 
-        # The pinned half is one of the section's half tables; with the cap already met by it,
-        # the "either" vendor is given a whole table rather than another half.
         assert seat_of(market, "pinned@example.com", DATES[0]) == (
             f"Section {GOLD} 1",
             "Half Table (Left)",
         )
+        assert seat_of(market, "either-1@example.com", DATES[0])[0] == f"Section {GOLD} 1"
+        assert seat_of(market, "either-2@example.com", DATES[0])[1] == "Full Table"
+        assert seat_of(market, "either-3@example.com", DATES[0])[1] == "Full Table"
 
     def test_the_open_half_of_a_pinned_table_can_still_be_filled(self):
         """A pin takes one seat, not the table. The other half must stay usable.

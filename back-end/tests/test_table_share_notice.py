@@ -11,7 +11,7 @@ from datatypes import ApplicationStatus
 MARKET = "market-1"
 
 
-def application(email, table_choice="half", answer="", address=None, market=MARKET):
+def application(email, table_choice="half", answer="", address=None, market=MARKET, also=()):
     """An application as the write stores it: the words, and the address read out of them."""
     return {
         "id": f"app-{email}",
@@ -22,6 +22,7 @@ def application(email, table_choice="half", answer="", address=None, market=MARK
             "essential_table_choice": table_choice,
             "essential_table_share_answer": answer,
             "essential_table_share_email": answer.lower() if address is None else address,
+            "essential_table_share_also": list(also),
         },
         "status": ApplicationStatus.OPEN.value,
         "application_type": "main",
@@ -134,3 +135,28 @@ def test_a_request_stands_when_the_one_it_names_cannot_have_their_own(applicatio
     assert served["a@example.com"] is None
     assert served["b@example.com"]["reason"] == "partner_asked_for_someone_else"
     assert served["c@example.com"] is None
+
+
+def test_an_address_nobody_applied_with_before_the_partners_own_pairs_quietly(applications):
+    served = notices(
+        applications,
+        application("ana@example.com", answer="ana.home@example.com, bo@example.com",
+                    address="ana.home@example.com", also=["bo@example.com"]),
+        application("bo@example.com"),
+    )
+
+    assert served["ana@example.com"] is None
+
+
+def test_a_second_applicant_named_says_they_were_not_used(applications):
+    served = notices(
+        applications,
+        application("ana@example.com", answer="bo@example.com, cy@example.com",
+                    address="bo@example.com", also=["cy@example.com"]),
+        application("bo@example.com"),
+        application("cy@example.com"),
+    )
+
+    assert served["ana@example.com"] == {
+        "reason": "another_named_not_used", "address": "cy@example.com",
+    }

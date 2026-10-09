@@ -276,6 +276,7 @@ class TestValidatedEssentialAnswers:
             "essential_table_choice": None,
             "essential_table_share_email": "",
             "essential_table_share_answer": "",
+            "essential_table_share_also": [],
             "essential_section_ranking": [],
             "essential_table_type_ranking": [],
         }
@@ -504,10 +505,16 @@ class TestThePartnersAddressIsReadAtTheWrite:
         assert stored["essential_table_share_email"] == ""
         assert stored["essential_table_share_answer"] == answer
 
-    def test_two_different_addresses_name_no_partner(self):
-        stored = self._stored("buddy@example.com or pal@example.com")
+    def test_every_address_is_kept_in_the_order_written(self):
+        """Which one is the partner depends on who applied, so the write keeps them all
+        (the user's ruling on the November file: the first that belongs to an applicant)."""
+        stored = self._stored("Buddy@example.com or pal@example.com")
 
-        assert stored["essential_table_share_email"] == ""
+        assert stored["essential_table_share_email"] == "buddy@example.com"
+        assert stored["essential_table_share_also"] == ["pal@example.com"]
+
+    def test_one_address_leaves_nothing_else(self):
+        assert self._stored("buddy@example.com")["essential_table_share_also"] == []
 
     def test_the_same_address_twice_is_one_partner(self):
         stored = self._stored("buddy@example.com (Buddy@example.com)")
@@ -900,6 +907,6 @@ class TestWhichQuestionsAnOfferingAsks:
 
         assert EssentialFields.FULL_NAME_KEY in required
         assert EssentialFields.FULL_NAME_KEY not in solver
-        assert required | {EssentialFields.TABLE_SHARE_EMAIL_KEY} == solver | {
-            EssentialFields.FULL_NAME_KEY
-        }
+        # The table-share addresses are solver-read and never required (E27 split them in two).
+        share = {EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_ALSO_KEY}
+        assert required | share == solver | {EssentialFields.FULL_NAME_KEY}

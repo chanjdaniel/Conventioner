@@ -20,12 +20,16 @@ class FakeApplications:
     def find(self, query):
         assert query == {
             "form_data.essential_table_share_email": {"$exists": True},
-            "form_data.essential_table_share_answer": {"$exists": False},
+            "$or": [
+                {"form_data.essential_table_share_answer": {"$exists": False}},
+                {"form_data.essential_table_share_also": {"$exists": False}},
+            ],
         }
         return [
             copy.deepcopy(doc) for doc in self.docs
             if "essential_table_share_email" in doc["form_data"]
-            and "essential_table_share_answer" not in doc["form_data"]
+            and not {"essential_table_share_answer", "essential_table_share_also"}
+            <= doc["form_data"].keys()
         ]
 
     def update_one(self, query, update):
@@ -88,7 +92,8 @@ def test_a_migrated_application_matches_what_the_write_stores_now():
         limit_required=False,
     )
     assert error is None
-    for key in ("essential_table_share_email", "essential_table_share_answer"):
+    for key in ("essential_table_share_email", "essential_table_share_answer",
+                "essential_table_share_also"):
         assert form_data(db, 1)[key] == written[key]
 
 
@@ -118,3 +123,12 @@ def test_only_the_table_share_answer_is_touched():
     migrate(db)
 
     assert form_data(db, 1)["essential_full_name"] == "Ana Rivera"
+
+
+def test_every_address_in_the_words_is_kept():
+    db = database(application(1, "Buddy@Example.com, pal@example.com"))
+
+    migrate(db)
+
+    assert form_data(db, 1)["essential_table_share_email"] == "buddy@example.com"
+    assert form_data(db, 1)["essential_table_share_also"] == ["pal@example.com"]

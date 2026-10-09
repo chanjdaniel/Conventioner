@@ -290,10 +290,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   exist and accept a half table, one-way is enough, and a person's own request outranks one about
   them. The solver seats pairs by it and the organizer's applications list serves
   `tableShareNotice` (derived on read, never stored) by it; do not restate it beside either.
-  The write (`essential_fields.partner_address`) reads the one address out of the applicant's
-  words into `essential_table_share_email`, lowercased, and keeps the words in
-  `essential_table_share_answer`; `migrations/migrate_table_share_answer.py` brings stored
-  applications into that shape.
+  The write (`essential_fields.table_share_answers`) reads every address out of the applicant's
+  words, lowercased and in order (the first in `essential_table_share_email`, the rest in
+  `essential_table_share_also`), and keeps the words in `essential_table_share_answer`; the
+  pairing takes the first that belongs to an applicant. `migrations/migrate_table_share_answer.py`
+  brings stored applications into that shape. A field added to `SolverVendor` changes every
+  assignment fingerprint unless `made_from._ADDED_SINCE_FINGERPRINTS` names it.
 - **The half-table share is the organizer's `max_half_table_proportion_per_section`**, 30% when
   unset. The solver ignored the setting until E27 and ran every market at a hard-coded 30%. It
   bounds only vendors who chose Either; a Half chooser is always seated on a half.

@@ -5,7 +5,7 @@ The question asks for "the exact email address they submitted", and real answers
 in a sentence or type it in other case. It used to be stored as typed under
 ``essential_table_share_email``, and the solver compared that text with applicants' addresses, so
 those answers paired nobody. The write now reads the address out of the answer
-(``essential_fields.partner_address``) and keeps the words beside it, under
+(``essential_fields.partner_addresses``) and keeps the words beside it, under
 ``essential_table_share_answer``.
 
 The answer is solver-relevant, so an application left in the old shape would read as changed on
@@ -15,7 +15,8 @@ This rewrites each one exactly as the write would have stored it.
 **No boot marker**, for the reason ``migrate_submitted_at_to_iso.py`` gives: an unmigrated answer
 fails visibly (the organizer is shown a request that pairs nobody), not invisibly.
 
-Safe to run repeatedly: an application that already holds the words is left alone.
+Safe to run repeatedly: an application already in this shape is left alone. An application written
+between the two halves of E27 (words kept, further addresses not) is re-read from its words.
 
 Usage:
     docker compose run --rm backend python migrations/migrate_table_share_answer.py [--dry-run]
@@ -26,7 +27,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from essential_fields import (  # noqa: E402
-    TABLE_SHARE_ANSWER_KEY, TABLE_SHARE_EMAIL_KEY, table_share_answers,
+    TABLE_SHARE_ALSO_KEY, TABLE_SHARE_ANSWER_KEY, TABLE_SHARE_EMAIL_KEY, table_share_answers,
 )
 
 
@@ -40,9 +41,15 @@ def migrate(db=None, dry_run: bool = False) -> int:
     changed = 0
     for doc in applications.find({
         f"form_data.{TABLE_SHARE_EMAIL_KEY}": {"$exists": True},
-        f"form_data.{TABLE_SHARE_ANSWER_KEY}": {"$exists": False},
+        "$or": [
+            {f"form_data.{TABLE_SHARE_ANSWER_KEY}": {"$exists": False}},
+            {f"form_data.{TABLE_SHARE_ALSO_KEY}": {"$exists": False}},
+        ],
     }):
-        rewritten = table_share_answers(doc["form_data"].get(TABLE_SHARE_EMAIL_KEY))
+        answers = doc["form_data"]
+        # The words where they were kept; before that, the answer as typed sat in the address field.
+        words = answers.get(TABLE_SHARE_ANSWER_KEY, answers.get(TABLE_SHARE_EMAIL_KEY))
+        rewritten = table_share_answers(words)
         changed += 1
         # The id, never the address: this prints to an operator's terminal.
         found = "found" if rewritten[TABLE_SHARE_EMAIL_KEY] else "none"

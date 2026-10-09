@@ -32,6 +32,8 @@ const WORDING: Record<Reason, (address: string, words: string) => string> = {
     `${address} was not accepted for this market, so the two will not share a table.`,
   partner_asked_for_someone_else: (address) =>
     `${address} asked to share with someone else, and their own request comes first.`,
+  another_named_not_used: (address) =>
+    `Their answer also names ${address}, who applied too. Only the first applicant named is used.`,
 };
 
 const text = computed(() =>

@@ -28,13 +28,20 @@ const REQUESTS: Record<string, [string, string, string]> = {
   'di@share.test': ['ghost@share.test', 'ghost@share.test', 'half'],
   'ed@share.test': ['fy@share.test', 'fy@share.test', 'half'],
   'fy@share.test': ['', '', 'full'],
+  // Two applicants named: the first is the partner, and the second is said not to be used.
+  'gy@share.test': ['hy@share.test or cy@share.test', 'hy@share.test', 'half'],
+  'hy@share.test': ['', '', 'half'],
 };
+
+/** Further addresses an answer named, as the write stores them. */
+const ALSO: Record<string, string[]> = { 'gy@share.test': ['cy@share.test'] };
 
 const NOTICES: Record<string, string | null> = {
   'ana@share.test': null,
   'cy@share.test': 'Their answer, "my friend Sam", has no email address in it',
   'di@share.test': 'Nobody else in this market applied as ghost@share.test',
   'ed@share.test': 'fy@share.test asked for a full table',
+  'gy@share.test': 'Their answer also names cy@share.test, who applied too',
 };
 
 function shareAnswers(email: string): Record<string, unknown> {
@@ -43,6 +50,7 @@ function shareAnswers(email: string): Record<string, unknown> {
     essential_table_choice: choice,
     essential_table_share_answer: words,
     essential_table_share_email: address,
+    essential_table_share_also: ALSO[email] ?? [],
   };
 }
 
@@ -135,7 +143,10 @@ test.describe('A table-share request that pairs nobody is shown', () => {
         tiers: ['Gold'],
         tableChoice: REQUESTS[email][2],
         shareWith: REQUESTS[email][1],
-        extra: { essential_table_share_answer: REQUESTS[email][0] },
+        extra: {
+          essential_table_share_answer: REQUESTS[email][0],
+          essential_table_share_also: ALSO[email] ?? [],
+        },
       });
     }
     const run = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/assignment`, {
