@@ -38,3 +38,6 @@ The original answer read "the one address in the answer", which paired all 5 wit
 Decided with the user: **the first address that belongs to an applicant is the partner**, even when both do, and the notice says the other applicant named was not used.
 The write keeps every address in the order written; the choice is made when pairs are read, because who applied can change after the answer is saved.
 
+Also decided with the user during the rehearsal: **the half-table share never blocks a pair.** Pairs are exceptions to it; the share still bounds everyone who chose either and has no partner.
+It surfaced as two pairs split on 18 November, when Gold had used its share and the either chooser of each pair was given a whole table.
+

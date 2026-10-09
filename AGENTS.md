@@ -297,8 +297,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   brings stored applications into that shape. A field added to `SolverVendor` changes every
   assignment fingerprint unless `made_from._ADDED_SINCE_FINGERPRINTS` names it.
 - **The half-table share is the organizer's `max_half_table_proportion_per_section`**, 30% when
-  unset. The solver ignored the setting until E27 and ran every market at a hard-coded 30%. It
-  bounds only vendors who chose Either; a Half chooser is always seated on a half.
+  unset, and blank on the plan screen runs it. The solver ignored the setting until E27 and ran
+  every market at a hard-coded 30%. It bounds only vendors who chose Either and have no partner:
+  a Half chooser is always seated on a half, and a table-share pair is an exception to it.
 - **`max_assignments_per_vendor` is the only ceiling.** The hard-coded `MAX_VENDING_DAYS = 4` is
   gone. Unset means the organizer named no ceiling; there is no hidden default.
 - **Placement is vendor-driven.** `assign()` walks vendors in priority order and gives each the
