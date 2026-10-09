@@ -1523,6 +1523,12 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
         plan = SetupObject(**convert_keys_to_snake_case(body["setupObject"]))
     except ValidationError as e:
         raise ValueError(f"Invalid plan: {e}") from e
+    share = plan.assignment_options.max_half_table_proportion_per_section
+    if share is not None and not 0 <= share <= 100:
+        raise ValueError(
+            "max_half_table_proportion_per_section must be between 0 and 100, or null for the "
+            "default."
+        )
     update: Dict[str, Any] = {market_doc_key("setup_object"): convert_keys_to_camel_case(plan.model_dump())}
 
     if body.get("intakeMode") is not None:

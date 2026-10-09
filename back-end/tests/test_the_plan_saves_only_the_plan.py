@@ -123,6 +123,34 @@ def test_a_malformed_plan_is_refused(market):
     assert collection.last_update is None
 
 
+@pytest.mark.parametrize("share", [-1, 101])
+def test_a_half_table_proportion_out_of_range_is_refused(market, share):
+    collection = market()
+
+    plan = {
+        **PLAN,
+        "assignmentOptions": {"maxHalfTableProportionPerSection": share},
+    }
+    with pytest.raises(ValueError, match="0 and 100"):
+        MarketsApi.save_plan("market-123", {"setupObject": plan}, "user-1")
+
+    assert collection.last_update is None
+
+
+@pytest.mark.parametrize("share", [0, 100, None])
+def test_a_half_table_proportion_in_range_or_blank_saves(market, share):
+    collection = market()
+
+    plan = {
+        **PLAN,
+        "assignmentOptions": {"maxHalfTableProportionPerSection": share},
+    }
+    MarketsApi.save_plan("market-123", {"setupObject": plan}, "user-1")
+
+    written = collection.last_update["$set"]["setupObject"]["assignmentOptions"]
+    assert written["maxHalfTableProportionPerSection"] == share
+
+
 # The assignment rules close with the assignment (E22/F02/S01). A rule only takes effect when the
 # assignment runs, and once a market has left `assignment` it can never run again - so a changed
 # rule there would change nothing while reading as though it had. Listed here rather than derived,
