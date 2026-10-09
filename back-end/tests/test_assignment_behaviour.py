@@ -494,18 +494,57 @@ class TestATableShareRequest:
         assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
                 == seat_of(market, "d-first@example.com", DATES[0])[0])
 
-    def test_a_pair_of_either_choosers_keeps_to_the_half_table_share(self):
-        """With no half tables allowed, two who would take either get a whole table each."""
+    def test_a_pair_of_either_choosers_shares_in_a_section_still_under_the_half_table_share(self):
+        """Found on the November 2026 rehearsal: Gold had used its half tables, so the first of the
+        pair took a whole Gold table and the second ended up beside a stranger."""
+        market = assign([
+            VendorWant("a-half@example.com", available=[DATES[0]], tiers=[GOLD], table_choice="half"),
+            VendorWant("b-half@example.com", available=[DATES[0]], tiers=[GOLD], table_choice="half"),
+            VendorWant("c-either@example.com", available=[DATES[0]], tiers=[GOLD, SILVER],
+                       table_choice="either", share_with="d-either@example.com"),
+            VendorWant("d-either@example.com", available=[DATES[0]], tiers=[GOLD, SILVER],
+                       table_choice="either", share_with="c-either@example.com"),
+        ], section_counts=((GOLD, 3), (SILVER, 3)), half_proportion=30)
+
+        assert (seat_of(market, "c-either@example.com", DATES[0])[0]
+                == seat_of(market, "d-either@example.com", DATES[0])[0])
+
+    def test_a_half_chooser_and_the_either_chooser_they_named_share_whoever_is_reached_first(self):
+        """Found on the November 2026 rehearsal. A half chooser is always seated on a half, so their
+        table is split whatever the half-table share says; reaching the either chooser first must
+        not give them a whole table and leave the half chooser beside a stranger."""
+        market = assign([
+            VendorWant("a-half@example.com", available=[DATES[0]], tiers=[GOLD], table_choice="half"),
+            VendorWant("b-half@example.com", available=[DATES[0]], tiers=[GOLD], table_choice="half"),
+            VendorWant("c-either@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="either"),
+            VendorWant("d-half@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="c-either@example.com"),
+            VendorWant("e-half@example.com", available=[DATES[0]], tiers=[GOLD], table_choice="half"),
+        ], section_counts=((GOLD, 3),), half_proportion=30)
+
+        assert (seat_of(market, "c-either@example.com", DATES[0])[0]
+                == seat_of(market, "d-half@example.com", DATES[0])[0])
+
+    def test_the_half_table_share_never_stops_a_pair_from_sharing(self):
+        """A pair is an exception to the share (the user's ruling during the November 2026
+        rehearsal): with no half tables allowed at all, two who asked to share still do."""
         market = assign([
             VendorWant("a-asker@example.com", available=[DATES[0]], tiers=[GOLD],
                        table_choice="either", share_with="b-named@example.com"),
             VendorWant("b-named@example.com", available=[DATES[0]], tiers=[GOLD],
                        table_choice="either"),
-        ], half_proportion=0)
+            VendorWant("c-either@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="either"),
+            VendorWant("d-either@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="either"),
+        ], section_counts=((GOLD, 3),), half_proportion=0)
 
-        assert seat_of(market, "a-asker@example.com", DATES[0])[1] == "Full Table"
-        assert seat_of(market, "b-named@example.com", DATES[0])[1] == "Full Table"
-
+        assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
+                == seat_of(market, "b-named@example.com", DATES[0])[0])
+        # Everyone else still keeps to it.
+        assert seat_of(market, "c-either@example.com", DATES[0])[1] == "Full Table"
+        assert seat_of(market, "d-either@example.com", DATES[0])[1] == "Full Table"
 
 class TestCapacity:
     def test_no_more_vendors_are_placed_than_there_are_tables(self):

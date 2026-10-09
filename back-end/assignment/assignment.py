@@ -598,18 +598,19 @@ class MarketAssignment:
         if self._is_full_table_only(next_vendor):
             return [next_vendor, next_vendor]
 
-        # check if vendor selected either and if there are max half tables for the section
-        if self._is_either_table_choice(next_vendor):
-            if self.is_max_half_tables(market_date, table.section):
-                return [next_vendor, next_vendor]
-
         # Whoever this vendor is to share with, by their own request or by someone else's naming
-        # them - after the half-table share above, which holds for a pair as for anyone.
+        # them. A pair is an exception to the half-table share (the user's ruling during the
+        # November 2026 rehearsal): it never stops two people who asked to share from sharing.
         table_share_vendor = self.pair_mate(next_vendor)
         if self.is_valid_vendor(table_share_vendor, market_date, table):
             self.table_sharing.append(next_vendor)
             self.table_sharing.append(table_share_vendor)
             return [next_vendor, table_share_vendor]
+
+        # check if vendor selected either and if there are max half tables for the section
+        if self._is_either_table_choice(next_vendor):
+            if self.is_max_half_tables(market_date, table.section):
+                return [next_vendor, next_vendor]
 
         # half table, loop to find next vendor for other half
         valid_vendors = [next_vendor]

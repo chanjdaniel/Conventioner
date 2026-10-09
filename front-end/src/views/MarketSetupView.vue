@@ -128,8 +128,10 @@ const assignmentOptionsComplete = computed(() => {
     return false;
   }
 
+  // Blank is the solver's 30% (E27), as blank is "no ceiling" above; only a value out of range
+  // stops the run.
   const halfProp = parseFiniteNumber(ao.maxHalfTableProportionPerSection);
-  if (halfProp === null || halfProp < 0 || halfProp > 100) return false;
+  if (halfProp !== null && (halfProp < 0 || halfProp > 100)) return false;
 
   return true;
 });

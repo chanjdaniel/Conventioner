@@ -58,3 +58,42 @@ test('a blank ceiling runs with no ceiling, and both options are named fields', 
   expect(market.setupObject.assignmentOptions.maxAssignmentsPerVendor).toBeNull();
   expect(market.assignmentObject.vendorAssignments?.length).toBeGreaterThan(0);
 });
+
+/**
+ * A blank half-table share runs at 30%, the solver's default (found on the November 2026
+ * rehearsal). The plan screen says "Leave blank for 30%", and Assign stayed disabled with "Set the
+ * half table proportion above" - the gate predated the solver reading the setting at all.
+ */
+test('a blank half-table share runs at the 30% default', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedAssignedMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { run: false },
+  );
+  await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
+    priority: [],
+    marketDates: [{ date: SEED_MARKET_DATE }],
+    tiers: [{ id: 1, name: 'Gold' }],
+    locations: [{ name: 'Main Hall' }],
+    sections: [
+      { name: 'Hall A', location: { name: 'Main Hall' }, tier: { id: 1, name: 'Gold' }, count: 5 },
+    ],
+    assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
+  });
+
+  await page.goto(marketSetupPath(marketId, 'assignment'));
+  const halves = page.getByRole('spinbutton', { name: /Max half table proportion/ });
+  await expect(halves).toHaveValue('');
+  await expect(halves).toHaveAttribute('placeholder', '30% (default)');
+  await expect(page.getByTestId('market-setup-assign-hint')).toHaveCount(0);
+
+  const run = page.getByTestId('market-setup-assign-button');
+  await expect(run).toBeEnabled();
+  await run.click();
+  await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/result$`), { timeout: 15000 });
+});
