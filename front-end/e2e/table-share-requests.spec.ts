@@ -32,9 +32,9 @@ const REQUESTS: Record<string, [string, string, string]> = {
 
 const NOTICES: Record<string, string | null> = {
   'ana@share.test': null,
-  'cy@share.test': 'There is no email address in their answer',
+  'cy@share.test': 'Their answer, "my friend Sam", has no email address in it',
   'di@share.test': 'Nobody else in this market applied as ghost@share.test',
-  'ed@share.test': 'fy@share.test asked for a whole table',
+  'ed@share.test': 'fy@share.test asked for a full table',
 };
 
 function shareAnswers(email: string): Record<string, unknown> {

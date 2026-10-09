@@ -340,27 +340,35 @@ def list_market_applications(market_id: str) -> Tuple[Dict[str, Any], int]:
 
     # Whether each table-share request can be met depends on the market's other applications, so
     # it is derived here, where all of them are in hand, and never stored (E27/F01/S03).
-    unpaired = TableShare.why_unpaired({
-        app.applicant_email.strip().lower(): _share_request(app) for app in parsed
-    })
-    result = [
-        {**_application_response_organizer(app),
-         "tableShareNotice": unpaired[app.applicant_email.strip().lower()]}
-        for app in parsed
-    ]
+    unpaired = TableShare.why_unpaired(
+        [_share_request(app) for app in parsed],
+        answered={
+            app.applicant_email for app in parsed
+            if EssentialFields.answered_table_share(app.form_data or {})
+        },
+    )
+    result = []
+    for app in parsed:
+        notice = unpaired.get(app.applicant_email)
+        result.append({
+            **_application_response_organizer(app),
+            "tableShareNotice": notice.as_payload() if notice else None,
+        })
     return {"applications": result}, 200
 
 
 def _share_request(app: Application) -> TableShare.ShareRequest:
     answers = app.form_data or {}
     return TableShare.ShareRequest(
+        email=app.applicant_email,
         table_choice=answers.get(EssentialFields.TABLE_CHOICE_KEY),
         partner=str(answers.get(EssentialFields.TABLE_SHARE_EMAIL_KEY) or ""),
-        answered=bool(str(
-            answers.get(EssentialFields.TABLE_SHARE_ANSWER_KEY)
-            or answers.get(EssentialFields.TABLE_SHARE_EMAIL_KEY) or ""
-        ).strip()),
+        taking_part=app.status not in _NOT_TAKING_PART,
     )
+
+
+# Applications nobody will be seated from: the solver reads approved ones, and these never will be.
+_NOT_TAKING_PART = (ApplicationStatus.REVIEWER_REJECTED, ApplicationStatus.CANCELLED)
 
 
 def review_application(

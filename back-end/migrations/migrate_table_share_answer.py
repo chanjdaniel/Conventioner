@@ -26,7 +26,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from essential_fields import (  # noqa: E402
-    TABLE_SHARE_ANSWER_KEY, TABLE_SHARE_EMAIL_KEY, partner_address,
+    TABLE_SHARE_ANSWER_KEY, TABLE_SHARE_EMAIL_KEY, table_share_answers,
 )
 
 
@@ -42,15 +42,14 @@ def migrate(db=None, dry_run: bool = False) -> int:
         f"form_data.{TABLE_SHARE_EMAIL_KEY}": {"$exists": True},
         f"form_data.{TABLE_SHARE_ANSWER_KEY}": {"$exists": False},
     }):
-        raw = doc["form_data"].get(TABLE_SHARE_EMAIL_KEY)
-        answer = str(raw).strip() if raw is not None else ""
+        rewritten = table_share_answers(doc["form_data"].get(TABLE_SHARE_EMAIL_KEY))
         changed += 1
         # The id, never the address: this prints to an operator's terminal.
-        print(f"  - application {doc.get('id')}: partner {'found' if partner_address(answer) else 'none'}")
+        found = "found" if rewritten[TABLE_SHARE_EMAIL_KEY] else "none"
+        print(f"  - application {doc.get('id')}: partner {found}")
         if not dry_run:
             applications.update_one({"_id": doc["_id"]}, {"$set": {
-                f"form_data.{TABLE_SHARE_EMAIL_KEY}": partner_address(answer),
-                f"form_data.{TABLE_SHARE_ANSWER_KEY}": answer,
+                f"form_data.{key}": value for key, value in rewritten.items()
             }})
 
     verb = "would rewrite" if dry_run else "rewrote"

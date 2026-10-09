@@ -449,8 +449,14 @@ class MarketAssignment:
     def is_valid_vendor(self, vendor, market_date: MarketDateObject, table):
         return (
             vendor is not None
-            and vendor.is_available_on(market_date)
+            and self._can_still_sit(vendor, market_date)
             and vendor.accepts_tier(market_date, table.tier)
+        )
+
+    def _can_still_sit(self, vendor, market_date: MarketDateObject) -> bool:
+        """Could this vendor still be seated somewhere on this date, whatever the table?"""
+        return (
+            vendor.is_available_on(market_date)
             and not self.is_vendor_max_assigned(vendor)
             and not vendor.is_date_assigned(market_date)
         )
@@ -473,13 +479,16 @@ class MarketAssignment:
 
         One-way is enough. The vendor named may be reached first, before whoever asked for them,
         so a request is honoured from either end rather than only when the asker is placed. When
-        several name the same vendor, the one the placement order reaches first is their mate.
+        several name the same vendor, the earliest of them to apply is their mate.
         """
         own = self._requests_in_force.get(self.vendor_email(vendor))
         if own is not None:
             return own
         askers = self._requested_by.get(self.vendor_email(vendor))
-        return min(askers, key=self.vendors.index) if askers else None
+        # The same one on every date, whoever the day's order reaches first: the earliest to apply.
+        return min(askers, key=lambda asker: (
+            asker.want.submitted_at or "", self.vendor_email(asker),
+        )) if askers else None
 
     def _table_share_requests(self):
         """Every request in force, as ``asker email -> named``, and its inverse.
@@ -487,13 +496,14 @@ class MarketAssignment:
         The rule is ``table_share``'s, the same one the organizer's review screen reads.
         """
         by_email = {self.vendor_email(vendor): vendor for vendor in self.vendors}
-        in_force = TableShare.requests_in_force({
-            email: TableShare.ShareRequest(
+        in_force = TableShare.requests_in_force(
+            TableShare.ShareRequest(
+                email=email,
                 table_choice=vendor.want.table_choice,
                 partner=self._vendor_table_share_email_str(vendor),
             )
             for email, vendor in by_email.items()
-        })
+        )
         requested_by = defaultdict(list)
         for asker, named in in_force.items():
             requested_by[named].append(by_email[asker])
@@ -547,8 +557,11 @@ class MarketAssignment:
         mate = self.pair_mate(vendor) if self._spoken_for(vendor, market_date) else None
 
         def apart(table) -> int:
-            if mate is None or table.assignment:
+            if mate is None:
                 return 0
+            # A half already taken, by a pin, would seat them beside a stranger.
+            if table.assignment:
+                return 1
             return 0 if self.is_valid_vendor(mate, market_date, table) else 1
 
         # Stable within a rank, so the table order still decides among equally-preferred tables
@@ -581,13 +594,6 @@ class MarketAssignment:
         if table.assignment:
             return [next_vendor]
 
-        # Whoever this vendor is to share with, by their request or by someone else's naming them.
-        table_share_vendor = self.pair_mate(next_vendor)
-        if self.is_valid_vendor(table_share_vendor, market_date, table):
-            self.table_sharing.append(next_vendor)
-            self.table_sharing.append(table_share_vendor)
-            return [next_vendor, table_share_vendor]
-
         # check if vendor selected full table only
         if self._is_full_table_only(next_vendor):
             return [next_vendor, next_vendor]
@@ -596,6 +602,14 @@ class MarketAssignment:
         if self._is_either_table_choice(next_vendor):
             if self.is_max_half_tables(market_date, table.section):
                 return [next_vendor, next_vendor]
+
+        # Whoever this vendor is to share with, by their own request or by someone else's naming
+        # them - after the half-table share above, which holds for a pair as for anyone.
+        table_share_vendor = self.pair_mate(next_vendor)
+        if self.is_valid_vendor(table_share_vendor, market_date, table):
+            self.table_sharing.append(next_vendor)
+            self.table_sharing.append(table_share_vendor)
+            return [next_vendor, table_share_vendor]
 
         # half table, loop to find next vendor for other half
         valid_vendors = [next_vendor]
@@ -620,18 +634,23 @@ class MarketAssignment:
         cannot attend that date, or is already seated, leaves them free to fill it.
         """
         mate = self.pair_mate(vendor)
-        return (
-            mate is not None
-            and mate.is_available_on(market_date)
-            and not mate.is_date_assigned(market_date)
-            and not self.is_vendor_max_assigned(mate)
-        )
+        return mate is not None and self._can_still_sit(mate, market_date)
 
 
     def is_max_half_tables(self, market_date: MarketDateObject, section_object: SectionObject):
         date_key = market_date.date
         section = section_object.name
-        return self.half_tables[date_key][section] / section_object.count >= MAX_HALF_TABLES_PER_SECTION
+        return self.half_tables[date_key][section] / section_object.count >= self._half_table_share()
+
+    def _half_table_share(self) -> float:
+        """The organizer's "max half table proportion per section", or 30% when they named none.
+
+        The plan screen offered the setting and the solver never read it, so every market ran at
+        the hard-coded 30% whatever it said (found while building E27). Unset keeps that 30%.
+        """
+        options = self.setup_object.assignment_options
+        percent = options.max_half_table_proportion_per_section if options else None
+        return MAX_HALF_TABLES_PER_SECTION if percent is None else percent / 100
 
     def assign_table(self, market_date: MarketDateObject, vendor_list, table):
 

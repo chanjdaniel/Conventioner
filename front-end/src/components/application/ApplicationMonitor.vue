@@ -24,7 +24,7 @@ import {
 import { getApiErrorMessage } from '@/utils/api';
 import { asksNothingDistinguishing, reviewAnswers } from '@/utils/reviewQueue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
-import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
+import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
@@ -316,6 +316,11 @@ function statusChip(status: string): string {
   return `chip chip--${statusTones[status] ?? 'neutral'}`;
 }
 
+/** The applicant's own words in answer to the table-share question, for its notice. */
+function shareWords(app: Application): string {
+  return String(app.formData?.[TABLE_SHARE_ANSWER_KEY] ?? '');
+}
+
 function submittedOn(app: Application): string {
   return getTimestampDate(app.submittedAt);
 }
@@ -403,6 +408,7 @@ function submittedOn(app: Application): string {
         <TableShareNotice
           v-if="current.tableShareNotice"
           :notice="current.tableShareNotice"
+          :words="shareWords(current)"
           testid="app-monitor-table-share-notice"
           class="card-notice"
         />

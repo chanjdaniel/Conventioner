@@ -7,7 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 import { useOpenMarket } from '@/utils/openMarket';
-import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
+import { ESSENTIAL_KEY_PREFIX, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useInertBehind } from '@/utils/useInertBehind';
 import VendorDateCard from '@/components/VendorDateCard.vue';
@@ -563,6 +563,7 @@ useInertBehind(
         <section v-if="selectedVendor.tableShareNotice" class="detail-section">
           <TableShareNotice
             :notice="selectedVendor.tableShareNotice"
+            :words="String(selectedVendor.answers[TABLE_SHARE_ANSWER_KEY] ?? '')"
             testid="vendors-detail-table-share-notice"
           />
         </section>
