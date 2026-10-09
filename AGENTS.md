@@ -286,6 +286,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   the target's type - there is no `data_type` to declare, and adding one back would restore the
   silent no-op it replaced. **A CSV-imported row must carry its own `submitted_at`**, or
   first-come-first-served decides nothing.
+- **Who shares a table with whom is `back-end/table_share.py`'s rule** (E27): both applicants
+  exist and accept a half table, one-way is enough, and a person's own request outranks one about
+  them. The solver seats pairs by it and the organizer's applications list serves
+  `tableShareNotice` (derived on read, never stored) by it; do not restate it beside either.
+  The write (`essential_fields.partner_address`) reads the one address out of the applicant's
+  words into `essential_table_share_email`, lowercased, and keeps the words in
+  `essential_table_share_answer`; `migrations/migrate_table_share_answer.py` brings stored
+  applications into that shape.
 - **`max_assignments_per_vendor` is the only ceiling.** The hard-coded `MAX_VENDING_DAYS = 4` is
   gone. Unset means the organizer named no ceiling; there is no hidden default.
 - **Placement is vendor-driven.** `assign()` walks vendors in priority order and gives each the

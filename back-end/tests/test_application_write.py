@@ -100,6 +100,21 @@ class TestRecordApplicationAnswers:
         }
         assert app.form_data["essential_table_choice"] == "half"
 
+    @pytest.mark.parametrize("imported", [False, True], ids=["online", "imported"])
+    def test_both_doors_read_the_partners_address_out_of_the_answer(
+        self, markets, applications, imported,
+    ):
+        """E27/F01/S01: the CSV import and the online save store one shape from one answer."""
+        applications.insert_one(_app_doc())
+        answers = {**ANSWERS, "essential_table_share_email": "Share with Buddy@Example.com!"}
+
+        _, app = record_application_answers(
+            markets, markets.doc, _app_doc(), answers, imported=imported,
+        )
+
+        assert app.form_data["essential_table_share_email"] == "buddy@example.com"
+        assert app.form_data["essential_table_share_answer"] == "Share with Buddy@Example.com!"
+
     def test_an_application_with_no_status_becomes_open(self, markets, applications):
         """What puts an imported row in front of a reviewer."""
         applications.insert_one(_app_doc())

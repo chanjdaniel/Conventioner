@@ -331,6 +331,17 @@ export interface ApplicationForm {
   unaskedEssentials?: string[];
 }
 
+/**
+ * Why an application's table-share request pairs nobody (E27/F01/S03), served on the organizer's
+ * applications list and derived from the market's other applications when read. `address` is the
+ * one the request named; there is none when the answer held no address.
+ */
+export interface TableShareNotice {
+  reason:
+    'no_address' | 'no_applicant' | 'partner_wants_full_table' | 'partner_asked_for_someone_else';
+  address?: string;
+}
+
 export interface Application {
   id: string;
   marketId: string;
@@ -342,6 +353,8 @@ export interface Application {
   submittedAt?: string;
   updatedAt: string;
   assignedReviewerId?: string;
+  /** Organizer's list only: set when this applicant's table-share request pairs nobody. */
+  tableShareNotice?: TableShareNotice | null;
 }
 
 export interface PreconditionResult {

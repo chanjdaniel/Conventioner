@@ -23,6 +23,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from application_write import record_application_answers, validate_application_answers
+import table_share as TableShare
 from market_documents import (
     applicant_intake_market_by_slug,
     market_doc_field,
@@ -330,15 +331,36 @@ def save_applicant_application(
 
 def list_market_applications(market_id: str) -> Tuple[Dict[str, Any], int]:
     """Return every application for a market. Organizer only, always sees raw status."""
-    apps = ApplicationsApi.list_applications_for_market(market_id)
-    result: List[Dict[str, Any]] = []
-    for doc in apps:
+    parsed: List[Application] = []
+    for doc in ApplicationsApi.list_applications_for_market(market_id):
         try:
-            app = Application(**doc)
-            result.append(_application_response_organizer(app))
+            parsed.append(Application(**doc))
         except Exception as e:
             logger.warning("Failed to parse application %s: %s", doc.get("id", "?"), e)
+
+    # Whether each table-share request can be met depends on the market's other applications, so
+    # it is derived here, where all of them are in hand, and never stored (E27/F01/S03).
+    unpaired = TableShare.why_unpaired({
+        app.applicant_email.strip().lower(): _share_request(app) for app in parsed
+    })
+    result = [
+        {**_application_response_organizer(app),
+         "tableShareNotice": unpaired[app.applicant_email.strip().lower()]}
+        for app in parsed
+    ]
     return {"applications": result}, 200
+
+
+def _share_request(app: Application) -> TableShare.ShareRequest:
+    answers = app.form_data or {}
+    return TableShare.ShareRequest(
+        table_choice=answers.get(EssentialFields.TABLE_CHOICE_KEY),
+        partner=str(answers.get(EssentialFields.TABLE_SHARE_EMAIL_KEY) or ""),
+        answered=bool(str(
+            answers.get(EssentialFields.TABLE_SHARE_ANSWER_KEY)
+            or answers.get(EssentialFields.TABLE_SHARE_EMAIL_KEY) or ""
+        ).strip()),
+    )
 
 
 def review_application(

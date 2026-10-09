@@ -30,6 +30,11 @@ export const MAX_DATES_KEY = 'essential_max_dates';
 export const TIER_PREFERENCE_KEY = 'essential_tier_preference';
 export const TABLE_CHOICE_KEY = 'essential_table_choice';
 export const TABLE_SHARE_EMAIL_KEY = 'essential_table_share_email';
+/**
+ * The applicant's own words in answer to the table-share question (E27/F01/S01). The server reads
+ * the partner's address out of them into `TABLE_SHARE_EMAIL_KEY`; these are what a person reads.
+ */
+export const TABLE_SHARE_ANSWER_KEY = 'essential_table_share_answer';
 export const SECTION_RANKING_KEY = 'essential_section_ranking';
 export const TABLE_TYPE_RANKING_KEY = 'essential_table_type_ranking';
 
@@ -309,8 +314,15 @@ export function applicationAnswerRows(
   const noLimit =
     formData[MAX_DATES_KEY] == null && Array.isArray(available) && available.length > 0;
 
+  // The table-share row reads the applicant's own words where they were kept, and the address
+  // the server read out of them is not a second answer.
+  seen.add(TABLE_SHARE_ANSWER_KEY);
+  const shareWords = formData[TABLE_SHARE_ANSWER_KEY];
+
   for (const [key, label, present] of ESSENTIAL_ORDER) {
     if (key === MAX_DATES_KEY && noLimit) push(essential, key, label, 'No personal limit', false);
+    else if (key === TABLE_SHARE_EMAIL_KEY && typeof shareWords === 'string' && shareWords.trim())
+      push(essential, key, label, shareWords, false);
     else if (key in formData) push(essential, key, label, present(formData[key]), false);
   }
 

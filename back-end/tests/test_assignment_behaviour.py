@@ -287,6 +287,114 @@ class TestHowATableIsOccupied:
         assert all(len(occupants) <= 2 for occupants in seats.values())
 
 
+class TestATableShareRequest:
+    """Who sits with whom, by the rule decided in the November 2026 dry-run map, ticket 08.
+
+    A pair needs both applicants to exist and both to accept a half table. One-way is enough, and a
+    person's own request outranks someone else's request about them. With no other rule, the
+    solver reaches vendors in address order, which these scenarios name to set who goes first.
+    """
+
+    def test_a_partner_who_wants_a_whole_table_is_never_put_on_half_of_one(self):
+        market = assign([
+            VendorWant("a-asker@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="b-full@example.com"),
+            VendorWant("b-full@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="full"),
+            VendorWant("c-half@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+        ])
+
+        assert seat_of(market, "b-full@example.com", DATES[0])[1] == "Full Table"
+        assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
+                == seat_of(market, "c-half@example.com", DATES[0])[0])
+
+    def test_one_way_is_enough_even_when_the_named_partner_is_reached_first(self):
+        """The partner named nobody and is placed before the one who asked for them."""
+        market = assign([
+            VendorWant("a-named@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+            VendorWant("b-filler@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+            VendorWant("c-asker@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="a-named@example.com"),
+        ])
+
+        assert (seat_of(market, "a-named@example.com", DATES[0])[0]
+                == seat_of(market, "c-asker@example.com", DATES[0])[0])
+
+    def test_someone_who_wants_a_whole_table_is_not_paired_by_their_own_request(self):
+        market = assign([
+            VendorWant("a-named@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+            VendorWant("b-filler@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+            VendorWant("c-full@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="full", share_with="a-named@example.com"),
+        ])
+
+        assert seat_of(market, "c-full@example.com", DATES[0])[1] == "Full Table"
+        assert (seat_of(market, "a-named@example.com", DATES[0])[0]
+                == seat_of(market, "b-filler@example.com", DATES[0])[0])
+
+    def test_a_persons_own_request_outranks_a_request_about_them(self):
+        """A names B and B names C: B sits with C, and A is matched as any half table is."""
+        market = assign([
+            VendorWant("a-asker@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="b-named@example.com"),
+            VendorWant("b-named@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="c-chosen@example.com"),
+            VendorWant("c-chosen@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+            VendorWant("d-filler@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+        ])
+
+        assert (seat_of(market, "b-named@example.com", DATES[0])[0]
+                == seat_of(market, "c-chosen@example.com", DATES[0])[0])
+        assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
+                == seat_of(market, "d-filler@example.com", DATES[0])[0])
+
+    def test_an_address_that_is_no_applicants_leaves_an_ordinary_half_table_request(self):
+        market = assign([
+            VendorWant("a-asker@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with="nobody@example.com"),
+            VendorWant("b-half@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+        ])
+
+        assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
+                == seat_of(market, "b-half@example.com", DATES[0])[0])
+
+    def test_a_pair_is_seated_at_a_tier_both_of_them_accept(self):
+        """The asker would take Gold, the one named only Silver: they meet at Silver."""
+        market = assign([
+            VendorWant("a-asker@example.com", available=[DATES[0]], tiers=[GOLD, SILVER],
+                       table_choice="half", share_with="b-named@example.com"),
+            VendorWant("b-named@example.com", available=[DATES[0]], tiers=[SILVER],
+                       table_choice="half"),
+            VendorWant("c-gold@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half"),
+        ])
+
+        assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
+                == seat_of(market, "b-named@example.com", DATES[0])[0])
+        assert all(p[5] == SILVER for p in placements(market) if p[0] != "c-gold@example.com")
+
+    def test_a_pair_never_puts_either_of_them_where_their_own_answers_rule_out(self):
+        """Paired on the date both can come; on the date only one can, the other is not dragged in."""
+        market = assign([
+            VendorWant("a-asker@example.com", available=DATES, tiers=[GOLD],
+                       table_choice="half", share_with="b-named@example.com"),
+            VendorWant("b-named@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", max_days=1),
+        ])
+
+        assert dates_for(market, "b-named@example.com") == [DATES[0]]
+        assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
+                == seat_of(market, "b-named@example.com", DATES[0])[0])
+
+
 class TestCapacity:
     def test_no_more_vendors_are_placed_than_there_are_tables(self):
         market = assign(
