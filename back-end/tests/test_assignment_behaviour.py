@@ -1198,6 +1198,55 @@ class TestPrioritisingByWhenTheApplicationArrived:
         assert [p[0] for p in placements(market)] == ["late@example.com"]
 
 
+class TestTheMostConstrainedGoFirstAmongEquals:
+    """After the organizer's rules, the vendor with fewer choices is placed first: fewer available
+    days, then fewer tiers across those days (Gold and Silver on three days is 6; Gold on one day
+    is 1). Decided with the user after the November 2026 rehearsal, where Gold-only vendors were
+    left out while vendors who would also take Silver held Gold and Silver tables sat empty.
+    """
+
+    def test_of_two_otherwise_equal_vendors_the_one_with_fewer_tiers_is_placed_first(self):
+        """One Gold table and one Silver: placing the Gold-only vendor first seats both."""
+        market = assign([
+            VendorWant("a-flexible@example.com", available=[DATES[0]], tiers=[GOLD, SILVER]),
+            VendorWant("b-gold-only@example.com", available=[DATES[0]], tiers=[GOLD]),
+        ], section_counts=((GOLD, 1), (SILVER, 1)))
+
+        assert seat_of(market, "b-gold-only@example.com", DATES[0])[0] == f"Section {GOLD} 1"
+        assert seat_of(market, "a-flexible@example.com", DATES[0])[0] == f"Section {SILVER} 1"
+
+    def test_tiers_are_counted_across_the_days_they_were_chosen_for(self):
+        """Gold on both days (2) goes before Gold and Silver on one day (also 2)? No: days come
+        first, so the one-day vendor leads; tiers only separate vendors with as many days."""
+        market = assign([
+            VendorWant("a-two-days@example.com", available=DATES, tiers=[GOLD], max_days=1),
+            VendorWant("b-one-day@example.com", available=[DATES[0]], tiers=[GOLD, SILVER]),
+        ], section_counts=((GOLD, 1),))
+
+        assert seat_of(market, "b-one-day@example.com", DATES[0]) is not None
+
+    def test_the_organizers_rules_still_come_first(self):
+        """The tie-break only separates vendors the rules leave equal: a later rule is still a rule."""
+        from dataclasses import replace
+        from datatypes import PriorityObject
+
+        wants = [
+            VendorWant("a-flexible@example.com", available=[DATES[0]], tiers=[GOLD, SILVER]),
+            VendorWant("b-gold-only@example.com", available=[DATES[0]], tiers=[GOLD]),
+        ]
+        market = market_for(wants, section_counts=((GOLD, 1),), dates=[DATES[0]])
+        market.setup_object.priority = [
+            PriorityObject(id=1, target="application.submitted_at", direction="ascending"),
+        ]
+        arrived = {"a-flexible@example.com": "2026-09-01T00:00:00",
+                   "b-gold-only@example.com": "2026-09-02T00:00:00"}
+        market = assign_market(market, [
+            replace(want.as_solver_vendor(), submitted_at=arrived[want.email]) for want in wants
+        ])
+
+        assert [p[0] for p in placements(market)] == ["a-flexible@example.com"]
+
+
 class TestOrderingByMagnitude:
     def _two(self, rule, answers):
         from datatypes import PriorityObject

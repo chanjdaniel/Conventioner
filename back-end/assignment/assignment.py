@@ -90,6 +90,12 @@ class Vendor:
         # Days are what a vendor is actually scarce in; the CSV era summed comma-separated tier
         # tokens across dates, conflating "how many days" with "how many tiers".
         self.date_flexibility = len(want.available_dates)
+        # Then how many tiers across those days: Gold and Silver on three days is 6, Gold on one
+        # day is 1. A vendor who will take less is placed before one who will take more, among
+        # vendors the organizer's rules leave equal (decided after the November 2026 rehearsal).
+        self.tier_flexibility = sum(
+            len(want.accepted_tiers_by_date.get(date, ())) for date in want.available_dates
+        )
 
     def __repr__(self):
         return f"{vars(self)}"
@@ -439,7 +445,8 @@ class MarketAssignment:
             return (
                 vendor.num_assignments,                 # Fewest assignments first
                 self._calculate_priority_score(vendor), # The organizer's rules, in rule order
-                vendor.date_flexibility,                # Most constrained first
+                vendor.date_flexibility,                # Most constrained first: fewest days,
+                vendor.tier_flexibility,                # then fewest tiers across those days
                 vendor.want.submitted_at or "",         # Then whoever applied earlier
                 vendor.want.email,                      # Then something that is always distinct
             )
