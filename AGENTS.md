@@ -300,6 +300,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   unset, and blank on the plan screen runs it. The solver ignored the setting until E27 and ran
   every market at a hard-coded 30%. It bounds only vendors who chose Either and have no partner:
   a Half chooser is always seated on a half, and a table-share pair is an exception to it.
+- **Among vendors the organizer's rules leave equal, the most constrained go first**: fewest
+  available days, then fewest tiers across those days (`Vendor.tier_flexibility`), then earliest
+  submission. A first-come rule the organizer adds settles every tie before these are reached.
 - **`max_assignments_per_vendor` is the only ceiling.** The hard-coded `MAX_VENDING_DAYS = 4` is
   gone. Unset means the organizer named no ceiling; there is no hidden default.
 - **Placement is vendor-driven.** `assign()` walks vendors in priority order and gives each the
