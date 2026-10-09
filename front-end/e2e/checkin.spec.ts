@@ -107,6 +107,25 @@ test.describe('Public vendor check-in', () => {
     await expect(vendor).toContainText('alice@example.com');
   });
 
+  test('the table is said in words, not as a stored seat label', async ({ page, request }) => {
+    // Found on the November 2026 rehearsal: "Table: A 1 (Half Table (Left))" on a phone.
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    const checkinPage = new CheckinPage(page);
+    await checkinPage.goto(seed.marketSlug);
+    await checkinPage.fillEmail('alice@example.com');
+    await checkinPage.clickLookup();
+    const card = page.getByTestId('attendance-checkin-card').first();
+    await expect(card).toBeVisible({ timeout: 10000 });
+    await expect(card).toContainText(/Table: .+, (a whole table|left half|right half)/);
+    await expect(card).not.toContainText('(');
+  });
+
   test('the confirmation states a time a person would say aloud', async ({ page, request }) => {
     const seed = await seedPublishedMarketWithAssignments(
       request,
