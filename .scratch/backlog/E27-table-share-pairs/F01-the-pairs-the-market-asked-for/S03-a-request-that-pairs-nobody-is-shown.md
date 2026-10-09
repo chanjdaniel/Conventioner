@@ -4,7 +4,7 @@ title: A request that pairs nobody is shown
 type: story
 status: done
 blocked_by: [E27/F01/S01]
-pr: []
+pr: [93]
 ---
 
 ## What to build

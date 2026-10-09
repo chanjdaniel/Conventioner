@@ -4,7 +4,7 @@ title: A table-share request finds its partner
 type: epic
 status: done
 blocked_by: []
-pr: []
+pr: [93]
 ---
 
 ## Outcome

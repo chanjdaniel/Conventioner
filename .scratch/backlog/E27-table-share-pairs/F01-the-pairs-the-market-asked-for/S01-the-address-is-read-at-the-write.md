@@ -4,7 +4,7 @@ title: The partner's address is read where the application is written
 type: story
 status: done
 blocked_by: []
-pr: []
+pr: [93]
 ---
 
 ## What to build
