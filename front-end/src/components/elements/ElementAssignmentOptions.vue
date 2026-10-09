@@ -106,7 +106,7 @@ const handleProportionInput = (value: number) => {
           <h3 id="assignment-option-halves">Max half table proportion per section (%)</h3>
           <p class="option-help">
             A table seats two vendors side by side. This is the most of a section's tables that may
-            be split in half rather than given to one vendor each.
+            be split in half rather than given to one vendor each. Leave blank for 30%, the default.
           </p>
         </div>
         <div class="row-item">
@@ -118,6 +118,7 @@ const handleProportionInput = (value: number) => {
               step="1"
               inputmode="numeric"
               v-model="assignmentOptions.maxHalfTableProportionPerSection"
+              placeholder="30% (default)"
               @blur="
                 handleProportionInput(Number(($event.target as HTMLInputElement)?.value || NaN))
               "

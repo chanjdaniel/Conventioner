@@ -7,7 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/utils/api';
 import { fetchMarketApplications } from '@/utils/applicantApi';
 import { useOpenMarket } from '@/utils/openMarket';
-import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
+import { ESSENTIAL_KEY_PREFIX, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useInertBehind } from '@/utils/useInertBehind';
 import VendorDateCard from '@/components/VendorDateCard.vue';
@@ -19,7 +19,11 @@ import {
   type PlacementReason,
   type UnplacedDate,
 } from '@/utils/placementReason';
-import type { Application, MarketDateObject } from '@/assets/types/datatypes';
+import type {
+  Application,
+  MarketDateObject,
+  TableShareNotice as TableShareNoticeData,
+} from '@/assets/types/datatypes';
 import { getFormattedDate } from '@/utils/utils';
 import {
   vendorHeadline,
@@ -30,6 +34,7 @@ import {
 import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
+import TableShareNotice from '@/components/TableShareNotice.vue';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -67,6 +72,8 @@ interface VendorRow {
   assignedDateCount: number;
   /** The organizer's own questions, keyed by field key. Essential answers are shown separately. */
   answers: Record<string, unknown>;
+  /** Why their table-share request pairs nobody, when it does not (E27/F01/S03). */
+  tableShareNotice: TableShareNoticeData | null;
 }
 
 const router = useRouter();
@@ -274,6 +281,7 @@ const vendors = computed<VendorRow[]>(() =>
       isAssigned: !unassignedEmails.value.has(emailLower) && assignmentsByDate.size > 0,
       assignedDateCount: assignmentsByDate.size,
       answers: (application.formData ?? {}) as Record<string, unknown>,
+      tableShareNotice: application.tableShareNotice ?? null,
     };
   }),
 );
@@ -551,6 +559,14 @@ useInertBehind(
             &times;
           </button>
         </div>
+
+        <section v-if="selectedVendor.tableShareNotice" class="detail-section">
+          <TableShareNotice
+            :notice="selectedVendor.tableShareNotice"
+            :words="String(selectedVendor.answers[TABLE_SHARE_ANSWER_KEY] ?? '')"
+            testid="vendors-detail-table-share-notice"
+          />
+        </section>
 
         <section v-if="detailFields.length > 0" class="detail-section">
           <h3 class="detail-section-title">Submission</h3>

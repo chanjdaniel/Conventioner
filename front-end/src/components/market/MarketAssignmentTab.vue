@@ -115,7 +115,7 @@ const emit = defineEmits<{
         class="assign-disabled-hint"
         data-testid="market-setup-assign-hint"
       >
-        Set the half table proportion above to run the assignment.
+        Correct the assignment options above to run the assignment.
       </p>
       <div v-if="assignError" class="assign-error-banner" data-testid="market-setup-assign-error">
         <!-- A refusal that names applicants hands the organizer to each one: their name with

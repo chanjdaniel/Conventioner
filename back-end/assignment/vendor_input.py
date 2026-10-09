@@ -95,6 +95,9 @@ class SolverVendor:
     table_share_email: Optional[str]
     section_ranking: Tuple[str, ...]
     table_type_ranking: Tuple[str, ...]
+    # Further addresses the table-share answer named, after ``table_share_email``; the partner is
+    # the first of them all that belongs to an applicant (``table_share.py``). Usually empty.
+    table_share_also: Tuple[str, ...] = ()
     # The organizer's own form questions and this applicant's answers to them. The solver reads
     # these only through a priority rule that names one by key, so it is addressed deliberately
     # rather than groped at: an unknown key is a rule the organizer has to fix, not a blank.
@@ -298,6 +301,10 @@ def _solver_vendor(
             # Naming nobody is the normal case, and absent says that more honestly than an
             # empty string a caller has to remember to test for.
             table_share_email=_text(answers.get(EF.TABLE_SHARE_EMAIL_KEY)) or None,
+            table_share_also=tuple(
+                _text(address) for address in answers.get(EF.TABLE_SHARE_ALSO_KEY) or []
+                if _text(address)
+            ),
             section_ranking=tuple(section_ranking),
             table_type_ranking=tuple(table_type_ranking),
             custom_answers={

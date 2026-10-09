@@ -52,6 +52,17 @@ export function seatLabel(seat: Seat): string {
 }
 
 /**
+ * A seat at a table in words, "A 1, left half" or "A 1, a whole table", rather than a stored
+ * spelling such as "A 1 (Half Table (Left))". A half whose side the store does not say is "half".
+ */
+export function tableInWords(tableCode: string, seat: string): string {
+  if (seatIsWholeTable(seat)) return `${tableCode}, a whole table`;
+  if (seat === HALF_TABLE_LEFT) return `${tableCode}, left half`;
+  if (seat === HALF_TABLE_RIGHT) return `${tableCode}, right half`;
+  return `${tableCode}, half`;
+}
+
+/**
  * Does this vendor accept that tier on that date? Mirrors `SolverVendor.accepts_tier_on`.
  *
  * A table with no tier constrains nothing, and a vendor never asked accepts every tier.

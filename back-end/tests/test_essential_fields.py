@@ -275,6 +275,8 @@ class TestValidatedEssentialAnswers:
             "essential_tier_preference": {},
             "essential_table_choice": None,
             "essential_table_share_email": "",
+            "essential_table_share_answer": "",
+            "essential_table_share_also": [],
             "essential_section_ranking": [],
             "essential_table_type_ranking": [],
         }
@@ -461,6 +463,63 @@ class TestTableChoiceAndSharePartner:
         assert error is None
         assert stored["essential_table_choice"] is None
         assert stored["essential_table_share_email"] == ""
+
+
+class TestThePartnersAddressIsReadAtTheWrite:
+    """E27/F01/S01: the address is read once, where the answer is written.
+
+    The question asks for "the exact email address they submitted", and real answers do not give
+    one: of 55 in the November 2026 export, 4 gave the address in other case and 8 inside a
+    sentence. The solver compares addresses, so each of those paired nobody. The applicant's own
+    words are kept beside the address, for the organizer.
+    """
+
+    def _stored(self, answer):
+        answers = {**VALID_ANSWERS, "essential_table_share_email": answer}
+        error, stored = EssentialFields.validated_essential_answers(answers, OPTIONS)
+        assert error is None
+        return stored
+
+    def test_an_address_inside_a_sentence_is_read_out_of_it(self):
+        stored = self._stored("I'd like to share with Buddy.Smith@Example.com please")
+
+        assert stored["essential_table_share_email"] == "buddy.smith@example.com"
+        assert stored["essential_table_share_answer"] == (
+            "I'd like to share with Buddy.Smith@Example.com please"
+        )
+
+    def test_an_address_alone_is_lowercased_and_trimmed(self):
+        stored = self._stored("  Buddy@Example.COM ")
+
+        assert stored["essential_table_share_email"] == "buddy@example.com"
+
+    def test_the_full_stop_ending_a_sentence_is_not_part_of_the_address(self):
+        stored = self._stored("Please pair me with buddy@example.com.")
+
+        assert stored["essential_table_share_email"] == "buddy@example.com"
+
+    @pytest.mark.parametrize("answer", ["N/A", "Ana Rivera", "my friend from class"])
+    def test_an_answer_with_no_address_names_no_partner_and_is_still_saved(self, answer):
+        stored = self._stored(answer)
+
+        assert stored["essential_table_share_email"] == ""
+        assert stored["essential_table_share_answer"] == answer
+
+    def test_every_address_is_kept_in_the_order_written(self):
+        """Which one is the partner depends on who applied, so the write keeps them all
+        (the user's ruling on the November file: the first that belongs to an applicant)."""
+        stored = self._stored("Buddy@example.com or pal@example.com")
+
+        assert stored["essential_table_share_email"] == "buddy@example.com"
+        assert stored["essential_table_share_also"] == ["pal@example.com"]
+
+    def test_one_address_leaves_nothing_else(self):
+        assert self._stored("buddy@example.com")["essential_table_share_also"] == []
+
+    def test_the_same_address_twice_is_one_partner(self):
+        stored = self._stored("buddy@example.com (Buddy@example.com)")
+
+        assert stored["essential_table_share_email"] == "buddy@example.com"
 
 
 class TestReservedKeyPrefix:
@@ -848,6 +907,6 @@ class TestWhichQuestionsAnOfferingAsks:
 
         assert EssentialFields.FULL_NAME_KEY in required
         assert EssentialFields.FULL_NAME_KEY not in solver
-        assert required | {EssentialFields.TABLE_SHARE_EMAIL_KEY} == solver | {
-            EssentialFields.FULL_NAME_KEY
-        }
+        # The table-share addresses are solver-read and never required (E27 split them in two).
+        share = {EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_ALSO_KEY}
+        assert required | share == solver | {EssentialFields.FULL_NAME_KEY}
