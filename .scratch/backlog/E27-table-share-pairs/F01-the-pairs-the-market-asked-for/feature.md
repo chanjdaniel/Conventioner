@@ -2,7 +2,7 @@
 id: E27/F01
 title: The pairs the market asked for
 type: feature
-status: todo
+status: done
 blocked_by: []
 pr: []
 ---

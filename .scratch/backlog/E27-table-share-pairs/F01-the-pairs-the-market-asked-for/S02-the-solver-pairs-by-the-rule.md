@@ -2,7 +2,7 @@
 id: E27/F01/S02
 title: The solver pairs by the market's rule
 type: story
-status: todo
+status: done
 blocked_by: [E27/F01/S01]
 pr: []
 ---
@@ -24,10 +24,16 @@ Write the behaviour into `back-end/tests/test_assignment_behaviour.py` first, ag
 
 ## Acceptance criteria
 
-- [ ] A names B, both Half: seated at one table on every date both are placed.
-- [ ] A names B, B names nobody: seated together (one-way).
-- [ ] A names B, B is Full only: not paired; A is matched as an ordinary half table and B gets a full table.
-- [ ] A names B, B names C, all Half: B sits with C; A is matched otherwise.
-- [ ] A names an address that is no applicant's: A is matched as an ordinary half table.
-- [ ] A pair never puts either vendor on a date, at a tier, or beyond a limit their own answers rule out.
-- [ ] Pytest in `test_assignment_behaviour.py` covers each case above.
+- [x] A names B, both Half: seated at one table on every date both are placed.
+- [x] A names B, B names nobody: seated together (one-way).
+- [x] A names B, B is Full only: not paired; A is matched as an ordinary half table and B gets a full table.
+- [x] A names B, B names C, all Half: B sits with C; A is matched otherwise.
+- [x] A names an address that is no applicant's: A is matched as an ordinary half table.
+- [x] A pair never puts either vendor on a date, at a tier, or beyond a limit their own answers rule out.
+- [x] Pytest in `test_assignment_behaviour.py` covers each case above.
+
+## As built
+
+The review found the edges the rule did not state, now pinned in `TestATableShareRequest`: a chain (A names B, B names C, C names D) seats A with B and C with D; a ring is broken at its first address so it still seats a pair; two who name the same person do not take turns with them (the earlier applicant is their partner on every date); a pair keeps to the half-table share; and the open half of a pinned table never splits a pair.
+Found on the way: the solver never read the organizer's half-table share and ran every market at 30%.
+It reads it now, keeping 30% when unset, and the plan screen says so.

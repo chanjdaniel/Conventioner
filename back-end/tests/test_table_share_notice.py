@@ -106,3 +106,31 @@ def test_the_partner_applying_later_clears_the_notice_with_nothing_else_done(app
     assert notices(applications, asker)["ana@example.com"]["reason"] == "no_applicant"
 
     assert notices(applications, asker, application("bo@example.com"))["ana@example.com"] is None
+
+
+def test_a_partner_who_was_not_accepted_says_so(applications):
+    """The solver seats approved applicants only, so a rejected or withdrawn partner pairs nobody."""
+    for status in (ApplicationStatus.REVIEWER_REJECTED, ApplicationStatus.CANCELLED):
+        partner = application("bo@example.com")
+        partner["status"] = status.value
+
+        served = notices(applications, application("ana@example.com", answer="bo@example.com"), partner)
+
+        assert served["ana@example.com"] == {
+            "reason": "partner_not_accepted", "address": "bo@example.com",
+        }
+
+
+def test_a_request_stands_when_the_one_it_names_cannot_have_their_own(applications):
+    """A names B, B names C, C names D: C's stands, B's gives way to it, so A's stands."""
+    served = notices(
+        applications,
+        application("a@example.com", answer="b@example.com"),
+        application("b@example.com", answer="c@example.com"),
+        application("c@example.com", answer="d@example.com"),
+        application("d@example.com"),
+    )
+
+    assert served["a@example.com"] is None
+    assert served["b@example.com"]["reason"] == "partner_asked_for_someone_else"
+    assert served["c@example.com"] is None

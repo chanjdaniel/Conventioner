@@ -2,7 +2,7 @@
 id: E27/F01/S01
 title: The partner's address is read where the application is written
 type: story
-status: todo
+status: done
 blocked_by: []
 pr: []
 ---
@@ -29,10 +29,10 @@ The table-share answer is solver-relevant, so without the migration a re-import 
 
 ## Acceptance criteria
 
-- [ ] An address alone, in any case or with surrounding spaces, is stored as the lowercased address.
-- [ ] An address inside a sentence is extracted; trailing punctuation is not part of it.
-- [ ] An answer with no address ("N/A", a name) or two addresses stores no partner address and saves without error.
-- [ ] The applicant's wording is still readable after the save, by the organizer's review screens.
-- [ ] The CSV import and the online applicant save produce the same stored shape from the same answer (pytest through both doors).
-- [ ] Importing the same file twice changes nothing and returns nobody to review, before and after the migration has run.
-- [ ] The migration is idempotent and rewrites only the table-share answer.
+- [x] An address alone, in any case or with surrounding spaces, is stored as the lowercased address.
+- [x] An address inside a sentence is extracted; trailing punctuation is not part of it.
+- [x] An answer with no address ("N/A", a name) or two addresses stores no partner address and saves without error.
+- [x] The applicant's wording is still readable after the save, by the organizer's review screens.
+- [x] The CSV import and the online applicant save produce the same stored shape from the same answer (pytest through both doors).
+- [x] Importing the same file twice changes nothing and returns nobody to review, before and after the migration has run.
+- [x] The migration is idempotent and rewrites only the table-share answer.

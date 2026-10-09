@@ -394,6 +394,87 @@ class TestATableShareRequest:
         assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
                 == seat_of(market, "b-named@example.com", DATES[0])[0])
 
+    def test_a_pair_sits_together_on_every_date_both_are_placed(self):
+        market = assign([
+            VendorWant("a-asker@example.com", available=DATES, tiers=[GOLD],
+                       table_choice="half", share_with="b-named@example.com"),
+            VendorWant("b-named@example.com", available=DATES, tiers=[GOLD], table_choice="half"),
+            VendorWant("c-filler@example.com", available=DATES, tiers=[GOLD], table_choice="half"),
+        ])
+
+        for date in DATES:
+            assert (seat_of(market, "a-asker@example.com", date)[0]
+                    == seat_of(market, "b-named@example.com", date)[0])
+
+    def test_the_open_half_of_a_pinned_table_does_not_split_a_pair(self):
+        """A stranger is pinned to half a table; the pair takes a table of their own."""
+        market = assign(
+            [
+                VendorWant("a-asker@example.com", available=[DATES[0]], tiers=[GOLD],
+                           table_choice="half", share_with="b-named@example.com"),
+                VendorWant("b-named@example.com", available=[DATES[0]], tiers=[GOLD],
+                           table_choice="half"),
+                VendorWant("z-pinned@example.com", available=[DATES[0]], tiers=[GOLD],
+                           table_choice="half"),
+            ],
+            pins=[pin("z-pinned@example.com", DATES[0], "Section Gold 1",
+                      table_choice="Half Table (Left)")],
+        )
+
+        assert (seat_of(market, "a-asker@example.com", DATES[0])[0]
+                == seat_of(market, "b-named@example.com", DATES[0])[0])
+
+    def test_a_request_stands_when_the_one_it_names_cannot_have_their_own(self):
+        """A names B, B names C, C names D: C's stands, so B's cannot, so A's does."""
+        market = assign([
+            VendorWant(f"{a}@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with=f"{b}@example.com" if b else "")
+            # "aa" is reached right after "a": a stranger who would take the open half.
+            for a, b in (("a", "b"), ("aa", ""), ("b", "c"), ("c", "d"), ("d", ""))
+        ], section_counts=((GOLD, 3),))
+
+        assert seat_of(market, "a@example.com", DATES[0])[0] == seat_of(market, "b@example.com", DATES[0])[0]
+        assert seat_of(market, "c@example.com", DATES[0])[0] == seat_of(market, "d@example.com", DATES[0])[0]
+
+    def test_three_who_name_each_other_in_a_ring_still_seat_one_pair(self):
+        market = assign([
+            VendorWant(f"{a}@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="half", share_with=f"{b}@example.com")
+            for a, b in (("a", "b"), ("b", "c"), ("c", "a"))
+        ], section_counts=((GOLD, 2),))
+
+        tables = [seat_of(market, f"{x}@example.com", DATES[0])[0] for x in "abc"]
+        assert len(set(tables)) == 2, "two of the three share a table"
+
+    def test_two_who_name_the_same_person_do_not_take_turns_with_them(self):
+        """Whoever sits with B on one date sits with B on every date."""
+        market = assign([
+            VendorWant("a-asker@example.com", available=DATES, tiers=[GOLD],
+                       table_choice="half", share_with="b-named@example.com"),
+            VendorWant("b-named@example.com", available=DATES, tiers=[GOLD], table_choice="half"),
+            VendorWant("c-asker@example.com", available=DATES, tiers=[GOLD],
+                       table_choice="half", share_with="b-named@example.com"),
+        ], section_counts=((GOLD, 3),))
+
+        partners = set()
+        for date in DATES:
+            table = seat_of(market, "b-named@example.com", date)[0]
+            partners |= {p[0] for p in placements(market)
+                         if p[1] == date and p[2] == table and p[0] != "b-named@example.com"}
+        assert len(partners) == 1
+
+    def test_a_pair_of_either_choosers_keeps_to_the_half_table_share(self):
+        """With no half tables allowed, two who would take either get a whole table each."""
+        market = assign([
+            VendorWant("a-asker@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="either", share_with="b-named@example.com"),
+            VendorWant("b-named@example.com", available=[DATES[0]], tiers=[GOLD],
+                       table_choice="either"),
+        ], half_proportion=0)
+
+        assert seat_of(market, "a-asker@example.com", DATES[0])[1] == "Full Table"
+        assert seat_of(market, "b-named@example.com", DATES[0])[1] == "Full Table"
+
 
 class TestCapacity:
     def test_no_more_vendors_are_placed_than_there_are_tables(self):

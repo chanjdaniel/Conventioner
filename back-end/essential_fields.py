@@ -840,19 +840,27 @@ def _store_table_share_email(
     paired with whoever else wants a half table - possibly a stranger. An answer the product cannot
     read an address out of falls back to that same behaviour, so a typo costs the pairing, not the
     application; the organizer is told (E27/F01/S03).
-
-    Stores two things from one answer: the address the solver pairs on (``partner_address``) and
-    the words the applicant wrote, which the organizer reads.
     """
-    if not options.dates:
-        stored[TABLE_SHARE_EMAIL_KEY] = ""
-        stored[TABLE_SHARE_ANSWER_KEY] = ""
-        return
+    stored.update(table_share_answers(incoming.get(TABLE_SHARE_EMAIL_KEY) if options.dates else None))
 
-    raw = incoming.get(TABLE_SHARE_EMAIL_KEY)
+
+def table_share_answers(raw: Any) -> Dict[str, str]:
+    """A table-share answer as it is stored: the address the solver pairs on, read out of the
+    applicant's words, and the words, which the organizer reads. The write and its migration
+    (``migrations/migrate_table_share_answer.py``) both store exactly this.
+    """
     answer = str(raw).strip() if raw is not None else ""
-    stored[TABLE_SHARE_EMAIL_KEY] = partner_address(answer)
-    stored[TABLE_SHARE_ANSWER_KEY] = answer
+    return {TABLE_SHARE_EMAIL_KEY: partner_address(answer), TABLE_SHARE_ANSWER_KEY: answer}
+
+
+def answered_table_share(form_data: Dict[str, Any]) -> bool:
+    """Did this application answer the table-share question at all?
+
+    The words where they were kept; an application written before they were holds its answer, as
+    typed, in the address field until the migration has run.
+    """
+    words = form_data.get(TABLE_SHARE_ANSWER_KEY, form_data.get(TABLE_SHARE_EMAIL_KEY))
+    return bool(str(words or "").strip())
 
 
 # An address as people type one into a sentence. The domain must end in a label, so the full stop

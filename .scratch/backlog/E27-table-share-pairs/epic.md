@@ -2,7 +2,7 @@
 id: E27
 title: A table-share request finds its partner
 type: epic
-status: todo
+status: done
 blocked_by: []
 pr: []
 ---

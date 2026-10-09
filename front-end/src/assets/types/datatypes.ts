@@ -338,7 +338,11 @@ export interface ApplicationForm {
  */
 export interface TableShareNotice {
   reason:
-    'no_address' | 'no_applicant' | 'partner_wants_full_table' | 'partner_asked_for_someone_else';
+    | 'no_address'
+    | 'no_applicant'
+    | 'partner_wants_full_table'
+    | 'partner_not_accepted'
+    | 'partner_asked_for_someone_else';
   address?: string;
 }
 

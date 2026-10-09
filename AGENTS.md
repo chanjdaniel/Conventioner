@@ -294,6 +294,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   words into `essential_table_share_email`, lowercased, and keeps the words in
   `essential_table_share_answer`; `migrations/migrate_table_share_answer.py` brings stored
   applications into that shape.
+- **The half-table share is the organizer's `max_half_table_proportion_per_section`**, 30% when
+  unset. The solver ignored the setting until E27 and ran every market at a hard-coded 30%. It
+  bounds only vendors who chose Either; a Half chooser is always seated on a half.
 - **`max_assignments_per_vendor` is the only ceiling.** The hard-coded `MAX_VENDING_DAYS = 4` is
   gone. Unset means the organizer named no ceiling; there is no hidden default.
 - **Placement is vendor-driven.** `assign()` walks vendors in priority order and gives each the

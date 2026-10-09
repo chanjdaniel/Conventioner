@@ -10,27 +10,37 @@
 import { computed } from 'vue';
 import type { TableShareNotice } from '@/assets/types/datatypes';
 
-const props = defineProps<{ notice: TableShareNotice; testid: string }>();
+const props = defineProps<{
+  notice: TableShareNotice;
+  /** The applicant's own words, for the one reason that is about them. */
+  words?: string;
+  testid: string;
+}>();
 
-const text = computed(() => {
-  const address = props.notice.address ?? '';
-  switch (props.notice.reason) {
-    case 'no_address':
-      return 'There is no email address in their answer, so they may share with a stranger.';
-    case 'no_applicant':
-      return `Nobody else in this market applied as ${address}.`;
-    case 'partner_wants_full_table':
-      return `${address} asked for a whole table, so the two will not share one.`;
-    case 'partner_asked_for_someone_else':
-      return `${address} asked to share with someone else, and their own request comes first.`;
-    default:
-      return 'This request to share a table cannot be met.';
-  }
-});
+type Reason = TableShareNotice['reason'];
+
+/** One sentence per reason, so a reason the server adds fails the type check, not the page. */
+const WORDING: Record<Reason, (address: string, words: string) => string> = {
+  no_address: (_, words) =>
+    words
+      ? `Their answer, "${words}", has no email address in it, so they may share with a stranger.`
+      : 'Their answer has no email address in it, so they may share with a stranger.',
+  no_applicant: (address) => `Nobody else in this market applied as ${address}.`,
+  partner_wants_full_table: (address) =>
+    `${address} asked for a full table, so the two will not share one.`,
+  partner_not_accepted: (address) =>
+    `${address} was not accepted for this market, so the two will not share a table.`,
+  partner_asked_for_someone_else: (address) =>
+    `${address} asked to share with someone else, and their own request comes first.`,
+};
+
+const text = computed(() =>
+  WORDING[props.notice.reason](props.notice.address ?? '', props.words ?? ''),
+);
 </script>
 
 <template>
-  <p class="note table-share-notice" role="note" :data-testid="testid">
+  <p class="note table-share-notice" role="note" aria-label="Table share" :data-testid="testid">
     <strong>Table share:</strong> {{ text }}
   </p>
 </template>
