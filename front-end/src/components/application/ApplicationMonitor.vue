@@ -27,6 +27,7 @@ import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
+import TableShareNotice from '@/components/TableShareNotice.vue';
 import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
@@ -398,6 +399,14 @@ function submittedOn(app: Application): string {
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
 
+        <!-- Above the answers, never behind the disclosure: it is something to act on (E27). -->
+        <TableShareNotice
+          v-if="current.tableShareNotice"
+          :notice="current.tableShareNotice"
+          testid="app-monitor-table-share-notice"
+          class="card-notice"
+        />
+
         <!-- What this market said a reviewer reads first (E19/F03/S01). -->
         <dl v-if="leading.length" class="answers" data-testid="app-monitor-leading">
           <template v-for="answer in leading" :key="answer.key">
@@ -702,6 +711,10 @@ function submittedOn(app: Application): string {
   color: var(--mm-black);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.card-notice {
+  margin-bottom: var(--space-3);
 }
 
 .no-answers {

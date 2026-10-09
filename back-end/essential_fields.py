@@ -36,6 +36,7 @@ atomically before the answer itself is stored, so no answer ever lands against a
 offering - and every later read serves that snapshot, so an applicant can never have answered
 a question that moved. There is deliberately no way to refresh it afterwards.
 """
+import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from assignment.utils import (
@@ -79,6 +80,11 @@ MAX_DATES_KEY = "essential_max_dates"
 TIER_PREFERENCE_KEY = "essential_tier_preference"
 TABLE_CHOICE_KEY = "essential_table_choice"
 TABLE_SHARE_EMAIL_KEY = "essential_table_share_email"
+# The applicant's own words in answer to the table-share question (E27/F01/S01). The question asks
+# for an exact address and real answers wrap one in a sentence, so the address the solver pairs on
+# is read out of the answer into TABLE_SHARE_EMAIL_KEY and the words are kept here, for the
+# organizer. Not a question of its own: no import column or form field targets it.
+TABLE_SHARE_ANSWER_KEY = "essential_table_share_answer"
 SECTION_RANKING_KEY = "essential_section_ranking"
 TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
 
@@ -831,16 +837,37 @@ def _store_table_share_email(
     """Who the applicant would like to share a table with. Optional, and usually empty.
 
     Never a validation failure: most applicants have nobody in mind, and one who names nobody is
-    paired with whoever else wants a half table - possibly a stranger. An address that matches no
-    other applicant falls back to that same behaviour, so a typo costs the pairing, not the
-    application.
+    paired with whoever else wants a half table - possibly a stranger. An answer the product cannot
+    read an address out of falls back to that same behaviour, so a typo costs the pairing, not the
+    application; the organizer is told (E27/F01/S03).
+
+    Stores two things from one answer: the address the solver pairs on (``partner_address``) and
+    the words the applicant wrote, which the organizer reads.
     """
     if not options.dates:
         stored[TABLE_SHARE_EMAIL_KEY] = ""
+        stored[TABLE_SHARE_ANSWER_KEY] = ""
         return
 
     raw = incoming.get(TABLE_SHARE_EMAIL_KEY)
-    stored[TABLE_SHARE_EMAIL_KEY] = str(raw).strip() if raw is not None else ""
+    answer = str(raw).strip() if raw is not None else ""
+    stored[TABLE_SHARE_EMAIL_KEY] = partner_address(answer)
+    stored[TABLE_SHARE_ANSWER_KEY] = answer
+
+
+# An address as people type one into a sentence. The domain must end in a label, so the full stop
+# that ends "share with ana@example.com." is not part of it.
+_ADDRESS_IN_TEXT = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+
+
+def partner_address(answer: Any) -> str:
+    """The one address in a table-share answer, lowercased, or "" when it holds none or several.
+
+    Lowercased because applicant addresses are stored lowercased at import, and the pairing
+    compares the two. Several distinct addresses name nobody in particular, so they name nobody.
+    """
+    found = {match.lower() for match in _ADDRESS_IN_TEXT.findall(str(answer or ""))}
+    return found.pop() if len(found) == 1 else ""
 
 
 def _validate_ranking(
