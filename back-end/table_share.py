@@ -12,10 +12,11 @@ The rule, decided in the November 2026 dry-run map, ticket 08:
   half or either, never a whole table only.
 - One-way is enough: A naming B pairs them whether or not B named anyone.
 - A person's own request outranks a request about them: if A names B and B names C, B's stands.
+- An answer naming several addresses names the first that belongs to an applicant.
 """
 from dataclasses import dataclass
 from enum import Enum
-from typing import AbstractSet, Dict, Iterable, List, Optional
+from typing import AbstractSet, Dict, Iterable, List, Optional, Tuple
 
 from essential_fields import TABLE_CHOICE_FULL
 
@@ -26,9 +27,9 @@ class ShareRequest:
 
     email: str
     table_choice: Optional[str]
-    # The address read out of their answer at the write (``essential_fields.partner_address``),
-    # or "" when it held none.
-    partner: str = ""
+    # The addresses read out of their answer at the write (``essential_fields.partner_addresses``),
+    # in the order written; empty when it held none.
+    partners: Tuple[str, ...] = ()
     # False once rejected or withdrawn: the solver seats approved applicants only, so nobody is
     # paired with them, and a request naming them must say so rather than look fine.
     taking_part: bool = True
@@ -44,6 +45,8 @@ class Reason(str, Enum):
     PARTNER_WANTS_FULL_TABLE = "partner_wants_full_table"
     PARTNER_NOT_ACCEPTED = "partner_not_accepted"
     PARTNER_ASKED_FOR_SOMEONE_ELSE = "partner_asked_for_someone_else"
+    # Not a failure: the request stands, and another applicant it named was not used.
+    ANOTHER_NAMED_NOT_USED = "another_named_not_used"
 
 
 @dataclass(frozen=True)
@@ -71,9 +74,15 @@ class _Market:
     def __init__(self, requests: Iterable[ShareRequest]):
         self.by_address = {_spelling(request.email): request for request in requests}
 
+    def chosen(self, request: ShareRequest) -> Optional[str]:
+        """The address their answer is taken to name: the first that belongs to an applicant, or
+        failing that the first written, so a notice can say whom nobody applied as."""
+        written = [_spelling(address) for address in request.partners if _spelling(address)]
+        return next((a for a in written if a in self.by_address), written[0] if written else None)
+
     def named(self, request: ShareRequest) -> Optional[ShareRequest]:
         """Whom this applicant named, when the two of them could share a table at all."""
-        partner = self.by_address.get(_spelling(request.partner))
+        partner = self.by_address.get(self.chosen(request) or "")
         if request.wants_whole_table or partner is None or partner is request:
             return None
         return None if partner.wants_whole_table or not partner.taking_part else partner
@@ -130,7 +139,8 @@ def requests_in_force(requests: Iterable[ShareRequest]) -> Dict[str, str]:
 def why_unpaired(
     requests: Iterable[ShareRequest], answered: AbstractSet[str],
 ) -> Dict[str, Optional[Unpaired]]:
-    """Why each applicant's request pairs nobody, or None when it stands or they asked nobody.
+    """Why each applicant's request pairs nobody, or None when it stands or they asked nobody; and,
+    for a request that stands, another applicant it named and did not use.
 
     ``answered`` holds the addresses of everyone who answered the question at all, which is what
     tells an answer with no address in it from a question left blank.
@@ -143,7 +153,7 @@ def why_unpaired(
         if (request.wants_whole_table or not request.taking_part
                 or _spelling(request.email) not in asked):
             return None
-        partner = _spelling(request.partner)
+        partner = market.chosen(request)
         if not partner:
             return Unpaired(Reason.NO_ADDRESS)
         named = market.by_address.get(partner)
@@ -155,6 +165,10 @@ def why_unpaired(
             return Unpaired(Reason.PARTNER_WANTS_FULL_TABLE, partner)
         if request.email not in in_force:
             return Unpaired(Reason.PARTNER_ASKED_FOR_SOMEONE_ELSE, partner)
-        return None
+        unused = next((
+            _spelling(a) for a in request.partners
+            if _spelling(a) != partner and _spelling(a) in market.by_address
+        ), None)
+        return Unpaired(Reason.ANOTHER_NAMED_NOT_USED, unused) if unused else None
 
     return {request.email: reason(request) for request in market.by_address.values()}

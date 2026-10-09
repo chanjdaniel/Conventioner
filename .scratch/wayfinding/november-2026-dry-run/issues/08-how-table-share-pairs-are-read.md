@@ -30,3 +30,11 @@ Decided with the user on 2026-10-09.
 - **A person's own request wins**: if A names B and B names C, B sits with C (if valid), and A gets an ordinary half-table match.
 - **An answer that pairs nobody is shown, never blocking**: on the review card and in the vendor's detail ("asked to share with X, not found"), so the organizer can follow up. The import and the run go ahead.
 - **Built before the run**, test-first, so the rehearsal walks the pairing the market wants: [E27 A table-share request finds its partner](../../../backlog/E27-table-share-pairs/epic.md).
+
+### Amended 2026-10-09, during the rehearsal
+
+The import showed 5 answers naming two different addresses: 2 an applicant beside an address nobody applied with (likely the partner's personal and school addresses), 3 two applicants.
+The original answer read "the one address in the answer", which paired all 5 with nobody.
+Decided with the user: **the first address that belongs to an applicant is the partner**, even when both do, and the notice says the other applicant named was not used.
+The write keeps every address in the order written; the choice is made when pairs are read, because who applied can change after the answer is saved.
+

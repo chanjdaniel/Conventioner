@@ -35,6 +35,8 @@ export const TABLE_SHARE_EMAIL_KEY = 'essential_table_share_email';
  * the partner's address out of them into `TABLE_SHARE_EMAIL_KEY`; these are what a person reads.
  */
 export const TABLE_SHARE_ANSWER_KEY = 'essential_table_share_answer';
+/** Further addresses that answer named, after the first; the pairing chooses among them. */
+export const TABLE_SHARE_ALSO_KEY = 'essential_table_share_also';
 export const SECTION_RANKING_KEY = 'essential_section_ranking';
 export const TABLE_TYPE_RANKING_KEY = 'essential_table_type_ranking';
 
@@ -317,6 +319,7 @@ export function applicationAnswerRows(
   // The table-share row reads the applicant's own words where they were kept, and the address
   // the server read out of them is not a second answer.
   seen.add(TABLE_SHARE_ANSWER_KEY);
+  seen.add(TABLE_SHARE_ALSO_KEY);
   const shareWords = formData[TABLE_SHARE_ANSWER_KEY];
 
   for (const [key, label, present] of ESSENTIAL_ORDER) {

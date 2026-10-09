@@ -362,7 +362,10 @@ def _share_request(app: Application) -> TableShare.ShareRequest:
     return TableShare.ShareRequest(
         email=app.applicant_email,
         table_choice=answers.get(EssentialFields.TABLE_CHOICE_KEY),
-        partner=str(answers.get(EssentialFields.TABLE_SHARE_EMAIL_KEY) or ""),
+        partners=(
+            str(answers.get(EssentialFields.TABLE_SHARE_EMAIL_KEY) or ""),
+            *(str(a) for a in answers.get(EssentialFields.TABLE_SHARE_ALSO_KEY) or []),
+        ),
         taking_part=app.status not in _NOT_TAKING_PART,
     )
 

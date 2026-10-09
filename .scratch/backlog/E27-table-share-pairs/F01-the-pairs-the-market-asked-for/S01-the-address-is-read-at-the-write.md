@@ -36,3 +36,10 @@ The table-share answer is solver-relevant, so without the migration a re-import 
 - [x] The CSV import and the online applicant save produce the same stored shape from the same answer (pytest through both doors).
 - [x] Importing the same file twice changes nothing and returns nobody to review, before and after the migration has run.
 - [x] The migration is idempotent and rewrites only the table-share answer.
+
+## As built
+
+Amended during the rehearsal (ticket 08): every address in the answer is kept, in the order written, the first under `essential_table_share_email` and the rest under `essential_table_share_also`.
+The pairing takes the first that belongs to an applicant.
+The new field is left out of an assignment's fingerprint while empty, so no assignment made before it reads as out of date.
+

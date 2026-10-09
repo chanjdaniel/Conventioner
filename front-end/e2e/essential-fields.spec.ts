@@ -384,6 +384,7 @@ test.describe('Essential form fields', () => {
       essential_table_share_email: 'buddy@example.com',
       // The applicant's words, kept beside the address read out of them (E27/F01/S01).
       essential_table_share_answer: 'buddy@example.com',
+      essential_table_share_also: [],
       essential_section_ranking: ['Garden', 'Main Hall'],
       // Suppressed: one table type on offer, so there is nothing to rank.
       essential_table_type_ranking: [],
