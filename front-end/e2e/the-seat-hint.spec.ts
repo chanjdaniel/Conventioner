@@ -15,8 +15,8 @@ async function hintGeometry(seat: Locator) {
   return seat.evaluate((button) => {
     const box = button.getBoundingClientRect();
     const style = getComputedStyle(button);
-    const hint = button.querySelector('.seat-button-hint')!.getBoundingClientRect();
-    const first = (button.querySelector('.vendor-identity-name') ??
+    const hint = button.querySelector('[data-testid="tables-seat-hint"]')!.getBoundingClientRect();
+    const first = (button.querySelector('[data-testid="vendor-identity-name"]') ??
       button.querySelector('span'))!.getBoundingClientRect();
     return {
       height: box.height,
@@ -24,7 +24,8 @@ async function hintGeometry(seat: Locator) {
       hintRight: hint.right,
       hintBottom: hint.bottom,
       firstLineBottom: first.top + 14 * 1.2,
-      hintOpacity: getComputedStyle(button.querySelector('.seat-button-hint')!).opacity,
+      hintOpacity: getComputedStyle(button.querySelector('[data-testid="tables-seat-hint"]')!)
+        .opacity,
     };
   });
 }
@@ -61,7 +62,7 @@ test('the hint sits top right on every seat, and every seat is one height', asyn
   // The whole-table occupant's name is bold.
   const weight = await occupied
     .first()
-    .locator('.vendor-identity-name')
+    .getByTestId('vendor-identity-name')
     .evaluate((el) => getComputedStyle(el).fontWeight);
   expect(weight).toBe('600');
 });

@@ -61,7 +61,13 @@ function linkTo(marketId: string, page: MarketPage) {
       :aria-current="here === page ? 'page' : undefined"
       :data-testid="`market-pages-${page}`"
     >
-      {{ PAGE_LABELS[page] }}<span v-if="current === page" class="current-dot" aria-hidden="true" />
+      {{ PAGE_LABELS[page]
+      }}<span
+        v-if="current === page"
+        class="current-dot"
+        aria-hidden="true"
+        data-testid="market-pages-current-dot"
+      />
     </RouterLink>
   </nav>
 </template>

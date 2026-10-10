@@ -61,7 +61,12 @@ function linkFor(tab: MarketTab): string {
           :data-testid="`market-bar-tab-${tab}`"
         >
           {{ TAB_LABELS[tab]
-          }}<span v-if="tabOf(current) === tab" class="current-dot" aria-hidden="true" />
+          }}<span
+            v-if="tabOf(current) === tab"
+            class="current-dot"
+            aria-hidden="true"
+            data-testid="market-bar-current-dot"
+          />
         </RouterLink>
       </nav>
     </template>

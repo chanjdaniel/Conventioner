@@ -8,7 +8,7 @@
  * placement history. It stands under the Assignment tab, beside the rules and the Vendors page.
  */
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 import { api } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
@@ -19,6 +19,7 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import ResultSummary from '@/components/ResultSummary.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
+import { useResultFilters } from '@/utils/useResultFilters';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import {
   FULL_TABLE,
@@ -30,12 +31,11 @@ import {
 import {
   TABLE_STATUSES,
   filterOptions,
-  readResultFilters,
+  filtersBeside,
   rowStatus,
   statusCounts as countStatuses,
   tablesMatching,
   type MarketTableRow,
-  type ResultFilterName,
   type TableStatus,
 } from '@/utils/resultFilters';
 
@@ -54,7 +54,6 @@ interface DateGroup {
 }
 
 const route = useRoute();
-const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
@@ -77,7 +76,14 @@ const vendors = ref<PlaceableVendor[]>([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
 
-const filters = computed(() => readResultFilters(route.query));
+/**
+ * The filters live in the address. The system was once complete and unreachable: every filter was
+ * computed from `route.query`, the chips could clear one, and nothing in the product ever set one -
+ * so an organizer could only narrow this view by editing the address bar (`E09/F02/S01`,
+ * `E11/F03/S02`). The bar sets them now, and the counts set the status (E28/F02/S01).
+ */
+const { filters, setFilter } = useResultFilters();
+const OFFERED = filtersBeside('tables');
 const statusFilter = computed(() => filters.value.status);
 
 function formatDisplayDate(date: string): string {
@@ -158,20 +164,6 @@ const countPills = computed(() =>
  */
 function toggleStatus(kind: TableStatus): void {
   setFilter('status', statusFilter.value === kind ? '' : kind);
-}
-
-/**
- * Set one filter, from the page.
- *
- * The filter system was complete and unreachable: every filter is computed from `route.query`,
- * the chips could clear one, and nothing in the product ever set one - so an organizer could
- * only narrow this view by editing the address bar (`E09/F02/S01`, `E11/F03/S02`).
- */
-function setFilter(name: ResultFilterName, value: string): void {
-  const nextQuery = { ...route.query };
-  if (value) nextQuery[name] = value;
-  else delete nextQuery[name];
-  router.replace({ query: nextQuery });
 }
 
 const filterOptionsShown = computed(() => filterOptions(allRows.value));
@@ -387,7 +379,7 @@ function swapSeats(withEmail: string): void {
         <template v-else-if="allRows.length > 0">
           <ResultFilterBar
             class="filter-band"
-            :filters="filters"
+            :offered="OFFERED"
             :options="filterOptionsShown"
             testid="tables"
           >
@@ -404,9 +396,8 @@ function swapSeats(withEmail: string): void {
                 :class="pill.fill"
                 :aria-pressed="statusFilter === pill.kind"
                 :disabled="pill.count === 0 && statusFilter !== pill.kind"
-                :title="
-                  pill.count === 0 ? `No ${pill.kind} tables` : `Show only ${pill.kind} tables`
-                "
+                :title="pill.count === 0 ? undefined : `Show only ${pill.kind} tables`"
+                :aria-label="pill.count === 0 ? `0 ${pill.kind}, none to show` : undefined"
                 :data-testid="`tables-count-${pill.kind}`"
                 @click="toggleStatus(pill.kind)"
               >
@@ -643,9 +634,9 @@ function swapSeats(withEmail: string): void {
   font-weight: 600;
 }
 
-/* Nothing to show: the zero stays legible and stops offering itself. */
+/* Nothing to show: the zero stops offering itself, and stays legible - its neutral fill already
+   quietens it (see `.count-badge--none`). */
 .count-badge:disabled {
-  color: var(--mm-text-muted-on-beige);
   cursor: default;
 }
 
@@ -661,6 +652,12 @@ function swapSeats(withEmail: string): void {
   color: var(--mm-black);
 }
 
+/*
+ * Black on beige is 12.49. The obvious alternative - muted text, to say "nothing here" - is 4.24 on
+ * beige and so below AA, and `contrast.test.ts` would not have caught it: it holds only --mm-black
+ * to the beige ground, because --mm-black was the only thing ever set on it. Quieten a pill by
+ * changing its FILL, never by lowering its text.
+ */
 .count-badge--empty,
 .count-badge--none {
   background-color: var(--mm-beige);

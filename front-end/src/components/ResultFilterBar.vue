@@ -4,55 +4,51 @@
  * that is set (E28/F02/S02).
  *
  * One bar for the tables and the vendors, under the same address keys, so the two pages filter
- * alike and a filter set on one is still set on the other. Every filter lives in the address,
- * which is why this writes the route rather than emitting: a filtered view is a link. What the
- * filters MEAN on each page is `utils/resultFilters.ts`'s.
+ * alike and a filter set on one is still set on the other. Each page says which filters it offers
+ * (`filtersBeside`): a filter it does not offer draws neither a picker nor a chip, so nothing on
+ * screen claims to narrow a list it does not. What the filters MEAN is `utils/resultFilters.ts`'s.
  */
-import { useRoute, useRouter } from 'vue-router';
+import { computed } from 'vue';
 import { getFormattedDate } from '@/utils/utils';
-import type { ResultFilterName, ResultFilters } from '@/utils/resultFilters';
+import { useResultFilters } from '@/utils/useResultFilters';
+import type { FilterOptions, ResultFilterName } from '@/utils/resultFilters';
 
 const props = defineProps<{
-  filters: ResultFilters;
-  options: { dates: string[]; sections: string[]; tiers: string[] };
+  options: FilterOptions;
+  offered: ResultFilterName[];
   /** The page's testid prefix: `tables` or `vendors`. */
   testid: string;
 }>();
 
-const route = useRoute();
-const router = useRouter();
+const { filters, setFilter, clearFilters } = useResultFilters();
 
-const FILTER_NAMES: ResultFilterName[] = ['date', 'section', 'tier', 'choice', 'status'];
+const offers = (name: ResultFilterName) => props.offered.includes(name);
 
-function formatDate(date: string): string {
-  return getFormattedDate(date) ?? date;
-}
+const formatDate = (date: string) => getFormattedDate(date) ?? date;
 
-const CHOICE_LABELS = { full: 'Full Tables', half: 'Half Tables' } as const;
+const CHOICE_LABELS: Record<string, string> = { full: 'Full Tables', half: 'Half Tables' };
 
-function setFilter(name: ResultFilterName, value: string): void {
-  const next = { ...route.query };
-  if (value) next[name] = value;
-  else delete next[name];
-  void router.replace({ query: next });
-}
-
-/** Lets go of every filter, and of nothing else the address holds (an open vendor, say). */
-function clearAll(): void {
-  const next = { ...route.query };
-  for (const name of FILTER_NAMES) delete next[name];
-  void router.replace({ query: next });
-}
-
-const anySet = () => FILTER_NAMES.some((name) => props.filters[name]);
+/** One chip per filter that is set and offered, each saying what it narrows to. */
+const chips = computed(() => {
+  const f = filters.value;
+  const all: Array<{ name: ResultFilterName; text: string; what: string }> = [
+    { name: 'date', text: `Date: ${formatDate(f.date)}`, what: 'date' },
+    { name: 'section', text: `Section: ${f.section}`, what: 'section' },
+    { name: 'tier', text: `Tier: ${f.tier}`, what: 'tier' },
+    { name: 'choice', text: CHOICE_LABELS[f.choice] ?? '', what: 'table size' },
+    { name: 'status', text: `Status: ${f.status}`, what: 'status' },
+  ];
+  return all.filter((chip) => f[chip.name] && offers(chip.name));
+});
 </script>
 
 <template>
   <div class="filter-bar" :data-testid="`${testid}-filter-bar`">
     <div class="filter-pickers">
-      <label class="filter-picker">
-        <span class="filter-picker-label">Date</span>
+      <label v-if="offers('date')" class="filter-picker">
+        <span class="field-label">Date</span>
         <select
+          class="field field--select"
           :value="filters.date"
           :data-testid="`${testid}-filter-date`"
           @change="setFilter('date', ($event.target as HTMLSelectElement).value)"
@@ -63,9 +59,10 @@ const anySet = () => FILTER_NAMES.some((name) => props.filters[name]);
           </option>
         </select>
       </label>
-      <label class="filter-picker">
-        <span class="filter-picker-label">Section</span>
+      <label v-if="offers('section')" class="filter-picker">
+        <span class="field-label">Section</span>
         <select
+          class="field field--select"
           :value="filters.section"
           :data-testid="`${testid}-filter-section`"
           @change="setFilter('section', ($event.target as HTMLSelectElement).value)"
@@ -77,9 +74,10 @@ const anySet = () => FILTER_NAMES.some((name) => props.filters[name]);
         </select>
       </label>
       <!-- A market planned without tiers has nothing to filter by tier (bug 23). -->
-      <label v-if="options.tiers.length" class="filter-picker">
-        <span class="filter-picker-label">Tier</span>
+      <label v-if="offers('tier') && options.tiers.length" class="filter-picker">
+        <span class="field-label">Tier</span>
         <select
+          class="field field--select"
           :value="filters.tier"
           :data-testid="`${testid}-filter-tier`"
           @change="setFilter('tier', ($event.target as HTMLSelectElement).value)"
@@ -90,82 +88,40 @@ const anySet = () => FILTER_NAMES.some((name) => props.filters[name]);
           </option>
         </select>
       </label>
-      <label class="filter-picker">
-        <span class="filter-picker-label">Table</span>
+      <label v-if="offers('choice')" class="filter-picker">
+        <span class="field-label">Table</span>
         <select
+          class="field field--select"
           :value="filters.choice"
           :data-testid="`${testid}-filter-choice`"
           @change="setFilter('choice', ($event.target as HTMLSelectElement).value)"
         >
           <option value="">Any size</option>
-          <option value="full">Full Tables</option>
-          <option value="half">Half Tables</option>
+          <option value="full">{{ CHOICE_LABELS.full }}</option>
+          <option value="half">{{ CHOICE_LABELS.half }}</option>
         </select>
       </label>
     </div>
 
-    <div v-if="anySet()" class="filter-chips">
+    <div v-if="chips.length" class="filter-chips">
       <span class="filter-chips-label">Filters:</span>
       <button
-        v-if="filters.date"
+        v-for="chip in chips"
+        :key="chip.name"
         type="button"
         class="filter-chip"
-        :data-testid="`${testid}-filter-chip-date`"
-        @click="setFilter('date', '')"
+        :data-testid="`${testid}-filter-chip-${chip.name}`"
+        @click="setFilter(chip.name, '')"
       >
-        Date: {{ formatDate(filters.date) }}
+        {{ chip.text }}
         <span class="filter-chip-close" aria-hidden="true">×</span>
-        <span class="visually-hidden">Remove date filter</span>
-      </button>
-      <button
-        v-if="filters.section"
-        type="button"
-        class="filter-chip"
-        :data-testid="`${testid}-filter-chip-section`"
-        @click="setFilter('section', '')"
-      >
-        Section: {{ filters.section }}
-        <span class="filter-chip-close" aria-hidden="true">×</span>
-        <span class="visually-hidden">Remove section filter</span>
-      </button>
-      <button
-        v-if="filters.tier"
-        type="button"
-        class="filter-chip"
-        :data-testid="`${testid}-filter-chip-tier`"
-        @click="setFilter('tier', '')"
-      >
-        Tier: {{ filters.tier }}
-        <span class="filter-chip-close" aria-hidden="true">×</span>
-        <span class="visually-hidden">Remove tier filter</span>
-      </button>
-      <button
-        v-if="filters.choice"
-        type="button"
-        class="filter-chip"
-        :data-testid="`${testid}-filter-chip-choice`"
-        @click="setFilter('choice', '')"
-      >
-        {{ CHOICE_LABELS[filters.choice] }}
-        <span class="filter-chip-close" aria-hidden="true">×</span>
-        <span class="visually-hidden">Remove choice filter</span>
-      </button>
-      <button
-        v-if="filters.status"
-        type="button"
-        class="filter-chip"
-        :data-testid="`${testid}-filter-chip-status`"
-        @click="setFilter('status', '')"
-      >
-        Status: {{ filters.status }}
-        <span class="filter-chip-close" aria-hidden="true">×</span>
-        <span class="visually-hidden">Remove status filter</span>
+        <span class="visually-hidden">Remove {{ chip.what }} filter</span>
       </button>
       <button
         type="button"
         class="filter-chip filter-chip--clear-all"
         :data-testid="`${testid}-filter-chip-clear-all`"
-        @click="clearAll"
+        @click="clearFilters"
       >
         Clear all
       </button>
@@ -179,58 +135,43 @@ const anySet = () => FILTER_NAMES.some((name) => props.filters[name]);
 .filter-bar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .filter-pickers {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .filter-picker {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   min-width: 0;
-}
-
-.filter-picker-label {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.filter-picker select {
-  padding: 6px 8px;
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
-  font-size: var(--text-xs);
-  color: var(--mm-black);
-  max-width: 100%;
 }
 
 .filter-chips {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .filter-chips-label {
-  font-family: 'Merge One', sans-serif;
   font-size: var(--text-sm);
   color: var(--mm-black);
 }
 
+/* A chip that removes its filter: a button, so it is not the label-only `.chip`. */
 .filter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
   background-color: var(--mm-beige);
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-pill);
+  font-family: inherit;
   font-size: var(--text-xs);
   color: var(--mm-black);
   cursor: pointer;
@@ -245,7 +186,7 @@ const anySet = () => FILTER_NAMES.some((name) => props.filters[name]);
 }
 
 .filter-chip:focus-visible {
-  outline: 2px solid var(--mm-green);
+  outline: 2px solid var(--mm-black);
   outline-offset: 2px;
 }
 
@@ -259,17 +200,5 @@ const anySet = () => FILTER_NAMES.some((name) => props.filters[name]);
 .filter-chip--clear-all {
   background-color: white;
   border-style: dashed;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 </style>

@@ -105,10 +105,8 @@ const count = computed(() => months.value.reduce((n, m) => n + m.days.length, 0)
 /** Every line is one height, so the room for a column is a count of lines. */
 const LINE_PX = 28;
 const COLUMN_PX = 144;
-const COLUMN_GAP_PX = 24;
 const linePx = `${LINE_PX}px`;
 const columnPx = `${COLUMN_PX}px`;
-const columnGapPx = `${COLUMN_GAP_PX}px`;
 
 const calendarEl = ref<HTMLElement | null>(null);
 const flowEl = ref<HTMLElement | null>(null);
@@ -125,9 +123,11 @@ function measure() {
   if (!calendar || !flow || !calendar.height) return;
   const beside = calendar.bottom - flow.top;
   const tall = beside >= LINE_PX * 2 ? beside : calendar.height;
+  // The gap is the stylesheet's (a spacing token), read rather than restated here.
+  const gap = parseFloat(getComputedStyle(flowEl.value!).columnGap) || 0;
   room.value = {
     lines: Math.floor(tall / LINE_PX),
-    columns: Math.floor((flow.width + COLUMN_GAP_PX) / (COLUMN_PX + COLUMN_GAP_PX)),
+    columns: Math.floor((flow.width + gap) / (COLUMN_PX + gap)),
   };
 }
 
@@ -228,7 +228,10 @@ const indexOf = computed(() => {
           class="dates-column"
           data-testid="setup-dates-column"
         >
-          <template v-for="line in column" :key="line.day || `${line.year}-${line.month}`">
+          <template
+            v-for="line in column"
+            :key="line.kind === 'day' ? line.day : `${line.year}-${line.month}`"
+          >
             <li
               v-if="line.kind === 'month'"
               class="dates-line dates-month"
@@ -247,6 +250,7 @@ const indexOf = computed(() => {
             <li
               v-else
               class="dates-line dates-day"
+              :class="{ viewed: isViewed(line.year, line.month) }"
               :title="getFormattedDate(line.day) ?? line.day"
               :data-testid="`setup-dates-date-display-${indexOf[line.day]}`"
             >
@@ -398,7 +402,7 @@ const indexOf = computed(() => {
 .dates-columns {
   display: flex;
   align-items: flex-start;
-  gap: v-bind(columnGapPx);
+  gap: var(--space-6);
 }
 
 .dates-column {
@@ -417,9 +421,11 @@ const indexOf = computed(() => {
   border-radius: var(--radius-control);
 }
 
-/* The month the calendar shows. */
-.dates-month.viewed {
+/* The month the calendar shows: its heading and its days, one band. Square, so the band reads as
+   one piece rather than a stack of pills. */
+.dates-line.viewed {
   background: var(--mm-beige);
+  border-radius: 0;
 }
 
 .dates-month-name {
@@ -465,7 +471,8 @@ const indexOf = computed(() => {
   background: none;
   font-size: var(--text-md);
   line-height: 1;
-  color: var(--mm-text-muted);
+  /* Beige-safe: the shown month's rows are beige, where --mm-text-muted is 4.23. */
+  color: var(--mm-text-muted-on-beige);
   cursor: pointer;
 }
 

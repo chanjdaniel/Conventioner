@@ -63,7 +63,9 @@ const emit = defineEmits<{ open: [] }>();
     <span v-else :class="vacantLabel === 'Unassigned' ? 'seat-unassigned' : 'seat-vacant'">{{
       vacantLabel
     }}</span>
-    <span class="seat-button-hint">{{ email ? 'Change' : 'Place someone' }}</span>
+    <span class="seat-button-hint" data-testid="tables-seat-hint">{{
+      email ? 'Change' : 'Place someone'
+    }}</span>
   </button>
 </template>
 
