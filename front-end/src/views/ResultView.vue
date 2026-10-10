@@ -26,19 +26,17 @@ import {
   type PlaceableVendor,
   type Seat,
 } from '@/utils/placementChange';
-
-interface MarketTableRow {
-  date: string;
-  assignment: string[];
-  /** The table seat by seat - `[left, right]`, null for vacant. Which side is free is a fact
-      the occupant list cannot carry, and every placement names a side. */
-  assignmentSlots: (string | null)[];
-  location: string;
-  section: string;
-  tableChoice: string;
-  tableCode: string;
-  tier: string;
-}
+import {
+  TABLE_STATUSES,
+  readResultFilters,
+  rowStatus,
+  statusCounts as countStatuses,
+  tablesMatching,
+  type ChoiceFilter,
+  type MarketTableRow,
+  type ResultFilterName,
+  type TableStatus,
+} from '@/utils/resultFilters';
 
 interface SectionGroup {
   section: string;
@@ -53,9 +51,6 @@ interface DateGroup {
   sections: SectionGroup[];
   rowCount: number;
 }
-
-type ChoiceFilter = 'full' | 'half' | '';
-type FilterName = 'date' | 'section' | 'tier' | 'choice';
 
 const route = useRoute();
 const router = useRouter();
@@ -81,56 +76,20 @@ const vendors = ref<PlaceableVendor[]>([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
 
-const dateFilter = computed(() => normalizeQuery(route.query.date));
-const sectionFilter = computed(() => normalizeQuery(route.query.section));
-const tierFilter = computed(() => normalizeQuery(route.query.tier));
-const choiceFilter = computed<ChoiceFilter>(() => {
-  const raw = normalizeQuery(route.query.choice).toLowerCase();
-  if (raw === 'full' || raw === 'half') return raw;
-  return '';
-});
+const filters = computed(() => readResultFilters(route.query));
+const dateFilter = computed(() => filters.value.date);
+const sectionFilter = computed(() => filters.value.section);
+const tierFilter = computed(() => filters.value.tier);
+const choiceFilter = computed(() => filters.value.choice);
+const statusFilter = computed(() => filters.value.status);
 
-const hasActiveFilters = computed(
-  () =>
-    Boolean(dateFilter.value) ||
-    Boolean(sectionFilter.value) ||
-    Boolean(tierFilter.value) ||
-    Boolean(choiceFilter.value),
-);
-
-function normalizeQuery(raw: unknown): string {
-  if (Array.isArray(raw)) {
-    const first = raw.find((v) => typeof v === 'string' && v.length > 0);
-    return typeof first === 'string' ? first : '';
-  }
-  return typeof raw === 'string' ? raw : '';
-}
+const hasActiveFilters = computed(() => Object.values(filters.value).some(Boolean));
 
 function formatDisplayDate(date: string): string {
   return getFormattedDate(date) ?? date;
 }
 
-function rowMatchesChoice(row: MarketTableRow, filter: ChoiceFilter): boolean {
-  if (!filter) return true;
-  const normalized = row.tableChoice.toLowerCase();
-  if (filter === 'full') return normalized.includes('full');
-  return normalized.includes('half');
-}
-
-const filteredRows = computed((): MarketTableRow[] => {
-  const date = dateFilter.value;
-  const section = sectionFilter.value;
-  const tier = tierFilter.value;
-  const choice = choiceFilter.value;
-
-  return allRows.value.filter((row) => {
-    if (date && row.date !== date) return false;
-    if (section && row.section !== section) return false;
-    if (tier && row.tier !== tier) return false;
-    if (!rowMatchesChoice(row, choice)) return false;
-    return true;
-  });
-});
+const filteredRows = computed(() => tablesMatching(allRows.value, filters.value));
 
 const groupedRows = computed((): DateGroup[] => {
   const dateMap = new Map<string, Map<string, SectionGroup>>();
@@ -176,51 +135,7 @@ const groupedRows = computed((): DateGroup[] => {
   return dateGroups;
 });
 
-interface RowStatus {
-  label: 'assigned' | 'partial' | 'empty';
-  leftEmail: string | null;
-  rightEmail: string | null;
-  isFull: boolean;
-}
-
-function rowStatus(row: MarketTableRow): RowStatus {
-  const isFull = row.tableChoice.toLowerCase().includes('full');
-  // Seat by seat, not the occupant list: a lone occupant on the RIGHT used to draw on the left,
-  // because a list of one cannot say which half of the table it means. Nothing could produce that
-  // until a pin could (E11).
-  const left = row.assignmentSlots?.[0] ?? null;
-  const right = row.assignmentSlots?.[1] ?? null;
-
-  if (!left && !right) {
-    return { label: 'empty', leftEmail: null, rightEmail: null, isFull };
-  }
-
-  if (isFull) {
-    const email = left ?? right;
-    return { label: 'assigned', leftEmail: email, rightEmail: email, isFull };
-  }
-
-  const filled = (left ? 1 : 0) + (right ? 1 : 0);
-  return {
-    label: filled === 2 ? 'assigned' : 'partial',
-    leftEmail: left,
-    rightEmail: right,
-    isFull,
-  };
-}
-
-const statusCounts = computed(() => {
-  let assigned = 0;
-  let partial = 0;
-  let empty = 0;
-  for (const row of filteredRows.value) {
-    const status = rowStatus(row).label;
-    if (status === 'assigned') assigned += 1;
-    else if (status === 'partial') partial += 1;
-    else empty += 1;
-  }
-  return { assigned, partial, empty };
-});
+const statusCounts = computed(() => countStatuses(allRows.value, filters.value));
 
 /**
  * The three status pills, each with the fill it is worn in.
@@ -236,13 +151,21 @@ const statusCounts = computed(() => {
  * typechecks perfectly and renders a lie.
  */
 const countPills = computed(() =>
-  (['assigned', 'partial', 'empty'] as const).map((kind) => {
+  TABLE_STATUSES.map((kind) => {
     const count = statusCounts.value[kind];
     return { kind, count, fill: count === 0 ? 'count-badge--none' : `count-badge--${kind}` };
   }),
 );
 
-function clearFilter(name: FilterName): void {
+/**
+ * A count is also the way to see those tables (E28/F02/S01): choosing it filters to them, and
+ * choosing it again lets go. A zero is not a condition to act on, so it cannot be chosen.
+ */
+function toggleStatus(kind: TableStatus): void {
+  setFilter('status', statusFilter.value === kind ? '' : kind);
+}
+
+function clearFilter(name: ResultFilterName): void {
   setFilter(name, '');
 }
 
@@ -253,7 +176,7 @@ function clearFilter(name: FilterName): void {
  * the chips could clear one, and nothing in the product ever set one - so an organizer could
  * only narrow this view by editing the address bar (`E09/F02/S01`, `E11/F03/S02`).
  */
-function setFilter(name: FilterName, value: string): void {
+function setFilter(name: ResultFilterName, value: string): void {
   const nextQuery = { ...route.query };
   if (value) nextQuery[name] = value;
   else delete nextQuery[name];
@@ -598,6 +521,17 @@ function swapSeats(withEmail: string): void {
                 <span class="visually-hidden">Remove choice filter</span>
               </button>
               <button
+                v-if="statusFilter"
+                type="button"
+                class="filter-chip"
+                @click="clearFilter('status')"
+                data-testid="tables-filter-chip-status"
+              >
+                Status: {{ statusFilter }}
+                <span class="filter-chip-close" aria-hidden="true">×</span>
+                <span class="visually-hidden">Remove status filter</span>
+              </button>
+              <button
                 type="button"
                 class="filter-chip filter-chip--clear-all"
                 @click="clearAllFilters"
@@ -611,14 +545,25 @@ function swapSeats(withEmail: string): void {
               <span class="counts-primary">
                 {{ filteredRows.length }} of {{ allRows.length }} tables
               </span>
-              <span
+              <!-- Each count shows its tables (E28/F02/S01). -->
+              <button
                 v-for="pill in countPills"
                 :key="pill.kind"
+                type="button"
                 class="count-badge"
                 :class="pill.fill"
+                :aria-pressed="statusFilter === pill.kind"
+                :disabled="pill.count === 0 && statusFilter !== pill.kind"
+                :title="
+                  pill.count === 0 ? `No ${pill.kind} tables` : `Show only ${pill.kind} tables`
+                "
                 :data-testid="`tables-count-${pill.kind}`"
-                >{{ pill.count }} {{ pill.kind }}</span
+                @click="toggleStatus(pill.kind)"
               >
+                <span v-if="statusFilter === pill.kind" class="count-badge-tick" aria-hidden="true"
+                  >✓</span
+                >{{ pill.count }} {{ pill.kind }}
+              </button>
             </div>
           </div>
 
@@ -877,33 +822,53 @@ function swapSeats(withEmail: string): void {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
+  /* Every pill carries a border, in its own fill where it needs none, so all three are one height:
+     "assigned" was 2px shorter than its neighbours. */
+  border: 1px solid transparent;
   border-radius: var(--radius-card);
+  font-family: inherit;
   font-size: var(--text-xs);
+  line-height: normal;
+  cursor: pointer;
+}
+
+.count-badge:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+/* The chosen count is ticked, as a filter chip is: its fill already says which status it is. */
+.count-badge[aria-pressed='true'] {
+  font-weight: 600;
+}
+
+.count-badge-tick {
+  margin-right: var(--space-1);
+  font-weight: 600;
+}
+
+/* Nothing to show: the zero stays legible and stops offering itself. */
+.count-badge:disabled {
+  color: var(--mm-text-muted-on-beige);
+  cursor: default;
 }
 
 .count-badge--assigned {
   background-color: var(--mm-green);
+  border-color: var(--mm-green);
   color: white;
 }
 
 .count-badge--partial {
   background-color: var(--mm-yellow);
+  border-color: var(--mm-yellow);
   color: var(--mm-black);
 }
 
-/*
- * The neutral pill, and the one a count of zero falls back to.
- *
- * Black on beige is 12.49. The obvious alternative - muted text, to say "nothing here" - is 4.24 on
- * beige and so below AA, and `contrast.test.ts` would not have caught it: it holds only --mm-black
- * to the beige ground, because --mm-black was the only thing ever set on it. Quieten a pill by
- * changing its FILL, never by lowering its text.
- */
 .count-badge--empty,
 .count-badge--none {
   background-color: var(--mm-beige);
   color: var(--mm-black);
-  border: 1px solid var(--mm-border);
+  border-color: var(--mm-border);
 }
 
 .status-message {

@@ -2,7 +2,7 @@
 id: E28/F02/S01
 title: The table counts filter the tables
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -21,9 +21,9 @@ The three pills are one height: today "assigned" is 2px shorter than the other t
 
 ## Acceptance criteria
 
-- [ ] Clicking each non-zero count shows only the tables in that state, and the address carries it.
-- [ ] Opening that address shows the same filtered view.
-- [ ] With a status chosen, the other counts are unchanged; with a date chosen as well, all three follow the date.
-- [ ] A zero count is not clickable and says why to assistive technology (disabled, not merely unstyled).
-- [ ] The chip and "Clear all" clear it.
-- [ ] All three pills are the same height in every state.
+- [x] Clicking each non-zero count shows only the tables in that state, and the address carries it.
+- [x] Opening that address shows the same filtered view.
+- [x] With a status chosen, the other counts are unchanged; with a date chosen as well, all three follow the date.
+- [x] A zero count is not clickable and says why to assistive technology (disabled, not merely unstyled).
+- [x] The chip and "Clear all" clear it.
+- [x] All three pills are the same height in every state.
