@@ -52,9 +52,14 @@ export class NewMarketPage {
     await this.submitButton.click();
   }
 
-  /** Select an organization from the dropdown (first available option). */
+  /**
+   * Choose the first organization offered. A member of exactly one is shown it rather than asked,
+   * so there is nothing to choose: waiting for the dropdown made every spec that calls this pass
+   * only after another spec had given the test user a second organization.
+   */
   async selectFirstOrg(): Promise<void> {
-    await this.orgSelect.waitFor({ state: 'visible', timeout: 5000 });
+    await this.orgSelect.or(this.orgOnly).waitFor({ state: 'visible', timeout: 5000 });
+    if (await this.orgOnly.isVisible()) return;
     await this.orgSelect.selectOption({ index: 1 });
   }
 
