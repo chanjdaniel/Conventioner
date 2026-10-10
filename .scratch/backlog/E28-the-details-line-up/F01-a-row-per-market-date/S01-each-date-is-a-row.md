@@ -2,9 +2,9 @@
 id: E28/F01/S01
 title: Each chosen date is a row, under its month, flowing in columns
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E28/F03
 title: The priority rules table is cleaned up
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## Outcome

@@ -2,9 +2,9 @@
 id: E28/F03/S01
 title: The rules table is drawn from the primitives
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## What to build

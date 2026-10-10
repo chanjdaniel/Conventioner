@@ -2,9 +2,9 @@
 id: E28/F04/S02
 title: The centred marks are centred
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## What to build

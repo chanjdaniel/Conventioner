@@ -2,9 +2,9 @@
 id: E28/F01
 title: The market dates list one row per date
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## Outcome

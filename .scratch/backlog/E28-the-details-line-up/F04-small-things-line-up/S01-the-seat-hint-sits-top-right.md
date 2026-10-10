@@ -2,9 +2,9 @@
 id: E28/F04/S01
 title: The seat button's hint sits at its top right
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## What to build

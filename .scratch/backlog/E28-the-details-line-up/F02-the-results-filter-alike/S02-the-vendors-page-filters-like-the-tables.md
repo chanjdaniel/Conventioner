@@ -2,9 +2,9 @@
 id: E28/F02/S02
 title: The vendors page filters as the tables page does
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## What to build

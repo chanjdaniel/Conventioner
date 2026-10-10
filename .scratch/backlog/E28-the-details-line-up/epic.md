@@ -2,9 +2,9 @@
 id: E28
 title: The details line up
 type: epic
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## Outcome

@@ -2,9 +2,9 @@
 id: E28/F04
 title: Small things line up
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## Outcome

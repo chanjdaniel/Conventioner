@@ -2,9 +2,9 @@
 id: E28/F02/S01
 title: The table counts filter the tables
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## What to build

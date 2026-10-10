@@ -2,9 +2,9 @@
 id: E28/F04/S03
 title: The screenshot pass's other finds
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## What to build

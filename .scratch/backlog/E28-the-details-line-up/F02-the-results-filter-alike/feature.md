@@ -2,9 +2,9 @@
 id: E28/F02
 title: The results filter alike
 type: feature
-status: ready
+status: done
 blocked_by: []
-pr: []
+pr: [#94]
 ---
 
 ## Outcome
