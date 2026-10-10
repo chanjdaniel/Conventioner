@@ -76,8 +76,9 @@ test('the answers line up, the row grows, and dragging still reorders', async ({
   const rule = page.getByTestId('priority-rule-row').first();
   const scrollers = await rule.evaluate(
     (row) =>
-      [row, ...row.querySelectorAll('*')].filter((el) => el.scrollHeight > el.clientHeight + 1)
-        .length,
+      [row, ...Array.from(row.querySelectorAll('*'))].filter(
+        (el) => el.scrollHeight > el.clientHeight + 1,
+      ).length,
   );
   expect(scrollers, 'an element inside the rule scrolls').toBe(0);
   const ruleBox = (await rule.boundingBox())!;

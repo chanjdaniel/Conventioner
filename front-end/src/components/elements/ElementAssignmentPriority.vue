@@ -348,7 +348,6 @@ const dragOptions = computed(() => ({
      only their own content. Headings and rows share the one template, so each heading stands over
      its column. */
   --priority-columns: 4rem minmax(0, 1fr) minmax(0, 1fr) 3rem;
-  --priority-cell: var(--space-3);
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -363,7 +362,7 @@ const dragOptions = computed(() => ({
    centres a row's text, which centred each heading in its column. */
 .column-titles h3 {
   margin: 0;
-  padding: 0 var(--priority-cell);
+  padding: 0 var(--space-3);
   text-align: left;
 }
 
@@ -393,7 +392,7 @@ const dragOptions = computed(() => ({
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
-  padding: var(--priority-cell);
+  padding: var(--space-3);
   border-right: 1px solid var(--mm-border);
 }
 
