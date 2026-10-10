@@ -36,10 +36,10 @@ async function geometry(page: Page) {
       (document.querySelector(`[data-testid="${id}"]`) as HTMLElement).getBoundingClientRect();
     const calendar = box('setup-dates-calendar');
     const list = box('setup-dates-summary');
-    const columns = [...document.querySelectorAll('[data-testid="setup-dates-column"]')].map(
+    const columns = Array.from(document.querySelectorAll('[data-testid="setup-dates-column"]')).map(
       (column) => ({
         left: Math.round(column.getBoundingClientRect().left),
-        lines: [...column.children].map((line) => ({
+        lines: Array.from(column.children).map((line) => ({
           text: (line.textContent ?? '').replace('×', '').trim(),
           month: line.classList.contains('dates-month'),
           top: Math.round(line.getBoundingClientRect().top),
