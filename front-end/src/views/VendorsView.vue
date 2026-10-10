@@ -35,6 +35,7 @@ import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
+import AnswerValue from '@/components/AnswerValue.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import { filterOptions, readResultFilters, vendorShown } from '@/utils/resultFilters';
 
@@ -610,7 +611,8 @@ useInertBehind(
           <dl class="detail-grid">
             <template v-for="field in detailFields" :key="field.label">
               <dt>{{ field.label }}</dt>
-              <dd>{{ field.value }}</dd>
+              <!-- Through AnswerValue, as every answer is, so an address is a link (E28/F04/S03). -->
+              <dd><AnswerValue :value="field.value" /></dd>
             </template>
           </dl>
         </section>
