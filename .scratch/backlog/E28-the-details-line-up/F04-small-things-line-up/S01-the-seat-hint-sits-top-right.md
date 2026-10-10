@@ -2,7 +2,7 @@
 id: E28/F04/S01
 title: The seat button's hint sits at its top right
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -20,6 +20,6 @@ In the same button:
 
 ## Acceptance criteria
 
-- [ ] On hover and focus, the hint's right edge is the button's padding edge and its top is level with the name, for long and short emails and for empty seats.
-- [ ] Empty and occupied seats are the same height.
-- [ ] A full-table occupant's name computes to weight 600.
+- [x] On hover and focus, the hint's right edge is the button's padding edge and its top is level with the name, for long and short emails and for empty seats.
+- [x] Empty and occupied seats are the same height.
+- [x] A full-table occupant's name computes to weight 600.
