@@ -2,7 +2,7 @@
 id: E28/F03/S01
 title: The rules table is drawn from the primitives
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -19,14 +19,19 @@ On the assignment page, the priority rules table, measured on 2026-10-10 against
 - **One text colour and one size**, from the tokens (today: slate, pure black and muted, at 14.04px and 14px).
 - **1px dividers**, as everywhere else (3px today).
 - **Each heading stands over its own column**, left-aligned with it, and the rank sits under "Priority".
-- **"Add a rule" is the button primitive.**
+- **"Add a rule" is the add-row primitive**, as on the plan cards, left-aligned under the rules.
 - **No scrolling box inside the cell**: a rule with many answers makes the row taller, since the page scrolls.
 - The two drag handles are one size.
 
 ## Acceptance criteria
 
-- [ ] With answers of different lengths, ranks and ×s line up in columns.
-- [ ] Controls are `.btn` / `.field` from `primitives.css`; the file joins the `lint:css` error list.
-- [ ] A rule with 12 answers grows the row; nothing scrolls inside it.
-- [ ] Every control is named (`every-control-is-named.spec.ts` walks the page with a rule on it).
-- [ ] Drag to reorder rules and answers still works.
+- [x] With answers of different lengths, ranks and ×s line up in columns.
+- [x] Controls are `.field` / `.add-row` / `.drag-handle` from `primitives.css`; the file is on the `lint:css` error list.
+- [x] A rule with 12 answers grows the row; nothing scrolls inside it.
+- [x] Every control is named (`every-control-is-named.spec.ts` walks the page with a rule on it).
+- [x] Drag to reorder rules and answers still works.
+
+## Notes from the build
+
+- The 3px dividers were not the rules table's alone: Tier, Location and Section Setup and Assignment Options drew the same ones. All five moved to 1px together, so the plan and the assignment page still agree.
+- Assignment Options stretched to the rules card's height beside it; it now ends at its own content, as the plan's row rule says.

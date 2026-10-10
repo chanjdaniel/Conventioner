@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, toRef, computed, watch } from 'vue';
+import { toRef, computed, watch } from 'vue';
 import draggable from 'vuedraggable';
 import {
   ALL_OTHERS,
@@ -11,7 +11,6 @@ import {
 } from '@/assets/types/datatypes';
 import IconAddRound from '../icons/IconAddRound.vue';
 import IconClickDrag from '../icons/IconClickDrag.vue';
-import IconClickDragSmall from '../icons/IconClickDragSmall.vue';
 import IconCloseRound from '../icons/IconCloseRound.vue';
 
 /**
@@ -133,14 +132,8 @@ const unplacedOptions = (rule: PriorityObject): string[] => {
   return remaining;
 };
 
-const container = ref<HTMLElement | null>(null);
-const rows = ref<HTMLElement | null>(null);
-const columnTitles = ref<HTMLElement | null>(null);
-
 const targetDefault = 'Select a question';
 const optionDefault = 'Add an answer';
-
-onMounted(() => {});
 
 const nextRuleId = () =>
   priorityObjects.value.reduce((highest, rule) => Math.max(highest, rule.id), 0) + 1;
@@ -172,30 +165,29 @@ const removeOrderingItem = (parentIndex: number, childIndex: number) => {
   priorityObjects.value[parentIndex].ordering.splice(childIndex, 1);
 };
 
-const hoverParentIndex = ref(null);
-const hoverChildIndex = ref(null);
-
 const dragOptions = computed(() => ({
   group: 'rows',
   disabled: props.readonly,
   ghostClass: 'sortable-chosen',
   chosenClass: 'sortable-ghost',
   dragClass: 'sortable-ghost',
-  handle: '.drag-item',
+  handle: '.rule-handle',
   forceFallback: false,
   fallbackOnBody: false,
 }));
 </script>
 
 <template>
-  <div class="container" ref="container">
-    <div class="column-titles row-container" ref="columnTitles">
+  <!-- The rules table (E28/F03/S01): a ranked list of rules, each a question and its answers in
+       order, drawn from the product's field, button and drag-handle primitives. -->
+  <div class="priority">
+    <div class="column-titles row-container">
       <h3>Priority</h3>
       <h3>Question</h3>
       <h3>Answers, best first</h3>
-      <h3></h3>
+      <h3 aria-hidden="true"></h3>
     </div>
-    <div class="rows" ref="rows">
+    <div class="rows">
       <p
         v-if="readonly && priorityObjects.length === 0"
         class="empty-hint"
@@ -210,22 +202,16 @@ const dragOptions = computed(() => ({
       </p>
       <draggable class="priority-rows" v-model="priorityObjects" item-key="id" v-bind="dragOptions">
         <template #item="{ element, index: parentIndex }">
-          <div
-            class="priority-row row-container"
-            :key="element.id"
-            data-testid="priority-rule-row"
-            @mouseover="hoverParentIndex = parentIndex"
-            @mouseleave="hoverParentIndex = null"
-          >
-            <div class="row-item drag-item">
-              <span v-if="!readonly" class="drag-handle click-drag"
+          <div class="priority-row row-container" :key="element.id" data-testid="priority-rule-row">
+            <div class="cell cell--rank">
+              <span v-if="!readonly" class="drag-handle rule-handle" aria-hidden="true"
                 ><IconClickDrag class="drag-handle__icon"
               /></span>
-              <h3>{{ parentIndex + 1 }}</h3>
+              <span class="rank">{{ parentIndex + 1 }}</span>
             </div>
-            <div class="row-item click-item">
+            <div class="cell">
               <select
-                class="dropdown"
+                class="field field--select"
                 :aria-label="`Rule ${parentIndex + 1}: what it orders by`"
                 data-testid="priority-target-select"
                 :disabled="readonly"
@@ -234,98 +220,70 @@ const dragOptions = computed(() => ({
               >
                 <option disabled :value="null">{{ targetDefault }}</option>
                 <optgroup v-if="fieldTargets.length" label="Your questions">
-                  <option
-                    class="display-list"
-                    v-for="field in fieldTargets"
-                    :key="field.key"
-                    :value="field.key"
-                  >
+                  <option v-for="field in fieldTargets" :key="field.key" :value="field.key">
                     {{ field.label }}
                   </option>
                 </optgroup>
                 <optgroup label="About the application">
-                  <option
-                    class="display-list"
-                    v-for="field in builtInTargets"
-                    :key="field.key"
-                    :value="field.key"
-                  >
+                  <option v-for="field in builtInTargets" :key="field.key" :value="field.key">
                     {{ field.label }}
                   </option>
                 </optgroup>
               </select>
             </div>
-            <div class="row-item">
-              <div
-                class="direction-container"
+            <div class="cell cell--answers">
+              <select
                 v-if="isMagnitude(priorityObjects[parentIndex])"
-                data-testid="priority-direction"
+                class="field field--select"
+                :aria-label="`Rule ${parentIndex + 1}: which end comes first`"
+                data-testid="priority-direction-select"
+                :disabled="readonly"
+                v-model="priorityObjects[parentIndex].direction"
               >
-                <select
-                  class="dropdown"
-                  :aria-label="`Rule ${parentIndex + 1}: which end comes first`"
-                  data-testid="priority-direction-select"
-                  :disabled="readonly"
-                  v-model="priorityObjects[parentIndex].direction"
-                >
-                  <option :value="PriorityDirection.Ascending">
-                    {{ fieldFor(priorityObjects[parentIndex].target)?.ascendingLabel }}
-                  </option>
-                  <option :value="PriorityDirection.Descending">
-                    {{ fieldFor(priorityObjects[parentIndex].target)?.descendingLabel }}
-                  </option>
-                </select>
-              </div>
-              <div
-                class="sorting-order-container"
-                v-else-if="isArranged(priorityObjects[parentIndex])"
-              >
+                <option :value="PriorityDirection.Ascending">
+                  {{ fieldFor(priorityObjects[parentIndex].target)?.ascendingLabel }}
+                </option>
+                <option :value="PriorityDirection.Descending">
+                  {{ fieldFor(priorityObjects[parentIndex].target)?.descendingLabel }}
+                </option>
+              </select>
+              <template v-else-if="isArranged(priorityObjects[parentIndex])">
                 <draggable
-                  class="sorting-rows"
+                  v-if="priorityObjects[parentIndex].ordering.length"
+                  tag="ol"
+                  class="answers"
                   v-model="priorityObjects[parentIndex].ordering"
                   item-key="element"
-                  :options="{
-                    handle: '.sorting-index-drag',
-                    filter: '.click-item',
-                    forceFallback: true,
-                    fallbackOnBody: true,
-                  }"
+                  handle=".answer-handle"
                   :group="`sorting-${parentIndex}`"
                   :disabled="readonly"
-                  :ghostClass="'sortable-chosen'"
-                  :chosenClass="'sorting-ghost'"
-                  :dragClass="'sorting-ghost'"
+                  ghostClass="sortable-chosen"
+                  chosenClass="sorting-ghost"
+                  dragClass="sorting-ghost"
                 >
                   <template #item="{ element: answer, index: childIndex }">
-                    <div
-                      class="sorting-order-row"
-                      data-testid="priority-ordering-row"
-                      @mouseover="hoverChildIndex = childIndex"
-                      @mouseleave="hoverChildIndex = null"
-                    >
-                      <div class="sorting-index-drag" @mousedown.stop>
-                        <span v-if="!readonly" class="drag-handle sorting-click-drag"
-                          ><IconClickDragSmall class="drag-handle__icon"
-                        /></span>
-                        <h3>{{ childIndex + 1 }}</h3>
-                      </div>
-                      <h3 class="sorting-answer">{{ answer }}</h3>
+                    <li class="answer" data-testid="priority-ordering-row">
+                      <span v-if="!readonly" class="drag-handle answer-handle" aria-hidden="true"
+                        ><IconClickDrag class="drag-handle__icon"
+                      /></span>
+                      <span class="answer-rank">{{ childIndex + 1 }}</span>
+                      <span class="answer-text">{{ answer }}</span>
                       <button
                         v-if="!readonly"
                         type="button"
-                        class="remove-button"
+                        class="remove-button remove-button--answer"
                         :aria-label="`Remove ${answer} from rule ${parentIndex + 1}`"
                         data-testid="priority-ordering-remove"
                         @click="removeOrderingItem(parentIndex, childIndex)"
                       >
                         <IconCloseRound />
                       </button>
-                    </div>
+                    </li>
                   </template>
                 </draggable>
                 <select
-                  v-if="!readonly"
-                  class="dropdown add-answer"
+                  v-if="!readonly && unplacedOptions(priorityObjects[parentIndex]).length"
+                  class="field field--select"
                   :aria-label="`Rule ${parentIndex + 1}: add an answer`"
                   data-testid="priority-ordering-add"
                   :value="''"
@@ -352,9 +310,9 @@ const dragOptions = computed(() => ({
                   }}&rdquo; in the order you want them placed. Anything you leave out sorts last, or
                   where you put &ldquo;{{ ALL_OTHERS }}&rdquo;.
                 </p>
-              </div>
+              </template>
             </div>
-            <div class="row-item">
+            <div class="cell cell--remove">
               <button
                 v-if="!readonly"
                 type="button"
@@ -384,61 +342,179 @@ const dragOptions = computed(() => ({
 </template>
 
 <style scoped>
-h4 {
-  height: auto;
-  text-align: center;
-  text-justify: center;
-  min-height: 30px;
-  max-height: 200px;
-  max-width: 400px;
-  overflow-y: scroll;
-  scrollbar-width: none;
-}
-
-h3 {
-  padding-left: 5px;
-  padding-right: 5px;
-}
-
-.container {
-  /* Four columns, one per control in a rule row: rank, question, how to order it, remove. It used
-     to declare five, so the headings sat one column left of what they named. The question and the
-     ordering hold sentences and take the width; the other two need only their own content. */
-  --priority-columns: 3rem minmax(0, 1.4fr) minmax(0, 1.6fr) 2rem;
-  width: 100%;
-  height: 100%;
-
+.priority {
+  /* Four columns, one per control in a rule row: rank, question, its answers in order, remove.
+     The question and the answers hold sentences and take the width; the rank and the remove need
+     only their own content. Headings and rows share the one template, so each heading stands over
+     its column. */
+  --priority-columns: 4rem minmax(0, 1fr) minmax(0, 1fr) 3rem;
+  --priority-cell: var(--space-3);
   display: flex;
   flex-direction: column;
-  align-items: center;
-
-  padding-left: 5px;
-  padding-right: 5px;
-  gap: 15px;
-}
-
-.input-container {
-  /* Was 80%. A priority rule names a question and how to order it, and both are sentences - at
-     80% the question select clipped to "When the application" and the direction to "Earliest",
-     which is the half of each that carries no meaning. */
   width: 100%;
-  height: 100%;
-  border-radius: var(--radius-card);
 }
 
-/* One template, shared, so a heading always sits over the control it names. */
 .column-titles {
   display: grid;
   grid-template-columns: var(--priority-columns);
 }
 
+/* Left-aligned over the content beneath, by the same inset a cell has. The shared container
+   centres a row's text, which centred each heading in its column. */
+.column-titles h3 {
+  margin: 0;
+  padding: 0 var(--priority-cell);
+  text-align: left;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.priority-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .priority-row {
   display: grid;
   grid-template-columns: var(--priority-columns);
-  padding-top: 5px;
-  padding-bottom: 5px;
-  min-height: 48px;
-  overflow: visible;
+  text-align: left;
+}
+
+/* A cell's content starts at its top: a rule with five answers leaves its question and its remove
+   control beside the first, not floating in the middle of the row. */
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--priority-cell);
+  border-right: 1px solid var(--mm-border);
+}
+
+.cell:last-child {
+  border-right: none;
+}
+
+/* The rank and the remove control are each one control tall, level with the question beside them. */
+.cell--rank,
+.cell--remove {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.cell--remove {
+  justify-content: center;
+  /* The column is the remove control's width; a full cell inset squeezed the 36px button to 24. */
+  padding-inline: var(--space-1);
+}
+
+.rank {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--mm-black);
+  font-variant-numeric: tabular-nums;
+}
+
+.rule-handle,
+.answer-handle {
+  align-self: stretch;
+  max-height: 36px;
+}
+
+.answers {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Handle, rank, answer, remove: a left edge, so the ranks and the removes form columns whatever
+   each answer's length. */
+.answer {
+  display: grid;
+  grid-template-columns: var(--space-6) 1.5rem minmax(0, 1fr) var(--space-6);
+  align-items: center;
+  min-height: 32px;
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+.answer:hover {
+  background: var(--mm-beige);
+}
+
+.answer-rank {
+  color: var(--mm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.answer-text {
+  overflow-wrap: anywhere;
+}
+
+.ordering-hint,
+.empty-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
+}
+
+.add-row {
+  align-self: flex-start;
+}
+
+/* Buttons, not icons with a click handler: a keyboard could not remove a rule or an answer, and
+   nothing named either (bug 44, found again on the E26 re-walk). */
+.remove-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--mm-black);
+  cursor: pointer;
+}
+
+.remove-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* An answer's remove is quieter than the rule's: taking one answer out is not taking the rule. */
+.remove-button--answer {
+  width: var(--space-6);
+  height: var(--space-6);
+  color: var(--mm-text-muted);
+}
+
+.remove-button--answer svg {
+  width: 14px;
+  height: 14px;
+}
+
+.remove-button:hover {
+  color: var(--mm-black);
+  background: var(--mm-beige);
+}
+
+.remove-button:focus-visible {
+  outline: 2px solid var(--mm-black);
+  outline-offset: 2px;
 }
 
 .sortable-ghost {
@@ -451,166 +527,5 @@ h3 {
 
 .sortable-chosen {
   visibility: hidden;
-}
-
-.row-item {
-  display: flex;
-  flex-direction: row;
-
-  padding-left: 5px;
-  padding-right: 5px;
-  justify-content: space-between;
-  align-items: center;
-
-  position: relative;
-
-  border-right: 3px solid var(--mm-border);
-}
-
-.row-item:last-of-type {
-  border: none;
-}
-
-.priority-rows {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  overflow: visible;
-}
-
-.sorting-rows {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0px;
-  overflow: visible;
-}
-
-.rows {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-
-  align-items: center;
-
-  gap: 8px;
-
-  overflow: auto;
-  scrollbar-width: none;
-}
-
-.dropdown {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  font-size: var(--text-sm);
-  padding-right: 5px;
-  background-color: white;
-  /* A label that still will not fit says so, rather than stopping mid-word. */
-  text-overflow: ellipsis;
-}
-
-/* Its outline is off for the pointer; the keyboard still gets the product's ring (bug 44). */
-.dropdown:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
-
-.click-item {
-  cursor: pointer;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-}
-
-.drag-item {
-  cursor: grab;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.drag-item:active {
-  cursor: grabbing;
-}
-
-.click-drag {
-  width: 16px;
-  height: 56px;
-  position: absolute;
-  left: 0;
-}
-
-/* Buttons, not icons with a click handler: a keyboard could not remove a rule or an answer, and
-   nothing named either (bug 44, found again on the E26 re-walk). */
-.remove-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-control);
-  background: none;
-  color: var(--mm-black);
-  cursor: pointer;
-}
-
-.remove-button:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
-}
-
-.sorting-order-container {
-  width: 100%;
-  max-height: 200px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-top: 10px;
-  gap: 0px;
-}
-
-.sorting-order-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  height: auto;
-  width: 100%;
-  cursor: grab;
-  padding: 4px;
-}
-
-.sorting-index-drag {
-  min-width: 40px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: left;
-}
-
-.sorting-text {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 5px;
-  margin-right: 5px;
-  padding-left: 5px;
-  padding-right: 5px;
-}
-
-.sorting-click-drag {
-  width: 16px;
-  height: 30px;
 }
 </style>

@@ -232,7 +232,7 @@ const countTables = () => {
   justify-content: center;
   align-items: center;
 
-  border-right: 3px solid var(--mm-border);
+  border-right: 1px solid var(--mm-border);
 }
 
 .row-item:last-of-type {
