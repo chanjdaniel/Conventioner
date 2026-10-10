@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  filterOptions,
+  placeFilterQuery,
   readResultFilters,
+  vendorShown,
   rowStatus,
   statusCounts,
   tablesMatching,
@@ -86,6 +89,97 @@ describe('the result filters', () => {
       assigned: 2,
       partial: 1,
       empty: 2,
+    });
+  });
+});
+
+/**
+ * The vendors page filters as the tables page does (E28/F02/S02), and asks where each vendor is
+ * PLACED: a vendor row spans every date, so section and tier mean "placed there on the chosen date,
+ * or on any date when none is chosen", and the table filter is how they are placed, not what they
+ * asked for.
+ */
+describe('the vendor filters', () => {
+  const placements = new Map([
+    ['2026-11-18', { section: 'A', tier: 'Gold', tableChoice: 'Full Table' }],
+    ['2026-11-19', { section: 'B', tier: 'Silver', tableChoice: 'Half Table' }],
+  ]);
+  const unplaced = new Map();
+  const shown = (query: Record<string, string>, onlyUnassigned = false, isAssigned = true) =>
+    vendorShown(placements, readResultFilters(query), { onlyUnassigned, isAssigned });
+
+  it('shows everyone with no filter', () => {
+    expect(shown({})).toBe(true);
+    expect(
+      vendorShown(unplaced, readResultFilters({}), { onlyUnassigned: false, isAssigned: false }),
+    ).toBe(true);
+  });
+
+  it('a date is the vendors placed that day', () => {
+    expect(shown({ date: '2026-11-18' })).toBe(true);
+    expect(shown({ date: '2026-11-20' })).toBe(false);
+  });
+
+  it('a section or tier is where they are placed on any of their dates', () => {
+    expect(shown({ section: 'B' })).toBe(true);
+    expect(shown({ tier: 'Gold' })).toBe(true);
+    expect(shown({ section: 'C' })).toBe(false);
+  });
+
+  it('with a date, a section or tier is where they are placed that day', () => {
+    expect(shown({ date: '2026-11-18', section: 'A' })).toBe(true);
+    expect(shown({ date: '2026-11-18', section: 'B' })).toBe(false);
+    // Section from one day and tier from another is not one placement.
+    expect(shown({ section: 'A', tier: 'Silver' })).toBe(false);
+  });
+
+  it('the table filter is how they are placed', () => {
+    expect(shown({ choice: 'half' })).toBe(true);
+    expect(shown({ date: '2026-11-18', choice: 'half' })).toBe(false);
+  });
+
+  it('a vendor with no placement drops out under any of them', () => {
+    const none = (query: Record<string, string>) =>
+      vendorShown(unplaced, readResultFilters(query), { onlyUnassigned: false, isAssigned: false });
+    expect(none({ date: '2026-11-18' })).toBe(false);
+    expect(none({ tier: 'Gold' })).toBe(false);
+  });
+
+  it('ignores the table status, which is a fact about tables', () => {
+    expect(shown({ status: 'empty' })).toBe(true);
+  });
+
+  it('"unassigned only" is the vendors without a table, and with a date, not placed that day', () => {
+    expect(shown({}, true, true)).toBe(false);
+    expect(
+      vendorShown(unplaced, readResultFilters({}), { onlyUnassigned: true, isAssigned: false }),
+    ).toBe(true);
+    expect(shown({ date: '2026-11-20' }, true, true)).toBe(true);
+    expect(shown({ date: '2026-11-18' }, true, true)).toBe(false);
+  });
+});
+
+describe('the filters across the two pages', () => {
+  it('carries where, and nothing that belongs to one page', () => {
+    expect(
+      placeFilterQuery({
+        date: '2026-11-18',
+        section: 'A',
+        tier: 'Gold',
+        choice: 'half',
+        status: 'empty',
+        vendor: 'a@x',
+        show: 'unassigned',
+      }),
+    ).toEqual({ date: '2026-11-18', section: 'A', tier: 'Gold', choice: 'half' });
+    expect(placeFilterQuery({ choice: 'large' })).toEqual({});
+  });
+
+  it('offers only the values the tables have, in order', () => {
+    expect(filterOptions(ROWS)).toEqual({
+      dates: ['2026-11-18', '2026-11-19'],
+      sections: ['A', 'B'],
+      tiers: ['Gold', 'Silver'],
     });
   });
 });

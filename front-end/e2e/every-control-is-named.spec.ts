@@ -201,7 +201,9 @@ test('every field on every other organizer screen and dialog has a name', async 
   await page.keyboard.press('Escape');
 
   for (const screen of ['result', 'vendors', 'attendance'] as const) {
-    await page.goto(marketScreenPath(published.marketId, screen));
+    // With a filter set, so its chip and "Clear all" are walked too (E28/F02/S02).
+    const filtered = screen === 'attendance' ? '' : '?choice=full';
+    await page.goto(`${marketScreenPath(published.marketId, screen)}${filtered}`);
     await expect(page.getByTestId('market-bar-title')).toBeVisible();
     await page.waitForLoadState('networkidle');
     await named(screen);

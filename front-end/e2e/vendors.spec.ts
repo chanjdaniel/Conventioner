@@ -1,7 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { savePlan } from './helpers/savePlan';
 import { marketScreenPath } from './helpers/marketScreens';
-import { seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedPublishedMarketWithAssignments, SEED_MARKET_DATE } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { VendorsPage } from './pages/VendorsPage';
 
@@ -49,6 +49,63 @@ test.describe('Vendor browsing and search', () => {
 
     await expect(vendorsPage.detailAssignmentItems.first()).toBeVisible({ timeout: 5000 });
     await expect(vendorsPage.detailAssignmentItems).toHaveCount(1);
+  });
+
+  /**
+   * The vendors page filters as the tables page does (E28/F02/S02): the same bar, asked of where
+   * each vendor is placed, under the same address keys - so a filter set on one page is still set
+   * on the other.
+   */
+  test('the vendors filter by where they are placed, and keep the filter across pages', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    const vendorsPage = new VendorsPage(page);
+    await vendorsPage.goto(seed.marketId);
+    await expect(vendorsPage.vendorListItems).toHaveCount(2, { timeout: 10000 });
+
+    // Both are placed at full tables on the market's one day.
+    await vendorsPage.choiceFilter.selectOption('half');
+    await expect(page).toHaveURL(/[?&]choice=half/);
+    await expect(vendorsPage.vendorListItems).toHaveCount(0);
+    await expect(page.getByText('No vendors match these filters.')).toBeVisible();
+    await expect(vendorsPage.summary).toContainText('0 of 2 vendors shown');
+
+    await vendorsPage.choiceFilter.selectOption('full');
+    await expect(vendorsPage.vendorListItems).toHaveCount(2);
+
+    // Unassigned only, on a day they are placed, is nobody.
+    await page.goto(
+      `${marketScreenPath(seed.marketId, 'vendors')}?show=unassigned&date=${SEED_MARKET_DATE}`,
+    );
+    await expect(vendorsPage.dateFilterChip).toBeVisible({ timeout: 10000 });
+    await expect(vendorsPage.vendorListItems).toHaveCount(0);
+
+    // A day set on the tables is still set on the vendors, and back again.
+    await page.goto(
+      `${marketScreenPath(seed.marketId, 'result')}?date=${SEED_MARKET_DATE}&status=assigned`,
+    );
+    await expect(page.getByTestId('tables-filter-chip-date')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('market-pages-vendors').click();
+    await expect(vendorsPage.dateFilterChip).toBeVisible({ timeout: 10000 });
+    await expect(vendorsPage.dateFilter).toHaveValue(SEED_MARKET_DATE);
+    await expect(page, 'the table status stays with the tables').not.toHaveURL(/status=/);
+    await expect(vendorsPage.vendorListItems).toHaveCount(2);
+
+    await page.getByTestId('market-pages-result').click();
+    await expect(page.getByTestId('tables-filter-chip-date')).toBeVisible({ timeout: 10000 });
+
+    await page.getByTestId('market-pages-vendors').click();
+    await vendorsPage.clearAllFilterButton.click();
+    await expect(page).not.toHaveURL(/date=/);
+    await expect(vendorsPage.summary).toContainText('2 of 2 vendors assigned');
   });
 
   test('an unplaced vendor is opened from the payoff screen and told why', async ({
