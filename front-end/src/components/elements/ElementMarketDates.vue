@@ -16,9 +16,16 @@
  * carrying days as strings - see its note on why a calendar is the likeliest place to reintroduce
  * the timezone bug `e2e/date-display-timezone.spec.ts` pins.
  */
-import { computed, ref, toRef, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue';
 import { type SetupObject, type MarketDateObject } from '@/assets/types/datatypes';
-import { MONTH_NAMES, addMonths, datesByMonth, monthGrid, monthOf } from '@/utils/calendarMonth';
+import {
+  MONTH_NAMES,
+  addMonths,
+  dateColumns,
+  datesByMonth,
+  monthGrid,
+  monthOf,
+} from '@/utils/calendarMonth';
 import { getFormattedDate } from '@/utils/utils';
 
 const props = defineProps<{ setupObject: SetupObject }>();
@@ -88,11 +95,58 @@ function toggle(day: string) {
 }
 
 /**
- * The chosen days, one line per month, in date order (E23/F02/S01): a market reads as a market
- * rather than as a click history, and grows by months rather than by dates.
+ * The chosen days in date order, a row each under their month (E28/F01/S01), flowed top to bottom
+ * into columns no taller than the calendar: a market reads as a market rather than as a click
+ * history, and twenty dates fill the room beside the calendar instead of running below it.
  */
 const months = computed(() => datesByMonth(chosen.value));
 const count = computed(() => months.value.reduce((n, m) => n + m.days.length, 0));
+
+/** Every line is one height, so the room for a column is a count of lines. */
+const LINE_PX = 28;
+const COLUMN_PX = 144;
+const COLUMN_GAP_PX = 24;
+const linePx = `${LINE_PX}px`;
+const columnPx = `${COLUMN_PX}px`;
+const columnGapPx = `${COLUMN_GAP_PX}px`;
+
+const calendarEl = ref<HTMLElement | null>(null);
+const flowEl = ref<HTMLElement | null>(null);
+const room = ref({ lines: 11, columns: 4 });
+
+/**
+ * How many lines fit beside the calendar and how many columns across. Measured, not assumed: the
+ * calendar's height follows its width, and the list goes under it when the card is narrow - where a
+ * column is still held to the calendar's height.
+ */
+function measure() {
+  const calendar = calendarEl.value?.getBoundingClientRect();
+  const flow = flowEl.value?.getBoundingClientRect();
+  if (!calendar || !flow || !calendar.height) return;
+  const beside = calendar.bottom - flow.top;
+  const tall = beside >= LINE_PX * 2 ? beside : calendar.height;
+  room.value = {
+    lines: Math.floor(tall / LINE_PX),
+    columns: Math.floor((flow.width + COLUMN_GAP_PX) / (COLUMN_PX + COLUMN_GAP_PX)),
+  };
+}
+
+let observer: ResizeObserver | null = null;
+onMounted(() => {
+  measure();
+  if (typeof ResizeObserver === 'undefined') return;
+  observer = new ResizeObserver(measure);
+  if (calendarEl.value) observer.observe(calendarEl.value);
+});
+// The list appears with the first date and goes with the last.
+watch(flowEl, (el, was) => {
+  if (was) observer?.unobserve(was);
+  if (el) observer?.observe(el);
+  measure();
+});
+onBeforeUnmount(() => observer?.disconnect());
+
+const columns = computed(() => dateColumns(months.value, room.value));
 
 /** Each listed day's position among all of them, for its testid. */
 const indexOf = computed(() => {
@@ -103,10 +157,11 @@ const indexOf = computed(() => {
 </script>
 
 <template>
-  <!-- The calendar on the left and the chosen dates on the right, grouped by month (E23/F02/S01):
-       they used to be chips centred under the calendar, leaving most of a wide card empty. -->
+  <!-- The calendar on the left and the chosen dates on the right (E23/F02/S01), a row each under
+       their month (E28/F01/S01): they used to be chips centred under the calendar, leaving most of
+       a wide card empty. -->
   <div class="dates" data-testid="setup-dates">
-    <div class="calendar" data-testid="setup-dates-calendar">
+    <div ref="calendarEl" class="calendar" data-testid="setup-dates-calendar">
       <div class="calendar-head">
         <button
           type="button"
@@ -162,44 +217,49 @@ const indexOf = computed(() => {
       <p v-if="!count" class="dates-empty" data-testid="setup-dates-empty">
         Pick them on the calendar.
       </p>
-      <ul v-else class="dates-months">
-        <li
-          v-for="m in months"
-          :key="`${m.year}-${m.month}`"
-          class="dates-month"
-          :class="{ viewed: isViewed(m.year, m.month) }"
+      <div v-else ref="flowEl" class="dates-columns">
+        <ul
+          v-for="(column, c) in columns"
+          :key="c"
+          class="dates-column"
+          data-testid="setup-dates-column"
         >
-          <button
-            type="button"
-            class="dates-month-name"
-            data-testid="setup-dates-month-name"
-            :aria-current="isViewed(m.year, m.month) ? 'date' : undefined"
-            @click="show(m.year, m.month)"
-          >
-            {{ m.label }}
-          </button>
-          <ul class="dates-days">
+          <template v-for="line in column" :key="line.day || `${line.year}-${line.month}`">
             <li
-              v-for="{ day, label } in m.days"
-              :key="day"
-              class="dates-day"
-              :title="getFormattedDate(day) ?? day"
-              :data-testid="`setup-dates-date-display-${indexOf[day]}`"
+              v-if="line.kind === 'month'"
+              class="dates-line dates-month"
+              :class="{ viewed: isViewed(line.year, line.month) }"
             >
-              {{ label }}
+              <button
+                type="button"
+                class="dates-month-name"
+                data-testid="setup-dates-month-name"
+                :aria-current="isViewed(line.year, line.month) ? 'date' : undefined"
+                @click="show(line.year, line.month)"
+              >
+                {{ line.label }}
+              </button>
+            </li>
+            <li
+              v-else
+              class="dates-line dates-day"
+              :title="getFormattedDate(line.day) ?? line.day"
+              :data-testid="`setup-dates-date-display-${indexOf[line.day]}`"
+            >
+              {{ line.label }}
               <button
                 type="button"
                 class="dates-remove"
-                :aria-label="`Remove ${getFormattedDate(day)}`"
-                :data-testid="`setup-dates-remove-${day}`"
-                @click="toggle(day)"
+                :aria-label="`Remove ${getFormattedDate(line.day)}`"
+                :data-testid="`setup-dates-remove-${line.day}`"
+                @click="toggle(line.day)"
               >
                 ×
               </button>
             </li>
-          </ul>
-        </li>
-      </ul>
+          </template>
+        </ul>
+      </div>
     </div>
   </div>
 </template>
@@ -317,25 +377,25 @@ const indexOf = computed(() => {
   color: var(--mm-text-muted);
 }
 
-.dates-months,
-.dates-days {
+.dates-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: v-bind(columnGapPx);
+}
+
+.dates-column {
+  flex: 0 0 v-bind(columnPx);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.dates-months {
+/* A heading and a day are one height, so a column's room is a count of lines. */
+.dates-line {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.dates-month {
-  display: grid;
-  grid-template-columns: 9rem minmax(0, 1fr);
-  align-items: baseline;
-  gap: var(--space-3);
-  padding: var(--space-1) var(--space-2);
+  align-items: center;
+  height: v-bind(linePx);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-control);
 }
 
@@ -345,6 +405,7 @@ const indexOf = computed(() => {
 }
 
 .dates-month-name {
+  flex: 1;
   padding: 0;
   border: none;
   background: none;
@@ -353,6 +414,7 @@ const indexOf = computed(() => {
   font-weight: 600;
   color: var(--mm-black);
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -360,30 +422,29 @@ const indexOf = computed(() => {
   text-decoration: underline;
 }
 
-.dates-days {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
 .dates-day {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-hairline);
-  padding: var(--space-hairline) var(--space-1) var(--space-hairline) var(--space-2);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-pill);
-  background: white;
-  font-size: var(--text-xs);
+  justify-content: space-between;
+  font-size: var(--text-sm);
   color: var(--mm-black);
   white-space: nowrap;
 }
 
+/* Outlined rather than filled: the beige fill already says which month the calendar shows. */
+.dates-day:hover {
+  box-shadow: inset 0 0 0 1px var(--mm-border);
+}
+
 .dates-remove {
-  padding: 0 var(--space-hairline);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   border: none;
+  border-radius: var(--radius-control);
   background: none;
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   line-height: 1;
   color: var(--mm-text-muted);
   cursor: pointer;

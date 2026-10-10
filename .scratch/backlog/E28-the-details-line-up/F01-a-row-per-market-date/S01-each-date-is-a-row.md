@@ -2,7 +2,7 @@
 id: E28/F01/S01
 title: Each chosen date is a row, under its month, flowing in columns
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -23,10 +23,10 @@ Market dates stay calendar days: every row is formatted with UTC arithmetic, as 
 
 ## Acceptance criteria
 
-- [ ] At 1920x1080, with 1, 5 and 20 dates, each date is its own row and the card is no taller than the calendar.
-- [ ] Rows read top to bottom, then the next column; no month heading is left at the foot of a column without a row under it.
-- [ ] Dates spanning a new year show both years in their month headings.
-- [ ] × removes a date; clicking a month shows that month; the shown month is highlighted.
-- [ ] Below the room for both, the list sits under the calendar.
-- [ ] The list shows the same day in Honolulu, Los Angeles and Tokyo (`date-display-timezone.spec.ts`).
-- [ ] The existing dates testids keep working, or the specs that use them move with them.
+- [x] At 1920x1080, with 1, 5 and 20 dates, each date is its own row and the card is no taller than the calendar.
+- [x] Rows read top to bottom, then the next column; no month heading is left at the foot of a column without a row under it.
+- [x] Dates spanning a new year show both years in their month headings.
+- [x] × removes a date; clicking a month shows that month; the shown month is highlighted.
+- [x] Below the room for both, the list sits under the calendar.
+- [x] The list shows the same day in Honolulu, Los Angeles and Tokyo (`date-display-timezone.spec.ts`).
+- [x] The existing dates testids keep working, or the specs that use them move with them.
