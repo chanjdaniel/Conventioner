@@ -18,6 +18,7 @@ import ResultSeat from '@/components/ResultSeat.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import ResultSummary from '@/components/ResultSummary.vue';
+import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import {
   FULL_TABLE,
@@ -28,11 +29,11 @@ import {
 } from '@/utils/placementChange';
 import {
   TABLE_STATUSES,
+  filterOptions,
   readResultFilters,
   rowStatus,
   statusCounts as countStatuses,
   tablesMatching,
-  type ChoiceFilter,
   type MarketTableRow,
   type ResultFilterName,
   type TableStatus,
@@ -77,13 +78,7 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 
 const filters = computed(() => readResultFilters(route.query));
-const dateFilter = computed(() => filters.value.date);
-const sectionFilter = computed(() => filters.value.section);
-const tierFilter = computed(() => filters.value.tier);
-const choiceFilter = computed(() => filters.value.choice);
 const statusFilter = computed(() => filters.value.status);
-
-const hasActiveFilters = computed(() => Object.values(filters.value).some(Boolean));
 
 function formatDisplayDate(date: string): string {
   return getFormattedDate(date) ?? date;
@@ -165,10 +160,6 @@ function toggleStatus(kind: TableStatus): void {
   setFilter('status', statusFilter.value === kind ? '' : kind);
 }
 
-function clearFilter(name: ResultFilterName): void {
-  setFilter(name, '');
-}
-
 /**
  * Set one filter, from the page.
  *
@@ -183,29 +174,7 @@ function setFilter(name: ResultFilterName, value: string): void {
   router.replace({ query: nextQuery });
 }
 
-/** Every distinct value the loaded rows offer for one filter, so the picker offers only what exists. */
-function optionsFor(pick: (row: MarketTableRow) => string): string[] {
-  const seen = new Set<string>();
-  for (const row of allRows.value) {
-    const value = pick(row);
-    if (value) seen.add(value);
-  }
-  return Array.from(seen).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-}
-
-const dateOptions = computed(() => optionsFor((row) => row.date));
-const sectionOptions = computed(() => optionsFor((row) => row.section));
-const tierOptions = computed(() => optionsFor((row) => row.tier));
-
-function clearAllFilters(): void {
-  router.replace({ query: {} });
-}
-
-function choiceFilterLabel(filter: ChoiceFilter): string {
-  if (filter === 'full') return 'Full Tables';
-  if (filter === 'half') return 'Half Tables';
-  return '';
-}
+const filterOptionsShown = computed(() => filterOptions(allRows.value));
 
 async function loadTables(): Promise<void> {
   errorMessage.value = '';
@@ -416,131 +385,12 @@ function swapSeats(withEmail: string): void {
         </template>
 
         <template v-else-if="allRows.length > 0">
-          <div class="filter-bar">
-            <!-- The filters were computed from the URL and could only be cleared: nothing in the
-                 product ever set one (E09/F02/S01, E11/F03/S02). -->
-            <div class="filter-pickers">
-              <label class="filter-picker">
-                <span class="filter-picker-label">Date</span>
-                <select
-                  :value="dateFilter"
-                  data-testid="tables-filter-date"
-                  @change="setFilter('date', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">All dates</option>
-                  <option v-for="option in dateOptions" :key="option" :value="option">
-                    {{ formatDisplayDate(option) }}
-                  </option>
-                </select>
-              </label>
-              <label class="filter-picker">
-                <span class="filter-picker-label">Section</span>
-                <select
-                  :value="sectionFilter"
-                  data-testid="tables-filter-section"
-                  @change="setFilter('section', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">All sections</option>
-                  <option v-for="option in sectionOptions" :key="option" :value="option">
-                    {{ option }}
-                  </option>
-                </select>
-              </label>
-              <!-- A market planned without tiers has nothing to filter by tier (bug 23). -->
-              <label v-if="tierOptions.length" class="filter-picker">
-                <span class="filter-picker-label">Tier</span>
-                <select
-                  :value="tierFilter"
-                  data-testid="tables-filter-tier"
-                  @change="setFilter('tier', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">All tiers</option>
-                  <option v-for="option in tierOptions" :key="option" :value="option">
-                    {{ option }}
-                  </option>
-                </select>
-              </label>
-              <label class="filter-picker">
-                <span class="filter-picker-label">Table</span>
-                <select
-                  :value="choiceFilter"
-                  data-testid="tables-filter-choice"
-                  @change="setFilter('choice', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">Any size</option>
-                  <option value="full">Full Tables</option>
-                  <option value="half">Half Tables</option>
-                </select>
-              </label>
-            </div>
-
-            <div class="filter-chips" v-if="hasActiveFilters">
-              <span class="filter-chips-label">Filters:</span>
-              <button
-                v-if="dateFilter"
-                type="button"
-                class="filter-chip"
-                @click="clearFilter('date')"
-                data-testid="tables-filter-chip-date"
-              >
-                Date: {{ formatDisplayDate(dateFilter) }}
-                <span class="filter-chip-close" aria-hidden="true">×</span>
-                <span class="visually-hidden">Remove date filter</span>
-              </button>
-              <button
-                v-if="sectionFilter"
-                type="button"
-                class="filter-chip"
-                @click="clearFilter('section')"
-                data-testid="tables-filter-chip-section"
-              >
-                Section: {{ sectionFilter }}
-                <span class="filter-chip-close" aria-hidden="true">×</span>
-                <span class="visually-hidden">Remove section filter</span>
-              </button>
-              <button
-                v-if="tierFilter"
-                type="button"
-                class="filter-chip"
-                @click="clearFilter('tier')"
-                data-testid="tables-filter-chip-tier"
-              >
-                Tier: {{ tierFilter }}
-                <span class="filter-chip-close" aria-hidden="true">×</span>
-                <span class="visually-hidden">Remove tier filter</span>
-              </button>
-              <button
-                v-if="choiceFilter"
-                type="button"
-                class="filter-chip"
-                @click="clearFilter('choice')"
-                data-testid="tables-filter-chip-choice"
-              >
-                {{ choiceFilterLabel(choiceFilter) }}
-                <span class="filter-chip-close" aria-hidden="true">×</span>
-                <span class="visually-hidden">Remove choice filter</span>
-              </button>
-              <button
-                v-if="statusFilter"
-                type="button"
-                class="filter-chip"
-                @click="clearFilter('status')"
-                data-testid="tables-filter-chip-status"
-              >
-                Status: {{ statusFilter }}
-                <span class="filter-chip-close" aria-hidden="true">×</span>
-                <span class="visually-hidden">Remove status filter</span>
-              </button>
-              <button
-                type="button"
-                class="filter-chip filter-chip--clear-all"
-                @click="clearAllFilters"
-                data-testid="tables-filter-chip-clear-all"
-              >
-                Clear all
-              </button>
-            </div>
-
+          <ResultFilterBar
+            class="filter-band"
+            :filters="filters"
+            :options="filterOptionsShown"
+            testid="tables"
+          >
             <div class="counts-row">
               <span class="counts-primary">
                 {{ filteredRows.length }} of {{ allRows.length }} tables
@@ -565,7 +415,7 @@ function swapSeats(withEmail: string): void {
                 >{{ pill.count }} {{ pill.kind }}
               </button>
             </div>
-          </div>
+          </ResultFilterBar>
 
           <div v-if="filteredRows.length === 0" class="empty-state">
             <p>No tables match the current filters.</p>
@@ -733,67 +583,14 @@ function swapSeats(withEmail: string): void {
   gap: 20px;
 }
 
-.filter-bar {
+/* Stays in view over the tables it filters. */
+.filter-band {
   position: sticky;
   top: 0;
   z-index: 2;
   background-color: white;
   padding: 12px 0;
   border-bottom: 1px solid var(--mm-border);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.filter-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.filter-chips-label {
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background-color: var(--mm-beige);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  color: var(--mm-black);
-  cursor: pointer;
-  transition:
-    background-color 0.12s ease-in-out,
-    border-color 0.12s ease-in-out;
-}
-
-.filter-chip:hover {
-  background-color: white;
-  border-color: var(--mm-green);
-}
-
-.filter-chip:focus-visible {
-  outline: 2px solid var(--mm-green);
-  outline-offset: 2px;
-}
-
-.filter-chip-close {
-  font-size: var(--text-md);
-  line-height: 1;
-  color: var(--mm-black);
-  font-weight: 600;
-}
-
-.filter-chip--clear-all {
-  background-color: white;
-  border-style: dashed;
 }
 
 .counts-row {
@@ -1015,34 +812,6 @@ function swapSeats(withEmail: string): void {
   flex: 1;
 }
 
-.filter-pickers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.filter-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.filter-picker-label {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.filter-picker select {
-  padding: 6px 8px;
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
-  font-size: var(--text-xs);
-  color: var(--mm-black);
-  max-width: 100%;
-}
-
 .half-slot-label {
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-xs);
@@ -1056,18 +825,6 @@ function swapSeats(withEmail: string): void {
   margin: 0 0 12px;
   color: var(--mm-red);
   font-size: var(--text-sm);
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 @media (max-width: 720px) {

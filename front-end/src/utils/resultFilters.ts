@@ -119,3 +119,75 @@ export function statusCounts(
   }
   return counts;
 }
+
+/** The filters that say WHERE, which mean the same on both pages and travel between them. */
+const PLACE_FILTERS = ['date', 'section', 'tier', 'choice'] as const;
+
+/**
+ * The part of a query both Result pages share (E28/F02/S02): moving from the tables to the vendors
+ * keeps the day, section, tier and table size the organizer is looking at. The status belongs to
+ * tables and the open vendor to the vendors page, so neither travels.
+ */
+export function placeFilterQuery(query: Record<string, unknown>): Record<string, string> {
+  const filters = readResultFilters(query);
+  const carried: Record<string, string> = {};
+  for (const name of PLACE_FILTERS) {
+    if (filters[name]) carried[name] = filters[name];
+  }
+  return carried;
+}
+
+/** Every distinct value the tables offer for each picker, so a picker offers only what exists. */
+export function filterOptions(rows: Pick<MarketTableRow, 'date' | 'section' | 'tier'>[]): {
+  dates: string[];
+  sections: string[];
+  tiers: string[];
+} {
+  const distinct = (pick: (row: (typeof rows)[number]) => string) =>
+    Array.from(new Set(rows.map(pick).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true }),
+    );
+  return {
+    dates: distinct((row) => row.date),
+    sections: distinct((row) => row.section),
+    tiers: distinct((row) => row.tier),
+  };
+}
+
+/** Where a vendor sits on one date. */
+export interface VendorPlacement {
+  section: string;
+  tier: string;
+  /** The table's size, which is how they are placed. */
+  tableChoice: string;
+}
+
+/**
+ * Whether the vendors page shows a vendor (E28/F02/S02), asked of where they are PLACED.
+ *
+ * A date is the vendors placed that day; a section, tier or table size is a placement there - on the
+ * chosen date, or on any of theirs - and all of them must hold of the same placement. A vendor with
+ * no placement drops out under any of them. "Unassigned only" asks the opposite question: with a
+ * date, it is the vendors not placed that day, and the other filters, which describe a placement,
+ * do not apply.
+ */
+export function vendorShown(
+  placements: Map<string, VendorPlacement>,
+  filters: ResultFilters,
+  vendor: { onlyUnassigned: boolean; isAssigned: boolean },
+): boolean {
+  if (vendor.onlyUnassigned) {
+    return filters.date ? !placements.has(filters.date) : !vendor.isAssigned;
+  }
+  if (!PLACE_FILTERS.some((name) => filters[name])) return true;
+
+  const candidates = filters.date
+    ? [placements.get(filters.date)].filter((p): p is VendorPlacement => Boolean(p))
+    : [...placements.values()];
+  return candidates.some(
+    (place) =>
+      (!filters.section || place.section === filters.section) &&
+      (!filters.tier || place.tier === filters.tier) &&
+      matchesChoice(place.tableChoice, filters.choice),
+  );
+}

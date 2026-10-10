@@ -2,7 +2,7 @@
 id: E28/F02/S02
 title: The vendors page filters as the tables page does
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -24,8 +24,8 @@ The summary on the right counts the vendors the filters leave.
 
 ## Acceptance criteria
 
-- [ ] Each filter narrows the vendors by placement as above, alone and combined.
-- [ ] Setting a date on the tables page and opening the vendors page shows the same date set, and back again.
-- [ ] Search and "Unassigned only" combine with the filters.
-- [ ] Both pages render the filter bar from the same component; the tables page's existing testids keep working.
-- [ ] Every control in the bar is named (`every-control-is-named.spec.ts` walks the vendors page with a filter set).
+- [x] Each filter narrows the vendors by placement as above, alone and combined.
+- [x] Setting a date on the tables page and opening the vendors page shows the same date set, and back again.
+- [x] Search and "Unassigned only" combine with the filters.
+- [x] Both pages render the filter bar from the same component; the tables page's existing testids keep working.
+- [x] Every control in the bar is named (`every-control-is-named.spec.ts` walks the vendors page with a filter set).
