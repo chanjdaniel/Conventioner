@@ -69,9 +69,16 @@ const emit = defineEmits<{ open: [] }>();
 
 <style scoped>
 .seat {
-  display: flex;
+  /* Who holds it on the left, the hint in the top right corner (E28/F04/S01): beside the
+     occupant, the hint moved with the length of their email. Baseline-aligned, so the hint sits
+     level with the name line. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-2);
+  /* Two lines tall whoever holds it - a name over an address - so an empty seat is as tall as an
+     occupied one, and a table's two halves line up. */
+  min-height: 3.5rem;
   /* One width for every seat, never the row's. A full-width button lit the whole row on hover,
      which reads as "this table" rather than "this seat" - and a table holds two of them. Sized to
      its occupant instead, every box on the page was a different width (bug 43). */
@@ -121,7 +128,9 @@ const emit = defineEmits<{ open: [] }>();
   word-break: break-word;
 }
 
-.seat-occupant--whole {
+/* On the name itself: weight does not inherit here (the global reset sets every element to 400),
+   so on the wrapper it reached nothing. */
+.seat-occupant--whole :deep(.vendor-identity-name) {
   font-weight: 600;
 }
 
@@ -140,10 +149,10 @@ const emit = defineEmits<{ open: [] }>();
 }
 
 /* Shown on hover or focus, but its space is reserved always: a hint that appears and pushes the
-   row taller makes the grid jump under the pointer. `nowrap` keeps it beside the label rather
-   than below it, so a vacant seat is exactly as tall as an occupied one. At rest the word "Vacant"
-   is the whole message; "Place someone" on every empty seat would be a wall of instructions. */
+   row taller makes the grid jump under the pointer. At rest the word "Vacant" is the whole message;
+   "Place someone" on every empty seat would be a wall of instructions. */
 .seat-button-hint {
+  justify-self: end;
   font-size: var(--text-xs);
   white-space: nowrap;
   color: var(--mm-text-link);
