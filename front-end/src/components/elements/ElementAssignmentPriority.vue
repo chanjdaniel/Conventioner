@@ -444,7 +444,9 @@ const dragOptions = computed(() => ({
 .answers {
   display: flex;
   flex-direction: column;
-  margin: 0;
+  /* Pulled out by the rows' own inset, so the text keeps the cell's edge (level with "Add an
+     answer" beneath) while a hovered row's band has room around its rank. */
+  margin: 0 calc(-1 * var(--space-2));
   padding: 0;
   list-style: none;
 }
@@ -458,6 +460,7 @@ const dragOptions = computed(() => ({
   grid-template-columns: [handle] auto [rank] 1.5rem [answer] minmax(0, 1fr) [remove] auto;
   align-items: center;
   min-height: 32px;
+  padding-inline: var(--space-2);
   border-radius: var(--radius-control);
   font-size: var(--text-sm);
   color: var(--mm-black);
