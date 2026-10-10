@@ -170,7 +170,9 @@ const indexOf = computed(() => {
           data-testid="setup-dates-prev-month"
           @click="step(-1)"
         >
-          ‹
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M10.5 3 5.5 8l5 5" />
+          </svg>
         </button>
         <span class="calendar-month" data-testid="setup-dates-month">{{ heading }}</span>
         <button
@@ -180,7 +182,9 @@ const indexOf = computed(() => {
           data-testid="setup-dates-next-month"
           @click="step(1)"
         >
-          ›
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M5.5 3l5 5-5 5" />
+          </svg>
         </button>
       </div>
 
@@ -296,15 +300,29 @@ const indexOf = computed(() => {
 }
 
 .calendar-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
+  padding: 0;
   border: 1px solid var(--mm-border);
   border-radius: var(--radius-control);
   background: white;
   color: var(--mm-black);
-  font-size: var(--text-md);
-  line-height: 1;
   cursor: pointer;
+}
+
+/* A drawn chevron, symmetric about its box, rather than a text glyph: "‹" sat 2.25px low in the
+   button, on the font's baseline, and its ink was 3px wide (E28/F04/S02). */
+.calendar-step svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .calendar-step:hover {
@@ -431,7 +449,8 @@ const indexOf = computed(() => {
 
 /* Outlined rather than filled: the beige fill already says which month the calendar shows. */
 .dates-day:hover {
-  box-shadow: inset 0 0 0 1px var(--mm-border);
+  outline: 1px solid var(--mm-border);
+  outline-offset: -1px;
 }
 
 .dates-remove {

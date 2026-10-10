@@ -166,6 +166,16 @@ describe('the palette carries a contrast contract', () => {
     expect(hover).toBeLessThan(contrast(WHITE, ground));
   });
 
+  /**
+   * The dot that marks the market's current tab is green on the dark bar (E28/F04/S02). It carries
+   * no text, so it is held to the non-text bar, 3:1 - and a bar retinted darker or a green made
+   * lighter for a light ground would take it under without anyone looking at the bar.
+   */
+  it('--mm-green, the current-tab dot, is visible on --mm-black', () => {
+    const ground = resolve('--mm-black');
+    expect(contrast(inkOn('--mm-green', ground), ground)).toBeGreaterThanOrEqual(3);
+  });
+
   it('--color-text is legible on --color-background, which is what body sets', () => {
     const ground = resolve('--color-background');
     expect(contrast(inkOn('--color-text', ground), ground)).toBeGreaterThanOrEqual(AA_NORMAL);
