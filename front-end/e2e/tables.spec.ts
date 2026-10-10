@@ -96,6 +96,64 @@ test.describe('Table browsing and filtering', () => {
   });
 
   /**
+   * The counts are also the way to see those tables (E28/F02/S01): choosing one filters to them,
+   * in the address, without narrowing the other counts; choosing it again lets go; a zero offers
+   * nothing to choose.
+   */
+  test('a count filters the tables to its status, and lets go', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    const tablesPage = new TablesPage(page);
+    await tablesPage.goto(seed.marketId);
+    await expect(tablesPage.tableRows.first()).toBeVisible({ timeout: 10000 });
+    const everyTable = await tablesPage.tableRows.count();
+    await expect(tablesPage.countAssigned).toHaveText('2 assigned');
+    const emptyCount = Number((await tablesPage.countEmpty.innerText()).match(/\d+/)![0]);
+    expect(emptyCount, 'the seed leaves tables empty').toBeGreaterThan(0);
+
+    // One height for all three, the borderless green one included.
+    const heights = await Promise.all(
+      [tablesPage.countAssigned, tablesPage.countPartial, tablesPage.countEmpty].map((pill) =>
+        pill.evaluate((el) => el.getBoundingClientRect().height),
+      ),
+    );
+    expect(new Set(heights).size, `pill heights ${heights.join(', ')}`).toBe(1);
+
+    await expect(tablesPage.countPartial).toBeDisabled();
+
+    await tablesPage.countEmpty.click();
+    await expect(page).toHaveURL(/[?&]status=empty/);
+    await expect(tablesPage.countEmpty).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('tables-filter-chip-status')).toBeVisible();
+    await expect(tablesPage.tableRows).toHaveCount(emptyCount);
+    await expect(page.locator('.table-row--empty')).toHaveCount(emptyCount);
+    await expect(tablesPage.countAssigned, 'the other counts are not narrowed').toHaveText(
+      '2 assigned',
+    );
+
+    // The address is the view.
+    await page.reload();
+    await expect(tablesPage.tableRows).toHaveCount(emptyCount, { timeout: 10000 });
+
+    await tablesPage.countEmpty.click();
+    await expect(page).not.toHaveURL(/status=/);
+    await expect(tablesPage.tableRows).toHaveCount(everyTable);
+
+    await tablesPage.countAssigned.click();
+    await expect(tablesPage.tableRows).toHaveCount(2);
+    await tablesPage.clearAllFilters();
+    await expect(tablesPage.tableRows).toHaveCount(everyTable);
+  });
+
+  /**
    * "6 assigned, 0 partial, 14 empty" - and the partial pill was amber whatever its value, so a
    * market with nothing partially filled showed a warning-coloured zero pulling the eye to a
    * non-problem (E14/F02/S03).
