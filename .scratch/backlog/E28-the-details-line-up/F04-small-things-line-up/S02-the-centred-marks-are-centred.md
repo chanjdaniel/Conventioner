@@ -2,7 +2,7 @@
 id: E28/F04/S02
 title: The centred marks are centred
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -15,6 +15,10 @@ pr: []
 
 ## Acceptance criteria
 
-- [ ] Each arrow's ink centre is within 0.5px of its button's centre.
-- [ ] Each dot's centre is within 0.5px of the cap-height centre of its label, for the page links and the bar tabs.
-- [ ] The dot on the market bar meets 3:1 against the bar (non-text contrast).
+- [x] Each arrow's ink centre is within 0.5px of its button's centre.
+- [x] Each dot's centre is within 0.5px of the cap-height centre of its label, for the page links and the bar tabs.
+- [x] The dot on the market bar meets 3:1 against the bar (non-text contrast).
+
+## Notes from the build
+
+- The dot was already 3.39:1 on the bar, above the 3:1 non-text bar; `contrast.test.ts` now pins it rather than the colour changing.

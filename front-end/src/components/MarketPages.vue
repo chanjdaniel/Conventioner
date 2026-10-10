@@ -61,7 +61,7 @@ function linkTo(marketId: string, page: MarketPage) {
       :aria-current="here === page ? 'page' : undefined"
       :data-testid="`market-pages-${page}`"
     >
-      {{ PAGE_LABELS[page] }}
+      {{ PAGE_LABELS[page] }}<span v-if="current === page" class="current-dot" aria-hidden="true" />
     </RouterLink>
   </nav>
 </template>
@@ -95,13 +95,15 @@ function linkTo(marketId: string, page: MarketPage) {
   font-weight: 600;
 }
 
-.market-page.current::after {
-  content: '';
+/* The current mark (E28/F04/S02): raised so its centre is the middle of the label's capitals - half
+   the cap height above the baseline, less half its own height. `cap` is the label's own font, so it
+   holds at any type size; `vertical-align: middle` centred it on the lower-case letters instead. */
+.current-dot {
   display: inline-block;
   width: 5px;
   height: 5px;
   margin-left: var(--space-2);
-  vertical-align: middle;
+  vertical-align: calc(0.5cap - 2.5px);
   border-radius: var(--radius-pill);
   background: var(--mm-green);
 }
