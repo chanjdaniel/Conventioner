@@ -2,7 +2,7 @@
 id: E28/F04/S03
 title: The screenshot pass's other finds
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -16,5 +16,5 @@ What the 2026-10-10 screenshot pass found clearly off on these screens, beyond t
 
 ## Acceptance criteria
 
-- [ ] Past draft, the chosen intake mode is distinguishable from the other at a glance and meets 3:1 non-text contrast.
-- [ ] An `https://` answer in the vendor drawer is a link; a plain answer is not.
+- [x] Past draft, the chosen intake mode is distinguishable from the other at a glance and meets 3:1 non-text contrast.
+- [x] An `https://` answer in the vendor drawer is a link; a plain answer is not.

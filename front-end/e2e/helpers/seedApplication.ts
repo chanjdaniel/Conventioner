@@ -127,3 +127,32 @@ export function seedApprovedVendor(
 
   return applicationId;
 }
+
+/**
+ * Set one answer on an applicant's stored application, as though they had written it.
+ *
+ * For a spec that needs a particular answer on an otherwise ordinary seeded vendor - a web address
+ * the vendor drawer must link (E28/F04/S03), say - without a seed of its own.
+ */
+export function setApplicationAnswer(
+  marketId: string,
+  applicantEmail: string,
+  key: string,
+  value: unknown,
+): void {
+  const filter = { market_id: marketId, applicant_email: applicantEmail };
+  const update = { $set: { [`form_data.${key}`]: value } };
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      mongoContainer(),
+      'mongosh',
+      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
+      '--quiet',
+      '--eval',
+      `db.applications.updateOne(${JSON.stringify(filter)}, ${JSON.stringify(update)})`,
+    ],
+    { encoding: 'utf-8' },
+  );
+}
