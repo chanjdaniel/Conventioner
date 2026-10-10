@@ -87,6 +87,14 @@ test.describe('Vendor browsing and search', () => {
     );
     await expect(vendorsPage.dateFilterChip).toBeVisible({ timeout: 10000 });
     await expect(vendorsPage.vendorListItems).toHaveCount(0);
+    // Beside it only the date is offered: the rest describe a placement an unplaced vendor lacks.
+    await expect(page.getByTestId('vendors-filter-section')).toHaveCount(0);
+    await expect(page.getByTestId('vendors-filter-choice')).toHaveCount(0);
+
+    // The table status is a fact about tables: the vendors page neither offers nor shows it.
+    await page.goto(`${marketScreenPath(seed.marketId, 'vendors')}?status=empty`);
+    await expect(vendorsPage.vendorListItems).toHaveCount(2, { timeout: 10000 });
+    await expect(page.getByTestId('vendors-filter-chip-status')).toHaveCount(0);
 
     // A day set on the tables is still set on the vendors, and back again.
     await page.goto(

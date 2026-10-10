@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   filterOptions,
+  filtersBeside,
+  hasPlaceFilter,
+  offeredFilters,
   placeFilterQuery,
   readResultFilters,
   vendorShown,
@@ -181,5 +184,33 @@ describe('the filters across the two pages', () => {
       sections: ['A', 'B'],
       tiers: ['Gold', 'Silver'],
     });
+  });
+});
+
+describe('the filters each page offers', () => {
+  it('offers the tables every filter, and the vendors the where-filters', () => {
+    expect(filtersBeside('tables')).toEqual(['date', 'section', 'tier', 'choice', 'status']);
+    expect(filtersBeside('vendors')).toEqual(['date', 'section', 'tier', 'choice']);
+  });
+
+  it('offers only the date beside "Unassigned only", since the rest describe a placement', () => {
+    expect(filtersBeside('vendors', true)).toEqual(['date']);
+  });
+
+  it('lets go of a filter the page does not offer, so it narrows nothing and claims nothing', () => {
+    const all = readResultFilters({ date: '2026-11-18', section: 'A', status: 'empty' });
+    expect(offeredFilters(all, filtersBeside('vendors'))).toEqual({
+      date: '2026-11-18',
+      section: 'A',
+      tier: '',
+      choice: '',
+      status: '',
+    });
+    expect(offeredFilters(all, ['date'])).toMatchObject({ section: '', status: '' });
+  });
+
+  it('knows whether any where-filter is set, and that the status is not one', () => {
+    expect(hasPlaceFilter(readResultFilters({ status: 'empty' }))).toBe(false);
+    expect(hasPlaceFilter(readResultFilters({ tier: 'Gold' }))).toBe(true);
   });
 });

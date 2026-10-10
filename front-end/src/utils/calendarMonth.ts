@@ -124,16 +124,11 @@ export function datesByMonth(days: string[]): DatesMonth[] {
   return months;
 }
 
-/** One line of the chosen-dates list: a month's heading, or one of its days. */
-export interface DatesLine {
-  kind: 'month' | 'day';
-  year: number;
-  month: number;
-  /** "October 2026" for a heading, "Sat 3" for a day. */
-  label: string;
-  /** The stored `YYYY-MM-DD` of a day; empty on a heading. */
-  day: string;
-}
+/** One line of the chosen-dates list: a month's heading ("October 2026"), or one of its days. */
+export type DatesLine =
+  | { kind: 'month'; year: number; month: number; label: string }
+  /** A day, "Sat 3", with its stored `YYYY-MM-DD`. */
+  | { kind: 'day'; year: number; month: number; label: string; day: string };
 
 /**
  * The chosen dates, one row each under their month, flowed top to bottom into columns
@@ -149,7 +144,7 @@ export function dateColumns(
   room: { lines: number; columns: number },
 ): DatesLine[][] {
   const flow: DatesLine[] = months.flatMap(({ year, month, label, days }) => [
-    { kind: 'month' as const, year, month, label, day: '' },
+    { kind: 'month' as const, year, month, label },
     ...days.map((d) => ({ kind: 'day' as const, year, month, label: d.label, day: d.day })),
   ]);
   if (!flow.length) return [];

@@ -37,7 +37,14 @@ import MarketFrame from '@/components/MarketFrame.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
-import { filterOptions, readResultFilters, vendorShown } from '@/utils/resultFilters';
+import {
+  filterOptions,
+  filtersBeside,
+  hasPlaceFilter,
+  offeredFilters,
+  vendorShown,
+} from '@/utils/resultFilters';
+import { useResultFilters } from '@/utils/useResultFilters';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -304,13 +311,12 @@ function showEveryone(): void {
  * The Result page's filters, asked of where each vendor is placed (E28/F02/S02): the same bar and
  * the same address keys as the tables, so a filter set there is still set here.
  */
-const filters = computed(() => readResultFilters(route.query));
+const { filters: addressFilters } = useResultFilters();
+/** The where-filters, or the date alone beside "Unassigned only" (`filtersBeside`). */
+const offered = computed(() => filtersBeside('vendors', onlyUnassigned.value));
+const filters = computed(() => offeredFilters(addressFilters.value, offered.value));
 const filterOptionsShown = computed(() => filterOptions(tableRows.value));
-const placeFiltered = computed(() =>
-  Boolean(
-    filters.value.date || filters.value.section || filters.value.tier || filters.value.choice,
-  ),
-);
+const placeFiltered = computed(() => hasPlaceFilter(filters.value));
 
 const filteredVendors = computed(() => {
   const shown = vendors.value.filter((v) =>
@@ -502,7 +508,7 @@ useInertBehind(
         <ResultFilterBar
           v-if="tableRows.length"
           class="vendors-filters"
-          :filters="filters"
+          :offered="offered"
           :options="filterOptionsShown"
           testid="vendors"
         />

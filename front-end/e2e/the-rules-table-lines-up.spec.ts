@@ -62,7 +62,9 @@ test('the answers line up, the row grows, and dragging still reorders', async ({
 
   const geometry = await answers.evaluateAll((rows) =>
     rows.map((row) => ({
-      rank: Math.round(row.querySelector('.answer-rank')!.getBoundingClientRect().left),
+      rank: Math.round(
+        row.querySelector('[data-testid="priority-ordering-rank"]')!.getBoundingClientRect().left,
+      ),
       remove: Math.round(
         row.querySelector('[data-testid="priority-ordering-remove"]')!.getBoundingClientRect()
           .right,
@@ -95,7 +97,7 @@ test('the answers line up, the row grows, and dragging still reorders', async ({
   // Dragging by the handle still reorders the answers.
   await answers
     .nth(1)
-    .locator('.answer-handle')
+    .getByTestId('priority-ordering-handle')
     .dragTo(answers.nth(0), { targetPosition: { x: 10, y: 4 } });
-  await expect(answers.nth(0).locator('.answer-text')).toHaveText(CRAFTS[1]);
+  await expect(answers.nth(0).getByTestId('priority-ordering-answer')).toHaveText(CRAFTS[1]);
 });

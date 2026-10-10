@@ -263,11 +263,19 @@ const dragOptions = computed(() => ({
                 >
                   <template #item="{ element: answer, index: childIndex }">
                     <li class="answer" data-testid="priority-ordering-row">
-                      <span v-if="!readonly" class="drag-handle answer-handle" aria-hidden="true"
+                      <span
+                        v-if="!readonly"
+                        class="drag-handle answer-handle"
+                        aria-hidden="true"
+                        data-testid="priority-ordering-handle"
                         ><IconClickDrag class="drag-handle__icon"
                       /></span>
-                      <span class="answer-rank">{{ childIndex + 1 }}</span>
-                      <span class="answer-text">{{ answer }}</span>
+                      <span class="answer-rank" data-testid="priority-ordering-rank">{{
+                        childIndex + 1
+                      }}</span>
+                      <span class="answer-text" data-testid="priority-ordering-answer">{{
+                        answer
+                      }}</span>
                       <button
                         v-if="!readonly"
                         type="button"
@@ -454,7 +462,6 @@ const dragOptions = computed(() => ({
 }
 
 .answer-rank {
-  color: var(--mm-text-muted);
   font-variant-numeric: tabular-nums;
 }
 

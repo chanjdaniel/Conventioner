@@ -1,5 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import type { Locator } from '@playwright/test';
 
@@ -12,9 +13,10 @@ import type { Locator } from '@playwright/test';
  */
 
 /** The dot's centre against the cap-height centre of the label it sits beside, in px. */
-async function dotOffset(link: Locator): Promise<number> {
-  return link.evaluate((el) => {
-    const dot = el.querySelector('.current-dot')!.getBoundingClientRect();
+async function dotOffset(dot: Locator): Promise<number> {
+  return dot.evaluate((mark) => {
+    const el = mark.parentElement!;
+    const dot = mark.getBoundingClientRect();
     const style = getComputedStyle(el);
     // The text's baseline: an empty inline-block's bottom edge sits on it.
     const probe = document.createElement('span');
@@ -33,39 +35,19 @@ test('the current dot sits on the middle of its label, on the bar and on the pag
   authenticatedPage: page,
   request,
 }) => {
-  const seed = await seedPublishedMarketWithAssignments(
-    request,
-    BACKEND_URL,
-    TEST_USER.email,
-    TEST_USER.password,
-  );
-  await page.setViewportSize({ width: 1920, height: 1080 });
-  // A published market's current tab is Attendance; an assigned one's current page is Result.
-  await page.goto(marketScreenPath(seed.marketId, 'result'));
-  await page.evaluate(() => document.fonts.ready);
-
-  const tab = page.locator('.market-bar-tab.current');
-  await expect(tab).toHaveCount(1, { timeout: 10000 });
-  expect(Math.abs(await dotOffset(tab)), 'the bar tab').toBeLessThanOrEqual(0.5);
-
-  const pageLink = page.locator('.market-page.current');
-  if (await pageLink.count()) {
-    expect(Math.abs(await dotOffset(pageLink)), 'the page link').toBeLessThanOrEqual(0.5);
-  }
-});
-
-test('the page link dot under the Assignment tab is centred too', async ({
-  authenticatedPage: page,
-  request,
-}) => {
-  const { seedAssignedMarket } = await import('./helpers/seedAssignedMarket');
+  // An assigned market's current tab is Assignment and its current page Result, so both rows
+  // carry a dot on one screen.
   const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto(marketScreenPath(seed.marketId, 'result'));
   await page.evaluate(() => document.fonts.ready);
-  const pageLink = page.locator('.market-page.current');
-  await expect(pageLink).toHaveCount(1, { timeout: 10000 });
-  expect(Math.abs(await dotOffset(pageLink))).toBeLessThanOrEqual(0.5);
+
+  const tabDot = page.getByTestId('market-bar-current-dot');
+  const pageDot = page.getByTestId('market-pages-current-dot');
+  await expect(tabDot).toHaveCount(1, { timeout: 10000 });
+  await expect(pageDot).toHaveCount(1);
+  expect(Math.abs(await dotOffset(tabDot)), 'the bar tab').toBeLessThanOrEqual(0.5);
+  expect(Math.abs(await dotOffset(pageDot)), 'the page link').toBeLessThanOrEqual(0.5);
 });
 
 test('the month arrows sit in the middle of their buttons', async ({
