@@ -436,6 +436,26 @@
   background: var(--mm-beige);
 }
 
+/*
+ * A frozen choice still says which it is (E28/F04/S03). Frozen, every card went beige and the
+ * radio greyed with it - and a disabled radio takes no accent colour - so the chosen one was told
+ * apart only by a hairline of green. It keeps the white ground, is ringed in green inside its
+ * border and set in bold; the others stay beige and quiet.
+ */
+.choice-card.disabled.chosen {
+  background: white;
+  outline: 1px solid var(--mm-green);
+  outline-offset: -2px;
+}
+
+.choice-card.disabled.chosen .choice-card-label {
+  font-weight: 600;
+}
+
+.choice-card.disabled:not(.chosen) .choice-card-label {
+  color: var(--mm-text-muted-on-beige);
+}
+
 .choice-card input {
   margin-top: var(--space-hairline);
   flex: 0 0 auto;

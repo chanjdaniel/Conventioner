@@ -38,3 +38,7 @@ The prototype is primary source on the local branch `prototype/plan-row-rule` (c
 - Dates stay calendar days: the list's formatting is UTC arithmetic, as `getFormattedDate` is, and the timezone spec covers it.
 
 Buildable work: [E23/F02 The market dates sit beside their calendar](../../../backlog/E23-the-plan-uses-its-space/F02-the-dates-sit-beside-their-calendar/feature.md).
+
+**Superseded in part, 2026-10-10:** the days are now one row each under their month, flowing in columns no taller than the calendar, rather than chips on one line per month.
+Everything else above stands.
+See [E28/F01/S01](../../../backlog/E28-the-details-line-up/F01-a-row-per-market-date/S01-each-date-is-a-row.md).

@@ -1,0 +1,37 @@
+---
+id: E28/F03/S01
+title: The rules table is drawn from the primitives
+type: story
+status: done
+blocked_by: []
+pr: [#94]
+---
+
+## What to build
+
+On the assignment page, the priority rules table, measured on 2026-10-10 against a market with two rules:
+
+- **The answers are a ranked list with a left edge.**
+  Each row is handle, rank, answer, then the remove × at the row's right edge, so the ranks and the ×s form columns.
+  Today each row is centred, so they move with the answer's length (79px apart on one rule).
+- **The answer × is quieter than the rule ×**: smaller and muted, so removing an answer does not look like removing the rule (both are 24px today).
+- **"Add an answer" and the question picker are the product's field**, bordered and at the control height, not borderless selects (one is 20px tall, pressed to the cell's foot; the other stretches the whole row).
+- **One text colour and one size**, from the tokens (today: slate, pure black and muted, at 14.04px and 14px).
+- **1px dividers**, as everywhere else (3px today).
+- **Each heading stands over its own column**, left-aligned with it, and the rank sits under "Priority".
+- **"Add a rule" is the add-row primitive**, as on the plan cards, left-aligned under the rules.
+- **No scrolling box inside the cell**: a rule with many answers makes the row taller, since the page scrolls.
+- The two drag handles are one size.
+
+## Acceptance criteria
+
+- [x] With answers of different lengths, ranks and ×s line up in columns.
+- [x] Controls are `.field` / `.add-row` / `.drag-handle` from `primitives.css`; the file is on the `lint:css` error list.
+- [x] A rule with 12 answers grows the row; nothing scrolls inside it.
+- [x] Every control is named (`every-control-is-named.spec.ts` walks the page with a rule on it).
+- [x] Drag to reorder rules and answers still works.
+
+## Notes from the build
+
+- The 3px dividers were not the rules table's alone: Tier, Location and Section Setup and Assignment Options drew the same ones. All five moved to 1px together, so the plan and the assignment page still agree.
+- Assignment Options stretched to the rules card's height beside it; it now ends at its own content, as the plan's row rule says.

@@ -162,10 +162,12 @@ const emit = defineEmits<{
   overflow-y: auto;
 }
 
+/* A card ends at its own content, as on the plan (the row rule, E23/F01): stretched to the rules
+   beside it, Assignment Options was a short card with an empty half. */
 .plan-row {
   display: grid;
   gap: 30px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .plan-row--asymmetric {

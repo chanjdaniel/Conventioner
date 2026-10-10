@@ -58,7 +58,10 @@ export function monthGrid(year: number, month: number): Array<Array<string | nul
   for (let day = 1; day <= daysInMonth(year, month); day += 1) {
     cells.push(isoDay(year, month, day));
   }
-  while (cells.length % 7 !== 0) cells.push(null);
+  // Always six weeks, the most any month spans: a calendar that is four weeks tall in one month
+  // and six in the next moves everything under it as the organizer steps through the year, and
+  // the list beside it is sized to its height (E28/F01/S01).
+  while (cells.length < 42) cells.push(null);
 
   const weeks: Array<Array<string | null>> = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
@@ -119,4 +122,51 @@ export function datesByMonth(days: string[]): DatesMonth[] {
     group.days.push({ day, label: `${WEEKDAY_SHORT[weekday]} ${date}` });
   }
   return months;
+}
+
+/** One line of the chosen-dates list: a month's heading ("October 2026"), or one of its days. */
+export type DatesLine =
+  | { kind: 'month'; year: number; month: number; label: string }
+  /** A day, "Sat 3", with its stored `YYYY-MM-DD`. */
+  | { kind: 'day'; year: number; month: number; label: string; day: string };
+
+/**
+ * The chosen dates, one row each under their month, flowed top to bottom into columns
+ * (E28/F01/S01).
+ *
+ * `lines` is how many fit in a column - the calendar's height - and `columns` how many fit across.
+ * A heading never ends a column: it moves to the next with its first day, since a month's name
+ * with nothing under it reads as an empty month. When the dates need more columns than fit across,
+ * the columns grow taller rather than running off the card.
+ */
+export function dateColumns(
+  months: DatesMonth[],
+  room: { lines: number; columns: number },
+): DatesLine[][] {
+  const flow: DatesLine[] = months.flatMap(({ year, month, label, days }) => [
+    { kind: 'month' as const, year, month, label },
+    ...days.map((d) => ({ kind: 'day' as const, year, month, label: d.label, day: d.day })),
+  ]);
+  if (!flow.length) return [];
+
+  const across = Math.max(1, Math.floor(room.columns));
+  // Two is the fewest lines a column can hold and still keep a heading with its first day.
+  for (let tall = Math.max(2, Math.floor(room.lines)); ; tall += 1) {
+    const columns = flowInto(flow, tall);
+    if (columns.length <= across) return columns;
+  }
+}
+
+function flowInto(flow: DatesLine[], tall: number): DatesLine[][] {
+  const columns: DatesLine[][] = [[]];
+  for (const line of flow) {
+    const column = columns[columns.length - 1];
+    const room = tall - column.length;
+    if (column.length && (room === 0 || (line.kind === 'month' && room === 1))) {
+      columns.push([line]);
+    } else {
+      column.push(line);
+    }
+  }
+  return columns;
 }

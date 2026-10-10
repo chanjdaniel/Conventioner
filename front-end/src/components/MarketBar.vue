@@ -60,7 +60,13 @@ function linkFor(tab: MarketTab): string {
           :aria-current="tabOf(current) === tab ? 'step' : undefined"
           :data-testid="`market-bar-tab-${tab}`"
         >
-          {{ TAB_LABELS[tab] }}
+          {{ TAB_LABELS[tab]
+          }}<span
+            v-if="tabOf(current) === tab"
+            class="current-dot"
+            aria-hidden="true"
+            data-testid="market-bar-current-dot"
+          />
         </RouterLink>
       </nav>
     </template>
@@ -135,13 +141,15 @@ function linkFor(tab: MarketTab): string {
  * underline: the underline already means "you are looking at this", and two treatments for two
  * ideas on one control is how a bar stops being readable.
  */
-.market-bar-tab.current::after {
-  content: '';
+/* The current mark (E28/F04/S02): raised so its centre is the middle of the label's capitals - half
+   the cap height above the baseline, less half its own height. `cap` is the label's own font, so it
+   holds at any type size; `vertical-align: middle` centred it on the lower-case letters instead. */
+.current-dot {
   display: inline-block;
   width: 5px;
   height: 5px;
   margin-left: var(--space-2);
-  vertical-align: middle;
+  vertical-align: calc(0.5cap - 2.5px);
   border-radius: var(--radius-pill);
   background: var(--mm-green);
 }

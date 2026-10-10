@@ -8,7 +8,7 @@
  * placement history. It stands under the Assignment tab, beside the rules and the Vendors page.
  */
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 import { api } from '@/utils/api';
 import { getFormattedDate } from '@/utils/utils';
@@ -18,6 +18,8 @@ import ResultSeat from '@/components/ResultSeat.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import ResultSummary from '@/components/ResultSummary.vue';
+import ResultFilterBar from '@/components/ResultFilterBar.vue';
+import { useResultFilters } from '@/utils/useResultFilters';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import {
   FULL_TABLE,
@@ -26,19 +28,16 @@ import {
   type PlaceableVendor,
   type Seat,
 } from '@/utils/placementChange';
-
-interface MarketTableRow {
-  date: string;
-  assignment: string[];
-  /** The table seat by seat - `[left, right]`, null for vacant. Which side is free is a fact
-      the occupant list cannot carry, and every placement names a side. */
-  assignmentSlots: (string | null)[];
-  location: string;
-  section: string;
-  tableChoice: string;
-  tableCode: string;
-  tier: string;
-}
+import {
+  TABLE_STATUSES,
+  filterOptions,
+  filtersBeside,
+  rowStatus,
+  statusCounts as countStatuses,
+  tablesMatching,
+  type MarketTableRow,
+  type TableStatus,
+} from '@/utils/resultFilters';
 
 interface SectionGroup {
   section: string;
@@ -54,11 +53,7 @@ interface DateGroup {
   rowCount: number;
 }
 
-type ChoiceFilter = 'full' | 'half' | '';
-type FilterName = 'date' | 'section' | 'tier' | 'choice';
-
 const route = useRoute();
-const router = useRouter();
 
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
@@ -81,56 +76,21 @@ const vendors = ref<PlaceableVendor[]>([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
 
-const dateFilter = computed(() => normalizeQuery(route.query.date));
-const sectionFilter = computed(() => normalizeQuery(route.query.section));
-const tierFilter = computed(() => normalizeQuery(route.query.tier));
-const choiceFilter = computed<ChoiceFilter>(() => {
-  const raw = normalizeQuery(route.query.choice).toLowerCase();
-  if (raw === 'full' || raw === 'half') return raw;
-  return '';
-});
-
-const hasActiveFilters = computed(
-  () =>
-    Boolean(dateFilter.value) ||
-    Boolean(sectionFilter.value) ||
-    Boolean(tierFilter.value) ||
-    Boolean(choiceFilter.value),
-);
-
-function normalizeQuery(raw: unknown): string {
-  if (Array.isArray(raw)) {
-    const first = raw.find((v) => typeof v === 'string' && v.length > 0);
-    return typeof first === 'string' ? first : '';
-  }
-  return typeof raw === 'string' ? raw : '';
-}
+/**
+ * The filters live in the address. The system was once complete and unreachable: every filter was
+ * computed from `route.query`, the chips could clear one, and nothing in the product ever set one -
+ * so an organizer could only narrow this view by editing the address bar (`E09/F02/S01`,
+ * `E11/F03/S02`). The bar sets them now, and the counts set the status (E28/F02/S01).
+ */
+const { filters, setFilter } = useResultFilters();
+const OFFERED = filtersBeside('tables');
+const statusFilter = computed(() => filters.value.status);
 
 function formatDisplayDate(date: string): string {
   return getFormattedDate(date) ?? date;
 }
 
-function rowMatchesChoice(row: MarketTableRow, filter: ChoiceFilter): boolean {
-  if (!filter) return true;
-  const normalized = row.tableChoice.toLowerCase();
-  if (filter === 'full') return normalized.includes('full');
-  return normalized.includes('half');
-}
-
-const filteredRows = computed((): MarketTableRow[] => {
-  const date = dateFilter.value;
-  const section = sectionFilter.value;
-  const tier = tierFilter.value;
-  const choice = choiceFilter.value;
-
-  return allRows.value.filter((row) => {
-    if (date && row.date !== date) return false;
-    if (section && row.section !== section) return false;
-    if (tier && row.tier !== tier) return false;
-    if (!rowMatchesChoice(row, choice)) return false;
-    return true;
-  });
-});
+const filteredRows = computed(() => tablesMatching(allRows.value, filters.value));
 
 const groupedRows = computed((): DateGroup[] => {
   const dateMap = new Map<string, Map<string, SectionGroup>>();
@@ -176,51 +136,7 @@ const groupedRows = computed((): DateGroup[] => {
   return dateGroups;
 });
 
-interface RowStatus {
-  label: 'assigned' | 'partial' | 'empty';
-  leftEmail: string | null;
-  rightEmail: string | null;
-  isFull: boolean;
-}
-
-function rowStatus(row: MarketTableRow): RowStatus {
-  const isFull = row.tableChoice.toLowerCase().includes('full');
-  // Seat by seat, not the occupant list: a lone occupant on the RIGHT used to draw on the left,
-  // because a list of one cannot say which half of the table it means. Nothing could produce that
-  // until a pin could (E11).
-  const left = row.assignmentSlots?.[0] ?? null;
-  const right = row.assignmentSlots?.[1] ?? null;
-
-  if (!left && !right) {
-    return { label: 'empty', leftEmail: null, rightEmail: null, isFull };
-  }
-
-  if (isFull) {
-    const email = left ?? right;
-    return { label: 'assigned', leftEmail: email, rightEmail: email, isFull };
-  }
-
-  const filled = (left ? 1 : 0) + (right ? 1 : 0);
-  return {
-    label: filled === 2 ? 'assigned' : 'partial',
-    leftEmail: left,
-    rightEmail: right,
-    isFull,
-  };
-}
-
-const statusCounts = computed(() => {
-  let assigned = 0;
-  let partial = 0;
-  let empty = 0;
-  for (const row of filteredRows.value) {
-    const status = rowStatus(row).label;
-    if (status === 'assigned') assigned += 1;
-    else if (status === 'partial') partial += 1;
-    else empty += 1;
-  }
-  return { assigned, partial, empty };
-});
+const statusCounts = computed(() => countStatuses(allRows.value, filters.value));
 
 /**
  * The three status pills, each with the fill it is worn in.
@@ -236,53 +152,21 @@ const statusCounts = computed(() => {
  * typechecks perfectly and renders a lie.
  */
 const countPills = computed(() =>
-  (['assigned', 'partial', 'empty'] as const).map((kind) => {
+  TABLE_STATUSES.map((kind) => {
     const count = statusCounts.value[kind];
     return { kind, count, fill: count === 0 ? 'count-badge--none' : `count-badge--${kind}` };
   }),
 );
 
-function clearFilter(name: FilterName): void {
-  setFilter(name, '');
-}
-
 /**
- * Set one filter, from the page.
- *
- * The filter system was complete and unreachable: every filter is computed from `route.query`,
- * the chips could clear one, and nothing in the product ever set one - so an organizer could
- * only narrow this view by editing the address bar (`E09/F02/S01`, `E11/F03/S02`).
+ * A count is also the way to see those tables (E28/F02/S01): choosing it filters to them, and
+ * choosing it again lets go. A zero is not a condition to act on, so it cannot be chosen.
  */
-function setFilter(name: FilterName, value: string): void {
-  const nextQuery = { ...route.query };
-  if (value) nextQuery[name] = value;
-  else delete nextQuery[name];
-  router.replace({ query: nextQuery });
+function toggleStatus(kind: TableStatus): void {
+  setFilter('status', statusFilter.value === kind ? '' : kind);
 }
 
-/** Every distinct value the loaded rows offer for one filter, so the picker offers only what exists. */
-function optionsFor(pick: (row: MarketTableRow) => string): string[] {
-  const seen = new Set<string>();
-  for (const row of allRows.value) {
-    const value = pick(row);
-    if (value) seen.add(value);
-  }
-  return Array.from(seen).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-}
-
-const dateOptions = computed(() => optionsFor((row) => row.date));
-const sectionOptions = computed(() => optionsFor((row) => row.section));
-const tierOptions = computed(() => optionsFor((row) => row.tier));
-
-function clearAllFilters(): void {
-  router.replace({ query: {} });
-}
-
-function choiceFilterLabel(filter: ChoiceFilter): string {
-  if (filter === 'full') return 'Full Tables';
-  if (filter === 'half') return 'Half Tables';
-  return '';
-}
+const filterOptionsShown = computed(() => filterOptions(allRows.value));
 
 async function loadTables(): Promise<void> {
   errorMessage.value = '';
@@ -493,134 +377,36 @@ function swapSeats(withEmail: string): void {
         </template>
 
         <template v-else-if="allRows.length > 0">
-          <div class="filter-bar">
-            <!-- The filters were computed from the URL and could only be cleared: nothing in the
-                 product ever set one (E09/F02/S01, E11/F03/S02). -->
-            <div class="filter-pickers">
-              <label class="filter-picker">
-                <span class="filter-picker-label">Date</span>
-                <select
-                  :value="dateFilter"
-                  data-testid="tables-filter-date"
-                  @change="setFilter('date', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">All dates</option>
-                  <option v-for="option in dateOptions" :key="option" :value="option">
-                    {{ formatDisplayDate(option) }}
-                  </option>
-                </select>
-              </label>
-              <label class="filter-picker">
-                <span class="filter-picker-label">Section</span>
-                <select
-                  :value="sectionFilter"
-                  data-testid="tables-filter-section"
-                  @change="setFilter('section', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">All sections</option>
-                  <option v-for="option in sectionOptions" :key="option" :value="option">
-                    {{ option }}
-                  </option>
-                </select>
-              </label>
-              <!-- A market planned without tiers has nothing to filter by tier (bug 23). -->
-              <label v-if="tierOptions.length" class="filter-picker">
-                <span class="filter-picker-label">Tier</span>
-                <select
-                  :value="tierFilter"
-                  data-testid="tables-filter-tier"
-                  @change="setFilter('tier', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">All tiers</option>
-                  <option v-for="option in tierOptions" :key="option" :value="option">
-                    {{ option }}
-                  </option>
-                </select>
-              </label>
-              <label class="filter-picker">
-                <span class="filter-picker-label">Table</span>
-                <select
-                  :value="choiceFilter"
-                  data-testid="tables-filter-choice"
-                  @change="setFilter('choice', ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">Any size</option>
-                  <option value="full">Full Tables</option>
-                  <option value="half">Half Tables</option>
-                </select>
-              </label>
-            </div>
-
-            <div class="filter-chips" v-if="hasActiveFilters">
-              <span class="filter-chips-label">Filters:</span>
-              <button
-                v-if="dateFilter"
-                type="button"
-                class="filter-chip"
-                @click="clearFilter('date')"
-                data-testid="tables-filter-chip-date"
-              >
-                Date: {{ formatDisplayDate(dateFilter) }}
-                <span class="filter-chip-close" aria-hidden="true">×</span>
-                <span class="visually-hidden">Remove date filter</span>
-              </button>
-              <button
-                v-if="sectionFilter"
-                type="button"
-                class="filter-chip"
-                @click="clearFilter('section')"
-                data-testid="tables-filter-chip-section"
-              >
-                Section: {{ sectionFilter }}
-                <span class="filter-chip-close" aria-hidden="true">×</span>
-                <span class="visually-hidden">Remove section filter</span>
-              </button>
-              <button
-                v-if="tierFilter"
-                type="button"
-                class="filter-chip"
-                @click="clearFilter('tier')"
-                data-testid="tables-filter-chip-tier"
-              >
-                Tier: {{ tierFilter }}
-                <span class="filter-chip-close" aria-hidden="true">×</span>
-                <span class="visually-hidden">Remove tier filter</span>
-              </button>
-              <button
-                v-if="choiceFilter"
-                type="button"
-                class="filter-chip"
-                @click="clearFilter('choice')"
-                data-testid="tables-filter-chip-choice"
-              >
-                {{ choiceFilterLabel(choiceFilter) }}
-                <span class="filter-chip-close" aria-hidden="true">×</span>
-                <span class="visually-hidden">Remove choice filter</span>
-              </button>
-              <button
-                type="button"
-                class="filter-chip filter-chip--clear-all"
-                @click="clearAllFilters"
-                data-testid="tables-filter-chip-clear-all"
-              >
-                Clear all
-              </button>
-            </div>
-
+          <ResultFilterBar
+            class="filter-band"
+            :offered="OFFERED"
+            :options="filterOptionsShown"
+            testid="tables"
+          >
             <div class="counts-row">
               <span class="counts-primary">
                 {{ filteredRows.length }} of {{ allRows.length }} tables
               </span>
-              <span
+              <!-- Each count shows its tables (E28/F02/S01). -->
+              <button
                 v-for="pill in countPills"
                 :key="pill.kind"
+                type="button"
                 class="count-badge"
                 :class="pill.fill"
+                :aria-pressed="statusFilter === pill.kind"
+                :disabled="pill.count === 0 && statusFilter !== pill.kind"
+                :title="pill.count === 0 ? undefined : `Show only ${pill.kind} tables`"
+                :aria-label="pill.count === 0 ? `0 ${pill.kind}, none to show` : undefined"
                 :data-testid="`tables-count-${pill.kind}`"
-                >{{ pill.count }} {{ pill.kind }}</span
+                @click="toggleStatus(pill.kind)"
               >
+                <span v-if="statusFilter === pill.kind" class="count-badge-tick" aria-hidden="true"
+                  >✓</span
+                >{{ pill.count }} {{ pill.kind }}
+              </button>
             </div>
-          </div>
+          </ResultFilterBar>
 
           <div v-if="filteredRows.length === 0" class="empty-state">
             <p>No tables match the current filters.</p>
@@ -788,67 +574,14 @@ function swapSeats(withEmail: string): void {
   gap: 20px;
 }
 
-.filter-bar {
+/* Stays in view over the tables it filters. */
+.filter-band {
   position: sticky;
   top: 0;
   z-index: 2;
   background-color: white;
   padding: 12px 0;
   border-bottom: 1px solid var(--mm-border);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.filter-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.filter-chips-label {
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background-color: var(--mm-beige);
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-xs);
-  color: var(--mm-black);
-  cursor: pointer;
-  transition:
-    background-color 0.12s ease-in-out,
-    border-color 0.12s ease-in-out;
-}
-
-.filter-chip:hover {
-  background-color: white;
-  border-color: var(--mm-green);
-}
-
-.filter-chip:focus-visible {
-  outline: 2px solid var(--mm-green);
-  outline-offset: 2px;
-}
-
-.filter-chip-close {
-  font-size: var(--text-md);
-  line-height: 1;
-  color: var(--mm-black);
-  font-weight: 600;
-}
-
-.filter-chip--clear-all {
-  background-color: white;
-  border-style: dashed;
 }
 
 .counts-row {
@@ -877,23 +610,49 @@ function swapSeats(withEmail: string): void {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
+  /* Every pill carries a border, in its own fill where it needs none, so all three are one height:
+     "assigned" was 2px shorter than its neighbours. */
+  border: 1px solid transparent;
   border-radius: var(--radius-card);
+  font-family: inherit;
   font-size: var(--text-xs);
+  line-height: normal;
+  cursor: pointer;
+}
+
+.count-badge:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+/* The chosen count is ticked, as a filter chip is: its fill already says which status it is. */
+.count-badge[aria-pressed='true'] {
+  font-weight: 600;
+}
+
+.count-badge-tick {
+  margin-right: var(--space-1);
+  font-weight: 600;
+}
+
+/* Nothing to show: the zero stops offering itself, and stays legible - its neutral fill already
+   quietens it (see `.count-badge--none`). */
+.count-badge:disabled {
+  cursor: default;
 }
 
 .count-badge--assigned {
   background-color: var(--mm-green);
+  border-color: var(--mm-green);
   color: white;
 }
 
 .count-badge--partial {
   background-color: var(--mm-yellow);
+  border-color: var(--mm-yellow);
   color: var(--mm-black);
 }
 
 /*
- * The neutral pill, and the one a count of zero falls back to.
- *
  * Black on beige is 12.49. The obvious alternative - muted text, to say "nothing here" - is 4.24 on
  * beige and so below AA, and `contrast.test.ts` would not have caught it: it holds only --mm-black
  * to the beige ground, because --mm-black was the only thing ever set on it. Quieten a pill by
@@ -903,7 +662,7 @@ function swapSeats(withEmail: string): void {
 .count-badge--none {
   background-color: var(--mm-beige);
   color: var(--mm-black);
-  border: 1px solid var(--mm-border);
+  border-color: var(--mm-border);
 }
 
 .status-message {
@@ -1050,34 +809,6 @@ function swapSeats(withEmail: string): void {
   flex: 1;
 }
 
-.filter-pickers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.filter-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.filter-picker-label {
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted);
-}
-
-.filter-picker select {
-  padding: 6px 8px;
-  border: 1px solid var(--mm-border);
-  border-radius: var(--radius-control);
-  background: white;
-  font-size: var(--text-xs);
-  color: var(--mm-black);
-  max-width: 100%;
-}
-
 .half-slot-label {
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-xs);
@@ -1091,18 +822,6 @@ function swapSeats(withEmail: string): void {
   margin: 0 0 12px;
   color: var(--mm-red);
   font-size: var(--text-sm);
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 @media (max-width: 720px) {

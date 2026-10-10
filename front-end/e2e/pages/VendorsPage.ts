@@ -13,6 +13,12 @@ export class VendorsPage {
   readonly detailPanel: Locator;
   readonly detailOverlay: Locator;
   readonly detailAssignmentItems: Locator;
+  /** The Result pages' shared filter bar (E28/F02/S02). */
+  readonly dateFilter: Locator;
+  readonly choiceFilter: Locator;
+  readonly dateFilterChip: Locator;
+  readonly clearAllFilterButton: Locator;
+  readonly summary: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -24,6 +30,11 @@ export class VendorsPage {
     /** The scrim. Clicking it dismisses the drawer, and it is what holds the mouse out. */
     this.detailOverlay = page.getByTestId('vendors-detail-overlay');
     this.detailAssignmentItems = page.getByTestId('vendors-detail-assignment-item');
+    this.dateFilter = page.getByTestId('vendors-filter-date');
+    this.choiceFilter = page.getByTestId('vendors-filter-choice');
+    this.dateFilterChip = page.getByTestId('vendors-filter-chip-date');
+    this.clearAllFilterButton = page.getByTestId('vendors-filter-chip-clear-all');
+    this.summary = page.getByTestId('vendors-summary');
   }
 
   async goto(marketId: string): Promise<void> {
