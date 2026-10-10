@@ -12,6 +12,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import type { Market } from '@/assets/types/datatypes';
 import { marketPath } from '@/utils/market';
+import { placeFilterQuery } from '@/utils/resultFilters';
 import {
   PAGE_LABELS,
   TAB_PAGES,
@@ -19,6 +20,7 @@ import {
   hasAssignment,
   pageOfRoute,
   tabOf,
+  type MarketPage,
 } from '@/utils/marketPage';
 
 const props = defineProps<{ market: Market | null }>();
@@ -27,6 +29,20 @@ const route = useRoute();
 const here = computed(() => pageOfRoute(route.name, route.params));
 const pages = computed(() => (here.value ? TAB_PAGES[tabOf(here.value)] : []));
 const current = computed(() => currentPage(props.market?.phase, hasAssignment(props.market)));
+
+/** The two pages that read the assignment through the same filters (E28/F02/S02). */
+const FILTERED_PAGES: readonly MarketPage[] = ['result', 'vendors'];
+
+/**
+ * Where a page link goes. Between Result and Vendors it keeps the day, section, tier and table
+ * size in view, so moving from who-is-at-which-table to who-is-where does not lose the question.
+ */
+function linkTo(marketId: string, page: MarketPage) {
+  const path = marketPath(marketId, page);
+  const carries =
+    FILTERED_PAGES.includes(here.value as MarketPage) && FILTERED_PAGES.includes(page);
+  return carries ? { path, query: placeFilterQuery(route.query) } : path;
+}
 </script>
 
 <template>
@@ -39,13 +55,19 @@ const current = computed(() => currentPage(props.market?.phase, hasAssignment(pr
     <RouterLink
       v-for="page in pages"
       :key="page"
-      :to="marketPath(market.id, page)"
+      :to="linkTo(market.id, page)"
       class="market-page"
       :class="{ active: here === page, current: current === page }"
       :aria-current="here === page ? 'page' : undefined"
       :data-testid="`market-pages-${page}`"
     >
-      {{ PAGE_LABELS[page] }}
+      {{ PAGE_LABELS[page]
+      }}<span
+        v-if="current === page"
+        class="current-dot"
+        aria-hidden="true"
+        data-testid="market-pages-current-dot"
+      />
     </RouterLink>
   </nav>
 </template>
@@ -79,13 +101,15 @@ const current = computed(() => currentPage(props.market?.phase, hasAssignment(pr
   font-weight: 600;
 }
 
-.market-page.current::after {
-  content: '';
+/* The current mark (E28/F04/S02): raised so its centre is the middle of the label's capitals - half
+   the cap height above the baseline, less half its own height. `cap` is the label's own font, so it
+   holds at any type size; `vertical-align: middle` centred it on the lower-case letters instead. */
+.current-dot {
   display: inline-block;
   width: 5px;
   height: 5px;
   margin-left: var(--space-2);
-  vertical-align: middle;
+  vertical-align: calc(0.5cap - 2.5px);
   border-radius: var(--radius-pill);
   background: var(--mm-green);
 }

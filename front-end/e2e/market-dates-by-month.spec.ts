@@ -5,12 +5,12 @@ import { marketSetupPath } from './helpers/marketScreens';
 import type { Page } from '@playwright/test';
 
 /**
- * The market dates sit beside their calendar, listed by month (E23/F02/S01, from
- * the-plan-uses-its-space ticket 02).
+ * The market dates sit beside their calendar (E23/F02/S01, from the-plan-uses-its-space ticket
+ * 02), a row each under their month (E28/F01/S01).
  *
  * The chosen dates used to be chips centred under a 420px calendar in a 1,330px card, leaving most
- * of its width empty. They are one line per month now, on the right: a 20-date market is five
- * lines, the card is no taller than the calendar, and every month says its year.
+ * of its width empty, then chips on one line per month. They are one row per date now, flowing top
+ * to bottom into columns no taller than the calendar, and every month says its year.
  */
 
 /** Twenty Saturdays and Sundays from October 2026 into February 2027: five months, two years. */
@@ -36,7 +36,18 @@ async function geometry(page: Page) {
       (document.querySelector(`[data-testid="${id}"]`) as HTMLElement).getBoundingClientRect();
     const calendar = box('setup-dates-calendar');
     const list = box('setup-dates-summary');
+    const columns = Array.from(document.querySelectorAll('[data-testid="setup-dates-column"]')).map(
+      (column) => ({
+        left: Math.round(column.getBoundingClientRect().left),
+        lines: Array.from(column.children).map((line) => ({
+          text: (line.textContent ?? '').replace('×', '').trim(),
+          month: line.classList.contains('dates-month'),
+          top: Math.round(line.getBoundingClientRect().top),
+        })),
+      }),
+    );
     return {
+      columns,
       calendarRight: Math.round(calendar.right),
       calendarBottom: Math.round(calendar.bottom),
       calendarLeft: Math.round(calendar.left),
@@ -47,7 +58,7 @@ async function geometry(page: Page) {
   });
 }
 
-test.describe('The market dates, listed by month beside the calendar', () => {
+test.describe('The market dates, a row each beside the calendar', () => {
   let marketId: string;
 
   test.beforeEach(async ({ request }) => {
@@ -63,7 +74,7 @@ test.describe('The market dates, listed by month beside the calendar', () => {
     await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, PLAN);
   });
 
-  test('twenty dates are five months beside the calendar, no taller than it', async ({
+  test('twenty dates are a row each, in columns beside the calendar, no taller than it', async ({
     authenticatedPage: page,
   }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
@@ -91,6 +102,27 @@ test.describe('The market dates, listed by month beside the calendar', () => {
     expect(g.listBottom, 'the list is no taller than the calendar').toBeLessThanOrEqual(
       g.calendarBottom,
     );
+
+    const lines = g.columns.flatMap((column) => column.lines);
+    expect(
+      lines.filter((line) => !line.month),
+      'one row per date',
+    ).toHaveLength(20);
+    expect(g.columns.length, 'more than one column').toBeGreaterThan(1);
+    for (const column of g.columns) {
+      expect(column.lines.at(-1)?.month, 'no heading alone at the foot of a column').toBe(false);
+      const tops = column.lines.map((line) => line.top);
+      expect(tops, 'top to bottom').toEqual([...tops].sort((a, b) => a - b));
+    }
+    const lefts = g.columns.map((column) => column.left);
+    expect(lefts, 'then the next column, to the right').toEqual([...lefts].sort((a, b) => a - b));
+    // Read in order, the rows are the dates in order.
+    expect(
+      lines
+        .filter((line) => !line.month)
+        .map((line) => line.text)
+        .slice(0, 3),
+    ).toEqual(['Sat 3', 'Sat 10', 'Sat 17']);
   });
 
   test('a month moves the calendar to it and is marked; × removes a day', async ({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addMonths,
+  dateColumns,
   datesByMonth,
   dayParts,
   daysInMonth,
@@ -55,6 +56,14 @@ describe('month arithmetic for market dates', () => {
     expect(july.at(-1)).toBe('2026-07-31');
     expect(july.every((day) => day.startsWith('2026-07'))).toBe(true);
   });
+
+  it('is always six weeks, so the calendar holds one height from month to month', () => {
+    // February 2026 starts on a Sunday and fills exactly four weeks; August 2026 needs six.
+    expect(monthGrid(2026, 1)).toHaveLength(6);
+    expect(monthGrid(2026, 7)).toHaveLength(6);
+    expect(monthGrid(2026, 9)).toHaveLength(6);
+    expect(monthGrid(2026, 1).flat().filter(Boolean)).toHaveLength(28);
+  });
 });
 
 /**
@@ -95,5 +104,67 @@ describe('the chosen dates, grouped by month', () => {
 
   it('is empty for a market with no dates', () => {
     expect(datesByMonth([])).toEqual([]);
+  });
+});
+
+/**
+ * The chosen dates, one row each, flowing top to bottom in columns no taller than the calendar
+ * (E28/F01/S01). A line is a month heading or a day; a heading never ends a column, since a month's
+ * name with none of its days under it reads as an empty month.
+ */
+describe('the chosen dates, flowed into columns', () => {
+  const lines = (columns: ReturnType<typeof dateColumns>) =>
+    columns.map((column) => column.map((line) => line.label));
+
+  it('is one column when everything fits', () => {
+    const months = datesByMonth(['2026-10-03', '2026-10-10', '2026-11-07']);
+    expect(lines(dateColumns(months, { lines: 10, columns: 4 }))).toEqual([
+      ['October 2026', 'Sat 3', 'Sat 10', 'November 2026', 'Sat 7'],
+    ]);
+  });
+
+  it('fills a column to its height, then the next', () => {
+    const months = datesByMonth(['2026-10-03', '2026-10-10', '2026-10-17', '2026-10-24']);
+    expect(lines(dateColumns(months, { lines: 3, columns: 4 }))).toEqual([
+      ['October 2026', 'Sat 3', 'Sat 10'],
+      ['Sat 17', 'Sat 24'],
+    ]);
+  });
+
+  it('carries a heading that would end a column over to the next, with its first day', () => {
+    const months = datesByMonth(['2026-10-03', '2026-10-10', '2026-11-07']);
+    expect(lines(dateColumns(months, { lines: 4, columns: 4 }))).toEqual([
+      ['October 2026', 'Sat 3', 'Sat 10'],
+      ['November 2026', 'Sat 7'],
+    ]);
+  });
+
+  it('grows the columns taller rather than running past the width it has', () => {
+    const days = Array.from({ length: 12 }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')}`);
+    const columns = dateColumns(datesByMonth(days), { lines: 3, columns: 2 });
+    expect(columns).toHaveLength(2);
+    expect(columns.flat()).toHaveLength(13);
+    expect(columns[0].length).toBeGreaterThanOrEqual(columns[1].length);
+  });
+
+  it('says which month each line belongs to, so a heading can show its month', () => {
+    const [column] = dateColumns(datesByMonth(['2026-12-26', '2027-01-02']), {
+      lines: 10,
+      columns: 1,
+    });
+    expect(column.map((line) => [line.kind, line.year, line.month])).toEqual([
+      ['month', 2026, 11],
+      ['day', 2026, 11],
+      ['month', 2027, 0],
+      ['day', 2027, 0],
+    ]);
+  });
+
+  it('is no columns for a market with no dates, and survives a nonsense room', () => {
+    expect(dateColumns([], { lines: 10, columns: 3 })).toEqual([]);
+    const months = datesByMonth(['2026-10-03', '2026-10-10']);
+    expect(lines(dateColumns(months, { lines: 0, columns: 0 }))).toEqual([
+      ['October 2026', 'Sat 3', 'Sat 10'],
+    ]);
   });
 });

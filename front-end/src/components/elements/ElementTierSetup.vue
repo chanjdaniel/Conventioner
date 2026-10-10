@@ -281,7 +281,7 @@ h3 {
 
     position: relative;
 
-    border-right: 3px solid var(--mm-border);
+    border-right: 1px solid var(--mm-border);
 } */
 
 /* A warning, not a failure: amber on the market's own beige, at the size of a note rather than
@@ -307,7 +307,7 @@ h3 {
   justify-content: center;
   align-items: center;
 
-  border-right: 3px solid var(--mm-border);
+  border-right: 1px solid var(--mm-border);
 }
 
 .row-item:last-of-type {

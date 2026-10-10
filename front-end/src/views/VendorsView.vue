@@ -35,6 +35,16 @@ import VendorIdentity from '@/components/VendorIdentity.vue';
 import PlacementHistory from '@/components/PlacementHistory.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
+import AnswerValue from '@/components/AnswerValue.vue';
+import ResultFilterBar from '@/components/ResultFilterBar.vue';
+import {
+  filterOptions,
+  filtersBeside,
+  hasPlaceFilter,
+  offeredFilters,
+  vendorShown,
+} from '@/utils/resultFilters';
+import { useResultFilters } from '@/utils/useResultFilters';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -297,8 +307,24 @@ function showEveryone(): void {
   void router.replace({ query: withoutQueryKey(route.query, 'show') });
 }
 
+/**
+ * The Result page's filters, asked of where each vendor is placed (E28/F02/S02): the same bar and
+ * the same address keys as the tables, so a filter set there is still set here.
+ */
+const { filters: addressFilters } = useResultFilters();
+/** The where-filters, or the date alone beside "Unassigned only" (`filtersBeside`). */
+const offered = computed(() => filtersBeside('vendors', onlyUnassigned.value));
+const filters = computed(() => offeredFilters(addressFilters.value, offered.value));
+const filterOptionsShown = computed(() => filterOptions(tableRows.value));
+const placeFiltered = computed(() => hasPlaceFilter(filters.value));
+
 const filteredVendors = computed(() => {
-  const shown = onlyUnassigned.value ? vendors.value.filter((v) => !v.isAssigned) : vendors.value;
+  const shown = vendors.value.filter((v) =>
+    vendorShown(v.assignmentsByDate, filters.value, {
+      onlyUnassigned: onlyUnassigned.value,
+      isAssigned: v.isAssigned,
+    }),
+  );
   const term = filterText.value.trim();
   if (!term) return shown;
   // Name AND address. The box used to read "Filter by email" and match only that, which on a
@@ -458,17 +484,34 @@ useInertBehind(
           >
             Unassigned only &times;
           </button>
+          <!-- With anything narrowing the list, it counts what is left (E28/F02/S02). -->
           <div class="summary-line" data-testid="vendors-summary">
-            <span class="summary-strong">{{ assignedVendorCount }}</span>
-            of
-            <span class="summary-strong">{{ totalVendorCount }}</span>
-            vendors assigned
+            <template v-if="placeFiltered || onlyUnassigned || filterText.trim()">
+              <span class="summary-strong">{{ filteredVendors.length }}</span>
+              of
+              <span class="summary-strong">{{ totalVendorCount }}</span>
+              vendors shown
+            </template>
+            <template v-else>
+              <span class="summary-strong">{{ assignedVendorCount }}</span>
+              of
+              <span class="summary-strong">{{ totalVendorCount }}</span>
+              vendors assigned
+            </template>
           </div>
         </div>
       </template>
 
       <div class="vendors-body">
         <p v-if="loadError" class="error-text">{{ loadError }}</p>
+
+        <ResultFilterBar
+          v-if="tableRows.length"
+          class="vendors-filters"
+          :offered="offered"
+          :options="filterOptionsShown"
+          testid="vendors"
+        />
 
         <div v-if="isLoading" class="loading-state">
           <div class="spinner" aria-hidden="true" />
@@ -477,8 +520,9 @@ useInertBehind(
 
         <div v-else-if="filteredVendors.length === 0" class="empty-state empty-state--inline">
           <p v-if="totalVendorCount === 0">No vendors found.</p>
-          <p v-else-if="onlyUnassigned && !filterText.trim()">Every vendor has a table.</p>
-          <p v-else>No vendors match "{{ filterText }}".</p>
+          <p v-else-if="filterText.trim()">No vendors match "{{ filterText }}".</p>
+          <p v-else-if="placeFiltered">No vendors match these filters.</p>
+          <p v-else-if="onlyUnassigned">Every vendor has a table.</p>
         </div>
 
         <ul v-else class="vendor-list">
@@ -573,7 +617,8 @@ useInertBehind(
           <dl class="detail-grid">
             <template v-for="field in detailFields" :key="field.label">
               <dt>{{ field.label }}</dt>
-              <dd>{{ field.value }}</dd>
+              <!-- Through AnswerValue, as every answer is, so an address is a link (E28/F04/S03). -->
+              <dd><AnswerValue :value="field.value" /></dd>
             </template>
           </dl>
         </section>

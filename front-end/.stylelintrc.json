@@ -29,6 +29,8 @@
         "src/components/MarketArrival.vue",
         "src/components/MarketBar.vue",
         "src/components/MarketPages.vue",
+        "src/components/ResultFilterBar.vue",
+        "src/components/ResultSeat.vue",
         "src/components/ResultStatistics.vue",
         "src/components/ResultSummary.vue",
         "src/components/MarketFrame.vue",
