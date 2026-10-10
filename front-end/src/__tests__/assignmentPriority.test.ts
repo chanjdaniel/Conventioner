@@ -235,7 +235,7 @@ describe('ElementAssignmentPriority', () => {
       await wrapper.find('[data-testid="priority-add-rule"]').trigger('click');
       await wrapper.find('[data-testid="priority-target-select"]').setValue(RATING.key);
 
-      expect(wrapper.find('[data-testid="priority-direction"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="priority-direction-select"]').exists()).toBe(true);
       expect(wrapper.find('[data-testid="priority-ordering-add"]').exists()).toBe(false);
     });
 
