@@ -2,9 +2,9 @@
 id: E29/F01
 title: Attendance knows who is missing
 type: feature
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#100]
 ---
 
 ## Outcome

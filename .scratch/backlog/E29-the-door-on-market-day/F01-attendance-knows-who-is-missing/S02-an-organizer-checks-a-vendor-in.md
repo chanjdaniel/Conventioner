@@ -2,9 +2,9 @@
 id: E29/F01/S02
 title: An organizer checks a vendor in
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#100]
 ---
 
 ## What
