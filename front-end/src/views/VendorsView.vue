@@ -45,6 +45,7 @@ import {
   vendorShown,
 } from '@/utils/resultFilters';
 import { useResultFilters } from '@/utils/useResultFilters';
+import { datesWithinReach } from '@/utils/datesWithinReach';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -80,6 +81,8 @@ interface VendorRow {
   assignmentsByDate: Map<string, VendorTableAssignment>;
   isAssigned: boolean;
   assignedDateCount: number;
+  /** The dates they could have had: their own answers, within the market's ceiling. */
+  reachableDateCount: number;
   /** The organizer's own questions, keyed by field key. Essential answers are shown separately. */
   answers: Record<string, unknown>;
   /** Why their table-share request pairs nobody, when it does not (E27/F01/S03). */
@@ -290,6 +293,15 @@ const vendors = computed<VendorRow[]>(() =>
       assignmentsByDate,
       isAssigned: !unassignedEmails.value.has(emailLower) && assignmentsByDate.size > 0,
       assignedDateCount: assignmentsByDate.size,
+      // A hand placement can give more than they asked for; never read as "3 of 2".
+      reachableDateCount: Math.max(
+        assignmentsByDate.size,
+        datesWithinReach(
+          (application.formData ?? {}) as Record<string, unknown>,
+          marketDates.value.map((d) => d.date),
+          setup.value?.assignmentOptions?.maxAssignmentsPerVendor,
+        ),
+      ),
       answers: (application.formData ?? {}) as Record<string, unknown>,
       tableShareNotice: application.tableShareNotice ?? null,
     };
@@ -334,7 +346,6 @@ const filteredVendors = computed(() => {
 
 const totalVendorCount = computed(() => vendors.value.length);
 const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssigned).length);
-const totalDateCount = computed(() => marketDates.value.length);
 
 const selectedVendor = computed(() => {
   if (selectedRowIndex.value == null) return null;
@@ -550,8 +561,9 @@ useInertBehind(
                 >
                   {{ vendor.isAssigned ? 'Assigned' : 'Unassigned' }}
                 </span>
-                <span class="vendor-date-count">
-                  {{ vendor.assignedDateCount }} / {{ totalDateCount }} dates
+                <span class="vendor-date-count" data-testid="vendor-date-count">
+                  {{ vendor.assignedDateCount }} of {{ vendor.reachableDateCount }}
+                  {{ vendor.reachableDateCount === 1 ? 'date' : 'dates' }}
                 </span>
               </span>
             </button>
@@ -866,6 +878,10 @@ useInertBehind(
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
   white-space: nowrap;
+  /* "1 of 1 date" and "2 of 2 dates" differ by a letter: a fixed width, right-aligned, keeps the
+     column's left edge straight down the list. 14ch holds "10 of 10 dates". */
+  min-width: 14ch;
+  text-align: end;
 }
 
 .detail-overlay {

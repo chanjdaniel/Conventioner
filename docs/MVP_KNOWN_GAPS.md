@@ -16,7 +16,7 @@ Every item was checked against the product on 2026-10-03, on `fix/mvp-e2e-testin
 | 4 | [The review card puts the applicant's name last](#4-the-review-card-puts-the-applicants-name-last) | Usability | I1 | Re-walk |
 | 5 | [The reviewed list is emails only](#5-the-reviewed-list-is-emails-only) | Usability | I2 | Code |
 | 6 | [Publish Results is one click](#6-publish-results-is-one-click) | Usability | I7 | Re-walk |
-| 7 | [Result counts table-days as "tables"](#7-result-counts-table-days-as-tables) | Usability | J4 | Re-walk |
+| 7 | [Result counts table-days as "tables"](#7-result-counts-table-days-as-tables) | Fixed 2026-10-18 | J4 | Re-walk |
 | 8 | [The calendar has no month or year jump](#8-the-calendar-has-no-month-or-year-jump) | Usability | E1 | Re-walk |
 | 9 | [The import forgets its mapping until it is confirmed](#9-the-import-forgets-its-mapping-until-it-is-confirmed) | Usability | H2a, H2i | Code |
 | 10 | [Removing an organization member takes effect at once](#10-removing-an-organization-member-takes-effect-at-once) | Usability | B3 | Code |
@@ -89,6 +89,8 @@ There is no name, no search and no filter by verdict, so changing one decision a
 **What fixing it would take:** a confirmation in the product's dialog that says how many will see Approved and how many Not Accepted, and whether a later change reaches them.
 
 ### 7. Result counts table-days as "tables"
+
+**Fixed on 2026-10-18**, after the [final dry run](MVP_TEST_RUN_2026-10-18.md): the strip says "table-days used" and defines a table-day beside satisfaction, and satisfaction rounds down.
 
 **What happens:** the result summary says "300 of 300 tables used" for a plan of 60 tables over 5 dates, because it counts a table once per date.
 The usage run also saw "100% satisfaction" for 209 of 210 dates, rounded.

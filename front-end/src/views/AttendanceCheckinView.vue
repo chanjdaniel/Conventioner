@@ -111,11 +111,6 @@ function calendarToday(): string {
 
 const today = ref(calendarToday());
 
-/** Is today one of the days this vendor is placed on? Decides whether anything is primary. */
-const todayIsAMarketDay = computed(() =>
-  (summary.value?.assignments ?? []).some((row) => row.date === today.value),
-);
-
 function formatDate(d: string): string {
   return getFormattedDate(d) ?? d;
 }
@@ -259,14 +254,9 @@ async function undoCheckIn(date: string): Promise<void> {
           <p v-if="checkinError" class="error-text">{{ checkinError }}</p>
           <!-- Today is the one a vendor at the door means. It is not merely styled differently:
                every other day's button is secondary, so a mis-tap takes a deliberate press on a
-               control that does not look like the primary one. -->
-          <p
-            v-if="!ended && !todayIsAMarketDay"
-            class="not-today-note"
-            data-testid="attendance-not-today"
-          >
-            Today is not one of your days at this market. You can still check in for a day below.
-          </p>
+               control that does not look like the primary one. Nothing invites checking in on
+               another day: check-in is how the organizer knows a vendor is there on the day. -->
+
           <article
             v-for="row in summary.assignments"
             :key="row.date + row.tableCode"
@@ -387,12 +377,6 @@ async function undoCheckIn(date: string): Promise<void> {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
-}
-
-.not-today-note {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--mm-text-yellow);
 }
 
 .ended-note,
