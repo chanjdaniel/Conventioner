@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import api.applications as ApplicationsApi
 import phase_record as PhaseRecord
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
-from datatypes import MarketPhase, phase_from_market_document
+from datatypes import MarketPhase, phase_from_market_document, table_code_sort_key
 from db_config import get_database
 from market_documents import CHECK_IN_RECORD_PHASES, market_by_slug, published_market_by_slug
 
@@ -114,8 +114,15 @@ def undo_attendance(market_id: str, vendor_email: str, date: str) -> Tuple[Dict[
     return {"message": "Check-in undone"}, 200
 
 
-def record_attendance(market_id: str, vendor_email: str, date: str) -> Tuple[Dict[str, Any], int]:
-    """Upsert an attendance record for (market_id, vendor_email, date)."""
+def record_attendance(
+    market_id: str, vendor_email: str, date: str, checked_in_by: Optional[str] = None,
+) -> Tuple[Dict[str, Any], int]:
+    """Upsert an attendance record for (market_id, vendor_email, date).
+
+    ``checked_in_by`` is the organizer who checked the vendor in at the door (E29/F01/S02), and
+    None when the vendor did it themselves - written either way, so a vendor checking in again
+    after an organizer did is not still credited to the organizer.
+    """
     if not isinstance(market_id, str) or not market_id.strip():
         return {"error": "market_id is required"}, 400
     if not isinstance(vendor_email, str) or not vendor_email.strip():
@@ -159,12 +166,56 @@ def record_attendance(market_id: str, vendor_email: str, date: str) -> Tuple[Dic
                 "vendor_email": target_email,
                 "date": target_date,
                 "checked_in_at": checked_in_at,
+                "checked_in_by": checked_in_by,
             }
         },
         upsert=True,
     )
 
     return {"message": "Checked in", "checkedInAt": checked_in_at}, 200
+
+
+def attendance_roster(market_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Every vendor the stored assignment places, per market date, and whether they have come.
+
+    What the organizer at the door works from (E29/F01/S01). Attendance listed only the vendors who
+    had checked in, by email, so with 80 vendors a day nobody could say who was missing (known gap
+    3). Read off the same stored rows check-in records against, so the list of who is expected
+    where can never disagree with where a vendor is sent.
+    """
+    market_id = market_doc.get("id")
+    names = ApplicationsApi.vendor_names_for_market(market_id)
+    check_ins = {
+        (doc.get("vendor_email"), doc.get("date")): doc
+        for doc in attendance_collection.find({"market_id": market_id})
+    }
+    roster = []
+    for row in _stored_assignment_rows(market_doc):
+        email = _normalize_email(str(row.get("email", "")))
+        date = str(row.get("date", ""))
+        check_in = check_ins.get((email, date)) or {}
+        roster.append({
+            "date": date,
+            "vendor_email": email,
+            "vendor_name": names.get(email, ""),
+            "table_code": row.get("table_code"),
+            "table_choice": row.get("table_choice"),
+            "section": row.get("section"),
+            "location": row.get("location"),
+            "checked_in_at": check_in.get("checked_in_at"),
+            "checked_in_by": check_in.get("checked_in_by"),
+        })
+    roster.sort(key=lambda r: (
+        r["date"], table_code_sort_key(r["table_code"] or ""), str(r["table_choice"] or ""),
+    ))
+
+    setup = market_doc.get("setupObject") or {}
+    dates = sorted(
+        str(entry.get("date"))
+        for entry in (setup.get("marketDates") or [])
+        if isinstance(entry, dict) and entry.get("date")
+    )
+    return convert_keys_to_camel_case({"dates": dates, "roster": roster})
 
 
 def get_attendance_for_market(market_id: str) -> Tuple[List[Dict[str, Any]], int]:

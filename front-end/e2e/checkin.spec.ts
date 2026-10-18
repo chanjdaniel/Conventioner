@@ -31,14 +31,10 @@ test.describe('Public vendor check-in', () => {
     const attendancePage = new AttendanceStatusPage(ownerPage);
     await attendancePage.goto(seed.marketId);
 
-    const vendorCells = attendancePage.getVendorRowCells('alice@example.com');
-    await expect(vendorCells.first()).toBeVisible({ timeout: 10000 });
-
-    const allCellTexts = await vendorCells.allTextContents();
-    const timestampCells = allCellTexts.filter(
-      (t) => t.trim() !== '\u2014' && t.trim() !== 'alice@example.com',
-    );
-    expect(timestampCells.length).toBeGreaterThan(0);
+    // A time a person would say aloud, with nobody else named: alice checked herself in.
+    await expect(attendancePage.status('alice@example.com')).toHaveText(/^\d{1,2}:\d{2}\s?[AP]M$/, {
+      timeout: 10000,
+    });
   });
 
   test('names the market before the vendor types anything', async ({ page, request }) => {
