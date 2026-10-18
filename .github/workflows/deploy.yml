@@ -1,0 +1,94 @@
+name: Deploy
+
+# Production moves only after the Test workflow passed on the very commit `main` now points at.
+# Vercel used to build every push to `main` itself, with nothing gating it on CI; both projects'
+# vercel.json now switch that off (`git.deploymentEnabled.main: false`), so this is the only way a
+# commit reaches conventioner.io.
+#
+# The builds still run on Vercel (`vercel deploy`, never `--prebuilt`): a bundle built on this
+# Ubuntu runner could carry Python wheels for a newer glibc than Vercel's runtime has, which is how
+# every production build failed from June to October 2026.
+#
+# No database backup is taken here. This repository is public, so a dump uploaded as an artifact
+# could expose applicants' data; the production cluster's own daily snapshots are the backup.
+
+on:
+  workflow_run:
+    workflows: [Test]
+    types: [completed]
+    branches: [main]
+  # Redeploy a commit by hand, e.g. after rotating an environment variable.
+  workflow_dispatch:
+
+# One production deploy at a time, in order; never cancel one halfway.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_CLI: vercel@64.5.0
+
+jobs:
+  deploy:
+    # A Test run that went green on a push to main, or a hand-started run.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://conventioner.io
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Refuse to run half-configured
+        run: |
+          for name in VERCEL_TOKEN VERCEL_ORG_ID; do
+            if [ -z "${!name}" ]; then echo "::error::$name is not set"; exit 1; fi
+          done
+          if [ -z "${{ vars.VERCEL_BACKEND_PROJECT_ID }}" ] || [ -z "${{ vars.VERCEL_FRONTEND_PROJECT_ID }}" ]; then
+            echo "::error::VERCEL_BACKEND_PROJECT_ID and VERCEL_FRONTEND_PROJECT_ID must be set"; exit 1
+          fi
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
+      # The back end first: a front end that calls an endpoint the old back end lacks would break
+      # every organizer for as long as the two deploys are apart, the reverse breaks nothing.
+      - name: Deploy the back end
+        env:
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_BACKEND_PROJECT_ID }}
+        run: npx --yes "$VERCEL_CLI" deploy --prod --yes --token "$VERCEL_TOKEN"
+
+      - name: The back end serves
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            body=$(curl -fsS --max-time 20 https://api.conventioner.io/healthz) && break
+            sleep 10
+          done
+          echo "$body"
+          test "$body" = '{"status":"ok"}'
+
+      - name: Deploy the front end
+        env:
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_FRONTEND_PROJECT_ID }}
+        run: npx --yes "$VERCEL_CLI" deploy --prod --yes --token "$VERCEL_TOKEN"
+
+      - name: The front end serves a deep link
+        run: |
+          curl -fsS --max-time 20 https://conventioner.io/markets | grep -q '<div id="app">'
+
+      - name: Say how to roll back
+        if: failure()
+        run: |
+          {
+            echo "### Production deploy failed"
+            echo "Roll back each project in Vercel (Deployments, Instant Rollback), then revert on dev."
+            echo "See docs/RELEASING.md#rolling-back."
+          } >> "$GITHUB_STEP_SUMMARY"
