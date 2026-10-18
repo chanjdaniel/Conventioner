@@ -2,9 +2,9 @@
 id: E29/F01/S01
 title: The roster
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#100]
 ---
 
 ## What
