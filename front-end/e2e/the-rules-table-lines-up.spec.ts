@@ -2,6 +2,7 @@ import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketSetupPath } from './helpers/marketScreens';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
+import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 
 /**
  * The priority rules table is drawn from the primitives (E28/F03/S01).
@@ -100,4 +101,63 @@ test('the answers line up, the row grows, and dragging still reorders', async ({
     .getByTestId('priority-ordering-handle')
     .dragTo(answers.nth(0), { targetPosition: { x: 10, y: 4 } });
   await expect(answers.nth(0).getByTestId('priority-ordering-answer')).toHaveText(CRAFTS[1]);
+});
+
+/**
+ * A settled market draws its rules as a record, with no handles and no removes - and the answer row
+ * is a four-track grid, so with two of its four items missing the rank and the answer fell into the
+ * two narrow tracks and every answer wrapped a few letters to a line.
+ */
+test('a settled market reads its rules as a record, one answer to a line', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  const market = await request.get(`${BACKEND_URL}/markets/${seed.marketId}`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+  });
+  const { market: stored } = (await market.json()) as {
+    market: { setupObject: Record<string, unknown> };
+  };
+  await savePlan(request, BACKEND_URL, TEST_USER.email, seed.marketId, {
+    ...stored.setupObject,
+    priority: [
+      {
+        id: 1,
+        target: 'application.application_type',
+        ordering: ['waitlist', 'main'],
+        direction: null,
+      },
+    ],
+  });
+  const published = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+    data: { toPhase: 'market_days' },
+  });
+  expect(published.ok(), await published.text()).toBeTruthy();
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto(marketSetupPath(seed.marketId, 'assignment'));
+  await expect(page.getByTestId('assignment-rules-settled')).toBeVisible({ timeout: 15000 });
+  const answers = page.getByTestId('priority-ordering-answer');
+  await expect(answers).toHaveCount(2);
+  await expect(page.getByTestId('priority-ordering-handle')).toHaveCount(0);
+  await expect(page.getByTestId('priority-ordering-remove')).toHaveCount(0);
+
+  const boxes = await answers.evaluateAll((spans) =>
+    spans.map((span) => {
+      const box = span.getBoundingClientRect();
+      return { width: box.width, height: box.height, text: span.textContent };
+    }),
+  );
+  for (const box of boxes) {
+    expect(box.height, `"${box.text}" on one line`).toBeLessThan(30);
+  }
+  const ranks = await page
+    .getByTestId('priority-ordering-rank')
+    .evaluateAll((spans) => spans.map((span) => Math.round(span.getBoundingClientRect().left)));
+  const texts = await answers.evaluateAll((spans) =>
+    spans.map((span) => Math.round(span.getBoundingClientRect().left)),
+  );
+  expect(texts[0] - ranks[0], 'the answer sits beside its rank').toBeGreaterThan(8);
 });

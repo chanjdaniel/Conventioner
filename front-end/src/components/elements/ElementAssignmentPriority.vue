@@ -180,12 +180,12 @@ const dragOptions = computed(() => ({
 <template>
   <!-- The rules table (E28/F03/S01): a ranked list of rules, each a question and its answers in
        order, drawn from the product's field, button and drag-handle primitives. -->
-  <div class="priority">
+  <div class="priority" :class="{ 'priority--record': readonly }">
     <div class="column-titles row-container">
       <h3>Priority</h3>
       <h3>Question</h3>
       <h3>Answers, best first</h3>
-      <h3 aria-hidden="true"></h3>
+      <h3 v-if="!readonly" aria-hidden="true"></h3>
     </div>
     <div class="rows">
       <p
@@ -320,9 +320,8 @@ const dragOptions = computed(() => ({
                 </p>
               </template>
             </div>
-            <div class="cell cell--remove">
+            <div v-if="!readonly" class="cell cell--remove">
               <button
-                v-if="!readonly"
                 type="button"
                 class="remove-button"
                 :aria-label="`Remove rule ${parentIndex + 1}`"
@@ -359,6 +358,11 @@ const dragOptions = computed(() => ({
   display: flex;
   flex-direction: column;
   width: 100%;
+}
+
+/* A record offers nothing to remove, so it has no column for it. */
+.priority--record {
+  --priority-columns: 4rem minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .column-titles {
@@ -440,18 +444,23 @@ const dragOptions = computed(() => ({
 .answers {
   display: flex;
   flex-direction: column;
-  margin: 0;
+  /* Pulled out by the rows' own inset, so the text keeps the cell's edge (level with "Add an
+     answer" beneath) while a hovered row's band has room around its rank. */
+  margin: 0 calc(-1 * var(--space-2));
   padding: 0;
   list-style: none;
 }
 
 /* Handle, rank, answer, remove: a left edge, so the ranks and the removes form columns whatever
-   each answer's length. */
+   each answer's length. Each item names its track, and the handle's and the remove's are sized by
+   what they hold: a settled market draws neither, and placed by order the rank and the answer fell
+   into those two narrow tracks, a few letters to a line. */
 .answer {
   display: grid;
-  grid-template-columns: var(--space-6) 1.5rem minmax(0, 1fr) var(--space-6);
+  grid-template-columns: [handle] auto [rank] 1.5rem [answer] minmax(0, 1fr) [remove] auto;
   align-items: center;
   min-height: 32px;
+  padding-inline: var(--space-2);
   border-radius: var(--radius-control);
   font-size: var(--text-sm);
   color: var(--mm-black);
@@ -461,11 +470,17 @@ const dragOptions = computed(() => ({
   background: var(--mm-beige);
 }
 
+.answer-handle {
+  grid-column: handle;
+}
+
 .answer-rank {
+  grid-column: rank;
   font-variant-numeric: tabular-nums;
 }
 
 .answer-text {
+  grid-column: answer;
   overflow-wrap: anywhere;
 }
 
@@ -503,6 +518,7 @@ const dragOptions = computed(() => ({
 
 /* An answer's remove is quieter than the rule's: taking one answer out is not taking the rule. */
 .remove-button--answer {
+  grid-column: remove;
   width: var(--space-6);
   height: var(--space-6);
   color: var(--mm-text-muted);
