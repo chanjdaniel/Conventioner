@@ -2,7 +2,7 @@
 id: E30/F01/S03
 title: The rail's links read in full and point at the right page
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -14,6 +14,6 @@ pr: []
 
 ## Acceptance criteria
 
-- [ ] At 1280 and 1440, both links on a market-days form market are readable whole (screenshot `form-market_days-landing`).
-- [ ] An archived market that ran shows the check-in record link and not the application link; one that never ran shows neither.
-- [ ] Covered by an e2e on the rail in both phases.
+- [x] At 1280 and 1440, both links on a market-days form market are readable whole (screenshot `form-market_days-landing`).
+- [x] An archived market that ran shows the check-in record link and not the application link; one that never ran shows neither.
+- [x] Covered by an e2e on the rail in both phases.

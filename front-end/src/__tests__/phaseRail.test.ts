@@ -223,6 +223,35 @@ describe('the check-in URL', () => {
   });
 });
 
+describe("an archived market's addresses (E30/F01/S03)", () => {
+  const ran = {
+    slug: 'riverside-market',
+    intakeMode: 'form',
+    phasesReached: [MarketPhase.Draft, MarketPhase.MarketDays, MarketPhase.Archived],
+    phaseRecordComplete: true,
+  } as Partial<Market>;
+
+  it('keeps the check-in page of a market that ran: it stays up as the record', () => {
+    const rail = railFor(MarketPhase.Archived, ran);
+    expect(rail.get('[data-testid="phase-rail-checkin"]').text()).toContain(
+      '/riverside-market/check-in',
+    );
+  });
+
+  it('drops the application page, which no longer takes anyone anywhere', () => {
+    expect(
+      railFor(MarketPhase.Archived, ran).find('[data-testid="phase-rail-apply"]').exists(),
+    ).toBe(false);
+  });
+
+  it('shows no check-in page for a market that never ran, since it has none', () => {
+    const never = { ...ran, phasesReached: [MarketPhase.Draft, MarketPhase.Archived] };
+    expect(
+      railFor(MarketPhase.Archived, never).find('[data-testid="phase-rail-checkin"]').exists(),
+    ).toBe(false);
+  });
+});
+
 describe('a phase the lifecycle does not draw', () => {
   it('gets its stage back when a market is actually in it', () => {
     // `offers` is off the spine because nothing sets `assignment_sent`. A market that reached it
