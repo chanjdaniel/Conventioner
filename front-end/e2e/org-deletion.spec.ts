@@ -1,7 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import type { APIRequestContext } from '@playwright/test';
 import { OrganizationsPage } from './pages/OrganizationsPage';
-import { SEED_MARKET_DATE, loginViaApi } from './helpers/seeds';
+import { SEED_MARKET_DATE, completePlan, loginViaApi } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 
@@ -114,6 +114,7 @@ test.describe('Deleting an organization', () => {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: { fields: [{ key: 'business_name', label: 'Business name', type: 'text', order: 0 }] },
     });
+    await savePlan(request, BACKEND_URL, TEST_USER.email, live, completePlan());
     await transition(request, live, 'applications_open');
 
     const orgs = new OrganizationsPage(page);

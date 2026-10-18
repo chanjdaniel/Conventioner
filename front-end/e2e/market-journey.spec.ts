@@ -1,3 +1,4 @@
+import { upcomingSaturday } from './helpers/upcoming';
 import { getFormattedDate } from '../src/utils/utils';
 import {
   test,
@@ -25,8 +26,11 @@ import { ensureTestOrg } from './helpers/seeds';
  * does everything else the way an organizer does: through the UI.
  */
 
-/** The days this market runs. Two, so "which days can you attend" is a real question. */
-const MARKET_DATES = ['2026-08-01', '2026-08-08'];
+/**
+ * The days this market runs. Two, so "which days can you attend" is a real question - and still to
+ * come whenever this runs, since a market leaves draft only with such dates (E31/F01/S01).
+ */
+const MARKET_DATES = [upcomingSaturday(0), upcomingSaturday(1)];
 const TIER = 'Gold';
 const LOCATION = 'Main Hall';
 /** Two sections, because a ranking question needs something to rank. */
@@ -68,9 +72,9 @@ const REJECTED = 'drew@offcuts.test';
 
 const CSV = [
   CSV_HEADERS.join(','),
-  `2026/05/02 9:14:03,${WANTED},Mira Kaplan,"2026-08-01, 2026-08-08",2,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
-  `2026/05/02 10:02:51,${ALSO_WANTED},Sam Oyelaran,2026-08-01,1,${TIER},full,,"${SECTIONS[1]}, ${SECTIONS[0]}"`,
-  `2026/05/03 8:40:12,${REJECTED},Drew Whitfield,2026-08-08,1,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
+  `2026/05/02 9:14:03,${WANTED},Mira Kaplan,"${MARKET_DATES[0]}, ${MARKET_DATES[1]}",2,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
+  `2026/05/02 10:02:51,${ALSO_WANTED},Sam Oyelaran,${MARKET_DATES[0]},1,${TIER},full,,"${SECTIONS[1]}, ${SECTIONS[0]}"`,
+  `2026/05/03 8:40:12,${REJECTED},Drew Whitfield,${MARKET_DATES[1]},1,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
 ].join('\n');
 
 test.describe('The MVP journey', () => {
@@ -94,7 +98,11 @@ test.describe('The MVP journey', () => {
     await newMarket.waitForOverlay();
     await newMarket.selectFirstOrg();
     await newMarket.fillMarketName(marketName);
+    // Their vendors apply on the organizer's own Google Form (E31/F03/S01). That opens on its Upload
+    // step; this organizer plans by hand and imports later, so they leave it for Market Setup.
+    await newMarket.choosePath('csv');
     await newMarket.clickSubmit();
+    await page.getByTestId('start-from-csv-upload').getByRole('button', { name: 'Cancel' }).click();
     const marketId = await newMarket.waitForSetupRedirect();
 
     await setup.waitForWizard();
@@ -123,7 +131,8 @@ test.describe('The MVP journey', () => {
     // --- 3. Open applications ------------------------------------------------------------
     // Importing is only permitted once applications are open. This market asks no custom
     // question - only the essential ones the plan above defines - and that is enough.
-    await setup.advancePhaseTo('applications_open', 'Applications Open');
+    // A CSV market starts collecting on its Google Form (E31/F03/S03).
+    await setup.advancePhaseTo('applications_open', 'Collecting');
     await expect(setup.phaseBlockers).toHaveCount(0);
 
     // --- 4. Import the vendors -----------------------------------------------------------
@@ -174,7 +183,7 @@ test.describe('The MVP journey', () => {
     // (E10/F03/S02), so the organizer walks there. This spec is the one that goes the whole way,
     // so the walk belongs here rather than being skipped past by a seed.
     await expect(setup.assignPhaseHint).toBeVisible();
-    await setup.advancePhaseTo('applications_closed', 'Applications Closed');
+    await setup.advancePhaseTo('applications_closed', 'Form Closed');
     await setup.advancePhaseTo('review', 'Review');
     await setup.advancePhaseTo('assignment', 'Assignment');
     await expect(setup.assignPhaseHint).toBeHidden();

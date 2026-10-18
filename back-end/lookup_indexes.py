@@ -21,6 +21,7 @@ from api.applications import APPLICATIONS_COLLECTION
 from deletion_trail import DELETION_TRAIL_COLLECTION
 from market_documents import MARKETS_COLLECTION, market_doc_key
 from placement_history import PLACEMENT_HISTORY_COLLECTION
+from vendor_notes import VENDOR_NOTES_COLLECTION
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,10 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
     ],
     PLACEMENT_HISTORY_COLLECTION: [
         ("market_id",),
+    ],
+    # A market's notes, read whole by each page that shows its vendors, and one vendor's written.
+    VENDOR_NOTES_COLLECTION: [
+        ("market_id", "vendor_email"),
     ],
     DELETION_TRAIL_COLLECTION: [
         ("organization_id",),

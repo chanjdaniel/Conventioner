@@ -2,7 +2,7 @@
 id: E31/F02/S02
 title: The rail states the next step, from one table
 type: story
-status: ready
+status: in-progress
 blocked_by: [E31/F02/S01]
 pr: []
 ---
@@ -15,6 +15,6 @@ The rail shows the statement beside the forward step on every market screen; whe
 
 ## Acceptance criteria
 
-- [ ] Every phase on each path shows the statement ticket 02 gives, linking to its page.
-- [ ] With a blocker, the statement names it and links to its fix.
-- [ ] A unit test fails if a phase in `phaseSpine()` has no row for either path.
+- [x] Every phase on each path shows the statement ticket 02 gives, linking to its page.
+- [x] With a blocker, the statement names it and links to its fix.
+- [x] A unit test fails if a phase in `phaseSpine()` has no row for either path.

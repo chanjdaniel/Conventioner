@@ -19,6 +19,7 @@ Phase 2 guards implemented (conv-market-state-machine-t7):
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import api.applications as ApplicationsApi
@@ -105,6 +106,102 @@ class FormHasFieldsGuard:
                 # Two remedies, two tabs: the plan is Market Setup, a custom field is Application
                 # Form. The message names both; a link could only name one.
                 resolution_link=None,
+            )
+        return PreconditionResult(id=self.id, passed=True, message="")
+
+
+# ── The setup is complete before it settles (E31/F01/S01) ───────────────
+#
+# Leaving draft settles the setup: nothing on Market Setup changes after it. A setup that leaves
+# incomplete can therefore never be completed, so leaving draft asks for each part of it - each its
+# own guard, so each missing part is its own line, and each pointing at Market Setup. Only on
+# ``draft -> applications_open``: reopening closed applications re-enters the phase with a setup that
+# settled long ago, and is no time to ask about it.
+
+
+def _calendar_today() -> str:
+    """Today as a market date: a calendar day, compared as one (``YYYY-MM-DD``)."""
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+class SetupHasDatesGuard:
+    """The market has dates, and none of them has already passed.
+
+    A date that has passed cannot be applied for, and a CSV start reads its year from a past file:
+    the walk opened, ran and published a market dated a year back without a word.
+    """
+
+    id: str = "setup_has_dates"
+    description: str = "The market has dates, none of them passed"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        setup = market.setup_object
+        dates = sorted({d.date for d in setup.market_dates}) if setup else []
+        if not dates:
+            return PreconditionResult(
+                id=self.id, passed=False, resolution_link="setup",
+                message="This market has no market dates. Pick them on Market Setup's calendar.",
+            )
+        today = _calendar_today()
+        passed = [date for date in dates if date < today]
+        if passed:
+            return PreconditionResult(
+                id=self.id, passed=False, resolution_link="setup",
+                message=(
+                    f"{len(passed)} of this market's dates "
+                    f"{'has' if len(passed) == 1 else 'have'} already passed: "
+                    f"{', '.join(passed)}. Change them on Market Setup."
+                ),
+            )
+        return PreconditionResult(id=self.id, passed=True, message="")
+
+
+class SetupHasALocationGuard:
+    """The market says where it is."""
+
+    id: str = "setup_has_a_location"
+    description: str = "The market has a location"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        setup = market.setup_object
+        if setup and any(location.name.strip() for location in setup.locations):
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id, passed=False, resolution_link="setup",
+            message="This market has no location. Add one on Market Setup.",
+        )
+
+
+class EveryTierHasTablesGuard:
+    """There are tables, and every tier has some.
+
+    A tier is a price, and its tables are its sections'. A tier with no section of tables is one
+    an applicant can choose and nobody can be placed at; the walk met it in review as a blocker
+    listing every applicant waiting on it (``NoAskedForTierWithoutTablesGuard``). Said here, in
+    draft, it is about the plan and names the tier.
+    """
+
+    id: str = "every_tier_has_tables"
+    description: str = "Every tier has a section with tables"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        setup = market.setup_object
+        sections = [s for s in (setup.sections if setup else []) if s.count > 0]
+        if not sections:
+            return PreconditionResult(
+                id=self.id, passed=False, resolution_link="setup",
+                message="This market has no tables yet. Add a section with tables on Market Setup.",
+            )
+        with_tables = {s.tier.name for s in sections if s.tier and s.tier.name}
+        bare = [t.name for t in (setup.tiers if setup else []) if t.name and t.name not in with_tables]
+        if bare:
+            return PreconditionResult(
+                id=self.id, passed=False, resolution_link="setup",
+                message=(
+                    f"{'Tier' if len(bare) == 1 else 'Tiers'} {', '.join(bare)} "
+                    f"{'has' if len(bare) == 1 else 'have'} no tables. Give each a section with "
+                    "tables on Market Setup, or remove it."
+                ),
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -445,6 +542,9 @@ def _tiers_named_by(answers: Dict[str, Any]) -> set:
 
 # Guards are stateless, so one instance is shared by every edge that enforces it.
 _FORM_HAS_FIELDS = FormHasFieldsGuard()
+_SETUP_HAS_DATES = SetupHasDatesGuard()
+_SETUP_HAS_A_LOCATION = SetupHasALocationGuard()
+_EVERY_TIER_HAS_TABLES = EveryTierHasTablesGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
@@ -480,7 +580,9 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
 # applications_closed -> applications_open and is meaningless on draft -> applications_open.
 # An edge carries its phase's entry invariants PLUS whatever else that route demands.
 TRANSITION_GUARDS: dict[tuple[str, str], list] = {
-    ("draft", "applications_open"): [_FORM_HAS_FIELDS],
+    ("draft", "applications_open"): [
+        _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES, _FORM_HAS_FIELDS,
+    ],
     ("applications_closed", "applications_open"): [_FORM_HAS_FIELDS],
     # TODO: Add _PRIORITY_CONFIGURED guard here (append to list) once it exists.
     # The guard should verify that the market's setup_object has at least one
@@ -574,3 +676,18 @@ def evaluate_transition(
         if not result.passed:
             blockers.append(result)
     return blockers
+
+
+def transition_verdicts(market: Market, db) -> Dict[str, List[PreconditionResult]]:
+    """Every move open from the market's phase, with what would refuse it - empty when nothing
+    would (E31/F02/S01).
+
+    Served on the market read, so a screen disables a move and names its blocker before the click
+    rather than after it. Judged by ``evaluate_transition``, the very function the endpoint runs,
+    so the read and the move can never disagree about one.
+    """
+    return {
+        to_phase: evaluate_transition(market, to_phase, db)
+        for from_phase, to_phase in sorted(VALID_TRANSITIONS)
+        if from_phase == market.phase.value
+    }

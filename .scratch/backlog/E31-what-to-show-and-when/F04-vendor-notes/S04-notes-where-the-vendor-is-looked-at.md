@@ -2,7 +2,7 @@
 id: E31/F04/S04
 title: Notes where the vendor is looked at, and a request marked handled
 type: story
-status: ready
+status: in-progress
 blocked_by: [E31/F04/S01, E31/F04/S02]
 pr: []
 ---
@@ -15,7 +15,7 @@ A request can be marked handled, once, by EDITOR and up; the roster shows each r
 
 ## Acceptance criteria
 
-- [ ] All three pages show the marker and the labelled kinds.
-- [ ] The note saves from each page.
-- [ ] Marking a request handled shows on the roster at desktop width and at 390px.
-- [ ] `every-control-is-named.spec.ts` walks a row with each kind of note present.
+- [x] All three pages show the marker and the labelled kinds.
+- [x] The note saves from each page.
+- [x] Marking a request handled shows on the roster at desktop width and at 390px.
+- [x] `every-control-is-named.spec.ts` walks a row with each kind of note present.

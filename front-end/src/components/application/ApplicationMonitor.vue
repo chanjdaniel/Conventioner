@@ -24,10 +24,13 @@ import {
 import { getApiErrorMessage } from '@/utils/api';
 import { asksNothingDistinguishing, inArrivalOrder, reviewAnswers } from '@/utils/reviewQueue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
+import { useMarketStore } from '@/stores/market';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
+import VendorNotes from '@/components/VendorNotes.vue';
+import { useVendorNotes } from '@/utils/vendorNotes';
 import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
@@ -39,6 +42,7 @@ const props = defineProps<{
    */
   named?: string;
 }>();
+const marketStore = useMarketStore();
 
 const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void }>();
 
@@ -236,6 +240,10 @@ async function loadApplications() {
  * A refetch per verdict is 232 fetches of 232 applications across one review session; on the real
  * export that was the whole difference between a queue that keeps up with typing and one that
  * does not. The endpoint returns the application it wrote, so the list already has the truth.
+ *
+ * The MARKET is re-read, though, without being waited on: a verdict is a write, and what the rail
+ * says of each move - "Begin Assignment" waits on the last undecided application - is served on the
+ * market (E31/F02/S01). One small read, never the list.
  */
 async function decide(app: Application, status: ApplicationStatus) {
   if (!props.market || saving.value) return;
@@ -245,6 +253,7 @@ async function decide(app: Application, status: ApplicationStatus) {
     const updated = await reviewApplication(props.market.id, app.id, status);
     const index = applications.value.findIndex((a) => a.id === app.id);
     if (index !== -1) applications.value[index] = updated;
+    void marketStore.refresh();
     // The verdict removed this one from the queue, so the cursor already points at the next.
     // It can only sit past the end when the reviewer had skipped to the last card.
     if (cursor.value >= undecided.value.length) {
@@ -272,6 +281,14 @@ function skip() {
  * change at all (bugs 30 and 37).
  */
 const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
+
+/**
+ * The organizer's notes on the applicant up (E31/F04/S04). Their own request is among the answers
+ * above, so the notes here are the organizer's side alone.
+ */
+const notesMarketId = computed(() => props.market?.id ?? '');
+const { load: loadNotes, entryFor } = useVendorNotes(notesMarketId);
+watch(notesMarketId, loadNotes, { immediate: true });
 /**
  * Whether this person may decide applications and publish the verdicts - ADMIN actions (bug 37).
  * Archived markets and Viewers fall here too, since the server serves the stronger reason first.
@@ -349,6 +366,14 @@ function submittedOn(app: Application): string {
           data-testid="app-monitor-publish-hint"
         >
           Review an application first; there is nothing to publish yet.
+        </span>
+        <!-- What it does, said beside it: optional, never the rail's next step (E31/F03/S04). -->
+        <span
+          v-else-if="!resultsPublished"
+          class="publish-hint"
+          data-testid="app-monitor-publish-hint"
+        >
+          Tells every decided applicant their verdict on their application page.
         </span>
         <span
           v-if="resultsPublished"
@@ -459,6 +484,18 @@ function submittedOn(app: Application): string {
           </template>
         </dl>
         <p v-else-if="!leading.length" class="no-answers">This application carries no answers.</p>
+
+        <VendorNotes
+          v-if="market"
+          class="card-notes"
+          :marketId="market.id"
+          :email="current.applicantEmail"
+          :entry="entryFor(current.applicantEmail)"
+          :canWrite="!readOnly"
+          :showRequest="false"
+          testid="app-monitor-notes"
+          @changed="loadNotes"
+        />
 
         <!--
           Change what leads the card, from where the knowing happens (E19/F03/S02).
@@ -729,6 +766,10 @@ function submittedOn(app: Application): string {
 .no-answers {
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
+  margin: 0 0 18px;
+}
+
+.card-notes {
   margin: 0 0 18px;
 }
 

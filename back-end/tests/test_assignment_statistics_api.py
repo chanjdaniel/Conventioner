@@ -114,7 +114,7 @@ def test_get_assignment_statistics_returns_derived_statistics(monkeypatch):
     # The vendors are read once and handed to both the solver and the reason derivation
     # (E12/F01/S01), so the two can never disagree about who applied.
     monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda market: [])
-    monkeypatch.setattr(MarketsApi, "assign_market", lambda market, vendors: assigned_market)
+    monkeypatch.setattr(MarketsApi, "describe_stored_assignment", lambda market, vendors: assigned_market)
     monkeypatch.setattr(
         MarketsApi,
         "derive_market_table_rows",

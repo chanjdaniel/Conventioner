@@ -92,6 +92,11 @@ TABLE_SHARE_ANSWER_KEY = "essential_table_share_answer"
 TABLE_SHARE_ALSO_KEY = "essential_table_share_also"
 SECTION_RANKING_KEY = "essential_section_ranking"
 TABLE_TYPE_RANKING_KEY = "essential_table_type_ranking"
+# What the vendor needs beyond their table - an extra chair, an outlet - in their own words (E31/F04,
+# map ticket 03). Asked of everyone unless the organizer switches it off, never required, and never
+# read by the solver: it is for whoever stands at the door. The organizer's own notes on a vendor are
+# a different thing and live elsewhere (``vendor_notes``), because the vendor never sees those.
+REQUEST_KEY = "essential_request"
 
 # The labels the applicant sees, shared with error messages so a validation failure names the
 # question exactly as the form asked it.
@@ -105,6 +110,7 @@ TABLE_CHOICE_LABEL = "Table choice"
 TABLE_SHARE_EMAIL_LABEL = "Table-share partner"
 SECTION_RANKING_LABEL = "Section preference"
 TABLE_TYPE_RANKING_LABEL = "Table type preference"
+REQUEST_LABEL = "Anything else you need from us?"
 
 # Every table holds one full-table vendor or two halves, so these three are the whole space.
 # Unlike the other offerings this one is not plan-derived: the organizer does not choose it.
@@ -189,6 +195,7 @@ ESSENTIAL_QUESTIONS = (
     (TIER_PREFERENCE_KEY, TIER_PREFERENCE_LABEL),
     (SECTION_RANKING_KEY, SECTION_RANKING_LABEL),
     (TABLE_TYPE_RANKING_KEY, TABLE_TYPE_RANKING_LABEL),
+    (REQUEST_KEY, REQUEST_LABEL),
 )
 
 
@@ -219,8 +226,9 @@ REQUIRED_ESSENTIAL_KEYS = (
 # choice are constraints: a default there invents a commitment the applicant never made, and the
 # solver acts on it - placing someone on a day they cannot attend, or at a price they refused.
 #
-# Adding a key here means asserting that same property of it. Do not add one without it.
-UNASKABLE_ESSENTIAL_KEYS = (SECTION_RANKING_KEY, TABLE_TYPE_RANKING_KEY)
+# Adding a key here means asserting that same property of it. Do not add one without it. The request
+# has it trivially: the solver never reads it, so leaving it unasked changes nothing it decides.
+UNASKABLE_ESSENTIAL_KEYS = (SECTION_RANKING_KEY, TABLE_TYPE_RANKING_KEY, REQUEST_KEY)
 
 
 def display_name(form_data: Dict[str, Any]) -> str:
@@ -315,7 +323,7 @@ def asked_essential_keys(options: EssentialFormOptions) -> frozenset:
     # oversight: every other essential question is gated on the plan offering something to answer
     # about, and identity does not depend on the plan. A market with no dates, no tiers and no
     # sections still needs to know who is applying.
-    asked = {FULL_NAME_KEY, PREFERRED_NAME_KEY}
+    asked = {FULL_NAME_KEY, PREFERRED_NAME_KEY, REQUEST_KEY}
     if options.dates:
         asked.update({
             AVAILABLE_DATES_KEY,
@@ -348,7 +356,7 @@ def plan_derived_asked_keys(options: EssentialFormOptions) -> frozenset:
     count is never zero, so reading ``asked_essential_keys`` here would make both of them unable
     to say no - silently, with their docstrings still claiming otherwise.
     """
-    return asked_essential_keys(options) - {FULL_NAME_KEY, PREFERRED_NAME_KEY}
+    return asked_essential_keys(options) - {FULL_NAME_KEY, PREFERRED_NAME_KEY, REQUEST_KEY}
 
 
 def offering_for_key(key: str, options: EssentialFormOptions) -> List[str]:
@@ -622,6 +630,13 @@ def _essential_steps(
         _store_table_share_email(incoming, options, stored)
         return None
 
+    def request() -> Optional[str]:
+        # Optional free text, stored stripped, and empty when unasked or unanswered: one shape for
+        # every reader, as the preferred name has.
+        given = incoming.get(REQUEST_KEY) if REQUEST_KEY in asked else None
+        stored[REQUEST_KEY] = str(given).strip() if given is not None else ""
+        return None
+
     return [
         (FULL_NAME_KEY, lambda: _validate_full_name(incoming, stored)),
         (AVAILABLE_DATES_KEY, lambda: _validate_accepted_subset(
@@ -639,6 +654,7 @@ def _essential_steps(
             incoming, TABLE_TYPE_RANKING_KEY, TABLE_TYPE_RANKING_LABEL,
             options.table_types if TABLE_TYPE_RANKING_KEY in asked else [], stored,
         )),
+        (REQUEST_KEY, request),
     ]
 
 

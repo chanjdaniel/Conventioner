@@ -9,7 +9,27 @@ import { seedApprovedVendor } from './seedApplication';
  * whose market date differs from this silently assigns nobody, and the failure reads as "the
  * solver is broken" rather than "the seed disagrees with itself".
  */
-export const SEED_MARKET_DATE = '2026-05-01';
+// Still to come: a market leaves draft only with dates that have not passed (E31/F01/S01). A Friday,
+// as the date it replaced was.
+export const SEED_MARKET_DATE = '2099-05-01';
+
+/**
+ * The least a market needs to leave draft (E31/F01/S01): a date still to come, a location, and a
+ * tier with tables. For a seed whose subject is not the plan; the market asks the essential
+ * questions this offering implies, as any market that opens does.
+ */
+export function completePlan(marketDate: string = SEED_MARKET_DATE) {
+  return {
+    priority: [],
+    marketDates: [{ date: marketDate }],
+    tiers: [{ id: 1, name: 'Gold' }],
+    locations: [{ name: 'Main Hall' }],
+    sections: [
+      { name: 'Hall A', location: { name: 'Main Hall' }, tier: { id: 1, name: 'Gold' }, count: 5 },
+    ],
+    assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
+  };
+}
 
 /**
  * Result returned by seedMarketWithVendors().
@@ -213,6 +233,8 @@ export async function seedMarketWithVendors(
       roles: { [email]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      // Complete, so the market may leave draft (E31/F01/S01).
+      setupObject: completePlan(),
     },
   });
   if (!createRes.ok()) {
@@ -262,8 +284,7 @@ export async function seedPublishedMarketWithAssignments(
   baseURL: string,
   email: string,
   password: string,
-  // The one market date. The default has passed, so its day is over; a spec about the door on the
-  // day itself names a date still to come.
+  // The one market date, still to come unless a spec names another.
   // `intakeMode` as the market is created; absent, it is a CSV market, as it always was here.
   options: { marketDate?: string; intakeMode?: 'csv' | 'form' } = {},
 ): Promise<PublishedSeedResult> {

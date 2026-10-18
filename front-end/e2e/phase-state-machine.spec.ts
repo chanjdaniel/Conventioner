@@ -14,17 +14,6 @@ import {
 const SCREENSHOT_DIR = 'e2e-screenshots/phase-state-machine';
 const MONGO_URI = 'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin';
 
-/**
- * Fire a transition that is not the one step onward.
- *
- * The rail carries a single forward action; back, destructive and off-spine edges are behind the
- * overflow menu (E10/F01/S01).
- */
-async function openRailMenu(page: Page, toPhase: string): Promise<void> {
-  await page.getByTestId('phase-rail-menu-button').click();
-  await page.getByTestId(`phase-transition-${toPhase}`).click();
-}
-
 async function transitionViaPage(page: Page, marketId: string, toPhase: string): Promise<void> {
   const res = await page.request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
@@ -111,7 +100,9 @@ test.describe('Phase state machine - full walk', () => {
   let seed: PhaseMarketSeed;
 
   test.beforeAll(async ({ request }) => {
-    seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
   });
 
   test('walk draft -> applications_open -> applications_closed -> review -> assignment -> offers -> market_days', async ({
@@ -146,6 +137,8 @@ test.describe('Phase state machine - full walk', () => {
 
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'walk-a@example.com');
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'walk-b@example.com');
+    // Written straight into Mongo, behind the page's back, so the page reads the market again.
+    await page.reload();
 
     await page.getByTestId('phase-transition-assignment').click();
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Assignment', {
@@ -157,7 +150,10 @@ test.describe('Phase state machine - full walk', () => {
       `db.applications.updateMany({market_id: ${JSON.stringify(seed.marketId)}, status: "reviewer_approved"}, {$set: {status: "assigned"}})`,
     );
 
-    await openRailMenu(page, 'offers');
+    // The rail never offers this move: nothing sets `assignment_sent`, so "Send Offers" could only
+    // ever refuse (E30/F01/S04). The edge is real on the server, and a market can still be in it.
+    await transitionViaPage(page, seed.marketId, 'offers');
+    await page.reload();
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Offers', {
       timeout: 10000,
     });
@@ -167,6 +163,8 @@ test.describe('Phase state machine - full walk', () => {
     // exists (E03/F03) - publishing puts the check-in page on the air, and a market with no
     // placements serves a page that can tell nobody where to stand.
     seedStoredAssignment(seed.marketId);
+    // Written behind the page's back, so the page reads the market again.
+    await page.reload();
     await page.getByTestId('phase-transition-market_days').click();
 
     // Publishing confirms, because it is one of the two edges with no route back - derived from
@@ -198,7 +196,9 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
   let seed: PhaseMarketSeed;
 
   test.beforeAll(async ({ request }) => {
-    seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
   });
 
   test('cannot enter assignment while applications are still open', async ({
@@ -219,17 +219,16 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
       timeout: 10000,
     });
 
-    await page.getByTestId('phase-transition-assignment').click();
-
-    const blockers = page.getByTestId('phase-rail-blockers');
-    await expect(blockers).toBeVisible({ timeout: 10000 });
-    await expect(blockers).toContainText('still awaiting review');
+    // Refused before the click (E31/F02/S01): the move is disabled and the rail says why.
+    await expect(page.getByTestId('phase-transition-assignment')).toBeDisabled();
+    const next = page.getByTestId('phase-rail-next');
+    await expect(next).toContainText('still awaiting review');
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
 
     // The remedy is reviewing the applications, which is one tab along - so the link goes there
     // and going there is visible. It used to point at `/market-setup`, the page it was displayed
     // on, so clicking it did nothing at all (E14/F01/S03).
-    const fix = blockers.getByTestId('blocker-resolution-link');
+    const fix = next.getByTestId('phase-rail-next-link');
     await expect(fix).toBeVisible();
     await fix.click();
     await expect(page).toHaveURL(/\/markets\/[^/]+\/applications$/);
@@ -237,11 +236,9 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     // Exactly one tab reads as current; the others must not keep the marker.
     await expect(page.getByTestId('market-bar-tab-setup')).not.toHaveClass(/active/);
 
-    // And once you are on the tab that holds the fix, the panel stops offering to take you there.
-    // Keyed on the anchor itself rather than the testid this change introduced, so the assertion
-    // means "no link" rather than "no element with a name that is new here".
-    await expect(blockers).toContainText('still awaiting review');
-    await expect(blockers.locator('a.blocker-link')).toHaveCount(0);
+    // And once you are on the tab that holds the fix, the rail stops offering to take you there.
+    await expect(next).toContainText('still awaiting review');
+    await expect(next.locator('a')).toHaveCount(0);
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/09-blocked-assignment.png`, fullPage: true });
   });
@@ -251,7 +248,9 @@ test.describe('Phase state machine - guard: offers blocked by leftover approved'
   let seed: PhaseMarketSeed;
 
   test.beforeAll(async ({ request }) => {
-    seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
   });
 
   test('cannot enter offers while approved applications remain', async ({
@@ -274,14 +273,16 @@ test.describe('Phase state machine - guard: offers blocked by leftover approved'
       timeout: 10000,
     });
 
-    await openRailMenu(page, 'offers');
-
-    const blockers = page.getByTestId('phase-rail-blockers');
-    await expect(blockers).toBeVisible({ timeout: 10000 });
-    await expect(blockers).toContainText('still approved');
+    // The rail offers no way into offers (E30/F01/S04); the guard is the server's, asked directly.
+    await page.getByTestId('phase-rail-menu-button').click();
+    await expect(page.getByTestId('phase-transition-offers')).toHaveCount(0);
+    const refused = await page.request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: { toPhase: 'offers' },
+    });
+    expect(refused.status()).toBe(409);
+    expect(await refused.text()).toContain('still approved');
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Assignment');
-
-    await page.screenshot({ path: `${SCREENSHOT_DIR}/10-blocked-offers.png`, fullPage: true });
   });
 });
 
@@ -380,7 +381,9 @@ test.describe('Phase state machine - archive confirmation', () => {
   let seed: PhaseMarketSeed;
 
   test.beforeAll(async ({ request }) => {
-    seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
   });
 
   test('archive shows confirmation, cancel preserves phase, confirm archives', async ({
@@ -443,6 +446,7 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
       TEST_USER.email,
       TEST_USER.password,
       true,
+      { intakeMode: 'form' },
     );
 
     const marketBody = await loadMarket(page, seed.marketId);
@@ -476,6 +480,7 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
       TEST_USER.email,
       TEST_USER.password,
       false,
+      { intakeMode: 'form' },
     );
 
     const marketBody = await loadMarket(page, seed.marketId);
@@ -483,19 +488,13 @@ test.describe('Phase state machine - guard: a form of essential questions alone'
     await page.goto(marketSetupPath(String(marketBody.id)));
     await expect(page.locator('.market-setup-view')).toBeVisible({ timeout: 15000 });
 
-    await page.getByTestId('phase-transition-applications_open').click();
-
-    const blockers = page.getByTestId('phase-rail-blockers');
-    await expect(blockers).toBeVisible({ timeout: 10000 });
-    await expect(blockers).toContainText('asks nothing');
-    await expect(blockers).toContainText('dates');
+    // Refused before the click (E31/F02/S01), and the first thing missing is said: the dates. The
+    // setup is completed on this page, so the rail offers no link to it.
+    await expect(page.getByTestId('phase-transition-applications_open')).toBeDisabled();
+    const next = page.getByTestId('phase-rail-next');
+    await expect(next).toContainText('To open applications: This market has no market dates.');
+    await expect(next.locator('a')).toHaveCount(0);
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft');
-
-    // Two remedies in two different tabs - add dates to the plan, or add a custom field to the
-    // form - so there is no one tab to point at, and the message names both instead. The panel is
-    // proven present by the message above, so this is an absent link rather than an absent panel.
-    await expect(blockers.locator('a.blocker-link')).toHaveCount(0);
-    await expect(blockers).toContainText('custom field');
 
     await page.screenshot({
       path: `${SCREENSHOT_DIR}/12-empty-plan-blocked.png`,

@@ -78,7 +78,9 @@ test.describe('One market, from the server', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
     await page.goto(marketSetupPath(seed.marketId, 'form'));
     const addField = page.getByTestId('form-builder-add-field-button');
     const lockBanner = page.getByTestId('form-builder-lock-banner');
@@ -103,7 +105,9 @@ test.describe('One market, from the server', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
     const form = await request.put(`${BACKEND_URL}/markets/${seed.marketId}/application-form`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: {

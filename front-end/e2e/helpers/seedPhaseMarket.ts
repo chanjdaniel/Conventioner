@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
 import { mongoContainer } from './containerNames';
-import { loginViaApi, ensureTestOrgAuthenticated } from './seeds';
+import { completePlan, loginViaApi, ensureTestOrgAuthenticated } from './seeds';
 
 const MONGO_URI = 'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin';
 
@@ -19,14 +19,17 @@ const TWO_FIELDS = [
 ];
 
 /**
- * Create a draft market with an application form (two fields).
- * Does NOT transition - leaves the market in draft.
+ * Create a draft market with an application form (two fields) and a complete plan, so it may open
+ * applications (E31/F01/S01). Does NOT transition - leaves the market in draft.
  */
 export async function seedPhaseMarket(
   request: APIRequestContext,
   baseURL: string,
   email: string,
   password: string,
+  // How vendors reach it; absent, a CSV market, as the server reads it. A spec about the form
+  // path's words asks for `form` (E31/F03/S03).
+  options: { intakeMode?: 'csv' | 'form' } = {},
 ): Promise<PhaseMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
@@ -41,6 +44,8 @@ export async function seedPhaseMarket(
       roles: { [userId]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      setupObject: completePlan(),
+      ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
     },
   });
   if (!createRes.ok()) {
@@ -126,6 +131,7 @@ export async function seedFormlessPhaseMarket(
   email: string,
   password: string,
   withDates: boolean,
+  options: { intakeMode?: 'csv' | 'form' } = {},
 ): Promise<PhaseMarketSeed> {
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
@@ -140,14 +146,19 @@ export async function seedFormlessPhaseMarket(
       roles: { [userId]: 'owner' },
       modificationList: [],
       assignmentObject: {},
-      setupObject: {
-        priority: [],
-        marketDates: withDates ? [{ date: '2099-05-01' }] : [],
-        tiers: [],
-        locations: [],
-        sections: [],
-        assignmentOptions: {},
-      },
+      ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
+      // With dates, complete: a market that may leave draft (E31/F01/S01), whose form is the
+      // essential questions its plan asks. Without, a plan that offers nothing at all.
+      setupObject: withDates
+        ? completePlan()
+        : {
+            priority: [],
+            marketDates: [],
+            tiers: [],
+            locations: [],
+            sections: [],
+            assignmentOptions: {},
+          },
     },
   });
   if (!createRes.ok()) {

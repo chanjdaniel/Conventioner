@@ -2,7 +2,7 @@
 id: E31/F02/S01
 title: The market read serves each move's verdict
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -14,6 +14,6 @@ The rail renders the forward step and every menu item from it: a move that would
 
 ## Acceptance criteria
 
-- [ ] The served verdicts and the transition endpoint agree for every edge (a test walks `VALID_TRANSITIONS`).
-- [ ] An empty draft's "Open Applications" and a not-yet-run market's "Publish Market" render disabled with their blocker.
-- [ ] `BlockerPanel.vue` stays generic over the wire shape.
+- [x] The served verdicts and the transition endpoint agree for every edge (a test walks `VALID_TRANSITIONS`).
+- [x] An empty draft's "Open Applications" and a not-yet-run market's "Publish Market" render disabled with their blocker.
+- [x] `BlockerPanel.vue` stays generic over the wire shape.

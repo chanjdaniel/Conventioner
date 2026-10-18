@@ -2,7 +2,7 @@
 id: E31/F01/S02
 title: The setup refuses changes once the market has left draft
 type: story
-status: ready
+status: in-progress
 blocked_by: [E31/F01/S01]
 pr: []
 ---
@@ -16,7 +16,7 @@ The server is the authority; the front end mirrors it (S03).
 
 ## Acceptance criteria
 
-- [ ] In every phase after draft, a changed date, location, section, table count, tier or floorplan is refused; in draft each saves.
-- [ ] A rules-only change saves in `review` and `assignment` and is refused where it is today.
-- [ ] Returning to draft (no applications) makes the setup editable again.
-- [ ] Seeds and specs that edit the plan after draft (the walk did, in review) are moved to draft.
+- [x] In every phase after draft, a changed date, location, section, table count, tier or floorplan is refused; in draft each saves.
+- [x] A rules-only change saves in `review` and `assignment` and is refused where it is today.
+- [x] Returning to draft (no applications) makes the setup editable again.
+- [x] Seeds and specs that edit the plan after draft (the walk did, in review) are moved to draft.

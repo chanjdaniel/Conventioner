@@ -870,6 +870,51 @@ def save_plan(market_id: str) -> Response:
         return jsonify({"error": "Internal server error", "message": str(e)}), 500
 
 
+@app.route('/markets/<market_id>/vendor-notes', methods=['GET'])
+@login_required
+def get_vendor_notes(market_id: str) -> Response:
+    """The organizer's notes on this market's vendors, by address (E31/F04)."""
+    try:
+        return jsonify({"notes": MarketsApi.get_vendor_notes(market_id, authenticated_email())}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+
+
+@app.route('/markets/<market_id>/vendor-notes/<path:vendor_email>', methods=['PUT'])
+@login_required
+def save_vendor_note(market_id: str, vendor_email: str) -> Response:
+    """Replace the organizer's note on one vendor. Body: { "note": "Promised an extra chair" }"""
+    try:
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data.get("note"), str):
+            return jsonify({"error": "note is required"}), 400
+        MarketsApi.save_vendor_note(market_id, vendor_email, data["note"], authenticated_email())
+        return jsonify({"message": "Note saved"}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+
+
+@app.route('/markets/<market_id>/vendor-notes/<path:vendor_email>/request-handled', methods=['PUT'])
+@login_required
+def mark_vendor_request_handled(market_id: str, vendor_email: str) -> Response:
+    """Mark a vendor's request handled, or take the mark back. Body: { "handled": true }"""
+    try:
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data.get("handled"), bool):
+            return jsonify({"error": "handled is required"}), 400
+        MarketsApi.mark_vendor_request_handled(
+            market_id, vendor_email, data["handled"], authenticated_email())
+        return jsonify({"message": "Saved"}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+
+
 @app.route('/markets/<market_id>/review-highlights', methods=['PUT'])
 @login_required
 def save_review_highlights(market_id: str) -> Response:
@@ -1777,7 +1822,7 @@ def _import_context(market_id: str, requesting_user: str):
 
     # Enforced here rather than by hiding the entry point: a hidden button is not a rule, and all
     # three import endpoints are reachable directly.
-    refusal = CsvImport.import_phase_refusal(market_doc)
+    refusal = CsvImport.import_refusal(market_doc)
     if refusal:
         return None, {"error": refusal, "phase": market_doc.get("phase")}, 409
     return market_doc, None, 200

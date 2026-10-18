@@ -2,7 +2,7 @@
 id: E31/F02/S03
 title: Archiving is the next step once the market has run
 type: story
-status: ready
+status: in-progress
 blocked_by: [E31/F02/S02]
 pr: []
 ---
@@ -15,5 +15,5 @@ The last date is compared as a calendar day, like every market date.
 
 ## Acceptance criteria
 
-- [ ] On market days before the last date, no forward step; after it, Archive is.
-- [ ] The comparison holds in Honolulu, Los Angeles and Tokyo.
+- [x] On market days before the last date, no forward step; after it, Archive is.
+- [x] The comparison holds on the door's own calendar, in Honolulu and Tokyo alike (`the-door-keeps-its-own-day.spec.ts`).

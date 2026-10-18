@@ -9,6 +9,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+from conftest import COMPLETE_PLAN
 
 from conftest import skip_without_real_dependencies
 
@@ -31,7 +32,7 @@ def response_ok(response):
     return True
 
 
-def _market_doc(phase="draft", fields=None, is_draft=True):
+def _market_doc(phase="draft", fields=None, is_draft=True, plan=COMPLETE_PLAN):
     """A market document as it is stored in Mongo (camelCase keys).
 
     ``phase=None`` models a market created before the phase field existed and never
@@ -46,6 +47,8 @@ def _market_doc(phase="draft", fields=None, is_draft=True):
         "assignmentObject": {},
         "isDraft": is_draft,
         "applicationForm": {"fields": fields if fields is not None else []},
+        # Complete, so leaving draft is judged on the form alone here (E31/F01/S01).
+        "setupObject": plan,
     }
     if phase is not None:
         doc["phase"] = phase
@@ -277,7 +280,8 @@ class TestTransitionSuccess:
 
 class TestTransitionBlocked:
     def test_empty_form_blocks_publish_with_camel_case_payload(self, client, markets):
-        collection = markets(_market_doc(fields=[]))
+        # No plan either: a complete setup always gives the form something to ask (E31/F01/S01).
+        collection = markets(_market_doc(fields=[], plan=None))
 
         response = _post(client, {"toPhase": "applications_open"})
 
@@ -287,8 +291,7 @@ class TestTransitionBlocked:
         assert body["currentPhase"] == "draft"
         assert body["targetPhase"] == "applications_open"
 
-        blocker = body["blockers"][0]
-        assert blocker["id"] == "form_has_fields"
+        blocker = next(b for b in body["blockers"] if b["id"] == "form_has_fields")
         assert blocker["passed"] is False
         assert blocker["message"]
         # The key is on the wire and camelCased, which is what this test is named for. Its value is
@@ -301,7 +304,7 @@ class TestTransitionBlocked:
         assert collection.doc["phase"] == "draft"
 
     def test_empty_form_blocks_reopen(self, client, markets):
-        collection = markets(_market_doc(phase="applications_closed", fields=[]))
+        collection = markets(_market_doc(phase="applications_closed", fields=[], plan=None))
 
         response = _post(client, {"toPhase": "applications_open"})
 

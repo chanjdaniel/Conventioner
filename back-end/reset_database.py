@@ -34,6 +34,7 @@ APP_COLLECTIONS = (
     # every deletion, pointing at markets and organizations that no longer existed.
     'placement_history',
     'deletion_trail',
+    'vendor_notes',
 )
 
 # GridFS buckets, which are a pair of collections each and are not listed above.

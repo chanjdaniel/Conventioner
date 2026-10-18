@@ -36,10 +36,13 @@ from datatypes import (
     Application,
     ApplicationStatus,
     ImportMapping,
+    IntakeMode,
     MarketPhase,
+    intake_mode_from_market_document,
     phase_from_market_document,
 )
 from market_documents import market_doc_field, market_doc_key
+import vendor_notes as VendorNotes
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +57,16 @@ logger = logging.getLogger(__name__)
 IMPORT_PHASES = (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED)
 
 
-def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
-    """Why this market cannot be imported into right now, or None."""
+def import_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
+    """Why this market cannot be imported into right now, or None.
+
+    Intake is exactly one mode, so importing is the CSV path's in every phase (E31/F03/S04): a form
+    market takes its applications on its own page.
+    """
+    if intake_mode_from_market_document(market_doc) is IntakeMode.FORM:
+        return (
+            "This market takes applications on its own page, so nothing is imported into it."
+        )
     phase = phase_from_market_document(market_doc)
     if phase in IMPORT_PHASES:
         return None
@@ -63,7 +74,7 @@ def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
     if phase == MarketPhase.DRAFT:
         return (
             f"This market is still a draft, so it is not taking applications yet. "
-            f"Open applications first, then import."
+            f"Start collecting first, then import."
         )
     # The way back is offered only where the transition table has one (bug 42): this told a market
     # in Assignment to "move back to applications closed", which no move does.
@@ -76,7 +87,7 @@ def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
         )
     return (
         f"This market is in the {readable} phase, so importing would change who has applied "
-        f"while their applications are being decided. Use Return to Applications Closed, under "
+        f"while their applications are being decided. Use Back to Importing, under "
         f"More… on the phase rail, then import."
     )
 
@@ -156,6 +167,13 @@ _EMAIL_ADDRESS = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 # priority does not need it, and warning beats blocking.
 SUBMITTED_AT_TARGET = "submitted_at"
 SUBMITTED_AT_LABEL = "Submitted at"
+
+# Nor this: a column of the organizer's OWN notes, kept beside the responses in their spreadsheet
+# (E31/F04/S03). It becomes the vendor's "From your sheet" line (``vendor_notes``), which each
+# import replaces and which never touches the note written in the app - and never an answer, since
+# the vendor did not write it.
+SHEET_NOTE_TARGET = "sheet_note"
+SHEET_NOTE_LABEL = "From your sheet (your own notes)"
 
 # Header text Google Forms uses, so the obvious mapping can be offered rather than asked for.
 _AUTO_DETECT = {
@@ -287,6 +305,7 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     targets = [
         ImportTarget(APPLICANT_EMAIL_TARGET, APPLICANT_EMAIL_LABEL, True, "identity"),
         ImportTarget(SUBMITTED_AT_TARGET, SUBMITTED_AT_LABEL, False, "meta"),
+        ImportTarget(SHEET_NOTE_TARGET, SHEET_NOTE_LABEL, False, "meta"),
     ]
     targets += [
         ImportTarget(
@@ -1046,7 +1065,7 @@ def _assembled_rows(
         form_data: Dict[str, Any] = {}
         ignored: List[str] = []
         for key, indexes in resolved.items():
-            if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET):
+            if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET, SHEET_NOTE_TARGET):
                 continue
             target = by_key.get(key)
             if target is None:
@@ -1626,6 +1645,11 @@ def import_applications(
         else:
             created += 1
 
+    if SHEET_NOTE_TARGET in resolved:
+        _replace_sheet_notes(market_id, rows, resolved, {
+            email for line, email, *_rest in applicants if line not in refused
+        })
+
     # Remember how this file was read, so the next import opens ready to confirm rather than
     # asking the organizer to rebuild a dozen decisions they have already made.
     save_mapping(markets_collection, market_id, headers, resolved, resolutions)
@@ -1641,6 +1665,21 @@ def import_applications(
         "absentApplications": absent_before,
         "returnedToReview": returned_to_review,
     }, 200
+
+
+def _replace_sheet_notes(
+    market_id: str, rows: Sequence[Sequence[str]], resolved: Dict[str, List[int]], imported: Set[str],
+) -> None:
+    """Each imported vendor's "From your sheet" line, from the organizer's own column; the latest
+    row of a vendor's wins, as their answers do."""
+    email_at = resolved[APPLICANT_EMAIL_TARGET][0]
+    note_at = resolved[SHEET_NOTE_TARGET][0]
+    lines: Dict[str, str] = {}
+    for row in rows:
+        email = str(row[email_at] if email_at < len(row) else "").strip().lower()
+        if email in imported:
+            lines[email] = str(row[note_at] if note_at < len(row) else "").strip()
+    VendorNotes.replace_sheet_notes(market_id, lines)
 
 
 def save_mapping(

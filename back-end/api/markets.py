@@ -52,9 +52,11 @@ import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import traceback
+from dataclasses import asdict
 import logging
 from assignment.csv_output import market_csv_to_string
-from guards import route_between
+from guards import route_between, transition_verdicts
+import vendor_notes as VendorNotes
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
@@ -271,6 +273,42 @@ def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     return ASSIGNMENT_RULES_SETTLED
 
 
+SETUP_SETTLED = (
+    "The setup is settled: it cannot change once the market has left draft, because applicants "
+    "and the assignment rely on it."
+)
+SETUP_WAY_BACK = " While no one has applied, go back to draft to change it (More… on the phase rail)."
+
+
+def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
+    """The part of a plan that is the setup, in one comparable shape (E31/F01/S02).
+
+    Everything on Market Setup: the dates, tiers, locations, sections and their tables, and the
+    floorplans. Not the assignment rules (``made_from.assignment_rules``), which ride in the same
+    object and keep a lock of their own.
+    """
+    if plan is None:
+        return {}
+    shape = plan.model_dump(include={"market_dates", "tiers", "locations", "sections", "floorplans"})
+    shape["floorplans"] = shape.get("floorplans") or []
+    return shape
+
+
+def setup_lock_reason(market: Market) -> Optional[str]:
+    """Why the setup may no longer change, or None while it can (E31/F01/S02).
+
+    It settles on leaving draft, so a date an applicant chose or a section a vendor was placed in
+    cannot move under them. While the market can still go back to draft - applications open, nobody
+    has applied - the reason says so, since that is the way to change it.
+    """
+    if market.phase is MarketPhase.DRAFT:
+        return None
+    if (market.phase is MarketPhase.APPLICATIONS_OPEN
+            and ApplicationsApi.count_applications_for_market(market.id) == 0):
+        return SETUP_SETTLED + SETUP_WAY_BACK
+    return SETUP_SETTLED
+
+
 def _assert_application_form_editable(market: Market) -> None:
     reason = application_form_lock_reason(market)
     if reason:
@@ -403,13 +441,14 @@ def _strip_persisted_assignment_statistics(market_dict: Dict[str, Any]) -> None:
 
 
 def assignment_to_show(market: Market, vendors=None) -> Market:
-    """The assignment every read-only view should describe: the stored one, when there is one.
+    """The assignment every read-only view should describe: the stored one, and only that.
 
-    A market that has never been assigned has nothing stored, and showing it the run it would get
-    is the only useful thing to show - the statistics screen exists to be looked at before Assign
-    is pressed. A market that HAS been assigned is shown what it stored, because that is what
-    check-in reads and what the organizer has been editing (E11/F03/S01). Deciding this once, in
-    one function, is what stops the payoff screen and the tables grid describing different markets.
+    A market that HAS been assigned is shown what it stored, because that is what check-in reads
+    and what the organizer has been editing (E11/F03/S01). A market that has not is shown nobody
+    placed (E31/F03/S05): it used to be shown the run it would get, drawn exactly like a result, so
+    Vendors said "197 of 197 vendors assigned" before anyone had pressed Assign. The run it would
+    get is ``GET /markets/:id/assignment``, which says it is a preview. Deciding this once, in one
+    function, is what stops the payoff screen and the tables grid describing different markets.
     """
     if market.setup_object is None:
         # A market as the create dialog leaves it has no plan, so no table to place anyone at.
@@ -422,9 +461,7 @@ def assignment_to_show(market: Market, vendors=None) -> Market:
             assignments_per_section={},
         )
         return market
-    if market.assignment_object.vendor_assignments:
-        return describe_stored_assignment(market, vendors)
-    return assign_market(market, vendors)
+    return describe_stored_assignment(market, vendors)
 
 
 def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
@@ -616,6 +653,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
     # from the market it holds, rather than deciding the phases for itself.
     market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
+    # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
+    market_dict['setupLockReason'] = setup_lock_reason(market)
     # And why this market cannot be started from a Google Form's CSV (E24/F03): the flow and the
     # Market Setup action mirror the proposal's own refusal rather than deciding it for themselves.
     market_dict['csvStartRefusal'] = CsvProposal.refusal(market_dict)
@@ -648,6 +687,12 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['adminActionsReason'] = admin_actions_refusal(
         user_email, market, context.organization,
     )
+    # What would refuse each move open from this phase (E31/F02/S01), judged as the transition
+    # endpoint judges it, so the rail can disable a move and name why before anyone clicks it.
+    market_dict['transitionBlockers'] = {
+        to_phase: [convert_keys_to_camel_case(asdict(blocker)) for blocker in blockers]
+        for to_phase, blockers in transition_verdicts(market, db).items()
+    }
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -1562,6 +1607,11 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
                 )
             update[market_doc_key("intake_mode")] = intake.value
 
+    # And the setup the same way, from leaving draft on (E31/F01/S02): restating it is not a change.
+    setup_settled = setup_lock_reason(market)
+    if setup_settled and setup_part(plan) != setup_part(market.setup_object):
+        raise ValueError(setup_settled)
+
     # The plan saves as the organizer types, in every phase, and always carries the rules it holds;
     # restating the stored rules is not a change, and anything else is refused once they are
     # settled (E22/F02/S01).
@@ -1669,3 +1719,37 @@ def get_application_form(market_id: str, requesting_user: str) -> dict:
         "editable": lock_reason is None,
         "lock_reason": lock_reason,
     }
+
+
+def get_vendor_notes(market_id: str, requesting_user: str) -> Dict[str, Dict[str, Any]]:
+    """Both kinds of note on this market's vendors, by address (E31/F04). Requires VIEWER:
+    everyone with a role reads them; the vendor, who has none, never does.
+
+    Each vendor's own request is joined in from their application, so every page that shows a
+    vendor - review, Vendors, the door - reads both kinds from one place, each under its own key.
+    """
+    _load_market_for(market_id, requesting_user, MarketRole.VIEWER, "view")
+    notes = VendorNotes.notes_for_market(market_id)
+    for application in ApplicationsApi.list_applications_for_market(market_id):
+        request = str((application.get("form_data") or {}).get(EssentialFields.REQUEST_KEY) or "")
+        email = str(application.get("applicant_email") or "").strip().lower()
+        if request.strip() and email:
+            notes.setdefault(email, VendorNotes.no_notes())["request"] = request.strip()
+    for entry in notes.values():
+        entry.setdefault("request", "")
+    return notes
+
+
+def save_vendor_note(market_id: str, vendor_email: str, text: str, requesting_user: str) -> None:
+    """Replace the organizer's note on one vendor. Requires EDITOR, the bar every market write has,
+    which a door volunteer recording "chair given" meets; an archived market refuses it."""
+    _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    VendorNotes.write_note(market_id, vendor_email, text, requesting_user)
+
+
+def mark_vendor_request_handled(
+    market_id: str, vendor_email: str, handled: bool, requesting_user: str,
+) -> None:
+    """Mark a vendor's request handled, or take the mark back. Requires EDITOR."""
+    _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    VendorNotes.mark_request_handled(market_id, vendor_email, handled, requesting_user)

@@ -2,7 +2,7 @@
 id: E31/F01/S01
 title: Leaving draft requires a complete setup
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -17,7 +17,7 @@ This catches the CSV start's tiers without tables in draft, where the walk first
 
 ## Acceptance criteria
 
-- [ ] Each missing part refuses the move with its own line; all present, the move succeeds.
-- [ ] A market dated in the past is refused, with the dates named.
-- [ ] The CSV start's market (tiers, no sections) is refused in draft.
-- [ ] E2E seeds that open applications set up a complete plan first.
+- [x] Each missing part refuses the move with its own line; all present, the move succeeds.
+- [x] A market dated in the past is refused, with the dates named.
+- [x] The CSV start's market (tiers, no sections) is refused in draft.
+- [x] E2E seeds that open applications set up a complete plan first.

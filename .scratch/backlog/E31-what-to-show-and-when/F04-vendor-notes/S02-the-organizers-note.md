@@ -2,7 +2,7 @@
 id: E31/F04/S02
 title: The organizer's note
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -15,6 +15,6 @@ It is deleted with the market's other records (`market_deletion.py`).
 
 ## Acceptance criteria
 
-- [ ] EDITOR writes, VIEWER reads and cannot write, an applicant endpoint never returns it.
-- [ ] An archived market refuses a write.
-- [ ] Deleting the market deletes its notes.
+- [x] EDITOR writes, VIEWER reads and cannot write, an applicant endpoint never returns it.
+- [x] An archived market refuses a write.
+- [x] Deleting the market deletes its notes.

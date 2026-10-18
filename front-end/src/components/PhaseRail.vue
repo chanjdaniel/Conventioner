@@ -14,6 +14,9 @@
  *   Which is which is read off the spine, not special-cased per phase.
  * - **The check-in URL.** Publishing puts a public page on the air and nothing in the product has
  *   ever told the organizer that URL exists (`E10/F01/S02`).
+ * - **The next step** (E31/F02/S02). One sentence for the market's phase and intake path, from
+ *   `utils/marketGuide.ts`, linking to where it is done. A move the server would refuse is drawn
+ *   disabled and the sentence is its first blocker, so the rail says no before the click.
  *
  * Sized for 1920x1080, which is the target: the prototype measured the labelled spine against a
  * 69-character check-in URL and found it clean at and above 1440, colliding below. Narrower than
@@ -21,6 +24,8 @@
  * than a rail two lines tall.
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import type { MarketPage } from '@/utils/marketPage';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
@@ -28,11 +33,19 @@ import { useMarketStore } from '@/stores/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import AppDialog from '@/components/AppDialog.vue';
+import { marketPath } from '@/utils/market';
+import {
+  blockersFor,
+  forwardFrom,
+  intakePath,
+  nextStep,
+  pathPhaseLabel,
+  pathTransitionLabel,
+  spineFor,
+} from '@/utils/marketGuide';
 import {
   OFF_SPINE_PHASES,
   VALID_TRANSITIONS,
-  phaseLabel,
-  phaseSpine,
   transitionDirection,
   transitionNeedsConfirmation,
 } from '@/utils/phase';
@@ -54,26 +67,10 @@ const props = defineProps<{
 const emit = defineEmits<{ phaseAdvanced: [] }>();
 const marketStore = useMarketStore();
 
-const lifecycle = phaseSpine();
 const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
 
-/**
- * The stages this market's rail draws.
- *
- * Normally the lifecycle, which leaves `offers` off - nothing sets `assignment_sent`, so drawing
- * it would show a stage no market will reach. A market that IS in such a phase is the exception,
- * and it gets its stage back, at the place the transition table puts it: a rail with no marker on
- * it says nothing about where the market stands, which is worse than one extra step that only
- * that market ever sees.
- */
-const spine = computed(() => {
-  if (lifecycle.includes(currentPhase.value)) return lifecycle;
-  const arrivedFrom = VALID_TRANSITIONS.find(
-    ([from, to]) => to === currentPhase.value && lifecycle.includes(from),
-  );
-  const at = arrivedFrom ? lifecycle.indexOf(arrivedFrom[0]) + 1 : lifecycle.length - 1;
-  return [...lifecycle.slice(0, at), currentPhase.value, ...lifecycle.slice(at)];
-});
+/** The stages this market's rail draws (`spineFor` says why `offers` is usually not one). */
+const spine = computed(() => spineFor(currentPhase.value));
 
 const currentIndex = computed(() => spine.value.indexOf(currentPhase.value));
 const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
@@ -214,32 +211,33 @@ async function copyUrl(url: string): Promise<void> {
 
 // ── The actions ───────────────────────────────────────────────────────────────
 
-const TRANSITION_LABELS: Record<string, string> = {
-  [MarketPhase.Draft]: 'Reopen for Editing',
-  [MarketPhase.ApplicationsOpen]: 'Open Applications',
-  [MarketPhase.ApplicationsClosed]: 'Close Applications',
-  [MarketPhase.Review]: 'Begin Review',
-  [MarketPhase.Assignment]: 'Begin Assignment',
-  [MarketPhase.Offers]: 'Send Offers',
-  [MarketPhase.MarketDays]: 'Publish Market',
-  [MarketPhase.Archived]: 'Archive Market',
-};
+const path = computed(() => intakePath(props.market));
 
-function transitionLabel(toPhase: string): string {
-  if (toPhase === MarketPhase.Archived) return 'Archive Market';
-  // Named for what the organizer wants to do, not for the phase. Going back to draft exists so
-  // the application form becomes editable again.
-  if (toPhase === MarketPhase.Draft) return 'Reopen for Editing';
-  if (toPhase === MarketPhase.ApplicationsOpen) {
-    return currentPhase.value === MarketPhase.Draft ? 'Open Applications' : 'Reopen Applications';
-  }
-  if (toPhase === MarketPhase.ApplicationsClosed) {
-    return currentPhase.value === MarketPhase.ApplicationsOpen
-      ? 'Close Applications'
-      : 'Return to Applications Closed';
-  }
-  return TRANSITION_LABELS[toPhase] ?? `Move to ${phaseLabel(toPhase)}`;
+/** A stage as this market's path names it: a CSV market collects on its Google Form. */
+function phaseLabel(phase: string): string {
+  return pathPhaseLabel(phase, path.value);
 }
+
+/** A move as this market's path names it, for what the organizer wants to do. */
+function transitionLabel(toPhase: string): string {
+  return pathTransitionLabel(currentPhase.value, toPhase, path.value);
+}
+
+/** What would refuse a move, as the market read served it; the first is the one said. */
+function firstBlocker(toPhase: string): PreconditionResult | null {
+  return props.market ? (blockersFor(props.market, toPhase)[0] ?? null) : null;
+}
+
+/** The rail's sentence: the next step, or why it cannot be taken yet. */
+const step = computed(() => (props.market ? nextStep(props.market) : null));
+const route = useRoute();
+/** Where the step is done, unless that is where the organizer already is. */
+const stepLink = computed(() => {
+  if (!props.market || !step.value?.page) return null;
+  // A blocker's `resolutionLink` names a page of this market, as `currentPage` does.
+  const link = marketPath(props.market.id, step.value.page as MarketPage);
+  return route?.path === link ? null : link;
+});
 
 /**
  * The moves this person may make. None when moving the phase is not theirs to do (bug 37): an
@@ -257,13 +255,14 @@ const availableTransitions = computed(() =>
     : [],
 );
 
-/** The one step onward, when there is one. Everything else goes in the menu. */
-const forwardTransition = computed(
-  () =>
-    availableTransitions.value.find(
-      (to) => transitionDirection(currentPhase.value, to, spine.value) === 'forward',
-    ) ?? null,
-);
+/**
+ * The one step onward, when there is one. Everything else goes in the menu. Read from the guide,
+ * so a running market whose last day has passed is offered archiving here (E31/F02/S03).
+ */
+const forwardTransition = computed(() => {
+  const forward = props.market ? forwardFrom(props.market) : null;
+  return forward && availableTransitions.value.includes(forward) ? forward : null;
+});
 
 const otherTransitions = computed(() =>
   availableTransitions.value.filter((to) => to !== forwardTransition.value),
@@ -484,7 +483,8 @@ function cancelPending() {
             v-if="forwardTransition"
             type="button"
             class="rail-button rail-button--forward"
-            :disabled="transitioning"
+            :disabled="transitioning || !!firstBlocker(forwardTransition)"
+            :aria-describedby="firstBlocker(forwardTransition) ? 'phase-rail-next' : undefined"
             :data-testid="`phase-transition-${forwardTransition}`"
             @click="handleTransitionClick(forwardTransition)"
           >
@@ -523,18 +523,45 @@ function cancelPending() {
                 tabindex="-1"
                 class="rail-menu-item"
                 :class="`rail-menu-item--${directionOf(toPhase)}`"
-                :disabled="transitioning"
+                :aria-disabled="transitioning || !!firstBlocker(toPhase)"
                 :data-direction="directionOf(toPhase)"
                 :data-testid="`phase-transition-${toPhase}`"
-                @click="handleTransitionClick(toPhase)"
+                @click="!firstBlocker(toPhase) && !transitioning && handleTransitionClick(toPhase)"
               >
                 {{ transitionLabel(toPhase) }}
+                <!-- Why not, said in the menu itself: "Reopen for Editing" was offered with sixteen
+                     applications in and refused only after the click (E31/F02/S01). -->
+                <span
+                  v-if="firstBlocker(toPhase)"
+                  class="rail-menu-item-reason"
+                  data-testid="phase-transition-reason"
+                  >{{ firstBlocker(toPhase)!.message }}</span
+                >
               </button>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- The next step, or why it cannot be taken yet (E31/F02/S02). An archived market has the
+         frozen note below instead, which says what became of it. -->
+    <p
+      v-if="step && !isArchived"
+      id="phase-rail-next"
+      class="phase-rail-next"
+      :class="{ 'phase-rail-next--blocked': step.blocker }"
+      data-testid="phase-rail-next"
+    >
+      {{ step.text }}
+      <RouterLink
+        v-if="stepLink"
+        :to="stepLink"
+        class="phase-rail-next-link"
+        data-testid="phase-rail-next-link"
+        >{{ step.blocker ? 'Fix it' : 'Go there' }}</RouterLink
+      >
+    </p>
 
     <!-- Strikethrough alone reads as "stopped", not as "archived". The words are the signal. -->
     <p v-if="isArchived" class="phase-rail-frozen" data-testid="phase-rail-frozen">
@@ -889,6 +916,38 @@ function cancelPending() {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-black);
+}
+
+/* The next step, in the same voice as the frozen note: a sentence, not an alert. */
+.phase-rail-next {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-black);
+}
+
+.phase-rail-next-link {
+  margin-left: var(--space-2);
+  color: var(--mm-text-link);
+  font-weight: 600;
+}
+
+/* A move the server would refuse stays in the menu, greyed, with the reason under it. */
+.rail-menu-item[aria-disabled='true'] {
+  color: var(--mm-text-muted);
+  cursor: not-allowed;
+  white-space: normal;
+  max-width: 24rem;
+}
+
+.rail-menu-item[aria-disabled='true']:hover {
+  background: white;
+}
+
+.rail-menu-item-reason {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 
 .phase-rail-error {

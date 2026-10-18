@@ -7,6 +7,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
+from conftest import complete_setup
 
 import guards
 from datatypes import (
@@ -191,15 +192,16 @@ class TestFormHasFieldsGuard:
 
 class TestEvaluateTransition:
     def test_returns_blockers_when_guard_fails(self):
+        # No plan and no form: the form asks nothing, and the setup is incomplete (E31/F01/S01).
         market = _make_market(phase=MarketPhase.DRAFT, application_form=None)
         blockers = evaluate_transition(market, "applications_open", None)
-        assert len(blockers) == 1
-        assert blockers[0].id == "form_has_fields"
-        assert blockers[0].passed is False
+        assert "form_has_fields" in [b.id for b in blockers]
+        assert all(b.passed is False for b in blockers)
 
     def test_returns_empty_when_guard_passes(self):
         market = _make_market(
             phase=MarketPhase.DRAFT,
+            setup_object=complete_setup(),
             application_form=ApplicationForm(
                 fields=[FormField(key="name", label="Name", type="text")],
             ),
@@ -275,8 +277,7 @@ class TestValidTransitions:
 class TestTransitionGuards:
     def test_draft_to_applications_open_has_form_guard(self):
         guards = TRANSITION_GUARDS.get(("draft", "applications_open"), [])
-        assert len(guards) == 1
-        assert isinstance(guards[0], FormHasFieldsGuard)
+        assert any(isinstance(guard, FormHasFieldsGuard) for guard in guards)
 
     def test_reopen_edge_has_form_guard(self):
         guards = TRANSITION_GUARDS.get(("applications_closed", "applications_open"), [])
@@ -404,8 +405,9 @@ class TestGuardDesignProperties:
         assert len(guard.description) > 0
 
     def test_adding_guard_is_only_a_dict_entry(self):
+        # The form, then the three parts of a complete setup (E31/F01/S01): four list entries.
         guards = TRANSITION_GUARDS[("draft", "applications_open")]
-        assert len(guards) == 1
+        assert len(guards) == 4
 
 
 class TestAllApplicationsReviewedGuard:

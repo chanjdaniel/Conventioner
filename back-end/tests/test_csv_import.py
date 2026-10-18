@@ -1565,7 +1565,7 @@ class TestWhenImportingIsAllowed:
             doc = _market_doc()
             doc["phase"] = phase.value
 
-            assert CsvImport.import_phase_refusal(doc) is None, phase
+            assert CsvImport.import_refusal(doc) is None, phase
 
     def test_review_onward_is_refused(self):
         for phase in (
@@ -1575,19 +1575,20 @@ class TestWhenImportingIsAllowed:
             doc = _market_doc()
             doc["phase"] = phase.value
 
-            refusal = CsvImport.import_phase_refusal(doc)
+            refusal = CsvImport.import_refusal(doc)
 
             assert refusal is not None, phase
             assert phase.value.replace("_", " ") in refusal
 
     def test_the_refusal_points_at_the_way_through(self):
-        """By the rail's own name for the move (bug 42): "Reopen Applications" is a different one."""
+        """By the rail's own name for the move (bug 42), as a CSV market's rail names it: importing
+        is the CSV path's alone (E31/F03/S04)."""
         doc = _market_doc()
         doc["phase"] = MarketPhase.REVIEW.value
 
-        refusal = CsvImport.import_phase_refusal(doc)
+        refusal = CsvImport.import_refusal(doc)
 
-        assert "Return to Applications Closed" in refusal
+        assert "Back to Importing" in refusal
 
     def test_past_review_it_offers_no_way_back_that_does_not_exist(self):
         """From Assignment on there is no route back to the intake phases, so none is offered.
@@ -1599,7 +1600,7 @@ class TestWhenImportingIsAllowed:
             doc = _market_doc()
             doc["phase"] = phase.value
 
-            refusal = CsvImport.import_phase_refusal(doc)
+            refusal = CsvImport.import_refusal(doc)
 
             assert "Applications Closed" not in refusal, phase
             assert "no more applications" in refusal, phase
@@ -1609,15 +1610,54 @@ class TestWhenImportingIsAllowed:
         doc = _market_doc()
         doc["phase"] = MarketPhase.DRAFT.value
 
-        refusal = CsvImport.import_phase_refusal(doc)
+        refusal = CsvImport.import_refusal(doc)
 
         assert refusal is not None and "still a draft" in refusal
+
+    def test_a_market_vendors_apply_to_on_its_own_page_imports_nothing(self):
+        """Intake is exactly one mode, so import is the CSV path's (E31/F03/S04): a form market
+        offered "Import from CSV" as its primary button while applications were open."""
+        for phase in (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED):
+            doc = {**_market_doc(), "phase": phase.value, "intakeMode": "form"}
+
+            refusal = CsvImport.import_refusal(doc)
+
+            assert refusal is not None and "own page" in refusal, phase
 
     def test_reopening_makes_importing_possible_again(self):
         doc = _market_doc()
         doc["phase"] = MarketPhase.REVIEW.value
-        assert CsvImport.import_phase_refusal(doc) is not None
+        assert CsvImport.import_refusal(doc) is not None
 
         doc["phase"] = MarketPhase.APPLICATIONS_CLOSED.value
 
-        assert CsvImport.import_phase_refusal(doc) is None
+        assert CsvImport.import_refusal(doc) is None
+
+
+class TestWhatTheImportBringsBesideTheAnswers:
+    """E31/F04: the vendor's request is a target like any essential question, and an organizer's own
+    column comes in as a "From your sheet" line that each import replaces."""
+
+    def test_the_vendors_request_is_a_target(self, markets):
+        keys = [t.key for t in CsvImport.import_targets(markets.doc)]
+        assert EssentialFields.REQUEST_KEY in keys
+
+    def test_an_organizers_column_becomes_the_sheet_line_and_not_an_answer(self, markets,
+                                                                          applications):
+        import vendor_notes as VendorNotes
+
+        mapping = {**MAPPING, CsvImport.SHEET_NOTE_TARGET: 3}
+        body, status = CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), mapping)
+
+        assert status == 200, body
+        assert VendorNotes.notes_for_market("market-123")["nadia@ember.ca"]["fromSheet"] == \
+            "Ember Ceramics"
+        stored = applications.find_one({"applicant_email": "nadia@ember.ca"})
+        assert CsvImport.SHEET_NOTE_TARGET not in stored["form_data"]
+
+    def test_unmapped_it_stores_nothing(self, markets, applications):
+        import vendor_notes as VendorNotes
+
+        CsvImport.import_applications(markets, markets.doc, _csv(GOOD_ROW), MAPPING)
+
+        assert VendorNotes.notes_for_market("market-123") == {}

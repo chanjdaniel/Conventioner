@@ -105,7 +105,8 @@ def test_the_intake_mode_cannot_change_after_draft(market, phase):
 
 def test_restating_the_intake_mode_after_draft_is_not_a_change(market):
     """The plan saves as the organizer types in every phase, and says what intake mode it holds."""
-    collection = market(phase=MarketPhase.REVIEW, intakeMode=IntakeMode.CSV.value)
+    # The stored plan is the one restated: after draft the setup is settled (E31/F01/S02).
+    collection = market(phase=MarketPhase.REVIEW, intakeMode=IntakeMode.CSV.value, setupObject=PLAN)
 
     MarketsApi.save_plan(
         "market-123", {"setupObject": PLAN, "intakeMode": IntakeMode.CSV.value}, "user-1"
@@ -192,10 +193,10 @@ def test_after_the_assignment_restating_the_rules_is_not_a_change(market, phase)
     """The plan saves as the organizer types, in every phase, and always carries the rules it holds."""
     collection = market(phase=phase, setupObject=STORED_RULES)
 
-    edited = {**STORED_RULES, "locations": [{"name": "Main Hall"}, {"name": "Annex"}]}
-    MarketsApi.save_plan("market-123", {"setupObject": edited}, "user-1")
+    # Restated whole: the setup beside the rules is settled too after draft (E31/F01/S02).
+    MarketsApi.save_plan("market-123", {"setupObject": STORED_RULES}, "user-1")
 
-    assert collection.last_update["$set"]["setupObject"]["locations"][1] == {"name": "Annex"}
+    assert collection.last_update is not None
 
 
 @pytest.mark.parametrize("phase", OPEN)

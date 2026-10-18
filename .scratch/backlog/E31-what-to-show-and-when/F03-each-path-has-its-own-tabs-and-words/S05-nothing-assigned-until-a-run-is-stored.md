@@ -2,7 +2,7 @@
 id: E31/F03/S05
 title: Nothing is shown as assigned until a run is stored
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -14,6 +14,6 @@ Before an assignment is stored, Result and Vendors say "Nothing assigned yet" an
 
 ## Acceptance criteria
 
-- [ ] In every phase before a stored run, Result and Vendors show the empty state with its link.
-- [ ] After a run, both show the stored assignment, as today.
-- [ ] The statistics and CSV download follow the same rule.
+- [x] In every phase before a stored run, Result and Vendors show the empty state with its link.
+- [x] After a run, both show the stored assignment, as today.
+- [x] The statistics and CSV download follow the same rule.

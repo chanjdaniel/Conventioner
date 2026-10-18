@@ -2,7 +2,7 @@
 id: E31/F01/S03
 title: Market Setup reads as settled
 type: story
-status: ready
+status: in-progress
 blocked_by: [E31/F01/S02]
 pr: []
 ---
@@ -14,6 +14,6 @@ No input on the page looks editable, and the floorplan flow opens read-only.
 
 ## Acceptance criteria
 
-- [ ] From `applications_open` on, on both paths, no Market Setup control accepts input, and the line says why.
-- [ ] While no application exists, the line says the market can go back to draft.
-- [ ] `every-control-is-named.spec.ts` and the contrast sweep still pass on the read-only page.
+- [x] From `applications_open` on, on both paths, no Market Setup control accepts input, and the line says why.
+- [x] While no application exists, the line says the market can go back to draft.
+- [x] `every-control-is-named.spec.ts` and the contrast sweep still pass on the read-only page.

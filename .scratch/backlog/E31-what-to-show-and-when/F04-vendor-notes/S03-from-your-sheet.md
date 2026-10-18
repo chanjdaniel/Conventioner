@@ -2,7 +2,7 @@
 id: E31/F04/S03
 title: A sheet's organizer column comes in as "From your sheet"
 type: story
-status: ready
+status: in-progress
 blocked_by: [E31/F04/S02]
 pr: []
 ---
@@ -14,5 +14,5 @@ It is stored per vendor as a read-only line, replaced by each import, and never 
 
 ## Acceptance criteria
 
-- [ ] Mapping a column fills the line; re-importing replaces it; the app note is untouched.
-- [ ] Unmapped, nothing is stored.
+- [x] Mapping a column fills the line; re-importing replaces it; the app note is untouched.
+- [x] Unmapped, nothing is stored.

@@ -58,13 +58,15 @@ test.describe('The door on market day', () => {
     request,
   }) => {
     // E30/F01/S02: an archived market's roster still said "Not yet" of everyone who never came.
-    // The seed's own date has passed, so the day is over while the market still runs, too.
+    // The browser's clock is set past the market's day, so the day is over while it still runs.
     const seed = await seedPublishedMarketWithAssignments(
       request,
       BACKEND_URL,
       TEST_USER.email,
       TEST_USER.password,
+      { marketDate: ON_THE_DAY },
     );
+    await page.clock.setFixedTime(new Date('2099-05-03T12:00:00Z'));
     const attendance = new AttendanceStatusPage(page);
 
     for (const when of ['running', 'archived']) {

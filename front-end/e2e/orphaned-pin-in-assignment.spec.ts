@@ -1,6 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
-import { savePlan } from './helpers/savePlan';
+import { changeASettledPlan } from './helpers/settledPlanChanged';
 import { SEED_MARKET_DATE } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 
@@ -42,8 +42,9 @@ test('an orphaned pin is marked where the organizer looks, and holds Publish bac
     },
   });
   expect(pinned.ok(), await pinned.text()).toBeTruthy();
-  // The room is rearranged after the run: the fifth table goes.
-  await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, plan(4));
+  // The room is rearranged after the run: the fifth table goes - as only a market older than the
+  // settled setup could have it (E31/F01/S01).
+  changeASettledPlan(marketId, plan(4));
 
   // Result marks the table the plan no longer has.
   await page.goto(marketScreenPath(marketId, 'result'));
@@ -57,11 +58,11 @@ test('an orphaned pin is marked where the organizer looks, and holds Publish bac
     'no longer in the plan',
   );
 
-  // And Publish is refused, naming who, where and when.
+  // And Publish is refused before the click (E31/F02/S01), naming who, where and when.
   await page.getByTestId('vendors-detail-close').click();
-  await page.getByTestId('phase-transition-market_days').click();
-  await page.getByTestId('sweep-confirm-submit-button').click();
-  const blockers = page.getByTestId('phase-rail-blockers');
-  await expect(blockers).toContainText('alice@example.com at Hall A 5 on 2026-05-01');
+  await expect(page.getByTestId('phase-transition-market_days')).toBeDisabled();
+  await expect(page.getByTestId('phase-rail-next')).toContainText(
+    'alice@example.com at Hall A 5 on 2099-05-01',
+  );
   await expect(page.getByTestId('phase-rail-current')).toHaveText('Assignment');
 });

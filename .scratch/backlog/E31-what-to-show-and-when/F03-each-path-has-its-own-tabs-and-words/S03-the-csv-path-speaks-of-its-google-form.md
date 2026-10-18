@@ -2,7 +2,7 @@
 id: E31/F03/S03
 title: The CSV path speaks of its Google Form
 type: story
-status: ready
+status: in-progress
 blocked_by: [E31/F02/S02]
 pr: []
 ---
@@ -18,5 +18,5 @@ The phases and their stored values do not change; only what is shown.
 
 ## Acceptance criteria
 
-- [ ] No screen of a CSV market says vendors can apply, in any phase.
-- [ ] The form path's words are unchanged.
+- [x] No screen of a CSV market says vendors can apply, in any phase.
+- [x] The form path's words are unchanged.

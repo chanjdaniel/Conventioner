@@ -19,6 +19,8 @@ import type { EssentialFormOptions } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_LABEL,
   PREFERRED_NAME_KEY,
+  REQUEST_KEY,
+  REQUEST_LABEL,
   PREFERRED_NAME_LABEL,
   AVAILABLE_DATES_KEY,
   FULL_NAME_KEY,
@@ -80,6 +82,10 @@ function tiersOn(date: string): string[] {
 const asksSectionRanking = computed(
   () => props.options.sections.length > 1 && isEssentialAsked(SECTION_RANKING_KEY, props.options),
 );
+/** The vendor's request, unless the organizer switched it off (E31/F04/S01). */
+const asksRequest = computed(() => isEssentialAsked(REQUEST_KEY, props.options));
+const request = computed(() => (props.modelValue[REQUEST_KEY] as string) ?? '');
+
 const asksTableTypeRanking = computed(
   () =>
     props.options.tableTypes.length > 1 && isEssentialAsked(TABLE_TYPE_RANKING_KEY, props.options),
@@ -505,6 +511,26 @@ function errorFor(key: string): string {
         @update:modelValue="(v: string[]) => setAnswer(TABLE_TYPE_RANKING_KEY, v)"
       />
     </div>
+
+    <!-- What else they need, in their own words (E31/F04/S01). Optional, and last: it is about the
+         day, not about which table. -->
+    <div v-if="asksRequest" class="essential-field" :data-testid="`${prefix}-essential-request`">
+      <label class="essential-label" :for="`${prefix}-essential-request-input`">
+        {{ REQUEST_LABEL }}
+      </label>
+      <p class="essential-help">
+        An extra chair, an outlet, a spot near the door - anything the organizers should know.
+      </p>
+      <textarea
+        :id="`${prefix}-essential-request-input`"
+        class="essential-text-input essential-request-input"
+        rows="3"
+        :value="request"
+        :disabled="disabled"
+        :data-testid="`${prefix}-essential-request-input`"
+        @input="setAnswer(REQUEST_KEY, ($event.target as HTMLTextAreaElement).value)"
+      />
+    </div>
   </div>
 </template>
 
@@ -623,6 +649,17 @@ function errorFor(key: string): string {
 
 .essential-text-input.error {
   border-color: var(--mm-red);
+}
+
+/* A few lines of the vendor's own words: as tall as it needs, resized by them, never a field. */
+.essential-request-input {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  resize: vertical;
 }
 
 .essential-max-input {

@@ -2,7 +2,7 @@
 id: E31/F03/S04
 title: Each path offers only its own actions
 type: story
-status: ready
+status: in-progress
 blocked_by: [E31/F02/S02]
 pr: []
 ---
@@ -15,5 +15,5 @@ pr: []
 
 ## Acceptance criteria
 
-- [ ] A form market cannot import, through the UI or the API.
-- [ ] Publish Results appears only on form markets, with its line.
+- [x] A form market cannot import, through the UI or the API.
+- [x] Publish Results appears only on form markets, with its line.
