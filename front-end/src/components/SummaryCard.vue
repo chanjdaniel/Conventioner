@@ -33,21 +33,25 @@ defineEmits<{ select: [] }>();
     @keydown.enter.prevent="selectable && $emit('select')"
     @keydown.space.prevent="selectable && $emit('select')"
   >
-    <div class="summary-card-name">
-      <slot name="name" />
-      <slot name="badge" />
-    </div>
+    <!-- The card is the container its own layout is measured against, so the body is a child of
+         it: a container query cannot style the element it measures. -->
+    <div class="summary-card-body">
+      <div class="summary-card-name">
+        <slot name="name" />
+        <slot name="badge" />
+      </div>
 
-    <dl class="summary-card-facts">
-      <template v-for="fact in facts" :key="fact.label">
-        <dt>{{ fact.label }}</dt>
-        <dd :class="{ 'fact-missing': fact.missing }">{{ fact.value }}</dd>
-      </template>
-    </dl>
+      <dl class="summary-card-facts">
+        <template v-for="fact in facts" :key="fact.label">
+          <dt>{{ fact.label }}</dt>
+          <dd :class="{ 'fact-missing': fact.missing }">{{ fact.value }}</dd>
+        </template>
+      </dl>
 
-    <!-- Actions stop the row's own click, so pressing one never also opens the row. -->
-    <div class="summary-card-actions" @click.stop>
-      <slot name="actions" />
+      <!-- Actions stop the row's own click, so pressing one never also opens the row. -->
+      <div class="summary-card-actions" @click.stop>
+        <slot name="actions" />
+      </div>
     </div>
   </div>
 </template>
@@ -60,14 +64,38 @@ defineEmits<{ select: [] }>();
   border-radius: var(--radius-card);
   background: white;
   box-shadow: var(--shadow-card);
+  container-type: inline-size;
+}
 
+/* The name's column is as wide as the facts can spare, and the same on every row so the facts
+   line up down the list (bug 14). At 20rem an ordinary name wrapped while the facts beside it sat
+   in half their room.
+
+   "Can spare" is the facts' own measure: a 7.5rem label, its gap, and room for the longest date a
+   row says ("Dec 30, 2026 - Jan 2, 2027 (4 days)") - 22rem. The name took its whole 28rem
+   whatever the card's width, and on the dashboard, where the card is the width of the two buttons
+   below it, that left the facts a sliver: every date broke after two or three characters. */
+.summary-card-body {
   display: grid;
-  /* The name's column is as wide as the facts can spare, and the same on every row so the facts
-     line up down the list (bug 14). At 20rem an ordinary name wrapped while the facts beside it
-     sat in half their room. */
-  grid-template-columns: minmax(200px, 28rem) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(200px, 28rem) minmax(22rem, 1fr) auto;
   align-items: center;
   gap: 24px;
+}
+
+/* Too narrow for the name and the facts side by side (the market chooser dialog): the facts go
+   under the name rather than into a column too thin to read. 37.5rem is the two minimums and the
+   gaps between the three columns. */
+@container (width < 37.5rem) {
+  .summary-card-body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .summary-card-actions:empty {
+    display: none;
+  }
 }
 
 .summary-card--selectable {
