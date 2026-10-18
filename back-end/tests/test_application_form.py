@@ -394,7 +394,7 @@ class TestGetApplicationForm:
     def test_reports_the_lock_reason_out_of_draft(self, monkeypatch, applications):
         monkeypatch.setattr(
             MarketsApi, "markets_collection",
-            FakeMarketsCollection(stored_market(phase=MarketPhase.ARCHIVED)),
+            FakeMarketsCollection(stored_market(phase=MarketPhase.MARKET_DAYS)),
         )
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
 

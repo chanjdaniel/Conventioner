@@ -262,7 +262,11 @@ export async function seedPublishedMarketWithAssignments(
   baseURL: string,
   email: string,
   password: string,
+  // The one market date. The default has passed, so its day is over; a spec about the door on the
+  // day itself names a date still to come.
+  options: { marketDate?: string } = {},
 ): Promise<PublishedSeedResult> {
+  const marketDate = options.marketDate ?? SEED_MARKET_DATE;
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
@@ -301,14 +305,14 @@ export async function seedPublishedMarketWithAssignments(
   // Step 3: Seed the vendors as approved applications - what a vendor is. This used to upload a
   // fabricated CSV, because the solver read a separate source_data collection.
   for (const applicant of ['alice@example.com', 'bob@example.com']) {
-    seedApprovedVendor(marketId, applicant, { dates: [SEED_MARKET_DATE], tiers: ['Gold'] });
+    seedApprovedVendor(marketId, applicant, { dates: [marketDate], tiers: ['Gold'] });
   }
 
   // Step 4: Put the setupObject directly. A market date is now just a date: it carried a
   // spreadsheet column name only so the solver could look the answer up by heading.
   const setupObject = {
     priority: [],
-    marketDates: [{ date: SEED_MARKET_DATE }],
+    marketDates: [{ date: marketDate }],
     tiers: [{ id: 0, name: 'Gold' }],
     locations: [{ name: 'Main Hall' }],
     sections: [

@@ -221,8 +221,12 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
 
     Returns the human-readable reason the form is locked, or None when it is editable.
     Phase gate: forms are editable only in ``draft``. D9: the form freezes for good once
-    any application exists, so applicants can never have answered a question that moved.
+    any application exists, so applicants can never have answered a question that moved. An
+    archived market gives the archived reason, which is the true one (E30/F01/S02).
     """
+    archived = archived_refusal(market)
+    if archived:
+        return archived
     if market.phase != MarketPhase.DRAFT:
         return (
             "Application form can only be edited while the market is in draft phase. "
@@ -257,8 +261,11 @@ def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     effect when the assignment runs, and it runs in the ``assignment`` phase alone. So the rules
     are open for exactly as long as the market can still get there. That is derived from the
     transition table rather than listed, so a phase added or an edge moved decides it with no edit
-    here: today it closes them in ``offers``, ``market_days`` and ``archived``.
+    here: today it closes them in ``offers``, ``market_days`` and ``archived``. An archived market
+    gives the archived reason, since no placement can be changed there either (E30/F01/S02).
     """
+    if phase is MarketPhase.ARCHIVED:
+        return ARCHIVED_REFUSAL
     if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is not None:
         return None
     return ASSIGNMENT_RULES_SETTLED

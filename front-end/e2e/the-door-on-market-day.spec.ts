@@ -1,13 +1,16 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { SEED_MARKET_DATE, seedPublishedMarketWithAssignments } from './helpers/seeds';
+import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { CheckinPage } from './pages/CheckinPage';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
+import { transitionMarket } from './helpers/seedPhaseMarket';
 
 /**
  * The door on market day (E29/F01). Attendance listed only the vendors who had checked in, by
  * email, so the organizer at the door could not say who was missing (known gap 3), and could not
- * check a vendor in themselves. The seed places alice and bob on one date.
+ * check a vendor in themselves. The seed places alice and bob on one date: a date still to come,
+ * where the door is, unless a test is about a day that is over.
  */
+const ON_THE_DAY = '2099-05-02';
 test.describe('The door on market day', () => {
   test('Attendance lists everyone expected on the day, and who has come', async ({
     page,
@@ -19,6 +22,7 @@ test.describe('The door on market day', () => {
       BACKEND_URL,
       TEST_USER.email,
       TEST_USER.password,
+      { marketDate: ON_THE_DAY },
     );
     const checkin = new CheckinPage(page);
     await checkin.goto(seed.marketSlug);
@@ -30,7 +34,7 @@ test.describe('The door on market day', () => {
     const attendance = new AttendanceStatusPage(ownerPage);
     await attendance.goto(seed.marketId);
 
-    await expect(attendance.date(SEED_MARKET_DATE)).toHaveAttribute('aria-pressed', 'true');
+    await expect(attendance.date(ON_THE_DAY)).toHaveAttribute('aria-pressed', 'true');
     await expect(attendance.summary).toHaveText('1 of 2 checked in');
     await expect(attendance.status('alice@example.com')).not.toHaveText('Not yet');
     await expect(attendance.status('bob@example.com')).toHaveText('Not yet');
@@ -49,6 +53,31 @@ test.describe('The door on market day', () => {
     await expect(attendance.row('alice@example.com')).toBeVisible();
   });
 
+  test('once the day is over, a vendor who never came did not come', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // E30/F01/S02: an archived market's roster still said "Not yet" of everyone who never came.
+    // The seed's own date has passed, so the day is over while the market still runs, too.
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const attendance = new AttendanceStatusPage(page);
+
+    for (const when of ['running', 'archived']) {
+      if (when === 'archived') {
+        await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'archived');
+      }
+      await attendance.goto(seed.marketId);
+      await expect(attendance.status('bob@example.com')).toHaveText('Did not come');
+      await expect(page.getByTestId('attendance-show-not-yet')).toHaveText('Did not come 2');
+      await expect(page.getByText('Not yet')).toHaveCount(0);
+    }
+  });
+
   test('an organizer checks a vendor in at the door, and can take it back', async ({
     authenticatedPage: page,
     request,
@@ -58,6 +87,7 @@ test.describe('The door on market day', () => {
       BACKEND_URL,
       TEST_USER.email,
       TEST_USER.password,
+      { marketDate: ON_THE_DAY },
     );
     const attendance = new AttendanceStatusPage(page);
     await attendance.goto(seed.marketId);
@@ -86,6 +116,7 @@ test.describe('The door on market day', () => {
       BACKEND_URL,
       TEST_USER.email,
       TEST_USER.password,
+      { marketDate: ON_THE_DAY },
     );
     await page.setViewportSize({ width: 390, height: 844 });
     const attendance = new AttendanceStatusPage(page);
