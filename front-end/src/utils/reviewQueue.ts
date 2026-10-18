@@ -55,3 +55,23 @@ export function reviewAnswers(
 export function asksNothingDistinguishing(form?: ApplicationForm | null): boolean {
   return (form?.fields ?? []).length === 0;
 }
+
+/**
+ * Applications in the order they arrived, earliest first (E30/F01/S05).
+ *
+ * The server lists them newest first, so the deck's "1 of 16" was the last to arrive. First come is
+ * the order an organizer decides in, and the one a first-come rule assigns in. One with no time
+ * goes last, and those it cannot tell apart keep the order they came in.
+ */
+export function inArrivalOrder<T extends Pick<Application, 'submittedAt'>>(apps: T[]): T[] {
+  const time = (app: T) => (app.submittedAt ? Date.parse(app.submittedAt) : NaN);
+  return apps
+    .map((app, index) => ({ app, index, at: time(app) }))
+    .sort((x, y) => {
+      const xKnown = !Number.isNaN(x.at);
+      const yKnown = !Number.isNaN(y.at);
+      if (xKnown !== yKnown) return xKnown ? -1 : 1;
+      return (xKnown && x.at !== y.at ? x.at - y.at : 0) || x.index - y.index;
+    })
+    .map(({ app }) => app);
+}

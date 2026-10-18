@@ -22,7 +22,7 @@ import {
   publishResults as publishResultsApi,
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
-import { asksNothingDistinguishing, reviewAnswers } from '@/utils/reviewQueue';
+import { asksNothingDistinguishing, inArrivalOrder, reviewAnswers } from '@/utils/reviewQueue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
@@ -87,7 +87,10 @@ const statusTones: Record<string, string> = {
 /** Awaiting a verdict. Anything else has been reviewed, and does not come back to the queue. */
 const AWAITING = [ApplicationStatus.Open, ApplicationStatus.UnderReview] as string[];
 
-const undecided = computed(() => applications.value.filter((a) => AWAITING.includes(a.status)));
+/** In the order they arrived: the deck once opened on the latest (E30/F01/S05). */
+const undecided = computed(() =>
+  inArrivalOrder(applications.value.filter((a) => AWAITING.includes(a.status))),
+);
 /**
  * Reviewed: everything the queue is done with, whatever became of it since.
  *
