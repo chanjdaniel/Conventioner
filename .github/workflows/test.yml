@@ -67,8 +67,16 @@ jobs:
       - uses: actions/checkout@v5
       - run: docker compose build
 
-  e2e:
+  # Split by spec file across four runners, each with its own Docker stack, so a hotfix waits
+  # for a quarter of the suite rather than all of it (it took 11-16 minutes on one runner). The
+  # tests share one database WITHIN a runner (`workers: 1`), never across runners.
+  e2e-shard:
+    name: e2e shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     env:
       DISABLE_CAPTCHA: "true"
       DISABLE_EMAIL: "true"
@@ -93,7 +101,7 @@ jobs:
       - run: ./scripts/seed_fixture.sh
       - name: Run Playwright tests
         working-directory: front-end
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/4
       - name: Report flaky tests
         if: always()
         working-directory: front-end
@@ -103,7 +111,7 @@ jobs:
             PASSED=$(jq -r '.stats.expected // 0' test-results/results.json)
             FAILED=$(jq -r '.stats.unexpected // 0' test-results/results.json)
             {
-              echo "### E2E Test Results"
+              echo "### E2E Test Results (shard ${{ matrix.shard }}/4)"
               echo "| Outcome | Count |"
               echo "|---------|-------|"
               echo "| Passed  | $PASSED |"
@@ -126,8 +134,18 @@ jobs:
       - uses: actions/upload-artifact@v5
         if: failure()
         with:
-          name: playwright-artifacts
+          name: playwright-artifacts-shard-${{ matrix.shard }}
           path: |
             front-end/playwright-report/
             front-end/test-results/
           retention-days: 7
+
+  # The one check to require: it passes only when every shard did, so branch protection names a
+  # single job whatever the shard count becomes.
+  e2e:
+    if: always()
+    needs: e2e-shard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every shard passed
+        run: test "${{ needs.e2e-shard.result }}" = "success"
