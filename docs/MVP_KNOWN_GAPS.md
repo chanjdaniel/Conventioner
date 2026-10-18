@@ -12,7 +12,7 @@ Every item was checked against the product on 2026-10-03, on `fix/mvp-e2e-testin
 | --- | --- | --- | --- | --- |
 | 1 | [The solver fills market dates in calendar order](#1-the-solver-fills-market-dates-in-calendar-order) | Known behaviour (bug 39) | J3 | Code |
 | 2 | [The import suggests only Timestamp and Email Address](#2-the-import-suggests-only-timestamp-and-email-address) | Usability | H2a | Re-walk |
-| 3 | [Attendance cannot say who is missing](#3-attendance-cannot-say-who-is-missing) | Usability | K5 | Re-walk |
+| 3 | [Attendance cannot say who is missing](#3-attendance-cannot-say-who-is-missing) | Fixed 2026-10-18 | K5 | Re-walk |
 | 4 | [The review card puts the applicant's name last](#4-the-review-card-puts-the-applicants-name-last) | Usability | I1 | Re-walk |
 | 5 | [The reviewed list is emails only](#5-the-reviewed-list-is-emails-only) | Usability | I2 | Code |
 | 6 | [Publish Results is one click](#6-publish-results-is-one-click) | Usability | I7 | Re-walk |
@@ -61,6 +61,8 @@ A later import restores the mapping, and a market started from its Google Form n
 The essential questions need their usual headings recognised too ("Full Name" for Full name).
 
 ### 3. Attendance cannot say who is missing
+
+**Fixed on 2026-10-18** by [E29](../.scratch/backlog/E29-the-door-on-market-day/epic.md): Attendance lists every vendor placed on a date, by name and table, with "Not yet" or their check-in time, counted and filterable, and an editor can check a vendor in.
 
 **What happens:** Attendance lists only vendors who have checked in, by email, with a column only for dates on which someone did.
 On market day an organizer cannot see who is expected, who has not arrived, or which table is empty, and cannot check a vendor in themselves.

@@ -208,6 +208,20 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   (`front-end/src/stores/market.ts`); a transition from the rail is followed by the store
   re-reading the market, and the rail never fails a screen that cannot load one.
 
+## The Door on Market Day (Conventioner sharp edge)
+
+- **Attendance is a roster off the stored assignment** (E29): `GET /markets/:id/attendance` serves
+  `{dates, roster}`, every vendor placed per date with `checkedInAt`/`checkedInBy`
+  (`attendance_roster` in `api/attendance.py`). Never derive who is expected from check-in records:
+  that list is who came, and it is how the page could not say who was missing.
+- **An organizer checks a vendor in through `api/door.py`**: `POST`/`DELETE /markets/:id/attendance`,
+  EDITOR, `market_days` only, loading through `_load_market_to_change`. It writes through
+  `record_attendance`, which stamps `checked_in_by` (None for the vendor's own), so the two doors
+  record alike. A vendor checking in on another day is not refused, and no screen suggests it.
+- **One organizer screen works on a phone**: a route with `meta: { fitsAPhone: true }` lifts the
+  app's 1000px desktop floor (`App.vue`) and nothing else; at 640px and below the market bar's tabs
+  and the rail's spine scroll sideways inside themselves. Only Attendance has it.
+
 ## Placements, Pins and the Trail (Conventioner sharp edge)
 
 - **Assign runs in the `assignment` phase and nowhere else** (`assign_phase_refusal` in
