@@ -246,6 +246,13 @@ export interface Market {
    * beside `readOnlyReason`, from the same permission check the writes ask.
    */
   adminActionsReason?: string | null;
+  /**
+   * What would refuse each move open from this phase, judged by the guards the move runs; empty
+   * for a move that would succeed (E31/F02/S01). Served so a screen says no before the click.
+   */
+  transitionBlockers?: Record<string, PreconditionResult[]>;
+  /** Why the setup on Market Setup can no longer change, or null in draft (E31/F01/S02). */
+  setupLockReason?: string | null;
   userRole?: MarketRole; // User's effective role (added by API)
 }
 

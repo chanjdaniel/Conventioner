@@ -77,14 +77,13 @@ test('a Viewer reads every market page and is offered nothing to change', async 
   });
 });
 
-test('an Editor changes the plan and the seats, but moves no phase and decides nothing', async ({
-  browser,
-}) => {
+test('an Editor changes the seats, but moves no phase and decides nothing', async ({ browser }) => {
   await asUser(browser, EDITOR, async (page) => {
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('plan-card-dates')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('market-read-only')).toHaveCount(0);
-    await expect(page.getByTestId('plan-card-dates').getByRole('button').first()).toBeEnabled();
+    // Past draft nobody changes the setup (E31/F01/S03): the reason is the market's, not the role's.
+    await expect(page.getByTestId('market-read-only')).toContainText('The setup is settled');
+    await expect(page.getByTestId('market-read-only')).not.toContainText('editing access');
     await expect(page.locator('.rail-button--forward')).toHaveCount(0);
     await expect(page.getByTestId('phase-rail-menu-button')).toHaveCount(0);
 

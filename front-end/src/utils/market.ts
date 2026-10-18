@@ -144,5 +144,9 @@ export function parseMarketFromApi(market: any): Market {
     // (E26/F06/S01, E26/F08/S01).
     readOnlyReason: market.readOnlyReason,
     adminActionsReason: market.adminActionsReason,
+    // What would refuse each move open from the phase, keyed by phase (E31/F02/S01), and why the
+    // setup can no longer change (E31/F01/S02). Dropped here, the rail offered every move as before.
+    transitionBlockers: market.transitionBlockers,
+    setupLockReason: market.setupLockReason,
   };
 }

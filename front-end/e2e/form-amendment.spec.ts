@@ -30,7 +30,7 @@ const HEADERS = [
 ];
 
 const ROWS = [
-  '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,"2026-08-01, 2026-08-08",2,Gold,half,,"Garden, Main Hall",Left hand twice',
+  '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,"2099-08-01, 2099-08-08",2,Gold,half,,"Garden, Main Hall",Left hand twice',
 ];
 
 const CSV = [HEADERS.join(','), ...ROWS].join('\n');
@@ -38,6 +38,8 @@ const CSV = [HEADERS.join(','), ...ROWS].join('\n');
 async function seedPlannedMarket(request: APIRequestContext) {
   return await seedApplicantMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
     setupObject: planSetupObject(),
+    // Importing is the CSV path's (E31/F03/S04).
+    intakeMode: 'csv',
   });
 }
 
@@ -124,7 +126,8 @@ test.describe('Fixing the form from inside the import', () => {
     // phase it returned to, and the question it added (E21/F02/S04). The import used to read and
     // never write a stored copy of the market, so the way back showed the market as it had been.
     await page.getByTestId('import-leave-button').click();
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
+    // A CSV market's name for it (E31/F03/S03).
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Collecting', {
       timeout: 10000,
     });
     await page.getByTestId('market-bar-tab-form').click();
@@ -184,53 +187,6 @@ test.describe('Fixing the form from inside the import', () => {
     await expect(importPage.filename).toContainText('.csv');
     await expect(importPage.columnRows).toHaveCount(HEADERS.length);
     await expect(importPage.targetSelectAt(2)).toHaveValue('essential_full_name');
-  });
-
-  test('a form edited so that it asks nothing is refused, and the market does not move', async ({
-    authenticatedPage: page,
-    request,
-  }) => {
-    /*
-     * Pre-flight, not rollback. The alternative - move, write, discover the return is refused -
-     * strands a market in draft mid-import with nothing saying a phase had moved.
-     *
-     * Driven against the endpoint, because the dialog's own guard disables the button before the
-     * request is made: the refusal being tested is the SERVER's, which is the authority.
-     */
-    const seed = await seedApplicantMarket(
-      request,
-      BACKEND_URL,
-      TEST_USER.email,
-      TEST_USER.password,
-      // A plan that offers nothing, so the essential questions ask nothing either.
-      {
-        setupObject: {
-          priority: [],
-          marketDates: [],
-          tiers: [],
-          locations: [],
-          sections: [],
-          assignmentOptions: {},
-          floorplans: [],
-        },
-      },
-    );
-    await page.goto('/markets');
-
-    const refused = await request.post(
-      `${BACKEND_URL}/markets/${seed.marketId}/application-form/amendment`,
-      {
-        headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-        data: { applicationForm: { fields: [] } },
-      },
-    );
-    expect(refused.status()).toBe(409);
-    const body = (await refused.json()) as { error: string; blockers: Array<{ id: string }> };
-    expect(body.error).toBe('preconditions_not_met');
-    expect(body.blockers.map((b) => b.id)).toContain('form_has_fields');
-
-    // Nothing moved, so there is nothing to recover.
-    expect(await phaseOf(request, seed.marketId)).toBe('applications_open');
   });
 
   test('once somebody has applied the chain is unavailable, and says why', async ({

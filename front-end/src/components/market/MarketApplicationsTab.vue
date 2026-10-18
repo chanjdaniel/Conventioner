@@ -13,7 +13,8 @@ import { computed, ref } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
-import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
+import { MarketPhase, type Market } from '@/assets/types/datatypes';
+import { intakePath } from '@/utils/marketGuide';
 
 const props = defineProps<{
   market: Market | null;
@@ -29,6 +30,9 @@ const namedApplication = computed(() => String(route.query.application ?? ''));
 
 /** Published by the review queue, so this surface can lead with it while reviewing. */
 const undecided = ref(0);
+
+/** Its vendors apply on the organizer's own Google Form and arrive by import (E31/F03). */
+const csvMarket = computed(() => intakePath(props.market) === 'csv');
 
 /**
  * Which of its three phases this surface is in, IN WORDS (E18/F02/S03).
@@ -48,14 +52,18 @@ const condition = computed(() => {
   const undecidedPhrase =
     undecided.value === 1 ? '1 application' : `${undecided.value} applications`;
   switch (props.market?.phase) {
+    // What arrives here, and how. The next step is the rail's to say (E31/F02/S02), so these
+    // describe the page rather than repeat it.
     case MarketPhase.ApplicationsOpen:
       // Only a form market's applications arrive by themselves; a CSV market's come in by import
-      // (bug 16).
-      return props.market?.intakeMode === IntakeMode.Form
-        ? 'This market is open for applications. New ones will keep arriving here.'
-        : "This market is open for applications. Import them from your form's responses as they come in.";
+      // (bug 16), and nothing on it suggests vendors apply here (E31/F03/S03).
+      return csvMarket.value
+        ? 'The responses you import from your Google Form arrive here, ready to review.'
+        : 'This market is open for applications. New ones will keep arriving here.';
     case MarketPhase.ApplicationsClosed:
-      return 'This market is no longer receiving applications. You can still import the ones you collected elsewhere.';
+      return csvMarket.value
+        ? 'Your Google Form is closed. The last responses you import arrive here.'
+        : 'This market is no longer taking applications. No new ones will arrive.';
     case MarketPhase.Review:
       return undecided.value === 0
         ? 'Every application has been decided. This market is ready to assign.'
@@ -81,7 +89,9 @@ const condition = computed(() => {
     <!-- The button used to be live in every phase and navigate to a page whose only
          content was the refusal. The gate is right; being told before the click is the
          part that was missing. -->
-    <div class="applications-toolbar">
+    <!-- Importing is the CSV path's (E31/F03/S04): a market whose vendors apply on its own page
+         takes nothing from a file, and was offered it as its primary button. -->
+    <div v-if="csvMarket" class="applications-toolbar">
       <button
         class="import-entry-button"
         :disabled="importRefusalReason !== null"

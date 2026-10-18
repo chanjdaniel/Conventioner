@@ -128,7 +128,7 @@ for (const timezoneId of TIMEZONES) {
       // Both edges of the month are where a local-offset bug shows first.
       await expect(page.getByTestId('setup-dates-day-2026-07-01')).toBeVisible();
       await expect(page.getByTestId('setup-dates-day-2026-07-31')).toBeVisible();
-      await expect(page.getByTestId('setup-dates-day-2026-08-01')).toHaveCount(0);
+      await expect(page.getByTestId('setup-dates-day-2099-08-01')).toHaveCount(0);
 
       // Stepping a month, and back, lands where it started.
       await page.getByTestId('setup-dates-next-month').click();

@@ -110,7 +110,7 @@ test.describe('Every market page has its own address', () => {
     await expect(page).toHaveURL(new RegExp(`/markets/${assigned}/result$`));
   });
 
-  test('Attendance is a tab once the market is published, the moment it is', async ({
+  test('Attendance opens the moment the market is published', async ({
     authenticatedPage: page,
     request,
   }) => {
@@ -119,12 +119,17 @@ test.describe('Every market page has its own address', () => {
     ).marketId;
     await page.goto(at(market, 'assignment'));
     await activeTab(page, 'assignment');
-    await expect(page.getByTestId('market-bar-tab-attendance')).toHaveCount(0);
+    // The tab is there from draft (E31/F03/S02); before publishing it says when it opens.
+    await page.getByTestId('market-bar-tab-attendance').click();
+    await expect(page.getByTestId('market-tab-note')).toHaveText(
+      'Opens when the market is published.',
+    );
 
     await page.getByTestId('phase-transition-market_days').click();
     await page.getByTestId('sweep-confirm-submit-button').click();
 
-    await expect(page.getByTestId('market-bar-tab-attendance')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('market-tab-note')).toHaveCount(0, { timeout: 10000 });
+    await expect(page.getByTestId('attendance-summary')).toBeVisible();
   });
 
   test('no market page keeps a Back button of its own', async ({ authenticatedPage: page }) => {

@@ -8,7 +8,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import PhaseRail from '@/components/PhaseRail.vue';
-import { MarketPhase, type Market } from '@/assets/types/datatypes';
+import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 
 function railFor(phase: MarketPhase, overrides: Partial<Market> = {}) {
   return mount(PhaseRail, {
@@ -54,10 +54,20 @@ describe('the spine', () => {
   });
 
   it('labels every stage in words a person reads', () => {
-    const rail = railFor(MarketPhase.Draft);
+    const rail = railFor(MarketPhase.Draft, { intakeMode: IntakeMode.Form });
 
     expect(rail.text()).toContain('Applications Open');
     expect(rail.text()).toContain('Market Days');
+  });
+
+  it("names a CSV market's collecting for its Google Form (E31/F03/S03)", () => {
+    const rail = railFor(MarketPhase.Draft, { intakeMode: IntakeMode.Csv });
+
+    expect(rail.text()).toContain('Collecting');
+    expect(rail.text()).not.toContain('Applications Open');
+    expect(rail.get('[data-testid="phase-transition-applications_open"]').text()).toBe(
+      'Start Collecting',
+    );
   });
 });
 

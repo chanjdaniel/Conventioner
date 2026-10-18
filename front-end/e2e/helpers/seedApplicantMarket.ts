@@ -43,7 +43,8 @@ export const APPLICATION_FIELDS = [
 ];
 
 /** The dates, sections and table types a seeded market plan offers. */
-export const PLAN_DATES = ['2026-08-01', '2026-08-08', '2026-08-15'];
+// Still to come, and Saturdays as the dates they replaced were (E31/F01/S01).
+export const PLAN_DATES = ['2099-08-01', '2099-08-08', '2099-08-15'];
 export const PLAN_SECTIONS = ['Main Hall', 'Garden'];
 export const PLAN_TABLE_TYPES = ['Full Table', 'Half Table'];
 export const PLAN_TIERS = ['Gold', 'Silver'];
@@ -59,10 +60,11 @@ export function planSetupObject(dates: string[] = PLAN_DATES) {
     marketDates: dates.map((date) => ({ date })),
     tiers: PLAN_TIERS.map((name, id) => ({ id, name })),
     locations: [{ name: 'Indoors' }],
-    sections: PLAN_SECTIONS.map((name) => ({
+    // Each tier has tables, which leaving draft asks for (E31/F01/S01).
+    sections: PLAN_SECTIONS.map((name, index) => ({
       name,
       location: { name: 'Indoors' },
-      tier: null,
+      tier: { id: index, name: PLAN_TIERS[index] },
       count: 4,
     })),
     assignmentOptions: {
@@ -117,7 +119,8 @@ export async function seedApplicantMarket(
       // defaults to `csv`, which switches the applicant surface off entirely. A spec that wants
       // that switched-off market asks for `csv` here.
       intakeMode: options.intakeMode ?? 'form',
-      ...(options.setupObject ? { setupObject: options.setupObject } : {}),
+      // A market leaves draft only with a complete setup (E31/F01/S01), so one is always given.
+      setupObject: options.setupObject ?? planSetupObject(),
     },
   });
   if (!createRes.ok()) {

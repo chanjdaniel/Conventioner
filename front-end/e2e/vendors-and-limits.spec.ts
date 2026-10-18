@@ -18,8 +18,8 @@ import { mongoContainer } from './helpers/containerNames';
  * free - they could be placed", with a link inviting the organizer to break their limit.
  */
 const D1 = SEED_MARKET_DATE;
-const D2 = '2026-05-02';
-const D3 = '2026-05-03';
+const D2 = '2099-05-02';
+const D3 = '2099-05-03';
 const GOLD = { id: 1, name: 'Gold' };
 
 function mongoEval(script: string): void {

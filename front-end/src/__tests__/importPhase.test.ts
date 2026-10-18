@@ -17,14 +17,14 @@ describe('importRefusal', () => {
   it('sends a draft forward, which is the only direction it can go', () => {
     const reason = importRefusal('draft');
 
-    expect(reason).toContain('Open applications first');
+    expect(reason).toContain('Start collecting first');
     expect(reason).not.toContain('back');
   });
 
   it('sends a market in review back, by the name of the move the rail offers', () => {
     const reason = importRefusal('review');
 
-    expect(reason).toContain('Return to Applications Closed');
+    expect(reason).toContain('Back to Importing');
     expect(reason).toContain('review phase');
   });
 

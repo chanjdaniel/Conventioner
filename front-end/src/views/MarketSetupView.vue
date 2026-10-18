@@ -407,7 +407,7 @@ function handlePathChoice(path: 'manual' | 'floorplan') {
           :intakeMode="planIntakeMode"
           :intakeEditable="intakeEditable"
           :csvStartRefusal="market?.adminActionsReason || market?.csvStartRefusal || null"
-          :readOnlyReason="market?.readOnlyReason ?? null"
+          :readOnlyReason="market?.readOnlyReason || market?.setupLockReason || null"
           :formQuestions="market.applicationForm?.fields?.length ?? 0"
           :formLockReason="market.applicationFormLockReason ?? null"
           @update:setupObject="handleUpdateSetupObject"

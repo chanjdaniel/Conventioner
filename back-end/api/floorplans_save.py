@@ -99,6 +99,10 @@ def save_floorplan_to_market():
         refusal = MarketsApi.archived_refusal(context.market)
         if refusal:
             return jsonify({"error": refusal}), 403
+        # A floorplan writes the sections and locations, which settle on leaving draft (E31/F01/S02).
+        settled = MarketsApi.setup_lock_reason(context.market)
+        if settled:
+            return jsonify({"error": settled}), 409
 
         # ── 3. Extract sections and locations from floorplan ───────────────
         sections_data = []

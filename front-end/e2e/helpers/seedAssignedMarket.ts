@@ -30,8 +30,12 @@ export async function seedAssignedMarket(
   baseURL: string,
   email: string,
   password: string,
-  /** `run: false` stops in the assignment phase with nothing run yet (E22/F04/S03). */
-  options: { name?: string; run?: boolean } = {},
+  /**
+   * `run: false` stops in the assignment phase with nothing run yet (E22/F04/S03). `tables` is how
+   * many the one section has, 5 unless named: the plan is settled once the market leaves draft
+   * (E31/F01/S01), so a spec wanting a smaller room asks for it here rather than shrinking it later.
+   */
+  options: { name?: string; run?: boolean; tables?: number } = {},
 ): Promise<AssignedSeedResult> {
   const seed = await seedMarketWithVendors(request, baseURL, email, password, options);
 
@@ -47,7 +51,7 @@ export async function seedAssignedMarket(
         name: 'Hall A',
         location: { name: 'Main Hall' },
         tier: { id: 1, name: 'Gold' },
-        count: 5,
+        count: options.tables ?? 5,
       },
     ],
     assignmentOptions: {

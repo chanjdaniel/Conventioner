@@ -18,7 +18,7 @@ import { mongoContainer } from './helpers/containerNames';
  * come could be the only name in it, unmarked.
  */
 const D1 = SEED_MARKET_DATE;
-const D2 = '2026-05-08';
+const D2 = '2099-05-08';
 const GOLD = { id: 1, name: 'Gold' };
 const SILVER = { id: 2, name: 'Silver' };
 

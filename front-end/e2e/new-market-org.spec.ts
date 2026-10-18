@@ -125,8 +125,9 @@ test.describe('New market - organization is required', () => {
     await expect(newMarketPage.submitButton).toBeDisabled();
     await page.screenshot({ path: testInfo.outputPath('01-submit-blocked-no-org.png') });
 
-    // Picking an organization unlocks submission.
+    // Picking an organization, and how vendors apply, unlocks submission.
     await newMarketPage.selectFirstOrg();
+    await newMarketPage.choosePath('form');
     await expect(newMarketPage.submitButton).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('02-org-selected-submit-enabled.png') });
   });

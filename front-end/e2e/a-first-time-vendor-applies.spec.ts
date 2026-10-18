@@ -14,7 +14,7 @@ import {
  * found one - so a new address was sent nothing and, with a code in hand, was returned to "Sign
  * In" with no word. Every other spec seeds the application before signing in, so none met this.
  */
-const DATE = '2026-08-01';
+const DATE = '2099-08-01';
 const NEW_VENDOR = 'first-time-vendor@example.com';
 const CODE = '246810';
 

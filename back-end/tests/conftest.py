@@ -303,6 +303,32 @@ def mongo_matches(doc: dict, query: dict) -> bool:
     return True
 
 
+# A plan complete enough to leave draft (E31/F01/S01): a date still to come, a location, and tables
+# at its one tier. As it is stored, camelCase; ``complete_setup()`` is the same plan as a model.
+COMPLETE_PLAN = {
+    "priority": [],
+    "marketDates": [{"date": "2099-08-01"}],
+    "tiers": [{"id": 0, "name": "Gold"}],
+    "locations": [{"name": "Main Hall"}],
+    "sections": [
+        {"name": "Main Hall", "count": 4, "location": {"name": "Main Hall"},
+         "tier": {"id": 0, "name": "Gold"}},
+        {"name": "Garden", "count": 4, "location": {"name": "Main Hall"},
+         "tier": {"id": 0, "name": "Gold"}},
+    ],
+    "assignmentOptions": {},
+    "floorplans": [],
+}
+
+
+def complete_setup():
+    """``COMPLETE_PLAN`` as the model a ``Market`` holds."""
+    from assignment.utils import convert_keys_to_snake_case
+    from datatypes import SetupObject
+
+    return SetupObject(**convert_keys_to_snake_case(COMPLETE_PLAN))
+
+
 def stored_market(phase: MarketPhase = MarketPhase.DRAFT, **overrides) -> dict:
     """A market document as Mongo holds it: camelCase, phase and slug stamped on by the server.
 
@@ -473,11 +499,13 @@ def market_records(monkeypatch):
     import api.applicant_auth as ApplicantAuth
     import api.attendance as AttendanceApi
     import placement_history as PlacementHistory
+    import vendor_notes as VendorNotes
 
     fakes = SimpleNamespace(
         attendance=FakeApplicationsCollection(), challenges=FakeApplicationsCollection(),
-        history=FakeApplicationsCollection(),
+        history=FakeApplicationsCollection(), notes=FakeApplicationsCollection(),
     )
+    monkeypatch.setattr(VendorNotes, "vendor_notes_collection", fakes.notes)
     monkeypatch.setattr(AttendanceApi, "attendance_collection", fakes.attendance)
     monkeypatch.setattr(ApplicantAuth, "challenges_collection", fakes.challenges)
     monkeypatch.setattr(PlacementHistory, "placement_history_collection", fakes.history)

@@ -1,5 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { savePlan } from './helpers/savePlan';
+import { changeASettledPlan } from './helpers/settledPlanChanged';
 import type { APIRequestContext } from '@playwright/test';
 import { loginViaApi, ensureTestOrgAuthenticated } from './helpers/seeds';
 import {
@@ -20,7 +21,7 @@ import {
 
 const PLAN = {
   priority: [],
-  marketDates: [{ date: '2026-08-01' }],
+  marketDates: [{ date: '2099-08-01' }],
   tiers: [{ id: 1, name: 'Gold' }],
   locations: [{ name: 'Main Hall' }],
   sections: [
@@ -83,7 +84,7 @@ test.describe('Placement pins', () => {
   }) => {
     const first = await place(request, seed.marketId, {
       email: 'pinned@example.com',
-      date: '2026-08-01',
+      date: '2099-08-01',
       tableCode: 'Front 1',
       tableChoice: 'Full Table',
     });
@@ -91,7 +92,7 @@ test.describe('Placement pins', () => {
 
     const second = await place(request, seed.marketId, {
       email: 'other@example.com',
-      date: '2026-08-01',
+      date: '2099-08-01',
       tableCode: 'Front 1',
       tableChoice: 'Full Table',
     });
@@ -107,13 +108,14 @@ test.describe('Placement pins', () => {
     // deleted - a deliberate guarantee is never lost silently - so the reckoning lands here.
     const pinned = await place(request, seed.marketId, {
       email: 'pinned@example.com',
-      date: '2026-08-01',
+      date: '2099-08-01',
       tableCode: 'Front 3',
       tableChoice: 'Full Table',
     });
     expect(pinned.ok(), await pinned.text()).toBeTruthy();
 
-    await setPlan(request, seed, 1);
+    // As only a market older than the settled setup could (E31/F01/S01).
+    changeASettledPlan(seed.marketId, { ...PLAN, sections: [{ ...PLAN.sections[0], count: 1 }] });
 
     const blocked = await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
@@ -138,7 +140,7 @@ test.describe('Placement pins', () => {
     // Re-placing it onto a seat the plan still has clears the blocker.
     const rePlaced = await place(request, seed.marketId, {
       email: 'pinned@example.com',
-      date: '2026-08-01',
+      date: '2099-08-01',
       tableCode: 'Front 1',
       tableChoice: 'Full Table',
     });

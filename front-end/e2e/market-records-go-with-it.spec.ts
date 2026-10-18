@@ -44,7 +44,7 @@ function seedRecords(marketId: string): void {
   const at = new Date().toISOString();
   mongo(`
     db.attendance.insertOne({ market_id: ${JSON.stringify(marketId)}, email: 'kept@example.test',
-      date: '2026-08-01', checked_in_at: ${JSON.stringify(at)} });
+      date: '2099-08-01', checked_in_at: ${JSON.stringify(at)} });
     db.placement_history.insertOne({ market_id: ${JSON.stringify(marketId)}, at: ${JSON.stringify(at)} });
     db.applicant_login_challenges.insertOne({ market_id: ${JSON.stringify(marketId)},
       email: 'kept@example.test', expires_at: new Date(Date.now() + 3600 * 1000) });

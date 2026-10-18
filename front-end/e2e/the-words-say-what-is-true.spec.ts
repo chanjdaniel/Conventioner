@@ -56,9 +56,11 @@ test('the plan says what the application form is, not only what it could be', as
       setupObject: planSetupObject(),
     },
   );
+  // Past draft, Market Setup is a settled record and says so; the form is its own tab's to describe
+  // (E31/F01/S03).
   await page.goto(marketSetupPath(open.marketId, 'setup'));
-  await expect(page.getByTestId('plan-form-locked')).toContainText('can only be edited');
-  await expect(page.getByTestId('plan-form-locked')).toContainText('See the application form');
+  await expect(page.getByTestId('market-read-only')).toContainText('The setup is settled');
+  await expect(page.getByTestId('plan-card-form')).toHaveCount(0);
 });
 
 test('an open market says where its applications come from', async ({
@@ -67,7 +69,7 @@ test('an open market says where its applications come from', async ({
 }) => {
   for (const [intakeMode, says] of [
     ['form', 'New ones will keep arriving here.'],
-    ['csv', "Import them from your form's responses as they come in."],
+    ['csv', 'The responses you import from your Google Form arrive here'],
   ] as const) {
     const { marketId } = await seedApplicantMarket(
       request,
@@ -114,7 +116,7 @@ test('a market past review is not sent back to a phase it cannot reach to import
     TEST_USER.email,
     TEST_USER.password,
   );
-  await planned(request, marketId);
+  // The seed's plan is complete, so it may leave draft (E31/F01/S01).
   for (const phase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, phase);
   }

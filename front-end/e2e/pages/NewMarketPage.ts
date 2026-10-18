@@ -47,6 +47,14 @@ export class NewMarketPage {
     await this.nameInput.fill(name);
   }
 
+  /**
+   * Say how vendors will apply. Nothing is chosen until this is (E31/F03/S01): on the market's own
+   * page lands on Market Setup, on the organizer's Google Form on its Upload step.
+   */
+  async choosePath(path: 'form' | 'csv'): Promise<void> {
+    await this.page.getByTestId(`new-market-path-${path}`).locator('input').check();
+  }
+
   /** Click the submit button to create the market. */
   async clickSubmit(): Promise<void> {
     await this.submitButton.click();

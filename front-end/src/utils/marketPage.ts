@@ -83,20 +83,15 @@ const FLOW_TAB: Record<MarketFlow, MarketTab> = {
 };
 
 /**
- * The tabs a market shows: Attendance only for one whose check-in page is on the air, or was.
+ * The tabs a market shows: all five, for its whole life (E31/F03/S02).
  *
- * "Was" is read off the market's phase history (E26/F06/S03), not off `archived`: an archived
- * market that never reached Market Days had no check-in page and has no attendance to show, and
- * offering the tab said otherwise (bug 30).
+ * Attendance used to appear only once the check-in page went on the air, so the bar changed shape
+ * as the market moved. A tab out of its phase now stays, read-only, and says when it matters
+ * (`tabNote` in `utils/marketGuide.ts`) - an archived market that never ran says it has no
+ * attendance (bug 30) rather than hiding the tab.
  */
-export function tabsFor(
-  market: Pick<Market, 'phase' | 'phasesReached'> | null | undefined,
-): MarketTab[] {
-  const four: MarketTab[] = ['setup', 'form', 'applications', 'assignment'];
-  const ran =
-    market?.phase === MarketPhase.MarketDays ||
-    (market?.phasesReached ?? []).includes(MarketPhase.MarketDays);
-  return ran ? [...four, 'attendance'] : four;
+export function tabsFor(): MarketTab[] {
+  return ['setup', 'form', 'applications', 'assignment', 'attendance'];
 }
 
 /** The tab a page or a flow stands under. */
@@ -130,8 +125,8 @@ export function currentPage(phase: string | undefined | null, hasAssignment: boo
     case MarketPhase.Archived:
       return hasAssignment ? 'result' : 'setup';
     default:
-      // A phase this build does not recognise still gets a page. The plan is editable in every
-      // phase, so it is the one page that is never wrong to show.
+      // A phase this build does not recognise still gets a page. Every market has a plan, so it
+      // is the one page that is never wrong to show.
       return 'setup';
   }
 }

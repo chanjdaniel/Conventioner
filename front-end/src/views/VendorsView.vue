@@ -36,6 +36,8 @@ import PlacementHistory from '@/components/PlacementHistory.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
+import VendorNotes from '@/components/VendorNotes.vue';
+import { useVendorNotes } from '@/utils/vendorNotes';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import {
   filterOptions,
@@ -98,6 +100,10 @@ const route = useRoute();
  */
 const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market } = useOpenMarket(marketId);
+
+/** What each vendor asked for and what the organizers noted (E31/F04/S04). */
+const { load: loadNotes, entryFor } = useVendorNotes(marketId);
+watch(marketId, loadNotes, { immediate: true });
 
 /** Is this vendor's placement on this date at a table the plan no longer has (bug 31)? */
 function isOrphaned(email: string, date: string): boolean {
@@ -621,6 +627,18 @@ useInertBehind(
             :notice="selectedVendor.tableShareNotice"
             :words="String(selectedVendor.answers[TABLE_SHARE_ANSWER_KEY] ?? '')"
             testid="vendors-detail-table-share-notice"
+          />
+        </section>
+
+        <section class="detail-section">
+          <VendorNotes
+            :marketId="marketId"
+            :email="selectedVendor.email"
+            :entry="entryFor(selectedVendor.email)"
+            :canWrite="!!market && !market.readOnlyReason"
+            open
+            testid="vendors-detail-notes"
+            @changed="loadNotes"
           />
         </section>
 

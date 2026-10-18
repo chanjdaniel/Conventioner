@@ -1,0 +1,161 @@
+/**
+ * What a market's screens say, phase by phase and path by path (E31/F02/S02, F03).
+ *
+ * Ticket 02 of the "what to show, and when" map: the walk found every screen offering what the
+ * market could not do yet, refusing only after the click, and a CSV market wearing the form
+ * path's words for steps no vendor ever sees.
+ */
+import { describe, expect, it } from 'vitest';
+import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
+import { phaseSpine } from '@/utils/phase';
+import {
+  forwardFrom,
+  intakePath,
+  nextStep,
+  pathPhaseLabel,
+  pathTabLabel,
+  pathTransitionLabel,
+  tabNote,
+} from '@/utils/marketGuide';
+import { TAB_LABELS } from '@/utils/marketPage';
+
+const TODAY = '2099-05-10';
+
+function market(phase: MarketPhase, overrides: Partial<Market> = {}): Market {
+  return {
+    id: 'm1',
+    name: 'Riverside',
+    phase,
+    intakeMode: IntakeMode.Form,
+    setupObject: { marketDates: [{ date: '2099-05-20' }] },
+    assignmentObject: { vendorAssignments: [] },
+    transitionBlockers: {},
+    ...overrides,
+  } as unknown as Market;
+}
+
+describe('the path a market is on', () => {
+  it('is CSV unless the market says form, as the server reads it', () => {
+    expect(intakePath(market(MarketPhase.Draft))).toBe('form');
+    expect(intakePath(market(MarketPhase.Draft, { intakeMode: undefined }))).toBe('csv');
+  });
+});
+
+describe('the words a CSV market wears', () => {
+  it('names the collecting phases for its Google Form, and the form path keeps its own', () => {
+    expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, 'csv')).toBe('Collecting');
+    expect(pathPhaseLabel(MarketPhase.ApplicationsClosed, 'csv')).toBe('Form Closed');
+    expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, 'form')).toBe('Applications Open');
+  });
+
+  it('names the moves for what the organizer does on each path', () => {
+    const draft = MarketPhase.Draft;
+    const open = MarketPhase.ApplicationsOpen;
+    const closed = MarketPhase.ApplicationsClosed;
+    expect(pathTransitionLabel(draft, open, 'csv')).toBe('Start Collecting');
+    expect(pathTransitionLabel(open, closed, 'csv')).toBe('Done Collecting');
+    expect(pathTransitionLabel(draft, open, 'form')).toBe('Open Applications');
+    expect(pathTransitionLabel(open, closed, 'form')).toBe('Close Applications');
+  });
+
+  it('calls the form "Questions", since no applicant ever sees it', () => {
+    expect(pathTabLabel('form', 'csv', TAB_LABELS)).toBe('Questions');
+    expect(pathTabLabel('form', 'form', TAB_LABELS)).toBe('Application Form');
+  });
+
+  it('never says vendors apply here, in any phase', () => {
+    for (const phase of phaseSpine()) {
+      const said = nextStep(market(phase as MarketPhase, { intakeMode: IntakeMode.Csv }), TODAY);
+      expect(said.text, phase).not.toMatch(/applications? (are |is )?open|open applications/i);
+    }
+  });
+});
+
+describe('the next step', () => {
+  it('has a statement for every phase on the spine, on both paths', () => {
+    for (const intakeMode of [IntakeMode.Form, IntakeMode.Csv]) {
+      for (const phase of phaseSpine()) {
+        const said = nextStep(market(phase as MarketPhase, { intakeMode }), TODAY);
+        expect(said.text, `${intakeMode} ${phase}`).not.toMatch(/^This market is in /);
+      }
+    }
+  });
+
+  it('is the first blocker, pointing at its fix, when the step would be refused', () => {
+    const blocked = market(MarketPhase.Draft, {
+      transitionBlockers: {
+        applications_open: [
+          {
+            id: 'every_tier_has_tables',
+            passed: false,
+            message: 'Tier Bronze has no tables.',
+            resolutionLink: 'setup',
+          },
+        ],
+      },
+    });
+
+    const said = nextStep(blocked, TODAY);
+
+    expect(said.text).toBe('To open applications: Tier Bronze has no tables.');
+    expect(said.page).toBe('setup');
+    expect(said.blocker?.id).toBe('every_tier_has_tables');
+  });
+
+  it('asks for a run before a result, and a check before publishing after one', () => {
+    expect(nextStep(market(MarketPhase.Assignment), TODAY).text).toMatch(/run the assignment/);
+    // Publish waits on the run, and the run - not its refusal - is what the sentence names.
+    const unrun = market(MarketPhase.Assignment, {
+      transitionBlockers: {
+        market_days: [{ id: 'assignment_computed', passed: false, message: 'Run it first.' }],
+      },
+    });
+    expect(nextStep(unrun, TODAY)).toMatchObject({
+      text: 'Set the rules and run the assignment.',
+      page: 'assignment',
+    });
+    const run = market(MarketPhase.Assignment, {
+      assignmentObject: { vendorAssignments: [{ email: 'a@x.com' }] },
+    } as Partial<Market>);
+    expect(nextStep(run, TODAY)).toMatchObject({ page: 'result' });
+    expect(nextStep(run, TODAY).text).toMatch(/cannot be undone/);
+  });
+
+  it('sends market days to the door, and to archiving once the last date has passed', () => {
+    expect(nextStep(market(MarketPhase.MarketDays), TODAY)).toMatchObject({
+      text: 'Check vendors in at the door.',
+      page: 'attendance',
+    });
+    expect(nextStep(market(MarketPhase.MarketDays), '2099-06-01').text).toMatch(/Archive it/);
+  });
+});
+
+describe('the step onward', () => {
+  it('is archiving once a running market has had its last day, and none before', () => {
+    expect(forwardFrom(market(MarketPhase.MarketDays), TODAY)).toBeNull();
+    expect(forwardFrom(market(MarketPhase.MarketDays), '2099-05-21')).toBe(MarketPhase.Archived);
+  });
+
+  it('is the spine step elsewhere', () => {
+    expect(forwardFrom(market(MarketPhase.Review), TODAY)).toBe(MarketPhase.Assignment);
+  });
+});
+
+describe('a tab out of its phase says when it matters', () => {
+  it('says applications arrive once they open, in the words of each path', () => {
+    expect(tabNote(market(MarketPhase.Draft), 'applications')).toMatch(/once they open/);
+    expect(
+      tabNote(market(MarketPhase.Draft, { intakeMode: IntakeMode.Csv }), 'applications'),
+    ).toMatch(/start collecting/);
+    expect(tabNote(market(MarketPhase.ApplicationsOpen), 'applications')).toBeNull();
+  });
+
+  it('says attendance opens on publishing, and is live once the market has run', () => {
+    expect(tabNote(market(MarketPhase.Draft), 'attendance')).toBe(
+      'Opens when the market is published.',
+    );
+    expect(tabNote(market(MarketPhase.MarketDays), 'attendance')).toBeNull();
+    const ran = market(MarketPhase.Archived, { phasesReached: [MarketPhase.MarketDays] });
+    expect(tabNote(ran, 'attendance')).toBeNull();
+  });
+});
