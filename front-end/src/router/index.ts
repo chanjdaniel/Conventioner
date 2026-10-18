@@ -115,6 +115,8 @@ const router = createRouter({
       path: '/markets/:marketId/attendance',
       name: 'attendance-status',
       component: () => import('@/views/AttendanceStatusView.vue'),
+      // The door on market day is sometimes a phone (E29/F01).
+      meta: { fitsAPhone: true },
     },
     // Every market screen is addressed by id (E21/F02/S02). The id-less path never held one to
     // preserve, so it can only send the organizer to choose a market.

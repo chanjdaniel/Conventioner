@@ -30,6 +30,13 @@ const router = useRouter();
 const marketStore = useMarketStore();
 const isLogin = computed(() => route.path === '/login');
 const isPublicPage = computed(() => route.matched.some((r) => r.meta.public === true));
+/**
+ * An organizer screen that must also work on a phone (E29/F01): the door on market day. Every other
+ * organizer screen keeps the desktop floor; this lifts the floor and nothing else.
+ */
+const fitsAPhone = computed(
+  () => isPublicPage.value || route.matched.some((r) => r.meta.fitsAPhone === true),
+);
 
 const user = ref<string | null>(null);
 const setUser = (user_data: string | null) => {
@@ -78,12 +85,12 @@ watch(isLogin, (newValue) => {
 </script>
 
 <template>
-  <div class="app-container" :class="{ 'app-public': isPublicPage }">
+  <div class="app-container" :class="{ 'app-public': fitsAPhone }">
     <header>
       <ElementBanner @menuOpen="navOpen = true" :isLogin="isLogin" :hasMenu="!isPublicPage" />
     </header>
 
-    <RouterView class="router-view" :class="{ 'router-view-public': isPublicPage }" />
+    <RouterView class="router-view" :class="{ 'router-view-public': fitsAPhone }" />
 
     <div
       v-if="!isPublicPage"

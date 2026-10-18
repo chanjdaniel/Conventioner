@@ -16,6 +16,7 @@ import csv_proposal as CsvProposal
 import csv_start as CsvStart
 import typesafe_client as TypeSafe
 import api.attendance as AttendanceApi
+import api.door as DoorApi
 import api.applications as ApplicationsApi
 import api.applicant_auth as ApplicantAuthApi
 import api.applicants as ApplicantsApi
@@ -1937,7 +1938,11 @@ def publish_market_results(market_id: str) -> Response:
 @app.route('/markets/<market_id>/attendance', methods=['GET'])
 @login_required
 def get_market_attendance(market_id: str) -> Response:
-    """Owner-facing attendance status for a market. Requires VIEWER permission."""
+    """Who is expected on each market date and who has come (E29/F01/S01). Requires VIEWER.
+
+    ``{dates, roster}``: every vendor the stored assignment places, per date, with when they
+    checked in and which organizer did it, if one did.
+    """
     try:
         requesting_user = authenticated_email()
 
@@ -1952,12 +1957,47 @@ def get_market_attendance(market_id: str) -> Response:
         ):
             return jsonify({"error": "User does not have permission to view this market"}), 403
 
-        result, status_code = AttendanceApi.get_attendance_for_market(market_id)
-        return jsonify({"attendance": result}), status_code
+        market_doc = AttendanceApi.markets_collection.find_one({"id": market_id})
+        return jsonify(AttendanceApi.attendance_roster(market_doc)), 200
     except Exception as e:
         logger.error(f"Error in get_market_attendance {market_id}: {e}")
         logger.error(traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
+
+
+def _door_write(market_id: str, write) -> Response:
+    """An organizer's check-in or its undo: body ``{vendorEmail, date}``, EDITOR (E29/F01/S02)."""
+    try:
+        data = request.json or {}
+        result, status_code = write(
+            market_id,
+            str(data.get("vendorEmail") or ""),
+            str(data.get("date") or ""),
+            authenticated_email(),
+        )
+        return jsonify(result), status_code
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        logger.error(f"Error in an organizer check-in at {market_id}: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/attendance', methods=['POST'])
+@login_required
+def organizer_check_in(market_id: str) -> Response:
+    """An organizer checks a vendor in at the door. Requires EDIT permission."""
+    return _door_write(market_id, DoorApi.check_in)
+
+
+@app.route('/markets/<market_id>/attendance', methods=['DELETE'])
+@login_required
+def organizer_undo_check_in(market_id: str) -> Response:
+    """An organizer takes back a check-in. Requires EDIT permission."""
+    return _door_write(market_id, DoorApi.undo_check_in)
 
 
 # misc

@@ -116,6 +116,35 @@ function linkFor(tab: MarketTab): string {
   gap: var(--space-hairline);
 }
 
+/* A phone, which only the door reaches (E29/F01): the name takes its own line and the tabs scroll
+   sideways inside the bar rather than widening the page. Every other market screen keeps the
+   desktop floor, so never meets this. */
+@media (width <= 640px) {
+  .market-bar {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 0;
+    padding: var(--space-2) var(--space-4) 0;
+  }
+
+  .market-bar-title {
+    flex: 1 1 100%;
+    font-size: var(--text-xl);
+  }
+
+  .market-bar-tabs {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .market-bar-tab {
+    white-space: nowrap;
+  }
+}
+
 .market-bar-tab {
   padding: var(--space-2) var(--space-4);
   border-bottom: 2px solid transparent;

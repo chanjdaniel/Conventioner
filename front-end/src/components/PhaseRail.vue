@@ -622,6 +622,25 @@ function cancelPending() {
   flex: 0 0 auto;
 }
 
+/* A phone, which only the door reaches (E29/F01): the spine keeps its full width - shrinking is
+   what makes labels collide - and scrolls sideways inside the rail rather than widening the page. */
+@media (width <= 640px) {
+  .phase-rail {
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .phase-spine {
+    flex: 1 1 100%;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .phase-step {
+    flex-shrink: 0;
+  }
+}
+
 .phase-step {
   display: flex;
   align-items: center;
