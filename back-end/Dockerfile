@@ -17,8 +17,8 @@ RUN wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/downloa
 RUN pip install --upgrade pip --no-cache-dir
 
 # Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-floorplan-solver.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-floorplan-solver.txt
 
 # Create a non-root user (suppresses the root user warning)
 RUN useradd -m -u 1000 appuser && \
