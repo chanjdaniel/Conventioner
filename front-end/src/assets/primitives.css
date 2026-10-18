@@ -141,13 +141,16 @@
 }
 
 /*
- * A select is never narrower than its own longest option. The Tier select rendered 65px wide with
- * 34px of text room while "Community" needs 71 - so every tier read "Co...", on the field that
- * sets a vendor's price. `min-content` on a select resolves to its widest option, which is the
- * one thing a grid track must not be allowed to squeeze below.
+ * A select is as wide as the place it is put, and no wider. It used to carry `min-width:
+ * min-content`, meant to stop a column squeezing a select below its longest option - but only
+ * Firefox resolves that to the widest option (Chromium ignores it), so it did nothing where the
+ * product is tested and, in Firefox, pushed every select whose options are sentences out of its
+ * column: the priority rules' question select ran under the answers and past the card's edge.
+ * `0` also overrides a flex item's automatic minimum, which in Firefox is that same widest option.
+ * A column that must fit a select's options says so in its own track.
  */
 .field--select {
-  min-width: min-content;
+  min-width: 0;
 }
 
 .field--textarea {
