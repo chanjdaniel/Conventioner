@@ -42,7 +42,7 @@ if [ "${TREEHOUSE_BUILD_VENV:-0}" = "1" ] && [ ! -x "$WORKTREE/back-end/env/bin/
   echo "[treehouse]   python venv + pip install (back-end, best-effort)"
   if python3 -m venv "$WORKTREE/back-end/env" \
      && "$WORKTREE/back-end/env/bin/pip" install -q --upgrade pip \
-     && "$WORKTREE/back-end/env/bin/pip" install -q -r "$WORKTREE/back-end/requirements.txt"; then
+     && "$WORKTREE/back-end/env/bin/pip" install -q -r "$WORKTREE/back-end/requirements.txt" -r "$WORKTREE/back-end/requirements-floorplan-solver.txt"; then
     echo "[treehouse]   venv ready"
   else
     echo "[treehouse]   WARNING: venv build failed — removing partial env; use Docker for the back-end" >&2
