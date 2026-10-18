@@ -133,6 +133,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   fixed square, and refuses without either. The organizer asks for a count per
   table type. The solver is bounded by its own `time_limit`
   (`SOLVER_TIME_LIMIT_S`); a thread timeout around it bounded nothing.
+- **Production has no `pyckingsolver`.** It ships only `manylinux_2_35` wheels and Vercel builds
+  on Amazon Linux 2023 (glibc 2.34), so it lives in `back-end/requirements-floorplan-solver.txt`
+  (Docker, CI, local) and production Auto-Place runs the grid fallback. Any dependency added to
+  `requirements.txt` must install on glibc 2.34; it failed every production build June-October 2026.
 - **Konva cannot read a CSS variable**: handed `var(--mm-red)` it silently keeps
   its previous colour. Pass a canvas colour through `canvasColor()`
   (`front-end/src/utils/canvasColor.ts`).
