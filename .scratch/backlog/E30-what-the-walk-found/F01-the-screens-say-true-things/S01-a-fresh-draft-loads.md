@@ -2,7 +2,7 @@
 id: E30/F01/S01
 title: A fresh draft's Result and Vendors load
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -17,7 +17,7 @@ Reproduce it first, end to end, on a fresh market made through the create dialog
 
 ## Acceptance criteria
 
-- [ ] A market with a null `setupObject` answers both endpoints without a 500, with an empty result.
-- [ ] Result and Vendors on that market render their empty state, with no error.
-- [ ] The banner reads "...the assignment phase. Set the rules".
-- [ ] A pytest pins both endpoints on a market with no plan; an e2e opens both pages on a fresh market.
+- [x] A market with a null `setupObject` answers both endpoints without a 500, with an empty result.
+- [x] Result and Vendors on that market render their empty state, with no error.
+- [x] The banner reads "...the assignment phase. Set the rules".
+- [x] A pytest pins both endpoints on a market with no plan; an e2e opens both pages on a fresh market.

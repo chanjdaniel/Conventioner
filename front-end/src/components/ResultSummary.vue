@@ -159,7 +159,9 @@ async function downloadCsv(): Promise<void> {
 
     <p v-if="!assigned" class="note" data-testid="result-empty">
       No assignment yet.
-      <template v-if="refusal">{{ refusal }}</template>
+      <!-- The space is spoken for: a template's trailing whitespace is condensed away, which ran
+           "phase." into "Set the rules" (E30/F01/S01). -->
+      <template v-if="refusal">{{ `${refusal} ` }}</template>
       <RouterLink :to="marketPath(market.id, 'assignment')">
         {{ refusal ? 'Set the rules' : 'Set the rules and run it' }}
       </RouterLink>
