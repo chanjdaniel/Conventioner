@@ -42,17 +42,50 @@ Release management is handled by [release-please](https://github.com/googleapis/
 ### How a Release Happens
 
 1. **Feature work lands on `dev`** through normal PRs with conventional commit messages.
-2. **A maintainer promotes `dev` → `main`** (e.g., `git checkout main && git merge dev && git push`).
+2. **A maintainer promotes `dev` → `main`** as a fast-forward: `git fetch origin && git push origin origin/dev:main`.
    This is the **only** way code reaches `main`.
-3. **release-please detects the new commits on `main`** and automatically opens (or updates) a **Release PR** targeting `main`.
+   A fast-forward deploys exactly the commit CI tested on `dev`; a merge or rebase would make a new commit nobody tested.
+3. **Vercel deploys `main` the moment it moves.**
+   Both projects (`makers-market-management-front-end` at `conventioner.io`, `makers-market-management-back-end` at `api.conventioner.io`) build every push to `main` to production, independently and with nothing gating them on CI.
+   The promotion **is** the deploy; the tag below is bookkeeping.
+4. **release-please detects the new commits on `main`** and automatically opens (or updates) a **Release PR** targeting `main`.
    This PR contains:
    - A version bump in `.release-please-manifest.json`
    - An updated `CHANGELOG.md` with all changes since the last release
-4. **A maintainer reviews and merges the Release PR.**
+5. **A maintainer reviews and merges the Release PR.**
    On merge, release-please automatically:
    - Creates a **git tag** (e.g., `v0.1.0`)
    - Creates a **GitHub Release** with the changelog content
-   - The deploy pipeline picks up the tag and deploys
+
+   Merging it is another push to `main`, so Vercel redeploys the same code with only the changelog changed.
+
+### After every deploy
+
+Check, in this order:
+
+1. `curl https://api.conventioner.io/healthz` answers `{"status":"ok"}` (the back end booted, which proves its configuration and migration markers, and its database answers).
+2. `https://conventioner.io/markets` opens when loaded directly, not only when navigated to (the SPA fallback in `front-end/vercel.json`).
+3. Sign in as an organizer.
+
+### Hotfixes
+
+`dev` is the hotfix lane, because promotion is a fast-forward: a fix merged to `dev` and promoted ships exactly what CI tested, and nothing else, **as long as nothing else is waiting on `dev`**.
+
+- **During a market window, `dev` takes fixes only.**
+  From the day an organizer starts using production for a market until it is archived, only `fix:` PRs merge to `dev`, and each is promoted as soon as its `dev` push is green.
+  Feature work waits on its branch.
+  For the November 2026 market the window is 2026-10-18 to 2026-11-21.
+- **A hotfix carries no migration during a window.**
+  A migration is forward-only, so it makes the release behind it impossible to roll back to.
+- **The emergency lane, when `dev` is not releasable:** branch `hotfix/<slug>` from `main`, PR it to `main`, and once it is merged, merge `main` back into `dev` so the next promotion is still a fast-forward.
+  Use it only when the window rule above was broken.
+
+### Rolling back
+
+Vercel keeps every production deployment.
+Roll back by promoting the previous one, in the dashboard (Deployments, then "Instant Rollback") or with `vercel rollback <deployment-url>`, **for each project separately**: the front end and the back end deploy independently.
+A rollback does not move `main`, so revert the bad commit on `dev` and promote it before the next deploy brings it back.
+A rollback cannot undo a migration; see the window rule above.
 
 ### Bootstrapping Note
 
@@ -144,7 +177,12 @@ A failure, a rate limit or a wait past 5 seconds leaves the rules' answer, marke
 ## Pre-Deploy: Database Migrations
 
 Migrations are never run automatically - rewriting stored documents is a deliberate operator action.
-Before a promotion reaches production, run the pending migrations in `back-end/migrations/` against the production database (each is idempotent, and `--dry-run` previews the changes):
+
+**A database created by `init_database.py` needs none of them**: it is born in the current shape and records the boot markers.
+Production was started that way on 2026-10-18, so the list below matters only for a database older than its code.
+Every script in `back-end/migrations/` is idempotent; the ones not described here (`migrate_roles`, `migrate_publishing_to_market_days`, `migrate_submitted_at_to_iso`, `migrate_tier_preference_per_date`, `migrate_table_code_separator`, `migrate_table_share_answer`) each say in their own docstring what they repair and when.
+
+Before a promotion reaches an older production database, run the pending migrations in `back-end/migrations/` against the production database (each is idempotent, and `--dry-run` previews the changes):
 
 ```bash
 python migrations/migrate_phase.py                    # backfills `phase` on existing markets
