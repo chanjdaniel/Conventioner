@@ -7,6 +7,7 @@ from pymongo.results import DeleteResult
 from pydantic import ValidationError
 from datatypes import (
     ApplicationForm,
+    AssignmentStatistics,
     EssentialFormOptions,
     FormField,
     IntakeMode,
@@ -403,6 +404,17 @@ def assignment_to_show(market: Market, vendors=None) -> Market:
     check-in reads and what the organizer has been editing (E11/F03/S01). Deciding this once, in
     one function, is what stops the payoff screen and the tables grid describing different markets.
     """
+    if market.setup_object is None:
+        # A market as the create dialog leaves it has no plan, so no table to place anyone at.
+        # That is an empty assignment, not an error: Result and Vendors answered 500 (E30/F01/S01).
+        everyone = [vendor.email for vendor in vendors or []]
+        market.assignment_object.assignment_statistics = AssignmentStatistics(
+            total_vendors=len(everyone), total_tables=0, total_assignments=0,
+            total_assigned_vendors=0, total_assigned_tables=0, unassigned_vendors=everyone,
+            unassigned_tables={}, assignments_per_date={}, assignments_per_tier={},
+            assignments_per_section={},
+        )
+        return market
     if market.assignment_object.vendor_assignments:
         return describe_stored_assignment(market, vendors)
     return assign_market(market, vendors)

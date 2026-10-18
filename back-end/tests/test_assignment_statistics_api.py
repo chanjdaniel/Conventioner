@@ -78,7 +78,8 @@ def test_get_assignment_statistics_returns_403_when_user_cannot_view(monkeypatch
     assert "does not have permission" in result["error"]
 
 def test_get_assignment_statistics_returns_derived_statistics(monkeypatch):
-    monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc())
+    monkeypatch.setattr(
+        MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc_with_setup())
     monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
 
     class DummyStats:
@@ -503,3 +504,32 @@ def test_derive_market_table_rows_builds_half_table_assignments():
     assert len(rows) == 1
     assert rows[0].assignment == ["left@example.com", "right@example.com"]
     assert rows[0].table_choice == "Half Table"
+
+
+def _a_fresh_draft(monkeypatch):
+    """A market as the create dialog leaves it: a name and an organization, no plan (E30/F01/S01)."""
+    monkeypatch.setattr(MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc())
+    monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *args, **kwargs: True)
+    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [])
+    monkeypatch.setattr(MarketsApi.ApplicationsApi, "vendor_names_for_market", lambda _id: {})
+
+
+def test_a_market_with_no_plan_has_no_tables_rather_than_an_error(monkeypatch):
+    _a_fresh_draft(monkeypatch)
+
+    result, status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
+
+    assert status == 200
+    assert result["rows"] == []
+
+
+def test_a_market_with_no_plan_has_empty_statistics_rather_than_an_error(monkeypatch):
+    _a_fresh_draft(monkeypatch)
+
+    result, status = MarketsApi.get_assignment_statistics("market-123", "viewer@test.com")
+
+    assert status == 200
+    assert result["totalVendors"] == 0
+    assert result["totalTables"] == 0
+    assert result["unassignedTables"] == {}
+    assert result["satisfactionScore"] is None
