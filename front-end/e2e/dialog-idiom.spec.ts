@@ -1,5 +1,5 @@
 import { test, expect, LoginPage, NewMarketPage, TEST_USER, BACKEND_URL } from './fixtures';
-import { ensureTestOrg, loginViaApi } from './helpers/seeds';
+import { ensureTestOrg, ensureTestOrgs, loginViaApi } from './helpers/seeds';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
@@ -16,7 +16,9 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
  */
 test.describe('The create-market dialog is the dialog idiom', () => {
   test.beforeAll(async ({ request }) => {
-    await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    // Two, so the dialog has a choice to make: with one it picks it, and "a name but no
+    // organization yet" below cannot happen.
+    await ensureTestOrgs(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, 2);
   });
 
   async function openTheDialog(page: import('@playwright/test').Page): Promise<NewMarketPage> {
