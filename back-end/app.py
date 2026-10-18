@@ -343,6 +343,23 @@ app.register_blueprint(floorplans_calibrate_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_export_bp, url_prefix="/floorplans")
 app.register_blueprint(floorplans_save_bp, url_prefix="/floorplans")
 
+
+@app.route('/healthz', methods=['GET'])
+def healthz() -> Response:
+    """Whether this deployment can serve a request: it booted, and its database answers.
+
+    Booting already proves the configuration and the migration markers (both refuse at import),
+    so the one thing left that can fail after a good deploy is the database. The post-deploy smoke
+    test and the uptime check read this; it says nothing about any market, so it needs no login.
+    """
+    try:
+        MarketsApi.markets_collection.database.command("ping")
+    except Exception:
+        logger.exception("Health check: the database did not answer")
+        return jsonify({"status": "unavailable"}), 503
+    return jsonify({"status": "ok"}), 200
+
+
 # users
 
 @login_manager.user_loader
