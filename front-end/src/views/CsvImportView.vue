@@ -173,6 +173,20 @@ const previewFailures = ref<ImportFailure[]>([]);
 const newRows = ref(0);
 const updatedRows = ref(0);
 const unchangedRows = ref(0);
+
+/**
+ * The preview's headline: what the import will write. It counted every readable row, so importing
+ * the same file again read "212 of 212 rows will be imported" beside "0 new, 0 updated, 212
+ * unchanged" (2026-10-18 dry run).
+ */
+const previewHeadline = computed(() => {
+  const rows = `${rowCount.value} row${rowCount.value === 1 ? '' : 's'}`;
+  if (unchangedRows.value === 0) return `${validRows.value} of ${rows} will be imported`;
+  const writing = newRows.value + updatedRows.value;
+  if (writing > 0) return `${writing} of ${rows} will be imported`;
+  const verb = unchangedRows.value === 1 ? 'is' : 'are';
+  return `Nothing to import: ${unchangedRows.value} of ${rows} ${verb} already here, unchanged`;
+});
 const absentApplications = ref(0);
 const absentEmails = ref<string[]>([]);
 const returningToReview = ref(0);
@@ -1088,9 +1102,7 @@ function startOver() {
 
       <!-- 3. Preview -->
       <section v-if="step === 'preview'" class="import-panel" data-testid="import-preview">
-        <h2 data-testid="import-preview-counts">
-          {{ validRows }} of {{ rowCount }} row{{ rowCount === 1 ? '' : 's' }} will be imported
-        </h2>
+        <h2 data-testid="import-preview-counts">{{ previewHeadline }}</h2>
         <p class="import-help" data-testid="import-preview-merge">
           <template v-if="updatedRows || unchangedRows"
             >{{ newRows }} new, {{ updatedRows }} updated<template v-if="unchangedRows"
