@@ -94,6 +94,23 @@ test('Vendors lists the vendors, not every applicant, and agrees with Result', a
   await expect(page.getByTestId('result-vendors-placed')).toHaveText(/2\s+of\s+2\s+vendors placed/);
 });
 
+test("each vendor's dates are counted against the dates they could have had", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // The list read "1 / 3 dates" for a vendor who asked for one date and got it, counting against
+  // the market's dates (2026-10-18 dry run). Alice asked for one; Carol asked for all three and the
+  // market allows two.
+  const marketId = await seedMarketWithLimits(request);
+
+  const vendors = new VendorsPage(page);
+  await vendors.goto(marketId);
+  const count = (email: string) =>
+    vendors.vendorListItems.filter({ hasText: email }).getByTestId('vendor-date-count');
+  await expect(count('alice@example.com')).toHaveText('1 of 1 date');
+  await expect(count('carol@example.com')).toHaveText('2 of 2 dates');
+});
+
 test('a date a vendor did not get says which limit stopped it, and offers no placing', async ({
   authenticatedPage: page,
   request,

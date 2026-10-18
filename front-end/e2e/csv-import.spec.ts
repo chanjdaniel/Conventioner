@@ -848,6 +848,8 @@ test.describe('CSV vendor import', () => {
     await importPage.chooseFile(changed);
     await importPage.clickPreview();
     await expect(importPage.previewMerge).toContainText('0 new, 1 updated, 1 unchanged');
+    // The headline counts what the import will write, not every row it read.
+    await expect(importPage.previewCounts).toHaveText('1 of 2 rows will be imported');
     await importPage.clickConfirm();
     await expect(importPage.resultSummary).toHaveText(
       'Imported 0 new applications, updated 1. 1 unchanged.',
@@ -983,6 +985,10 @@ test.describe('CSV vendor import', () => {
 
     // Nothing changed, so nobody's decision is undone - and both screens count the same thing.
     await expect(importPage.previewMerge).toContainText('0 new, 0 updated, 2 unchanged');
+    // The headline said "2 of 2 rows will be imported" beside that (2026-10-18 dry run).
+    await expect(importPage.previewCounts).toHaveText(
+      'Nothing to import: 2 of 3 rows are already here, unchanged',
+    );
     await expect(importPage.returningNote).toHaveCount(0);
     await importPage.clickConfirm();
     await expect(importPage.resultSummary).toHaveText('Imported 0 new applications. 2 unchanged.');
