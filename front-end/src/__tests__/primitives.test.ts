@@ -98,9 +98,10 @@ describe('the primitives exist and own what tokens cannot', () => {
     expect(declaration('.field', 'text-align')).toBe('left');
   });
 
-  it('stops a select being squeezed below its own longest option', () => {
-    // The Tier select was 65px wide with 34px of text room while "Community" needs 71.
-    expect(declaration('.field--select', 'min-width')).toBe('min-content');
+  it('keeps a select inside its column, whatever its options say', () => {
+    // `min-content` is the widest option in Firefox alone, so a select of questions or answers
+    // ran out of its column and under the next one there, and nowhere the suite runs.
+    expect(declaration('.field--select', 'min-width')).toBe('0');
   });
 
   it('gives every primitive a focus ring that is not the brand green', () => {

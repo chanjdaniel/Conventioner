@@ -161,3 +161,71 @@ test('a settled market reads its rules as a record, one answer to a line', async
   );
   expect(texts[0] - ranks[0], 'the answer sits beside its rank').toBeGreaterThan(8);
 });
+
+/**
+ * A rule's question is chosen from every question on the form, and a select is as wide as its
+ * longest option (`.field--select`). A form that asks one question in a full sentence pushed every
+ * rule's question select past its column, under the answers beside it and out of the card - on a
+ * settled market a beige band from the question to beyond the card's edge.
+ */
+test("a rule's question stays in its column, however long the form's other questions", async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
+    data: {
+      fields: [
+        {
+          key: 'student',
+          label: 'Are you a UBC student or alumni?',
+          type: 'select',
+          required: true,
+          order: 0,
+          options: ['Yes, I am a CURRENT UBC student', 'Yes, I am an UBC alumni/staff', 'No'],
+        },
+        {
+          key: 'returning',
+          label:
+            'Have you vended with us before, at any of our markets in the last three years, under this or any other business name?',
+          type: 'select',
+          required: true,
+          order: 1,
+          options: ['Yes', 'No'],
+        },
+      ],
+    },
+  });
+  expect(form.ok(), await form.text()).toBeTruthy();
+  await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
+    priority: [
+      {
+        id: 1,
+        target: 'student',
+        ordering: ['Yes, I am a CURRENT UBC student', 'Yes, I am an UBC alumni/staff', 'No'],
+        direction: null,
+      },
+    ],
+    marketDates: [{ date: '2099-05-01' }],
+    tiers: [GOLD],
+    locations: [{ name: 'Main Hall' }],
+    sections: [{ name: 'Hall A', location: { name: 'Main Hall' }, tier: GOLD, count: 4 }],
+    assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(marketSetupPath(marketId, 'assignment'));
+  const target = page.getByTestId('priority-target-select');
+  await expect(target).toHaveValue('student', { timeout: 15000 });
+
+  const overflow = await target.evaluate((select) => {
+    const cell = select.parentElement!.getBoundingClientRect();
+    return select.getBoundingClientRect().right - cell.right;
+  });
+  expect(overflow, 'the question select reaches past its column').toBeLessThanOrEqual(0);
+});
