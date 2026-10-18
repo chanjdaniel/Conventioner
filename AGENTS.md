@@ -9,8 +9,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - `dev` is the default/integration branch: all feature PRs target `dev`.
 - `main` is the deploy-only branch: it auto-deploys, and is reached ONLY by promoting `dev` → `main` as a deliberate, versioned release.
 - Never commit directly to `main`. Never open PRs targeting `main` (except the release-please Release PR, which is automated).
-- **Promotion is a fast-forward and IS the deploy**: Vercel builds every push to `main` to production
-  (`conventioner.io`, `api.conventioner.io`). During a market window `dev` takes `fix:` PRs only,
+- **Promotion is a fast-forward, and a green CI run on `main` deploys it**: `.github/workflows/deploy.yml`
+  ships the back end, checks `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`);
+  Vercel's own deploys of `main` are off. After an Instant Rollback, promote a build again or no
+  deploy reaches the domain. During a market window `dev` takes `fix:` PRs only,
   each promoted once green, and no hotfix carries a migration. See `docs/RELEASING.md#hotfixes`.
 
 ## Release Process
