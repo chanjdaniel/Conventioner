@@ -264,7 +264,8 @@ export async function seedPublishedMarketWithAssignments(
   password: string,
   // The one market date. The default has passed, so its day is over; a spec about the door on the
   // day itself names a date still to come.
-  options: { marketDate?: string } = {},
+  // `intakeMode` as the market is created; absent, it is a CSV market, as it always was here.
+  options: { marketDate?: string; intakeMode?: 'csv' | 'form' } = {},
 ): Promise<PublishedSeedResult> {
   const marketDate = options.marketDate ?? SEED_MARKET_DATE;
   const userId = await loginViaApi(request, baseURL, email, password);
@@ -283,6 +284,7 @@ export async function seedPublishedMarketWithAssignments(
       roles: { [email]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      ...(options.intakeMode ? { intakeMode: options.intakeMode } : {}),
     },
   });
   if (!createRes.ok()) {

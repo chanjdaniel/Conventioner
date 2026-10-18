@@ -143,9 +143,14 @@ function stepState(index: number): 'done' | 'current' | 'todo' | 'frozen' {
 
 // ── The check-in URL (E10/F01/S02) ────────────────────────────────────────────
 
-/** Only a published market has one. Before that it would be a link to a 404. */
+/**
+ * Only a published market has one. Before that it would be a link to a 404. An archived market
+ * that ran keeps it: the page stays up as the record its archive dialog promises (E30/F01/S03).
+ */
 const checkInUrl = computed(() => {
-  if (currentPhase.value !== MarketPhase.MarketDays) return '';
+  const running = currentPhase.value === MarketPhase.MarketDays;
+  const aRecord = isArchived.value && reached.value.has(MarketPhase.MarketDays);
+  if (!running && !aRecord) return '';
   const slug = props.market?.slug;
   if (!slug) return '';
   return `${window.location.origin}/${slug}/check-in`;
@@ -173,7 +178,8 @@ const checkInUrl = computed(() => {
  */
 const applyUrl = computed(() => {
   if (props.market?.intakeMode !== IntakeMode.Form) return '';
-  if (currentPhase.value === MarketPhase.Draft) return '';
+  // Archived, the page takes nobody anywhere: the check-in record is the address that stays.
+  if (currentPhase.value === MarketPhase.Draft || isArchived.value) return '';
   const slug = props.market?.slug;
   if (!slug) return '';
   return `${window.location.origin}/${slug}/apply`;
@@ -419,7 +425,13 @@ function cancelPending() {
       <!-- The rail's end: the public addresses and the actions travel together, so a row that cannot
            hold them all gives them a second row of their own rather than leaving a lone button
            beside an empty band (bug 11, claims-and-room 07). -->
-      <div class="phase-rail-end" :class="{ 'phase-rail-end--addresses': applyUrl || checkInUrl }">
+      <div
+        class="phase-rail-end"
+        :class="{
+          'phase-rail-end--addresses': applyUrl || checkInUrl,
+          'phase-rail-end--both': applyUrl && checkInUrl,
+        }"
+      >
         <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
         <div v-if="applyUrl" class="url-chip" data-testid="phase-rail-apply">
           <span class="url-chip-label">Application page</span>
@@ -708,7 +720,9 @@ function cancelPending() {
  * The addresses and the actions, as one item of the row (bug 11). With only actions it is as wide as
  * they are. With an address it asks for room enough to show a useful part of one beside them, and
  * takes a row of its own where the row has less - so at the workspace width the rail is one row, and
- * below it the second row is designed: addresses at its start, actions at its end.
+ * below it the second row is designed: addresses at its start, actions at its end. With both
+ * addresses it asks for room to show each whole, which takes the second row: 34rem fitted beside
+ * the spine and squeezed the two into "localhost:5…" (E30/F01/S03).
  */
 .phase-rail-end {
   display: flex;
@@ -721,6 +735,11 @@ function cancelPending() {
 
 .phase-rail-end--addresses {
   flex: 1 1 34rem;
+}
+
+.phase-rail-end--both {
+  flex-basis: auto;
+  flex-wrap: wrap;
 }
 
 /* One chip, two users: the application page and the check-in page (E18/F04/S02). */
@@ -736,9 +755,18 @@ function cancelPending() {
   border-radius: var(--radius-control);
   background: white;
   font-size: var(--text-xs);
-  /* The one part of the rail that gives way: its address shortens, and nothing else does. */
+  /* The one part of the rail that gives way: its address shortens, and nothing else does - but
+     never past the part that names the market (E30/F01/S03). */
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: min(18rem, 100%);
+}
+
+/* A phone has no room for that floor beside the actions: the address shortens, and Copy carries it
+   whole. */
+@media (width <= 640px) {
+  .url-chip {
+    min-width: 0;
+  }
 }
 
 .url-chip-label {

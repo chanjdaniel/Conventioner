@@ -32,7 +32,7 @@ export class AttendanceStatusPage {
     return this.page.locator(`[data-testid="attendance-row"][data-vendor="${vendorEmail}"]`);
   }
 
-  /** "Not yet", or when they checked in and who made it. */
+  /** "Not yet" ("Did not come" once the day is over), or when they checked in and who made it. */
   status(vendorEmail: string): Locator {
     return this.row(vendorEmail).getByTestId('attendance-row-status');
   }
