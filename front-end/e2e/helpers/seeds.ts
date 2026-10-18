@@ -104,6 +104,39 @@ export async function ensureTestOrgAuthenticated(
 }
 
 /**
+ * Log in and make sure the user belongs to at least `count` organizations, creating the rest.
+ *
+ * For a spec whose subject needs a CHOICE of organization: with one, the create-market dialog
+ * picks it for you. Such a spec passed only when an earlier one happened to have created more,
+ * which split runs (CI shards) stopped guaranteeing.
+ */
+export async function ensureTestOrgs(
+  request: APIRequestContext,
+  baseURL: string,
+  email: string,
+  password: string,
+  count: number,
+): Promise<void> {
+  await loginViaApi(request, baseURL, email, password);
+  const orgsRes = await request.get(`${baseURL}/organizations`, {
+    headers: { 'X-Owner-Email': email },
+  });
+  if (!orgsRes.ok()) {
+    throw new Error(`Organization list failed: ${orgsRes.status()} ${await orgsRes.text()}`);
+  }
+  const { organizations = [] } = (await orgsRes.json()) as { organizations?: unknown[] };
+  for (let n = organizations.length; n < count; n++) {
+    const res = await request.post(`${baseURL}/organizations`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
+      data: { name: `E2E Test Org ${n + 1} ${Date.now()}` },
+    });
+    if (!res.ok()) {
+      throw new Error(`Test org creation failed: ${res.status()} ${await res.text()}`);
+    }
+  }
+}
+
+/**
  * Helper: log in and ensure the test user has at least one organization.
  * Use this from call sites whose request context has never authenticated.
  * Returns the organization ID.
