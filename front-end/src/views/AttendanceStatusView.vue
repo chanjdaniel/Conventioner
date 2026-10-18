@@ -99,6 +99,17 @@ function tally(date: string) {
 
 const today = computed(() => tally(selectedDate.value));
 
+/**
+ * Whether the chosen day is over: it has passed, or the market is archived. A vendor who never
+ * checked in then did not come, and "Not yet" said otherwise of every one of them (E30/F01/S02).
+ */
+const dayIsOver = computed(
+  () =>
+    market.value?.phase === MarketPhase.Archived ||
+    (!!selectedDate.value && selectedDate.value < calendarToday()),
+);
+const notHere = computed(() => (dayIsOver.value ? 'Did not come' : 'Not yet'));
+
 const shown = computed(() => {
   const term = search.value.trim();
   return roster.value.filter((row) => {
@@ -112,7 +123,7 @@ const shown = computed(() => {
 });
 
 function status(row: RosterRow): string {
-  if (!row.checkedInAt) return 'Not yet';
+  if (!row.checkedInAt) return notHere.value;
   const at = getTimestampTime(row.checkedInAt);
   if (!row.checkedInBy) return at;
   return `${at} by ${row.checkedInBy.toLowerCase() === signedInAs.value ? 'you' : row.checkedInBy}`;
@@ -209,7 +220,7 @@ watch(marketId, loadAttendance, { immediate: true });
               data-testid="attendance-show-not-yet"
               @click="show = 'not-yet'"
             >
-              Not yet {{ today.expected - today.here }}
+              {{ notHere }} {{ today.expected - today.here }}
             </button>
             <button
               type="button"

@@ -76,7 +76,8 @@ def test_a_draft_somebody_has_applied_to_is_locked_for_good(serve):
 
 
 @pytest.mark.parametrize(
-    "phase", [phase for phase in MarketPhase if phase != MarketPhase.DRAFT]
+    "phase",
+    [phase for phase in MarketPhase if phase not in (MarketPhase.DRAFT, MarketPhase.ARCHIVED)],
 )
 def test_every_phase_after_draft_is_locked_and_says_which(serve, phase):
     reason = serve(phase)["applicationFormLockReason"]
@@ -99,7 +100,14 @@ def test_it_cannot_be_written(monkeypatch):
     "phase", [MarketPhase.OFFERS, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED]
 )
 def test_once_the_assignment_is_settled_the_rules_say_so(serve, phase):
-    assert "settled" in serve(phase)["assignmentRulesLockReason"]
+    reason = serve(phase)["assignmentRulesLockReason"]
+    assert ("archived" if phase is MarketPhase.ARCHIVED else "settled") in reason
+
+
+def test_an_archived_markets_form_says_it_is_archived(serve):
+    """Not that it may be edited in draft, which an archived market never will be (E30/F01/S02)."""
+    reason = serve(MarketPhase.ARCHIVED)["applicationFormLockReason"]
+    assert reason == MarketsApi.ARCHIVED_REFUSAL
 
 
 @pytest.mark.parametrize(
