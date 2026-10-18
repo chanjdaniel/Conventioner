@@ -1,7 +1,8 @@
 import { test, expect, BACKEND_URL, TEST_USER, NO_ORG_USER, LoginPage } from './fixtures';
-import { loginViaApi } from './helpers/seeds';
+import { loginViaApi, seedMarketWithVendors } from './helpers/seeds';
+import { savePlan } from './helpers/savePlan';
 import { marketSetupPath } from './helpers/marketScreens';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 
 /**
  * The dashboard's opening words are about the account, not about the browser.
@@ -112,5 +113,63 @@ test.describe('What the dashboard says about your markets', () => {
     await expect(page.getByTestId('dashboard-last-market-card')).toHaveCount(0);
     await expect(page.getByTestId('dashboard-no-market-yet')).toHaveCount(0);
     await expect(page.getByTestId('dashboard-has-markets')).toHaveCount(0);
+  });
+
+  /** Each fact's value is a single line of text, not a column of fragments. */
+  async function expectFactsOnOneLine(card: Locator) {
+    const facts = await card.locator('dd').evaluateAll((dds) =>
+      dds.map((dd) => ({
+        text: dd.textContent,
+        height: dd.getBoundingClientRect().height,
+        lineHeight: parseFloat(getComputedStyle(dd).lineHeight),
+      })),
+    );
+    expect(facts.length).toBe(2);
+    for (const fact of facts) {
+      expect(fact.height, `"${fact.text}" wrapped`).toBeLessThan(fact.lineHeight * 1.5);
+    }
+  }
+
+  /**
+   * A market row is drawn at three widths: the markets list, the dashboard card - the width of the
+   * two buttons below it - and the market chooser dialog, narrower still. The name column once took
+   * its whole 28rem at every width, leaving the facts so little room on the two narrow ones that
+   * "Nov 18-20, 2026 (3 days)" broke after every few characters, one fragment per line.
+   */
+  test('a market row reads each fact on one line, however narrow its card', async ({
+    page,
+    request,
+  }) => {
+    const { marketId, marketName } = await seedMarketWithVendors(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, {
+      priority: [],
+      marketDates: [{ date: '2026-11-18' }, { date: '2026-11-19' }, { date: '2026-11-20' }],
+      tiers: [],
+      locations: [],
+      sections: [],
+      assignmentOptions: {
+        maxAssignmentsPerVendor: null,
+        maxHalfTableProportionPerSection: null,
+      },
+      floorplans: null,
+    });
+
+    await signIn(page, TEST_USER.email, TEST_USER.password);
+    await openThenReturn(page, { id: marketId, name: marketName });
+
+    const dashboardCard = page.getByTestId('dashboard-last-market-card');
+    await expect(dashboardCard).toContainText('Nov 18-20, 2026 (3 days)');
+    await expectFactsOnOneLine(dashboardCard);
+
+    await page.goto('/init');
+    await page.getByTestId('init-load-existing-market-button').click();
+    const chooserCard = page.getByTestId('load-market-card-button').filter({ hasText: marketName });
+    await expect(chooserCard).toContainText('Nov 18-20, 2026 (3 days)');
+    await expectFactsOnOneLine(chooserCard);
   });
 });
