@@ -15,4 +15,7 @@ google-genai
 openai
 pdf2image
 Pillow
-pyckingsolver
+# Floorplan geometry. Named here because the code imports them; they used to arrive only
+# through pyckingsolver, which is now in requirements-floorplan-solver.txt.
+shapely>=2.0
+numpy
