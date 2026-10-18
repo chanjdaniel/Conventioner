@@ -270,7 +270,7 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
     return {
         **plan_update,
         market_doc_key("application_form"): form,
-        market_doc_key("import_mapping"): CsvImport.mapping_payload(headers, mapping, resolutions),
+        market_doc_key("import_mapping"): CsvImport.mapping_payload(headers, mapping, resolutions, made_by="start"),
     }
 
 

@@ -229,3 +229,73 @@ def test_a_legacy_draft_with_no_phase_is_written_under_its_own_shape():
     del doc["phase"]
     condition = CsvStart.still_startable(doc)
     assert condition["phase"] == {"$exists": False} and condition["id"] == "market-1"
+
+
+SELLING = "What will you be selling at the event?"
+
+
+def _started(name="fall-2025"):
+    doc = _draft()
+    csv_text = _csv(name)
+    return _written(doc, CsvStart.confirmed_update(doc, csv_text, {"year": YEARS[name]})), csv_text
+
+
+def test_the_first_import_after_a_start_names_the_start_not_a_last_import():
+    """E30/F02/S01: the first import ever said "Restored from your last import", when the mapping
+    came from the start of the form."""
+    after, csv_text = _started()
+    inspected, _ = CsvImport.inspect(after, csv_text)
+    assert inspected["hasSavedMapping"] is True
+    assert inspected["savedMappingFrom"] == "start"
+
+
+def test_a_mapping_an_import_saved_is_the_last_imports():
+    after, csv_text = _started()
+    error, headers, _rows = CsvImport.parse_csv(csv_text)
+    saved = CsvImport.stored_mapping(after)
+    restored, _missing, _new = CsvImport.restore_mapping(
+        headers, saved, CsvImport.import_targets(after))
+    imported = {**after, "importMapping": CsvImport.mapping_payload(
+        headers, restored, saved["resolutions"])}
+    inspected, _ = CsvImport.inspect(imported, csv_text)
+    assert inspected["savedMappingFrom"] == "import"
+
+
+def test_a_mapping_saved_before_its_maker_was_recorded_reads_as_an_imports():
+    after, csv_text = _started()
+    legacy = {key: value for key, value in after["importMapping"].items() if key != "madeBy"}
+    inspected, _ = CsvImport.inspect({**after, "importMapping": legacy}, csv_text)
+    assert inspected["savedMappingFrom"] == "import"
+
+
+def _selling_refusals(doc, csv_text, resolutions):
+    error, headers, _rows = CsvImport.parse_csv(csv_text)
+    restored, _missing, _new = CsvImport.restore_mapping(
+        headers, CsvImport.stored_mapping(doc), CsvImport.import_targets(doc))
+    preview, _ = CsvImport.preview_values(doc, csv_text, restored, resolutions)
+    return [f["error"] for f in preview["failures"] if SELLING in f["error"]]
+
+
+def test_an_answer_the_start_left_out_is_said_to_be_the_starts():
+    """The walk: 15 rows skipped as "one you chose to ignore", which the organizer never chose."""
+    after, csv_text = _started()
+    refusals = _selling_refusals(after, csv_text, CsvImport.stored_mapping(after)["resolutions"])
+    assert refusals
+    for refusal in refusals:
+        assert (f"Every answer to '{SELLING}' was left out when your form was started from this "
+                "file, and it is required.") in refusal
+        assert "chose to ignore" not in refusal
+
+
+def test_an_answer_the_organizer_left_out_since_is_theirs():
+    after, csv_text = _started()
+    saved = CsvImport.stored_mapping(after)
+    field = next(f for f in after["applicationForm"]["fields"] if f["label"] == SELLING)
+    options = [o if isinstance(o, str) else o.get("label") or o.get("value")
+               for o in field["options"]]
+    resolutions = copy.deepcopy(saved["resolutions"])
+    resolutions[field["key"]] = {**resolutions.get(field["key"], {}),
+                                 **{option: None for option in options}}
+    refusals = _selling_refusals(after, csv_text, resolutions)
+    assert refusals
+    assert all(f"Every answer to '{SELLING}' is one you chose to ignore" in r for r in refusals)

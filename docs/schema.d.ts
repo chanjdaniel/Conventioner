@@ -41,6 +41,7 @@ export interface MarketSchema {
   id: string;
   importMapping?: {
     headers?: string[];
+    madeBy?: string;
     resolutions?: Record<string, Record<string, null | string>>;
     savedAt?: string;
     targets?: Record<string, string[]>;
