@@ -7,13 +7,28 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 ## Branch Model
 
 - `dev` is the default/integration branch: all feature PRs target `dev`.
-- `main` is the deploy-only branch: it auto-deploys, and is reached ONLY by promoting `dev` → `main` as a deliberate, versioned release.
+- `main` is the deploy-only branch: reached ONLY by promoting a green `dev` commit (`git push origin <sha>:main`), and a green CI run on it deploys.
+  Both branches require the five CI checks; after a Release PR (merged with `--admin`, it gets no CI), merge `main` back into `dev`.
 - Never commit directly to `main`. Never open PRs targeting `main` (except the release-please Release PR, which is automated).
 - **Promotion is a fast-forward, and a green CI run on `main` deploys it**: `.github/workflows/deploy.yml`
   ships the back end, checks `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`);
   Vercel's own deploys of `main` are off. After an Instant Rollback, promote a build again or no
   deploy reaches the domain. During a market window `dev` takes `fix:` PRs only,
   each promoted once green, and no hotfix carries a migration. See `docs/RELEASING.md#hotfixes`.
+
+## Operating Production
+
+- **`docs/OPERATIONS.md` is the runbook**: what runs where (Vercel projects, Atlas cluster, Resend,
+  reCAPTCHA), every variable and where it lives, accounts and access, the database, logs, incidents.
+  `docs/VERCEL_DEPLOYMENT.md` rebuilds production from nothing.
+- **Organization membership gives only Viewer on its markets**, even to its owner and admins; anyone
+  who changes a market, a door volunteer included, needs a role on that market (Manage market).
+- **An operator makes or verifies an account with `back-end/create_account.py`**, never
+  `create_test_user.py` (a fixture script that prints the password). Login matches the stored address
+  exactly, so addresses are stored lowercased.
+- **Never put the production `MONGODB_URI` in `back-end/.env`**: the local stack mounts that directory
+  and would run against production. Pass it inline to one-off scripts. `reset_database.py` refuses
+  whenever `MONGODB_URI` is set.
 
 ## Release Process
 
@@ -23,13 +38,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - When `dev` is promoted to `main`, release-please opens a Release PR with version bump + CHANGELOG.
 - Merging the Release PR creates a git tag (e.g., `v0.1.0`) and a GitHub Release.
 - All commits MUST follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, etc.).
-- `v0.1.0` shipped on 2026-09-13; `.release-please-manifest.json` tracks the current version. Versions are derived from conventional commits (`feat:` → minor, `fix:` → patch, breaking → major). The one-time `release-as: 0.1.0` bootstrap that forced the first version has been removed - do not reintroduce it, since `release-as` overrides the calculation on *every* run until cleared.
+- `v0.1.0` shipped on 2026-09-13 and `v1.0.0` (production's first real market) on 2026-10-18; `.release-please-manifest.json` tracks the current version. Versions are derived from conventional commits (`feat:` → minor, `fix:` → patch, breaking → major). The one-time `release-as: 0.1.0` bootstrap that forced the first version has been removed - do not reintroduce it, since `release-as` overrides the calculation on *every* run until cleared.
 - Full release docs: `docs/RELEASING.md`.
 
 ## Tech Stack
 
 - Front-end: Vue 3 + Vite + TypeScript (in `front-end/`), PrimeVue UI components, Pinia state management.
-- Back-end: Python 3.11 / Flask + MongoDB (in `back-end/`).
+- Back-end: Python 3.12 / Flask + MongoDB (in `back-end/`); `back-end/.python-version`, the Dockerfile and CI agree.
 - Testing: Vitest (unit) + Playwright (e2e) for front-end; pytest for back-end.
 - CI: `.github/workflows/test.yml` runs on `dev` and `main` for both PRs and pushes.
 - Front-end formatting is Prettier-enforced: config in `front-end/.prettierrc.json`

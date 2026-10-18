@@ -328,7 +328,7 @@ Conventioner/
 
 ## Version Information
 
-- **Python**: 3.11+
+- **Python**: 3.12 (`back-end/.python-version`; Docker, CI and Vercel all run it)
 - **Node.js**: 18+
 - **MongoDB**: 7
 - **Docker**: Latest stable version
