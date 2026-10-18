@@ -92,7 +92,7 @@ fi
 echo "nm-test: Python $($PYTHON --version)"
 
 cd "$REPO_ROOT/back-end"
-$PYTHON -m pip install -q -r requirements.txt -r requirements-dev.txt
+$PYTHON -m pip install -q -r requirements.txt -r requirements-floorplan-solver.txt -r requirements-dev.txt
 $PYTHON -m pytest tests/ -v
 echo "Backend tests: OK"
 
