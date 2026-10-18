@@ -266,6 +266,20 @@ describe('a phase the lifecycle does not draw', () => {
     expect(rail.get('[data-testid="phase-rail-current"]').attributes('data-phase')).toBe('offers');
   });
 
+  it('is never offered as a move, since nothing can ever get a market there (E30/F01/S04)', async () => {
+    // "Send Offers" sat in the assignment menu on both paths and always refused: nothing moves an
+    // application past approved.
+    const rail = railFor(MarketPhase.Assignment);
+    await rail.get('[data-testid="phase-rail-menu-button"]').trigger('click');
+    expect(rail.find('[data-testid="phase-transition-offers"]').exists()).toBe(false);
+    expect(rail.find('[data-testid="phase-transition-archived"]').exists()).toBe(true);
+  });
+
+  it('keeps its ways out for a market that is in it anyway', async () => {
+    const rail = railFor(MarketPhase.Offers);
+    expect(rail.find('[data-testid="phase-transition-market_days"]').exists()).toBe(true);
+  });
+
   it('is absent from every market that is not in it', () => {
     for (const phase of [MarketPhase.Assignment, MarketPhase.MarketDays, MarketPhase.Archived]) {
       const phases = railFor(phase)

@@ -2,7 +2,7 @@
 id: E30/F01/S04
 title: The menu offers nothing that can never succeed
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -14,5 +14,5 @@ It leaves the menu while `offers` is unreachable in practice; a market actually 
 
 ## Acceptance criteria
 
-- [ ] The assignment phase's menu has no "Send Offers", before or after a run, on either path.
-- [ ] A market seeded into `offers` still shows its stage and its ways out.
+- [x] The assignment phase's menu has no "Send Offers", before or after a run, on either path.
+- [x] A market seeded into `offers` still shows its stage and its ways out.

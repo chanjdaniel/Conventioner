@@ -29,6 +29,7 @@ import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import AppDialog from '@/components/AppDialog.vue';
 import {
+  OFF_SPINE_PHASES,
   VALID_TRANSITIONS,
   phaseLabel,
   phaseSpine,
@@ -247,7 +248,12 @@ function transitionLabel(toPhase: string): string {
  */
 const availableTransitions = computed(() =>
   props.market && !props.market.adminActionsReason
-    ? VALID_TRANSITIONS.filter(([from]) => from === currentPhase.value).map(([, to]) => to)
+    ? VALID_TRANSITIONS.filter(
+        // Never into a phase the spine leaves out: nothing can get a market there, so "Send
+        // Offers" sat in the menu and always refused (E30/F01/S04). A market in one keeps its ways
+        // out, which are not into it.
+        ([from, to]) => from === currentPhase.value && !OFF_SPINE_PHASES.includes(to),
+      ).map(([, to]) => to)
     : [],
 );
 
