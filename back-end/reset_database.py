@@ -16,6 +16,8 @@ Usage:
     python reset_database.py
 """
 
+import os
+
 from db_config import get_database
 
 # Every collection the application writes. `schema_migrations` is deliberately absent.
@@ -40,8 +42,22 @@ GRIDFS_BUCKETS = ('floorplan_images',)
 PRESERVED = ('schema_migrations',)
 
 
+HOSTED_REFUSAL = (
+    "Refusing to reset: MONGODB_URI is set, so this would erase a hosted database (production "
+    "is reached that way). This script resets the local stack and CI, which use MONGODB_HOST. "
+    "Unset MONGODB_URI to reset a local database; a hosted one is never reset by a script."
+)
+
+
 def reset_database():
-    """Delete all documents from every application collection."""
+    """Delete all documents from every application collection - of a LOCAL database only.
+
+    Production is reached through MONGODB_URI and the local stack and CI through MONGODB_HOST, so
+    a URI in the environment means this would erase a real market. It refuses, with no override:
+    a hosted database is emptied, if ever, by hand in Atlas, not by a script typed in a hurry.
+    """
+    if os.getenv("MONGODB_URI"):
+        raise SystemExit(HOSTED_REFUSAL)
     db = get_database()
 
     names = set(db.list_collection_names())

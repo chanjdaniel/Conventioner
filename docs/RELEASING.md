@@ -8,8 +8,13 @@ This project uses a **dev → main promotion flow**:
   All feature branches and bugfix PRs target `dev`.
   CI (`.github/workflows/test.yml`) runs on every push and PR to `dev`.
 - **`main`** is the deploy-only branch.
-  It auto-deploys and is reached **only** by promoting `dev` → `main` as a deliberate, versioned release.
-  Never commit or open PRs directly against `main`.
+  It deploys through the Deploy workflow once CI passes on it, and is reached **only** by promoting `dev` → `main` as a deliberate, versioned release.
+  Never commit or open PRs directly against `main` (the release-please Release PR and the back-merge below are the exceptions).
+
+**Both branches are protected** (since 2026-10-18): a PR into either needs the `backend`, `frontend-unit`, `frontend-lint-and-types`, `docker-build` and `e2e` checks to pass (`e2e` passes only when all four shards do), and a push to `main` is accepted only for a commit that has passed them.
+Branches need not be up to date before merging, because a promotion is only ever made from a commit whose own `dev` run passed.
+`main` keeps a linear history; force pushes are blocked on both.
+Admins can override, deliberately: it is how the Release PR is merged (below), and the way out in an emergency.
 
 ```
 feature/* ──PR──▶ dev ──promotion──▶ main (versioned release + deploy)
@@ -42,7 +47,8 @@ Release management is handled by [release-please](https://github.com/googleapis/
 ### How a Release Happens
 
 1. **Feature work lands on `dev`** through normal PRs with conventional commit messages.
-2. **A maintainer promotes `dev` → `main`** as a fast-forward: `git fetch origin && git push origin origin/dev:main`.
+2. **A maintainer promotes `dev` → `main`** as a fast-forward of a commit whose `dev` CI run passed: `git fetch origin && git push origin <sha>:main`.
+   Push that commit by its sha, not "whatever `dev` is now": anything merged since has not passed CI as part of that commit.
    This is the **only** way code reaches `main`.
    A fast-forward deploys exactly the commit CI tested on `dev`; a merge or rebase would make a new commit nobody tested.
 3. **The Deploy workflow ships `main` once CI passes on it** (`.github/workflows/deploy.yml`).
@@ -54,12 +60,15 @@ Release management is handled by [release-please](https://github.com/googleapis/
    This PR contains:
    - A version bump in `.release-please-manifest.json`
    - An updated `CHANGELOG.md` with all changes since the last release
-5. **A maintainer reviews and merges the Release PR.**
+5. **A maintainer reviews and merges the Release PR**, squashed, as an admin: `gh pr merge <n> --squash --admin`.
+   release-please opens it with GitHub's built-in token, and GitHub runs no workflows for that token, so the PR never gets the checks branch protection asks for; it changes only the manifest and the changelog.
    On merge, release-please automatically:
-   - Creates a **git tag** (e.g., `v0.1.0`)
+   - Creates a **git tag** (e.g., `v1.0.0`)
    - Creates a **GitHub Release** with the changelog content
 
    Merging it is another push to `main`, so the same code is deployed again with only the changelog changed.
+6. **Merge `main` back into `dev`**: open a PR from `main` to `dev` and merge it once green.
+   The release commit exists only on `main`; until `dev` has it, the next promotion is not a fast-forward and is refused.
 
 ### After every deploy
 
@@ -94,7 +103,7 @@ A rollback cannot undo a migration; see the window rule above.
 ### Bootstrapping Note
 
 The release-please workflow becomes active once it reaches `main` (via the first `dev` → `main` promotion after this config is merged to `dev`).
-`v0.1.0` shipped on 2026-09-13, and `.release-please-manifest.json` now tracks the current version.
+`v0.1.0` shipped on 2026-09-13 and `v1.0.0` on 2026-10-18 (the first version a real market ran on); `.release-please-manifest.json` tracks the current version.
 
 The first release was bootstrapped with `"release-as": "0.1.0"`, which has since been removed.
 `release-as` is a forced version: it overrides the conventional-commit calculation on **every** run until it is cleared, so it is a one-time bootstrap and never a way to pick a version.
