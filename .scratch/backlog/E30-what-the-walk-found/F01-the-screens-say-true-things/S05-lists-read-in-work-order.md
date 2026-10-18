@@ -2,7 +2,7 @@
 id: E30/F01/S05
 title: Lists read in the order the work happens
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -14,5 +14,5 @@ pr: []
 
 ## Acceptance criteria
 
-- [ ] With applications submitted at known times, the deck's first card is the earliest.
-- [ ] With tiers Gold, Silver, Bronze, Result lists Gold's sections first.
+- [x] With applications submitted at known times, the deck's first card is the earliest.
+- [x] With tiers Gold, Silver, Bronze, Result lists Gold's sections first.

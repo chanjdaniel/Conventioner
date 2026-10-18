@@ -33,6 +33,7 @@ import {
   filterOptions,
   filtersBeside,
   rowStatus,
+  sectionsInPlanOrder,
   statusCounts as countStatuses,
   tablesMatching,
   type MarketTableRow,
@@ -116,8 +117,9 @@ const groupedRows = computed((): DateGroup[] => {
 
   const dateGroups: DateGroup[] = [];
   for (const [date, sectionMap] of dateMap.entries()) {
-    const sections = Array.from(sectionMap.values()).sort((a, b) =>
-      a.section.localeCompare(b.section),
+    const sections = sectionsInPlanOrder(
+      Array.from(sectionMap.values()),
+      market.value?.setupObject,
     );
     for (const section of sections) {
       section.rows.sort((a, b) =>

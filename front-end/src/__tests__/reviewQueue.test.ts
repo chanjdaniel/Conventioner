@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Application, ApplicationForm } from '@/assets/types/datatypes';
-import { asksNothingDistinguishing, reviewAnswers } from '@/utils/reviewQueue';
+import { asksNothingDistinguishing, inArrivalOrder, reviewAnswers } from '@/utils/reviewQueue';
 
 function application(formData: Record<string, unknown>): Application {
   return {
@@ -206,5 +206,30 @@ describe('review highlights lead the card', () => {
     );
 
     expect(leading).toEqual([]);
+  });
+});
+
+describe('the order the queue is decided in (E30/F01/S05)', () => {
+  const at = (id: string, submittedAt?: string) =>
+    ({ ...application({}), id, submittedAt }) as Application;
+
+  it('starts with the earliest application, as first come is the order a market is fair in', () => {
+    // The deck's "1 of 16" was the last to arrive: the server lists newest first.
+    const newestFirst = [
+      at('c', '2026-03-03T09:00:00Z'),
+      at('b', '2026-03-02T09:00:00Z'),
+      at('a', '2026-03-01T09:00:00Z'),
+    ];
+    expect(inArrivalOrder(newestFirst).map((a) => a.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('puts one with no time last, and keeps the order of those it cannot tell apart', () => {
+    const apps = [
+      at('x'),
+      at('b', '2026-03-02T09:00:00Z'),
+      at('y'),
+      at('a', '2026-03-01T09:00:00Z'),
+    ];
+    expect(inArrivalOrder(apps).map((a) => a.id)).toEqual(['a', 'b', 'x', 'y']);
   });
 });
