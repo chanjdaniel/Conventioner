@@ -1,30 +1,53 @@
-# Vercel Deployment Guide for Flask + MongoDB
+# Building Production on Vercel
 
-## Configuration Summary
+How production is put together, in the order it has to be done, for rebuilding it from nothing or moving it.
+Day-to-day running (accounts, the database, logs, incidents) is [OPERATIONS.md](OPERATIONS.md); shipping a change is [RELEASING.md](RELEASING.md).
 
-### Vercel Settings
-- **Framework Preset**: `Other` or `Python` (Vercel auto-detects Flask)
-- **Build Command**: (leave empty - Vercel auto-detects)
-- **Output Directory**: (leave empty)
-- **Install Command**: `pip install -r requirements.txt`
-- **Python Version**: 3.11 or 3.12 (set in Vercel dashboard or via `runtime.txt`)
+Production today: the front end at `https://conventioner.io` and the back end at `https://api.conventioner.io`, two Vercel projects in the team `chanjdaniels-projects`, on a MongoDB Atlas Flex cluster. [OPERATIONS.md](OPERATIONS.md#what-runs-where) has every name and id.
 
-### Environment Variables
+## 1. The database (MongoDB Atlas)
 
-Set these in your Vercel project settings:
+MongoDB Atlas is not in Vercel's Marketplace; it is set up in Atlas directly.
 
-#### Required for Production:
-```
-SECRET_KEY=<generate: python -c 'import secrets; print(secrets.token_urlsafe(48))'>
-SESSION_TYPE=null
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/conventioner?retryWrites=true&w=majority
-# Note: MONGODB_URI is automatically set if you use MongoDB Atlas integration from Vercel Marketplace
-FRONTEND_URL=https://your-frontend-domain.vercel.app
-RECAPTCHA_SECRET_KEY=<the reCAPTCHA v3 secret from the Google admin console>
-CORS_ALLOWED_ORIGINS=https://your-frontend-domain.vercel.app
-RESEND_API_KEY=<the API key from the Resend dashboard>
-TRUSTED_PROXY_HOPS=1
-```
+1. Create a project and a cluster. Production is a **Flex** cluster (daily snapshots, the last 8 kept) on AWS us-east-1, beside Vercel's default function region (`iad1`); a free M0 has no backups.
+2. **Database Access**: a database user with a generated password. The app needs only `readWrite` on the database `conventioner`.
+3. **Network Access**: `0.0.0.0/0`. Vercel's functions have no fixed addresses, so the user's password is the protection.
+4. **Connect, Drivers, Python**: copy the `mongodb+srv://` string and put the password in it. The database name in it does not matter; the app always uses `conventioner`.
+5. Start the database once, from `back-end/`, with the URI on the command line (never in `back-end/.env`):
+   ```bash
+   MONGODB_URI='<URI>' .venv/bin/python init_database.py
+   ```
+   It creates the collections and indexes and records the markers the back end refuses to boot without; it ends with "Successfully initialized".
+
+## 2. Email and captcha
+
+- **Resend**: add and verify the sending domain (`conventioner.io`, DNS records at the registrar), create an API key, and choose the sender (`registration@conventioner.io`). Resend's shared `onboarding@resend.dev` sender only delivers to the Resend account's own address, so it cannot verify anyone else.
+- **reCAPTCHA v3**: one property, with the front end's domain on its list. Its **site key** goes to the front end and its **secret** to the back end; keys from two properties fail exactly as missing ones do.
+- **TypeSafe** (optional): an API key from its console.
+
+## 3. The two Vercel projects
+
+Both import this repository from GitHub, each with its own root directory:
+
+| | Front end | Back end |
+| --- | --- | --- |
+| Root directory | `front-end` | `back-end` |
+| Framework preset | Vite (build `npm run build`, output `dist`) | Python (install `pip install -r requirements.txt`) |
+| Runtime | Node (build only) | Python 3.12, from `back-end/.python-version` |
+| Config in the repo | `front-end/vercel.json`: every path that is not a file serves `index.html`, so deep links work | `back-end/vercel.json` |
+| Custom domain | `conventioner.io` | `api.conventioner.io` |
+
+Both `vercel.json` files set `git.deploymentEnabled.main: false`: Vercel does not build `main` by itself, because the Deploy workflow does once CI passes (see [RELEASING.md](RELEASING.md#how-a-release-happens)).
+Pushes to other branches still reach Vercel and are cancelled by each project's Ignored Build Step, so there are no preview deployments.
+
+`back-end/requirements.txt` must install on Vercel's build image, Amazon Linux 2023 (glibc 2.34): a package that ships only newer wheels fails the whole build.
+That is why the floorplan solver `pyckingsolver` lives in `requirements-floorplan-solver.txt`, installed by Docker, CI and local setups but not by Vercel; production's Auto-Place uses its grid fallback.
+
+## 4. Environment variables
+
+Set on each project's **Production** environment (Settings, Environment Variables); [OPERATIONS.md](OPERATIONS.md#configuration-and-secrets) lists every one with its value or source.
+The back end needs `MONGODB_URI`, `SECRET_KEY`, `SESSION_TYPE=null`, `CORS_ALLOWED_ORIGINS`, `TRUSTED_PROXY_HOPS=1`, `FRONTEND_URL`, `FROM_EMAIL`, `RESEND_API_KEY` and `RECAPTCHA_SECRET_KEY` (and optionally `TYPESAFE_API_KEY`); the front end needs `VITE_FLASK_HOST` and `VITE_RECAPTCHA_SITE_KEY` at build time.
+Nothing reads `FLASK_ENV`, `USE_HTTPS`, `MONGODB_DB` or the separate `MONGODB_HOST`/`MONGODB_USER`/`MONGODB_PASSWORD` variables in production; do not set them.
 
 All six of `SECRET_KEY`, `SESSION_TYPE`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY` and `TRUSTED_PROXY_HOPS` are **boot-time requirements**: the function refuses to start without them, so a deployment that is missing one serves nothing at all.
 See [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment) for what each one defends and what an unset value would do.
@@ -44,10 +67,7 @@ Setting it for the first time, or rotating it, ends every session signed with th
 `null` installs no server-side store at all - Flask signs the session into the cookie, which is the only place a serverless function can keep one.
 Nothing keys on `FLASK_ENV` any more - it defaulted to `development` in our own image, so every check that read it was exempting the deployments it existed for, and the old `SESSION_TYPE` default was derived from exactly that. Set the variables above by name instead.
 
-#### Required on the front-end project (build-time):
-```
-VITE_RECAPTCHA_SITE_KEY=<the reCAPTCHA v3 site key from the same property as RECAPTCHA_SECRET_KEY above>
-```
+### The front end's site key
 
 This is set on the **front end's** Vercel project, not this one, and it is the other half of the back end's `RECAPTCHA_SECRET_KEY`: the two must come from the same reCAPTCHA property.
 Vite bakes it into the bundle at build time, so setting it later does nothing until the front end is rebuilt.
@@ -56,115 +76,19 @@ A front end deployed without it ships a bundle that has no captcha to solve and 
 The back end no longer waves that through - it has a real secret now, and Google never issued that token - so `POST /register` answers 400 and **no organizer can sign up**, on a deployment that otherwise looks healthy.
 `vite build` refuses to produce such a bundle for exactly that reason; the refusal names the variable.
 
-#### Optional (if using individual MongoDB params instead of URI):
-```
-MONGODB_HOST=your-mongodb-host
-MONGODB_PORT=27017
-MONGODB_USER=your-username
-MONGODB_PASSWORD=your-password
-MONGODB_DB=conventioner
-MONGODB_AUTH_DB=admin
-```
+## 5. Deploying
 
-#### Other Services:
-```
-FROM_EMAIL=your-verified-email@domain.com
-```
-`RESEND_API_KEY` belongs with the required variables above, not here: without it no organizer can register, verify an address, reset a password, or receive an OTP, so the app refuses to boot rather than serve that.
+1. In GitHub, create the environment `production` and in it the secret `VERCEL_TOKEN` (a Vercel token scoped to the team); add the repository variables `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID`.
+2. Run the **Deploy** workflow from `main` (Actions, Deploy, Run workflow), or promote a commit (see [RELEASING.md](RELEASING.md)).
+   It deploys the back end, waits for `/healthz`, then deploys the front end and checks a deep link.
+3. If a domain still serves an older build afterwards, the project is in Vercel's rolled-back state: promote the new deployment once (`vercel promote <deployment>`), and later deploys reach the domain again.
 
-## Important Notes
-
-### Session Storage
-- **For Vercel**: Set `SESSION_TYPE=null` (the session is signed into the cookie; no server-side store is installed)
-- **For a container or VM**: Set `SESSION_TYPE=filesystem` (sessions on local disk)
-- There is **no default**, and an unset value is a boot refusal: neither answer is right for both hosts, and the one that used to be derived from `FLASK_ENV` was `filesystem` on every deployment built from our image - including the serverless ones that have no filesystem
-- Filesystem sessions don't work on Vercel's serverless platform
-
-### MongoDB Connection
-
-**Option 1: MongoDB Atlas Integration (Recommended - Easiest)**
-- **Provision MongoDB Atlas directly from Vercel**: 
-  - Go to Vercel Dashboard → Click "Add new" → "Integration"
-  - Search for "MongoDB Atlas" in the Marketplace
-  - Select your project and provision a cluster (Free, Dedicated, or Flex)
-  - The `MONGODB_URI` environment variable is **automatically configured** for you
-  - No separate MongoDB Atlas signup needed - account is created automatically
-  - Billing can be managed through Vercel
-
-**Option 2: Manual MongoDB Atlas Setup**
-- Create account at https://www.mongodb.com/cloud/atlas
-- Create a free cluster (M0)
-- Configure network access (allow 0.0.0.0/0 for development or Vercel IPs)
-- Create database user
-- Get connection string and manually add `MONGODB_URI` to Vercel environment variables
-- Connection string format: `mongodb+srv://username:password@cluster.mongodb.net/conventioner?retryWrites=true&w=majority`
-
-### Deployment Steps
-
-1. **Connect your repository to Vercel**
-   - Go to Vercel dashboard (https://vercel.com/dashboard)
-   - Click "Add New Project"
-   - Import your Git repository
-   - **Set Root Directory**: `back-end` (if deploying only backend)
-
-2. **Provision MongoDB Atlas (Recommended Method)**
-   - In your Vercel project, click "Add new" → "Integration"
-   - Search for "MongoDB Atlas" in the Marketplace
-   - Select your project and choose a cluster type (Free tier available)
-   - The `MONGODB_URI` environment variable will be automatically added to your project
-   - **Note**: If you need to specify the database name, you may need to update the URI to include `/conventioner` at the end
-
-3. **Configure Project Settings in Vercel UI**
-   - **Framework Preset**: Select `Other` (Vercel will auto-detect Flask)
-   - **Build Command**: Leave empty (Vercel auto-detects)
-   - **Output Directory**: Leave empty
-   - **Install Command**: `pip install -r requirements.txt`
-   - **Python Version**: Set to `3.11` or `3.12` in Project Settings > General
-
-4. **Configure Environment Variables**
-   - Go to Project Settings > Environment Variables
-   - Add the following required variables (if not already set by MongoDB Atlas integration):
-     - `SECRET_KEY=` a value you generated with `python -c 'import secrets; print(secrets.token_urlsafe(48))'` - a placeholder or a value from this repo's history is refused
-     - `SESSION_TYPE=null`
-     - `FRONTEND_URL=https://your-frontend-domain.vercel.app`
-     - `RESEND_API_KEY=` the key from your [Resend dashboard](https://resend.com/api-keys) - a placeholder such as `re_xxxxx` is refused
-     - `FROM_EMAIL=your-verified-email@domain.com`
-     - `RECAPTCHA_SECRET_KEY=` the secret from the [reCAPTCHA admin console](https://www.google.com/recaptcha/admin) - a placeholder such as `6Lcxxxxx` is refused
-     - `CORS_ALLOWED_ORIGINS=https://your-frontend-domain.vercel.app`
-     - `TRUSTED_PROXY_HOPS=1` - the Vercel ingress is one hop, and it is the reason `remote_addr` is not the caller's address here
-   - **Note**: `MONGODB_URI` should already be set if you used the MongoDB Atlas integration
-   - **Note**: `SECRET_KEY`, `SESSION_TYPE`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY` and `TRUSTED_PROXY_HOPS` are checked at import, and on a serverless function that runs on **every cold start**. Miss one and the function does not boot at all - it does not degrade, and no request is served; the log names every one that is missing. Set them **before** promoting, not after.
-   - Apply to Production, Preview, and Development environments as needed
-
-5. **Initialize / migrate the database** (before the first deploy, and before any deploy that carries a new migration)
-   - The back end refuses to boot unless the market-key migration is recorded as applied, and that check runs at import - so on Vercel it runs on every cold start, and an unmigrated database fails every request rather than serving markets it can only half see.
-   - `mongo-init.js` never runs against Atlas (it is the Docker Mongo entrypoint), so a freshly provisioned cluster has no marker. Run this once, from `back-end/`, with `MONGODB_URI` pointing at the Atlas cluster:
-     ```bash
-     python init_database.py                              # fresh cluster: creates collections and indexes, records the marker
-     python migrations/migrate_market_keys.py             # existing data: rewrites markets under the canonical keys
-     python migrations/create_applications_collection.py  # existing data: the applications collection and its indexes (market_id + unique compound)
-     ```
-   - See [RELEASING.md](./RELEASING.md#pre-deploy-database-migrations) for the full pre-deploy migration list. Migrations are never run automatically.
-
-6. **Deploy**
-   - Click "Deploy" or push to your main branch
-   - Vercel will automatically detect Flask and deploy
-
-### File Structure
-```
-back-end/
-├── app.py              # Flask application (entry point - auto-detected by Vercel)
-├── requirements.txt    # Python dependencies
-├── runtime.txt         # Python version (optional, can also set in UI)
-└── ...                 # Other application files
-```
-
-### Troubleshooting
+## Troubleshooting a back end that will not boot
 
 - **Import Errors**: Ensure all dependencies are in `requirements.txt`
 - **MongoDB Connection Issues**: Check your MongoDB Atlas network access settings
 - **Session Issues**: Verify `SESSION_TYPE=null` is set for Vercel. There is no default - the function refuses to boot without it - and `filesystem` is a store a serverless function does not keep between requests.
-- **CORS Issues**: Ensure `CORS_ALLOWED_ORIGINS` lists your frontend's origin exactly as the browser sends it (`https://your-frontend-domain.vercel.app` - scheme and host, no trailing slash, no path). A preview deployment served from a different domain is a different origin and has to be listed too. `FRONTEND_URL` is only used for the links in outgoing mail and has no say in CORS.
+- **CORS Issues**: Ensure `CORS_ALLOWED_ORIGINS` lists your frontend's origin exactly as the browser sends it (`https://conventioner.io` - scheme and host, no trailing slash, no path). A preview deployment served from a different domain is a different origin and has to be listed too. `FRONTEND_URL` is only used for the links in outgoing mail and has no say in CORS.
 - **"Refusing to start: N of the things this app's public surface rests on are not configured"**: one or more of `SECRET_KEY`, `SESSION_TYPE`, `RECAPTCHA_SECRET_KEY`, `CORS_ALLOWED_ORIGINS`, `RESEND_API_KEY`, `TRUSTED_PROXY_HOPS` is unset. The log names every one of them, and each names what it defends, delivers or stores. Set them and redeploy; do not work around it by setting `ALLOW_INSECURE_LOCAL_DEV`, which turns all of that off. See [RELEASING.md](./RELEASING.md#pre-deploy-required-production-environment).
 - **"`SECRET_KEY` is set to a value this repository has published"**: the key you set is one of the placeholders or fallbacks that appear in this repo (or its history), so it is readable by anyone who can read the repo. Generate a real one with `python -c 'import secrets; print(secrets.token_urlsafe(48))'`. This ends every session signed with the old key, so organizers log in again once - that is the cost of the key not being public.
 - **"`RECAPTCHA_SECRET_KEY` / `RESEND_API_KEY` is set to a placeholder this repository has printed"**: the value you set is one of the example strings from an env template or an older version of this guide (`6Lcxxxxx...`, `re_xxxxx...`, `your-...`), not a secret an issuer ever gave you. Google and Resend both reject it, so the captcha would fail every signup and no verification mail would ever be delivered - a check that passed on a value nothing works with is the failure this refusal exists to move to boot time. Set the real key from the linked console, or, if this is a local machine, clear the variable and set `ALLOW_INSECURE_LOCAL_DEV=true` with `DISABLE_CAPTCHA=true` / `DISABLE_EMAIL=true`.
