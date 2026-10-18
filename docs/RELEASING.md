@@ -45,9 +45,11 @@ Release management is handled by [release-please](https://github.com/googleapis/
 2. **A maintainer promotes `dev` → `main`** as a fast-forward: `git fetch origin && git push origin origin/dev:main`.
    This is the **only** way code reaches `main`.
    A fast-forward deploys exactly the commit CI tested on `dev`; a merge or rebase would make a new commit nobody tested.
-3. **Vercel deploys `main` the moment it moves.**
-   Both projects (`makers-market-management-front-end` at `conventioner.io`, `makers-market-management-back-end` at `api.conventioner.io`) build every push to `main` to production, independently and with nothing gating them on CI.
-   The promotion **is** the deploy; the tag below is bookkeeping.
+3. **The Deploy workflow ships `main` once CI passes on it** (`.github/workflows/deploy.yml`).
+   Vercel's own deploys of `main` are switched off (`git.deploymentEnabled.main: false` in each project's `vercel.json`), so a push to `main` runs the Test workflow, and only a green run deploys: the back end (`makers-market-management-back-end`, `api.conventioner.io`) first, then `/healthz` is checked, then the front end (`makers-market-management-front-end`, `conventioner.io`) and a deep link.
+   The promotion is what starts a deploy; the tag below is bookkeeping.
+   It needs the `VERCEL_TOKEN` secret in the `production` environment and the `VERCEL_ORG_ID`, `VERCEL_BACKEND_PROJECT_ID` and `VERCEL_FRONTEND_PROJECT_ID` variables; without them the run refuses at its first step.
+   To redeploy a commit by hand (after changing an environment variable, say), run the Deploy workflow from `main` in the Actions tab.
 4. **release-please detects the new commits on `main`** and automatically opens (or updates) a **Release PR** targeting `main`.
    This PR contains:
    - A version bump in `.release-please-manifest.json`
@@ -57,7 +59,7 @@ Release management is handled by [release-please](https://github.com/googleapis/
    - Creates a **git tag** (e.g., `v0.1.0`)
    - Creates a **GitHub Release** with the changelog content
 
-   Merging it is another push to `main`, so Vercel redeploys the same code with only the changelog changed.
+   Merging it is another push to `main`, so the same code is deployed again with only the changelog changed.
 
 ### After every deploy
 
@@ -85,6 +87,8 @@ Check, in this order:
 Vercel keeps every production deployment.
 Roll back by promoting the previous one, in the dashboard (Deployments, then "Instant Rollback") or with `vercel rollback <deployment-url>`, **for each project separately**: the front end and the back end deploy independently.
 A rollback does not move `main`, so revert the bad commit on `dev` and promote it before the next deploy brings it back.
+**An Instant Rollback stops Vercel giving new production builds the domain** until a deployment is promoted again (`vercel promote <deployment>`, or Promote in the dashboard).
+That is how `api.conventioner.io` served an April build until 2026-10-18 while every later deploy went live nowhere; promote the fixed build once it is out, or the next deploy will not reach the domain either.
 A rollback cannot undo a migration; see the window rule above.
 
 ### Bootstrapping Note
