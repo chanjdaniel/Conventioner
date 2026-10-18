@@ -138,6 +138,11 @@ const restoredTargets = ref<Set<string>>(new Set());
 const restoredMissing = ref<Array<{ target: string; missingHeaders: string[] }>>([]);
 const newHeaders = ref<string[]>([]);
 const hasSavedMapping = ref(false);
+/**
+ * Whose decisions the saved mapping holds: the start of the form, or an earlier import. The first
+ * import after a start used to call the start's choices "your last import" (E30/F02/S01).
+ */
+const savedMappingFrom = ref<'start' | 'import'>('import');
 /** Does this market order vendors by when they applied? Decides the warning below. */
 const ordersBySubmittedAt = ref(false);
 /**
@@ -558,6 +563,7 @@ async function inspect() {
     // A previous import's decisions win over the auto-detected two: the organizer already said
     // what these columns mean, and re-asking is the friction this remembers them to avoid.
     hasSavedMapping.value = data.hasSavedMapping === true;
+    savedMappingFrom.value = data.savedMappingFrom === 'start' ? 'start' : 'import';
     ordersBySubmittedAt.value = data.ordersBySubmittedAt === true;
     commaBearingTargets.value = new Set<string>(data.commaBearingTargets ?? []);
     restoredMissing.value = data.restoredTargetsMissingColumns ?? [];
@@ -784,7 +790,10 @@ function startOver() {
       <section v-if="step === 'map'" class="import-map" data-testid="import-map">
         <div class="import-ledger">
           <div v-if="hasSavedMapping" class="import-restored" data-testid="import-restored-banner">
-            <strong>Restored from your last import.</strong>
+            <strong v-if="savedMappingFrom === 'start'">
+              Mapped when your form was started from this file.
+            </strong>
+            <strong v-else>Restored from your last import.</strong>
             <span v-if="restoredMissing.length" data-testid="import-restored-missing">
               <template v-for="(entry, position) in restoredMissing" :key="entry.target">
                 {{ position ? '; ' : '' }}{{ labelForTarget(entry.target) }} lost
@@ -1161,7 +1170,7 @@ function startOver() {
           </h3>
           <p class="import-help">
             These will not be imported. Import the rest, or fix them first: in your spreadsheet, or
-            with Back for an answer you chose to ignore.
+            with Back, for an answer that was left out or ignored.
           </p>
           <ul>
             <li
@@ -1223,7 +1232,7 @@ function startOver() {
           <h3>{{ failures.length }} row{{ failures.length === 1 ? '' : 's' }} skipped</h3>
           <p class="import-help">
             These were not imported. Fix them and import again: in your spreadsheet, or, for an
-            answer you chose to ignore, when you map the columns.
+            answer that was left out or ignored, when you map the columns.
           </p>
           <ul>
             <li v-for="failure in failures" :key="failure.row" data-testid="import-failure-row">

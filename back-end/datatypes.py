@@ -3,7 +3,7 @@ import re
 import unicodedata
 import uuid
 from enum import Enum
-from typing import List, Optional, Union, Dict, Any, Tuple
+from typing import List, Optional, Union, Dict, Any, Tuple, Literal
 from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validator, model_validator
 from datetime import datetime
 
@@ -414,6 +414,11 @@ class ImportMapping(BaseModel):
     # target key -> raw cell value -> the market's own name for it, or None meaning "ignore".
     resolutions: Dict[str, Dict[str, Optional[str]]] = {}
     saved_at: Optional[str] = None
+    # Who wrote it: "start", the form started from a CSV (E24), or "import", an import of the file.
+    # The import says which, because a first import that called the start's choices "your last
+    # import" and "one you chose to ignore" described decisions the organizer never made (E30/F02).
+    # A mapping saved before this was recorded was an import's: the start came later.
+    made_by: Literal["start", "import"] = "import"
 
 
 class Market(BaseModel):

@@ -2,7 +2,7 @@
 id: E30/F02/S01
 title: The import names the start, and shows what the start set aside
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -18,7 +18,7 @@ The rule that rare values start ignored is a decision and stays; this story chan
 
 ## Acceptance criteria
 
-- [ ] First import after a CSV start: no "Restored from your last import"; it names the start.
-- [ ] Every value the start set aside is listed with its rows and can be matched to an offered value before the preview.
-- [ ] No skipped row's reason says the organizer chose to ignore something they did not.
-- [ ] An e2e walks start -> import on the fixture and asserts the wording and the count.
+- [x] First import after a CSV start: no "Restored from your last import"; it names the start.
+- [x] Every value the start set aside is listed with its rows and can be matched to an offered value before the preview.
+- [x] No skipped row's reason says the organizer chose to ignore something they did not.
+- [x] An e2e walks start -> import on the fixture and asserts the wording and the count.

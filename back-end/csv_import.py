@@ -26,7 +26,7 @@ import io
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
@@ -433,7 +433,7 @@ def suggested_mapping(headers: List[str], targets: List[ImportTarget]) -> Dict[s
 # A blanket key conversion would rewrite those - "Gold Tier" is a value the organizer's form
 # produced, not a schema key, and mangling it would silently lose the resolution it stands for.
 _MAPPING_FIELDS = {"targets": "targets", "headers": "headers",
-                   "resolutions": "resolutions", "saved_at": "savedAt"}
+                   "resolutions": "resolutions", "saved_at": "savedAt", "made_by": "madeBy"}
 
 
 def stored_mapping(market_doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -566,6 +566,8 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
         "restoredTargetsMissingColumns": unresolved,
         "newHeaders": new_headers,
         "hasSavedMapping": bool(saved.get("targets")),
+        # Whose decisions those are: the start of the form, or an earlier import.
+        "savedMappingFrom": saved.get("made_by") or "import",
         # True when this market orders vendors by when they applied. The ledger warns if that rule
         # exists and no column feeds it: mapping nothing is legal, but then the rule decides
         # nothing, which is the silent no-op this story exists to end wearing a different hat.
@@ -1163,11 +1165,39 @@ def _latest_rows(assembled: Sequence[_Row]) -> Tuple[List[_Row], List[Dict[str, 
     return kept, repeats
 
 
-def _row_faults(market_doc: Dict[str, Any], assembled: Sequence[_Row]) -> List[Dict[str, Any]]:
+def left_out_at_start(
+    market_doc: Dict[str, Any], resolutions: Dict[str, Dict[str, Optional[str]]],
+) -> Set[str]:
+    """The labels of the questions whose ignored answers are all the start's decisions, not the
+    organizer's.
+
+    The start of the form leaves out an answer fewer than three applicants gave (E24 ticket 06) and
+    saves that as ignored. An import that then said "one you chose to ignore" described a choice the
+    organizer never made (E30/F02/S01). Once the organizer ignores anything more for a question,
+    the decision is theirs, and the import says so.
+    """
+    saved = stored_mapping(market_doc)
+    if saved.get("made_by") != "start":
+        return set()
+    started = saved.get("resolutions") or {}
+    labels = {target.key: target.label for target in import_targets(market_doc)}
+    return {
+        labels[key] for key, choices in resolutions.items()
+        if key in labels and all(
+            key in started and value in started[key] and started[key][value] is None
+            for value, choice in choices.items() if choice is None
+        )
+    }
+
+
+def _row_faults(
+    market_doc: Dict[str, Any], assembled: Sequence[_Row], left_out: Set[str] = frozenset(),
+) -> List[Dict[str, Any]]:
     """Rows that would be refused, each with every reason and its line in the organizer's file.
 
     Every reason, not the first: an organizer who fixed one problem in the spreadsheet used to meet
-    the next on the next attempt (bug 40).
+    the next on the next attempt (bug 40). ``left_out`` names the questions whose ignored answers
+    the start of the form set aside (``left_out_at_start``).
     """
     faults = []
     for line, email, submitted_at, form_data, ignored in assembled:
@@ -1194,6 +1224,8 @@ def _row_faults(market_doc: Dict[str, Any], assembled: Sequence[_Row]) -> List[D
             if about:
                 errors = [error for error in errors if error not in about]
                 problems.append(
+                    f"Every answer to '{label}' was left out when your form was started from "
+                    "this file, and it is required." if label in left_out else
                     f"Every answer to '{label}' is one you chose to ignore, and it is required.")
         problems += errors
         if problems:
@@ -1326,7 +1358,7 @@ def preview_values(
     applicants, repeats = _latest_rows(
         _assembled_rows(market_doc, headers, rows, resolved, resolutions),
     )
-    failures = _row_faults(market_doc, applicants)
+    failures = _row_faults(market_doc, applicants, left_out_at_start(market_doc, resolutions))
     result["failures"] = failures
     result["repeats"] = repeats
     result["validRows"] = len(applicants) - len(failures)
@@ -1542,7 +1574,7 @@ def import_applications(
     applicants, repeats = _latest_rows(
         _assembled_rows(market_doc, headers, rows, resolved, resolutions),
     )
-    failures = _row_faults(market_doc, applicants)
+    failures = _row_faults(market_doc, applicants, left_out_at_start(market_doc, resolutions))
     refused = {failure["row"] for failure in failures}
 
     # Counted before the writes, so it means "already here and not in this file" rather than
@@ -1629,9 +1661,11 @@ def mapping_payload(
     headers: Sequence[str],
     resolved: Dict[str, List[int]],
     resolutions: Dict[str, Dict[str, Optional[str]]],
+    made_by: str = "import",
 ) -> Dict[str, Any]:
     """A mapping as it is stored: by header text, never position. The one format there is - the
-    import saves it, and a market started from a CSV saves the same thing (E24/F03/S03)."""
+    import saves it, and a market started from a CSV saves the same thing (E24/F03/S03), saying
+    that it did."""
     mapping = ImportMapping(
         targets={
             key: [str(headers[index]).strip() for index in indexes if index < len(headers)]
@@ -1640,6 +1674,7 @@ def mapping_payload(
         headers=[str(header).strip() for header in headers],
         resolutions=resolutions,
         saved_at=datetime.now(timezone.utc).isoformat(),
+        made_by=made_by,
     )
     dumped = mapping.model_dump()
     return {camel: dumped[snake] for snake, camel in _MAPPING_FIELDS.items()}

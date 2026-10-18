@@ -223,6 +223,12 @@ test.describe('Start from your Google Form', () => {
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
     await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));
+    // E30/F02/S01: the first import ever said "Restored from your last import". The mapping is the
+    // start's, and the import says so.
+    await expect(importer.restoredBanner).toContainText(
+      'Mapped when your form was started from this file.',
+    );
+    await expect(importer.restoredBanner).not.toContainText('last import');
     await importer.clickPreview();
     await expect(importer.previewCounts).toBeVisible();
     const selling = (await importer.previewFailureRows.allInnerTexts()).filter((r) =>
@@ -230,13 +236,16 @@ test.describe('Start from your Google Form', () => {
     );
     expect(selling.length).toBeGreaterThan(0);
     for (const refusal of selling) {
+      // The start left these out; the organizer never chose to ignore anything.
       expect(refusal).toContain(
-        "Every answer to 'What will you be selling at the event?' is one you chose to ignore",
+        "Every answer to 'What will you be selling at the event?' was left out when your form " +
+          'was started from this file',
       );
+      expect(refusal).not.toContain('chose to ignore');
       expect(refusal).not.toContain("'What will you be selling at the event?' is required");
     }
     await expect(page.getByTestId('import-preview-failures')).toContainText(
-      'with Back for an answer you chose to ignore',
+      'with Back, for an answer that was left out or ignored',
     );
   });
 

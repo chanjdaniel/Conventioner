@@ -33,7 +33,7 @@ export class CsvImportPage {
   readonly groupShape: Locator;
   readonly groupMembers: Locator;
 
-  // A mapping restored from the last import of this market
+  // A mapping restored from the last import of this market, or from the start of its form
   readonly restoredBanner: Locator;
   readonly restoredNew: Locator;
   readonly restoredBadges: Locator;
