@@ -83,6 +83,30 @@ test.describe('Public vendor check-in', () => {
     await expect(checkinPage.checkinButtons.first()).toBeVisible();
   });
 
+  test('a vendor looking up on another day is not invited to check in for it', async ({
+    page,
+    request,
+  }) => {
+    // The page told a vendor whose day was not today "You can still check in for a day below."
+    // Check-in is how the organizer knows a vendor is present on the day, so the page must not
+    // suggest checking in on any other (2026-10-18 dry run). It is not refused in code.
+    const seed = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+
+    const checkinPage = new CheckinPage(page);
+    await checkinPage.goto(seed.marketSlug);
+    await checkinPage.fillEmail('alice@example.com');
+    await checkinPage.clickLookup();
+
+    await expect(checkinPage.checkinButtons.first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('attendance-not-today')).toHaveCount(0);
+    await expect(page.getByText(/still check in/i)).toHaveCount(0);
+  });
+
   test('the vendor is greeted by name, with the address they matched on', async ({
     page,
     request,

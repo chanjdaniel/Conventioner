@@ -21,6 +21,7 @@ import { assignRefusal } from '@/utils/assignPhase';
 import { outOfDateLine } from '@/utils/assignmentOutOfDate';
 import { hasAssignment } from '@/utils/marketPage';
 import { withoutQueryKey } from '@/utils/routeQuery';
+import { satisfactionPercent } from '@/utils/satisfactionPercent';
 
 const props = defineProps<{ market: Market }>();
 
@@ -88,8 +89,7 @@ watch(
  */
 const satisfaction = computed(() => {
   if (!statistics.value) return '…';
-  const score = statistics.value.satisfactionScore;
-  return score === null || score === undefined ? 'Not applicable' : `${Math.round(score * 100)}%`;
+  return satisfactionPercent(statistics.value.satisfactionScore);
 });
 
 const unassignedCount = computed(() =>
@@ -172,7 +172,7 @@ async function downloadCsv(): Promise<void> {
       </span>
       <span class="result-figure" data-testid="result-tables-used">
         <strong>{{ statistics?.totalAssignedTables ?? '…' }}</strong> of
-        {{ statistics?.totalTables ?? '…' }} tables used
+        {{ statistics?.totalTables ?? '…' }} table-days used
       </span>
       <RouterLink
         class="result-figure result-link"
@@ -208,8 +208,9 @@ async function downloadCsv(): Promise<void> {
     </div>
 
     <!-- Named and defined where it is shown: it was once a bare "Satisfaction Score" (E12). -->
-    <p v-if="assigned" class="result-definition">
-      Satisfaction is the share of the dates vendors asked for, and could have had, that they got.
+    <p v-if="assigned" class="result-definition" data-testid="result-definition">
+      A table-day is one table on one market date. Satisfaction is the share of the dates vendors
+      asked for, and could have had, that they got.
     </p>
     <ResultStatistics v-if="assigned && statisticsOpen && statistics" :statistics="statistics" />
     <p v-if="downloadError" class="result-error" data-testid="result-download-error">

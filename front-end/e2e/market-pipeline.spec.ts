@@ -155,7 +155,7 @@ test.describe('Market pipeline E2E', () => {
 
     const summaryText = await resultsPage.strip.textContent();
     expect(summaryText).toContain('vendors placed');
-    expect(summaryText).toContain('tables used');
+    expect(summaryText).toContain('table-days used');
     expect(summaryText).toContain('unassigned');
     // Named and defined where it is shown: it used to be a bare "Satisfaction Score" with no
     // definition, no breakdown and no tooltip anywhere in the product.

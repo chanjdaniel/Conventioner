@@ -31,7 +31,14 @@ test.describe('The Result page', () => {
 
     const placed = page.getByTestId('result-vendors-placed');
     await expect(placed).toHaveText(/^\d+ of \d+ vendors placed\s*$/, { timeout: 15000 });
-    await expect(page.getByTestId('result-tables-used')).toHaveText(/^\d+ of \d+ tables used\s*$/);
+    // A table counted once per date is a table-day; "tables" read as 177 tables in a room of 59
+    // (known gap 7, 2026-10-18 dry run).
+    await expect(page.getByTestId('result-tables-used')).toHaveText(
+      /^\d+ of \d+ table-days used\s*$/,
+    );
+    await expect(page.getByTestId('result-definition')).toContainText(
+      'A table-day is one table on one market date.',
+    );
     await expect(page.getByTestId('assignment-satisfaction-score')).toBeVisible();
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible();
     await expect(page.getByTestId('placement-history')).toBeVisible();
