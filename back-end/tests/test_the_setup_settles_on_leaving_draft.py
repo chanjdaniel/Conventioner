@@ -98,6 +98,24 @@ def test_the_reason_rides_on_the_market_and_names_the_way_back(applications):
     assert "back to draft" not in reason(MarketPhase.REVIEW)
 
 
+@pytest.mark.parametrize("intake_mode, phase, moves", [
+    ("form", MarketPhase.APPLICATIONS_OPEN, "Reopen for Editing"),
+    ("form", MarketPhase.APPLICATIONS_CLOSED, "Reopen Applications, then Reopen for Editing"),
+    ("csv", MarketPhase.APPLICATIONS_CLOSED, "Collect Again, then Reopen for Editing"),
+])
+def test_the_way_back_names_each_move_from_where_the_market_is(
+        applications, intake_mode, phase, moves):
+    """A closed market nobody applied to gets back to draft too, by reopening first."""
+    applications.count = 0
+    market = MarketsApi.market_from_document(
+        stored_market(phase=phase, setupObject=COMPLETE_PLAN, intakeMode=intake_mode))
+
+    reason = MarketsApi.setup_lock_reason(market)
+
+    assert "go back to draft" in reason
+    assert f": {moves}, under More… on the phase rail." in reason
+
+
 @pytest.mark.parametrize("intake_mode, words", [
     ("form", "once applications have opened"),
     ("csv", "once you have started collecting"),

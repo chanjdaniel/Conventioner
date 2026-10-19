@@ -278,7 +278,18 @@ def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     return ASSIGNMENT_RULES_SETTLED
 
 
-SETUP_WAY_BACK = " While no one has applied, go back to draft to change it (More… on the phase rail)."
+# The menu's own names for the moves back to draft (``pathTransitionLabel`` in
+# ``front-end/src/utils/marketGuide.ts``), from each phase a market can still get back from.
+_WAY_BACK = {
+    MarketPhase.APPLICATIONS_OPEN: {
+        IntakeMode.FORM: "Reopen for Editing",
+        IntakeMode.CSV: "Reopen for Editing",
+    },
+    MarketPhase.APPLICATIONS_CLOSED: {
+        IntakeMode.FORM: "Reopen Applications, then Reopen for Editing",
+        IntakeMode.CSV: "Collect Again, then Reopen for Editing",
+    },
+}
 
 
 def _since_leaving_draft(market: Market) -> str:
@@ -307,8 +318,9 @@ def setup_lock_reason(market: Market) -> Optional[str]:
     """Why the setup may no longer change, or None while it can (E31/F01/S02).
 
     It settles on leaving draft, so a date an applicant chose or a section a vendor was placed in
-    cannot move under them. While the market can still go back to draft - applications open, nobody
-    has applied - the reason says so, since that is the way to change it.
+    cannot move under them. While the market can still go back to draft - nobody has applied, and it
+    is collecting or has just stopped - the reason names the moves that get it there, since that is
+    the way to change it.
     """
     if market.phase is MarketPhase.DRAFT:
         return None
@@ -316,9 +328,12 @@ def setup_lock_reason(market: Market) -> Optional[str]:
         f"The setup is settled: it cannot change {_since_leaving_draft(market)}, because "
         "applicants and the assignment rely on it."
     )
-    if (market.phase is MarketPhase.APPLICATIONS_OPEN
-            and ApplicationsApi.count_applications_for_market(market.id) == 0):
-        return settled + SETUP_WAY_BACK
+    way_back = _WAY_BACK.get(market.phase, {}).get(market.intake_mode)
+    if way_back and ApplicationsApi.count_applications_for_market(market.id) == 0:
+        return (
+            f"{settled} While no one has applied, go back to draft to change it: {way_back}, "
+            "under More… on the phase rail."
+        )
     return settled
 
 
