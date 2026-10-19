@@ -176,7 +176,6 @@ const { load: loadNotes, entryFor } = useVendorNotes(marketId);
 const canWriteNotes = computed(() => !!market.value && !market.value.readOnlyReason);
 
 watch(marketId, loadAttendance, { immediate: true });
-watch(marketId, loadNotes, { immediate: true });
 </script>
 
 <template>

@@ -8,7 +8,7 @@
  *
  * A write is followed by a re-read, never a patch, as every market write is.
  */
-import { ref, type Ref } from 'vue';
+import { ref, watch, type Ref } from 'vue';
 import { api } from '@/utils/api';
 
 export interface VendorNoteEntry {
@@ -50,6 +50,9 @@ export function useVendorNotes(marketId: Ref<string>) {
   function entryFor(email: string): VendorNoteEntry | undefined {
     return notes.value[email.trim().toLowerCase()];
   }
+
+  // Read as the page opens on a market, and again whenever it opens on another.
+  watch(marketId, load, { immediate: true });
 
   return { notes, load, entryFor };
 }

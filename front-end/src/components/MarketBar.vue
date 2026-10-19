@@ -14,7 +14,7 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import type { Market } from '@/assets/types/datatypes';
 import { marketPath } from '@/utils/market';
-import { intakePath, pathTabLabel } from '@/utils/marketGuide';
+import { intakeModeOf, pathTabLabel } from '@/utils/marketGuide';
 import {
   TAB_LABELS,
   currentPage,
@@ -38,7 +38,7 @@ const activeTab = computed(() => (here.value ? tabOf(here.value) : null));
 
 /** The same five tabs in every phase (E31/F03/S02). */
 const tabs = computed((): MarketTab[] => tabsFor());
-const path = computed(() => intakePath(props.market));
+const path = computed(() => intakeModeOf(props.market));
 
 function linkFor(tab: MarketTab): string {
   return marketPath(props.market!.id, pageForTab(tab, props.market?.phase, assigned.value));

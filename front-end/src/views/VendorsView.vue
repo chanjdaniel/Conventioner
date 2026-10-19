@@ -103,7 +103,6 @@ const { market } = useOpenMarket(marketId);
 
 /** What each vendor asked for and what the organizers noted (E31/F04/S04). */
 const { load: loadNotes, entryFor } = useVendorNotes(marketId);
-watch(marketId, loadNotes, { immediate: true });
 
 /** Is this vendor's placement on this date at a table the plan no longer has (bug 31)? */
 function isOrphaned(email: string, date: string): boolean {

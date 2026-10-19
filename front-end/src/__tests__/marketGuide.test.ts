@@ -10,7 +10,7 @@ import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { phaseSpine } from '@/utils/phase';
 import {
   forwardFrom,
-  intakePath,
+  intakeModeOf,
   nextStep,
   pathPhaseLabel,
   pathTabLabel,
@@ -36,31 +36,31 @@ function market(phase: MarketPhase, overrides: Partial<Market> = {}): Market {
 
 describe('the path a market is on', () => {
   it('is CSV unless the market says form, as the server reads it', () => {
-    expect(intakePath(market(MarketPhase.Draft))).toBe('form');
-    expect(intakePath(market(MarketPhase.Draft, { intakeMode: undefined }))).toBe('csv');
+    expect(intakeModeOf(market(MarketPhase.Draft))).toBe(IntakeMode.Form);
+    expect(intakeModeOf(market(MarketPhase.Draft, { intakeMode: undefined }))).toBe(IntakeMode.Csv);
   });
 });
 
 describe('the words a CSV market wears', () => {
   it('names the collecting phases for its Google Form, and the form path keeps its own', () => {
-    expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, 'csv')).toBe('Collecting');
-    expect(pathPhaseLabel(MarketPhase.ApplicationsClosed, 'csv')).toBe('Form Closed');
-    expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, 'form')).toBe('Applications Open');
+    expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, IntakeMode.Csv)).toBe('Collecting');
+    expect(pathPhaseLabel(MarketPhase.ApplicationsClosed, IntakeMode.Csv)).toBe('Form Closed');
+    expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, IntakeMode.Form)).toBe('Applications Open');
   });
 
   it('names the moves for what the organizer does on each path', () => {
     const draft = MarketPhase.Draft;
     const open = MarketPhase.ApplicationsOpen;
     const closed = MarketPhase.ApplicationsClosed;
-    expect(pathTransitionLabel(draft, open, 'csv')).toBe('Start Collecting');
-    expect(pathTransitionLabel(open, closed, 'csv')).toBe('Done Collecting');
-    expect(pathTransitionLabel(draft, open, 'form')).toBe('Open Applications');
-    expect(pathTransitionLabel(open, closed, 'form')).toBe('Close Applications');
+    expect(pathTransitionLabel(draft, open, IntakeMode.Csv)).toBe('Start Collecting');
+    expect(pathTransitionLabel(open, closed, IntakeMode.Csv)).toBe('Done Collecting');
+    expect(pathTransitionLabel(draft, open, IntakeMode.Form)).toBe('Open Applications');
+    expect(pathTransitionLabel(open, closed, IntakeMode.Form)).toBe('Close Applications');
   });
 
   it('calls the form "Questions", since no applicant ever sees it', () => {
-    expect(pathTabLabel('form', 'csv', TAB_LABELS)).toBe('Questions');
-    expect(pathTabLabel('form', 'form', TAB_LABELS)).toBe('Application Form');
+    expect(pathTabLabel('form', IntakeMode.Csv, TAB_LABELS)).toBe('Questions');
+    expect(pathTabLabel('form', IntakeMode.Form, TAB_LABELS)).toBe('Application Form');
   });
 
   it('never says vendors apply here, in any phase', () => {
