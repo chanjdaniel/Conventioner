@@ -15,6 +15,7 @@ import pytest
 from unittest.mock import MagicMock
 import db_config as test_db_config
 from datatypes import (
+    VerdictGiver,
     Application,
     ApplicationStatus,
     ApplicationType,
@@ -237,6 +238,8 @@ def test_list_market_applications_returns_raw_statuses(monkeypatch):
 
 # ── review_application ─────────────────────────────────────────────────────
 
+REVIEWER = VerdictGiver(kind="person", user_id="user-1", email="reviewer@market.test")
+
 
 def test_review_application_updates_status(monkeypatch):
     fake = FakeApplicationsCollection()
@@ -254,7 +257,7 @@ def test_review_application_updates_status(monkeypatch):
     monkeypatch.setattr(ApplicationsApi, "applications_collection", fake)
 
     result, status = review_application(
-        "market-1", "app-1", ApplicationStatus.REVIEWER_APPROVED,
+        "market-1", "app-1", ApplicationStatus.REVIEWER_APPROVED, by=REVIEWER,
     )
 
     assert status == 200
@@ -278,7 +281,7 @@ def test_review_application_rejects_invalid_status(monkeypatch):
     monkeypatch.setattr(ApplicationsApi, "applications_collection", fake)
 
     result, status = review_application(
-        "market-1", "app-1", ApplicationStatus.OPEN,
+        "market-1", "app-1", ApplicationStatus.OPEN, by=REVIEWER,
     )
     assert status == 400
     assert "invalid" in result["error"].lower()
@@ -289,7 +292,7 @@ def test_review_application_404_on_missing_app(monkeypatch):
     monkeypatch.setattr(ApplicationsApi, "applications_collection", fake)
 
     result, status = review_application(
-        "market-1", "nonexistent", ApplicationStatus.REVIEWER_APPROVED,
+        "market-1", "nonexistent", ApplicationStatus.REVIEWER_APPROVED, by=REVIEWER,
     )
     assert status == 404
 
@@ -310,7 +313,7 @@ def test_review_application_rejects_app_from_different_market(monkeypatch):
     monkeypatch.setattr(ApplicationsApi, "applications_collection", fake)
 
     result, status = review_application(
-        "market-1", "app-1", ApplicationStatus.REVIEWER_APPROVED,
+        "market-1", "app-1", ApplicationStatus.REVIEWER_APPROVED, by=REVIEWER,
     )
     assert status == 404
 

@@ -394,6 +394,17 @@ export interface Application {
   assignedReviewerId?: string;
   /** Organizer's list only: set when this applicant's table-share request pairs nobody. */
   tableShareNotice?: TableShareNotice | null;
+  /** Organizer's only: who gave the verdict, and when (E34/F01/S01). Null without one. */
+  verdictBy?: VerdictGiver | null;
+  verdictAt?: string | null;
+}
+
+/** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */
+export interface VerdictGiver {
+  kind: 'person' | 'rule';
+  userId?: string | null;
+  email?: string | null;
+  rule?: string | null;
 }
 
 export interface PreconditionResult {

@@ -195,8 +195,9 @@ def change_refusal(
 def admin_actions_refusal(
     user_email: str, market: Market, organization: Optional[Organization],
 ) -> Optional[str]:
-    """Why this person cannot take the ADMIN actions - moving the phase, deciding applications,
-    publishing results, importing - or None while they can (E26/F08/S01).
+    """Why this person cannot take the ADMIN actions - moving the phase, publishing results,
+    importing - or None while they can (E26/F08/S01). Deciding applications is not one: a verdict
+    is EDITOR's (E34/F01/S01), and ``change_refusal`` answers for it.
 
     Served as ``adminActionsReason``. An Editor changes the plan and the seats but runs none of
     these, and the rail offered them every phase move all the same.

@@ -3,7 +3,7 @@ import re
 import unicodedata
 import uuid
 from enum import Enum
-from typing import List, Optional, Union, Dict, Any, Tuple
+from typing import List, Literal, Optional, Union, Dict, Any, Tuple
 from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validator, model_validator
 from datetime import datetime
 
@@ -650,6 +650,18 @@ class ApplicationForm(BaseModel):
     unasked_essentials: List[str] = []
 
 
+class VerdictGiver(BaseModel):
+    """Who gave an application its verdict (E34/F01/S01): a person, or an automatic rule (E33/F03).
+
+    A person is named by id, and by the address they signed in with, which the review shows; a rule
+    by the question it judges. Stored on the application beside the status, in the same update.
+    """
+    kind: Literal["person", "rule"]
+    user_id: Optional[str] = None
+    email: Optional[str] = None
+    rule: Optional[str] = None
+
+
 class Application(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     market_id: str                        # FK to Market
@@ -661,6 +673,10 @@ class Application(BaseModel):
     submitted_at: Optional[str] = None
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     assigned_reviewer_id: Optional[str] = None
+    # Who gave the verdict, and when (E34/F01/S01). Absent on an application stored before verdicts
+    # recorded it, and on one with no verdict: a status that is none clears them.
+    verdict_by: Optional[VerdictGiver] = None
+    verdict_at: Optional[str] = None
 
 
 def to_camel(string: str) -> str:

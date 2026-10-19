@@ -78,7 +78,8 @@ test('a Viewer reads every market page and is offered nothing to change', async 
   });
 });
 
-test('an Editor changes the seats, but moves no phase and decides nothing', async ({ browser }) => {
+// A verdict is EDITOR's since E34/F01/S01: a reviewing team needs no role that moves the phase.
+test('an Editor changes the seats and decides, but moves no phase', async ({ browser }) => {
   await asUser(browser, EDITOR, async (page) => {
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('plan-card-dates')).toBeVisible({ timeout: 15000 });
@@ -94,7 +95,9 @@ test('an Editor changes the seats, but moves no phase and decides nothing', asyn
     await page.goto(marketSetupPath(marketId, 'applications'));
     await page.getByTestId('app-monitor-decided-toggle').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
-    await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
+    await expect(page.getByTestId('app-monitor-decided-reject-button').first()).toBeVisible();
+    // Publishing the verdicts stays an admin's.
+    await expect(page.getByTestId('app-monitor-publish-button')).toHaveCount(0);
   });
 });
 
