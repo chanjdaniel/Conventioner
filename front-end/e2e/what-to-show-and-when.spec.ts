@@ -48,11 +48,13 @@ test.describe('What to show, and when', () => {
     });
     await page.goto(marketSetupPath(csv.marketId, 'setup'));
     await expect(page.getByTestId('phase-transition-applications_open')).toHaveText(
-      'Start Collecting',
+      'Import responses',
     );
     await expect(page.getByTestId('market-bar-tab-form')).toHaveText('Questions');
-    await expect(page.getByTestId('phase-rail-spine')).toContainText('Collecting');
+    // Plan, Import, Review: the closed phase is stepped through, never a stage (E32/F02/S01).
+    await expect(page.getByTestId('phase-rail-spine')).toContainText('Import');
     await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Applications Open');
+    await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Form Closed');
 
     const form = await seedDraftMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
       intakeMode: 'form',
@@ -149,11 +151,11 @@ test.describe('What to show, and when', () => {
     );
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('market-read-only')).toContainText(
-      'The setup is settled: it cannot change once you have started collecting',
+      'The setup is settled: it cannot change once importing has begun',
     );
     await page.goto(marketSetupPath(marketId, 'form'));
     await expect(page.getByTestId('form-builder-lock-banner')).toContainText(
-      'The questions are fixed: they cannot change once you have started collecting',
+      'The questions are fixed: they cannot change once importing has begun',
     );
     await page.goto(marketSetupPath(marketId, 'applications'));
     await expect(page.getByTestId('market-setup-applications-condition')).toHaveText(

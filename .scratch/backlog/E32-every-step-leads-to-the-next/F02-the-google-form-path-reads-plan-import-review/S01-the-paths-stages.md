@@ -2,7 +2,7 @@
 id: E32/F02/S01
 title: The Google Form path's stages are Plan, Import, Review
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -18,12 +18,19 @@ The server's phases do not change; how the Google Form path names and walks them
 
 The online-application path is unchanged.
 
+## As built
+
+- The path's moves are the server's: `PASSED_THROUGH` and `path_moves` in `guards.py` say which phases a path steps through and every move open from a phase, and `evaluate_transition` judges a move's whole route. The market read's `transitionBlockers` lists the path's moves only, and the front end mirrors the two in `utils/phase.ts` for the spine and the rail.
+- The single edge into the closed phase is still taken when the API asks for it, so a seed may walk it; review refuses a CSV market with nothing imported on that edge too.
+- The move back from review to importing exists with this story, as the route through the closed phase, named "Import more responses"; `S02` is what it does to verdicts and a later export.
+- After an import, the import page's "Back to applications" is a secondary button, so the rail's Begin Review is the one green button.
+
 ## Acceptance criteria
 
-- [ ] A complete Google Form draft offers "Import responses" as its next step, and clicking it lands on the import.
-- [ ] No Google Form market's rail, tabs or messages say "Collecting", "Done Collecting" or "Form Closed".
-- [ ] With nothing imported, Begin Review is refused with the new blocker, and Import is the main button.
-- [ ] After an import, Begin Review moves the market to review in one click and lands there.
-- [ ] A chain that cannot finish moves nothing.
-- [ ] The guard lives in the guards module and the registry check accepts it.
-- [ ] The journey spec walks the Google Form path through the new stages.
+- [x] A complete Google Form draft offers "Import responses" as its next step, and clicking it lands on the import.
+- [x] No Google Form market's rail, tabs or messages say "Collecting", "Done Collecting" or "Form Closed".
+- [x] With nothing imported, Begin Review is refused with the new blocker, and Import is the main button.
+- [x] After an import, Begin Review moves the market to review in one click and lands there.
+- [x] A chain that cannot finish moves nothing.
+- [x] The guard lives in the guards module and the registry check accepts it.
+- [x] The journey spec walks the Google Form path through the new stages.

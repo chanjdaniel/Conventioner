@@ -126,8 +126,8 @@ test.describe('Fixing the form from inside the import', () => {
     // phase it returned to, and the question it added (E21/F02/S04). The import used to read and
     // never write a stored copy of the market, so the way back showed the market as it had been.
     await page.getByTestId('import-leave-button').click();
-    // A CSV market's name for it (E31/F03/S03).
-    await expect(page.getByTestId('phase-rail-current')).toHaveText('Collecting', {
+    // A CSV market's name for it (E31/F03/S03, E32/F02/S01).
+    await expect(page.getByTestId('phase-rail-current')).toHaveText('Import', {
       timeout: 10000,
     });
     await page.getByTestId('market-bar-tab-form').click();

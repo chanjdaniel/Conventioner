@@ -26,7 +26,7 @@ function railFor(phase: MarketPhase, overrides: Partial<Market> = {}) {
 
 describe('the spine', () => {
   it('draws every stage of the lifecycle, offers excluded', () => {
-    const labels = railFor(MarketPhase.Draft)
+    const labels = railFor(MarketPhase.Draft, { intakeMode: IntakeMode.Form })
       .findAll('.phase-step')
       .map((step) => step.attributes('data-phase'));
 
@@ -42,7 +42,9 @@ describe('the spine', () => {
   });
 
   it('marks where the market is, and fills what it has passed', () => {
-    const steps = railFor(MarketPhase.Review).findAll('.phase-step');
+    const steps = railFor(MarketPhase.Review, { intakeMode: IntakeMode.Form }).findAll(
+      '.phase-step',
+    );
     const states = Object.fromEntries(
       steps.map((s) => [s.attributes('data-phase'), s.attributes('data-state')]),
     );
@@ -60,14 +62,22 @@ describe('the spine', () => {
     expect(rail.text()).toContain('Market Days');
   });
 
-  it("names a CSV market's collecting for its Google Form (E31/F03/S03)", () => {
+  it("names a CSV market's stages Plan, Import, Review (E31/F03/S03, E32/F02/S01)", () => {
     const rail = railFor(MarketPhase.Draft, { intakeMode: IntakeMode.Csv });
 
-    expect(rail.text()).toContain('Collecting');
+    expect(rail.text()).toContain('Import');
     expect(rail.text()).not.toContain('Applications Open');
+    expect(rail.text()).not.toContain('Form Closed');
     expect(rail.get('[data-testid="phase-transition-applications_open"]').text()).toBe(
-      'Start Collecting',
+      'Import responses',
     );
+  });
+
+  it('moves a CSV market on from importing to review, the closed phase stepped through', () => {
+    const rail = railFor(MarketPhase.ApplicationsOpen, { intakeMode: IntakeMode.Csv });
+
+    expect(rail.get('[data-testid="phase-transition-review"]').text()).toBe('Begin Review');
+    expect(rail.find('[data-testid="phase-transition-applications_closed"]').exists()).toBe(false);
   });
 });
 

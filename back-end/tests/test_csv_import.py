@@ -1588,7 +1588,7 @@ class TestWhenImportingIsAllowed:
 
         refusal = CsvImport.import_refusal(doc)
 
-        assert "Back to Importing" in refusal
+        assert "Import more responses" in refusal
 
     def test_past_review_it_offers_no_way_back_that_does_not_exist(self):
         """From Assignment on there is no route back to the intake phases, so none is offered.

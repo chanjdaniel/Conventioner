@@ -36,9 +36,9 @@ import AppDialog from '@/components/AppDialog.vue';
 import { marketPath, resolutionPath } from '@/utils/market';
 import {
   blockersFor,
-  currentPage,
   forwardFrom,
   intakeModeOf,
+  landingPage,
   nextStep,
   pathPhaseLabel,
   pathTransitionLabel,
@@ -46,7 +46,7 @@ import {
 } from '@/utils/marketGuide';
 import {
   OFF_SPINE_PHASES,
-  VALID_TRANSITIONS,
+  pathMoves,
   transitionDirection,
   transitionNeedsConfirmation,
 } from '@/utils/phase';
@@ -70,7 +70,7 @@ const router = useRouter();
 const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
 
 /** The stages this market's rail draws (`spineFor` says why `offers` is usually not one). */
-const spine = computed(() => spineFor(currentPhase.value));
+const spine = computed(() => spineFor(currentPhase.value, intakeModeOf(props.market)));
 
 const currentIndex = computed(() => spine.value.indexOf(currentPhase.value));
 const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
@@ -213,7 +213,7 @@ async function copyUrl(url: string): Promise<void> {
 
 const path = computed(() => intakeModeOf(props.market));
 
-/** A stage as this market's path names it: a CSV market collects on its Google Form. */
+/** A stage as this market's path names it: a CSV market imports its Google Form. */
 function phaseLabel(phase: string): string {
   return pathPhaseLabel(phase, path.value);
 }
@@ -248,12 +248,13 @@ const stepLink = computed(() => elsewhere(step.value?.page));
  */
 const availableTransitions = computed(() =>
   props.market && !props.market.adminActionsReason
-    ? VALID_TRANSITIONS.filter(
-        // Never into a phase the spine leaves out: nothing can get a market there, so "Send
-        // Offers" sat in the menu and always refused (E30/F01/S04). A market in one keeps its ways
-        // out, which are not into it.
-        ([from, to]) => from === currentPhase.value && !OFF_SPINE_PHASES.includes(to),
-      ).map(([, to]) => to)
+    ? Object.keys(pathMoves(currentPhase.value, path.value)).filter(
+        // The moves of the market's own path, which steps through a phase it never stops in
+        // (E32/F02/S01). Never into a phase the spine leaves out: nothing can get a market there,
+        // so "Send Offers" sat in the menu and always refused (E30/F01/S04). A market in one keeps
+        // its ways out, which are not into it.
+        (to) => !OFF_SPINE_PHASES.includes(to),
+      )
     : [],
 );
 
@@ -407,7 +408,9 @@ async function doTransition(toPhase: string) {
   // answered, and a re-read that failed in transit leaves the store holding the market as it was
   // before it. Whether a run is stored, which no move changes, can come from either.
   const moved = marketStore.market ?? props.market;
-  await router.push(marketPath(props.market.id, currentPage(toPhase, hasAssignment(moved))));
+  await router.push(
+    marketPath(props.market.id, landingPage(toPhase, hasAssignment(moved), path.value)),
+  );
 }
 
 function handleTransitionClick(toPhase: string) {

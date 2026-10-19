@@ -36,7 +36,7 @@ from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
 from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
-from guards import PreconditionResult, VALID_TRANSITIONS, evaluate_transition
+from guards import PreconditionResult, evaluate_transition, move_route
 from market_documents import (
     MarketKeyMigrationError,
     assert_market_key_migration_recorded,
@@ -1177,7 +1177,9 @@ def transition_market(market_id: str) -> Response:
 
         from_phase = market.phase.value
 
-        if (from_phase, to_phase.value) not in VALID_TRANSITIONS:
+        # A move on the market's path may step through a phase it does not stop in (E32/F02/S01).
+        route = move_route(market, to_phase.value)
+        if route is None:
             return jsonify({
                 "error": (
                     f"Transition from '{from_phase}' to '{to_phase.value}' "
@@ -1195,11 +1197,10 @@ def transition_market(market_id: str) -> Response:
             })), 409
 
         # Through the one phase writer, so the phase, its two stamps and the phase history move in
-        # one atomic update (E26/F06/S03). This endpoint used to carry its own copy of that write.
+        # one atomic update a step (E26/F06/S03). This endpoint used to carry its own copy of that
+        # write. A route of two steps is two such updates, each recorded as the phase it entered.
         try:
-            MarketsApi.apply_phase_transition(
-                market_id, context.document, to_phase.value, by=user_email
-            )
+            MarketsApi.walk_route(market_id, context.document, route, by=user_email)
         except MarketsApi.MarketNotFoundError:
             return jsonify({"error": "Market not found"}), 404
         except MarketsApi.PhaseChangedUnderRequest as changed:
