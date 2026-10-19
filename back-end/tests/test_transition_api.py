@@ -300,6 +300,7 @@ class TestTransitionBlocked:
         assert "resolutionLink" in blocker
         assert "resolution_link" not in blocker
         assert blocker["resolutionLink"] is None
+        assert blocker["resolutionLabel"] is None
 
         assert collection.doc["phase"] == "draft"
 

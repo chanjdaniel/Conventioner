@@ -64,7 +64,7 @@ function marketLink(relative: string): string {
           class="blocker-link"
           data-testid="blocker-resolution-link"
         >
-          Fix this &rarr;
+          {{ row.blocker.resolutionLabel }} &rarr;
         </router-link>
       </li>
     </ul>

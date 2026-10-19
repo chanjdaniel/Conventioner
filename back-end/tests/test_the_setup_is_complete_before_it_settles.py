@@ -68,16 +68,18 @@ def test_a_date_has_passed_once_it_has_passed_everywhere(monkeypatch, utc_now, o
     assert bool(_blockers(_market(dates=("2026-11-20",)))) is over
 
 
-@pytest.mark.parametrize("market, names", [
-    (_market(dates=()), "no market dates"),
-    (_market(locations=()), "no location"),
-    (_market(sections=[]), "no tables"),
+@pytest.mark.parametrize("market, names, fix", [
+    (_market(dates=()), "no market dates", "Pick market dates"),
+    (_market(locations=()), "no location", "Add a location"),
+    (_market(sections=[]), "no tables", "Add tables"),
 ])
-def test_each_missing_part_is_its_own_line_pointing_at_market_setup(market, names):
+def test_each_missing_part_is_its_own_line_pointing_at_market_setup(market, names, fix):
     blockers = _blockers(market)
     assert len(blockers) == 1
     assert names in blockers[0].message
     assert blockers[0].resolution_link == "setup"
+    # The rail's main button while the move waits on it (E32/F01/S02).
+    assert blockers[0].resolution_label == fix
 
 
 def test_every_missing_part_is_said_at_once():

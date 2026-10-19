@@ -56,6 +56,16 @@ class PreconditionResult:
     #: the panel compares this against the current location to decide whether it leads anywhere,
     #: and cannot follow a hop.
     resolution_link: Optional[str] = None
+    #: What following the link does, in a few words the organizer acts on ("Add a location"). The
+    #: rail draws it as its main button while the move waits on this (E32/F01/S02), so a link always
+    #: has one and words never come without a link: both or neither, refused at construction.
+    resolution_label: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.resolution_link and not self.resolution_label:
+            raise ValueError(f"{self.id}: a resolution_link needs a resolution_label to name it")
+        if self.resolution_label and not self.resolution_link:
+            raise ValueError(f"{self.id}: a resolution_label needs a resolution_link to lead to")
 
     def payload(self) -> Dict[str, Any]:
         """As the wire carries it: the one shape the transition's refusal, the form amendment's
@@ -160,14 +170,16 @@ class SetupHasDatesGuard:
         dates = sorted({d.date for d in setup.market_dates}) if setup else []
         if not dates:
             return PreconditionResult(
-                id=self.id, passed=False, resolution_link="setup",
+                id=self.id, passed=False,
+                resolution_link="setup", resolution_label="Pick market dates",
                 message="This market has no market dates. Pick them on Market Setup's calendar.",
             )
         earliest = _earliest_calendar_day()
         passed = [date for date in dates if date < earliest]
         if passed:
             return PreconditionResult(
-                id=self.id, passed=False, resolution_link="setup",
+                id=self.id, passed=False,
+                resolution_link="setup", resolution_label="Change the dates",
                 message=(
                     f"{len(passed)} of this market's dates "
                     f"{'has' if len(passed) == 1 else 'have'} already passed: "
@@ -188,7 +200,8 @@ class SetupHasALocationGuard:
         if setup and any(location.name.strip() for location in setup.locations):
             return PreconditionResult(id=self.id, passed=True, message="")
         return PreconditionResult(
-            id=self.id, passed=False, resolution_link="setup",
+            id=self.id, passed=False,
+            resolution_link="setup", resolution_label="Add a location",
             message="This market has no location. Add one on Market Setup.",
         )
 
@@ -210,7 +223,8 @@ class EveryTierHasTablesGuard:
         sections = [s for s in (setup.sections if setup else []) if s.count > 0]
         if not sections:
             return PreconditionResult(
-                id=self.id, passed=False, resolution_link="setup",
+                id=self.id, passed=False,
+                resolution_link="setup", resolution_label="Add tables",
                 message="This market has no tables yet. Add a section with tables on Market Setup.",
             )
         with_tables = {s.tier.name for s in sections if s.tier and s.tier.name}
@@ -219,7 +233,8 @@ class EveryTierHasTablesGuard:
         ]
         if bare:
             return PreconditionResult(
-                id=self.id, passed=False, resolution_link="setup",
+                id=self.id, passed=False,
+                resolution_link="setup", resolution_label="Give every tier tables",
                 message=(
                     f"{'Tier' if len(bare) == 1 else 'Tiers'} {', '.join(bare)} "
                     f"{'has' if len(bare) == 1 else 'have'} no tables. Give each a section with "
@@ -296,6 +311,7 @@ class AssignmentComputedGuard:
                     "not tell anyone where to stand. Run the assignment first."
                 ),
                 resolution_link="assignment",
+                resolution_label="Run the assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -329,6 +345,7 @@ class AllApplicationsReviewedGuard:
                     "can begin."
                 ),
                 resolution_link="applications",
+                resolution_label="Finish deciding",
             )
         if total == 0:
             return PreconditionResult(
@@ -371,6 +388,7 @@ class NoApprovedApplicationsGuard:
                     "sending offers."
                 ),
                 resolution_link="assignment",
+                resolution_label="Run the assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 

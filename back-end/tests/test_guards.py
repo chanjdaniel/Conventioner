@@ -65,10 +65,21 @@ class TestPreconditionResult:
             passed=False,
             message="Something is wrong.",
             resolution_link="/fix-it",
+            resolution_label="Fix it",
         )
         assert r.passed is False
         assert r.message == "Something is wrong."
         assert r.resolution_link == "/fix-it"
+        assert r.resolution_label == "Fix it"
+
+    def test_a_link_carries_the_words_for_it(self):
+        """The rail draws the fix as its main button (E32/F01/S02), so a link needs a name."""
+        with pytest.raises(ValueError, match="resolution_label"):
+            PreconditionResult(id="test", passed=False, message="No.", resolution_link="setup")
+
+    def test_words_without_a_link_lead_nowhere(self):
+        with pytest.raises(ValueError, match="resolution_link"):
+            PreconditionResult(id="test", passed=False, message="No.", resolution_label="Fix it")
 
     def test_failed_without_resolution_link(self):
         r = PreconditionResult(

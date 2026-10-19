@@ -32,7 +32,10 @@ test.describe('What to show, and when', () => {
     await expect(page.getByTestId('phase-transition-applications_open')).toBeDisabled();
     const next = page.getByTestId('phase-rail-next');
     await expect(next).toContainText('To open applications: This market has no market dates.');
-    await next.getByTestId('phase-rail-next-link').click();
+    // Its fix is the rail's main button (E32/F01/S02).
+    const fix = page.getByTestId('phase-rail-fix');
+    await expect(fix).toHaveText('Pick market dates');
+    await fix.click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'setup'));
   });
 
