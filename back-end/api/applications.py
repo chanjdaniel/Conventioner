@@ -193,6 +193,24 @@ def vendor_names_for_market(market_id: str) -> Dict[str, str]:
     payoff screen - want a name against an address and nothing else, and 232 applications' worth
     of ``form_data`` is not a thing to ship in order to read one key from each.
     """
+    # The name they CHOSE, falling back to the one on their identification - stated once, in the
+    # module that owns both keys (E19/F02/S01).
+    return _names_by_address(market_id, EssentialFields.display_name)
+
+
+def vendor_full_names_for_market(market_id: str) -> Dict[str, str]:
+    """Every applicant's full name, the one on their identification, keyed as
+    ``vendor_names_for_market`` is: the download carries it beside the name they chose
+    (E35/F03/S02)."""
+    return _names_by_address(
+        market_id,
+        lambda form_data: str(form_data.get(EssentialFields.FULL_NAME_KEY) or "").strip(),
+    )
+
+
+def _names_by_address(market_id: str, name_of) -> Dict[str, str]:
+    """``{lowercased address: name}`` for the applications that stored one, read off a projection
+    of the two name keys alone."""
     ensure_application_indexes()
     projection = {
         "_id": 0,
@@ -203,9 +221,7 @@ def vendor_names_for_market(market_id: str) -> Dict[str, str]:
     names: Dict[str, str] = {}
     for doc in applications_collection.find(market_filter(market_id), projection):
         email = str(doc.get(APPLICANT_EMAIL_FIELD) or "").strip().lower()
-        # The name they CHOSE, falling back to the one on their identification - stated once, in
-        # the module that owns both keys (E19/F02/S01).
-        name = EssentialFields.display_name(doc.get("form_data") or {})
+        name = name_of(doc.get("form_data") or {})
         if email and name:
             names[email] = name
     return names
