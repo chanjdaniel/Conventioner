@@ -1,8 +1,17 @@
 import type { Page } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import {
+  test,
+  expect,
+  TEST_USER,
+  BACKEND_URL,
+  CsvImportPage,
+  ApplicationMonitorPage,
+} from './fixtures';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
+import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
+import { EXPORT_HEADERS, EXPORT_MAPPING, RESPONSES, exportOf } from './helpers/googleFormExport';
 
 /**
  * The organizer sets the automatic rejections (E33/F03/S01).
@@ -117,5 +126,55 @@ test.describe('Automatic rejections', () => {
     });
     expect(refused.status()).toBe(400);
     expect((await refused.json()).error).toContain('reached Assignment');
+  });
+});
+
+test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
+  test('an import rejects the rows a rule meets, and a reviewer overturns one', async ({
+    authenticatedPage: page,
+  }) => {
+    const seed = await seedApplicantMarket(
+      page.request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { setupObject: planSetupObject(), intakeMode: 'csv' },
+    );
+    const rule = await page.request.put(`${BACKEND_URL}/markets/${seed.marketId}/rejection-rules`, {
+      data: { rules: [{ key: 'essential_table_choice', answers: ['half'] }] },
+    });
+    expect(rule.ok(), await rule.text()).toBeTruthy();
+
+    const importPage = new CsvImportPage(page);
+    await page.goto(marketScreenPath(seed.marketId, 'import'));
+    await expect(importPage.view).toBeVisible({ timeout: 15000 });
+    await importPage.importCsv(
+      exportOf(RESPONSES.nadia, RESPONSES.theo),
+      EXPORT_HEADERS,
+      EXPORT_MAPPING,
+    );
+    await expect(page.getByTestId('import-result-rejected-note')).toContainText(
+      '1 was rejected by your automatic rejections',
+    );
+
+    await page.getByTestId('phase-transition-review').click();
+    await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
+    const monitor = new ApplicationMonitorPage(page);
+    await monitor.waitForLoaded();
+    // Only Nadia waits: Theo arrived already rejected, the rule his giver and his answer the reason.
+    expect(await monitor.queuedEmails()).toEqual(['nadia@ember.test']);
+    await monitor.openDecided();
+    const theo = page
+      .getByTestId('app-monitor-decided-row')
+      .filter({ hasText: 'theo@thistle.test' });
+    await expect(theo.getByTestId('app-monitor-decided-giver')).toHaveText(
+      'Rejected automatically: answered “Half a table, shared” to “Table choice”',
+    );
+
+    // Overturning it makes it the reviewer's.
+    await theo.getByTestId('app-monitor-decided-approve-button').click();
+    await expect(theo.getByTestId('app-monitor-decided-giver')).toHaveText(
+      new RegExp(`^Approved by ${TEST_USER.email}, `),
+    );
   });
 });

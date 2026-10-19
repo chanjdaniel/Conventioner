@@ -172,6 +172,8 @@ const created = ref(0);
 const updated = ref(0);
 /** Applications already here whose answers this file does not change: nothing is written. */
 const unchanged = ref(0);
+/** How many the market's automatic rejections rejected (E33/F03/S02). */
+const rejectedByRules = ref(0);
 const failures = ref<ImportFailure[]>([]);
 /** What the dry run said would import, and what it said would be skipped. */
 const validRows = ref(0);
@@ -706,6 +708,7 @@ async function runImport() {
     created.value = data.created ?? 0;
     updated.value = data.updated ?? 0;
     unchanged.value = data.unchanged ?? 0;
+    rejectedByRules.value = data.rejectedByRules ?? 0;
     failures.value = data.failures ?? [];
     repeats.value = data.repeats ?? [];
     step.value = 'done';
@@ -1251,6 +1254,10 @@ function startOver() {
           }}<span v-if="updated">, updated {{ updated }}</span
           >.{{ unchanged ? ` ${unchanged} unchanged.` : '' }}
         </h2>
+        <p v-if="rejectedByRules" class="import-note" data-testid="import-result-rejected-note">
+          {{ rejectedByRules }} {{ rejectedByRules === 1 ? 'was' : 'were' }} rejected by your
+          automatic rejections, each with its reason; a reviewer can overturn any of them.
+        </p>
         <p v-if="repeats.length" class="import-note" data-testid="import-result-repeat-note">
           {{ repeats.length }} earlier submission{{ repeats.length === 1 ? ' was' : 's were' }}
           replaced by the same applicant's later row.

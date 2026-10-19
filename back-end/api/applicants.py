@@ -41,6 +41,7 @@ from utils.application_token import (
 )
 
 import api.applications as ApplicationsApi
+import rejection_rules as RejectionRules
 import essential_fields as EssentialFields
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,7 @@ def _application_response_organizer(app: Application) -> Dict[str, Any]:
         # Who gave the verdict and when (E34/F01/S01): the organizer's, never the applicant's.
         "verdictBy": _giver(app.verdict_by),
         "verdictAt": app.verdict_at,
+        "verdictReason": app.verdict_reason,
     }
 
 
@@ -287,7 +289,8 @@ def save_applicant_application(
     market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
-        fields=("id", "phase", "applicationForm", "resultsPublished", "setupObject"),
+        fields=("id", "phase", "applicationForm", "resultsPublished", "setupObject",
+                "rejectionRules"),
     )
     if not market_doc:
         return {"error": "Market not found."}, 404
@@ -331,6 +334,10 @@ def save_applicant_application(
         if existing is None:
             ApplicationsApi.delete_application(app_doc.get("id", ""))
         return {"error": error}, 422
+
+    # The market's rules judge it as it arrives (E33/F03/S02); the applicant is told nothing of it.
+    if RejectionRules.judge(RejectionRules.Rulebook.from_document(market_doc), market_id, [app.id]):
+        app = Application(**ApplicationsApi.find_application_by_id(app.id))
 
     results_published = bool(market_doc.get("resultsPublished"))
     return {"application": _application_response(app, results_published)}, 200

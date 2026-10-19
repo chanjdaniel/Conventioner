@@ -677,6 +677,8 @@ class Application(BaseModel):
     # recorded it, and on one with no verdict: a status that is none clears them.
     verdict_by: Optional[VerdictGiver] = None
     verdict_at: Optional[str] = None
+    # Why a rule rejected it, in the organizer's words (E33/F03/S02); never the applicant's to see.
+    verdict_reason: Optional[str] = None
 
 
 def to_camel(string: str) -> str:
