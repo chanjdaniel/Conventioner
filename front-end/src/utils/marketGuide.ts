@@ -231,7 +231,7 @@ export function tabNote(market: Market, tab: MarketTab): string | null {
           (market.phasesReached ?? []).includes(MarketPhase.MarketDays));
       if (published) return null;
       return phase === MarketPhase.Archived
-        ? 'This market was never published, so nobody checked in.'
+        ? 'This market was archived without being published, so nobody checked in.'
         : 'Opens when the market is published.';
     }
     default:

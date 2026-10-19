@@ -83,6 +83,6 @@ test('an archived market that never ran says it has no attendance', async ({
   await page.goto(marketSetupPath(marketId, 'setup'));
   await page.getByTestId('market-bar-tab-attendance').click();
   await expect(page.getByTestId('market-tab-note')).toHaveText(
-    'This market was never published, so nobody checked in.',
+    'This market was archived without being published, so nobody checked in.',
   );
 });

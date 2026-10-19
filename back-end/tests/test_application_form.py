@@ -90,7 +90,7 @@ class TestPhaseGate:
         )
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: True)
 
-        with pytest.raises(MarketsApi.ApplicationFormLockedError, match="draft phase"):
+        with pytest.raises(MarketsApi.ApplicationFormLockedError, match="are fixed"):
             MarketsApi.save_application_form("market-123", VALID_FORM, "user-1")
 
     def test_every_non_draft_phase_is_refused(self, monkeypatch, applications):
@@ -401,7 +401,7 @@ class TestGetApplicationForm:
         result = MarketsApi.get_application_form("market-123", "user-1")
 
         assert result["editable"] is False
-        assert "draft phase" in result["lock_reason"]
+        assert "are fixed" in result["lock_reason"]
 
     def test_requires_viewer_permission(self, markets, applications, monkeypatch):
         monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_kw: False)

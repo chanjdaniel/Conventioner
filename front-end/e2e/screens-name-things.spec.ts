@@ -47,7 +47,7 @@ test.describe('Screens say what they mean', () => {
     }, TEST_USER.email);
   }
 
-  test('the form-lock banner names the phase in words', async ({ authenticatedPage: page }) => {
+  test('the form-lock banner says why in words', async ({ authenticatedPage: page }) => {
     await openTheSeededMarket(page);
     await page.goto(marketSetupPath(marketId, 'form'));
 
@@ -56,7 +56,7 @@ test.describe('Screens say what they mean', () => {
 
     // The seeded market is published, so the form is locked by phase - which is the branch that
     // printed the stored value.
-    await expect(banner).toContainText('Market Days');
+    await expect(banner).toContainText('are fixed');
     await expect(banner).not.toContainText('market_days');
   });
 

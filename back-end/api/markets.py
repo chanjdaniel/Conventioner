@@ -20,7 +20,6 @@ from datatypes import (
     UnassignedTableEntry,
     intake_mode_from_market_document,
     market_name_slug,
-    phase_label,
     phase_from_market_document,
     table_code_for,
     table_code_sort_key,
@@ -230,9 +229,16 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
     if archived:
         return archived
     if market.phase != MarketPhase.DRAFT:
+        # In the words of the market's own path: a CSV market's form is the questions its imports
+        # are mapped onto, and it never opened applications (E31/F03/S02).
+        if market.intake_mode is IntakeMode.FORM:
+            return (
+                f"The application form is fixed: it cannot change {_since_leaving_draft(market)}, "
+                "because applicants answer it."
+            )
         return (
-            "Application form can only be edited while the market is in draft phase. "
-            f"Current phase: {phase_label(market.phase)}."
+            f"The questions are fixed: they cannot change {_since_leaving_draft(market)}, "
+            "because your imports are mapped onto them."
         )
 
     existing_app_count = ApplicationsApi.count_applications_for_market(market.id)
@@ -273,11 +279,15 @@ def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     return ASSIGNMENT_RULES_SETTLED
 
 
-SETUP_SETTLED = (
-    "The setup is settled: it cannot change once the market has left draft, because applicants "
-    "and the assignment rely on it."
-)
 SETUP_WAY_BACK = " While no one has applied, go back to draft to change it (More… on the phase rail)."
+
+
+def _since_leaving_draft(market: Market) -> str:
+    """When a market left draft, as its own path says it: a CSV market collects on its Google Form
+    rather than opening applications (E31/F03/S03)."""
+    if market.intake_mode is IntakeMode.FORM:
+        return "once applications have opened"
+    return "once you have started collecting"
 
 
 def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
@@ -303,10 +313,14 @@ def setup_lock_reason(market: Market) -> Optional[str]:
     """
     if market.phase is MarketPhase.DRAFT:
         return None
+    settled = (
+        f"The setup is settled: it cannot change {_since_leaving_draft(market)}, because "
+        "applicants and the assignment rely on it."
+    )
     if (market.phase is MarketPhase.APPLICATIONS_OPEN
             and ApplicationsApi.count_applications_for_market(market.id) == 0):
-        return SETUP_SETTLED + SETUP_WAY_BACK
-    return SETUP_SETTLED
+        return settled + SETUP_WAY_BACK
+    return settled
 
 
 def _assert_application_form_editable(market: Market) -> None:

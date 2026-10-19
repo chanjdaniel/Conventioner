@@ -98,6 +98,18 @@ def test_the_reason_rides_on_the_market_and_names_the_way_back(applications):
     assert "back to draft" not in reason(MarketPhase.REVIEW)
 
 
+@pytest.mark.parametrize("intake_mode, words", [
+    ("form", "once applications have opened"),
+    ("csv", "once you have started collecting"),
+])
+def test_the_reason_speaks_of_the_markets_own_path(applications, intake_mode, words):
+    """A CSV market never opens applications: it collects on its Google Form (E31/F01/S03)."""
+    market = MarketsApi.market_from_document(stored_market(
+        phase=MarketPhase.REVIEW, setupObject=COMPLETE_PLAN, intakeMode=intake_mode))
+
+    assert words in MarketsApi.setup_lock_reason(market)
+
+
 @pytest.mark.parametrize("phase", AFTER_DRAFT)
 def test_a_floorplan_cannot_rewrite_the_sections_after_draft(market, monkeypatch, phase):
     """The floorplan save writes the sections and locations, which are setup."""
