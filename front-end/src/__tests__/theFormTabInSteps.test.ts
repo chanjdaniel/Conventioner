@@ -44,7 +44,7 @@ const FORM: ApplicationForm = {
 /** A child stub that names itself and keeps the form it was handed, so a test can read it. */
 function stub(testid: string) {
   return {
-    props: ['applicationForm'],
+    props: ['applicationForm', 'forApplicants'],
     emits: ['update:applicationForm'],
     template: `<div data-testid="${testid}">{{ applicationForm?.fields?.map((f) => f.label).join(',') }}</div>`,
   };
@@ -62,6 +62,7 @@ async function mountTab(market: Partial<Market> = {}): Promise<VueWrapper> {
       market: {
         id: 'market-1',
         name: 'Riverside',
+        intakeMode: 'form',
         applicationForm: FORM,
         applicationFormLockReason: null,
         readOnlyReason: null,
@@ -167,5 +168,53 @@ describe('a save on any step says so', () => {
 
     expect(wrapper.get('[data-testid="form-builder-save-success"]').text()).toBe('Saved');
     expect(shown(wrapper, 'form-builder-save-button')).toBe(false);
+  });
+});
+
+describe("a Google Form market's steps (E33/F01/S02)", () => {
+  it('are three, with no preview: nobody fills its form in', async () => {
+    const wrapper = await mountTab({ intakeMode: 'csv' } as Partial<Market>);
+
+    expect(wrapper.findAll('[data-testid="form-steps"] li').map((li) => li.text())).toEqual([
+      '1Essential questions',
+      '2Your questions',
+      '3Review setup',
+    ]);
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    expect(wrapper.get('[data-testid="form-step-next"]').text()).toBe('Next: Review setup');
+    expect(shown(wrapper, 'stub-preview')).toBe(false);
+  });
+
+  it('tells the builder nobody reads a hint, so it offers none', async () => {
+    const wrapper = await mountTab({ intakeMode: 'csv' } as Partial<Market>);
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+
+    expect(wrapper.getComponent('[data-testid="stub-builder"]').props('forApplicants')).toBe(false);
+  });
+
+  it("leaves a form market's four steps as they were", async () => {
+    const wrapper = await mountTab({ intakeMode: 'form' } as Partial<Market>);
+
+    expect(wrapper.findAll('[data-testid="form-steps"] li')).toHaveLength(4);
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    expect(wrapper.getComponent('[data-testid="stub-builder"]').props('forApplicants')).toBe(true);
+  });
+});
+
+describe("a Google Form market's essential questions (E33/F01/S02)", () => {
+  const EMPTY = { dates: [], sections: [], tableTypes: [], tiers: [] };
+
+  it('say what the import reads, never what an applicant would see', async () => {
+    const { default: EssentialFieldsPanel } =
+      await import('@/components/application/EssentialFieldsPanel.vue');
+    const csv = mount(EssentialFieldsPanel, { props: { options: EMPTY, forApplicants: false } });
+    const form = mount(EssentialFieldsPanel, { props: { options: EMPTY } });
+
+    expect(form.text()).toContain('signs in');
+    expect(form.text()).toContain('hidden from applicants');
+    expect(csv.text()).not.toContain('signs in');
+    expect(csv.text()).not.toContain('hidden from applicants');
+    expect(csv.text()).not.toContain('application form asks');
+    expect(csv.get('[data-testid="essential-dates-empty"]').text()).toContain('import');
   });
 });

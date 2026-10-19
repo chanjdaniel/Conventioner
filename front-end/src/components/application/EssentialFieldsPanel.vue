@@ -9,6 +9,7 @@
  * offering read-only and points at where each list is edited, instead of offering a second
  * place to edit it.
  */
+import { computed } from 'vue';
 import type { EssentialFormOptions } from '@/assets/types/datatypes';
 import {
   AVAILABLE_DATES_LABEL,
@@ -27,13 +28,27 @@ import {
   formattedEssentialDate,
 } from '@/utils/essentialFields';
 
-const props = defineProps<{
-  options: EssentialFormOptions;
-  /** True once the offering is frozen (an application exists); the hints change tense. */
-  locked?: boolean;
-  /** False while the form cannot be edited at all (wrong phase, or an applicant has answered). */
-  editable?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    options: EssentialFormOptions;
+    /** True once the offering is frozen (an application exists); the hints change tense. */
+    locked?: boolean;
+    /** False while the form cannot be edited at all (wrong phase, or an applicant has answered). */
+    editable?: boolean;
+    /**
+     * False on a Google Form market (E33/F01/S02): its vendors are imported, nobody fills its form
+     * in, so the panel says what the import reads rather than what an applicant would see.
+     */
+    forApplicants?: boolean;
+  }>(),
+  { forApplicants: true },
+);
+
+const online = computed(() => props.forApplicants);
+/** Why an unconfigured question is not there yet, on this market's path. */
+const notYet = computed(() =>
+  online.value ? 'this question is hidden from applicants' : 'the import does not read this',
+);
 
 const emit = defineEmits<{ (e: 'toggleUnasked', key: string, unasked: boolean): void }>();
 
@@ -54,10 +69,13 @@ function asks(key: string): boolean {
     <!-- Named by the form tab's step, "Essential questions" (E33/F01/S01), so not again here. -->
     <div class="essential-panel-header">
       <p class="essential-panel-note">
-        Every application form asks these - the table assignment reads them directly, so they
-        cannot be removed. What they offer comes from your market plan{{
-          locked ? ' and is frozen with the rest of the form' : ''
-        }}.
+        {{
+          online
+            ? 'Every application form asks these'
+            : "Every market needs these answers, each read from a column of your Google Form's responses when you import"
+        }}
+        - the table assignment reads them directly, so they cannot be removed. What they offer comes
+        from your market plan{{ locked ? ' and is frozen with the rest of the form' : '' }}.
       </p>
       <span class="essential-badge" data-testid="essential-fields-badge">Always included</span>
     </div>
@@ -65,10 +83,14 @@ function asks(key: string): boolean {
     <div class="essential-item" data-testid="essential-item-email">
       <div class="essential-item-header">
         <span class="essential-item-label">Email</span>
-        <span class="essential-type-badge">sign-in</span>
+        <span class="essential-type-badge">{{ online ? 'sign-in' : 'address' }}</span>
       </div>
       <p class="essential-item-detail">
-        Collected when the applicant signs in; every notification goes there.
+        {{
+          online
+            ? 'Collected when the applicant signs in; every notification goes there.'
+            : "Read from your Google Form's email column; it is how one vendor is told from another."
+        }}
       </p>
     </div>
 
@@ -108,8 +130,7 @@ function asks(key: string): boolean {
         </span>
       </div>
       <p v-else class="essential-item-warning" data-testid="essential-dates-empty">
-        No market dates yet - this question is hidden from applicants until you add dates under
-        Market Setup.
+        No market dates yet - {{ notYet }} until you add dates under Market Setup.
       </p>
     </div>
 
@@ -144,8 +165,7 @@ function asks(key: string): boolean {
         </span>
       </div>
       <p v-else class="essential-item-warning" data-testid="essential-tiers-empty">
-        No tiers yet - this question is hidden from applicants until your market plan defines tiers
-        under Market Setup.
+        No tiers yet - {{ notYet }} until your market plan defines tiers under Market Setup.
       </p>
     </div>
 
@@ -210,8 +230,8 @@ function asks(key: string): boolean {
         class="essential-item-warning"
         data-testid="essential-sections-empty"
       >
-        No sections yet - this question is hidden from applicants until your market plan defines
-        sections (Market Setup or the floorplan editor).
+        No sections yet - {{ notYet }} until your market plan defines sections (Market Setup or the
+        floorplan editor).
       </p>
       <!-- Only a ranking gets this switch. Turning off a constraint - dates, tiers, table choice -
            would let a default answer for the applicant, so those have none.
