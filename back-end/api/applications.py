@@ -13,12 +13,13 @@ Identity contract: (``market_id``, ``applicant_email``, ``application_type``) id
 application, and the database is what enforces that -- see ``ensure_application_indexes``.
 """
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
-from datatypes import Application, ApplicationStatus, ApplicationType
+from datatypes import Application, ApplicationStatus, ApplicationType, VerdictGiver
 from db_config import get_database
 import essential_fields as EssentialFields
 
@@ -230,13 +231,23 @@ def find_application_by_email(market_id: str, email: str) -> Optional[Dict[str, 
     return doc
 
 
-def update_application_status(app_id: str, status: ApplicationStatus) -> bool:
-    """Set a new status on an application. Returns whether any document was matched."""
+def update_application_status(
+    app_id: str, status: ApplicationStatus, by: Optional[VerdictGiver] = None,
+) -> bool:
+    """Set a new status on an application. Returns whether any document was matched.
+
+    A verdict is written with its giver and time in the same update (E34/F01/S01); a status
+    written with no giver - an application sent back to review, or reopened - clears them, so no
+    application claims a verdict it no longer has.
+    """
     ensure_application_indexes()
-    result = applications_collection.update_one(
-        {"id": app_id},
-        {"$set": {"status": status.value}},
-    )
+    update: Dict[str, Any] = {"$set": {"status": status.value}}
+    if by is None:
+        update["$unset"] = {"verdict_by": "", "verdict_at": ""}
+    else:
+        update["$set"]["verdict_by"] = by.model_dump()
+        update["$set"]["verdict_at"] = datetime.now(timezone.utc).isoformat()
+    result = applications_collection.update_one({"id": app_id}, update)
     return result.matched_count > 0
 
 

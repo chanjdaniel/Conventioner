@@ -439,6 +439,8 @@ class FakeApplicationsCollection:
     def _apply(self, doc, update):
         for key, value in (update.get("$set") or {}).items():
             doc[key] = value
+        for key in (update.get("$unset") or {}):
+            doc.pop(key, None)
         return doc
 
     def update_one(self, query, update):

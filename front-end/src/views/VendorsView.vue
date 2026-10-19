@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { verdictGiverLine } from '@/utils/verdicts';
 import { computed, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { withoutQueryKey } from '@/utils/routeQuery';
@@ -91,6 +92,8 @@ interface VendorRow {
   answers: Record<string, unknown>;
   /** Why their table-share request pairs nobody, when it does not (E27/F01/S03). */
   tableShareNotice: TableShareNoticeData | null;
+  /** Who approved them, and when (E34/F01/S01); null where nobody was recorded. */
+  verdict: string | null;
 }
 
 const router = useRouter();
@@ -313,6 +316,7 @@ const vendors = computed<VendorRow[]>(() =>
       ),
       answers: (application.formData ?? {}) as Record<string, unknown>,
       tableShareNotice: application.tableShareNotice ?? null,
+      verdict: verdictGiverLine(application),
     };
   }),
 );
@@ -617,6 +621,13 @@ useInertBehind(
               data-testid="vendors-detail-email"
             >
               {{ selectedVendor.displayEmail }}
+            </p>
+            <p
+              v-if="selectedVendor.verdict"
+              class="detail-subtitle"
+              data-testid="vendors-detail-giver"
+            >
+              {{ selectedVendor.verdict }}
             </p>
           </div>
           <button

@@ -34,7 +34,7 @@ from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
-from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole
+from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole, VerdictGiver
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from guards import PreconditionResult
 from market_documents import (
@@ -1744,7 +1744,8 @@ def list_market_applications(market_id: str) -> Response:
 @app.route('/markets/<market_id>/applications/<application_id>/review', methods=['PUT'])
 @login_required
 def review_application(market_id: str, application_id: str) -> Response:
-    """Record a review verdict (approved/rejected) on an application. Requires ADMIN+."""
+    """Record a review verdict (approved/rejected) on an application, and its giver. Requires
+    EDITOR+ (E34/F01/S01)."""
     try:
         requesting_user = authenticated_email()
 
@@ -1754,8 +1755,10 @@ def review_application(market_id: str, application_id: str) -> Response:
         if context.market is None:
             return jsonify({"error": "Invalid market data"}), 400
 
+        # A verdict is EDITOR's, like every other change to the market's contents (E34/F01/S01):
+        # a reviewing team should not need the role that also moves the phase.
         if not PermissionsApi.user_has_permission(
-            requesting_user, context.market, MarketRole.ADMIN, context.organization
+            requesting_user, context.market, MarketRole.EDITOR, context.organization
         ):
             return jsonify({"error": "User does not have permission to review applications"}), 403
         refusal = MarketsApi.archived_refusal(context.market)
@@ -1775,8 +1778,11 @@ def review_application(market_id: str, application_id: str) -> Response:
         except ValueError:
             return jsonify({"error": f"Invalid status: {status_raw}"}), 400
 
+        reviewer = UsersApi.get_user(requesting_user)
         result, status_code = ApplicantsApi.review_application(
             market_id, application_id, new_status,
+            by=VerdictGiver(kind="person", user_id=reviewer.id if reviewer else None,
+                            email=requesting_user),
         )
         return jsonify(result), status_code
     except Exception as e:

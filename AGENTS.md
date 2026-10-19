@@ -538,8 +538,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **A screen offers each person only what their role lets them do** (E26/F08/S01). The market read
   serves two per-person reasons, asked through the same `user_has_permission` the writes ask:
   `readOnlyReason` (`change_refusal`: archived, or below EDITOR - the plan, form, placements,
-  highlights) and `adminActionsReason` (`admin_actions_refusal`: below ADMIN - phase moves, verdicts,
-  publishing results, importing, starting from a CSV). A screen draws no control while the reason
+  highlights, automatic rejections, and verdicts, which record their giver since E34/F01/S01) and
+  `adminActionsReason` (`admin_actions_refusal`: below ADMIN - phase moves, publishing results,
+  importing, starting from a CSV). A screen draws no control while the reason
   for it is set; never decide a role threshold on the front end beside them.
 - **A market remembers every phase it entered** (E26/F06/S03): `phaseHistory` on the document,
   one `{phase, enteredAt, by}` per move, pushed in the same update that moves the phase.
