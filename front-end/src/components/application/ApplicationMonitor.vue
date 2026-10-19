@@ -563,12 +563,19 @@ function submittedOn(app: Application): string {
       <div v-if="decided.length" class="decided">
         <button
           class="decided-toggle"
+          :aria-expanded="showDecided"
+          aria-controls="app-monitor-decided-list"
           @click="showDecided = !showDecided"
           data-testid="app-monitor-decided-toggle"
         >
           {{ showDecided ? 'Hide' : 'Show' }} {{ decided.length }} reviewed
         </button>
-        <ul v-if="showDecided" class="decided-list" data-testid="app-monitor-decided-list">
+        <ul
+          v-if="showDecided"
+          id="app-monitor-decided-list"
+          class="decided-list"
+          data-testid="app-monitor-decided-list"
+        >
           <li
             v-for="app in decided"
             :key="app.id"

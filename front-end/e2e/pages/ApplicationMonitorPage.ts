@@ -125,8 +125,20 @@ export class ApplicationMonitorPage {
     } else {
       await expect(this.done).toBeVisible();
     }
-    await expect(this.decidedToggle).toBeVisible();
-    if (!(await this.decidedRows.first().isVisible())) await this.decidedToggle.click();
+    await this.openDecided();
     await expect(this.decidedStatusOf(applicantEmail)).toHaveText(verdict);
+  }
+
+  /**
+   * Open the reviewed list, if it is not open. Read from the toggle's own state: whether a row
+   * happened to be visible was a race with the list re-rendering after a verdict, and clicking on a
+   * "closed" read of an open list closed it.
+   */
+  async openDecided(): Promise<void> {
+    await expect(this.decidedToggle).toBeVisible();
+    if ((await this.decidedToggle.getAttribute('aria-expanded')) !== 'true') {
+      await this.decidedToggle.click();
+    }
+    await expect(this.decidedToggle).toHaveAttribute('aria-expanded', 'true');
   }
 }
