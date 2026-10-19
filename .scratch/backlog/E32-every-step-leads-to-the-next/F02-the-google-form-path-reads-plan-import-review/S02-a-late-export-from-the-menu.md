@@ -10,7 +10,7 @@ pr: []
 ## What to build
 
 Responses that arrive after review has begun are brought in with **"Import more responses"** in the rail's menu, never as the main button.
-It moves the market from review back to importing in one move and lands on the import; every verdict already given is kept, and the re-import's own matching (new, updated, unchanged) applies.
+It moves the market from review back to importing in one move and lands on the import; every verdict already given is kept, and the re-import's own matching (new, updated, unchanged) applies. The one exception is the re-import's own rule: an approved application whose answers the assignment reads have changed goes back to review, since it was approved on answers it no longer holds.
 
 ## Already built
 

@@ -16,7 +16,8 @@ import { EXPORT_HEADERS, EXPORT_MAPPING, RESPONSES, exportOf } from './helpers/g
  * Responses keep arriving on a Google Form after review has begun. The organizer brings them in
  * with "Import more responses" in the rail's menu - never the main button, which in review is the
  * step onward - one move back to importing that lands on the import. Nothing already decided is
- * touched, and the later export adds only the responses that are new, undecided.
+ * touched, except an approval whose answers the assignment reads have since changed, which goes back
+ * to review; the later export adds only the responses that are new, undecided.
  */
 test.describe('A late export', () => {
   test('comes in from the menu, keeps every verdict, and adds only what is new', async ({
@@ -34,11 +35,7 @@ test.describe('A late export', () => {
 
     async function importExport(csv: string) {
       await expect(importPage.view).toBeVisible({ timeout: 15000 });
-      await importPage.chooseFile(csv);
-      await importPage.mapColumns(EXPORT_HEADERS, EXPORT_MAPPING);
-      await expect(importPage.allMapped).toBeVisible();
-      await importPage.clickPreview();
-      await importPage.clickConfirm();
+      await importPage.importCsv(csv, EXPORT_HEADERS, EXPORT_MAPPING);
     }
 
     // The first export, imported and reviewed.
@@ -68,20 +65,23 @@ test.describe('A late export', () => {
     await expect(page).toHaveURL(/\/import$/, { timeout: 15000 });
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Import');
 
-    // The later export holds both earlier responses again, and one new one.
-    await importExport(exportOf(RESPONSES.nadia, RESPONSES.theo, RESPONSES.ines));
-    await expect(importPage.resultSummary).toHaveText('Imported 1 new application. 2 unchanged.');
+    // The later export holds Theo's response again, unchanged; Nadia's, now coming on another
+    // day; and one new response.
+    await importExport(exportOf(RESPONSES.nadiaMoved, RESPONSES.theo, RESPONSES.ines));
+    await expect(importPage.resultSummary).toHaveText(
+      'Imported 1 new application, updated 1. 1 unchanged.',
+    );
 
     await page.getByTestId('phase-transition-review').click();
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
     await monitor.waitForLoaded();
 
-    // Only the new response waits for a verdict; the two given before are as they were.
-    await expect(monitor.progress).toContainText('of 1 to review');
-    await expect(monitor.email).toHaveText('ines@loom.test');
-    await expect(monitor.tally).toContainText('2 reviewed · 1 approved · 1 rejected');
+    // The new response waits for a verdict, and so does Nadia's: she was approved on answers the
+    // assignment reads, and they have changed. Theo's verdict, on unchanged answers, is kept.
+    await expect(monitor.progress).toContainText('of 2 to review');
+    expect((await monitor.queuedEmails()).sort()).toEqual(['ines@loom.test', 'nadia@ember.test']);
+    await expect(monitor.tally).toContainText('1 reviewed · 0 approved · 1 rejected');
     await monitor.openDecided();
-    await expect(monitor.decidedStatusOf('nadia@ember.test')).toHaveText('Approved');
     await expect(monitor.decidedStatusOf('theo@thistle.test')).toHaveText('Rejected');
   });
 });

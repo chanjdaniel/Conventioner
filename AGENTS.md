@@ -213,7 +213,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   pointer (`utils/lastMarket.ts`), set by the store when a market arrives.
 - **`parseMarketFromApi` must carry every field the server sends.** It once rebuilt `setupObject`
   from a fixed key list and dropped `floorplans`; once screens read the parsed market, the plan's
-  autosave erased the floorplan. Spread what you do not name.
+  autosave erased the floorplan. It spreads the payload and the plan first and normalises what it
+  names over them; a field added to the read reaches every screen without touching the parser.
 - **Facts derived from the market are served on it**, not fetched per tab: the form lock is
   `applicationFormLockReason` on `GET /markets/:id`. A tab that fetches a fact for itself and
   publishes it to siblings is how the form builder and the priority rules went stale.
