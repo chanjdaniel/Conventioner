@@ -51,6 +51,7 @@ import phase_record as PhaseRecord
 import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
+import rejection_rules as RejectionRules
 import traceback
 import logging
 from assignment.csv_output import market_csv_to_string
@@ -284,6 +285,35 @@ def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is not None:
         return None
     return ASSIGNMENT_RULES_SETTLED
+
+
+REJECTION_RULES_SETTLED = (
+    "The automatic rejections are settled: the market has reached Assignment, and a rule judges "
+    "applications only while they can still be reviewed."
+)
+
+
+def rejection_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
+    """Why the automatic rejections may no longer change, or None while they can (E33/F03/S01).
+
+    A rule judges applications in review, so the rules are open exactly as long as the market can
+    still get back there (decision 24) - derived from the transition table, not listed: today they
+    close in ``assignment``, ``offers`` and ``market_days``. Not the form's lock: the form freezes at
+    the first application, and the rules are worth most once applications are arriving.
+    """
+    if phase is MarketPhase.ARCHIVED:
+        return ARCHIVED_REFUSAL
+    if route_between(phase.value, MarketPhase.REVIEW.value) is not None:
+        return None
+    return REJECTION_RULES_SETTLED
+
+
+def rejection_facts(market: Market) -> Dict[str, Any]:
+    """What the review setup needs to offer the rules, served on the market read."""
+    return {
+        "rejectionQuestions": RejectionRules.rejection_questions(market),
+        "rejectionRulesLockReason": rejection_rules_lock_reason(market.phase),
+    }
 
 
 # The menu's own names for the moves back to draft (``pathTransitionLabel`` in
@@ -689,6 +719,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
     # from the market it holds, rather than deciding the phases for itself.
     market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
+    # And what an automatic rejection may name, and whether it may change (E33/F03/S01).
+    market_dict.update(rejection_facts(market))
     # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
     market_dict['setupLockReason'] = setup_lock_reason(market)
     # And why this market cannot be started from a Google Form's CSV (E24/F03): the flow and the
@@ -1773,6 +1805,24 @@ def save_review_highlights(
 
     markets_collection.update_one({"id": market_id}, market_doc_set("review_highlights", seen))
     return seen
+
+
+def save_rejection_rules(
+    market_id: str, rules: Any, requesting_user: str
+) -> List[Dict[str, Any]]:
+    """Set which answers reject an application automatically (E33/F03/S01). Requires EDITOR.
+
+    The rules' own write, the whole list at once like the highlights. Not gated on the form's lock:
+    rules are worth most once applications arrive, which is when the form freezes. Refused once the
+    market can no longer return to review (``rejection_rules_lock_reason``).
+    """
+    market = _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    settled = rejection_rules_lock_reason(market.phase)
+    if settled:
+        raise ValueError(settled)
+    prepared = RejectionRules.prepared_rules(market, rules)
+    markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
+    return prepared
 
 
 def save_application_form(market_id: str, application_form_data: dict, requesting_user: str) -> dict:

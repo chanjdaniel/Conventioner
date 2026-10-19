@@ -21,8 +21,10 @@ import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
+import AutomaticRejections from '@/components/application/AutomaticRejections.vue';
 import StepHeader from '@/components/StepHeader.vue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
+import { useRejectionRules } from '@/utils/rejectionRules';
 import { formSteps, intakeModeOf, type FormStepId } from '@/utils/marketGuide';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
@@ -249,6 +251,13 @@ async function saveApplicationForm() {
  */
 const { highlights, error: highlightsError, save: saveHighlights } = useReviewHighlights(market);
 
+/** Which answers reject automatically (E33/F03/S01), on the same step and written the same way. */
+const {
+  rules: rejectionRules,
+  error: rejectionRulesError,
+  save: saveRejectionRules,
+} = useRejectionRules(market);
+
 /**
  * The tab is a sequence of steps, each with the whole width (E33/F01/S01). The builder and the
  * preview sat side by side and crowded each other. The form is this tab's working copy, so moving
@@ -392,22 +401,47 @@ watch(formLocked, (locked, wasLocked) => {
             form freezes at the first application, and this deliberately does not, because an
             organizer only finds out which answers they needed once they are reviewing.
           -->
-          <div v-else-if="!formStateUnknown" class="review-highlights-block">
-            <h3 class="review-highlights-title">What a reviewer reads first</h3>
-            <ReviewHighlights
-              :fields="applicationForm?.fields ?? []"
-              :essentialOptions="essentialOptions"
-              :highlights="highlights"
-              :disabled="!!market?.readOnlyReason"
-              @update:highlights="saveHighlights"
-            />
-            <p
-              v-if="highlightsError"
-              class="review-highlights-error"
-              data-testid="review-highlights-error"
-            >
-              {{ highlightsError }}
-            </p>
+          <div v-else-if="!formStateUnknown" class="review-setup">
+            <section class="review-setup-section" aria-labelledby="review-highlights-title">
+              <h3 id="review-highlights-title" class="review-setup-title">
+                What a reviewer reads first
+              </h3>
+              <ReviewHighlights
+                :fields="applicationForm?.fields ?? []"
+                :essentialOptions="essentialOptions"
+                :highlights="highlights"
+                :disabled="!!market?.readOnlyReason"
+                @update:highlights="saveHighlights"
+              />
+              <p
+                v-if="highlightsError"
+                class="review-setup-error"
+                data-testid="review-highlights-error"
+              >
+                {{ highlightsError }}
+              </p>
+            </section>
+            <!-- On the questions as saved: a question still being written is not one an application
+                 can have answered (E33/F03/S01). -->
+            <section class="review-setup-section" aria-labelledby="automatic-rejections-title">
+              <h3 id="automatic-rejections-title" class="review-setup-title">
+                Automatic rejections
+              </h3>
+              <AutomaticRejections
+                :questions="market?.rejectionQuestions ?? []"
+                :rules="rejectionRules"
+                :lockReason="market?.rejectionRulesLockReason ?? null"
+                :disabled="!!market?.readOnlyReason"
+                @update:rules="saveRejectionRules"
+              />
+              <p
+                v-if="rejectionRulesError"
+                class="review-setup-error"
+                data-testid="rejection-rules-error"
+              >
+                {{ rejectionRulesError }}
+              </p>
+            </section>
           </div>
 
           <!-- The status of any save on any step: the essentials' Ask this saves the moment it is
@@ -481,19 +515,31 @@ watch(formLocked, (locked, wasLocked) => {
 </template>
 
 <style scoped>
-.review-highlights-block {
+.review-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.review-setup-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.review-highlights-title {
+.review-setup-section + .review-setup-section {
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--mm-border);
+}
+
+.review-setup-title {
   margin: 0;
   font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--mm-black);
 }
 
-.review-highlights-error {
+.review-setup-error {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-red);

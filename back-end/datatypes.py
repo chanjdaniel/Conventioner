@@ -429,6 +429,12 @@ class ImportMapping(BaseModel):
     made_by: MappingAuthor = MappingAuthor.IMPORT
 
 
+class RejectionRule(BaseModel):
+    """A choice question and the answers to it that reject an application (E33/F03/S01)."""
+    key: str
+    answers: List[str] = []
+
+
 class Market(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # UUID, immutable primary key
     name: str
@@ -452,6 +458,10 @@ class Market(BaseModel):
     # A list of answer keys, so it names both kinds uniformly. Absent means nothing is marked,
     # which renders the card exactly as it did before this existed - so no migration.
     review_highlights: Optional[List[str]] = None
+    # Which answers reject an application automatically (E33/F03), ON THE MARKET beside the
+    # highlights and for the same reason: they stay editable after the form locks, until the market
+    # can no longer return to review. `rejection_rules.py` owns what a rule may say. Absent is none.
+    rejection_rules: Optional[List[RejectionRule]] = None
     # A form amendment in flight (E20/F03/S01): the phase the market must be returned to once the
     # form has been written. Present ONLY while the chain is walking, so its presence is exactly
     # the question "did a chain stop partway, and where was it going?".
@@ -904,6 +914,7 @@ class MarketSchemaContract(ContractModel):
     phase: Optional[str] = None
     review_config: Optional[Dict[str, Any]] = None
     review_highlights: Optional[List[str]] = None
+    rejection_rules: Optional[List[RejectionRule]] = None
     roles: Dict[str, str]
     setup_object: Optional[SetupObjectContract]
     user_role: Optional[str] = None
