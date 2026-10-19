@@ -1804,6 +1804,32 @@ def review_application(market_id: str, application_id: str) -> Response:
         return jsonify({"error": "Internal server error"}), 500
 
 
+@app.route('/markets/<market_id>/applications/verdicts', methods=['POST'])
+@login_required
+def review_selection(market_id: str) -> Response:
+    """One verdict for a ticked selection (E34/F04/S02). EDITOR+, as one verdict is.
+
+    Body: { "status": "reviewer_approved",
+            "applications": [{ "id": "...", "seen": { "status": "open", "verdictAt": null } }] }
+    Answers { "written": [ids], "skipped": [{ "id", "email", "reason" }] }.
+    """
+    person, refused = _reviewer_on(market_id)
+    if refused:
+        return refused
+    data = request.get_json(silent=True) or {}
+    try:
+        new_status = ApplicationStatus(data.get('status'))
+    except ValueError:
+        return jsonify({"error": f"Invalid status: {data.get('status')}"}), 400
+    selection = data.get('applications')
+    if not isinstance(selection, list) or not selection:
+        return jsonify({"error": "Tick the applications to decide."}), 400
+    result, status_code = ApplicantsApi.review_selection(
+        market_id, selection, new_status,
+        by=VerdictGiver(kind="person", user_id=person.user_id, email=person.email))
+    return jsonify(result), status_code
+
+
 def _reviewer_on(market_id: str):
     """The signed-in reviewer as a ``MarketPerson``, once they may change the market, or an error
     response: holding a card is a reviewer's, an EDITOR's (E34/F03/S02)."""

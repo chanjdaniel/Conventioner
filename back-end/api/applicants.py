@@ -473,6 +473,44 @@ def review_application(
     return {"application": _application_response_organizer(app)}, 200
 
 
+def review_selection(
+    market_id: str, selection: List[Dict[str, Any]], new_status: ApplicationStatus,
+    by: VerdictGiver,
+) -> Tuple[Dict[str, Any], int]:
+    """One verdict for a ticked selection (E34/F04/S02). Organizer only.
+
+    Each is written as a single verdict is, only on what the reviewer saw (``seen``, F03/S01); one
+    another reviewer holds open is not written at all, nor one of another market. The answer says
+    which were written and, for each skipped, why - never an action on "everything matching".
+    """
+    if new_status not in _DONE_SINCE:
+        return {"error": f"Invalid review status: {new_status.value}"}, 400
+    me = {"user_id": by.user_id, "email": by.email}
+    written: List[str] = []
+    skipped: List[Dict[str, Any]] = []
+    for item in selection:
+        app_id = str((item or {}).get("id") or "")
+        doc = ApplicationsApi.find_application_by_id(app_id)
+        if doc is None or doc.get("market_id") != market_id:
+            skipped.append({"id": app_id, "email": None, "reason": "Not an application here."})
+            continue
+        holder = ApplicationsApi.holds(doc)
+        if holder is not None and holder != me:
+            skipped.append({"id": app_id, "email": doc.get("applicant_email"),
+                            "reason": f"{holder['email']} has it open."})
+            continue
+        raw = item.get("seen") if isinstance(item.get("seen"), dict) else {}
+        seen = {"status": raw.get("status"), "verdict_at": raw.get("verdictAt")}
+        if ApplicationsApi.update_application_status(app_id, new_status, by=by,
+                                                     if_unchanged_since=seen):
+            written.append(app_id)
+        else:
+            now = ApplicationsApi.find_application_by_id(app_id) or doc
+            skipped.append({"id": app_id, "email": doc.get("applicant_email"),
+                            "reason": _changed_since_seen(now)})
+    return {"written": written, "skipped": skipped}, 200
+
+
 def reassign_follow_up(
     market_id: str, application_id: str, owner: MarketPerson,
 ) -> Tuple[Dict[str, Any], int]:
