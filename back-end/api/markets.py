@@ -18,6 +18,7 @@ from datatypes import (
     Organization,
     SetupObject,
     UnassignedTableEntry,
+    User,
     intake_mode_from_market_document,
     market_name_slug,
     phase_from_market_document,
@@ -944,6 +945,25 @@ def _address_taken(name: str) -> str:
     return "Another market already has this name."
 
 
+def create_owned_market(owner: User, data: Dict[str, Any]) -> str:
+    """Create a market from a snake_case body, owned by ``owner`` and nobody else. Returns its id.
+
+    The one way a market is created: ``POST /markets`` and the test-market seeder
+    (``seed_test_markets.py``) both come here. Whoever creates a market owns it, and only they do.
+    The body's roles were taken on trust, so a client could create a market owned by another user
+    or by an id that is nobody, which then sat in the organization with no one able to manage it
+    (bug 46). Anyone else is added afterwards, through the endpoints that manage a market's people.
+
+    Raises ValueError, in words for the organizer, when the market may not be made.
+    """
+    market = Market(**{**data, "roles": {owner.id: MarketRole.OWNER.value}})
+    refusal = organization_refusal(owner.email, data.get("organization_id"))
+    if refusal:
+        raise ValueError(refusal)
+    _result, market_id = create_market(market, owner.email)
+    return market_id
+
+
 def organization_refusal(user_email: str, organization_id: Optional[str]) -> Optional[str]:
     """Why this user's market may not belong to this organization, or None when it may.
 
@@ -1435,6 +1455,8 @@ def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -
     blockers = evaluate_transition(market, to_phase, db)
     if blockers:
         return blockers
+    # Through the one phase writer, so the phase, its two stamps and the phase history move in one
+    # atomic update a step (E26/F06/S03); a route of two steps is two such updates.
     walk_route(market_id, context.document, route, by=by)
 
     # Only after the phase is written.

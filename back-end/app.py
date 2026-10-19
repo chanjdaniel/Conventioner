@@ -821,21 +821,8 @@ def create_market() -> Response:
         if not owner:
             return jsonify({"error": "Owner not found"}), 404
 
-        # Whoever creates a market owns it, and only they do. The body's roles were taken on
-        # trust, so a client could create a market owned by another user or by an id that is
-        # nobody, which then sat in the organization with no one able to manage it (bug 46).
-        # Anyone else is added afterwards, through the endpoints that manage a market's people.
-        data = convert_keys_to_snake_case(data)
-        data["roles"] = {owner.id: MarketRole.OWNER.value}
-        market = Market(**data)
+        market_id = MarketsApi.create_owned_market(owner, convert_keys_to_snake_case(data))
 
-        refusal = MarketsApi.organization_refusal(owner_email, data.get('organization_id'))
-        if refusal:
-            return jsonify({"error": refusal}), 400
-        
-        # Create the market
-        result, market_id = MarketsApi.create_market(market, owner_email)
-        
         return jsonify({
             "message": "Market created successfully",
             "market_id": market_id

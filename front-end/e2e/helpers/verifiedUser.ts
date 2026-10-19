@@ -1,5 +1,4 @@
-import { execFileSync } from 'node:child_process';
-import { backendContainer } from './containerNames';
+import { runBackendScript } from './backendScript';
 
 /**
  * Markers printed by `back-end/create_test_user.py`. The script exits 0 whether it created the
@@ -23,11 +22,7 @@ const ALREADY_EXISTS_MARKER = 'already exists';
  * outcomes that leave a usable user behind.
  */
 export function ensureVerifiedUser(email: string, password: string): void {
-  const output = execFileSync(
-    'docker',
-    ['exec', backendContainer(), 'python', '/app/create_test_user.py', email, password],
-    { encoding: 'utf-8', timeout: 30_000 },
-  );
+  const output = runBackendScript('create_test_user.py', email, password);
 
   if (!output.includes(CREATED_MARKER) && !output.includes(ALREADY_EXISTS_MARKER)) {
     throw new Error(

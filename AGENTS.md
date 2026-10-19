@@ -516,8 +516,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   tables at every tier - each its own blocker line. A date has passed only once it has passed
   everywhere (UTC-12, `_earliest_calendar_day`): the server cannot know where a market is, and the
   screens read the viewer's own calendar (`calendarToday`).
-- **A move is taken only through `MarketsApi.take_move`**, which judges it and then walks it; the
-  transition endpoint and the test-market seeder both call it.
+- **A market is created only through `MarketsApi.create_owned_market` and moved only through
+  `MarketsApi.take_move`** (judged, then walked); the endpoints and the test-market seeder call both.
 - **Every precondition for every phase transition lives in `back-end/guards.py`.** Adding or
   removing one is a one-file edit: the `POST /markets/<id>/transition` endpoint and the
   front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
