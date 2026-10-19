@@ -52,7 +52,12 @@ test.describe('A late export', () => {
     await monitor.reject('theo@thistle.test');
     await expect(monitor.tally).toContainText('2 reviewed · 1 approved · 1 rejected');
 
-    // In review, importing more is in the menu, and the main button is the step onward.
+    // Reviewing is its own step: the page offers no import (E32/F02/S03). Importing more is in
+    // the rail's menu, and the main button is the step onward.
+    await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
+    // The phase the path steps through is never a stage of its rail (E32/F02/S01).
+    await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Imported');
+    await expect(page.getByTestId('phase-rail-spine')).not.toContainText('Form Closed');
     await expect(page.getByTestId('phase-transition-applications_open')).toHaveCount(0);
     await page.getByTestId('phase-rail-menu-button').click();
     const more = page.getByTestId('phase-transition-applications_open');

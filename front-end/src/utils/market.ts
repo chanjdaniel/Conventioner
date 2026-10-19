@@ -158,6 +158,9 @@ export function parseMarketFromApi(market: any): Market {
     // What would refuse each move open from the phase, keyed by phase (E31/F02/S01), and why the
     // setup can no longer change (E31/F01/S02). Dropped here, the rail offered every move as before.
     transitionBlockers: market.transitionBlockers,
+    // The phases the market's path steps through (E32/F02/S01). Dropped here, the rail drew the
+    // stepped-through phase as a stage on every Google Form market.
+    phasesPassedThrough: market.phasesPassedThrough,
     setupLockReason: market.setupLockReason,
   };
 }

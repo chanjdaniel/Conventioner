@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect, TEST_USER, NO_ORG_USER, BACKEND_URL, LoginPage } from './fixtures';
-import { marketSetupPath } from './helpers/marketScreens';
+import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
@@ -120,8 +120,12 @@ test('a market past review is not sent back to a phase it cannot reach to import
   for (const phase of ['applications_open', 'applications_closed', 'review', 'assignment']) {
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, phase);
   }
+  // The Applications tab offers no import past importing (E32/F02/S03); the import's own address
+  // still says why, in words that name no phase it cannot reach.
   await page.goto(marketSetupPath(marketId, 'applications'));
-  const reason = page.getByTestId('market-setup-import-blocked-reason');
+  await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
+  await page.goto(marketScreenPath(marketId, 'import'));
+  const reason = page.getByTestId('import-wrong-phase');
   await expect(reason).toContainText('past review, so it takes no more applications');
   await expect(reason).not.toContainText('Applications Closed');
 });

@@ -2,7 +2,7 @@
 id: E32/F02/S03
 title: The review offers no import
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -15,5 +15,5 @@ The way back to importing is `S02`'s menu entry.
 
 ## Acceptance criteria
 
-- [ ] In review, no Import from CSV control is drawn on any market screen.
-- [ ] While importing, it is offered as before.
+- [x] In review, no Import from CSV control is drawn on any market screen.
+- [x] While importing, it is offered as before.
