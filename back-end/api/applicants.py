@@ -401,14 +401,37 @@ def _share_request(app: Application) -> TableShare.ShareRequest:
 _NOT_TAKING_PART = (ApplicationStatus.REVIEWER_REJECTED, ApplicationStatus.CANCELLED)
 
 
+_DONE_SINCE = {
+    ApplicationStatus.REVIEWER_APPROVED.value: "approved this application",
+    ApplicationStatus.REVIEWER_REJECTED.value: "rejected this application",
+    ApplicationStatus.NEEDS_FOLLOW_UP.value: "marked this application as needing a follow-up",
+}
+
+
+def _changed_since_seen(doc: Dict[str, Any]) -> str:
+    """Who changed an application since a reviewer opened it, and to what (E34/F03/S01)."""
+    done = _DONE_SINCE.get(str(doc.get("status")))
+    by = doc.get("verdict_by") or {}
+    if done and by.get("kind") == "rule":
+        return f"An automatic rejection {done.split(' ', 1)[0]} this application since you opened it."
+    if done and by.get("email"):
+        return f"{by['email']} {done} since you opened it."
+    return "This application changed since you opened it."
+
+
 def review_application(
     market_id: str, application_id: str, new_status: ApplicationStatus, by: VerdictGiver,
-    owner: Optional[MarketPerson] = None,
+    owner: Optional[MarketPerson] = None, seen: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Any], int]:
     """Record a review verdict on an application, and who gave it (E34/F01/S01). Organizer only,
     always sees raw status.
 
     The verdict is written but NOT revealed to the applicant until results are published.
+
+    ``seen`` is the application as the reviewer saw it - its status and its verdict's time - and the
+    verdict is written only if it still is (E34/F03/S01). Two reviewers at once used to mean the last
+    verdict silently won; now the second is refused with a 409 naming who changed it and to what,
+    and the application as it stands, so they decide again on what is really there.
     """
     if new_status not in (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED,
                           ApplicationStatus.NEEDS_FOLLOW_UP):
@@ -418,9 +441,16 @@ def review_application(
     if not app_doc or app_doc.get("market_id") != market_id:
         return {"error": "Application not found for this market."}, 404
 
-    found = ApplicationsApi.update_application_status(application_id, new_status, by=by, owner=owner)
-    if not found:
-        return {"error": "Application not found."}, 404
+    written = ApplicationsApi.update_application_status(
+        application_id, new_status, by=by, owner=owner, if_unchanged_since=seen)
+    if not written:
+        now = ApplicationsApi.find_application_by_id(application_id)
+        if now is None:
+            return {"error": "Application not found."}, 404
+        return {
+            "error": _changed_since_seen(now),
+            "application": _application_response_organizer(Application(**now)),
+        }, 409
 
     app = Application(**ApplicationsApi.find_application_by_id(application_id))
     return {"application": _application_response_organizer(app)}, 200

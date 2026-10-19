@@ -114,16 +114,34 @@ export async function fetchMarketApplications(marketId: string): Promise<Applica
  */
 export async function reviewApplication(
   marketId: string,
-  applicationId: string,
+  /** The application as the reviewer saw it: the verdict lands only if it still is (E34/F03/S01). */
+  application: Application,
   status: string,
   /** A follow-up's owner, when not the reviewer (E34/F02/S01). */
   ownerEmail?: string,
 ): Promise<Application> {
-  const { data } = await api.put(`/markets/${marketId}/applications/${applicationId}/review`, {
+  const { data } = await api.put(`/markets/${marketId}/applications/${application.id}/review`, {
     status,
+    seen: { status: application.status, verdictAt: application.verdictAt ?? null },
     ...(ownerEmail ? { ownerEmail } : {}),
   });
   return data.application as Application;
+}
+
+/**
+ * Who changed an application since the reviewer opened it, and the application as it now stands,
+ * when a verdict was refused for it (E34/F03/S01); null for any other failure.
+ */
+export function changedSinceSeen(
+  err: unknown,
+): { message: string; application: Application } | null {
+  const response = (err as { response?: { status?: number; data?: Record<string, unknown> } })
+    ?.response;
+  if (response?.status !== 409 || !response.data?.application) return null;
+  return {
+    message: String(response.data.error ?? ''),
+    application: response.data.application as Application,
+  };
 }
 
 /** Hand a follow-up to someone else with a role on the market (E34/F02/S01). */

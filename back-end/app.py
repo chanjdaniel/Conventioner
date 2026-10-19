@@ -1786,11 +1786,16 @@ def review_application(market_id: str, application_id: str) -> Response:
             owner = MarketsApi.person_on_market(context.market, data['ownerEmail'])
             if owner is None:
                 return jsonify({"error": "A follow-up's owner must have a role on this market."}), 400
+        # What the reviewer saw (E34/F03/S01): the verdict lands only if it is still so.
+        seen_raw = data.get('seen')
+        seen = ({"status": seen_raw.get('status'), "verdict_at": seen_raw.get('verdictAt')}
+                if isinstance(seen_raw, dict) else None)
         result, status_code = ApplicantsApi.review_application(
             market_id, application_id, new_status,
             by=VerdictGiver(kind="person", user_id=reviewer.id if reviewer else None,
                             email=requesting_user),
             owner=owner,
+            seen=seen,
         )
         return jsonify(result), status_code
     except Exception as e:
