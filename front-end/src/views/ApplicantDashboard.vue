@@ -221,7 +221,7 @@ function logout() {
 /* A column of its own width, not its content's: it shrank to the width of a one-line notice. */
 .dashboard-page {
   width: 100%;
-  max-width: 640px;
+  max-width: var(--applicant-max);
   margin: 40px auto;
   padding: 0 16px;
 }

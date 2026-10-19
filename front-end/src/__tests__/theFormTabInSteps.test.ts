@@ -8,7 +8,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils';
-import { createPinia, setActivePinia } from 'pinia';
 
 import MarketFormTab from '@/components/market/MarketFormTab.vue';
 import type { ApplicationForm, Market, SetupObject } from '@/assets/types/datatypes';
@@ -51,7 +50,6 @@ function stub(testid: string) {
 }
 
 beforeEach(() => {
-  setActivePinia(createPinia());
   api.get.mockReset();
   api.get.mockResolvedValue({ data: { application_form: FORM, essential_options: null } });
 });
@@ -75,7 +73,10 @@ async function mountTab(market: Partial<Market> = {}): Promise<VueWrapper> {
         FormBuilder: stub('stub-builder'),
         FormPreview: stub('stub-preview'),
         EssentialFieldsPanel: { template: '<div data-testid="stub-essentials" />' },
-        ReviewHighlights: { template: '<div data-testid="stub-highlights" />' },
+        ReviewHighlights: {
+          props: ['disabled'],
+          template: '<div data-testid="stub-highlights" />',
+        },
       },
     },
   });
@@ -85,6 +86,9 @@ async function mountTab(market: Partial<Market> = {}): Promise<VueWrapper> {
 
 const shown = (wrapper: VueWrapper, testid: string) =>
   wrapper.find(`[data-testid="${testid}"]`).exists();
+
+const stepLabels = (wrapper: VueWrapper) =>
+  wrapper.findAll('[data-testid="form-steps"] .step-label').map((label) => label.text());
 
 function currentStep(wrapper: VueWrapper): string {
   return wrapper.get('[data-testid="form-steps"] [aria-current="step"]').text();
@@ -97,11 +101,11 @@ describe('the form tab is a sequence of steps', () => {
     const header = wrapper.get('[data-testid="form-steps"]');
     expect(header.element.tagName).toBe('NAV');
     expect(header.attributes('aria-label')).toBeTruthy();
-    expect(header.findAll('li').map((li) => li.text())).toEqual([
-      '1Essential questions',
-      '2Your questions',
-      '3Preview',
-      '4Review setup',
+    expect(stepLabels(wrapper)).toEqual([
+      'Essential questions',
+      'Your questions',
+      'Preview',
+      'Review setup',
     ]);
     expect(currentStep(wrapper)).toContain('Essential questions');
     expect(shown(wrapper, 'stub-essentials')).toBe(true);
@@ -175,11 +179,7 @@ describe("a Google Form market's steps (E33/F01/S02)", () => {
   it('are three, with no preview: nobody fills its form in', async () => {
     const wrapper = await mountTab({ intakeMode: 'csv' } as Partial<Market>);
 
-    expect(wrapper.findAll('[data-testid="form-steps"] li').map((li) => li.text())).toEqual([
-      '1Essential questions',
-      '2Your questions',
-      '3Review setup',
-    ]);
+    expect(stepLabels(wrapper)).toEqual(['Essential questions', 'Your questions', 'Review setup']);
     await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
     expect(wrapper.get('[data-testid="form-step-next"]').text()).toBe('Next: Review setup');
     expect(shown(wrapper, 'stub-preview')).toBe(false);
@@ -243,5 +243,37 @@ describe('a locked form opens on the review setup (E33/F01/S03)', () => {
     const wrapper = await mountTab();
 
     expect(currentStep(wrapper)).toContain('Essential questions');
+  });
+});
+
+describe('a person who may only read (E33/F01/S03, review)', () => {
+  it('is told why on Review setup, and offered no control there', async () => {
+    const READ_ONLY = 'You can view this market, but not change it.';
+    const wrapper = await mountTab({
+      applicationFormLockReason: null,
+      readOnlyReason: READ_ONLY,
+    } as Partial<Market>);
+
+    expect(currentStep(wrapper)).toContain('Review setup');
+    expect(wrapper.get('[data-testid="form-builder-lock-banner"]').text()).toBe(READ_ONLY);
+    expect(wrapper.getComponent('[data-testid="stub-highlights"]').props('disabled')).toBe(true);
+  });
+
+  it('leaves Review setup live for someone who may change the market', async () => {
+    const wrapper = await mountTab({ applicationFormLockReason: 'Locked.' });
+
+    expect(wrapper.getComponent('[data-testid="stub-highlights"]').props('disabled')).toBe(false);
+  });
+});
+
+describe('Back and Next', () => {
+  it('start the step they open at the top of the page', async () => {
+    const scrolled = vi.spyOn(window, 'scrollTo');
+    const wrapper = await mountTab();
+
+    await wrapper.get('[data-testid="form-step-next"]').trigger('click');
+
+    expect(scrolled).toHaveBeenCalledWith({ top: 0 });
+    scrolled.mockRestore();
   });
 });

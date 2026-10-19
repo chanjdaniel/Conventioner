@@ -21,9 +21,9 @@ import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
-import StepHeader, { type Step } from '@/components/StepHeader.vue';
+import StepHeader from '@/components/StepHeader.vue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
-import { intakeModeOf } from '@/utils/marketGuide';
+import { formSteps, intakeModeOf, type FormStepId } from '@/utils/marketGuide';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
@@ -254,21 +254,12 @@ const { highlights, error: highlightsError, save: saveHighlights } = useReviewHi
  * preview sat side by side and crowded each other. The form is this tab's working copy, so moving
  * between steps never loses an unsaved edit; only Save Form writes it.
  */
-type FormStepId = 'essentials' | 'questions' | 'preview' | 'review';
-const FORM_STEPS: (Step & { id: FormStepId })[] = [
-  { id: 'essentials', label: 'Essential questions' },
-  { id: 'questions', label: 'Your questions' },
-  { id: 'preview', label: 'Preview' },
-  { id: 'review', label: 'Review setup' },
-];
 /**
- * A Google Form market's vendors are imported, so nobody fills its form in: it has no preview step,
- * and nothing on its tab describes what an applicant would see (E33/F01/S02).
+ * On a Google Form market nobody fills the form in: it has no preview step, and nothing on its tab
+ * describes what an applicant would see (E33/F01/S02).
  */
 const forApplicants = computed(() => intakeModeOf(market.value) === IntakeMode.Form);
-const steps = computed(() =>
-  forApplicants.value ? FORM_STEPS : FORM_STEPS.filter((s) => s.id !== 'preview'),
-);
+const steps = computed(() => formSteps(intakeModeOf(market.value)));
 /**
  * A locked form - an applicant has submitted, or the market has left draft - opens on what is still
  * the organizer's to change: what a reviewer reads first (E33/F01/S03). The earlier steps stay one
@@ -293,6 +284,10 @@ function moveTo(id: FormStepId) {
   step.value = id;
   window.scrollTo({ top: 0 });
 }
+/** Why this step cannot be changed, or null: the form's lock, but on Review setup only the person's. */
+const lockHere = computed(() =>
+  step.value === 'review' ? (market.value?.readOnlyReason ?? null) : formLockReason.value,
+);
 /** Save Form belongs to the organizer's questions, and to the preview they check them in. */
 const savesHere = computed(() => step.value === 'questions' || step.value === 'preview');
 
@@ -317,9 +312,10 @@ watch(formLocked, (locked, wasLocked) => {
     <StepHeader
       :steps="steps"
       :current="step"
-      label="Application form setup"
+      :label="forApplicants ? 'Application form setup' : 'Questions setup'"
       testid="form-steps"
-      @select="(id) => (step = id as FormStepId)"
+      stepTestid="form-step"
+      @select="(id) => (step = id)"
     />
     <ElementSettingContainer>
       <template #setting-title>
@@ -327,12 +323,10 @@ watch(formLocked, (locked, wasLocked) => {
       </template>
       <template #setting-content>
         <div class="form-step-body" :data-testid="`form-step-body-${step}`">
-          <div
-            v-if="formLocked && step !== 'review'"
-            class="form-lock-banner"
-            data-testid="form-builder-lock-banner"
-          >
-            {{ formLockReason }}
+          <!-- Review setup is not the form, so the form's lock is not its; only a person who may not
+               change the market at all is refused there (E33/F01/S03). -->
+          <div v-if="lockHere" class="form-lock-banner" data-testid="form-builder-lock-banner">
+            {{ lockHere }}
           </div>
           <div
             v-else-if="formLoadStatus === 'error'"
@@ -404,6 +398,7 @@ watch(formLocked, (locked, wasLocked) => {
               :fields="applicationForm?.fields ?? []"
               :essentialOptions="essentialOptions"
               :highlights="highlights"
+              :disabled="!!market?.readOnlyReason"
               @update:highlights="saveHighlights"
             />
             <p
@@ -504,23 +499,24 @@ watch(formLocked, (locked, wasLocked) => {
   color: var(--mm-red);
 }
 
+/* The sibling tabs' padding, so moving between them the content does not jump. */
 .settings-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-8);
+  padding: 40px;
 }
 .form-step-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
 }
-/* Back at the start, the step onward at the end, as on the import. */
 .form-preview-column {
   width: 100%;
   max-width: var(--applicant-max);
   margin: 0 auto;
 }
+/* Back at the start, the step onward at the end, as on the import. */
 .form-step-nav {
   display: flex;
   align-items: center;

@@ -345,7 +345,8 @@
 .btn:focus-visible,
 .field:focus-visible,
 .add-row:focus-visible,
-.drag-handle:focus-visible {
+.drag-handle:focus-visible,
+.step-button:focus-visible {
   outline: 2px solid var(--mm-black);
   outline-offset: 2px;
 }
