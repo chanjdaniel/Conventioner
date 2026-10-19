@@ -951,6 +951,33 @@ def save_review_highlights(market_id: str) -> Response:
         return jsonify({"error": "Internal server error", "message": str(e)}), 500
 
 
+@app.route('/markets/<market_id>/rejection-rules', methods=['PUT'])
+@login_required
+def save_rejection_rules(market_id: str) -> Response:
+    """Set which answers reject an application automatically (E33/F03/S01).
+
+    Body: { "rules": [{ "key": "no_shows", "answers": ["not ticked"] }] }
+
+    The only writer of the field. Refused, in words, for a rule a question cannot carry, and once
+    the market has reached Assignment.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        if "rules" not in data:
+            return jsonify({"error": "rules is required"}), 400
+        stored = MarketsApi.save_rejection_rules(market_id, data["rules"], authenticated_email())
+        return jsonify({"rejectionRules": stored}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in save_rejection_rules for {market_id}: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
 @app.route('/markets/<market_id>/application-form/amendment', methods=['GET'])
 @login_required
 def application_form_amendment_availability(market_id: str) -> Response:
