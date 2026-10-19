@@ -582,6 +582,13 @@ if not STUBBED_MODULES:
 
     _applicant_auth_module.challenges_collection = FakeApplicationsCollection()
 
+    # And the users collection, whose unique address index the boot builds (E32/F03/S04).
+    import api.users as _users_module
+
+    _users_fake = FakeApplicationsCollection()
+    _users_fake.index_information = lambda: {}
+    _users_module.users_collection = _users_fake
+
 
 def a_solver_vendor(application_id: str = "app-1", **overrides):
     """One vendor as the solver reads them, for a test that stubs the solver's input.

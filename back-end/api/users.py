@@ -11,9 +11,63 @@ from utils.tokens import (
 from utils.email import send_verification_email, send_password_reset_email, send_otp_email
 from utils.captcha import verify_recaptcha
 from datetime import datetime, timedelta, timezone
+from pymongo.errors import DuplicateKeyError, PyMongoError
+from utils.email_address import normalized_email
 
 db = get_database()
 users_collection = db["users"]
+
+#: One address is one account (E32/F03/S04): unique over the stored, lowercased address.
+USER_EMAIL_INDEX = "user_email"
+USER_EMAIL_MIGRATION = "migrations/migrate_user_emails.py"
+
+
+class UserIndexError(RuntimeError):
+    """The users collection cannot hold one account per address, so the process refuses to boot."""
+
+
+def ensure_user_indexes() -> None:
+    """One account per address, enforced where it can hold (E32/F03/S04).
+
+    Register checked for an address and then inserted it - two steps a second request could fall
+    between, and a double click on Register did, making two accounts for one address. Only a unique
+    index can referee that, so it is built here and ``app.py`` refuses to boot without it, as it
+    does for the applications' identity index. It is unique over the stored form, so an address not
+    yet stored lowercased - written before every writer lowercased it - is refused first, naming the
+    migration that rewrites it; and duplicates that stop the build are named, for the operator to
+    resolve. A plain index on the same key, which the lookup indexes once built, is replaced.
+    """
+    # Ids, never addresses: this refusal is printed to an operator's terminal and the host's logs.
+    stored = [
+        (doc.get("id"), doc.get("email") or "")
+        for doc in users_collection.find({}, {"id": 1, "email": 1})
+    ]
+    unnormalized = sorted(str(uid) for uid, email in stored if email != normalized_email(email))
+    if unnormalized:
+        raise UserIndexError(
+            f"{len(unnormalized)} account(s) have an address not stored lowercased (ids: "
+            f"{', '.join(unnormalized)}). Run: python {USER_EMAIL_MIGRATION}"
+        )
+    try:
+        indexes = users_collection.index_information()
+        if indexes.get(USER_EMAIL_INDEX, {}).get("unique"):
+            return
+        for name, info in indexes.items():
+            if list(info.get("key", [])) == [("email", 1)] and not info.get("unique"):
+                users_collection.drop_index(name)
+        users_collection.create_index([("email", 1)], unique=True, name=USER_EMAIL_INDEX)
+    except PyMongoError as exc:
+        by_address: dict = {}
+        for uid, email in stored:
+            by_address.setdefault(email, []).append(str(uid))
+        shared = [ids for ids in by_address.values() if len(ids) > 1]
+        raise UserIndexError(
+            f"Could not build the unique index {USER_EMAIL_INDEX!r} on users.email: {exc}. "
+            f"Accounts sharing an address (duplicates): "
+            f"{'; '.join(', '.join(ids) for ids in shared) or 'none found'}. Keep one account per "
+            f"address, then restart."
+        ) from exc
+
 
 # users
 class AuthUser(UserMixin):
@@ -27,7 +81,7 @@ class AuthUser(UserMixin):
 
 def get_user(email):
     """Load user from MongoDB using email as the key"""
-    user_doc = users_collection.find_one({"email": email})
+    user_doc = users_collection.find_one({"email": normalized_email(email)})
     if user_doc:
         # Remove MongoDB's _id field before creating User object
         user_doc.pop('_id', None)
@@ -39,7 +93,7 @@ def get_user(email):
 #      -d '{"email": "USERNAME", "password": "pswrdpswrd!!!", "organizations": []}'
 def register_user(bcrypt, request):
     data = request.json
-    email = data.get("email")
+    email = normalized_email(data.get("email"))
     password = data.get("password")
     organizations = data.get("organizations", [])
 
@@ -59,8 +113,11 @@ def register_user(bcrypt, request):
         "organizations": organizations
     }
     
-    # Insert user into MongoDB
-    result = users_collection.insert_one(user_doc)
+    # Insert user into MongoDB; the unique index refuses an address a concurrent request took.
+    try:
+        result = users_collection.insert_one(user_doc)
+    except DuplicateKeyError:
+        return jsonify({"msg": "User already exists"}), 400
     
     if result.inserted_id:
         return jsonify({"msg": "User registered successfully"}), 201
@@ -69,7 +126,7 @@ def register_user(bcrypt, request):
 
 def login(bcrypt, login_user, request):
     data = request.json
-    email, password = data.get('email'), data.get('password')
+    email, password = normalized_email(data.get('email')), data.get('password')
 
     # Find user in MongoDB
     user_doc = users_collection.find_one({"email": email})
@@ -103,7 +160,7 @@ def check_session(current_user):
 def register_user_with_captcha(bcrypt, request):
     """Register a new user with CAPTCHA verification."""
     data = request.json
-    email = data.get("email")
+    email = normalized_email(data.get("email"))
     password = data.get("password")
     captcha_token = data.get("captcha_token")
     organizations = data.get("organizations", [])
@@ -156,8 +213,11 @@ def register_user_with_captcha(bcrypt, request):
         "otp_attempts": 0
     }
     
-    # Insert user into MongoDB
-    result = users_collection.insert_one(user_doc)
+    # Insert user into MongoDB; the unique index refuses an address a concurrent request took.
+    try:
+        result = users_collection.insert_one(user_doc)
+    except DuplicateKeyError:
+        return jsonify({"msg": "User already exists"}), 400
     
     if result.inserted_id:
         # Send verification email
@@ -218,7 +278,7 @@ def verify_email(request):
 def resend_verification_email(request):
     """Resend verification email to user."""
     data = request.json
-    email = data.get("email")
+    email = normalized_email(data.get("email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
@@ -260,7 +320,7 @@ def resend_verification_email(request):
 def request_password_reset(request):
     """Request password reset link."""
     data = request.json
-    email = data.get("email")
+    email = normalized_email(data.get("email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
@@ -355,7 +415,7 @@ def reset_password(bcrypt, request):
 def request_otp(request):
     """Request OTP for passwordless login."""
     data = request.json
-    email = data.get("email")
+    email = normalized_email(data.get("email"))
 
     if not email:
         return jsonify({"msg": "Email required"}), 400
@@ -412,7 +472,7 @@ def request_otp(request):
 def login_with_otp(login_user, request):
     """Login with OTP code."""
     data = request.json
-    email = data.get("email")
+    email = normalized_email(data.get("email"))
     otp = data.get("otp")
 
     if not email or not otp:
@@ -489,7 +549,7 @@ def get_user_by_id(user_id: str):
 
 def get_user_raw(email: str) -> Optional[dict]:
     """Get raw user dict by email (for internal use)."""
-    user_doc = users_collection.find_one({"email": email})
+    user_doc = users_collection.find_one({"email": normalized_email(email)})
     if user_doc:
         user_doc.pop('_id', None)
         return user_doc
@@ -513,12 +573,12 @@ def delete_user(request, authenticated_email: str):
     the organization is something its owner may do, and then this succeeds.
     """
     data = request.json or {}
-    email_to_delete = data.get("email")
+    email_to_delete = normalized_email(data.get("email"))
 
     if not email_to_delete:
         return jsonify({"msg": "Email address required"}), 400
 
-    if email_to_delete != authenticated_email:
+    if email_to_delete != normalized_email(authenticated_email):
         # Deliberately the same answer whether or not the target exists: a caller may not use this
         # endpoint to discover which email addresses are registered.
         return jsonify({"msg": "You can only delete your own account"}), 403

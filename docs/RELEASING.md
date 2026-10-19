@@ -202,7 +202,12 @@ python migrations/migrate_phase.py                    # backfills `phase` on exi
 python migrations/migrate_market_keys.py              # rewrites market documents into canonical form (camelCase keys + stored slug, builds the UNIQUE slug index; stops and names markets that share a public address)
 python migrations/migrate_is_draft_consistency.py     # makes `isDraft` agree with `phase` on markets that have one
 python migrations/create_applications_collection.py   # creates the applications collection and its indexes
+python migrations/migrate_user_emails.py              # stores every account address lowercased; stops and names (by id) accounts that share one
 ```
+
+`migrate_user_emails.py` **must** be run before the code that holds one account per address (E32/F03/S04).
+The back end builds a UNIQUE index on the stored, lowercased address at boot (`api.users.ensure_user_indexes`) and refuses to boot while any address is stored with capitals, naming this script, or while two accounts share an address, naming them by id.
+Register used to check for an address and then insert it, so a double click could make two accounts; which one an organizer keeps is theirs to decide, so the migration names a clash and writes nothing.
 
 `create_applications_collection.py` creates the applications collection and builds both its indexes: `market_id` (the lookup the D9 lock counts on) and the unique compound index on `(market_id, applicant_email, application_type)` that enforces one applicant per market.
 The uniqueness is the database's, not the application code's - the write that creates an application is an atomic upsert (`find_or_create_application` in `api/applications.py`), and the unique index is what makes it safe under concurrency.

@@ -167,6 +167,24 @@ def verify_applicant_login_indexes() -> None:
 verify_applicant_login_indexes()
 
 
+def verify_user_indexes() -> None:
+    """Refuse to boot unless one address can be only one account (E32/F03/S04).
+
+    Register is a read-then-insert, and a double click on it made two accounts for one address. The
+    unique index on the stored, lowercased address is the referee, so it is built here and a
+    process that cannot hold it - addresses not yet lowercased, or duplicates already stored - says
+    so, naming what to do, before it takes a request.
+    """
+    try:
+        UsersApi.ensure_user_indexes()
+    except UsersApi.UserIndexError as e:
+        logger.critical("Refusing to start: %s", e)
+        raise
+
+
+verify_user_indexes()
+
+
 def build_lookup_indexes() -> None:
     """Index every field a document is looked up by (``lookup_indexes``), once, at boot.
 
