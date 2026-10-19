@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
-from datatypes import Application, ApplicationStatus, ApplicationType, VerdictGiver
+from datatypes import Application, ApplicationStatus, ApplicationType, MarketPerson, VerdictGiver
 from db_config import get_database
 import essential_fields as EssentialFields
 
@@ -233,12 +233,14 @@ def find_application_by_email(market_id: str, email: str) -> Optional[Dict[str, 
 
 #: Statuses nobody has decided yet.
 UNDECIDED_STATUSES = (ApplicationStatus.OPEN.value, ApplicationStatus.UNDER_REVIEW.value)
-_VERDICTS = (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED)
+_MARKED = (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED,
+           ApplicationStatus.NEEDS_FOLLOW_UP)
 
 
 def update_application_status(
     app_id: str, status: ApplicationStatus, by: Optional[VerdictGiver] = None,
     reason: Optional[str] = None, if_unchanged_since: Optional[Dict[str, Any]] = None,
+    owner: Optional[MarketPerson] = None,
 ) -> bool:
     """Set a new status on an application. Returns whether it was written.
 
@@ -250,8 +252,11 @@ def update_application_status(
     ``if_unchanged_since`` is the application as the caller read it: the write lands only if its
     status and its verdict's time are still those, so a verdict given in between is never
     overwritten (E33/F03/S02).
+
+    A follow-up is marked like a verdict, by someone, and has an ``owner``: the marker unless named
+    (E34/F01/S02). Any other status clears the owner.
     """
-    if status in _VERDICTS and by is None:
+    if status in _MARKED and by is None:
         raise ValueError("A verdict is written with the person or rule that gave it.")
     ensure_application_indexes()
     update: Dict[str, Any] = {"$set": {"status": status.value}}
@@ -264,12 +269,27 @@ def update_application_status(
             update["$set"]["verdict_reason"] = reason
         else:
             update["$unset"] = {"verdict_reason": ""}
+    if status is ApplicationStatus.NEEDS_FOLLOW_UP:
+        named = owner or MarketPerson(user_id=by.user_id, email=by.email or "")
+        update["$set"]["follow_up_owner"] = named.model_dump()
+    else:
+        update.setdefault("$unset", {})["follow_up_owner"] = ""
     query: Dict[str, Any] = {"id": app_id}
     if if_unchanged_since is not None:
         query["status"] = if_unchanged_since.get("status")
         # Null or absent alike: an application is stored with ``verdict_at: null`` until a verdict.
         query["verdict_at"] = if_unchanged_since.get("verdict_at") or {"$in": [None]}
     result = applications_collection.update_one(query, update)
+    return result.matched_count > 0
+
+
+def reassign_follow_up_owner(app_id: str, owner: MarketPerson) -> bool:
+    """Hand a follow-up to someone else (E34/F02/S01). Written only while it still needs one."""
+    ensure_application_indexes()
+    result = applications_collection.update_one(
+        {"id": app_id, "status": ApplicationStatus.NEEDS_FOLLOW_UP.value},
+        {"$set": {"follow_up_owner": owner.model_dump()}},
+    )
     return result.matched_count > 0
 
 

@@ -23,6 +23,7 @@ import VendorNotes from '@/components/VendorNotes.vue';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { calendarToday } from '@/utils/marketGuide';
 import { useOpenMarket } from '@/utils/openMarket';
+import { signedInEmail } from '@/utils/signedIn';
 
 interface RosterRow {
   date: string;
@@ -68,14 +69,7 @@ function chooseDate(date: string) {
   void router.replace({ query: { ...route.query, date } });
 }
 
-const signedInAs = computed(() => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem('user') || 'null') as unknown;
-    return typeof parsed === 'string' ? parsed.toLowerCase() : '';
-  } catch {
-    return '';
-  }
-});
+const signedInAs = computed(() => (signedInEmail() ?? '').toLowerCase());
 
 const names = computed<VendorNames>(() => {
   const out: Record<string, string> = {};

@@ -30,18 +30,19 @@ class TestMarketPhaseEnum:
 
 
 class TestApplicationStatusEnum:
-    def test_all_ten_values(self):
+    def test_all_eleven_values(self):
         assert ApplicationStatus.OPEN == "open"
         assert ApplicationStatus.UNDER_REVIEW == "under_review"
         assert ApplicationStatus.REVIEWER_APPROVED == "reviewer_approved"
         assert ApplicationStatus.REVIEWER_REJECTED == "reviewer_rejected"
+        assert ApplicationStatus.NEEDS_FOLLOW_UP == "needs_follow_up"
         assert ApplicationStatus.UNASSIGNED == "unassigned"
         assert ApplicationStatus.ASSIGNED == "assigned"
         assert ApplicationStatus.ASSIGNMENT_SENT == "assignment_sent"
         assert ApplicationStatus.VENDOR_ACCEPTED == "vendor_accepted"
         assert ApplicationStatus.VENDOR_REFUSED == "vendor_refused"
         assert ApplicationStatus.CANCELLED == "cancelled"
-        assert len(ApplicationStatus) == 10
+        assert len(ApplicationStatus) == 11
 
 
 class TestApplicationTypeEnum:

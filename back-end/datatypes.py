@@ -557,6 +557,9 @@ class ApplicationStatus(str, Enum):
     UNDER_REVIEW = "under_review"
     REVIEWER_APPROVED = "reviewer_approved"
     REVIEWER_REJECTED = "reviewer_rejected"
+    # Not complete: someone must reach out to the applicant first (E34/F02/S01). Undecided, and
+    # owned by a person on the market.
+    NEEDS_FOLLOW_UP = "needs_follow_up"
     UNASSIGNED = "unassigned"
     ASSIGNED = "assigned"
     ASSIGNMENT_SENT = "assignment_sent"
@@ -662,6 +665,12 @@ class VerdictGiver(BaseModel):
     rule: Optional[str] = None
 
 
+class MarketPerson(BaseModel):
+    """Someone with a role on a market, named by id and the address they sign in with."""
+    user_id: Optional[str] = None
+    email: str
+
+
 class Application(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     market_id: str                        # FK to Market
@@ -679,6 +688,8 @@ class Application(BaseModel):
     verdict_at: Optional[str] = None
     # Why a rule rejected it, in the organizer's words (E33/F03/S02); never the applicant's to see.
     verdict_reason: Optional[str] = None
+    # Who is reaching out, while it needs a follow-up (E34/F02/S01); cleared with that status.
+    follow_up_owner: Optional[MarketPerson] = None
 
 
 def to_camel(string: str) -> str:

@@ -146,7 +146,7 @@ def client(monkeypatch):
     reviewed = []
     monkeypatch.setattr(
         ApplicantsApi, "review_application",
-        lambda market_id, application_id, status, by: (
+        lambda market_id, application_id, status, by, owner=None: (
             reviewed.append((application_id, status)) or ({"application": {"id": application_id}}, 200)
         ),
     )

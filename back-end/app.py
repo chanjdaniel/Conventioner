@@ -1779,15 +1779,49 @@ def review_application(market_id: str, application_id: str) -> Response:
             return jsonify({"error": f"Invalid status: {status_raw}"}), 400
 
         reviewer = UsersApi.get_user(requesting_user)
+        # A follow-up is owned by whoever marked it, or by the person named, who must hold a role
+        # on the market (E34/F02/S01).
+        owner = None
+        if new_status is ApplicationStatus.NEEDS_FOLLOW_UP and data.get('ownerEmail'):
+            owner = MarketsApi.person_on_market(context.market, data['ownerEmail'])
+            if owner is None:
+                return jsonify({"error": "A follow-up's owner must have a role on this market."}), 400
         result, status_code = ApplicantsApi.review_application(
             market_id, application_id, new_status,
             by=VerdictGiver(kind="person", user_id=reviewer.id if reviewer else None,
                             email=requesting_user),
+            owner=owner,
         )
         return jsonify(result), status_code
     except Exception as e:
         logger.error(f"Error in review_application {market_id}/{application_id}: {e}")
         logger.error(traceback.format_exc())
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/markets/<market_id>/applications/<application_id>/follow-up-owner', methods=['PUT'])
+@login_required
+def reassign_follow_up(market_id: str, application_id: str) -> Response:
+    """Hand a follow-up to someone else with a role on the market (E34/F02/S01). EDITOR+.
+
+    Body: { "ownerEmail": "sam@market.test" }
+    """
+    try:
+        requesting_user = authenticated_email()
+        context = MarketsApi.load_market_context(market_id)
+        if context is None or context.market is None:
+            return jsonify({"error": "Market not found"}), 404
+        refusal = MarketsApi.change_refusal(requesting_user, context.market, context.organization)
+        if refusal:
+            return jsonify({"error": refusal}), 403
+        data = request.get_json(silent=True) or {}
+        owner = MarketsApi.person_on_market(context.market, data.get('ownerEmail'))
+        if owner is None:
+            return jsonify({"error": "A follow-up's owner must have a role on this market."}), 400
+        result, status_code = ApplicantsApi.reassign_follow_up(market_id, application_id, owner)
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Error in reassign_follow_up {market_id}/{application_id}: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 

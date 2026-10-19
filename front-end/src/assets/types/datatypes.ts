@@ -310,6 +310,8 @@ export enum ApplicationStatus {
   UnderReview = 'under_review',
   ReviewerApproved = 'reviewer_approved',
   ReviewerRejected = 'reviewer_rejected',
+  /** Not complete: someone must reach out to the applicant first (E34/F02/S01). Undecided. */
+  NeedsFollowUp = 'needs_follow_up',
   Unassigned = 'unassigned',
   Assigned = 'assigned',
   AssignmentSent = 'assignment_sent',
@@ -399,6 +401,8 @@ export interface Application {
   verdictAt?: string | null;
   /** Organizer's only: why an automatic rule rejected it (E33/F03/S02). */
   verdictReason?: string | null;
+  /** Organizer's only: who is reaching out, while it needs a follow-up (E34/F02/S01). */
+  followUpOwner?: { userId?: string | null; email: string } | null;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */

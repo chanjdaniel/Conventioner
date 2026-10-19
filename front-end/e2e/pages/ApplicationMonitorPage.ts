@@ -27,7 +27,7 @@ export class ApplicationMonitorPage {
   readonly status: Locator;
   readonly approveButton: Locator;
   readonly rejectButton: Locator;
-  readonly skipButton: Locator;
+  readonly nextButton: Locator;
   readonly decidedToggle: Locator;
   readonly decidedRows: Locator;
   readonly decidedEmails: Locator;
@@ -47,7 +47,7 @@ export class ApplicationMonitorPage {
     this.status = this.card.getByTestId('app-monitor-status');
     this.approveButton = page.getByTestId('app-monitor-approve-button');
     this.rejectButton = page.getByTestId('app-monitor-reject-button');
-    this.skipButton = page.getByTestId('app-monitor-skip-button');
+    this.nextButton = page.getByTestId('app-monitor-next-button');
     this.decidedToggle = page.getByTestId('app-monitor-decided-toggle');
     this.decidedRows = page.getByTestId('app-monitor-decided-row');
     this.decidedEmails = page.getByTestId('app-monitor-decided-email');
@@ -66,7 +66,7 @@ export class ApplicationMonitorPage {
   }
 
   /**
-   * Bring one applicant's card up by skipping past the others.
+   * Bring one applicant's card up by moving past the others with Next.
    *
    * Bounded by the queue length: the cursor wraps, so an applicant who is not in the queue would
    * otherwise loop forever rather than fail.
@@ -75,7 +75,7 @@ export class ApplicationMonitorPage {
     const remaining = await this.remaining();
     for (let seen = 0; seen < remaining; seen += 1) {
       if ((await this.email.textContent())?.trim() === applicantEmail) return;
-      await this.skipButton.click();
+      await this.nextButton.click();
     }
     await expect(this.email).toHaveText(applicantEmail);
   }
@@ -109,7 +109,7 @@ export class ApplicationMonitorPage {
     const seen: string[] = [];
     for (let i = 0; i < remaining; i += 1) {
       seen.push(((await this.email.textContent()) ?? '').trim());
-      if (i < remaining - 1) await this.skipButton.click();
+      if (i < remaining - 1) await this.nextButton.click();
     }
     return seen;
   }

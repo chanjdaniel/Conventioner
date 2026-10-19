@@ -51,6 +51,7 @@ import {
 import { useResultFilters } from '@/utils/useResultFilters';
 import { datesWithinReach } from '@/utils/datesWithinReach';
 import { verdictGiverLine } from '@/utils/verdicts';
+import { signedInEmail } from '@/utils/signedIn';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;
@@ -140,17 +141,6 @@ function extractEmail(raw: unknown): string {
   return '';
 }
 
-function readUserEmail(): string | null {
-  const raw = localStorage.getItem('user');
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return typeof parsed === 'string' ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'response' in err) {
     const resp = (err as { response?: { data?: { error?: string } } }).response;
@@ -165,7 +155,7 @@ async function loadVendors(): Promise<void> {
   const id = marketId.value;
   if (!id) return;
 
-  const userEmail = readUserEmail();
+  const userEmail = signedInEmail();
   if (!userEmail) {
     loadError.value = 'You must be signed in.';
     return;

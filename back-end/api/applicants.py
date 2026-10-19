@@ -33,6 +33,7 @@ from market_documents import (
 from datatypes import (
     Application,
     ApplicationStatus,
+    MarketPerson,
     VerdictGiver,
     MarketPhase,
     phase_from_market_document,
@@ -82,6 +83,9 @@ def applicant_visible_status(
     The organizer's view goes directly to the stored status and does not pass through here at all,
     so the organizer always sees the truth.
     """
+    # A follow-up is the organizer's own business, never an outcome, published or not (E34/F02/S01).
+    if status is ApplicationStatus.NEEDS_FOLLOW_UP:
+        return ApplicationStatus.UNDER_REVIEW
     if not results_published and status in REVIEW_IN_PROGRESS_STATUSES:
         return ApplicationStatus.UNDER_REVIEW
     return status
@@ -120,6 +124,10 @@ def _application_response_organizer(app: Application) -> Dict[str, Any]:
         "verdictBy": _giver(app.verdict_by),
         "verdictAt": app.verdict_at,
         "verdictReason": app.verdict_reason,
+        "followUpOwner": (
+            {"userId": app.follow_up_owner.user_id, "email": app.follow_up_owner.email}
+            if app.follow_up_owner else None
+        ),
     }
 
 
@@ -395,23 +403,38 @@ _NOT_TAKING_PART = (ApplicationStatus.REVIEWER_REJECTED, ApplicationStatus.CANCE
 
 def review_application(
     market_id: str, application_id: str, new_status: ApplicationStatus, by: VerdictGiver,
+    owner: Optional[MarketPerson] = None,
 ) -> Tuple[Dict[str, Any], int]:
     """Record a review verdict on an application, and who gave it (E34/F01/S01). Organizer only,
     always sees raw status.
 
     The verdict is written but NOT revealed to the applicant until results are published.
     """
-    if new_status not in (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED):
+    if new_status not in (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED,
+                          ApplicationStatus.NEEDS_FOLLOW_UP):
         return {"error": f"Invalid review status: {new_status.value}"}, 400
 
     app_doc = ApplicationsApi.find_application_by_id(application_id)
     if not app_doc or app_doc.get("market_id") != market_id:
         return {"error": "Application not found for this market."}, 404
 
-    found = ApplicationsApi.update_application_status(application_id, new_status, by=by)
+    found = ApplicationsApi.update_application_status(application_id, new_status, by=by, owner=owner)
     if not found:
         return {"error": "Application not found."}, 404
 
+    app = Application(**ApplicationsApi.find_application_by_id(application_id))
+    return {"application": _application_response_organizer(app)}, 200
+
+
+def reassign_follow_up(
+    market_id: str, application_id: str, owner: MarketPerson,
+) -> Tuple[Dict[str, Any], int]:
+    """Hand a follow-up to someone else with a role on the market (E34/F02/S01)."""
+    app_doc = ApplicationsApi.find_application_by_id(application_id)
+    if not app_doc or app_doc.get("market_id") != market_id:
+        return {"error": "Application not found for this market."}, 404
+    if not ApplicationsApi.reassign_follow_up_owner(application_id, owner):
+        return {"error": "Only an application that needs a follow-up has an owner."}, 409
     app = Application(**ApplicationsApi.find_application_by_id(application_id))
     return {"application": _application_response_organizer(app)}, 200
 

@@ -7,6 +7,7 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
   [ApplicationStatus.UnderReview]: 'Under Review',
   [ApplicationStatus.ReviewerApproved]: 'Approved',
   [ApplicationStatus.ReviewerRejected]: 'Rejected',
+  [ApplicationStatus.NeedsFollowUp]: 'Needs follow-up',
   [ApplicationStatus.Unassigned]: 'Unassigned',
   [ApplicationStatus.Assigned]: 'Assigned',
   [ApplicationStatus.AssignmentSent]: 'Assignment Sent',
