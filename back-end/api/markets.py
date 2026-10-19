@@ -53,7 +53,14 @@ import api.users as UsersApi
 import traceback
 import logging
 from assignment.csv_output import market_csv_to_string
-from guards import PASSED_THROUGH, route_between, transition_verdicts
+from guards import (
+    PASSED_THROUGH,
+    PreconditionResult,
+    evaluate_transition,
+    move_route,
+    route_between,
+    transition_verdicts,
+)
 import vendor_notes as VendorNotes
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
@@ -1401,6 +1408,52 @@ def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: O
             if standing != route[index - 1]:
                 raise PhaseChangedUnderRequest(standing)
         apply_phase_transition(market_id, document, target, by=by)
+
+
+class MoveUnavailable(ValueError):
+    """The move is not open from the phase the market stands in. Callers map this to HTTP 400."""
+
+
+def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -> List[PreconditionResult]:
+    """Judge a move and, when nothing blocks it, take it. Returns its blockers; none means taken.
+
+    The one way a market is moved: the transition endpoint and the operator's seeder
+    (``seed_test_markets.py``) both come here, so neither can take a move unjudged. A move on the
+    market's path may step through a phase it does not stop in, every step's guards judged before
+    the first is taken (E32/F02/S01). Who may move it is the caller's to ask first.
+
+    Raises ``MoveUnavailable``, and what ``walk_route`` raises.
+    """
+    market = context.market
+    market_id = context.document["id"]
+    from_phase = market.phase.value
+    route = move_route(market, to_phase)
+    if route is None:
+        raise MoveUnavailable(
+            f"Transition from '{from_phase}' to '{to_phase}' is not available in the current phase."
+        )
+    blockers = evaluate_transition(market, to_phase, db)
+    if blockers:
+        return blockers
+    walk_route(market_id, context.document, route, by=by)
+
+    # Only after the phase is written.
+    if from_phase == MarketPhase.OFFERS.value and to_phase == MarketPhase.MARKET_DAYS.value:
+        try:
+            swept = ApplicationsApi.sweep_unanswered_offers(market_id)
+            logger.info(
+                "Swept %d assignment_sent applications to vendor_refused for market %s",
+                swept,
+                market_id,
+            )
+        except Exception:
+            logger.error(
+                "Phase advanced to market_days for market %s but the "
+                "assignment_sent -> vendor_refused sweep failed",
+                market_id,
+                exc_info=True,
+            )
+    return []
 
 
 def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> bool:

@@ -36,7 +36,7 @@ from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
 from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
-from guards import PreconditionResult, evaluate_transition, move_route
+from guards import PreconditionResult
 from market_documents import (
     MarketKeyMigrationError,
     assert_market_key_migration_recorded,
@@ -1194,31 +1194,10 @@ def transition_market(market_id: str) -> Response:
             }), 403
 
         from_phase = market.phase.value
-
-        # A move on the market's path may step through a phase it does not stop in (E32/F02/S01).
-        route = move_route(market, to_phase.value)
-        if route is None:
-            return jsonify({
-                "error": (
-                    f"Transition from '{from_phase}' to '{to_phase.value}' "
-                    "is not available in the current phase."
-                ),
-            }), 400
-
-        blockers = evaluate_transition(market, to_phase.value, MarketsApi.db)
-        if blockers:
-            return jsonify(convert_keys_to_camel_case({
-                "error": "preconditions_not_met",
-                "current_phase": from_phase,
-                "target_phase": to_phase.value,
-                "blockers": [b.payload() for b in blockers],
-            })), 409
-
-        # Through the one phase writer, so the phase, its two stamps and the phase history move in
-        # one atomic update a step (E26/F06/S03). This endpoint used to carry its own copy of that
-        # write. A route of two steps is two such updates, each recorded as the phase it entered.
         try:
-            MarketsApi.walk_route(market_id, context.document, route, by=user_email)
+            blockers = MarketsApi.take_move(context, to_phase.value, by=user_email)
+        except MarketsApi.MoveUnavailable as unavailable:
+            return jsonify({"error": str(unavailable)}), 400
         except MarketsApi.MarketNotFoundError:
             return jsonify({"error": "Market not found"}), 404
         except MarketsApi.PhaseChangedUnderRequest as changed:
@@ -1238,23 +1217,13 @@ def transition_market(market_id: str) -> Response:
                 "target_phase": to_phase.value,
                 "blockers": [conflict.payload()],
             })), 409
-
-        # ── Side effects (only after a successful phase write) ────────────
-        if from_phase == MarketPhase.OFFERS.value and to_phase == MarketPhase.MARKET_DAYS:
-            try:
-                swept = ApplicationsApi.sweep_unanswered_offers(market_id)
-                logger.info(
-                    "Swept %d assignment_sent applications to vendor_refused for market %s",
-                    swept,
-                    market_id,
-                )
-            except Exception:
-                logger.error(
-                    "Phase advanced to market_days for market %s but the "
-                    "assignment_sent -> vendor_refused sweep failed",
-                    market_id,
-                    exc_info=True,
-                )
+        if blockers:
+            return jsonify(convert_keys_to_camel_case({
+                "error": "preconditions_not_met",
+                "current_phase": from_phase,
+                "target_phase": to_phase.value,
+                "blockers": [b.payload() for b in blockers],
+            })), 409
 
         return jsonify({"phase": to_phase.value}), 200
 

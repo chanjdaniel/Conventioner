@@ -28,6 +28,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   (E32/F03/S04): every writer and lookup goes through `utils/email_address.normalized_email`, and the
   back end builds a UNIQUE index on `users.email` at boot, refusing to start while an address is
   stored with capitals (`migrations/migrate_user_emails.py`) or two accounts share one.
+- **Production's test markets come from `back-end/seed_test_markets.py`** (E32/F03/S03): one of each
+  intake path in "Conventioner Test Organization", made through the product's own writes; check
+  against those, never a real organizer's market.
 - **Never put the production `MONGODB_URI` in `back-end/.env`**: the local stack mounts that directory
   and would run against production. Pass it inline to one-off scripts. `reset_database.py` refuses
   whenever `MONGODB_URI` is set.
@@ -513,6 +516,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   tables at every tier - each its own blocker line. A date has passed only once it has passed
   everywhere (UTC-12, `_earliest_calendar_day`): the server cannot know where a market is, and the
   screens read the viewer's own calendar (`calendarToday`).
+- **A move is taken only through `MarketsApi.take_move`**, which judges it and then walks it; the
+  transition endpoint and the test-market seeder both call it.
 - **Every precondition for every phase transition lives in `back-end/guards.py`.** Adding or
   removing one is a one-file edit: the `POST /markets/<id>/transition` endpoint and the
   front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
