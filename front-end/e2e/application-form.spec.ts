@@ -135,8 +135,12 @@ test.describe('Application form builder', () => {
     await expect(formPage.nextButton).toHaveCount(0);
     await expect(page.getByTestId('review-highlights')).toContainText('Contact Email Address');
 
-    // Back to the preview, which saves as the questions step does.
+    // Back two steps: the questions still hold every unsaved edit.
     await formPage.backButton.click();
+    await formPage.backButton.click();
+    await expect(formPage.step('questions')).toHaveAttribute('aria-current', 'step');
+    await expect(formPage.labelInput(2)).toHaveValue('Contact Email Address');
+    await expect(formPage.keyInput(2)).toHaveValue('vendor_email');
     await expect(formPage.saveButton).toBeEnabled();
     await formPage.save();
     await expect(formPage.saveSuccess).toBeVisible();

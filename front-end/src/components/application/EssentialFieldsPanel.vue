@@ -44,10 +44,15 @@ const props = withDefaults(
   { forApplicants: true },
 );
 
-const online = computed(() => props.forApplicants);
 /** Why an unconfigured question is not there yet, on this market's path. */
 const notYet = computed(() =>
-  online.value ? 'this question is hidden from applicants' : 'the import does not read this',
+  props.forApplicants ? 'this question is hidden from applicants' : 'the import does not read this',
+);
+/** That a question is left out, on this market's path: nobody is asked one on a Google Form's. */
+const doesNot = computed(() =>
+  props.forApplicants
+    ? 'This market does not ask applicants'
+    : "This market's import reads no column",
 );
 
 const emit = defineEmits<{ (e: 'toggleUnasked', key: string, unasked: boolean): void }>();
@@ -70,7 +75,7 @@ function asks(key: string): boolean {
     <div class="essential-panel-header">
       <p class="essential-panel-note">
         {{
-          online
+          forApplicants
             ? 'Every application form asks these'
             : "Every market needs these answers, each read from a column of your Google Form's responses when you import"
         }}
@@ -83,11 +88,11 @@ function asks(key: string): boolean {
     <div class="essential-item" data-testid="essential-item-email">
       <div class="essential-item-header">
         <span class="essential-item-label">Email</span>
-        <span class="essential-type-badge">{{ online ? 'sign-in' : 'address' }}</span>
+        <span class="essential-type-badge">{{ forApplicants ? 'sign-in' : 'address' }}</span>
       </div>
       <p class="essential-item-detail">
         {{
-          online
+          forApplicants
             ? 'Collected when the applicant signs in; every notification goes there.'
             : "Read from your Google Form's email column; it is how one vendor is told from another."
         }}
@@ -101,7 +106,7 @@ function asks(key: string): boolean {
         <span class="essential-item-label">{{ FULL_NAME_LABEL }}</span>
         <span class="essential-type-badge">text</span>
       </div>
-      <p class="essential-item-detail">Required. The name the applicant goes by officially.</p>
+      <p class="essential-item-detail">Required. The name the vendor goes by officially.</p>
     </div>
 
     <div class="essential-item" data-testid="essential-item-preferred-name">
@@ -143,7 +148,7 @@ function asks(key: string): boolean {
         {{
           options.dates.length
             ? `A number from 1 to ${options.dates.length} - how many of their available dates the
-          applicant actually wants.`
+          vendor actually wants.`
             : 'Asked alongside the dates once your market has them.'
         }}
       </p>
@@ -211,8 +216,8 @@ function asks(key: string): boolean {
         class="essential-item-hint"
         data-testid="essential-section-not-asked"
       >
-        This market does not ask applicants to rank sections, so every applicant is treated equally
-        on it. Vendors are still placed in sections; nobody states a preference.
+        {{ doesNot }} for a section ranking, so every vendor is treated equally on it. Vendors are
+        still placed in sections; nobody states a preference.
       </p>
       <div v-else-if="options.sections.length" class="essential-chips">
         <span
@@ -266,8 +271,8 @@ function asks(key: string): boolean {
         </span>
       </div>
       <p v-else class="essential-item-warning" data-testid="essential-table-types-stubbed">
-        Every table is the same type for now, so applicants are not asked to rank them. This
-        question appears once a floorplan gives your market more than one table type.
+        Every table is the same type for now, so no vendor ranks them. This question appears once a
+        floorplan gives your market more than one table type.
       </p>
     </div>
 
@@ -283,7 +288,7 @@ function asks(key: string): boolean {
         review, on Vendors and at the door.
       </p>
       <p v-else class="essential-item-hint" data-testid="essential-request-not-asked">
-        This market does not ask applicants what else they need.
+        {{ doesNot }} for what else a vendor needs.
       </p>
       <label v-if="editable" class="essential-asks-toggle" data-testid="essential-asks-request">
         <input
@@ -308,10 +313,11 @@ function asks(key: string): boolean {
   background: rgba(54, 130, 111, 0.16);
 }
 
+/* The badge keeps to the note's first line rather than floating at its middle. */
 .essential-panel-header {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }

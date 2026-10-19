@@ -1,32 +1,28 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="Id extends string">
 /**
  * The steps of a piece of work, in order, any of them one click away (E33/F01/S01).
  *
  * A list of buttons in a named navigation landmark, the current one marked `aria-current="step"`,
  * so assistive technology hears which step is open as well as where the others are. It decides
  * nothing: the screen holds the current step and moves it on `select`, as it does with its own
- * Back and Next.
+ * Back and Next. Its focus ring is the primitives' (`.step-button` in primitives.css).
  */
 import { computed } from 'vue';
 
-export interface Step {
-  id: string;
-  label: string;
-}
-
 const props = defineProps<{
-  steps: Step[];
-  current: string;
+  steps: readonly { id: Id; label: string }[];
+  current: Id;
   /** What the steps are of, for the landmark's name: "Application form setup". */
   label: string;
-  /** The header's test id; each step is `<testid without its s>-<step id>`. */
+  /** The header's test id. */
   testid: string;
+  /** Each step's test id is this, a dash, and the step's id. */
+  stepTestid: string;
 }>();
 
-defineEmits<{ select: [id: string] }>();
+defineEmits<{ select: [id: Id] }>();
 
 const currentIndex = computed(() => props.steps.findIndex((step) => step.id === props.current));
-const stepTestid = computed(() => props.testid.replace(/s$/, ''));
 </script>
 
 <template>
@@ -35,11 +31,8 @@ const stepTestid = computed(() => props.testid.replace(/s$/, ''));
       <li v-for="(step, index) in steps" :key="step.id" class="step-item">
         <button
           type="button"
-          class="step"
-          :class="{
-            'step--current': index === currentIndex,
-            'step--before': index < currentIndex,
-          }"
+          class="step-button"
+          :class="{ 'step-button--current': index === currentIndex }"
           :aria-current="index === currentIndex ? 'step' : undefined"
           :data-testid="`${stepTestid}-${step.id}`"
           @click="$emit('select', step.id)"
@@ -55,11 +48,11 @@ const stepTestid = computed(() => props.testid.replace(/s$/, ''));
 <style scoped>
 /* Pulled back by a step's own padding, so its first number lines up with the card below. */
 .step-list {
-  margin: 0 0 0 calc(-1 * var(--space-2));
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  margin: 0 0 0 calc(-1 * var(--space-2));
   padding: 0;
   list-style: none;
 }
@@ -75,7 +68,7 @@ const stepTestid = computed(() => props.testid.replace(/s$/, ''));
   background: var(--mm-border);
 }
 
-.step {
+.step-button {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -83,27 +76,22 @@ const stepTestid = computed(() => props.testid.replace(/s$/, ''));
   border: none;
   border-radius: var(--radius-control);
   background: none;
-  color: var(--mm-text-muted);
+  color: var(--mm-black);
   font-size: var(--text-sm);
   cursor: pointer;
 }
 
-.step:hover .step-label {
+.step-button:hover .step-label {
   text-decoration: underline;
-}
-
-.step:focus-visible {
-  outline: 2px solid var(--mm-black);
-  outline-offset: 2px;
 }
 
 .step-number {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 1.5px solid var(--mm-border);
+  width: var(--space-6);
+  height: var(--space-6);
+  border: 1px solid var(--mm-border);
   border-radius: 50%;
   background: white;
   font-size: var(--text-xs);
@@ -111,25 +99,11 @@ const stepTestid = computed(() => props.testid.replace(/s$/, ''));
   color: var(--mm-text-muted);
 }
 
-.step--before {
-  color: var(--mm-black);
-}
-
-.step--before .step-number {
-  border-color: var(--mm-green);
-  color: var(--mm-green);
-}
-
-.step--current {
-  color: var(--mm-black);
+.step-button--current .step-label {
   font-weight: 600;
 }
 
-.step--current .step-label {
-  font-weight: 600;
-}
-
-.step--current .step-number {
+.step-button--current .step-number {
   border-color: var(--mm-green);
   background: var(--mm-green);
   color: white;

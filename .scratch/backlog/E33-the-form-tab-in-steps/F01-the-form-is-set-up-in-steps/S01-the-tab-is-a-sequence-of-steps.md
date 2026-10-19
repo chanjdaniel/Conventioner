@@ -21,7 +21,9 @@ Saving works as it does today; moving between steps never loses unsaved work.
 
 ## As built
 
-- `MarketFormTab` holds the step; `components/StepHeader.vue` draws the header, a named `nav` whose current step is `aria-current="step"`. Back and Next move one step and start it at the top of the page.
+- `MarketFormTab` holds the step; `components/StepHeader.vue` draws the header, a named `nav` whose current step is `aria-current="step"`.
+- Back and Next move one step and start it at the top of the page.
+- The steps on each path are the guide's (`formSteps` in `utils/marketGuide.ts`).
 - Save Form sits on Your questions and on Preview; the status of any save shows on every step, since Ask this on the essentials saves the moment it is ticked.
 - The preview is drawn at the applicant's own column width (`--applicant-max`, which the apply page reads too).
 - The essential questions panel lost its own heading, which the step's title now gives.

@@ -109,8 +109,8 @@ const fieldCount = computed(() => fields.value.length);
     </div>
 
     <div v-if="fields.length === 0" class="empty-state" data-testid="form-builder-empty">
-      <p v-if="readonly">This market has no application form.</p>
-      <p v-else>No fields yet. Click "Add Field" to start building your application form.</p>
+      <p v-if="readonly">This market has no questions of its own.</p>
+      <p v-else>No questions of your own yet. Add Field adds one.</p>
     </div>
 
     <draggable

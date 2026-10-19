@@ -13,13 +13,12 @@ export class ApplicationFormPage {
 
   // Tabs
   readonly formTab: Locator;
+  readonly setupTab: Locator;
 
   // Steps (E33/F01/S01)
   readonly steps: Locator;
-  readonly stepTitle: Locator;
   readonly nextButton: Locator;
   readonly backButton: Locator;
-  readonly setupTab: Locator;
 
   // Builder
   readonly builder: Locator;
@@ -58,7 +57,6 @@ export class ApplicationFormPage {
     this.setupTab = page.getByTestId('market-bar-tab-setup');
 
     this.steps = page.getByTestId('form-steps');
-    this.stepTitle = page.getByTestId('form-step-title');
     this.nextButton = page.getByTestId('form-step-next');
     this.backButton = page.getByTestId('form-step-back');
 
