@@ -113,6 +113,25 @@ test.describe('What to show, and when', () => {
     await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
   });
 
+  test('past draft the floorplan flow says the setup is settled, and offers nothing to draw', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    const { marketId } = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    // Reached by its address, the way a bookmark or the back button would.
+    await page.goto(marketScreenPath(marketId, 'floorplan'));
+    const settled = page.getByTestId('floorplan-settled');
+    await expect(settled).toContainText('The setup is settled');
+    await expect(page.getByTestId('floorplan-upload-dropzone')).toHaveCount(0);
+    await settled.getByRole('button', { name: 'Back to Market Setup' }).click();
+    await expect(page).toHaveURL(marketSetupPath(marketId, 'setup'));
+  });
+
   test('each tab past its phase says why, in the words of its path', async ({
     authenticatedPage: page,
     request,

@@ -18,6 +18,19 @@ const marketId = computed(() => String(route.params.marketId ?? ''));
  */
 const { market } = useOpenMarket(marketId);
 
+/**
+ * Why this market's sections can no longer be drawn, or null while they can. The flow writes the
+ * setup, which settles on leaving draft (E31/F01/S03), so past it the flow says so in place of a
+ * wizard whose save would only be refused - as Market Setup does, in the same words.
+ */
+const settledReason = computed(
+  () => market.value?.readOnlyReason || market.value?.setupLockReason || null,
+);
+
+function backToSetup() {
+  if (market.value) router.push(marketPath(market.value.id, 'setup'));
+}
+
 function handleSaved(payload: { market_id: string }) {
   // Back to the plan, where the sections it just described are listed.
   router.push(marketPath(payload.market_id, 'setup'));
@@ -28,8 +41,14 @@ function handleSaved(payload: { market_id: string }) {
   <!-- A flow entered from Market Setup, standing in the frame like every market page (bug 43): the
        bar with that tab active (E22/F04/S02), and the rail. It was full-bleed, with neither. -->
   <MarketFrame :market="market">
+    <div v-if="market && settledReason" class="floorplan-settled" data-testid="floorplan-settled">
+      <p class="note">{{ settledReason }}</p>
+      <button type="button" class="btn btn--secondary" @click="backToSetup">
+        Back to Market Setup
+      </button>
+    </div>
     <FloorplanWorkflow
-      v-if="market"
+      v-else-if="market"
       class="floorplan-flow"
       :marketId="market.id"
       @saved="handleSaved"
@@ -38,6 +57,13 @@ function handleSaved(payload: { market_id: string }) {
 </template>
 
 <style scoped>
+.floorplan-settled {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
 /* The whole card, so each step's Next sits at its foot rather than above an empty band. */
 .floorplan-flow {
   flex: 1;
