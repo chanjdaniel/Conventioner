@@ -71,3 +71,17 @@ def test_a_change_nobody_gave_is_said_plainly(stored):
 
     assert status == 409
     assert body["error"] == "An automatic rejection rejected this application since you opened it."
+
+
+def test_answers_changed_since_it_was_opened_refuse_the_verdict(stored):
+    """An applicant's edit, or a re-import, between opening the card and deciding it."""
+    stored[0]["updated_at"] = "2026-10-05T00:00:00Z"
+    seen = ApplicantsApi.seen_from(
+        {"status": "open", "verdictAt": None, "updatedAt": "2026-10-01T00:00:00Z"})
+
+    body, status = ApplicantsApi.review_application(
+        "market-1", "app-1", ApplicationStatus.REVIEWER_APPROVED, by=ALEX, seen=seen)
+
+    assert status == 409
+    assert body["error"] == "Its answers changed since you opened it."
+    assert stored[0]["status"] == "open"

@@ -134,3 +134,31 @@ class TestAnEditorGivesVerdicts:
         response = client.post("/markets/market-1/transition", json={"toPhase": "assignment"})
 
         assert response.status_code == 403
+
+
+class TestWhenAVerdictMayChange:
+    """While the market can still run its assignment: an approval changed there sends the run out of
+    date, to be run again. After it the verdicts are a record (E34 review)."""
+
+    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS_OPEN, MarketPhase.REVIEW,
+                                       MarketPhase.ASSIGNMENT])
+    def test_open_until_the_assignment_is_done(self, phase, monkeypatch):
+        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: None)
+        from conftest import client_market
+
+        assert MarketsApi.verdict_refusal("e@x.test", client_market(phase=phase), None) is None
+
+    @pytest.mark.parametrize("phase", [MarketPhase.OFFERS, MarketPhase.MARKET_DAYS])
+    def test_settled_after_it(self, phase, monkeypatch):
+        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: None)
+        from conftest import client_market
+
+        assert MarketsApi.verdict_refusal(
+            "e@x.test", client_market(phase=phase), None) == MarketsApi.VERDICTS_SETTLED
+
+    def test_a_person_who_may_not_change_the_market_is_told_that_first(self, monkeypatch):
+        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: "Viewers read.")
+        from conftest import client_market
+
+        assert MarketsApi.verdict_refusal(
+            "e@x.test", client_market(phase=MarketPhase.MARKET_DAYS), None) == "Viewers read."

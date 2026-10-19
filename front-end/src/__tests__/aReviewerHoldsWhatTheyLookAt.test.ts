@@ -4,7 +4,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
-import { CLAIM_RENEWAL_MS, useReviewClaims } from '@/utils/reviewClaims';
+import { CLAIM_RENEWAL_MS, IDLE_AFTER_MS, useReviewClaims } from '@/utils/reviewClaims';
 
 const api = vi.hoisted(() => ({ post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 vi.mock('@/utils/api', async (importOriginal) => ({
@@ -56,5 +56,32 @@ describe('the card a reviewer holds', () => {
 
     expect(await claims.next(null, false)).toBeNull();
     expect(claims.held.value).toBeNull();
+  });
+});
+
+describe('an idle reviewer', () => {
+  it('stops renewing, so the card lapses to someone else', async () => {
+    const claims = useReviewClaims(ref('market-1'));
+    await claims.next(null, false);
+
+    await vi.advanceTimersByTimeAsync(IDLE_AFTER_MS + CLAIM_RENEWAL_MS);
+
+    // Renewed only while within five minutes of the last thing they did.
+    expect(api.put.mock.calls.length).toBeLessThan(IDLE_AFTER_MS / CLAIM_RENEWAL_MS);
+    const before = api.put.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(CLAIM_RENEWAL_MS * 3);
+    expect(api.put.mock.calls.length).toBe(before);
+  });
+
+  it('keeps holding while they are at it', async () => {
+    const claims = useReviewClaims(ref('market-1'));
+    await claims.next(null, false);
+
+    for (let minute = 0; minute < 8; minute++) {
+      claims.touch();
+      await vi.advanceTimersByTimeAsync(CLAIM_RENEWAL_MS);
+    }
+
+    expect(api.put).toHaveBeenCalledTimes(8);
   });
 });

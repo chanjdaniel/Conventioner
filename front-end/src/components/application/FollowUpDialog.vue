@@ -3,7 +3,8 @@
  * Marking an application as needing a follow-up (E34/F02/S01).
  *
  * Who will reach out - the reviewer, unless they name someone else with a role on the market - and,
- * if they like, what is needed, which is kept in the vendor's notes where every surface reads it.
+ * if they like, what is needed. That is the vendor's notes, where every surface reads them, so the
+ * box opens on the note already there: the reviewer adds to it, and never writes over it unseen.
  * Nothing is sent to the owner.
  */
 import { ref, watch } from 'vue';
@@ -16,20 +17,22 @@ const props = defineProps<{
   people: string[];
   /** The reviewer's own address: the owner unless they choose another. */
   me: string;
+  /** The vendor's note as it stands, which the box opens on. */
+  note?: string;
   error?: string;
 }>();
 
 const emit = defineEmits<{ close: []; confirm: [{ ownerEmail: string; note: string }] }>();
 
 const owner = ref(props.me);
-const note = ref('');
+const needed = ref('');
 
 watch(
   () => props.open,
   (opened) => {
     if (!opened) return;
     owner.value = props.people.includes(props.me) ? props.me : (props.people[0] ?? props.me);
-    note.value = '';
+    needed.value = props.note ?? '';
   },
   { immediate: true },
 );
@@ -43,7 +46,7 @@ watch(
     confirm-label="Mark for follow-up"
     :error="error"
     @close="emit('close')"
-    @submit="emit('confirm', { ownerEmail: owner, note: note.trim() })"
+    @submit="emit('confirm', { ownerEmail: owner, note: needed.trim() })"
   >
     <p class="follow-up-who">{{ applicantEmail }}'s application waits until someone reaches out.</p>
     <label class="follow-up-label" for="follow-up-owner">Who will follow up</label>
@@ -57,10 +60,12 @@ watch(
         {{ person === me ? `${person} (you)` : person }}
       </option>
     </select>
-    <label class="follow-up-label" for="follow-up-note">What is needed (optional)</label>
+    <label class="follow-up-label" for="follow-up-note"
+      >Their notes: what is needed (optional)</label
+    >
     <textarea
       id="follow-up-note"
-      v-model="note"
+      v-model="needed"
       class="field"
       rows="3"
       data-testid="follow-up-note"

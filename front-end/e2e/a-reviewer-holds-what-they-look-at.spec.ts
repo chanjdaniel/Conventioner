@@ -18,6 +18,7 @@ import { withUser } from './helpers/withUser';
  * holder stops, and the card is offered again.
  */
 const SECOND = { email: 'e2e-holding-reviewer@example.com', password: 'e2eholdingreviewer1' };
+const READER = { email: 'e2e-holding-reader@example.com', password: 'e2eholdingreader1' };
 
 test('two reviewers walk different cards, and a lapsed claim is offered again', async ({
   authenticatedPage: page,
@@ -73,4 +74,67 @@ test('two reviewers walk different cards, and a lapsed claim is offered again', 
   expect(mongoEval(`db.applications.findOne({ id: ${JSON.stringify(nadia)} }).status`)).toBe(
     'open',
   );
+});
+
+/**
+ * Someone who may only read walks the queue too - with Next and N, holding nothing - and is told
+ * which card another reviewer has open. The verdicts are not theirs to give.
+ */
+test('a reader walks the queue, holding nothing, and sees who has a card open', async ({
+  authenticatedPage: page,
+  browser,
+  request,
+}) => {
+  ensureVerifiedUser(READER.email, READER.password);
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
+  seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
+  const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
+    data: { user_email: READER.email, role: 'viewer' },
+  });
+  expect(granted.ok(), await granted.text()).toBeTruthy();
+
+  // The organizer opens the review, which holds the first card.
+  const reviewer = new ApplicationMonitorPage(page);
+  await page.goto(marketScreenPath(marketId, 'applications'));
+  await reviewer.waitForLoaded();
+  await expect(reviewer.email).toHaveText('nadia@ember.test');
+
+  await withUser(browser, READER.email, READER.password, async (other) => {
+    const reader = new ApplicationMonitorPage(other);
+    await other.goto(marketScreenPath(marketId, 'applications'));
+    await reader.waitForLoaded();
+    await expect(reader.email).toHaveText('nadia@ember.test');
+    await expect(other.getByTestId('app-monitor-held-by')).toHaveText(
+      `${TEST_USER.email} is looking at this.`,
+    );
+    await expect(reader.approveButton).toHaveCount(0);
+    await expect(reader.rejectButton).toHaveCount(0);
+
+    await reader.nextButton.click();
+    await expect(reader.email).toHaveText('theo@thistle.test');
+    await expect(other.getByTestId('app-monitor-held-by')).toHaveCount(0);
+    await other.keyboard.press('n');
+    await expect(reader.email).toHaveText('nadia@ember.test');
+    // A key that would be a verdict does nothing.
+    await other.keyboard.press('a');
+    await expect(reader.status).toHaveText('Open');
+  });
+
+  // Reading held nothing: the organizer's card is still theirs alone.
+  expect(
+    mongoEval(
+      `db.applications.countDocuments({ market_id: ${JSON.stringify(marketId)}, ` +
+        `'held_by.email': ${JSON.stringify(READER.email)} })`,
+    ),
+  ).toBe('0');
 });

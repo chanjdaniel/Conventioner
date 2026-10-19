@@ -16,10 +16,12 @@ The tab is kept in the address while the drawer is open.
 ## As built
 
 - Built on `feat/reviewing-as-a-team`, ahead of the rest of E35, because `E34/F04/S01` opens the drawer.
-- `components/VendorDrawer.vue` is the drawer, with its scrim, inert behind it and Escape: notes pinned at the top, then a tab list (Application, Assignments, History) that moves with the arrow keys.
-- `utils/vendorDetails.ts` (`useVendorDetails`) loads a market's vendors once - every application, decided or not, with its seats, reasons and overrides - for the Vendors list and the drawer alike; the list narrows to the vendors the run places.
-- `utils/vendorDrawer.ts` keeps the open vendor and tab in the address (`?vendor=...&vendorTab=assignments`).
-- A vendor opened from "Unassigned only" opens on Assignments, the reason they are on that list.
+- `components/VendorDrawer.vue` is the drawer, with its scrim, inert behind it and Escape.
+  Notes are pinned at the top, then a tab list (Application, Assignments, History) that moves with the arrow keys.
+- `utils/vendorDetails.ts` (`useVendorDetails`) loads a market's vendors once, for the Vendors list and the drawer alike: every application, decided or not, with its seats, reasons and overrides.
+  The list narrows to the vendors the run places.
+- `utils/vendorDrawer.ts` keeps the open vendor and tab in the address (`?vendor=...&vendorTab=assignments`), and owns the tab names.
+- The drawer opens on Application wherever it opens, "Unassigned only" included.
 
 ## Acceptance criteria
 

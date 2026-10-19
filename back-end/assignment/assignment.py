@@ -439,15 +439,9 @@ class MarketAssignment:
         return [text for text in (str(v).strip() for v in values if v is not None) if text]
 
     def _priority_answer(self, target: str, vendor: Vendor) -> str:
-        """The vendor's answer to whatever a rule targets, as the ordering spells it."""
-        if target and target.startswith(BUILT_IN_TARGET_PREFIX):
-            return self._built_in_answer(target, vendor)
-        value = vendor.want.custom_answers.get(target)
-        if isinstance(value, list):
-            # A multi-select answer has no single position. Its first choice is the one the
-            # applicant put first, which is the only ordering information the answer carries.
-            return str(value[0]).strip() if value else ""
-        return "" if value is None else str(value).strip()
+        """The vendor's one answer, for a rule ordered by magnitude: the first they gave."""
+        answers = self._priority_answers(target, vendor)
+        return answers[0] if answers else ""
 
     def _built_in_answer(self, target: str, vendor: Vendor) -> str:
         """An attribute of the application rather than an answer the organizer asked for."""

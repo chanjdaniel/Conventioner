@@ -16,10 +16,13 @@ Check whether the scoring change needs the assignment fingerprints to mark store
 
 ## As built
 
-- `_arranged_score` (`assignment/assignment.py`) scores the best position among a multi-select's choices, an unplaced choice taking "All others"' place (or last without it), and a blank answer one place behind everything, "All others" and unplaced answers included.
+- `_arranged_score` (`assignment/assignment.py`) scores the best position among a multi-select's choices.
+  An unplaced choice takes "All others"' place, or last without it, and a blank answer sorts one place behind everything, "All others" and unplaced answers included.
 - The old test that pinned first-choice scoring is replaced; each new test is written against the tie-breaks, so it fails on the old scoring.
 - The rule editor's hint says how several answers and a blank sort.
-- Fingerprints: not changed. They record a run's inputs (rules, plan, approved applications), not how the solver scores them, so no input moved; a stored run is of a market past the November 2026 window by the time this ships, and running it again is the organizer's choice.
+- Fingerprints: not changed.
+  They record a run's inputs (rules, plan, approved applications), not how the solver scores them, so no input moved.
+  A stored run is of a market past the November 2026 window by the time this ships, and running it again is the organizer's choice.
 
 ## Acceptance criteria
 

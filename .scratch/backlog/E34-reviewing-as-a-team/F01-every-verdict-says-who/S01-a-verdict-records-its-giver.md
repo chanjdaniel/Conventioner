@@ -18,8 +18,10 @@ Applications stored before this have no giver and show none.
 ## As built
 
 - Built on `feat/the-form-tab-in-steps`, ahead of the rest of E34, because `E33/F03/S02` records an automatic rejection with its giver.
-- An application stores `verdict_by` (`VerdictGiver`: a person by id and address, or a rule) and `verdict_at`, written in the same update as the status by `api.applications.update_application_status`; a status written with no giver clears both.
-- `PUT /markets/:id/applications/:id/review` asks EDITOR; the review screen draws verdicts on `readOnlyReason` and keeps Publish Results on `adminActionsReason`.
+- An application stores `verdict_by` (`VerdictGiver`: a person by id and address, or a rule) and `verdict_at`.
+  Both are written in the same update as the status by `api.applications.update_application_status`; a status written with no giver clears both.
+- `PUT /markets/:id/applications/:id/review` asks EDITOR, while the market can still run its assignment (`verdict_refusal` in `api/markets.py`).
+  The market read serves that rule as `verdictLockReason`, which every review screen draws its verdicts on; Publish Results stays on `adminActionsReason`.
 - The card, the decided list and the Vendors drawer say "Approved by alex@market.test, Oct 19, 2026 at 5:04 PM" (`utils/verdicts.ts`).
 - `withUser` moved from the access-control spec to `e2e/helpers/withUser.ts`.
 

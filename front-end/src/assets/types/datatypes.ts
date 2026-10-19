@@ -262,11 +262,16 @@ export interface Market {
    */
   readOnlyReason?: string | null;
   /**
-   * Why the person reading cannot take this market's admin actions - moving its phase, deciding
-   * applications, publishing results, importing - or null while they can (E26/F08/S01). Served
+   * Why the person reading cannot take this market's admin actions - moving its phase, publishing
+   * results, importing - or null while they can (E26/F08/S01). Served
    * beside `readOnlyReason`, from the same permission check the writes ask.
    */
   adminActionsReason?: string | null;
+  /**
+   * Why the person reading cannot give verdicts on this market's applications, or null while they
+   * can (E34): below EDITOR, archived, or past the point where an assignment can still be run.
+   */
+  verdictLockReason?: string | null;
   /**
    * What would refuse each move open from this phase, judged by the guards the move runs; empty
    * for a move that would succeed (E31/F02/S01). Served so a screen says no before the click.

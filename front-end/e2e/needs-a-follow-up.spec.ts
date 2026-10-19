@@ -41,6 +41,12 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
     data: { user_email: EDITOR.email, role: 'editor' },
   });
   expect(granted.ok(), await granted.text()).toBeTruthy();
+  // The organizer already knows Nadia: a note is there before anyone reviews her.
+  const noted = await request.put(
+    `${BACKEND_URL}/markets/${marketId}/vendor-notes/${encodeURIComponent('nadia@ember.test')}`,
+    { data: { note: 'Met at the spring fair' } },
+  );
+  expect(noted.ok(), await noted.text()).toBeTruthy();
 
   await page.goto(marketScreenPath(marketId, 'applications'));
   const monitor = new ApplicationMonitorPage(page);
@@ -53,7 +59,10 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
   await expect(dialog).toBeVisible();
   await expect(page.getByTestId('follow-up-owner')).toHaveValue(TEST_USER.email);
   expect(await namelessControls(page), 'the follow-up dialog').toEqual([]);
-  await page.getByTestId('follow-up-note').fill('Ask for a portfolio link');
+  // The box opens on the note already there, so adding to it never writes over it unseen.
+  const box = page.getByTestId('follow-up-note');
+  await expect(box).toHaveValue('Met at the spring fair');
+  await box.fill('Met at the spring fair. Ask for a portfolio link');
   await page.getByTestId('follow-up-submit-button').click();
   await expect(dialog).toBeHidden();
 
@@ -82,7 +91,7 @@ test('a follow-up is marked, waits out of the queue, holds the market, and is ha
   await page.getByTestId('app-monitor-include-follow-ups').check();
   await expect(monitor.email).toHaveText('nadia@ember.test');
   await expect(page.getByTestId('app-monitor-notes-note-input')).toHaveValue(
-    'Ask for a portfolio link',
+    'Met at the spring fair. Ask for a portfolio link',
   );
   const handed = page.waitForResponse((r) => r.url().endsWith('/follow-up-owner'));
   await page.getByTestId('app-monitor-follow-up-owner').selectOption(EDITOR.email);

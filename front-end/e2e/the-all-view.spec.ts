@@ -5,10 +5,12 @@ import {
   transitionMarket,
 } from './helpers/seedPhaseMarket';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
 import { namelessControls } from './helpers/accessibleNames';
+import { ApplicationsAllPage } from './pages/ApplicationsAllPage';
 
 /**
  * The All view (E34/F04/S01).
@@ -48,6 +50,7 @@ test('every application, filtered, held and decided from the drawer', async ({
   );
   expect(followUp.ok(), await followUp.text()).toBeTruthy();
 
+  const all = new ApplicationsAllPage(page);
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     // Another reviewer opens a card, which holds it.
     const next = await other.request.post(`${BACKEND_URL}/markets/${marketId}/review/next`, {
@@ -56,61 +59,77 @@ test('every application, filtered, held and decided from the drawer', async ({
     expect(next.ok()).toBeTruthy();
 
     await page.goto(marketScreenPath(marketId, 'applications'));
-    await page.getByTestId('applications-view-all').click();
+    await all.switchTo();
     await expect(page).toHaveURL(/view=all/);
-    const rows = page.getByTestId('applications-all-row');
-    await expect(rows).toHaveCount(3);
+    await expect(all.rows).toHaveCount(3);
     // The page's own line counts what is left from this view too.
     await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
       '3 applications still to decide',
     );
-    await expect(
-      page.getByTestId('applications-all-holder').filter({ hasText: SECOND.email }),
-    ).toHaveText(`${SECOND.email} is looking at this`);
+    await expect(all.holders().filter({ hasText: SECOND.email })).toHaveText(
+      `${SECOND.email} is looking at this`,
+    );
+    // And the drawer of the card they hold says so too (E34/F03/S02).
+    await all.open('nadia@ember.test');
+    await expect(all.drawerHolder).toHaveText(`${SECOND.email} is looking at this`);
+    await page.keyboard.press('Escape');
   });
 
   // Filters, in the address: the follow-ups, then only mine.
-  const rows = page.getByTestId('applications-all-row');
-  await page.getByTestId('applications-all-filter-needs_follow_up').click();
-  await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toContainText('theo@thistle.test');
-  await expect(rows.first().getByTestId('applications-all-owner')).toHaveText(
-    `Followed up by ${TEST_USER.email}`,
-  );
-  await page.getByTestId('applications-all-mine').check();
-  await expect(rows).toHaveCount(1);
+  await all.filter('needs_follow_up');
+  await expect(all.rows).toHaveCount(1);
+  await expect(all.rows.first()).toContainText('theo@thistle.test');
+  await expect(all.ownerOf('theo@thistle.test')).toHaveText(`Followed up by ${TEST_USER.email}`);
+  await all.mine.check();
+  await expect(all.rows).toHaveCount(1);
   await page.reload();
   await expect(page).toHaveURL(/status=needs_follow_up/);
   await expect(page).toHaveURL(/mine=1/);
-  await expect(page.getByTestId('applications-all-mine')).toBeChecked();
-  await expect(rows).toHaveCount(1);
+  await expect(all.mine).toBeChecked();
+  await expect(all.rows).toHaveCount(1);
 
   // A row opens the drawer, which decides it; the row follows.
-  await page.getByTestId('applications-all-filter-all').click();
-  await page.getByTestId('applications-all-mine').uncheck();
-  await rows.filter({ hasText: 'ines@loom.test' }).getByRole('button').click();
-  await expect(page.getByTestId('vendors-detail-panel')).toBeVisible();
+  await all.filter('all');
+  await all.mine.uncheck();
+  await all.open('ines@loom.test');
   expect(await namelessControls(page), 'the All view, its drawer open').toEqual([]);
-  await page.getByTestId('applications-all-approve').click();
-  await expect(
-    rows.filter({ hasText: 'ines@loom.test' }).getByTestId('applications-all-status'),
-  ).toHaveText('Approved');
-  await expect(
-    rows.filter({ hasText: 'ines@loom.test' }).getByTestId('applications-all-giver'),
-  ).toContainText(`Approved by ${TEST_USER.email}`);
+  await all.drawerButton('approve').click();
+  await expect(all.statusOf('ines@loom.test')).toHaveText('Approved');
+  await expect(all.giverOf('ines@loom.test')).toContainText(`Approved by ${TEST_USER.email}`);
 });
 
-test('outside the review the drawer shows the verdict and offers none', async ({
+/**
+ * A verdict can change while the market can still run its assignment - the run records which
+ * approvals it was made from, and says when they changed (E22/F03) - and not once it is running.
+ */
+test('a verdict changes until the market runs, then the drawer only shows it', async ({
   authenticatedPage: page,
   request,
 }) => {
-  const seed = await seedAssignedMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+  const all = new ApplicationsAllPage(page);
+  const assigning = await seedAssignedMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  await all.goto(assigning.marketId);
+  await all.rows.first().getByRole('button').click();
+  await expect(all.drawerButton('reject')).toBeVisible();
 
-  await page.goto(`${marketScreenPath(seed.marketId, 'applications')}?view=all`);
-  await page.getByTestId('applications-all-row').first().getByRole('button').click();
-  await expect(page.getByTestId('applications-all-drawer-verdict')).toContainText('Approved');
-  await expect(page.getByTestId('applications-all-approve')).toHaveCount(0);
-  await expect(page.getByTestId('applications-all-reject')).toHaveCount(0);
+  const running = await seedPublishedMarketWithAssignments(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  await all.goto(running.marketId);
+  await all.rows.first().getByRole('button').click();
+  await expect(all.drawerVerdict).toContainText('Approved');
+  await expect(all.drawerButton('approve')).toHaveCount(0);
+  await expect(all.drawerButton('reject')).toHaveCount(0);
+  // Nor can anything be ticked for a verdict on several.
+  await expect(page.getByTestId('applications-all-tick')).toHaveCount(0);
 });
 
 test('a verdict on a selection: confirmed by count, held ones untickable, changed ones skipped', async ({
@@ -138,23 +157,20 @@ test('a verdict on a selection: confirmed by count, held ones untickable, change
   });
   expect(granted.ok(), await granted.text()).toBeTruthy();
 
-  await page.goto(`${marketScreenPath(marketId, 'applications')}?view=all`);
-  const rows = page.getByTestId('applications-all-row');
-  await expect(rows).toHaveCount(4);
-  const row = (email: string) => rows.filter({ hasText: email });
+  const all = new ApplicationsAllPage(page);
+  await all.goto(marketId);
+  await expect(all.rows).toHaveCount(4);
 
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     // The other reviewer opens Nadia's card; once the list knows, she cannot be ticked.
     await other.request.post(`${BACKEND_URL}/markets/${marketId}/review/next`, { data: {} });
     await page.reload();
-    await expect(row('nadia@ember.test').getByTestId('applications-all-tick')).toBeDisabled();
+    await expect(all.tickOf('nadia@ember.test')).toBeDisabled();
 
     // Theo and Ines ticked; then the other reviewer rejects Ines before the approval lands.
-    await row('theo@thistle.test').getByTestId('applications-all-tick').check();
-    await row('ines@loom.test').getByTestId('applications-all-tick').check();
-    await expect(page.getByTestId('applications-all-selection')).toContainText(
-      '2 applications selected',
-    );
+    await all.tickOf('theo@thistle.test').check();
+    await all.tickOf('ines@loom.test').check();
+    await expect(all.selection).toContainText('2 applications selected');
     const rejected = await other.request.put(
       `${BACKEND_URL}/markets/${marketId}/applications/${ines}/review`,
       { data: { status: 'reviewer_rejected' } },
@@ -163,26 +179,20 @@ test('a verdict on a selection: confirmed by count, held ones untickable, change
   });
 
   // Nothing is written until the count is confirmed.
-  await page.getByTestId('applications-all-selection-approve').click();
-  await expect(page.getByTestId('applications-all-confirm-window')).toContainText(
-    'Approve 2 applications?',
-  );
-  await page.getByTestId('applications-all-confirm-submit-button').click();
+  await all.decideSelection('approve');
+  await expect(all.confirmWindow).toContainText('Approve 2 applications?');
+  await all.confirmButton.click();
 
-  await expect(page.getByTestId('applications-all-result')).toContainText(
-    '1 application approved; 1 skipped',
-  );
-  await expect(page.getByTestId('applications-all-skipped')).toHaveText(
+  await expect(all.result).toContainText('1 application approved; 1 skipped');
+  await expect(all.skipped).toHaveText(
     `ines@loom.test: ${SECOND.email} rejected this application since you opened it.`,
   );
-  await expect(row('theo@thistle.test').getByTestId('applications-all-status')).toHaveText(
-    'Approved',
-  );
-  await expect(row('ines@loom.test').getByTestId('applications-all-status')).toHaveText('Rejected');
+  await expect(all.statusOf('theo@thistle.test')).toHaveText('Approved');
+  await expect(all.statusOf('ines@loom.test')).toHaveText('Rejected');
   // The rail moves with it: two left, not four.
   await expect(page.getByTestId('phase-rail-next')).toContainText(
     '2 applications are still awaiting review',
   );
   // Omar was never ticked, and is left as he was.
-  await expect(row('omar@kiln.test').getByTestId('applications-all-status')).toHaveText('Open');
+  await expect(all.statusOf('omar@kiln.test')).toHaveText('Open');
 });

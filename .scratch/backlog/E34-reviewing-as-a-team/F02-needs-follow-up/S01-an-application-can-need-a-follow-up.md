@@ -17,10 +17,18 @@ No email is sent to the owner.
 
 ## As built
 
-- `needs_follow_up` is a stored status, marked through the verdict endpoint: `verdict_by` is who marked it and `follow_up_owner` (`MarketPerson`) who owns it, the marker unless an `ownerEmail` with a role on the market is named (`markets.person_on_market`). Any other status clears the owner.
+- `needs_follow_up` is a stored status, marked through the verdict endpoint.
+  `verdict_by` is who marked it and `follow_up_owner` (`MarketPerson`) who owns it: the marker, unless an `ownerEmail` with a role on the market is named (`markets.person_on_market`).
+  Any other status clears the owner.
 - `PUT /markets/:id/applications/:id/follow-up-owner` (EDITOR) hands it on.
-- `AllApplicationsReviewedGuard` counts follow-ups apart: "1 application needs a follow-up". The applicant always sees "under review", published or not. The automatic rejections never judge a follow-up.
-- The review: S opens a dialog (`FollowUpDialog`) asking who follows up (the reviewer by default, from the market's people) and what is needed, which is saved to the vendor's notes. Follow-ups leave the queue unless "Include the N follow-ups" is ticked; a follow-up's card names its owner and hands it on. A plain Next (N) still moves past a card without recording anything.
+- `AllApplicationsReviewedGuard` counts follow-ups apart: "1 application needs a follow-up".
+  The applicant always sees "under review", published or not.
+  The automatic rejections never judge a follow-up.
+- In the review, S opens a dialog (`FollowUpDialog`) asking who follows up (the reviewer by default, from the market's people) and what is needed.
+  The box opens on the vendor's note as it stands, and is saved to their notes only when changed, so nothing there is written over unseen.
+- Follow-ups leave the queue unless "Include the N follow-ups" is ticked; a follow-up's card names its owner and hands it on.
+  A plain Next (N) still moves past a card without recording anything.
+- Both review views give verdicts and mark follow-ups through one composable, `utils/verdictActions.ts`.
 - The signed-in address is read through one helper, `utils/signedIn.ts`, which Vendors and Attendance now use too.
 - "Mine" is the bulk view's (`F04`).
 

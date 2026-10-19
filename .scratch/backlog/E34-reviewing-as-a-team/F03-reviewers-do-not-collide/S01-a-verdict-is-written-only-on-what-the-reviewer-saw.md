@@ -14,8 +14,10 @@ Otherwise nothing is written, and the reviewer is told who changed it and to wha
 
 ## As built
 
-- The review sends `seen` (the status and verdict time it showed) with every verdict; `review_application` writes through `update_application_status(if_unchanged_since=seen)`, the conditioned write the automatic rejections use too.
-- A refused verdict answers 409 with who changed it and to what ("alex@market.test approved this application since you opened it.", or an automatic rejection, or plainly "changed") and the application as it stands.
+- The review sends `seen` with every verdict: the status, the verdict time and the answers' time (`updatedAt`) it showed.
+  `review_application` writes through `update_application_status(if_unchanged_since=seen)`, the conditioned write the automatic rejections use too.
+- A refused verdict answers 409 with who changed it and to what, and the application as it stands.
+  The words are "alex@market.test approved this application since you opened it.", an automatic rejection's, "Its answers changed since you opened it." for an applicant's edit or a re-import, or plainly "changed".
 - The review keeps that application on the card, as it stands, saying so, until the reviewer decides again or presses Back to the queue.
 
 ## Acceptance criteria

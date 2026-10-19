@@ -109,6 +109,18 @@ export async function fetchMarketApplications(marketId: string): Promise<Applica
 }
 
 /**
+ * What a reviewer saw of an application: its status, its verdict's time and its answers' time. A
+ * verdict is written only while all three still stand (E34/F03/S01).
+ */
+function seenOf(application: Application) {
+  return {
+    status: application.status,
+    verdictAt: application.verdictAt ?? null,
+    updatedAt: application.updatedAt,
+  };
+}
+
+/**
  * Record a review verdict on an application (organizer only).
  * PUT /markets/<id>/applications/<app_id>/review
  */
@@ -122,7 +134,7 @@ export async function reviewApplication(
 ): Promise<Application> {
   const { data } = await api.put(`/markets/${marketId}/applications/${application.id}/review`, {
     status,
-    seen: { status: application.status, verdictAt: application.verdictAt ?? null },
+    seen: seenOf(application),
     ...(ownerEmail ? { ownerEmail } : {}),
   });
   return data.application as Application;
@@ -160,7 +172,7 @@ export async function reviewSelection(
     status,
     applications: applications.map((app) => ({
       id: app.id,
-      seen: { status: app.status, verdictAt: app.verdictAt ?? null },
+      seen: seenOf(app),
     })),
   });
   return data as SelectionResult;

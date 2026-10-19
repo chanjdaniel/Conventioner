@@ -212,6 +212,31 @@ def admin_actions_refusal(
     return EDITOR_REFUSAL
 
 
+VERDICTS_SETTLED = (
+    "The verdicts are settled: this market's assignment is done, so a verdict here would change "
+    "nothing the market can still act on."
+)
+
+
+def verdict_refusal(
+    user_email: str, market: Market, organization: Optional[Organization],
+) -> Optional[str]:
+    """Why this person cannot give a verdict here, or None while they can (E34).
+
+    A verdict - and a follow-up, a claim on a card - is EDITOR's (E34/F01/S01), and open while the
+    market can still run its assignment: an approval changed then sends the run out of date, to be
+    run again. After it, the verdicts are a record. Derived from the transition table, as the
+    assignment rules' own lock is. Served as ``verdictLockReason``, so every review screen offers
+    exactly what the write takes.
+    """
+    refused = change_refusal(user_email, market, organization)
+    if refused:
+        return refused
+    if route_between(market.phase.value, MarketPhase.ASSIGNMENT.value) is None:
+        return VERDICTS_SETTLED
+    return None
+
+
 def _load_market_to_change(
     market_id: str, requesting_user: str, role: MarketRole, action: str,
 ) -> Market:
@@ -758,6 +783,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # (E26/F06/S01, E26/F08/S01). The same rules every write meets, served so each screen offers
     # no control the server would refuse.
     market_dict['readOnlyReason'] = change_refusal(user_email, market, context.organization)
+    market_dict['verdictLockReason'] = verdict_refusal(user_email, market, context.organization)
     market_dict['adminActionsReason'] = admin_actions_refusal(
         user_email, market, context.organization,
     )
