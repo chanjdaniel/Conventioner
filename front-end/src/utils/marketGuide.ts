@@ -178,7 +178,7 @@ interface GuideRow {
 /** Review means nothing more arrives, on either path (ticket 02). */
 const REVIEW_LEAD: Record<IntakeMode, string> = {
   [IntakeMode.Form]: 'Nothing more is coming in.',
-  [IntakeMode.Csv]: 'Nothing more is coming in, and nothing more can be imported.',
+  [IntakeMode.Csv]: 'Every imported response is here.',
 };
 
 /**

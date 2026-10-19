@@ -15,6 +15,7 @@ import { useRoute, useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { intakeModeOf } from '@/utils/marketGuide';
+import { canImportInto } from '@/utils/importPhase';
 
 const props = defineProps<{
   market: Market | null;
@@ -33,6 +34,13 @@ const undecided = ref(0);
 
 /** Its vendors apply on the organizer's own Google Form and arrive by import (E31/F03). */
 const csvMarket = computed(() => intakeModeOf(props.market) === IntakeMode.Csv);
+
+/**
+ * Importing is offered only while the market is importing (E32/F02/S03). Reviewing is a step of its
+ * own: the line above the queue says which phase this is in words, and the way back to importing is
+ * the rail's "Import more responses", so a disabled Import button in review only blurred the two.
+ */
+const importing = computed(() => csvMarket.value && canImportInto(props.market?.phase));
 
 /**
  * Which of its three phases this surface is in, IN WORDS (E18/F02/S03).
@@ -61,8 +69,9 @@ const condition = computed(() => {
         ? 'The responses you import from your Google Form arrive here, ready to review.'
         : 'This market is open for applications. New ones will keep arriving here.';
     case MarketPhase.ApplicationsClosed:
+      // Reached on the Google Form path only by the single edge: its responses are in (E32/F02/S01).
       return csvMarket.value
-        ? 'Your Google Form is closed. The last responses you import arrive here.'
+        ? 'Your responses are imported. Import more here, or begin review.'
         : 'This market is no longer taking applications. No new ones will arrive.';
     case MarketPhase.Review:
       return undecided.value === 0
@@ -97,7 +106,7 @@ const condition = computed(() => {
          part that was missing. -->
     <!-- Importing is the CSV path's (E31/F03/S04): a market whose vendors apply on its own page
          takes nothing from a file, and was offered it as its primary button. -->
-    <div v-if="csvMarket" class="applications-toolbar">
+    <div v-if="importing" class="applications-toolbar">
       <button
         class="import-entry-button"
         :disabled="importRefusalReason !== null"

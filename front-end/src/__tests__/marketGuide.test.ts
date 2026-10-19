@@ -146,8 +146,9 @@ describe('the next step', () => {
       page: 'applications',
     });
     const csv = market(MarketPhase.Review, { ...undecided, intakeMode: IntakeMode.Csv });
+    // More can still be imported, from the rail's menu (E32/F02/S02), so it says only what is so.
     expect(nextStep(csv, TODAY).text).toMatch(
-      /^Nothing more is coming in, and nothing more can be imported\. Finish deciding: /,
+      /^Every imported response is here\. Finish deciding: /,
     );
     const noTables = market(MarketPhase.Review, {
       transitionBlockers: {

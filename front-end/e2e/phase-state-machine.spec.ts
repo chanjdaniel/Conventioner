@@ -538,9 +538,9 @@ test.describe('The applications surface says which phase it is in', () => {
     seedApplicationWithStatus(seed.marketId, 'open', 'imported@example.com');
     await move('review');
     const review = await conditionNow();
-    // Withdrawn here - and the withdrawal is explained rather than silent.
-    await expect(page.getByTestId('market-setup-import-button')).toBeDisabled();
-    await expect(page.getByTestId('market-setup-import-blocked-reason')).toBeVisible();
+    // Not offered here: reviewing is a step of its own, said in words by the line above, and the
+    // way back to importing is the rail's (E32/F02/S03).
+    await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
 
     expect(new Set([open, closed, review]).size, `"${open}" / "${closed}" / "${review}"`).toBe(3);
     expect(review).toMatch(/decided/);
