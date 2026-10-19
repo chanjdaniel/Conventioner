@@ -21,6 +21,7 @@ import FormBuilder from '@/components/application/FormBuilder.vue';
 import FormPreview from '@/components/application/FormPreview.vue';
 import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.vue';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
+import StepHeader, { type Step } from '@/components/StepHeader.vue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
@@ -246,6 +247,33 @@ async function saveApplicationForm() {
  */
 const { highlights, error: highlightsError, save: saveHighlights } = useReviewHighlights(market);
 
+/**
+ * The tab is a sequence of steps, each with the whole width (E33/F01/S01). The builder and the
+ * preview sat side by side and crowded each other. The form is this tab's working copy, so moving
+ * between steps never loses an unsaved edit; only Save Form writes it.
+ */
+type FormStepId = 'essentials' | 'questions' | 'preview' | 'review';
+const FORM_STEPS: (Step & { id: FormStepId })[] = [
+  { id: 'essentials', label: 'Essential questions' },
+  { id: 'questions', label: 'Your questions' },
+  { id: 'preview', label: 'Preview' },
+  { id: 'review', label: 'Review setup' },
+];
+const step = ref<FormStepId>('essentials');
+const stepIndex = computed(() => FORM_STEPS.findIndex((s) => s.id === step.value));
+const previousStep = computed(() => FORM_STEPS[stepIndex.value - 1] ?? null);
+const nextStep = computed(() => FORM_STEPS[stepIndex.value + 1] ?? null);
+/**
+ * Back and Next sit below the step, often far down a long one: the step they open starts at the top
+ * of the page, as a new page does (the router's `scrollBehavior`), not wherever the last one ended.
+ */
+function moveTo(id: FormStepId) {
+  step.value = id;
+  window.scrollTo({ top: 0 });
+}
+/** Save Form belongs to the organizer's questions, and to the preview they check them in. */
+const savesHere = computed(() => step.value === 'questions' || step.value === 'preview');
+
 onMounted(() => {
   // Paint the cached form immediately, then reconcile with the server, which also
   // tells us whether the form is still editable.
@@ -264,37 +292,49 @@ watch(formLocked, (locked, wasLocked) => {
 
 <template>
   <div class="settings-body">
-    <div class="double-column-body">
-      <ElementSettingContainer>
-        <template #setting-title>
-          <h2>Form Builder</h2>
-        </template>
-        <template #setting-content>
-          <div class="form-builder-container">
-            <div v-if="formLocked" class="form-lock-banner" data-testid="form-builder-lock-banner">
-              {{ formLockReason }}
-            </div>
-            <div
-              v-else-if="formLoadStatus === 'error'"
-              class="form-load-error-banner"
-              data-testid="form-builder-load-error"
+    <StepHeader
+      :steps="FORM_STEPS"
+      :current="step"
+      label="Application form setup"
+      testid="form-steps"
+      @select="(id) => (step = id as FormStepId)"
+    />
+    <ElementSettingContainer>
+      <template #setting-title>
+        <h2 data-testid="form-step-title">{{ FORM_STEPS[stepIndex].label }}</h2>
+      </template>
+      <template #setting-content>
+        <div class="form-step-body" :data-testid="`form-step-body-${step}`">
+          <div
+            v-if="formLocked && step !== 'review'"
+            class="form-lock-banner"
+            data-testid="form-builder-lock-banner"
+          >
+            {{ formLockReason }}
+          </div>
+          <div
+            v-else-if="formLoadStatus === 'error'"
+            class="form-load-error-banner"
+            data-testid="form-builder-load-error"
+          >
+            <span>{{ formLoadError }}</span>
+            <button
+              class="retry-button"
+              @click="loadApplicationForm()"
+              data-testid="form-builder-retry-button"
             >
-              <span>{{ formLoadError }}</span>
-              <button
-                class="retry-button"
-                @click="loadApplicationForm()"
-                data-testid="form-builder-retry-button"
-              >
-                Retry
-              </button>
-            </div>
-            <div
-              v-else-if="formLoadStatus === 'loading'"
-              class="form-loading-banner"
-              data-testid="form-builder-loading"
-            >
-              Loading the application form...
-            </div>
+              Retry
+            </button>
+          </div>
+          <div
+            v-else-if="formLoadStatus === 'loading'"
+            class="form-loading-banner"
+            data-testid="form-builder-loading"
+          >
+            Loading the application form...
+          </div>
+
+          <template v-if="step === 'essentials'">
             <EssentialFieldsPanel
               v-if="!formStateUnknown"
               :options="essentialOptions"
@@ -302,6 +342,9 @@ watch(formLocked, (locked, wasLocked) => {
               :editable="formEditable"
               @toggleUnasked="handleToggleUnasked"
             />
+          </template>
+
+          <template v-else-if="step === 'questions'">
             <FormBuilder
               v-if="!formStateUnknown"
               :applicationForm="applicationForm"
@@ -310,84 +353,110 @@ watch(formLocked, (locked, wasLocked) => {
               @update:applicationForm="(form: ApplicationForm) => (applicationForm = form)"
               @update:keyTouched="(touched: boolean[]) => (keyTouched = touched)"
             />
-            <!--
-              Which answers a reviewer reads first (E19/F03/S01). NOT gated on `formEditable`: the
-              form freezes at the first application, and this deliberately does not, because an
-              organizer only finds out which answers they needed once they are reviewing.
-            -->
-            <div v-if="!formStateUnknown" class="review-highlights-block">
-              <h3 class="review-highlights-title">What a reviewer reads first</h3>
-              <ReviewHighlights
-                :fields="applicationForm?.fields ?? []"
-                :essentialOptions="essentialOptions"
-                :highlights="highlights"
-                @update:highlights="saveHighlights"
-              />
-              <p
-                v-if="highlightsError"
-                class="review-highlights-error"
-                data-testid="review-highlights-error"
-              >
-                {{ highlightsError }}
-              </p>
-            </div>
+          </template>
 
-            <div v-if="formEditable" class="form-save-row">
-              <button
-                class="btn btn--primary done-button"
-                :disabled="!canSaveForm"
-                @click="saveApplicationForm()"
-                data-testid="form-builder-save-button"
-              >
-                {{ formSaveStatus === 'saving' ? 'Saving...' : 'Save Form' }}
-              </button>
-              <span
-                v-if="formSaveStatus === 'saved'"
-                class="save-status success"
-                data-testid="form-builder-save-success"
-              >
-                Saved
-              </span>
-              <span
-                v-else-if="formSaveStatus === 'error'"
-                class="save-status error"
-                data-testid="form-builder-save-error"
-              >
-                {{ formErrorMessage }}
-              </span>
-              <span
-                v-else-if="formValidationError"
-                class="save-status error"
-                data-testid="form-builder-validation-error"
-              >
-                {{ formValidationError }}
-              </span>
-              <span
-                v-else-if="formIncompleteHint"
-                class="save-status hint"
-                data-testid="form-builder-save-hint"
-              >
-                {{ formIncompleteHint }}
-              </span>
+          <!-- Inside the tab, never a browser tab of its own: a draft has no public page to open. -->
+          <template v-else-if="step === 'preview'">
+            <!-- At the applicant's own width, so it is the form as they see it. -->
+            <div v-if="!formStateUnknown" class="form-preview-column">
+              <FormPreview
+                :applicationForm="applicationForm"
+                :essentialOptions="essentialOptions"
+              />
             </div>
+            <p v-else class="preview-unavailable" data-testid="form-preview-unavailable">
+              Preview unavailable until the application form loads.
+            </p>
+          </template>
+
+          <!--
+            Which answers a reviewer reads first (E19/F03/S01). NOT gated on `formEditable`: the
+            form freezes at the first application, and this deliberately does not, because an
+            organizer only finds out which answers they needed once they are reviewing.
+          -->
+          <div v-else-if="!formStateUnknown" class="review-highlights-block">
+            <h3 class="review-highlights-title">What a reviewer reads first</h3>
+            <ReviewHighlights
+              :fields="applicationForm?.fields ?? []"
+              :essentialOptions="essentialOptions"
+              :highlights="highlights"
+              @update:highlights="saveHighlights"
+            />
+            <p
+              v-if="highlightsError"
+              class="review-highlights-error"
+              data-testid="review-highlights-error"
+            >
+              {{ highlightsError }}
+            </p>
           </div>
-        </template>
-      </ElementSettingContainer>
-      <ElementSettingContainer>
-        <template #setting-title>
-          <h2>Preview</h2>
-        </template>
-        <template #setting-content>
-          <FormPreview
-            v-if="!formStateUnknown"
-            :applicationForm="applicationForm"
-            :essentialOptions="essentialOptions"
-          />
-          <p v-else class="preview-unavailable" data-testid="form-preview-unavailable">
-            Preview unavailable until the application form loads.
-          </p>
-        </template>
-      </ElementSettingContainer>
+
+          <!-- The status of any save on any step: the essentials' Ask this saves the moment it is
+               ticked, and said so here. The button is the questions' own. -->
+          <div
+            v-if="formEditable && (savesHere || formSaveStatus !== 'idle')"
+            class="form-save-row"
+          >
+            <button
+              v-if="savesHere"
+              class="btn btn--primary done-button"
+              :disabled="!canSaveForm"
+              @click="saveApplicationForm()"
+              data-testid="form-builder-save-button"
+            >
+              {{ formSaveStatus === 'saving' ? 'Saving...' : 'Save Form' }}
+            </button>
+            <span
+              v-if="formSaveStatus === 'saved'"
+              class="save-status success"
+              data-testid="form-builder-save-success"
+            >
+              Saved
+            </span>
+            <span
+              v-else-if="formSaveStatus === 'error'"
+              class="save-status error"
+              data-testid="form-builder-save-error"
+            >
+              {{ formErrorMessage }}
+            </span>
+            <span
+              v-else-if="savesHere && formValidationError"
+              class="save-status error"
+              data-testid="form-builder-validation-error"
+            >
+              {{ formValidationError }}
+            </span>
+            <span
+              v-else-if="savesHere && formIncompleteHint"
+              class="save-status hint"
+              data-testid="form-builder-save-hint"
+            >
+              {{ formIncompleteHint }}
+            </span>
+          </div>
+        </div>
+      </template>
+    </ElementSettingContainer>
+    <div class="form-step-nav">
+      <button
+        v-if="previousStep"
+        type="button"
+        class="btn btn--secondary"
+        data-testid="form-step-back"
+        @click="moveTo(previousStep.id)"
+      >
+        Back
+      </button>
+      <button
+        v-if="nextStep"
+        type="button"
+        class="btn btn--primary form-step-next"
+        data-testid="form-step-next"
+        @click="moveTo(nextStep.id)"
+      >
+        Next: {{ nextStep.label }}
+      </button>
     </div>
   </div>
 </template>
@@ -397,9 +466,6 @@ watch(formLocked, (locked, wasLocked) => {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--mm-border);
 }
 
 .review-highlights-title {
@@ -415,27 +481,28 @@ watch(formLocked, (locked, wasLocked) => {
 }
 
 .settings-body {
-  align-self: stretch;
   display: flex;
-  gap: 30px;
-  padding: 40px;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-8);
 }
-.double-column-body {
-  align-self: stretch;
-  flex-grow: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 30px;
-  min-height: 0;
-  flex: 1;
-}
-.form-builder-container {
+.form-step-body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  height: 100%;
-  overflow-y: auto;
+}
+/* Back at the start, the step onward at the end, as on the import. */
+.form-preview-column {
+  width: 100%;
+  max-width: var(--applicant-max);
+  margin: 0 auto;
+}
+.form-step-nav {
+  display: flex;
+  align-items: center;
+}
+.form-step-next {
+  margin-left: auto;
 }
 .form-lock-banner {
   font-size: var(--text-xs);

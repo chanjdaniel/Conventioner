@@ -363,6 +363,7 @@ test.describe('Start from your Google Form', () => {
 
     // Landed on the form, with the organizer's own questions in the file's order.
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+    await page.getByTestId('form-step-questions').click();
     await expect(page.getByText('Are you a UBC student or alumni?').first()).toBeVisible();
 
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);

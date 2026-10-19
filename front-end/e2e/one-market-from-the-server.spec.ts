@@ -83,6 +83,9 @@ test.describe('One market, from the server', () => {
       intakeMode: 'form',
     });
     await page.goto(marketSetupPath(seed.marketId, 'form'));
+    // The builder is the form tab's second step (E33/F01/S01).
+    const questions = page.getByTestId('form-step-questions');
+    await questions.click();
     const addField = page.getByTestId('form-builder-add-field-button');
     const lockBanner = page.getByTestId('form-builder-lock-banner');
     await expect(addField).toBeEnabled({ timeout: 15000 });
@@ -94,6 +97,7 @@ test.describe('One market, from the server', () => {
     });
     await expect(page).toHaveURL(/\/applications$/);
     await page.getByTestId('market-bar-tab-form').click();
+    await questions.click();
     await expect(lockBanner).toContainText('once applications have opened');
     await expect(addField).toHaveCount(0);
 
@@ -102,6 +106,7 @@ test.describe('One market, from the server', () => {
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', { timeout: 10000 });
     await expect(page).toHaveURL(/\/setup$/);
     await page.getByTestId('market-bar-tab-form').click();
+    await questions.click();
     await expect(addField).toBeEnabled();
     await expect(lockBanner).toHaveCount(0);
   });

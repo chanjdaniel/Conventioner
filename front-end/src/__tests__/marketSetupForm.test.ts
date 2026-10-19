@@ -74,6 +74,8 @@ async function mountOnFormTab() {
         // The frame renders the bar and the tabs' content in its slots (E21/F04/S01).
         MarketFrame: false,
         MarketFormTab: false,
+        // The builder is the form's second step (E33/F01/S01).
+        StepHeader: false,
         ElementSettingContainer: {
           template: '<div><slot name="setting-title" /><slot name="setting-content" /></div>',
         },
@@ -82,6 +84,7 @@ async function mountOnFormTab() {
   });
   // The store fetches the market first; the page renders once it has arrived.
   await vi.waitFor(() => expect(wrapper.findComponent(MarketFormTab).exists()).toBe(true));
+  await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
   return wrapper;
 }
 

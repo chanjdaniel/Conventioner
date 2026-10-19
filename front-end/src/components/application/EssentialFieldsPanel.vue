@@ -51,16 +51,16 @@ function asks(key: string): boolean {
 
 <template>
   <div class="essential-panel" data-testid="essential-fields-panel">
+    <!-- Named by the form tab's step, "Essential questions" (E33/F01/S01), so not again here. -->
     <div class="essential-panel-header">
-      <h3>Essential questions</h3>
+      <p class="essential-panel-note">
+        Every application form asks these - the table assignment reads them directly, so they
+        cannot be removed. What they offer comes from your market plan{{
+          locked ? ' and is frozen with the rest of the form' : ''
+        }}.
+      </p>
       <span class="essential-badge" data-testid="essential-fields-badge">Always included</span>
     </div>
-    <p class="essential-panel-note">
-      Every application form asks these - the table assignment reads them directly, so they cannot
-      be removed. What they offer comes from your market plan{{
-        locked ? ' and is frozen with the rest of the form' : ''
-      }}.
-    </p>
 
     <div class="essential-item" data-testid="essential-item-email">
       <div class="essential-item-header">
@@ -294,13 +294,6 @@ function asks(key: string): boolean {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-}
-
-.essential-panel-header h3 {
-  font-family: 'Merge One';
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  margin: 0;
 }
 
 .essential-badge {

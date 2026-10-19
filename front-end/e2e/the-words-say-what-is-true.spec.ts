@@ -99,6 +99,7 @@ test('the essential questions list both names every form asks', async ({
   await expect(panel.getByTestId('essential-item-full-name')).toContainText('Full name');
   await expect(panel.getByTestId('essential-item-preferred-name')).toContainText('Preferred name');
   // And no essential answer is said to be asked by every market: some are a market's to drop.
+  await page.getByTestId('form-step-review').click();
   const highlights = page.getByTestId('review-highlights');
   await expect(highlights).not.toContainText('asked by every market');
   await expect(highlights.getByTestId('review-highlight-essential_full_name')).toContainText(
