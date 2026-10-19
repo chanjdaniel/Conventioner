@@ -403,6 +403,8 @@ export interface Application {
   verdictReason?: string | null;
   /** Organizer's only: who is reaching out, while it needs a follow-up (E34/F02/S01). */
   followUpOwner?: { userId?: string | null; email: string } | null;
+  /** Organizer's only: the reviewer looking at it, while their claim stands (E34/F03/S02). */
+  heldBy?: { userId?: string | null; email: string } | null;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */

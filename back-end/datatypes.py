@@ -690,6 +690,10 @@ class Application(BaseModel):
     verdict_reason: Optional[str] = None
     # Who is reaching out, while it needs a follow-up (E34/F02/S01); cleared with that status.
     follow_up_owner: Optional[MarketPerson] = None
+    # The reviewer looking at it, until ``held_until`` (E34/F03/S02): a lease, renewed while the card
+    # stays open and released on a verdict or on moving on. A lapsed one holds nothing.
+    held_by: Optional[MarketPerson] = None
+    held_until: Optional[str] = None
 
 
 def to_camel(string: str) -> str:

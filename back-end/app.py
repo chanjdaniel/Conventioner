@@ -34,7 +34,7 @@ from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
-from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole, VerdictGiver
+from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, VerdictGiver
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from guards import PreconditionResult
 from market_documents import (
@@ -1802,6 +1802,52 @@ def review_application(market_id: str, application_id: str) -> Response:
         logger.error(f"Error in review_application {market_id}/{application_id}: {e}")
         logger.error(traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
+
+
+def _reviewer_on(market_id: str):
+    """The signed-in reviewer as a ``MarketPerson``, once they may change the market, or an error
+    response: holding a card is a reviewer's, an EDITOR's (E34/F03/S02)."""
+    requesting_user = authenticated_email()
+    context = MarketsApi.load_market_context(market_id)
+    if context is None or context.market is None:
+        return None, (jsonify({"error": "Market not found"}), 404)
+    refusal = MarketsApi.change_refusal(requesting_user, context.market, context.organization)
+    if refusal:
+        return None, (jsonify({"error": refusal}), 403)
+    user = UsersApi.get_user(requesting_user)
+    return MarketPerson(user_id=user.id if user else None, email=requesting_user), None
+
+
+@app.route('/markets/<market_id>/review/next', methods=['POST'])
+@login_required
+def next_for_review(market_id: str) -> Response:
+    """The next card to review, claimed for the reviewer (E34/F03/S02).
+
+    Body: { "after": "<the application moved on from>", "includeFollowUps": false }
+    Answers { "application": ... } or { "application": null } when every one left is held by
+    someone else.
+    """
+    person, refused = _reviewer_on(market_id)
+    if refused:
+        return refused
+    data = request.get_json(silent=True) or {}
+    doc = ApplicationsApi.claim_next_for_review(
+        market_id, person, data.get('after'), bool(data.get('includeFollowUps')))
+    return jsonify({"application": ApplicantsApi.organizer_view(doc) if doc else None}), 200
+
+
+@app.route('/markets/<market_id>/applications/<application_id>/claim', methods=['PUT', 'DELETE'])
+@login_required
+def hold_for_review(market_id: str, application_id: str) -> Response:
+    """Keep holding the open card (PUT, every minute while it stays open) or let it go (DELETE, on
+    leaving the review) (E34/F03/S02). PUT answers { "held": false } once someone else has it."""
+    person, refused = _reviewer_on(market_id)
+    if refused:
+        return refused
+    if request.method == 'DELETE':
+        ApplicationsApi.release_claim(application_id, person)
+        return jsonify({"held": False}), 200
+    return jsonify({"held": ApplicationsApi.renew_claim(application_id, person)}), 200
 
 
 @app.route('/markets/<market_id>/applications/<application_id>/follow-up-owner', methods=['PUT'])

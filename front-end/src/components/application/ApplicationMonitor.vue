@@ -42,6 +42,7 @@ import TableShareNotice from '@/components/TableShareNotice.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
 import { statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { saveVendorNote, useVendorNotes } from '@/utils/vendorNotes';
+import { useReviewClaims } from '@/utils/reviewClaims';
 import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
@@ -193,6 +194,21 @@ watch(
   { immediate: true },
 );
 
+/**
+ * Whether this person may change what leads the card - an EDITOR write - on a market that can
+ * change at all (bugs 30 and 37).
+ */
+const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
+
+/**
+ * Whether this person may decide applications: EDITOR, like every other change to the market's
+ * contents (E34/F01/S01), so a reviewing team needs no role that also moves the phase. Viewers and
+ * archived markets read the applications and their verdicts; the server refuses the write too.
+ */
+const decides = computed(() => !readOnly.value);
+/** Whether this person may publish the verdicts - an ADMIN action (bug 37), as it always was. */
+const publishes = computed(() => !props.market?.adminActionsReason && !readOnly.value);
+
 // Reload the queue when the surface is shown or a different MARKET opens - not whenever the store
 // re-reads this one. It re-reads after every write now (E21/F02/S02), a highlight toggle included,
 // and reloading on each would put the reviewer back on the first card mid-queue.
@@ -200,6 +216,8 @@ watch(
   () => [props.visible, props.market?.id] as const,
   async ([visible]) => {
     if (visible && props.market) await loadApplications();
+    // Leaving the review lets the held card go at once, not five minutes later.
+    else if (!visible) claims.release();
   },
   { immediate: true },
 );
@@ -229,6 +247,52 @@ function showNamed() {
   );
 }
 
+/**
+ * The card a reviewer holds (E34/F03/S02): handed out by the server, so two reviewers walk different
+ * cards. Someone who may only read walks the queue here, as before, holding nothing.
+ */
+const claims = useReviewClaims(computed(() => props.market?.id ?? ''));
+/** Every card left is open with another reviewer: there is nothing to hand out right now. */
+const allHeldElsewhere = ref(false);
+/** Who holds the cards nobody can be handed, for the line that says so. */
+const holders = computed(() => [
+  ...new Set(undecided.value.map((app) => app.heldBy?.email).filter(Boolean) as string[]),
+]);
+
+/**
+ * Take an application the server answered with, so the list shows it as it now stands. Merged over
+ * what the list holds: a single application's answer carries none of what only the list derives -
+ * a table-share notice is read against every other application (E27/F01/S03).
+ */
+function adopt(app: Application) {
+  const index = applications.value.findIndex((a) => a.id === app.id);
+  if (index !== -1) applications.value[index] = { ...applications.value[index], ...app };
+  else applications.value.push(app);
+}
+
+/** Put the next card up: the server's to hand out for a reviewer, the queue's own for a reader. */
+async function takeNext(after: string | null) {
+  if (!decides.value || !props.market) {
+    if (undecided.value.length) cursor.value = (cursor.value + 1) % undecided.value.length;
+    return;
+  }
+  try {
+    const app = await claims.next(after, includeFollowUps.value);
+    if (app) adopt(app);
+    // Nothing handed out: read who holds what now, to say so.
+    else applications.value = await fetchMarketApplications(props.market.id);
+    allHeldElsewhere.value = !app && undecided.value.length > 0;
+    cursor.value = app
+      ? Math.max(
+          undecided.value.findIndex((a) => a.id === app.id),
+          0,
+        )
+      : 0;
+  } catch (err) {
+    errorMessage.value = getApiErrorMessage(err, 'Could not open the next application.');
+  }
+}
+
 async function loadApplications() {
   if (!props.market) return;
   loading.value = true;
@@ -236,7 +300,8 @@ async function loadApplications() {
   try {
     applications.value = await fetchMarketApplications(props.market.id);
     cursor.value = 0;
-    showNamed();
+    if (props.named) showNamed();
+    else if (decides.value) await takeNext(null);
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
   } finally {
@@ -261,21 +326,20 @@ async function decide(app: Application, status: ApplicationStatus, ownerEmail?: 
   errorMessage.value = '';
   try {
     const updated = await reviewApplication(props.market.id, app, status, ownerEmail);
-    const index = applications.value.findIndex((a) => a.id === app.id);
-    if (index !== -1) applications.value[index] = updated;
+    adopt(updated);
     refusedOn.value = null;
     void marketStore.refresh();
-    // The verdict removed this one from the queue, so the cursor already points at the next.
-    // It can only sit past the end when the reviewer had skipped to the last card.
-    if (cursor.value >= undecided.value.length) {
+    if (decides.value) {
+      // The verdict let go of it; the next card is the server's to hand out (E34/F03/S02).
+      await takeNext(app.id);
+    } else if (cursor.value >= undecided.value.length) {
       cursor.value = Math.max(undecided.value.length - 1, 0);
     }
   } catch (err) {
     const changed = changedSinceSeen(err);
     if (changed) {
       // Nothing was written: show what is really there, and who put it there.
-      const index = applications.value.findIndex((a) => a.id === app.id);
-      if (index !== -1) applications.value[index] = changed.application;
+      adopt(changed.application);
       refusedOn.value = app.id;
       errorMessage.value = changed.message;
     } else {
@@ -296,12 +360,14 @@ function decideCurrent(status: ApplicationStatus) {
  */
 function next() {
   if (refusedOn.value) {
+    const after = refusedOn.value;
     refusedOn.value = null;
     errorMessage.value = '';
+    void takeNext(after);
     return;
   }
-  if (undecided.value.length === 0) return;
-  cursor.value = (cursor.value + 1) % undecided.value.length;
+  if (undecided.value.length === 0 && !allHeldElsewhere.value) return;
+  void takeNext(current.value?.id ?? null);
 }
 
 /**
@@ -342,19 +408,11 @@ async function reassign(app: Application, ownerEmail: string) {
   if (!props.market) return;
   errorMessage.value = '';
   try {
-    const updated = await reassignFollowUp(props.market.id, app.id, ownerEmail);
-    const index = applications.value.findIndex((a) => a.id === app.id);
-    if (index !== -1) applications.value[index] = updated;
+    adopt(await reassignFollowUp(props.market.id, app.id, ownerEmail));
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Could not hand the follow-up over.');
   }
 }
-
-/**
- * Whether this person may change what leads the card - an EDITOR write - on a market that can
- * change at all (bugs 30 and 37).
- */
-const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
 
 /**
  * The organizer's notes on the applicant up (E31/F04/S04). Their own request is among the answers
@@ -362,14 +420,6 @@ const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
  */
 const notesMarketId = computed(() => props.market?.id ?? '');
 const { load: loadNotes, entryFor } = useVendorNotes(notesMarketId);
-/**
- * Whether this person may decide applications: EDITOR, like every other change to the market's
- * contents (E34/F01/S01), so a reviewing team needs no role that also moves the phase. Viewers and
- * archived markets read the applications and their verdicts; the server refuses the write too.
- */
-const decides = computed(() => !readOnly.value);
-/** Whether this person may publish the verdicts - an ADMIN action (bug 37), as it always was. */
-const publishes = computed(() => !props.market?.adminActionsReason && !readOnly.value);
 
 function onKey(event: KeyboardEvent) {
   if (!props.visible || !current.value || !decides.value) return;
@@ -674,6 +724,23 @@ function submittedOn(app: Application): string {
             Approve <kbd>A</kbd>
           </button>
         </div>
+      </div>
+
+      <!-- Nothing to hand out: every card left is open with someone else (E34/F03/S02). -->
+      <div v-else-if="allHeldElsewhere" class="done-state" data-testid="app-monitor-all-held">
+        <p>
+          Every application left is open with another reviewer<template v-if="holders.length"
+            >: {{ holders.join(', ') }}</template
+          >.
+        </p>
+        <button
+          type="button"
+          class="btn btn--secondary"
+          data-testid="app-monitor-look-again"
+          @click="takeNext(null)"
+        >
+          Look again
+        </button>
       </div>
 
       <p v-else class="done-state" data-testid="app-monitor-done">

@@ -20,6 +20,7 @@ Publication gate (captain ruling 2026-07-13):
 """
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from application_write import record_application_answers, validate_application_answers
@@ -108,7 +109,9 @@ def _application_response(
     }
 
 
-def _application_response_organizer(app: Application) -> Dict[str, Any]:
+def _application_response_organizer(
+    app: Application, now: Optional[datetime] = None,
+) -> Dict[str, Any]:
     """Serialize an application for the organizer-facing API with the raw status always visible."""
     return {
         "id": app.id,
@@ -128,7 +131,21 @@ def _application_response_organizer(app: Application) -> Dict[str, Any]:
             {"userId": app.follow_up_owner.user_id, "email": app.follow_up_owner.email}
             if app.follow_up_owner else None
         ),
+        # Who is looking at it while their claim stands (E34/F03/S02).
+        "heldBy": _holder(app, now),
     }
+
+
+def organizer_view(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """A stored application as the organizer reads it."""
+    return _application_response_organizer(Application(**doc))
+
+
+def _holder(app: Application, now: Optional[datetime]) -> Optional[Dict[str, Any]]:
+    held = ApplicationsApi.holds(
+        {"held_by": app.held_by.model_dump() if app.held_by else None,
+         "held_until": app.held_until}, now)
+    return {"userId": held["user_id"], "email": held["email"]} if held else None
 
 
 def _giver(by: Optional[VerdictGiver]) -> Optional[Dict[str, Any]]:

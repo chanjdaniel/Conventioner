@@ -13,7 +13,7 @@ Identity contract: (``market_id``, ``applicant_email``, ``application_type``) id
 application, and the database is what enforces that -- see ``ensure_application_indexes``.
 """
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from pymongo import ReturnDocument
@@ -274,6 +274,8 @@ def update_application_status(
         update["$set"]["follow_up_owner"] = named.model_dump()
     else:
         update.setdefault("$unset", {})["follow_up_owner"] = ""
+    # A new status releases whoever held it (E34/F03/S02): the card it was open on is done with.
+    update.setdefault("$unset", {}).update(_CLAIM_UNSET)
     query: Dict[str, Any] = {"id": app_id}
     if if_unchanged_since is not None:
         query["status"] = if_unchanged_since.get("status")
@@ -289,6 +291,98 @@ def reassign_follow_up_owner(app_id: str, owner: MarketPerson) -> bool:
     result = applications_collection.update_one(
         {"id": app_id, "status": ApplicationStatus.NEEDS_FOLLOW_UP.value},
         {"$set": {"follow_up_owner": owner.model_dump()}},
+    )
+    return result.matched_count > 0
+
+
+# --- Who is looking at it (E34/F03/S02) ------------------------------------------------------------
+
+#: How long a claim holds without being renewed.
+CLAIM_LEASE = timedelta(minutes=5)
+_CLAIM_UNSET = {"held_by": "", "held_until": ""}
+
+
+def _now(now: Optional[datetime]) -> datetime:
+    return now or datetime.now(timezone.utc)
+
+
+def _submitted(doc: Dict[str, Any]) -> Optional[datetime]:
+    raw = doc.get("submitted_at")
+    if not raw:
+        return None
+    try:
+        at = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+
+
+def _in_arrival_order(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Earliest submission first, those with none last, as the review shows them (``inArrivalOrder``
+    in ``front-end/src/utils/reviewQueue.ts``)."""
+    keyed = [(_submitted(doc), index, doc) for index, doc in enumerate(docs)]
+    keyed.sort(key=lambda k: (k[0] is None, k[0] or datetime.min.replace(tzinfo=timezone.utc), k[1]))
+    return [doc for _, _, doc in keyed]
+
+
+def holds(doc: Dict[str, Any], now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+    """Who holds an application right now, or None once the claim has lapsed."""
+    until = doc.get("held_until")
+    if not doc.get("held_by") or not until or until <= _now(now).isoformat():
+        return None
+    return doc["held_by"]
+
+
+def claim_next_for_review(
+    market_id: str, person: MarketPerson, after: Optional[str], include_follow_ups: bool,
+    now: Optional[datetime] = None,
+) -> Optional[Dict[str, Any]]:
+    """Hand ``person`` the next card to review, claimed for them, or None when every one left is
+    held by someone else (E34/F03/S02).
+
+    The next undecided application in arrival order after ``after`` - the one they move on from,
+    which comes round last - that nobody else holds. Taking it is conditioned on the claim it read,
+    so two reviewers asking at once are handed different cards. Their other claims are let go.
+    """
+    now = _now(now)
+    statuses = UNDECIDED_STATUSES + (
+        (ApplicationStatus.NEEDS_FOLLOW_UP.value,) if include_follow_ups else ())
+    docs = list_applications_for_market(market_id)
+    queue = _in_arrival_order([doc for doc in docs if doc.get("status") in statuses])
+    ids = [doc["id"] for doc in queue]
+    start = ids.index(after) + 1 if after in ids else 0
+    mine = person.model_dump()
+    for doc in queue[start:] + queue[:start]:
+        holder = holds(doc, now)
+        if holder is not None and holder != mine:
+            continue
+        taken = applications_collection.update_one(
+            {"id": doc["id"], "held_until": {"$in": [doc.get("held_until")]}},
+            {"$set": {"held_by": mine,
+                      "held_until": (now + CLAIM_LEASE).isoformat()}},
+        )
+        if taken.matched_count == 0:
+            continue
+        for other in docs:
+            if other["id"] != doc["id"] and other.get("held_by") == mine:
+                release_claim(other["id"], person)
+        return find_application_by_id(doc["id"])
+    return None
+
+
+def renew_claim(app_id: str, person: MarketPerson, now: Optional[datetime] = None) -> bool:
+    """Keep holding the open card for another lease. False once someone else has taken it."""
+    result = applications_collection.update_one(
+        {"id": app_id, "held_by": person.model_dump()},
+        {"$set": {"held_until": (_now(now) + CLAIM_LEASE).isoformat()}},
+    )
+    return result.matched_count > 0
+
+
+def release_claim(app_id: str, person: MarketPerson) -> bool:
+    """Let go of a card on moving on or leaving. Only one's own claim is released."""
+    result = applications_collection.update_one(
+        {"id": app_id, "held_by": person.model_dump()}, {"$unset": dict(_CLAIM_UNSET)},
     )
     return result.matched_count > 0
 
