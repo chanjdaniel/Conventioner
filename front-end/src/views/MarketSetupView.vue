@@ -52,15 +52,6 @@ function showTab(page: MarketPage) {
   router.push(marketPath(marketId.value, page));
 }
 
-// A page starts at its own top, directly under the pinned frame, rather than wherever the last one
-// was scrolled to (E21/F04/S01).
-watch(
-  () => route.params.page,
-  () => {
-    if (window.scrollY > 0) window.scrollTo({ top: 0 });
-  },
-);
-
 /**
  * The market this screen is routed to, as the server last reported it (E21/F02/S02).
  *
