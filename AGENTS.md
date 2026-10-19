@@ -63,6 +63,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   room seeds one (`seedAssignedMarket({ tables })`); only an orphaned-pin spec rewrites a settled
   plan, as a legacy market's, with `changeASettledPlan()`. A market a spec imports into is
   `intakeMode: 'csv'`.
+- **A spec shells into Mongo through `mongoEval`** (`e2e/helpers/mongo.ts`), never its own
+  `docker exec`: the container, address and flags were once copied into fifteen files.
 - **data-testid convention**: `viewname-element` (e.g. `login-email-input`, `markets-create-button`).
   No product behavior changes - purely additive test infrastructure.
 - **Page Object Model**: Located under `front-end/e2e/pages/`.
@@ -495,7 +497,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   stored setup is not a change, and the assignment rules beside it keep their own lock. The only
   way back is `applications_open -> draft`, while nobody has applied. So **leaving draft requires a
   complete setup**: three guards on that edge alone - dates none of which has passed, a location,
-  tables at every tier - each its own blocker line.
+  tables at every tier - each its own blocker line. A date has passed only once it has passed
+  everywhere (UTC-12, `_earliest_calendar_day`): the server cannot know where a market is, and the
+  screens read the viewer's own calendar (`calendarToday`).
 - **Every precondition for every phase transition lives in `back-end/guards.py`.** Adding or
   removing one is a one-file edit: the `POST /markets/<id>/transition` endpoint and the
   front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
