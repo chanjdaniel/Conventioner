@@ -863,7 +863,19 @@ function cancelPending() {
 }
 
 .rail-button:disabled {
-  opacity: 0.55;
+  border-color: var(--mm-border);
+}
+
+/*
+ * The one disabled state `primitives.css` gives `.btn`: the control keeps its place and loses its
+ * affordance, on beige with the ink measured for beige. Faded to 55%, the forward step put white on
+ * a pale green - unreadable on the step the rail now refuses most.
+ */
+.rail-button:disabled,
+.rail-menu-item[aria-disabled='true'],
+.rail-menu-item[aria-disabled='true']:hover {
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
   cursor: not-allowed;
 }
 
@@ -931,23 +943,21 @@ function cancelPending() {
   font-weight: 600;
 }
 
-/* A move the server would refuse stays in the menu, greyed, with the reason under it. */
+/* A move the server would refuse stays in the menu, disabled, with the reason under it. */
 .rail-menu-item[aria-disabled='true'] {
-  color: var(--mm-text-muted);
-  cursor: not-allowed;
   white-space: normal;
   max-width: 24rem;
 }
 
-.rail-menu-item[aria-disabled='true']:hover {
-  background: white;
+.rail-menu-item[aria-disabled='true']::before,
+.rail-menu-item-reason {
+  color: var(--mm-text-muted-on-beige);
 }
 
 .rail-menu-item-reason {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-hairline);
   font-size: var(--text-xs);
-  color: var(--mm-text-muted);
 }
 
 .phase-rail-error {

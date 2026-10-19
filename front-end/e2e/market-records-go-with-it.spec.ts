@@ -1,10 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, ManageMarketPage } from './fixtures';
 import { ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { seedApplicantMarket } from './helpers/seedApplicantMarket';
 import { seedApplication } from './helpers/seedApplication';
-import { mongoContainer } from './helpers/containerNames';
+import { mongoEval } from './helpers/mongo';
 
 /**
  * A market's records go with it (bug 47).
@@ -22,27 +21,11 @@ const KEPT_WITH_A_MARKET = [
   'applicant_login_challenges',
 ];
 
-function mongo(script: string): string {
-  return execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-      '--quiet',
-      '--eval',
-      script,
-    ],
-    { encoding: 'utf-8' },
-  ).trim();
-}
-
 /** One record of every kind a market keeps beside itself. */
 function seedRecords(marketId: string): void {
   seedApplication(marketId, 'kept@example.test');
   const at = new Date().toISOString();
-  mongo(`
+  mongoEval(`
     db.attendance.insertOne({ market_id: ${JSON.stringify(marketId)}, email: 'kept@example.test',
       date: '2099-08-01', checked_in_at: ${JSON.stringify(at)} });
     db.placement_history.insertOne({ market_id: ${JSON.stringify(marketId)}, at: ${JSON.stringify(at)} });
@@ -53,7 +36,7 @@ function seedRecords(marketId: string): void {
 
 function recordsLeft(marketId: string): Record<string, number> {
   return JSON.parse(
-    mongo(
+    mongoEval(
       `print(JSON.stringify(Object.fromEntries(${JSON.stringify(KEPT_WITH_A_MARKET)}.map(` +
         `(name) => [name, db[name].countDocuments({ market_id: ${JSON.stringify(marketId)} })]))))`,
     ),

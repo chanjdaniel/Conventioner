@@ -51,7 +51,6 @@ import api.attendance as AttendanceApi
 import api.organizations as OrgsApi
 import api.users as UsersApi
 import traceback
-from dataclasses import asdict
 import logging
 from assignment.csv_output import market_csv_to_string
 from guards import route_between, transition_verdicts
@@ -704,7 +703,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # What would refuse each move open from this phase (E31/F02/S01), judged as the transition
     # endpoint judges it, so the rail can disable a move and name why before anyone clicks it.
     market_dict['transitionBlockers'] = {
-        to_phase: [convert_keys_to_camel_case(asdict(blocker)) for blocker in blockers]
+        to_phase: [blocker.payload() for blocker in blockers]
         for to_phase, blockers in transition_verdicts(market, db).items()
     }
     if market.organization_id and org_dict:

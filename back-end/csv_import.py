@@ -36,6 +36,7 @@ from datatypes import (
     Application,
     ApplicationStatus,
     ImportMapping,
+    MappingAuthor,
     IntakeMode,
     MarketPhase,
     intake_mode_from_market_document,
@@ -586,7 +587,7 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
         "newHeaders": new_headers,
         "hasSavedMapping": bool(saved.get("targets")),
         # Whose decisions those are: the start of the form, or an earlier import.
-        "savedMappingFrom": saved.get("made_by") or "import",
+        "savedMappingFrom": saved.get("made_by") or MappingAuthor.IMPORT.value,
         # True when this market orders vendors by when they applied. The ledger warns if that rule
         # exists and no column feeds it: mapping nothing is legal, but then the rule decides
         # nothing, which is the silent no-op this story exists to end wearing a different hat.
@@ -1196,7 +1197,7 @@ def left_out_at_start(
     the decision is theirs, and the import says so.
     """
     saved = stored_mapping(market_doc)
-    if saved.get("made_by") != "start":
+    if saved.get("made_by") != MappingAuthor.START:
         return set()
     started = saved.get("resolutions") or {}
     labels = {target.key: target.label for target in import_targets(market_doc)}
@@ -1700,7 +1701,7 @@ def mapping_payload(
     headers: Sequence[str],
     resolved: Dict[str, List[int]],
     resolutions: Dict[str, Dict[str, Optional[str]]],
-    made_by: str = "import",
+    made_by: MappingAuthor = MappingAuthor.IMPORT,
 ) -> Dict[str, Any]:
     """A mapping as it is stored: by header text, never position. The one format there is - the
     import saves it, and a market started from a CSV saves the same thing (E24/F03/S03), saying
@@ -1715,5 +1716,5 @@ def mapping_payload(
         saved_at=datetime.now(timezone.utc).isoformat(),
         made_by=made_by,
     )
-    dumped = mapping.model_dump()
+    dumped = mapping.model_dump(mode="json")
     return {camel: dumped[snake] for snake, camel in _MAPPING_FIELDS.items()}

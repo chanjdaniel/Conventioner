@@ -1,7 +1,5 @@
-import { execFileSync } from 'node:child_process';
 import { marketSetupPath } from './helpers/marketScreens';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { mongoContainer } from './helpers/containerNames';
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
   seedPhaseMarket,
@@ -10,9 +8,9 @@ import {
   seedStoredAssignment,
   type PhaseMarketSeed,
 } from './helpers/seedPhaseMarket';
+import { mongoEval } from './helpers/mongo';
 
 const SCREENSHOT_DIR = 'e2e-screenshots/phase-state-machine';
-const MONGO_URI = 'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin';
 
 async function transitionViaPage(page: Page, marketId: string, toPhase: string): Promise<void> {
   const res = await page.request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
@@ -38,14 +36,6 @@ function setUserInPage(page: Page) {
   return page.evaluate((user: string) => {
     localStorage.setItem('user', JSON.stringify(user));
   }, TEST_USER.email);
-}
-
-function runMongo(evalJs: string): string {
-  return execFileSync(
-    'docker',
-    ['exec', mongoContainer(), 'mongosh', MONGO_URI, '--quiet', '--eval', evalJs],
-    { encoding: 'utf-8' },
-  ).trim();
 }
 
 /**
@@ -84,7 +74,7 @@ async function setupMarketToOffers(request: APIRequestContext): Promise<PhaseMar
   });
 
   // Resolve the approved app so offers guard passes
-  runMongo(
+  mongoEval(
     `db.applications.updateOne({id: ${JSON.stringify(appId)}}, {$set: {status: "assigned"}})`,
   );
 
@@ -146,7 +136,7 @@ test.describe('Phase state machine - full walk', () => {
     });
     await page.screenshot({ path: `${SCREENSHOT_DIR}/05-assignment.png`, fullPage: true });
 
-    runMongo(
+    mongoEval(
       `db.applications.updateMany({market_id: ${JSON.stringify(seed.marketId)}, status: "reviewer_approved"}, {$set: {status: "assigned"}})`,
     );
 
@@ -305,7 +295,7 @@ test.describe('Phase state machine - sweep', () => {
     seedApplicationWithStatus(seed.marketId, 'vendor_accepted', acceptedEmail);
 
     function queryStatus(appEmail: string): string {
-      return runMongo(
+      return mongoEval(
         `db.applications.findOne({applicant_email: ${JSON.stringify(appEmail)}, market_id: ${JSON.stringify(seed.marketId)}}, {status: 1}).status`,
       );
     }

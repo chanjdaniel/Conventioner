@@ -1,10 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { SEED_MARKET_DATE, ensureTestOrg, seedMarketWithVendors } from './helpers/seeds';
 import { savePlan } from './helpers/savePlan';
 import { marketSetupPath } from './helpers/marketScreens';
-import { mongoContainer } from './helpers/containerNames';
+import { mongoEval } from './helpers/mongo';
 
 /**
  * Tier is a filter only when the market asked it (bug 23, E26/F04/S02).
@@ -88,17 +87,9 @@ test('a tier added after the form froze places vendors, not nobody', async ({
   );
   // The form froze when its first application arrived, while the plan had no tiers: nobody was
   // asked which tiers they would take.
-  execFileSync('docker', [
-    'exec',
-    mongoContainer(),
-    'mongosh',
-    'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-    '--quiet',
-    '--eval',
-    `db.markets.updateOne({ id: ${JSON.stringify(marketId)} }, { $set: {
+  mongoEval(`db.markets.updateOne({ id: ${JSON.stringify(marketId)} }, { $set: {
       'applicationForm.essentialOptions': { dates: [${JSON.stringify(SEED_MARKET_DATE)}],
-        sections: ['Hall A'], tableTypes: ['Standard'], tiers: [], unasked: [] } } })`,
-  ]);
+        sections: ['Hall A'], tableTypes: ['Standard'], tiers: [], unasked: [] } } })`);
   await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, TIERED);
   await walkToAssignment(request, marketId);
 

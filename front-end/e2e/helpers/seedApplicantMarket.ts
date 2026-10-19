@@ -1,9 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
-import { mongoContainer } from './containerNames';
 import { loginViaApi, ensureTestOrgAuthenticated, marketNameToSlug } from './seeds';
 import { seedApplication } from './seedApplication';
+import { mongoEval } from './mongo';
 
 /**
  * Seed result for a market that an applicant can log into.
@@ -18,8 +17,6 @@ export interface ApplicantMarketSeed {
   marketSlug: string;
   orgId: string;
 }
-
-const MONGO_URI = 'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin';
 
 /** Two fields typical of an application form - required, so a save that skipped
  *  validation would be noticeable. */
@@ -202,9 +199,5 @@ export function createApplicantLoginChallenge(marketId: string, email: string, c
     `)`,
   ].join('\n');
 
-  execFileSync(
-    'docker',
-    ['exec', mongoContainer(), 'mongosh', MONGO_URI, '--quiet', '--eval', evalJs],
-    { encoding: 'utf-8' },
-  );
+  mongoEval(evalJs);
 }

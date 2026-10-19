@@ -1,11 +1,10 @@
-import { execFileSync } from 'node:child_process';
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { TablesPage } from './pages/TablesPage';
 import { SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
-import { mongoContainer } from './helpers/containerNames';
+import { mongoEval } from './helpers/mongo';
 
 /**
  * What a hand change overrides, said before it is made (bugs 18 and 32, E26/F05/S03; settles
@@ -21,18 +20,6 @@ const D1 = SEED_MARKET_DATE;
 const D2 = '2099-05-08';
 const GOLD = { id: 1, name: 'Gold' };
 const SILVER = { id: 2, name: 'Silver' };
-
-function mongoEval(script: string): void {
-  execFileSync('docker', [
-    'exec',
-    mongoContainer(),
-    'mongosh',
-    'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-    '--quiet',
-    '--eval',
-    script,
-  ]);
-}
 
 async function call(
   request: APIRequestContext,

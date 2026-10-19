@@ -1,6 +1,5 @@
 import { test, expect, TEST_USER, LoginPage, PasswordResetPage } from './fixtures';
-import { execSync } from 'child_process';
-import { mongoContainer } from './helpers/containerNames';
+import { mongoEval } from './helpers/mongo';
 import { deleteUser } from './helpers/deleteUser';
 
 const REGISTER_PASSWORD = 'E2eRegister123!';
@@ -123,15 +122,9 @@ test.describe('Authentication journeys', () => {
         expect(resetReqRes.ok()).toBeTruthy();
 
         // Step 3: Read the reset token directly from MongoDB.
-        const token = execSync(
-          `docker exec ${mongoContainer()} mongosh --quiet ` +
-            `-u admin -p secret --authenticationDatabase admin ` +
-            `--eval "db.getSiblingDB('conventioner').users.findOne({email:'${email}'}).password_reset_token"`,
-          { encoding: 'utf-8', timeout: 10000 },
-        )
-          .trim()
-          .replace(/^"/, '')
-          .replace(/"$/, '');
+        const token = mongoEval(
+          `print(db.users.findOne({email: ${JSON.stringify(email)}}).password_reset_token)`,
+        );
         expect(token).toBeTruthy();
         expect(token.length).toBeGreaterThanOrEqual(10);
 
