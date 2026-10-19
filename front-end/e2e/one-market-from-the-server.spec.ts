@@ -92,7 +92,7 @@ test.describe('One market, from the server', () => {
       timeout: 10000,
     });
     await expect(addField).toHaveCount(0);
-    await expect(lockBanner).toContainText('Applications Open');
+    await expect(lockBanner).toContainText('once applications have opened');
 
     await page.getByTestId('phase-rail-menu-button').click();
     await page.getByTestId('phase-transition-draft').click();
