@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test, expect, TEST_USER, BACKEND_URL, TablesPage } from './fixtures';
 import { ensureTestOrg, seedMarketWithVendors } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
@@ -107,7 +108,12 @@ test.describe('The Result page', () => {
     await page.goto(at(marketId, 'result'));
     const download = page.waitForEvent('download');
     await page.getByTestId('result-download-csv-button').click();
-    expect((await download).suggestedFilename()).toMatch(/\.csv$/);
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/\.csv$/);
+    // The name each vendor chose, then their full name, then the address (E35/F03/S02).
+    const text = readFileSync((await file.path()) as string, 'utf8');
+    expect(text.split('\n')[0].startsWith('Name,Full name,Email,')).toBe(true);
+    expect(text).toContain('Alice Example,Alice Example,alice@example.com');
   });
 
   test('"unassigned" opens Vendors, filtered to the unassigned', async ({

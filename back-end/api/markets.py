@@ -1290,6 +1290,7 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
         try:
             csv_content = market_csv_to_string(
                 assigned_market_dict, ApplicationsApi.vendor_names_for_market(market_id),
+                ApplicationsApi.vendor_full_names_for_market(market_id),
             )
         except ValueError as e:
             return {"error": str(e)}, 400

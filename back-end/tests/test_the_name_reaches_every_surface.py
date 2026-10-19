@@ -77,7 +77,7 @@ class TestTheAssignmentCsv:
             ASSIGNED_MARKET, {"nadia@ember.test": "Nadia Okonkwo"},
         )
 
-        assert fieldnames[:2] == ["Name", "Email"]
+        assert fieldnames[:3] == ["Name", "Full name", "Email"]
         assert rows[0]["Name"] == "Nadia Okonkwo"
         assert rows[0]["Email"] == "nadia@ember.test"
 
@@ -91,7 +91,7 @@ class TestTheAssignmentCsv:
         """The export predates names and must not start depending on them."""
         fieldnames, rows = build_market_csv_rows(ASSIGNED_MARKET)
 
-        assert fieldnames[:2] == ["Name", "Email"]
+        assert fieldnames[:3] == ["Name", "Full name", "Email"]
         assert [row["Email"] for row in rows] == ["nadia@ember.test", "theo@thistle.test"]
 
     def test_two_vendors_sharing_a_name_stay_apart(self):
@@ -144,3 +144,45 @@ class TestTheCheckInLookup:
         assert status == 200
         assert result["vendorName"] == ""
         assert result["vendorEmail"] == "nadia@ember.test"
+
+
+class TestTheFullNameInTheDownload:
+    """The download carries the full name (E35/F03/S02): the organizers asked for it beside the name
+    each vendor chose, which is what Name holds."""
+
+    def test_both_names_in_that_order(self):
+        fieldnames, rows = build_market_csv_rows(
+            ASSIGNED_MARKET, {"nadia@ember.test": "Nadia O"},
+            full_names={"nadia@ember.test": "Nadia Okonkwo"})
+
+        assert fieldnames[:2] == ["Name", "Full name"]
+        assert (rows[0]["Name"], rows[0]["Full name"]) == ("Nadia O", "Nadia Okonkwo")
+
+    def test_a_vendor_with_no_full_name_leaves_it_blank(self):
+        _fieldnames, rows = build_market_csv_rows(ASSIGNED_MARKET, {"nadia@ember.test": "Nadia O"})
+
+        assert rows[0]["Full name"] == ""
+
+    def test_the_full_names_are_read_from_the_applications(self, monkeypatch):
+        names = self._full_names(monkeypatch, [
+            {"applicant_email": "Nadia@Ember.test",
+             "form_data": {EF.FULL_NAME_KEY: "Nadia Okonkwo", EF.PREFERRED_NAME_KEY: "Nadia O"}},
+            {"applicant_email": "theo@thistle.test", "form_data": {EF.FULL_NAME_KEY: "Theo M"}},
+            {"applicant_email": "legacy@x.test", "form_data": {}},
+        ])
+
+        assert names == {"nadia@ember.test": "Nadia Okonkwo", "theo@thistle.test": "Theo M"}
+
+    def _full_names(self, monkeypatch, docs):
+        import api.applications as ApplicationsApi
+
+        class Docs:
+            def find(self, *_a, **_k):
+                return [dict(doc) for doc in docs]
+
+            def create_index(self, *_a, **_k):
+                return None
+
+        monkeypatch.setattr(ApplicationsApi, "applications_collection", Docs())
+        monkeypatch.setattr(ApplicationsApi, "ensure_application_indexes", lambda: None)
+        return ApplicationsApi.vendor_full_names_for_market("market-1")
