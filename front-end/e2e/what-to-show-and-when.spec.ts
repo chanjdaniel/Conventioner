@@ -167,13 +167,20 @@ test.describe('What to show, and when', () => {
       { run: false },
     );
     await page.goto(marketScreenPath(marketId, 'result'));
-    await expect(page.getByTestId('result-empty')).toContainText('No assignment yet');
+    await expect(page.getByTestId('result-empty')).toContainText('Nothing assigned yet');
     await expect(page.getByTestId('phase-rail-next')).toHaveText(
       /Set the rules and run the assignment\./,
     );
     await expect(page.getByTestId('phase-transition-market_days')).toBeDisabled();
 
+    // Vendors says the same, rather than counting everyone as unassigned.
     await page.goto(marketScreenPath(marketId, 'vendors'));
-    await expect(page.getByTestId('vendors-summary')).toContainText('0 of 2');
+    const empty = page.getByTestId('vendors-empty');
+    await expect(empty).toContainText('Nothing assigned yet');
+    await expect(page.getByTestId('vendors-summary')).toHaveText('2 vendors');
+    await expect(page.getByTestId('vendors-list-item')).toHaveCount(2);
+    await expect(page.getByTestId('vendor-date-count')).toHaveCount(0);
+    await empty.getByRole('link').click();
+    await expect(page).toHaveURL(new RegExp(`/markets/${marketId}/assignment$`));
   });
 });
