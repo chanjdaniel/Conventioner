@@ -820,50 +820,65 @@ class TestEdgeCases:
 # ── Timing oracle ────────────────────────────────────────────────────
 
 
-class TestTimingOracleClosed:
-    """The response path must not block on the email send. If it does, an
-    attacker can time the difference between a known applicant (slow - email
-    sent synchronously) and a stranger (fast - no email). Identical response
-    bodies are worthless if the clock differs."""
+class TestTheCodeIsSentWithinTheRequest:
+    """The code is sent before the response returns (E32/F03/S02).
 
-    def test_request_code_returns_before_email_send_completes(
-        self, applicant_auth_module, test_db, monkeypatch
-    ):
-        """The response must return while the email is still in-flight."""
+    It was sent from a daemon thread after the response, to close a timing oracle between an
+    applicant (sent a code) and a stranger (not). Every address is sent one now (bug 6), so the work
+    is the same for both and that oracle is gone; and on serverless hosting a process may be frozen
+    the moment its response is out, so a send left running after it may never finish - no applicant
+    code was ever seen to reach Resend from production. What a slow send reveals now is only that
+    the market takes applications online, which its public page says to anyone."""
+
+    def _request(self, applicant_auth_module, email="applicant@example.com"):
         from flask import Flask
-        import time
-
-        # Replace _send_code_email with a version that sleeps long enough
-        # to be detectable if called synchronously.
-        call_recorded = []
-
-        def slow_send(email, code, market_name, market_id):
-            call_recorded.append(time.time())
-            time.sleep(1.0)  # Simulate a slow Resend HTTP call
-
-        monkeypatch.setattr(applicant_auth_module, "_send_code_email", slow_send)
 
         app = Flask(__name__)
-        start = time.time()
         with app.test_request_context(
             "/public/markets/test-market/request-code",
             method="POST",
-            json={"email": "applicant@example.com"},
+            json={"email": email},
         ):
-            result = applicant_auth_module.request_login_code("test-market")
-        elapsed = time.time() - start
+            return applicant_auth_module.request_login_code("test-market")
 
-        body, status = result
+    def test_the_send_is_finished_when_the_response_returns(
+        self, applicant_auth_module, test_db, monkeypatch
+    ):
+        sent = []
+        monkeypatch.setattr(
+            applicant_auth_module, "_send_code_email", lambda *args: sent.append(args) or True,
+        )
+
+        body, status = self._request(applicant_auth_module)
+
         assert status == 200
-        # The response must return well under the 1-second sleep. If it takes
-        # anywhere near 1s, the email was dispatched synchronously.
-        assert elapsed < 0.5, (
-            f"Response took {elapsed:.3f}s - email send is blocking the "
-            f"response path. Must be fire-and-forget to close the timing oracle."
-        )
-        assert len(call_recorded) == 1, (
-            "_send_code_email was not called at all"
-        )
+        assert len(sent) == 1, "the code was not sent before the response returned"
+
+    def test_a_failed_send_answers_as_a_sent_one_and_is_logged(
+        self, applicant_auth_module, test_db, monkeypatch, caplog
+    ):
+        monkeypatch.setattr(applicant_auth_module, "_send_code_email", lambda *args: True)
+        sent_body, sent_status = self._request(applicant_auth_module)
+
+        monkeypatch.setattr(applicant_auth_module, "_send_code_email", lambda *args: False)
+        with caplog.at_level("ERROR"):
+            failed_body, failed_status = self._request(applicant_auth_module)
+
+        assert (failed_body.get_json(), failed_status) == (sent_body.get_json(), sent_status)
+        assert "sign-in code" in caplog.text and "test-market" in caplog.text
+
+    def test_a_send_that_raises_still_answers_alike(
+        self, applicant_auth_module, test_db, monkeypatch, caplog
+    ):
+        def boom(*_args):
+            raise RuntimeError("provider down")
+        monkeypatch.setattr(applicant_auth_module, "_send_code_email", boom)
+
+        with caplog.at_level("ERROR"):
+            body, status = self._request(applicant_auth_module)
+
+        assert status == 200
+        assert "provider down" in caplog.text
 
     def test_an_address_that_has_not_applied_is_sent_its_code(
         self, applicant_auth_module, test_db, monkeypatch

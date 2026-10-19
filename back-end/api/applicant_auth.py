@@ -35,7 +35,6 @@ address and the market, not an application, and their first save creates it.
 import hashlib
 import logging
 import secrets
-import threading
 from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, request
@@ -310,9 +309,8 @@ def request_login_code(market_slug: str) -> tuple:
     """Handle POST /public/markets/<slug>/applicant-login/request-code.
 
     Always returns the same 200 response regardless of whether the email is
-    known to this market. A challenge is created for every address. The email
-    send is dispatched to a daemon thread so the response does not block on it,
-    closing the timing oracle.
+    known to this market, and whether its email was sent. A challenge is created,
+    and its code sent, for every address, before the response returns.
     """
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or not data:
@@ -350,12 +348,17 @@ def request_login_code(market_slug: str) -> tuple:
     # response. This endpoint still creates no Application document - the first save does, and
     # with it the D9 lock, exactly as specified.
     #
-    # The send is dispatched to a daemon thread so it does NOT block the response.
-    threading.Thread(
-        target=_send_code_email,
-        args=(email, code, market_name, market_slug),
-        daemon=True,
-    ).start()
+    # Sent before the response, not from a thread after it (E32/F03/S02). On serverless hosting a
+    # process may be frozen the moment its response is out, and no code sent that way was ever seen
+    # to arrive. The thread closed a timing oracle between applicants and strangers that sending to
+    # every address has already closed. A failed send is logged and answered as a sent one.
+    try:
+        delivered = _send_code_email(email, code, market_name, market_slug)
+    except Exception:
+        logger.exception("Applicant sign-in code for market %s could not be sent", market_slug)
+    else:
+        if not delivered:
+            logger.error("Applicant sign-in code for market %s was not sent", market_slug)
 
     return jsonify(_REQUEST_CODE_BODY), _REQUEST_CODE_STATUS
 

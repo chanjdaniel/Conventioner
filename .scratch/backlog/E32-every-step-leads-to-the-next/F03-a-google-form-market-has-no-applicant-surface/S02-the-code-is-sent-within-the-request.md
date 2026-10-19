@@ -2,7 +2,7 @@
 id: E32/F03/S02
 title: The sign-in code is sent within the request
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -16,7 +16,7 @@ A failed send is logged, and the response stays uniform.
 
 ## Acceptance criteria
 
-- [ ] A code request on a form market sends the email before the response returns.
-- [ ] The response is identical whether the send succeeded or failed, and for known and unknown addresses.
-- [ ] A failed send is logged with enough to find it.
+- [x] A code request on a form market sends the email before the response returns.
+- [x] The response is identical whether the send succeeded or failed, and for known and unknown addresses.
+- [x] A failed send is logged with enough to find it.
 - [ ] Verified once in production with `S03`'s form market: the code arrives, and Resend records it.
