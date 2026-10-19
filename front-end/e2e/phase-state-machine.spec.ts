@@ -223,6 +223,8 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     await expect(page.getByTestId('phase-transition-assignment')).toBeDisabled();
     const next = page.getByTestId('phase-rail-next');
     await expect(next).toContainText('still awaiting review');
+    // In review nothing more is coming in, and the rail says so before the work left (ticket 02).
+    await expect(next).toContainText(/^Nothing more is coming in.*Finish deciding: /);
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
 
     // The remedy is reviewing the applications, which is one tab along - so the link goes there

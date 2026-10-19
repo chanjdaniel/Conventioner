@@ -19,7 +19,7 @@ import {
   type PreconditionResult,
 } from '@/assets/types/datatypes';
 import { phaseLabel, phaseSpine, transitionDirection, VALID_TRANSITIONS } from '@/utils/phase';
-import { currentPage, hasAssignment, type MarketPage, type MarketTab } from '@/utils/marketPage';
+import { TAB_PAGES, hasAssignment, type MarketPage, type MarketTab } from '@/utils/marketPage';
 
 /** Absent means CSV, as the server reads it: the applicant surface fails closed. */
 export function intakeModeOf(market: Pick<Market, 'intakeMode'> | null | undefined): IntakeMode {
@@ -133,71 +133,158 @@ export interface NextStep {
   blocker: PreconditionResult | null;
 }
 
-const STATEMENTS: Record<string, Record<IntakeMode, string>> = {
-  [MarketPhase.Draft]: {
-    [IntakeMode.Form]: 'Plan the market and its application form, then open applications.',
-    [IntakeMode.Csv]:
-      "Plan the market, from your Google Form's responses or by hand, then start collecting.",
-  },
-  [MarketPhase.ApplicationsOpen]: {
-    [IntakeMode.Form]:
-      'Applications are open. Review them as they arrive, and close applications when you stop taking them.',
-    [IntakeMode.Csv]:
-      'Collecting on your Google Form. Import responses as they arrive and review them, and say when you are done collecting.',
-  },
-  [MarketPhase.ApplicationsClosed]: {
-    [IntakeMode.Form]:
-      'Applications are closed. Finish deciding, and begin review once no more are coming; until then you can still reopen.',
-    [IntakeMode.Csv]: 'Your Google Form is closed. Import the last responses, then begin review.',
-  },
-  [MarketPhase.Review]: {
-    [IntakeMode.Form]: 'Nothing more is coming in. Every application is decided: begin assignment.',
-    [IntakeMode.Csv]:
-      'Nothing more is coming in, and nothing more can be imported. Every application is decided: begin assignment.',
-  },
+/** What a row of the guide reads off the market, beyond its phase. */
+interface Standing {
+  path: IntakeMode;
+  /** An assignment is stored. */
+  assigned: boolean;
+  /** Every one of its dates is over. */
+  ended: boolean;
+  /** It reached market days: its check-in page is the record. */
+  ran: boolean;
+}
+
+/** One phase's row: the page it is worked on - the one carrying the dot - and what the rail says. */
+interface GuideRow {
+  page: MarketPage;
+  statement: string;
+  /** False where the statement leads nowhere: an archive is done with. */
+  links?: boolean;
+}
+
+/** Review means nothing more arrives, on either path (ticket 02). */
+const REVIEW_LEAD: Record<IntakeMode, string> = {
+  [IntakeMode.Form]: 'Nothing more is coming in.',
+  [IntakeMode.Csv]: 'Nothing more is coming in, and nothing more can be imported.',
 };
+
+/**
+ * Ticket 02's answer, one row per phase. `currentPage` reads its pages, so the dot, the landing page
+ * and the rail's link can never disagree about where a market is worked on.
+ */
+const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
+  [MarketPhase.Draft]: ({ path }) => ({
+    page: 'setup',
+    statement:
+      path === IntakeMode.Form
+        ? 'Plan the market and its application form, then open applications.'
+        : "Plan the market, from your Google Form's responses or by hand, then start collecting.",
+  }),
+  // The address itself is in the rail beside this, under the same name, with Copy.
+  [MarketPhase.ApplicationsOpen]: ({ path }) => ({
+    page: 'applications',
+    statement:
+      path === IntakeMode.Form
+        ? 'Applications are open on your application page. Review them as they arrive, and close applications when you stop taking them.'
+        : 'Collecting on your Google Form. Import responses as they arrive and review them, and say when you are done collecting.',
+  }),
+  [MarketPhase.ApplicationsClosed]: ({ path }) => ({
+    page: 'applications',
+    statement:
+      path === IntakeMode.Form
+        ? 'Applications are closed. Finish deciding, and begin review once no more are coming; until then you can still reopen.'
+        : 'Your Google Form is closed. Import the last responses, then begin review.',
+  }),
+  [MarketPhase.Review]: ({ path }) => ({
+    page: 'applications',
+    statement: `${REVIEW_LEAD[path]} Every application is decided: begin assignment.`,
+  }),
+  // Worked on the rules until there is a result, and on the result after.
+  [MarketPhase.Assignment]: ({ assigned }) =>
+    assigned
+      ? {
+          page: 'result',
+          statement:
+            'Check the result, then publish the market: that puts the check-in page up, and cannot be undone.',
+        }
+      : { page: 'assignment', statement: 'Set the rules and run the assignment.' },
+  [MarketPhase.Offers]: ({ assigned, path }) => ({
+    page: assigned ? 'result' : 'assignment',
+    statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,
+  }),
+  [MarketPhase.MarketDays]: ({ ended }) => ({
+    page: 'attendance',
+    statement: ended
+      ? 'The market has run. Archive it to keep it as the record of what happened.'
+      : 'Check vendors in at the door.',
+  }),
+  // One that never ran has nothing to show but its plan.
+  [MarketPhase.Archived]: ({ assigned, ran }) => ({
+    page: assigned ? 'result' : 'setup',
+    statement: ran
+      ? 'Archived: the record of what happened stays on its check-in page.'
+      : 'Archived: this market is the record of what happened.',
+    links: false,
+  }),
+};
+
+function rowFor(phase: string, standing: Standing): GuideRow {
+  // A phase this build does not recognise still gets a page. Every market has a plan, so it is the
+  // one page that is never wrong to show.
+  return (
+    GUIDE[phase]?.(standing) ?? {
+      page: 'setup',
+      statement: `This market is in ${pathPhaseLabel(phase, standing.path)}.`,
+    }
+  );
+}
+
+/**
+ * The page a market is worked on in its phase: the one carrying the dot, and where it lands. The
+ * guide's own page for the phase; only the phase and whether a run is stored decide it.
+ */
+export function currentPage(phase: string | undefined | null, hasAssignment: boolean): MarketPage {
+  return rowFor(String(phase ?? MarketPhase.Draft), {
+    path: IntakeMode.Csv,
+    assigned: hasAssignment,
+    ended: false,
+    ran: false,
+  }).page;
+}
+
+/** The page a tab opens: the one carrying the dot when the tab holds it, else its first. */
+export function pageForTab(
+  tab: MarketTab,
+  phase: string | undefined | null,
+  hasAssignment: boolean,
+): MarketPage {
+  const current = currentPage(phase, hasAssignment);
+  return TAB_PAGES[tab].includes(current) ? current : TAB_PAGES[tab][0];
+}
 
 /** The rail's statement for this market, now. */
 export function nextStep(market: Market, today: string = calendarToday()): NextStep {
   const phase = String(market.phase ?? MarketPhase.Draft);
   const path = intakeModeOf(market);
+  const assigned = hasAssignment(market);
   const forward = forwardFrom(market, today);
   const [blocker] = blockersFor(market, forward);
   // Before a run, running is the step, and the sentence says so; Publish still waits, disabled with
   // its own reason. Anywhere else a refused step onward is the next thing to put right.
-  const runFirst = phase === MarketPhase.Assignment && !hasAssignment(market);
+  const runFirst = phase === MarketPhase.Assignment && !assigned;
   if (forward && blocker && !runFirst) {
+    const review = phase === MarketPhase.Review;
+    const ask =
+      review && blocker.id === UNDECIDED
+        ? 'Finish deciding'
+        : `To ${pathTransitionLabel(phase, forward, path).toLowerCase()}`;
     return {
-      text: `To ${pathTransitionLabel(phase, forward, path).toLowerCase()}: ${blocker.message}`,
+      text: `${review ? `${REVIEW_LEAD[path]} ` : ''}${ask}: ${blocker.message}`,
       page: blocker.resolutionLink ?? null,
       blocker,
     };
   }
-  const page = currentPage(phase, hasAssignment(market));
-  const said = (text: string, where: MarketPage | null = page): NextStep => ({
-    text,
-    page: where,
-    blocker: null,
+  const row = rowFor(phase, {
+    path,
+    assigned,
+    ended: lastDateHasPassed(market, today),
+    ran: (market.phasesReached ?? []).includes(MarketPhase.MarketDays),
   });
-
-  if (STATEMENTS[phase]) return said(STATEMENTS[phase][path]);
-  switch (phase) {
-    case MarketPhase.Assignment:
-      return hasAssignment(market)
-        ? said(
-            'Check the result, then publish the market: that puts the check-in page up, and cannot be undone.',
-          )
-        : said('Set the rules and run the assignment.');
-    case MarketPhase.MarketDays:
-      return lastDateHasPassed(market, today)
-        ? said('The market has run. Archive it to keep it as the record of what happened.')
-        : said('Check vendors in at the door.');
-    case MarketPhase.Archived:
-      return said('Archived: this market is the record of what happened.', null);
-    default:
-      return said(`This market is in ${pathPhaseLabel(phase, path)}.`);
-  }
+  return { text: row.statement, page: row.links === false ? null : row.page, blocker: null };
 }
+
+/** The guard that holds review open while an application is undecided (`guards.py`). */
+const UNDECIDED = 'all_applications_reviewed';
 
 /** A tab as the market's own path names it: a CSV market's form is the questions its file maps onto. */
 export function pathTabLabel(

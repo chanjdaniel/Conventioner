@@ -14,12 +14,10 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import type { Market } from '@/assets/types/datatypes';
 import { marketPath } from '@/utils/market';
-import { intakeModeOf, pathTabLabel } from '@/utils/marketGuide';
+import { currentPage, intakeModeOf, pageForTab, pathTabLabel } from '@/utils/marketGuide';
 import {
   TAB_LABELS,
-  currentPage,
   hasAssignment,
-  pageForTab,
   pageOfRoute,
   tabOf,
   tabsFor,

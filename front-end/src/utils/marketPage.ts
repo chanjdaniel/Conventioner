@@ -12,7 +12,7 @@
  * bar and the rail beneath it say the same thing about where the market is. This replaced
  * `marketSurface.ts`, whose four surfaces could not name Result, Vendors or Attendance.
  */
-import { MarketPhase, type Market } from '@/assets/types/datatypes';
+import { type Market } from '@/assets/types/datatypes';
 
 export type MarketPage =
   'setup' | 'form' | 'applications' | 'assignment' | 'result' | 'vendors' | 'attendance';
@@ -101,44 +101,6 @@ export function tabOf(where: MarketPage | MarketFlow): MarketTab {
     TAB_PAGES[t].includes(where as MarketPage),
   );
   return tab ?? 'setup';
-}
-
-/**
- * The page a market is worked on in its phase: the one carrying the dot.
- *
- * `hasAssignment` because the assignment phase is worked on the rules until there is a result, and
- * on the result after; an archived market that never ran one has nothing to show but its plan.
- */
-export function currentPage(phase: string | undefined | null, hasAssignment: boolean): MarketPage {
-  switch (phase) {
-    case MarketPhase.Draft:
-      return 'setup';
-    case MarketPhase.ApplicationsOpen:
-    case MarketPhase.ApplicationsClosed:
-    case MarketPhase.Review:
-      return 'applications';
-    case MarketPhase.Assignment:
-    case MarketPhase.Offers:
-      return hasAssignment ? 'result' : 'assignment';
-    case MarketPhase.MarketDays:
-      return 'attendance';
-    case MarketPhase.Archived:
-      return hasAssignment ? 'result' : 'setup';
-    default:
-      // A phase this build does not recognise still gets a page. Every market has a plan, so it
-      // is the one page that is never wrong to show.
-      return 'setup';
-  }
-}
-
-/** The page a tab opens: the one carrying the dot when the tab holds it, else its first. */
-export function pageForTab(
-  tab: MarketTab,
-  phase: string | undefined | null,
-  hasAssignment: boolean,
-): MarketPage {
-  const current = currentPage(phase, hasAssignment);
-  return TAB_PAGES[tab].includes(current) ? current : TAB_PAGES[tab][0];
 }
 
 /**
