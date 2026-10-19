@@ -75,9 +75,19 @@ export class ApplicationMonitorPage {
     const remaining = await this.remaining();
     for (let seen = 0; seen < remaining; seen += 1) {
       if ((await this.email.textContent())?.trim() === applicantEmail) return;
-      await this.nextButton.click();
+      await this.nextCard();
     }
     await expect(this.email).toHaveText(applicantEmail);
+  }
+
+  /**
+   * Next, and wait for the card it hands over. The next card is the server's to hand out
+   * (E34/F03/S02), so it arrives a round trip after the click, not with it.
+   */
+  async nextCard(): Promise<void> {
+    const before = ((await this.email.textContent()) ?? '').trim();
+    await this.nextButton.click();
+    await expect(this.email).not.toHaveText(before);
   }
 
   /** Approve one applicant, and wait for the queue to shrink before moving on. */
@@ -109,7 +119,7 @@ export class ApplicationMonitorPage {
     const seen: string[] = [];
     for (let i = 0; i < remaining; i += 1) {
       seen.push(((await this.email.textContent()) ?? '').trim());
-      if (i < remaining - 1) await this.nextButton.click();
+      if (i < remaining - 1) await this.nextCard();
     }
     return seen;
   }

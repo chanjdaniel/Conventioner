@@ -7,12 +7,14 @@ import {
 } from './helpers/seedPhaseMarket';
 import { marketScreenPath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { mongoEval } from './helpers/mongo';
 import { withUser } from './helpers/withUser';
 
 /**
  * A verdict is written only on what the reviewer saw (E34/F03/S01).
  *
- * Two reviewers on one market, the same card in front of both. The first verdict is written; the
+ * Two reviewers on one market, the same card in front of both - which a claim prevents unless it
+ * lapsed (E34/F03/S02), as it does here. The first verdict is written; the
  * second is refused, says who decided and what, and leaves the reviewer on that application as it
  * now stands. Before, the last verdict silently won.
  */
@@ -45,6 +47,13 @@ test('the second of two verdicts on one card is refused, naming the first', asyn
   await page.goto(marketScreenPath(marketId, 'applications'));
   await first.waitForLoaded();
   await expect(first.email).toHaveText('nadia@ember.test');
+
+  // A claim keeps two reviewers off one card (E34/F03/S02); this is the case it cannot: the first
+  // reviewer's claim lapsed - they stepped away - and the card was handed out again.
+  mongoEval(
+    `db.applications.updateMany({ market_id: ${JSON.stringify(marketId)} }, ` +
+      `{ $set: { held_until: '2000-01-01T00:00:00+00:00' } })`,
+  );
 
   await withUser(browser, SECOND.email, SECOND.password, async (other) => {
     const second = new ApplicationMonitorPage(other);
