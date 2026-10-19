@@ -124,3 +124,19 @@ class TestWhoHoldsItIsShown:
         lapsed = ApplicantsApi._application_response_organizer(
             held, now=NOW + timedelta(minutes=6))
         assert lapsed["heldBy"] is None
+
+
+class TestOneAskedForByName:
+    def test_is_handed_out_first_when_free(self, stored):
+        doc = ApplicationsApi.claim_next_for_review(
+            "market-1", ALEX, None, False, now=NOW, want="third")
+
+        assert doc["id"] == "third"
+
+    def test_is_not_when_someone_else_holds_it(self, stored):
+        _next(SAM)  # first
+
+        doc = ApplicationsApi.claim_next_for_review(
+            "market-1", ALEX, None, False, now=NOW, want="first")
+
+        assert doc["id"] == "second"

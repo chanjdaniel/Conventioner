@@ -47,7 +47,7 @@ def stored(monkeypatch):
 def test_each_is_written_as_one_verdict_and_the_rest_skipped_saying_why(stored):
     body, status = ApplicantsApi.review_selection(
         "market-1",
-        [{"id": i, "seen": SEEN_OPEN} for i in ("a", "b", "held", "changed")],
+        [(i, ApplicantsApi.seen_from(SEEN_OPEN)) for i in ("a", "b", "held", "changed")],
         ApplicationStatus.REVIEWER_APPROVED, by=ALEX)
 
     assert status == 200
@@ -66,7 +66,7 @@ def test_one_the_reviewer_holds_themselves_is_written(stored):
     stored["held"]["held_by"] = {"user_id": "user-alex", "email": "alex@market.test"}
 
     body, _ = ApplicantsApi.review_selection(
-        "market-1", [{"id": "held", "seen": SEEN_OPEN}], ApplicationStatus.REVIEWER_REJECTED,
+        "market-1", [("held", ApplicantsApi.seen_from(SEEN_OPEN))], ApplicationStatus.REVIEWER_REJECTED,
         by=ALEX)
 
     assert body["written"] == ["held"]
@@ -76,6 +76,18 @@ def test_an_application_of_another_market_is_skipped(stored):
     stored["a"]["market_id"] = "market-2"
 
     body, _ = ApplicantsApi.review_selection(
-        "market-1", [{"id": "a", "seen": SEEN_OPEN}], ApplicationStatus.REVIEWER_APPROVED, by=ALEX)
+        "market-1", [("a", ApplicantsApi.seen_from(SEEN_OPEN))], ApplicationStatus.REVIEWER_APPROVED, by=ALEX)
 
     assert body["written"] == [] and body["skipped"][0]["reason"] == "Not an application here."
+
+
+def test_one_already_at_the_status_is_skipped_rather_than_changing_hands(stored):
+    stored["a"]["status"] = "needs_follow_up"
+    stored["a"]["follow_up_owner"] = {"user_id": "user-sam", "email": "sam@market.test"}
+
+    body, _ = ApplicantsApi.review_selection(
+        "market-1", [("a", ApplicantsApi.seen_from({"status": "needs_follow_up"}))],
+        ApplicationStatus.NEEDS_FOLLOW_UP, by=ALEX)
+
+    assert body["skipped"][0]["reason"] == "Already needing a follow-up."
+    assert stored["a"]["follow_up_owner"]["email"] == "sam@market.test"

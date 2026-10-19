@@ -18,10 +18,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { ApplicationStatus, IntakeMode } from '@/assets/types/datatypes';
 import {
-  changedSinceSeen,
   fetchMarketApplications,
   reassignFollowUp,
-  reviewApplication,
   publishResults as publishResultsApi,
 } from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
@@ -32,18 +30,17 @@ import {
   reviewQueue,
   reviewed,
 } from '@/utils/reviewQueue';
-import { signedInEmail } from '@/utils/signedIn';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
-import { useMarketStore } from '@/stores/market';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
-import { statusLabel, verdictGiverLine } from '@/utils/verdicts';
-import { saveVendorNote, useVendorNotes } from '@/utils/vendorNotes';
+import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
+import { useVendorNotes } from '@/utils/vendorNotes';
 import { useReviewClaims } from '@/utils/reviewClaims';
+import { useVerdictActions, type VerdictOutcome } from '@/utils/verdictActions';
 import { getTimestampDate } from '@/utils/utils';
 
 const props = defineProps<{
@@ -55,7 +52,6 @@ const props = defineProps<{
    */
   named?: string;
 }>();
-const marketStore = useMarketStore();
 
 const emit = defineEmits<{ (event: 'update:undecidedCount', value: number): void }>();
 
@@ -69,25 +65,6 @@ const saving = ref(false);
 /** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
 const cursor = ref(0);
 const showDecided = ref(false);
-
-/*
- * A status is a chip, tinted, in the product's tones (bug 43). These were solid fills, so in the
- * reviewed list "Rejected" sat beside "Approve instead" as two filled pills in the same two
- * colours, and nothing said which was the verdict and which the action.
- */
-const statusTones: Record<string, string> = {
-  open: 'informational',
-  under_review: 'attention',
-  reviewer_approved: 'positive',
-  reviewer_rejected: 'destructive',
-  needs_follow_up: 'attention',
-  unassigned: 'neutral',
-  assigned: 'informational',
-  assignment_sent: 'neutral',
-  vendor_accepted: 'positive',
-  vendor_refused: 'destructive',
-  cancelled: 'neutral',
-};
 
 /**
  * Whether the one-by-one review takes the follow-ups too, after the rest (E34/F02/S01). Off by
@@ -202,13 +179,44 @@ watch(
 const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
 
 /**
- * Whether this person may decide applications: EDITOR, like every other change to the market's
- * contents (E34/F01/S01), so a reviewing team needs no role that also moves the phase. Viewers and
- * archived markets read the applications and their verdicts; the server refuses the write too.
+ * Whether this person may give verdicts here: the server's `verdictLockReason` (E34) - EDITOR, like
+ * every other change to the market's contents (E34/F01/S01), while the market can still run its
+ * assignment. Viewers, archived markets and settled ones read the applications and their verdicts.
  */
-const decides = computed(() => !readOnly.value);
+const decides = computed(() => !props.market?.verdictLockReason);
 /** Whether this person may publish the verdicts - an ADMIN action (bug 37), as it always was. */
 const publishes = computed(() => !props.market?.adminActionsReason && !readOnly.value);
+
+/**
+ * The organizer's notes on the applicant up (E31/F04/S04). Their own request is among the answers
+ * above, so the notes here are the organizer's side alone.
+ */
+const notesMarketId = computed(() => props.market?.id ?? '');
+const { load: loadNotes, entryFor } = useVendorNotes(notesMarketId);
+
+/** Giving verdicts, as the All view gives them too (`useVerdictActions`). */
+const verdicts = useVerdictActions(
+  computed(() => props.market),
+  applications,
+);
+const { me, people, adopt } = verdicts;
+
+/**
+ * The card a reviewer holds (E34/F03/S02): handed out by the server, so two reviewers walk different
+ * cards. Someone who may only read walks the queue here, as before, holding nothing.
+ */
+const claims = useReviewClaims(computed(() => props.market?.id ?? ''));
+/** Every card left is open with another reviewer: there is nothing to hand out right now. */
+const allHeldElsewhere = ref(false);
+/** Who holds the cards nobody can be handed, for the line that says so. */
+const holders = computed(() => [
+  ...new Set(undecided.value.map((app) => app.heldBy?.email).filter(Boolean) as string[]),
+]);
+/** Someone else has the card on screen open: a reader's walk passes cards being decided. */
+const heldByOther = computed(() => {
+  const holder = current.value?.heldBy?.email;
+  return holder && holder.toLowerCase() !== me.value.toLowerCase() ? holder : null;
+});
 
 // Reload the queue when the surface is shown or a different MARKET opens - not whenever the store
 // re-reads this one. It re-reads after every write now (E21/F02/S02), a highlight toggle included,
@@ -230,17 +238,19 @@ watch(
 );
 
 /**
- * Open at the named application: on the card if it is still to decide, otherwise in the reviewed
- * list, opened, scrolled to and marked.
+ * Open at the named application: on the card if it is still to decide - claimed for a reviewer,
+ * unless someone else has it - otherwise in the reviewed list, opened, scrolled to and marked.
  */
-function showNamed() {
+async function showNamed() {
   const id = props.named;
   if (!id) return;
   const waiting = undecided.value.findIndex((app) => app.id === id);
   if (waiting >= 0) {
-    cursor.value = waiting;
+    if (decides.value) await takeNext(null, id);
+    else cursor.value = waiting;
     return;
   }
+  if (decides.value) await takeNext(null);
   if (!decided.value.some((app) => app.id === id)) return;
   showDecided.value = true;
   void nextTick(() =>
@@ -248,37 +258,14 @@ function showNamed() {
   );
 }
 
-/**
- * The card a reviewer holds (E34/F03/S02): handed out by the server, so two reviewers walk different
- * cards. Someone who may only read walks the queue here, as before, holding nothing.
- */
-const claims = useReviewClaims(computed(() => props.market?.id ?? ''));
-/** Every card left is open with another reviewer: there is nothing to hand out right now. */
-const allHeldElsewhere = ref(false);
-/** Who holds the cards nobody can be handed, for the line that says so. */
-const holders = computed(() => [
-  ...new Set(undecided.value.map((app) => app.heldBy?.email).filter(Boolean) as string[]),
-]);
-
-/**
- * Take an application the server answered with, so the list shows it as it now stands. Merged over
- * what the list holds: a single application's answer carries none of what only the list derives -
- * a table-share notice is read against every other application (E27/F01/S03).
- */
-function adopt(app: Application) {
-  const index = applications.value.findIndex((a) => a.id === app.id);
-  if (index !== -1) applications.value[index] = { ...applications.value[index], ...app };
-  else applications.value.push(app);
-}
-
 /** Put the next card up: the server's to hand out for a reviewer, the queue's own for a reader. */
-async function takeNext(after: string | null) {
+async function takeNext(after: string | null, want: string | null = null) {
   if (!decides.value || !props.market) {
     if (undecided.value.length) cursor.value = (cursor.value + 1) % undecided.value.length;
     return;
   }
   try {
-    const app = await claims.next(after, includeFollowUps.value);
+    const app = await claims.next(after, includeFollowUps.value, want);
     if (app) adopt(app);
     // Nothing handed out: read who holds what now, to say so.
     else applications.value = await fetchMarketApplications(props.market.id);
@@ -301,7 +288,7 @@ async function loadApplications() {
   try {
     applications.value = await fetchMarketApplications(props.market.id);
     cursor.value = 0;
-    if (props.named) showNamed();
+    if (props.named) await showNamed();
     else if (decides.value) await takeNext(null);
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, 'Failed to load applications');
@@ -311,41 +298,40 @@ async function loadApplications() {
 }
 
 /**
- * Record one verdict, and keep the local list in step with the answer rather than refetching.
+ * After a verdict, a follow-up or a refusal: what the card does next. Only the card on screen moves
+ * the queue on - correcting a past verdict in the reviewed list leaves the reviewer where they were.
  *
- * A refetch per verdict is 232 fetches of 232 applications across one review session; on the real
- * export that was the whole difference between a queue that keeps up with typing and one that
- * does not. The endpoint returns the application it wrote, so the list already has the truth.
- *
- * The MARKET is re-read, though, without being waited on: a verdict is a write, and what the rail
- * says of each move - "Begin Assignment" waits on the last undecided application - is served on the
- * market (E31/F02/S01). One small read, never the list.
+ * The local list is kept in step with the answer rather than refetched: a refetch per verdict is 232
+ * fetches of 232 applications across one review session.
  */
-async function decide(app: Application, status: ApplicationStatus, ownerEmail?: string) {
+async function settle(app: Application, outcome: VerdictOutcome) {
+  const onCard = app.id === current.value?.id || app.id === refusedOn.value;
+  if (outcome.kind === 'failed') {
+    errorMessage.value = outcome.message;
+    return;
+  }
+  if (outcome.kind === 'changed') {
+    // Nothing was written: show what is really there, and who put it there (E34/F03/S01).
+    refusedOn.value = app.id;
+    errorMessage.value = outcome.message;
+    return;
+  }
+  refusedOn.value = null;
+  if (!onCard) return;
+  if (decides.value) {
+    // The verdict let go of it; the next card is the server's to hand out (E34/F03/S02).
+    await takeNext(app.id);
+  } else if (cursor.value >= undecided.value.length) {
+    cursor.value = Math.max(undecided.value.length - 1, 0);
+  }
+}
+
+async function decide(app: Application, status: ApplicationStatus) {
   if (!props.market || saving.value) return;
   saving.value = true;
   errorMessage.value = '';
   try {
-    const updated = await reviewApplication(props.market.id, app, status, ownerEmail);
-    adopt(updated);
-    refusedOn.value = null;
-    void marketStore.refresh();
-    if (decides.value) {
-      // The verdict let go of it; the next card is the server's to hand out (E34/F03/S02).
-      await takeNext(app.id);
-    } else if (cursor.value >= undecided.value.length) {
-      cursor.value = Math.max(undecided.value.length - 1, 0);
-    }
-  } catch (err) {
-    const changed = changedSinceSeen(err);
-    if (changed) {
-      // Nothing was written: show what is really there, and who put it there.
-      adopt(changed.application);
-      refusedOn.value = app.id;
-      errorMessage.value = changed.message;
-    } else {
-      errorMessage.value = getApiErrorMessage(err, 'Failed to update application');
-    }
+    await settle(app, await verdicts.give(app, status));
   } finally {
     saving.value = false;
   }
@@ -374,35 +360,32 @@ function next() {
 /**
  * Needs follow-up, in place of Skip, which recorded nothing (E34/F02/S01): a stored status, owned by
  * the reviewer unless they name someone else with a role on the market, with what is needed kept
- * in the vendor's notes.
+ * in the vendor's notes - which the dialog opens on, so nothing there is written over.
  */
 const followUpOpen = ref(false);
 const followUpError = ref('');
-const me = computed(() => signedInEmail() ?? '');
-/** Everyone with a role on the market: the people Manage market lists. */
-const people = computed(() =>
-  Object.keys(props.market?.roles ?? {})
-    .map((id) => props.market?.roleEmails?.[id])
-    .filter((email): email is string => Boolean(email)),
-);
 
-async function markFollowUp({ ownerEmail, note }: { ownerEmail: string; note: string }) {
+async function markFollowUp(choice: { ownerEmail: string; note: string }) {
   const app = current.value;
-  if (!app || !props.market) return;
+  if (!app || saving.value) return;
   followUpError.value = '';
+  saving.value = true;
   try {
-    if (note) await saveVendorNote(props.market.id, app.applicantEmail, note);
-  } catch (err) {
-    followUpError.value = getApiErrorMessage(err, 'Could not keep the note.');
-    return;
+    const outcome = await verdicts.markFollowUp(
+      app,
+      choice,
+      entryFor(app.applicantEmail)?.note ?? '',
+    );
+    void loadNotes();
+    if (outcome.kind === 'failed') {
+      followUpError.value = outcome.message;
+      return;
+    }
+    followUpOpen.value = false;
+    await settle(app, outcome);
+  } finally {
+    saving.value = false;
   }
-  await decide(
-    app,
-    ApplicationStatus.NeedsFollowUp,
-    ownerEmail === me.value ? undefined : ownerEmail,
-  );
-  if (note) void loadNotes();
-  followUpOpen.value = !!errorMessage.value;
 }
 
 async function reassign(app: Application, ownerEmail: string) {
@@ -415,34 +398,47 @@ async function reassign(app: Application, ownerEmail: string) {
   }
 }
 
-/**
- * The organizer's notes on the applicant up (E31/F04/S04). Their own request is among the answers
- * above, so the notes here are the organizer's side alone.
- */
-const notesMarketId = computed(() => props.market?.id ?? '');
-const { load: loadNotes, entryFor } = useVendorNotes(notesMarketId);
-
+/** The keys: A, R and S decide - a reviewer's - and N moves on, for anyone walking the queue. */
 function onKey(event: KeyboardEvent) {
-  if (!props.visible || !current.value || !decides.value) return;
+  if (!props.visible || !current.value) return;
+  // A dialog is open over the card: its own controls have the keyboard.
+  if (followUpOpen.value) return;
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   const target = event.target as HTMLElement | null;
   if (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable)) {
     return;
   }
   const key = event.key.toLowerCase();
-  if (key !== 'a' && key !== 'r' && key !== 's' && key !== 'n') return;
+  if (key === 'n') {
+    event.preventDefault();
+    next();
+    return;
+  }
+  if (!decides.value || (key !== 'a' && key !== 'r' && key !== 's')) return;
   event.preventDefault();
   if (key === 'a') decideCurrent(ApplicationStatus.ReviewerApproved);
   if (key === 'r') decideCurrent(ApplicationStatus.ReviewerRejected);
-  if (key === 'n') next();
   // S was Skip; it marks the follow-up now, the dialog asking who and what (E34/F02/S01).
   if (key === 's' && current.value.status !== ApplicationStatus.NeedsFollowUp) {
     followUpOpen.value = true;
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onKey));
-onUnmounted(() => window.removeEventListener('keydown', onKey));
+/** Anything the reviewer does keeps their card theirs (E34/F03/S02). */
+function active() {
+  claims.touch();
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKey);
+  window.addEventListener('keydown', active);
+  window.addEventListener('pointerdown', active);
+});
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKey);
+  window.removeEventListener('keydown', active);
+  window.removeEventListener('pointerdown', active);
+});
 
 async function handlePublish() {
   if (!props.market) return;
@@ -456,10 +452,6 @@ async function handlePublish() {
   } finally {
     publishLoading.value = false;
   }
-}
-
-function statusChip(status: string): string {
-  return `chip chip--${statusTones[status] ?? 'neutral'}`;
 }
 
 /** The applicant's own words in answer to the table-share question, for its notice. */
@@ -568,6 +560,10 @@ function submittedOn(app: Application): string {
           </span>
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
+        <!-- Another reviewer has it open: a reader sees it is being decided (E34/F03/S02). -->
+        <p v-if="heldByOther" class="held-by" data-testid="app-monitor-held-by">
+          {{ heldByOther }} is looking at this.
+        </p>
         <!-- Someone decided it first: said here, on what they decided (E34/F03/S01). -->
         <p v-if="refusedOn" class="changed-since" data-testid="app-monitor-changed" role="alert">
           {{ errorMessage }}
@@ -690,9 +686,11 @@ function submittedOn(app: Application): string {
           </div>
         </div>
 
-        <div v-if="decides" class="card-actions">
+        <!-- A reader walks the queue with Next alone; the verdicts are a reviewer's. -->
+        <div class="card-actions">
           <button
-            class="reject-button"
+            v-if="decides"
+            class="btn btn--destructive"
             :disabled="saving"
             @click="decideCurrent(ApplicationStatus.ReviewerRejected)"
             data-testid="app-monitor-reject-button"
@@ -700,8 +698,8 @@ function submittedOn(app: Application): string {
             Reject <kbd>R</kbd>
           </button>
           <button
-            v-if="current.status !== ApplicationStatus.NeedsFollowUp"
-            class="queue-button"
+            v-if="decides && current.status !== ApplicationStatus.NeedsFollowUp"
+            class="btn btn--secondary"
             :disabled="saving"
             @click="followUpOpen = true"
             data-testid="app-monitor-follow-up-button"
@@ -709,7 +707,7 @@ function submittedOn(app: Application): string {
             Needs follow-up <kbd>S</kbd>
           </button>
           <button
-            class="queue-button"
+            class="btn btn--secondary"
             :disabled="saving || (!refusedOn && undecided.length < 2)"
             @click="next"
             data-testid="app-monitor-next-button"
@@ -717,7 +715,8 @@ function submittedOn(app: Application): string {
             {{ refusedOn ? 'Back to the queue' : 'Next' }} <kbd>N</kbd>
           </button>
           <button
-            class="approve-button"
+            v-if="decides"
+            class="btn btn--primary"
             :disabled="saving"
             @click="decideCurrent(ApplicationStatus.ReviewerApproved)"
             data-testid="app-monitor-approve-button"
@@ -757,7 +756,8 @@ function submittedOn(app: Application): string {
         :applicantEmail="current?.applicantEmail ?? ''"
         :people="people"
         :me="me"
-        :error="followUpError || errorMessage"
+        :note="current ? (entryFor(current.applicantEmail)?.note ?? '') : ''"
+        :error="followUpError"
         @close="followUpOpen = false"
         @confirm="markFollowUp"
       />
@@ -972,6 +972,12 @@ function submittedOn(app: Application): string {
   color: inherit;
 }
 
+.held-by {
+  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted-on-beige);
+}
+
 .include-follow-ups {
   display: inline-flex;
   align-items: center;
@@ -1109,7 +1115,7 @@ function submittedOn(app: Application): string {
 
 .card-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -1117,61 +1123,13 @@ function submittedOn(app: Application): string {
   flex: 1 1 8rem;
 }
 
-.approve-button,
-.reject-button,
-.queue-button {
-  border: none;
-  border-radius: var(--radius-control);
-  padding: 10px 16px;
-  cursor: pointer;
-  font-size: var(--text-sm);
-  color: white;
+/* A reader's Next alone stays a button's width rather than a bar across the card. */
+.card-actions button:only-child {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
-.queue-button {
-  border: 1px solid var(--mm-border);
-}
-
-/* The brand green, which is also the passing one: 4.59 under white text. It used to be var(--mm-green),
-   which cleared AA by 0.06 - all three verdict buttons were coloured without the contrast contract
-   in view and this is the one that happened to land on the right side of it (E16/F01/S03). */
-.approve-button {
-  background: var(--mm-green);
-}
-
-.approve-button:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.reject-button {
-  background: var(--mm-red);
-}
-
-.reject-button:hover:not(:disabled) {
-  /* One red for one meaning, so a hover cannot be a second red. The product already
-     answers the pointer this way on its other solid fills (E16/F01). */
-  opacity: 0.9;
-}
-
-/* Not a verdict, and not a fill. White on --mm-border measured 1.74, and that token is declared a
-   line colour that never carries text - the contrast test exempts it on exactly that grounds, which
-   is why nothing caught this. An outline says "this decides nothing" and uses the token for its
-   own job (E16/F01/S03). */
-.queue-button {
-  background: white;
-  color: var(--mm-black);
-  border: 1px solid var(--mm-border);
-}
-
-.approve-button:disabled,
-.reject-button:disabled,
-.queue-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Boxed in its own button's ink, so it shows on Skip's white as on the two fills: a white border
-   left the "S" with no box at all (bug 43). */
+/* The verdicts are the primitives' (`.btn`): one height, one focus ring, one disabled state. */
 .card-actions kbd {
   font-family: monospace;
   font-size: var(--text-xs);

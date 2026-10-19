@@ -23,7 +23,6 @@ import type {
 
 interface AssignmentStatisticsResponse {
   unassignedVendors?: unknown[];
-  unassigned_vendors?: unknown[];
   unplacedDates?: UnplacedDate[];
   overriddenPlacements?: OverriddenPlacement[];
 }
@@ -95,7 +94,8 @@ function assignmentSummary(assignment: VendorTableAssignment): string {
   return parts.join(' - ');
 }
 
-const key = (email: string, date: string) => `${email.trim().toLowerCase()}|${date}`;
+/** One vendor on one date, as the reason and override indexes key them. */
+const vendorOnDate = (email: string, date: string) => `${email.trim().toLowerCase()}|${date}`;
 
 /**
  * A market's vendors, each with their application and their seats (E35/F01/S01): what the Vendors
@@ -140,8 +140,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
       );
       unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
       placementOverrides.value = overrideIndex(statsResp.data?.overriddenPlacements ?? []);
-      const statsList =
-        statsResp.data?.unassignedVendors ?? statsResp.data?.unassigned_vendors ?? [];
+      const statsList = statsResp.data?.unassignedVendors ?? [];
       unassignedEmails.value = new Set(
         statsList.map((item) => extractEmail(item).toLowerCase()).filter(Boolean),
       );
@@ -155,6 +154,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
       vendorNames.value = {};
       placeable.value = new Set();
       unplacedReasons.value = new Map();
+      placementOverrides.value = new Map();
       unassignedEmails.value = new Set();
     } finally {
       isLoading.value = false;
@@ -243,12 +243,12 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
 
   /** Why they hold no table that day, as the server computed it; absent where they have one. */
   function reasonFor(email: string, date: string): PlacementReason | undefined {
-    return unplacedReasons.value.get(key(email, date));
+    return unplacedReasons.value.get(vendorOnDate(email, date));
   }
 
   /** What their placement that day overrides, when it was made by hand and contradicts them. */
   function overridesFor(email: string, date: string): PlacementOverride[] | undefined {
-    return placementOverrides.value.get(key(email, date));
+    return placementOverrides.value.get(vendorOnDate(email, date));
   }
 
   function isOrphaned(email: string, date: string): boolean {

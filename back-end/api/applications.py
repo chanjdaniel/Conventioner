@@ -233,8 +233,9 @@ def find_application_by_email(market_id: str, email: str) -> Optional[Dict[str, 
 
 #: Statuses nobody has decided yet.
 UNDECIDED_STATUSES = (ApplicationStatus.OPEN.value, ApplicationStatus.UNDER_REVIEW.value)
-_MARKED = (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED,
-           ApplicationStatus.NEEDS_FOLLOW_UP)
+#: The statuses a reviewer gives, each with who gave it: a verdict, or a follow-up (E34).
+MARKED_STATUSES = (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED,
+                   ApplicationStatus.NEEDS_FOLLOW_UP)
 
 
 def update_application_status(
@@ -250,13 +251,14 @@ def update_application_status(
     leaves no rule's reason behind.
 
     ``if_unchanged_since`` is the application as the caller read it: the write lands only if its
-    status and its verdict's time are still those, so a verdict given in between is never
-    overwritten (E33/F03/S02).
+    status, its verdict's time and its answers' time (``updated_at``) are still those, so neither a
+    verdict given in between nor answers changed in between - an applicant's edit, a re-import - is
+    written over (E33/F03/S02, E34/F03/S01).
 
     A follow-up is marked like a verdict, by someone, and has an ``owner``: the marker unless named
     (E34/F01/S02). Any other status clears the owner.
     """
-    if status in _MARKED and by is None:
+    if status in MARKED_STATUSES and by is None:
         raise ValueError("A verdict is written with the person or rule that gave it.")
     ensure_application_indexes()
     update: Dict[str, Any] = {"$set": {"status": status.value}}
@@ -270,7 +272,7 @@ def update_application_status(
         else:
             update["$unset"] = {"verdict_reason": ""}
     if status is ApplicationStatus.NEEDS_FOLLOW_UP:
-        named = owner or MarketPerson(user_id=by.user_id, email=by.email or "")
+        named = owner or MarketPerson(user_id=by.user_id, email=by.email or "")  # the marker
         update["$set"]["follow_up_owner"] = named.model_dump()
     else:
         update.setdefault("$unset", {})["follow_up_owner"] = ""
@@ -281,6 +283,8 @@ def update_application_status(
         query["status"] = if_unchanged_since.get("status")
         # Null or absent alike: an application is stored with ``verdict_at: null`` until a verdict.
         query["verdict_at"] = if_unchanged_since.get("verdict_at") or {"$in": [None]}
+        if if_unchanged_since.get("updated_at"):
+            query["updated_at"] = if_unchanged_since["updated_at"]
     result = applications_collection.update_one(query, update)
     return result.matched_count > 0
 
@@ -325,24 +329,35 @@ def _in_arrival_order(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return [doc for _, _, doc in keyed]
 
 
-def holds(doc: Dict[str, Any], now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+def holds(
+    held_by: Optional[Dict[str, Any]], held_until: Optional[str], now: Optional[datetime] = None,
+) -> Optional[Dict[str, Any]]:
     """Who holds an application right now, or None once the claim has lapsed."""
-    until = doc.get("held_until")
-    if not doc.get("held_by") or not until or until <= _now(now).isoformat():
+    if not held_by or not held_until:
         return None
-    return doc["held_by"]
+    try:
+        until = datetime.fromisoformat(held_until)
+    except ValueError:
+        return None
+    return held_by if until > _now(now) else None
+
+
+def holder_of(doc: Dict[str, Any], now: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+    """``holds`` for a stored application."""
+    return holds(doc.get("held_by"), doc.get("held_until"), now)
 
 
 def claim_next_for_review(
     market_id: str, person: MarketPerson, after: Optional[str], include_follow_ups: bool,
-    now: Optional[datetime] = None,
+    now: Optional[datetime] = None, want: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Hand ``person`` the next card to review, claimed for them, or None when every one left is
     held by someone else (E34/F03/S02).
 
     The next undecided application in arrival order after ``after`` - the one they move on from,
-    which comes round last - that nobody else holds. Taking it is conditioned on the claim it read,
-    so two reviewers asking at once are handed different cards. Their other claims are let go.
+    which comes round last - that nobody else holds. ``want`` is one they asked for by name (a link
+    to it), tried first. Taking it is conditioned on the claim it read, so two reviewers asking at
+    once are handed different cards. Their other claims are let go.
     """
     now = _now(now)
     statuses = UNDECIDED_STATUSES + (
@@ -351,9 +366,12 @@ def claim_next_for_review(
     queue = _in_arrival_order([doc for doc in docs if doc.get("status") in statuses])
     ids = [doc["id"] for doc in queue]
     start = ids.index(after) + 1 if after in ids else 0
+    order = queue[start:] + queue[:start]
+    if want in ids:
+        order = [queue[ids.index(want)]] + [doc for doc in order if doc["id"] != want]
     mine = person.model_dump()
-    for doc in queue[start:] + queue[:start]:
-        holder = holds(doc, now)
+    for doc in order:
+        holder = holder_of(doc, now)
         if holder is not None and holder != mine:
             continue
         taken = applications_collection.update_one(

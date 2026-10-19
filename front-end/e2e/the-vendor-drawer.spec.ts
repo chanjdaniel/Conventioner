@@ -1,6 +1,5 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
-import { marketScreenPath } from './helpers/marketScreens';
 import { VendorsPage } from './pages/VendorsPage';
 
 /**

@@ -66,7 +66,6 @@ const vendors = computed(() =>
  * list of them, which could only report an address.
  */
 const onlyUnassigned = computed(() => route.query.show === 'unassigned');
-// A vendor opened from it is there for their seats, so the drawer opens on them (E35/F01/S01).
 
 function showEveryone(): void {
   void router.replace({ query: withoutQueryKey(route.query, 'show') });
@@ -184,7 +183,7 @@ const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssig
             <button
               type="button"
               class="vendor-row-button"
-              @click="drawer.open(vendor.email, onlyUnassigned ? 'assignments' : 'application')"
+              @click="drawer.open(vendor.email)"
               data-testid="vendors-list-item"
             >
               <VendorIdentity

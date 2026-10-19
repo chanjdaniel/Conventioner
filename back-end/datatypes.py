@@ -670,6 +670,14 @@ class MarketPerson(BaseModel):
     user_id: Optional[str] = None
     email: str
 
+    def as_giver(self) -> "VerdictGiver":
+        """This person as the giver of a verdict."""
+        return VerdictGiver(kind="person", user_id=self.user_id, email=self.email)
+
+    def as_wire(self) -> Dict[str, Any]:
+        """As the organizer's views read a person: ``{userId, email}``."""
+        return {"userId": self.user_id, "email": self.email}
+
 
 class Application(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

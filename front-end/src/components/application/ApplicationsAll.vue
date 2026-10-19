@@ -7,18 +7,11 @@
  * owns, all in the address. A row opens the vendor drawer, which carries Approve, Reject and Needs
  * follow-up while the market is still deciding, each written only on what the reviewer saw.
  */
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter, type LocationQuery } from 'vue-router';
+import { ApplicationStatus, type Application, type Market } from '@/assets/types/datatypes';
 import {
-  ApplicationStatus,
-  MarketPhase,
-  type Application,
-  type Market,
-} from '@/assets/types/datatypes';
-import {
-  changedSinceSeen,
   fetchMarketApplications,
-  reviewApplication,
   reviewSelection,
   type SelectionResult,
 } from '@/utils/applicantApi';
@@ -31,12 +24,11 @@ import {
   reviewAnswers,
   reviewQueue,
 } from '@/utils/reviewQueue';
-import { signedInEmail } from '@/utils/signedIn';
 import { useVendorDetails } from '@/utils/vendorDetails';
 import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
-import { saveVendorNote } from '@/utils/vendorNotes';
-import { statusLabel, verdictGiverLine } from '@/utils/verdicts';
+import { useVerdictActions } from '@/utils/verdictActions';
+import { statusChip, statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import AppDialog from '@/components/AppDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
@@ -69,10 +61,36 @@ async function load() {
 }
 watch(marketId, () => void load(), { immediate: true });
 
+/**
+ * Read again every half minute while the tab is in view, so who holds what and what others decided
+ * show without a reload (E34/F03/S02) - a tick is refused rather than written over someone's card,
+ * but a row should not invite the tick in the first place. Quiet: a failed re-read keeps the list.
+ */
+const REREAD_MS = 30_000;
+let rereading: ReturnType<typeof setInterval> | null = null;
+async function reread() {
+  if (!marketId.value || document.visibilityState !== 'visible' || saving.value) return;
+  try {
+    applications.value = await fetchMarketApplications(marketId.value);
+  } catch {
+    // The list on screen stands; the next re-read tries again.
+  }
+}
+onMounted(() => (rereading = setInterval(() => void reread(), REREAD_MS)));
+onUnmounted(() => {
+  if (rereading) clearInterval(rereading);
+});
+
 /** The status filter and Mine, in the address beside the view itself. */
 const filter = computed(() => allViewFilter(route.query.status));
 const mine = computed(() => route.query.mine === '1');
-const me = computed(() => signedInEmail() ?? '');
+
+/** Giving verdicts, as the one-by-one review gives them too (`useVerdictActions`). */
+const verdicts = useVerdictActions(
+  computed(() => props.market),
+  applications,
+);
+const { me, people } = verdicts;
 
 function setQuery(change: Record<string, string | null>) {
   const query: LocationQuery = { ...route.query };
@@ -113,15 +131,6 @@ function holderOf(app: Application): string | null {
     : `${holder} is looking at this`;
 }
 
-const statusTone: Record<string, string> = {
-  [ApplicationStatus.Open]: 'informational',
-  [ApplicationStatus.UnderReview]: 'attention',
-  [ApplicationStatus.NeedsFollowUp]: 'attention',
-  [ApplicationStatus.ReviewerApproved]: 'positive',
-  [ApplicationStatus.ReviewerRejected]: 'destructive',
-};
-const chip = (status: string) => `chip chip--${statusTone[status] ?? 'neutral'}`;
-
 // --- The drawer, and the verdicts it carries during review -----------------------------------
 
 const details = useVendorDetails(
@@ -136,60 +145,52 @@ const opened = computed(() =>
     : null,
 );
 
-/** While the market is still deciding, and for someone who may: the verdicts are in the drawer. */
-const DECIDING_PHASES: readonly string[] = [
-  MarketPhase.ApplicationsOpen,
-  MarketPhase.ApplicationsClosed,
-  MarketPhase.Review,
-];
-const decides = computed(
-  () =>
-    !props.market?.readOnlyReason && DECIDING_PHASES.includes(String(props.market?.phase ?? '')),
-);
+/** For someone who may give verdicts, while the market can still use them: they are in the drawer. */
+const decides = computed(() => !props.market?.verdictLockReason);
 
 const saving = ref(false);
 const verdictMessage = ref('');
 const followUpOpen = ref(false);
-const people = computed(() =>
-  Object.keys(props.market?.roles ?? {})
-    .map((id) => props.market?.roleEmails?.[id])
-    .filter((email): email is string => Boolean(email)),
+const followUpError = ref('');
+/** The drawer holds the vendor's notes; the follow-up opens on them and writes beside them. */
+const drawerPanel = ref<InstanceType<typeof VendorDrawer> | null>(null);
+const noteBefore = computed(() =>
+  opened.value ? (drawerPanel.value?.entryFor(opened.value.applicantEmail)?.note ?? '') : '',
 );
 
-function adopt(app: Application) {
-  const index = applications.value.findIndex((a) => a.id === app.id);
-  if (index !== -1) applications.value[index] = { ...applications.value[index], ...app };
-}
-
-async function give(status: ApplicationStatus, ownerEmail?: string) {
+async function give(status: ApplicationStatus) {
   const app = opened.value;
-  if (!app || !props.market || saving.value) return;
+  if (!app || saving.value) return;
   saving.value = true;
   verdictMessage.value = '';
   try {
-    adopt(await reviewApplication(props.market.id, app, status, ownerEmail));
-    void details.load();
-    void marketStore.refresh();
-  } catch (err) {
-    const changed = changedSinceSeen(err);
-    if (changed) {
-      // Someone decided it first (E34/F03/S01): show what is really there, and who.
-      adopt(changed.application);
-      verdictMessage.value = changed.message;
-    } else {
-      verdictMessage.value = getApiErrorMessage(err, 'Failed to update application');
-    }
+    const outcome = await verdicts.give(app, status);
+    // Someone decided it first (E34/F03/S01): the drawer shows what is really there, and who.
+    if (outcome.kind !== 'written') verdictMessage.value = outcome.message;
+    else void details.load();
   } finally {
     saving.value = false;
   }
 }
 
-async function markFollowUp({ ownerEmail, note }: { ownerEmail: string; note: string }) {
+async function markFollowUp(choice: { ownerEmail: string; note: string }) {
   const app = opened.value;
-  if (!app || !props.market) return;
-  if (note) await saveVendorNote(props.market.id, app.applicantEmail, note);
-  await give(ApplicationStatus.NeedsFollowUp, ownerEmail === me.value ? undefined : ownerEmail);
-  followUpOpen.value = false;
+  if (!app || saving.value) return;
+  saving.value = true;
+  followUpError.value = '';
+  try {
+    const outcome = await verdicts.markFollowUp(app, choice, noteBefore.value);
+    void drawerPanel.value?.loadNotes();
+    if (outcome.kind === 'failed') {
+      followUpError.value = outcome.message;
+      return;
+    }
+    followUpOpen.value = false;
+    if (outcome.kind === 'changed') verdictMessage.value = outcome.message;
+    else void details.load();
+  } finally {
+    saving.value = false;
+  }
 }
 
 watch(
@@ -375,7 +376,7 @@ async function decideSelection() {
           </span>
           <span class="all-leading">{{ leading(app) }}</span>
           <span class="all-state">
-            <span :class="chip(app.status)" data-testid="applications-all-status">
+            <span :class="statusChip(app.status)" data-testid="applications-all-status">
               {{ statusLabel(app.status) }}
             </span>
             <span
@@ -396,6 +397,7 @@ async function decideSelection() {
     </ul>
 
     <VendorDrawer
+      ref="drawerPanel"
       :market="market"
       :details="details"
       :email="drawer.email.value"
@@ -406,10 +408,16 @@ async function decideSelection() {
       <template v-if="opened" #actions>
         <div class="drawer-verdict" data-testid="applications-all-drawer-verdict">
           <p class="drawer-status">
-            <span :class="chip(opened.status)">{{ statusLabel(opened.status) }}</span>
+            <span :class="statusChip(opened.status)">{{ statusLabel(opened.status) }}</span>
             <span v-if="verdictGiverLine(opened)" class="all-meta">{{
               verdictGiverLine(opened)
             }}</span>
+            <span
+              v-if="holderOf(opened)"
+              class="all-meta"
+              data-testid="applications-all-drawer-holder"
+              >{{ holderOf(opened) }}</span
+            >
           </p>
           <p v-if="verdictMessage" class="drawer-message" role="alert">{{ verdictMessage }}</p>
           <div v-if="decides" class="drawer-buttons">
@@ -456,8 +464,8 @@ async function decideSelection() {
       @submit="decideSelection"
     >
       <p class="all-confirm">
-        Each is written only if it is still as you see it here; any another reviewer has changed or
-        has open is skipped, and said so.
+        Each is written only if it is still as you see it here; any that another reviewer has
+        changed or has open is skipped, and said so.
         <template v-if="asking === ApplicationStatus.NeedsFollowUp">
           You will own the follow-ups.</template
         >
@@ -469,7 +477,8 @@ async function decideSelection() {
       :applicantEmail="opened?.applicantEmail ?? ''"
       :people="people"
       :me="me"
-      :error="verdictMessage"
+      :note="noteBefore"
+      :error="followUpError"
       @close="followUpOpen = false"
       @confirm="markFollowUp"
     />
@@ -639,7 +648,7 @@ async function decideSelection() {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-4) 22px;
+  padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--mm-border);
 }
 

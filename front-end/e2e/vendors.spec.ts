@@ -148,6 +148,8 @@ test.describe('Vendor browsing and search', () => {
     // It leads to that vendor's panel, where the date card says why rather than showing an
     // em dash on a card the same colour as a placed one.
     await page.waitForURL(/\/markets\/[^/]+\/vendors\?.*vendor=/, { timeout: 10000 });
+    // The drawer opens on their application, as everywhere; their seats are a tab away.
+    await new VendorsPage(page).openTab('assignments');
     const card = page.getByTestId('vendors-detail-assignment-item').first();
     await expect(card).toBeVisible({ timeout: 10000 });
     await expect(card).toHaveAttribute('data-state', 'unplaced');

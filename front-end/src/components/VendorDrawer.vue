@@ -18,7 +18,8 @@ import { marketPath } from '@/utils/market';
 import { TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import { dateLabel, type VendorDetails } from '@/utils/vendorDetails';
 import { vendorHeadline, vendorName } from '@/utils/vendorIdentity';
-import { useVendorNotes } from '@/utils/vendorNotes';
+import type { VendorTab } from '@/utils/vendorDrawer';
+import { hasNotes, useVendorNotes } from '@/utils/vendorNotes';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import { useInertBehind } from '@/utils/useInertBehind';
 import AnswerValue from '@/components/AnswerValue.vue';
@@ -26,8 +27,6 @@ import PlacementHistory from '@/components/PlacementHistory.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import VendorDateCard from '@/components/VendorDateCard.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
-
-export type VendorTab = 'application' | 'assignments' | 'history';
 
 const TABS: readonly { id: VendorTab; label: string }[] = [
   { id: 'application', label: 'Application' },
@@ -58,6 +57,10 @@ const names = computed(() => props.details.vendorNames.value);
 const submission = computed(() => (vendor.value ? props.details.submission(vendor.value) : []));
 
 const { load: loadNotes, entryFor } = useVendorNotes(marketId);
+const writesNotes = computed(() => !!props.market && !props.market.readOnlyReason);
+const showNotes = computed(
+  () => !!props.email && (writesNotes.value || hasNotes(entryFor(props.email))),
+);
 
 // The market's vendors and notes are read the first time the drawer opens on a screen that had no
 // call for them before.
@@ -75,6 +78,9 @@ function notesChanged() {
   void loadNotes();
   emit('notesChanged');
 }
+
+/** The notes as the drawer holds them, for a screen that writes one from beside it (E34/F02/S01). */
+defineExpose({ entryFor, loadNotes });
 
 /** Where to change this vendor's seat on a date; null where nothing can be changed (bug 30). */
 function resultLinkFor(date: string): string | null {
@@ -170,13 +176,14 @@ useInertBehind(
       <!-- What the screen that opened it offers here: the review's verdicts (E34/F04/S01). -->
       <slot name="actions" />
 
-      <!-- Pinned above the tabs: what the organizer knows reads on every tab. -->
-      <section class="detail-section">
+      <!-- Pinned above the tabs: what the organizer knows reads on every tab. A reader with nothing
+           noted sees no empty band for it. -->
+      <section v-if="showNotes" class="detail-section">
         <VendorNotes
           :marketId="marketId"
           :email="email"
           :entry="entryFor(email)"
-          :canWrite="!!market && !market.readOnlyReason"
+          :canWrite="writesNotes"
           open
           testid="vendors-detail-notes"
           @changed="notesChanged"
@@ -312,18 +319,18 @@ useInertBehind(
   top: 0;
   background: var(--mm-black);
   color: white;
-  padding: 20px 22px;
+  padding: var(--space-4) var(--space-6);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
   z-index: 1;
 }
 
 .detail-title-wrap {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -357,7 +364,7 @@ useInertBehind(
   font-size: var(--text-2xl);
   line-height: 1;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border-radius: var(--radius-control);
   transition: background-color 0.15s ease-in-out;
 }
@@ -367,11 +374,11 @@ useInertBehind(
 }
 
 .detail-section {
-  padding: 20px 22px;
+  padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--mm-border);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .detail-panel-body .detail-section:last-child {
@@ -382,7 +389,7 @@ useInertBehind(
 .detail-tabs {
   display: flex;
   gap: var(--space-1);
-  padding: 0 22px;
+  padding: 0 var(--space-6);
   border-bottom: 1px solid var(--mm-border);
 }
 
@@ -417,7 +424,7 @@ useInertBehind(
   font-family: 'Merge One', sans-serif;
   font-size: var(--text-md);
   color: var(--mm-black);
-  padding-bottom: 8px;
+  padding-bottom: var(--space-2);
   border-bottom: 2px solid var(--mm-border);
 }
 
@@ -425,7 +432,7 @@ useInertBehind(
   margin: 0;
   display: grid;
   grid-template-columns: minmax(120px, 0.6fr) 1fr;
-  gap: 8px 16px;
+  gap: var(--space-2) var(--space-4);
   font-size: var(--text-sm);
   color: var(--mm-black);
 }
@@ -446,7 +453,7 @@ useInertBehind(
 
 .detail-empty {
   margin: 0;
-  padding: 20px 22px;
+  padding: var(--space-4) var(--space-6);
   color: var(--mm-text-muted);
   font-size: var(--text-sm);
 }
@@ -461,6 +468,6 @@ useInertBehind(
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
 }
 </style>
