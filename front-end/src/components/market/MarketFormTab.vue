@@ -23,9 +23,11 @@ import EssentialFieldsPanel from '@/components/application/EssentialFieldsPanel.
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import StepHeader, { type Step } from '@/components/StepHeader.vue';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
+import { intakeModeOf } from '@/utils/marketGuide';
 import { api, getApiErrorMessage, getApiErrorStatus } from '@/utils/api';
 import { applicationFormError, applicationFormHint } from '@/utils/applicationForm';
 import { EMPTY_ESSENTIAL_OPTIONS, essentialOptionsFromSetup } from '@/utils/essentialFields';
+import { IntakeMode } from '@/assets/types/datatypes';
 import type {
   ApplicationForm,
   EssentialFormOptions,
@@ -259,10 +261,24 @@ const FORM_STEPS: (Step & { id: FormStepId })[] = [
   { id: 'preview', label: 'Preview' },
   { id: 'review', label: 'Review setup' },
 ];
-const step = ref<FormStepId>('essentials');
-const stepIndex = computed(() => FORM_STEPS.findIndex((s) => s.id === step.value));
-const previousStep = computed(() => FORM_STEPS[stepIndex.value - 1] ?? null);
-const nextStep = computed(() => FORM_STEPS[stepIndex.value + 1] ?? null);
+/**
+ * A Google Form market's vendors are imported, so nobody fills its form in: it has no preview step,
+ * and nothing on its tab describes what an applicant would see (E33/F01/S02).
+ */
+const forApplicants = computed(() => intakeModeOf(market.value) === IntakeMode.Form);
+const steps = computed(() =>
+  forApplicants.value ? FORM_STEPS : FORM_STEPS.filter((s) => s.id !== 'preview'),
+);
+const chosenStep = ref<FormStepId>('essentials');
+/** The chosen step, while this path has it. */
+const step = computed<FormStepId>({
+  get: () =>
+    steps.value.some((s) => s.id === chosenStep.value) ? chosenStep.value : steps.value[0].id,
+  set: (id) => (chosenStep.value = id),
+});
+const stepIndex = computed(() => steps.value.findIndex((s) => s.id === step.value));
+const previousStep = computed(() => steps.value[stepIndex.value - 1] ?? null);
+const nextStep = computed(() => steps.value[stepIndex.value + 1] ?? null);
 /**
  * Back and Next sit below the step, often far down a long one: the step they open starts at the top
  * of the page, as a new page does (the router's `scrollBehavior`), not wherever the last one ended.
@@ -293,7 +309,7 @@ watch(formLocked, (locked, wasLocked) => {
 <template>
   <div class="settings-body">
     <StepHeader
-      :steps="FORM_STEPS"
+      :steps="steps"
       :current="step"
       label="Application form setup"
       testid="form-steps"
@@ -301,7 +317,7 @@ watch(formLocked, (locked, wasLocked) => {
     />
     <ElementSettingContainer>
       <template #setting-title>
-        <h2 data-testid="form-step-title">{{ FORM_STEPS[stepIndex].label }}</h2>
+        <h2 data-testid="form-step-title">{{ steps[stepIndex].label }}</h2>
       </template>
       <template #setting-content>
         <div class="form-step-body" :data-testid="`form-step-body-${step}`">
@@ -340,6 +356,7 @@ watch(formLocked, (locked, wasLocked) => {
               :options="essentialOptions"
               :locked="formLocked"
               :editable="formEditable"
+              :forApplicants="forApplicants"
               @toggleUnasked="handleToggleUnasked"
             />
           </template>
@@ -350,6 +367,7 @@ watch(formLocked, (locked, wasLocked) => {
               :applicationForm="applicationForm"
               :keyTouched="keyTouched"
               :readonly="!formEditable"
+              :forApplicants="forApplicants"
               @update:applicationForm="(form: ApplicationForm) => (applicationForm = form)"
               @update:keyTouched="(touched: boolean[]) => (keyTouched = touched)"
             />

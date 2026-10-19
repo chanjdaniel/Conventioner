@@ -55,6 +55,8 @@ async function createMarketWithPlan(
       modificationList: [],
       assignmentObject: {},
       setupObject,
+      // Vendors apply on its page, so its form has a preview (E33/F01/S02).
+      intakeMode: 'form',
     },
   });
   if (!createRes.ok()) {

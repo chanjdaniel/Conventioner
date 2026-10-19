@@ -17,8 +17,10 @@ const props = withDefaults(
      */
     keyTouched?: boolean[];
     readonly?: boolean;
+    /** False on a Google Form market, whose form nobody fills in (E33/F01/S02). */
+    forApplicants?: boolean;
   }>(),
-  { readonly: false, keyTouched: () => [] },
+  { readonly: false, keyTouched: () => [], forApplicants: true },
 );
 
 const emit = defineEmits<{
@@ -145,6 +147,7 @@ const fieldCount = computed(() => fields.value.length);
               :field="element"
               :index="index"
               :readonly="readonly"
+              :forApplicants="forApplicants"
               :keyTouched="keyTouched[index] ?? false"
               @update:field="(f: FormField) => updateField(index, f)"
               @update:keyTouched="(touched: boolean) => updateKeyTouched(index, touched)"

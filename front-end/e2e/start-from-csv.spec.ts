@@ -363,8 +363,18 @@ test.describe('Start from your Google Form', () => {
 
     // Landed on the form, with the organizer's own questions in the file's order.
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+    // Three steps on this path, and no preview: nobody fills a Google Form market's form in
+    // (E33/F01/S02), so nothing offers a hint for applicants either.
+    await expect(page.getByTestId('form-steps').getByRole('listitem')).toHaveText([
+      '1Essential questions',
+      '2Your questions',
+      '3Review setup',
+    ]);
+    await expect(page.getByTestId('essential-fields-panel')).not.toContainText('signs in');
     await page.getByTestId('form-step-questions').click();
     await expect(page.getByText('Are you a UBC student or alumni?').first()).toBeVisible();
+    await expect(page.getByTestId('form-field-help-input')).toHaveCount(0);
+    await expect(page.getByTestId('form-step-next')).toHaveText('Next: Review setup');
 
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
