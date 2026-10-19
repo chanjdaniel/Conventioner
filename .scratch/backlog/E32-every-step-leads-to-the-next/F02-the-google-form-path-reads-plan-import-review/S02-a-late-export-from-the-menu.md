@@ -2,7 +2,7 @@
 id: E32/F02/S02
 title: A late export comes in from the menu
 type: story
-status: ready
+status: in-progress
 blocked_by: [E32/F02/S01]
 pr: []
 ---
@@ -19,5 +19,5 @@ It moves the market from review back to importing in one move and lands on the i
 ## Acceptance criteria
 
 - [x] In review, the rail's menu offers "Import more responses", and the main button does not.
-- [ ] It lands on the import with the market back in importing, and the existing verdicts are unchanged.
-- [ ] Importing a later export adds only its new rows, which arrive undecided.
+- [x] It lands on the import with the market back in importing, and the existing verdicts are unchanged.
+- [x] Importing a later export adds only its new rows, which arrive undecided.
