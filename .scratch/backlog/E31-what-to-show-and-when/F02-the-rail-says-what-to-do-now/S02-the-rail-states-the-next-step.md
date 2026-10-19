@@ -18,3 +18,8 @@ The rail shows the statement beside the forward step on every market screen; whe
 - [x] Every phase on each path shows the statement ticket 02 gives, linking to its page.
 - [x] With a blocker, the statement names it and links to its fix.
 - [x] A unit test fails if a phase in `phaseSpine()` has no row for either path.
+
+## Notes
+
+An open form market's statement names "your application page" rather than printing the address: the rail shows that address beside it, under the same name, with Copy.
+`currentPage` is now a reading of the guide's own table (`front-end/src/utils/marketGuide.ts`), which gives each phase's page and statement together.
