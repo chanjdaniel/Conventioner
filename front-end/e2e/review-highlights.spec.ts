@@ -114,6 +114,8 @@ test.describe('What a reviewer reads first', () => {
     authenticatedPage: page,
   }) => {
     await openTheMarket(page, 'form');
+    // What a reviewer reads first is the form tab's last step, Review setup (E33/F01/S01).
+    await page.getByTestId('form-step-review').click();
 
     // One custom question and one ESSENTIAL answer - the case a flag on a FormField could never
     // have covered, because the essential answers are not form fields at all.
@@ -170,6 +172,7 @@ test.describe('What a reviewer reads first', () => {
     authenticatedPage: page,
   }) => {
     await openTheMarket(page, 'form');
+    await page.getByTestId('form-step-review').click();
     const highlights = page.getByTestId('review-highlights');
     await expect(highlights.getByTestId('review-highlight-what_you_sell')).toBeVisible();
 
@@ -207,6 +210,7 @@ test.describe('What a reviewer reads first', () => {
     await openTheMarket(page, 'form');
 
     // The precondition this story is FOR: applications exist, so the form builder is locked.
+    await page.getByTestId('form-step-questions').click();
     await expect(page.getByTestId('form-builder-lock-banner')).toBeVisible();
 
     await page.goto(marketSetupPath(marketId, 'applications'));
@@ -240,6 +244,7 @@ test.describe('What a reviewer reads first', () => {
 
     // One list, not two: the form builder reads back what the queue wrote.
     await page.goto(marketSetupPath(marketId, 'form'));
+    await page.getByTestId('form-step-review').click();
     await expect(
       page
         .getByTestId('review-highlights')

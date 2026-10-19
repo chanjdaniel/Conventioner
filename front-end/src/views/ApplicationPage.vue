@@ -208,7 +208,7 @@ async function submitForm() {
 <style scoped>
 .apply-page {
   width: 100%;
-  max-width: 640px;
+  max-width: var(--applicant-max);
   margin: 40px auto;
   padding: 0 16px;
 }

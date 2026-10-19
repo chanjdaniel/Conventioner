@@ -1,5 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 
+/** The form tab's steps, in order (E33/F01/S01). */
+export type FormStep = 'essentials' | 'questions' | 'preview' | 'review';
+
 /**
  * Page object for the Application Form tab of the Market Setup view.
  * Wraps the form builder (field cards, key/label/type/options inputs), the
@@ -10,6 +13,12 @@ export class ApplicationFormPage {
 
   // Tabs
   readonly formTab: Locator;
+
+  // Steps (E33/F01/S01)
+  readonly steps: Locator;
+  readonly stepTitle: Locator;
+  readonly nextButton: Locator;
+  readonly backButton: Locator;
   readonly setupTab: Locator;
 
   // Builder
@@ -48,6 +57,11 @@ export class ApplicationFormPage {
     this.formTab = page.getByTestId('market-bar-tab-form');
     this.setupTab = page.getByTestId('market-bar-tab-setup');
 
+    this.steps = page.getByTestId('form-steps');
+    this.stepTitle = page.getByTestId('form-step-title');
+    this.nextButton = page.getByTestId('form-step-next');
+    this.backButton = page.getByTestId('form-step-back');
+
     this.builder = page.getByTestId('form-builder');
     this.builderEmpty = page.getByTestId('form-builder-empty');
     this.addFieldButton = page.getByTestId('form-builder-add-field-button');
@@ -77,8 +91,18 @@ export class ApplicationFormPage {
 
   async openFormTab(): Promise<void> {
     await this.formTab.click();
-    await this.preview.waitFor({ state: 'visible' });
+    await this.steps.waitFor({ state: 'visible' });
     await this.settleTabTransition();
+  }
+
+  /** One of the tab's steps, through its header (E33/F01/S01). */
+  async openStep(step: FormStep): Promise<void> {
+    await this.step(step).click();
+    await this.page.getByTestId(`form-step-body-${step}`).waitFor({ state: 'visible' });
+  }
+
+  step(step: FormStep): Locator {
+    return this.page.getByTestId(`form-step-${step}`);
   }
 
   async openSetupTab(): Promise<void> {

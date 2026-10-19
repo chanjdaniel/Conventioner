@@ -68,6 +68,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   room seeds one (`seedAssignedMarket({ tables })`); only an orphaned-pin spec rewrites a settled
   plan, as a legacy market's, with `changeASettledPlan()`. A market a spec imports into is
   `intakeMode: 'csv'`.
+- **The Application Form tab is a sequence of steps** (E33/F01): a spec opens the step it asserts on
+  (`ApplicationFormPage.openStep`, or `form-step-<id>`); the builder, preview and highlights are
+  never all on screen.
 - **A spec shells into Mongo through `mongoEval`** (`e2e/helpers/mongo.ts`), never its own
   `docker exec`: the container, address and flags were once copied into fifteen files.
 - **data-testid convention**: `viewname-element` (e.g. `login-email-input`, `markets-create-button`).

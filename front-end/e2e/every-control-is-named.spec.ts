@@ -70,6 +70,17 @@ test('every field on the plan, the rules and the form preview has a name', async
     expect(await namelessControls(page), `the ${tab} page`).toEqual([]);
   }
 
+  // The form tab is four steps, each drawing its own controls (E33/F01/S01): walk every one, and
+  // the header says which is open to assistive technology.
+  await page.goto(marketSetupPath(marketId, 'form'));
+  const steps = page.getByRole('navigation', { name: 'Application form setup' });
+  for (const step of ['Essential questions', 'Your questions', 'Preview', 'Review setup']) {
+    await steps.getByRole('button', { name: step }).click();
+    await expect(steps.getByRole('button', { name: step })).toHaveAttribute('aria-current', 'step');
+    await page.waitForLoadState('networkidle');
+    expect(await namelessControls(page), `the form's ${step} step`).toEqual([]);
+  }
+
   // Removing a rule, or one of its answers, is a named button a keyboard reaches.
   await page.goto(marketSetupPath(marketId, 'assignment'));
   await expect(page.getByTestId('priority-rule-row')).toHaveCount(2);

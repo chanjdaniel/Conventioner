@@ -204,6 +204,7 @@ test.describe('Essential form fields', () => {
     await expect(formPage.essentialSectionChips.nth(0)).toContainText('Main Hall');
     await expect(formPage.essentialSectionChips.nth(1)).toContainText('Garden');
     // The applicant preview shows them exactly as the applicant will get them.
+    await formPage.openStep('preview');
     await expect(formPage.previewEssential).toBeVisible();
     // The preview shows the applicant's own control: one grid with a row per market date
     // (E19/F01/S02), not a separate availability question.
@@ -216,6 +217,7 @@ test.describe('Essential form fields', () => {
     });
 
     // Custom fields may not squat on the essential namespace.
+    await formPage.openStep('questions');
     await formPage.addField();
     await formPage.fillLabel(0, 'Business Name');
     await formPage.keyInput(0).fill('essential_business');
@@ -233,6 +235,7 @@ test.describe('Essential form fields', () => {
     // Still stubbed after the round trip: the offering is derived server-side, and the server
     // ignores the floorplan's table types too.
     await expect(formPage.essentialTableTypesStubbed).toBeVisible();
+    await formPage.openStep('preview');
     await expect(formPage.previewField('business_name')).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('03-essential-panel-after-reload.png'),
@@ -483,6 +486,7 @@ test.describe('Essential form fields', () => {
     await page.goto(marketSetupPath(market.marketId));
     const formPage = new ApplicationFormPage(page);
     await formPage.openFormTab();
+    await formPage.openStep('essentials');
     await expect(formPage.lockBanner).toBeVisible();
     await expect(formPage.essentialDateChips).toHaveCount(3);
     await page.screenshot({
