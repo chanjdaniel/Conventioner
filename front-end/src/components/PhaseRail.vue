@@ -264,6 +264,18 @@ const forwardTransition = computed(() => {
   return forward && availableTransitions.value.includes(forward) ? forward : null;
 });
 
+/**
+ * The work the step onward waits on, as the rail's main button (E32/F01/S02): named by the guard
+ * that refuses it ("Add a location") and leading to the page that resolves it. Only for someone who
+ * may make the move, and not on that page itself, where the work is already in front of them. A
+ * reason no one page resolves has no fix to offer, and the sentence says it.
+ */
+const fix = computed(() => {
+  const blocker = step.value?.blocker;
+  if (!forwardTransition.value || !blocker?.resolutionLabel || !stepLink.value) return null;
+  return { label: blocker.resolutionLabel, to: stepLink.value };
+});
+
 const otherTransitions = computed(() =>
   availableTransitions.value.filter((to) => to !== forwardTransition.value),
 );
@@ -489,10 +501,19 @@ function cancelPending() {
         </div>
 
         <div class="phase-rail-actions">
+          <RouterLink
+            v-if="fix"
+            :to="fix.to"
+            class="rail-button rail-button--forward rail-button--fix"
+            data-testid="phase-rail-fix"
+            >{{ fix.label }}</RouterLink
+          >
+          <!-- While its fix is offered, the move waits beside it, disabled, as the step after. -->
           <button
             v-if="forwardTransition"
             type="button"
-            class="rail-button rail-button--forward"
+            class="rail-button"
+            :class="fix ? 'rail-button--waiting' : 'rail-button--forward'"
             :disabled="transitioning || !!firstBlocker(forwardTransition)"
             :aria-describedby="firstBlocker(forwardTransition) ? 'phase-rail-next' : undefined"
             :data-testid="`phase-transition-${forwardTransition}`"
@@ -565,7 +586,7 @@ function cancelPending() {
     >
       {{ step.text }}
       <RouterLink
-        v-if="stepLink"
+        v-if="stepLink && !fix"
         :to="stepLink"
         class="phase-rail-next-link"
         data-testid="phase-rail-next-link"
@@ -864,6 +885,17 @@ function cancelPending() {
   border: 1px solid var(--mm-green);
   background: var(--mm-green);
   color: white;
+}
+
+/* A link drawn as the button it stands in for: a control's line box, which a link does not
+   inherit, so it stands the same height as the move beside it. */
+.rail-button--fix {
+  line-height: normal;
+  text-decoration: none;
+}
+
+.rail-button--waiting {
+  border: 1px solid var(--mm-border);
 }
 
 .rail-button--menu {

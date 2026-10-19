@@ -376,6 +376,8 @@ export interface PreconditionResult {
   message: string;
   /** Null, not absent, when a guard's remedy spans two places: the server always sends the key. */
   resolutionLink?: string | null;
+  /** What following the link does ("Add a location"); present exactly when the link is. */
+  resolutionLabel?: string | null;
 }
 
 export interface TransitionRequest {

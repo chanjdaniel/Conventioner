@@ -217,11 +217,11 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     await expect(next).toContainText(/^Nothing more is coming in.*Finish deciding: /);
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Review');
 
-    // The remedy is reviewing the applications, which is one tab along - so the link goes there
-    // and going there is visible. It used to point at `/market-setup`, the page it was displayed
-    // on, so clicking it did nothing at all (E14/F01/S03).
-    const fix = next.getByTestId('phase-rail-next-link');
-    await expect(fix).toBeVisible();
+    // The remedy is reviewing the applications, which is one tab along - so the fix, the rail's
+    // main button (E32/F01/S02), goes there and going there is visible. It used to point at
+    // `/market-setup`, the page it was displayed on, so clicking it did nothing (E14/F01/S03).
+    const fix = page.getByTestId('phase-rail-fix');
+    await expect(fix).toHaveText('Finish deciding');
     await fix.click();
     await expect(page).toHaveURL(/\/markets\/[^/]+\/applications$/);
     await expect(page.getByTestId('market-bar-tab-applications')).toHaveClass(/active/);
@@ -231,6 +231,7 @@ test.describe('Phase state machine - guard: assignment blocked by unreviewed app
     // And once you are on the tab that holds the fix, the rail stops offering to take you there.
     await expect(next).toContainText('still awaiting review');
     await expect(next.locator('a')).toHaveCount(0);
+    await expect(fix).toHaveCount(0);
 
     await page.screenshot({ path: `${SCREENSHOT_DIR}/09-blocked-assignment.png`, fullPage: true });
   });
