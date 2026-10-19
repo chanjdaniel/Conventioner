@@ -1,6 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL, CsvImportPage } from './fixtures';
 import type { APIRequestContext } from '@playwright/test';
 import { ensureTestOrg } from './helpers/seeds';
+import { seedApplication } from './helpers/seedApplication';
 import { seedApplicantMarket, planSetupObject, PLAN_TIERS } from './helpers/seedApplicantMarket';
 
 /**
@@ -650,7 +651,8 @@ test.describe('CSV vendor import', () => {
       expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
     };
 
-    await transition('applications_closed');
+    // Review waits on something imported (E32/F02/S01).
+    seedApplication(seed.marketId, 'imported@example.com');
     await transition('review');
 
     // Server-side, not merely a hidden button: the endpoint refuses directly.
@@ -660,15 +662,15 @@ test.describe('CSV vendor import', () => {
     );
     expect(direct.status()).toBe(409);
     // By the name of the move a CSV market's rail offers (bug 42, E31/F03/S04).
-    expect(await direct.text()).toContain('Back to Importing');
+    expect(await direct.text()).toContain('Import more responses');
 
     // And the screen says so before asking for a file.
     await openImport(importPage, request, seed.marketId);
     await expect(importPage.wrongPhase).toBeVisible();
     await expect(importPage.upload).toHaveCount(0);
 
-    // The way through is the edge the state machine already has.
-    await transition('applications_closed');
+    // The way through is the path's move back to importing, the closed phase stepped through.
+    await transition('applications_open');
     await openImport(importPage, request, seed.marketId);
     await expect(importPage.upload).toBeVisible();
     await importPage.chooseFile(CSV);

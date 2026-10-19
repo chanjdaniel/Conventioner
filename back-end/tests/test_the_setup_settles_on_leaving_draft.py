@@ -101,7 +101,7 @@ def test_the_reason_rides_on_the_market_and_names_the_way_back(applications):
 @pytest.mark.parametrize("intake_mode, phase, moves", [
     ("form", MarketPhase.APPLICATIONS_OPEN, "Reopen for Editing"),
     ("form", MarketPhase.APPLICATIONS_CLOSED, "Reopen Applications, then Reopen for Editing"),
-    ("csv", MarketPhase.APPLICATIONS_CLOSED, "Collect Again, then Reopen for Editing"),
+    ("csv", MarketPhase.APPLICATIONS_CLOSED, "Import more responses, then Reopen for Editing"),
 ])
 def test_the_way_back_names_each_move_from_where_the_market_is(
         applications, intake_mode, phase, moves):
@@ -118,7 +118,7 @@ def test_the_way_back_names_each_move_from_where_the_market_is(
 
 @pytest.mark.parametrize("intake_mode, words", [
     ("form", "once applications have opened"),
-    ("csv", "once you have started collecting"),
+    ("csv", "once importing has begun"),
 ])
 def test_the_reason_speaks_of_the_markets_own_path(applications, intake_mode, words):
     """A CSV market never opens applications: it collects on its Google Form (E31/F01/S03)."""

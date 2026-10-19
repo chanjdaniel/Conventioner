@@ -7,10 +7,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
-import { phaseSpine } from '@/utils/phase';
+import { pathMoves, phaseSpine } from '@/utils/phase';
 import {
   currentPage,
   forwardFrom,
+  landingPage,
+  spineFor,
   intakeModeOf,
   nextStep,
   pathPhaseLabel,
@@ -43,8 +45,9 @@ describe('the path a market is on', () => {
 });
 
 describe('the words a CSV market wears', () => {
-  it('names the collecting phases for its Google Form, and the form path keeps its own', () => {
-    expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, IntakeMode.Csv)).toBe('Collecting');
+  it('names its importing for what it is, and the form path keeps its own (E32/F02/S01)', () => {
+    expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, IntakeMode.Csv)).toBe('Import');
+    // Shown only for a market moved there before the path stepped through it.
     expect(pathPhaseLabel(MarketPhase.ApplicationsClosed, IntakeMode.Csv)).toBe('Form Closed');
     expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, IntakeMode.Form)).toBe('Applications Open');
   });
@@ -53,8 +56,10 @@ describe('the words a CSV market wears', () => {
     const draft = MarketPhase.Draft;
     const open = MarketPhase.ApplicationsOpen;
     const closed = MarketPhase.ApplicationsClosed;
-    expect(pathTransitionLabel(draft, open, IntakeMode.Csv)).toBe('Start Collecting');
-    expect(pathTransitionLabel(open, closed, IntakeMode.Csv)).toBe('Done Collecting');
+    const review = MarketPhase.Review;
+    expect(pathTransitionLabel(draft, open, IntakeMode.Csv)).toBe('Import responses');
+    expect(pathTransitionLabel(open, review, IntakeMode.Csv)).toBe('Begin Review');
+    expect(pathTransitionLabel(review, open, IntakeMode.Csv)).toBe('Import more responses');
     expect(pathTransitionLabel(draft, open, IntakeMode.Form)).toBe('Open Applications');
     expect(pathTransitionLabel(open, closed, IntakeMode.Form)).toBe('Close Applications');
   });
@@ -166,7 +171,9 @@ describe('the next step', () => {
     expect(nextStep(market(MarketPhase.Archived), TODAY).text).not.toMatch(/check-in page/);
   });
 
-  it("is where the market is worked on: the page carrying the dot is the statement's", () => {
+  // Where a move into the phase lands, too: a Google Form market's importing is done on the import,
+  // while the dot stays on the Applications tab that holds it (E32/F02/S01).
+  it('is where the market is worked on: the statement leads where a move lands', () => {
     for (const intakeMode of [IntakeMode.Form, IntakeMode.Csv]) {
       for (const phase of phaseSpine().filter((p) => p !== MarketPhase.Archived)) {
         for (const assigned of [false, true]) {
@@ -178,7 +185,7 @@ describe('the next step', () => {
             } as Partial<Market>,
           );
           expect(nextStep(m, TODAY).page, `${intakeMode} ${phase} ${assigned}`).toBe(
-            currentPage(phase, assigned),
+            landingPage(phase, assigned, intakeMode),
           );
         }
       }
@@ -210,7 +217,7 @@ describe('a tab out of its phase says when it matters', () => {
     expect(tabNote(market(MarketPhase.Draft), 'applications')).toMatch(/once they open/);
     expect(
       tabNote(market(MarketPhase.Draft, { intakeMode: IntakeMode.Csv }), 'applications'),
-    ).toMatch(/start collecting/);
+    ).toMatch(/once the market leaves draft/);
     expect(tabNote(market(MarketPhase.ApplicationsOpen), 'applications')).toBeNull();
   });
 
@@ -226,5 +233,60 @@ describe('a tab out of its phase says when it matters', () => {
     expect(tabNote(abandoned, 'attendance')).toBe(
       'This market was archived without being published, so nobody checked in.',
     );
+  });
+});
+
+describe('the Google Form path: Plan, Import, Review (E32/F02/S01)', () => {
+  const csv = (phase: MarketPhase, overrides: Partial<Market> = {}) =>
+    market(phase, { intakeMode: IntakeMode.Csv, ...overrides });
+
+  it('draws no "form closed" stage, which the path steps through', () => {
+    expect(spineFor(MarketPhase.ApplicationsOpen, IntakeMode.Csv)).toEqual([
+      'draft',
+      'applications_open',
+      'review',
+      'assignment',
+      'market_days',
+      'archived',
+    ]);
+    expect(spineFor(MarketPhase.ApplicationsOpen, IntakeMode.Form)).toContain(
+      'applications_closed',
+    );
+  });
+
+  it('gives a market standing in that phase its stage back, so the rail says where it is', () => {
+    expect(spineFor(MarketPhase.ApplicationsClosed, IntakeMode.Csv)).toContain(
+      'applications_closed',
+    );
+  });
+
+  it('moves on from importing to review, and back from review to importing', () => {
+    expect(pathMoves(MarketPhase.ApplicationsOpen, IntakeMode.Csv)).toEqual({
+      draft: ['draft'],
+      review: ['applications_closed', 'review'],
+      archived: ['archived'],
+    });
+    expect(pathMoves(MarketPhase.Review, IntakeMode.Csv).applications_open).toEqual([
+      'applications_closed',
+      'applications_open',
+    ]);
+    expect(forwardFrom(csv(MarketPhase.ApplicationsOpen), TODAY)).toBe(MarketPhase.Review);
+    expect(forwardFrom(market(MarketPhase.ApplicationsOpen), TODAY)).toBe(
+      MarketPhase.ApplicationsClosed,
+    );
+  });
+
+  it('lands a move into importing on the import itself', () => {
+    expect(landingPage(MarketPhase.ApplicationsOpen, false, IntakeMode.Csv)).toBe('import');
+    expect(landingPage(MarketPhase.ApplicationsOpen, false, IntakeMode.Form)).toBe('applications');
+    // The tab's dot stays on Applications, where the imported responses are reviewed.
+    expect(currentPage(MarketPhase.ApplicationsOpen, false)).toBe('applications');
+  });
+
+  it('says to import, never to collect', () => {
+    for (const phase of [MarketPhase.Draft, MarketPhase.ApplicationsOpen]) {
+      expect(nextStep(csv(phase), TODAY).text, phase).not.toMatch(/collect/i);
+    }
+    expect(tabNote(csv(MarketPhase.Draft), 'applications')).not.toMatch(/collect/i);
   });
 });

@@ -1,4 +1,4 @@
-import { MarketPhase } from '@/assets/types/datatypes';
+import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 
 /**
  * How a market phase is named and coloured, wherever one is shown.
@@ -55,6 +55,44 @@ export const VALID_TRANSITIONS: Array<[string, string]> = [
   ['offers', 'archived'],
   ['market_days', 'archived'],
 ];
+
+/**
+ * Mirror of `PASSED_THROUGH` in guards.py (E32/F02/S01): phases a path steps through rather than
+ * stops in. A Google Form market's organizer already holds the responses when it leaves draft, so
+ * the import is the collection and "the form is closed" is never a stage of theirs.
+ */
+export const PASSED_THROUGH: Record<IntakeMode, readonly string[]> = {
+  [IntakeMode.Csv]: [MarketPhase.ApplicationsClosed],
+  [IntakeMode.Form]: [],
+};
+
+/**
+ * Mirror of `path_moves` in guards.py: every move open from a phase on a path, each phase it may
+ * end in with the phases entered on the way there. One step of the table, or two where the first
+ * lands in a phase the path passes through. A market standing in such a phase keeps every way out.
+ */
+export function pathMoves(
+  phase: string,
+  path: IntakeMode,
+  table = VALID_TRANSITIONS,
+): Record<string, string[]> {
+  const through = PASSED_THROUGH[path] ?? [];
+  const moves: Record<string, string[]> = {};
+  for (const [source, target] of table) {
+    if (source !== phase) continue;
+    if (!through.includes(target)) {
+      moves[target] = [target];
+      continue;
+    }
+    for (const [onwardSource, onward] of table) {
+      // A direct edge wins over a route to the same phase, whichever the table lists first.
+      if (onwardSource === target && onward !== phase && !through.includes(onward)) {
+        moves[onward] ??= [target, onward];
+      }
+    }
+  }
+  return moves;
+}
 
 /**
  * Can a market leave this phase again?

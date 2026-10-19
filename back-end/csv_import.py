@@ -75,7 +75,7 @@ def import_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
     if phase == MarketPhase.DRAFT:
         return (
             f"This market is still a draft, so it is not taking applications yet. "
-            f"Start collecting first, then import."
+            f"Use Import responses on the phase rail first."
         )
     # The way back is offered only where the transition table has one (bug 42): this told a market
     # in Assignment to "move back to applications closed", which no move does.
@@ -88,8 +88,8 @@ def import_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
         )
     return (
         f"This market is in the {readable} phase, so importing would change who has applied "
-        f"while their applications are being decided. Use Back to Importing, under "
-        f"More… on the phase rail, then import."
+        f"while their applications are being decided. Use Import more "
+        f"responses, under More… on the phase rail, then import."
     )
 
 

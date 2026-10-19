@@ -776,6 +776,8 @@ class TestEveryResolutionLinkPointsAtItsFix:
         "result",
         "vendors",
         "attendance",
+        # The import flow, which has its own address (E32/F02/S01: the fix for an empty review).
+        "import",
     }
     #: A redirect (the panel cannot follow a hop - the ``?tab=`` pages and ``tables`` are the old
     #: addresses), or an absolute path (a link is relative to the market's own screens; the id-less

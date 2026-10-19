@@ -13,14 +13,10 @@ import guards
 import test_the_lock_rides_on_the_market as Read  # noqa: F401 - the `serve` fixture's market shape
 from conftest import COMPLETE_PLAN
 from datatypes import MarketPhase
-from guards import VALID_TRANSITIONS, evaluate_transition, transition_verdicts
+from guards import evaluate_transition, path_moves, transition_verdicts
 from market_documents import market_from_document
 
 serve = Read.serve
-
-
-def _moves_from(phase: MarketPhase):
-    return {to for frm, to in VALID_TRANSITIONS if frm == phase.value}
 
 
 @pytest.mark.parametrize("phase", list(MarketPhase))
@@ -29,7 +25,9 @@ def test_every_move_from_a_phase_is_judged_as_the_endpoint_judges_it(phase, appl
 
     verdicts = transition_verdicts(market, None)
 
-    assert set(verdicts) == _moves_from(phase)
+    # The moves of the market's own path (E32/F02/S01): a Google Form market steps through the
+    # closed phase rather than stopping in it.
+    assert set(verdicts) == set(path_moves(market))
     for to_phase, blockers in verdicts.items():
         assert [asdict(b) for b in blockers] == \
             [asdict(b) for b in evaluate_transition(market, to_phase, None)]
@@ -45,4 +43,13 @@ def test_the_read_serves_them_camel_cased(serve):
 
 
 def test_a_move_that_would_succeed_has_no_blockers(serve):
-    assert serve(MarketPhase.APPLICATIONS_OPEN)["transitionBlockers"]["applications_closed"] == []
+    market = serve(MarketPhase.APPLICATIONS_OPEN, intake_mode="form")
+
+    assert market["transitionBlockers"]["applications_closed"] == []
+
+
+def test_a_google_form_market_is_offered_review_and_not_the_closed_phase(serve):
+    moves = serve(MarketPhase.APPLICATIONS_OPEN, applications_submitted=2)["transitionBlockers"]
+
+    assert "applications_closed" not in moves
+    assert moves["review"] == []

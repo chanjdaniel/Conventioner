@@ -18,17 +18,34 @@ import {
   type Market,
   type PreconditionResult,
 } from '@/assets/types/datatypes';
-import { phaseLabel, phaseSpine, transitionDirection, VALID_TRANSITIONS } from '@/utils/phase';
-import { TAB_PAGES, hasAssignment, type MarketPage, type MarketTab } from '@/utils/marketPage';
+import {
+  PASSED_THROUGH,
+  pathMoves,
+  phaseLabel,
+  phaseSpine,
+  transitionDirection,
+  VALID_TRANSITIONS,
+} from '@/utils/phase';
+import {
+  TAB_PAGES,
+  hasAssignment,
+  type MarketFlow,
+  type MarketPage,
+  type MarketTab,
+} from '@/utils/marketPage';
 
 /** Absent means CSV, as the server reads it: the applicant surface fails closed. */
 export function intakeModeOf(market: Pick<Market, 'intakeMode'> | null | undefined): IntakeMode {
   return market?.intakeMode === IntakeMode.Form ? IntakeMode.Form : IntakeMode.Csv;
 }
 
-/** The CSV path's names for the two phases whose meaning differs there. */
+/**
+ * The CSV path's names for the phases whose meaning differs there. Its organizer holds the responses
+ * when the market leaves draft, so the open phase is where they are imported (E32/F02/S01); the
+ * closed one is stepped through, and named only for a market moved there before that.
+ */
 const CSV_PHASE_LABELS: Partial<Record<string, string>> = {
-  [MarketPhase.ApplicationsOpen]: 'Collecting',
+  [MarketPhase.ApplicationsOpen]: 'Import',
   [MarketPhase.ApplicationsClosed]: 'Form Closed',
 };
 
@@ -50,12 +67,13 @@ export function pathTransitionLabel(from: string, to: string, path: IntakeMode):
     case MarketPhase.Draft:
       return 'Reopen for Editing';
     case MarketPhase.ApplicationsOpen:
-      if (from === MarketPhase.Draft) return csv ? 'Start Collecting' : 'Open Applications';
-      return csv ? 'Collect Again' : 'Reopen Applications';
+      if (from === MarketPhase.Draft) return csv ? 'Import responses' : 'Open Applications';
+      return csv ? 'Import more responses' : 'Reopen Applications';
+    // Never a CSV market's move: its path steps through the closed phase (E32/F02/S01).
     case MarketPhase.ApplicationsClosed:
-      if (from === MarketPhase.ApplicationsOpen)
-        return csv ? 'Done Collecting' : 'Close Applications';
-      return csv ? 'Back to Importing' : 'Return to Applications Closed';
+      return from === MarketPhase.ApplicationsOpen
+        ? 'Close Applications'
+        : 'Return to Applications Closed';
     case MarketPhase.Review:
       return 'Begin Review';
     case MarketPhase.Assignment:
@@ -90,11 +108,13 @@ export function lastDateHasPassed(market: Market, today: string = calendarToday(
 
 /**
  * The stages a market in this phase is drawn on: the lifecycle, which leaves `offers` off - nothing
- * sets `assignment_sent` - unless the market IS in such a phase, which then gets its stage back at
- * the place the transition table puts it. A rail with no marker says nothing about where it stands.
+ * sets `assignment_sent` - and the phases its path steps through (E32/F02/S01), unless the market
+ * IS in such a phase, which then gets its stage back at the place the transition table puts it. A
+ * rail with no marker says nothing about where it stands.
  */
-export function spineFor(phase: string): string[] {
-  const lifecycle = phaseSpine();
+export function spineFor(phase: string, path: IntakeMode): string[] {
+  // Less the phases this path steps through rather than stops in (E32/F02/S01).
+  const lifecycle = phaseSpine().filter((stage) => !PASSED_THROUGH[path].includes(stage));
   if (lifecycle.includes(phase)) return lifecycle;
   const arrivedFrom = VALID_TRANSITIONS.find(
     ([from, to]) => to === phase && lifecycle.includes(from),
@@ -112,11 +132,12 @@ export function forwardFrom(market: Market, today: string = calendarToday()): st
   if (phase === MarketPhase.MarketDays) {
     return lastDateHasPassed(market, today) ? MarketPhase.Archived : null;
   }
-  const spine = spineFor(phase);
+  const path = intakeModeOf(market);
+  const spine = spineFor(phase, path);
   return (
-    VALID_TRANSITIONS.filter(([from]) => from === phase)
-      .map(([, to]) => to)
-      .find((to) => transitionDirection(phase, to, spine) === 'forward') ?? null
+    Object.keys(pathMoves(phase, path)).find(
+      (to) => transitionDirection(phase, to, spine) === 'forward',
+    ) ?? null
   );
 }
 
@@ -149,6 +170,8 @@ interface Standing {
 /** One phase's row: the page it is worked on - the one carrying the dot - and what the rail says. */
 interface GuideRow {
   page: MarketPage;
+  /** Where a move into the phase lands, when not on `page`: a flow the phase's work is done in. */
+  lands?: MarketFlow;
   statement: string;
   /** False where the statement leads nowhere: an archive is done with. */
   links?: boolean;
@@ -170,16 +193,22 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     statement:
       path === IntakeMode.Form
         ? 'Plan the market and its application form, then open applications.'
-        : "Plan the market, from your Google Form's responses or by hand, then start collecting.",
+        : "Plan the market, from your Google Form's responses or by hand, then import the responses.",
   }),
   // The address itself is in the rail beside this, under the same name, with Copy.
-  [MarketPhase.ApplicationsOpen]: ({ path }) => ({
-    page: 'applications',
-    statement:
-      path === IntakeMode.Form
-        ? 'Applications are open on your application page. Review them as they arrive, and close applications when you stop taking them.'
-        : 'Collecting on your Google Form. Import responses as they arrive and review them, and say when you are done collecting.',
-  }),
+  // A Google Form market imports here, so a move into it lands on the import (E32/F02/S01).
+  [MarketPhase.ApplicationsOpen]: ({ path }) =>
+    path === IntakeMode.Form
+      ? {
+          page: 'applications',
+          statement:
+            'Applications are open on your application page. Review them as they arrive, and close applications when you stop taking them.',
+        }
+      : {
+          page: 'applications',
+          lands: 'import',
+          statement: "Import your Google Form's responses, then begin review.",
+        },
   [MarketPhase.ApplicationsClosed]: ({ path }) => ({
     page: 'applications',
     statement:
@@ -244,6 +273,19 @@ export function currentPage(phase: string | undefined | null, hasAssignment: boo
   }).page;
 }
 
+/**
+ * Where a move into a phase lands (E32/F01/S01): the phase's page, or the flow its work is done in
+ * - a Google Form market's importing lands on the import (E32/F02/S01).
+ */
+export function landingPage(
+  phase: string,
+  hasAssignment: boolean,
+  path: IntakeMode,
+): MarketPage | MarketFlow {
+  const row = rowFor(phase, { path, assigned: hasAssignment, ended: false, ran: false });
+  return row.lands ?? row.page;
+}
+
 /** The page a tab opens: the one carrying the dot when the tab holds it, else its first. */
 export function pageForTab(
   tab: MarketTab,
@@ -282,7 +324,11 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
     ended: lastDateHasPassed(market, today),
     ran: (market.phasesReached ?? []).includes(MarketPhase.MarketDays),
   });
-  return { text: row.statement, page: row.links === false ? null : row.page, blocker: null };
+  return {
+    text: row.statement,
+    page: row.links === false ? null : (row.lands ?? row.page),
+    blocker: null,
+  };
 }
 
 /** The guard that holds review open while an application is undecided (`guards.py`). */
@@ -310,7 +356,7 @@ export function tabNote(market: Market, tab: MarketTab): string | null {
     case 'applications':
       return phase === MarketPhase.Draft
         ? csv
-          ? 'Import opens when you start collecting.'
+          ? 'Import opens once the market leaves draft.'
           : 'Applications arrive here once they open.'
         : null;
     case 'attendance': {

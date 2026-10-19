@@ -428,3 +428,53 @@ class TestTransitionRejected:
         response = _post(client, {"toPhase": "applications_open"}, email="stranger@example.com")
 
         assert response.status_code == 403
+
+
+class TestTheGoogleFormPath:
+    """Begin Review from importing is one move through the closed phase (E32/F02/S01)."""
+
+    @pytest.fixture
+    def imported(self, monkeypatch):
+        import api.applications as ApplicationsApi
+
+        def _set(n):
+            monkeypatch.setattr(ApplicationsApi, "count_applications_for_market", lambda _id: n)
+        return _set
+
+    def test_begin_review_walks_both_steps_and_records_each(self, client, markets, imported):
+        imported(2)
+        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+
+        response = _post(client, {"toPhase": "review"})
+
+        assert response.status_code == 200, response.get_json()
+        assert response.get_json() == {"phase": "review"}
+        assert collection.doc["phase"] == "review"
+        entered = [u["$set"]["phase"] for _, u in collection.updates]
+        assert entered == ["applications_closed", "review"]
+        # Each step is conditional on the phase the one before it left.
+        assert [f["phase"] for f, _ in collection.updates] == ["applications_open", "applications_closed"]
+
+    def test_nothing_moves_while_nothing_has_been_imported(self, client, markets, imported):
+        imported(0)
+        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+
+        response = _post(client, {"toPhase": "review"})
+
+        assert response.status_code == 409
+        assert [b["id"] for b in response.get_json()["blockers"]] == ["responses_imported"]
+        assert collection.doc["phase"] == "applications_open"
+        assert collection.updates == []
+
+    def test_a_form_market_has_no_such_move(self, client, markets, imported):
+        imported(2)
+        markets({**_market_doc(phase="applications_open", is_draft=False), "intakeMode": "form"})
+
+        assert _post(client, {"toPhase": "review"}).status_code == 400
+
+    def test_the_single_step_is_still_taken_when_asked_for(self, client, markets):
+        """The path steps through the closed phase on the rail; the edge itself is still there."""
+        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+
+        assert response_ok(_post(client, {"toPhase": "applications_closed"}))
+        assert collection.doc["phase"] == "applications_closed"

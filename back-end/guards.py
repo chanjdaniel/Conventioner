@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 
 import api.applications as ApplicationsApi
 from assignment.utils import convert_keys_to_camel_case
-from datatypes import ApplicationStatus, Market, MarketPhase
+from datatypes import ApplicationStatus, IntakeMode, Market, MarketPhase
 from essential_fields import (
     TIER_PREFERENCE_KEY,
     effective_essential_options_for_market,
@@ -393,6 +393,29 @@ class NoApprovedApplicationsGuard:
         return PreconditionResult(id=self.id, passed=True, message="")
 
 
+class ResponsesImportedGuard:
+    """A Google Form market has imported its responses before review begins (E32/F02/S01).
+
+    On that path the import is the collection: there is no form of the market's own taking
+    applications, so a review with nothing imported is a review of nothing. A market whose vendors
+    apply on its own page is not asked - nobody imports into one.
+    """
+
+    id: str = "responses_imported"
+    description: str = "A Google Form market has imported its responses"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if market.intake_mode is not IntakeMode.CSV:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        if ApplicationsApi.count_applications_for_market(market.id) > 0:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id, passed=False,
+            resolution_link="import", resolution_label="Import responses",
+            message="Nothing has been imported yet. Import your Google Form's responses first.",
+        )
+
+
 # ── Transition registry ─────────────────────────────────────────────────
 
 
@@ -448,6 +471,40 @@ def route_between(from_phase: str, to_phase: str) -> Optional[List[str]]:
             seen.add(target)
             queue.append((target, path + [target]))
     return None
+
+
+#: Phases a path steps through rather than stops in (E32/F02/S01). A Google Form market's organizer
+#: already holds the responses when the market leaves draft, so the import IS the collection, and
+#: "the form is closed" is never a stage of theirs: their move from importing is Begin Review, and
+#: back from review is to importing. The phases themselves do not change - only which of them a
+#: move on this path may end in.
+PASSED_THROUGH: Dict[IntakeMode, frozenset[str]] = {
+    IntakeMode.CSV: frozenset({MarketPhase.APPLICATIONS_CLOSED.value}),
+    IntakeMode.FORM: frozenset(),
+}
+
+
+def path_moves(market: Market) -> Dict[str, List[str]]:
+    """Every move open from the market's phase on its intake path: each phase it may end in, with
+    the phases entered on the way there (the last one is where it ends).
+
+    One step of the transition table, or two where the first lands in a phase the path passes
+    through, never ending in one. A market standing in such a phase - moved there before its path
+    stepped through it - keeps every way out it has, so none is stranded.
+    """
+    here = market.phase.value
+    through = PASSED_THROUGH.get(market.intake_mode, frozenset())
+    moves: Dict[str, List[str]] = {}
+    for source, target in sorted(VALID_TRANSITIONS):
+        if source != here:
+            continue
+        if target not in through:
+            moves[target] = [target]
+            continue
+        for onward_source, onward in sorted(VALID_TRANSITIONS):
+            if onward_source == target and onward != here and onward not in through:
+                moves.setdefault(onward, [target, onward])
+    return moves
 
 
 class NoAskedForTierWithoutTablesGuard:
@@ -592,6 +649,7 @@ _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
 _NO_EMPTY_TIER_ASKED_FOR = NoAskedForTierWithoutTablesGuard()
 _NO_ORPHANED_PIN = NoOrphanedPinGuard()
+_RESPONSES_IMPORTED = ResponsesImportedGuard()
 
 # Entry invariants: what must hold of a market SITTING IN a phase, regardless of the
 # route it took to get there. Every inbound edge to the phase must enforce these, so
@@ -629,6 +687,9 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     # The guard should verify that the market's setup_object has at least one
     # priority entry before assignment can begin.
     ("applications_open", "draft"): [_NO_APPLICATIONS_YET],
+    # On every route into review, so a Google Form market stepping through the closed phase and one
+    # already standing in it meet the same rule (E32/F02/S01).
+    ("applications_closed", "review"): [_RESPONSES_IMPORTED],
     ("review", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR, _NO_ORPHANED_PIN],
     ("assignment", "offers"): [_NO_APPROVED],
     ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN],
@@ -701,21 +762,35 @@ _validate_registry()
 # ── Evaluation helpers ──────────────────────────────────────────────────
 
 
+def move_route(market: Market, to_phase: str) -> Optional[List[str]]:
+    """The phases a move to ``to_phase`` enters, in order: the path's move when it has one, else the
+    one edge of the table (still taken when asked for, as a seed walks it), else None."""
+    route = path_moves(market).get(to_phase)
+    if route is not None:
+        return route
+    return [to_phase] if (market.phase.value, to_phase) in VALID_TRANSITIONS else None
+
+
 def evaluate_transition(
     market: Market, to_phase: str, db
 ) -> list[PreconditionResult]:
-    """Evaluate all guards for a transition. Returns only FAILED results.
+    """Evaluate all guards for a move. Returns only FAILED results.
 
-    If the transition has no guards, returns an empty list (no blockers).
+    Every guard on every step of the move's route, judged before the first step is taken, as the
+    form amendment judges its chain: each guard reads the market's state rather than the phase it is
+    asked on. A guard met twice on the way is said once. An empty list when nothing refuses it.
     Callers use this to build the 409 blocker list or confirm success.
     """
-    key = (market.phase.value, to_phase)
-    guards = TRANSITION_GUARDS.get(key, [])
+    route = move_route(market, to_phase) or [to_phase]
+    hops = zip([market.phase.value, *route], route)
     blockers: list[PreconditionResult] = []
-    for guard in guards:
-        result = guard.evaluate(market, db)
-        if not result.passed:
-            blockers.append(result)
+    seen: set[str] = set()
+    for hop in hops:
+        for guard in TRANSITION_GUARDS.get(hop, []):
+            result = guard.evaluate(market, db)
+            if not result.passed and result.id not in seen:
+                seen.add(result.id)
+                blockers.append(result)
     return blockers
 
 
@@ -724,11 +799,8 @@ def transition_verdicts(market: Market, db) -> Dict[str, List[PreconditionResult
     would (E31/F02/S01).
 
     Served on the market read, so a screen disables a move and names its blocker before the click
-    rather than after it. Judged by ``evaluate_transition``, the very function the endpoint runs,
+    rather than after it. The moves are the market's path's (``path_moves``), so the read is also
+    what tells a screen which moves there are. Judged by ``evaluate_transition``, the very function the endpoint runs,
     so the read and the move can never disagree about one.
     """
-    return {
-        to_phase: evaluate_transition(market, to_phase, db)
-        for from_phase, to_phase in sorted(VALID_TRANSITIONS)
-        if from_phase == market.phase.value
-    }
+    return {to_phase: evaluate_transition(market, to_phase, db) for to_phase in path_moves(market)}

@@ -56,17 +56,18 @@ async function setupMarketToOffers(request: APIRequestContext): Promise<PhaseMar
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
     data: { toPhase: 'applications_closed' },
   });
-  await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
-    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
-    data: { toPhase: 'review' },
-  });
-
-  // Seed approved applications so assignment guard passes
+  // Seed approved applications so assignment guard passes - before review, which a CSV market
+  // enters only once something has been imported (E32/F02/S01).
   const appId = seedApplicationWithStatus(
     seed.marketId,
     'reviewer_approved',
     'sweep-setup@example.com',
   );
+
+  await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
+    headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+    data: { toPhase: 'review' },
+  });
 
   await request.post(`${BACKEND_URL}/markets/${seed.marketId}/transition`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
@@ -533,6 +534,8 @@ test.describe('The applications surface says which phase it is in', () => {
     // Still offered: importing spans two of the three phases.
     await expect(page.getByTestId('market-setup-import-button')).toBeEnabled();
 
+    // A CSV market enters review once something has been imported (E32/F02/S01).
+    seedApplicationWithStatus(seed.marketId, 'open', 'imported@example.com');
     await move('review');
     const review = await conditionNow();
     // Withdrawn here - and the withdrawal is explained rather than silent.

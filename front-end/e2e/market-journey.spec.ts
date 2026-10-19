@@ -128,19 +128,15 @@ test.describe('The MVP journey', () => {
     await setup.addSection(SECTIONS[1], LOCATION, TIER, 2, 1);
     await page.screenshot({ path: testInfo.outputPath('01-market-planned.png'), fullPage: true });
 
-    // --- 3. Open applications ------------------------------------------------------------
-    // Importing is only permitted once applications are open. This market asks no custom
-    // question - only the essential ones the plan above defines - and that is enough.
-    // A CSV market starts collecting on its Google Form (E31/F03/S03).
-    await setup.advancePhaseTo('applications_open', 'Collecting');
+    // --- 3. Import responses -------------------------------------------------------------
+    // The Google Form path reads Plan, Import, Review (E32/F02/S01): this organizer already holds
+    // the responses, so leaving draft is importing them, and the move lands on the import. This
+    // market asks no custom question - only the essential ones the plan above defines.
+    await setup.advancePhaseTo('applications_open', 'Import');
     await expect(setup.phaseBlockers).toHaveCount(0);
+    await expect(page).toHaveURL(/\/import$/);
 
     // --- 4. Import the vendors -----------------------------------------------------------
-    await setup.openApplicationsTab();
-    await monitor.waitForLoaded();
-    await expect(monitor.empty).toBeVisible();
-
-    await setup.startCsvImport();
     await expect(importPage.view).toBeVisible();
     await importPage.chooseFile(CSV);
     await importPage.mapColumns(CSV_HEADERS, CSV_MAPPING);
@@ -153,8 +149,9 @@ test.describe('The MVP journey', () => {
     await page.screenshot({ path: testInfo.outputPath('02-imported.png'), fullPage: true });
 
     // --- 5. Review them ------------------------------------------------------------------
-    await setup.goto(marketId);
-    await setup.openApplicationsTab();
+    // One move from importing to review, the closed phase stepped through, landing on the review.
+    await setup.advancePhaseTo('review', 'Review');
+    await expect(page).toHaveURL(/\/applications$/);
     await monitor.waitForLoaded();
 
     // They arrive awaiting a decision. Nobody is assignable yet, and the queue is one card at a
@@ -173,20 +170,14 @@ test.describe('The MVP journey', () => {
     await page.screenshot({ path: testInfo.outputPath('03-reviewed.png'), fullPage: true });
 
     // --- 6. Assign ------------------------------------------------------------------------
-    await setup.openSetupTab();
-    // The assignment options are set here rather than on the way past, because the wizard only
-    // persists them when it saves, and the organizer left for the import flow in between.
+    // Assign is an operation of the `assignment` phase and refuses everywhere else
+    // (E10/F03/S02), and Begin Assignment lands on its page (E32/F01/S01). This spec is the one
+    // that goes the whole way, so the walk belongs here rather than being skipped past by a seed.
+    await setup.advancePhaseTo('assignment', 'Assignment');
+    await expect(page).toHaveURL(/\/assignment$/);
+    await expect(setup.assignPhaseHint).toBeHidden();
     await setup.setMaxAssignmentsPerVendor(2);
     await setup.setMaxHalfTableProportion(100);
-
-    // Assign is an operation of the `assignment` phase and refuses everywhere else
-    // (E10/F03/S02), so the organizer walks there. This spec is the one that goes the whole way,
-    // so the walk belongs here rather than being skipped past by a seed.
-    await expect(setup.assignPhaseHint).toBeVisible();
-    await setup.advancePhaseTo('applications_closed', 'Form Closed');
-    await setup.advancePhaseTo('review', 'Review');
-    await setup.advancePhaseTo('assignment', 'Assignment');
-    await expect(setup.assignPhaseHint).toBeHidden();
 
     await setup.waitForAssignEnabled();
     await setup.clickAssign();

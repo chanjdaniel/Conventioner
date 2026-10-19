@@ -287,17 +287,17 @@ _WAY_BACK = {
     },
     MarketPhase.APPLICATIONS_CLOSED: {
         IntakeMode.FORM: "Reopen Applications, then Reopen for Editing",
-        IntakeMode.CSV: "Collect Again, then Reopen for Editing",
+        IntakeMode.CSV: "Import more responses, then Reopen for Editing",
     },
 }
 
 
 def _since_leaving_draft(market: Market) -> str:
-    """When a market left draft, as its own path says it: a CSV market collects on its Google Form
-    rather than opening applications (E31/F03/S03)."""
+    """When a market left draft, as its own path says it: a CSV market imports its Google Form's
+    responses rather than opening applications (E31/F03/S03, E32/F02/S01)."""
     if market.intake_mode is IntakeMode.FORM:
         return "once applications have opened"
-    return "once you have started collecting"
+    return "once importing has begun"
 
 
 def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
@@ -1377,6 +1377,22 @@ def apply_phase_transition(
     if latest is None:
         raise MarketNotFoundError("Market not found")
     raise PhaseChangedUnderRequest(phase_from_market_document(latest).value)
+
+
+def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: Optional[str] = None) -> None:
+    """Take a move's steps in order through the one phase writer, each recorded as the phase it
+    entered (E32/F02/S01). The first step is judged against the document the caller loaded; each
+    later one re-reads it, because every write is conditional on the stored phase and a carried
+    document would fail the second step of every route.
+
+    Raises what ``apply_phase_transition`` raises, at the step where it happened.
+    """
+    for index, target in enumerate(route):
+        if index:
+            document = markets_collection.find_one({"id": market_id})
+            if document is None:
+                raise MarketNotFoundError("Market not found")
+        apply_phase_transition(market_id, document, target, by=by)
 
 
 def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> bool:

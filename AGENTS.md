@@ -225,9 +225,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **What a market's screens say comes from one table: `front-end/src/utils/marketGuide.ts`**
   (E31, map `what-to-show-and-when` ticket 02): the rail's next-step sentence, the step onward
   (archiving, once a running market's last date has passed), each phase's and move's name on each
-  intake path (a CSV market "collects" on its Google Form; its form tab is "Questions"), and the
-  line a tab shows while out of its phase - in place of the page, rendered once by `MarketFrame`.
+  intake path (a CSV market imports its Google Form's responses; its form tab is "Questions"), and
+  the line a tab shows while out of its phase - in place of the page, rendered once by `MarketFrame`.
   **Every tab stays on the bar for the market's whole life**, Attendance included.
+- **A path may step through a phase it never stops in** (E32/F02/S01): `PASSED_THROUGH` and
+  `path_moves` in `guards.py`, mirrored in `front-end/src/utils/phase.ts`. A CSV market reads Plan,
+  Import, Review: Begin Review is one move through `applications_closed`, every step's guards judged
+  first, and `transitionBlockers` lists the path's moves only. The single edge is still taken when
+  asked for, so a seed may walk it - but review refuses a CSV market with nothing imported.
 - **The rail says no before the click.** `GET /markets/:id` serves `transitionBlockers` -
   every move open from the phase, judged by `guards.transition_verdicts` (the endpoint's own
   `evaluate_transition`) - and a refused move is drawn disabled with its first blocker as the
@@ -430,8 +435,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   "send only to known addresses" or "token only with an application": together they made the
   "Vendors apply on this market's page" option unable to take a single new application (bug 6).
 - **Importing is the CSV path's in every phase** (E31/F03/S04): `csv_import.import_refusal`
-  refuses a form market, and its words name the CSV rail's moves ("Start Collecting", "Back to
-  Importing"). Publish Results is the form path's.
+  refuses a form market, and its words name the CSV rail's moves ("Import responses", "Import more
+  responses"). Publish Results is the form path's.
 - **Intake mode does not gate the form builder.** A CSV market still has an application form,
   because the essential questions define the offering the CSV maps onto. Intake mode decides who
   fills the form in, not whether one exists.

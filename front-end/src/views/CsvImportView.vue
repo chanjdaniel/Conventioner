@@ -1309,9 +1309,11 @@ function startOver() {
         >
           Import {{ validRows }} row{{ validRows === 1 ? '' : 's' }}
         </button>
+        <!-- Secondary: once something is imported, the one next step is the rail's Begin Review
+             (E32/F02/S01), and two green buttons would make it one of two. -->
         <button
           v-if="step === 'done'"
-          class="button-primary"
+          class="button-secondary"
           data-testid="import-finish-button"
           @click="leaveImport()"
         >
