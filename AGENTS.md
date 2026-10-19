@@ -24,8 +24,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Organization membership gives only Viewer on its markets**, even to its owner and admins; anyone
   who changes a market, a door volunteer included, needs a role on that market (Manage market).
 - **An operator makes or verifies an account with `back-end/create_account.py`**, never
-  `create_test_user.py` (a fixture script that prints the password). Login matches the stored address
-  exactly, so addresses are stored lowercased.
+  `create_test_user.py` (a fixture script that prints the password). **One address is one account**
+  (E32/F03/S04): every writer and lookup goes through `utils/email_address.normalized_email`, and the
+  back end builds a UNIQUE index on `users.email` at boot, refusing to start while an address is
+  stored with capitals (`migrations/migrate_user_emails.py`) or two accounts share one.
 - **Never put the production `MONGODB_URI` in `back-end/.env`**: the local stack mounts that directory
   and would run against production. Pass it inline to one-off scripts. `reset_database.py` refuses
   whenever `MONGODB_URI` is set.

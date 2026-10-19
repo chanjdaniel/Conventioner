@@ -14,6 +14,7 @@ import sys
 from datetime import datetime, timezone
 from flask_bcrypt import Bcrypt
 from db_config import get_database
+from utils.email_address import normalized_email
 
 def create_test_user(email: str, password: str, organizations=None, markets=None):
     """Create a test user in the database ready for immediate login."""
@@ -22,6 +23,8 @@ def create_test_user(email: str, password: str, organizations=None, markets=None
     if markets is None:
         markets = []
     
+    # Stored as every writer stores it (E32/F03/S04): the unique index is over this form.
+    email = normalized_email(email)
     db = get_database()
     users_collection = db["users"]
     

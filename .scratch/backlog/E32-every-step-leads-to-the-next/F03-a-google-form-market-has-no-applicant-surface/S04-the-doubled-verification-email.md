@@ -2,7 +2,7 @@
 id: E32/F03/S04
 title: The doubled verification email
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -14,7 +14,21 @@ Reproduce it first, as a person signing up would hit it (a double click, Enter t
 If it reproduces: the signup control is disabled while its request is in flight, and the server ignores a repeat signup for the same address within a few seconds, sending one email.
 If it does not reproduce, close this story as `wontfix` with what was tried.
 
+## Reproduced 2026-10-19
+
+A double click on Register made **two accounts** for one address in 2 of 3 runs, each sent a verification email (`a-signup-is-sent-once.spec.ts`).
+The form had no in-flight guard, and register checked for the address and then inserted it, with nothing in the database forbidding a second document: `users.email` was indexed but not unique.
+Register also stored the address as typed while every other writer lowercased it.
+
+## As built (settled with Daniel: a unique index and a migration)
+
+- The signup is guarded while in flight.
+- `users.email` is UNIQUE over the lowercased address, built at boot (`api.users.ensure_user_indexes`); the back end refuses to start while an address is stored with capitals or two accounts share one, naming them by id. A concurrent duplicate insert answers "User already exists" and sends nothing.
+- Every lookup and write of an address goes through `utils/email_address.normalized_email`.
+- `migrations/migrate_user_emails.py` lowercases stored addresses, and stops and names accounts that would collide. It must run against production before this release is promoted (`docs/RELEASING.md`).
+
 ## Acceptance criteria
 
-- [ ] The reproduction is recorded in this story, either way.
-- [ ] If fixed: a double click and an Enter-then-click each send one verification email.
+- [x] The reproduction is recorded in this story, either way.
+- [x] If fixed: a double click and an Enter-then-click each send one verification email.
+- [x] Two registrations racing at the server for one address, in any case, make one account.
