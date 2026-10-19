@@ -20,8 +20,8 @@ Every story is a `fix:` and carries no migration, so they may merge during the N
 
 ## Features
 
-- `F01` - the screens say true things in every phase. Startable now.
-- `F02` - the CSV import says where its decisions came from. Startable now.
+- `F01` - the screens say true things in every phase; startable now.
+- `F02` - the CSV import says where its decisions came from; startable now.
 
 ## Order inside this epic
 

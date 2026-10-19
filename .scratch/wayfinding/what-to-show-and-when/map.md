@@ -78,7 +78,8 @@ Buildable work goes to `.scratch/backlog/`, linked from the ticket's `## Answer`
   Leaving draft requires a complete setup, its dates not yet passed; creating a market asks its path; review is rolling; import is the CSV path's and Publish Results the form path's; nothing shows as assigned until a run is stored; the CSV path says "Start/Done Collecting" and calls its form "Questions"; Archive is the forward step after the last date.
 - [03: Vendor notes](issues/03-vendor-notes.md):
   **two kinds: the vendor's request (a built-in optional question, a CSV import target, markable handled) and the organizer's note (one shared editable text, EDITOR writes, the vendor never sees it).**
-  A sheet's organizer column imports as a read-only "From your sheet" line. Both show on review, Vendors and the door roster.
+  A sheet's organizer column imports as a read-only "From your sheet" line.
+  Both show on review, Vendors and the door roster.
 
 ## Tickets
 

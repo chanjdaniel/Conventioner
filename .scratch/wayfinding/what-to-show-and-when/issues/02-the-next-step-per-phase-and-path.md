@@ -63,7 +63,8 @@ Where it differs from the form path:
 
 - **On a CSV market the Application Form tab is "Questions"** ("what your Google Form asks"), with no applicant preview: it is where the import's targets are defined, and no applicant ever sees it.
 - **Archive becomes the forward step once the last market date has passed**, through its existing permanent-action dialog; before that it stays in the menu.
-- **Publish Results (form path) is a secondary action on Applications** from the first decision on, with a line saying what it does ("Tells every decided applicant their verdict on their application page"). The rail never names it.
+- **Publish Results (form path) is a secondary action on Applications** from the first decision on, with a line saying what it does ("Tells every decided applicant their verdict on their application page").
+  The rail never names it.
 - The assignment rules stay live from draft (they are not setup), and Result keeps "change a placement" live through market days, so a vendor can be moved on the day.
 
 ### Settled in round 6
