@@ -16,6 +16,7 @@ from datatypes import (
     MarketRole,
     MarketTableRow,
     Organization,
+    RejectionRule,
     SetupObject,
     UnassignedTableEntry,
     User,
@@ -1823,6 +1824,11 @@ def save_rejection_rules(
         raise ValueError(settled)
     prepared = RejectionRules.prepared_rules(market, rules)
     markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
+    # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
+    RejectionRules.judge(
+        market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]}),
+        market_id,
+    )
     return prepared
 
 

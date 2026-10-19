@@ -397,6 +397,8 @@ export interface Application {
   /** Organizer's only: who gave the verdict, and when (E34/F01/S01). Null without one. */
   verdictBy?: VerdictGiver | null;
   verdictAt?: string | null;
+  /** Organizer's only: why an automatic rule rejected it (E33/F03/S02). */
+  verdictReason?: string | null;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */

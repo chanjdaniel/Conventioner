@@ -32,4 +32,14 @@ describe('who gave a verdict', () => {
       verdictGiverLine({ status: ApplicationStatus.ReviewerApproved, verdictBy: null }),
     ).toBeNull();
   });
+
+  it('says a rule rejected it, and why (E33/F03/S02)', () => {
+    expect(
+      verdictGiverLine({
+        status: ApplicationStatus.ReviewerRejected,
+        verdictBy: { kind: 'rule', rule: 'no_shows' },
+        verdictReason: 'Did not tick “I understand that no-shows”',
+      }),
+    ).toBe('Rejected automatically: did not tick “I understand that no-shows”');
+  });
 });

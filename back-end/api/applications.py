@@ -233,20 +233,26 @@ def find_application_by_email(market_id: str, email: str) -> Optional[Dict[str, 
 
 def update_application_status(
     app_id: str, status: ApplicationStatus, by: Optional[VerdictGiver] = None,
+    reason: Optional[str] = None,
 ) -> bool:
     """Set a new status on an application. Returns whether any document was matched.
 
-    A verdict is written with its giver and time in the same update (E34/F01/S01); a status
-    written with no giver - an application sent back to review, or reopened - clears them, so no
-    application claims a verdict it no longer has.
+    A verdict is written with its giver and time in the same update (E34/F01/S01), and a rule's
+    with its reason (E33/F03/S02); a status written with no giver - an application sent back to
+    review, or reopened - clears all three, so no application claims a verdict it no longer has,
+    and a person's verdict over a rule's leaves no rule's reason behind.
     """
     ensure_application_indexes()
     update: Dict[str, Any] = {"$set": {"status": status.value}}
     if by is None:
-        update["$unset"] = {"verdict_by": "", "verdict_at": ""}
+        update["$unset"] = {"verdict_by": "", "verdict_at": "", "verdict_reason": ""}
     else:
         update["$set"]["verdict_by"] = by.model_dump()
         update["$set"]["verdict_at"] = datetime.now(timezone.utc).isoformat()
+        if reason:
+            update["$set"]["verdict_reason"] = reason
+        else:
+            update["$unset"] = {"verdict_reason": ""}
     result = applications_collection.update_one({"id": app_id}, update)
     return result.matched_count > 0
 
