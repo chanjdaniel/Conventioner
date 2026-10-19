@@ -194,13 +194,13 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
         return None
     if phase is MarketPhase.DRAFT:
         return (
-            "This market is still a draft. Plan it, open applications and review them - the "
-            "assignment runs once the market reaches the assignment phase."
+            "This market is still a draft. Plan it, take its applications in and review them - "
+            "the assignment runs once the market reaches the assignment phase."
         )
     if phase is MarketPhase.APPLICATIONS_OPEN:
         return (
-            "Applications are still being collected. Close them and review them first - the "
-            "assignment runs once the market reaches the assignment phase."
+            "Applications are still coming in. Review them as they arrive - the assignment runs "
+            "once the market reaches the assignment phase."
         )
     if phase is MarketPhase.APPLICATIONS_CLOSED:
         return (

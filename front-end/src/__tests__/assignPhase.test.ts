@@ -28,11 +28,13 @@ describe('where the assignment may be run', () => {
   });
 
   it('names a way forward from a draft, not a way back', () => {
-    expect(assignRefusal('draft')).toContain('open applications');
+    expect(assignRefusal('draft')).toContain('take its applications in');
   });
 
-  it('tells an organizer still collecting applications to close them', () => {
-    expect(assignRefusal('applications_open')).toContain('Close them');
+  // In words true of both paths: a Google Form market has no move called "close" (E32/F02/S01).
+  it('tells an organizer whose applications are still coming in to review them', () => {
+    expect(assignRefusal('applications_open')).toContain('Review them');
+    expect(assignRefusal('applications_open')).not.toMatch(/close/i);
   });
 
   it('sends an organizer past assignment to the Result page, not back to Assign', () => {
@@ -45,7 +47,7 @@ describe('where the assignment may be run', () => {
 
   it('tells closed applications to review, not to close them (E30/F01/S02)', () => {
     expect(assignRefusal('applications_closed')).toContain('Applications are closed');
-    expect(assignRefusal('applications_closed')).not.toContain('still being collected');
+    expect(assignRefusal('applications_closed')).not.toContain('still coming in');
   });
 
   it('gives an archived market the archived reason, where no placement can change', () => {

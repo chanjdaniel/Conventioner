@@ -82,14 +82,14 @@ class TestTheGuard:
 
         message = NoApplicationsYetGuard().evaluate(_market(), None).message
 
-        assert "1 application has" in message
+        assert "1 application is" in message
 
     def test_the_refusal_pluralises(self, application_count):
         application_count(232)
 
         message = NoApplicationsYetGuard().evaluate(_market(), None).message
 
-        assert "232 applications have" in message
+        assert "232 applications are" in message
 
 
 class TestTheEdgeIsGuarded:

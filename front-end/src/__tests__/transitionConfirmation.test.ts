@@ -13,6 +13,7 @@ import { mount } from '@vue/test-utils';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { VALID_TRANSITIONS, transitionNeedsConfirmation } from '@/utils/phase';
+import { movesServedFrom } from './support/servedMoves';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 
@@ -28,7 +29,13 @@ vi.mock('@/utils/api', async (importOriginal) => {
 
 // A market whose vendors apply on its own page stops in every phase, so every edge is a move.
 function marketIn(phase: MarketPhase): Market {
-  return { id: 'market-1', name: 'Riverside', phase, intakeMode: IntakeMode.Form } as Market;
+  return {
+    id: 'market-1',
+    name: 'Riverside',
+    phase,
+    intakeMode: IntakeMode.Form,
+    transitionBlockers: movesServedFrom(phase),
+  } as Market;
 }
 
 async function clickTransition(phase: MarketPhase, toPhase: string) {

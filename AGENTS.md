@@ -229,10 +229,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   the line a tab shows while out of its phase - in place of the page, rendered once by `MarketFrame`.
   **Every tab stays on the bar for the market's whole life**, Attendance included.
 - **A path may step through a phase it never stops in** (E32/F02/S01): `PASSED_THROUGH` and
-  `path_moves` in `guards.py`, mirrored in `front-end/src/utils/phase.ts`. A CSV market reads Plan,
-  Import, Review: Begin Review is one move through `applications_closed`, every step's guards judged
-  first, and `transitionBlockers` lists the path's moves only. The single edge is still taken when
-  asked for, so a seed may walk it - but review refuses a CSV market with nothing imported.
+  `path_moves` in `guards.py`. A CSV market reads Plan, Import, Review: Begin Review is one move
+  through `applications_closed`, every step's guards judged first (`judge_route`, which is why no
+  guard may read the phase). The read serves the path's moves as the keys of `transitionBlockers`
+  and the stepped-through phases as `phasesPassedThrough`; the browser keeps no copy of either. The
+  single edge is still taken when asked for, so a seed may walk it - but review refuses a CSV market
+  with nothing imported.
 - **The rail says no before the click.** `GET /markets/:id` serves `transitionBlockers` -
   every move open from the phase, judged by `guards.transition_verdicts` (the endpoint's own
   `evaluate_transition`) - and a refused move is drawn disabled with its first blocker as the

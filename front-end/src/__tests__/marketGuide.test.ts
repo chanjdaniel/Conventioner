@@ -7,7 +7,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
-import { pathMoves, phaseSpine } from '@/utils/phase';
+import { phaseSpine } from '@/utils/phase';
+import { IMPORTING_SERVED, movesServedFrom } from './support/servedMoves';
 import {
   currentPage,
   forwardFrom,
@@ -32,7 +33,7 @@ function market(phase: MarketPhase, overrides: Partial<Market> = {}): Market {
     intakeMode: IntakeMode.Form,
     setupObject: { marketDates: [{ date: '2099-05-20' }] },
     assignmentObject: { vendorAssignments: [] },
-    transitionBlockers: {},
+    transitionBlockers: movesServedFrom(phase),
     ...overrides,
   } as unknown as Market;
 }
@@ -47,8 +48,8 @@ describe('the path a market is on', () => {
 describe('the words a CSV market wears', () => {
   it('names its importing for what it is, and the form path keeps its own (E32/F02/S01)', () => {
     expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, IntakeMode.Csv)).toBe('Import');
-    // Shown only for a market moved there before the path stepped through it.
-    expect(pathPhaseLabel(MarketPhase.ApplicationsClosed, IntakeMode.Csv)).toBe('Form Closed');
+    // Shown only for a market moved there by the single edge: its responses are in.
+    expect(pathPhaseLabel(MarketPhase.ApplicationsClosed, IntakeMode.Csv)).toBe('Imported');
     expect(pathPhaseLabel(MarketPhase.ApplicationsOpen, IntakeMode.Form)).toBe('Applications Open');
   });
 
@@ -240,8 +241,10 @@ describe('the Google Form path: Plan, Import, Review (E32/F02/S01)', () => {
   const csv = (phase: MarketPhase, overrides: Partial<Market> = {}) =>
     market(phase, { intakeMode: IntakeMode.Csv, ...overrides });
 
+  const PASSED = IMPORTING_SERVED.phasesPassedThrough;
+
   it('draws no "form closed" stage, which the path steps through', () => {
-    expect(spineFor(MarketPhase.ApplicationsOpen, IntakeMode.Csv)).toEqual([
+    expect(spineFor(MarketPhase.ApplicationsOpen, PASSED)).toEqual([
       'draft',
       'applications_open',
       'review',
@@ -249,28 +252,19 @@ describe('the Google Form path: Plan, Import, Review (E32/F02/S01)', () => {
       'market_days',
       'archived',
     ]);
-    expect(spineFor(MarketPhase.ApplicationsOpen, IntakeMode.Form)).toContain(
-      'applications_closed',
-    );
+    expect(spineFor(MarketPhase.ApplicationsOpen, [])).toContain('applications_closed');
   });
 
-  it('gives a market standing in that phase its stage back, so the rail says where it is', () => {
-    expect(spineFor(MarketPhase.ApplicationsClosed, IntakeMode.Csv)).toContain(
-      'applications_closed',
-    );
+  it('gives a market standing in that phase its stage back, as its responses imported', () => {
+    expect(spineFor(MarketPhase.ApplicationsClosed, PASSED)).toContain('applications_closed');
+    expect(pathPhaseLabel(MarketPhase.ApplicationsClosed, IntakeMode.Csv)).toBe('Imported');
+    expect(nextStep(csv(MarketPhase.ApplicationsClosed), TODAY).text).not.toMatch(/closed/i);
   });
 
-  it('moves on from importing to review, and back from review to importing', () => {
-    expect(pathMoves(MarketPhase.ApplicationsOpen, IntakeMode.Csv)).toEqual({
-      draft: ['draft'],
-      review: ['applications_closed', 'review'],
-      archived: ['archived'],
-    });
-    expect(pathMoves(MarketPhase.Review, IntakeMode.Csv).applications_open).toEqual([
-      'applications_closed',
-      'applications_open',
-    ]);
-    expect(forwardFrom(csv(MarketPhase.ApplicationsOpen), TODAY)).toBe(MarketPhase.Review);
+  it('moves on from importing to review, as the read serves the move', () => {
+    expect(forwardFrom(csv(MarketPhase.ApplicationsOpen, IMPORTING_SERVED), TODAY)).toBe(
+      MarketPhase.Review,
+    );
     expect(forwardFrom(market(MarketPhase.ApplicationsOpen), TODAY)).toBe(
       MarketPhase.ApplicationsClosed,
     );

@@ -118,7 +118,7 @@ def test_the_way_back_names_each_move_from_where_the_market_is(
 
 @pytest.mark.parametrize("intake_mode, words", [
     ("form", "once applications have opened"),
-    ("csv", "once importing has begun"),
+    ("csv", "once the market has moved on to importing"),
 ])
 def test_the_reason_speaks_of_the_markets_own_path(applications, intake_mode, words):
     """A CSV market never opens applications: it collects on its Google Form (E31/F01/S03)."""

@@ -90,7 +90,7 @@ def test_every_phase_after_draft_is_locked_in_the_words_of_its_path(serve, phase
     assert form.startswith("The application form is fixed")
     assert "once applications have opened" in form
     assert csv.startswith("The questions are fixed")
-    assert "once importing has begun" in csv
+    assert "once the market has moved on to importing" in csv
 
 
 def test_it_cannot_be_written(monkeypatch):
