@@ -24,8 +24,8 @@
  * than a rail two lines tall.
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
-import type { MarketPage } from '@/utils/marketPage';
+import { useRoute, useRouter } from 'vue-router';
+import { hasAssignment, type MarketPage } from '@/utils/marketPage';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
@@ -36,6 +36,7 @@ import AppDialog from '@/components/AppDialog.vue';
 import { marketPath } from '@/utils/market';
 import {
   blockersFor,
+  currentPage,
   forwardFrom,
   intakeModeOf,
   nextStep,
@@ -64,8 +65,8 @@ const props = defineProps<{
 }>();
 
 /** Said after a transition lands and the store has re-read the market. */
-const emit = defineEmits<{ phaseAdvanced: [] }>();
 const marketStore = useMarketStore();
+const router = useRouter();
 
 const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
 
@@ -360,7 +361,11 @@ async function doTransition(toPhase: string) {
     // fetch its own copy, write it into `localStorage` and hand it to the screen to splice in;
     // every screen shows the market from the store now, so the re-read is all any of them needs.
     await marketStore.refresh();
-    emit('phaseAdvanced');
+    // A move is the next step, so it lands where that step's work is (E32/F01/S01): the guide's
+    // page for the phase entered, which the market's own address and the tab's dot already name.
+    // Begin Review once left the import's result on screen, and Publish never reached the door.
+    const landed = marketStore.market ?? props.market;
+    await router?.push(marketPath(props.market.id, currentPage(toPhase, hasAssignment(landed))));
   } catch (err: unknown) {
     const response =
       err && typeof err === 'object' && 'response' in err

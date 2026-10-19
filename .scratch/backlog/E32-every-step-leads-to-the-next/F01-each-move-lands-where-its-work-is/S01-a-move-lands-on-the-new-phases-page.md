@@ -2,7 +2,7 @@
 id: E32/F01/S01
 title: A move lands on the new phase's page
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -20,9 +20,10 @@ Reproduce each case end to end in the browser first, as an organizer would hit i
 
 ## Acceptance criteria
 
-- [ ] Begin Review lands on the review, with no import result left on screen.
-- [ ] Begin Assignment lands on the assignment page.
-- [ ] Publish Market lands on Attendance.
-- [ ] A back move from the rail's menu lands on its phase's page too.
-- [ ] Where the organizer lands is read from the guide's table, not restated per move.
-- [ ] An E2E spec walks each of the three forward moves and asserts the page arrived at.
+- [x] Begin Review lands on the review, with no import result left on screen.
+- [x] Begin Assignment lands on the assignment page.
+- [x] Publish Market lands on Attendance.
+- [x] A back move from the rail's menu lands on its phase's page too.
+- [x] Where the organizer lands is read from the guide's table, not restated per move.
+- [x] An E2E spec walks each of the three forward moves and asserts the page arrived at.
+- [x] The page arrived at starts at its top, wherever the organizer had scrolled to on the page they left.
