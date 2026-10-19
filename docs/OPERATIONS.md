@@ -94,16 +94,20 @@ A forgotten password is reset by its owner from the sign-in page ("Forgot passwo
 ### The test markets
 
 Checking something in production - that an applicant's sign-in code arrives, that a Google Form market's sign-in reads as no market - needs markets that are nobody's real one.
-`seed_test_markets.py` makes them in "Conventioner Test Organization", owned by your own account (make it first, as above):
+`seed_test_markets.py` makes them in "Conventioner Test Organization", owned by your own account (make it first, as above).
+Run it from `back-end/` in a checkout of what production runs (`main`), so it writes what that build reads; it arrives there with the E32 release, whose migration must have run first (below).
 
 ```bash
 MONGODB_URI='<production URI>' .venv/bin/python seed_test_markets.py --owner you@example.com
 ```
 
-- "Conventioner Test - Online Applications" takes applications on its page; "Conventioner Test - Google Form" imports its vendors. Both are left open, with dates a year out and no applicant.
-- It prints each market's phase and address. Running it again changes nothing that exists, and finishes a market a failed run left in draft.
-- Run it from a checkout of what production runs (`main`), so it writes what that build reads.
-- Apply or import with made-up details only, and an address you own for a sign-in code. To start over, delete the market in the product and run it again.
+- "Conventioner Test - Online Applications" takes applications on its page.
+  "Conventioner Test - Google Form" imports its vendors.
+  Both are left open, with dates a year out and no applicant.
+- It prints each market's phase and path, which is under `https://conventioner.io`.
+  Running it again changes nothing that exists, and finishes a market a failed run left in draft.
+- Apply or import with made-up details only, and an address you own for a sign-in code.
+  To start over, delete the market in the product and run it again.
 
 ## The production database
 

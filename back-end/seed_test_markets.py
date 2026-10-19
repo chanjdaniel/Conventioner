@@ -24,7 +24,12 @@ import sys
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, NamedTuple, Optional
 
-from datatypes import IntakeMode, MarketPhase, MarketRole, market_name_slug
+import api.markets as MarketsApi
+import api.organizations as OrgsApi
+import api.users as UsersApi
+from api.permissions import user_has_permission
+from datatypes import IntakeMode, MarketPhase, MarketRole, User, market_name_slug
+from market_documents import market_doc_field, market_doc_filter
 
 TEST_ORGANIZATION = "Conventioner Test Organization"
 
@@ -83,68 +88,61 @@ def test_plan(today: date) -> Dict[str, Any]:
     }
 
 
-def _test_organization(owner_email: str, owner_id: str) -> str:
-    import api.organizations as OrgsApi
-
+def _test_organization(owner: User) -> str:
     existing = OrgsApi.organizations_collection.find_one({"name": TEST_ORGANIZATION})
     if existing is None:
-        return OrgsApi.create_organization(owner_email, TEST_ORGANIZATION)
-    if existing.get("owner") != owner_id:
+        return OrgsApi.create_organization(owner.email, TEST_ORGANIZATION)
+    if existing.get("owner") != owner.id:
         raise SeedError(
             f"{TEST_ORGANIZATION!r} exists and belongs to another account. Seed as its owner."
         )
     return existing["id"]
 
 
-def _seeded_market(test_market: TestMarket, organization_id: str, owner_email: str,
-                   owner_id: str) -> Dict[str, Any]:
+def _seeded_market(
+    test_market: TestMarket, organization_id: str, owner: User,
+) -> MarketsApi.MarketContext:
     """The stored market for ``test_market``: found by its public address, or created."""
-    import api.markets as MarketsApi
-    from datatypes import AssignmentObject, Market
-
     slug = market_name_slug(test_market.name)
-    document = MarketsApi.markets_collection.find_one({"slug": slug})
-    if document is not None:
-        if document.get("organizationId") != organization_id:
-            raise SeedError(
-                f"The address /{slug} belongs to a market outside {TEST_ORGANIZATION!r}; "
-                "nothing was changed."
-            )
-        return document
-    refusal = MarketsApi.organization_refusal(owner_email, organization_id)
-    if refusal:
-        raise SeedError(refusal)
-    _result, market_id = MarketsApi.create_market(Market(
-        id="",
-        name=test_market.name,
-        creation_date=datetime.now(timezone.utc).isoformat(),
-        organization_id=organization_id,
-        roles={owner_id: MarketRole.OWNER},
-        modification_list=[],
-        assignment_object=AssignmentObject(),
-    ), owner_email)
-    return MarketsApi.markets_collection.find_one({"id": market_id})
+    found = MarketsApi.markets_collection.find_one(market_doc_filter("slug", slug), {"id": 1})
+    if found is None:
+        market_id = MarketsApi.create_owned_market(owner, {
+            "name": test_market.name,
+            "creation_date": datetime.now(timezone.utc).isoformat(),
+            "organization_id": organization_id,
+            "modification_list": [],
+            "assignment_object": {},
+        })
+    else:
+        market_id = found["id"]
+    context = MarketsApi.load_market_context(market_id)
+    if market_doc_field(context.document, "organization_id") != organization_id:
+        raise SeedError(
+            f"The address /{slug} belongs to a market outside {TEST_ORGANIZATION!r}; "
+            "nothing was changed."
+        )
+    return context
 
 
-def seed_test_market(test_market: TestMarket, organization_id: str, owner_email: str,
-                     owner_id: str, today: date) -> str:
+def seed_test_market(test_market: TestMarket, organization_id: str, owner: User,
+                     today: date) -> str:
     """Make ``test_market`` open, or leave it as it stands once it has left draft. Returns its phase."""
-    import api.markets as MarketsApi
-    from datatypes import phase_from_market_document
-
-    document = _seeded_market(test_market, organization_id, owner_email, owner_id)
-    market_id = document["id"]
-    if phase_from_market_document(document) != MarketPhase.DRAFT:
-        return phase_from_market_document(document).value
+    context = _seeded_market(test_market, organization_id, owner)
+    market_id = context.document["id"]
+    if context.market.phase != MarketPhase.DRAFT:
+        return context.market.phase.value
+    # The move is ADMIN, as on the rail. The owner holds it; the endpoint asks, so this does too.
+    if not user_has_permission(owner.email, context.market, MarketRole.ADMIN, context.organization):
+        raise SeedError(f"{owner.email} may not move {test_market.name!r}.")
 
     MarketsApi.save_plan(market_id, {
         "setupObject": test_plan(today),
         "intakeMode": test_market.intake_mode.value,
-    }, owner_email)
-    MarketsApi.save_application_form(market_id, {"fields": TEST_FORM_FIELDS}, owner_email)
+    }, owner.email)
+    MarketsApi.save_application_form(market_id, {"fields": TEST_FORM_FIELDS}, owner.email)
     blockers = MarketsApi.take_move(
         MarketsApi.load_market_context(market_id), MarketPhase.APPLICATIONS_OPEN.value,
-        by=owner_email,
+        by=owner.email,
     )
     if blockers:
         raise SeedError(
@@ -155,20 +153,17 @@ def seed_test_market(test_market: TestMarket, organization_id: str, owner_email:
 
 def seed_test_markets(owner_email: str, today: Optional[date] = None) -> List[str]:
     """Seed every test market for the account ``owner_email``. Returns a line per market."""
-    import api.users as UsersApi
-    from utils.email import frontend_url
-
     owner = UsersApi.get_user(owner_email)
     if owner is None:
         raise SeedError(f"No account for {owner_email}. Make one with create_account.py first.")
-    organization_id = _test_organization(owner.email, owner.id)
+    organization_id = _test_organization(owner)
     lines = []
     for test_market in TEST_MARKETS:
-        phase = seed_test_market(
-            test_market, organization_id, owner.email, owner.id, today or date.today(),
-        )
-        address = f"{frontend_url()}/{market_name_slug(test_market.name)}"
-        lines.append(f"{test_market.name} ({test_market.intake_mode.value}): {phase}, {address}")
+        phase = seed_test_market(test_market, organization_id, owner, today or date.today())
+        # A path, not an address: the script cannot know which site the database it was given
+        # serves, and a production market printed under localhost would be wrong.
+        path = f"/{market_name_slug(test_market.name)}"
+        lines.append(f"{test_market.name} ({test_market.intake_mode.value}): {phase}, {path}")
     return lines
 
 
@@ -179,7 +174,9 @@ def main(argv=None) -> int:
     try:
         for line in seed_test_markets(args.owner):
             print(line)
-    except SeedError as e:
+    # Every refusal the product's own writes can give, said as the operator's "Not done", never a
+    # traceback: a plan or form the server refuses, a role, a race with someone else's move.
+    except (SeedError, ValueError, PermissionError, MarketsApi.PhaseChangedUnderRequest) as e:
         print(f"Not done: {e}", file=sys.stderr)
         return 1
     return 0
