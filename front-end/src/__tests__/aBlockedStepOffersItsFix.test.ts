@@ -75,6 +75,7 @@ describe('a refused move offers its fix', () => {
     const waiting = rail.get(move);
     expect(waiting.attributes('disabled')).toBeDefined();
     expect(waiting.classes()).not.toContain('rail-button--forward');
+    expect(waiting.classes()).toContain('btn--secondary');
     expect(waiting.attributes('aria-describedby')).toBe('phase-rail-next');
   });
 
@@ -94,6 +95,34 @@ describe('a refused move offers its fix', () => {
   });
 });
 
+describe('before a run', () => {
+  const NOT_RUN: PreconditionResult = {
+    id: 'assignment_computed',
+    passed: false,
+    message: 'No assignment has been computed for this market. Run the assignment first.',
+    resolutionLink: 'assignment',
+    resolutionLabel: 'Run the assignment',
+  };
+
+  it('Publish waits on running the assignment, offered from any other page', () => {
+    const rail = railFor(
+      [],
+      {
+        phase: MarketPhase.Assignment,
+        transitionBlockers: { [MarketPhase.MarketDays]: [NOT_RUN] },
+      },
+      '/markets/market-1/applications',
+    );
+
+    const button = rail.get(fix);
+    expect(button.text()).toBe('Run the assignment');
+    expect(button.getComponent(RouterLinkStub).props('to')).toBe('/markets/market-1/assignment');
+    expect(
+      rail.get('[data-testid="phase-transition-market_days"]').attributes('disabled'),
+    ).toBeDefined();
+  });
+});
+
 describe('no fix is offered', () => {
   it('for a reason no one page resolves: the sentence says it', () => {
     const rail = railFor([ASKS_NOTHING]);
@@ -109,9 +138,10 @@ describe('no fix is offered', () => {
     expect(rail.get(move).attributes('disabled')).toBeDefined();
   });
 
-  it('to someone the move is not theirs to make', () => {
+  it('to someone the move is not theirs to make, whose sentence still names where it is fixed', () => {
     const rail = railFor([NO_LOCATION], { adminActionsReason: 'Only an admin moves the market.' });
 
     expect(rail.find(fix).exists()).toBe(false);
+    expect(rail.get('[data-testid="phase-rail-next-link"]').text()).toBe('Add a location');
   });
 });
