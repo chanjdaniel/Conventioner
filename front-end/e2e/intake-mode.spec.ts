@@ -59,6 +59,17 @@ test.describe('Intake mode - a CSV market has no public applicant surface', () =
     });
   }
 
+  test('its sign-in page says the page does not exist, rather than taking an address', async ({
+    page,
+  }) => {
+    // It drew a sign-in form and answered "sent" for a code it never sends (E32/F03/S01).
+    for (const slug of [csvMarket.marketSlug, UNKNOWN_SLUG]) {
+      await page.goto(`/${slug}/applicant-login`);
+      await expect(page.getByTestId('applicant-login-not-found')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByTestId('applicant-login-email-input')).toHaveCount(0);
+    }
+  });
+
   test('the market home never confirms that the market exists', async ({ page }) => {
     await page.goto(`/${csvMarket.marketSlug}`);
     await expect(page.getByTestId('market-home-not-found')).toBeVisible({ timeout: 10000 });

@@ -12,7 +12,7 @@ pr: []
 The production test markets were cleared after the 2026-10-18 dry run, so a check like `S02`'s has nothing to run against.
 Modify the seeding script and re-run it so production has one test market of each intake path (one taking applications online, open; one started from a Google Form), owned by a test organization, with no real applicant's details.
 
-Open: which seeding script is meant (the local fixture script, or one run against production) is to be confirmed with Daniel when this story starts.
+Settled 2026-10-19 with Daniel: a new production seeder, a back-end script beside `create_account.py`, run with the production `MONGODB_URI` passed inline, never from `back-end/.env`.
 
 ## Acceptance criteria
 
