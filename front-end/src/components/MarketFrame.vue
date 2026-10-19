@@ -19,16 +19,16 @@
  * x 0 on two and x 32 on the import, and each screen had its own answer for a market not yet here -
  * mostly an empty black bar. A screen's content is rendered only once its market is in hand.
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import type { Market } from '@/assets/types/datatypes';
+import { MarketPhase, type Market } from '@/assets/types/datatypes';
 import MarketArrival from '@/components/MarketArrival.vue';
 import MarketBar from '@/components/MarketBar.vue';
 import MarketPages from '@/components/MarketPages.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { useMarketStore } from '@/stores/market';
 
-defineProps<{
+const props = defineProps<{
   market: Market | null;
   /** Awaited before any transition is posted: the plan flushes its pending edits here. */
   beforeTransition?: () => Promise<void> | void;
@@ -39,6 +39,17 @@ const emit = defineEmits<{ retry: [] }>();
 
 const store = useMarketStore();
 const { status } = storeToRefs(store);
+
+/*
+ * Why this person may change nothing here, said once for every page of the market (bug 54). Each
+ * screen drops its controls on `readOnlyReason`, and only the plan said why: a Viewer met a Result
+ * page whose seats were plain text and took it for broken. An archived market is said by the rail.
+ */
+const readOnlyNote = computed(() =>
+  props.market && props.market.phase !== MarketPhase.Archived
+    ? (props.market.readOnlyReason ?? null)
+    : null,
+);
 
 function retry(): void {
   void store.refresh();
@@ -81,6 +92,9 @@ onBeforeUnmount(() => observer?.disconnect());
           <slot name="pinned" />
         </template>
       </div>
+      <p v-if="readOnlyNote" class="note market-frame-note" data-testid="market-read-only">
+        {{ readOnlyNote }}
+      </p>
       <slot v-if="market" />
       <MarketArrival v-else :status="status" @retry="retry" />
     </div>
@@ -116,6 +130,17 @@ onBeforeUnmount(() => observer?.disconnect());
   border-radius: 0 0 var(--radius-card) var(--radius-card);
   /* The window under the banner, less the page's bottom gutter. */
   min-height: calc(100vh - var(--banner-h) - var(--space-4));
+}
+
+/* Inset as a screen insets its content, so the note lines up with what it explains. */
+.market-frame-note {
+  margin: var(--space-6) var(--space-6) 0;
+}
+
+@media (max-width: 640px) {
+  .market-frame-note {
+    margin: var(--space-4) var(--space-4) 0;
+  }
 }
 
 .market-frame {

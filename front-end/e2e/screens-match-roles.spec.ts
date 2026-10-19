@@ -2,6 +2,8 @@ import type { Browser, Page } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL, LoginPage } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { seedPublishedMarketWithAssignments, type PublishedSeedResult } from './helpers/seeds';
+import { TablesPage } from './pages/TablesPage';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 /**
@@ -13,6 +15,7 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
  */
 const VIEWER = { email: 'e2e-role-viewer@example.com', password: 'e2epassword123' };
 const EDITOR = { email: 'e2e-role-editor@example.com', password: 'e2epassword123' };
+const ORG_ADMIN = { email: 'e2e-role-org-admin@example.com', password: 'e2epassword123' };
 
 async function asUser(
   browser: Browser,
@@ -69,6 +72,8 @@ test('a Viewer reads every market page and is offered nothing to change', async 
     await page.goto(marketScreenPath(marketId, 'result'));
     await expect(page.getByTestId('tables-seat-occupied').first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator('button.seat-button')).toHaveCount(0);
+    // And it says why, on the page whose seats are plain text (bug 54).
+    await expect(page.getByTestId('market-read-only')).toContainText('view this market');
 
     await page.goto(marketSetupPath(marketId, 'applications'));
     await page.getByTestId('app-monitor-decided-toggle').click();
@@ -95,5 +100,67 @@ test('an Editor changes the plan and the seats, but moves no phase and decides n
     await page.getByTestId('app-monitor-decided-toggle').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
     await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
+  });
+});
+
+/*
+ * An organization's admins run every market it holds (bug 55). Membership gave Viewer even to
+ * them, so the admin running a market on the day met seats as plain text and could not swap one.
+ */
+test.describe('an organization admin with no role on the market', () => {
+  let published: PublishedSeedResult;
+
+  test.beforeAll(async ({ request }) => {
+    ensureVerifiedUser(ORG_ADMIN.email, ORG_ADMIN.password);
+    published = await seedPublishedMarketWithAssignments(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const { orgId } = published;
+    const made = await request.post(`${BACKEND_URL}/organizations/${orgId}/admins`, {
+      data: { user_email: ORG_ADMIN.email },
+    });
+    // Idempotent across runs: a second add answers 400, so ask the organization instead.
+    if (!made.ok()) {
+      const orgs = await request.get(`${BACKEND_URL}/organizations`);
+      const { organizations } = (await orgs.json()) as {
+        organizations: { id: string; adminEmails?: string[] }[];
+      };
+      const org = organizations.find((o) => o.id === orgId);
+      expect(org?.adminEmails, await made.text()).toContain(ORG_ADMIN.email);
+    }
+  });
+
+  test('trades two seats on market day, and is offered what a market admin is', async ({
+    browser,
+  }) => {
+    await asUser(browser, ORG_ADMIN, async (page) => {
+      const tables = new TablesPage(page);
+      await tables.goto(published.marketId);
+      await expect(tables.tableRows.first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('market-read-only')).toHaveCount(0);
+
+      const seats = page.getByTestId('tables-seat-occupied');
+      await expect(seats.nth(1)).toBeVisible();
+      const first = await tables.occupantOf(seats.nth(0));
+      const second = await tables.occupantOf(seats.nth(1));
+      const firstTable = await tables.tableCodeOf(seats.nth(0));
+      const secondTable = await tables.tableCodeOf(seats.nth(1));
+      await seats.nth(0).click();
+      await tables.swapWith(second);
+      await expect(tables.dialog).toBeHidden();
+      await expect(tables.row(firstTable).locator(`[data-vendor-email="${second}"]`)).toBeVisible();
+      await expect(tables.row(secondTable).locator(`[data-vendor-email="${first}"]`)).toBeVisible();
+
+      // The phase moves are an admin's, so the rail offers them.
+      await expect(page.getByTestId('phase-rail-menu-button')).toBeVisible();
+
+      // And the market's card offers Manage, as it does a market admin.
+      await page.goto('/markets');
+      const card = page.getByTestId('market-card').filter({ hasText: published.marketName });
+      await expect(card.getByTestId('market-card-manage-button')).toBeVisible({ timeout: 15000 });
+    });
   });
 });

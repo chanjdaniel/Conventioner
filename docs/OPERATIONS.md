@@ -65,14 +65,16 @@ What a person may do is decided per organization and per market:
 
 | Role | Where it comes from | What it allows |
 | --- | --- | --- |
-| Organization owner, admin, member | Manage organization (Organizations page) | being in the organization, and **Viewer** on every market it holds - nothing more |
+| Organization owner, admin | Manage organization (Organizations page) | **Admin** on every market the organization holds |
+| Organization member | Manage organization (Organizations page) | **Viewer** on every market the organization holds |
 | Market owner | creating the market | everything, including roles and deletion |
 | Market admin | Manage market | phase moves, verdicts, importing, publishing, plus everything an editor does |
 | Market editor | Manage market | the plan, the form, placements, and checking vendors in at the door |
 | Market viewer | Manage market, or organization membership | reading |
 
-**Organization membership alone gives Viewer on its markets, even to the organization's owner and admins.**
-Anyone who must change a market, including a volunteer at the door, needs a role on that market: Markets, the market's card, **Manage**, "Users with access", **Add user**, their email and a role.
+**An organization's owner and admins run every market it holds as its Admin; a member only reads them.**
+A person holds both their organization's role and any role on the market itself, and the higher one counts.
+Anyone else who must change a market, including a volunteer at the door, needs a role on that market: Markets, the market's card, **Manage**, "Users with access", **Add user**, their email and a role.
 The person must already have an account.
 
 ### Making an account

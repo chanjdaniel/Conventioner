@@ -694,6 +694,28 @@ def _decorate_market_summary(
     return market
 
 
+def _summary_role(
+    market: Dict[str, Any], user_id: str, lookups: _SummaryLookups
+) -> Optional[str]:
+    """The role a list entry names: the one ``get_user_market_role`` would serve on the market.
+
+    Worked from the raw documents the list already holds, by the same two rules, so a card offers
+    Manage to exactly the people the market's own page lets manage it (bug 55).
+    """
+    explicit = (market_doc_field(market, 'roles') or {}).get(user_id)
+    try:
+        on_the_market = MarketRole(explicit) if explicit else None
+    except ValueError:
+        on_the_market = None
+    organization_id = market_doc_field(market, 'organization_id')
+    org = lookups.organization(organization_id) if organization_id else None
+    through_organization = PermissionsApi.organization_market_role(
+        user_id, org.get('owner'), org.get('admins') or [], org.get('members') or [],
+    ) if org else None
+    role = PermissionsApi.higher_role(on_the_market, through_organization)
+    return role.value if role else explicit
+
+
 def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
     """
     Get all markets a user has access to (via explicit role or organization).
@@ -722,7 +744,7 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
         if mid not in seen_ids:
             seen_ids.add(mid)
             result.append(_decorate_market_summary(
-                market, market.get('roles', {}).get(user_id), lookups
+                market, _summary_role(market, user_id, lookups), lookups
             ))
 
     org_ids = [org['id'] for org in user_orgs]
@@ -735,7 +757,9 @@ def get_markets_for_user(user_email: str) -> List[Dict[str, Any]]:
             mid = market["id"]
             if mid not in seen_ids:
                 seen_ids.add(mid)
-                result.append(_decorate_market_summary(market, MarketRole.VIEWER.value, lookups))
+                result.append(_decorate_market_summary(
+                    market, _summary_role(market, user_id, lookups), lookups
+                ))
 
     return result
 

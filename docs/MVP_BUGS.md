@@ -4,6 +4,7 @@ Found on 2026-09-30, on `dev` at `59677cf8`, while walking every flow in [USER_F
 Bugs 22 to 44 were found the same day by the usage test run with five real Google Form exports, written up in [MVP_TEST_RUN_2026-09-30.md](MVP_TEST_RUN_2026-09-30.md); that run also retested bugs 1 to 21, and each entry below says what it saw.
 Every one was fixed by epic E26 ("The user flows hold") on `fix/mvp-e2e-testing`, except bug 39, which is known behaviour; the summary names the commit for each.
 Bugs 45 to 47 were found while fixing the others, and bugs 48 to 53 on the live re-walk after the fixes ([MVP_TEST_RUN_2026-10-03.md](MVP_TEST_RUN_2026-10-03.md)).
+Bugs 54 and 55 were reported on 2026-10-20, in the November 2026 market's window.
 Each fix began from the reproduction below, made into a Playwright spec that failed first.
 Each entry gives a reproduction from the user's side first, then what was observed, then the cause as far as it was traced, then what a spec pinning it should assert.
 
@@ -82,6 +83,8 @@ Flow ids refer to [USER_FLOWS.md](USER_FLOWS.md); "Tracked" names an open Wayfin
 | [51](#bug-51) | The check-in email field shrinks to 22 px on a phone | Medium | K2 | | `aaff3130` |
 | [52](#bug-52) | Links sit off their line, native controls are the browser's blue, "Plan saved" touches the card's corner | Low | many | | `00ad1604` |
 | [53](#bug-53) | The vendor's Full name asks for the preferred name | Low | H3a | | `00ad1604` |
+| [54](#bug-54) | A Viewer's market pages drop their controls without saying why | Medium | B2, J4, J7, K5 | | |
+| [55](#bug-55) | An organization's admin cannot change its markets | High | B2, J7 | | |
 
 <a id="bug-1"></a>
 ## 1. Check-in sends hand-placed vendors to the wrong table
@@ -935,6 +938,28 @@ The calendar's days were named only by their number.
 **Observed:** the applicant form described Full name as "Your name as you would like it read out", which is the question Preferred name asks just below it; the builder describes it as the name the applicant goes by officially.
 
 **Fixed:** "Your full name, as it appears officially."
+
+<a id="bug-54"></a>
+## 54. A Viewer's market pages drop their controls without saying why
+
+**Severity:** Medium: an organizer took a read-only Result page for a broken one. Reported 2026-10-20.
+
+**Reproduce:** give an account Viewer on a published market, sign in as them, open Assignment, Result.
+
+**Observed:** the seats are plain text, with nothing on the page to say why; only Market Setup said "You can view this market but not change it". Vendors, Applications and Attendance were the same. At phone width the door's rows also ran to the card's edges.
+
+**Fixed:** the market's frame says the reason once, under the rail, on every page of the market; an archived market is still said by the rail. The door keeps its gutter on a phone.
+
+<a id="bug-55"></a>
+## 55. An organization's admin cannot change its markets
+
+**Severity:** High: the admin running a market on the day could not swap two vendors. Reported 2026-10-20.
+
+**Reproduce:** make an account an Admin of a market's organization, give them no role on the market, sign in as them, open a published market's Result.
+
+**Observed:** membership in an organization gave Viewer on its markets whatever the role in it, so the organization's admin could read the seats and change nothing; the Markets list called them a viewer and offered no Manage. A market role of its own also replaced the organization's rather than adding to it.
+
+**Fixed:** decided with the user on 2026-10-20, reversing the earlier "membership gives Viewer only" ruling: an organization's owner and admins are Admin on every market it holds, and a member is Viewer. The higher of that and any role on the market counts, in every permission check and in the Markets list alike. Never Owner: a market's one Owner alone deletes it and hands it over.
 
 ## Not bugs, but worth knowing when testing
 

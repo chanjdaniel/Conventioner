@@ -1,7 +1,7 @@
 """
 Permission resolution and access control functions.
 """
-from typing import Optional, List
+from typing import Iterable, List, Optional
 from datatypes import Market, MarketRole, Organization
 from db_config import get_database
 import api.users as UsersApi
@@ -10,26 +10,52 @@ db = get_database()
 organizations_collection = db["organizations"]
 
 
+ROLE_RANK = {
+    MarketRole.OWNER: 4,
+    MarketRole.ADMIN: 3,
+    MarketRole.EDITOR: 2,
+    MarketRole.VIEWER: 1,
+}
+
+
+def organization_market_role(
+    user_id: str, owner: Optional[str], admins: Iterable[str], members: Iterable[str],
+) -> Optional[MarketRole]:
+    """What belonging to an organization gives a person on every market it holds (bug 55).
+
+    Its owner and admins run them as a market's Admin does; a member reads them. Never Owner: a
+    market has exactly one, the person named on it, who alone deletes it and hands it over.
+    Membership once gave Viewer to everyone, so an organization's admin could not swap a seat.
+    """
+    if user_id == owner or user_id in admins:
+        return MarketRole.ADMIN
+    if user_id in members:
+        return MarketRole.VIEWER
+    return None
+
+
+def higher_role(*roles: Optional[MarketRole]) -> Optional[MarketRole]:
+    """The highest of the roles a person holds, or None when they hold none.
+
+    A role on the market and a role through its organization are both held, and the higher one
+    counts: an organization admin once given Viewer on one market is not held to it.
+    """
+    held = [role for role in roles if role is not None]
+    return max(held, key=ROLE_RANK.__getitem__) if held else None
+
+
 def get_user_market_role(user_email: str, market: Market, organization: Optional[Organization] = None) -> Optional[MarketRole]:
     """
-    Get user's effective role for a market.
-    Returns None if user has no access.
-    
-    Resolution order:
-    1. Check explicit market role (in market.roles dict, keys are user ids)
-    2. If no explicit role, check organization membership (returns VIEWER if user in org)
-    3. Return None if no access
+    Get user's effective role for a market: the higher of their role on the market itself
+    (``market.roles``, keyed by user id) and what their place in its organization gives
+    (``organization_market_role``). Returns None if user has no access.
     """
     user = UsersApi.get_user(user_email)
     if not user:
         return None
     user_id = user.id
-    
-    # 1. Check explicit market role (roles dict keys are user ids)
-    if user_id in market.roles:
-        return market.roles[user_id]
-    
-    # 2. Check organization-based access (organization_id, owner/admins/members are ids)
+
+    through_organization = None
     if market.organization_id:
         if organization is None:
             org_dict = organizations_collection.find_one({"id": market.organization_id})
@@ -39,14 +65,13 @@ def get_user_market_role(user_email: str, market: Market, organization: Optional
                     organization = Organization(**org_dict)
                 except Exception:
                     organization = None
-        
+
         if organization and organization.id == market.organization_id:
-            if (user_id == organization.owner or
-                    user_id in organization.admins or
-                    user_id in organization.members):
-                return MarketRole.VIEWER
-    
-    return None
+            through_organization = organization_market_role(
+                user_id, organization.owner, organization.admins, organization.members
+            )
+
+    return higher_role(market.roles.get(user_id), through_organization)
 
 
 def user_has_permission(user_email: str, market: Market, required_role: MarketRole, organization: Optional[Organization] = None) -> bool:
@@ -59,16 +84,8 @@ def user_has_permission(user_email: str, market: Market, required_role: MarketRo
     user_role = get_user_market_role(user_email, market, organization)
     if user_role is None:
         return False
-    
-    # Permission hierarchy: Owner > Admin > Editor > Viewer
-    role_hierarchy = {
-        MarketRole.OWNER: 4,
-        MarketRole.ADMIN: 3,
-        MarketRole.EDITOR: 2,
-        MarketRole.VIEWER: 1
-    }
-    
-    return role_hierarchy[user_role] >= role_hierarchy[required_role]
+
+    return ROLE_RANK[user_role] >= ROLE_RANK[required_role]
 
 
 def can_manage_roles(user_email: str, market: Market, target_role: MarketRole, organization: Optional[Organization] = None) -> bool:

@@ -69,13 +69,14 @@ A bug the status once named is linked where its fix changed what a step says.
 | Person | Signs in how | What they do |
 | --- | --- | --- |
 | Organizer | Email and password, or an emailed sign-in code | Runs markets: flows A to L. |
+| Organization admin | Same as organizer | Runs every market of their organization as its Admin. |
 | Organization member | Same as organizer | Sees every market of their organization as a Viewer. |
 | Vendor applying online | A 6-digit code emailed per market (no account) | Applies to a market set to "Vendors apply on this market's page", and sees their application (H3). |
 | Vendor on market day | Nothing: types the email they applied with | Looks up their table and checks in (K2). |
 
 Organization roles are Owner, Admin and Member.
-Being in an organization in any role gives Viewer access to its markets.
-A market can also give a person an explicit role, which takes precedence: Owner (4) > Admin (3) > Editor (2) > Viewer (1).
+An organization's Owner and Admins are Admin on every market it holds; a Member is Viewer ([bug 55](MVP_BUGS.md#bug-55)).
+A market can also give a person an explicit role, and the higher of the two counts: Owner (4) > Admin (3) > Editor (2) > Viewer (1).
 
 What each market role can do, as the back end enforces it (`back-end/app.py`, `back-end/api/markets.py`, `back-end/api/placements.py`):
 
@@ -370,7 +371,7 @@ Covered by: `tier2.spec.ts` ("Organization CRUD").
 1. On an organization card, "Manage".
 2. Under Admins, "Add admin", enter an existing account's email, "Add"; under Members, "Add member" likewise.
 3. Expect the person listed and the dialog still open (closing is not saving).
-4. Sign in as that person: every market of the organization is visible to them as a Viewer.
+4. Sign in as that person: every market of the organization is theirs to run as an Admin, or visible to a member as a Viewer, who is told so on every page ([bug 54](MVP_BUGS.md#bug-54)).
 
 Branches: an email with no account, someone already in the organization, an Admin trying Owner-only actions.
 Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`.
@@ -378,7 +379,7 @@ Covered by: `tier2.spec.ts`, `dialog-idiom.spec.ts`, `access-control.spec.ts`.
 #### B3. Remove a person
 
 **Status:** Works (walked live).
-"Remove" beside them, with no confirmation; they lose Viewer access to the organization's markets unless the market gives them a role of its own.
+"Remove" beside them, with no confirmation; they lose what the organization gave them on its markets unless the market gives them a role of its own.
 Covered by: `access-control.spec.ts` ("org membership changes").
 
 #### B4. Rename an organization

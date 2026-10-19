@@ -38,7 +38,7 @@ Represents a user account in the system.
 
 **Note:** User no longer maintains a `markets` list. Market access is determined dynamically through:
 1. Explicit roles in `Market.roles` dictionary
-2. Organization membership (grants VIEWER permission on organization's markets)
+2. Organization membership: the organization's owner and admins hold ADMIN on its markets, a member VIEWER; the higher of this and the explicit role counts
 
 ---
 

@@ -374,7 +374,7 @@ watch(marketId, loadAttendance, { immediate: true });
    button within a thumb's reach on the right. */
 @media (width <= 640px) {
   .door {
-    padding: var(--space-4) 0;
+    padding: var(--space-4);
   }
 
   .door-row {

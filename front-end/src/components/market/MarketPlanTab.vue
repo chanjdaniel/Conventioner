@@ -84,11 +84,9 @@ const intakeEditable = computed(() => props.intakeEditable);
        dates bound the max-assignments clamp, which the organizer can now see move. Paging it
        was the same mistake as the wizard pretending to be the lifecycle, one level down. -->
   <!-- A fieldset, so a plan that cannot change disables every control in it at once (bug 30): one
-       attribute rather than one prop per card, and a card added later is covered without asking. -->
+       attribute rather than one prop per card, and a card added later is covered without asking.
+       Why it cannot is said above it, by the frame (bug 54) or, archived, by the rail. -->
   <fieldset class="plan-body card-grid" :disabled="Boolean(readOnlyReason)">
-    <p v-if="readOnlyReason" class="note card-grid__wide" data-testid="market-read-only">
-      {{ readOnlyReason }}
-    </p>
     <ElementSettingContainer class="card-grid__wide" data-testid="plan-card-dates">
       <template #setting-title>
         <h2>Market Dates</h2>

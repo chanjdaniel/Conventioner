@@ -21,8 +21,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **`docs/OPERATIONS.md` is the runbook**: what runs where (Vercel projects, Atlas cluster, Resend,
   reCAPTCHA), every variable and where it lives, accounts and access, the database, logs, incidents.
   `docs/VERCEL_DEPLOYMENT.md` rebuilds production from nothing.
-- **Organization membership gives only Viewer on its markets**, even to its owner and admins; anyone
-  who changes a market, a door volunteer included, needs a role on that market (Manage market).
+- **An organization's owner and admins are Admin on every market it holds; a member is Viewer**
+  (bug 55, `organization_market_role` in `api/permissions.py`). Held beside any role on the market
+  itself, and the higher counts. Anyone else who changes a market, a door volunteer included, needs a
+  role on that market (Manage market). Never Owner: a market has one, who alone deletes it.
 - **An operator makes or verifies an account with `back-end/create_account.py`**, never
   `create_test_user.py` (a fixture script that prints the password). Login matches the stored address
   exactly, so addresses are stored lowercased.
