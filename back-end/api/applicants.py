@@ -27,6 +27,7 @@ import table_share as TableShare
 from market_documents import (
     applicant_intake_market_by_slug,
     market_doc_field,
+    market_from_document,
     market_serves_applicants,
 )
 from datatypes import (
@@ -289,8 +290,7 @@ def save_applicant_application(
     market_doc = applicant_intake_market_by_slug(
         db["markets"],
         market_slug,
-        fields=("id", "phase", "applicationForm", "resultsPublished", "setupObject",
-                "rejectionRules"),
+        fields=("id", "phase", "applicationForm", "resultsPublished", "setupObject"),
     )
     if not market_doc:
         return {"error": "Market not found."}, 404
@@ -336,7 +336,9 @@ def save_applicant_application(
         return {"error": error}, 422
 
     # The market's rules judge it as it arrives (E33/F03/S02); the applicant is told nothing of it.
-    if RejectionRules.judge(RejectionRules.Rulebook.from_document(market_doc), market_id, [app.id]):
+    # Read whole, through the canonical parse: the applicant's projection carries only what they see.
+    market = market_from_document(db["markets"].find_one({"id": market_id}))
+    if RejectionRules.judge(RejectionRules.Rulebook(market), market_id, app.id):
         app = Application(**ApplicationsApi.find_application_by_id(app.id))
 
     results_published = bool(market_doc.get("resultsPublished"))

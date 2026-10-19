@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import api.applicants as ApplicantsApi  # noqa: E402
 import api.applications as ApplicationsApi  # noqa: E402
 import rejection_rules as Rules  # noqa: E402
-from conftest import FakeApplicationsCollection, client_market  # noqa: E402
+from conftest import FakeApplicationsCollection, client_market, complete_setup  # noqa: E402
 from datatypes import (  # noqa: E402
     Application, ApplicationForm, ApplicationStatus, MarketPhase, RejectionRule, VerdictGiver)
 
@@ -31,9 +31,9 @@ AFFILIATION_RULE = RejectionRule(key="affiliation", answers=[NOT_UBC])
 ALEX = VerdictGiver(kind="person", user_id="user-alex", email="alex@market.test")
 
 
-def _market(*rules):
+def _market(*rules, **overrides):
     return client_market(phase=MarketPhase.REVIEW, application_form=ApplicationForm(fields=FIELDS),
-                         rejection_rules=list(rules))
+                         setup_object=complete_setup(), rejection_rules=list(rules), **overrides)
 
 
 def _app(app_id, status=ApplicationStatus.OPEN, **answers):
@@ -51,31 +51,32 @@ def stored(monkeypatch):
 
 class TestWhichAnswerRejects:
     def test_an_unticked_agreement(self):
-        assert Rules.rejecting(_market(NO_SHOW_RULE), {"no_shows": False}) == (
+        assert Rules.Rulebook(_market(NO_SHOW_RULE)).rejecting({"no_shows": False}) == (
             "no_shows", "Did not tick “I understand that no-shows”")
-        # Never answered is not ticked: the import stores an unticked box as False or nothing.
-        assert Rules.rejecting(_market(NO_SHOW_RULE), {})[0] == "no_shows"
-        assert Rules.rejecting(_market(NO_SHOW_RULE), {"no_shows": True}) is None
+        # No answer at all is not an unticked box: a checkbox added since, or a column an import
+        # left out, would otherwise reject every application at once.
+        assert Rules.Rulebook(_market(NO_SHOW_RULE)).rejecting({}) is None
+        assert Rules.Rulebook(_market(NO_SHOW_RULE)).rejecting({"no_shows": True}) is None
 
     def test_a_choice_names_the_answer_given(self):
-        assert Rules.rejecting(_market(AFFILIATION_RULE), {"affiliation": NOT_UBC}) == (
+        assert Rules.Rulebook(_market(AFFILIATION_RULE)).rejecting({"affiliation": NOT_UBC}) == (
             "affiliation", f"Answered “{NOT_UBC}” to “Are you a UBC student?”")
 
     def test_a_multi_select_rejects_on_any_answer_it_names(self):
         rule = RejectionRule(key="clubs", answers=["Print"])
-        assert Rules.rejecting(_market(rule), {"clubs": ["Art", "Print"]})[0] == "clubs"
-        assert Rules.rejecting(_market(rule), {"clubs": ["Art"]}) is None
+        assert Rules.Rulebook(_market(rule)).rejecting({"clubs": ["Art", "Print"]})[0] == "clubs"
+        assert Rules.Rulebook(_market(rule)).rejecting({"clubs": ["Art"]}) is None
 
     def test_a_rule_naming_no_answer_rejects_nobody(self):
         rule = RejectionRule(key="affiliation", answers=[])
-        assert Rules.rejecting(_market(rule), {"affiliation": NOT_UBC}) is None
+        assert Rules.Rulebook(_market(rule)).rejecting({"affiliation": NOT_UBC}) is None
 
 
 class TestJudgingTheMarket:
     def test_an_undecided_application_is_rejected_with_the_rule_and_the_reason(self, stored):
         stored.append(_app("a", no_shows=False))
 
-        Rules.judge(_market(NO_SHOW_RULE), "market-123")
+        Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123")
 
         assert stored[0]["status"] == ApplicationStatus.REVIEWER_REJECTED.value
         assert stored[0]["verdict_by"] == {"kind": "rule", "rule": "no_shows",
@@ -87,25 +88,25 @@ class TestJudgingTheMarket:
         stored.append({**_app("a", ApplicationStatus.REVIEWER_APPROVED, no_shows=False), **given})
         stored.append({**_app("b", ApplicationStatus.REVIEWER_REJECTED, no_shows=True), **given})
 
-        Rules.judge(_market(NO_SHOW_RULE), "market-123")
+        Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123")
 
         assert [a["status"] for a in stored] == ["reviewer_approved", "reviewer_rejected"]
         assert all(a["verdict_by"]["kind"] == "person" for a in stored)
 
     def test_a_rule_that_no_longer_matches_returns_its_rejections_to_undecided(self, stored):
         stored.append(_app("a", no_shows=False, affiliation=NOT_UBC))
-        Rules.judge(_market(NO_SHOW_RULE), "market-123")
+        Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123")
 
-        Rules.judge(_market(), "market-123")
+        Rules.judge(Rules.Rulebook(_market()), "market-123")
 
         assert stored[0]["status"] == ApplicationStatus.OPEN.value
         assert "verdict_by" not in stored[0] and "verdict_reason" not in stored[0]
 
     def test_another_rule_still_matching_keeps_it_rejected_with_its_own_reason(self, stored):
         stored.append(_app("a", no_shows=False, affiliation=NOT_UBC))
-        Rules.judge(_market(NO_SHOW_RULE, AFFILIATION_RULE), "market-123")
+        Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE, AFFILIATION_RULE)), "market-123")
 
-        Rules.judge(_market(AFFILIATION_RULE), "market-123")
+        Rules.judge(Rules.Rulebook(_market(AFFILIATION_RULE)), "market-123")
 
         assert stored[0]["status"] == ApplicationStatus.REVIEWER_REJECTED.value
         assert stored[0]["verdict_by"]["rule"] == "affiliation"
@@ -113,9 +114,35 @@ class TestJudgingTheMarket:
     def test_one_application_alone_when_it_arrives(self, stored):
         stored.extend([_app("a", no_shows=False), _app("b", no_shows=False)])
 
-        Rules.judge(_market(NO_SHOW_RULE), "market-123", application_ids=["b"])
+        Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123", application_id="b")
 
         assert [a["status"] for a in stored] == ["open", "reviewer_rejected"]
+
+
+class TestWhatJudgingNeverDoes:
+    def test_return_a_rejection_its_applicant_has_seen(self, stored):
+        stored.append(_app("a", no_shows=False))
+        Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123")
+
+        Rules.judge(Rules.Rulebook(_market(results_published=True)), "market-123")
+
+        assert stored[0]["status"] == ApplicationStatus.REVIEWER_REJECTED.value
+
+    def test_overwrite_a_verdict_given_after_it_read_the_application(self, stored, monkeypatch):
+        stored.append(_app("a", no_shows=False))
+        read = ApplicationsApi.judgeable_applications
+
+        def read_then_a_person_decides(market_id, application_id=None):
+            docs = [dict(doc) for doc in read(market_id, application_id)]
+            ApplicantsApi.review_application(
+                "market-123", "a", ApplicationStatus.REVIEWER_APPROVED, by=ALEX)
+            return docs
+
+        monkeypatch.setattr(ApplicationsApi, "judgeable_applications", read_then_a_person_decides)
+
+        assert Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123") == 0
+        assert stored[0]["status"] == ApplicationStatus.REVIEWER_APPROVED.value
+        assert stored[0]["verdict_by"]["kind"] == "person"
 
 
 class TestWhoSeesTheReason:
@@ -137,7 +164,7 @@ class TestWhoSeesTheReason:
 
     def test_a_person_overturning_it_makes_it_theirs(self, stored):
         stored.append(_app("a", no_shows=False))
-        Rules.judge(_market(NO_SHOW_RULE), "market-123")
+        Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123")
 
         ApplicantsApi.review_application(
             "market-123", "a", ApplicationStatus.REVIEWER_APPROVED, by=ALEX)
@@ -145,7 +172,7 @@ class TestWhoSeesTheReason:
         assert stored[0]["verdict_by"]["kind"] == "person"
         assert "verdict_reason" not in stored[0]
         # A person's verdict is theirs: the rule, judged again, leaves it.
-        Rules.judge(_market(NO_SHOW_RULE), "market-123")
+        Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123")
         assert stored[0]["status"] == ApplicationStatus.REVIEWER_APPROVED.value
 
 
@@ -199,3 +226,21 @@ class TestTheyApplyWhen:
         assert stored["status"] == ApplicationStatus.REVIEWER_REJECTED.value
         assert body["application"]["status"] == ApplicationStatus.UNDER_REVIEW.value
         assert "Half" not in repr(body)
+
+    def test_the_form_changes(self, stored, monkeypatch):
+        """A question taken away judges nobody, and what it rejected is judged again."""
+        import api.markets as MarketsApi
+
+        stored.append(_app("a", no_shows=False))
+        Rules.judge(Rules.Rulebook(_market(NO_SHOW_RULE)), "market-123")
+        without_it = _market(NO_SHOW_RULE).model_copy(update={"application_form": ApplicationForm(
+            fields=[f for f in FIELDS if f["key"] != "no_shows"])})
+        monkeypatch.setattr(MarketsApi, "_load_market_to_change", lambda *_a: without_it)
+        monkeypatch.setattr(MarketsApi, "prepared_application_form", lambda *_a: {})
+        monkeypatch.setattr(MarketsApi.markets_collection, "update_one", lambda *_a: None)
+        monkeypatch.setattr(MarketsApi, "load_market_context",
+                            lambda _id: MarketsApi.MarketContext({}, without_it, None, None))
+
+        MarketsApi.save_application_form("market-123", {"fields": []}, "owner@x.test")
+
+        assert stored[0]["status"] == ApplicationStatus.OPEN.value

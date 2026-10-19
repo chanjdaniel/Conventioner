@@ -100,7 +100,7 @@ function toggle(key: string, answer: string, rejects: boolean) {
           v-for="answer in questionOf(rule).answers"
           :key="answer.value"
           class="rejection-answer"
-          :class="{ rejects: rule.answers.includes(answer.value), fixed }"
+          :class="{ rejects: rule.answers.includes(answer.value) }"
           :data-testid="`rejection-answer-${rule.key}-${answer.value}`"
         >
           <input
@@ -122,7 +122,7 @@ function toggle(key: string, answer: string, rejects: boolean) {
       <select
         id="rejection-rule-question"
         v-model="chosen"
-        class="field"
+        class="field field--select"
         data-testid="rejection-rule-question"
       >
         <option value="" disabled>Choose a question</option>
@@ -224,13 +224,7 @@ function toggle(key: string, answer: string, rejects: boolean) {
   border-color: var(--mm-red);
 }
 
-.rejection-answer.fixed {
-  cursor: not-allowed;
-  background: var(--mm-beige);
-}
-
 .rejection-add {
-  display: flex;
   align-items: center;
   gap: var(--space-2);
 }
@@ -240,8 +234,9 @@ function toggle(key: string, answer: string, rejects: boolean) {
   color: var(--mm-black);
 }
 
-.rejection-add .field {
-  width: auto;
-  min-width: 240px;
+/* The select sizes from its column, as the primitive asks: the column is the add row's middle. */
+.rejection-add {
+  display: grid;
+  grid-template-columns: auto minmax(0, 24rem) auto;
 }
 </style>

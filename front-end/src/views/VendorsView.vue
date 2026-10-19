@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { verdictGiverLine } from '@/utils/verdicts';
 import { computed, ref, watch } from 'vue';
 import { marketPath } from '@/utils/market';
 import { withoutQueryKey } from '@/utils/routeQuery';
@@ -51,6 +50,7 @@ import {
 } from '@/utils/resultFilters';
 import { useResultFilters } from '@/utils/useResultFilters';
 import { datesWithinReach } from '@/utils/datesWithinReach';
+import { verdictGiverLine } from '@/utils/verdicts';
 
 interface AssignmentStatisticsResponse {
   totalVendors?: number;

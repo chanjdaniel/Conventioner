@@ -30,7 +30,7 @@ import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
-import { verdictGiverLine } from '@/utils/verdicts';
+import { statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { getTimestampDate } from '@/utils/utils';
 
@@ -57,19 +57,6 @@ const saving = ref(false);
 /** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
 const cursor = ref(0);
 const showDecided = ref(false);
-
-const statusLabels: Record<string, string> = {
-  open: 'Open',
-  under_review: 'Under Review',
-  reviewer_approved: 'Approved',
-  reviewer_rejected: 'Rejected',
-  unassigned: 'Unassigned',
-  assigned: 'Assigned',
-  assignment_sent: 'Assignment Sent',
-  vendor_accepted: 'Accepted',
-  vendor_refused: 'Refused',
-  cancelled: 'Cancelled',
-};
 
 /*
  * A status is a chip, tinted, in the product's tones (bug 43). These were solid fills, so in the
@@ -107,6 +94,10 @@ const undecided = computed(() =>
  * does this one.
  */
 const decided = computed(() => applications.value.filter((a) => !AWAITING.includes(a.status)));
+/** Who gave each decided application its verdict (E34/F01/S01), worded once per row. */
+const givers = computed(
+  () => new Map(decided.value.map((app) => [app.id, verdictGiverLine(app)] as const)),
+);
 
 /**
  * Does publishing results mean anything on this market?
@@ -330,10 +321,6 @@ async function handlePublish() {
   }
 }
 
-function statusLabel(status: string): string {
-  return statusLabels[status] ?? status;
-}
-
 function statusChip(status: string): string {
   return `chip chip--${statusTones[status] ?? 'neutral'}`;
 }
@@ -433,9 +420,6 @@ function submittedOn(app: Application): string {
           </span>
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
-        <p v-if="verdictGiverLine(current)" class="verdict-giver" data-testid="app-monitor-giver">
-          {{ verdictGiverLine(current) }}
-        </p>
 
         <!-- Above the answers, never behind the disclosure: it is something to act on (E27). -->
         <TableShareNotice
@@ -596,11 +580,11 @@ function submittedOn(app: Application): string {
               {{ statusLabel(app.status) }}
             </span>
             <span
-              v-if="verdictGiverLine(app)"
+              v-if="givers.get(app.id)"
               class="verdict-giver"
               data-testid="app-monitor-decided-giver"
             >
-              {{ verdictGiverLine(app) }}
+              {{ givers.get(app.id) }}
             </span>
             <!-- The action is a quiet button beside the verdict, never a second verdict. -->
             <button

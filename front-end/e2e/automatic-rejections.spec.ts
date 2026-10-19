@@ -168,7 +168,7 @@ test.describe('The rules reject, with a reason (E33/F03/S02)', () => {
       .getByTestId('app-monitor-decided-row')
       .filter({ hasText: 'theo@thistle.test' });
     await expect(theo.getByTestId('app-monitor-decided-giver')).toHaveText(
-      'Rejected automatically: answered “Half a table, shared” to “Table choice”',
+      'Rejected automatically: Answered “Half a table, shared” to “Table choice”',
     );
 
     // Overturning it makes it the reviewer's.

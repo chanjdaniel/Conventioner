@@ -1,9 +1,9 @@
-import type { Browser, Page } from '@playwright/test';
-import { test, expect, TEST_USER, BACKEND_URL, LoginPage } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
+import { withUser } from './helpers/withUser';
 
 /**
  * A market's screens offer each person only what their role lets them do (bug 37, E26/F08/S01).
@@ -14,23 +14,6 @@ import { ensureVerifiedUser } from './helpers/verifiedUser';
  */
 const VIEWER = { email: 'e2e-role-viewer@example.com', password: 'e2epassword123' };
 const EDITOR = { email: 'e2e-role-editor@example.com', password: 'e2epassword123' };
-
-async function asUser(
-  browser: Browser,
-  user: { email: string; password: string },
-  body: (page: Page) => Promise<void>,
-) {
-  const context = await browser.newContext();
-  try {
-    const page = await context.newPage();
-    const login = new LoginPage(page);
-    await login.login(user.email, user.password);
-    await login.waitForDashboardRedirect();
-    await body(page);
-  } finally {
-    await context.close();
-  }
-}
 
 let marketId: string;
 
@@ -56,7 +39,7 @@ test.beforeAll(async ({ request }) => {
 });
 
 test('a Viewer reads every market page and is offered nothing to change', async ({ browser }) => {
-  await asUser(browser, VIEWER, async (page) => {
+  await withUser(browser, VIEWER.email, VIEWER.password, async (page) => {
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('market-read-only')).toContainText('view this market', {
       timeout: 15000,
@@ -80,7 +63,7 @@ test('a Viewer reads every market page and is offered nothing to change', async 
 
 // A verdict is EDITOR's since E34/F01/S01: a reviewing team needs no role that moves the phase.
 test('an Editor changes the seats and decides, but moves no phase', async ({ browser }) => {
-  await asUser(browser, EDITOR, async (page) => {
+  await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('plan-card-dates')).toBeVisible({ timeout: 15000 });
     // Past draft nobody changes the setup (E31/F01/S03): the reason is the market's, not the role's.
@@ -119,7 +102,7 @@ test('an Editor of a market importing is shown the import, and told only an admi
   });
   expect(res.ok(), await res.text()).toBeTruthy();
 
-  await asUser(browser, EDITOR, async (page) => {
+  await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
     await page.goto(marketSetupPath(importing.marketId, 'applications'));
     await expect(page.getByTestId('market-setup-import-button')).toBeDisabled({ timeout: 15000 });
     await expect(page.getByTestId('market-setup-import-blocked-reason')).toBeVisible();
