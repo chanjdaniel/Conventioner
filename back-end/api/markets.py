@@ -12,6 +12,7 @@ from datatypes import (
     FormField,
     IntakeMode,
     Market,
+    MarketPerson,
     MarketPhase,
     MarketRole,
     MarketTableRow,
@@ -1810,6 +1811,18 @@ def save_review_highlights(
 
     markets_collection.update_one({"id": market_id}, market_doc_set("review_highlights", seen))
     return seen
+
+
+def person_on_market(market: Market, email: Optional[str]) -> Optional[MarketPerson]:
+    """The person with this address, if they hold a role on the market, or None (E34/F02/S01).
+
+    A follow-up is owned by someone who can see the market to work on it: an account named in its
+    roles, the people Manage market lists.
+    """
+    user = UsersApi.get_user(email) if email else None
+    if user is None or user.id not in (market.roles or {}):
+        return None
+    return MarketPerson(user_id=user.id, email=user.email)
 
 
 def save_rejection_rules(

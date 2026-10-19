@@ -1,4 +1,8 @@
-import type { Application, ApplicationForm } from '@/assets/types/datatypes';
+import {
+  ApplicationStatus,
+  type Application,
+  type ApplicationForm,
+} from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
 
 /**
@@ -74,4 +78,37 @@ export function inArrivalOrder<T extends Pick<Application, 'submittedAt'>>(apps:
       return (xKnown && x.at !== y.at ? x.at - y.at : 0) || x.index - y.index;
     })
     .map(({ app }) => app);
+}
+
+/** Awaiting a verdict, and nobody is chasing it yet. */
+const AWAITING: readonly string[] = [ApplicationStatus.Open, ApplicationStatus.UnderReview];
+
+/** Waiting on its applicant, with someone reaching out (E34/F02/S01). */
+export function followUps(applications: Application[]): Application[] {
+  return inArrivalOrder(applications.filter((a) => a.status === ApplicationStatus.NeedsFollowUp));
+}
+
+/**
+ * What the one-by-one review walks: the undecided in the order they arrived, and the follow-ups
+ * after them only when the reviewer asks (E34/F02/S01) - a follow-up waits on its applicant, so it
+ * is not the next thing to decide.
+ */
+export function reviewQueue(applications: Application[], includeFollowUps: boolean): Application[] {
+  const waiting = inArrivalOrder(applications.filter((a) => AWAITING.includes(a.status)));
+  return includeFollowUps ? [...waiting, ...followUps(applications)] : waiting;
+}
+
+/**
+ * Reviewed: everything the queue is done with, whatever became of it since.
+ *
+ * Deliberately "neither awaiting nor followed up" rather than "approved or rejected". An
+ * application does not stay at its reviewer verdict: assignment carries it to `assigned` or
+ * `unassigned`, offers to `assignment_sent`, and the sweep into market days to `vendor_accepted` or
+ * `vendor_refused`. A list of the two reviewer verdicts alone would drop each application the
+ * moment the market moved on.
+ */
+export function reviewed(applications: Application[]): Application[] {
+  return applications.filter(
+    (a) => !AWAITING.includes(a.status) && a.status !== ApplicationStatus.NeedsFollowUp,
+  );
 }

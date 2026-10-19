@@ -162,7 +162,7 @@ test.describe('What a reviewer reads first', () => {
 
     // Onto the next card - whichever the queue puts up, since its order is not this test's point.
     const first = ((await monitor.email.textContent()) ?? '').trim();
-    await monitor.skipButton.click();
+    await monitor.nextButton.click();
     await expect(monitor.email).not.toHaveText(first);
     await expect(page.getByTestId('app-monitor-rest')).toHaveJSProperty('open', true);
     await expect(rest.locator('dt').first()).toBeVisible();

@@ -96,7 +96,7 @@ def client(monkeypatch):
     monkeypatch.setattr(MarketsApi, "markets_collection", Markets())
     given = []
     monkeypatch.setattr(ApplicantsApi, "review_application",
-                        lambda market_id, application_id, status, by: (
+                        lambda market_id, application_id, status, by, owner=None: (
                             given.append((status, by)) or ({"application": {}}, 200)))
     client = app_module.app.test_client()
     client.given = given

@@ -116,10 +116,26 @@ export async function reviewApplication(
   marketId: string,
   applicationId: string,
   status: string,
+  /** A follow-up's owner, when not the reviewer (E34/F02/S01). */
+  ownerEmail?: string,
 ): Promise<Application> {
   const { data } = await api.put(`/markets/${marketId}/applications/${applicationId}/review`, {
     status,
+    ...(ownerEmail ? { ownerEmail } : {}),
   });
+  return data.application as Application;
+}
+
+/** Hand a follow-up to someone else with a role on the market (E34/F02/S01). */
+export async function reassignFollowUp(
+  marketId: string,
+  applicationId: string,
+  ownerEmail: string,
+): Promise<Application> {
+  const { data } = await api.put(
+    `/markets/${marketId}/applications/${applicationId}/follow-up-owner`,
+    { ownerEmail },
+  );
   return data.application as Application;
 }
 
