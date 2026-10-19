@@ -44,6 +44,10 @@ if not any(os.getenv(key) for key in MONGO_ENV_KEYS):
 # The test suite is the one place the boot check is allowed to be off: every test that asserts a
 # defense works unsets it, and every other test simply does not care about what it skips.
 os.environ.setdefault("ALLOW_INSECURE_LOCAL_DEV", "true")
+# Sessions in the signed cookie, so the suite writes nothing into the source tree. On disk they went
+# to `back-end/flask_session`, which a container that ran the back end leaves owned by root, and
+# every signed-in test then answered 401 on that checkout.
+os.environ.setdefault("SESSION_TYPE", "null")
 
 
 def _needs_stub(module_name: str) -> bool:
