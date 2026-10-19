@@ -186,6 +186,19 @@ test.describe('Application form builder', () => {
     // The builder reflects the lock before any edit is attempted
     await page.reload();
     await formPage.openFormTab();
+    // A locked form opens on what is still the organizer's to change, and saves it (E33/F01/S03).
+    await expect(formPage.step('review')).toHaveAttribute('aria-current', 'step');
+    await expect(formPage.lockBanner).toHaveCount(0);
+    const [highlighted] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${marketId}/review-highlights`) &&
+          response.request().method() === 'PUT',
+      ),
+      page.getByTestId('review-highlight-business_name').click(),
+    ]);
+    expect(highlighted.ok()).toBeTruthy();
+    // The earlier steps are a click away, read-only, saying why.
     await formPage.openStep('questions');
     await expect(formPage.lockBanner).toBeVisible();
     await expect(formPage.lockBanner).toContainText('Application form is locked');

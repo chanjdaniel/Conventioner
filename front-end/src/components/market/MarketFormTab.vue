@@ -269,7 +269,13 @@ const forApplicants = computed(() => intakeModeOf(market.value) === IntakeMode.F
 const steps = computed(() =>
   forApplicants.value ? FORM_STEPS : FORM_STEPS.filter((s) => s.id !== 'preview'),
 );
-const chosenStep = ref<FormStepId>('essentials');
+/**
+ * A locked form - an applicant has submitted, or the market has left draft - opens on what is still
+ * the organizer's to change: what a reviewer reads first (E33/F01/S03). The earlier steps stay one
+ * click away, read-only and saying why. Decided once, as the tab opens: a lock that lands while the
+ * organizer is on a step does not move them off it.
+ */
+const chosenStep = ref<FormStepId>(formLocked.value ? 'review' : 'essentials');
 /** The chosen step, while this path has it. */
 const step = computed<FormStepId>({
   get: () =>
