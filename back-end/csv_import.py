@@ -43,7 +43,7 @@ from datatypes import (
     intake_mode_from_market_document,
     phase_from_market_document,
 )
-from market_documents import market_doc_field, market_doc_key
+from market_documents import market_doc_field, market_doc_key, market_from_document
 import vendor_notes as VendorNotes
 
 logger = logging.getLogger(__name__)
@@ -1658,7 +1658,8 @@ def import_applications(
 
     # The rules judge what this import wrote - after any approval it sent back to review - and
     # anything else still undecided (E33/F03/S02).
-    rejected = RejectionRules.judge(RejectionRules.Rulebook.from_document(market_doc), market_id)
+    rejected = RejectionRules.judge(
+        RejectionRules.Rulebook(market_from_document(market_doc)), market_id)
 
     return {
         "created": created,

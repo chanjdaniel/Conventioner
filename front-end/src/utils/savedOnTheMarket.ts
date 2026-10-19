@@ -36,16 +36,16 @@ export function useSavedOnTheMarket<T>(
     const id = market.value?.id;
     if (!id) return;
     const previous = [...value.value];
-    const save = (latestSave += 1);
+    const thisSave = (latestSave += 1);
     value.value = next;
     error.value = '';
     try {
       const written = await write(id, next);
-      if (save !== latestSave) return;
+      if (thisSave !== latestSave) return;
       value.value = [...written];
       void useMarketStore().refresh();
     } catch (err: unknown) {
-      if (save !== latestSave) return;
+      if (thisSave !== latestSave) return;
       value.value = previous;
       error.value = getApiErrorMessage(err, failure);
     }

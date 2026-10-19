@@ -170,8 +170,8 @@ VIEWER_REFUSAL = (
     "access."
 )
 EDITOR_REFUSAL = (
-    "Moving this market's phase, deciding its applications and importing them are for its owner "
-    "and admins."
+    "Moving this market's phase, publishing its results and importing applications are for its "
+    "owner and admins."
 )
 
 
@@ -299,9 +299,9 @@ def rejection_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     """Why the automatic rejections may no longer change, or None while they can (E33/F03/S01).
 
     A rule judges applications in review, so the rules are open exactly as long as the market can
-    still get back there (decision 24) - derived from the transition table, not listed: today they
-    close in ``assignment``, ``offers`` and ``market_days``. Not the form's lock: the form freezes at
-    the first application, and the rules are worth most once applications are arriving.
+    still get back there (decision 24), derived from the transition table rather than listed. Not
+    the form's lock: the form freezes at the first application, and the rules are worth most once
+    applications are arriving.
     """
     if phase is MarketPhase.ARCHIVED:
         return ARCHIVED_REFUSAL
@@ -311,9 +311,12 @@ def rejection_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
 
 
 def rejection_facts(market: Market) -> Dict[str, Any]:
-    """What the review setup needs to offer the rules, served on the market read."""
+    """What the review setup needs to offer the rules, served on the market read: the questions a
+    rule may name, the rules as they stand against the current form, and whether they may change."""
+    book = RejectionRules.Rulebook(market)
     return {
-        "rejectionQuestions": RejectionRules.rejection_questions(market),
+        "rejectionQuestions": book.questions,
+        "rejectionRules": book.served_rules(),
         "rejectionRulesLockReason": rejection_rules_lock_reason(market.phase),
     }
 
@@ -1822,13 +1825,11 @@ def save_rejection_rules(
     settled = rejection_rules_lock_reason(market.phase)
     if settled:
         raise ValueError(settled)
-    prepared = RejectionRules.prepared_rules(market, rules)
+    prepared = RejectionRules.Rulebook(market).prepared(rules)
     markets_collection.update_one({"id": market_id}, market_doc_set("rejection_rules", prepared))
     # Every undecided application, and every one a rule rejected, is judged again (E33/F03/S02).
-    RejectionRules.judge(
-        market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]}),
-        market_id,
-    )
+    judged = market.model_copy(update={"rejection_rules": [RejectionRule(**r) for r in prepared]})
+    RejectionRules.judge(RejectionRules.Rulebook(judged), market_id)
     return prepared
 
 
@@ -1852,6 +1853,11 @@ def save_application_form(market_id: str, application_form_data: dict, requestin
         {"id": market_id},
         {"$set": {"applicationForm": form_dict}}
     )
+    # The rules stand against the form as it now is (E33/F03/S02): a question taken away judges
+    # nobody, and what it rejected is judged again.
+    rewritten = load_market_context(market_id)
+    if rewritten is not None and rewritten.market is not None:
+        RejectionRules.judge(RejectionRules.Rulebook(rewritten.market), market_id)
 
     return form_dict
 

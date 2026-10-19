@@ -40,6 +40,6 @@ describe('who gave a verdict', () => {
         verdictBy: { kind: 'rule', rule: 'no_shows' },
         verdictReason: 'Did not tick “I understand that no-shows”',
       }),
-    ).toBe('Rejected automatically: did not tick “I understand that no-shows”');
+    ).toBe('Rejected automatically: Did not tick “I understand that no-shows”');
   });
 });

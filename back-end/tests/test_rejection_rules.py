@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import api.markets as MarketsApi  # noqa: E402
 import rejection_rules as Rules  # noqa: E402
-from conftest import client_market, stored_market  # noqa: E402
+from conftest import client_market, complete_setup, stored_market  # noqa: E402
 from datatypes import ApplicationForm, MarketPhase  # noqa: E402
 
 UBC = ["Current UBC student", "UBC alumni/staff", "Not a UBC student"]
@@ -29,14 +29,19 @@ FIELDS = [
 
 
 def _market(phase=MarketPhase.REVIEW, **overrides):
-    return client_market(phase=phase, application_form=ApplicationForm(fields=FIELDS), **overrides)
+    return client_market(phase=phase, application_form=ApplicationForm(fields=FIELDS),
+                         setup_object=complete_setup(), **overrides)
 
 
 class TestTheQuestionsARuleMayName:
     def test_every_choice_question_and_what_it_offers(self):
-        questions = {q["key"]: q for q in Rules.rejection_questions(_market())}
+        questions = {q["key"]: q for q in Rules.Rulebook(_market()).questions}
 
-        assert set(questions) == {"affiliation", "no_shows", "selling", "essential_table_choice"}
+        assert set(questions) == {"affiliation", "no_shows", "selling", "essential_table_choice",
+                                  "essential_available_dates"}
+        # The available dates in the words the applicant chose them by.
+        assert questions["essential_available_dates"]["answers"] == [
+            {"value": "2099-08-01", "label": "Saturday, August 1, 2099"}]
         assert [a["value"] for a in questions["affiliation"]["answers"]] == UBC
         # A checkbox's answers are whether it was ticked.
         assert [a["label"] for a in questions["no_shows"]["answers"]] == ["Ticked", "Not ticked"]
@@ -48,7 +53,7 @@ class TestTheQuestionsARuleMayName:
 
 class TestWhatARuleMaySay:
     def test_the_no_show_agreement_not_ticked_and_the_affiliations_not_accepted(self):
-        rules = Rules.prepared_rules(_market(), [
+        rules = Rules.Rulebook(_market()).prepared([
             {"key": "no_shows", "answers": [Rules.NOT_TICKED]},
             {"key": "affiliation", "answers": ["Not a UBC student"]},
         ])
@@ -60,27 +65,27 @@ class TestWhatARuleMaySay:
 
     def test_free_text_is_refused(self):
         with pytest.raises(ValueError, match="Business name"):
-            Rules.prepared_rules(_market(), [{"key": "business", "answers": ["Acme"]}])
+            Rules.Rulebook(_market()).prepared([{"key": "business", "answers": ["Acme"]}])
 
     def test_an_answer_the_question_does_not_offer_is_refused(self):
         with pytest.raises(ValueError, match="does not offer"):
-            Rules.prepared_rules(_market(), [{"key": "affiliation", "answers": ["Alumni"]}])
+            Rules.Rulebook(_market()).prepared([{"key": "affiliation", "answers": ["Alumni"]}])
 
     def test_a_question_that_does_not_exist_is_refused(self):
         with pytest.raises(ValueError):
-            Rules.prepared_rules(_market(), [{"key": "nothing", "answers": []}])
+            Rules.Rulebook(_market()).prepared([{"key": "nothing", "answers": []}])
 
     def test_one_rule_a_question(self):
         with pytest.raises(ValueError, match="one rule"):
-            Rules.prepared_rules(_market(), [{"key": "affiliation", "answers": []},
+            Rules.Rulebook(_market()).prepared([{"key": "affiliation", "answers": []},
                                              {"key": "affiliation", "answers": []}])
 
     def test_a_rule_with_no_answer_yet_is_kept_and_rejects_nothing(self):
-        assert Rules.prepared_rules(_market(), [{"key": "selling", "answers": []}]) == [
+        assert Rules.Rulebook(_market()).prepared([{"key": "selling", "answers": []}]) == [
             {"key": "selling", "answers": []}]
 
     def test_a_repeated_answer_is_kept_once(self):
-        rules = Rules.prepared_rules(_market(), [
+        rules = Rules.Rulebook(_market()).prepared([
             {"key": "selling", "answers": ["Prints", "Prints"]}])
         assert rules == [{"key": "selling", "answers": ["Prints"]}]
 
@@ -137,4 +142,25 @@ class TestTheWrite:
 
         assert served["rejectionRulesLockReason"] is None
         assert "affiliation" in [q["key"] for q in served["rejectionQuestions"]]
-        assert market.rejection_rules[0].answers == ["not ticked"]
+        assert served["rejectionRules"] == [{"key": "no_shows", "answers": ["not ticked"]}]
+
+
+class TestAFormThatChanges:
+    def test_a_rule_on_a_question_taken_away_is_served_as_gone_and_never_blocks_a_save(self):
+        """A rule left naming a question the form no longer asks used to refuse every later write
+        of the list, which always carries the whole list."""
+        market = _market(rejection_rules=[
+            {"key": "gone", "answers": ["x"]},
+            {"key": "affiliation", "answers": ["Not a UBC student", "An answer since removed"]},
+        ])
+        book = Rules.Rulebook(market)
+
+        assert book.served_rules() == [{"key": "affiliation", "answers": ["Not a UBC student"]}]
+        assert book.prepared(book.served_rules()) == book.served_rules()
+
+    def test_the_essentials_a_market_does_not_ask_are_not_offered(self):
+        market = client_market(application_form=ApplicationForm(fields=FIELDS))
+
+        keys = [q["key"] for q in Rules.Rulebook(market).questions]
+
+        assert "essential_table_choice" not in keys and "essential_available_dates" not in keys

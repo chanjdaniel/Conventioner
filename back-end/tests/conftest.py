@@ -413,7 +413,7 @@ class FakeApplicationsCollection:
         return "fake-index"
 
     def _matches(self, doc, query):
-        return all(doc.get(key) == value for key, value in (query or {}).items())
+        return mongo_matches(doc, query)
 
     def _find(self, query):
         for doc in self.documents:
