@@ -72,7 +72,7 @@ const condition = computed(() => {
       // Reached on the Google Form path only by the single edge, and still importing as far as
       // this page is concerned (E32/F02/S01): nothing has been decided about what arrived.
       return csvMarket.value
-        ? 'The responses you import from your Google Form arrive here, ready to review.'
+        ? 'Review has not begun. The responses you import from your Google Form arrive here.'
         : 'This market is no longer taking applications. No new ones will arrive.';
     case MarketPhase.Review:
       return undecided.value === 0
