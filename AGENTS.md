@@ -858,6 +858,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **What may be sent to hosted TypeSafe is ticket 01's rule, narrowed to what ticket 04 measured** (`typesafe_client.py`): a heading, how many answered, how many are distinct, and a shape - never a value.
   The key is optional and never a boot requirement.
 - The rules are held to the hand-written answer key on the five anonymised exports (`tests/test_csv_proposal.py`); change a rule against that, not beside it.
+- **The proposal marks no question required** (E33/F02): the export does not say which were, and a guess skipped every row that left one blank at import. Only the organizer marks one.
 
 ## Agent skills
 
