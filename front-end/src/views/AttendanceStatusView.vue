@@ -18,8 +18,11 @@ import { getShortDate, getTimestampTime } from '@/utils/utils';
 import { tableInWords } from '@/utils/placementChange';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import MarketFrame from '@/components/MarketFrame.vue';
-import VendorIdentity from '@/components/VendorIdentity.vue';
+import VendorDrawer from '@/components/VendorDrawer.vue';
+import VendorNameButton from '@/components/VendorNameButton.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
+import { useVendorDetails } from '@/utils/vendorDetails';
+import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { calendarToday } from '@/utils/marketGuide';
 import { useOpenMarket } from '@/utils/openMarket';
@@ -169,6 +172,14 @@ const { load: loadNotes, entryFor } = useVendorNotes(marketId);
 /** An editor writes notes; anyone with a role reads them. */
 const canWriteNotes = computed(() => !!market.value && !market.value.readOnlyReason);
 
+/**
+ * A vendor's name opens their drawer (E35/F01/S02): who they are, what they asked for, where else
+ * they sit. It never checks anyone in. A row shows notes only once there are some, so a first note
+ * is written there, and the row reads it back when the drawer says one changed.
+ */
+const details = useVendorDetails(marketId, market);
+const drawer = useVendorDrawer();
+
 watch(marketId, loadAttendance, { immediate: true });
 </script>
 
@@ -248,7 +259,13 @@ watch(marketId, loadAttendance, { immediate: true });
             :data-vendor="row.vendorEmail"
           >
             <span class="door-table">Table {{ tableInWords(row.tableCode, row.tableChoice) }}</span>
-            <VendorIdentity class="door-who" :email="row.vendorEmail" :names="names" />
+            <VendorNameButton
+              class="door-who"
+              :email="row.vendorEmail"
+              :names="names"
+              testid="attendance-vendor"
+              @open="drawer.open(row.vendorEmail)"
+            />
             <span
               class="chip door-status"
               :class="row.checkedInAt ? 'chip--positive' : 'chip--attention'"
@@ -293,6 +310,15 @@ watch(marketId, loadAttendance, { immediate: true });
         </ul>
       </template>
     </div>
+    <VendorDrawer
+      :market="market"
+      :details="details"
+      :email="drawer.email.value"
+      :tab="drawer.tab.value"
+      @close="drawer.close()"
+      @update:tab="drawer.setTab"
+      @notesChanged="loadNotes"
+    />
   </MarketFrame>
 </template>
 
@@ -367,6 +393,7 @@ watch(marketId, loadAttendance, { immediate: true });
 }
 
 .door-who {
+  justify-self: start;
   min-width: 0;
 }
 

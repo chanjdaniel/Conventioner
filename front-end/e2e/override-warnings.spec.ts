@@ -139,7 +139,7 @@ test('placing and swapping warn about every answer they override, and never bloc
   );
 
   // Swapping Alice and Bob overrides answers of both, and says which are whose.
-  await tables.occupiedSeat('Hall A 1').click();
+  await tables.change(tables.occupiedSeat('Hall A 1'));
   await tables.dialog.getByTestId('placement-dialog-swap-target').selectOption('bob@example.com');
   const swapping = tables.dialog.getByTestId('placement-dialog-swap-warning');
   const forAlice = swapping.locator('[data-vendor-email="alice@example.com"]');

@@ -30,7 +30,7 @@ test.describe('Changing a placement on the Tables view', () => {
     const occupied = tables.occupiedSeat('Hall A 1');
     await expect(occupied).toBeVisible();
     const freedVendor = await tables.occupantOf(occupied);
-    await occupied.click();
+    await tables.change(occupied);
     await tables.freeSeat();
     await expect(tables.dialog).toBeHidden();
     await expect(tables.row('Hall A 1').getByTestId('tables-seat-empty')).toBeVisible();
@@ -63,7 +63,7 @@ test.describe('Changing a placement on the Tables view', () => {
     const firstTable = await tables.tableCodeOf(seats.nth(0));
     const secondTable = await tables.tableCodeOf(seats.nth(1));
 
-    await seats.nth(0).click();
+    await tables.change(seats.nth(0));
     await tables.swapWith(second);
     await expect(tables.dialog).toBeHidden();
 
@@ -79,7 +79,7 @@ test.describe('Changing a placement on the Tables view', () => {
     await tables.goto(seed.marketId);
     await expect(tables.tableRows.first()).toBeVisible({ timeout: 15000 });
 
-    await page.getByTestId('tables-seat-occupied').first().click();
+    await tables.change(page.getByTestId('tables-seat-occupied').first());
     await expect(tables.dialog).toBeVisible();
 
     // Trade or free. There is no "move them here" that leaves the occupant with nothing.
@@ -149,7 +149,7 @@ test.describe('Changing a placement on the Tables view', () => {
     const first = await tables.occupantOf(seats.nth(0));
     const second = await tables.occupantOf(seats.nth(1));
 
-    await seats.nth(0).click();
+    await tables.change(seats.nth(0));
     await tables.swapWith(second);
     await expect(tables.dialog).toBeHidden();
 
