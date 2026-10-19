@@ -35,9 +35,14 @@ def ensure_user_indexes() -> None:
     does for the applications' identity index. It is unique over the stored form, so an address not
     yet stored lowercased - written before every writer lowercased it - is refused first, naming the
     migration that rewrites it; and duplicates that stop the build are named, for the operator to
-    resolve. A plain index on the same key, which the lookup indexes once built, is replaced.
+    resolve. A plain index on the same key, which the lookup indexes once built, is replaced: this
+    is the one owner of the users' email index.
     """
     # Ids, never addresses: this refusal is printed to an operator's terminal and the host's logs.
+    # Once the index stands it is the referee and every writer lowercases, so there is nothing left
+    # to scan for - a boot on a serverless host is every cold start.
+    if users_collection.index_information().get(USER_EMAIL_INDEX, {}).get("unique"):
+        return
     stored = [
         (doc.get("id"), doc.get("email") or "")
         for doc in users_collection.find({}, {"id": 1, "email": 1})
@@ -49,23 +54,21 @@ def ensure_user_indexes() -> None:
             f"{', '.join(unnormalized)}). Run: python {USER_EMAIL_MIGRATION}"
         )
     try:
-        indexes = users_collection.index_information()
-        if indexes.get(USER_EMAIL_INDEX, {}).get("unique"):
-            return
-        for name, info in indexes.items():
+        for name, info in users_collection.index_information().items():
             if list(info.get("key", [])) == [("email", 1)] and not info.get("unique"):
                 users_collection.drop_index(name)
         users_collection.create_index([("email", 1)], unique=True, name=USER_EMAIL_INDEX)
     except PyMongoError as exc:
+        # The driver's message is not repeated: a duplicate key error quotes the address.
         by_address: dict = {}
         for uid, email in stored:
             by_address.setdefault(email, []).append(str(uid))
         shared = [ids for ids in by_address.values() if len(ids) > 1]
         raise UserIndexError(
-            f"Could not build the unique index {USER_EMAIL_INDEX!r} on users.email: {exc}. "
-            f"Accounts sharing an address (duplicates): "
-            f"{'; '.join(', '.join(ids) for ids in shared) or 'none found'}. Keep one account per "
-            f"address, then restart."
+            f"Could not build the unique index {USER_EMAIL_INDEX!r} on users.email "
+            f"({type(exc).__name__}, code {getattr(exc, 'code', None)}). Accounts sharing an "
+            f"address: {'; '.join(', '.join(ids) for ids in shared) or 'none found'}. Keep one "
+            f"account per address, then restart."
         ) from exc
 
 
@@ -88,6 +91,21 @@ def get_user(email):
         return AuthUser(User(**user_doc))
     return None
 
+def _already_exists():
+    return jsonify({"msg": "User already exists"}), 400
+
+
+def _insert_unless_taken(user_doc: dict):
+    """Insert a new account, or None when its address is taken.
+
+    The unique index refuses an address a concurrent request took after the caller's own check.
+    """
+    try:
+        return users_collection.insert_one(user_doc)
+    except DuplicateKeyError:
+        return None
+
+
 # curl -k -X POST https://127.0.0.1:5000/register-user \
 #      -H "Content-Type: application/json" \
 #      -d '{"email": "USERNAME", "password": "pswrdpswrd!!!", "organizations": []}'
@@ -103,7 +121,7 @@ def register_user(bcrypt, request):
     # Check if user already exists in MongoDB
     existing_user = users_collection.find_one({"email": email})
     if existing_user:
-        return jsonify({"msg": "User already exists"}), 400
+        return _already_exists()
 
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
     user_doc = {
@@ -113,11 +131,9 @@ def register_user(bcrypt, request):
         "organizations": organizations
     }
     
-    # Insert user into MongoDB; the unique index refuses an address a concurrent request took.
-    try:
-        result = users_collection.insert_one(user_doc)
-    except DuplicateKeyError:
-        return jsonify({"msg": "User already exists"}), 400
+    result = _insert_unless_taken(user_doc)
+    if result is None:
+        return _already_exists()
     
     if result.inserted_id:
         return jsonify({"msg": "User registered successfully"}), 201
@@ -180,7 +196,7 @@ def register_user_with_captcha(bcrypt, request):
     # Check if user already exists
     existing_user = users_collection.find_one({"email": email})
     if existing_user:
-        return jsonify({"msg": "User already exists"}), 400
+        return _already_exists()
 
     # Validate email format
     if "@" not in email or "." not in email.split("@")[1]:
@@ -213,11 +229,9 @@ def register_user_with_captcha(bcrypt, request):
         "otp_attempts": 0
     }
     
-    # Insert user into MongoDB; the unique index refuses an address a concurrent request took.
-    try:
-        result = users_collection.insert_one(user_doc)
-    except DuplicateKeyError:
-        return jsonify({"msg": "User already exists"}), 400
+    result = _insert_unless_taken(user_doc)
+    if result is None:
+        return _already_exists()
     
     if result.inserted_id:
         # Send verification email

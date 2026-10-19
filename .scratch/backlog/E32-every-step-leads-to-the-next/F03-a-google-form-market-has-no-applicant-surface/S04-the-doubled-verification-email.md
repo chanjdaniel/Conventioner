@@ -24,7 +24,9 @@ Register also stored the address as typed while every other writer lowercased it
 
 - The signup is guarded while in flight.
 - `users.email` is UNIQUE over the lowercased address, built at boot (`api.users.ensure_user_indexes`); the back end refuses to start while an address is stored with capitals or two accounts share one, naming them by id. A concurrent duplicate insert answers "User already exists" and sends nothing.
-- Every lookup and write of an address goes through `utils/email_address.normalized_email`.
+- Every lookup and write of an address goes through `utils/email_address.normalized_email`, the one spelling of any person's address (check-in, notes, table share and the placement trail used their own copies).
+- Decision 31 said to ignore a repeat within a few seconds. A repeat is refused instead ("User already exists"), since the index is what can tell; with the button guarded, a person signing up does not see it.
+- Boot reads no account once the index stands, since every cold start on the host is a boot.
 - `migrations/migrate_user_emails.py` lowercases stored addresses, and stops and names accounts that would collide. It must run against production before this release is promoted (`docs/RELEASING.md`).
 
 ## Acceptance criteria

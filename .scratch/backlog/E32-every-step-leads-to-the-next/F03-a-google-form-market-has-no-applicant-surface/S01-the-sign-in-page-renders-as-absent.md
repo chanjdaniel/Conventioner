@@ -16,6 +16,8 @@ The two applicant-login endpoints keep their uniform responses: the page decides
 ## As built
 
 The two already rendered alike, as the intake gate requires: both drew a sign-in form under the typed slug and answered "sent". What changed is what they render: the sign-in page now asks the public form first, as the market's own home does, and shows the not-found page when there is none. A request that fails in transit still shows the sign-in.
+Until the market answers, the page says it is loading, as the apply page and the dashboard do.
+A vendor already signed in whose market stops serving applicants (taken back to draft) is shown the same not found on the apply page and the dashboard; both used to blame their connection.
 
 ## Acceptance criteria
 

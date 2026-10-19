@@ -30,6 +30,7 @@ class FakeUsers:
             self.indexes["email_1"] = {"key": [("email", 1)]}
         self.unique = unique
         self.inserted = []
+        self.scanned = False
 
     def index_information(self):
         return {name: dict(info) for name, info in self.indexes.items()}
@@ -38,13 +39,17 @@ class FakeUsers:
         self.indexes.pop(name)
 
     def create_index(self, keys, unique=False, name=None):
-        if unique and len({d["email"] for d in self.docs}) < len(self.docs):
-            raise PyMongoError("E11000 duplicate key error: index build failed")
+        emails = [d["email"] for d in self.docs]
+        if unique and len(set(emails)) < len(emails):
+            shared = next(e for e in emails if emails.count(e) > 1)
+            # As MongoDB words it: the duplicate key quotes the address.
+            raise PyMongoError(f'E11000 duplicate key error index: user_email dup key: {{ email: "{shared}" }}')
         self.indexes[name] = {"key": list(keys), "unique": unique}
         self.unique = self.unique or unique
         return name
 
     def find(self, query=None, projection=None):
+        self.scanned = True
         return [dict(d) for d in self.docs]
 
     def find_one(self, query):
@@ -143,6 +148,21 @@ class TestTheIndexIsTheReferee:
 
         assert "id-0, id-1" in str(refused.value)
         assert "a@example.com" not in str(refused.value), "ids, never addresses, reach the logs"
+
+    def test_a_boot_after_the_index_stands_reads_no_account(self, users):
+        """Every cold start on a serverless host is a boot; the index is the referee by then."""
+        collection = users("a@example.com", unique=False)
+        UsersApi.ensure_user_indexes()
+        collection.scanned = False
+
+        UsersApi.ensure_user_indexes()
+
+        assert collection.scanned is False
+
+    def test_the_index_has_one_owner(self):
+        from lookup_indexes import LOOKUP_INDEXES
+
+        assert ("email",) not in LOOKUP_INDEXES["users"], "api.users builds it, unique"
 
     def test_an_address_not_stored_lowercased_refuses_and_names_the_migration(self, users):
         users("Dan@example.com", unique=False)

@@ -230,6 +230,8 @@ function goBack() {
       </form>
     </template>
   </div>
+  <!-- Neither the sign-in nor the not found until the market has answered which it is. -->
+  <div v-else class="login-loading" data-testid="applicant-login-loading">Loading...</div>
 </template>
 
 <style scoped>
@@ -240,6 +242,13 @@ function goBack() {
   max-width: 420px;
   margin: 60px auto;
   padding: 0 16px;
+}
+
+.login-loading {
+  text-align: center;
+  padding: 40px;
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
 }
 
 .login-header {
