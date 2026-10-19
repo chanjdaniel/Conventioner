@@ -8,6 +8,7 @@ import { ApplicationStatus } from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
 import { getTimestampDate } from '@/utils/utils';
 import AnswerValue from '@/components/AnswerValue.vue';
+import PageNotFound from '@/components/PageNotFound.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -22,6 +23,7 @@ const formFields = ref<FormField[]>([]);
 const isOpen = ref(false);
 /** A read got no answer. Distinct from having no application, which it used to be reported as. */
 const loadFailed = ref(false);
+const notFound = ref(false);
 
 const statusLabels: Record<string, string> = {
   open: 'Submitted',
@@ -73,7 +75,10 @@ async function load() {
     router.push({ name: 'applicant-login', params: { marketSlug: marketSlug.value } });
     return;
   }
-  loadFailed.value = form.failed || read.failed;
+  // The market no longer serves applicants - taken back to draft, say. It reads as it reads to a
+  // stranger (the sign-in page's not found), never as a connection that failed.
+  notFound.value = form.notFound;
+  loadFailed.value = !form.notFound && (form.failed || read.failed);
   marketName.value = form.marketName;
   formFields.value = form.fields;
   isOpen.value = form.isOpen;
@@ -104,7 +109,10 @@ function logout() {
 </script>
 
 <template>
-  <div class="dashboard-page" data-testid="applicant-dashboard-page">
+  <div v-if="notFound" data-testid="applicant-dashboard-not-found">
+    <PageNotFound />
+  </div>
+  <div v-else class="dashboard-page" data-testid="applicant-dashboard-page">
     <header class="dash-header">
       <h1>Your application</h1>
     </header>

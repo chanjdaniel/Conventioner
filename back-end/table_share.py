@@ -19,6 +19,7 @@ from enum import Enum
 from typing import AbstractSet, Dict, Iterable, List, Optional, Tuple
 
 from essential_fields import TABLE_CHOICE_FULL
+from utils.email_address import normalized_email
 
 
 @dataclass(frozen=True)
@@ -63,21 +64,16 @@ class Unpaired:
         return payload
 
 
-def _spelling(email: str) -> str:
-    """Applicant addresses are lowercased at import; this is the spelling they are compared in."""
-    return str(email or "").strip().lower()
-
-
 class _Market:
     """Every request in one market, keyed by address in one spelling."""
 
     def __init__(self, requests: Iterable[ShareRequest]):
-        self.by_address = {_spelling(request.email): request for request in requests}
+        self.by_address = {normalized_email(request.email): request for request in requests}
 
     def chosen(self, request: ShareRequest) -> Optional[str]:
         """The address their answer is taken to name: the first that belongs to an applicant, or
         failing that the first written, so a notice can say whom nobody applied as."""
-        written = [_spelling(address) for address in request.partners if _spelling(address)]
+        written = [normalized_email(address) for address in request.partners if normalized_email(address)]
         return next((a for a in written if a in self.by_address), written[0] if written else None)
 
     def named(self, request: ShareRequest) -> Optional[ShareRequest]:
@@ -116,7 +112,7 @@ class _Market:
                 break
             if id(request) in position:
                 ring = path[position[id(request)]:]
-                first = min(range(len(ring)), key=lambda i: _spelling(ring[i].email))
+                first = min(range(len(ring)), key=lambda i: normalized_email(ring[i].email))
                 for step in range(len(ring)):
                     # Every other request stands, and in a ring of odd length the last one cannot.
                     stands[id(ring[(first + step) % len(ring)])] = (
@@ -147,11 +143,11 @@ def why_unpaired(
     """
     market = _Market(requests)
     in_force = market.in_force()
-    asked = {_spelling(email) for email in answered}
+    asked = {normalized_email(email) for email in answered}
 
     def reason(request: ShareRequest) -> Optional[Unpaired]:
         if (request.wants_whole_table or not request.taking_part
-                or _spelling(request.email) not in asked):
+                or normalized_email(request.email) not in asked):
             return None
         partner = market.chosen(request)
         if not partner:
@@ -166,8 +162,8 @@ def why_unpaired(
         if request.email not in in_force:
             return Unpaired(Reason.PARTNER_ASKED_FOR_SOMEONE_ELSE, partner)
         unused = next((
-            _spelling(a) for a in request.partners
-            if _spelling(a) != partner and _spelling(a) in market.by_address
+            normalized_email(a) for a in request.partners
+            if normalized_email(a) != partner and normalized_email(a) in market.by_address
         ), None)
         return Unpaired(Reason.ANOTHER_NAMED_NOT_USED, unused) if unused else None
 

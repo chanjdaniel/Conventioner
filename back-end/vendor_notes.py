@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from db_config import get_database
+from utils.email_address import normalized_email
 
 VENDOR_NOTES_COLLECTION = "vendor_notes"
 MARKET_ID_FIELD = "market_id"
@@ -37,7 +38,7 @@ def _now() -> str:
 
 
 def _key(market_id: str, vendor_email: str) -> Dict[str, str]:
-    return {MARKET_ID_FIELD: market_id, VENDOR_EMAIL_FIELD: str(vendor_email or "").strip().lower()}
+    return {MARKET_ID_FIELD: market_id, VENDOR_EMAIL_FIELD: normalized_email(vendor_email)}
 
 
 def _set(market_id: str, vendor_email: str, fields: Dict[str, Any]) -> None:
@@ -68,7 +69,7 @@ def replace_sheet_notes(market_id: str, by_vendor: Dict[str, str]) -> None:
     the sheet no longer says it.
     """
     wanted = {
-        str(email).strip().lower(): str(text or "").strip() for email, text in by_vendor.items()
+        normalized_email(email): str(text or "").strip() for email, text in by_vendor.items()
     }
     for doc in vendor_notes_collection.find({MARKET_ID_FIELD: market_id}):
         email = doc.get(VENDOR_EMAIL_FIELD)

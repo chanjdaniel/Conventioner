@@ -50,9 +50,7 @@ LOOKUP_INDEXES: Dict[str, List[Tuple[str, ...]]] = {
     ],
     USERS_COLLECTION: [
         ("id",),
-        # Built UNIQUE at boot first (`api.users.ensure_user_indexes`, E32/F03/S04), so this finds
-        # the field covered and leaves it; that function replaces a plain index it finds instead.
-        ("email",),
+        # The email is not here: `api.users.ensure_user_indexes` builds it UNIQUE (E32/F03/S04).
         ("verification_token",),
         ("password_reset_token",),
     ],

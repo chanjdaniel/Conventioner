@@ -44,6 +44,7 @@ from db_config import get_database
 from market_documents import applicant_intake_market_by_slug
 from utils.email import _email_disabled, ready_mailer, from_email, frontend_url
 from utils.application_token import generate_application_token
+from utils.email_address import normalized_email
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +317,7 @@ def request_login_code(market_slug: str) -> tuple:
     if not isinstance(data, dict) or not data:
         return jsonify(_REQUEST_CODE_BODY), _REQUEST_CODE_STATUS
 
-    email = (data.get("email") or "").strip().lower()
+    email = normalized_email(data.get("email"))
     if not email or "@" not in email:
         return jsonify(_REQUEST_CODE_BODY), _REQUEST_CODE_STATUS
 
@@ -377,7 +378,7 @@ def verify_login_code(market_slug: str) -> tuple:
     if not isinstance(data, dict) or not data:
         return jsonify(_VERIFY_FAILURE_BODY), _VERIFY_FAILURE_STATUS
 
-    email = (data.get("email") or "").strip().lower()
+    email = normalized_email(data.get("email"))
     code = (data.get("code") or "").strip()
 
     if not email or not code:

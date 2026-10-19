@@ -46,7 +46,6 @@ def test_the_ids_every_screen_reads_by_are_among_them():
     assert ("id",) in LOOKUP_INDEXES["markets"]
     assert ("id",) in LOOKUP_INDEXES["applications"]
     assert ("id",) in LOOKUP_INDEXES["organizations"]
-    assert ("email",) in LOOKUP_INDEXES["users"]
     assert ("market_id",) in LOOKUP_INDEXES["placement_history"]
 
 

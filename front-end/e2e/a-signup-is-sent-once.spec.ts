@@ -14,22 +14,43 @@ function accountsFor(email: string): number {
   return Number(mongoEval(`db.users.countDocuments({ email: ${JSON.stringify(email)} })`));
 }
 
-test('a double click on Register makes one account', async ({ page }) => {
-  const email = `e2e-signup-${Date.now()}@example.com`;
-  const login = new LoginPage(page);
+async function fillRegistration(login: LoginPage, email: string) {
   await login.goto();
   await login.switchToRegister();
   await login.registerEmailInput.fill(email);
   await login.registerPasswordInput.fill(PASSWORD);
   await login.registerPasswordConfirmInput.fill(PASSWORD);
+}
 
-  await login.registerSubmitButton.dblclick();
-
+async function expectOneAccount(login: LoginPage, email: string) {
   await expect(login.registerSuccessMessage).toBeVisible({ timeout: 10000 });
   await expect.poll(() => accountsFor(email), { timeout: 5000 }).toBeGreaterThan(0);
   // Give a second request time to land, then count.
-  await page.waitForTimeout(1500);
+  await login.page.waitForTimeout(1500);
   expect(accountsFor(email)).toBe(1);
+}
+
+test('a double click on Register makes one account', async ({ page }) => {
+  const email = `e2e-signup-${Date.now()}@example.com`;
+  const login = new LoginPage(page);
+  await fillRegistration(login, email);
+
+  await login.registerSubmitButton.dblclick();
+
+  await expectOneAccount(login, email);
+});
+
+test('Enter, then a click on Register, makes one account', async ({ page }) => {
+  const email = `e2e-signup-enter-${Date.now()}@example.com`;
+  const login = new LoginPage(page);
+  await fillRegistration(login, email);
+
+  await login.registerPasswordConfirmInput.press('Enter');
+  // The click lands while the first request is in flight; force past the disabled state, as a
+  // hand already on its way would.
+  await login.registerSubmitButton.click({ force: true });
+
+  await expectOneAccount(login, email);
 });
 
 test('two registrations racing for one address make one account', async ({ request }) => {
