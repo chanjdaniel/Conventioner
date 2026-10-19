@@ -112,3 +112,47 @@ export function reviewed(applications: Application[]): Application[] {
     (a) => !AWAITING.includes(a.status) && a.status !== ApplicationStatus.NeedsFollowUp,
   );
 }
+
+/** The All view's status filters (E34/F04/S01), as the address names them. */
+export const ALL_VIEW_FILTERS = [
+  { id: 'all', label: 'Any status' },
+  { id: 'undecided', label: 'To review' },
+  { id: ApplicationStatus.NeedsFollowUp, label: 'Needs follow-up' },
+  { id: ApplicationStatus.ReviewerApproved, label: 'Approved' },
+  { id: ApplicationStatus.ReviewerRejected, label: 'Rejected' },
+] as const;
+
+export type AllViewFilter = (typeof ALL_VIEW_FILTERS)[number]['id'];
+
+/** The filter an address names, or every application for one it does not know. */
+export function allViewFilter(asked: unknown): AllViewFilter {
+  return ALL_VIEW_FILTERS.some((f) => f.id === asked) ? (asked as AllViewFilter) : 'all';
+}
+
+/**
+ * The applications the All view lists: those with the status asked for - "To review" is every one
+ * awaiting a verdict - and, with Mine, only the follow-ups the viewer owns.
+ */
+export function allViewApplications(
+  applications: Application[],
+  filter: AllViewFilter,
+  mine: boolean,
+  me: string,
+): Application[] {
+  const shown = applications.filter((a) =>
+    filter === 'all'
+      ? true
+      : filter === 'undecided'
+        ? AWAITING.includes(a.status)
+        : a.status === filter,
+  );
+  if (!mine) return inArrivalOrder(shown);
+  const viewer = me.trim().toLowerCase();
+  return inArrivalOrder(
+    shown.filter(
+      (a) =>
+        a.status === ApplicationStatus.NeedsFollowUp &&
+        (a.followUpOwner?.email ?? '').toLowerCase() === viewer,
+    ),
+  );
+}

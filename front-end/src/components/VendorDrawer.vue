@@ -167,6 +167,9 @@ useInertBehind(
         </button>
       </div>
 
+      <!-- What the screen that opened it offers here: the review's verdicts (E34/F04/S01). -->
+      <slot name="actions" />
+
       <!-- Pinned above the tabs: what the organizer knows reads on every tab. -->
       <section class="detail-section">
         <VendorNotes
