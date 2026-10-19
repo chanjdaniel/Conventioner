@@ -189,8 +189,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Every market page has its own address** (E22/F04/S02): `/markets/:marketId/{setup,form,
   applications,assignment,result,vendors,attendance}` plus the `import` and `floorplan` flows, built
   with `marketPath()`. `/markets/:marketId` alone lands on the page for the market's phase
-  (`MarketLanding`, via `currentPage` in `utils/marketPage.ts`). The old `setup?tab=` and `/tables`
-  addresses redirect; the id-less paths redirect to `/markets`. A guard's `resolution_link` names a
+  (`MarketLanding`, via `currentPage` in `utils/marketGuide.ts`, a reading of the guide's table).
+  The old `setup?tab=` and `/tables` addresses redirect; the id-less paths redirect to `/markets`. A guard's `resolution_link` names a
   page (`applications`), never a redirect.
 - **The market's bar is `MarketBar`, rendered once by `MarketFrame`**: the name and the tabs (Market
   Setup, Application Form, Applications, Assignment, and Attendance once published). A screen draws

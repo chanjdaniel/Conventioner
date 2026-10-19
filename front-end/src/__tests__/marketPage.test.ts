@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   TAB_PAGES,
-  currentPage,
   SETUP_VIEW_PAGES,
   hasAssignment,
-  pageForTab,
   pageOfRoute,
   tabOf,
   tabsFor,
   type MarketPage,
 } from '@/utils/marketPage';
+import { currentPage, pageForTab } from '@/utils/marketGuide';
 import { MarketPhase } from '@/assets/types/datatypes';
 
 /**

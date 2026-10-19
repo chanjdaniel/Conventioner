@@ -16,12 +16,12 @@ import { placeFilterQuery } from '@/utils/resultFilters';
 import {
   PAGE_LABELS,
   TAB_PAGES,
-  currentPage,
   hasAssignment,
   pageOfRoute,
   tabOf,
   type MarketPage,
 } from '@/utils/marketPage';
+import { currentPage } from '@/utils/marketGuide';
 
 const props = defineProps<{ market: Market | null }>();
 const route = useRoute();

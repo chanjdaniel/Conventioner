@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { phaseSpine } from '@/utils/phase';
 import {
+  currentPage,
   forwardFrom,
   intakeModeOf,
   nextStep,
@@ -119,6 +120,69 @@ describe('the next step', () => {
     } as Partial<Market>);
     expect(nextStep(run, TODAY)).toMatchObject({ page: 'result' });
     expect(nextStep(run, TODAY).text).toMatch(/cannot be undone/);
+  });
+
+  it('in review, says nothing more is coming in before the work left', () => {
+    const undecided = {
+      transitionBlockers: {
+        assignment: [
+          {
+            id: 'all_applications_reviewed',
+            passed: false,
+            message: '2 applications are still awaiting review.',
+            resolutionLink: 'applications',
+          },
+        ],
+      },
+    };
+    expect(nextStep(market(MarketPhase.Review, undecided), TODAY)).toMatchObject({
+      text: 'Nothing more is coming in. Finish deciding: 2 applications are still awaiting review.',
+      page: 'applications',
+    });
+    const csv = market(MarketPhase.Review, { ...undecided, intakeMode: IntakeMode.Csv });
+    expect(nextStep(csv, TODAY).text).toMatch(
+      /^Nothing more is coming in, and nothing more can be imported\. Finish deciding: /,
+    );
+    const noTables = market(MarketPhase.Review, {
+      transitionBlockers: {
+        assignment: [{ id: 'no_empty_tier', passed: false, message: 'Tier Gold has no tables.' }],
+      },
+    });
+    expect(nextStep(noTables, TODAY).text).toBe(
+      'Nothing more is coming in. To begin assignment: Tier Gold has no tables.',
+    );
+  });
+
+  it('names where applications are open, on the form path', () => {
+    expect(nextStep(market(MarketPhase.ApplicationsOpen), TODAY).text).toMatch(
+      /^Applications are open on your application page\./,
+    );
+  });
+
+  it('points an archive that ran at the record its check-in page keeps', () => {
+    const ran = market(MarketPhase.Archived, { phasesReached: [MarketPhase.MarketDays] });
+    expect(nextStep(ran, TODAY)).toMatchObject({ page: null });
+    expect(nextStep(ran, TODAY).text).toMatch(/check-in page/);
+    expect(nextStep(market(MarketPhase.Archived), TODAY).text).not.toMatch(/check-in page/);
+  });
+
+  it("is where the market is worked on: the page carrying the dot is the statement's", () => {
+    for (const intakeMode of [IntakeMode.Form, IntakeMode.Csv]) {
+      for (const phase of phaseSpine().filter((p) => p !== MarketPhase.Archived)) {
+        for (const assigned of [false, true]) {
+          const m = market(
+            phase as MarketPhase,
+            {
+              intakeMode,
+              assignmentObject: { vendorAssignments: assigned ? [{ email: 'a@x.com' }] : [] },
+            } as Partial<Market>,
+          );
+          expect(nextStep(m, TODAY).page, `${intakeMode} ${phase} ${assigned}`).toBe(
+            currentPage(phase, assigned),
+          );
+        }
+      }
+    }
   });
 
   it('sends market days to the door, and to archiving once the last date has passed', () => {
