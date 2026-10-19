@@ -20,7 +20,9 @@ The online-application path is unchanged.
 
 ## As built
 
-- The path's moves are the server's: `PASSED_THROUGH` and `path_moves` in `guards.py` say which phases a path steps through and every move open from a phase, and `evaluate_transition` judges a move's whole route. The market read's `transitionBlockers` lists the path's moves only, and the front end mirrors the two in `utils/phase.ts` for the spine and the rail.
+- The path's moves are the server's: `PASSED_THROUGH` and `path_moves` in `guards.py` say which phases a path steps through and every move open from a phase, and `judge_route` judges a move's whole route (and the form amendment's chain). The market read serves the moves as the keys of `transitionBlockers` and the stepped-through phases as `phasesPassedThrough`; the browser keeps no copy of either rule.
+- Each step of a route is taken only from where the step before left the market, so a request that moves it in between stops the walk there.
+- A market moved into the closed phase by the single edge is drawn there as "Imported", never "Form Closed". The words the Assignment tab and Reopen for Editing refuse with are true of both paths.
 - The single edge into the closed phase is still taken when the API asks for it, so a seed may walk it; review refuses a CSV market with nothing imported on that edge too.
 - The move back from review to importing exists with this story, as the route through the closed phase, named "Import more responses"; `S02` is what it does to verdicts and a later export.
 - After an import, the import page's "Back to applications" is a secondary button, so the rail's Begin Review is the one green button.

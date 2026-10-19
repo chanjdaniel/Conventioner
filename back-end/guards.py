@@ -20,7 +20,7 @@ Phase 2 guards implemented (conv-market-state-machine-t7):
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import api.applications as ApplicationsApi
 from assignment.utils import convert_keys_to_camel_case
@@ -268,13 +268,14 @@ class NoApplicationsYetGuard:
     def evaluate(self, market: Market, _db) -> PreconditionResult:
         count = ApplicationsApi.count_applications_for_market(market.id)
         if count > 0:
-            app_word = "application has" if count == 1 else "applications have"
+            app_word = "application is" if count == 1 else "applications are"
+            # In words true of both paths: an imported row was never "submitted" here (E32/F02/S01).
             return PreconditionResult(
                 id=self.id,
                 passed=False,
                 message=(
-                    f"{count} {app_word} already been submitted, so this market cannot return to "
-                    "draft. The application form is frozen once anyone has answered it."
+                    f"{count} {app_word} already in, so this market cannot return to draft. The "
+                    "questions are fixed once anyone has applied or been imported."
                 ),
                 resolution_link=None,
             )
@@ -771,18 +772,17 @@ def move_route(market: Market, to_phase: str) -> Optional[List[str]]:
     return [to_phase] if (market.phase.value, to_phase) in VALID_TRANSITIONS else None
 
 
-def evaluate_transition(
-    market: Market, to_phase: str, db
+def judge_route(
+    market: Market, hops: Iterable[tuple[str, str]], db
 ) -> list[PreconditionResult]:
-    """Evaluate all guards for a move. Returns only FAILED results.
+    """Every guard on every step of a route, judged before the first step is taken. Failures only,
+    each guard's said once however many steps carry it.
 
-    Every guard on every step of the move's route, judged before the first step is taken, as the
-    form amendment judges its chain: each guard reads the market's state rather than the phase it is
-    asked on. A guard met twice on the way is said once. An empty list when nothing refuses it.
-    Callers use this to build the 409 blocker list or confirm success.
+    Judged against the market as it stands, not as it would be at each step: a guard reads the
+    market's state and never the phase it is asked on, so no phase-shifted copy is needed (pinned by
+    ``test_no_guard_reads_the_phase``). The one judgement a move and the form amendment's chain both
+    make.
     """
-    route = move_route(market, to_phase) or [to_phase]
-    hops = zip([market.phase.value, *route], route)
     blockers: list[PreconditionResult] = []
     seen: set[str] = set()
     for hop in hops:
@@ -792,6 +792,21 @@ def evaluate_transition(
                 seen.add(result.id)
                 blockers.append(result)
     return blockers
+
+
+def evaluate_transition(
+    market: Market, to_phase: str, db
+) -> list[PreconditionResult]:
+    """Evaluate all guards for a move. Returns only FAILED results.
+
+    Every guard on every step of the move's route (``judge_route``). An empty list when nothing
+    refuses it, or when there is no such move - the endpoint refuses that before asking. Callers use
+    this to build the 409 blocker list or confirm success.
+    """
+    route = move_route(market, to_phase)
+    if route is None:
+        return []
+    return judge_route(market, zip([market.phase.value, *route], route), db)
 
 
 def transition_verdicts(market: Market, db) -> Dict[str, List[PreconditionResult]]:

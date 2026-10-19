@@ -103,7 +103,7 @@ test.describe('The MVP journey', () => {
     await newMarket.choosePath('csv');
     await newMarket.clickSubmit();
     await page.getByTestId('start-from-csv-upload').getByRole('button', { name: 'Cancel' }).click();
-    const marketId = await newMarket.waitForSetupRedirect();
+    await newMarket.waitForSetupRedirect();
 
     await setup.waitForWizard();
     await expect(setup.currentPhase).toHaveText('Draft');

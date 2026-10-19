@@ -12,6 +12,7 @@ import { createPinia, setActivePinia } from 'pinia';
 
 import PhaseRail from '@/components/PhaseRail.vue';
 import { MarketPhase, type Market } from '@/assets/types/datatypes';
+import { movesServedFrom } from './support/servedMoves';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -38,7 +39,14 @@ beforeEach(() => {
 
 async function move(market: Partial<Market>, toPhase: string) {
   const wrapper = mount(PhaseRail, {
-    props: { market: { id: 'market-1', name: 'Riverside', ...market } as Market },
+    props: {
+      market: {
+        id: 'market-1',
+        name: 'Riverside',
+        transitionBlockers: movesServedFrom(String(market.phase)),
+        ...market,
+      } as Market,
+    },
     global: { stubs: { Teleport: true, BlockerPanel: true } },
   });
   if (!wrapper.find(`[data-testid="phase-transition-${toPhase}"]`).exists()) {

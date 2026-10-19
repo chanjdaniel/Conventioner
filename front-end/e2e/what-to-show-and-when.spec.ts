@@ -151,11 +151,11 @@ test.describe('What to show, and when', () => {
     );
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('market-read-only')).toContainText(
-      'The setup is settled: it cannot change once importing has begun',
+      'The setup is settled: it cannot change once the market has moved on to importing',
     );
     await page.goto(marketSetupPath(marketId, 'form'));
     await expect(page.getByTestId('form-builder-lock-banner')).toContainText(
-      'The questions are fixed: they cannot change once importing has begun',
+      'The questions are fixed: they cannot change once the market has moved on to importing',
     );
     await page.goto(marketSetupPath(marketId, 'applications'));
     await expect(page.getByTestId('market-setup-applications-condition')).toHaveText(

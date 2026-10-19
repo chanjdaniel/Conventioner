@@ -53,7 +53,7 @@ import api.users as UsersApi
 import traceback
 import logging
 from assignment.csv_output import market_csv_to_string
-from guards import route_between, transition_verdicts
+from guards import PASSED_THROUGH, route_between, transition_verdicts
 import vendor_notes as VendorNotes
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
@@ -297,7 +297,7 @@ def _since_leaving_draft(market: Market) -> str:
     responses rather than opening applications (E31/F03/S03, E32/F02/S01)."""
     if market.intake_mode is IntakeMode.FORM:
         return "once applications have opened"
-    return "once importing has begun"
+    return "once the market has moved on to importing"
 
 
 def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
@@ -721,6 +721,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
         to_phase: [blocker.payload() for blocker in blockers]
         for to_phase, blockers in transition_verdicts(market, db).items()
     }
+    # The phases this market's path steps through rather than stops in (E32/F02/S01), for the rail
+    # to leave off its stages. The moves themselves are the keys above; the browser keeps no copy
+    # of the rule that makes either.
+    market_dict['phasesPassedThrough'] = sorted(PASSED_THROUGH.get(market.intake_mode, ()))
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -1381,9 +1385,10 @@ def apply_phase_transition(
 
 def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: Optional[str] = None) -> None:
     """Take a move's steps in order through the one phase writer, each recorded as the phase it
-    entered (E32/F02/S01). The first step is judged against the document the caller loaded; each
-    later one re-reads it, because every write is conditional on the stored phase and a carried
-    document would fail the second step of every route.
+    entered (E32/F02/S01). The first step is conditional on the document the caller loaded; each
+    later one re-reads it, because the phase history is pushed from the document, and is taken only
+    if the market still stands where the step before left it - a request that moved it in between
+    stops the walk there rather than being carried over.
 
     Raises what ``apply_phase_transition`` raises, at the step where it happened.
     """
@@ -1392,6 +1397,9 @@ def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: O
             document = markets_collection.find_one({"id": market_id})
             if document is None:
                 raise MarketNotFoundError("Market not found")
+            standing = phase_from_market_document(document).value
+            if standing != route[index - 1]:
+                raise PhaseChangedUnderRequest(standing)
         apply_phase_transition(market_id, document, target, by=by)
 
 

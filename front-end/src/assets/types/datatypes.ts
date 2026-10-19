@@ -251,6 +251,11 @@ export interface Market {
    * for a move that would succeed (E31/F02/S01). Served so a screen says no before the click.
    */
   transitionBlockers?: Record<string, PreconditionResult[]>;
+  /**
+   * The phases this market's intake path steps through rather than stops in (E32/F02/S01), served
+   * with the moves above so the browser keeps no copy of the rule that makes either.
+   */
+  phasesPassedThrough?: string[];
   /** Why the setup on Market Setup can no longer change, or null in draft (E31/F01/S02). */
   setupLockReason?: string | null;
   userRole?: MarketRole; // User's effective role (added by API)

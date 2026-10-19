@@ -18,14 +18,7 @@ import {
   type Market,
   type PreconditionResult,
 } from '@/assets/types/datatypes';
-import {
-  PASSED_THROUGH,
-  pathMoves,
-  phaseLabel,
-  phaseSpine,
-  transitionDirection,
-  VALID_TRANSITIONS,
-} from '@/utils/phase';
+import { phaseLabel, phaseSpine, transitionDirection, VALID_TRANSITIONS } from '@/utils/phase';
 import {
   TAB_PAGES,
   hasAssignment,
@@ -42,11 +35,12 @@ export function intakeModeOf(market: Pick<Market, 'intakeMode'> | null | undefin
 /**
  * The CSV path's names for the phases whose meaning differs there. Its organizer holds the responses
  * when the market leaves draft, so the open phase is where they are imported (E32/F02/S01); the
- * closed one is stepped through, and named only for a market moved there before that.
+ * closed one is stepped through, and drawn only for a market moved there by the single edge, as the
+ * responses imported and review not yet begun.
  */
 const CSV_PHASE_LABELS: Partial<Record<string, string>> = {
   [MarketPhase.ApplicationsOpen]: 'Import',
-  [MarketPhase.ApplicationsClosed]: 'Form Closed',
+  [MarketPhase.ApplicationsClosed]: 'Imported',
 };
 
 /** A phase as the market's own path names it. */
@@ -112,9 +106,9 @@ export function lastDateHasPassed(market: Market, today: string = calendarToday(
  * IS in such a phase, which then gets its stage back at the place the transition table puts it. A
  * rail with no marker says nothing about where it stands.
  */
-export function spineFor(phase: string, path: IntakeMode): string[] {
-  // Less the phases this path steps through rather than stops in (E32/F02/S01).
-  const lifecycle = phaseSpine().filter((stage) => !PASSED_THROUGH[path].includes(stage));
+export function spineFor(phase: string, passedThrough: readonly string[] = []): string[] {
+  // Less the phases the market's path steps through rather than stops in (E32/F02/S01).
+  const lifecycle = phaseSpine().filter((stage) => !passedThrough.includes(stage));
   if (lifecycle.includes(phase)) return lifecycle;
   const arrivedFrom = VALID_TRANSITIONS.find(
     ([from, to]) => to === phase && lifecycle.includes(from),
@@ -132,13 +126,17 @@ export function forwardFrom(market: Market, today: string = calendarToday()): st
   if (phase === MarketPhase.MarketDays) {
     return lastDateHasPassed(market, today) ? MarketPhase.Archived : null;
   }
-  const path = intakeModeOf(market);
-  const spine = spineFor(phase, path);
-  return (
-    Object.keys(pathMoves(phase, path)).find(
-      (to) => transitionDirection(phase, to, spine) === 'forward',
-    ) ?? null
-  );
+  const spine = spineFor(phase, market.phasesPassedThrough);
+  return movesOf(market).find((to) => transitionDirection(phase, to, spine) === 'forward') ?? null;
+}
+
+/**
+ * Every move open to the market from its phase, as the market read served them: the keys of
+ * `transitionBlockers`, judged on the server for the market's own path (E32/F02/S01). The browser
+ * keeps no copy of which moves a path has.
+ */
+export function movesOf(market: Pick<Market, 'transitionBlockers'> | null | undefined): string[] {
+  return Object.keys(market?.transitionBlockers ?? {});
 }
 
 /** What would refuse a move, as the market read served it; empty when nothing would. */
@@ -214,7 +212,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     statement:
       path === IntakeMode.Form
         ? 'Applications are closed. Finish deciding, and begin review once no more are coming; until then you can still reopen.'
-        : 'Your Google Form is closed. Import the last responses, then begin review.',
+        : 'Your responses are imported. Begin review once everything is in.',
   }),
   [MarketPhase.Review]: ({ path }) => ({
     page: 'applications',
@@ -249,6 +247,11 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
   }),
 };
 
+/** Where a row's work is done: the flow it lands on, else its page. */
+function landingOf(row: GuideRow): MarketPage | MarketFlow {
+  return row.lands ?? row.page;
+}
+
 function rowFor(phase: string, standing: Standing): GuideRow {
   // A phase this build does not recognise still gets a page. Every market has a plan, so it is the
   // one page that is never wrong to show.
@@ -282,8 +285,7 @@ export function landingPage(
   hasAssignment: boolean,
   path: IntakeMode,
 ): MarketPage | MarketFlow {
-  const row = rowFor(phase, { path, assigned: hasAssignment, ended: false, ran: false });
-  return row.lands ?? row.page;
+  return landingOf(rowFor(phase, { path, assigned: hasAssignment, ended: false, ran: false }));
 }
 
 /** The page a tab opens: the one carrying the dot when the tab holds it, else its first. */
@@ -326,7 +328,7 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
   });
   return {
     text: row.statement,
-    page: row.links === false ? null : (row.lands ?? row.page),
+    page: row.links === false ? null : landingOf(row),
     blocker: null,
   };
 }

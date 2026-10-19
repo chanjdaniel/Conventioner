@@ -70,8 +70,9 @@ test.describe('Placement pins', () => {
       seed.marketId,
       'applications_closed',
     );
-    await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'review');
+    // Before review, which a CSV market enters once something is imported (E32/F02/S01).
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'pinned@example.com');
+    await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'review');
   });
 
   // `request` is test-scoped, so the session `beforeAll` signed in on is not this one's.

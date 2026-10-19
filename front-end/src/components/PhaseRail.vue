@@ -39,17 +39,13 @@ import {
   forwardFrom,
   intakeModeOf,
   landingPage,
+  movesOf,
   nextStep,
   pathPhaseLabel,
   pathTransitionLabel,
   spineFor,
 } from '@/utils/marketGuide';
-import {
-  OFF_SPINE_PHASES,
-  pathMoves,
-  transitionDirection,
-  transitionNeedsConfirmation,
-} from '@/utils/phase';
+import { OFF_SPINE_PHASES, transitionDirection, transitionNeedsConfirmation } from '@/utils/phase';
 
 const props = defineProps<{
   market: Market | null;
@@ -70,7 +66,7 @@ const router = useRouter();
 const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
 
 /** The stages this market's rail draws (`spineFor` says why `offers` is usually not one). */
-const spine = computed(() => spineFor(currentPhase.value, intakeModeOf(props.market)));
+const spine = computed(() => spineFor(currentPhase.value, props.market?.phasesPassedThrough));
 
 const currentIndex = computed(() => spine.value.indexOf(currentPhase.value));
 const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
@@ -248,11 +244,11 @@ const stepLink = computed(() => elsewhere(step.value?.page));
  */
 const availableTransitions = computed(() =>
   props.market && !props.market.adminActionsReason
-    ? Object.keys(pathMoves(currentPhase.value, path.value)).filter(
-        // The moves of the market's own path, which steps through a phase it never stops in
-        // (E32/F02/S01). Never into a phase the spine leaves out: nothing can get a market there,
-        // so "Send Offers" sat in the menu and always refused (E30/F01/S04). A market in one keeps
-        // its ways out, which are not into it.
+    ? movesOf(props.market).filter(
+        // The moves the server judged for the market's own path, which may step through a phase it
+        // never stops in (E32/F02/S01). Never into a phase the spine leaves out: nothing can get a
+        // market there, so "Send Offers" sat in the menu and always refused (E30/F01/S04). A
+        // market in one keeps its ways out, which are not into it.
         (to) => !OFF_SPINE_PHASES.includes(to),
       )
     : [],

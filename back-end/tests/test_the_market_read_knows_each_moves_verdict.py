@@ -53,3 +53,9 @@ def test_a_google_form_market_is_offered_review_and_not_the_closed_phase(serve):
 
     assert "applications_closed" not in moves
     assert moves["review"] == []
+
+
+def test_the_read_says_which_phases_the_path_steps_through(serve):
+    """The rail leaves them off its stages; the browser keeps no copy of the rule (E32/F02/S01)."""
+    assert serve(MarketPhase.DRAFT)["phasesPassedThrough"] == ["applications_closed"]
+    assert serve(MarketPhase.DRAFT, intake_mode="form")["phasesPassedThrough"] == []

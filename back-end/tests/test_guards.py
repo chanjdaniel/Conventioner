@@ -841,3 +841,18 @@ class TestEveryResolutionLinkPointsAtItsFix:
             if link is not None and link not in self.ALLOWED
         ]
         assert unknown == [], f"unrecognized resolution_link: {sorted(set(unknown))}"
+
+
+def test_no_guard_reads_the_phase():
+    """A move's whole route, and the form amendment's chain, are judged against the market as it
+    stands, before any step is taken (``judge_route``). That is sound only while no guard's verdict
+    depends on the phase it is asked on, so a guard that reads it is refused here."""
+    source = pathlib.Path(guards.__file__).read_text()
+    readers = []
+    for cls in ast.walk(ast.parse(source)):
+        if not (isinstance(cls, ast.ClassDef) and cls.name.endswith("Guard")):
+            continue
+        for node in ast.walk(cls):
+            if isinstance(node, ast.Attribute) and node.attr == "phase":
+                readers.append(cls.name)
+    assert readers == []

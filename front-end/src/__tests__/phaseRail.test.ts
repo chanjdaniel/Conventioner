@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
+import { IMPORTING_SERVED, movesServedFrom } from './support/servedMoves';
 
 function railFor(phase: MarketPhase, overrides: Partial<Market> = {}) {
   return mount(PhaseRail, {
@@ -17,6 +18,7 @@ function railFor(phase: MarketPhase, overrides: Partial<Market> = {}) {
         id: 'market-1',
         name: 'Riverside',
         phase,
+        transitionBlockers: movesServedFrom(phase),
         ...overrides,
       } as Market,
     },
@@ -63,7 +65,10 @@ describe('the spine', () => {
   });
 
   it("names a CSV market's stages Plan, Import, Review (E31/F03/S03, E32/F02/S01)", () => {
-    const rail = railFor(MarketPhase.Draft, { intakeMode: IntakeMode.Csv });
+    const rail = railFor(MarketPhase.Draft, {
+      intakeMode: IntakeMode.Csv,
+      phasesPassedThrough: IMPORTING_SERVED.phasesPassedThrough,
+    });
 
     expect(rail.text()).toContain('Import');
     expect(rail.text()).not.toContain('Applications Open');
@@ -74,7 +79,10 @@ describe('the spine', () => {
   });
 
   it('moves a CSV market on from importing to review, the closed phase stepped through', () => {
-    const rail = railFor(MarketPhase.ApplicationsOpen, { intakeMode: IntakeMode.Csv });
+    const rail = railFor(MarketPhase.ApplicationsOpen, {
+      intakeMode: IntakeMode.Csv,
+      ...IMPORTING_SERVED,
+    });
 
     expect(rail.get('[data-testid="phase-transition-review"]').text()).toBe('Begin Review');
     expect(rail.find('[data-testid="phase-transition-applications_closed"]').exists()).toBe(false);

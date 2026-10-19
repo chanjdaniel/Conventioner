@@ -478,3 +478,22 @@ class TestTheGoogleFormPath:
 
         assert response_ok(_post(client, {"toPhase": "applications_closed"}))
         assert collection.doc["phase"] == "applications_closed"
+
+    def test_a_market_moved_between_the_two_steps_is_not_carried_on(self, client, markets, imported):
+        """Each step is taken only from where the one before left it."""
+        imported(2)
+        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+        first_step = collection.update_one
+
+        def and_then_someone_reopens(filter_query, update):
+            result = first_step(filter_query, update)
+            collection.doc["phase"] = "applications_open"
+            return result
+        collection.update_one = and_then_someone_reopens
+
+        response = _post(client, {"toPhase": "review"})
+
+        assert response.status_code == 409
+        assert response.get_json()["error"] == "phase_changed"
+        assert [u["$set"]["phase"] for _, u in collection.updates] == ["applications_closed"]
+        assert collection.doc["phase"] == "applications_open"

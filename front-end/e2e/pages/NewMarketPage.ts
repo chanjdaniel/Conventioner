@@ -66,7 +66,11 @@ export class NewMarketPage {
    * only after another spec had given the test user a second organization.
    */
   async selectFirstOrg(): Promise<void> {
-    await this.orgSelect.or(this.orgOnly).waitFor({ state: 'visible', timeout: 5000 });
+    // Wait for the organizations to have loaded: the dropdown is drawn disabled until they have,
+    // and becomes the single organization's name when there is only one. Reading "not the only
+    // one" off the loading dropdown chose from a control about to be replaced.
+    const loaded = this.orgSelect.and(this.page.locator(':enabled'));
+    await loaded.or(this.orgOnly).waitFor({ state: 'visible', timeout: 5000 });
     if (await this.orgOnly.isVisible()) return;
     await this.orgSelect.selectOption({ index: 1 });
   }
