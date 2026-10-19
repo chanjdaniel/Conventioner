@@ -62,6 +62,7 @@
         "src/components/market/MarketPlanTab.vue",
         "src/components/market/MarketFormTab.vue",
         "src/components/StepHeader.vue",
+        "src/components/VendorDrawer.vue",
         "src/components/elements/ElementAssignmentPriority.vue",
         "src/components/elements/ElementBanner.vue",
         "src/components/elements/ElementInitButton.vue",

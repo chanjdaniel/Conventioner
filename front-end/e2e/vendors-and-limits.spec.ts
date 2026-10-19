@@ -105,7 +105,9 @@ test('a date a vendor did not get says which limit stopped it, and offers no pla
   const marketId = await seedMarketWithLimits(request);
 
   // Alice asked for one date and has it: the other two are her own limit.
-  await page.goto(`${marketScreenPath(marketId, 'vendors')}?vendor=alice@example.com`);
+  await page.goto(
+    `${marketScreenPath(marketId, 'vendors')}?vendor=alice@example.com&vendorTab=assignments`,
+  );
   const alice = page.getByTestId('vendors-detail-panel');
   await expect(alice.getByTestId('vendor-date-card-reason')).toHaveText([
     'Already has as many dates as they asked for',
@@ -114,7 +116,9 @@ test('a date a vendor did not get says which limit stopped it, and offers no pla
   await expect(alice.getByText('Place them')).toHaveCount(0);
 
   // Carol asked for all three; the market allows two.
-  await page.goto(`${marketScreenPath(marketId, 'vendors')}?vendor=carol@example.com`);
+  await page.goto(
+    `${marketScreenPath(marketId, 'vendors')}?vendor=carol@example.com&vendorTab=assignments`,
+  );
   const carol = page.getByTestId('vendors-detail-panel');
   await expect(carol.getByTestId('vendor-date-card-reason')).toHaveText([
     'Already has as many dates as the market allows per vendor',

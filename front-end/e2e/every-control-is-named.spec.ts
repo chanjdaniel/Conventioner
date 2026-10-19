@@ -289,5 +289,10 @@ test('every control of a vendor notes panel has a name, wherever it opens', asyn
 
   await page.goto(`${marketScreenPath(seed.marketId, 'vendors')}?vendor=alice%40example.com`);
   await expect(page.getByTestId('vendors-detail-notes-sheet')).toBeVisible();
-  expect(await namelessControls(page), "a vendor's panel, with notes").toEqual([]);
+  // Every tab of the drawer, each its own controls (E35/F01/S01).
+  for (const tab of ['application', 'assignments', 'history']) {
+    await page.getByTestId(`vendor-drawer-tab-${tab}`).click();
+    await expect(page.getByTestId(`vendor-drawer-panel-${tab}`)).toBeVisible();
+    expect(await namelessControls(page), `a vendor's panel, ${tab}`).toEqual([]);
+  }
 });
