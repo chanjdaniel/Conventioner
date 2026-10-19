@@ -17,6 +17,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
 import { ApplicationStatus, IntakeMode } from '@/assets/types/datatypes';
 import {
+  changedSinceSeen,
   fetchMarketApplications,
   reassignFollowUp,
   reviewApplication,
@@ -130,7 +131,17 @@ const rejectedCount = computed(
 /** The verdict split is only legible while the verdicts are still on the applications. */
 const verdictsStillLegible = computed(() => approvedCount.value + rejectedCount.value > 0);
 
-const current = computed<Application | undefined>(() => undecided.value[cursor.value]);
+/**
+ * An application a verdict was refused for, because someone changed it since the reviewer opened it
+ * (E34/F03/S01). It stays on the card, as it now stands, until the reviewer decides again or moves
+ * on - it may have left the queue, and the reviewer is owed the sight of what happened to it.
+ */
+const refusedOn = ref<string | null>(null);
+const current = computed<Application | undefined>(
+  () =>
+    (refusedOn.value ? applications.value.find((a) => a.id === refusedOn.value) : undefined) ??
+    undecided.value[cursor.value],
+);
 /**
  * Changed from HERE, not only from the form builder (E19/F03/S02).
  *
@@ -249,9 +260,10 @@ async function decide(app: Application, status: ApplicationStatus, ownerEmail?: 
   saving.value = true;
   errorMessage.value = '';
   try {
-    const updated = await reviewApplication(props.market.id, app.id, status, ownerEmail);
+    const updated = await reviewApplication(props.market.id, app, status, ownerEmail);
     const index = applications.value.findIndex((a) => a.id === app.id);
     if (index !== -1) applications.value[index] = updated;
+    refusedOn.value = null;
     void marketStore.refresh();
     // The verdict removed this one from the queue, so the cursor already points at the next.
     // It can only sit past the end when the reviewer had skipped to the last card.
@@ -259,7 +271,16 @@ async function decide(app: Application, status: ApplicationStatus, ownerEmail?: 
       cursor.value = Math.max(undecided.value.length - 1, 0);
     }
   } catch (err) {
-    errorMessage.value = getApiErrorMessage(err, 'Failed to update application');
+    const changed = changedSinceSeen(err);
+    if (changed) {
+      // Nothing was written: show what is really there, and who put it there.
+      const index = applications.value.findIndex((a) => a.id === app.id);
+      if (index !== -1) applications.value[index] = changed.application;
+      refusedOn.value = app.id;
+      errorMessage.value = changed.message;
+    } else {
+      errorMessage.value = getApiErrorMessage(err, 'Failed to update application');
+    }
   } finally {
     saving.value = false;
   }
@@ -274,6 +295,11 @@ function decideCurrent(status: ApplicationStatus) {
  * lie. Skip did this and recorded nothing; marking a follow-up is S now, and this is N.
  */
 function next() {
+  if (refusedOn.value) {
+    refusedOn.value = null;
+    errorMessage.value = '';
+    return;
+  }
   if (undecided.value.length === 0) return;
   cursor.value = (cursor.value + 1) % undecided.value.length;
 }
@@ -435,7 +461,7 @@ function submittedOn(app: Application): string {
     </div>
 
     <p v-if="publishError" class="error-state">{{ publishError }}</p>
-    <p v-if="errorMessage" class="error-state">{{ errorMessage }}</p>
+    <p v-if="errorMessage && !refusedOn" class="error-state">{{ errorMessage }}</p>
 
     <div v-if="loading" class="loading-state" data-testid="app-monitor-loading">
       Loading applications...
@@ -491,6 +517,13 @@ function submittedOn(app: Application): string {
           </span>
           <span v-if="submittedOn(current)" class="app-date">{{ submittedOn(current) }}</span>
         </div>
+        <!-- Someone decided it first: said here, on what they decided (E34/F03/S01). -->
+        <p v-if="refusedOn" class="changed-since" data-testid="app-monitor-changed" role="alert">
+          {{ errorMessage }}
+          <span v-if="verdictGiverLine(current)" class="verdict-giver">
+            {{ verdictGiverLine(current) }}.
+          </span>
+        </p>
         <!-- Who is reaching out, and who can be handed it (E34/F02/S01). -->
         <div v-if="current.status === ApplicationStatus.NeedsFollowUp" class="follow-up-owner">
           <label for="app-monitor-follow-up-owner">Followed up by</label>
@@ -626,11 +659,11 @@ function submittedOn(app: Application): string {
           </button>
           <button
             class="queue-button"
-            :disabled="saving || undecided.length < 2"
+            :disabled="saving || (!refusedOn && undecided.length < 2)"
             @click="next"
             data-testid="app-monitor-next-button"
           >
-            Next <kbd>N</kbd>
+            {{ refusedOn ? 'Back to the queue' : 'Next' }} <kbd>N</kbd>
           </button>
           <button
             class="approve-button"
@@ -852,6 +885,23 @@ function submittedOn(app: Application): string {
 .app-date {
   font-size: var(--text-xs);
   color: var(--mm-text-muted-on-beige);
+}
+
+.changed-since {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--mm-yellow);
+  border-radius: var(--radius-control);
+  background: var(--mm-chip-attention);
+  font-size: var(--text-sm);
+  color: var(--mm-text-yellow-on-tint);
+}
+
+.changed-since .verdict-giver {
+  color: inherit;
 }
 
 .include-follow-ups {
