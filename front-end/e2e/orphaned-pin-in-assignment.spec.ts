@@ -54,6 +54,7 @@ test('an orphaned pin is marked where the organizer looks, and holds Publish bac
   // So does the vendor's own panel.
   await page.goto(marketScreenPath(marketId, 'vendors'));
   await page.getByTestId('vendors-list-item').filter({ hasText: 'alice@example.com' }).click();
+  await page.getByTestId('vendor-drawer-tab-assignments').click();
   await expect(page.getByTestId('vendor-date-card-orphaned')).toContainText(
     'no longer in the plan',
   );

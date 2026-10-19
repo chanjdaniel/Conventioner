@@ -45,6 +45,8 @@ test.describe('Vendor browsing and search', () => {
 
     await vendorsPage.clickVendor(0);
     await expect(vendorsPage.detailCloseButton).toBeVisible({ timeout: 5000 });
+    // The drawer opens on the application; the seats are one click away (E35/F01/S01).
+    await vendorsPage.openTab('assignments');
 
     await expect(vendorsPage.detailAssignmentItems.first()).toBeVisible({ timeout: 5000 });
     await expect(vendorsPage.detailAssignmentItems).toHaveCount(1);
