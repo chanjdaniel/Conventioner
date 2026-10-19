@@ -143,7 +143,11 @@ test.describe('The Result page', () => {
     );
     await page.goto(at(unrun.marketId, 'result'));
     const empty = page.getByTestId('result-empty');
-    await expect(empty).toContainText('No assignment yet', { timeout: 15000 });
+    await expect(empty).toContainText('Nothing assigned yet', { timeout: 15000 });
+    // Where a run can happen, the tables stay: a vendor pinned before the first run is placed
+    // around by it (E11/F02/S01), so they are offered for that and not as a result.
+    await expect(page.getByTestId('result-pin-before-run')).toContainText('the run places');
+    await expect(page.getByTestId('tables-count-empty')).toBeVisible();
     await empty.getByRole('link').click();
     await expect(page).toHaveURL(new RegExp(`/markets/${unrun.marketId}/assignment$`));
 
@@ -157,5 +161,8 @@ test.describe('The Result page', () => {
     await expect(page.getByTestId('result-empty')).toContainText('still a draft', {
       timeout: 15000,
     });
+    // Nowhere a run can happen, no grid of empty tables stands in for a result (E31/F03/S05).
+    await expect(page.getByTestId('result-pin-before-run')).toHaveCount(0);
+    await expect(page.getByTestId('tables-count-empty')).toHaveCount(0);
   });
 });
