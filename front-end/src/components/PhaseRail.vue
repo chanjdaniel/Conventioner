@@ -64,7 +64,6 @@ const props = defineProps<{
   beforeTransition?: () => Promise<void> | void;
 }>();
 
-/** Said after a transition lands and the store has re-read the market. */
 const marketStore = useMarketStore();
 const router = useRouter();
 
@@ -361,11 +360,6 @@ async function doTransition(toPhase: string) {
     // fetch its own copy, write it into `localStorage` and hand it to the screen to splice in;
     // every screen shows the market from the store now, so the re-read is all any of them needs.
     await marketStore.refresh();
-    // A move is the next step, so it lands where that step's work is (E32/F01/S01): the guide's
-    // page for the phase entered, which the market's own address and the tab's dot already name.
-    // Begin Review once left the import's result on screen, and Publish never reached the door.
-    const landed = marketStore.market ?? props.market;
-    await router?.push(marketPath(props.market.id, currentPage(toPhase, hasAssignment(landed))));
   } catch (err: unknown) {
     const response =
       err && typeof err === 'object' && 'response' in err
@@ -384,9 +378,20 @@ async function doTransition(toPhase: string) {
     } else {
       transitionError.value = response?.data?.error || 'Failed to advance market phase.';
     }
+    return;
   } finally {
     transitioning.value = false;
   }
+  // A move is the next step, so it lands where that step's work is (E32/F01/S01): the guide's page
+  // for the phase entered, which the market's own address and the tab's dot already name. Begin
+  // Review once left the import's result on screen, and Publish never reached the door. Outside the
+  // `try`, so a navigation that goes wrong is never reported as a move that failed.
+  //
+  // Read off the phase moved to rather than the re-read market's: the move is done once the server
+  // answered, and a re-read that failed in transit leaves the store holding the market as it was
+  // before it. Whether a run is stored, which no move changes, can come from either.
+  const moved = marketStore.market ?? props.market;
+  await router.push(marketPath(props.market.id, currentPage(toPhase, hasAssignment(moved))));
 }
 
 function handleTransitionClick(toPhase: string) {

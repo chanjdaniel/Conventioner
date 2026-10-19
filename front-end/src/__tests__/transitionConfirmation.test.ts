@@ -16,6 +16,11 @@ import { VALID_TRANSITIONS, transitionNeedsConfirmation } from '@/utils/phase';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 
+// A move lands on its phase's page (E32/F01/S01); where is `aMoveLands.test.ts`'s to say.
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useRoute: () => ({ path: '/markets/market-1/setup' }),
+}));
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/api')>();
   return { ...actual, api };

@@ -1,8 +1,36 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, CsvImportPage } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
+import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import { seedMarketWithVendors } from './helpers/seeds';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
+
+/** Two responses as a Google Form writes them, on the dates and tiers `planSetupObject` plans. */
+const HEADERS = [
+  'Timestamp',
+  'Email Address',
+  'Full Legal Name',
+  'Which days can you attend?',
+  'Which tiers will you accept?',
+  'Full or half table?',
+  'Rank the sections',
+  'Business name',
+  'What do you sell?',
+];
+const CSV = [
+  HEADERS.join(','),
+  '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,2099-08-01,Gold,full,"Garden, Main Hall",Ember Ceramics,Pottery',
+  '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,2099-08-08,Silver,half,"Main Hall, Garden",Thorn & Thistle,Dried flowers',
+].join('\n');
+const MAPPING: Record<string, string> = {
+  'Full Legal Name': 'essential_full_name',
+  'Which days can you attend?': 'essential_available_dates',
+  'Which tiers will you accept?': 'essential_tier_preference',
+  'Full or half table?': 'essential_table_choice',
+  'Rank the sections': 'essential_section_ranking',
+  'Business name': 'business_name',
+  'What do you sell?': 'product_type',
+};
 
 /**
  * A move on the rail lands where the next step's work is (E32/F01/S01).
@@ -12,25 +40,41 @@ import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
  * never reached the door. The page each lands on is the guide's page for the phase entered.
  */
 test.describe('Every move lands on its phase’s page', () => {
-  test('Begin Review leaves the import for the review', async ({ authenticatedPage: page }) => {
-    const seed = await seedMarketWithVendors(
+  test('Begin Review leaves the import and its result for the review', async ({
+    authenticatedPage: page,
+  }) => {
+    const seed = await seedApplicantMarket(
       page.request,
       BACKEND_URL,
       TEST_USER.email,
       TEST_USER.password,
+      { setupObject: planSetupObject(), intakeMode: 'csv' },
     );
-    for (const phase of ['applications_open', 'applications_closed']) {
-      await transitionMarket(page.request, BACKEND_URL, TEST_USER.email, seed.marketId, phase);
-    }
+    await transitionMarket(
+      page.request,
+      BACKEND_URL,
+      TEST_USER.email,
+      seed.marketId,
+      'applications_closed',
+    );
 
+    // The organizer's walk: import the last responses, read the result, then begin review.
+    const importPage = new CsvImportPage(page);
     await page.goto(marketScreenPath(seed.marketId, 'import'));
-    await expect(page.getByTestId('import-view')).toBeVisible({ timeout: 15000 });
+    await importPage.chooseFile(CSV);
+    await importPage.mapColumns(HEADERS, MAPPING);
+    await expect(importPage.allMapped).toBeVisible();
+    await importPage.clickPreview();
+    await importPage.clickConfirm();
+    await expect(importPage.resultSummary).toContainText('2 new applications');
 
     await page.getByTestId('phase-transition-review').click();
 
     await expect(page).toHaveURL(/\/applications$/, { timeout: 15000 });
-    await expect(page.getByTestId('import-view')).toHaveCount(0);
     await expect(page.getByTestId('phase-rail-current')).toHaveText(/Review/);
+    await expect(importPage.resultSummary).toHaveCount(0);
+    await expect(importPage.view).toHaveCount(0);
+    await expect(page.getByTestId('app-monitor-progress')).toContainText('of 2 to review');
   });
 
   test('Begin Assignment lands on the assignment', async ({ authenticatedPage: page }) => {
