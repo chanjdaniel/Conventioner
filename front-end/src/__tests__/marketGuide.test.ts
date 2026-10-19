@@ -157,5 +157,10 @@ describe('a tab out of its phase says when it matters', () => {
     expect(tabNote(market(MarketPhase.MarketDays), 'attendance')).toBeNull();
     const ran = market(MarketPhase.Archived, { phasesReached: [MarketPhase.MarketDays] });
     expect(tabNote(ran, 'attendance')).toBeNull();
+    // Archived without running: said as archived, and why there is no roster (ticket 02).
+    const abandoned = market(MarketPhase.Archived, { phasesReached: [MarketPhase.Draft] });
+    expect(tabNote(abandoned, 'attendance')).toBe(
+      'This market was archived without being published, so nobody checked in.',
+    );
   });
 });

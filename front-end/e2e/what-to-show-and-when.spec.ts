@@ -96,14 +96,47 @@ test.describe('What to show, and when', () => {
       TEST_USER.password,
     );
     await page.goto(marketSetupPath(marketId, 'setup'));
-    await expect(page.getByTestId('market-read-only')).toContainText('The setup is settled');
+    await expect(page.getByTestId('market-read-only')).toContainText(
+      'The setup is settled: it cannot change once applications have opened',
+    );
     // Nobody has applied, so the way back is named.
     await expect(page.getByTestId('market-read-only')).toContainText('go back to draft');
     await expect(page.locator('fieldset.plan-body')).toHaveAttribute('disabled', '');
 
+    await page.goto(marketSetupPath(marketId, 'form'));
+    await expect(page.getByTestId('form-builder-lock-banner')).toContainText(
+      'The application form is fixed: it cannot change once applications have opened',
+    );
+
     await page.goto(marketSetupPath(marketId, 'applications'));
     await expect(page.getByTestId('market-setup-applications-condition')).toBeVisible();
     await expect(page.getByTestId('market-setup-import-button')).toHaveCount(0);
+  });
+
+  test('each tab past its phase says why, in the words of its path', async ({
+    authenticatedPage: page,
+    request,
+  }) => {
+    // A CSV market, assigning: it never opened applications, it collected on its Google Form.
+    const { marketId } = await seedAssignedMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+      { run: false },
+    );
+    await page.goto(marketSetupPath(marketId, 'setup'));
+    await expect(page.getByTestId('market-read-only')).toContainText(
+      'The setup is settled: it cannot change once you have started collecting',
+    );
+    await page.goto(marketSetupPath(marketId, 'form'));
+    await expect(page.getByTestId('form-builder-lock-banner')).toContainText(
+      'The questions are fixed: they cannot change once you have started collecting',
+    );
+    await page.goto(marketSetupPath(marketId, 'applications'));
+    await expect(page.getByTestId('market-setup-applications-condition')).toHaveText(
+      'Every application is decided. The assignment works from the ones you approved.',
+    );
   });
 
   test('a move the server would refuse says why in the menu', async ({
