@@ -35,11 +35,11 @@ test.describe('Every move lands on its phase’s page', () => {
     // The organizer's walk: import the last responses, read the result, then begin review.
     const importPage = new CsvImportPage(page);
     await page.goto(marketScreenPath(seed.marketId, 'import'));
-    await importPage.chooseFile(exportOf(RESPONSES.nadia, RESPONSES.theo));
-    await importPage.mapColumns(EXPORT_HEADERS, EXPORT_MAPPING);
-    await expect(importPage.allMapped).toBeVisible();
-    await importPage.clickPreview();
-    await importPage.clickConfirm();
+    await importPage.importCsv(
+      exportOf(RESPONSES.nadia, RESPONSES.theo),
+      EXPORT_HEADERS,
+      EXPORT_MAPPING,
+    );
     await expect(importPage.resultSummary).toContainText('2 new applications');
 
     await page.getByTestId('phase-transition-review').click();

@@ -66,6 +66,11 @@ export async function fetchMarkets(): Promise<Market[]> {
 
 /**
  * Normalize a market payload from the API (camelCase or snake_case) into a `Market`.
+ *
+ * Every field the server sends is carried: the payload is spread first and the fields named below
+ * are normalised over it. The parser used to list fields by name, and each one the server added and
+ * the list missed - `intakeMode`, `transitionBlockers`, `setupLockReason`, `phasesPassedThrough` -
+ * was silently dropped, until a screen behaved as though the server had never said it.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseMarketFromApi(market: any): Market {
@@ -83,6 +88,7 @@ export function parseMarketFromApi(market: any): Market {
   const phaseRaw = market.phase;
   const applicationForm = market.applicationForm ?? market.application_form;
   return {
+    ...market,
     id: market.id,
     name: market.name,
     // The market's public identifier, computed and persisted server-side (`Market.slug`). Kept

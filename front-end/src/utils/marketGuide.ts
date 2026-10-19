@@ -175,7 +175,11 @@ interface GuideRow {
   links?: boolean;
 }
 
-/** Review means nothing more arrives, on either path (ticket 02). */
+/**
+ * What review means on each path (ticket 02): on a market's own page nothing more arrives; on the
+ * Google Form path everything imported is here, and more can still come in from the rail's menu
+ * (E32/F02/S02).
+ */
 const REVIEW_LEAD: Record<IntakeMode, string> = {
   [IntakeMode.Form]: 'Nothing more is coming in.',
   [IntakeMode.Csv]: 'Every imported response is here.',
@@ -212,7 +216,7 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     statement:
       path === IntakeMode.Form
         ? 'Applications are closed. Finish deciding, and begin review once no more are coming; until then you can still reopen.'
-        : 'Your responses are imported. Begin review once everything is in.',
+        : "Import your Google Form's responses, then begin review.",
   }),
   [MarketPhase.Review]: ({ path }) => ({
     page: 'applications',

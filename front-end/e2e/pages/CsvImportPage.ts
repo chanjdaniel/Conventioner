@@ -196,6 +196,18 @@ export class CsvImportPage {
   }
 
   /** Preview, confirm, and wait for the result - for tests whose subject is elsewhere. */
+  /** Import an export from the upload step to its result: choose, map, preview, confirm. */
+  async importCsv(
+    contents: string,
+    headers: string[],
+    mapping: Record<string, string>,
+  ): Promise<void> {
+    await this.chooseFile(contents);
+    await this.mapColumns(headers, mapping);
+    await expect(this.allMapped).toBeVisible();
+    await this.previewAndConfirm();
+  }
+
   async previewAndConfirm(): Promise<void> {
     await this.clickPreview();
     await this.clickConfirm();

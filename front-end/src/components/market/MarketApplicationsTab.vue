@@ -69,9 +69,10 @@ const condition = computed(() => {
         ? 'The responses you import from your Google Form arrive here, ready to review.'
         : 'This market is open for applications. New ones will keep arriving here.';
     case MarketPhase.ApplicationsClosed:
-      // Reached on the Google Form path only by the single edge: its responses are in (E32/F02/S01).
+      // Reached on the Google Form path only by the single edge, and still importing as far as
+      // this page is concerned (E32/F02/S01): nothing has been decided about what arrived.
       return csvMarket.value
-        ? 'Your responses are imported. Import more here, or begin review.'
+        ? 'The responses you import from your Google Form arrive here, ready to review.'
         : 'This market is no longer taking applications. No new ones will arrive.';
     case MarketPhase.Review:
       return undecided.value === 0
@@ -102,8 +103,8 @@ const condition = computed(() => {
       {{ condition }}
     </p>
     <!-- The button used to be live in every phase and navigate to a page whose only
-         content was the refusal. The gate is right; being told before the click is the
-         part that was missing. -->
+         content was the refusal. It is drawn only while the market is importing now; the
+         refusal it can still carry is the person's - only an admin imports (bug 37). -->
     <!-- Importing is the CSV path's (E31/F03/S04): a market whose vendors apply on its own page
          takes nothing from a file, and was offered it as its primary button. -->
     <div v-if="importing" class="applications-toolbar">
