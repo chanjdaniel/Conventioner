@@ -54,9 +54,6 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     plugins: [vue(), vueJsx(), vueDevTools()],
-    define: {
-      'process.env': process.env,
-    },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -66,6 +63,9 @@ export default defineConfig(({ command, mode }) => {
       hmr: true,
       watch: {
         usePolling: true,
+        // A test run's own output is not the app. Watched, the report Playwright writes at the end
+        // of a run reloaded every page open on this server, a developer's included.
+        ignored: ['**/test-results/**', '**/playwright-report/**', '**/blob-report/**'],
       },
       proxy: {
         '/api': {
