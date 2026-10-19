@@ -33,7 +33,8 @@ Resolved 2026-10-18, in one grilling round.
 - **A sheet's own organizer column** (which the form started from a CSV already recognises and leaves out) can be mapped on import to a third, read-only line, "From your sheet".
   Each import replaces it, and it never touches the note written in the app, so a re-import neither clobbers the app's note nor ignores the sheet's.
 
-**A request can be marked handled**, once, so the door can tell "needs a chair" from "already got one" without reading every note.
+**A request can be marked handled**, so the door can tell "needs a chair" from "already got one" without reading every note.
+The mark can be taken back: a wrong tick at a busy door must be undoable (settled in review, 2026-10-19).
 
 **Where they show**: the applications review, the assignment's Vendors page, and the attendance roster at the door.
 A vendor's row carries a compact marker when any kind exists, and expanding it shows each kind under its own label; the roster shows each request as outstanding or handled.

@@ -11,7 +11,7 @@ pr: []
 
 On the applications review, the assignment's Vendors page and the attendance roster, a vendor's row carries a compact marker when any kind of note exists; expanding it shows each kind under its own label (their request, your note, from your sheet).
 The organizer's note is written wherever it is shown.
-A request can be marked handled, once, by EDITOR and up; the roster shows each request as outstanding or handled, so the door can tell "needs a chair" from "already got one".
+A request can be marked handled by EDITOR and up, and the mark taken back if it was wrong; the roster shows each request as outstanding or handled, so the door can tell "needs a chair" from "already got one".
 
 ## Acceptance criteria
 

@@ -18,7 +18,7 @@ from datatypes import (
 
 SOON = (datetime.now(timezone.utc).date() + timedelta(days=30)).isoformat()
 TODAY = datetime.now(timezone.utc).date().isoformat()
-PAST = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+PAST = (datetime.now(timezone.utc).date() - timedelta(days=2)).isoformat()
 
 GOLD = TierObject(id=1, name="Gold")
 SILVER = TierObject(id=2, name="Silver")
@@ -52,6 +52,20 @@ def test_a_complete_setup_leaves_draft():
 
 def test_a_market_dated_today_is_not_over():
     assert _blockers(_market(dates=(TODAY,))) == []
+
+
+@pytest.mark.parametrize("utc_now, over", [
+    # Five in the morning in London is still the evening of the 20th across the Pacific.
+    ("2026-11-21T05:00:00+00:00", False),
+    # By one in the afternoon, the 20th is over everywhere.
+    ("2026-11-21T13:00:00+00:00", True),
+])
+def test_a_date_has_passed_once_it_has_passed_everywhere(monkeypatch, utc_now, over):
+    """The server cannot know where a market is, so it never calls a date over that is still today
+    for an organizer somewhere; any viewer's own calendar then agrees with every refusal."""
+    monkeypatch.setattr(guards, "_utc_now", lambda: datetime.fromisoformat(utc_now))
+
+    assert bool(_blockers(_market(dates=("2026-11-20",)))) is over
 
 
 @pytest.mark.parametrize("market, names", [

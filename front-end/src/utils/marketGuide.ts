@@ -72,7 +72,9 @@ export function pathTransitionLabel(from: string, to: string, path: IntakeMode):
 /**
  * Today as a market date, on the viewer's own calendar: the door's day. In UTC, a Vancouver market
  * would have read its last day as over by four in the afternoon. The one definition, read by the
- * rail and by Attendance alike.
+ * rail and by Attendance alike. The server, which cannot know where a market is, calls a date over
+ * only once it is over everywhere (`_earliest_calendar_day` in `guards.py`), so any date it refuses
+ * is over on this calendar too.
  */
 export function calendarToday(now: Date = new Date()): string {
   const month = String(now.getMonth() + 1).padStart(2, '0');

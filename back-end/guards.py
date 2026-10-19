@@ -19,7 +19,7 @@ Phase 2 guards implemented (conv-market-state-machine-t7):
 """
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import api.applications as ApplicationsApi
@@ -126,9 +126,23 @@ class FormHasFieldsGuard:
 # that settled long ago, and is no time to ask about it.
 
 
-def _calendar_today() -> str:
-    """Today as a market date: a calendar day, compared as one (``YYYY-MM-DD``)."""
-    return datetime.now(timezone.utc).date().isoformat()
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# The furthest west a clock is set: Baker Island keeps UTC-12, so a day there ends last.
+_LAST_DAY_TO_END = timedelta(hours=12)
+
+
+def _earliest_calendar_day() -> str:
+    """The earliest calendar day anywhere on Earth, as a market date (``YYYY-MM-DD``).
+
+    A market's date is a day where the market is, and the server does not know where that is. So a
+    date has passed only once it has passed everywhere: the server never refuses a date that is
+    still today for some organizer, and a refusal is one the viewer's own calendar - which the rail
+    and the door read (``calendarToday`` in ``front-end/src/utils/marketGuide.ts``) - agrees with.
+    """
+    return (_utc_now() - _LAST_DAY_TO_END).date().isoformat()
 
 
 class SetupHasDatesGuard:
@@ -149,8 +163,8 @@ class SetupHasDatesGuard:
                 id=self.id, passed=False, resolution_link="setup",
                 message="This market has no market dates. Pick them on Market Setup's calendar.",
             )
-        today = _calendar_today()
-        passed = [date for date in dates if date < today]
+        earliest = _earliest_calendar_day()
+        passed = [date for date in dates if date < earliest]
         if passed:
             return PreconditionResult(
                 id=self.id, passed=False, resolution_link="setup",
