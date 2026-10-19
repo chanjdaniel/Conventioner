@@ -15,6 +15,9 @@ import { getFormattedDate } from '@/utils/utils';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
 import ResultSeat from '@/components/ResultSeat.vue';
+import VendorDrawer from '@/components/VendorDrawer.vue';
+import { useVendorDetails } from '@/utils/vendorDetails';
+import { useVendorDrawer } from '@/utils/vendorDrawer';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import { hasAssignment } from '@/utils/marketPage';
@@ -61,6 +64,13 @@ const route = useRoute();
 const marketId = computed(() => String(route.params.marketId ?? ''));
 /** The lifecycle band below this screen's header (E10/F01/S01). */
 const { market, refresh: refreshMarket } = useOpenMarket(marketId);
+
+/**
+ * Whoever holds a seat opens their drawer (E35/F01/S02), from their name or the seat's dialog. The
+ * vendors are read the first time it opens, and again after a change here moves anyone.
+ */
+const details = useVendorDetails(marketId, market);
+const drawer = useVendorDrawer();
 
 /**
  * Tables the plan no longer has that a hand placement still names (bug 31): shown with the vendor
@@ -272,6 +282,13 @@ function closePlacement(): void {
   placementError.value = '';
 }
 
+/** From the seat's dialog to the drawer of whoever holds it. */
+function viewOccupant(): void {
+  const email = openSeat.value?.occupantEmail;
+  closePlacement();
+  if (email) drawer.open(email);
+}
+
 /**
  * The dates each vendor holds a seat on, keyed by lowercased address - who cannot be placed again
  * on a date, and how many dates a placement would give them against their own limit and the
@@ -322,7 +339,11 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
     // so one change can move other vendors, and a locally patched grid would show a floor plan
     // nobody is standing on. A placement is a write to the market's stored assignment, so the
     // store re-reads the market too (E21/F02/S04): anything else showing it follows.
-    await Promise.all([loadTables(), refreshMarket()]);
+    await Promise.all([
+      loadTables(),
+      refreshMarket(),
+      details.loaded.value ? details.load() : Promise.resolve(),
+    ]);
   } catch (err: unknown) {
     const data =
       err && typeof err === 'object' && 'response' in err
@@ -515,6 +536,7 @@ function swapSeats(withEmail: string): void {
                           :names="vendorNames"
                           :readOnly="readOnly"
                           @open="openOccupied(row, rowStatus(row).leftEmail!)"
+                          @view="drawer.open(rowStatus(row).leftEmail!)"
                         />
                         <template v-else>
                           <div class="half-slot">
@@ -525,6 +547,7 @@ function swapSeats(withEmail: string): void {
                               :names="vendorNames"
                               :readOnly="readOnly"
                               @open="openHalf(row, rowStatus(row).leftEmail, HALF_TABLE_LEFT)"
+                              @view="drawer.open(rowStatus(row).leftEmail!)"
                             />
                           </div>
                           <div class="half-slot">
@@ -535,6 +558,7 @@ function swapSeats(withEmail: string): void {
                               :names="vendorNames"
                               :readOnly="readOnly"
                               @open="openHalf(row, rowStatus(row).rightEmail, HALF_TABLE_RIGHT)"
+                              @view="drawer.open(rowStatus(row).rightEmail!)"
                             />
                           </div>
                         </template>
@@ -571,7 +595,17 @@ function swapSeats(withEmail: string): void {
       @place="placeVendor"
       @free="freeSeat"
       @swap="swapSeats"
+      @view="viewOccupant"
       @close="closePlacement"
+    />
+
+    <VendorDrawer
+      :market="market"
+      :details="details"
+      :email="drawer.email.value"
+      :tab="drawer.tab.value"
+      @close="drawer.close()"
+      @update:tab="drawer.setTab"
     />
   </div>
 </template>

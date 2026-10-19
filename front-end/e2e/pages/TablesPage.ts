@@ -70,6 +70,11 @@ export class TablesPage {
     return this.row(tableCode).getByTestId('tables-seat-occupied').nth(nth);
   }
 
+  /** Open a held seat's dialog, by its Change: its name opens the vendor's drawer (E35/F01/S02). */
+  async change(seat: Locator): Promise<void> {
+    await seat.getByTestId('tables-seat-change').click();
+  }
+
   /** Who holds a seat, read from the seat itself rather than from the text drawn on it. */
   async occupantOf(seat: Locator): Promise<string> {
     return (await seat.getAttribute('data-vendor-email')) ?? '';

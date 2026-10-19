@@ -50,7 +50,7 @@ test.describe('The Result page', () => {
     const before = await placed.textContent();
     const tables = new TablesPage(page);
     const seat = page.getByTestId('tables-seat-occupied').first();
-    await seat.click();
+    await tables.change(seat);
     await tables.freeSeat();
     await expect(placed).not.toHaveText(before ?? '', { timeout: 10000 });
   });

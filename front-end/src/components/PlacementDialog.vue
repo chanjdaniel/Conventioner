@@ -62,6 +62,8 @@ const emit = defineEmits<{
   place: [payload: { email: string; seat: Seat }];
   free: [];
   swap: [email: string];
+  /** Open the occupant's drawer (E35/F01/S02): who they are, before deciding what to do. */
+  view: [];
   close: [];
 }>();
 
@@ -251,10 +253,20 @@ function whereTheySit(target: SwapTarget): string {
     </template>
 
     <template v-else>
-      <p class="placement-occupant">
-        <strong data-testid="placement-dialog-occupant">{{ label(occupantEmail) }}</strong>
-        holds this seat.
-      </p>
+      <div class="placement-occupant-row">
+        <p class="placement-occupant">
+          <strong data-testid="placement-dialog-occupant">{{ label(occupantEmail) }}</strong>
+          holds this seat.
+        </p>
+        <button
+          type="button"
+          class="btn btn--secondary btn--compact"
+          data-testid="placement-dialog-view-vendor"
+          @click="emit('view')"
+        >
+          View vendor
+        </button>
+      </div>
 
       <label class="placement-field">
         <span class="field-label">Swap them with</span>
@@ -359,6 +371,14 @@ function whereTheySit(target: SwapTarget): string {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted);
+}
+
+.placement-occupant-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
 }
 
 .placement-occupant {
