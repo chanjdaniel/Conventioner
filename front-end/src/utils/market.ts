@@ -22,6 +22,17 @@ export function marketPath(marketId: string, page?: MarketPage | MarketFlow): st
 }
 
 /**
+ * A blocker's `resolutionLink` as an address: the server names the page that holds the remedy,
+ * relative to the market's own pages (`applications`, perhaps with a query), and never which market
+ * that is (E21/F02/S02). The one reading of it, for the rail's fix and the blocker panel alike.
+ */
+export function resolutionPath(marketId: string, relative: string): string {
+  const [page, query] = relative.replace(/^\/+/, '').split('?');
+  const path = marketPath(marketId, page as MarketPage | MarketFlow);
+  return query ? `${path}?${query}` : path;
+}
+
+/**
  * Go to a market: its own screens, in every phase, landing on the page for its phase (E22/F04/S02).
  *
  * The three lists that open a market all did this by hand, and all three stored the market in

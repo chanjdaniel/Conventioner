@@ -25,7 +25,7 @@
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { hasAssignment, type MarketPage } from '@/utils/marketPage';
+import { hasAssignment } from '@/utils/marketPage';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
@@ -33,7 +33,7 @@ import { useMarketStore } from '@/stores/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import AppDialog from '@/components/AppDialog.vue';
-import { marketPath } from '@/utils/market';
+import { marketPath, resolutionPath } from '@/utils/market';
 import {
   blockersFor,
   currentPage,
@@ -231,13 +231,15 @@ function firstBlocker(toPhase: string): PreconditionResult | null {
 /** The rail's sentence: the next step, or why it cannot be taken yet. */
 const step = computed(() => (props.market ? nextStep(props.market) : null));
 const route = useRoute();
-/** Where the step is done, unless that is where the organizer already is. */
-const stepLink = computed(() => {
-  if (!props.market || !step.value?.page) return null;
-  // A blocker's `resolutionLink` names a page of this market, as `currentPage` does.
-  const link = marketPath(props.market.id, step.value.page as MarketPage);
+/** A page of this market as an address, unless it is the one the organizer is already on. */
+function elsewhere(relative: string | null | undefined): string | null {
+  if (!props.market || !relative) return null;
+  const link = resolutionPath(props.market.id, relative);
   return route?.path === link ? null : link;
-});
+}
+
+/** Where the step is done, unless that is where the organizer already is. */
+const stepLink = computed(() => elsewhere(step.value?.page));
 
 /**
  * The moves this person may make. None when moving the phase is not theirs to do (bug 37): an
@@ -271,9 +273,11 @@ const forwardTransition = computed(() => {
  * reason no one page resolves has no fix to offer, and the sentence says it.
  */
 const fix = computed(() => {
-  const blocker = step.value?.blocker;
-  if (!forwardTransition.value || !blocker?.resolutionLabel || !stepLink.value) return null;
-  return { label: blocker.resolutionLabel, to: stepLink.value };
+  // The move's own first blocker, the one its disabled state is read from - not the sentence's,
+  // which before a run says "run the assignment" in its own words and names no blocker.
+  const blocker = forwardTransition.value ? firstBlocker(forwardTransition.value) : null;
+  const to = elsewhere(blocker?.resolutionLink);
+  return blocker?.resolutionLabel && to ? { label: blocker.resolutionLabel, to } : null;
 });
 
 const otherTransitions = computed(() =>
@@ -504,7 +508,7 @@ function cancelPending() {
           <RouterLink
             v-if="fix"
             :to="fix.to"
-            class="rail-button rail-button--forward rail-button--fix"
+            class="btn btn--primary rail-button--forward"
             data-testid="phase-rail-fix"
             >{{ fix.label }}</RouterLink
           >
@@ -512,8 +516,8 @@ function cancelPending() {
           <button
             v-if="forwardTransition"
             type="button"
-            class="rail-button"
-            :class="fix ? 'rail-button--waiting' : 'rail-button--forward'"
+            class="btn"
+            :class="fix ? 'btn--secondary' : 'btn--primary rail-button--forward'"
             :disabled="transitioning || !!firstBlocker(forwardTransition)"
             :aria-describedby="firstBlocker(forwardTransition) ? 'phase-rail-next' : undefined"
             :data-testid="`phase-transition-${forwardTransition}`"
@@ -527,7 +531,7 @@ function cancelPending() {
               id="phase-rail-menu-button"
               ref="menuButton"
               type="button"
-              class="rail-button rail-button--menu"
+              class="btn btn--secondary"
               aria-haspopup="menu"
               aria-controls="phase-rail-menu"
               :aria-expanded="menuOpen"
@@ -590,7 +594,7 @@ function cancelPending() {
         :to="stepLink"
         class="phase-rail-next-link"
         data-testid="phase-rail-next-link"
-        >{{ step.blocker ? 'Fix it' : 'Go there' }}</RouterLink
+        >{{ step.blocker?.resolutionLabel ?? 'Go there' }}</RouterLink
       >
     </p>
 
@@ -873,47 +877,12 @@ function cancelPending() {
   margin-left: auto;
 }
 
-.rail-button {
-  padding: 7px 14px;
-  border-radius: var(--radius-control);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.rail-button--forward {
-  border: 1px solid var(--mm-green);
-  background: var(--mm-green);
-  color: white;
-}
-
-/* A link drawn as the button it stands in for: a control's line box, which a link does not
-   inherit, so it stands the same height as the move beside it. */
-.rail-button--fix {
-  line-height: normal;
-  text-decoration: none;
-}
-
-.rail-button--waiting {
-  border: 1px solid var(--mm-border);
-}
-
-.rail-button--menu {
-  border: 1px solid var(--mm-border);
-  background: white;
-  color: var(--mm-black);
-}
-
-.rail-button:disabled {
-  border-color: var(--mm-border);
-}
-
 /*
- * The one disabled state `primitives.css` gives `.btn`: the control keeps its place and loses its
- * affordance, on beige with the ink measured for beige. Faded to 55%, the forward step put white on
- * a pale green - unreadable on the step the rail now refuses most.
+ * The rail's buttons are the `.btn` primitive (E32/F01/S02); `rail-button--forward` marks the main
+ * one and draws nothing. A refused menu move takes the one disabled state `primitives.css` gives
+ * `.btn`: the control keeps its place and loses its affordance, on beige with the ink measured for
+ * beige.
  */
-.rail-button:disabled,
 .rail-menu-item[aria-disabled='true'],
 .rail-menu-item[aria-disabled='true']:hover {
   background: var(--mm-beige);
