@@ -241,6 +241,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   special-cased per phase. Only the one forward step is on the rail; everything else is behind
   `phase-rail-menu-button`. A spec that clicks `phase-transition-<phase>` for a back or
   destructive edge must open that menu first.
+- **A move lands on the guide's page for the phase entered** (E32/F01/S01), in any direction, and
+  the router starts a new page at its top. A spec that clicks a move follows it to that page; it
+  does not stay on the tab it clicked from.
 - **A terminal state is stated in words.** Strikethrough alone reads as *stopped*, not as
   *archived* - the prototype proved it. An archived market's frozen stage is the furthest phase
   in `phasesReached` (see Phase Transitions); it once was read off evidence, and told a market
