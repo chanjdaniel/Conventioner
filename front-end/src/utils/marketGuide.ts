@@ -21,11 +21,9 @@ import {
 import { phaseLabel, phaseSpine, transitionDirection, VALID_TRANSITIONS } from '@/utils/phase';
 import { currentPage, hasAssignment, type MarketPage, type MarketTab } from '@/utils/marketPage';
 
-export type IntakePath = 'form' | 'csv';
-
 /** Absent means CSV, as the server reads it: the applicant surface fails closed. */
-export function intakePath(market: Pick<Market, 'intakeMode'> | null | undefined): IntakePath {
-  return market?.intakeMode === IntakeMode.Form ? 'form' : 'csv';
+export function intakeModeOf(market: Pick<Market, 'intakeMode'> | null | undefined): IntakeMode {
+  return market?.intakeMode === IntakeMode.Form ? IntakeMode.Form : IntakeMode.Csv;
 }
 
 /** The CSV path's names for the two phases whose meaning differs there. */
@@ -35,8 +33,8 @@ const CSV_PHASE_LABELS: Partial<Record<string, string>> = {
 };
 
 /** A phase as the market's own path names it. */
-export function pathPhaseLabel(phase: string | null | undefined, path: IntakePath): string {
-  if (path === 'csv' && phase && CSV_PHASE_LABELS[phase]) return CSV_PHASE_LABELS[phase]!;
+export function pathPhaseLabel(phase: string | null | undefined, path: IntakeMode): string {
+  if (path === IntakeMode.Csv && phase && CSV_PHASE_LABELS[phase]) return CSV_PHASE_LABELS[phase]!;
   return phaseLabel(phase);
 }
 
@@ -44,8 +42,8 @@ export function pathPhaseLabel(phase: string | null | undefined, path: IntakePat
  * A move as the market's own path names it - for what the organizer wants to do, not for the
  * phase. Going back to draft exists so the setup and the form become editable again.
  */
-export function pathTransitionLabel(from: string, to: string, path: IntakePath): string {
-  const csv = path === 'csv';
+export function pathTransitionLabel(from: string, to: string, path: IntakeMode): string {
+  const csv = path === IntakeMode.Csv;
   switch (to) {
     case MarketPhase.Archived:
       return 'Archive Market';
@@ -135,29 +133,34 @@ export interface NextStep {
   blocker: PreconditionResult | null;
 }
 
-const STATEMENTS: Record<string, Record<IntakePath, string>> = {
+const STATEMENTS: Record<string, Record<IntakeMode, string>> = {
   [MarketPhase.Draft]: {
-    form: 'Plan the market and its application form, then open applications.',
-    csv: "Plan the market, from your Google Form's responses or by hand, then start collecting.",
+    [IntakeMode.Form]: 'Plan the market and its application form, then open applications.',
+    [IntakeMode.Csv]:
+      "Plan the market, from your Google Form's responses or by hand, then start collecting.",
   },
   [MarketPhase.ApplicationsOpen]: {
-    form: 'Applications are open. Review them as they arrive, and close applications when you stop taking them.',
-    csv: 'Collecting on your Google Form. Import responses as they arrive and review them, and say when you are done collecting.',
+    [IntakeMode.Form]:
+      'Applications are open. Review them as they arrive, and close applications when you stop taking them.',
+    [IntakeMode.Csv]:
+      'Collecting on your Google Form. Import responses as they arrive and review them, and say when you are done collecting.',
   },
   [MarketPhase.ApplicationsClosed]: {
-    form: 'Applications are closed. Finish deciding, and begin review once no more are coming; until then you can still reopen.',
-    csv: 'Your Google Form is closed. Import the last responses, then begin review.',
+    [IntakeMode.Form]:
+      'Applications are closed. Finish deciding, and begin review once no more are coming; until then you can still reopen.',
+    [IntakeMode.Csv]: 'Your Google Form is closed. Import the last responses, then begin review.',
   },
   [MarketPhase.Review]: {
-    form: 'Nothing more is coming in. Every application is decided: begin assignment.',
-    csv: 'Nothing more is coming in, and nothing more can be imported. Every application is decided: begin assignment.',
+    [IntakeMode.Form]: 'Nothing more is coming in. Every application is decided: begin assignment.',
+    [IntakeMode.Csv]:
+      'Nothing more is coming in, and nothing more can be imported. Every application is decided: begin assignment.',
   },
 };
 
 /** The rail's statement for this market, now. */
 export function nextStep(market: Market, today: string = calendarToday()): NextStep {
   const phase = String(market.phase ?? MarketPhase.Draft);
-  const path = intakePath(market);
+  const path = intakeModeOf(market);
   const forward = forwardFrom(market, today);
   const [blocker] = blockersFor(market, forward);
   // Before a run, running is the step, and the sentence says so; Publish still waits, disabled with
@@ -199,10 +202,10 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
 /** A tab as the market's own path names it: a CSV market's form is the questions its file maps onto. */
 export function pathTabLabel(
   tab: MarketTab,
-  path: IntakePath,
+  path: IntakeMode,
   labels: Record<MarketTab, string>,
 ): string {
-  return tab === 'form' && path === 'csv' ? 'Questions' : labels[tab];
+  return tab === 'form' && path === IntakeMode.Csv ? 'Questions' : labels[tab];
 }
 
 /**
@@ -213,7 +216,7 @@ export function pathTabLabel(
  */
 export function tabNote(market: Market, tab: MarketTab): string | null {
   const phase = String(market.phase ?? MarketPhase.Draft);
-  const csv = intakePath(market) === 'csv';
+  const csv = intakeModeOf(market) === IntakeMode.Csv;
   switch (tab) {
     case 'applications':
       return phase === MarketPhase.Draft

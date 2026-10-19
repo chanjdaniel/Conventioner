@@ -13,8 +13,8 @@ import { computed, ref } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
-import { MarketPhase, type Market } from '@/assets/types/datatypes';
-import { intakePath } from '@/utils/marketGuide';
+import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
+import { intakeModeOf } from '@/utils/marketGuide';
 
 const props = defineProps<{
   market: Market | null;
@@ -32,7 +32,7 @@ const namedApplication = computed(() => String(route.query.application ?? ''));
 const undecided = ref(0);
 
 /** Its vendors apply on the organizer's own Google Form and arrive by import (E31/F03). */
-const csvMarket = computed(() => intakePath(props.market) === 'csv');
+const csvMarket = computed(() => intakeModeOf(props.market) === IntakeMode.Csv);
 
 /**
  * Which of its three phases this surface is in, IN WORDS (E18/F02/S03).

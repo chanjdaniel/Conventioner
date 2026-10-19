@@ -37,7 +37,7 @@ import { marketPath } from '@/utils/market';
 import {
   blockersFor,
   forwardFrom,
-  intakePath,
+  intakeModeOf,
   nextStep,
   pathPhaseLabel,
   pathTransitionLabel,
@@ -211,7 +211,7 @@ async function copyUrl(url: string): Promise<void> {
 
 // ── The actions ───────────────────────────────────────────────────────────────
 
-const path = computed(() => intakePath(props.market));
+const path = computed(() => intakeModeOf(props.market));
 
 /** A stage as this market's path names it: a CSV market collects on its Google Form. */
 function phaseLabel(phase: string): string {

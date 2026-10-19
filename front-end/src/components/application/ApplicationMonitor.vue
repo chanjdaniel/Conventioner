@@ -288,7 +288,6 @@ const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
  */
 const notesMarketId = computed(() => props.market?.id ?? '');
 const { load: loadNotes, entryFor } = useVendorNotes(notesMarketId);
-watch(notesMarketId, loadNotes, { immediate: true });
 /**
  * Whether this person may decide applications and publish the verdicts - ADMIN actions (bug 37).
  * Archived markets and Viewers fall here too, since the server serves the stronger reason first.
