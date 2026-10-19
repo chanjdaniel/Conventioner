@@ -15,7 +15,13 @@ import {
   type Application,
   type Market,
 } from '@/assets/types/datatypes';
-import { changedSinceSeen, fetchMarketApplications, reviewApplication } from '@/utils/applicantApi';
+import {
+  changedSinceSeen,
+  fetchMarketApplications,
+  reviewApplication,
+  reviewSelection,
+  type SelectionResult,
+} from '@/utils/applicantApi';
 import { getApiErrorMessage } from '@/utils/api';
 import { FULL_NAME_KEY, PREFERRED_NAME_KEY } from '@/utils/essentialFields';
 import {
@@ -27,10 +33,12 @@ import {
 } from '@/utils/reviewQueue';
 import { signedInEmail } from '@/utils/signedIn';
 import { useVendorDetails } from '@/utils/vendorDetails';
+import { useMarketStore } from '@/stores/market';
 import { useVendorDrawer } from '@/utils/vendorDrawer';
 import { saveVendorNote } from '@/utils/vendorNotes';
 import { statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
+import AppDialog from '@/components/AppDialog.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
 
 const props = defineProps<{ market: Market | null }>();
@@ -39,6 +47,8 @@ const emit = defineEmits<{ 'update:undecidedCount': [count: number] }>();
 
 const route = useRoute();
 const router = useRouter();
+/** A verdict is a write: the store re-reads the market, so the rail's count moves (E21/F02/S02). */
+const marketStore = useMarketStore();
 const marketId = computed(() => props.market?.id ?? '');
 
 const applications = ref<Application[]>([]);
@@ -159,6 +169,7 @@ async function give(status: ApplicationStatus, ownerEmail?: string) {
   try {
     adopt(await reviewApplication(props.market.id, app, status, ownerEmail));
     void details.load();
+    void marketStore.refresh();
   } catch (err) {
     const changed = changedSinceSeen(err);
     if (changed) {
@@ -185,6 +196,64 @@ watch(
   () => drawer.email.value,
   () => (verdictMessage.value = ''),
 );
+
+// --- A verdict on a selection (E34/F04/S02) ---------------------------------------------------
+
+/**
+ * The ticked applications. Only ever what the reviewer ticked: there is no action on "everything
+ * matching the filter", so no verdict reaches an application nobody looked at the row of.
+ */
+const selected = ref<Set<string>>(new Set());
+/** One another reviewer has open cannot be ticked; it says who. */
+function heldElsewhere(app: Application): string | null {
+  const holder = app.heldBy?.email;
+  return holder && holder.toLowerCase() !== me.value.toLowerCase() ? holder : null;
+}
+function toggle(app: Application, ticked: boolean) {
+  const next = new Set(selected.value);
+  if (ticked) next.add(app.id);
+  else next.delete(app.id);
+  selected.value = next;
+}
+// A filter that hides a ticked row leaves it unticked: what is decided is what is on screen.
+watch(shown, (rows) => {
+  const visible = new Set(rows.map((a) => a.id));
+  selected.value = new Set([...selected.value].filter((id) => visible.has(id)));
+});
+
+const VERDICT_WORDS: Partial<Record<ApplicationStatus, { verb: string; done: string }>> = {
+  [ApplicationStatus.ReviewerApproved]: { verb: 'Approve', done: 'approved' },
+  [ApplicationStatus.ReviewerRejected]: { verb: 'Reject', done: 'rejected' },
+  [ApplicationStatus.NeedsFollowUp]: {
+    verb: 'Mark for follow-up',
+    done: 'marked for follow-up',
+  },
+};
+const asking = ref<ApplicationStatus | null>(null);
+const result = ref<(SelectionResult & { done: string }) | null>(null);
+const selectionError = ref('');
+const plural = (n: number) => `${n} application${n === 1 ? '' : 's'}`;
+const askingTitle = computed(() =>
+  asking.value ? `${VERDICT_WORDS[asking.value]?.verb} ${plural(selected.value.size)}?` : '',
+);
+
+async function decideSelection() {
+  const status = asking.value;
+  if (!status || !props.market) return;
+  selectionError.value = '';
+  try {
+    const picked = applications.value.filter((a) => selected.value.has(a.id));
+    const answer = await reviewSelection(props.market.id, picked, status);
+    result.value = { ...answer, done: VERDICT_WORDS[status]?.done ?? '' };
+    asking.value = null;
+    selected.value = new Set();
+    await load();
+    void details.load();
+    void marketStore.refresh();
+  } catch (err) {
+    selectionError.value = getApiErrorMessage(err, 'Could not decide the selection.');
+  }
+}
 </script>
 
 <template>
@@ -218,6 +287,60 @@ watch(
       </span>
     </div>
 
+    <!-- The selection's verdicts, never one for "everything matching" (E34/F04/S02). -->
+    <div
+      v-if="decides && selected.size"
+      class="all-selection"
+      data-testid="applications-all-selection"
+    >
+      <span class="all-selected">{{ plural(selected.size) }} selected</span>
+      <button
+        type="button"
+        class="btn btn--destructive btn--compact"
+        data-testid="applications-all-selection-reject"
+        @click="asking = ApplicationStatus.ReviewerRejected"
+      >
+        Reject
+      </button>
+      <button
+        type="button"
+        class="btn btn--secondary btn--compact"
+        data-testid="applications-all-selection-follow-up"
+        @click="asking = ApplicationStatus.NeedsFollowUp"
+      >
+        Needs follow-up
+      </button>
+      <button
+        type="button"
+        class="btn btn--primary btn--compact"
+        data-testid="applications-all-selection-approve"
+        @click="asking = ApplicationStatus.ReviewerApproved"
+      >
+        Approve
+      </button>
+      <button
+        type="button"
+        class="btn btn--secondary btn--compact"
+        data-testid="applications-all-selection-clear"
+        @click="selected = new Set()"
+      >
+        Clear
+      </button>
+    </div>
+
+    <div v-if="result" class="all-result" data-testid="applications-all-result" role="status">
+      <p>
+        {{ plural(result.written.length) }} {{ result.done
+        }}<template v-if="result.skipped.length">; {{ result.skipped.length }} skipped:</template
+        ><template v-else>.</template>
+      </p>
+      <ul v-if="result.skipped.length">
+        <li v-for="skip in result.skipped" :key="skip.id" data-testid="applications-all-skipped">
+          {{ skip.email ?? skip.id }}: {{ skip.reason }}
+        </li>
+      </ul>
+    </div>
+
     <p v-if="errorMessage" class="all-error">{{ errorMessage }}</p>
     <p v-else-if="loading && !applications.length" class="all-empty">Loading applications…</p>
     <p v-else-if="!shown.length" class="all-empty" data-testid="applications-all-empty">
@@ -226,6 +349,20 @@ watch(
 
     <ul v-else class="all-list">
       <li v-for="app in shown" :key="app.id" class="all-row" data-testid="applications-all-row">
+        <input
+          v-if="decides"
+          type="checkbox"
+          class="all-tick"
+          :checked="selected.has(app.id)"
+          :disabled="!!heldElsewhere(app)"
+          :aria-label="
+            heldElsewhere(app)
+              ? `${app.applicantEmail}: ${heldElsewhere(app)} has it open`
+              : `Select ${app.applicantEmail}`
+          "
+          data-testid="applications-all-tick"
+          @change="toggle(app, ($event.target as HTMLInputElement).checked)"
+        />
         <button
           type="button"
           class="all-row-button"
@@ -308,6 +445,25 @@ watch(
       </template>
     </VendorDrawer>
 
+    <AppDialog
+      :open="asking !== null"
+      :title="askingTitle"
+      testid="applications-all-confirm"
+      :confirmLabel="asking ? VERDICT_WORDS[asking]?.verb : ''"
+      :destructive="asking === ApplicationStatus.ReviewerRejected"
+      :error="selectionError"
+      @close="asking = null"
+      @submit="decideSelection"
+    >
+      <p class="all-confirm">
+        Each is written only if it is still as you see it here; any another reviewer has changed or
+        has open is skipped, and said so.
+        <template v-if="asking === ApplicationStatus.NeedsFollowUp">
+          You will own the follow-ups.</template
+        >
+      </p>
+    </AppDialog>
+
     <FollowUpDialog
       :open="followUpOpen"
       :applicantEmail="opened?.applicantEmail ?? ''"
@@ -365,6 +521,44 @@ watch(
   color: var(--mm-red);
 }
 
+.all-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--mm-green);
+  border-radius: var(--radius-control);
+  background: var(--mm-chip-positive);
+}
+
+.all-selected {
+  margin-right: auto;
+  font-size: var(--text-sm);
+  color: var(--mm-text-green);
+}
+
+.all-result {
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
+.all-result p,
+.all-result ul {
+  margin: 0;
+}
+
+.all-result ul {
+  padding-left: var(--space-4);
+  color: var(--mm-text-muted);
+}
+
+.all-confirm {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--mm-black);
+}
+
 .all-list {
   display: flex;
   flex-direction: column;
@@ -374,9 +568,19 @@ watch(
   list-style: none;
 }
 
+.all-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.all-tick {
+  flex: 0 0 auto;
+}
+
 .all-row-button {
   display: grid;
-  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) minmax(0, 18rem);
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) minmax(0, 22rem);
   align-items: center;
   gap: var(--space-3);
   width: 100%;

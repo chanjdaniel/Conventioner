@@ -112,3 +112,77 @@ test('outside the review the drawer shows the verdict and offers none', async ({
   await expect(page.getByTestId('applications-all-approve')).toHaveCount(0);
   await expect(page.getByTestId('applications-all-reject')).toHaveCount(0);
 });
+
+test('a verdict on a selection: confirmed by count, held ones untickable, changed ones skipped', async ({
+  authenticatedPage: page,
+  browser,
+  request,
+}) => {
+  ensureVerifiedUser(SECOND.email, SECOND.password);
+  const { marketId } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+  seedApplicationWithStatus(marketId, 'open', 'nadia@ember.test');
+  seedApplicationWithStatus(marketId, 'open', 'theo@thistle.test');
+  const ines = seedApplicationWithStatus(marketId, 'open', 'ines@loom.test');
+  seedApplicationWithStatus(marketId, 'open', 'omar@kiln.test');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_closed');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'review');
+  const granted = await request.post(`${BACKEND_URL}/markets/${marketId}/roles`, {
+    data: { user_email: SECOND.email, role: 'editor' },
+  });
+  expect(granted.ok(), await granted.text()).toBeTruthy();
+
+  await page.goto(`${marketScreenPath(marketId, 'applications')}?view=all`);
+  const rows = page.getByTestId('applications-all-row');
+  await expect(rows).toHaveCount(4);
+  const row = (email: string) => rows.filter({ hasText: email });
+
+  await withUser(browser, SECOND.email, SECOND.password, async (other) => {
+    // The other reviewer opens Nadia's card; once the list knows, she cannot be ticked.
+    await other.request.post(`${BACKEND_URL}/markets/${marketId}/review/next`, { data: {} });
+    await page.reload();
+    await expect(row('nadia@ember.test').getByTestId('applications-all-tick')).toBeDisabled();
+
+    // Theo and Ines ticked; then the other reviewer rejects Ines before the approval lands.
+    await row('theo@thistle.test').getByTestId('applications-all-tick').check();
+    await row('ines@loom.test').getByTestId('applications-all-tick').check();
+    await expect(page.getByTestId('applications-all-selection')).toContainText(
+      '2 applications selected',
+    );
+    const rejected = await other.request.put(
+      `${BACKEND_URL}/markets/${marketId}/applications/${ines}/review`,
+      { data: { status: 'reviewer_rejected' } },
+    );
+    expect(rejected.ok()).toBeTruthy();
+  });
+
+  // Nothing is written until the count is confirmed.
+  await page.getByTestId('applications-all-selection-approve').click();
+  await expect(page.getByTestId('applications-all-confirm-window')).toContainText(
+    'Approve 2 applications?',
+  );
+  await page.getByTestId('applications-all-confirm-submit-button').click();
+
+  await expect(page.getByTestId('applications-all-result')).toContainText(
+    '1 application approved; 1 skipped',
+  );
+  await expect(page.getByTestId('applications-all-skipped')).toHaveText(
+    `ines@loom.test: ${SECOND.email} rejected this application since you opened it.`,
+  );
+  await expect(row('theo@thistle.test').getByTestId('applications-all-status')).toHaveText(
+    'Approved',
+  );
+  await expect(row('ines@loom.test').getByTestId('applications-all-status')).toHaveText('Rejected');
+  // The rail moves with it: two left, not four.
+  await expect(page.getByTestId('phase-rail-next')).toContainText(
+    '2 applications are still awaiting review',
+  );
+  // Omar was never ticked, and is left as he was.
+  await expect(row('omar@kiln.test').getByTestId('applications-all-status')).toHaveText('Open');
+});

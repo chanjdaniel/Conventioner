@@ -144,6 +144,28 @@ export function changedSinceSeen(
   };
 }
 
+/** What a verdict on a selection wrote, and what it skipped and why (E34/F04/S02). */
+export interface SelectionResult {
+  written: string[];
+  skipped: { id: string; email: string | null; reason: string }[];
+}
+
+/** One verdict for a ticked selection, each written only on what the reviewer saw. */
+export async function reviewSelection(
+  marketId: string,
+  applications: Application[],
+  status: string,
+): Promise<SelectionResult> {
+  const { data } = await api.post(`/markets/${marketId}/applications/verdicts`, {
+    status,
+    applications: applications.map((app) => ({
+      id: app.id,
+      seen: { status: app.status, verdictAt: app.verdictAt ?? null },
+    })),
+  });
+  return data as SelectionResult;
+}
+
 /** Hand a follow-up to someone else with a role on the market (E34/F02/S01). */
 export async function reassignFollowUp(
   marketId: string,

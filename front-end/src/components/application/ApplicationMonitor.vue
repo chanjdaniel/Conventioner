@@ -8,10 +8,11 @@
  * this is the one chosen: triage. One application, every answer it holds, a verdict by keyboard
  * or click, and a count of what is left.
  *
- * **There is deliberately no control that decides more than one application at once.** Not a
- * select-all, not an "approve all matching". A bulk verdict is a verdict nobody read, and the
- * approved set is the solver's entire input - `assign_market` reads `reviewer_approved` and
- * nothing else. An escape hatch here would be the feature everyone uses.
+ * **This view decides one application at a time.** A verdict on several is the All view's
+ * (`ApplicationsAll`, E34/F04/S02): rows the reviewer ticks, one by one, a confirmation naming the
+ * count, and never "approve all matching" - a verdict nobody read would reach the approved set,
+ * which is the solver's entire input (`assign_market` reads `reviewer_approved` and nothing else).
+ * The automatic rejections take the clear-cut cases first (E33/F03).
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { Application, Market } from '@/assets/types/datatypes';
