@@ -4,33 +4,7 @@ import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplicantMarket, planSetupObject } from './helpers/seedApplicantMarket';
 import { seedMarketWithVendors } from './helpers/seeds';
 import { seedPhaseMarket, transitionMarket } from './helpers/seedPhaseMarket';
-
-/** Two responses as a Google Form writes them, on the dates and tiers `planSetupObject` plans. */
-const HEADERS = [
-  'Timestamp',
-  'Email Address',
-  'Full Legal Name',
-  'Which days can you attend?',
-  'Which tiers will you accept?',
-  'Full or half table?',
-  'Rank the sections',
-  'Business name',
-  'What do you sell?',
-];
-const CSV = [
-  HEADERS.join(','),
-  '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,2099-08-01,Gold,full,"Garden, Main Hall",Ember Ceramics,Pottery',
-  '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,2099-08-08,Silver,half,"Main Hall, Garden",Thorn & Thistle,Dried flowers',
-].join('\n');
-const MAPPING: Record<string, string> = {
-  'Full Legal Name': 'essential_full_name',
-  'Which days can you attend?': 'essential_available_dates',
-  'Which tiers will you accept?': 'essential_tier_preference',
-  'Full or half table?': 'essential_table_choice',
-  'Rank the sections': 'essential_section_ranking',
-  'Business name': 'business_name',
-  'What do you sell?': 'product_type',
-};
+import { EXPORT_HEADERS, EXPORT_MAPPING, RESPONSES, exportOf } from './helpers/googleFormExport';
 
 /**
  * A move on the rail lands where the next step's work is (E32/F01/S01).
@@ -61,8 +35,8 @@ test.describe('Every move lands on its phase’s page', () => {
     // The organizer's walk: import the last responses, read the result, then begin review.
     const importPage = new CsvImportPage(page);
     await page.goto(marketScreenPath(seed.marketId, 'import'));
-    await importPage.chooseFile(CSV);
-    await importPage.mapColumns(HEADERS, MAPPING);
+    await importPage.chooseFile(exportOf(RESPONSES.nadia, RESPONSES.theo));
+    await importPage.mapColumns(EXPORT_HEADERS, EXPORT_MAPPING);
     await expect(importPage.allMapped).toBeVisible();
     await importPage.clickPreview();
     await importPage.clickConfirm();
