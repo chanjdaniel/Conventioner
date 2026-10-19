@@ -30,11 +30,13 @@ test('"Ask this" stays off after a custom field is added and the form saved', as
   authenticatedPage: page,
   request,
 }) => {
+  // Vendors apply on its page, so its form has a preview to check (E33/F01/S02).
   const { marketId } = await seedDraftMarket(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+    { intakeMode: 'form' },
   );
   await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, PLAN);
 

@@ -50,6 +50,9 @@ test.describe('Screens say what they mean', () => {
   test('the form-lock banner says why in words', async ({ authenticatedPage: page }) => {
     await openTheSeededMarket(page);
     await page.goto(marketSetupPath(marketId, 'form'));
+    // A locked form opens on its review setup; the builder, and its lock, are a step back
+    // (E33/F01/S03).
+    await page.getByTestId('form-step-questions').click();
 
     const banner = page.getByTestId('form-builder-lock-banner');
     await expect(banner).toBeVisible({ timeout: 15000 });
@@ -71,6 +74,7 @@ test.describe('Screens say what they mean', () => {
       ['attendance', marketScreenPath(marketId, 'attendance'), 'market-bar-title'],
     ] as const) {
       await page.goto(url);
+      if (screen === 'form builder') await page.getByTestId('form-step-questions').click();
       await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
 
       const stored = await page.evaluate((pattern) => {

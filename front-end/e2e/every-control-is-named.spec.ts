@@ -26,11 +26,13 @@ test('every field on the plan, the rules and the form preview has a name', async
   authenticatedPage: page,
   request,
 }) => {
+  // Vendors apply on its page, so its form has all four steps, the preview among them.
   const { marketId } = await seedPhaseMarket(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+    { intakeMode: 'form' },
   );
   const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
     data: {

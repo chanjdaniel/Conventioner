@@ -44,7 +44,7 @@ const FORM: ApplicationForm = {
 /** A child stub that names itself and keeps the form it was handed, so a test can read it. */
 function stub(testid: string) {
   return {
-    props: ['applicationForm', 'forApplicants'],
+    props: ['applicationForm', 'forApplicants', 'readonly'],
     emits: ['update:applicationForm'],
     template: `<div data-testid="${testid}">{{ applicationForm?.fields?.map((f) => f.label).join(',') }}</div>`,
   };
@@ -216,5 +216,32 @@ describe("a Google Form market's essential questions (E33/F01/S02)", () => {
     expect(csv.text()).not.toContain('hidden from applicants');
     expect(csv.text()).not.toContain('application form asks');
     expect(csv.get('[data-testid="essential-dates-empty"]').text()).toContain('import');
+  });
+});
+
+describe('a locked form opens on the review setup (E33/F01/S03)', () => {
+  const LOCKED = 'Application form is locked: 1 application has already been submitted.';
+
+  it('opens on Review setup, which stays editable', async () => {
+    const wrapper = await mountTab({ applicationFormLockReason: LOCKED });
+
+    expect(currentStep(wrapper)).toContain('Review setup');
+    expect(shown(wrapper, 'stub-highlights')).toBe(true);
+    expect(shown(wrapper, 'form-builder-lock-banner')).toBe(false);
+  });
+
+  it('keeps the earlier steps one click away, read-only and saying why', async () => {
+    const wrapper = await mountTab({ applicationFormLockReason: LOCKED });
+
+    await wrapper.get('[data-testid="form-step-questions"]').trigger('click');
+    expect(wrapper.get('[data-testid="form-builder-lock-banner"]').text()).toBe(LOCKED);
+    expect(wrapper.getComponent('[data-testid="stub-builder"]').props('readonly')).toBe(true);
+    expect(shown(wrapper, 'form-builder-save-button')).toBe(false);
+  });
+
+  it('opens an editable form on its first step, as before', async () => {
+    const wrapper = await mountTab();
+
+    expect(currentStep(wrapper)).toContain('Essential questions');
   });
 });
