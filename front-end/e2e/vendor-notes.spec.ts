@@ -1,9 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
-import { mongoContainer } from './helpers/containerNames';
 import { marketScreenPath } from './helpers/marketScreens';
 import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
+import { mongoEval } from './helpers/mongo';
 
 /**
  * Vendor notes (E31/F04; map `what-to-show-and-when` ticket 03).
@@ -13,18 +12,8 @@ import { AttendanceStatusPage } from './pages/AttendanceStatusPage';
  * and the organizer's note. Both are in front of whoever looks at that vendor, the door included.
  */
 function askFor(marketId: string, email: string, request: string): void {
-  execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-      '--quiet',
-      '--eval',
-      `db.applications.updateOne({market_id:${JSON.stringify(marketId)}, applicant_email:${JSON.stringify(email)}}, {$set:{"form_data.essential_request": ${JSON.stringify(request)}}})`,
-    ],
-    { encoding: 'utf-8' },
+  mongoEval(
+    `db.applications.updateOne({market_id:${JSON.stringify(marketId)}, applicant_email:${JSON.stringify(email)}}, {$set:{"form_data.essential_request": ${JSON.stringify(request)}}})`,
   );
 }
 

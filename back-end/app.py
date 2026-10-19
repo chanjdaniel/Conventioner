@@ -43,7 +43,6 @@ from market_documents import (
 )
 import db_config
 from lookup_indexes import ensure_lookup_indexes
-from dataclasses import asdict
 import json
 import os
 import glob
@@ -1006,7 +1005,7 @@ def amend_application_form(market_id: str) -> Response:
         return jsonify(convert_keys_to_camel_case({
             "error": "preconditions_not_met",
             "message": str(e),
-            "blockers": [asdict(b) for b in e.blockers],
+            "blockers": [b.payload() for b in e.blockers],
         })), 409
     except FormAmendmentApi.AmendmentStalled as e:
         logger.error(f"Form amendment stalled for {market_id}: {e}")
@@ -1192,7 +1191,7 @@ def transition_market(market_id: str) -> Response:
                 "error": "preconditions_not_met",
                 "current_phase": from_phase,
                 "target_phase": to_phase.value,
-                "blockers": [asdict(b) for b in blockers],
+                "blockers": [b.payload() for b in blockers],
             })), 409
 
         # Through the one phase writer, so the phase, its two stamps and the phase history move in
@@ -1218,7 +1217,7 @@ def transition_market(market_id: str) -> Response:
                 "error": "phase_changed",
                 "current_phase": changed.actual_phase,
                 "target_phase": to_phase.value,
-                "blockers": [asdict(conflict)],
+                "blockers": [conflict.payload()],
             })), 409
 
         # ── Side effects (only after a successful phase write) ────────────

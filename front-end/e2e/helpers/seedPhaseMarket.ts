@@ -1,10 +1,7 @@
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
-import { mongoContainer } from './containerNames';
 import { completePlan, loginViaApi, ensureTestOrgAuthenticated } from './seeds';
-
-const MONGO_URI = 'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin';
+import { mongoEval } from './mongo';
 
 export interface PhaseMarketSeed {
   marketId: string;
@@ -92,27 +89,17 @@ export function seedApplicationWithStatus(
   applicantEmail = 'applicant@example.com',
 ): string {
   const applicationId = randomUUID();
-  execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      MONGO_URI,
-      '--quiet',
-      '--eval',
-      `db.applications.insertOne(${JSON.stringify({
-        id: applicationId,
-        market_id: marketId,
-        applicant_email: applicantEmail,
-        form_data: { name: 'Test App', category: 'Crafts' },
-        status,
-        application_type: 'main',
-        submitted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })})`,
-    ],
-    { encoding: 'utf-8' },
+  mongoEval(
+    `db.applications.insertOne(${JSON.stringify({
+      id: applicationId,
+      market_id: marketId,
+      applicant_email: applicantEmail,
+      form_data: { name: 'Test App', category: 'Crafts' },
+      status,
+      application_type: 'main',
+      submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })})`,
   );
   return applicationId;
 }
@@ -192,17 +179,7 @@ export function seedStoredAssignment(marketId: string, emails: string[] = ['walk
     location: 'Hall',
   }));
 
-  execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-      '--quiet',
-      '--eval',
-      `db.markets.updateOne({id:${JSON.stringify(marketId)}}, {$set:{"assignmentObject.vendorAssignments": ${JSON.stringify(vendorAssignments)}}})`,
-    ],
-    { encoding: 'utf-8' },
+  mongoEval(
+    `db.markets.updateOne({id:${JSON.stringify(marketId)}}, {$set:{"assignmentObject.vendorAssignments": ${JSON.stringify(vendorAssignments)}}})`,
   );
 }

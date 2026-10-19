@@ -1,5 +1,4 @@
-import { execFileSync } from 'node:child_process';
-import { mongoContainer } from './containerNames';
+import { mongoEval } from './mongo';
 
 /**
  * Remove a user document straight from Mongo.
@@ -14,21 +13,9 @@ import { mongoContainer } from './containerNames';
  * Deleting the document is therefore the honest way to undo a test fixture: it is maintenance on the
  * database, which is exactly what the old anonymous endpoint was pretending to be.
  *
- * Runs `mongosh` inside the stack's Mongo container, the same way `seedApplication.ts` and
+ * Runs through `mongoEval` (`helpers/mongo.ts`), as `seedApplication.ts` and
  * `auth.spec.ts`'s reset-token read already do.
  */
 export function deleteUser(email: string): void {
-  execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-      '--quiet',
-      '--eval',
-      `db.users.deleteOne(${JSON.stringify({ email })})`,
-    ],
-    { encoding: 'utf-8' },
-  );
+  mongoEval(`db.users.deleteOne(${JSON.stringify({ email })})`);
 }

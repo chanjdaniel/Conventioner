@@ -1,10 +1,11 @@
 """Deleting a market, and everything kept with it (bug 47).
 
 A market keeps records beside itself, keyed by its id: its applications (each vendor's name, email
-and answers), its check-ins, its applicant sign-in codes, its placement trail and the organizer's notes on its vendors. Deleting the
-market document alone left all of them behind for ever, describing a market nobody could reach any
-more. Both doors that delete a market - its own Delete, and its organization's - come through here,
-so a record kind added later is one line in one place rather than a third door that forgets it.
+and answers), its check-ins, its applicant sign-in codes, its placement trail and the organizer's
+notes on its vendors. Deleting the market document alone left all of them behind for ever,
+describing a market nobody could reach any more. Both doors that delete a market - its own Delete,
+and its organization's - come through here, so a record kind added later is one line in one place
+rather than a third door that forgets it.
 
 The records go first and the market last: if anything fails, the market is still there to delete
 again, rather than records that nothing reaches.

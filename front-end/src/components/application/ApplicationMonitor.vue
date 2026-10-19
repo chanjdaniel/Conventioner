@@ -714,7 +714,7 @@ function submittedOn(app: Application): string {
   border: 1.5px solid var(--mm-border);
   border-radius: var(--radius-card);
   background: var(--mm-beige);
-  padding: 18px;
+  padding: var(--space-4);
 }
 
 .card-head {
@@ -742,7 +742,7 @@ function submittedOn(app: Application): string {
   display: grid;
   grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
   gap: 6px 16px;
-  margin: 0 0 18px;
+  margin: 0 0 var(--space-4);
   font-size: var(--text-sm);
 }
 
@@ -765,17 +765,17 @@ function submittedOn(app: Application): string {
 .no-answers {
   font-size: var(--text-sm);
   color: var(--mm-text-muted);
-  margin: 0 0 18px;
+  margin: 0 0 var(--space-4);
 }
 
 .card-notes {
-  margin: 0 0 18px;
+  margin: 0 0 var(--space-4);
 }
 
 /* The unmarked answers. Set apart from the marked ones above it by a rule, so the card reads as
    "these first, then the rest" rather than as one long list that happens to fold. */
 .answers-rest {
-  margin: 0 0 18px;
+  margin: 0 0 var(--space-4);
   border-top: 1px solid var(--mm-border);
   padding-top: 12px;
 }
@@ -816,7 +816,7 @@ function submittedOn(app: Application): string {
 /* Changing what leads the card, from the queue. Quiet by default: the reviewer came here to
    judge applications, and this is the thing they reach for once. */
 .choose-highlights {
-  margin: 0 0 18px;
+  margin: 0 0 var(--space-4);
 }
 
 .choose-highlights-toggle {

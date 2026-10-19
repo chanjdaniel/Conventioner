@@ -1,7 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { test, expect, LoginPage, PasswordResetPage } from './fixtures';
-import { mongoContainer } from './helpers/containerNames';
 import { deleteUser } from './helpers/deleteUser';
+import { mongoEval } from './helpers/mongo';
 
 /**
  * The links an account email carries must work for the person they are sent to, who is signed
@@ -21,24 +20,7 @@ function uniqueEmail(): string {
 
 /** One field of the user's document, read straight from Mongo the way `auth.spec.ts` does. */
 function userField(email: string, field: string): string {
-  return execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      '--quiet',
-      '-u',
-      'admin',
-      '-p',
-      'secret',
-      '--authenticationDatabase',
-      'admin',
-      '--eval',
-      `print(db.getSiblingDB('conventioner').users.findOne({email: ${JSON.stringify(email)}}).${field})`,
-    ],
-    { encoding: 'utf-8', timeout: 10_000 },
-  ).trim();
+  return mongoEval(`print(db.users.findOne({email: ${JSON.stringify(email)}}).${field})`);
 }
 
 test.describe('Account links, opened signed out', () => {
@@ -69,20 +51,9 @@ test.describe('Account links, opened signed out', () => {
       await expect(reset.resetSuccessMessage).toBeVisible();
 
       // `/register-user` leaves the account unverified; verify it so the new password can sign in.
-      execFileSync('docker', [
-        'exec',
-        mongoContainer(),
-        'mongosh',
-        '--quiet',
-        '-u',
-        'admin',
-        '-p',
-        'secret',
-        '--authenticationDatabase',
-        'admin',
-        '--eval',
-        `db.getSiblingDB('conventioner').users.updateOne({email: ${JSON.stringify(email)}}, {$set: {email_verified: true}})`,
-      ]);
+      mongoEval(
+        `db.users.updateOne({email: ${JSON.stringify(email)}}, {$set: {email_verified: true}})`,
+      );
       await page.goto('/login');
       await new LoginPage(page).login(email, NEW_PASSWORD);
       await expect(page).toHaveURL(/\/dashboard/);

@@ -67,11 +67,15 @@ def replace_sheet_notes(market_id: str, by_vendor: Dict[str, str]) -> None:
     A vendor the file no longer has a line for loses theirs, because the line is the sheet's and
     the sheet no longer says it.
     """
-    wanted = {str(email).strip().lower(): str(text or "").strip() for email, text in by_vendor.items()}
+    wanted = {
+        str(email).strip().lower(): str(text or "").strip() for email, text in by_vendor.items()
+    }
     for doc in vendor_notes_collection.find({MARKET_ID_FIELD: market_id}):
         email = doc.get(VENDOR_EMAIL_FIELD)
         if email not in wanted and doc.get("from_sheet"):
-            vendor_notes_collection.update_one(_key(market_id, email), {"$set": {"from_sheet": None}})
+            vendor_notes_collection.update_one(
+                _key(market_id, email), {"$set": {"from_sheet": None}}
+            )
     for email, text in wanted.items():
         _set(market_id, email, {"from_sheet": text or None})
 

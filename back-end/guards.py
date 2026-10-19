@@ -18,11 +18,12 @@ Phase 2 guards implemented (conv-market-state-machine-t7):
   - ``NoApprovedApplicationsGuard`` on ``assignment -> offers``
 """
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import api.applications as ApplicationsApi
+from assignment.utils import convert_keys_to_camel_case
 from datatypes import ApplicationStatus, Market, MarketPhase
 from essential_fields import (
     TIER_PREFERENCE_KEY,
@@ -49,11 +50,17 @@ class PreconditionResult:
     #: Where the fix is made, as a page of THIS market: relative to ``/markets/<id>/``, which the
     #: front end prefixes (E21/F02/S02), so a guard never builds a per-market URL. It names the page
     #: that holds the remedy (``applications``); every market page has its own address since
-    #: E22/F04/S02, so a link to one leads there from anywhere but that page itself. ``None`` when the remedy spans two places - the panel would
-    #: rather say nothing than send the organizer to one of two, having named both in the message
-    #: (E14/F01/S03). Do not point it at a redirect: the panel compares this against the current
-    #: location to decide whether it leads anywhere, and cannot follow a hop.
+    #: E22/F04/S02, so a link to one leads there from anywhere but that page itself. ``None`` when
+    #: the remedy spans two places - the panel would rather say nothing than send the organizer to
+    #: one of two, having named both in the message (E14/F01/S03). Do not point it at a redirect:
+    #: the panel compares this against the current location to decide whether it leads anywhere,
+    #: and cannot follow a hop.
     resolution_link: Optional[str] = None
+
+    def payload(self) -> Dict[str, Any]:
+        """As the wire carries it: the one shape the transition's refusal, the form amendment's
+        and the market read's ``transitionBlockers`` all serve."""
+        return convert_keys_to_camel_case(asdict(self))
 
 
 # ── Guard classes ───────────────────────────────────────────────────────
@@ -115,8 +122,8 @@ class FormHasFieldsGuard:
 # Leaving draft settles the setup: nothing on Market Setup changes after it. A setup that leaves
 # incomplete can therefore never be completed, so leaving draft asks for each part of it - each its
 # own guard, so each missing part is its own line, and each pointing at Market Setup. Only on
-# ``draft -> applications_open``: reopening closed applications re-enters the phase with a setup that
-# settled long ago, and is no time to ask about it.
+# ``draft -> applications_open``: reopening closed applications re-enters the phase with a setup
+# that settled long ago, and is no time to ask about it.
 
 
 def _calendar_today() -> str:
@@ -193,7 +200,9 @@ class EveryTierHasTablesGuard:
                 message="This market has no tables yet. Add a section with tables on Market Setup.",
             )
         with_tables = {s.tier.name for s in sections if s.tier and s.tier.name}
-        bare = [t.name for t in (setup.tiers if setup else []) if t.name and t.name not in with_tables]
+        bare = [
+            t.name for t in (setup.tiers if setup else []) if t.name and t.name not in with_tables
+        ]
         if bare:
             return PreconditionResult(
                 id=self.id, passed=False, resolution_link="setup",

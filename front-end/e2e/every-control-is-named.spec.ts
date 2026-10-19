@@ -1,5 +1,3 @@
-import { execFileSync } from 'node:child_process';
-import { mongoContainer } from './helpers/containerNames';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { test, expect, TEST_USER, BACKEND_URL, LoginPage } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
@@ -13,6 +11,7 @@ import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
+import { mongoEval } from './helpers/mongo';
 
 /**
  * Every control can be reached and named by assistive technology (bug 44; E26/F10/S03).
@@ -266,18 +265,8 @@ test('every control of a vendor notes panel has a name, wherever it opens', asyn
     TEST_USER.email,
     TEST_USER.password,
   );
-  execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-      '--quiet',
-      '--eval',
-      `db.applications.updateOne({market_id:${JSON.stringify(seed.marketId)}, applicant_email:"alice@example.com"}, {$set:{"form_data.essential_request":"An extra chair"}}); db.vendor_notes.insertOne({market_id:${JSON.stringify(seed.marketId)}, vendor_email:"alice@example.com", note:"Chair set aside", from_sheet:"Paid"})`,
-    ],
-    { encoding: 'utf-8' },
+  mongoEval(
+    `db.applications.updateOne({market_id:${JSON.stringify(seed.marketId)}, applicant_email:"alice@example.com"}, {$set:{"form_data.essential_request":"An extra chair"}}); db.vendor_notes.insertOne({market_id:${JSON.stringify(seed.marketId)}, vendor_email:"alice@example.com", note:"Chair set aside", from_sheet:"Paid"})`,
   );
 
   await page.goto(marketScreenPath(seed.marketId, 'attendance'));
