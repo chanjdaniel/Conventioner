@@ -392,7 +392,22 @@ class MarketAssignment:
         return 0
 
     def _arranged_score(self, rule: PriorityObject, vendor: Vendor) -> int:
-        answer = self._priority_answer(rule.target, vendor)
+        """Where the vendor's answer stands in the organizer's arrangement (E34/F05/S01).
+
+        A multi-select answer stands where its best-placed choice does: "Club B, Club A" under
+        "Club A, All others" is a Club A answer. It was scored by the first choice ticked, so it
+        read as an "All others". An unplaced choice takes the place of "All others", or the last
+        place without it. A blank answer stands behind every placed position, "All others"
+        included: it joined "All others", and ranked an applicant who answered nothing level with
+        every club member on the real market's clubs rule.
+        """
+        answers = self._priority_answers(rule.target, vendor)
+        if not answers:
+            return len(rule.ordering) + 1
+        return min(self._arranged_position(rule, answer) for answer in answers)
+
+    @staticmethod
+    def _arranged_position(rule: PriorityObject, answer: str) -> int:
         if answer in rule.ordering:
             return rule.ordering.index(answer)
         if ALL_OTHERS in rule.ordering:
@@ -412,6 +427,16 @@ class MarketAssignment:
         if rule.direction == PriorityDirection.DESCENDING:
             return -magnitude
         return magnitude
+
+    def _priority_answers(self, target: str, vendor: Vendor) -> List[str]:
+        """Every answer the vendor gave to whatever a rule targets, as the ordering spells them:
+        a multi-select's choices, or the one answer; none when they left it blank."""
+        if target and target.startswith(BUILT_IN_TARGET_PREFIX):
+            answer = self._built_in_answer(target, vendor)
+            return [answer] if answer else []
+        value = vendor.want.custom_answers.get(target)
+        values = value if isinstance(value, list) else [value]
+        return [text for text in (str(v).strip() for v in values if v is not None) if text]
 
     def _priority_answer(self, target: str, vendor: Vendor) -> str:
         """The vendor's answer to whatever a rule targets, as the ordering spells it."""

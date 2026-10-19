@@ -1099,17 +1099,49 @@ class TestTheOrganizersPriorityRules:
 
         assert len(placements(market)) == 1
 
-    def test_a_multi_select_answer_sorts_by_the_applicants_first_choice(self):
+    # The real market's clubs question (E34/F05/S01): a multi-select, and one answer that means none.
+    CLUBS = ["Club A", "<All others>", "I am not part of any of these clubs"]
+
+    def test_a_multi_select_answer_is_placed_by_its_best_choice(self):
+        """It was scored by the first choice the applicant ticked, so "Club B, Club A" ranked as
+        Club B - an "All others" - level with every vendor in no listed club at all."""
         market = self._assign_with(
             self._contenders(),
-            [("category", ["Food", "Vintage"])],
+            [("clubs", self.CLUBS)],
             {
-                "returning@example.com": {"category": ["Vintage", "Food"]},
-                "newcomer@example.com": {"category": ["Food", "Vintage"]},
+                "returning@example.com": {"clubs": ["Club B", "Club A"]},
+                "newcomer@example.com": {"clubs": ["Club B"]},
             },
         )
 
-        assert [p[0] for p in placements(market)] == ["newcomer@example.com"]
+        # Against the tie-breaks, which favour the newcomer: only the best choice can decide it.
+        assert [p[0] for p in placements(market)] == ["returning@example.com"]
+
+    def test_a_blank_answer_sorts_behind_every_placed_one_all_others_included(self):
+        """A blank joined "All others", so on the clubs rule an applicant who answered nothing ranked
+        level with every club member, and ahead of one who said they belonged to none."""
+        market = self._assign_with(
+            self._contenders(),
+            [("clubs", ["<All others>", "I am not part of any of these clubs"])],
+            {
+                "returning@example.com": {"clubs": ["I am not part of any of these clubs"]},
+                "newcomer@example.com": {"clubs": []},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["returning@example.com"]
+
+    def test_a_blank_single_answer_sorts_last_too(self):
+        market = self._assign_with(
+            self._contenders(),
+            [("category", ["Food", "<All others>"])],
+            {
+                "returning@example.com": {"category": "Ceramics"},
+                "newcomer@example.com": {"category": ""},
+            },
+        )
+
+        assert [p[0] for p in placements(market)] == ["returning@example.com"]
 
 
 class TestPrioritisingByWhenTheApplicationArrived:
