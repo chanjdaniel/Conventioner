@@ -233,6 +233,15 @@ test.describe('Start from your Google Form', () => {
       'Mapped when your form was started from this file.',
     );
     await expect(importer.restoredBanner).not.toContainText('last import');
+    // So does each column it mapped.
+    const badges = page.getByTestId('import-restored-badge');
+    await expect(badges.first()).toHaveText('mapped when your form was started');
+    for (const badge of await badges.allInnerTexts()) expect(badge).not.toContain('last import');
+    // A value the start set aside is listed as the start's decision, with its rows, to change here.
+    await expect(page.getByTestId('import-decided-title').first()).toHaveText(
+      /^\d+ values? set aside when your form was started - change any that are wrong\s*$/,
+    );
+    await expect(page.getByTestId('import-decided-value-fixes').first()).toContainText(/\d+ rows?/);
     await importer.clickPreview();
     await expect(importer.previewCounts).toBeVisible();
     const selling = (await importer.previewFailureRows.allInnerTexts()).filter((r) =>

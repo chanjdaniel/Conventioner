@@ -165,6 +165,8 @@ const unmatched = ref<UnmatchedValue[]>([]);
 const decided = ref<DecidedValue[]>([]);
 /** target -> raw value -> the market's own name for it, or '' meaning "ignore this value". */
 const resolutions = ref<Record<string, Record<string, string>>>({});
+/** The resolutions the saved mapping arrived with, to tell its decisions from the organizer's. */
+const startedResolutions = ref<Record<string, Record<string, string>>>({});
 
 const created = ref(0);
 const updated = ref(0);
@@ -269,15 +271,38 @@ function unmatchedFor(key: string | undefined): UnmatchedValue[] {
   return unmatched.value.filter((entry) => entry.target === key);
 }
 
-function decidedFor(key: string | undefined): DecidedValue[] {
+function decidedFor(key: string | undefined): (DecidedValue & { decidedBy?: string })[] {
   if (!key) return [];
-  return decided.value.filter((entry) => entry.target === key);
+  return decided.value
+    .filter((entry) => entry.target === key)
+    .map((entry) => ({ ...entry, decidedBy: decidedByStart(entry.target, entry.value) }));
+}
+
+/**
+ * Whose decision a value carries, when it is still the start's (E30/F02/S01): the start sets a
+ * rarely given value aside, and the import listed it as "already decided" as though the organizer
+ * had. Changed here, it is the organizer's, and says nothing.
+ */
+function decidedByStart(target: string, value: string): string | undefined {
+  if (savedMappingFrom.value !== 'start') return undefined;
+  const started = startedResolutions.value[target]?.[value];
+  if (started === undefined || resolutionFor(target, value) !== started) return undefined;
+  return started === IGNORE_VALUE
+    ? 'set aside when your form was started'
+    : 'decided when your form was started';
 }
 
 /** Was this row's target restored from last time, rather than chosen just now? */
 function isRestored(key: string | undefined): boolean {
   return !!key && restoredTargets.value.has(key);
 }
+
+/** What a restored column says of where its mapping came from: the start, or the last import. */
+const restoredBadge = computed(() =>
+  savedMappingFrom.value === 'start'
+    ? 'mapped when your form was started'
+    : 'restored from last import',
+);
 
 /**
  * A value to resolve an unmatched cell to, as a person would say it.
@@ -547,6 +572,7 @@ async function inspect() {
     unmatched.value = [];
     decided.value = [];
     resolutions.value = {};
+    startedResolutions.value = {};
     // Seed every column with '' - the "Ignore this column" option's value. Left undefined, the
     // select matches no option, reports selectedIndex -1 and renders completely blank, so an
     // unmapped column is indistinguishable from one that has not loaded.
@@ -592,6 +618,7 @@ async function inspect() {
         ),
       ]),
     );
+    startedResolutions.value = resolutions.value;
     step.value = 'map';
     // A restored mapping carries decisions about this file's values: read them now, so they are on
     // the page to be seen and changed before anything is previewed (bug 28).
@@ -835,7 +862,7 @@ function startOver() {
                         class="ledger-badge"
                         data-testid="import-restored-badge"
                       >
-                        restored from last import
+                        {{ restoredBadge }}
                       </span>
                       <span class="ledger-shape" data-testid="import-group-shape">
                         {{ shapeLabel(row.group) }}
@@ -919,7 +946,7 @@ function startOver() {
                       class="ledger-badge"
                       data-testid="import-restored-badge"
                     >
-                      restored from last import
+                      {{ restoredBadge }}
                     </span>
                     <span
                       v-else-if="isNewHeader(row.index)"
