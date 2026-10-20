@@ -249,6 +249,27 @@ export function vendorShown(
   return candidates.some((place) => placeMatches(place, filters));
 }
 
+/** Which of a market's applicants the Vendors page is listing: everyone, or one kind (E36/F02/S04). */
+export type VendorsShown = 'unassigned' | 'rejected' | null;
+
+/** The choice an address names in `?show=`, and nothing else as one. */
+export function vendorsShownFrom(query: unknown): VendorsShown {
+  return query === 'unassigned' || query === 'rejected' ? query : null;
+}
+
+/**
+ * Whether a vendor belongs to that choice. Unassigned is a vendor of the run without a seat, so a
+ * rejected applicant is never one of them, seated or not: counting them was bug 10.
+ */
+export function inVendorsShown(
+  vendor: { inTheRun: boolean; rejected: boolean },
+  shown: VendorsShown,
+): boolean {
+  if (shown === 'unassigned') return vendor.inTheRun;
+  if (shown === 'rejected') return vendor.rejected;
+  return true;
+}
+
 /**
  * Which filters a Result page offers. The tables take every one; the vendors take the where-filters
  * - the status is a fact about tables - and, with "Unassigned only", the date alone, since the

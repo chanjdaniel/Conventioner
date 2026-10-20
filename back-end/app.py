@@ -10,6 +10,7 @@ import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.placements as PlacementsApi
+import api.added_vendors as AddedVendorsApi
 import api.form_amendment as FormAmendmentApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
@@ -1345,6 +1346,36 @@ def run_assignment(market_id: str) -> Response:
         }), 500
 
 
+@app.route('/markets/<market_id>/vendors', methods=['POST'])
+@login_required
+def add_vendor(market_id: str) -> Response:
+    """Add a vendor who never applied (E36/F03/S01). EDITOR, in assignment and market days.
+
+    Body: { "name": "...", "email": "..." }
+    """
+    try:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "No data provided"}), 400
+        requesting_user = authenticated_email()
+        user = UsersApi.get_user(requesting_user)
+        adder = MarketPerson(user_id=user.id if user else None, email=requesting_user)
+        result, status_code = AddedVendorsApi.add_vendor(market_id, data, adder)
+        return jsonify(result), status_code
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except AddedVendorsApi.AddVendorRefused as e:
+        return jsonify({"error": str(e)}), 409
+    except AddedVendorsApi.AddVendorInvalid as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in add_vendor for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
 @app.route('/markets/<market_id>/placements', methods=['PUT'])
 @login_required
 def write_placement(market_id: str) -> Response:
@@ -1747,7 +1778,7 @@ def _reviewer_on(market_id: str):
 
     The one gate of every review write - a verdict, a selection's, a follow-up's owner, a claim on a
     card - asked through ``verdict_refusal``, the same rule the market read serves as
-    ``verdictLockReason``: EDITOR, on a market that can still run its assignment.
+    ``verdictLockReason``: EDITOR, while the review is open (E36/F01/S01).
     """
     requesting_user = authenticated_email()
     context = MarketsApi.load_market_context(market_id)

@@ -11,7 +11,12 @@ from essential_fields import (
     TABLE_CHOICE_FULL,
     effective_essential_options_for_market,
 )
-from assignment.vendor_input import IncompleteApplication, SolverVendor, approved_solver_vendors
+from assignment.vendor_input import (
+    IncompleteApplication,
+    SolverVendor,
+    approved_solver_vendors,
+    held_solver_vendors,
+)
 import table_share as TableShare
 
 
@@ -233,6 +238,7 @@ class MarketAssignment:
         setup_object: SetupObject,
         vendors: List[SolverVendor],
         pinned: Optional[List[VendorAssignmentResult]] = None,
+        held: Optional[List[SolverVendor]] = None,
     ):
         self.setup_object = setup_object
         self.table_sharing = []
@@ -250,6 +256,9 @@ class MarketAssignment:
             )
 
         self.vendors = [Vendor(want, setup_object.market_dates) for want in vendors]
+        # Applicants outside the run who hold a seat by hand (E36/F02/S02): seated by their pins
+        # alone, so their seats are occupied, and never in the loop or the run's vendor counts.
+        self.held_vendors = [Vendor(want, setup_object.market_dates) for want in held or []]
         # Table-share requests, read once: who each vendor's request in force names, and who names
         # each vendor. Asked for every candidate of every table, so never recomputed per question.
         self._requests_in_force, self._requested_by = self._table_share_requests()
@@ -274,9 +283,10 @@ class MarketAssignment:
         assignment ceiling and against the section's half-table proportion, because they occupy
         a real seat on a real date.
         """
+        held_by_email = {self.vendor_email(vendor): vendor for vendor in self.held_vendors}
         for pin in pinned:
             date_assignment = self.date_assignments.get(pin.date)
-            vendor = self.get_vendor_by_email(pin.email)
+            vendor = self.get_vendor_by_email(pin.email) or held_by_email.get(pin.email)
             table = (
                 self.get_table_by_code(date_assignment.market_date, pin.table_code)
                 if date_assignment is not None else None
@@ -964,7 +974,8 @@ def describe_stored_assignment(
         vendors = solver_vendors_for(market)
 
     stored = list(market.assignment_object.vendor_assignments or [])
-    seated = MarketAssignment(market.setup_object, vendors, stored)
+    seated = MarketAssignment(
+        market.setup_object, vendors, stored, held_vendors_for(market, vendors, stored))
 
     market.assignment_object = AssignmentObject(
         vendor_assignments=stored,
@@ -974,7 +985,26 @@ def describe_stored_assignment(
     return market
 
 
-def assign_market(market: Market, vendors: Optional[List[SolverVendor]] = None) -> Market:
+def held_vendors_for(
+    market: Market, vendors: List[SolverVendor], placements: List[VendorAssignmentResult],
+) -> List[SolverVendor]:
+    """The applicants outside the run who hold one of these seats by hand (E36/F02/S02)."""
+    in_the_run = {vendor.email for vendor in vendors}
+    addresses = {
+        placement.email for placement in placements
+        if placement.hand_placed and placement.email not in in_the_run
+    }
+    if not addresses:
+        return []
+    return held_solver_vendors(
+        market.id, effective_essential_options_for_market(market), addresses)
+
+
+def assign_market(
+    market: Market,
+    vendors: Optional[List[SolverVendor]] = None,
+    held: Optional[List[SolverVendor]] = None,
+) -> Market:
     """Assign vendors to tables for a market.
 
     Vendors come from the market's own approved applications. A caller may pass them in - the
@@ -997,7 +1027,10 @@ def assign_market(market: Market, vendors: Optional[List[SolverVendor]] = None) 
     ]
 
     # Create market assignment instance
-    market_assignment = MarketAssignment(market.setup_object, vendors, pinned)
+    if held is None:
+        held = held_vendors_for(market, vendors, pinned)
+
+    market_assignment = MarketAssignment(market.setup_object, vendors, pinned, held)
     # Run the assignment algorithm
     market_assignment.assign()
     # logger.info(f"Market assigned: {market_assignment}")
@@ -1007,8 +1040,8 @@ def assign_market(market: Market, vendors: Optional[List[SolverVendor]] = None) 
     assigned_vendors = set()
     assigned_tables = set()
     
-    # Collect all vendor assignments
-    for vendor in market_assignment.vendors:
+    # Collect all vendor assignments, a seat held by hand included
+    for vendor in market_assignment.vendors + market_assignment.held_vendors:
         for date, assignment in vendor.assignment.items():
             if assignment is not None:
                 vendor_assignments.append(assignment)

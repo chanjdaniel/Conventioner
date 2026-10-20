@@ -796,7 +796,11 @@ function cancelPending() {
   align-items: center;
   gap: var(--space-6);
   flex: 0 0 auto;
-  min-width: 0;
+  /* No narrower than the address's floor beside the actions, so a row that cannot hold them moves
+     the whole end onto a row of its own. At 0 it stayed beside the spine and its buttons ran out of
+     the card: a form market assigning, with Run the assignment, Publish Market and More beside the
+     application page, lost More off the edge at 1440. */
+  min-width: min-content;
   margin-left: auto;
 }
 
@@ -825,13 +829,20 @@ function cancelPending() {
   /* The one part of the rail that gives way: its address shortens, and nothing else does - but
      never past the part that names the market (E30/F01/S03). */
   flex: 0 1 auto;
-  min-width: min(18rem, 100%);
+  /* A length, not min(18rem, 100%): a percentage cannot resolve while the rail's end measures its
+     own narrowest, so it counted as nothing there and the end stayed beside the spine it could not
+     fit beside. A phone, where 18rem may not fit, drops the floor below. */
+  min-width: 18rem;
 }
 
 /* A phone has no room for that floor beside the actions: the address shortens, and Copy carries it
    whole. */
 @media (width <= 640px) {
   .url-chip {
+    min-width: 0;
+  }
+
+  .phase-rail-end {
     min-width: 0;
   }
 }
@@ -845,9 +856,15 @@ function cancelPending() {
 .url-chip-url {
   color: var(--mm-text-link);
   min-width: 0;
+  /* One line, ending in an ellipsis where it is cut - but breakable anywhere, so its narrowest is a
+     character rather than the whole address. The rail's end measures its own narrowest to decide
+     whether it fits beside the spine, and an unbreakable address made it never fit. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .url-chip-copy {

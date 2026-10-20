@@ -278,6 +278,18 @@ def find_application_by_id(app_id: str) -> Optional[Dict[str, Any]]:
     return doc
 
 
+def main_applications_from(market_id: str, addresses: Iterable[str]) -> List[Dict[str, Any]]:
+    """The main applications these addresses hold at this market, whatever their status."""
+    wanted = sorted(set(addresses))
+    if not wanted:
+        return []
+    return _newest_first({
+        **market_filter(market_id),
+        APPLICANT_EMAIL_FIELD: {"$in": wanted},
+        APPLICATION_TYPE_FIELD: ApplicationType.MAIN.value,
+    })
+
+
 def find_application_by_email(market_id: str, email: str) -> Optional[Dict[str, Any]]:
     """Find one application by its market + email identity."""
     ensure_application_indexes()

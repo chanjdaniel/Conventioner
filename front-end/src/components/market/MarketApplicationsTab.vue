@@ -92,11 +92,12 @@ const condition = computed(() => {
         ? 'Every application has been decided. This market is ready to assign.'
         : `${undecidedPhrase} still to decide. Every one must be decided before this market can assign.`;
     // Past review every application is decided, and the assignment is made from them (ticket 02).
+    // The verdicts settled on the way in (E36/F01/S01): a mistake is fixed with a seat.
     case MarketPhase.Assignment:
-      return 'Every application is decided. The assignment works from the ones you approved.';
+      return 'The review is closed: every verdict settled when the assignment began. The assignment works from the ones you approved, and a seat is changed by hand on the Result page.';
     case MarketPhase.Offers:
     case MarketPhase.MarketDays:
-      return 'Every application is decided. The assignment was made from the ones you approved.';
+      return 'The review is closed: every verdict settled when the assignment began. The assignment was made from the ones you approved.';
     default:
       return '';
   }

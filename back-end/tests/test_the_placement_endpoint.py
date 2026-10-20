@@ -58,6 +58,8 @@ def collection(monkeypatch):
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_args, **_kwargs: True)
+    # Everyone these stories place has applied; whether they must is TestASeatGoesToAnApplicant's.
+    monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
     return fake
 
 
@@ -196,6 +198,7 @@ def test_a_viewer_is_refused_and_an_editor_is_not(monkeypatch):
         stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=SETUP_OBJECT)
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
+    monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
 
     asked_for = []
 
@@ -632,3 +635,39 @@ def test_freeing_and_swapping_leave_what_the_run_was_made_from_alone(collection,
 
     assert collection.last_update is not None
     assert "assignmentObject.madeFrom" not in collection.last_update["$set"]
+
+
+class TestASeatGoesToAnApplicant:
+    """A seat goes only to someone the market has an application for (E36/F02/S01): a typed address
+    once took a seat with no name, no answers and nothing in the vendor drawer."""
+
+    @pytest.fixture
+    def applied(self, collection, monkeypatch):
+        applicants = {"ana@example.com", "ben@example.com"}
+        monkeypatch.setattr(
+            PlacementsApi, "has_applied", lambda _market_id, address: address in applicants)
+        return collection
+
+    def test_a_placement_for_someone_who_never_applied_is_refused(self, applied):
+        with pytest.raises(PlacementsApi.PlacementError, match="stranger@example.com"):
+            PlacementsApi.write_placement(
+                "market-123", placement(email="stranger@example.com"), "user-1")
+
+        assert applied.last_update is None
+
+    def test_an_address_in_other_capitals_is_the_applicant(self, applied):
+        PlacementsApi.write_placement(
+            "market-123", placement(email="  Ana@Example.COM "), "user-1")
+
+        assert written_placements(applied)[0]["email"] == "ana@example.com"
+
+    def test_a_swap_with_someone_who_never_applied_is_refused(self, applied):
+        already_placed(applied, ("ana@example.com", "2026-08-01", "Hall A 1"),
+                       ("stranger@example.com", "2026-08-01", "Hall A 2"))
+
+        with pytest.raises(PlacementsApi.PlacementError, match="stranger@example.com"):
+            PlacementsApi.swap_placements(
+                "market-123", "2026-08-01", "ana@example.com", "stranger@example.com", "user-1")
+
+        assert applied.last_update is None
+

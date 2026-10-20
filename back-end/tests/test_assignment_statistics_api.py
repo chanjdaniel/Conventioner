@@ -318,6 +318,7 @@ def test_get_market_tables_sends_every_answer_a_hand_change_can_override(monkeyp
         table_type_ranking=(),
     )
     monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [vendor])
+    monkeypatch.setattr(MarketsApi, "outside_solver_vendors", lambda *_args: [])
 
     result, status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
 
@@ -329,8 +330,56 @@ def test_get_market_tables_sends_every_answer_a_hand_change_can_override(monkeyp
             "availableDates": ["2026-01-01", "2026-01-02"],
             "acceptedTiersByDate": {"2026-01-01": ["Gold", "Silver"]},
             "maxDates": 1,
+            "notApproved": None,
+            "inTheRun": True,
+            "addedByHand": False,
         }
     ]
+
+
+def test_get_market_tables_offers_every_applicant_saying_who_is_not_approved(monkeypatch):
+    """The place dialog lists every applicant (E36/F02/S02): one outside the run comes with why,
+    so the warning can say who rejected them, or the rule's reason."""
+    from assignment.vendor_input import SolverVendor
+    from datatypes import Application, ApplicationStatus
+
+    monkeypatch.setattr(
+        MarketsApi.markets_collection, "find_one", lambda query: _sample_market_doc_with_setup())
+    monkeypatch.setattr(MarketsApi.PermissionsApi, "user_has_permission", lambda *a, **k: True)
+    monkeypatch.setattr(MarketsApi, "derive_market_table_rows", lambda assigned_market: [])
+    monkeypatch.setattr(MarketsApi.ApplicationsApi, "vendor_names_for_market", lambda _id: {})
+    monkeypatch.setattr(MarketsApi, "solver_vendors_for", lambda _market: [])
+    rejected = SolverVendor(
+        application_id="app-2", email="dev@example.com", available_dates=frozenset({"2026-01-01"}),
+        max_dates=None, accepted_tiers_by_date={}, table_choice=None, table_share_email=None,
+        section_ranking=(), table_type_ranking=(),
+    )
+    application = Application(
+        id="app-2", market_id="market-123", applicant_email="dev@example.com",
+        status=ApplicationStatus.REVIEWER_REJECTED, form_data={},
+        verdict_by={"kind": "rule", "rule": "Affiliation"},
+        verdict_at="2026-01-01T10:00:00", verdict_reason="Not a UBC student",
+    )
+    monkeypatch.setattr(
+        MarketsApi, "outside_solver_vendors", lambda *_args: [(rejected, application)])
+
+    result, _status = MarketsApi.get_market_tables("market-123", "viewer@test.com")
+
+    assert result["vendors"] == [{
+        "email": "dev@example.com",
+        "tableChoice": None,
+        "availableDates": ["2026-01-01"],
+        "acceptedTiersByDate": {},
+        "maxDates": None,
+        "notApproved": {
+            "status": "reviewer_rejected",
+            "verdictBy": {"kind": "rule", "userId": None, "email": None, "rule": "Affiliation"},
+            "verdictAt": "2026-01-01T10:00:00",
+            "verdictReason": "Not a UBC student",
+        },
+        "inTheRun": False,
+        "addedByHand": False,
+    }]
 
 
 def test_derive_market_table_rows_includes_unassigned_tables():
@@ -419,10 +468,11 @@ def test_get_assignment_csv_returns_csv_string(monkeypatch):
     monkeypatch.setattr(
         MarketsApi,
         "market_csv_to_string",
-        lambda market_dict, vendor_names, full_names: (
+        lambda market_dict, vendor_names, full_names, not_approved: (
             "Name,Full name,Email,Day 1\nAna,Ana Rivera,vendor@example.com,A1 - Full Table\n"
         ),
     )
+    monkeypatch.setattr(MarketsApi, "not_approved_vendors", lambda *_args: [])
 
     result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
 

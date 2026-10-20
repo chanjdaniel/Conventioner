@@ -28,7 +28,6 @@ from api.applicants import (
     publish_results,
     list_market_applications,
     review_application,
-    REVIEW_IN_PROGRESS_STATUSES,
 )
 from conftest import FakeApplicationsCollection
 
@@ -38,36 +37,18 @@ import api.applications as ApplicationsApi
 # ── applicant_visible_status (pure function) ───────────────────────────────
 
 
-@pytest.mark.parametrize("status,results_published,expected", [
-    (ApplicationStatus.OPEN, False, ApplicationStatus.OPEN),
-    (ApplicationStatus.OPEN, True, ApplicationStatus.OPEN),
-    (ApplicationStatus.UNDER_REVIEW, False, ApplicationStatus.UNDER_REVIEW),
-    (ApplicationStatus.UNDER_REVIEW, True, ApplicationStatus.UNDER_REVIEW),
-    (ApplicationStatus.REVIEWER_APPROVED, False, ApplicationStatus.UNDER_REVIEW),
-    (ApplicationStatus.REVIEWER_APPROVED, True, ApplicationStatus.REVIEWER_APPROVED),
-    (ApplicationStatus.REVIEWER_REJECTED, False, ApplicationStatus.UNDER_REVIEW),
-    (ApplicationStatus.REVIEWER_REJECTED, True, ApplicationStatus.REVIEWER_REJECTED),
-    (ApplicationStatus.ASSIGNMENT_SENT, False, ApplicationStatus.ASSIGNMENT_SENT),
-    (ApplicationStatus.ASSIGNMENT_SENT, True, ApplicationStatus.ASSIGNMENT_SENT),
-    (ApplicationStatus.CANCELLED, False, ApplicationStatus.CANCELLED),
-    (ApplicationStatus.CANCELLED, True, ApplicationStatus.CANCELLED),
-])
-def test_applicant_visible_status_gates_by_publication(status, results_published, expected):
-    """Every review-working state maps to under_review before publication,
-    and reveals the raw verdict after."""
-    assert applicant_visible_status(status, results_published) == expected
+@pytest.mark.parametrize("status", list(ApplicationStatus))
+def test_before_publication_every_application_reads_submitted(status):
+    """One status, whatever is stored (E36/F05/S01): the rules judge an application as it is saved,
+    so "Under Review" beside "Submitted" told an applicant a rule had rejected them."""
+    assert applicant_visible_status(status, False) == ApplicationStatus.OPEN
 
 
-def test_applicant_visible_status_never_unmasks_without_publication():
-    """Proof: every status in the in-progress set reads as under_review when unpublished."""
-    for status in REVIEW_IN_PROGRESS_STATUSES:
-        assert applicant_visible_status(status, False) == ApplicationStatus.UNDER_REVIEW
-
-
-def test_applicant_visible_status_reveals_all_with_publication():
-    """After publication, every status is returned as-is."""
-    for status in REVIEW_IN_PROGRESS_STATUSES:
-        assert applicant_visible_status(status, True) == status
+@pytest.mark.parametrize("status", list(ApplicationStatus))
+def test_after_publication_no_verdict_is_read_either(status):
+    """After publication the applicant reads an outcome, a table or none, and never a verdict
+    (E36/F05/S02): rejected and approved-without-a-seat read the same."""
+    assert applicant_visible_status(status, True) == ApplicationStatus.OPEN
 
 
 # ── _application_response / _application_response_organizer ────────────────
@@ -87,21 +68,22 @@ def _app(status: ApplicationStatus = ApplicationStatus.REVIEWER_APPROVED) -> App
 
 
 def test_application_response_hides_verdict_when_unpublished():
-    """An unpublished reviewer_approved status reads as under_review."""
+    """An unpublished reviewer_approved status reads as submitted."""
     response = _application_response(_app(ApplicationStatus.REVIEWER_APPROVED), False)
-    assert response["status"] == ApplicationStatus.UNDER_REVIEW.value
+    assert response["status"] == ApplicationStatus.OPEN.value
 
 
 def test_application_response_hides_rejection_when_unpublished():
-    """Same gate for rejection."""
+    """Same gate for rejection, a rule's included."""
     response = _application_response(_app(ApplicationStatus.REVIEWER_REJECTED), False)
-    assert response["status"] == ApplicationStatus.UNDER_REVIEW.value
+    assert response["status"] == ApplicationStatus.OPEN.value
 
 
-def test_application_response_reveals_verdict_after_publication():
-    """After publication, the applicant sees the actual verdict."""
+def test_application_response_reads_an_outcome_after_publication_never_a_verdict():
+    """After publication, the applicant reads whether they have a table (E36/F05/S02)."""
     response = _application_response(_app(ApplicationStatus.REVIEWER_APPROVED), True)
-    assert response["status"] == ApplicationStatus.REVIEWER_APPROVED.value
+    assert response["status"] == ApplicationStatus.OPEN.value
+    assert response["outcome"] == "not_assigned"
 
 
 def test_application_response_shows_open_status_regardless():
@@ -125,19 +107,35 @@ def test_application_response_organizer_always_sees_truth():
 # ── publish_results ────────────────────────────────────────────────────────
 
 
+def publishable(phase=MarketPhase.ASSIGNMENT, **overrides):
+    """A market whose results may be published (E36/F04/S01): a form market in assignment, with a
+    stored run. `intakeMode: form`, because the flag has no reader on a CSV market: every endpoint
+    that consults it is behind the applicant-intake gate (E10/F04/S03)."""
+    from conftest import stored_market
+    return stored_market(phase, **{
+        "id": "market-1",
+        "intakeMode": "form",
+        "resultsPublished": False,
+        "assignmentObject": {"vendorAssignments": [{
+            "email": "ana@example.com", "date": "2026-11-18", "tableCode": "A 1",
+            "tableChoice": "Full Table", "section": "A", "tier": "Gold", "location": "Main Hall",
+        }]},
+        **overrides,
+    })
+
+
+@pytest.fixture(autouse=True)
+def a_current_run(monkeypatch):
+    """The stored run is current: whether it is, is TestWhenResultsMayBePublished's."""
+    import api.applicants as ApplicantsApi
+    monkeypatch.setattr(ApplicantsApi, "changed_since_run", lambda _market: [])
+
+
 class FakeMarketsDb:
     """Simulates the markets collection for the publish-results endpoint."""
 
     def __init__(self, doc=None):
-        # `intakeMode: form`, because the flag has no reader on a CSV market: every endpoint that
-        # consults it is behind the applicant-intake gate (E10/F04/S03).
-        self._doc = dict(doc) if doc else {
-            "id": "market-1",
-            "phase": MarketPhase.APPLICATIONS_CLOSED.value,
-            "isDraft": False,
-            "intakeMode": "form",
-            "resultsPublished": False,
-        }
+        self._doc = dict(doc) if doc else publishable()
         self.updates = []
 
     def find_one(self, query, projection=None):
@@ -166,13 +164,7 @@ def test_publish_results_flips_the_flag(monkeypatch):
 
 
 def test_publish_results_refuses_when_already_published(monkeypatch):
-    fake = FakeMarketsDb({
-        "id": "market-1",
-        "phase": MarketPhase.APPLICATIONS_CLOSED.value,
-        "isDraft": False,
-        "intakeMode": "form",
-        "resultsPublished": True,
-    })
+    fake = FakeMarketsDb(publishable(resultsPublished=True))
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
         "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
     }))
@@ -193,20 +185,14 @@ def test_publish_results_404_on_missing_market(monkeypatch):
 
 
 def test_publish_results_refuses_on_draft_market(monkeypatch):
-    fake = FakeMarketsDb({
-        "id": "market-1",
-        "phase": MarketPhase.DRAFT.value,
-        "isDraft": True,
-        "intakeMode": "form",
-        "resultsPublished": False,
-    })
+    fake = FakeMarketsDb(publishable(MarketPhase.DRAFT))
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
         "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
     }))
     result, status = publish_results("market-1")
 
     assert status == 409
-    assert "draft" in result.get("error", "").lower()
+    assert "from the assignment" in result.get("error", "")
 
 
 # ── list_market_applications (organizer always sees raw status) ─────────────

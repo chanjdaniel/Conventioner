@@ -18,11 +18,13 @@ NAME_COLUMN = "Name"
 # The name on their identification, beside the one they chose (E35/F03/S02).
 FULL_NAME_COLUMN = "Full name"
 EMAIL_COLUMN = "Email"
+# Whether the review approved them: a seat given by hand to someone it left out is said (E36/F02/S03).
+APPROVAL_COLUMN = "Approval"
 
 
 def build_market_csv_rows(
     market_dict: Dict[str, Any], vendor_names: Optional[Dict[str, str]] = None,
-    full_names: Optional[Dict[str, str]] = None,
+    full_names: Optional[Dict[str, str]] = None, not_approved: Iterable[str] = (),
 ) -> Tuple[List[str], List[Dict[str, str]]]:
     """Compose CSV header + body rows from an assigned market dict.
 
@@ -41,6 +43,7 @@ def build_market_csv_rows(
     """
     names = vendor_names or {}
     full = full_names or {}
+    outside = {address.strip().lower() for address in not_approved}
     setup = market_dict.get("setup_object") or {}
     assignment = market_dict.get("assignment_object") or {}
     vendor_assignments = assignment.get("vendor_assignments") or []
@@ -56,12 +59,13 @@ def build_market_csv_rows(
             f"{placement.get('table_code')} - {placement.get('table_choice')}"
         )
 
-    fieldnames = [NAME_COLUMN, FULL_NAME_COLUMN, EMAIL_COLUMN] + dates
+    fieldnames = [NAME_COLUMN, FULL_NAME_COLUMN, EMAIL_COLUMN, APPROVAL_COLUMN] + dates
     rows = [
         {
             NAME_COLUMN: names.get(email.strip().lower(), ""),
             FULL_NAME_COLUMN: full.get(email.strip().lower(), ""),
             EMAIL_COLUMN: email,
+            APPROVAL_COLUMN: "Not approved" if email.strip().lower() in outside else "Approved",
             **{date: by_date.get(date, "") for date in dates},
         }
         for email, by_date in placements.items()
@@ -71,10 +75,10 @@ def build_market_csv_rows(
 
 def write_market_csv(
     market_dict: Dict[str, Any], target, vendor_names: Optional[Dict[str, str]] = None,
-    full_names: Optional[Dict[str, str]] = None,
+    full_names: Optional[Dict[str, str]] = None, not_approved: Iterable[str] = (),
 ) -> None:
     """Write the assigned-market CSV to a file-like text stream."""
-    fieldnames, rows = build_market_csv_rows(market_dict, vendor_names, full_names)
+    fieldnames, rows = build_market_csv_rows(market_dict, vendor_names, full_names, not_approved)
     writer = csv.DictWriter(target, fieldnames=fieldnames)
     writer.writeheader()
     for row in rows:
@@ -83,11 +87,11 @@ def write_market_csv(
 
 def market_csv_to_string(
     market_dict: Dict[str, Any], vendor_names: Optional[Dict[str, str]] = None,
-    full_names: Optional[Dict[str, str]] = None,
+    full_names: Optional[Dict[str, str]] = None, not_approved: Iterable[str] = (),
 ) -> str:
     """Render the assigned-market CSV as a UTF-8 string (no disk I/O)."""
     buffer = io.StringIO()
-    write_market_csv(market_dict, buffer, vendor_names, full_names)
+    write_market_csv(market_dict, buffer, vendor_names, full_names, not_approved)
     return buffer.getvalue()
 
 

@@ -96,6 +96,13 @@ const vendorSearch = ref<VendorSearch>({});
 /** Who may be put in a seat, and what they asked for - so a change that alters their table
     choice can be said out loud before it is made. */
 const vendors = ref<PlaceableVendor[]>([]);
+/** Who holds a seat by hand though the review left them out, as the tables read says (E36/F02/S03). */
+const notApprovedAddresses = computed(
+  () => new Set(vendors.value.filter((v) => v.notApproved).map((v) => v.email.toLowerCase())),
+);
+function notApproved(email: string | null | undefined): boolean {
+  return Boolean(email) && notApprovedAddresses.value.has(String(email).toLowerCase());
+}
 const isLoading = ref(false);
 const errorMessage = ref('');
 
@@ -543,6 +550,7 @@ function swapSeats(withEmail: string): void {
                         <ResultSeat
                           v-else-if="rowStatus(row).isFull"
                           :email="rowStatus(row).leftEmail"
+                          :notApproved="notApproved(rowStatus(row).leftEmail)"
                           vacantLabel="Unassigned"
                           whole
                           :names="vendorNames"
@@ -555,6 +563,7 @@ function swapSeats(withEmail: string): void {
                             <span class="half-slot-label">Left</span>
                             <ResultSeat
                               :email="rowStatus(row).leftEmail"
+                              :notApproved="notApproved(rowStatus(row).leftEmail)"
                               vacantLabel="Vacant"
                               :names="vendorNames"
                               :readOnly="readOnly"
@@ -566,6 +575,7 @@ function swapSeats(withEmail: string): void {
                             <span class="half-slot-label">Right</span>
                             <ResultSeat
                               :email="rowStatus(row).rightEmail"
+                              :notApproved="notApproved(rowStatus(row).rightEmail)"
                               vacantLabel="Vacant"
                               :names="vendorNames"
                               :readOnly="readOnly"

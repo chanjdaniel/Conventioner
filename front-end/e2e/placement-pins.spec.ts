@@ -72,6 +72,8 @@ test.describe('Placement pins', () => {
     );
     // Before review, which a CSV market enters once something is imported (E32/F02/S01).
     seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'pinned@example.com');
+    // A seat goes only to an applicant (E36/F02/S01), the one refused here included.
+    seedApplicationWithStatus(seed.marketId, 'reviewer_approved', 'other@example.com');
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, seed.marketId, 'review');
   });
 
