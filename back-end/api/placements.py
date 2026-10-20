@@ -33,9 +33,11 @@ from datatypes import (
     VendorAssignmentResult,
     table_code_for,
 )
+import api.applications as ApplicationsApi
 import api.markets as MarketsApi
 import assignment.made_from as MadeFrom
 import placement_history as PlacementHistory
+from utils.email_address import normalized_email
 
 # The three seats a table holds. A table holds two, and a placement therefore always names a
 # side: "the vendor at Front Row 1" is not an address anyone can stand at.
@@ -106,6 +108,29 @@ def _seat_taken_by(
     return None
 
 
+def has_applied(market_id: str, address: str) -> bool:
+    """Whether the market holds an application from this address, the one way into a seat."""
+    return ApplicationsApi.find_application_by_email(market_id, address) is not None
+
+
+def _applicant_address(market: Market, email: str) -> str:
+    """The address a seat is written under: the applicant's, as stored, or a refusal (E36/F02/S01).
+
+    A seat goes only to someone the market has an application for. A typed address used to take
+    one with no name, no answers and nothing in the vendor drawer; a vendor who never applied is
+    added as one first, and then has all three.
+    """
+    address = normalized_email(email)
+    if not address:
+        raise PlacementError("A placement must name the vendor it places.")
+    if not has_applied(market.id, address):
+        raise PlacementError(
+            f"{address} has no application in this market, so they cannot be given a seat. "
+            "Add them as a vendor first."
+        )
+    return address
+
+
 def _placement_for(
     market: Market, email: str, date: str, table_code: str, table_choice: str
 ) -> VendorAssignmentResult:
@@ -114,8 +139,7 @@ def _placement_for(
     if setup_object is None:
         raise PlacementError("Market has no plan, so it has no tables to place anyone at.")
 
-    if not email:
-        raise PlacementError("A placement must name the vendor it places.")
+    email = _applicant_address(market, email)
 
     if date not in {market_date.date for market_date in setup_object.market_dates}:
         raise PlacementError(f"{date!r} is not one of this market's dates.")
@@ -397,6 +421,7 @@ def swap_placements(
     for email in (first_email, second_email):
         if email not in held:
             raise PlacementError(f"{email} holds no table on {date}, so there is nothing to swap.")
+        _applicant_address(market, email)
 
     first, second = placements[held[first_email]], placements[held[second_email]]
     # The seat is everything about where they sit; only the vendor stays put. Flagged hand-placed

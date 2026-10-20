@@ -199,6 +199,7 @@ def test_a_hand_placement_leaves_what_the_run_was_made_from_alone(monkeypatch):
     fake = FakeMarketsCollection(stored_market(phase=MarketPhase.ASSIGNMENT, setupObject=PLAN))
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
+    monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
 
     PlacementsApi.write_placement(
         "market-123",

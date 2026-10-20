@@ -300,6 +300,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   whole assignment is computed from.
   There is no other door: the whole-market PUT that once let a stale client copy move vendors on
   market day is deleted (E21/F03/S06).
+- **A seat goes only to someone with an application in the market** (E36/F02/S01): every
+  placement and swap writes the applicant's normalised address, or refuses one the market has no
+  application for (`has_applied` in `api/placements.py`). A seed that places someone gives them one.
 - **A pin IS a placement row, flagged `hand_placed`.** There is no separate constraint object;
   two records could disagree, and a vendor pinned to one table and placed at another is the exact
   bug pins exist to prevent.

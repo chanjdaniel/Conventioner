@@ -53,6 +53,7 @@ def collection(monkeypatch):
     )
     monkeypatch.setattr(MarketsApi, "markets_collection", fake)
     monkeypatch.setattr(PermissionsApi, "user_has_permission", lambda *_a, **_k: True)
+    monkeypatch.setattr(PlacementsApi, "has_applied", lambda _market_id, _address: True)
     return fake
 
 
