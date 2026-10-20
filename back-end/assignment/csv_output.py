@@ -27,9 +27,9 @@ def build_market_csv_rows(
     """Compose CSV header + body rows from an assigned market dict.
 
     Header is the name the vendor chose, their full name, and their address, followed by one column
-    per market date. A date cell
-    holds ``"<table code> - <table choice>"`` when that vendor was placed that day, and is blank
-    otherwise, which is the same cell the spreadsheet-backed export produced.
+    per market date. A date cell holds ``"<table code> - <table choice>"`` when that vendor was
+    placed that day, and is blank otherwise, which is the same cell the spreadsheet-backed export
+    produced.
 
     Name AND address, never name instead: two vendors can share a name, while the address is
     unique, is what check-in matches on, and is what ties a row back to the vendor's application.

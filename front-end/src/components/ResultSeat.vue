@@ -126,7 +126,7 @@ const emit = defineEmits<{ open: []; view: [] }>();
 }
 
 .seat-button:focus-visible {
-  outline: 2px solid var(--mm-green);
+  outline: 2px solid var(--mm-black);
   outline-offset: 1px;
 }
 
@@ -137,7 +137,9 @@ const emit = defineEmits<{ open: []; view: [] }>();
   border-style: dashed;
 }
 
-/* Change, in the corner where the hint always was: a control of its own beside the name. */
+/* Change, in the corner where the hint always was: a control of its own beside the name, and so
+   shown at rest. On a free seat the hint can wait for the pointer, because the whole seat is the
+   button; here Change is the only way to the dialog, and a touch has no hover. */
 .seat-change {
   justify-self: end;
   padding: 0;
@@ -148,12 +150,16 @@ const emit = defineEmits<{ open: []; view: [] }>();
   cursor: pointer;
 }
 
+.seat-change .seat-button-hint {
+  opacity: 1;
+}
+
 .seat-change:hover .seat-button-hint {
   text-decoration: underline;
 }
 
 .seat-change:focus-visible {
-  outline: 2px solid var(--mm-green);
+  outline: 2px solid var(--mm-black);
   outline-offset: 2px;
 }
 

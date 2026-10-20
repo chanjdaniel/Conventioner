@@ -10,14 +10,15 @@ import api.applications as ApplicationsApi
 import api.attendance as AttendanceApi
 import essential_fields as EF
 from assignment.csv_output import build_market_csv_rows
+from conftest import FakeApplicationsCollection
 
 
-class FakeApplicationsCollection:
-    def __init__(self, docs):
-        self.docs = docs
-
-    def find(self, query, projection=None):
-        return iter(self.docs)
+def _collection(docs):
+    """The shared fake, holding these applications in market-1: it applies the query and the
+    projection as Mongo does, so a read that fetches too little fails here too."""
+    fake = FakeApplicationsCollection()
+    fake.documents = [{"market_id": "market-1", **doc} for doc in docs]
+    return fake
 
 
 ASSIGNED_MARKET = {
@@ -40,7 +41,7 @@ ASSIGNED_MARKET = {
 class TestReadingNamesOffTheApplications:
     def _names(self, monkeypatch, docs):
         monkeypatch.setattr(
-            ApplicationsApi, "applications_collection", FakeApplicationsCollection(docs),
+            ApplicationsApi, "applications_collection", _collection(docs),
         )
         monkeypatch.setattr(ApplicationsApi, "ensure_application_indexes", lambda: None)
         return ApplicationsApi.vendor_names_for_market("market-1")
@@ -176,13 +177,8 @@ class TestTheFullNameInTheDownload:
     def _full_names(self, monkeypatch, docs):
         import api.applications as ApplicationsApi
 
-        class Docs:
-            def find(self, *_a, **_k):
-                return [dict(doc) for doc in docs]
-
-            def create_index(self, *_a, **_k):
-                return None
-
-        monkeypatch.setattr(ApplicationsApi, "applications_collection", Docs())
+        monkeypatch.setattr(
+            ApplicationsApi, "applications_collection", _collection(docs),
+        )
         monkeypatch.setattr(ApplicationsApi, "ensure_application_indexes", lambda: None)
         return ApplicationsApi.vendor_full_names_for_market("market-1")

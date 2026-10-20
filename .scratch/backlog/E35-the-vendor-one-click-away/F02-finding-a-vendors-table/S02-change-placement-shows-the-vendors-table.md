@@ -15,6 +15,7 @@ Change placement, on a placement in the vendor drawer, opens the results with th
 
 - The drawer's placement link (`resultLinkFor` in `VendorDrawer.vue`) sets `?date=` and `?search=<address>`, the search of `S01`, in place of `?vendor=`.
   Since `F01/S02` the Result page opens the drawer from `?vendor=`, so the old link would have opened the drawer over the table it was meant to show.
+- A whole address matches exactly (`WHOLE_ADDRESS` in `utils/resultFilters.ts`), so the link shows that vendor's table and not the table of someone whose address or answer contains theirs; part of an address still matches as part.
 - `seedMarketWithVendors` and `seedAssignedMarket` take `dates`, for a spec that needs a market of more than one date.
 
 ## Acceptance criteria

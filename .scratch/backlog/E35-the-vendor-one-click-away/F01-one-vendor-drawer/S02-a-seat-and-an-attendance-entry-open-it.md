@@ -19,6 +19,7 @@ Both work at phone width on Attendance.
 - `components/VendorNameButton.vue` is a vendor's name that opens their drawer, on a seat and at the door.
 - A held seat (`ResultSeat`) is two controls in one box: the name, and Change in the corner where the hint was (`tables-seat-change`).
   A button cannot hold another, so the seat is no longer one button; a free seat still is, and a record seat keeps the name alone.
+  Change is shown at rest, since it is now the only way to the seat's dialog and a touch has no hover; a free seat's hint still waits for the pointer.
 - The placement dialog's occupied view has View vendor, which closes the dialog and opens the drawer.
 - The Result page and Attendance host the drawer, with the open vendor in the address as on Vendors.
   A placement change on the Result page reads the drawer's vendors again.

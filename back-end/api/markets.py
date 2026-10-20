@@ -1347,7 +1347,9 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
             # What the page's search finds each vendor by, beyond their address (E35/F02/S01).
             "vendorSearch": ApplicationsApi.vendor_search_terms_for_market(
-                market_id, market.application_form.fields if market.application_form else [],
+                market_id,
+                market.application_form.fields if market.application_form else [],
+                {email for row in rows for email in row.assignment_slots if email},
             ),
             # Who may be put in a seat, and what they asked for. Sent with the grid because the
             # view has to warn - before the change, not after - when a placement would alter a

@@ -51,7 +51,7 @@ const label = computed(() => `${vendorHeadline(props.email, props.names)}: their
 }
 
 .vendor-name-button:focus-visible {
-  outline: 2px solid var(--mm-green);
+  outline: 2px solid var(--mm-black);
   outline-offset: 2px;
 }
 </style>

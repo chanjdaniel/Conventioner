@@ -120,9 +120,18 @@ function placeMatches(place: VendorPlacement, filters: ResultFilters): boolean {
   );
 }
 
-/** The search: the table's label, or anyone at it by address, name or text answer. */
+/** A whole address, as Change placement searches by (E35/F02/S02), rather than part of one. */
+const WHOLE_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * The search: the table's label, or anyone at it by address, name or text answer. A whole address
+ * finds that vendor alone - "al@x.test" is part of "sal@x.test", and of anyone's answer naming it.
+ */
 function matchesSearch(row: MarketTableRow, needle: string, search: VendorSearch): boolean {
   if (!needle) return true;
+  if (WHOLE_ADDRESS.test(needle)) {
+    return (row.assignmentSlots ?? []).some((email) => email?.trim().toLowerCase() === needle);
+  }
   const found = (text: string) => text.toLowerCase().includes(needle);
   if (found(row.tableCode)) return true;
   return (row.assignmentSlots ?? []).some((email) => {
@@ -132,12 +141,13 @@ function matchesSearch(row: MarketTableRow, needle: string, search: VendorSearch
   });
 }
 
-/** Every filter but the status. */
-function matchesPlace(row: MarketTableRow, filters: ResultFilters, search: VendorSearch): boolean {
-  if (filters.date && row.date !== filters.date) return false;
-  return (
-    placeMatches(row, filters) && matchesSearch(row, filters.search.trim().toLowerCase(), search)
-  );
+/** Every filter but the status, the search's words prepared once for every row. */
+function placeMatcher(filters: ResultFilters, search: VendorSearch) {
+  const needle = filters.search.trim().toLowerCase();
+  return (row: MarketTableRow) =>
+    (!filters.date || row.date === filters.date) &&
+    placeMatches(row, filters) &&
+    matchesSearch(row, needle, search);
 }
 
 export function tablesMatching(
@@ -145,10 +155,9 @@ export function tablesMatching(
   filters: ResultFilters,
   search: VendorSearch = {},
 ): MarketTableRow[] {
+  const matchesPlace = placeMatcher(filters, search);
   return rows.filter(
-    (row) =>
-      matchesPlace(row, filters, search) &&
-      (!filters.status || rowStatus(row).label === filters.status),
+    (row) => matchesPlace(row) && (!filters.status || rowStatus(row).label === filters.status),
   );
 }
 
@@ -159,8 +168,9 @@ export function statusCounts(
   search: VendorSearch = {},
 ): Record<TableStatus, number> {
   const counts: Record<TableStatus, number> = { assigned: 0, partial: 0, empty: 0 };
+  const matchesPlace = placeMatcher(filters, search);
   for (const row of rows) {
-    if (matchesPlace(row, filters, search)) counts[rowStatus(row).label] += 1;
+    if (matchesPlace(row)) counts[rowStatus(row).label] += 1;
   }
   return counts;
 }
