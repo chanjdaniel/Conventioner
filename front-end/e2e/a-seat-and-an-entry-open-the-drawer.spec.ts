@@ -31,7 +31,7 @@ test('a vendor on a table opens their drawer, from the seat and from its dialog'
   const email = await tables.occupantOf(seat);
 
   // One click on the name: their drawer, and no placement dialog.
-  await seat.getByTestId('tables-seat-vendor').click();
+  await tables.openVendor(seat);
   await expect(page.getByTestId('vendors-detail-panel')).toBeVisible();
   await expect(page.getByTestId('vendors-detail-email')).toHaveText(email);
   await expect(tables.dialog).toBeHidden();
@@ -39,7 +39,7 @@ test('a vendor on a table opens their drawer, from the seat and from its dialog'
   await expect(page.getByTestId('vendors-detail-close')).toBeHidden();
 
   // The seat's change is its own control, and its dialog leads to the vendor too.
-  await seat.getByTestId('tables-seat-change').click();
+  await tables.change(seat);
   await expect(tables.dialog).toBeVisible();
   await page.getByTestId('placement-dialog-view-vendor').click();
   await expect(tables.dialog).toBeHidden();
@@ -64,7 +64,7 @@ test('a name at the door opens the drawer, never checks in, and a first note sho
   await expect(bob).toBeVisible({ timeout: 10000 });
 
   // At a phone's width the name and the check-in are two targets, apart.
-  const name = bob.getByTestId('attendance-vendor');
+  const name = attendance.vendor('bob@example.com');
   const checkIn = bob.getByTestId('attendance-check-in');
   const [nameBox, checkInBox] = [await name.boundingBox(), await checkIn.boundingBox()];
   expect(nameBox && checkInBox).toBeTruthy();

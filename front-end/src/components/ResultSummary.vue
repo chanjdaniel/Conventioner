@@ -163,23 +163,24 @@ async function downloadCsv(): Promise<void> {
       to bring it up to date.
     </p>
 
-    <NothingAssigned v-if="!assigned" :market="market" testid="result-empty">
-      <!-- Where a run can happen the tables are drawn below, for pinning before it (E11/F02/S01). -->
-      <span v-if="canAssignIn(market.phase)" data-testid="result-pin-before-run">
-        Anyone you place below first keeps their table: the run places everyone else around them.
+    <template v-if="!assigned">
+      <NothingAssigned :market="market" testid="result-empty">
+        <!-- Where a run can happen the tables are drawn below, for pinning before it (E11/F02/S01). -->
+        <span v-if="canAssignIn(market.phase)" data-testid="result-pin-before-run">
+          Anyone you place below first keeps their table: the run places everyone else around them.
+        </span>
+      </NothingAssigned>
+      <span class="result-actions">
+        <button
+          type="button"
+          class="btn btn--secondary"
+          data-testid="result-history-button"
+          @click="historyOpen = true"
+        >
+          Placement history
+        </button>
       </span>
-    </NothingAssigned>
-    <span v-if="!assigned" class="result-actions">
-      <button
-        type="button"
-        class="btn btn--secondary"
-        data-testid="result-history-button"
-        @click="historyOpen = true"
-      >
-        Placement history
-      </button>
-    </span>
-
+    </template>
     <div v-else class="result-strip" data-testid="result-strip">
       <span class="result-figure" data-testid="result-vendors-placed">
         <strong>{{ statistics?.totalAssignedVendors ?? '…' }}</strong> of

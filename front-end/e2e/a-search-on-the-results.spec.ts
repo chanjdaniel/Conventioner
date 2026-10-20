@@ -28,18 +28,11 @@ test('the search finds a vendor by name, business or address, and a table by its
   const tables = new TablesPage(page);
   await tables.goto(seed.marketId);
   await expect(tables.tableRows).toHaveCount(3, { timeout: 10000 });
-  const search = page.getByTestId('tables-filter-search');
-  const shownCodes = async () => {
-    const codes: string[] = [];
-    for (const row of await tables.tableRows.all()) {
-      codes.push((await row.getAttribute('data-table-code')) ?? '');
-    }
-    return codes;
-  };
+  const search = tables.searchInput;
 
   // By part of the full name, the business name, and the address: only Alice's table.
   for (const words of ['alice exa', 'KILN & CO', 'alice@exam']) {
-    await search.fill(words);
+    await tables.search(words);
     await expect(tables.tableRows).toHaveCount(1);
     await expect(tables.tableRows.first().getByTestId('tables-seat-occupied')).toHaveAttribute(
       'data-vendor-email',
@@ -48,18 +41,18 @@ test('the search finds a vendor by name, business or address, and a table by its
   }
 
   // By a table's label: that table, empty or not.
-  await search.fill('A 3');
+  await tables.search('A 3');
   await expect(tables.tableRows).toHaveCount(1);
-  expect(await shownCodes()).toEqual(['A 3']);
+  expect(await tables.shownTableCodes()).toEqual(['A 3']);
 
   // In the address, beside a date, and both survive a reload.
-  await search.fill('bob');
+  await tables.search('bob');
   await tables.setFilter('date', SEED_MARKET_DATE);
   await expect(page).toHaveURL(/search=bob/);
   await page.reload();
   await expect(search).toHaveValue('bob');
   await expect(tables.tableRows).toHaveCount(1);
-  await expect(page.getByTestId('tables-filter-chip-search')).toHaveText(/Search: bob/);
+  await expect(tables.searchChip).toHaveText(/Search: bob/);
 
   // Clear all lets go of the search with the rest.
   await tables.clearAllFilters();

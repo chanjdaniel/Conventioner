@@ -308,6 +308,20 @@ describe('the search on the results', () => {
     expect(statusCounts(ROWS, filters, SEARCH)).toEqual({ assigned: 0, partial: 0, empty: 1 });
   });
 
+  it('matches a complete address exactly, so it shows that vendor and nobody whose address holds it', () => {
+    const rows = [
+      row({ tableCode: 'C1', assignmentSlots: ['al@x.test', null] }),
+      row({ tableCode: 'C2', assignmentSlots: ['sal@x.test', null] }),
+    ];
+    const search = { 'sal@x.test': ['Friend of al@x.test'] };
+    const by = (words: string) =>
+      tablesMatching(rows, readResultFilters({ search: words }), search).map((r) => r.tableCode);
+    expect(by('al@x.test')).toEqual(['C1']);
+    expect(by('AL@X.TEST ')).toEqual(['C1']);
+    // Part of an address still finds everyone whose address holds it.
+    expect(by('al@x')).toEqual(['C1', 'C2']);
+  });
+
   it('is not a where-filter, so it does not travel to the vendors', () => {
     expect(hasPlaceFilter(readResultFilters({ search: 'nadia' }))).toBe(false);
   });

@@ -21,6 +21,13 @@ export class TablesPage {
   readonly dialog: Locator;
   readonly dialogWarning: Locator;
   readonly dialogError: Locator;
+  /** The search beside the filters (E35/F02/S01), and its chip. */
+  readonly searchInput: Locator;
+  readonly searchChip: Locator;
+  /** The placement history, behind its button (E35/F03/S03). */
+  readonly historyButton: Locator;
+  readonly historyDialog: Locator;
+  readonly historyEntries: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -38,6 +45,11 @@ export class TablesPage {
     this.dialog = page.getByTestId('placement-dialog-window');
     this.dialogWarning = page.getByTestId('placement-dialog-warning');
     this.dialogError = page.getByTestId('placement-dialog-error');
+    this.searchInput = page.getByTestId('tables-filter-search');
+    this.searchChip = page.getByTestId('tables-filter-chip-search');
+    this.historyButton = page.getByTestId('result-history-button');
+    this.historyDialog = page.getByTestId('placement-history-dialog-window');
+    this.historyEntries = page.getByTestId('placement-history-entry');
   }
 
   async goto(marketId: string): Promise<void> {
@@ -68,6 +80,30 @@ export class TablesPage {
   /** A seat somebody holds. */
   occupiedSeat(tableCode: string, nth = 0): Locator {
     return this.row(tableCode).getByTestId('tables-seat-occupied').nth(nth);
+  }
+
+  async search(words: string): Promise<void> {
+    await this.searchInput.fill(words);
+  }
+
+  /** The table codes shown, in order. */
+  async shownTableCodes(): Promise<string[]> {
+    const codes: string[] = [];
+    for (const row of await this.tableRows.all()) {
+      codes.push((await row.getAttribute('data-table-code')) ?? '');
+    }
+    return codes;
+  }
+
+  /** Open the placement history from its button. */
+  async openHistory(): Promise<void> {
+    await this.historyButton.click();
+    await this.historyDialog.waitFor();
+  }
+
+  /** Open whoever holds a seat, by their name (E35/F01/S02). */
+  async openVendor(seat: Locator): Promise<void> {
+    await seat.getByTestId('tables-seat-vendor').click();
   }
 
   /** Open a held seat's dialog, by its Change: its name opens the vendor's drawer (E35/F01/S02). */

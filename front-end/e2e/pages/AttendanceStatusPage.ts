@@ -37,6 +37,11 @@ export class AttendanceStatusPage {
     return this.row(vendorEmail).getByTestId('attendance-row-status');
   }
 
+  /** A vendor's name on their row, which opens their drawer (E35/F01/S02). */
+  vendor(vendorEmail: string): Locator {
+    return this.row(vendorEmail).getByTestId('attendance-vendor');
+  }
+
   async show(which: 'all' | 'not-yet' | 'here'): Promise<void> {
     await this.page.getByTestId(`attendance-show-${which}`).click();
   }

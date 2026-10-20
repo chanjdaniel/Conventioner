@@ -30,11 +30,8 @@ test('a hand placement is in the history, by name and email, opened from the but
   await tables.placeVendor('alice@example.com');
   await expect(tables.dialog).toBeHidden();
 
-  const dialog = page.getByTestId('placement-history-dialog-window');
-  const open = async () => {
-    await page.getByTestId('result-history-button').click();
-    await expect(dialog).toBeVisible();
-  };
+  const dialog = tables.historyDialog;
+  const open = () => tables.openHistory();
 
   // Read as it opens: the placement just made is there, with no reload.
   await open();
@@ -72,14 +69,13 @@ test('after a run, a viewer opens the history too', async ({
     data: { user_email: VIEWER.email, role: 'viewer' },
   });
   expect(granted.ok(), await granted.text()).toBeTruthy();
-  await page.goto(marketScreenPath(seed.marketId, 'result'));
-  await expect(page.getByTestId('result-history-button')).toBeVisible();
+  await new TablesPage(page).goto(seed.marketId);
+  await expect(new TablesPage(page).historyButton).toBeVisible();
 
   await withUser(browser, VIEWER.email, VIEWER.password, async (viewer) => {
-    await viewer.goto(marketScreenPath(seed.marketId, 'result'));
-    await viewer.getByTestId('result-history-button').click();
-    await expect(viewer.getByTestId('placement-history-entry').first()).toContainText(
-      'Ran the assignment',
-    );
+    const theirs = new TablesPage(viewer);
+    await theirs.goto(seed.marketId);
+    await theirs.openHistory();
+    await expect(theirs.historyEntries.first()).toContainText('Ran the assignment');
   });
 });

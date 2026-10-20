@@ -14,12 +14,14 @@ application, and the database is what enforces that -- see ``ensure_application_
 """
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
-from datatypes import Application, ApplicationStatus, ApplicationType, MarketPerson, VerdictGiver
+from datatypes import (
+    Application, ApplicationStatus, ApplicationType, FormField, MarketPerson, VerdictGiver,
+)
 from db_config import get_database
 import essential_fields as EssentialFields
 
@@ -212,26 +214,33 @@ def vendor_full_names_for_market(market_id: str) -> Dict[str, str]:
 #: business email, a handle. A choice, a number or a date is shared by many and finds nobody.
 SEARCHED_ANSWER_TYPES = ("text", "email")
 
+#: The longest answer that still names someone rather than describes their work. A business name,
+#: an address or a handle is short; "what do you sell" is a paragraph, and matching it would find
+#: every vendor who mentions a word rather than the one the organizer is looking for.
+SEARCHED_ANSWER_LENGTH = 80
 
-def vendor_search_terms_for_market(market_id: str, fields: List[Any]) -> Dict[str, List[str]]:
+
+def vendor_search_terms_for_market(
+    market_id: str, fields: List[FormField], placed: Iterable[str],
+) -> Dict[str, List[str]]:
     """What a search on the results finds a vendor by (E35/F02/S01), keyed as
     ``vendor_names_for_market`` is: the name they chose, the one on their identification, then
-    their answers to the form's text and email questions, in the form's order. Blank answers are
-    left out, and so is a vendor with nothing to search; the page matches the address itself.
+    their short answers to the form's text and email questions, in the form's order.
 
-    ``fields`` is the market's own form - which of its questions are text is the form's to say.
+    Only the vendors in ``placed`` - the ones at a table - are read, since the search finds tables.
+    Blank and long answers are left out, and so is a vendor with nothing to search; the page matches
+    the address itself. ``fields`` is the market's own form: which questions are text is its to say.
     """
-    asked = [field.key for field in fields if getattr(field, "type", None) in SEARCHED_ANSWER_TYPES]
+    asked = [field.key for field in fields if field.type in SEARCHED_ANSWER_TYPES]
     keys = [EssentialFields.PREFERRED_NAME_KEY, EssentialFields.FULL_NAME_KEY, *asked]
-    ensure_application_indexes()
-    projection = {"_id": 0, APPLICANT_EMAIL_FIELD: 1, **{f"form_data.{key}": 1 for key in keys}}
+    at_a_table = {str(email).strip().lower() for email in placed}
     terms: Dict[str, List[str]] = {}
-    for doc in applications_collection.find(market_filter(market_id), projection):
-        email = str(doc.get(APPLICANT_EMAIL_FIELD) or "").strip().lower()
-        answers = doc.get("form_data") or {}
+    for email, answers in _answers_by_address(market_id, keys).items():
+        if email not in at_a_table:
+            continue
         found = [str(answers[key]).strip() for key in keys if isinstance(answers.get(key), str)]
-        found = [term for term in found if term]
-        if email and found:
+        found = [term for term in found if term and len(term) <= SEARCHED_ANSWER_LENGTH]
+        if found:
             terms[email] = found
     return terms
 
@@ -239,20 +248,25 @@ def vendor_search_terms_for_market(market_id: str, fields: List[Any]) -> Dict[st
 def _names_by_address(market_id: str, name_of) -> Dict[str, str]:
     """``{lowercased address: name}`` for the applications that stored one, read off a projection
     of the two name keys alone."""
-    ensure_application_indexes()
-    projection = {
-        "_id": 0,
-        APPLICANT_EMAIL_FIELD: 1,
-        f"form_data.{EssentialFields.FULL_NAME_KEY}": 1,
-        f"form_data.{EssentialFields.PREFERRED_NAME_KEY}": 1,
+    keys = [EssentialFields.FULL_NAME_KEY, EssentialFields.PREFERRED_NAME_KEY]
+    names = {
+        email: name_of(answers) for email, answers in _answers_by_address(market_id, keys).items()
     }
-    names: Dict[str, str] = {}
+    return {email: name for email, name in names.items() if name}
+
+
+def _answers_by_address(market_id: str, keys: List[str]) -> Dict[str, Dict[str, Any]]:
+    """The named answers of every application in a market, keyed by lowercased address: a
+    projection of those keys alone, since 232 applications' worth of ``form_data`` is not a thing to
+    read in order to show a name."""
+    ensure_application_indexes()
+    projection = {"_id": 0, APPLICANT_EMAIL_FIELD: 1, **{f"form_data.{key}": 1 for key in keys}}
+    answers: Dict[str, Dict[str, Any]] = {}
     for doc in applications_collection.find(market_filter(market_id), projection):
         email = str(doc.get(APPLICANT_EMAIL_FIELD) or "").strip().lower()
-        name = name_of(doc.get("form_data") or {})
-        if email and name:
-            names[email] = name
-    return names
+        if email:
+            answers[email] = doc.get("form_data") or {}
+    return answers
 
 
 def find_application_by_id(app_id: str) -> Optional[Dict[str, Any]]:

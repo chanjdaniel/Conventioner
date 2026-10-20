@@ -99,8 +99,6 @@ function filterTo(filter: LedgerFilter, value: string): void {
   margin: 0;
   font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--mm-text-muted);
 }
 
@@ -137,7 +135,7 @@ function filterTo(filter: LedgerFilter, value: string): void {
 }
 
 .result-statistics-item:focus-visible {
-  outline: 2px solid var(--mm-green);
+  outline: 2px solid var(--mm-black);
   outline-offset: 1px;
 }
 
@@ -165,19 +163,19 @@ function filterTo(filter: LedgerFilter, value: string): void {
 .result-statistics-bar {
   grid-column: 1 / -1;
   height: var(--space-2);
-  border-radius: var(--space-1);
+  border-radius: var(--radius-pill);
   background: var(--mm-beige);
   overflow: hidden;
 }
 
 .result-statistics-item:hover .result-statistics-bar {
-  background: white;
+  background: var(--mm-border);
 }
 
 .result-statistics-bar > span {
   display: block;
   height: 100%;
-  border-radius: var(--space-1);
+  border-radius: var(--radius-pill);
   background: var(--mm-green);
 }
 

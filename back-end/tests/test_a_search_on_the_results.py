@@ -23,12 +23,14 @@ FIELDS = [
 ]
 
 
-def _terms(monkeypatch, docs, fields=FIELDS):
+def _terms(monkeypatch, docs, fields=FIELDS, placed=None):
     fake = FakeApplicationsCollection()
     fake.documents = [{"market_id": "market-1", **doc} for doc in docs]
     monkeypatch.setattr(ApplicationsApi, "applications_collection", fake)
     monkeypatch.setattr(ApplicationsApi, "ensure_application_indexes", lambda: None)
-    return ApplicationsApi.vendor_search_terms_for_market("market-1", fields)
+    if placed is None:
+        placed = [doc["applicant_email"] for doc in docs]
+    return ApplicationsApi.vendor_search_terms_for_market("market-1", fields, placed)
 
 
 def test_names_and_text_answers_are_served_by_address(monkeypatch):
@@ -76,5 +78,26 @@ def test_another_markets_applications_are_not_read(monkeypatch):
     fake = ApplicationsApi.applications_collection
     fake.documents[0]["market_id"] = "market-2"
 
-    assert ApplicationsApi.vendor_search_terms_for_market("market-1", FIELDS) == {}
+    assert ApplicationsApi.vendor_search_terms_for_market(
+        "market-1", FIELDS, ["nadia@ember.test"]) == {}
     assert terms == {"nadia@ember.test": ["Nadia"]}
+
+
+def test_only_the_vendors_at_a_table_are_served(monkeypatch):
+    """The search finds tables; a vendor at none has nothing for it to find."""
+    terms = _terms(monkeypatch, [
+        {"applicant_email": "nadia@ember.test", "form_data": {EF.FULL_NAME_KEY: "Nadia"}},
+        {"applicant_email": "theo@thistle.test", "form_data": {EF.FULL_NAME_KEY: "Theo"}},
+    ], placed=["Nadia@Ember.Test"])
+
+    assert terms == {"nadia@ember.test": ["Nadia"]}
+
+
+def test_a_long_answer_is_a_description_not_what_identifies_them(monkeypatch):
+    description = "Hand-thrown stoneware mugs and bowls, glazed in small batches " * 2
+    terms = _terms(monkeypatch, [{
+        "applicant_email": "nadia@ember.test",
+        "form_data": {"business_name": "Ember & Ash", "business_email": description},
+    }])
+
+    assert terms == {"nadia@ember.test": ["Ember & Ash"]}

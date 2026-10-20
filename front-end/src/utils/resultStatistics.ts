@@ -27,44 +27,48 @@ export interface LedgerGroup {
   rows: LedgerRow[];
 }
 
+/** One answer as the server counts it: what it reads as, what it filters by, how many. */
+interface Counted {
+  label: string;
+  value: string;
+  count: number;
+}
+
 /**
  * Half tables are one table size to the organizer, whichever side they sit on, so the sides the
  * statistics count apart are added together - and the grid's filter knows them as `half`.
  */
-function tableSizes(perChoice: Record<string, number>): Array<[string, string, number]> {
-  const merged = new Map<string, [string, string, number]>();
+function tableSizes(perChoice: Record<string, number>): Counted[] {
+  const merged = new Map<string, Counted>();
   for (const [choice, count] of Object.entries(perChoice)) {
     const half = choice.toLowerCase().includes('half');
-    const key = half ? 'half' : 'full';
-    const entry = merged.get(key) ?? [half ? 'Half table' : 'Full table', key, 0];
-    entry[2] += count;
-    merged.set(key, entry);
+    const value = half ? 'half' : 'full';
+    const entry = merged.get(value) ?? {
+      label: half ? 'Half table' : 'Full table',
+      value,
+      count: 0,
+    };
+    merged.set(value, { ...entry, count: entry.count + count });
   }
   return [...merged.values()];
 }
 
 export function statisticsLedger(statistics: AssignmentStatistics): LedgerGroup[] {
   const total = statistics.totalAssignments ?? 0;
-  const group = (
-    title: string,
-    filter: LedgerFilter,
-    entries: Array<[string, string, number]>,
-  ): LedgerGroup => {
-    const largest = Math.max(0, ...entries.map(([, , count]) => count));
+  const group = (title: string, filter: LedgerFilter, entries: Counted[]): LedgerGroup => {
+    const largest = Math.max(0, ...entries.map((entry) => entry.count));
     return {
       title,
       filter,
-      rows: entries.map(([label, value, count]) => ({
-        label,
-        value,
-        count,
-        share: total ? Math.round((count / total) * 100) : 0,
-        bar: largest ? (count / largest) * 100 : 0,
+      rows: entries.map((entry) => ({
+        ...entry,
+        share: total ? Math.round((entry.count / total) * 100) : 0,
+        bar: largest ? (entry.count / largest) * 100 : 0,
       })),
     };
   };
-  const named = (counts: Record<string, number> | undefined): Array<[string, string, number]> =>
-    Object.entries(counts ?? {}).map(([name, count]) => [name, name, count]);
+  const named = (counts: Record<string, number> | undefined): Counted[] =>
+    Object.entries(counts ?? {}).map(([name, count]) => ({ label: name, value: name, count }));
 
   return [
     group(
@@ -72,7 +76,7 @@ export function statisticsLedger(statistics: AssignmentStatistics): LedgerGroup[
       'date',
       Object.entries(statistics.assignmentsPerDate ?? {})
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, count]) => [getShortDate(date), date, count]),
+        .map(([date, count]) => ({ label: getShortDate(date), value: date, count })),
     ),
     group('Per section', 'section', named(statistics.assignmentsPerSection)),
     group('Per tier', 'tier', named(statistics.assignmentsPerTier)),
