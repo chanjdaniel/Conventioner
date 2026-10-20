@@ -23,7 +23,6 @@ Both work at phone width on Attendance.
 - The Result page and Attendance host the drawer, with the open vendor in the address as on Vendors.
   A placement change on the Result page reads the drawer's vendors again.
 - At the door, the drawer's notes changing re-reads the row's, so a first note shows under the row.
-- The Result page's link from a placement still sets `?vendor=`, which now opens the drawer there; `F02/S02` moves it to the search.
 
 ## Acceptance criteria
 

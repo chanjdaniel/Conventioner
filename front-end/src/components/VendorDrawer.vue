@@ -82,11 +82,14 @@ function notesChanged() {
 /** The notes as the drawer holds them, for a screen that writes one from beside it (E34/F02/S01). */
 defineExpose({ entryFor, loadNotes });
 
-/** Where to change this vendor's seat on a date; null where nothing can be changed (bug 30). */
+/**
+ * Where to change this vendor's seat on a date; null where nothing can be changed (bug 30). The
+ * results open searched to them on that date, so their table is the one shown (E35/F02/S02).
+ */
 function resultLinkFor(date: string): string | null {
   const id = props.market?.id;
   if (!id || !props.email || props.market?.readOnlyReason) return null;
-  const query = new URLSearchParams({ date, vendor: props.email });
+  const query = new URLSearchParams({ date, search: props.email });
   return `${marketPath(id, 'result')}?${query.toString()}`;
 }
 

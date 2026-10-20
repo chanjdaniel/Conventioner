@@ -34,8 +34,9 @@ export async function seedAssignedMarket(
    * `run: false` stops in the assignment phase with nothing run yet (E22/F04/S03). `tables` is how
    * many the one section has, 5 unless named: the plan is settled once the market leaves draft
    * (E31/F01/S01), so a spec wanting a smaller room asks for it here rather than shrinking it later.
+   * `dates` are the market's dates, a table on each open to every vendor; one unless named.
    */
-  options: { name?: string; run?: boolean; tables?: number } = {},
+  options: { name?: string; run?: boolean; tables?: number; dates?: string[] } = {},
 ): Promise<AssignedSeedResult> {
   const seed = await seedMarketWithVendors(request, baseURL, email, password, options);
 
@@ -43,7 +44,7 @@ export async function seedAssignedMarket(
   // setupObject used to carry their answers as spreadsheet cell values as well.
   const setupObject = {
     priority: [],
-    marketDates: [{ date: SEED_MARKET_DATE }],
+    marketDates: (options.dates ?? [SEED_MARKET_DATE]).map((date) => ({ date })),
     tiers: [{ id: 1, name: 'Gold' }],
     locations: [{ name: 'Main Hall' }],
     sections: [
@@ -55,7 +56,7 @@ export async function seedAssignedMarket(
       },
     ],
     assignmentOptions: {
-      maxAssignmentsPerVendor: 1,
+      maxAssignmentsPerVendor: options.dates?.length ?? 1,
       maxHalfTableProportionPerSection: 50,
     },
   };
