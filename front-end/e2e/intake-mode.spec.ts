@@ -1,10 +1,15 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
-import { seedApplicantMarket, type ApplicantMarketSeed } from './helpers/seedApplicantMarket';
+import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import {
+  createApplicantLoginChallenge,
+  seedApplicantMarket,
+  type ApplicantMarketSeed,
+} from './helpers/seedApplicantMarket';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import type { Page } from '@playwright/test';
 
 const SCREENSHOT_DIR = 'e2e-screenshots/intake-mode';
 const UNKNOWN_SLUG = 'no-such-market-at-all';
+const SIGNED_IN_VENDOR = 'signed-in-vendor@example.com';
 
 /**
  * What a visitor is shown at a route, with the slug they typed masked out.
@@ -58,6 +63,17 @@ test.describe('Intake mode - a CSV market has no public applicant surface', () =
       expect(gated).toBe(absent);
     });
   }
+
+  test('its sign-in page says the page does not exist, rather than taking an address', async ({
+    page,
+  }) => {
+    // It drew a sign-in form and answered "sent" for a code it never sends (E32/F03/S01).
+    for (const slug of [csvMarket.marketSlug, UNKNOWN_SLUG]) {
+      await page.goto(`/${slug}/applicant-login`);
+      await expect(page.getByTestId('applicant-login-not-found')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByTestId('applicant-login-email-input')).toHaveCount(0);
+    }
+  });
 
   test('the market home never confirms that the market exists', async ({ page }) => {
     await page.goto(`/${csvMarket.marketSlug}`);
@@ -116,5 +132,40 @@ test.describe('Intake mode - a form market keeps its applicant surface', () => {
 
     await expect(page.getByTestId('applicant-login-email-input')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('applicant-login-market')).toHaveText(formMarket.marketName);
+  });
+});
+
+test.describe('Intake mode - a market that stops serving applicants', () => {
+  test('reads to a vendor already signed in as it reads to a stranger', async ({
+    page,
+    request,
+  }) => {
+    const market = await seedApplicantMarket(
+      request,
+      BACKEND_URL,
+      TEST_USER.email,
+      TEST_USER.password,
+    );
+    const login = new ApplicantLoginPage(page);
+    await page.goto(`/${market.marketSlug}/applicant-login`);
+    await login.requestCode(SIGNED_IN_VENDOR);
+    createApplicantLoginChallenge(market.marketId, SIGNED_IN_VENDOR, '531642');
+    await login.enterCode('531642');
+    await page.waitForURL(new RegExp(`/${market.marketSlug}/(apply|applicant/dashboard)`));
+
+    // Nobody has applied, so the organizer may take the market back to draft, where it serves no
+    // applicant. The vendor's sign-in still holds; the pages it opened must not blame their
+    // connection for a market that is no longer there.
+    const back = await request.post(`${BACKEND_URL}/markets/${market.marketId}/transition`, {
+      headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
+      data: { toPhase: 'draft' },
+    });
+    expect(back.ok(), await back.text()).toBeTruthy();
+
+    for (const suffix of ['/apply', '/applicant/dashboard']) {
+      await page.goto(`/${market.marketSlug}${suffix}`);
+      await expect(page.getByTestId('page-not-found')).toBeVisible();
+      await expect(page.getByText('Check your connection')).toHaveCount(0);
+    }
   });
 });

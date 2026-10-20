@@ -398,6 +398,15 @@ class AssignmentObject(BaseModel):
     made_from: Optional[Dict[str, str]] = None
 
 
+class MappingAuthor(str, Enum):
+    """Who wrote a market's saved import mapping (E30/F02/S01)."""
+
+    #: The form started from the Google Form's responses (E24): its decisions are not the organizer's.
+    START = "start"
+    #: An import of the file, by the organizer.
+    IMPORT = "import"
+
+
 class ImportMapping(BaseModel):
     """How the organizer's CSV columns were mapped, kept so a re-import opens ready to confirm.
 
@@ -414,6 +423,10 @@ class ImportMapping(BaseModel):
     # target key -> raw cell value -> the market's own name for it, or None meaning "ignore".
     resolutions: Dict[str, Dict[str, Optional[str]]] = {}
     saved_at: Optional[str] = None
+    # Who wrote it. The import says which, because a first import that called the start's choices
+    # "your last import" and "one you chose to ignore" described decisions the organizer never made
+    # (E30/F02). A mapping saved before this was recorded was an import's: the start came later.
+    made_by: MappingAuthor = MappingAuthor.IMPORT
 
 
 class Market(BaseModel):

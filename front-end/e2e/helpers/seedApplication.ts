@@ -1,6 +1,5 @@
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mongoContainer } from './containerNames';
+import { mongoEval } from './mongo';
 
 /**
  * Insert an application document for a market, straight into Mongo.
@@ -11,7 +10,7 @@ import { mongoContainer } from './containerNames';
  * the only way to reach the locked state is to write the document the way that endpoint
  * eventually will: snake_case, matching the `Application` model in `datatypes.py`.
  *
- * Runs `mongosh` inside the stack's Mongo container, which the e2e suite already assumes
+ * Runs through `mongoEval` (`helpers/mongo.ts`), which assumes the stack's Mongo container
  * is running (`auth.spec.ts` reads reset tokens the same way).
  */
 /** "nadia@ember.test" -> "Nadia Ember", so a seeded vendor has a name and no two share one. */
@@ -40,19 +39,7 @@ export function seedApplication(
     updated_at: new Date().toISOString(),
   };
 
-  execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-      '--quiet',
-      '--eval',
-      `db.applications.insertOne(${JSON.stringify(application)})`,
-    ],
-    { encoding: 'utf-8' },
-  );
+  mongoEval(`db.applications.insertOne(${JSON.stringify(application)})`);
 
   return applicationId;
 }
@@ -111,19 +98,7 @@ export function seedApprovedVendor(
     updated_at: new Date().toISOString(),
   };
 
-  execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-      '--quiet',
-      '--eval',
-      `db.applications.insertOne(${JSON.stringify(application)})`,
-    ],
-    { encoding: 'utf-8' },
-  );
+  mongoEval(`db.applications.insertOne(${JSON.stringify(application)})`);
 
   return applicationId;
 }
@@ -142,17 +117,5 @@ export function setApplicationAnswer(
 ): void {
   const filter = { market_id: marketId, applicant_email: applicantEmail };
   const update = { $set: { [`form_data.${key}`]: value } };
-  execFileSync(
-    'docker',
-    [
-      'exec',
-      mongoContainer(),
-      'mongosh',
-      'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-      '--quiet',
-      '--eval',
-      `db.applications.updateOne(${JSON.stringify(filter)}, ${JSON.stringify(update)})`,
-    ],
-    { encoding: 'utf-8' },
-  );
+  mongoEval(`db.applications.updateOne(${JSON.stringify(filter)}, ${JSON.stringify(update)})`);
 }

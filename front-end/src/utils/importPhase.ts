@@ -29,7 +29,7 @@ export function importRefusal(phase: string | undefined | null): string | null {
   const current = String(phase ?? '');
   if (canImportInto(current)) return null;
   if (current === 'draft' || current === '') {
-    return 'This market is still a draft, so it is not taking applications yet. Open applications first, then import.';
+    return 'This market is still a draft, so it is not taking applications yet. Use Import responses on the phase rail first.';
   }
   const readable = current.replace(/_/g, ' ');
   // The way back only where the transition table has one (bug 42): this told a market in
@@ -37,7 +37,7 @@ export function importRefusal(phase: string | undefined | null): string | null {
   if (!reachable(current, WAY_BACK)) {
     return `This market is in the ${readable} phase, past review, so it takes no more applications and nothing more can be imported.`;
   }
-  return `This market is in the ${readable} phase, so importing would change who has applied while their applications are being decided. Use Return to Applications Closed, under More… on the phase rail, then import.`;
+  return `This market is in the ${readable} phase, so importing would change who has applied while their applications are being decided. Use Import more responses, under More… on the phase rail, then import.`;
 }
 
 /** Whether the transition table leads from one phase to another, archiving aside. */

@@ -6,6 +6,7 @@ import { marketSetupPath } from './helpers/marketScreens';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
+import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 
 /**
  * Where starting from a Google Form begins (E24/F04): at creation, and from a draft's Market Setup.
@@ -15,32 +16,40 @@ test.describe('I already have a Google Form, at creation', () => {
     await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   });
 
-  test('starting from scratch is still the default, and one click', async ({
+  test('nothing is chosen until the organizer says how vendors apply', async ({
     authenticatedPage: page,
   }) => {
+    // "Start from scratch" was preselected and set nothing, which put a new organizer on the CSV
+    // path - the server's fail-closed default - without their choosing it (E31/F03/S01).
     const dialog = new NewMarketPage(page);
     await page.goto('/markets');
     await page.getByTestId('markets-create-button').click();
     await dialog.waitForOverlay();
-    await expect(page.getByTestId('new-market-start-scratch').locator('input')).toBeChecked();
-    // The radio is the product's green, like the card edge around it - not the browser's blue.
-    const accent = await page
-      .getByTestId('new-market-start-scratch')
-      .locator('input')
-      .evaluate((input) => {
-        const probe = document.createElement('span');
-        probe.style.color = 'var(--mm-green)';
-        document.body.append(probe);
-        const green = getComputedStyle(probe).color;
-        probe.remove();
-        return { radio: getComputedStyle(input).accentColor, green };
-      });
-    expect(accent.radio).toBe(accent.green);
+    const ownPage = page.getByTestId('new-market-path-form').locator('input');
+    await expect(ownPage).not.toBeChecked();
+    await expect(page.getByTestId('new-market-path-csv').locator('input')).not.toBeChecked();
     await dialog.selectFirstOrg();
-    await dialog.fillMarketName(`Scratch E2E ${Date.now()}`);
+    await dialog.fillMarketName(`Own Page E2E ${Date.now()}`);
+    await expect(dialog.submitButton).toBeDisabled();
+
+    await dialog.choosePath('form');
+    // The radio is the product's green, like the card edge around it - not the browser's blue.
+    const accent = await ownPage.evaluate((input) => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--mm-green)';
+      document.body.append(probe);
+      const green = getComputedStyle(probe).color;
+      probe.remove();
+      return { radio: getComputedStyle(input).accentColor, green };
+    });
+    expect(accent.radio).toBe(accent.green);
     // Enter submits the dialog, as every dialog in the product does.
     await dialog.nameInput.press('Enter');
     await expect(page).toHaveURL(/\/markets\/[^/]+\/setup$/);
+    const marketId = new URL(page.url()).pathname.split('/')[2];
+    const market = (await (await page.request.get(`${BACKEND_URL}/markets/${marketId}`)).json())
+      .market;
+    expect(market.intakeMode).toBe('form');
   });
 
   test('a Google Form lands on its Upload step, and leaving there leaves a CSV draft', async ({
@@ -53,9 +62,9 @@ test.describe('I already have a Google Form, at creation', () => {
     await dialog.selectFirstOrg();
     await dialog.fillMarketName(`Google Form E2E ${Date.now()}`);
     // Reached by keyboard: the choice is a radio group.
-    await page.getByTestId('new-market-start-scratch').locator('input').focus();
+    await page.getByTestId('new-market-path-form').locator('input').focus();
     await page.keyboard.press('ArrowDown');
-    await expect(page.getByTestId('new-market-start-google-form').locator('input')).toBeChecked();
+    await expect(page.getByTestId('new-market-path-csv').locator('input')).toBeChecked();
     await dialog.clickSubmit();
 
     const flow = new StartFromCsvPage(page);
@@ -129,9 +138,14 @@ test.describe("Start from a draft's Market Setup", () => {
       TEST_USER.password,
     );
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
+    // Past draft the setup is settled (E31/F01/S03), so Market Setup offers no start at all and says
+    // why; the flow's own address still refuses in words.
     await page.goto(marketSetupPath(marketId));
-    await expect(page.getByTestId('plan-start-from-csv-disabled')).toBeDisabled();
-    await expect(page.getByTestId('plan-start-from-csv-reason')).toContainText('Only a draft');
+    await expect(page.getByTestId('market-read-only')).toContainText('The setup is settled');
+    await expect(page.getByTestId('plan-start-from-csv')).toHaveCount(0);
+    const flow = new StartFromCsvPage(page);
+    await flow.open(marketId);
+    await expect(flow.refused).toContainText('Only a draft');
   });
 
   test('a market whose vendors apply on its page keeps doing so', async ({
@@ -150,9 +164,10 @@ test.describe("Start from a draft's Market Setup", () => {
     await page.getByTestId('plan-start-from-csv-link').click();
     const flow = new StartFromCsvPage(page);
     await flow.chooseFile(join(CORPUS, 'fall-2023.csv'));
-    await flow.answerYear();
+    await flow.answerYear(UPCOMING_YEAR['fall-2023']);
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+    await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
 
     const market = (await (await page.request.get(`${BACKEND_URL}/markets/${marketId}`)).json())
       .market;

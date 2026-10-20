@@ -47,6 +47,14 @@ export class NewMarketPage {
     await this.nameInput.fill(name);
   }
 
+  /**
+   * Say how vendors will apply. Nothing is chosen until this is (E31/F03/S01): on the market's own
+   * page lands on Market Setup, on the organizer's Google Form on its Upload step.
+   */
+  async choosePath(path: 'form' | 'csv'): Promise<void> {
+    await this.page.getByTestId(`new-market-path-${path}`).locator('input').check();
+  }
+
   /** Click the submit button to create the market. */
   async clickSubmit(): Promise<void> {
     await this.submitButton.click();
@@ -58,7 +66,11 @@ export class NewMarketPage {
    * only after another spec had given the test user a second organization.
    */
   async selectFirstOrg(): Promise<void> {
-    await this.orgSelect.or(this.orgOnly).waitFor({ state: 'visible', timeout: 5000 });
+    // Wait for the organizations to have loaded: the dropdown is drawn disabled until they have,
+    // and becomes the single organization's name when there is only one. Reading "not the only
+    // one" off the loading dropdown chose from a control about to be replaced.
+    const loaded = this.orgSelect.and(this.page.locator(':enabled'));
+    await loaded.or(this.orgOnly).waitFor({ state: 'visible', timeout: 5000 });
     if (await this.orgOnly.isVisible()) return;
     await this.orgSelect.selectOption({ index: 1 });
   }

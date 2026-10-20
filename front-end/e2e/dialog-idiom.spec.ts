@@ -57,8 +57,12 @@ test.describe('The create-market dialog is the dialog idiom', () => {
     await dialog.nameInput.press('Enter');
     await expect(dialog.nameInput).toBeVisible();
 
-    // Both answered, and now Enter does exactly what the button does.
+    // An organization, but not yet how vendors apply (E31/F03/S01): still inert.
     await dialog.selectFirstOrg();
+    await expect(dialog.submitButton).toBeDisabled();
+
+    // Everything answered, and now Enter does exactly what the button does.
+    await dialog.choosePath('form');
     await expect(dialog.submitButton).toBeEnabled();
     await dialog.nameInput.press('Enter');
     await dialog.waitForSetupRedirect();
@@ -106,6 +110,7 @@ test.describe('The create-market dialog is the dialog idiom', () => {
 
     await dialog.fillMarketName(taken);
     await dialog.selectFirstOrg();
+    await dialog.choosePath('form');
     await dialog.clickSubmit();
     await expect(dialog.errorMessage).toBeVisible();
 
@@ -167,8 +172,10 @@ test.describe('The create-market dialog with exactly one organization', () => {
     await expect(dialog.orgOnly).toHaveText('The Only Org');
     await expect(dialog.orgSelect).toHaveCount(0);
 
-    // And it is chosen, so the only thing left to do is name the market and press Enter.
+    // And it is chosen, so all that is left is to name the market, say how vendors apply, and press
+    // Enter.
     await dialog.fillMarketName(`One Org Market ${Date.now()}`);
+    await dialog.choosePath('form');
     await expect(dialog.submitButton).toBeEnabled();
     await dialog.nameInput.press('Enter');
     await dialog.waitForSetupRedirect();

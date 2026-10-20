@@ -14,6 +14,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
 from utils.identity import authenticated_email
+import api.users as UsersApi
 from bson import ObjectId
 
 from db_config import get_database
@@ -34,12 +35,7 @@ def _get_request_user():
     Returns their user document, or None when no such user exists. Every route that calls this
     carries ``@login_required``, so the session is always present by the time it runs.
     """
-    email = authenticated_email()
-    users_collection = db["users"]
-    user_doc = users_collection.find_one({"email": email})
-    if user_doc:
-        user_doc["_id"] = str(user_doc["_id"])
-    return user_doc
+    return UsersApi.get_user_raw(authenticated_email())
 
 
 def _doc_to_response(doc: dict) -> dict:

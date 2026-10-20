@@ -91,13 +91,16 @@ class TestOnlyARankingMayBeDeclared:
     def test_the_solver_never_filters_on_what_may_be_declared(self):
         """The property that makes the limit correct, asserted rather than trusted to a comment.
 
-        Every declarable key is a ranking, and a ranking is the only kind of essential answer the
-        solver treats as a preference rather than a constraint.
+        Every declarable key is a ranking - the only kind of essential answer the solver treats as
+        a preference rather than a constraint - or one the solver never reads at all (the vendor's
+        request, E31/F04/S01).
         """
         assert set(EF.UNASKABLE_ESSENTIAL_KEYS) == {
             EF.SECTION_RANKING_KEY,
             EF.TABLE_TYPE_RANKING_KEY,
+            EF.REQUEST_KEY,
         }
+        assert EF.REQUEST_KEY not in EF.SOLVER_RELEVANT_KEYS
 
 
 ANSWERS_WITHOUT_A_SECTION_RANKING = {

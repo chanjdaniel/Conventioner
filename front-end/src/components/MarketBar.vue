@@ -14,11 +14,10 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import type { Market } from '@/assets/types/datatypes';
 import { marketPath } from '@/utils/market';
+import { currentPage, intakeModeOf, pageForTab, pathTabLabel } from '@/utils/marketGuide';
 import {
   TAB_LABELS,
-  currentPage,
   hasAssignment,
-  pageForTab,
   pageOfRoute,
   tabOf,
   tabsFor,
@@ -35,8 +34,9 @@ const assigned = computed(() => hasAssignment(props.market));
 const current = computed(() => currentPage(props.market?.phase, assigned.value));
 const activeTab = computed(() => (here.value ? tabOf(here.value) : null));
 
-/** Attendance once the market runs, and after only if it did. */
-const tabs = computed((): MarketTab[] => tabsFor(props.market));
+/** The same five tabs in every phase (E31/F03/S02). */
+const tabs = computed((): MarketTab[] => tabsFor());
+const path = computed(() => intakeModeOf(props.market));
 
 function linkFor(tab: MarketTab): string {
   return marketPath(props.market!.id, pageForTab(tab, props.market?.phase, assigned.value));
@@ -60,7 +60,7 @@ function linkFor(tab: MarketTab): string {
           :aria-current="tabOf(current) === tab ? 'step' : undefined"
           :data-testid="`market-bar-tab-${tab}`"
         >
-          {{ TAB_LABELS[tab]
+          {{ pathTabLabel(tab, path, TAB_LABELS)
           }}<span
             v-if="tabOf(current) === tab"
             class="current-dot"

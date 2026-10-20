@@ -17,7 +17,7 @@ import { seedApprovedVendor } from './helpers/seedApplication';
  * The ruling the module itself records says an applicant may sign in during any phase and always
  * see their own application; applying stays open-only.
  */
-const DATE = '2026-08-01';
+const DATE = '2099-08-01';
 const VENDOR = 'returning-vendor@example.com';
 const CODE = '864213';
 

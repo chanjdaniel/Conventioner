@@ -118,7 +118,15 @@ const submitLogin = async () => {
   }
 };
 
+/**
+ * A signup in flight (E32/F03/S04). A double click sent two, and before the server held one
+ * account per address that made two accounts and two verification emails. The form's submit is
+ * the one way in (Enter and the button alike), so guarding it here guards both.
+ */
+const registering = ref(false);
+
 const submitRegister = async () => {
+  if (registering.value) return;
   registerErrorMessage.value = '';
   registerSuccessMessage.value = '';
 
@@ -138,6 +146,7 @@ const submitRegister = async () => {
     return;
   }
 
+  registering.value = true;
   try {
     // Get CAPTCHA token
     const captchaToken = await executeRecaptcha('register');
@@ -179,6 +188,8 @@ const submitRegister = async () => {
     } else {
       registerErrorMessage.value = 'An error occurred. Please try again.';
     }
+  } finally {
+    registering.value = false;
   }
 };
 
@@ -453,6 +464,7 @@ const submitOTPLogin = async () => {
           <button
             type="submit"
             class="btn btn--primary submit-button"
+            :disabled="registering"
             data-testid="login-register-submit-button"
           >
             Create account

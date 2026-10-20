@@ -279,6 +279,7 @@ class TestValidatedEssentialAnswers:
             "essential_table_share_also": [],
             "essential_section_ranking": [],
             "essential_table_type_ranking": [],
+            "essential_request": "",
         }
 
 
@@ -910,3 +911,31 @@ class TestWhichQuestionsAnOfferingAsks:
         # The table-share addresses are solver-read and never required (E27 split them in two).
         share = {EssentialFields.TABLE_SHARE_EMAIL_KEY, EssentialFields.TABLE_SHARE_ALSO_KEY}
         assert required | share == solver | {EssentialFields.FULL_NAME_KEY}
+
+
+class TestTheVendorsRequest:
+    """What a vendor needs beyond their table, in their own words (E31/F04/S01)."""
+
+    def test_it_is_asked_of_everyone_and_kept_as_written(self):
+        error, stored = EssentialFields.validated_essential_answers(
+            {**A_NAME, "essential_request": "  An extra chair, please  "}, EssentialFormOptions())
+
+        assert error is None
+        assert stored["essential_request"] == "An extra chair, please"
+
+    def test_it_is_never_required(self):
+        assert "essential_request" not in EssentialFields.REQUIRED_ESSENTIAL_KEYS
+
+    def test_an_organizer_may_switch_it_off_and_then_nothing_is_kept(self):
+        options = EssentialFormOptions(unasked=["essential_request"])
+
+        error, stored = EssentialFields.validated_essential_answers(
+            {**A_NAME, "essential_request": "A chair"}, options)
+
+        assert error is None
+        assert stored["essential_request"] == ""
+        assert "essential_request" not in EssentialFields.asked_essential_keys(options)
+
+    def test_asking_it_does_not_make_a_form_that_asks_nothing_ask_something(self):
+        assert "essential_request" not in EssentialFields.plan_derived_asked_keys(
+            EssentialFormOptions())

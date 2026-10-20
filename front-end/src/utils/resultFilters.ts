@@ -231,3 +231,26 @@ export function offeredFilters(filters: ResultFilters, offered: ResultFilterName
   }
   return kept;
 }
+
+/**
+ * A date's sections in the order the plan ranks them: by tier first, as the plan orders its tiers,
+ * then as the plan lists its sections. By name, "Courtyard (Bronze)" led a market whose Gold tables
+ * were its first (E30/F01/S05). Anything the plan does not name follows, by name.
+ */
+export function sectionsInPlanOrder<T extends { section: string; tier?: string }>(
+  groups: T[],
+  plan: { tiers?: { name: string }[]; sections?: { name: string }[] } | null | undefined,
+): T[] {
+  const rank = (names: string[], name: string | undefined) => {
+    const at = name === undefined ? -1 : names.indexOf(name);
+    return at === -1 ? names.length : at;
+  };
+  const tiers = (plan?.tiers ?? []).map((tier) => tier.name);
+  const sections = (plan?.sections ?? []).map((section) => section.name);
+  return [...groups].sort(
+    (a, b) =>
+      rank(tiers, a.tier) - rank(tiers, b.tier) ||
+      rank(sections, a.section) - rank(sections, b.section) ||
+      a.section.localeCompare(b.section),
+  );
+}

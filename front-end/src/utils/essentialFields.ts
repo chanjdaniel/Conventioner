@@ -39,6 +39,12 @@ export const TABLE_SHARE_ANSWER_KEY = 'essential_table_share_answer';
 export const TABLE_SHARE_ALSO_KEY = 'essential_table_share_also';
 export const SECTION_RANKING_KEY = 'essential_section_ranking';
 export const TABLE_TYPE_RANKING_KEY = 'essential_table_type_ranking';
+/**
+ * What the vendor needs beyond their table, in their own words (E31/F04/S01). Asked of everyone
+ * unless the organizer switches it off, never required, never read by the solver. Mirrors
+ * `REQUEST_KEY` in `back-end/essential_fields.py`.
+ */
+export const REQUEST_KEY = 'essential_request';
 
 export const FULL_NAME_LABEL = 'Full name';
 export const PREFERRED_NAME_LABEL = 'Preferred name';
@@ -47,6 +53,7 @@ export const MAX_DATES_LABEL = 'Number of dates you want';
 export const TIER_PREFERENCE_LABEL = 'Tier preference';
 export const TABLE_CHOICE_LABEL = 'Table choice';
 export const TABLE_SHARE_EMAIL_LABEL = 'Table-share partner';
+export const REQUEST_LABEL = 'Anything else you need from us?';
 
 /**
  * Every table holds one full-table vendor or two halves, so these three are the whole space.
@@ -94,6 +101,8 @@ export const EMPTY_ESSENTIAL_OPTIONS: EssentialFormOptions = {
 export const UNASKABLE_ESSENTIAL_KEYS: readonly string[] = [
   SECTION_RANKING_KEY,
   TABLE_TYPE_RANKING_KEY,
+  // Not a ranking, but the solver never reads it, so leaving it unasked changes nothing it decides.
+  REQUEST_KEY,
 ];
 
 /**
@@ -241,6 +250,7 @@ const ESSENTIAL_ORDER: ReadonlyArray<[string, string, (value: unknown) => unknow
     TABLE_TYPE_RANKING_LABEL,
     (v) => (Array.isArray(v) ? v.map((t, i) => `${i + 1}. ${t}`) : v),
   ],
+  [REQUEST_KEY, REQUEST_LABEL, (v) => v],
 ];
 
 /** An essential question's label, by its key; the key itself for one this build does not know. */

@@ -15,6 +15,8 @@ export interface ValueFix {
   /** How many rows hold it, when known. */
   rows?: number;
   offered: string[];
+  /** Who decided it, when that was not the organizer: "set aside when your form was started". */
+  decidedBy?: string;
 }
 
 const props = withDefaults(
@@ -53,6 +55,21 @@ const shown = computed(() =>
   props.decided && !expanded.value ? props.entries.slice(0, FIRST_DECIDED) : props.entries,
 );
 
+/**
+ * Whose decisions these are, said once for the list: a market started from its Google Form can
+ * carry a hundred of the start's, and a note on each buried the values (E30/F02/S01).
+ */
+const decidedTitle = computed(() => {
+  const count = props.entries.length;
+  const values = `${count} value${count === 1 ? '' : 's'}`;
+  const by = new Set(props.entries.map((entry) => entry.decidedBy));
+  const [only] = by;
+  if (by.size === 1 && only) return `${values} ${only}`;
+  const theirs = props.entries.filter((entry) => entry.decidedBy).length;
+  if (theirs === 0) return `${values} already decided`;
+  return `${values} already decided, ${theirs} when your form was started`;
+});
+
 function choose(entry: ValueFix, event: Event) {
   emit('resolve', entry.target, entry.value, (event.target as HTMLSelectElement).value);
 }
@@ -64,9 +81,8 @@ function choose(entry: ValueFix, event: Event) {
     :class="{ 'ledger-fixes--decided': decided }"
     :data-testid="`${testid}-value-fixes`"
   >
-    <p v-if="decided" class="ledger-fixes-title">
-      {{ entries.length }} value{{ entries.length === 1 ? '' : 's' }} already decided - change any
-      that are wrong
+    <p v-if="decided" class="ledger-fixes-title" :data-testid="`${testid}-title`">
+      {{ decidedTitle }} - change any that are wrong
     </p>
     <p v-else class="ledger-fixes-title">
       {{ entries.length }} value{{ entries.length === 1 ? '' : 's' }} did not match
@@ -145,8 +161,10 @@ function choose(entry: ValueFix, event: Event) {
   background: var(--mm-beige);
 }
 
-.ledger-fixes--decided .ledger-fixes-title {
-  color: var(--mm-text-muted);
+/* Muted on beige needs the beige's own muted ink to stay AA (E31/F04). */
+.ledger-fixes--decided .ledger-fixes-title,
+.ledger-fixes--decided .ledger-fix-rows {
+  color: var(--mm-text-muted-on-beige);
 }
 
 .ledger-fixes--decided .ledger-fix code {

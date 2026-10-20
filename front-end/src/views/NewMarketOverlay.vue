@@ -40,22 +40,24 @@ const errorMessage = ref('');
 const creating = ref(false);
 
 /**
- * How the organizer starts. From scratch is today's path and the default, so creating a market is
- * one click as before; an organizer who already collects applications with their own Google Form
- * starts from its responses instead, which is also how vendors will reach this market - by CSV.
+ * How vendors will apply, asked with nothing chosen (E31/F03/S01).
+ *
+ * The two paths differ in tabs, words and steps from draft on, so the market is on one from its
+ * first screen. "Start from scratch" used to be preselected and set nothing, which left a new
+ * organizer on the CSV path - the server's fail-closed default - without having chosen it. The
+ * answer stays changeable on Market Setup while the market is a draft.
  */
-type Start = 'scratch' | 'google-form';
-const start = ref<Start>('scratch');
-const STARTS: Array<{ value: Start; label: string; help: string }> = [
+const path = ref<IntakeMode | ''>('');
+const PATHS: Array<{ value: IntakeMode; label: string; help: string }> = [
   {
-    value: 'scratch',
-    label: 'Start from scratch',
-    help: 'Plan the market and write its application form here.',
+    value: IntakeMode.Form,
+    label: "On this market's own page",
+    help: 'Plan the market and write its application form here; vendors apply on its page.',
   },
   {
-    value: 'google-form',
-    label: 'I already have a Google Form',
-    help: "Upload its responses, and we'll set up the plan and the form from them.",
+    value: IntakeMode.Csv,
+    label: 'On my own Google Form',
+    help: "You import its responses. Upload them now, and we'll set up the plan and the form from them.",
   },
 ];
 
@@ -68,7 +70,7 @@ watch(selectedOrgId, () => {
  * no key handler is involved. The same guard the button wears is the one Enter meets.
  */
 const cannotCreate = computed(
-  () => creating.value || !selectedOrgId.value || !marketName.value.trim(),
+  () => creating.value || !selectedOrgId.value || !marketName.value.trim() || !path.value,
 );
 
 const handleSubmit = async () => {
@@ -84,7 +86,7 @@ const handleSubmit = async () => {
       isDraft: true,
       organizationId: selectedOrgId.value,
       setupObject: null,
-      ...(start.value === 'google-form' ? { intakeMode: IntakeMode.Csv } : {}),
+      intakeMode: path.value as IntakeMode,
       modificationList: [],
       assignmentObject: {
         vendorAssignments: [],
@@ -98,9 +100,9 @@ const handleSubmit = async () => {
     const createResponse = await api.post('/markets', newMarket);
     const marketId = createResponse.data.market_id;
 
-    // A new market is a draft, and a draft is planned first - or, started from a Google Form,
-    // read from its responses first.
-    router.push(marketPath(marketId, start.value === 'google-form' ? 'start-from-csv' : 'setup'));
+    // A new market is a draft, and a draft is planned first - or, on a Google Form, read from its
+    // responses first.
+    router.push(marketPath(marketId, path.value === IntakeMode.Csv ? 'start-from-csv' : 'setup'));
   } catch (error) {
     if (
       axios.isAxiosError(error) &&
@@ -159,15 +161,15 @@ const handleSubmit = async () => {
     </div>
 
     <fieldset class="dialog-field starts">
-      <legend class="field-label">How do you want to start?</legend>
+      <legend class="field-label">How will vendors apply?</legend>
       <label
-        v-for="choice in STARTS"
+        v-for="choice in PATHS"
         :key="choice.value"
         class="choice-card"
-        :class="{ chosen: start === choice.value }"
-        :data-testid="`new-market-start-${choice.value}`"
+        :class="{ chosen: path === choice.value }"
+        :data-testid="`new-market-path-${choice.value}`"
       >
-        <input v-model="start" type="radio" name="new-market-start" :value="choice.value" />
+        <input v-model="path" type="radio" name="new-market-path" :value="choice.value" />
         <span class="choice-card-text">
           <span class="choice-card-label">{{ choice.label }}</span>
           <span class="choice-card-help">{{ choice.help }}</span>

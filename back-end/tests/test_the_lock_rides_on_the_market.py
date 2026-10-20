@@ -32,8 +32,9 @@ class FakeMarketsCollection:
         return dict(self.doc) if query.get("id") == self.doc["id"] else None
 
 
-def _stored(phase: MarketPhase) -> dict:
+def _stored(phase: MarketPhase, intake_mode: str = "csv") -> dict:
     return {
+        "intakeMode": intake_mode,
         "_id": "mongo-m1",
         "id": "m1",
         "name": "Riverside",
@@ -57,8 +58,9 @@ def serve(monkeypatch, applications):
         PermissionsApi, "get_user_market_role", lambda *_args, **_kwargs: MarketRole.OWNER
     )
 
-    def read(phase: MarketPhase, applications_submitted: int = 0) -> dict:
-        monkeypatch.setattr(MarketsApi, "markets_collection", FakeMarketsCollection(_stored(phase)))
+    def read(phase: MarketPhase, applications_submitted: int = 0, intake_mode: str = "csv") -> dict:
+        monkeypatch.setattr(
+            MarketsApi, "markets_collection", FakeMarketsCollection(_stored(phase, intake_mode)))
         applications.count = applications_submitted
         return MarketsApi.get_market_for_user(USER_EMAIL, "m1")
 
@@ -76,12 +78,19 @@ def test_a_draft_somebody_has_applied_to_is_locked_for_good(serve):
 
 
 @pytest.mark.parametrize(
-    "phase", [phase for phase in MarketPhase if phase != MarketPhase.DRAFT]
+    "phase",
+    [phase for phase in MarketPhase if phase not in (MarketPhase.DRAFT, MarketPhase.ARCHIVED)],
 )
-def test_every_phase_after_draft_is_locked_and_says_which(serve, phase):
-    reason = serve(phase)["applicationFormLockReason"]
+def test_every_phase_after_draft_is_locked_in_the_words_of_its_path(serve, phase):
+    """A form market's applicants answer its form; a CSV market's imports are mapped onto its
+    questions, and it never opened applications - it collects on its Google Form (E31/F03/S02)."""
+    form = serve(phase, intake_mode="form")["applicationFormLockReason"]
+    csv = serve(phase, intake_mode="csv")["applicationFormLockReason"]
 
-    assert "only be edited while the market is in draft" in reason
+    assert form.startswith("The application form is fixed")
+    assert "once applications have opened" in form
+    assert csv.startswith("The questions are fixed")
+    assert "once the market has moved on to importing" in csv
 
 
 def test_it_cannot_be_written(monkeypatch):
@@ -99,7 +108,14 @@ def test_it_cannot_be_written(monkeypatch):
     "phase", [MarketPhase.OFFERS, MarketPhase.MARKET_DAYS, MarketPhase.ARCHIVED]
 )
 def test_once_the_assignment_is_settled_the_rules_say_so(serve, phase):
-    assert "settled" in serve(phase)["assignmentRulesLockReason"]
+    reason = serve(phase)["assignmentRulesLockReason"]
+    assert ("archived" if phase is MarketPhase.ARCHIVED else "settled") in reason
+
+
+def test_an_archived_markets_form_says_it_is_archived(serve):
+    """Not that it may be edited in draft, which an archived market never will be (E30/F01/S02)."""
+    reason = serve(MarketPhase.ARCHIVED)["applicationFormLockReason"]
+    assert reason == MarketsApi.ARCHIVED_REFUSAL
 
 
 @pytest.mark.parametrize(

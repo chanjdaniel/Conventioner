@@ -14,6 +14,9 @@
  *   Which is which is read off the spine, not special-cased per phase.
  * - **The check-in URL.** Publishing puts a public page on the air and nothing in the product has
  *   ever told the organizer that URL exists (`E10/F01/S02`).
+ * - **The next step** (E31/F02/S02). One sentence for the market's phase and intake path, from
+ *   `utils/marketGuide.ts`, linking to where it is done. A move the server would refuse is drawn
+ *   disabled and the sentence is its first blocker, so the rail says no before the click.
  *
  * Sized for 1920x1080, which is the target: the prototype measured the labelled spine against a
  * 69-character check-in URL and found it clean at and above 1440, colliding below. Narrower than
@@ -21,6 +24,8 @@
  * than a rail two lines tall.
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { hasAssignment } from '@/utils/marketPage';
 import type { Market, PreconditionResult } from '@/assets/types/datatypes';
 import { IntakeMode, MarketPhase } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
@@ -28,13 +33,19 @@ import { useMarketStore } from '@/stores/market';
 import BlockerPanel from '@/components/BlockerPanel.vue';
 import { useEscapeToClose } from '@/utils/useEscapeToClose';
 import AppDialog from '@/components/AppDialog.vue';
+import { marketPath, resolutionPath } from '@/utils/market';
 import {
-  VALID_TRANSITIONS,
-  phaseLabel,
-  phaseSpine,
-  transitionDirection,
-  transitionNeedsConfirmation,
-} from '@/utils/phase';
+  blockersFor,
+  forwardFrom,
+  intakeModeOf,
+  landingPage,
+  movesOf,
+  nextStep,
+  pathPhaseLabel,
+  pathTransitionLabel,
+  spineFor,
+} from '@/utils/marketGuide';
+import { OFF_SPINE_PHASES, transitionDirection, transitionNeedsConfirmation } from '@/utils/phase';
 
 const props = defineProps<{
   market: Market | null;
@@ -49,30 +60,13 @@ const props = defineProps<{
   beforeTransition?: () => Promise<void> | void;
 }>();
 
-/** Said after a transition lands and the store has re-read the market. */
-const emit = defineEmits<{ phaseAdvanced: [] }>();
 const marketStore = useMarketStore();
+const router = useRouter();
 
-const lifecycle = phaseSpine();
 const currentPhase = computed(() => props.market?.phase ?? MarketPhase.Draft);
 
-/**
- * The stages this market's rail draws.
- *
- * Normally the lifecycle, which leaves `offers` off - nothing sets `assignment_sent`, so drawing
- * it would show a stage no market will reach. A market that IS in such a phase is the exception,
- * and it gets its stage back, at the place the transition table puts it: a rail with no marker on
- * it says nothing about where the market stands, which is worse than one extra step that only
- * that market ever sees.
- */
-const spine = computed(() => {
-  if (lifecycle.includes(currentPhase.value)) return lifecycle;
-  const arrivedFrom = VALID_TRANSITIONS.find(
-    ([from, to]) => to === currentPhase.value && lifecycle.includes(from),
-  );
-  const at = arrivedFrom ? lifecycle.indexOf(arrivedFrom[0]) + 1 : lifecycle.length - 1;
-  return [...lifecycle.slice(0, at), currentPhase.value, ...lifecycle.slice(at)];
-});
+/** The stages this market's rail draws (`spineFor` says why `offers` is usually not one). */
+const spine = computed(() => spineFor(currentPhase.value, props.market?.phasesPassedThrough));
 
 const currentIndex = computed(() => spine.value.indexOf(currentPhase.value));
 const isArchived = computed(() => currentPhase.value === MarketPhase.Archived);
@@ -143,9 +137,14 @@ function stepState(index: number): 'done' | 'current' | 'todo' | 'frozen' {
 
 // ── The check-in URL (E10/F01/S02) ────────────────────────────────────────────
 
-/** Only a published market has one. Before that it would be a link to a 404. */
+/**
+ * Only a published market has one. Before that it would be a link to a 404. An archived market
+ * that ran keeps it: the page stays up as the record its archive dialog promises (E30/F01/S03).
+ */
 const checkInUrl = computed(() => {
-  if (currentPhase.value !== MarketPhase.MarketDays) return '';
+  const running = currentPhase.value === MarketPhase.MarketDays;
+  const aRecord = isArchived.value && reached.value.has(MarketPhase.MarketDays);
+  if (!running && !aRecord) return '';
   const slug = props.market?.slug;
   if (!slug) return '';
   return `${window.location.origin}/${slug}/check-in`;
@@ -173,7 +172,8 @@ const checkInUrl = computed(() => {
  */
 const applyUrl = computed(() => {
   if (props.market?.intakeMode !== IntakeMode.Form) return '';
-  if (currentPhase.value === MarketPhase.Draft) return '';
+  // Archived, the page takes nobody anywhere: the check-in record is the address that stays.
+  if (currentPhase.value === MarketPhase.Draft || isArchived.value) return '';
   const slug = props.market?.slug;
   if (!slug) return '';
   return `${window.location.origin}/${slug}/apply`;
@@ -207,32 +207,35 @@ async function copyUrl(url: string): Promise<void> {
 
 // ── The actions ───────────────────────────────────────────────────────────────
 
-const TRANSITION_LABELS: Record<string, string> = {
-  [MarketPhase.Draft]: 'Reopen for Editing',
-  [MarketPhase.ApplicationsOpen]: 'Open Applications',
-  [MarketPhase.ApplicationsClosed]: 'Close Applications',
-  [MarketPhase.Review]: 'Begin Review',
-  [MarketPhase.Assignment]: 'Begin Assignment',
-  [MarketPhase.Offers]: 'Send Offers',
-  [MarketPhase.MarketDays]: 'Publish Market',
-  [MarketPhase.Archived]: 'Archive Market',
-};
+const path = computed(() => intakeModeOf(props.market));
 
-function transitionLabel(toPhase: string): string {
-  if (toPhase === MarketPhase.Archived) return 'Archive Market';
-  // Named for what the organizer wants to do, not for the phase. Going back to draft exists so
-  // the application form becomes editable again.
-  if (toPhase === MarketPhase.Draft) return 'Reopen for Editing';
-  if (toPhase === MarketPhase.ApplicationsOpen) {
-    return currentPhase.value === MarketPhase.Draft ? 'Open Applications' : 'Reopen Applications';
-  }
-  if (toPhase === MarketPhase.ApplicationsClosed) {
-    return currentPhase.value === MarketPhase.ApplicationsOpen
-      ? 'Close Applications'
-      : 'Return to Applications Closed';
-  }
-  return TRANSITION_LABELS[toPhase] ?? `Move to ${phaseLabel(toPhase)}`;
+/** A stage as this market's path names it: a CSV market imports its Google Form. */
+function phaseLabel(phase: string): string {
+  return pathPhaseLabel(phase, path.value);
 }
+
+/** A move as this market's path names it, for what the organizer wants to do. */
+function transitionLabel(toPhase: string): string {
+  return pathTransitionLabel(currentPhase.value, toPhase, path.value);
+}
+
+/** What would refuse a move, as the market read served it; the first is the one said. */
+function firstBlocker(toPhase: string): PreconditionResult | null {
+  return props.market ? (blockersFor(props.market, toPhase)[0] ?? null) : null;
+}
+
+/** The rail's sentence: the next step, or why it cannot be taken yet. */
+const step = computed(() => (props.market ? nextStep(props.market) : null));
+const route = useRoute();
+/** A page of this market as an address, unless it is the one the organizer is already on. */
+function elsewhere(relative: string | null | undefined): string | null {
+  if (!props.market || !relative) return null;
+  const link = resolutionPath(props.market.id, relative);
+  return route?.path === link ? null : link;
+}
+
+/** Where the step is done, unless that is where the organizer already is. */
+const stepLink = computed(() => elsewhere(step.value?.page));
 
 /**
  * The moves this person may make. None when moving the phase is not theirs to do (bug 37): an
@@ -241,17 +244,38 @@ function transitionLabel(toPhase: string): string {
  */
 const availableTransitions = computed(() =>
   props.market && !props.market.adminActionsReason
-    ? VALID_TRANSITIONS.filter(([from]) => from === currentPhase.value).map(([, to]) => to)
+    ? movesOf(props.market).filter(
+        // The moves the server judged for the market's own path, which may step through a phase it
+        // never stops in (E32/F02/S01). Never into a phase the spine leaves out: nothing can get a
+        // market there, so "Send Offers" sat in the menu and always refused (E30/F01/S04). A
+        // market in one keeps its ways out, which are not into it.
+        (to) => !OFF_SPINE_PHASES.includes(to),
+      )
     : [],
 );
 
-/** The one step onward, when there is one. Everything else goes in the menu. */
-const forwardTransition = computed(
-  () =>
-    availableTransitions.value.find(
-      (to) => transitionDirection(currentPhase.value, to, spine.value) === 'forward',
-    ) ?? null,
-);
+/**
+ * The one step onward, when there is one. Everything else goes in the menu. Read from the guide,
+ * so a running market whose last day has passed is offered archiving here (E31/F02/S03).
+ */
+const forwardTransition = computed(() => {
+  const forward = props.market ? forwardFrom(props.market) : null;
+  return forward && availableTransitions.value.includes(forward) ? forward : null;
+});
+
+/**
+ * The work the step onward waits on, as the rail's main button (E32/F01/S02): named by the guard
+ * that refuses it ("Add a location") and leading to the page that resolves it. Only for someone who
+ * may make the move, and not on that page itself, where the work is already in front of them. A
+ * reason no one page resolves has no fix to offer, and the sentence says it.
+ */
+const fix = computed(() => {
+  // The move's own first blocker, the one its disabled state is read from - not the sentence's,
+  // which before a run says "run the assignment" in its own words and names no blocker.
+  const blocker = forwardTransition.value ? firstBlocker(forwardTransition.value) : null;
+  const to = elsewhere(blocker?.resolutionLink);
+  return blocker?.resolutionLabel && to ? { label: blocker.resolutionLabel, to } : null;
+});
 
 const otherTransitions = computed(() =>
   availableTransitions.value.filter((to) => to !== forwardTransition.value),
@@ -349,7 +373,6 @@ async function doTransition(toPhase: string) {
     // fetch its own copy, write it into `localStorage` and hand it to the screen to splice in;
     // every screen shows the market from the store now, so the re-read is all any of them needs.
     await marketStore.refresh();
-    emit('phaseAdvanced');
   } catch (err: unknown) {
     const response =
       err && typeof err === 'object' && 'response' in err
@@ -368,9 +391,22 @@ async function doTransition(toPhase: string) {
     } else {
       transitionError.value = response?.data?.error || 'Failed to advance market phase.';
     }
+    return;
   } finally {
     transitioning.value = false;
   }
+  // A move is the next step, so it lands where that step's work is (E32/F01/S01): the guide's page
+  // for the phase entered, which the market's own address and the tab's dot already name. Begin
+  // Review once left the import's result on screen, and Publish never reached the door. Outside the
+  // `try`, so a navigation that goes wrong is never reported as a move that failed.
+  //
+  // Read off the phase moved to rather than the re-read market's: the move is done once the server
+  // answered, and a re-read that failed in transit leaves the store holding the market as it was
+  // before it. Whether a run is stored, which no move changes, can come from either.
+  const moved = marketStore.market ?? props.market;
+  await router.push(
+    marketPath(props.market.id, landingPage(toPhase, hasAssignment(moved), path.value)),
+  );
 }
 
 function handleTransitionClick(toPhase: string) {
@@ -419,7 +455,13 @@ function cancelPending() {
       <!-- The rail's end: the public addresses and the actions travel together, so a row that cannot
            hold them all gives them a second row of their own rather than leaving a lone button
            beside an empty band (bug 11, claims-and-room 07). -->
-      <div class="phase-rail-end" :class="{ 'phase-rail-end--addresses': applyUrl || checkInUrl }">
+      <div
+        class="phase-rail-end"
+        :class="{
+          'phase-rail-end--addresses': applyUrl || checkInUrl,
+          'phase-rail-end--both': applyUrl && checkInUrl,
+        }"
+      >
         <!-- Publishing put a public page on the air and nothing has ever said so (E10/F01/S02). -->
         <div v-if="applyUrl" class="url-chip" data-testid="phase-rail-apply">
           <span class="url-chip-label">Application page</span>
@@ -462,11 +504,21 @@ function cancelPending() {
         </div>
 
         <div class="phase-rail-actions">
+          <RouterLink
+            v-if="fix"
+            :to="fix.to"
+            class="btn btn--primary rail-button--forward"
+            data-testid="phase-rail-fix"
+            >{{ fix.label }}</RouterLink
+          >
+          <!-- While its fix is offered, the move waits beside it, disabled, as the step after. -->
           <button
             v-if="forwardTransition"
             type="button"
-            class="rail-button rail-button--forward"
-            :disabled="transitioning"
+            class="btn"
+            :class="fix ? 'btn--secondary' : 'btn--primary rail-button--forward'"
+            :disabled="transitioning || !!firstBlocker(forwardTransition)"
+            :aria-describedby="firstBlocker(forwardTransition) ? 'phase-rail-next' : undefined"
             :data-testid="`phase-transition-${forwardTransition}`"
             @click="handleTransitionClick(forwardTransition)"
           >
@@ -478,7 +530,7 @@ function cancelPending() {
               id="phase-rail-menu-button"
               ref="menuButton"
               type="button"
-              class="rail-button rail-button--menu"
+              class="btn btn--secondary"
               aria-haspopup="menu"
               aria-controls="phase-rail-menu"
               :aria-expanded="menuOpen"
@@ -505,18 +557,45 @@ function cancelPending() {
                 tabindex="-1"
                 class="rail-menu-item"
                 :class="`rail-menu-item--${directionOf(toPhase)}`"
-                :disabled="transitioning"
+                :aria-disabled="transitioning || !!firstBlocker(toPhase)"
                 :data-direction="directionOf(toPhase)"
                 :data-testid="`phase-transition-${toPhase}`"
-                @click="handleTransitionClick(toPhase)"
+                @click="!firstBlocker(toPhase) && !transitioning && handleTransitionClick(toPhase)"
               >
                 {{ transitionLabel(toPhase) }}
+                <!-- Why not, said in the menu itself: "Reopen for Editing" was offered with sixteen
+                     applications in and refused only after the click (E31/F02/S01). -->
+                <span
+                  v-if="firstBlocker(toPhase)"
+                  class="rail-menu-item-reason"
+                  data-testid="phase-transition-reason"
+                  >{{ firstBlocker(toPhase)!.message }}</span
+                >
               </button>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- The next step, or why it cannot be taken yet (E31/F02/S02). An archived market has the
+         frozen note below instead, which says what became of it. -->
+    <p
+      v-if="step && !isArchived"
+      id="phase-rail-next"
+      class="phase-rail-next"
+      :class="{ 'phase-rail-next--blocked': step.blocker }"
+      data-testid="phase-rail-next"
+    >
+      {{ step.text }}
+      <RouterLink
+        v-if="stepLink && !fix"
+        :to="stepLink"
+        class="phase-rail-next-link"
+        data-testid="phase-rail-next-link"
+        >{{ step.blocker?.resolutionLabel ?? 'Go there' }}</RouterLink
+      >
+    </p>
 
     <!-- Strikethrough alone reads as "stopped", not as "archived". The words are the signal. -->
     <p v-if="isArchived" class="phase-rail-frozen" data-testid="phase-rail-frozen">
@@ -708,7 +787,9 @@ function cancelPending() {
  * The addresses and the actions, as one item of the row (bug 11). With only actions it is as wide as
  * they are. With an address it asks for room enough to show a useful part of one beside them, and
  * takes a row of its own where the row has less - so at the workspace width the rail is one row, and
- * below it the second row is designed: addresses at its start, actions at its end.
+ * below it the second row is designed: addresses at its start, actions at its end. With both
+ * addresses it asks for room to show each whole, which takes the second row: 34rem fitted beside
+ * the spine and squeezed the two into "localhost:5…" (E30/F01/S03).
  */
 .phase-rail-end {
   display: flex;
@@ -721,6 +802,11 @@ function cancelPending() {
 
 .phase-rail-end--addresses {
   flex: 1 1 34rem;
+}
+
+.phase-rail-end--both {
+  flex-basis: auto;
+  flex-wrap: wrap;
 }
 
 /* One chip, two users: the application page and the check-in page (E18/F04/S02). */
@@ -736,9 +822,18 @@ function cancelPending() {
   border-radius: var(--radius-control);
   background: white;
   font-size: var(--text-xs);
-  /* The one part of the rail that gives way: its address shortens, and nothing else does. */
+  /* The one part of the rail that gives way: its address shortens, and nothing else does - but
+     never past the part that names the market (E30/F01/S03). */
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: min(18rem, 100%);
+}
+
+/* A phone has no room for that floor beside the actions: the address shortens, and Copy carries it
+   whole. */
+@media (width <= 640px) {
+  .url-chip {
+    min-width: 0;
+  }
 }
 
 .url-chip-label {
@@ -781,28 +876,16 @@ function cancelPending() {
   margin-left: auto;
 }
 
-.rail-button {
-  padding: 7px 14px;
-  border-radius: var(--radius-control);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.rail-button--forward {
-  border: 1px solid var(--mm-green);
-  background: var(--mm-green);
-  color: white;
-}
-
-.rail-button--menu {
-  border: 1px solid var(--mm-border);
-  background: white;
-  color: var(--mm-black);
-}
-
-.rail-button:disabled {
-  opacity: 0.55;
+/*
+ * The rail's buttons are the `.btn` primitive (E32/F01/S02); `rail-button--forward` marks the main
+ * one and draws nothing. A refused menu move takes the one disabled state `primitives.css` gives
+ * `.btn`: the control keeps its place and loses its affordance, on beige with the ink measured for
+ * beige.
+ */
+.rail-menu-item[aria-disabled='true'],
+.rail-menu-item[aria-disabled='true']:hover {
+  background: var(--mm-beige);
+  color: var(--mm-text-muted-on-beige);
   cursor: not-allowed;
 }
 
@@ -855,6 +938,36 @@ function cancelPending() {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-black);
+}
+
+/* The next step, in the same voice as the frozen note: a sentence, not an alert. */
+.phase-rail-next {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--mm-black);
+}
+
+.phase-rail-next-link {
+  margin-left: var(--space-2);
+  color: var(--mm-text-link);
+  font-weight: 600;
+}
+
+/* A move the server would refuse stays in the menu, disabled, with the reason under it. */
+.rail-menu-item[aria-disabled='true'] {
+  white-space: normal;
+  max-width: 24rem;
+}
+
+.rail-menu-item[aria-disabled='true']::before,
+.rail-menu-item-reason {
+  color: var(--mm-text-muted-on-beige);
+}
+
+.rail-menu-item-reason {
+  display: block;
+  margin-top: var(--space-hairline);
+  font-size: var(--text-xs);
 }
 
 .phase-rail-error {

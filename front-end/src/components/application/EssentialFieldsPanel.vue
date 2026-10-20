@@ -15,6 +15,8 @@ import {
   FULL_NAME_LABEL,
   MAX_DATES_LABEL,
   PREFERRED_NAME_LABEL,
+  REQUEST_KEY,
+  REQUEST_LABEL,
   SECTION_RANKING_KEY,
   SECTION_RANKING_LABEL,
   TABLE_TYPE_RANKING_LABEL,
@@ -247,6 +249,30 @@ function asks(key: string): boolean {
         Every table is the same type for now, so applicants are not asked to rank them. This
         question appears once a floorplan gives your market more than one table type.
       </p>
+    </div>
+
+    <!-- The vendor's request (E31/F04/S01): free text the solver never reads, so it may be switched
+         off like a ranking. What the organizer knows and did about it lives in their own notes. -->
+    <div class="essential-item" data-testid="essential-item-request">
+      <div class="essential-item-header">
+        <span class="essential-item-label">{{ REQUEST_LABEL }}</span>
+        <span class="essential-type-badge">text</span>
+      </div>
+      <p v-if="asks(REQUEST_KEY)" class="essential-item-detail">
+        Optional. An extra chair, an outlet, anything else they need - shown beside their name in
+        review, on Vendors and at the door.
+      </p>
+      <p v-else class="essential-item-hint" data-testid="essential-request-not-asked">
+        This market does not ask applicants what else they need.
+      </p>
+      <label v-if="editable" class="essential-asks-toggle" data-testid="essential-asks-request">
+        <input
+          type="checkbox"
+          :checked="asks(REQUEST_KEY)"
+          @change="emit('toggleUnasked', REQUEST_KEY, asks(REQUEST_KEY))"
+        />
+        Ask this
+      </label>
     </div>
   </div>
 </template>

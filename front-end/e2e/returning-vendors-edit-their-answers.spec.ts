@@ -16,7 +16,7 @@ import { seedApprovedVendor } from './helpers/seedApplication';
  * had answered. Your Application had no way to the apply page at all. And the sign-in lived only
  * in memory: a reload, a direct link or a new page load signed the vendor out mid-form.
  */
-const DATE = '2026-08-01';
+const DATE = '2099-08-01';
 const VENDOR = 'editing-vendor@example.com';
 const CODE = '975310';
 

@@ -20,16 +20,25 @@ const manageOrg = ref<Organization | null>(null);
 const newOrgName = ref('');
 const newOrgError = ref('');
 
+/**
+ * Read the list, keeping only the newest read. The page opens with one, and creating or managing an
+ * organization reads it again: an older read answering last put back a list without the
+ * organization just made. The cards stay on screen while it reads; "Loading" is for the first.
+ */
+let latestRead = 0;
 async function loadOrganizations() {
-  loading.value = true;
+  const thisRead = ++latestRead;
   errorMessage.value = '';
   try {
-    organizations.value = await fetchOrganizations();
+    const read = await fetchOrganizations();
+    if (thisRead !== latestRead) return;
+    organizations.value = read;
   } catch (err) {
+    if (thisRead !== latestRead) return;
     errorMessage.value = getApiErrorMessage(err, 'Failed to load organizations');
     organizations.value = [];
   } finally {
-    loading.value = false;
+    if (thisRead === latestRead) loading.value = false;
   }
 }
 

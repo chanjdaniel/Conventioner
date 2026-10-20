@@ -38,6 +38,7 @@ const reviewBlocker: PreconditionResult = {
   // Relative to the market's own pages: the server names the page, the panel names the market it
   // is showing (E21/F02/S02). Every page has its own address since E22/F04/S02.
   resolutionLink: 'applications',
+  resolutionLabel: 'Finish deciding',
 };
 
 describe('BlockerPanel', () => {
@@ -60,6 +61,12 @@ describe('BlockerPanel', () => {
     expect(link.exists()).toBe(true);
     expect(link.props('to')).toBe('/markets/m1/applications');
     expect(link.attributes('data-testid')).toBe('blocker-resolution-link');
+  });
+
+  it('names the link by what following it does, as the guard words it (E32/F01/S02)', async () => {
+    const wrapper = await mountPanelAt('/markets/m1/setup', [reviewBlocker]);
+
+    expect(wrapper.get('[data-testid="blocker-resolution-link"]').text()).toBe('Finish deciding →');
   });
 
   it('omits the resolution link when a blocker has none', async () => {

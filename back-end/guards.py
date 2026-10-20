@@ -18,11 +18,13 @@ Phase 2 guards implemented (conv-market-state-machine-t7):
   - ``NoApprovedApplicationsGuard`` on ``assignment -> offers``
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Iterable, List, Optional
 
 import api.applications as ApplicationsApi
-from datatypes import ApplicationStatus, Market, MarketPhase
+from assignment.utils import convert_keys_to_camel_case
+from datatypes import ApplicationStatus, IntakeMode, Market, MarketPhase
 from essential_fields import (
     TIER_PREFERENCE_KEY,
     effective_essential_options_for_market,
@@ -48,11 +50,27 @@ class PreconditionResult:
     #: Where the fix is made, as a page of THIS market: relative to ``/markets/<id>/``, which the
     #: front end prefixes (E21/F02/S02), so a guard never builds a per-market URL. It names the page
     #: that holds the remedy (``applications``); every market page has its own address since
-    #: E22/F04/S02, so a link to one leads there from anywhere but that page itself. ``None`` when the remedy spans two places - the panel would
-    #: rather say nothing than send the organizer to one of two, having named both in the message
-    #: (E14/F01/S03). Do not point it at a redirect: the panel compares this against the current
-    #: location to decide whether it leads anywhere, and cannot follow a hop.
+    #: E22/F04/S02, so a link to one leads there from anywhere but that page itself. ``None`` when
+    #: the remedy spans two places - the panel would rather say nothing than send the organizer to
+    #: one of two, having named both in the message (E14/F01/S03). Do not point it at a redirect:
+    #: the panel compares this against the current location to decide whether it leads anywhere,
+    #: and cannot follow a hop.
     resolution_link: Optional[str] = None
+    #: What following the link does, in a few words the organizer acts on ("Add a location"). The
+    #: rail draws it as its main button while the move waits on this (E32/F01/S02), so a link always
+    #: has one and words never come without a link: both or neither, refused at construction.
+    resolution_label: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.resolution_link and not self.resolution_label:
+            raise ValueError(f"{self.id}: a resolution_link needs a resolution_label to name it")
+        if self.resolution_label and not self.resolution_link:
+            raise ValueError(f"{self.id}: a resolution_label needs a resolution_link to lead to")
+
+    def payload(self) -> Dict[str, Any]:
+        """As the wire carries it: the one shape the transition's refusal, the form amendment's
+        and the market read's ``transitionBlockers`` all serve."""
+        return convert_keys_to_camel_case(asdict(self))
 
 
 # ── Guard classes ───────────────────────────────────────────────────────
@@ -109,6 +127,123 @@ class FormHasFieldsGuard:
         return PreconditionResult(id=self.id, passed=True, message="")
 
 
+# ── The setup is complete before it settles (E31/F01/S01) ───────────────
+#
+# Leaving draft settles the setup: nothing on Market Setup changes after it. A setup that leaves
+# incomplete can therefore never be completed, so leaving draft asks for each part of it - each its
+# own guard, so each missing part is its own line, and each pointing at Market Setup. Only on
+# ``draft -> applications_open``: reopening closed applications re-enters the phase with a setup
+# that settled long ago, and is no time to ask about it.
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# The furthest west a clock is set: Baker Island keeps UTC-12, so a day there ends last.
+_LAST_DAY_TO_END = timedelta(hours=12)
+
+
+def _earliest_calendar_day() -> str:
+    """The earliest calendar day anywhere on Earth, as a market date (``YYYY-MM-DD``).
+
+    A market's date is a day where the market is, and the server does not know where that is. So a
+    date has passed only once it has passed everywhere: the server never refuses a date that is
+    still today for some organizer, and a refusal is one the viewer's own calendar - which the rail
+    and the door read (``calendarToday`` in ``front-end/src/utils/marketGuide.ts``) - agrees with.
+    """
+    return (_utc_now() - _LAST_DAY_TO_END).date().isoformat()
+
+
+class SetupHasDatesGuard:
+    """The market has dates, and none of them has already passed.
+
+    A date that has passed cannot be applied for, and a CSV start reads its year from a past file:
+    the walk opened, ran and published a market dated a year back without a word.
+    """
+
+    id: str = "setup_has_dates"
+    description: str = "The market has dates, none of them passed"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        setup = market.setup_object
+        dates = sorted({d.date for d in setup.market_dates}) if setup else []
+        if not dates:
+            return PreconditionResult(
+                id=self.id, passed=False,
+                resolution_link="setup", resolution_label="Pick market dates",
+                message="This market has no market dates. Pick them on Market Setup's calendar.",
+            )
+        earliest = _earliest_calendar_day()
+        passed = [date for date in dates if date < earliest]
+        if passed:
+            return PreconditionResult(
+                id=self.id, passed=False,
+                resolution_link="setup", resolution_label="Change the dates",
+                message=(
+                    f"{len(passed)} of this market's dates "
+                    f"{'has' if len(passed) == 1 else 'have'} already passed: "
+                    f"{', '.join(passed)}. Change them on Market Setup."
+                ),
+            )
+        return PreconditionResult(id=self.id, passed=True, message="")
+
+
+class SetupHasALocationGuard:
+    """The market says where it is."""
+
+    id: str = "setup_has_a_location"
+    description: str = "The market has a location"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        setup = market.setup_object
+        if setup and any(location.name.strip() for location in setup.locations):
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id, passed=False,
+            resolution_link="setup", resolution_label="Add a location",
+            message="This market has no location. Add one on Market Setup.",
+        )
+
+
+class EveryTierHasTablesGuard:
+    """There are tables, and every tier has some.
+
+    A tier is a price, and its tables are its sections'. A tier with no section of tables is one
+    an applicant can choose and nobody can be placed at; the walk met it in review as a blocker
+    listing every applicant waiting on it (``NoAskedForTierWithoutTablesGuard``). Said here, in
+    draft, it is about the plan and names the tier.
+    """
+
+    id: str = "every_tier_has_tables"
+    description: str = "Every tier has a section with tables"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        setup = market.setup_object
+        sections = [s for s in (setup.sections if setup else []) if s.count > 0]
+        if not sections:
+            return PreconditionResult(
+                id=self.id, passed=False,
+                resolution_link="setup", resolution_label="Add tables",
+                message="This market has no tables yet. Add a section with tables on Market Setup.",
+            )
+        with_tables = {s.tier.name for s in sections if s.tier and s.tier.name}
+        bare = [
+            t.name for t in (setup.tiers if setup else []) if t.name and t.name not in with_tables
+        ]
+        if bare:
+            return PreconditionResult(
+                id=self.id, passed=False,
+                resolution_link="setup", resolution_label="Give every tier tables",
+                message=(
+                    f"{'Tier' if len(bare) == 1 else 'Tiers'} {', '.join(bare)} "
+                    f"{'has' if len(bare) == 1 else 'have'} no tables. Give each a section with "
+                    "tables on Market Setup, or remove it."
+                ),
+            )
+        return PreconditionResult(id=self.id, passed=True, message="")
+
+
 class NoApplicationsYetGuard:
     """A market may return to draft only while nobody has applied.
 
@@ -133,13 +268,14 @@ class NoApplicationsYetGuard:
     def evaluate(self, market: Market, _db) -> PreconditionResult:
         count = ApplicationsApi.count_applications_for_market(market.id)
         if count > 0:
-            app_word = "application has" if count == 1 else "applications have"
+            app_word = "application is" if count == 1 else "applications are"
+            # In words true of both paths: an imported row was never "submitted" here (E32/F02/S01).
             return PreconditionResult(
                 id=self.id,
                 passed=False,
                 message=(
-                    f"{count} {app_word} already been submitted, so this market cannot return to "
-                    "draft. The application form is frozen once anyone has answered it."
+                    f"{count} {app_word} already in, so this market cannot return to draft. The "
+                    "questions are fixed once anyone has applied or been imported."
                 ),
                 resolution_link=None,
             )
@@ -176,6 +312,7 @@ class AssignmentComputedGuard:
                     "not tell anyone where to stand. Run the assignment first."
                 ),
                 resolution_link="assignment",
+                resolution_label="Run the assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
 
@@ -209,6 +346,7 @@ class AllApplicationsReviewedGuard:
                     "can begin."
                 ),
                 resolution_link="applications",
+                resolution_label="Finish deciding",
             )
         if total == 0:
             return PreconditionResult(
@@ -251,8 +389,32 @@ class NoApprovedApplicationsGuard:
                     "sending offers."
                 ),
                 resolution_link="assignment",
+                resolution_label="Run the assignment",
             )
         return PreconditionResult(id=self.id, passed=True, message="")
+
+
+class ResponsesImportedGuard:
+    """A Google Form market has imported its responses before review begins (E32/F02/S01).
+
+    On that path the import is the collection: there is no form of the market's own taking
+    applications, so a review with nothing imported is a review of nothing. A market whose vendors
+    apply on its own page is not asked - nobody imports into one.
+    """
+
+    id: str = "responses_imported"
+    description: str = "A Google Form market has imported its responses"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if market.intake_mode is not IntakeMode.CSV:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        if ApplicationsApi.count_applications_for_market(market.id) > 0:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id, passed=False,
+            resolution_link="import", resolution_label="Import responses",
+            message="Nothing has been imported yet. Import your Google Form's responses first.",
+        )
 
 
 # ── Transition registry ─────────────────────────────────────────────────
@@ -310,6 +472,40 @@ def route_between(from_phase: str, to_phase: str) -> Optional[List[str]]:
             seen.add(target)
             queue.append((target, path + [target]))
     return None
+
+
+#: Phases a path steps through rather than stops in (E32/F02/S01). A Google Form market's organizer
+#: already holds the responses when the market leaves draft, so the import IS the collection, and
+#: "the form is closed" is never a stage of theirs: their move from importing is Begin Review, and
+#: back from review is to importing. The phases themselves do not change - only which of them a
+#: move on this path may end in.
+PASSED_THROUGH: Dict[IntakeMode, frozenset[str]] = {
+    IntakeMode.CSV: frozenset({MarketPhase.APPLICATIONS_CLOSED.value}),
+    IntakeMode.FORM: frozenset(),
+}
+
+
+def path_moves(market: Market) -> Dict[str, List[str]]:
+    """Every move open from the market's phase on its intake path: each phase it may end in, with
+    the phases entered on the way there (the last one is where it ends).
+
+    One step of the transition table, or two where the first lands in a phase the path passes
+    through, never ending in one. A market standing in such a phase - moved there before its path
+    stepped through it - keeps every way out it has, so none is stranded.
+    """
+    here = market.phase.value
+    through = PASSED_THROUGH.get(market.intake_mode, frozenset())
+    moves: Dict[str, List[str]] = {}
+    for source, target in sorted(VALID_TRANSITIONS):
+        if source != here:
+            continue
+        if target not in through:
+            moves[target] = [target]
+            continue
+        for onward_source, onward in sorted(VALID_TRANSITIONS):
+            if onward_source == target and onward != here and onward not in through:
+                moves.setdefault(onward, [target, onward])
+    return moves
 
 
 class NoAskedForTierWithoutTablesGuard:
@@ -445,12 +641,16 @@ def _tiers_named_by(answers: Dict[str, Any]) -> set:
 
 # Guards are stateless, so one instance is shared by every edge that enforces it.
 _FORM_HAS_FIELDS = FormHasFieldsGuard()
+_SETUP_HAS_DATES = SetupHasDatesGuard()
+_SETUP_HAS_A_LOCATION = SetupHasALocationGuard()
+_EVERY_TIER_HAS_TABLES = EveryTierHasTablesGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
 _NO_EMPTY_TIER_ASKED_FOR = NoAskedForTierWithoutTablesGuard()
 _NO_ORPHANED_PIN = NoOrphanedPinGuard()
+_RESPONSES_IMPORTED = ResponsesImportedGuard()
 
 # Entry invariants: what must hold of a market SITTING IN a phase, regardless of the
 # route it took to get there. Every inbound edge to the phase must enforce these, so
@@ -480,12 +680,17 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
 # applications_closed -> applications_open and is meaningless on draft -> applications_open.
 # An edge carries its phase's entry invariants PLUS whatever else that route demands.
 TRANSITION_GUARDS: dict[tuple[str, str], list] = {
-    ("draft", "applications_open"): [_FORM_HAS_FIELDS],
+    ("draft", "applications_open"): [
+        _SETUP_HAS_DATES, _SETUP_HAS_A_LOCATION, _EVERY_TIER_HAS_TABLES, _FORM_HAS_FIELDS,
+    ],
     ("applications_closed", "applications_open"): [_FORM_HAS_FIELDS],
     # TODO: Add _PRIORITY_CONFIGURED guard here (append to list) once it exists.
     # The guard should verify that the market's setup_object has at least one
     # priority entry before assignment can begin.
     ("applications_open", "draft"): [_NO_APPLICATIONS_YET],
+    # On every route into review, so a Google Form market stepping through the closed phase and one
+    # already standing in it meet the same rule (E32/F02/S01).
+    ("applications_closed", "review"): [_RESPONSES_IMPORTED],
     ("review", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR, _NO_ORPHANED_PIN],
     ("assignment", "offers"): [_NO_APPROVED],
     ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN],
@@ -558,19 +763,59 @@ _validate_registry()
 # ── Evaluation helpers ──────────────────────────────────────────────────
 
 
+def move_route(market: Market, to_phase: str) -> Optional[List[str]]:
+    """The phases a move to ``to_phase`` enters, in order: the path's move when it has one, else the
+    one edge of the table (still taken when asked for, as a seed walks it), else None."""
+    route = path_moves(market).get(to_phase)
+    if route is not None:
+        return route
+    return [to_phase] if (market.phase.value, to_phase) in VALID_TRANSITIONS else None
+
+
+def judge_route(
+    market: Market, hops: Iterable[tuple[str, str]], db
+) -> list[PreconditionResult]:
+    """Every guard on every step of a route, judged before the first step is taken. Failures only,
+    each guard's said once however many steps carry it.
+
+    Judged against the market as it stands, not as it would be at each step: a guard reads the
+    market's state and never the phase it is asked on, so no phase-shifted copy is needed (pinned by
+    ``test_no_guard_reads_the_phase``). The one judgement a move and the form amendment's chain both
+    make.
+    """
+    blockers: list[PreconditionResult] = []
+    seen: set[str] = set()
+    for hop in hops:
+        for guard in TRANSITION_GUARDS.get(hop, []):
+            result = guard.evaluate(market, db)
+            if not result.passed and result.id not in seen:
+                seen.add(result.id)
+                blockers.append(result)
+    return blockers
+
+
 def evaluate_transition(
     market: Market, to_phase: str, db
 ) -> list[PreconditionResult]:
-    """Evaluate all guards for a transition. Returns only FAILED results.
+    """Evaluate all guards for a move. Returns only FAILED results.
 
-    If the transition has no guards, returns an empty list (no blockers).
-    Callers use this to build the 409 blocker list or confirm success.
+    Every guard on every step of the move's route (``judge_route``). An empty list when nothing
+    refuses it, or when there is no such move - the endpoint refuses that before asking. Callers use
+    this to build the 409 blocker list or confirm success.
     """
-    key = (market.phase.value, to_phase)
-    guards = TRANSITION_GUARDS.get(key, [])
-    blockers: list[PreconditionResult] = []
-    for guard in guards:
-        result = guard.evaluate(market, db)
-        if not result.passed:
-            blockers.append(result)
-    return blockers
+    route = move_route(market, to_phase)
+    if route is None:
+        return []
+    return judge_route(market, zip([market.phase.value, *route], route), db)
+
+
+def transition_verdicts(market: Market, db) -> Dict[str, List[PreconditionResult]]:
+    """Every move open from the market's phase, with what would refuse it - empty when nothing
+    would (E31/F02/S01).
+
+    Served on the market read, so a screen disables a move and names its blocker before the click
+    rather than after it. The moves are the market's path's (``path_moves``), so the read is also
+    what tells a screen which moves there are. Judged by ``evaluate_transition``, the very function the endpoint runs,
+    so the read and the move can never disagree about one.
+    """
+    return {to_phase: evaluate_transition(market, to_phase, db) for to_phase in path_moves(market)}

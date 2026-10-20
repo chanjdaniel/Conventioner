@@ -7,8 +7,8 @@ import { marketSetupPath } from './helpers/marketScreens';
  * The assignment rules close with the assignment (E22/F02, from the-assignment-tab ticket 01).
  *
  * A rule only takes effect when the assignment runs, and once the market is published it can never
- * run again - so the rules read as they were run, with one line saying why. The page learns it
- * from the market it holds, so publishing from the rail closes them without leaving the tab.
+ * run again - so the rules read as they were run, with one line saying why. Publishing lands at the
+ * door (E32/F01/S01); the rules, reached again from there, are closed.
  */
 test.describe('The assignment rules close with the assignment', () => {
   let marketId: string;
@@ -24,9 +24,7 @@ test.describe('The assignment rules close with the assignment', () => {
     marketId = seeded.marketId;
   });
 
-  test('publishing from the rail settles the rules on the open tab', async ({
-    authenticatedPage: page,
-  }) => {
+  test('publishing from the rail settles the rules', async ({ authenticatedPage: page }) => {
     await page.goto(marketSetupPath(marketId, 'assignment'));
     const maxPerVendor = page.getByTestId('setup-options-max-assignments-input');
     await expect(maxPerVendor).toBeEnabled({ timeout: 15000 });
@@ -38,6 +36,9 @@ test.describe('The assignment rules close with the assignment', () => {
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days', {
       timeout: 10000,
     });
+    await expect(page).toHaveURL(/\/attendance$/);
+    await page.getByTestId('market-bar-tab-assignment').click();
+    await page.getByTestId('market-pages-assignment').click();
 
     await expect(maxPerVendor).toBeDisabled();
     await expect(page.getByTestId('setup-options-max-proportion-input')).toBeDisabled();

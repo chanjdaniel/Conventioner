@@ -12,7 +12,7 @@
  * bar and the rail beneath it say the same thing about where the market is. This replaced
  * `marketSurface.ts`, whose four surfaces could not name Result, Vendors or Attendance.
  */
-import { MarketPhase, type Market } from '@/assets/types/datatypes';
+import { type Market } from '@/assets/types/datatypes';
 
 export type MarketPage =
   'setup' | 'form' | 'applications' | 'assignment' | 'result' | 'vendors' | 'attendance';
@@ -83,20 +83,15 @@ const FLOW_TAB: Record<MarketFlow, MarketTab> = {
 };
 
 /**
- * The tabs a market shows: Attendance only for one whose check-in page is on the air, or was.
+ * The tabs a market shows: all five, for its whole life (E31/F03/S02).
  *
- * "Was" is read off the market's phase history (E26/F06/S03), not off `archived`: an archived
- * market that never reached Market Days had no check-in page and has no attendance to show, and
- * offering the tab said otherwise (bug 30).
+ * Attendance used to appear only once the check-in page went on the air, so the bar changed shape
+ * as the market moved. A tab out of its phase now stays, read-only, and says when it matters
+ * (`tabNote` in `utils/marketGuide.ts`) - an archived market that never ran says it has no
+ * attendance (bug 30) rather than hiding the tab.
  */
-export function tabsFor(
-  market: Pick<Market, 'phase' | 'phasesReached'> | null | undefined,
-): MarketTab[] {
-  const four: MarketTab[] = ['setup', 'form', 'applications', 'assignment'];
-  const ran =
-    market?.phase === MarketPhase.MarketDays ||
-    (market?.phasesReached ?? []).includes(MarketPhase.MarketDays);
-  return ran ? [...four, 'attendance'] : four;
+export function tabsFor(): MarketTab[] {
+  return ['setup', 'form', 'applications', 'assignment', 'attendance'];
 }
 
 /** The tab a page or a flow stands under. */
@@ -106,44 +101,6 @@ export function tabOf(where: MarketPage | MarketFlow): MarketTab {
     TAB_PAGES[t].includes(where as MarketPage),
   );
   return tab ?? 'setup';
-}
-
-/**
- * The page a market is worked on in its phase: the one carrying the dot.
- *
- * `hasAssignment` because the assignment phase is worked on the rules until there is a result, and
- * on the result after; an archived market that never ran one has nothing to show but its plan.
- */
-export function currentPage(phase: string | undefined | null, hasAssignment: boolean): MarketPage {
-  switch (phase) {
-    case MarketPhase.Draft:
-      return 'setup';
-    case MarketPhase.ApplicationsOpen:
-    case MarketPhase.ApplicationsClosed:
-    case MarketPhase.Review:
-      return 'applications';
-    case MarketPhase.Assignment:
-    case MarketPhase.Offers:
-      return hasAssignment ? 'result' : 'assignment';
-    case MarketPhase.MarketDays:
-      return 'attendance';
-    case MarketPhase.Archived:
-      return hasAssignment ? 'result' : 'setup';
-    default:
-      // A phase this build does not recognise still gets a page. The plan is editable in every
-      // phase, so it is the one page that is never wrong to show.
-      return 'setup';
-  }
-}
-
-/** The page a tab opens: the one carrying the dot when the tab holds it, else its first. */
-export function pageForTab(
-  tab: MarketTab,
-  phase: string | undefined | null,
-  hasAssignment: boolean,
-): MarketPage {
-  const current = currentPage(phase, hasAssignment);
-  return TAB_PAGES[tab].includes(current) ? current : TAB_PAGES[tab][0];
 }
 
 /**

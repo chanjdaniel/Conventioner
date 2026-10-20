@@ -91,6 +91,24 @@ Then give the person access in the product as above.
 A forgotten password is reset by its owner from the sign-in page ("Forgot password?"); there is no operator path, and none is needed.
 `create_test_user.py` is the test fixtures' script: it prints the password it was given, so do not use it for real accounts.
 
+### The test markets
+
+Checking something in production - that an applicant's sign-in code arrives, that a Google Form market's sign-in reads as no market - needs markets that are nobody's real one.
+`seed_test_markets.py` makes them in "Conventioner Test Organization", owned by your own account (make it first, as above).
+Run it from `back-end/` in a checkout of what production runs (`main`), so it writes what that build reads; it arrives there with the E32 release, whose migration must have run first (below).
+
+```bash
+MONGODB_URI='<production URI>' .venv/bin/python seed_test_markets.py --owner you@example.com
+```
+
+- "Conventioner Test - Online Applications" takes applications on its page.
+  "Conventioner Test - Google Form" imports its vendors.
+  Both are left open, with dates a year out and no applicant.
+- It prints each market's phase and path, which is under `https://conventioner.io`.
+  Running it again changes nothing that exists, and finishes a market a failed run left in draft.
+- Apply or import with made-up details only, and an address you own for a sign-in code.
+  To start over, delete the market in the product and run it again.
+
 ## The production database
 
 ### Connecting
@@ -119,7 +137,9 @@ A dump holds every vendor's name, email and answers: keep it on your own machine
 ### Starting a database, and migrations
 
 A new database is started once with `MONGODB_URI='<URI>' .venv/bin/python init_database.py`: it creates the collections and indexes and records the markers the back end refuses to boot without.
-Production was started that way on 2026-10-18, so none of the scripts in `back-end/migrations/` is needed; [RELEASING.md](RELEASING.md#pre-deploy-database-migrations) says when one is.
+Production was started that way on 2026-10-18, so no script in `back-end/migrations/` was needed then; [RELEASING.md](RELEASING.md#pre-deploy-database-migrations) says when one is.
+The first that is: the release carrying E32 refuses to boot until every account address is stored lowercased, so run `MONGODB_URI='<URI>' .venv/bin/python migrations/migrate_user_emails.py --dry-run`, then without `--dry-run`, before promoting it.
+If it names accounts that share an address (by id; it prints no address), keep one of each and run it again.
 
 ### Scripts never to run against production
 

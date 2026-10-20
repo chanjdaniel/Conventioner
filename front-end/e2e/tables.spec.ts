@@ -35,7 +35,7 @@ test.describe('Table browsing and filtering', () => {
     const initialCount = await tablesPage.tableRows.count();
     expect(initialCount).toBeGreaterThan(0);
 
-    await tablesPage.gotoWithFilters(seed.marketId, { date: '2026-05-01' });
+    await tablesPage.gotoWithFilters(seed.marketId, { date: '2099-05-01' });
     await expect(tablesPage.dateFilterChip).toBeVisible({ timeout: 5000 });
     await expect(tablesPage.tableRows.first()).toBeVisible({ timeout: 5000 });
 
@@ -86,7 +86,7 @@ test.describe('Table browsing and filtering', () => {
     await tablesPage.goto(seed.marketId);
     await expect(tablesPage.tableRows.first()).toBeVisible({ timeout: 10000 });
 
-    await tablesPage.gotoWithFilters(seed.marketId, { date: '2026-05-01' });
+    await tablesPage.gotoWithFilters(seed.marketId, { date: '2099-05-01' });
     await expect(tablesPage.dateFilterChip).toBeVisible({ timeout: 5000 });
     await expect(tablesPage.tableRows.first()).toBeVisible({ timeout: 5000 });
 

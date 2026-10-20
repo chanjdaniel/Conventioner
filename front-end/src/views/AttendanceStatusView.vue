@@ -19,6 +19,9 @@ import { tableInWords } from '@/utils/placementChange';
 import { vendorMatches, type VendorNames } from '@/utils/vendorIdentity';
 import MarketFrame from '@/components/MarketFrame.vue';
 import VendorIdentity from '@/components/VendorIdentity.vue';
+import VendorNotes from '@/components/VendorNotes.vue';
+import { useVendorNotes } from '@/utils/vendorNotes';
+import { calendarToday } from '@/utils/marketGuide';
 import { useOpenMarket } from '@/utils/openMarket';
 
 interface RosterRow {
@@ -49,13 +52,6 @@ const show = ref<Show>('all');
 const search = ref('');
 /** The row whose write is in flight, so its button cannot be pressed twice. */
 const busyRow = ref('');
-
-function calendarToday(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${day}`;
-}
 
 /**
  * The date the page opens on: today when it is a market date, else the next one, else the last -
@@ -99,6 +95,17 @@ function tally(date: string) {
 
 const today = computed(() => tally(selectedDate.value));
 
+/**
+ * Whether the chosen day is over: it has passed, or the market is archived. A vendor who never
+ * checked in then did not come, and "Not yet" said otherwise of every one of them (E30/F01/S02).
+ */
+const dayIsOver = computed(
+  () =>
+    market.value?.phase === MarketPhase.Archived ||
+    (!!selectedDate.value && selectedDate.value < calendarToday()),
+);
+const notHere = computed(() => (dayIsOver.value ? 'Did not come' : 'Not yet'));
+
 const shown = computed(() => {
   const term = search.value.trim();
   return roster.value.filter((row) => {
@@ -112,7 +119,7 @@ const shown = computed(() => {
 });
 
 function status(row: RosterRow): string {
-  if (!row.checkedInAt) return 'Not yet';
+  if (!row.checkedInAt) return notHere.value;
   const at = getTimestampTime(row.checkedInAt);
   if (!row.checkedInBy) return at;
   return `${at} by ${row.checkedInBy.toLowerCase() === signedInAs.value ? 'you' : row.checkedInBy}`;
@@ -163,6 +170,11 @@ async function write(row: RosterRow, method: 'post' | 'delete') {
   }
 }
 
+/** What each vendor asked for and what the organizers noted, for the door (E31/F04/S04). */
+const { load: loadNotes, entryFor } = useVendorNotes(marketId);
+/** An editor writes notes; anyone with a role reads them. */
+const canWriteNotes = computed(() => !!market.value && !market.value.readOnlyReason);
+
 watch(marketId, loadAttendance, { immediate: true });
 </script>
 
@@ -209,7 +221,7 @@ watch(marketId, loadAttendance, { immediate: true });
               data-testid="attendance-show-not-yet"
               @click="show = 'not-yet'"
             >
-              Not yet {{ today.expected - today.here }}
+              {{ notHere }} {{ today.expected - today.here }}
             </button>
             <button
               type="button"
@@ -273,6 +285,16 @@ watch(marketId, loadAttendance, { immediate: true });
                 Undo
               </button>
             </span>
+            <VendorNotes
+              class="door-notes"
+              :marketId="marketId"
+              :email="row.vendorEmail"
+              :entry="entryFor(row.vendorEmail)"
+              :canWrite="canWriteNotes"
+              onlyWhenNoted
+              :testid="`attendance-notes-${row.vendorEmail}`"
+              @changed="loadNotes"
+            />
           </li>
         </ul>
       </template>
@@ -340,6 +362,11 @@ watch(marketId, loadAttendance, { immediate: true });
   border-radius: var(--radius-card);
 }
 
+/* Under the row, the width of it: notes are read standing at the door, not squeezed into a cell. */
+.door-notes {
+  grid-column: 1 / -1;
+}
+
 .door-table {
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
@@ -381,7 +408,8 @@ watch(marketId, loadAttendance, { immediate: true });
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'who action'
-      'table status';
+      'table status'
+      'notes notes';
     gap: var(--space-2) var(--space-3);
   }
 
@@ -400,6 +428,10 @@ watch(marketId, loadAttendance, { immediate: true });
 
   .door-action {
     grid-area: action;
+  }
+
+  .door-notes {
+    grid-area: notes;
   }
 }
 </style>

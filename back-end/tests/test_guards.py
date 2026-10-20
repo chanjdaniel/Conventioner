@@ -7,6 +7,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
+from conftest import complete_setup
 
 import guards
 from datatypes import (
@@ -64,10 +65,21 @@ class TestPreconditionResult:
             passed=False,
             message="Something is wrong.",
             resolution_link="/fix-it",
+            resolution_label="Fix it",
         )
         assert r.passed is False
         assert r.message == "Something is wrong."
         assert r.resolution_link == "/fix-it"
+        assert r.resolution_label == "Fix it"
+
+    def test_a_link_carries_the_words_for_it(self):
+        """The rail draws the fix as its main button (E32/F01/S02), so a link needs a name."""
+        with pytest.raises(ValueError, match="resolution_label"):
+            PreconditionResult(id="test", passed=False, message="No.", resolution_link="setup")
+
+    def test_words_without_a_link_lead_nowhere(self):
+        with pytest.raises(ValueError, match="resolution_link"):
+            PreconditionResult(id="test", passed=False, message="No.", resolution_label="Fix it")
 
     def test_failed_without_resolution_link(self):
         r = PreconditionResult(
@@ -191,15 +203,16 @@ class TestFormHasFieldsGuard:
 
 class TestEvaluateTransition:
     def test_returns_blockers_when_guard_fails(self):
+        # No plan and no form: the form asks nothing, and the setup is incomplete (E31/F01/S01).
         market = _make_market(phase=MarketPhase.DRAFT, application_form=None)
         blockers = evaluate_transition(market, "applications_open", None)
-        assert len(blockers) == 1
-        assert blockers[0].id == "form_has_fields"
-        assert blockers[0].passed is False
+        assert "form_has_fields" in [b.id for b in blockers]
+        assert all(b.passed is False for b in blockers)
 
     def test_returns_empty_when_guard_passes(self):
         market = _make_market(
             phase=MarketPhase.DRAFT,
+            setup_object=complete_setup(),
             application_form=ApplicationForm(
                 fields=[FormField(key="name", label="Name", type="text")],
             ),
@@ -275,8 +288,7 @@ class TestValidTransitions:
 class TestTransitionGuards:
     def test_draft_to_applications_open_has_form_guard(self):
         guards = TRANSITION_GUARDS.get(("draft", "applications_open"), [])
-        assert len(guards) == 1
-        assert isinstance(guards[0], FormHasFieldsGuard)
+        assert any(isinstance(guard, FormHasFieldsGuard) for guard in guards)
 
     def test_reopen_edge_has_form_guard(self):
         guards = TRANSITION_GUARDS.get(("applications_closed", "applications_open"), [])
@@ -404,8 +416,9 @@ class TestGuardDesignProperties:
         assert len(guard.description) > 0
 
     def test_adding_guard_is_only_a_dict_entry(self):
+        # The form, then the three parts of a complete setup (E31/F01/S01): four list entries.
         guards = TRANSITION_GUARDS[("draft", "applications_open")]
-        assert len(guards) == 1
+        assert len(guards) == 4
 
 
 class TestAllApplicationsReviewedGuard:
@@ -763,6 +776,8 @@ class TestEveryResolutionLinkPointsAtItsFix:
         "result",
         "vendors",
         "attendance",
+        # The import flow, which has its own address (E32/F02/S01: the fix for an empty review).
+        "import",
     }
     #: A redirect (the panel cannot follow a hop - the ``?tab=`` pages and ``tables`` are the old
     #: addresses), or an absolute path (a link is relative to the market's own screens; the id-less
@@ -826,3 +841,18 @@ class TestEveryResolutionLinkPointsAtItsFix:
             if link is not None and link not in self.ALLOWED
         ]
         assert unknown == [], f"unrecognized resolution_link: {sorted(set(unknown))}"
+
+
+def test_no_guard_reads_the_phase():
+    """A move's whole route, and the form amendment's chain, are judged against the market as it
+    stands, before any step is taken (``judge_route``). That is sound only while no guard's verdict
+    depends on the phase it is asked on, so a guard that reads it is refused here."""
+    source = pathlib.Path(guards.__file__).read_text()
+    readers = []
+    for cls in ast.walk(ast.parse(source)):
+        if not (isinstance(cls, ast.ClassDef) and cls.name.endswith("Guard")):
+            continue
+        for node in ast.walk(cls):
+            if isinstance(node, ast.Attribute) and node.attr == "phase":
+                readers.append(cls.name)
+    assert readers == []

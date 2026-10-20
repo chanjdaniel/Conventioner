@@ -9,6 +9,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+from conftest import COMPLETE_PLAN
 
 from conftest import skip_without_real_dependencies
 
@@ -31,7 +32,7 @@ def response_ok(response):
     return True
 
 
-def _market_doc(phase="draft", fields=None, is_draft=True):
+def _market_doc(phase="draft", fields=None, is_draft=True, plan=COMPLETE_PLAN):
     """A market document as it is stored in Mongo (camelCase keys).
 
     ``phase=None`` models a market created before the phase field existed and never
@@ -46,6 +47,8 @@ def _market_doc(phase="draft", fields=None, is_draft=True):
         "assignmentObject": {},
         "isDraft": is_draft,
         "applicationForm": {"fields": fields if fields is not None else []},
+        # Complete, so leaving draft is judged on the form alone here (E31/F01/S01).
+        "setupObject": plan,
     }
     if phase is not None:
         doc["phase"] = phase
@@ -277,7 +280,8 @@ class TestTransitionSuccess:
 
 class TestTransitionBlocked:
     def test_empty_form_blocks_publish_with_camel_case_payload(self, client, markets):
-        collection = markets(_market_doc(fields=[]))
+        # No plan either: a complete setup always gives the form something to ask (E31/F01/S01).
+        collection = markets(_market_doc(fields=[], plan=None))
 
         response = _post(client, {"toPhase": "applications_open"})
 
@@ -287,8 +291,7 @@ class TestTransitionBlocked:
         assert body["currentPhase"] == "draft"
         assert body["targetPhase"] == "applications_open"
 
-        blocker = body["blockers"][0]
-        assert blocker["id"] == "form_has_fields"
+        blocker = next(b for b in body["blockers"] if b["id"] == "form_has_fields")
         assert blocker["passed"] is False
         assert blocker["message"]
         # The key is on the wire and camelCased, which is what this test is named for. Its value is
@@ -297,11 +300,12 @@ class TestTransitionBlocked:
         assert "resolutionLink" in blocker
         assert "resolution_link" not in blocker
         assert blocker["resolutionLink"] is None
+        assert blocker["resolutionLabel"] is None
 
         assert collection.doc["phase"] == "draft"
 
     def test_empty_form_blocks_reopen(self, client, markets):
-        collection = markets(_market_doc(phase="applications_closed", fields=[]))
+        collection = markets(_market_doc(phase="applications_closed", fields=[], plan=None))
 
         response = _post(client, {"toPhase": "applications_open"})
 
@@ -424,3 +428,72 @@ class TestTransitionRejected:
         response = _post(client, {"toPhase": "applications_open"}, email="stranger@example.com")
 
         assert response.status_code == 403
+
+
+class TestTheGoogleFormPath:
+    """Begin Review from importing is one move through the closed phase (E32/F02/S01)."""
+
+    @pytest.fixture
+    def imported(self, monkeypatch):
+        import api.applications as ApplicationsApi
+
+        def _set(n):
+            monkeypatch.setattr(ApplicationsApi, "count_applications_for_market", lambda _id: n)
+        return _set
+
+    def test_begin_review_walks_both_steps_and_records_each(self, client, markets, imported):
+        imported(2)
+        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+
+        response = _post(client, {"toPhase": "review"})
+
+        assert response.status_code == 200, response.get_json()
+        assert response.get_json() == {"phase": "review"}
+        assert collection.doc["phase"] == "review"
+        entered = [u["$set"]["phase"] for _, u in collection.updates]
+        assert entered == ["applications_closed", "review"]
+        # Each step is conditional on the phase the one before it left.
+        assert [f["phase"] for f, _ in collection.updates] == ["applications_open", "applications_closed"]
+
+    def test_nothing_moves_while_nothing_has_been_imported(self, client, markets, imported):
+        imported(0)
+        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+
+        response = _post(client, {"toPhase": "review"})
+
+        assert response.status_code == 409
+        assert [b["id"] for b in response.get_json()["blockers"]] == ["responses_imported"]
+        assert collection.doc["phase"] == "applications_open"
+        assert collection.updates == []
+
+    def test_a_form_market_has_no_such_move(self, client, markets, imported):
+        imported(2)
+        markets({**_market_doc(phase="applications_open", is_draft=False), "intakeMode": "form"})
+
+        assert _post(client, {"toPhase": "review"}).status_code == 400
+
+    def test_the_single_step_is_still_taken_when_asked_for(self, client, markets):
+        """The path steps through the closed phase on the rail; the edge itself is still there."""
+        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+
+        assert response_ok(_post(client, {"toPhase": "applications_closed"}))
+        assert collection.doc["phase"] == "applications_closed"
+
+    def test_a_market_moved_between_the_two_steps_is_not_carried_on(self, client, markets, imported):
+        """Each step is taken only from where the one before left it."""
+        imported(2)
+        collection = markets(_market_doc(phase="applications_open", is_draft=False))
+        first_step = collection.update_one
+
+        def and_then_someone_reopens(filter_query, update):
+            result = first_step(filter_query, update)
+            collection.doc["phase"] = "applications_open"
+            return result
+        collection.update_one = and_then_someone_reopens
+
+        response = _post(client, {"toPhase": "review"})
+
+        assert response.status_code == 409
+        assert response.get_json()["error"] == "phase_changed"
+        assert [u["$set"]["phase"] for _, u in collection.updates] == ["applications_closed"]
+        assert collection.doc["phase"] == "applications_open"

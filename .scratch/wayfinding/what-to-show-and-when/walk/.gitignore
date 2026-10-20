@@ -1,0 +1,13 @@
+# The full walk is 146 screenshots (52 MB) and regenerates from walk.md's own method.
+# Only the ones walk.md and the tickets lean on hardest are kept.
+*.png
+!fresh-draft-forward.png
+!csv-draft-setup.png
+!form-applications_open-setup.png
+!csv-applications_open-applications.png
+!csv-applications_open-import-map.png
+!csv-review-forward.png
+!form-assignment-before-result.png
+!form-assignment-before-forward.png
+!form-market_days-landing.png
+!form-archived-landing.png

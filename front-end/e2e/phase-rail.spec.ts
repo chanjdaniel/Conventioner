@@ -3,16 +3,11 @@ import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { seedAssignedMarket, type AssignedSeedResult } from './helpers/seedAssignedMarket';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
+import { completePlan } from './helpers/seeds';
 
 /** A plan with a date, so the essential questions have something to ask. */
-const PLAN = {
-  priority: [],
-  marketDates: [{ date: '2099-05-01' }],
-  tiers: [],
-  locations: [],
-  sections: [],
-  assignmentOptions: { maxAssignmentsPerVendor: null, maxHalfTableProportionPerSection: null },
-};
+// Complete, so the form market may leave draft (E31/F01/S01).
+const PLAN = completePlan();
 
 /**
  * The phase rail (E10/F01).

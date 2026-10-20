@@ -112,11 +112,11 @@ test.describe('The frame stays put', () => {
     expect(gap).toBeLessThanOrEqual(24);
   });
 
-  test('a refused transition’s blockers are pinned with the rail, under their button', async ({
+  test('a refused step’s reason is pinned with the rail, under its button', async ({
     authenticatedPage: page,
     request,
   }) => {
-    // A plan that asks nothing, so Open Applications is refused and the blocker panel opens.
+    // A plan that asks nothing, so Open Applications is refused - and said so before the click.
     const blocked = await seedFormlessPhaseMarket(
       request,
       BACKEND_URL,
@@ -126,8 +126,8 @@ test.describe('The frame stays put', () => {
     );
     await page.setViewportSize({ width: 1920, height: 700 });
     await page.goto(marketSetupPath(blocked.marketId, 'setup'));
-    await page.getByTestId('phase-transition-applications_open').click();
-    const blockers = page.getByTestId('phase-rail-blockers');
+    await expect(page.getByTestId('phase-transition-applications_open')).toBeDisabled();
+    const blockers = page.getByTestId('phase-rail-next');
     await expect(blockers).toBeVisible({ timeout: 10000 });
 
     await scrollToBottom(page);
