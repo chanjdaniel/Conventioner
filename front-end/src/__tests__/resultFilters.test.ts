@@ -63,7 +63,14 @@ describe('the result filters', () => {
         choice: 'FULL',
         status: 'empty',
       }),
-    ).toEqual({ date: '2026-11-18', section: 'B', tier: '', choice: 'full', status: 'empty' });
+    ).toEqual({
+      date: '2026-11-18',
+      section: 'B',
+      tier: '',
+      choice: 'full',
+      status: 'empty',
+      search: '',
+    });
     expect(readResultFilters({ choice: 'large', status: 'occupied' })).toMatchObject({
       choice: '',
       status: '',
@@ -174,6 +181,7 @@ describe('the filters across the two pages', () => {
         status: 'empty',
         vendor: 'a@x',
         show: 'unassigned',
+        search: 'Nadia',
       }),
     ).toEqual({ date: '2026-11-18', section: 'A', tier: 'Gold', choice: 'half' });
     expect(placeFilterQuery({ choice: 'large' })).toEqual({});
@@ -190,7 +198,14 @@ describe('the filters across the two pages', () => {
 
 describe('the filters each page offers', () => {
   it('offers the tables every filter, and the vendors the where-filters', () => {
-    expect(filtersBeside('tables')).toEqual(['date', 'section', 'tier', 'choice', 'status']);
+    expect(filtersBeside('tables')).toEqual([
+      'date',
+      'section',
+      'tier',
+      'choice',
+      'status',
+      'search',
+    ]);
     expect(filtersBeside('vendors')).toEqual(['date', 'section', 'tier', 'choice']);
   });
 
@@ -206,6 +221,7 @@ describe('the filters each page offers', () => {
       tier: '',
       choice: '',
       status: '',
+      search: '',
     });
     expect(offeredFilters(all, ['date'])).toMatchObject({ section: '', status: '' });
   });
@@ -249,5 +265,50 @@ describe('the order a date lists its sections in (E30/F01/S05)', () => {
       'Alpha',
       'Zed',
     ]);
+  });
+});
+
+/**
+ * The search (E35/F02/S01): a table is kept when its label matches, or when someone at it does -
+ * by address, or by what the server serves for them: their names and their text answers.
+ */
+describe('the search on the results', () => {
+  const SEARCH = {
+    'b@x': ['Nadia O', 'Nadia Okafor', 'Ember & Ash Ceramics'],
+    'd@x': ['Theo'],
+  };
+
+  it('is read from the address as typed, and matched without its surrounding spaces', () => {
+    expect(readResultFilters({ search: 'Nadia ' }).search).toBe('Nadia ');
+    const shown = tablesMatching(ROWS, readResultFilters({ search: '  ember ' }), SEARCH);
+    expect(shown.map((r) => r.tableCode)).toEqual(['A2']);
+  });
+
+  it('keeps the tables of a vendor whose name, business or address matches', () => {
+    const by = (search: string) =>
+      tablesMatching(ROWS, readResultFilters({ search }), SEARCH).map((r) => r.tableCode);
+    expect(by('okafor')).toEqual(['A2']);
+    expect(by('ASH CERAM')).toEqual(['A2']);
+    expect(by('d@')).toEqual(['A3']);
+  });
+
+  it('keeps a table whose label matches, on every date it is on', () => {
+    expect(
+      tablesMatching(ROWS, readResultFilters({ search: 'b1' }), SEARCH).map((r) => r.tableCode),
+    ).toEqual(['B1']);
+    expect(tablesMatching(ROWS, readResultFilters({ search: 'a1' }), SEARCH)).toEqual([
+      full,
+      otherDay,
+    ]);
+  });
+
+  it('combines with the date, and the counts follow it', () => {
+    const filters = readResultFilters({ search: 'a1', date: '2026-11-19' });
+    expect(tablesMatching(ROWS, filters, SEARCH)).toEqual([otherDay]);
+    expect(statusCounts(ROWS, filters, SEARCH)).toEqual({ assigned: 0, partial: 0, empty: 1 });
+  });
+
+  it('is not a where-filter, so it does not travel to the vendors', () => {
+    expect(hasPlaceFilter(readResultFilters({ search: 'nadia' }))).toBe(false);
   });
 });
