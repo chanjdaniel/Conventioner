@@ -2,7 +2,7 @@
 id: E33/F02
 title: No question is inferred required
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

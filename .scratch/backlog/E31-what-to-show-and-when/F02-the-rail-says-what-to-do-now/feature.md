@@ -2,7 +2,7 @@
 id: E31/F02
 title: The rail says what to do now
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

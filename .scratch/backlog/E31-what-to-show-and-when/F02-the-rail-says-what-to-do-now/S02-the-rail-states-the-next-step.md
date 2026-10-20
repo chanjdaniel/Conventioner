@@ -2,9 +2,9 @@
 id: E31/F02/S02
 title: The rail states the next step, from one table
 type: story
-status: in-progress
+status: done
 blocked_by: [E31/F02/S01]
-pr: []
+pr: [#109]
 ---
 
 ## What to build

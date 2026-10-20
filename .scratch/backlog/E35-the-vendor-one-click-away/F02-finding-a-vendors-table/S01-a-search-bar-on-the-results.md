@@ -2,9 +2,9 @@
 id: E35/F02/S01
 title: A search bar on the results
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#112]
 ---
 
 ## What to build

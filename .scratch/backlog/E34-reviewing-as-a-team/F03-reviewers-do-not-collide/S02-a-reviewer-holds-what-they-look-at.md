@@ -2,9 +2,9 @@
 id: E34/F03/S02
 title: A reviewer holds the application they are looking at
 type: story
-status: in-progress
+status: done
 blocked_by: [E34/F03/S01]
-pr: []
+pr: [#111]
 ---
 
 ## What to build

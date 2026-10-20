@@ -2,9 +2,9 @@
 id: E33/F03/S02
 title: The rules reject, with a reason
 type: story
-status: in-progress
+status: done
 blocked_by: [E33/F03/S01, E34/F01/S01]
-pr: []
+pr: [#110]
 ---
 
 ## What to build

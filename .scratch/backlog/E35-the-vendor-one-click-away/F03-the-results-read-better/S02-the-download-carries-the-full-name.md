@@ -2,9 +2,9 @@
 id: E35/F03/S02
 title: The download carries the full name
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#112]
 ---
 
 ## What to build

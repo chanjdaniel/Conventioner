@@ -2,9 +2,9 @@
 id: E32/F03/S04
 title: The doubled verification email
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

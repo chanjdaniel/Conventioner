@@ -2,9 +2,9 @@
 id: E32/F02/S03
 title: The review offers no import
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

@@ -2,7 +2,7 @@
 id: E30/F01
 title: The screens say true things in every phase
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

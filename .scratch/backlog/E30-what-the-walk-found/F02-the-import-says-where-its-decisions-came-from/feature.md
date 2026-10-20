@@ -2,7 +2,7 @@
 id: E30/F02
 title: The CSV import says where its decisions came from
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

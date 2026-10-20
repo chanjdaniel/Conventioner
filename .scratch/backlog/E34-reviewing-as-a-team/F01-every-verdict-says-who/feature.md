@@ -2,7 +2,7 @@
 id: E34/F01
 title: Every verdict says who gave it
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

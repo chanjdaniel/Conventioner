@@ -2,7 +2,7 @@
 id: E32/F02
 title: The Google Form path reads Plan, Import, Review
 type: feature
-status: ready
+status: done
 blocked_by: [E32/F01]
 pr: []
 ---

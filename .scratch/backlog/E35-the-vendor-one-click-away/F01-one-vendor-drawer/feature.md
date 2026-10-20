@@ -2,7 +2,7 @@
 id: E35/F01
 title: One vendor drawer
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

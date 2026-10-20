@@ -2,9 +2,9 @@
 id: E32/F03/S03
 title: A test market of each path, for checking in production
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

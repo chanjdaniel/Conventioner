@@ -2,7 +2,7 @@
 id: E32/F01
 title: Each move lands where its work is
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

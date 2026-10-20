@@ -2,7 +2,7 @@
 id: E31/F04
 title: Vendor notes
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

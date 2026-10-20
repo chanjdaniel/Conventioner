@@ -2,7 +2,7 @@
 id: E34/F05
 title: "All others" reads every answer
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

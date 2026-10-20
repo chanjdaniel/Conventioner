@@ -2,9 +2,9 @@
 id: E31/F04/S02
 title: The organizer's note
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

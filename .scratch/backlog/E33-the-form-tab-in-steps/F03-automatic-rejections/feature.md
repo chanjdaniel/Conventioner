@@ -2,7 +2,7 @@
 id: E33/F03
 title: Automatic rejections
 type: feature
-status: ready
+status: done
 blocked_by: [E33/F01/S01]
 pr: []
 ---

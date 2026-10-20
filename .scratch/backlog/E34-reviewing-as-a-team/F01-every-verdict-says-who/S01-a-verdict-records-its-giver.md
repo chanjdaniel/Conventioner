@@ -2,9 +2,9 @@
 id: E34/F01/S01
 title: A verdict records its giver, at EDITOR
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#110]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E32/F01/S01
 title: A move lands on the new phase's page
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

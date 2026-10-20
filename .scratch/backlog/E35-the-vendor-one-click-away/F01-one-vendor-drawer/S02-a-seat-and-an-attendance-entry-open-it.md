@@ -2,9 +2,9 @@
 id: E35/F01/S02
 title: A seat and an attendance entry open the drawer
 type: story
-status: in-progress
+status: done
 blocked_by: [E35/F01/S01]
-pr: []
+pr: [#112]
 ---
 
 ## What to build

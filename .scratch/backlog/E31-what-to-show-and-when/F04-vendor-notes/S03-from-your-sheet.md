@@ -2,9 +2,9 @@
 id: E31/F04/S03
 title: A sheet's organizer column comes in as "From your sheet"
 type: story
-status: in-progress
+status: done
 blocked_by: [E31/F04/S02]
-pr: []
+pr: [#109]
 ---
 
 ## What to build

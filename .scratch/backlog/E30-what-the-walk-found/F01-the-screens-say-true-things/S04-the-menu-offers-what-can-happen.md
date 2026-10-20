@@ -2,9 +2,9 @@
 id: E30/F01/S04
 title: The menu offers nothing that can never succeed
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

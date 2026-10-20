@@ -2,9 +2,9 @@
 id: E31/F02/S01
 title: The market read serves each move's verdict
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

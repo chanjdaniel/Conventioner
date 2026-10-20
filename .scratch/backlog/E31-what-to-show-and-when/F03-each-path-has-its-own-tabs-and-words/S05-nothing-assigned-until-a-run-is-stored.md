@@ -2,9 +2,9 @@
 id: E31/F03/S05
 title: Nothing is shown as assigned until a run is stored
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

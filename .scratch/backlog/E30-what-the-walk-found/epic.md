@@ -2,7 +2,7 @@
 id: E30
 title: What the walk found
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

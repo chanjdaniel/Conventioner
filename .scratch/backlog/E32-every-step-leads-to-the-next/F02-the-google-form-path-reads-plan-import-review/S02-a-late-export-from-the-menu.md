@@ -2,9 +2,9 @@
 id: E32/F02/S02
 title: A late export comes in from the menu
 type: story
-status: in-progress
+status: done
 blocked_by: [E32/F02/S01]
-pr: []
+pr: [#109]
 ---
 
 ## What to build

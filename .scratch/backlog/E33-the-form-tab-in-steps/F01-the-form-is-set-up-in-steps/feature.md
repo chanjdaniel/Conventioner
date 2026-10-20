@@ -2,7 +2,7 @@
 id: E33/F01
 title: The form is set up in steps
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

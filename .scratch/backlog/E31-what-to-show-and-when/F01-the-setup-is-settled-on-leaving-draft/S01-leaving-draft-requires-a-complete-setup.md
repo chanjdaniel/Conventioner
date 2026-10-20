@@ -2,9 +2,9 @@
 id: E31/F01/S01
 title: Leaving draft requires a complete setup
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

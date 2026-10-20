@@ -2,9 +2,9 @@
 id: E34/F04/S01
 title: The All view
 type: story
-status: in-progress
+status: done
 blocked_by: [E35/F01/S01]
-pr: []
+pr: [#111]
 ---
 
 ## What to build
