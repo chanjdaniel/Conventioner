@@ -1,4 +1,4 @@
-import { test as base, type Page } from '@playwright/test';
+import { test as base, type Page, type TestInfo } from '@playwright/test';
 import { LoginPage } from './pages/LoginPage';
 import { stack } from './helpers/stack';
 
@@ -28,7 +28,45 @@ async function login(page: Page, email: string, password: string) {
   await page.waitForURL('**/dashboard', { timeout: 10000 });
 }
 
+/**
+ * What the browser said, kept for a test that fails. The suite has twice failed on a page that
+ * never painted, with nothing in the stack's logs to say why; a tab can run out of network
+ * resources on the dev server's unbundled modules (`net::ERR_INSUFFICIENT_RESOURCES`), its route's
+ * chunk then fails to import, and the app mounts with no page. Attached only on failure, so a
+ * passing run carries nothing and a failing one names its cause.
+ */
+async function withBrowserDiagnostics(
+  page: Page,
+  use: (page: Page) => Promise<void>,
+  testInfo: TestInfo,
+): Promise<void> {
+  const said: string[] = [];
+  const at = () => new Date().toISOString();
+  page.on('console', (message) => {
+    if (message.type() === 'error') said.push(`${at()} console.error: ${message.text()}`);
+  });
+  page.on('pageerror', (error) => said.push(`${at()} pageerror: ${error.message}`));
+  page.on('crash', () => said.push(`${at()} the page crashed`));
+  page.on('requestfailed', (request) => {
+    const why = request.failure()?.errorText ?? '';
+    // A navigation cancels what the page it leaves was loading; that is not a failure.
+    if (!why.includes('ERR_ABORTED')) {
+      said.push(`${at()} requestfailed: ${request.method()} ${request.url()} ${why}`);
+    }
+  });
+  await use(page);
+  if (testInfo.status !== testInfo.expectedStatus && said.length) {
+    await testInfo.attach('what the browser said', {
+      body: said.join('\n'),
+      contentType: 'text/plain',
+    });
+  }
+}
+
 export const test = base.extend<{ authenticatedPage: Page }>({
+  page: async ({ page }, use, testInfo) => {
+    await withBrowserDiagnostics(page, use, testInfo);
+  },
   authenticatedPage: async ({ page }, use) => {
     await login(page, TEST_USER.email, TEST_USER.password);
     await use(page);
