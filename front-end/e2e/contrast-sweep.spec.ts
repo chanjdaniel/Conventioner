@@ -291,6 +291,17 @@ test.describe('Every rendered text node reaches AA', () => {
     await expect(page.getByTestId('archive-confirm-window')).toBeHidden();
   });
 
+  test('the statistics, open and under the pointer', async ({ authenticatedPage: page }) => {
+    // The ledger of bars (E35/F03/S01): a share in muted ink on white, and on a hovered row's beige.
+    await openTheSeededMarket(page);
+    await page.goto(`${marketScreenPath(marketId, 'result')}?stats=open`);
+    const row = page.getByTestId('result-statistics-date').first();
+    await expect(row).toBeVisible({ timeout: 15000 });
+    await expectAA(page, 'the statistics');
+    await row.hover();
+    await expectAA(page, 'a hovered statistics row');
+  });
+
   test('a market tab under the pointer', async ({ authenticatedPage: page }) => {
     // Hover is a state too, and none was walked: the tab bar's hover set its label to the border
     // token, a 25% near-black, on the black bar - invisible under the pointer (E21/F01/S01).

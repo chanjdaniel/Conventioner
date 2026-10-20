@@ -1,6 +1,7 @@
 import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { test, expect, TEST_USER, BACKEND_URL, LoginPage } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
+import { TablesPage } from './pages/TablesPage';
 import { namelessControls } from './helpers/accessibleNames';
 import {
   createApplicantLoginChallenge,
@@ -223,6 +224,14 @@ test('every field on every other organizer screen and dialog has a name', async 
     await page.waitForLoadState('networkidle');
     await named(screen);
   }
+
+  // The placement history, opened with the run's entry in it (E35/F03/S03).
+  const tables = new TablesPage(page);
+  await tables.goto(published.marketId);
+  await tables.openHistory();
+  await expect(tables.historyEntries.first()).toBeVisible();
+  await named('the placement history');
+  await page.keyboard.press('Escape');
 
   await page.goto(`/${published.marketSlug}/check-in`);
   await page.waitForLoadState('networkidle');

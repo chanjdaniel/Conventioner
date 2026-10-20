@@ -10,7 +10,7 @@
  * and a flag saying "hand-placed" cannot answer it (`E11/F04/S01`).
  */
 import { getFormattedTimestamp, getShortDate } from '@/utils/utils';
-import { vendorHeadline, type VendorNames } from '@/utils/vendorIdentity';
+import { vendorName, type VendorNames } from '@/utils/vendorIdentity';
 
 /** Mirrors the kinds in `back-end/placement_history.py`. */
 export type PlacementHistoryKind = 'placed' | 'freed' | 'swapped' | 'assigned';
@@ -35,35 +35,77 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
+/** One piece of an entry's line: words, or a vendor, drawn as their name with their email beside. */
+export type HistoryPart =
+  { kind: 'text'; text: string } | { kind: 'vendor'; name: string; email: string };
+
 /**
- * What happened, in one line.
+ * What happened, in one line, as parts (E35/F03/S03): a vendor is a part of its own, so the trail
+ * draws their email beside their name - two vendors can share a name, and the address is what tells
+ * them apart. A vendor with no name is their email alone, never the email twice.
  *
  * A solver run is one line naming what it touched rather than one line per placement: one entry
  * per placement would drown the hand edits under machine rows, and the hand edits are the
  * entries anyone actually reads.
  */
-export function historySummary(entry: PlacementHistoryEntry, names: VendorNames): string {
-  const who = (email: string) => vendorHeadline(email, names);
+export function historyParts(entry: PlacementHistoryEntry, names: VendorNames): HistoryPart[] {
+  const text = (words: string): HistoryPart => ({ kind: 'text', text: words });
+  const who = (email: string): HistoryPart => ({
+    kind: 'vendor',
+    name: vendorName(email, names),
+    email: String(email ?? '').trim(),
+  });
   const detail = entry.detail ?? {};
 
   switch (entry.kind) {
     case 'placed':
-      return `Placed ${who(entry.vendors[0])} at ${detail.tableCode} (${detail.tableChoice})`;
+      return [
+        text('Placed '),
+        who(entry.vendors[0]),
+        text(` at ${detail.tableCode} (${detail.tableChoice})`),
+      ];
     case 'freed':
-      return `Freed ${detail.tableCode}, leaving ${who(entry.vendors[0])} with no table`;
+      return [
+        text(`Freed ${detail.tableCode}, leaving `),
+        who(entry.vendors[0]),
+        text(' with no table'),
+      ];
     case 'swapped': {
       const [first, second] = detail.seats ?? [];
-      if (!first || !second) return `Swapped ${entry.vendors.map(who).join(' and ')}`;
-      return `Swapped ${who(first.email)} and ${who(second.email)} - now at ${first.tableCode} and ${second.tableCode}`;
+      if (!first || !second) {
+        const [a, b] = entry.vendors;
+        return b ? [text('Swapped '), who(a), text(' and '), who(b)] : [text('Swapped '), who(a)];
+      }
+      return [
+        text('Swapped '),
+        who(first.email),
+        text(' and '),
+        who(second.email),
+        text(` - now at ${first.tableCode} and ${second.tableCode}`),
+      ];
     }
     case 'assigned':
-      return (
-        `Ran the assignment: ${plural(detail.placementsWritten ?? 0, 'placement', 'placements')} written` +
-        (detail.pinsPreserved ? `, ${plural(detail.pinsPreserved, 'pin', 'pins')} preserved` : '')
-      );
+      return [
+        text(
+          `Ran the assignment: ${plural(detail.placementsWritten ?? 0, 'placement', 'placements')} written` +
+            (detail.pinsPreserved
+              ? `, ${plural(detail.pinsPreserved, 'pin', 'pins')} preserved`
+              : ''),
+        ),
+      ];
     default:
-      return 'Changed a placement';
+      return [text('Changed a placement')];
   }
+}
+
+/** The same line as plain text: a vendor reads "Name (email)", or their email alone. */
+export function historySummary(entry: PlacementHistoryEntry, names: VendorNames): string {
+  return historyParts(entry, names)
+    .map((part) => {
+      if (part.kind === 'text') return part.text;
+      return part.name ? `${part.name} (${part.email})` : part.email;
+    })
+    .join('');
 }
 
 /**

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test, expect, TEST_USER, BACKEND_URL, TablesPage } from './fixtures';
 import { ensureTestOrg, seedMarketWithVendors } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
@@ -41,7 +42,9 @@ test.describe('The Result page', () => {
     );
     await expect(page.getByTestId('assignment-satisfaction-score')).toBeVisible();
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible();
-    await expect(page.getByTestId('placement-history')).toBeVisible();
+    // The trail is behind its own button now, not under every table (E35/F03/S03).
+    await expect(page.getByTestId('placement-history')).toHaveCount(0);
+    await expect(page.getByTestId('result-history-button')).toBeVisible();
     // Retired with the old results page.
     await expect(page.locator('.assignment-results')).toHaveCount(0);
     await expect(page.getByTestId('assignment-results-view-tables-button')).toHaveCount(0);
@@ -49,7 +52,7 @@ test.describe('The Result page', () => {
     const before = await placed.textContent();
     const tables = new TablesPage(page);
     const seat = page.getByTestId('tables-seat-occupied').first();
-    await seat.click();
+    await tables.change(seat);
     await tables.freeSeat();
     await expect(placed).not.toHaveText(before ?? '', { timeout: 10000 });
   });
@@ -76,7 +79,7 @@ test.describe('The Result page', () => {
     await page.getByTestId('result-statistics-button').click();
     await expect(panel).toBeVisible();
     await expect(page).toHaveURL(/stats=open/);
-    for (const heading of ['Per Date', 'Per Section', 'Per Tier', 'Per Table Choice']) {
+    for (const heading of ['Per date', 'Per section', 'Per tier', 'Per table size']) {
       await expect(panel.getByRole('heading', { name: heading })).toBeVisible();
     }
 
@@ -107,7 +110,12 @@ test.describe('The Result page', () => {
     await page.goto(at(marketId, 'result'));
     const download = page.waitForEvent('download');
     await page.getByTestId('result-download-csv-button').click();
-    expect((await download).suggestedFilename()).toMatch(/\.csv$/);
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/\.csv$/);
+    // The name each vendor chose, then their full name, then the address (E35/F03/S02).
+    const text = readFileSync((await file.path()) as string, 'utf8');
+    expect(text.split('\n')[0].startsWith('Name,Full name,Email,')).toBe(true);
+    expect(text).toContain('Alice Example,Alice Example,alice@example.com');
   });
 
   test('"unassigned" opens Vendors, filtered to the unassigned', async ({

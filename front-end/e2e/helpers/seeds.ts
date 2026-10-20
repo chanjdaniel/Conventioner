@@ -18,10 +18,10 @@ export const SEED_MARKET_DATE = '2099-05-01';
  * tier with tables. For a seed whose subject is not the plan; the market asks the essential
  * questions this offering implies, as any market that opens does.
  */
-export function completePlan(marketDate: string = SEED_MARKET_DATE) {
+export function completePlan(marketDate: string = SEED_MARKET_DATE, more: string[] = []) {
   return {
     priority: [],
-    marketDates: [{ date: marketDate }],
+    marketDates: [marketDate, ...more].map((date) => ({ date })),
     tiers: [{ id: 1, name: 'Gold' }],
     locations: [{ name: 'Main Hall' }],
     sections: [
@@ -214,9 +214,12 @@ export async function seedMarketWithVendors(
   /**
    * A name of the caller's choosing. A market can only be renamed while it is a draft
    * (E21/F03/S04), so a spec that needs a particular name for a market further along gives it here.
+   * `dates` are the market's dates, every vendor available on each; one, `SEED_MARKET_DATE`, unless
+   * named.
    */
-  options: { name?: string } = {},
+  options: { name?: string; dates?: string[] } = {},
 ): Promise<SeedResult> {
+  const [firstDate, ...moreDates] = options.dates ?? [SEED_MARKET_DATE];
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
@@ -234,7 +237,7 @@ export async function seedMarketWithVendors(
       modificationList: [],
       assignmentObject: {},
       // Complete, so the market may leave draft (E31/F01/S01).
-      setupObject: completePlan(),
+      setupObject: completePlan(firstDate, moreDates),
     },
   });
   if (!createRes.ok()) {
@@ -258,7 +261,7 @@ export async function seedMarketWithVendors(
   // which is what a vendor is; this used to be a fabricated CSV upload because the solver read a
   // separate source_data collection.
   for (const applicant of ['alice@example.com', 'bob@example.com']) {
-    seedApprovedVendor(marketId, applicant, { dates: [SEED_MARKET_DATE], tiers: ['Gold'] });
+    seedApprovedVendor(marketId, applicant, { dates: [firstDate, ...moreDates], tiers: ['Gold'] });
   }
 
   return { marketId, userId, marketName, orgId };

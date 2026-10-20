@@ -11,7 +11,7 @@ import { api } from '@/utils/api';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import {
   historyDate,
-  historySummary,
+  historyParts,
   historyWhen,
   type PlacementHistoryEntry,
 } from '@/utils/placementHistory';
@@ -76,7 +76,17 @@ const emptyText = computed(() =>
         :data-kind="entry.kind"
         data-testid="placement-history-entry"
       >
-        <p class="placement-history-what">{{ historySummary(entry, vendorNames) }}</p>
+        <p class="placement-history-what">
+          <template v-for="(part, index) in historyParts(entry, vendorNames)" :key="index">
+            <template v-if="part.kind === 'text'">{{ part.text }}</template>
+            <span v-else class="placement-history-vendor" data-testid="placement-history-vendor"
+              >{{ part.name || part.email
+              }}<template v-if="part.name"
+                >{{ ' ' }}<span class="placement-history-email">{{ part.email }}</span></template
+              ></span
+            >
+          </template>
+        </p>
         <p class="placement-history-who">
           {{ entry.actor }} - {{ historyWhen(entry) }}
           <span v-if="historyDate(entry)" class="placement-history-for">
@@ -135,6 +145,12 @@ const emptyText = computed(() =>
   font-size: var(--text-sm);
   color: var(--mm-black);
   overflow-wrap: anywhere;
+}
+
+/* The email beside the name, muted, so the line still reads as a sentence (E35/F03/S03). */
+.placement-history-email {
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted);
 }
 
 .placement-history-who {
