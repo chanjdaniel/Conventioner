@@ -331,6 +331,8 @@ def test_get_market_tables_sends_every_answer_a_hand_change_can_override(monkeyp
             "acceptedTiersByDate": {"2026-01-01": ["Gold", "Silver"]},
             "maxDates": 1,
             "notApproved": None,
+            "inTheRun": True,
+            "addedByHand": False,
         }
     ]
 
@@ -375,6 +377,8 @@ def test_get_market_tables_offers_every_applicant_saying_who_is_not_approved(mon
             "verdictAt": "2026-01-01T10:00:00",
             "verdictReason": "Not a UBC student",
         },
+        "inTheRun": False,
+        "addedByHand": False,
     }]
 
 

@@ -4,6 +4,7 @@ import { planSetupObject, seedApplicantMarket } from './helpers/seedApplicantMar
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { seedApplicationWithStatus } from './helpers/seedPhaseMarket';
 import { marketSetupPath } from './helpers/marketScreens';
+import { namelessControls } from './helpers/accessibleNames';
 
 /**
  * Results wait for the allocation (E36/F04/S01), and settle it (E36/F04/S02).
@@ -65,6 +66,7 @@ test('publishing waits for a run, then says who will read what before it tells t
   await expect(publish).toBeEnabled();
   await publish.click();
   const confirm = page.getByTestId('publish-results-window');
+  expect(await namelessControls(page), 'the publish results dialog').toEqual([]);
   await expect(confirm).toContainText('1 applicant will read "You have a table"');
   await expect(confirm).toContainText('1 will read "You did not get assigned"');
   await confirm.getByTestId('publish-results-submit-button').click();
@@ -77,6 +79,18 @@ test('publishing waits for a run, then says who will read what before it tells t
     'Results are published, so the assignment is settled',
   );
   await expect(page.getByTestId('market-setup-assign-button')).toHaveCount(0);
+  // Seats still change by hand: freed, and given back.
+  const seat = { email: 'seated@example.com', date: DATE };
+  const freed = await request.delete(`${BACKEND_URL}/markets/${market.marketId}/placements`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+    data: seat,
+  });
+  expect(freed.ok(), await freed.text()).toBeTruthy();
+  const placed = await request.put(`${BACKEND_URL}/markets/${market.marketId}/placements`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+    data: { ...seat, table_code: 'Main Hall 1', table_choice: 'Full Table' },
+  });
+  expect(placed.ok(), await placed.text()).toBeTruthy();
   // And the market may go live.
   await page.getByTestId('phase-transition-market_days').click();
   await page.getByTestId('sweep-confirm-submit-button').click();

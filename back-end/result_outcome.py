@@ -15,13 +15,14 @@ HAS_A_TABLE = "has_a_table"
 NOT_ASSIGNED = "not_assigned"
 
 
+def seated_from(placements: Iterable[VendorAssignmentResult]) -> Set[str]:
+    """Everyone these placements give a seat on any date."""
+    return {normalized_email(placement.email) for placement in placements if placement.email}
+
+
 def seated_addresses(market: Market) -> Set[str]:
     """Everyone the stored assignment gives a seat on any date."""
-    return {
-        normalized_email(placement.email)
-        for placement in market.assignment_object.vendor_assignments or []
-        if placement.email
-    }
+    return seated_from(market.assignment_object.vendor_assignments or [])
 
 
 def seats_of(address: str, placements: Iterable[VendorAssignmentResult]) -> List[Dict[str, str]]:

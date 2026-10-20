@@ -31,6 +31,8 @@ function vendor(overrides: Partial<PlaceableVendor> = {}): PlaceableVendor {
     acceptedTiersByDate: {},
     maxDates: null,
     notApproved: null,
+    inTheRun: true,
+    addedByHand: false,
     ...overrides,
   };
 }
@@ -312,5 +314,38 @@ describe('placing someone who is not approved (E36/F02/S02)', () => {
     expect(groups.fits.map((v) => v.email)).toEqual(['fits@ember.test']);
     expect(groups.overrides).toEqual([]);
     expect(groups.notApproved.map((v) => v.email)).toEqual(['dev@kiln.test', 'ines@loom.test']);
+  });
+});
+
+describe('placing a vendor added by hand (E36/F03/S01)', () => {
+  const walkIn = vendor({
+    email: 'walk.in@example.com',
+    availableDates: [],
+    tableChoice: '',
+    inTheRun: false,
+    addedByHand: true,
+  });
+
+  it('says nothing is known to check the seat against, not that they declined the date', () => {
+    expect(placementWarnings(walkIn, at())).toEqual([
+      'Added by hand: they gave no answers to check this seat against.',
+    ]);
+  });
+
+  it("still says the market's ceiling, which is the organizer's rule for everyone", () => {
+    const warnings = placementWarnings(walkIn, at({ datesHeld: [OTHER_DATE], marketCeiling: 1 }));
+
+    expect(warnings).toContain('This gives them 2 dates; the market allows at most 1 per vendor.');
+  });
+
+  it('lists them in their own group', () => {
+    const groups = groupCandidates(
+      [walkIn],
+      { date: DATE, tier: 'Gold', seat: FULL_TABLE, marketCeiling: null },
+      () => [],
+    );
+
+    expect(groups.addedByHand.map((v) => v.email)).toEqual(['walk.in@example.com']);
+    expect([...groups.fits, ...groups.overrides, ...groups.notApproved]).toEqual([]);
   });
 });

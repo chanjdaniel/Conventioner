@@ -24,6 +24,7 @@ import {
 } from '@/utils/resultFilters';
 import { statusChip, statusLabel } from '@/utils/verdicts';
 import { ApplicationStatus } from '@/assets/types/datatypes';
+import { useMarketStore } from '@/stores/market';
 import { useResultFilters } from '@/utils/useResultFilters';
 import { signedInEmail } from '@/utils/signedIn';
 import { useVendorDetails } from '@/utils/vendorDetails';
@@ -112,6 +113,8 @@ const adding = ref(false);
 const canAdd = computed(() => Boolean(market.value) && !market.value?.addVendorReason);
 async function vendorAdded(email: string): Promise<void> {
   adding.value = false;
+  // A write is followed by a re-read: the market's own facts count them too (publishOutcomes).
+  void useMarketStore().refresh();
   await details.load();
   drawer.open(email);
 }
@@ -236,7 +239,13 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
               <span v-if="assigned" class="vendor-meta">
                 <!-- Outside the run, the verdict is what to know first (E36/F02/S04). -->
                 <span
-                  v-if="!vendor.inTheRun"
+                  v-if="vendor.added"
+                  class="chip chip--informational"
+                  data-testid="vendors-list-status"
+                  >Added</span
+                >
+                <span
+                  v-else-if="!vendor.inTheRun"
                   :class="statusChip(vendor.status)"
                   data-testid="vendors-list-status"
                   >{{ statusLabel(vendor.status) }}</span

@@ -49,7 +49,6 @@ from utils.application_token import (
 import api.applications as ApplicationsApi
 import result_outcome as ResultOutcome
 from assignment.utils import convert_keys_to_snake_case
-from utils.email_address import normalized_email
 from assignment.made_from import changed_since_run
 import rejection_rules as RejectionRules
 import essential_fields as EssentialFields
@@ -92,10 +91,7 @@ def _application_response(
     """
     placed = list(placements)
     outcome = (
-        ResultOutcome.outcome_of(
-            app.applicant_email,
-            {normalized_email(p.email) for p in placed if p.email},
-        )
+        ResultOutcome.outcome_of(app.applicant_email, ResultOutcome.seated_from(placed))
         if results_published else None
     )
     return {
@@ -128,7 +124,7 @@ def _application_response_organizer(
         "submittedAt": app.submitted_at,
         "updatedAt": app.updated_at,
         # Who gave the verdict and when (E34/F01/S01): the organizer's, never the applicant's.
-        "verdictBy": _giver(app.verdict_by),
+        "verdictBy": giver_payload(app.verdict_by),
         "verdictAt": app.verdict_at,
         "verdictReason": app.verdict_reason,
         "followUpOwner": app.follow_up_owner.as_wire() if app.follow_up_owner else None,
@@ -151,7 +147,8 @@ def _holder(app: Application, now: Optional[datetime]) -> Optional[Dict[str, Any
     return MarketPerson(**held).as_wire() if held else None
 
 
-def _giver(by: Optional[VerdictGiver]) -> Optional[Dict[str, Any]]:
+def giver_payload(by: Optional[VerdictGiver]) -> Optional[Dict[str, Any]]:
+    """A verdict's giver as the organizer's views read one."""
     if by is None:
         return None
     return {"kind": by.kind, "userId": by.user_id, "email": by.email, "rule": by.rule}
@@ -290,7 +287,7 @@ def get_applicant_application(
 
 def _stored_placements(market_doc: Dict[str, Any]) -> List[VendorAssignmentResult]:
     """The seats a market document stores, as the outcome is read off them (E36/F05/S02)."""
-    rows = (market_doc.get("assignmentObject") or {}).get("vendorAssignments") or []
+    rows = (market_doc_field(market_doc, "assignment_object") or {}).get("vendorAssignments") or []
     return [VendorAssignmentResult(**convert_keys_to_snake_case(row)) for row in rows]
 
 

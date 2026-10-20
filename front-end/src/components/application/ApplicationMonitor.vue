@@ -32,6 +32,7 @@ import {
 } from '@/utils/reviewQueue';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
 import AppDialog from '@/components/AppDialog.vue';
+import { outcomeHeadline } from '@/utils/applicantOutcome';
 import { useMarketStore } from '@/stores/market';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
@@ -101,6 +102,9 @@ const marketHasApplicants = computed(() => props.market?.intakeMode === IntakeMo
 const publishReason = computed(() => props.market?.publishResultsReason ?? null);
 const outcomes = computed(() => props.market?.publishOutcomes ?? null);
 const confirmingPublish = ref(false);
+/** The two outcomes in the applicant's own words (E36/F05/S02), worded once. */
+const HAS_A_TABLE = outcomeHeadline({ outcome: 'has_a_table' });
+const NOT_ASSIGNED = outcomeHeadline({ outcome: 'not_assigned' });
 /** Re-deciding is the reviewer's own verdict to change; a published application has moved on. */
 function reDecidable(app: Application): boolean {
   return (
@@ -528,7 +532,7 @@ function submittedOn(app: Application): string {
       <p v-if="outcomes" class="publish-outcomes">
         {{ outcomes.haveATable }}
         {{ outcomes.haveATable === 1 ? 'applicant will read' : 'applicants will read' }}
-        "You have a table". {{ outcomes.notAssigned }} will read "You did not get assigned".
+        "{{ HAS_A_TABLE }}". {{ outcomes.notAssigned }} will read "{{ NOT_ASSIGNED }}".
       </p>
       <p class="publish-outcomes">
         Publishing cannot be undone, and the assignment cannot be run again after it: seats change
