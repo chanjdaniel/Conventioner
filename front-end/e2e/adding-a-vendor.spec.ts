@@ -1,4 +1,5 @@
-import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
+import { test, expect, TEST_USER, BACKEND_URL, ApplicantLoginPage } from './fixtures';
+import { createApplicantLoginChallenge } from './helpers/seedApplicantMarket';
 import { TablesPage } from './pages/TablesPage';
 import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
@@ -15,11 +16,13 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
   authenticatedPage: page,
   request,
 }) => {
-  const { marketId } = await seedPublishedMarketWithAssignments(
+  // A market whose vendors apply on its page, so the walk-in can sign in on it too.
+  const { marketId, marketSlug } = await seedPublishedMarketWithAssignments(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+    { intakeMode: 'form' },
   );
 
   await page.goto(marketScreenPath(marketId, 'vendors'));
@@ -35,6 +38,14 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
     `Added by ${TEST_USER.email}`,
   );
   await page.getByTestId('vendors-detail-close').click();
+  // Listed as added, and outside the run's count: Vendors and Result still agree (bug 10).
+  await expect(
+    page
+      .getByTestId('vendors-list-item')
+      .filter({ hasText: 'Walk-in Wares' })
+      .getByTestId('vendors-list-status'),
+  ).toHaveText('Added');
+  await expect(page.getByTestId('vendors-summary')).toHaveText(/2\s+of\s+2\s+vendors assigned/);
 
   // An address the market already has is refused, naming it.
   await page.getByTestId('vendors-add-button').click();
@@ -47,7 +58,15 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
   const tables = new TablesPage(page);
   await tables.goto(marketId);
   await tables.vacantSeat('A 3').click();
-  await tables.dialog.getByTestId('placement-dialog-vendor').selectOption('walk.in@example.com');
+  const who = tables.dialog.getByTestId('placement-dialog-vendor');
+  await expect(who.getByTestId('placement-dialog-added').locator('option')).toHaveText([
+    /Walk-in Wares/,
+  ]);
+  await who.selectOption('walk.in@example.com');
+  // Nothing they answered to cross, said as such - not that they declined the date.
+  await expect(tables.dialogWarning).toHaveText(
+    'Added by hand: they gave no answers to check this seat against.',
+  );
   await tables.dialog.getByTestId('placement-dialog-confirm').click();
   await expect(tables.dialog).toBeHidden();
   await expect(tables.occupiedSeat('A 3')).toHaveAttribute(
@@ -59,4 +78,16 @@ test('a walk-in is added on market day, seated, and checked in at the door', asy
   const row = page.getByTestId('attendance-row').filter({ hasText: 'Walk-in Wares' });
   await row.getByTestId('attendance-check-in').click();
   await expect(row.getByTestId('attendance-row-status')).not.toHaveText('Not yet');
+
+  // On a market vendors apply on, they sign in and read their table like anyone.
+  const vendorPage = await page.context().newPage();
+  const login = new ApplicantLoginPage(vendorPage);
+  await vendorPage.goto(`/${marketSlug}/applicant-login`);
+  await login.requestCode('walk.in@example.com');
+  createApplicantLoginChallenge(marketId, 'walk.in@example.com', '135790');
+  await login.enterCode('135790');
+  await vendorPage.waitForURL(new RegExp(`/${marketSlug}/applicant/dashboard`));
+  await expect(vendorPage.getByTestId('applicant-dashboard-status')).toContainText(
+    'You have a table',
+  );
 });

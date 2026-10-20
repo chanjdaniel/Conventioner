@@ -16,6 +16,7 @@ import {
 import type { VendorNames } from '@/utils/vendorIdentity';
 import type {
   Application,
+  ApplicationStatus,
   Market,
   MarketDateObject,
   TableShareNotice as TableShareNoticeData,
@@ -64,7 +65,9 @@ export interface VendorRow {
   /** Whether the assignment run reads them: an approved applicant (E36/F02/S04). */
   inTheRun: boolean;
   /** Their application's status, which the Vendors list shows for anyone outside the run. */
-  status: string;
+  status: ApplicationStatus;
+  /** Recorded on the day rather than applying (E36/F03/S01): outside the run, though approved. */
+  added: boolean;
 }
 
 function extractEmail(raw: unknown): string {
@@ -138,13 +141,13 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         api.get<{
           rows: MarketTableRowResponse[];
           vendorNames: VendorNames;
-          vendors?: { email: string; notApproved?: unknown }[];
+          vendors?: { email: string; inTheRun: boolean }[];
         }>(`/markets/${encoded}/tables`),
       ]);
       applications.value = Array.isArray(applicationList) ? applicationList : [];
       placeable.value = new Set(
         (tablesResp.data?.vendors ?? [])
-          .filter((vendor) => !vendor.notApproved)
+          .filter((vendor) => vendor.inTheRun)
           .map((vendor) => vendor.email.trim().toLowerCase()),
       );
       unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
@@ -226,6 +229,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         verdict: addedLine(application) ?? verdictLine(application),
         inTheRun: placeable.value.has(email),
         status: application.status,
+        added: Boolean(application.addedBy),
       };
     }),
   );

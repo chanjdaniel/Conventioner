@@ -36,7 +36,7 @@ from assignment.assignment import (
     describe_stored_assignment,
     solver_vendors_for,
 )
-from assignment.vendor_input import outside_solver_vendors
+from assignment.vendor_input import SolverVendor, outside_solver_vendors
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
 import api.applications as ApplicationsApi
 import api.applicants as ApplicantsApi
@@ -258,15 +258,17 @@ NOT_YET_ADDING = (
 )
 
 
+def adding_refusal(phase: MarketPhase) -> Optional[str]:
+    """Why no vendor may be added in this phase, or None (E36/F03/S01): the write's rule."""
+    return None if phase in ADDING_PHASES else NOT_YET_ADDING
+
+
 def add_vendor_refusal(
     user_email: str, market: Market, organization: Optional[Organization],
 ) -> Optional[str]:
     """Why this person cannot add a vendor here, or None while they can (E36/F03/S01). Served as
     ``addVendorReason``, so the page offers the action exactly when the write would take it."""
-    refused = change_refusal(user_email, market, organization)
-    if refused:
-        return refused
-    return None if market.phase in ADDING_PHASES else NOT_YET_ADDING
+    return change_refusal(user_email, market, organization) or adding_refusal(market.phase)
 
 
 def _load_market_to_change(
@@ -1371,32 +1373,40 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
         }, 500
 
 
-def not_approved_vendors(market: Market, in_the_run: Iterable[str]) -> List[Any]:
+def is_not_approved(application: Application) -> bool:
+    """Whether the review left this applicant out (E36/F02/S02): any status but approved. A vendor
+    added by hand is approved, and outside the run for another reason."""
+    return application.status is not ApplicationStatus.REVIEWER_APPROVED
+
+
+def not_approved_vendors(market: Market, in_the_run: Iterable[str]) -> List[SolverVendor]:
     """The applicants outside the run whom the review did not approve (E36/F02/S03): a seat given
     to one by hand is marked "not approved" wherever the other overrides show."""
     return [
         vendor
         for vendor, application in outside_solver_vendors(
             market.id, EssentialFields.effective_essential_options_for_market(market), in_the_run)
-        if application.status is not ApplicationStatus.REVIEWER_APPROVED
+        if is_not_approved(application)
     ]
 
 
-def _placeable(vendor: Any, outside: Optional[Application]) -> Dict[str, Any]:
-    """One vendor the place dialog may offer: what they answered, and - for an applicant outside the
-    run - their status and who gave it, which the dialog's "Not approved" warning words."""
+def _placeable(vendor: SolverVendor, outside: Optional[Application]) -> Dict[str, Any]:
+    """One vendor the place dialog may offer: what they answered, whether the run reads them, and -
+    for an applicant outside it - their status and who gave it, which the dialog's "Not approved"
+    warning words, or that they were added by hand with nothing answered to check a seat against."""
     not_approved = None
-    if outside is not None and outside.status is not ApplicationStatus.REVIEWER_APPROVED:
+    if outside is not None and is_not_approved(outside):
         not_approved = {
             "status": outside.status.value,
-            "verdictBy": (
-                convert_keys_to_camel_case(outside.verdict_by.model_dump())
-                if outside.verdict_by else None
-            ),
+            "verdictBy": ApplicantsApi.giver_payload(outside.verdict_by),
             "verdictAt": outside.verdict_at,
             "verdictReason": outside.verdict_reason,
         }
     return {
+        # Said, never inferred (E36/F02/S04): a vendor added by hand is approved and still outside
+        # the run, and counting them in it made Vendors and Result disagree again (bug 10).
+        "inTheRun": outside is None,
+        "addedByHand": bool(outside is not None and outside.added_by),
         "email": vendor.email,
         "tableChoice": vendor.table_choice,
         "availableDates": sorted(vendor.available_dates),

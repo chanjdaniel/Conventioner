@@ -318,7 +318,7 @@ function logout() {
 /* Where they sit, one line a date, under the outcome (E36/F05/S02). */
 .status-seats {
   margin: var(--space-2) 0 0;
-  padding-left: 1.25rem;
+  padding-left: var(--space-6);
   font-size: var(--text-sm);
 }
 

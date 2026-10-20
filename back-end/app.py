@@ -1778,7 +1778,7 @@ def _reviewer_on(market_id: str):
 
     The one gate of every review write - a verdict, a selection's, a follow-up's owner, a claim on a
     card - asked through ``verdict_refusal``, the same rule the market read serves as
-    ``verdictLockReason``: EDITOR, on a market that can still run its assignment.
+    ``verdictLockReason``: EDITOR, while the review is open (E36/F01/S01).
     """
     requesting_user = authenticated_email()
     context = MarketsApi.load_market_context(market_id)

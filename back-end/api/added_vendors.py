@@ -9,7 +9,7 @@ An added vendor is approved by the act of adding, and is never an input to the r
 may be missing, and a missing answer refuses every run. They are seated by hand, as a vendor the
 run holds a seat for (`held_vendors_for`).
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Tuple
 
 import api.applications as ApplicationsApi
@@ -33,8 +33,9 @@ def add_vendor(
     """Record a vendor who never applied: their name, their address, and who added them."""
     market = MarketsApi._load_market_to_change(
         market_id, adder.email, MarketRole.EDITOR, "add a vendor to")
-    if market.phase not in MarketsApi.ADDING_PHASES:
-        raise AddVendorRefused(MarketsApi.NOT_YET_ADDING)
+    refused = MarketsApi.adding_refusal(market.phase)
+    if refused:
+        raise AddVendorRefused(refused)
 
     name = str(data.get("name") or "").strip()
     address = normalized_email(data.get("email"))
@@ -47,7 +48,7 @@ def add_vendor(
             f"{address} already has an application in this market. Seat them on the Result page."
         )
 
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     application = ApplicationsApi.find_or_create_application(Application(
         market_id=market_id,
         applicant_email=address,
