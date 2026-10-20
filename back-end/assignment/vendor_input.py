@@ -196,8 +196,11 @@ def approved_solver_vendors(
         ApplicationStatus.REVIEWER_APPROVED.value,
         application_type=ApplicationType.MAIN.value,
     )
+    # A vendor added by hand is seated by hand and never placed by the run (E36/F03/S01): their
+    # answers may be missing, and a missing answer refuses the run for everyone.
     return solver_vendors_from_applications(
-        [Application(**document) for document in documents], options
+        [Application(**document) for document in documents if not document.get("added_by")],
+        options,
     )
 
 

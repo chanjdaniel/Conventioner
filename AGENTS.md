@@ -300,6 +300,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   whole assignment is computed from.
   There is no other door: the whole-market PUT that once let a stale client copy move vendors on
   market day is deleted (E21/F03/S06).
+- **A vendor who never applied is added by hand** (E36/F03/S01): `POST /markets/:id/vendors`
+  (`api/added_vendors.py`), EDITOR, in assignment and market days, served as `addVendorReason`. It
+  stores an approved application stamped `added_by`/`added_at`, which the run never reads
+  (`approved_solver_vendors` skips it): they are seated by hand and held like any pin.
 - **A seat goes only to someone with an application in the market** (E36/F02/S01): every
   placement and swap writes the applicant's normalised address, or refuses one the market has no
   application for (`has_applied` in `api/placements.py`). A seed that places someone gives them one.

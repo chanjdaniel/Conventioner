@@ -702,6 +702,10 @@ class Application(BaseModel):
     # stays open and released on a verdict or on moving on. A lapsed one holds nothing.
     held_by: Optional[MarketPerson] = None
     held_until: Optional[str] = None
+    # Who recorded a vendor who never applied, and when (E36/F03/S01): approved by the adding, and
+    # never an input to the run.
+    added_by: Optional[MarketPerson] = None
+    added_at: Optional[str] = None
 
 
 def to_camel(string: str) -> str:

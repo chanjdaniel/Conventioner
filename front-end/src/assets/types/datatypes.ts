@@ -269,9 +269,14 @@ export interface Market {
   adminActionsReason?: string | null;
   /**
    * Why the person reading cannot give verdicts on this market's applications, or null while they
-   * can (E34): below EDITOR, archived, or past the point where an assignment can still be run.
+   * can (E34): below EDITOR, archived, or once the review has closed (E36/F01/S01).
    */
   verdictLockReason?: string | null;
+  /**
+   * Why the person reading cannot add a vendor who never applied, or null while they can
+   * (E36/F03/S01): below EDITOR, or outside the assignment and market days.
+   */
+  addVendorReason?: string | null;
   /**
    * What would refuse each move open from this phase, judged by the guards the move runs; empty
    * for a move that would succeed (E31/F02/S01). Served so a screen says no before the click.
@@ -410,6 +415,9 @@ export interface Application {
   followUpOwner?: { userId?: string | null; email: string } | null;
   /** Organizer's only: the reviewer looking at it, while their claim stands (E34/F03/S02). */
   heldBy?: { userId?: string | null; email: string } | null;
+  /** Who recorded a vendor who never applied, and when (E36/F03/S01). Absent on any who applied. */
+  addedBy?: { userId?: string | null; email: string } | null;
+  addedAt?: string | null;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */
