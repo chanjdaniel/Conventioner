@@ -247,6 +247,20 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
     )
 
 
+RESULTS_PUBLISHED_REFUSAL = (
+    "Results are published, so the assignment is settled: applicants have been told whether they "
+    "have a table, and a run could move them. Change a single placement on the Result page instead."
+)
+
+
+def assign_refusal(market: Market) -> Optional[str]:
+    """Why this market's assignment cannot be run now, or None (E36/F04/S02): its phase, or its
+    published results. Served as ``assignRefusalReason``, so the Assign button says no first."""
+    return assign_phase_refusal(market.phase) or (
+        RESULTS_PUBLISHED_REFUSAL if market.results_published else None
+    )
+
+
 def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any], int]:
     """Run the solver over this market's approved applications and store what it produced.
 
@@ -257,7 +271,7 @@ def run_assignment(market_id: str, requesting_user: str) -> Tuple[Dict[str, Any]
     """
     market = MarketsApi._load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
 
-    refusal = assign_phase_refusal(market.phase)
+    refusal = assign_refusal(market)
     if refusal is not None:
         raise AssignPhaseError(refusal)
 

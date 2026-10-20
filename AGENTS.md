@@ -572,6 +572,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `phase` is missing or unrecognized - a fallback that contradicted the phase would answer
   confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
   `Market` re-stamp `isDraft` from the effective phase before responding.
+- **Publish Results waits for the allocation, and settles it** (E36/F04): a form market publishes
+  in `assignment` once a run is stored and current (`publish_results_refusal`, served with the
+  admin check as `publishResultsReason`, and its counts as `publishOutcomes` from
+  `back-end/result_outcome.py`). After it the run is refused (`assign_refusal`, served as
+  `assignRefusalReason`) and the assignment rules lock; `ResultsPublishedGuard` keeps a form market
+  out of `market_days` until it has published. A CSV market has neither.
 - **Publishing a market is `assignment` → `market_days`**, which puts its check-in page on the
   air. `draft` → `archived` is abandoning a draft, not publishing it (that was the old flow's
   Done button, long gone). A market leaves `draft` for its lifecycle via

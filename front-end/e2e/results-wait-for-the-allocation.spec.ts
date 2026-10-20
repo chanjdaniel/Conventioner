@@ -6,7 +6,7 @@ import { seedApplicationWithStatus } from './helpers/seedPhaseMarket';
 import { marketSetupPath } from './helpers/marketScreens';
 
 /**
- * Results wait for the allocation (E36/F04/S01).
+ * Results wait for the allocation (E36/F04/S01), and settle it (E36/F04/S02).
  *
  * Publish Results is offered once the market is assigning with a current run, says why until then,
  * and confirms with how many applicants will read each outcome before it tells anyone.
@@ -51,6 +51,11 @@ test('publishing waits for a run, then says who will read what before it tells t
 
   await post(request, `/markets/${market.marketId}/assignment`);
   await page.reload();
+  // Nor does it go live untold (E36/F04/S02): the rail says so. Its fix is this very page.
+  await expect(page.getByTestId('phase-transition-market_days')).toBeDisabled();
+  await expect(page.getByTestId('phase-rail-next')).toContainText(
+    'Applicants have not been told whether they have a table.',
+  );
   await expect(publish).toBeEnabled();
   await publish.click();
   const confirm = page.getByTestId('publish-results-window');
@@ -59,4 +64,15 @@ test('publishing waits for a run, then says who will read what before it tells t
   await confirm.getByTestId('publish-results-submit-button').click();
   await expect(confirm).toBeHidden();
   await expect(page.getByTestId('app-monitor-published-badge')).toBeVisible();
+
+  // Publishing settles the assignment: no run after it, and its rules read as settled.
+  await page.goto(marketSetupPath(market.marketId, 'assignment'));
+  await expect(page.getByTestId('assignment-rules-settled')).toContainText(
+    'Results are published, so the assignment is settled',
+  );
+  await expect(page.getByTestId('market-setup-assign-button')).toHaveCount(0);
+  // And the market may go live.
+  await page.getByTestId('phase-transition-market_days').click();
+  await page.getByTestId('sweep-confirm-submit-button').click();
+  await expect(page.getByTestId('phase-rail-current')).toHaveText('Market Days');
 });
