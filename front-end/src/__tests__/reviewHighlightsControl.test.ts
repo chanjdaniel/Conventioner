@@ -70,6 +70,7 @@ describe('which answers a reviewer reads first', () => {
             'essential_full_name',
             'essential_preferred_name',
             'essential_table_share_email',
+            'essential_request',
           ],
         },
         highlights: [],

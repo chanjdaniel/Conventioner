@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { StartFromCsvPage } from './pages/StartFromCsvPage';
+import { finishStartedPlan, UPCOMING_YEAR } from './helpers/finishStartedPlan';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { transitionMarket } from './helpers/seedPhaseMarket';
 import { seedDraftMarket } from './helpers/seedDraftMarket';
@@ -118,7 +119,7 @@ test.describe('Start from your Google Form', () => {
       const flow = new StartFromCsvPage(page);
       await flow.open(marketId);
       await flow.chooseFile(join(CORPUS, `${file}.csv`));
-      await flow.answerYear();
+      await flow.answerYear(UPCOMING_YEAR[file]);
 
       // Said on the proposal, where the organizer decides - not discovered at the import.
       const limit = flow.notAsked.filter({ hasText: 'Number of dates you want' });
@@ -126,6 +127,7 @@ test.describe('Start from your Google Form', () => {
       await page.getByTestId('proposal-confirm').click();
       await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
 
+      await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
       await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
       const importer = new CsvImportPage(page);
       await importer.open({ id: marketId });
@@ -164,7 +166,7 @@ test.describe('Start from your Google Form', () => {
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
     await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
-    await flow.answerYear();
+    await flow.answerYear(UPCOMING_YEAR['fall-2025']);
 
     const selling = flow.row('What will you be selling at the event?');
     // Said before it happens: how many applicants the left-out options would cost.
@@ -186,6 +188,7 @@ test.describe('Start from your Google Form', () => {
 
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+    await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
@@ -212,17 +215,33 @@ test.describe('Start from your Google Form', () => {
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
     await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
-    await flow.answerYear();
+    await flow.answerYear(UPCOMING_YEAR['fall-2025']);
     await expect(
       flow.row('What will you be selling at the event?').getByTestId('proposal-row-dropped'),
     ).toBeVisible();
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+    await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
 
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });
     await importer.chooseFile(readFileSync(join(CORPUS, 'fall-2025.csv'), 'utf8'));
+    // E30/F02/S01: the first import ever said "Restored from your last import". The mapping is the
+    // start's, and the import says so.
+    await expect(importer.restoredBanner).toContainText(
+      'Mapped when your form was started from this file.',
+    );
+    await expect(importer.restoredBanner).not.toContainText('last import');
+    // So does each column it mapped.
+    const badges = page.getByTestId('import-restored-badge');
+    await expect(badges.first()).toHaveText('mapped when your form was started');
+    for (const badge of await badges.allInnerTexts()) expect(badge).not.toContain('last import');
+    // A value the start set aside is listed as the start's decision, with its rows, to change here.
+    await expect(page.getByTestId('import-decided-title').first()).toHaveText(
+      /^\d+ values? set aside when your form was started - change any that are wrong\s*$/,
+    );
+    await expect(page.getByTestId('import-decided-value-fixes').first()).toContainText(/\d+ rows?/);
     await importer.clickPreview();
     await expect(importer.previewCounts).toBeVisible();
     const selling = (await importer.previewFailureRows.allInnerTexts()).filter((r) =>
@@ -230,13 +249,16 @@ test.describe('Start from your Google Form', () => {
     );
     expect(selling.length).toBeGreaterThan(0);
     for (const refusal of selling) {
+      // The start left these out; the organizer never chose to ignore anything.
       expect(refusal).toContain(
-        "Every answer to 'What will you be selling at the event?' is one you chose to ignore",
+        "Every answer to 'What will you be selling at the event?' was left out when your form " +
+          'was started from this file',
       );
+      expect(refusal).not.toContain('chose to ignore');
       expect(refusal).not.toContain("'What will you be selling at the event?' is required");
     }
     await expect(page.getByTestId('import-preview-failures')).toContainText(
-      'with Back for an answer you chose to ignore',
+      'with Back, for an answer that was left out or ignored',
     );
   });
 
@@ -336,13 +358,14 @@ test.describe('Start from your Google Form', () => {
     const flow = new StartFromCsvPage(page);
     await flow.open(marketId);
     await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
-    await flow.answerYear();
+    await flow.answerYear(UPCOMING_YEAR['fall-2025']);
     await page.getByTestId('proposal-confirm').click();
 
     // Landed on the form, with the organizer's own questions in the file's order.
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await expect(page.getByText('Are you a UBC student or alumni?').first()).toBeVisible();
 
+    await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
     const importer = new CsvImportPage(page);
     await importer.open({ id: marketId });

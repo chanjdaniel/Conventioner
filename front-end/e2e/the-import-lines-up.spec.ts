@@ -35,7 +35,7 @@ test('a long heading keeps to two lines, a grid reads as ignored, and the value 
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
-    { setupObject: planSetupObject() },
+    { setupObject: planSetupObject(), intakeMode: 'csv' },
   );
   const headers = [
     'Timestamp',

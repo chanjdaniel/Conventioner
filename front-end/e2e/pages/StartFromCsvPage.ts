@@ -63,8 +63,10 @@ export class StartFromCsvPage {
     await this.fileInput.setInputFiles(path);
   }
 
-  async answerYear() {
+  /** Confirm the year asked after upload: the one proposed, or `year` typed over it. */
+  async answerYear(year?: number) {
     await expect(this.yearDialog).toBeVisible();
+    if (year !== undefined) await this.yearInput.fill(String(year));
     await this.yearConfirm.click();
     await expect(this.yearDialog).toBeHidden();
   }

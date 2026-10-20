@@ -24,8 +24,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Organization membership gives only Viewer on its markets**, even to its owner and admins; anyone
   who changes a market, a door volunteer included, needs a role on that market (Manage market).
 - **An operator makes or verifies an account with `back-end/create_account.py`**, never
-  `create_test_user.py` (a fixture script that prints the password). Login matches the stored address
-  exactly, so addresses are stored lowercased.
+  `create_test_user.py` (a fixture script that prints the password). **One address is one account**
+  (E32/F03/S04): every writer and lookup goes through `utils/email_address.normalized_email`, and the
+  back end builds a UNIQUE index on `users.email` at boot, refusing to start while an address is
+  stored with capitals (`migrations/migrate_user_emails.py`) or two accounts share one.
+- **Production's test markets come from `back-end/seed_test_markets.py`** (E32/F03/S03): one of each
+  intake path in "Conventioner Test Organization", made through the product's own writes; check
+  against those, never a real organizer's market.
 - **Never put the production `MONGODB_URI` in `back-end/.env`**: the local stack mounts that directory
   and would run against production. Pass it inline to one-off scripts. `reset_database.py` refuses
   whenever `MONGODB_URI` is set.
@@ -56,6 +61,15 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## E2E Testing Patterns
 
+- **A market that opens applications needs a complete plan with dates still to come**
+  (E31/F01/S01). `seeds.ts` exports `completePlan()` and a future `SEED_MARKET_DATE`; a spec that
+  picks dates on the calendar uses `upcomingSaturday()` (`helpers/upcoming.ts`), since the
+  calendar steps a month at a time. A plan cannot change after draft, so a spec wanting a smaller
+  room seeds one (`seedAssignedMarket({ tables })`); only an orphaned-pin spec rewrites a settled
+  plan, as a legacy market's, with `changeASettledPlan()`. A market a spec imports into is
+  `intakeMode: 'csv'`.
+- **A spec shells into Mongo through `mongoEval`** (`e2e/helpers/mongo.ts`), never its own
+  `docker exec`: the container, address and flags were once copied into fifteen files.
 - **data-testid convention**: `viewname-element` (e.g. `login-email-input`, `markets-create-button`).
   No product behavior changes - purely additive test infrastructure.
 - **Page Object Model**: Located under `front-end/e2e/pages/`.
@@ -182,8 +196,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Every market page has its own address** (E22/F04/S02): `/markets/:marketId/{setup,form,
   applications,assignment,result,vendors,attendance}` plus the `import` and `floorplan` flows, built
   with `marketPath()`. `/markets/:marketId` alone lands on the page for the market's phase
-  (`MarketLanding`, via `currentPage` in `utils/marketPage.ts`). The old `setup?tab=` and `/tables`
-  addresses redirect; the id-less paths redirect to `/markets`. A guard's `resolution_link` names a
+  (`MarketLanding`, via `currentPage` in `utils/marketGuide.ts`, a reading of the guide's table).
+  The old `setup?tab=` and `/tables` addresses redirect; the id-less paths redirect to `/markets`. A guard's `resolution_link` names a
   page (`applications`), never a redirect.
 - **The market's bar is `MarketBar`, rendered once by `MarketFrame`**: the name and the tabs (Market
   Setup, Application Form, Applications, Assignment, and Attendance once published). A screen draws
@@ -204,7 +218,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   pointer (`utils/lastMarket.ts`), set by the store when a market arrives.
 - **`parseMarketFromApi` must carry every field the server sends.** It once rebuilt `setupObject`
   from a fixed key list and dropped `floorplans`; once screens read the parsed market, the plan's
-  autosave erased the floorplan. Spread what you do not name.
+  autosave erased the floorplan. It spreads the payload and the plan first and normalises what it
+  names over them; a field added to the read reaches every screen without touching the parser.
 - **Facts derived from the market are served on it**, not fetched per tab: the form lock is
   `applicationFormLockReason` on `GET /markets/:id`. A tab that fetches a fact for itself and
   publishes it to siblings is how the form builder and the priority rules went stale.
@@ -213,6 +228,23 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 - **`PhaseRail.vue` is the market lifecycle, on every market screen**, as a band below that
   screen's header. It replaced `PhaseControlPanel`, which floated above the card.
+- **What a market's screens say comes from one table: `front-end/src/utils/marketGuide.ts`**
+  (E31, map `what-to-show-and-when` ticket 02): the rail's next-step sentence, the step onward
+  (archiving, once a running market's last date has passed), each phase's and move's name on each
+  intake path (a CSV market imports its Google Form's responses; its form tab is "Questions"), and
+  the line a tab shows while out of its phase - in place of the page, rendered once by `MarketFrame`.
+  **Every tab stays on the bar for the market's whole life**, Attendance included.
+- **A path may step through a phase it never stops in** (E32/F02/S01): `PASSED_THROUGH` and
+  `path_moves` in `guards.py`. A CSV market reads Plan, Import, Review: Begin Review is one move
+  through `applications_closed`, every step's guards judged first (`judge_route`, which is why no
+  guard may read the phase). The read serves the path's moves as the keys of `transitionBlockers`
+  and the stepped-through phases as `phasesPassedThrough`; the browser keeps no copy of either. The
+  single edge is still taken when asked for, so a seed may walk it - but review refuses a CSV market
+  with nothing imported.
+- **The rail says no before the click.** `GET /markets/:id` serves `transitionBlockers` -
+  every move open from the phase, judged by `guards.transition_verdicts` (the endpoint's own
+  `evaluate_transition`) - and a refused move is drawn disabled with its first blocker as the
+  sentence. The 409 path stays for races; do not decide a move's verdict on the front end.
 - **The spine is derived, never listed.** `phaseSpine()` (`front-end/src/utils/phase.ts`) walks
   `VALID_TRANSITIONS` forward from `draft`; a second list beside the table is the drift
   `_validate_registry()` refuses on the server. `offers` is off it (nothing sets
@@ -222,6 +254,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   special-cased per phase. Only the one forward step is on the rail; everything else is behind
   `phase-rail-menu-button`. A spec that clicks `phase-transition-<phase>` for a back or
   destructive edge must open that menu first.
+- **A move lands on the guide's page for the phase entered** (E32/F01/S01), in any direction, and
+  the router starts a new page at its top. A spec that clicks a move follows it to that page; it
+  does not stay on the tab it clicked from.
 - **A terminal state is stated in words.** Strikethrough alone reads as *stopped*, not as
   *archived* - the prototype proved it. An archived market's frozen stage is the furthest phase
   in `phasesReached` (see Phase Transitions); it once was read off evidence, and told a market
@@ -269,13 +304,11 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   anyone else, so the ordinary loop sees those tables occupied.
   A pin the plan can no longer hold is **orphaned, never deleted**, and `NoOrphanedPinGuard`
   blocks `-> assignment` until it is re-placed or freed.
-- **Read-only views describe the STORED assignment, never a fresh run.**
-  `assignment_to_show()` (`api/markets.py`) picks: `describe_stored_assignment()` when the market
-  has placements, `assign_market()` when it has none. The statistics, the tables grid, the CSV
-  all go through it.
-  Consequence: **shrinking the plan does not unassign anybody** - only assigning again does. A
-  test that expects an edit to the plan to change who is placed must re-run the assignment.
-  `GET /markets/{id}/assignment` is the exception and stays a preview: it computes without storing.
+- **Read-only views describe the STORED assignment, and only that.** `assignment_to_show()`
+  (`api/markets.py`) is `describe_stored_assignment()`; a market with nothing stored is shown
+  nobody placed, never the run it would get (E31/F03/S05 - that preview read "197 of 197 vendors
+  assigned" before anyone pressed Assign). The statistics, the tables grid, the CSV all go through
+  it. `GET /markets/{id}/assignment` is the one preview, and says so.
 - **A run records what it was made from** (E22/F03): `assignmentObject.madeFrom` holds one
   fingerprint each for the rules, the plan and the approved applications (as `SolverVendor`s), and
   `GET /markets/:id` serves `assignmentOutOfDate`, the groups that differ now.
@@ -409,6 +442,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   the first VALID save creates the application (`save_applicant_application`). Do not reintroduce
   "send only to known addresses" or "token only with an application": together they made the
   "Vendors apply on this market's page" option unable to take a single new application (bug 6).
+- **Importing is the CSV path's in every phase** (E31/F03/S04): `csv_import.import_refusal`
+  refuses a form market, and its words name the CSV rail's moves ("Import responses", "Import more
+  responses"). Publish Results is the form path's.
 - **Intake mode does not gate the form builder.** A CSV market still has an application form,
   because the essential questions define the offering the CSV maps onto. Intake mode decides who
   fills the form in, not whether one exists.
@@ -471,6 +507,17 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Phase Transitions (Conventioner sharp edge)
 
+- **The setup settles on leaving draft** (E31/F01): everything on Market Setup - dates, locations,
+  sections and their tables, tiers, floorplan, intake mode. The plan write and the floorplan save
+  refuse a change after draft (`setup_lock_reason`, served as `setupLockReason`); restating the
+  stored setup is not a change, and the assignment rules beside it keep their own lock. The only
+  way back is `applications_open -> draft`, while nobody has applied. So **leaving draft requires a
+  complete setup**: three guards on that edge alone - dates none of which has passed, a location,
+  tables at every tier - each its own blocker line. A date has passed only once it has passed
+  everywhere (UTC-12, `_earliest_calendar_day`): the server cannot know where a market is, and the
+  screens read the viewer's own calendar (`calendarToday`).
+- **A market is created only through `MarketsApi.create_owned_market` and moved only through
+  `MarketsApi.take_move`** (judged, then walked); the endpoints and the test-market seeder call both.
 - **Every precondition for every phase transition lives in `back-end/guards.py`.** Adding or
   removing one is a one-file edit: the `POST /markets/<id>/transition` endpoint and the
   front-end `BlockerPanel.vue` are generic over the `PreconditionResult` wire shape and must
@@ -779,7 +826,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `back-end/deletion_trail.py` records it - written BEFORE anything is destroyed, and allowed to
   fail the whole operation.
 - **A market's records go with it, by either door** (bug 47): `back-end/market_deletion.py` deletes
-  its applications, check-ins, applicant sign-in codes and placement trail, then the market. A new
+  its applications, check-ins, applicant sign-in codes, placement trail and the organizer's vendor
+  notes (`back-end/vendor_notes.py`), then the market. A new
   collection keyed by `market_id` belongs there; deleting the market document alone once left every
   vendor's name, email and answers behind for ever.
 - **`back-end/api/form_amendment.py` fixes the application form from inside the import** (E20/F03).

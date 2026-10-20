@@ -39,7 +39,8 @@ test('"Ask this" stays off after a custom field is added and the form saved', as
   await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, PLAN);
 
   await page.goto(marketSetupPath(marketId, 'form'));
-  const askThis = page.getByRole('checkbox', { name: /Ask this/ });
+  // The section ranking's switch; the vendor's request has one of its own (E31/F04/S01).
+  const askThis = page.getByTestId('essential-asks-section').getByRole('checkbox');
   await expect(askThis).toBeChecked();
   await askThis.uncheck();
   await expect(page.getByText('Saved')).toBeVisible();
@@ -58,7 +59,7 @@ test('"Ask this" stays off after a custom field is added and the form saved', as
   expect(market.applicationForm.unaskedEssentials).toContain('essential_section_ranking');
 
   await page.reload();
-  await expect(page.getByRole('checkbox', { name: /Ask this/ })).not.toBeChecked();
+  await expect(page.getByTestId('essential-asks-section').getByRole('checkbox')).not.toBeChecked();
   // The applicant form is what the preview renders: a switched-off question is not on it, and is
   // certainly not marked required.
   await expect(page.getByTestId('form-preview-essential-fields')).toBeVisible();

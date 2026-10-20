@@ -70,15 +70,18 @@ test.describe('One market, from the server', () => {
   });
 
   /**
-   * The two defects the-market-frame ticket 02 reproduced, pinned where the organizer met them.
-   * Both came from the form tab fetching the form for itself and its siblings borrowing the answer
-   * (E21/F02/S03).
+   * The two defects the-market-frame ticket 02 reproduced, where the organizer met them: the form
+   * tab fetched the form for itself and its siblings borrowed the answer (E21/F02/S03). A move now
+   * lands on its phase's page (E32/F01/S01), so the organizer returns to the form by its tab, and
+   * the form there is the market's as the move left it.
    */
-  test('the form builder follows an open and a reopen without leaving the tab', async ({
+  test('the form builder follows an open and a reopen', async ({
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
     await page.goto(marketSetupPath(seed.marketId, 'form'));
     const addField = page.getByTestId('form-builder-add-field-button');
     const lockBanner = page.getByTestId('form-builder-lock-banner');
@@ -89,21 +92,27 @@ test.describe('One market, from the server', () => {
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Applications Open', {
       timeout: 10000,
     });
+    await expect(page).toHaveURL(/\/applications$/);
+    await page.getByTestId('market-bar-tab-form').click();
+    await expect(lockBanner).toContainText('once applications have opened');
     await expect(addField).toHaveCount(0);
-    await expect(lockBanner).toContainText('Applications Open');
 
     await page.getByTestId('phase-rail-menu-button').click();
     await page.getByTestId('phase-transition-draft').click();
     await expect(page.getByTestId('phase-rail-current')).toHaveText('Draft', { timeout: 10000 });
-    await expect(lockBanner).toHaveCount(0);
+    await expect(page).toHaveURL(/\/setup$/);
+    await page.getByTestId('market-bar-tab-form').click();
     await expect(addField).toBeEnabled();
+    await expect(lockBanner).toHaveCount(0);
   });
 
   test("the priority rules offer the market's own questions on direct arrival", async ({
     authenticatedPage: page,
     request,
   }) => {
-    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
+    const seed = await seedPhaseMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
+      intakeMode: 'form',
+    });
     const form = await request.put(`${BACKEND_URL}/markets/${seed.marketId}/application-form`, {
       headers: { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email },
       data: {

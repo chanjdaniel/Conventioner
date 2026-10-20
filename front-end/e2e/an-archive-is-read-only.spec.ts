@@ -66,7 +66,7 @@ test('an archived market that ran is shown as a record, with nothing to change',
   await expect(page.getByTestId('market-bar-tab-attendance')).toBeVisible();
 });
 
-test('an archived market that never ran has no Attendance tab', async ({
+test('an archived market that never ran says it has no attendance', async ({
   authenticatedPage: page,
   request,
 }) => {
@@ -78,7 +78,11 @@ test('an archived market that never ran has no Attendance tab', async ({
   );
   await archive(request, marketId);
 
+  // The tab stays, as every tab does for a market's whole life (E31/F03/S02), and says so in
+  // place of a roster that never was (bug 30).
   await page.goto(marketSetupPath(marketId, 'setup'));
-  await expect(page.getByTestId('market-bar-tab-setup')).toBeVisible({ timeout: 15000 });
-  await expect(page.getByTestId('market-bar-tab-attendance')).toHaveCount(0);
+  await page.getByTestId('market-bar-tab-attendance').click();
+  await expect(page.getByTestId('market-tab-note')).toHaveText(
+    'This market was archived without being published, so nobody checked in.',
+  );
 });

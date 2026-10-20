@@ -1,3 +1,4 @@
+import { seedDraftMarket } from './helpers/seedDraftMarket';
 import { test, expect, TEST_USER, BACKEND_URL, LoginPage } from './fixtures';
 import { marketScreenPath, marketSetupPath } from './helpers/marketScreens';
 import { namelessControls } from './helpers/accessibleNames';
@@ -10,6 +11,7 @@ import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { CsvImportPage } from './pages/CsvImportPage';
 import { seedPhaseMarket } from './helpers/seedPhaseMarket';
 import { savePlan } from './helpers/savePlan';
+import { mongoEval } from './helpers/mongo';
 
 /**
  * Every control can be reached and named by assistive technology (bug 44; E26/F10/S03).
@@ -220,7 +222,7 @@ test('every field of the import has a name', async ({ authenticatedPage: page, r
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
-    { setupObject: planSetupObject() },
+    { setupObject: planSetupObject(), intakeMode: 'csv' },
   );
   const importPage = new CsvImportPage(page);
   await page.goto(marketScreenPath(marketId, 'import'));
@@ -236,7 +238,8 @@ test('every field of the import has a name', async ({ authenticatedPage: page, r
 });
 
 test('the floorplan choice is a dialog', async ({ authenticatedPage: page, request }) => {
-  const { marketId } = await seedPhaseMarket(
+  // A draft with no sections yet, which is where the choice is offered.
+  const { marketId } = await seedDraftMarket(
     request,
     BACKEND_URL,
     TEST_USER.email,
@@ -249,4 +252,29 @@ test('the floorplan choice is a dialog', async ({ authenticatedPage: page, reque
   await expect(dialog).toHaveAttribute('aria-modal', 'true');
   await expect(dialog.getByTestId('choose-path-manual')).toBeVisible();
   await expect(dialog.getByTestId('choose-path-floorplan')).toBeVisible();
+});
+
+test('every control of a vendor notes panel has a name, wherever it opens', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  // A row carrying each kind of note (E31/F04/S04): the walk only sees what it seeds (bug 50).
+  const seed = await seedPublishedMarketWithAssignments(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+  );
+  mongoEval(
+    `db.applications.updateOne({market_id:${JSON.stringify(seed.marketId)}, applicant_email:"alice@example.com"}, {$set:{"form_data.essential_request":"An extra chair"}}); db.vendor_notes.insertOne({market_id:${JSON.stringify(seed.marketId)}, vendor_email:"alice@example.com", note:"Chair set aside", from_sheet:"Paid"})`,
+  );
+
+  await page.goto(marketScreenPath(seed.marketId, 'attendance'));
+  await page.getByTestId('attendance-notes-alice@example.com-summary').click();
+  await expect(page.getByTestId('attendance-notes-alice@example.com-sheet')).toBeVisible();
+  expect(await namelessControls(page), 'the door, with notes open').toEqual([]);
+
+  await page.goto(`${marketScreenPath(seed.marketId, 'vendors')}?vendor=alice%40example.com`);
+  await expect(page.getByTestId('vendors-detail-notes-sheet')).toBeVisible();
+  expect(await namelessControls(page), "a vendor's panel, with notes").toEqual([]);
 });

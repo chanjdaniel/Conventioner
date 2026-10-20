@@ -8,7 +8,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import PhaseRail from '@/components/PhaseRail.vue';
-import { MarketPhase, type Market } from '@/assets/types/datatypes';
+import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
+import { IMPORTING_SERVED, movesServedFrom } from './support/servedMoves';
 
 function railFor(phase: MarketPhase, overrides: Partial<Market> = {}) {
   return mount(PhaseRail, {
@@ -17,6 +18,7 @@ function railFor(phase: MarketPhase, overrides: Partial<Market> = {}) {
         id: 'market-1',
         name: 'Riverside',
         phase,
+        transitionBlockers: movesServedFrom(phase),
         ...overrides,
       } as Market,
     },
@@ -26,7 +28,7 @@ function railFor(phase: MarketPhase, overrides: Partial<Market> = {}) {
 
 describe('the spine', () => {
   it('draws every stage of the lifecycle, offers excluded', () => {
-    const labels = railFor(MarketPhase.Draft)
+    const labels = railFor(MarketPhase.Draft, { intakeMode: IntakeMode.Form })
       .findAll('.phase-step')
       .map((step) => step.attributes('data-phase'));
 
@@ -42,7 +44,9 @@ describe('the spine', () => {
   });
 
   it('marks where the market is, and fills what it has passed', () => {
-    const steps = railFor(MarketPhase.Review).findAll('.phase-step');
+    const steps = railFor(MarketPhase.Review, { intakeMode: IntakeMode.Form }).findAll(
+      '.phase-step',
+    );
     const states = Object.fromEntries(
       steps.map((s) => [s.attributes('data-phase'), s.attributes('data-state')]),
     );
@@ -54,10 +58,34 @@ describe('the spine', () => {
   });
 
   it('labels every stage in words a person reads', () => {
-    const rail = railFor(MarketPhase.Draft);
+    const rail = railFor(MarketPhase.Draft, { intakeMode: IntakeMode.Form });
 
     expect(rail.text()).toContain('Applications Open');
     expect(rail.text()).toContain('Market Days');
+  });
+
+  it("names a CSV market's stages Plan, Import, Review (E31/F03/S03, E32/F02/S01)", () => {
+    const rail = railFor(MarketPhase.Draft, {
+      intakeMode: IntakeMode.Csv,
+      phasesPassedThrough: IMPORTING_SERVED.phasesPassedThrough,
+    });
+
+    expect(rail.text()).toContain('Import');
+    expect(rail.text()).not.toContain('Applications Open');
+    expect(rail.text()).not.toContain('Form Closed');
+    expect(rail.get('[data-testid="phase-transition-applications_open"]').text()).toBe(
+      'Import responses',
+    );
+  });
+
+  it('moves a CSV market on from importing to review, the closed phase stepped through', () => {
+    const rail = railFor(MarketPhase.ApplicationsOpen, {
+      intakeMode: IntakeMode.Csv,
+      ...IMPORTING_SERVED,
+    });
+
+    expect(rail.get('[data-testid="phase-transition-review"]').text()).toBe('Begin Review');
+    expect(rail.find('[data-testid="phase-transition-applications_closed"]').exists()).toBe(false);
   });
 });
 
@@ -223,6 +251,35 @@ describe('the check-in URL', () => {
   });
 });
 
+describe("an archived market's addresses (E30/F01/S03)", () => {
+  const ran = {
+    slug: 'riverside-market',
+    intakeMode: 'form',
+    phasesReached: [MarketPhase.Draft, MarketPhase.MarketDays, MarketPhase.Archived],
+    phaseRecordComplete: true,
+  } as Partial<Market>;
+
+  it('keeps the check-in page of a market that ran: it stays up as the record', () => {
+    const rail = railFor(MarketPhase.Archived, ran);
+    expect(rail.get('[data-testid="phase-rail-checkin"]').text()).toContain(
+      '/riverside-market/check-in',
+    );
+  });
+
+  it('drops the application page, which no longer takes anyone anywhere', () => {
+    expect(
+      railFor(MarketPhase.Archived, ran).find('[data-testid="phase-rail-apply"]').exists(),
+    ).toBe(false);
+  });
+
+  it('shows no check-in page for a market that never ran, since it has none', () => {
+    const never = { ...ran, phasesReached: [MarketPhase.Draft, MarketPhase.Archived] };
+    expect(
+      railFor(MarketPhase.Archived, never).find('[data-testid="phase-rail-checkin"]').exists(),
+    ).toBe(false);
+  });
+});
+
 describe('a phase the lifecycle does not draw', () => {
   it('gets its stage back when a market is actually in it', () => {
     // `offers` is off the spine because nothing sets `assignment_sent`. A market that reached it
@@ -235,6 +292,20 @@ describe('a phase the lifecycle does not draw', () => {
     // At the place the transition table puts it - after the phase it is reached from.
     expect(phases.indexOf('offers')).toBe(phases.indexOf('assignment') + 1);
     expect(rail.get('[data-testid="phase-rail-current"]').attributes('data-phase')).toBe('offers');
+  });
+
+  it('is never offered as a move, since nothing can ever get a market there (E30/F01/S04)', async () => {
+    // "Send Offers" sat in the assignment menu on both paths and always refused: nothing moves an
+    // application past approved.
+    const rail = railFor(MarketPhase.Assignment);
+    await rail.get('[data-testid="phase-rail-menu-button"]').trigger('click');
+    expect(rail.find('[data-testid="phase-transition-offers"]').exists()).toBe(false);
+    expect(rail.find('[data-testid="phase-transition-archived"]').exists()).toBe(true);
+  });
+
+  it('keeps its ways out for a market that is in it anyway', async () => {
+    const rail = railFor(MarketPhase.Offers);
+    expect(rail.find('[data-testid="phase-transition-market_days"]').exists()).toBe(true);
   });
 
   it('is absent from every market that is not in it', () => {

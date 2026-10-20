@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import type { APIRequestContext } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { VendorsPage } from './pages/VendorsPage';
@@ -6,7 +5,7 @@ import { marketScreenPath } from './helpers/marketScreens';
 import { SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
-import { mongoContainer } from './helpers/containerNames';
+import { mongoEval } from './helpers/mongo';
 
 /**
  * Who the Vendors page lists, and what it says about a date a vendor did not get (bugs 10 and 33,
@@ -18,21 +17,9 @@ import { mongoContainer } from './helpers/containerNames';
  * free - they could be placed", with a link inviting the organizer to break their limit.
  */
 const D1 = SEED_MARKET_DATE;
-const D2 = '2026-05-02';
-const D3 = '2026-05-03';
+const D2 = '2099-05-02';
+const D3 = '2099-05-03';
 const GOLD = { id: 1, name: 'Gold' };
-
-function mongoEval(script: string): void {
-  execFileSync('docker', [
-    'exec',
-    mongoContainer(),
-    'mongosh',
-    'mongodb://admin:secret@localhost:27017/conventioner?authSource=admin',
-    '--quiet',
-    '--eval',
-    script,
-  ]);
-}
 
 /**
  * Three dates, room for everyone on each, and a ceiling of two per vendor. Alice asks for one date

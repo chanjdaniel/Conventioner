@@ -1,5 +1,5 @@
 import { test, expect, NewMarketPage, BACKEND_URL, TEST_USER } from './fixtures';
-import { ensureTestOrg } from './helpers/seeds';
+import { completePlan, ensureTestOrg } from './helpers/seeds';
 
 /**
  * A public address belongs to one market (E21/F03/S03).
@@ -38,6 +38,7 @@ test.describe('A public address belongs to one market', () => {
     const dialog = new NewMarketPage(page);
     await dialog.selectFirstOrg();
     await dialog.fillMarketName(`Cafe Address ${stamp}`);
+    await dialog.choosePath('form');
     await dialog.clickSubmit();
 
     await expect(dialog.errorMessage).toContainText(`/cafe-address-${stamp}`);
@@ -59,14 +60,8 @@ test.describe('A public address belongs to one market', () => {
         roles: { [TEST_USER.email]: 'owner' },
         modificationList: [],
         assignmentObject: {},
-        setupObject: {
-          priority: [],
-          marketDates: [{ date: '2099-05-01' }],
-          tiers: [],
-          locations: [],
-          sections: [],
-          assignmentOptions: {},
-        },
+        // Complete, so it may leave draft (E31/F01/S01).
+        setupObject: completePlan(),
       },
     });
     expect(created.ok(), await created.text()).toBe(true);

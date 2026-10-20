@@ -36,6 +36,10 @@ import PlacementHistory from '@/components/PlacementHistory.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
+import VendorNotes from '@/components/VendorNotes.vue';
+import NothingAssigned from '@/components/NothingAssigned.vue';
+import { hasAssignment } from '@/utils/marketPage';
+import { useVendorNotes } from '@/utils/vendorNotes';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import {
   filterOptions,
@@ -98,6 +102,11 @@ const route = useRoute();
  */
 const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market } = useOpenMarket(marketId);
+/** Before a run is stored nobody is placed, so the list counts no one as unplaced (E31/F03/S05). */
+const assigned = computed(() => hasAssignment(market.value));
+
+/** What each vendor asked for and what the organizers noted (E31/F04/S04). */
+const { load: loadNotes, entryFor } = useVendorNotes(marketId);
 
 /** Is this vendor's placement on this date at a table the plan no longer has (bug 31)? */
 function isOrphaned(email: string, date: string): boolean {
@@ -503,6 +512,10 @@ useInertBehind(
               <span class="summary-strong">{{ totalVendorCount }}</span>
               vendors shown
             </template>
+            <template v-else-if="!assigned">
+              <span class="summary-strong">{{ totalVendorCount }}</span>
+              {{ totalVendorCount === 1 ? 'vendor' : 'vendors' }}
+            </template>
             <template v-else>
               <span class="summary-strong">{{ assignedVendorCount }}</span>
               of
@@ -515,9 +528,10 @@ useInertBehind(
 
       <div class="vendors-body">
         <p v-if="loadError" class="error-text">{{ loadError }}</p>
+        <NothingAssigned v-if="market && !assigned" :market="market" testid="vendors-empty" />
 
         <ResultFilterBar
-          v-if="tableRows.length"
+          v-if="assigned && tableRows.length"
           class="vendors-filters"
           :offered="offered"
           :options="filterOptionsShown"
@@ -554,7 +568,7 @@ useInertBehind(
                 :email="vendor.displayEmail"
                 :names="vendorNames"
               />
-              <span class="vendor-meta">
+              <span v-if="assigned" class="vendor-meta">
                 <span
                   class="vendor-badge"
                   :class="vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'"
@@ -621,6 +635,18 @@ useInertBehind(
             :notice="selectedVendor.tableShareNotice"
             :words="String(selectedVendor.answers[TABLE_SHARE_ANSWER_KEY] ?? '')"
             testid="vendors-detail-table-share-notice"
+          />
+        </section>
+
+        <section class="detail-section">
+          <VendorNotes
+            :marketId="marketId"
+            :email="selectedVendor.email"
+            :entry="entryFor(selectedVendor.email)"
+            :canWrite="!!market && !market.readOnlyReason"
+            open
+            testid="vendors-detail-notes"
+            @changed="loadNotes"
           />
         </section>
 

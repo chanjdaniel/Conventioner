@@ -7,6 +7,7 @@ from pymongo.results import DeleteResult
 from pydantic import ValidationError
 from datatypes import (
     ApplicationForm,
+    AssignmentStatistics,
     EssentialFormOptions,
     FormField,
     IntakeMode,
@@ -17,9 +18,9 @@ from datatypes import (
     Organization,
     SetupObject,
     UnassignedTableEntry,
+    User,
     intake_mode_from_market_document,
     market_name_slug,
-    phase_label,
     phase_from_market_document,
     table_code_for,
     table_code_sort_key,
@@ -53,7 +54,15 @@ import api.users as UsersApi
 import traceback
 import logging
 from assignment.csv_output import market_csv_to_string
-from guards import route_between
+from guards import (
+    PASSED_THROUGH,
+    PreconditionResult,
+    evaluate_transition,
+    move_route,
+    route_between,
+    transition_verdicts,
+)
+import vendor_notes as VendorNotes
 from assignment.made_from import assignment_rules, changed_since_run
 from placement_reasons import orphaned_pins, overridden_placements, unplaced_dates
 from db_config import get_database
@@ -220,12 +229,23 @@ def application_form_lock_reason(market: Market) -> Optional[str]:
 
     Returns the human-readable reason the form is locked, or None when it is editable.
     Phase gate: forms are editable only in ``draft``. D9: the form freezes for good once
-    any application exists, so applicants can never have answered a question that moved.
+    any application exists, so applicants can never have answered a question that moved. An
+    archived market gives the archived reason, which is the true one (E30/F01/S02).
     """
+    archived = archived_refusal(market)
+    if archived:
+        return archived
     if market.phase != MarketPhase.DRAFT:
+        # In the words of the market's own path: a CSV market's form is the questions its imports
+        # are mapped onto, and it never opened applications (E31/F03/S02).
+        if market.intake_mode is IntakeMode.FORM:
+            return (
+                f"The application form is fixed: it cannot change {_since_leaving_draft(market)}, "
+                "because applicants answer it."
+            )
         return (
-            "Application form can only be edited while the market is in draft phase. "
-            f"Current phase: {phase_label(market.phase)}."
+            f"The questions are fixed: they cannot change {_since_leaving_draft(market)}, "
+            "because your imports are mapped onto them."
         )
 
     existing_app_count = ApplicationsApi.count_applications_for_market(market.id)
@@ -256,11 +276,73 @@ def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     effect when the assignment runs, and it runs in the ``assignment`` phase alone. So the rules
     are open for exactly as long as the market can still get there. That is derived from the
     transition table rather than listed, so a phase added or an edge moved decides it with no edit
-    here: today it closes them in ``offers``, ``market_days`` and ``archived``.
+    here: today it closes them in ``offers``, ``market_days`` and ``archived``. An archived market
+    gives the archived reason, since no placement can be changed there either (E30/F01/S02).
     """
+    if phase is MarketPhase.ARCHIVED:
+        return ARCHIVED_REFUSAL
     if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is not None:
         return None
     return ASSIGNMENT_RULES_SETTLED
+
+
+# The menu's own names for the moves back to draft (``pathTransitionLabel`` in
+# ``front-end/src/utils/marketGuide.ts``), from each phase a market can still get back from.
+_WAY_BACK = {
+    MarketPhase.APPLICATIONS_OPEN: {
+        IntakeMode.FORM: "Reopen for Editing",
+        IntakeMode.CSV: "Reopen for Editing",
+    },
+    MarketPhase.APPLICATIONS_CLOSED: {
+        IntakeMode.FORM: "Reopen Applications, then Reopen for Editing",
+        IntakeMode.CSV: "Import more responses, then Reopen for Editing",
+    },
+}
+
+
+def _since_leaving_draft(market: Market) -> str:
+    """When a market left draft, as its own path says it: a CSV market imports its Google Form's
+    responses rather than opening applications (E31/F03/S03, E32/F02/S01)."""
+    if market.intake_mode is IntakeMode.FORM:
+        return "once applications have opened"
+    return "once the market has moved on to importing"
+
+
+def setup_part(plan: Optional[SetupObject]) -> Dict[str, Any]:
+    """The part of a plan that is the setup, in one comparable shape (E31/F01/S02).
+
+    Everything on Market Setup: the dates, tiers, locations, sections and their tables, and the
+    floorplans. Not the assignment rules (``made_from.assignment_rules``), which ride in the same
+    object and keep a lock of their own.
+    """
+    if plan is None:
+        return {}
+    shape = plan.model_dump(include={"market_dates", "tiers", "locations", "sections", "floorplans"})
+    shape["floorplans"] = shape.get("floorplans") or []
+    return shape
+
+
+def setup_lock_reason(market: Market) -> Optional[str]:
+    """Why the setup may no longer change, or None while it can (E31/F01/S02).
+
+    It settles on leaving draft, so a date an applicant chose or a section a vendor was placed in
+    cannot move under them. While the market can still go back to draft - nobody has applied, and it
+    is collecting or has just stopped - the reason names the moves that get it there, since that is
+    the way to change it.
+    """
+    if market.phase is MarketPhase.DRAFT:
+        return None
+    settled = (
+        f"The setup is settled: it cannot change {_since_leaving_draft(market)}, because "
+        "applicants and the assignment rely on it."
+    )
+    way_back = _WAY_BACK.get(market.phase, {}).get(market.intake_mode)
+    if way_back and ApplicationsApi.count_applications_for_market(market.id) == 0:
+        return (
+            f"{settled} While no one has applied, go back to draft to change it: {way_back}, "
+            "under More… on the phase rail."
+        )
+    return settled
 
 
 def _assert_application_form_editable(market: Market) -> None:
@@ -395,17 +477,27 @@ def _strip_persisted_assignment_statistics(market_dict: Dict[str, Any]) -> None:
 
 
 def assignment_to_show(market: Market, vendors=None) -> Market:
-    """The assignment every read-only view should describe: the stored one, when there is one.
+    """The assignment every read-only view should describe: the stored one, and only that.
 
-    A market that has never been assigned has nothing stored, and showing it the run it would get
-    is the only useful thing to show - the statistics screen exists to be looked at before Assign
-    is pressed. A market that HAS been assigned is shown what it stored, because that is what
-    check-in reads and what the organizer has been editing (E11/F03/S01). Deciding this once, in
-    one function, is what stops the payoff screen and the tables grid describing different markets.
+    A market that HAS been assigned is shown what it stored, because that is what check-in reads
+    and what the organizer has been editing (E11/F03/S01). A market that has not is shown nobody
+    placed (E31/F03/S05): it used to be shown the run it would get, drawn exactly like a result, so
+    Vendors said "197 of 197 vendors assigned" before anyone had pressed Assign. The run it would
+    get is ``GET /markets/:id/assignment``, which says it is a preview. Deciding this once, in one
+    function, is what stops the payoff screen and the tables grid describing different markets.
     """
-    if market.assignment_object.vendor_assignments:
-        return describe_stored_assignment(market, vendors)
-    return assign_market(market, vendors)
+    if market.setup_object is None:
+        # A market as the create dialog leaves it has no plan, so no table to place anyone at.
+        # That is an empty assignment, not an error: Result and Vendors answered 500 (E30/F01/S01).
+        everyone = [vendor.email for vendor in vendors or []]
+        market.assignment_object.assignment_statistics = AssignmentStatistics(
+            total_vendors=len(everyone), total_tables=0, total_assignments=0,
+            total_assigned_vendors=0, total_assigned_tables=0, unassigned_vendors=everyone,
+            unassigned_tables={}, assignments_per_date={}, assignments_per_tier={},
+            assignments_per_section={},
+        )
+        return market
+    return describe_stored_assignment(market, vendors)
 
 
 def derive_market_table_rows(assigned_market: Market) -> List[MarketTableRow]:
@@ -597,6 +689,8 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
     # from the market it holds, rather than deciding the phases for itself.
     market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
+    # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
+    market_dict['setupLockReason'] = setup_lock_reason(market)
     # And why this market cannot be started from a Google Form's CSV (E24/F03): the flow and the
     # Market Setup action mirror the proposal's own refusal rather than deciding it for themselves.
     market_dict['csvStartRefusal'] = CsvProposal.refusal(market_dict)
@@ -629,6 +723,16 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['adminActionsReason'] = admin_actions_refusal(
         user_email, market, context.organization,
     )
+    # What would refuse each move open from this phase (E31/F02/S01), judged as the transition
+    # endpoint judges it, so the rail can disable a move and name why before anyone clicks it.
+    market_dict['transitionBlockers'] = {
+        to_phase: [blocker.payload() for blocker in blockers]
+        for to_phase, blockers in transition_verdicts(market, db).items()
+    }
+    # The phases this market's path steps through rather than stops in (E32/F02/S01), for the rail
+    # to leave off its stages. The moves themselves are the keys above; the browser keeps no copy
+    # of the rule that makes either.
+    market_dict['phasesPassedThrough'] = sorted(PASSED_THROUGH.get(market.intake_mode, ()))
     if market.organization_id and org_dict:
         market_dict['organization_name'] = org_dict.get('name')
     role_emails = {}
@@ -839,6 +943,25 @@ def _address_taken(name: str) -> str:
             "Choose a name that is different in more than accents or punctuation."
         )
     return "Another market already has this name."
+
+
+def create_owned_market(owner: User, data: Dict[str, Any]) -> str:
+    """Create a market from a snake_case body, owned by ``owner`` and nobody else. Returns its id.
+
+    The one way a market is created: ``POST /markets`` and the test-market seeder
+    (``seed_test_markets.py``) both come here. Whoever creates a market owns it, and only they do.
+    The body's roles were taken on trust, so a client could create a market owned by another user
+    or by an id that is nobody, which then sat in the organization with no one able to manage it
+    (bug 46). Anyone else is added afterwards, through the endpoints that manage a market's people.
+
+    Raises ValueError, in words for the organizer, when the market may not be made.
+    """
+    market = Market(**{**data, "roles": {owner.id: MarketRole.OWNER.value}})
+    refusal = organization_refusal(owner.email, data.get("organization_id"))
+    if refusal:
+        raise ValueError(refusal)
+    _result, market_id = create_market(market, owner.email)
+    return market_id
 
 
 def organization_refusal(user_email: str, organization_id: Optional[str]) -> Optional[str]:
@@ -1287,6 +1410,74 @@ def apply_phase_transition(
     raise PhaseChangedUnderRequest(phase_from_market_document(latest).value)
 
 
+def walk_route(market_id: str, document: Dict[str, Any], route: List[str], by: Optional[str] = None) -> None:
+    """Take a move's steps in order through the one phase writer, each recorded as the phase it
+    entered (E32/F02/S01). The first step is conditional on the document the caller loaded; each
+    later one re-reads it, because the phase history is pushed from the document, and is taken only
+    if the market still stands where the step before left it - a request that moved it in between
+    stops the walk there rather than being carried over.
+
+    Raises what ``apply_phase_transition`` raises, at the step where it happened.
+    """
+    for index, target in enumerate(route):
+        if index:
+            document = markets_collection.find_one({"id": market_id})
+            if document is None:
+                raise MarketNotFoundError("Market not found")
+            standing = phase_from_market_document(document).value
+            if standing != route[index - 1]:
+                raise PhaseChangedUnderRequest(standing)
+        apply_phase_transition(market_id, document, target, by=by)
+
+
+class MoveUnavailable(ValueError):
+    """The move is not open from the phase the market stands in. Callers map this to HTTP 400."""
+
+
+def take_move(context: MarketContext, to_phase: str, by: Optional[str] = None) -> List[PreconditionResult]:
+    """Judge a move and, when nothing blocks it, take it. Returns its blockers; none means taken.
+
+    The one way a market is moved: the transition endpoint and the operator's seeder
+    (``seed_test_markets.py``) both come here, so neither can take a move unjudged. A move on the
+    market's path may step through a phase it does not stop in, every step's guards judged before
+    the first is taken (E32/F02/S01). Who may move it is the caller's to ask first.
+
+    Raises ``MoveUnavailable``, and what ``walk_route`` raises.
+    """
+    market = context.market
+    market_id = context.document["id"]
+    from_phase = market.phase.value
+    route = move_route(market, to_phase)
+    if route is None:
+        raise MoveUnavailable(
+            f"Transition from '{from_phase}' to '{to_phase}' is not available in the current phase."
+        )
+    blockers = evaluate_transition(market, to_phase, db)
+    if blockers:
+        return blockers
+    # Through the one phase writer, so the phase, its two stamps and the phase history move in one
+    # atomic update a step (E26/F06/S03); a route of two steps is two such updates.
+    walk_route(market_id, context.document, route, by=by)
+
+    # Only after the phase is written.
+    if from_phase == MarketPhase.OFFERS.value and to_phase == MarketPhase.MARKET_DAYS.value:
+        try:
+            swept = ApplicationsApi.sweep_unanswered_offers(market_id)
+            logger.info(
+                "Swept %d assignment_sent applications to vendor_refused for market %s",
+                swept,
+                market_id,
+            )
+        except Exception:
+            logger.error(
+                "Phase advanced to market_days for market %s but the "
+                "assignment_sent -> vendor_refused sweep failed",
+                market_id,
+                exc_info=True,
+            )
+    return []
+
+
 def add_market_role(market_id: str, user_email: str, role: MarketRole, requesting_user: str) -> bool:
     """Add a user role to a market. Requires permission to manage roles."""
     context = load_market_context(market_id)
@@ -1543,6 +1734,11 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
                 )
             update[market_doc_key("intake_mode")] = intake.value
 
+    # And the setup the same way, from leaving draft on (E31/F01/S02): restating it is not a change.
+    setup_settled = setup_lock_reason(market)
+    if setup_settled and setup_part(plan) != setup_part(market.setup_object):
+        raise ValueError(setup_settled)
+
     # The plan saves as the organizer types, in every phase, and always carries the rules it holds;
     # restating the stored rules is not a change, and anything else is refused once they are
     # settled (E22/F02/S01).
@@ -1650,3 +1846,37 @@ def get_application_form(market_id: str, requesting_user: str) -> dict:
         "editable": lock_reason is None,
         "lock_reason": lock_reason,
     }
+
+
+def get_vendor_notes(market_id: str, requesting_user: str) -> Dict[str, Dict[str, Any]]:
+    """Both kinds of note on this market's vendors, by address (E31/F04). Requires VIEWER:
+    everyone with a role reads them; the vendor, who has none, never does.
+
+    Each vendor's own request is joined in from their application, so every page that shows a
+    vendor - review, Vendors, the door - reads both kinds from one place, each under its own key.
+    """
+    _load_market_for(market_id, requesting_user, MarketRole.VIEWER, "view")
+    notes = VendorNotes.notes_for_market(market_id)
+    for application in ApplicationsApi.list_applications_for_market(market_id):
+        request = str((application.get("form_data") or {}).get(EssentialFields.REQUEST_KEY) or "")
+        email = str(application.get("applicant_email") or "").strip().lower()
+        if request.strip() and email:
+            notes.setdefault(email, VendorNotes.no_notes())["request"] = request.strip()
+    for entry in notes.values():
+        entry.setdefault("request", "")
+    return notes
+
+
+def save_vendor_note(market_id: str, vendor_email: str, text: str, requesting_user: str) -> None:
+    """Replace the organizer's note on one vendor. Requires EDITOR, the bar every market write has,
+    which a door volunteer recording "chair given" meets; an archived market refuses it."""
+    _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    VendorNotes.write_note(market_id, vendor_email, text, requesting_user)
+
+
+def mark_vendor_request_handled(
+    market_id: str, vendor_email: str, handled: bool, requesting_user: str,
+) -> None:
+    """Mark a vendor's request handled, or take the mark back. Requires EDITOR."""
+    _load_market_to_change(market_id, requesting_user, MarketRole.EDITOR, "edit")
+    VendorNotes.mark_request_handled(market_id, vendor_email, handled, requesting_user)

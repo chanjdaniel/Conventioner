@@ -80,7 +80,7 @@ test('every seat is one width, an empty table claims no size, and the date chip 
 
   await page.getByTestId('tables-filter-date').selectOption(SEED_MARKET_DATE);
   await expect(page.getByTestId('tables-filter-chip-date')).toContainText(
-    'Date: Friday, May 1, 2026',
+    'Date: Friday, May 1, 2099',
   );
 });
 

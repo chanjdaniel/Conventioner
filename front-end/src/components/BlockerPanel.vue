@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { marketPath } from '@/utils/market';
-import type { MarketFlow, MarketPage } from '@/utils/marketPage';
+import { resolutionPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import type { PreconditionResult } from '@/assets/types/datatypes';
 
@@ -18,7 +17,7 @@ const router = useRouter();
  * Each blocker with its resolution link kept only where following it would go somewhere.
  *
  * The rail carries this panel onto every organizer screen, so the same blocker is read from four
- * different places and a link is only useful from three of them. "Fix this" on the page holding
+ * different places and a link is only useful from three of them. A link to the page holding
  * the fix looks like a control and does nothing when clicked, which is worse than no link at all:
  * the organizer concludes the panel is broken rather than that they are already where they need
  * to be (E14/F01/S03).
@@ -31,25 +30,15 @@ const router = useRouter();
  */
 const rows = computed(() =>
   props.blockers.map((blocker) => {
-    const link = blocker.resolutionLink ? marketLink(blocker.resolutionLink) : null;
+    const link = blocker.resolutionLink
+      ? resolutionPath(props.marketId, blocker.resolutionLink)
+      : null;
     return {
       blocker,
       fixLink: link && router.resolve(link).fullPath !== route.fullPath ? link : null,
     };
   }),
 );
-
-/**
- * A resolution link is relative to the market's own pages - `applications` - and this is where it
- * becomes the market's address (E21/F02/S02, E22/F04/S02). The server names the page that holds the
- * remedy; which market that is, the panel already knows, so the guards never build per-market URLs
- * and every link stays a literal their test can read.
- */
-function marketLink(relative: string): string {
-  const [page, query] = relative.replace(/^\/+/, '').split('?');
-  const path = marketPath(props.marketId, page as MarketPage | MarketFlow);
-  return query ? `${path}?${query}` : path;
-}
 </script>
 
 <template>
@@ -64,7 +53,7 @@ function marketLink(relative: string): string {
           class="blocker-link"
           data-testid="blocker-resolution-link"
         >
-          Fix this &rarr;
+          {{ row.blocker.resolutionLabel }} &rarr;
         </router-link>
       </li>
     </ul>

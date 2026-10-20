@@ -1,6 +1,7 @@
 import { test, expect, TEST_USER, BACKEND_URL, CsvImportPage } from './fixtures';
 import type { APIRequestContext } from '@playwright/test';
 import { ensureTestOrg } from './helpers/seeds';
+import { seedApplication } from './helpers/seedApplication';
 import { seedApplicantMarket, planSetupObject, PLAN_TIERS } from './helpers/seedApplicantMarket';
 
 /**
@@ -27,10 +28,10 @@ const HEADERS = [
 ];
 
 const ROWS = [
-  '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,"2026-08-01, 2026-08-08",2,Gold,half,,"Garden, Main Hall",Pottery',
-  '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,Thorn & Thistle,2026-08-01,1,Silver,full,,"Main Hall, Garden",Dried flowers',
+  '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,"2099-08-01, 2099-08-08",2,Gold,half,,"Garden, Main Hall",Pottery',
+  '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,Thorn & Thistle,2099-08-01,1,Silver,full,,"Main Hall, Garden",Dried flowers',
   // Deliberately broken: no email, so it must be skipped and named rather than silently dropped.
-  '2026/05/03 8:02:10,,Jan van der Berg,Driftwood Prints,2026-08-08,1,Gold,either,,"Garden, Main Hall",Linocuts',
+  '2026/05/03 8:02:10,,Jan van der Berg,Driftwood Prints,2099-08-08,1,Gold,either,,"Garden, Main Hall",Linocuts',
 ];
 
 const CSV = [HEADERS.join(','), ...ROWS].join('\n');
@@ -57,6 +58,8 @@ const FULL_MAPPING: Record<string, string> = {
 async function seedPlannedMarket(request: APIRequestContext) {
   return await seedApplicantMarket(request, BACKEND_URL, TEST_USER.email, TEST_USER.password, {
     setupObject: planSetupObject(),
+    // Importing is the CSV path's (E31/F03/S04).
+    intakeMode: 'csv',
   });
 }
 
@@ -172,12 +175,12 @@ test.describe('CSV vendor import', () => {
     expect(nadia!.formData).toMatchObject({
       business_name: 'Ember Ceramics',
       product_type: 'Pottery',
-      essential_available_dates: ['2026-08-01', '2026-08-08'],
+      essential_available_dates: ['2099-08-01', '2099-08-08'],
       essential_max_dates: 2,
       // Per date (E01/F05); this row answered once, so it applies to every date it can attend.
       essential_tier_preference: {
-        '2026-08-01': [PLAN_TIERS[0]],
-        '2026-08-08': [PLAN_TIERS[0]],
+        '2099-08-01': [PLAN_TIERS[0]],
+        '2099-08-08': [PLAN_TIERS[0]],
       },
       essential_table_choice: 'half',
       essential_table_share_email: '',
@@ -250,8 +253,8 @@ test.describe('CSV vendor import', () => {
       'Email Address',
       'Full Legal Name',
       'Business name',
-      'Which days can you attend? [2026-08-01]',
-      'Which days can you attend? [2026-08-08]',
+      'Which days can you attend? [2099-08-01]',
+      'Which days can you attend? [2099-08-08]',
       'How many days do you want?',
       'Which tiers will you accept?',
       'Full or half table?',
@@ -279,7 +282,7 @@ test.describe('CSV vendor import', () => {
     // One action maps all of a grid's columns.
     await importPage.mapGroup(
       gridHeaders,
-      'Which days can you attend? [2026-08-01]',
+      'Which days can you attend? [2099-08-01]',
       'essential_available_dates',
     );
     await importPage.mapGroup(
@@ -309,7 +312,7 @@ test.describe('CSV vendor import', () => {
     const nadia = applications.find((a) => a.applicantEmail === 'nadia@ember.test');
     // Identical to what the single-column spelling of the same answers produces.
     expect(nadia!.formData).toMatchObject({
-      essential_available_dates: ['2026-08-01', '2026-08-08'],
+      essential_available_dates: ['2099-08-01', '2099-08-08'],
       // The grid's own cells carry the order, so Garden's "1st choice" wins over column position.
       essential_section_ranking: ['Garden', 'Main Hall'],
     });
@@ -328,7 +331,7 @@ test.describe('CSV vendor import', () => {
       'Business name',
       'Which tiers would you take? [Saturday, August 1]',
       'Which tiers would you take? [Second Saturday]',
-      'Which tiers would you take? [Saturday, August 15, 2026]',
+      'Which tiers would you take? [Saturday, August 15, 2099]',
       'How many days do you want?',
       'Full or half table?',
       'Rank the sections',
@@ -363,9 +366,9 @@ test.describe('CSV vendor import', () => {
     // names no date is asked about - and it is offered the market's dates, not its tiers.
     await expect(importPage.unmatchedValues).toHaveText(['Second Saturday']);
     const fix = page.getByTestId('import-fix-Second Saturday');
-    await expect(fix.locator('option[value="2026-08-08"]')).toHaveCount(1);
+    await expect(fix.locator('option[value="2099-08-08"]')).toHaveCount(1);
     await expect(fix.locator('option[value="Gold"]')).toHaveCount(0);
-    await importPage.resolveValue('Second Saturday', '2026-08-08');
+    await importPage.resolveValue('Second Saturday', '2099-08-08');
     await importPage.clickPreview();
 
     await expect(importPage.previewCounts).toContainText('2 of 2 rows');
@@ -381,10 +384,10 @@ test.describe('CSV vendor import', () => {
     );
     expect(answers).toEqual({
       'nadia@ember.test': [
-        ['2026-08-01', '2026-08-15'],
-        { '2026-08-01': ['Gold'], '2026-08-15': ['Silver'] },
+        ['2099-08-01', '2099-08-15'],
+        { '2099-08-01': ['Gold'], '2099-08-15': ['Silver'] },
       ],
-      'theo@thistle.test': [['2026-08-08'], { '2026-08-08': ['Gold', 'Silver'] }],
+      'theo@thistle.test': [['2099-08-08'], { '2099-08-08': ['Gold', 'Silver'] }],
     });
   });
 
@@ -417,8 +420,8 @@ test.describe('CSV vendor import', () => {
     // The organizer's form said "Gold Tier"; the market's tier is called "Gold".
     const rows = [
       HEADERS.join(','),
-      '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,"2026-08-01, 2026-08-08",2,Gold Tier,half,,"Garden, Main Hall",Pottery',
-      '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,Thorn & Thistle,2026-08-01,1,Gold Tier,full,,"Main Hall, Garden",Dried flowers',
+      '2026/05/02 9:14:03,nadia@ember.test,Nadia Okonkwo,Ember Ceramics,"2099-08-01, 2099-08-08",2,Gold Tier,half,,"Garden, Main Hall",Pottery',
+      '2026/05/02 11:40:22,theo@thistle.test,Theo Marchetti,Thorn & Thistle,2099-08-01,1,Gold Tier,full,,"Main Hall, Garden",Dried flowers',
     ].join('\n');
 
     const seed = await seedPlannedMarket(request);
@@ -536,8 +539,8 @@ test.describe('CSV vendor import', () => {
 
     const [nadia] = await listApplications(request, seed.marketId);
     expect(nadia.formData.essential_tier_preference).toEqual({
-      '2026-08-01': ['Silver'],
-      '2026-08-08': ['Silver'],
+      '2099-08-01': ['Silver'],
+      '2099-08-08': ['Silver'],
     });
   });
 
@@ -613,7 +616,7 @@ test.describe('CSV vendor import', () => {
     // The form is re-exported with their availability narrowed - an answer the solver reads.
     const narrowed = [
       HEADERS.join(','),
-      ROWS[0].replace('"2026-08-01, 2026-08-08",2', '2026-08-01,1'),
+      ROWS[0].replace('"2099-08-01, 2099-08-08",2', '2099-08-01,1'),
     ].join('\n');
     await openImport(importPage, request, seed.marketId);
     await importPage.chooseFile(narrowed);
@@ -648,7 +651,8 @@ test.describe('CSV vendor import', () => {
       expect(res.ok(), `transition to ${toPhase}: ${await res.text()}`).toBeTruthy();
     };
 
-    await transition('applications_closed');
+    // Review waits on something imported (E32/F02/S01).
+    seedApplication(seed.marketId, 'imported@example.com');
     await transition('review');
 
     // Server-side, not merely a hidden button: the endpoint refuses directly.
@@ -657,16 +661,16 @@ test.describe('CSV vendor import', () => {
       { headers: { 'X-Owner-Email': TEST_USER.email }, data: { csvContent: CSV } },
     );
     expect(direct.status()).toBe(409);
-    // By the name of the move the rail offers (bug 42): "Reopen Applications" is a different one.
-    expect(await direct.text()).toContain('Return to Applications Closed');
+    // By the name of the move a CSV market's rail offers (bug 42, E31/F03/S04).
+    expect(await direct.text()).toContain('Import more responses');
 
     // And the screen says so before asking for a file.
     await openImport(importPage, request, seed.marketId);
     await expect(importPage.wrongPhase).toBeVisible();
     await expect(importPage.upload).toHaveCount(0);
 
-    // The way through is the edge the state machine already has.
-    await transition('applications_closed');
+    // The way through is the path's move back to importing, the closed phase stepped through.
+    await transition('applications_open');
     await openImport(importPage, request, seed.marketId);
     await expect(importPage.upload).toBeVisible();
     await importPage.chooseFile(CSV);
@@ -779,9 +783,9 @@ test.describe('CSV vendor import', () => {
     const importPage = new CsvImportPage(page);
     const file = [
       HEADERS.join(','),
-      ROWS[0].replace('"2026-08-01, 2026-08-08"', '"Saturday, August 1st, Saturday, August 8th"'),
+      ROWS[0].replace('"2099-08-01, 2099-08-08"', '"Saturday, August 1st, Saturday, August 8th"'),
       // The same day twice, once as the market spells it and once as the form did.
-      ROWS[1].replace(',2026-08-01,1,', ',"2026-08-01, Saturday, August 1st",1,'),
+      ROWS[1].replace(',2099-08-01,1,', ',"2099-08-01, Saturday, August 1st",1,'),
     ].join('\n');
 
     await openImport(importPage, request, seed.marketId);
@@ -801,8 +805,8 @@ test.describe('CSV vendor import', () => {
       applications.map((a) => [a.applicantEmail, a.formData.essential_available_dates]),
     );
     expect(dates).toEqual({
-      'nadia@ember.test': ['2026-08-01', '2026-08-08'],
-      'theo@thistle.test': ['2026-08-01'],
+      'nadia@ember.test': ['2099-08-01', '2099-08-08'],
+      'theo@thistle.test': ['2099-08-01'],
     });
   });
 
@@ -831,7 +835,7 @@ test.describe('CSV vendor import', () => {
     // reads as the applicant's answers will be stored.
     await expect(importPage.sampleRows).toHaveCount(2);
     await expect(importPage.sampleRows.first()).toContainText('Ember Ceramics');
-    await expect(importPage.sampleRows.first()).toContainText('Saturday, August 1, 2026');
+    await expect(importPage.sampleRows.first()).toContainText('Saturday, August 1, 2099');
     await expect(importPage.sampleRows.first()).toContainText('Half a table, shared');
     await expect(importPage.preview).not.toContainText('Driftwood Prints');
     await importPage.clickConfirm();
@@ -875,10 +879,10 @@ test.describe('CSV vendor import', () => {
     await expect(page.getByTestId('import-error')).toContainText('Row 2 has 4 cells');
     await expect(page.getByTestId('import-error')).toContainText('header has 5');
 
-    const gridHeaders = ['Email Address', 'Tiers? [2026-08-01]', 'Tiers? [2026-08-08]'];
+    const gridHeaders = ['Email Address', 'Tiers? [2099-08-01]', 'Tiers? [2099-08-08]'];
     await importPage.open({ id: seed.marketId });
     await importPage.chooseFile([gridHeaders.join(','), 'nadia@ember.test,Gold,Silver'].join('\n'));
-    await importPage.mapGroup(gridHeaders, 'Tiers? [2026-08-01]', 'essential_tier_preference');
+    await importPage.mapGroup(gridHeaders, 'Tiers? [2099-08-01]', 'essential_tier_preference');
     await expect(importPage.groupShape.first()).toHaveText('2 columns · one per day');
     // Not "Your form never asked it": this market's own online form does ask it.
     await expect(page.getByTestId('import-declare-unasked').first()).toContainText(
@@ -943,7 +947,7 @@ test.describe('CSV vendor import', () => {
     const earlier = ROWS[0]
       .replace('2026/05/02 9:14:03', '2026/05/01 16:20:00')
       .replace('Ember Ceramics', 'Ember')
-      .replace('"2026-08-01, 2026-08-08",2', '2026-08-01,1');
+      .replace('"2099-08-01, 2099-08-08",2', '2099-08-01,1');
     const file = [HEADERS.join(','), earlier, ROWS[0], ROWS[1]].join('\n');
 
     await openImport(importPage, request, seed.marketId);
@@ -965,7 +969,7 @@ test.describe('CSV vendor import', () => {
     const nadia = applications.find((a) => a.applicantEmail === 'nadia@ember.test')!;
     // Their answers are their latest ones...
     expect(nadia.formData.business_name).toBe('Ember Ceramics');
-    expect(nadia.formData.essential_available_dates).toEqual(['2026-08-01', '2026-08-08']);
+    expect(nadia.formData.essential_available_dates).toEqual(['2099-08-01', '2099-08-08']);
     // ...and their place in a first-come-first-served queue is when they first applied.
     expect(nadia.submittedAt).toBe('2026-05-01T16:20:00');
 

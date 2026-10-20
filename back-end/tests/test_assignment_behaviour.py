@@ -1762,6 +1762,21 @@ class TestDescribingWhatIsStored:
         assert stats.total_assigned_vendors == 1
         assert stats.unassigned_vendors == ["ben@example.com"]
 
+    def test_with_nothing_stored_nothing_is_shown_as_assigned(self):
+        """E31/F03/S05: Result and Vendors drew the solver's unstored preview as the result - "197 of
+        197 vendors assigned" before anyone had pressed Assign. With nothing stored, nobody is."""
+        import api.markets as MarketsApi
+
+        wants = [VendorWant("ana@example.com", available=[DATES[0]], tiers=[GOLD])]
+        market = self._market_with(wants, [], dates=[DATES[0]])
+
+        shown = MarketsApi.assignment_to_show(market, [want.as_solver_vendor() for want in wants])
+
+        assert placements(shown) == []
+        stats = shown.assignment_object.assignment_statistics
+        assert stats.total_assigned_vendors == 0
+        assert stats.unassigned_vendors == ["ana@example.com"]
+
     def test_a_stored_assignment_survives_a_plan_that_shrank_under_it(self):
         """Shrinking the plan does not unassign anybody: only assigning again does that."""
         wants = [VendorWant("ana@example.com", available=[DATES[0]], tiers=[GOLD])]

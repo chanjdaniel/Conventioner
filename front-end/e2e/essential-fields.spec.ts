@@ -1,5 +1,5 @@
 import { test, expect, BACKEND_URL, TEST_USER, ApplicationFormPage, ApplyPage } from './fixtures';
-import { savePlan } from './helpers/savePlan';
+import { changeASettledPlan } from './helpers/settledPlanChanged';
 import { marketSetupPath } from './helpers/marketScreens';
 import { ApplicantLoginPage } from './pages/ApplicantLoginPage';
 import { MarketSetupPage } from './pages/MarketSetupPage';
@@ -275,7 +275,7 @@ test.describe('Essential form fields', () => {
     // grid below. The label is still asserted whole, not by substring: the product has one date
     // format and an essential question shows it unaltered (E14/F01/S01).
     await expect(apply.dateRow(PLAN_DATES[0])).toBeVisible();
-    await expect(apply.dateLabel('2026-08-01')).toHaveText('Saturday, August 1, 2026');
+    await expect(apply.dateLabel('2099-08-01')).toHaveText('Saturday, August 1, 2099');
 
     // Max dates: appetite - available on two dates, wants at most two.
     await apply.maxDatesInput.fill('2');
@@ -283,10 +283,10 @@ test.describe('Essential form fields', () => {
     // Tier: a hard filter, so a subset is a complete answer. Refusing Silver means the solver
     // may leave them unplaced rather than seat them there. Ticking a tier is ALSO how this
     // applicant says they are available that day.
-    await expect(apply.tierCheckbox('2026-08-01', 'Silver')).toBeVisible();
-    await apply.tierCheckbox('2026-08-01', 'Gold').check();
-    await apply.tierCheckbox('2026-08-08', 'Gold').check();
-    await expect(apply.notAvailableCheckbox('2026-08-01')).not.toBeChecked();
+    await expect(apply.tierCheckbox('2099-08-01', 'Silver')).toBeVisible();
+    await apply.tierCheckbox('2099-08-01', 'Gold').check();
+    await apply.tierCheckbox('2099-08-08', 'Gold').check();
+    await expect(apply.notAvailableCheckbox('2099-08-01')).not.toBeChecked();
 
     // Table choice: sharing, and with someone specific in mind.
     await apply.tableChoiceRadio('half').check();
@@ -337,13 +337,13 @@ test.describe('Essential form fields', () => {
     // separated by a middot and each prints its year once (E14/F01/S01).
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_available_dates').locator('dd'),
-    ).toHaveText('Saturday, August 1, 2026 · Saturday, August 8, 2026');
+    ).toHaveText('Saturday, August 1, 2099 · Saturday, August 8, 2099');
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_max_dates'),
     ).toContainText('2');
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_tier_preference').locator('dd'),
-    ).toHaveText('Saturday, August 1, 2026: Gold · Saturday, August 8, 2026: Gold');
+    ).toHaveText('Saturday, August 1, 2099: Gold · Saturday, August 8, 2099: Gold');
     // Stored as a code, read back as the sentence the applicant picked.
     await expect(
       answers.getByTestId('applicant-dashboard-answer-essential_table_choice'),
@@ -376,10 +376,10 @@ test.describe('Essential form fields', () => {
       essential_full_name: 'Jan van der Berg',
       // Stored beside the full name, never instead of it: the card shows both, labelled.
       essential_preferred_name: 'Jan',
-      essential_available_dates: ['2026-08-01', '2026-08-08'],
+      essential_available_dates: ['2099-08-01', '2099-08-08'],
       essential_max_dates: 2,
       // Only Gold was ticked: an accepted SET, so Silver's absence is the answer, not an omission.
-      essential_tier_preference: { '2026-08-01': ['Gold'], '2026-08-08': ['Gold'] },
+      essential_tier_preference: { '2099-08-01': ['Gold'], '2099-08-08': ['Gold'] },
       essential_table_choice: 'half',
       essential_table_share_email: 'buddy@example.com',
       // The applicant's words, kept beside the address read out of them (E27/F01/S01).
@@ -388,6 +388,8 @@ test.describe('Essential form fields', () => {
       essential_section_ranking: ['Garden', 'Main Hall'],
       // Suppressed: one table type on offer, so there is nothing to rank.
       essential_table_type_ranking: [],
+      // Asked of everyone and left blank (E31/F04/S01).
+      essential_request: '',
     });
   });
 
@@ -419,11 +421,11 @@ test.describe('Essential form fields', () => {
             business_name: 'Vermilion Ceramics',
             product_type: 'Pottery',
             essential_full_name: 'Nadia Okonkwo',
-            essential_available_dates: ['2026-08-01'],
+            essential_available_dates: ['2099-08-01'],
             essential_max_dates: 1,
             // Tiers for exactly the dates named above: the validator refuses an available date
             // with no tiers, and tiers for a date not available (E01/F05).
-            essential_tier_preference: { '2026-08-01': ['Gold'] },
+            essential_tier_preference: { '2099-08-01': ['Gold'] },
             essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
           },
@@ -439,8 +441,10 @@ test.describe('Essential form fields', () => {
     const { market: marketDoc } = (await marketRes.json()) as {
       market: { setupObject: { marketDates: Array<{ date: string }> } } & Record<string, unknown>;
     };
-    marketDoc.setupObject.marketDates.push({ date: '2026-08-22' });
-    await savePlan(request, BACKEND_URL, TEST_USER.email, market.marketId, marketDoc.setupObject);
+    marketDoc.setupObject.marketDates.push({ date: '2099-08-22' });
+    // The setup settles on leaving draft (E31/F01/S01), so only a market older than that rule could
+    // still gain a date here; the snapshot below is what protects such a market's applicants.
+    changeASettledPlan(market.marketId, marketDoc.setupObject);
 
     // ...but the form's offering is frozen: the public form still offers the original three.
     const publicForm = await (
@@ -459,9 +463,9 @@ test.describe('Essential form fields', () => {
             business_name: 'Vermilion Ceramics',
             product_type: 'Pottery',
             essential_full_name: 'Nadia Okonkwo',
-            essential_available_dates: ['2026-08-22'],
+            essential_available_dates: ['2099-08-22'],
             essential_max_dates: 1,
-            essential_tier_preference: { '2026-08-01': ['Gold'], '2026-08-08': ['Gold'] },
+            essential_tier_preference: { '2099-08-01': ['Gold'], '2099-08-08': ['Gold'] },
             essential_table_choice: 'half',
             essential_section_ranking: ['Main Hall', 'Garden'],
           },

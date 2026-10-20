@@ -6,6 +6,7 @@ import {
   offeredFilters,
   placeFilterQuery,
   readResultFilters,
+  sectionsInPlanOrder,
   vendorShown,
   rowStatus,
   statusCounts,
@@ -212,5 +213,41 @@ describe('the filters each page offers', () => {
   it('knows whether any where-filter is set, and that the status is not one', () => {
     expect(hasPlaceFilter(readResultFilters({ status: 'empty' }))).toBe(false);
     expect(hasPlaceFilter(readResultFilters({ tier: 'Gold' }))).toBe(true);
+  });
+});
+
+describe('the order a date lists its sections in (E30/F01/S05)', () => {
+  const plan = {
+    tiers: [{ name: 'Gold' }, { name: 'Silver' }, { name: 'Bronze' }],
+    sections: [{ name: 'Upper Atrium' }, { name: 'Lower Atrium' }, { name: 'Courtyard' }],
+  };
+
+  it('lists them by tier, as the plan ranks its tiers, not by name', () => {
+    // The walk: "Courtyard (Bronze)" came first, alphabetically.
+    const groups = [
+      { section: 'Courtyard', tier: 'Bronze' },
+      { section: 'Lower Atrium', tier: 'Silver' },
+      { section: 'Upper Atrium', tier: 'Gold' },
+    ];
+    expect(sectionsInPlanOrder(groups, plan).map((g) => g.section)).toEqual([
+      'Upper Atrium',
+      'Lower Atrium',
+      'Courtyard',
+    ]);
+  });
+
+  it('within a tier, follows the plan, and puts what the plan does not know last, by name', () => {
+    const groups = [
+      { section: 'Zed', tier: 'Gold' },
+      { section: 'Lower Atrium', tier: 'Gold' },
+      { section: 'Alpha', tier: 'Gold' },
+      { section: 'Upper Atrium', tier: 'Gold' },
+    ];
+    expect(sectionsInPlanOrder(groups, plan).map((g) => g.section)).toEqual([
+      'Upper Atrium',
+      'Lower Atrium',
+      'Alpha',
+      'Zed',
+    ]);
   });
 });

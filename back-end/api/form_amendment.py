@@ -31,7 +31,7 @@ import api.applications as ApplicationsApi
 import api.markets as MarketsApi
 import api.permissions as PermissionsApi
 from datatypes import ApplicationForm, Market, MarketPhase, MarketRole, phase_label
-from guards import TRANSITION_GUARDS, PreconditionResult, route_between
+from guards import PreconditionResult, judge_route, route_between
 from market_documents import market_doc_key, market_doc_set
 from assignment.utils import convert_keys_to_camel_case
 
@@ -130,17 +130,7 @@ def preflight(market: Market, proposed: ApplicationForm, plan: AmendmentPlan) ->
     rather than the phase it is invoked on, and constructing four phase-shifted copies would
     assert that they do not - which they might not, later, quietly.
     """
-    candidate = _candidate_market(market, proposed)
-    blockers: List[PreconditionResult] = []
-    seen: set[str] = set()
-    for hop in plan.hops:
-        for guard in TRANSITION_GUARDS.get(hop, []):
-            result = guard.evaluate(candidate, MarketsApi.db)
-            if result.passed or result.id in seen:
-                continue
-            seen.add(result.id)
-            blockers.append(result)
-    return blockers
+    return judge_route(_candidate_market(market, proposed), plan.hops, MarketsApi.db)
 
 
 def amendment_availability(market: Market) -> Dict[str, Any]:

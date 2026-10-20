@@ -8,25 +8,24 @@
  * the unassigned vendors are a link to the Vendors page rather than a list of their own. The
  * unassigned TABLES need no list at all: the grid's "empty" filter shows them on the grid.
  *
- * Before the first run it says there is no assignment yet, and where to run one - or, where the
- * phase refuses a run, why, in the words `assign_phase_refusal` uses on the server.
+ * Before the first run it says nothing is assigned yet (`NothingAssigned`).
  */
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ResultStatistics from '@/components/ResultStatistics.vue';
+import NothingAssigned from '@/components/NothingAssigned.vue';
 import type { AssignmentStatistics, Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { marketPath } from '@/utils/market';
-import { assignRefusal } from '@/utils/assignPhase';
 import { outOfDateLine } from '@/utils/assignmentOutOfDate';
 import { hasAssignment } from '@/utils/marketPage';
+import { canAssignIn } from '@/utils/assignPhase';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { satisfactionPercent } from '@/utils/satisfactionPercent';
 
 const props = defineProps<{ market: Market }>();
 
 const assigned = computed(() => hasAssignment(props.market));
-const refusal = computed(() => assignRefusal(props.market.phase));
 const outOfDate = computed(() =>
   outOfDateLine(props.market.assignmentOutOfDate, props.market.phase),
 );
@@ -157,13 +156,12 @@ async function downloadCsv(): Promise<void> {
       to bring it up to date.
     </p>
 
-    <p v-if="!assigned" class="note" data-testid="result-empty">
-      No assignment yet.
-      <template v-if="refusal">{{ refusal }}</template>
-      <RouterLink :to="marketPath(market.id, 'assignment')">
-        {{ refusal ? 'Set the rules' : 'Set the rules and run it' }}
-      </RouterLink>
-    </p>
+    <NothingAssigned v-if="!assigned" :market="market" testid="result-empty">
+      <!-- Where a run can happen the tables are drawn below, for pinning before it (E11/F02/S01). -->
+      <span v-if="canAssignIn(market.phase)" data-testid="result-pin-before-run">
+        Anyone you place below first keeps their table: the run places everyone else around them.
+      </span>
+    </NothingAssigned>
 
     <div v-else class="result-strip" data-testid="result-strip">
       <span class="result-figure" data-testid="result-vendors-placed">

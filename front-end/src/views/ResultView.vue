@@ -17,6 +17,8 @@ import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.v
 import ResultSeat from '@/components/ResultSeat.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
+import { hasAssignment } from '@/utils/marketPage';
+import { canAssignIn } from '@/utils/assignPhase';
 import ResultSummary from '@/components/ResultSummary.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import { useResultFilters } from '@/utils/useResultFilters';
@@ -33,6 +35,7 @@ import {
   filterOptions,
   filtersBeside,
   rowStatus,
+  sectionsInPlanOrder,
   statusCounts as countStatuses,
   tablesMatching,
   type MarketTableRow,
@@ -66,6 +69,14 @@ const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 const orphanedSeats = computed(
   () => new Set((market.value?.orphanedPins ?? []).map((pin) => `${pin.date}|${pin.tableCode}`)),
 );
+
+/**
+ * The tables are the result, so before one is stored they are drawn only where a run can happen:
+ * there they are where a vendor is pinned before the first run (E11/F02/S01), as the summary says.
+ * Anywhere else a grid of empty tables would read as an assignment that came out empty
+ * (E31/F03/S05).
+ */
+const tablesShown = computed(() => hasAssignment(market.value) || canAssignIn(market.value?.phase));
 
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
@@ -116,8 +127,9 @@ const groupedRows = computed((): DateGroup[] => {
 
   const dateGroups: DateGroup[] = [];
   for (const [date, sectionMap] of dateMap.entries()) {
-    const sections = Array.from(sectionMap.values()).sort((a, b) =>
-      a.section.localeCompare(b.section),
+    const sections = sectionsInPlanOrder(
+      Array.from(sectionMap.values()),
+      market.value?.setupObject,
     );
     for (const section of sections) {
       section.rows.sort((a, b) =>
@@ -368,166 +380,171 @@ function swapSeats(withEmail: string): void {
         <ResultSummary v-if="market" :market="market" />
         <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
 
-        <div v-if="isLoading" class="status-message">Loading tables…</div>
+        <template v-if="tablesShown">
+          <div v-if="isLoading" class="status-message">Loading tables…</div>
 
-        <template v-else-if="allRows.length === 0 && !errorMessage">
-          <div class="empty-state">
-            <p>No tables found for this market.</p>
-          </div>
-        </template>
-
-        <template v-else-if="allRows.length > 0">
-          <ResultFilterBar
-            class="filter-band"
-            :offered="OFFERED"
-            :options="filterOptionsShown"
-            testid="tables"
-          >
-            <div class="counts-row">
-              <span class="counts-primary">
-                {{ filteredRows.length }} of {{ allRows.length }} tables
-              </span>
-              <!-- Each count shows its tables (E28/F02/S01). -->
-              <button
-                v-for="pill in countPills"
-                :key="pill.kind"
-                type="button"
-                class="count-badge"
-                :class="pill.fill"
-                :aria-pressed="statusFilter === pill.kind"
-                :disabled="pill.count === 0 && statusFilter !== pill.kind"
-                :title="pill.count === 0 ? undefined : `Show only ${pill.kind} tables`"
-                :aria-label="pill.count === 0 ? `0 ${pill.kind}, none to show` : undefined"
-                :data-testid="`tables-count-${pill.kind}`"
-                @click="toggleStatus(pill.kind)"
-              >
-                <span v-if="statusFilter === pill.kind" class="count-badge-tick" aria-hidden="true"
-                  >✓</span
-                >{{ pill.count }} {{ pill.kind }}
-              </button>
+          <template v-else-if="allRows.length === 0 && !errorMessage">
+            <div class="empty-state">
+              <p>No tables found for this market.</p>
             </div>
-          </ResultFilterBar>
+          </template>
 
-          <div v-if="filteredRows.length === 0" class="empty-state">
-            <p>No tables match the current filters.</p>
-          </div>
-
-          <div v-else class="date-groups">
-            <section
-              v-for="dateGroup in groupedRows"
-              :key="dateGroup.date"
-              class="date-group"
-              :data-date="dateGroup.date"
-              data-testid="tables-date-group"
+          <template v-else-if="allRows.length > 0">
+            <ResultFilterBar
+              class="filter-band"
+              :offered="OFFERED"
+              :options="filterOptionsShown"
+              testid="tables"
             >
-              <h2 class="date-heading">
-                <span>{{ dateGroup.displayDate }}</span>
-                <span class="date-heading-count">{{ dateGroup.rowCount }} tables</span>
-              </h2>
+              <div class="counts-row">
+                <span class="counts-primary">
+                  {{ filteredRows.length }} of {{ allRows.length }} tables
+                </span>
+                <!-- Each count shows its tables (E28/F02/S01). -->
+                <button
+                  v-for="pill in countPills"
+                  :key="pill.kind"
+                  type="button"
+                  class="count-badge"
+                  :class="pill.fill"
+                  :aria-pressed="statusFilter === pill.kind"
+                  :disabled="pill.count === 0 && statusFilter !== pill.kind"
+                  :title="pill.count === 0 ? undefined : `Show only ${pill.kind} tables`"
+                  :aria-label="pill.count === 0 ? `0 ${pill.kind}, none to show` : undefined"
+                  :data-testid="`tables-count-${pill.kind}`"
+                  @click="toggleStatus(pill.kind)"
+                >
+                  <span
+                    v-if="statusFilter === pill.kind"
+                    class="count-badge-tick"
+                    aria-hidden="true"
+                    >✓</span
+                  >{{ pill.count }} {{ pill.kind }}
+                </button>
+              </div>
+            </ResultFilterBar>
 
-              <div
-                v-for="sectionGroup in dateGroup.sections"
-                :key="`${dateGroup.date}-${sectionGroup.section}`"
-                class="section-group"
+            <div v-if="filteredRows.length === 0" class="empty-state">
+              <p>No tables match the current filters.</p>
+            </div>
+
+            <div v-else class="date-groups">
+              <section
+                v-for="dateGroup in groupedRows"
+                :key="dateGroup.date"
+                class="date-group"
+                :data-date="dateGroup.date"
+                data-testid="tables-date-group"
               >
-                <h3 class="section-heading">
-                  <span class="section-heading-name">{{ sectionGroup.section }}</span>
-                  <span v-if="sectionGroup.location" class="section-heading-meta">{{
-                    sectionGroup.location
-                  }}</span>
-                  <span v-if="sectionGroup.tier" class="section-heading-meta">{{
-                    sectionGroup.tier
-                  }}</span>
-                </h3>
+                <h2 class="date-heading">
+                  <span>{{ dateGroup.displayDate }}</span>
+                  <span class="date-heading-count">{{ dateGroup.rowCount }} tables</span>
+                </h2>
 
-                <ul class="table-list">
-                  <li
-                    v-for="row in sectionGroup.rows"
-                    :key="`${row.date}-${row.tableCode}`"
-                    class="table-row"
-                    :class="{
-                      'table-row--empty': rowStatus(row).label === 'empty',
-                      'table-row--partial': rowStatus(row).label === 'partial',
-                    }"
-                    :data-table-code="row.tableCode"
-                    data-testid="tables-table-row"
-                  >
-                    <div class="table-row-head">
-                      <span class="table-code">{{ row.tableCode }}</span>
-                      <!-- The size its occupants chose; a table nobody is at has none (bug 43 - an
+                <div
+                  v-for="sectionGroup in dateGroup.sections"
+                  :key="`${dateGroup.date}-${sectionGroup.section}`"
+                  class="section-group"
+                >
+                  <h3 class="section-heading">
+                    <span class="section-heading-name">{{ sectionGroup.section }}</span>
+                    <span v-if="sectionGroup.location" class="section-heading-meta">{{
+                      sectionGroup.location
+                    }}</span>
+                    <span v-if="sectionGroup.tier" class="section-heading-meta">{{
+                      sectionGroup.tier
+                    }}</span>
+                  </h3>
+
+                  <ul class="table-list">
+                    <li
+                      v-for="row in sectionGroup.rows"
+                      :key="`${row.date}-${row.tableCode}`"
+                      class="table-row"
+                      :class="{
+                        'table-row--empty': rowStatus(row).label === 'empty',
+                        'table-row--partial': rowStatus(row).label === 'partial',
+                      }"
+                      :data-table-code="row.tableCode"
+                      data-testid="tables-table-row"
+                    >
+                      <div class="table-row-head">
+                        <span class="table-code">{{ row.tableCode }}</span>
+                        <!-- The size its occupants chose; a table nobody is at has none (bug 43 - an
                            empty table was badged "FULL TABLE"). -->
-                      <span
-                        v-if="rowStatus(row).label !== 'empty'"
-                        class="chip"
-                        :class="
-                          row.tableChoice.toLowerCase().includes('full')
-                            ? 'chip--positive'
-                            : 'chip--neutral'
-                        "
-                        data-testid="tables-table-choice"
-                      >
-                        {{ row.tableChoice }}
-                      </span>
-                      <span v-if="row.tier" class="meta-tag">{{ row.tier }}</span>
-                      <span v-if="row.location" class="meta-tag">{{ row.location }}</span>
-                      <span
-                        v-if="orphanedSeats.has(`${row.date}|${row.tableCode}`)"
-                        class="chip chip--attention"
-                        data-testid="tables-orphaned"
-                        >No longer in the plan - move or free this vendor</span
-                      >
-                    </div>
+                        <span
+                          v-if="rowStatus(row).label !== 'empty'"
+                          class="chip"
+                          :class="
+                            row.tableChoice.toLowerCase().includes('full')
+                              ? 'chip--positive'
+                              : 'chip--neutral'
+                          "
+                          data-testid="tables-table-choice"
+                        >
+                          {{ row.tableChoice }}
+                        </span>
+                        <span v-if="row.tier" class="meta-tag">{{ row.tier }}</span>
+                        <span v-if="row.location" class="meta-tag">{{ row.location }}</span>
+                        <span
+                          v-if="orphanedSeats.has(`${row.date}|${row.tableCode}`)"
+                          class="chip chip--attention"
+                          data-testid="tables-orphaned"
+                          >No longer in the plan - move or free this vendor</span
+                        >
+                      </div>
 
-                    <!-- Every seat is a control: an empty one is filled, an occupied one is
+                      <!-- Every seat is a control: an empty one is filled, an occupied one is
                          freed or traded. A table holds two seats, so a seat - not a table - is
                          what a placement names (E11/F03/S01). On a market that cannot change,
                          every seat is a record instead (bug 30). -->
-                    <div class="table-row-assignment">
-                      <ResultSeat
-                        v-if="rowStatus(row).label === 'empty'"
-                        :email="null"
-                        vacantLabel="Unassigned"
-                        :names="vendorNames"
-                        :readOnly="readOnly"
-                        @open="openPlace(row, null)"
-                      />
-                      <ResultSeat
-                        v-else-if="rowStatus(row).isFull"
-                        :email="rowStatus(row).leftEmail"
-                        vacantLabel="Unassigned"
-                        whole
-                        :names="vendorNames"
-                        :readOnly="readOnly"
-                        @open="openOccupied(row, rowStatus(row).leftEmail!)"
-                      />
-                      <template v-else>
-                        <div class="half-slot">
-                          <span class="half-slot-label">Left</span>
-                          <ResultSeat
-                            :email="rowStatus(row).leftEmail"
-                            vacantLabel="Vacant"
-                            :names="vendorNames"
-                            :readOnly="readOnly"
-                            @open="openHalf(row, rowStatus(row).leftEmail, HALF_TABLE_LEFT)"
-                          />
-                        </div>
-                        <div class="half-slot">
-                          <span class="half-slot-label">Right</span>
-                          <ResultSeat
-                            :email="rowStatus(row).rightEmail"
-                            vacantLabel="Vacant"
-                            :names="vendorNames"
-                            :readOnly="readOnly"
-                            @open="openHalf(row, rowStatus(row).rightEmail, HALF_TABLE_RIGHT)"
-                          />
-                        </div>
-                      </template>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-            </section>
-          </div>
+                      <div class="table-row-assignment">
+                        <ResultSeat
+                          v-if="rowStatus(row).label === 'empty'"
+                          :email="null"
+                          vacantLabel="Unassigned"
+                          :names="vendorNames"
+                          :readOnly="readOnly"
+                          @open="openPlace(row, null)"
+                        />
+                        <ResultSeat
+                          v-else-if="rowStatus(row).isFull"
+                          :email="rowStatus(row).leftEmail"
+                          vacantLabel="Unassigned"
+                          whole
+                          :names="vendorNames"
+                          :readOnly="readOnly"
+                          @open="openOccupied(row, rowStatus(row).leftEmail!)"
+                        />
+                        <template v-else>
+                          <div class="half-slot">
+                            <span class="half-slot-label">Left</span>
+                            <ResultSeat
+                              :email="rowStatus(row).leftEmail"
+                              vacantLabel="Vacant"
+                              :names="vendorNames"
+                              :readOnly="readOnly"
+                              @open="openHalf(row, rowStatus(row).leftEmail, HALF_TABLE_LEFT)"
+                            />
+                          </div>
+                          <div class="half-slot">
+                            <span class="half-slot-label">Right</span>
+                            <ResultSeat
+                              :email="rowStatus(row).rightEmail"
+                              vacantLabel="Vacant"
+                              :names="vendorNames"
+                              :readOnly="readOnly"
+                              @open="openHalf(row, rowStatus(row).rightEmail, HALF_TABLE_RIGHT)"
+                            />
+                          </div>
+                        </template>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+          </template>
         </template>
         <PlacementHistory v-if="market" :marketId="market.id" />
       </div>

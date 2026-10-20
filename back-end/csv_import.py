@@ -26,7 +26,7 @@ import io
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
 
 import api.applications as ApplicationsApi
 import essential_fields as EssentialFields
@@ -36,10 +36,14 @@ from datatypes import (
     Application,
     ApplicationStatus,
     ImportMapping,
+    MappingAuthor,
+    IntakeMode,
     MarketPhase,
+    intake_mode_from_market_document,
     phase_from_market_document,
 )
 from market_documents import market_doc_field, market_doc_key
+import vendor_notes as VendorNotes
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +58,16 @@ logger = logging.getLogger(__name__)
 IMPORT_PHASES = (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED)
 
 
-def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
-    """Why this market cannot be imported into right now, or None."""
+def import_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
+    """Why this market cannot be imported into right now, or None.
+
+    Intake is exactly one mode, so importing is the CSV path's in every phase (E31/F03/S04): a form
+    market takes its applications on its own page.
+    """
+    if intake_mode_from_market_document(market_doc) is IntakeMode.FORM:
+        return (
+            "This market takes applications on its own page, so nothing is imported into it."
+        )
     phase = phase_from_market_document(market_doc)
     if phase in IMPORT_PHASES:
         return None
@@ -63,7 +75,7 @@ def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
     if phase == MarketPhase.DRAFT:
         return (
             f"This market is still a draft, so it is not taking applications yet. "
-            f"Open applications first, then import."
+            f"Use Import responses on the phase rail first."
         )
     # The way back is offered only where the transition table has one (bug 42): this told a market
     # in Assignment to "move back to applications closed", which no move does.
@@ -76,8 +88,8 @@ def import_phase_refusal(market_doc: Dict[str, Any]) -> Optional[str]:
         )
     return (
         f"This market is in the {readable} phase, so importing would change who has applied "
-        f"while their applications are being decided. Use Return to Applications Closed, under "
-        f"More… on the phase rail, then import."
+        f"while their applications are being decided. Use Import more "
+        f"responses, under More… on the phase rail, then import."
     )
 
 
@@ -156,6 +168,13 @@ _EMAIL_ADDRESS = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 # priority does not need it, and warning beats blocking.
 SUBMITTED_AT_TARGET = "submitted_at"
 SUBMITTED_AT_LABEL = "Submitted at"
+
+# Nor this: a column of the organizer's OWN notes, kept beside the responses in their spreadsheet
+# (E31/F04/S03). It becomes the vendor's "From your sheet" line (``vendor_notes``), which each
+# import replaces and which never touches the note written in the app - and never an answer, since
+# the vendor did not write it.
+SHEET_NOTE_TARGET = "sheet_note"
+SHEET_NOTE_LABEL = "From your sheet (your own notes)"
 
 # Header text Google Forms uses, so the obvious mapping can be offered rather than asked for.
 _AUTO_DETECT = {
@@ -287,6 +306,7 @@ def import_targets(market_doc: Dict[str, Any]) -> List[ImportTarget]:
     targets = [
         ImportTarget(APPLICANT_EMAIL_TARGET, APPLICANT_EMAIL_LABEL, True, "identity"),
         ImportTarget(SUBMITTED_AT_TARGET, SUBMITTED_AT_LABEL, False, "meta"),
+        ImportTarget(SHEET_NOTE_TARGET, SHEET_NOTE_LABEL, False, "meta"),
     ]
     targets += [
         ImportTarget(
@@ -433,7 +453,7 @@ def suggested_mapping(headers: List[str], targets: List[ImportTarget]) -> Dict[s
 # A blanket key conversion would rewrite those - "Gold Tier" is a value the organizer's form
 # produced, not a schema key, and mangling it would silently lose the resolution it stands for.
 _MAPPING_FIELDS = {"targets": "targets", "headers": "headers",
-                   "resolutions": "resolutions", "saved_at": "savedAt"}
+                   "resolutions": "resolutions", "saved_at": "savedAt", "made_by": "madeBy"}
 
 
 def stored_mapping(market_doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -566,6 +586,8 @@ def inspect(market_doc: Dict[str, Any], csv_content: str, sample_rows: int = 3) 
         "restoredTargetsMissingColumns": unresolved,
         "newHeaders": new_headers,
         "hasSavedMapping": bool(saved.get("targets")),
+        # Whose decisions those are: the start of the form, or an earlier import.
+        "savedMappingFrom": saved.get("made_by") or MappingAuthor.IMPORT.value,
         # True when this market orders vendors by when they applied. The ledger warns if that rule
         # exists and no column feeds it: mapping nothing is legal, but then the rule decides
         # nothing, which is the silent no-op this story exists to end wearing a different hat.
@@ -1044,7 +1066,7 @@ def _assembled_rows(
         form_data: Dict[str, Any] = {}
         ignored: List[str] = []
         for key, indexes in resolved.items():
-            if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET):
+            if key in (APPLICANT_EMAIL_TARGET, SUBMITTED_AT_TARGET, SHEET_NOTE_TARGET):
                 continue
             target = by_key.get(key)
             if target is None:
@@ -1163,11 +1185,39 @@ def _latest_rows(assembled: Sequence[_Row]) -> Tuple[List[_Row], List[Dict[str, 
     return kept, repeats
 
 
-def _row_faults(market_doc: Dict[str, Any], assembled: Sequence[_Row]) -> List[Dict[str, Any]]:
+def left_out_at_start(
+    market_doc: Dict[str, Any], resolutions: Dict[str, Dict[str, Optional[str]]],
+) -> Set[str]:
+    """The labels of the questions whose ignored answers are all the start's decisions, not the
+    organizer's.
+
+    The start of the form leaves out an answer fewer than three applicants gave (E24 ticket 06) and
+    saves that as ignored. An import that then said "one you chose to ignore" described a choice the
+    organizer never made (E30/F02/S01). Once the organizer ignores anything more for a question,
+    the decision is theirs, and the import says so.
+    """
+    saved = stored_mapping(market_doc)
+    if saved.get("made_by") != MappingAuthor.START:
+        return set()
+    started = saved.get("resolutions") or {}
+    labels = {target.key: target.label for target in import_targets(market_doc)}
+    return {
+        labels[key] for key, choices in resolutions.items()
+        if key in labels and all(
+            key in started and value in started[key] and started[key][value] is None
+            for value, choice in choices.items() if choice is None
+        )
+    }
+
+
+def _row_faults(
+    market_doc: Dict[str, Any], assembled: Sequence[_Row], left_out: Set[str] = frozenset(),
+) -> List[Dict[str, Any]]:
     """Rows that would be refused, each with every reason and its line in the organizer's file.
 
     Every reason, not the first: an organizer who fixed one problem in the spreadsheet used to meet
-    the next on the next attempt (bug 40).
+    the next on the next attempt (bug 40). ``left_out`` names the questions whose ignored answers
+    the start of the form set aside (``left_out_at_start``).
     """
     faults = []
     for line, email, submitted_at, form_data, ignored in assembled:
@@ -1194,6 +1244,8 @@ def _row_faults(market_doc: Dict[str, Any], assembled: Sequence[_Row]) -> List[D
             if about:
                 errors = [error for error in errors if error not in about]
                 problems.append(
+                    f"Every answer to '{label}' was left out when your form was started from "
+                    "this file, and it is required." if label in left_out else
                     f"Every answer to '{label}' is one you chose to ignore, and it is required.")
         problems += errors
         if problems:
@@ -1326,7 +1378,7 @@ def preview_values(
     applicants, repeats = _latest_rows(
         _assembled_rows(market_doc, headers, rows, resolved, resolutions),
     )
-    failures = _row_faults(market_doc, applicants)
+    failures = _row_faults(market_doc, applicants, left_out_at_start(market_doc, resolutions))
     result["failures"] = failures
     result["repeats"] = repeats
     result["validRows"] = len(applicants) - len(failures)
@@ -1542,7 +1594,7 @@ def import_applications(
     applicants, repeats = _latest_rows(
         _assembled_rows(market_doc, headers, rows, resolved, resolutions),
     )
-    failures = _row_faults(market_doc, applicants)
+    failures = _row_faults(market_doc, applicants, left_out_at_start(market_doc, resolutions))
     refused = {failure["row"] for failure in failures}
 
     # Counted before the writes, so it means "already here and not in this file" rather than
@@ -1594,6 +1646,11 @@ def import_applications(
         else:
             created += 1
 
+    if SHEET_NOTE_TARGET in resolved:
+        _replace_sheet_notes(market_id, rows, resolved, {
+            email for line, email, *_rest in applicants if line not in refused
+        })
+
     # Remember how this file was read, so the next import opens ready to confirm rather than
     # asking the organizer to rebuild a dozen decisions they have already made.
     save_mapping(markets_collection, market_id, headers, resolved, resolutions)
@@ -1609,6 +1666,21 @@ def import_applications(
         "absentApplications": absent_before,
         "returnedToReview": returned_to_review,
     }, 200
+
+
+def _replace_sheet_notes(
+    market_id: str, rows: Sequence[Sequence[str]], resolved: Dict[str, List[int]], imported: Set[str],
+) -> None:
+    """Each imported vendor's "From your sheet" line, from the organizer's own column; the latest
+    row of a vendor's wins, as their answers do."""
+    email_at = resolved[APPLICANT_EMAIL_TARGET][0]
+    note_at = resolved[SHEET_NOTE_TARGET][0]
+    lines: Dict[str, str] = {}
+    for row in rows:
+        email = str(row[email_at] if email_at < len(row) else "").strip().lower()
+        if email in imported:
+            lines[email] = str(row[note_at] if note_at < len(row) else "").strip()
+    VendorNotes.replace_sheet_notes(market_id, lines)
 
 
 def save_mapping(
@@ -1629,9 +1701,11 @@ def mapping_payload(
     headers: Sequence[str],
     resolved: Dict[str, List[int]],
     resolutions: Dict[str, Dict[str, Optional[str]]],
+    made_by: MappingAuthor = MappingAuthor.IMPORT,
 ) -> Dict[str, Any]:
     """A mapping as it is stored: by header text, never position. The one format there is - the
-    import saves it, and a market started from a CSV saves the same thing (E24/F03/S03)."""
+    import saves it, and a market started from a CSV saves the same thing (E24/F03/S03), saying
+    that it did."""
     mapping = ImportMapping(
         targets={
             key: [str(headers[index]).strip() for index in indexes if index < len(headers)]
@@ -1640,6 +1714,7 @@ def mapping_payload(
         headers=[str(header).strip() for header in headers],
         resolutions=resolutions,
         saved_at=datetime.now(timezone.utc).isoformat(),
+        made_by=made_by,
     )
-    dumped = mapping.model_dump()
+    dumped = mapping.model_dump(mode="json")
     return {camel: dumped[snake] for snake, camel in _MAPPING_FIELDS.items()}

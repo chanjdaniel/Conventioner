@@ -587,12 +587,23 @@ class TestAssignRunsInItsPhaseAndNowhereElse:
 
     @pytest.mark.parametrize("phase, names", [
         (MarketPhase.DRAFT, "draft"),
-        (MarketPhase.APPLICATIONS_OPEN, "Close them"),
+        (MarketPhase.APPLICATIONS_OPEN, "Review them"),
+        (MarketPhase.APPLICATIONS_CLOSED, "Applications are closed"),
         (MarketPhase.REVIEW, "review"),
         (MarketPhase.MARKET_DAYS, "Result page"),
+        (MarketPhase.ARCHIVED, "archived"),
     ])
     def test_the_refusal_names_an_action_available_from_that_phase(self, phase, names):
         assert names in PlacementsApi.assign_phase_refusal(phase)
+
+    @pytest.mark.parametrize("phase, untrue", [
+        # The walk (E30/F01/S02): closed applications were told to close them, and an archived
+        # market was sent to change a placement where nothing can be changed.
+        (MarketPhase.APPLICATIONS_CLOSED, "still coming in"),
+        (MarketPhase.ARCHIVED, "Result page"),
+    ])
+    def test_the_refusal_says_nothing_untrue_of_that_phase(self, phase, untrue):
+        assert untrue not in PlacementsApi.assign_phase_refusal(phase)
 
     def test_the_rule_does_not_repeat_the_guards_around_it(self):
         """`_ALL_REVIEWED` and `_ASSIGNMENT_COMPUTED` are said once each, in guards.py."""

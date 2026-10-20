@@ -9,6 +9,14 @@ import PasswordResetView from '@/views/PasswordResetView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  // A page starts at its own top, directly under the pinned frame, rather than wherever the last one
+  // was scrolled to (E21/F04/S01) - whichever view it belongs to, so a move on the rail lands at the
+  // top of where its work is (E32/F01/S01). Back and forward return to where the reader was, and a
+  // change of query alone (a filter) leaves the page where it is.
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition;
+    return to.path === from.path ? false : { top: 0 };
+  },
   routes: [
     {
       path: '/',

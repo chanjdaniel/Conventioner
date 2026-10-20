@@ -14,6 +14,27 @@ const apiMarket = {
 };
 
 describe('parseMarketFromApi', () => {
+  it('carries what the server judged of each move and of the setup (E31/F01, F02)', () => {
+    const blockers = { applications_open: [{ id: 'x', passed: false, message: 'No dates.' }] };
+    const market = parseMarketFromApi({
+      ...apiMarket,
+      transitionBlockers: blockers,
+      setupLockReason: 'The setup is settled.',
+    });
+
+    expect(market.transitionBlockers).toEqual(blockers);
+    expect(market.setupLockReason).toBe('The setup is settled.');
+  });
+
+  it('carries the phases its path steps through, which the rail leaves off (E32/F02/S01)', () => {
+    const market = parseMarketFromApi({
+      ...apiMarket,
+      phasesPassedThrough: ['applications_closed'],
+    });
+
+    expect(market.phasesPassedThrough).toEqual(['applications_closed']);
+  });
+
   it('round-trips the market lifecycle phase', () => {
     const market = parseMarketFromApi({ ...apiMarket, phase: 'archived' });
 

@@ -1,6 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketSetupPath } from './helpers/marketScreens';
-import { ensureTestOrg, loginViaApi, SEED_MARKET_DATE } from './helpers/seeds';
+import { completePlan, ensureTestOrg, loginViaApi, SEED_MARKET_DATE } from './helpers/seeds';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
 import { seedApplication, seedApprovedVendor } from './helpers/seedApplication';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
@@ -54,7 +54,7 @@ function shareAnswers(email: string): Record<string, unknown> {
   };
 }
 
-async function seedDraftMarketWithAForm(request: APIRequestContext): Promise<string> {
+async function seedOpenMarketWithAForm(request: APIRequestContext): Promise<string> {
   await loginViaApi(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   const orgId = await ensureTestOrg(request, BACKEND_URL, TEST_USER.email, TEST_USER.password);
   const headers = { 'Content-Type': 'application/json', 'X-Owner-Email': TEST_USER.email };
@@ -68,6 +68,8 @@ async function seedDraftMarketWithAForm(request: APIRequestContext): Promise<str
       roles: { [TEST_USER.email]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      // Complete, so it may open applications: a review card is of a market that has (E31/F01).
+      setupObject: completePlan(),
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
@@ -82,6 +84,11 @@ async function seedDraftMarketWithAForm(request: APIRequestContext): Promise<str
     },
   });
   expect(form.ok(), await form.text()).toBeTruthy();
+  const opened = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
+    headers,
+    data: { toPhase: 'applications_open' },
+  });
+  expect(opened.ok(), await opened.text()).toBeTruthy();
   return marketId;
 }
 
@@ -97,7 +104,7 @@ test.describe('A table-share request that pairs nobody is shown', () => {
     authenticatedPage: page,
     request,
   }) => {
-    const marketId = await seedDraftMarketWithAForm(request);
+    const marketId = await seedOpenMarketWithAForm(request);
     for (const email of Object.keys(REQUESTS)) {
       seedApplication(marketId, email, {
         business_name: `Shop of ${email}`,

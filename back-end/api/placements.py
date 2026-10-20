@@ -194,19 +194,26 @@ def assign_phase_refusal(phase: MarketPhase) -> Optional[str]:
         return None
     if phase is MarketPhase.DRAFT:
         return (
-            "This market is still a draft. Plan it, open applications and review them - the "
-            "assignment runs once the market reaches the assignment phase."
+            "This market is still a draft. Plan it, take its applications in and review them - "
+            "the assignment runs once the market reaches the assignment phase."
         )
-    if phase in (MarketPhase.APPLICATIONS_OPEN, MarketPhase.APPLICATIONS_CLOSED):
+    if phase is MarketPhase.APPLICATIONS_OPEN:
         return (
-            "Applications are still being collected. Close them and review them first - the "
-            "assignment runs once the market reaches the assignment phase."
+            "Applications are still coming in. Review them as they arrive - the assignment runs "
+            "once the market reaches the assignment phase."
+        )
+    if phase is MarketPhase.APPLICATIONS_CLOSED:
+        return (
+            "Applications are closed. Review them, then move the market to the assignment phase "
+            "to run the assignment."
         )
     if phase is MarketPhase.REVIEW:
         return (
             "This market is still in review. Move it to the assignment phase to run the "
             "assignment."
         )
+    if phase is MarketPhase.ARCHIVED:
+        return MarketsApi.ARCHIVED_REFUSAL
     # Past assignment, the answer is settled and the vendors have been told. Changing one
     # placement is what is wanted here, and the Result page is where that happens (E11/F03,
     # E22/F04/S04).

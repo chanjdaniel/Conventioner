@@ -19,7 +19,8 @@
  * x 0 on two and x 32 on the import, and each screen had its own answer for a market not yet here -
  * mostly an empty black bar. A screen's content is rendered only once its market is in hand.
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import type { Market } from '@/assets/types/datatypes';
 import MarketArrival from '@/components/MarketArrival.vue';
@@ -27,8 +28,10 @@ import MarketBar from '@/components/MarketBar.vue';
 import MarketPages from '@/components/MarketPages.vue';
 import PhaseRail from '@/components/PhaseRail.vue';
 import { useMarketStore } from '@/stores/market';
+import { tabNote } from '@/utils/marketGuide';
+import { pageOfRoute, tabOf } from '@/utils/marketPage';
 
-defineProps<{
+const props = defineProps<{
   market: Market | null;
   /** Awaited before any transition is posted: the plan flushes its pending edits here. */
   beforeTransition?: () => Promise<void> | void;
@@ -39,6 +42,17 @@ const emit = defineEmits<{ retry: [] }>();
 
 const store = useMarketStore();
 const { status } = storeToRefs(store);
+
+/**
+ * What the open tab says while its work is not here yet, or is over (E31/F03/S02). Every tab
+ * stays on the bar for the market's whole life; one out of its phase shows this line in place of a
+ * page that could only say "nothing yet".
+ */
+const route = useRoute();
+const note = computed(() => {
+  const where = pageOfRoute(route.name, route.params);
+  return props.market && where ? tabNote(props.market, tabOf(where)) : null;
+});
 
 function retry(): void {
   void store.refresh();
@@ -81,7 +95,10 @@ onBeforeUnmount(() => observer?.disconnect());
           <slot name="pinned" />
         </template>
       </div>
-      <slot v-if="market" />
+      <p v-if="market && note" class="market-tab-note" data-testid="market-tab-note">
+        {{ note }}
+      </p>
+      <slot v-else-if="market" />
       <MarketArrival v-else :status="status" @retry="retry" />
     </div>
   </div>
@@ -116,6 +133,14 @@ onBeforeUnmount(() => observer?.disconnect());
   border-radius: 0 0 var(--radius-card) var(--radius-card);
   /* The window under the banner, less the page's bottom gutter. */
   min-height: calc(100vh - var(--banner-h) - var(--space-4));
+}
+
+/* The open tab's line, where its page would be: said plainly, in the page's own gutter. */
+.market-tab-note {
+  margin: 0;
+  padding: var(--space-8) var(--space-6);
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
 }
 
 .market-frame {

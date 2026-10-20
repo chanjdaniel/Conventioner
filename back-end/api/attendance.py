@@ -7,16 +7,13 @@ from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_c
 from datatypes import MarketPhase, phase_from_market_document, table_code_sort_key
 from db_config import get_database
 from market_documents import CHECK_IN_RECORD_PHASES, market_by_slug, published_market_by_slug
+from utils.email_address import normalized_email
 
 db = get_database()
 attendance_collection = db["attendance"]
 markets_collection = db["markets"]
 
 ENDED_REFUSAL = "This market has ended, so check-in is closed."
-
-
-def _normalize_email(email: str) -> str:
-    return (email or "").strip().lower()
 
 
 def _stored_assignment_rows(market_doc: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -106,7 +103,7 @@ def undo_attendance(market_id: str, vendor_email: str, date: str) -> Tuple[Dict[
 
     result = attendance_collection.delete_one({
         "market_id": market_id,
-        "vendor_email": _normalize_email(vendor_email),
+        "vendor_email": normalized_email(vendor_email),
         "date": date.strip(),
     })
     if result.deleted_count == 0:
@@ -136,7 +133,7 @@ def record_attendance(
 
     vendor_assignments = _stored_assignment_rows(market_doc)
 
-    target_email = _normalize_email(vendor_email)
+    target_email = normalized_email(vendor_email)
     target_date = date.strip()
 
     # A placement is dated by the market date itself. It used to be dated by the spreadsheet
@@ -144,7 +141,7 @@ def record_attendance(
     # headings back to dates before it could compare anything.
     has_match = False
     for assignment in vendor_assignments:
-        a_email = _normalize_email(str(assignment.get("email", "")))
+        a_email = normalized_email(str(assignment.get("email", "")))
         a_date = str(assignment.get("date", ""))
         if a_email == target_email and a_date == target_date:
             has_match = True
@@ -191,7 +188,7 @@ def attendance_roster(market_doc: Dict[str, Any]) -> Dict[str, Any]:
     }
     roster = []
     for row in _stored_assignment_rows(market_doc):
-        email = _normalize_email(str(row.get("email", "")))
+        email = normalized_email(str(row.get("email", "")))
         date = str(row.get("date", ""))
         check_in = check_ins.get((email, date)) or {}
         roster.append({
@@ -240,7 +237,7 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
     if not isinstance(vendor_email, str) or not vendor_email.strip():
         return {"error": "vendorEmail is required"}, 400
 
-    target_email = _normalize_email(vendor_email)
+    target_email = normalized_email(vendor_email)
 
     market_doc = get_check_in_market(market_slug)
     if not market_doc:
@@ -262,7 +259,7 @@ def get_vendor_assignment_summary(market_slug: str, vendor_email: str) -> Tuple[
             "location": row.get("location"),
         }
         for row in _stored_assignment_rows(market_doc)
-        if _normalize_email(str(row.get("email", ""))) == target_email
+        if normalized_email(str(row.get("email", ""))) == target_email
     ]
 
     if not matched:

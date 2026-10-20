@@ -1,6 +1,6 @@
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { marketSetupPath } from './helpers/marketScreens';
-import { ensureTestOrg, loginViaApi } from './helpers/seeds';
+import { completePlan, ensureTestOrg, loginViaApi } from './helpers/seeds';
 import { seedApplication } from './helpers/seedApplication';
 import { ApplicationMonitorPage } from './pages/ApplicationMonitorPage';
 import type { APIRequestContext } from '@playwright/test';
@@ -55,6 +55,8 @@ async function seedMarketWithAForm(
       roles: { [TEST_USER.email]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      // Complete, so it may open applications: a review card is of a market that has (E31/F01).
+      setupObject: completePlan(),
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
@@ -65,6 +67,11 @@ async function seedMarketWithAForm(
     data: FORM,
   });
   expect(form.ok(), await form.text()).toBeTruthy();
+  const opened = await request.post(`${BACKEND_URL}/markets/${marketId}/transition`, {
+    headers,
+    data: { toPhase: 'applications_open' },
+  });
+  expect(opened.ok(), await opened.text()).toBeTruthy();
 
   const fetched = await request.get(`${BACKEND_URL}/markets/${marketId}`, { headers });
   return { marketId, market: ((await fetched.json()) as { market: unknown }).market };

@@ -1,3 +1,4 @@
+import { upcomingSaturday } from './helpers/upcoming';
 import { getFormattedDate } from '../src/utils/utils';
 import {
   test,
@@ -25,8 +26,11 @@ import { ensureTestOrg } from './helpers/seeds';
  * does everything else the way an organizer does: through the UI.
  */
 
-/** The days this market runs. Two, so "which days can you attend" is a real question. */
-const MARKET_DATES = ['2026-08-01', '2026-08-08'];
+/**
+ * The days this market runs. Two, so "which days can you attend" is a real question - and still to
+ * come whenever this runs, since a market leaves draft only with such dates (E31/F01/S01).
+ */
+const MARKET_DATES = [upcomingSaturday(0), upcomingSaturday(1)];
 const TIER = 'Gold';
 const LOCATION = 'Main Hall';
 /** Two sections, because a ranking question needs something to rank. */
@@ -68,9 +72,9 @@ const REJECTED = 'drew@offcuts.test';
 
 const CSV = [
   CSV_HEADERS.join(','),
-  `2026/05/02 9:14:03,${WANTED},Mira Kaplan,"2026-08-01, 2026-08-08",2,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
-  `2026/05/02 10:02:51,${ALSO_WANTED},Sam Oyelaran,2026-08-01,1,${TIER},full,,"${SECTIONS[1]}, ${SECTIONS[0]}"`,
-  `2026/05/03 8:40:12,${REJECTED},Drew Whitfield,2026-08-08,1,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
+  `2026/05/02 9:14:03,${WANTED},Mira Kaplan,"${MARKET_DATES[0]}, ${MARKET_DATES[1]}",2,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
+  `2026/05/02 10:02:51,${ALSO_WANTED},Sam Oyelaran,${MARKET_DATES[0]},1,${TIER},full,,"${SECTIONS[1]}, ${SECTIONS[0]}"`,
+  `2026/05/03 8:40:12,${REJECTED},Drew Whitfield,${MARKET_DATES[1]},1,${TIER},full,,"${SECTIONS[0]}, ${SECTIONS[1]}"`,
 ].join('\n');
 
 test.describe('The MVP journey', () => {
@@ -94,8 +98,12 @@ test.describe('The MVP journey', () => {
     await newMarket.waitForOverlay();
     await newMarket.selectFirstOrg();
     await newMarket.fillMarketName(marketName);
+    // Their vendors apply on the organizer's own Google Form (E31/F03/S01). That opens on its Upload
+    // step; this organizer plans by hand and imports later, so they leave it for Market Setup.
+    await newMarket.choosePath('csv');
     await newMarket.clickSubmit();
-    const marketId = await newMarket.waitForSetupRedirect();
+    await page.getByTestId('start-from-csv-upload').getByRole('button', { name: 'Cancel' }).click();
+    await newMarket.waitForSetupRedirect();
 
     await setup.waitForWizard();
     await expect(setup.currentPhase).toHaveText('Draft');
@@ -120,18 +128,15 @@ test.describe('The MVP journey', () => {
     await setup.addSection(SECTIONS[1], LOCATION, TIER, 2, 1);
     await page.screenshot({ path: testInfo.outputPath('01-market-planned.png'), fullPage: true });
 
-    // --- 3. Open applications ------------------------------------------------------------
-    // Importing is only permitted once applications are open. This market asks no custom
-    // question - only the essential ones the plan above defines - and that is enough.
-    await setup.advancePhaseTo('applications_open', 'Applications Open');
+    // --- 3. Import responses -------------------------------------------------------------
+    // The Google Form path reads Plan, Import, Review (E32/F02/S01): this organizer already holds
+    // the responses, so leaving draft is importing them, and the move lands on the import. This
+    // market asks no custom question - only the essential ones the plan above defines.
+    await setup.advancePhaseTo('applications_open', 'Import');
     await expect(setup.phaseBlockers).toHaveCount(0);
+    await expect(page).toHaveURL(/\/import$/);
 
     // --- 4. Import the vendors -----------------------------------------------------------
-    await setup.openApplicationsTab();
-    await monitor.waitForLoaded();
-    await expect(monitor.empty).toBeVisible();
-
-    await setup.startCsvImport();
     await expect(importPage.view).toBeVisible();
     await importPage.chooseFile(CSV);
     await importPage.mapColumns(CSV_HEADERS, CSV_MAPPING);
@@ -144,8 +149,9 @@ test.describe('The MVP journey', () => {
     await page.screenshot({ path: testInfo.outputPath('02-imported.png'), fullPage: true });
 
     // --- 5. Review them ------------------------------------------------------------------
-    await setup.goto(marketId);
-    await setup.openApplicationsTab();
+    // One move from importing to review, the closed phase stepped through, landing on the review.
+    await setup.advancePhaseTo('review', 'Review');
+    await expect(page).toHaveURL(/\/applications$/);
     await monitor.waitForLoaded();
 
     // They arrive awaiting a decision. Nobody is assignable yet, and the queue is one card at a
@@ -164,20 +170,14 @@ test.describe('The MVP journey', () => {
     await page.screenshot({ path: testInfo.outputPath('03-reviewed.png'), fullPage: true });
 
     // --- 6. Assign ------------------------------------------------------------------------
-    await setup.openSetupTab();
-    // The assignment options are set here rather than on the way past, because the wizard only
-    // persists them when it saves, and the organizer left for the import flow in between.
+    // Assign is an operation of the `assignment` phase and refuses everywhere else
+    // (E10/F03/S02), and Begin Assignment lands on its page (E32/F01/S01). This spec is the one
+    // that goes the whole way, so the walk belongs here rather than being skipped past by a seed.
+    await setup.advancePhaseTo('assignment', 'Assignment');
+    await expect(page).toHaveURL(/\/assignment$/);
+    await expect(setup.assignPhaseHint).toBeHidden();
     await setup.setMaxAssignmentsPerVendor(2);
     await setup.setMaxHalfTableProportion(100);
-
-    // Assign is an operation of the `assignment` phase and refuses everywhere else
-    // (E10/F03/S02), so the organizer walks there. This spec is the one that goes the whole way,
-    // so the walk belongs here rather than being skipped past by a seed.
-    await expect(setup.assignPhaseHint).toBeVisible();
-    await setup.advancePhaseTo('applications_closed', 'Applications Closed');
-    await setup.advancePhaseTo('review', 'Review');
-    await setup.advancePhaseTo('assignment', 'Assignment');
-    await expect(setup.assignPhaseHint).toBeHidden();
 
     await setup.waitForAssignEnabled();
     await setup.clickAssign();

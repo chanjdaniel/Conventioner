@@ -28,6 +28,7 @@ import api.markets as MarketsApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
+from datatypes import MappingAuthor
 from market_documents import (
     market_doc_field, market_doc_filter, market_doc_key, market_from_document,
 )
@@ -270,7 +271,7 @@ def confirmed_update(market_doc: Dict[str, Any], csv_content: str,
     return {
         **plan_update,
         market_doc_key("application_form"): form,
-        market_doc_key("import_mapping"): CsvImport.mapping_payload(headers, mapping, resolutions),
+        market_doc_key("import_mapping"): CsvImport.mapping_payload(headers, mapping, resolutions, made_by=MappingAuthor.START),
     }
 
 

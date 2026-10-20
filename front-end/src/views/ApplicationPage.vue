@@ -8,6 +8,7 @@ import { formValidationErrors, sortedFormFields } from '@/utils/applicationForm'
 import { EMPTY_ESSENTIAL_OPTIONS, essentialValidationErrors } from '@/utils/essentialFields';
 import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
 import { useApplicationStore } from '@/stores/application';
+import PageNotFound from '@/components/PageNotFound.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -23,6 +24,7 @@ const isOpen = ref(false);
 const loading = ref(true);
 /** The public form request did not answer. Distinct from a market that is not open. */
 const loadFailed = ref(false);
+const notFound = ref(false);
 const formData = ref<Record<string, unknown>>({});
 const validationErrors = ref<Record<string, string>>({});
 const saving = ref(false);
@@ -59,7 +61,10 @@ async function loadForm() {
   }
   // Either read failing is a page that did not load: an empty form over answers the vendor saved
   // would be filled in again, and saved over them.
-  loadFailed.value = form.failed || saved.failed;
+  // The market no longer serves applicants - taken back to draft, say. It reads as it reads to a
+  // stranger (the sign-in page's not found), never as a connection that failed.
+  notFound.value = form.notFound;
+  loadFailed.value = !form.notFound && (form.failed || saved.failed);
   fields.value = form.fields;
   essentialOptions.value = form.essentialOptions;
   marketName.value = form.marketName;
@@ -114,7 +119,10 @@ async function submitForm() {
 </script>
 
 <template>
-  <div class="apply-page" data-testid="apply-page">
+  <div v-if="notFound" data-testid="apply-not-found">
+    <PageNotFound />
+  </div>
+  <div v-else class="apply-page" data-testid="apply-page">
     <div v-if="loading" class="apply-loading" data-testid="apply-loading">
       Loading application form...
     </div>

@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from db_config import get_database
+from utils.email_address import normalized_email
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,7 @@ def _record(
             "kind": kind,
             # Lowercased, because an address is a person and case is not part of who they are:
             # a vendor's own panel looks its entries up by this list.
-            "vendors": [email.strip().lower() for email in vendors if email],
+            "vendors": [normalized_email(email) for email in vendors if email],
             "detail": detail,
         })
     except Exception as e:  # pragma: no cover - defensive
@@ -121,7 +122,7 @@ def entries_for_market(market_id: str, vendor: Optional[str] = None) -> List[Dic
     """
     query: Dict[str, Any] = {MARKET_ID_FIELD: market_id}
     if vendor:
-        query["vendors"] = vendor.strip().lower()
+        query["vendors"] = normalized_email(vendor)
 
     entries = list(placement_history_collection.find(query, {"_id": 0}))
     entries.sort(key=lambda entry: entry.get("at") or "", reverse=True)

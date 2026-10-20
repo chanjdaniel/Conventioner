@@ -7,6 +7,7 @@ that it refuses BEFORE moving anything, and that a chain which stops partway say
 from types import SimpleNamespace
 
 import pytest
+from conftest import COMPLETE_PLAN
 
 import api.applications as ApplicationsApi
 import api.form_amendment as Amend
@@ -22,15 +23,9 @@ FORM_THAT_ASKS_NOTHING = {"fields": []}
 
 # A plan that offers something, so the essential questions are asked and `FormHasFieldsGuard`
 # passes on their account rather than on a custom field's.
-PLAN = {
-    "priority": [],
-    "marketDates": [{"date": "2026-08-01"}],
-    "tiers": [{"id": 0, "name": "Gold"}],
-    "locations": [],
-    "sections": [{"name": "Main Hall", "count": 4}, {"name": "Garden", "count": 4}],
-    "assignmentOptions": {},
-    "floorplans": [],
-}
+# Complete, because the walk back passes through draft and out again, and leaving draft asks for
+# a complete setup (E31/F01/S01).
+PLAN = COMPLETE_PLAN
 
 # A plan that offers NOTHING, so the essential questions ask nothing either - which is what makes
 # an empty custom list a form that asks nothing at all.
@@ -159,7 +154,8 @@ class TestItRefusesBeforeMovingAnything:
         with pytest.raises(Amend.AmendmentRefused) as refusal:
             Amend.amend_application_form("market-123", FORM_THAT_ASKS_NOTHING, "user-1")
 
-        assert [b.id for b in refusal.value.blockers] == ["form_has_fields"]
+        # Refused for the form, and for the setup no complete plan would leave draft without.
+        assert "form_has_fields" in [b.id for b in refusal.value.blockers]
         assert fake.phase == "applications_open"
         assert fake.writes == [], "pre-flight moved something before refusing"
 

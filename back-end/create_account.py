@@ -23,6 +23,8 @@ from typing import Any
 
 from flask_bcrypt import Bcrypt
 
+from utils.email_address import normalized_email
+
 bcrypt = Bcrypt()
 
 MIN_PASSWORD_LENGTH = 8
@@ -35,7 +37,7 @@ class AccountError(Exception):
 def _address(email: str) -> str:
     # Login matches the stored address exactly, so an account made with capitals would be one
     # its owner cannot sign in to by typing their address the way everyone else does.
-    address = (email or "").strip().lower()
+    address = normalized_email(email)
     if "@" not in address or "." not in address.split("@")[-1]:
         raise AccountError(f"{email!r} is not an email address.")
     return address

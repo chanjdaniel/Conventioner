@@ -44,6 +44,10 @@ if not any(os.getenv(key) for key in MONGO_ENV_KEYS):
 # The test suite is the one place the boot check is allowed to be off: every test that asserts a
 # defense works unsets it, and every other test simply does not care about what it skips.
 os.environ.setdefault("ALLOW_INSECURE_LOCAL_DEV", "true")
+# Sessions in the signed cookie, so the suite writes nothing into the source tree. On disk they went
+# to `back-end/flask_session`, which a container that ran the back end leaves owned by root, and
+# every signed-in test then answered 401 on that checkout.
+os.environ.setdefault("SESSION_TYPE", "null")
 
 
 def _needs_stub(module_name: str) -> bool:
@@ -303,6 +307,32 @@ def mongo_matches(doc: dict, query: dict) -> bool:
     return True
 
 
+# A plan complete enough to leave draft (E31/F01/S01): a date still to come, a location, and tables
+# at its one tier. As it is stored, camelCase; ``complete_setup()`` is the same plan as a model.
+COMPLETE_PLAN = {
+    "priority": [],
+    "marketDates": [{"date": "2099-08-01"}],
+    "tiers": [{"id": 0, "name": "Gold"}],
+    "locations": [{"name": "Main Hall"}],
+    "sections": [
+        {"name": "Main Hall", "count": 4, "location": {"name": "Main Hall"},
+         "tier": {"id": 0, "name": "Gold"}},
+        {"name": "Garden", "count": 4, "location": {"name": "Main Hall"},
+         "tier": {"id": 0, "name": "Gold"}},
+    ],
+    "assignmentOptions": {},
+    "floorplans": [],
+}
+
+
+def complete_setup():
+    """``COMPLETE_PLAN`` as the model a ``Market`` holds."""
+    from assignment.utils import convert_keys_to_snake_case
+    from datatypes import SetupObject
+
+    return SetupObject(**convert_keys_to_snake_case(COMPLETE_PLAN))
+
+
 def stored_market(phase: MarketPhase = MarketPhase.DRAFT, **overrides) -> dict:
     """A market document as Mongo holds it: camelCase, phase and slug stamped on by the server.
 
@@ -473,11 +503,13 @@ def market_records(monkeypatch):
     import api.applicant_auth as ApplicantAuth
     import api.attendance as AttendanceApi
     import placement_history as PlacementHistory
+    import vendor_notes as VendorNotes
 
     fakes = SimpleNamespace(
         attendance=FakeApplicationsCollection(), challenges=FakeApplicationsCollection(),
-        history=FakeApplicationsCollection(),
+        history=FakeApplicationsCollection(), notes=FakeApplicationsCollection(),
     )
+    monkeypatch.setattr(VendorNotes, "vendor_notes_collection", fakes.notes)
     monkeypatch.setattr(AttendanceApi, "attendance_collection", fakes.attendance)
     monkeypatch.setattr(ApplicantAuth, "challenges_collection", fakes.challenges)
     monkeypatch.setattr(PlacementHistory, "placement_history_collection", fakes.history)
@@ -553,6 +585,13 @@ if not STUBBED_MODULES:
     import api.applicant_auth as _applicant_auth_module
 
     _applicant_auth_module.challenges_collection = FakeApplicationsCollection()
+
+    # And the users collection, whose unique address index the boot builds (E32/F03/S04).
+    import api.users as _users_module
+
+    _users_fake = FakeApplicationsCollection()
+    _users_fake.index_information = lambda: {}
+    _users_module.users_collection = _users_fake
 
 
 def a_solver_vendor(application_id: str = "app-1", **overrides):

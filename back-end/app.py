@@ -36,14 +36,13 @@ from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
 from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
-from guards import PreconditionResult, VALID_TRANSITIONS, evaluate_transition
+from guards import PreconditionResult
 from market_documents import (
     MarketKeyMigrationError,
     assert_market_key_migration_recorded,
 )
 import db_config
 from lookup_indexes import ensure_lookup_indexes
-from dataclasses import asdict
 import json
 import os
 import glob
@@ -166,6 +165,24 @@ def verify_applicant_login_indexes() -> None:
 
 
 verify_applicant_login_indexes()
+
+
+def verify_user_indexes() -> None:
+    """Refuse to boot unless one address can be only one account (E32/F03/S04).
+
+    Register is a read-then-insert, and a double click on it made two accounts for one address. The
+    unique index on the stored, lowercased address is the referee, so it is built here and a
+    process that cannot hold it - addresses not yet lowercased, or duplicates already stored - says
+    so, naming what to do, before it takes a request.
+    """
+    try:
+        UsersApi.ensure_user_indexes()
+    except UsersApi.UserIndexError as e:
+        logger.critical("Refusing to start: %s", e)
+        raise
+
+
+verify_user_indexes()
 
 
 def build_lookup_indexes() -> None:
@@ -804,21 +821,8 @@ def create_market() -> Response:
         if not owner:
             return jsonify({"error": "Owner not found"}), 404
 
-        # Whoever creates a market owns it, and only they do. The body's roles were taken on
-        # trust, so a client could create a market owned by another user or by an id that is
-        # nobody, which then sat in the organization with no one able to manage it (bug 46).
-        # Anyone else is added afterwards, through the endpoints that manage a market's people.
-        data = convert_keys_to_snake_case(data)
-        data["roles"] = {owner.id: MarketRole.OWNER.value}
-        market = Market(**data)
+        market_id = MarketsApi.create_owned_market(owner, convert_keys_to_snake_case(data))
 
-        refusal = MarketsApi.organization_refusal(owner_email, data.get('organization_id'))
-        if refusal:
-            return jsonify({"error": refusal}), 400
-        
-        # Create the market
-        result, market_id = MarketsApi.create_market(market, owner_email)
-        
         return jsonify({
             "message": "Market created successfully",
             "market_id": market_id
@@ -868,6 +872,51 @@ def save_plan(market_id: str) -> Response:
     except Exception as e:
         logger.error(f"Error in save_plan for {market_id}: {str(e)}")
         return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
+@app.route('/markets/<market_id>/vendor-notes', methods=['GET'])
+@login_required
+def get_vendor_notes(market_id: str) -> Response:
+    """The organizer's notes on this market's vendors, by address (E31/F04)."""
+    try:
+        return jsonify({"notes": MarketsApi.get_vendor_notes(market_id, authenticated_email())}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+
+
+@app.route('/markets/<market_id>/vendor-notes/<path:vendor_email>', methods=['PUT'])
+@login_required
+def save_vendor_note(market_id: str, vendor_email: str) -> Response:
+    """Replace the organizer's note on one vendor. Body: { "note": "Promised an extra chair" }"""
+    try:
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data.get("note"), str):
+            return jsonify({"error": "note is required"}), 400
+        MarketsApi.save_vendor_note(market_id, vendor_email, data["note"], authenticated_email())
+        return jsonify({"message": "Note saved"}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+
+
+@app.route('/markets/<market_id>/vendor-notes/<path:vendor_email>/request-handled', methods=['PUT'])
+@login_required
+def mark_vendor_request_handled(market_id: str, vendor_email: str) -> Response:
+    """Mark a vendor's request handled, or take the mark back. Body: { "handled": true }"""
+    try:
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data.get("handled"), bool):
+            return jsonify({"error": "handled is required"}), 400
+        MarketsApi.mark_vendor_request_handled(
+            market_id, vendor_email, data["handled"], authenticated_email())
+        return jsonify({"message": "Saved"}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
 
 
 @app.route('/markets/<market_id>/review-highlights', methods=['PUT'])
@@ -961,7 +1010,7 @@ def amend_application_form(market_id: str) -> Response:
         return jsonify(convert_keys_to_camel_case({
             "error": "preconditions_not_met",
             "message": str(e),
-            "blockers": [asdict(b) for b in e.blockers],
+            "blockers": [b.payload() for b in e.blockers],
         })), 409
     except FormAmendmentApi.AmendmentStalled as e:
         logger.error(f"Form amendment stalled for {market_id}: {e}")
@@ -1132,30 +1181,10 @@ def transition_market(market_id: str) -> Response:
             }), 403
 
         from_phase = market.phase.value
-
-        if (from_phase, to_phase.value) not in VALID_TRANSITIONS:
-            return jsonify({
-                "error": (
-                    f"Transition from '{from_phase}' to '{to_phase.value}' "
-                    "is not available in the current phase."
-                ),
-            }), 400
-
-        blockers = evaluate_transition(market, to_phase.value, MarketsApi.db)
-        if blockers:
-            return jsonify(convert_keys_to_camel_case({
-                "error": "preconditions_not_met",
-                "current_phase": from_phase,
-                "target_phase": to_phase.value,
-                "blockers": [asdict(b) for b in blockers],
-            })), 409
-
-        # Through the one phase writer, so the phase, its two stamps and the phase history move in
-        # one atomic update (E26/F06/S03). This endpoint used to carry its own copy of that write.
         try:
-            MarketsApi.apply_phase_transition(
-                market_id, context.document, to_phase.value, by=user_email
-            )
+            blockers = MarketsApi.take_move(context, to_phase.value, by=user_email)
+        except MarketsApi.MoveUnavailable as unavailable:
+            return jsonify({"error": str(unavailable)}), 400
         except MarketsApi.MarketNotFoundError:
             return jsonify({"error": "Market not found"}), 404
         except MarketsApi.PhaseChangedUnderRequest as changed:
@@ -1173,25 +1202,15 @@ def transition_market(market_id: str) -> Response:
                 "error": "phase_changed",
                 "current_phase": changed.actual_phase,
                 "target_phase": to_phase.value,
-                "blockers": [asdict(conflict)],
+                "blockers": [conflict.payload()],
             })), 409
-
-        # ── Side effects (only after a successful phase write) ────────────
-        if from_phase == MarketPhase.OFFERS.value and to_phase == MarketPhase.MARKET_DAYS:
-            try:
-                swept = ApplicationsApi.sweep_unanswered_offers(market_id)
-                logger.info(
-                    "Swept %d assignment_sent applications to vendor_refused for market %s",
-                    swept,
-                    market_id,
-                )
-            except Exception:
-                logger.error(
-                    "Phase advanced to market_days for market %s but the "
-                    "assignment_sent -> vendor_refused sweep failed",
-                    market_id,
-                    exc_info=True,
-                )
+        if blockers:
+            return jsonify(convert_keys_to_camel_case({
+                "error": "preconditions_not_met",
+                "current_phase": from_phase,
+                "target_phase": to_phase.value,
+                "blockers": [b.payload() for b in blockers],
+            })), 409
 
         return jsonify({"phase": to_phase.value}), 200
 
@@ -1777,7 +1796,7 @@ def _import_context(market_id: str, requesting_user: str):
 
     # Enforced here rather than by hiding the entry point: a hidden button is not a rule, and all
     # three import endpoints are reachable directly.
-    refusal = CsvImport.import_phase_refusal(market_doc)
+    refusal = CsvImport.import_refusal(market_doc)
     if refusal:
         return None, {"error": refusal, "phase": market_doc.get("phase")}, 409
     return market_doc, None, 200

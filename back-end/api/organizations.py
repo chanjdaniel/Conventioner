@@ -47,8 +47,9 @@ def create_organization(owner_email: str, name: str) -> str:
     organizations_collection.insert_one(org_dict)
     
     # Add organization id to user's organizations list
+    # By id: the account just loaded, however its owner's address was typed (E32/F03/S04).
     users_collection.update_one(
-        {"email": owner_email},
+        {"id": owner_id},
         {"$addToSet": {"organizations": org_id}}
     )
     
@@ -297,7 +298,7 @@ def add_org_admin(org_id: str, user_email: str, requesting_user_email: str) -> b
     )
     
     users_collection.update_one(
-        {"email": user_email},
+        {"id": user.id},
         {"$addToSet": {"organizations": org_id}}
     )
     
@@ -332,7 +333,7 @@ def add_org_member(org_id: str, user_email: str, requesting_user_email: str) -> 
     )
     
     users_collection.update_one(
-        {"email": user_email},
+        {"id": user.id},
         {"$addToSet": {"organizations": org_id}}
     )
     
@@ -420,7 +421,7 @@ def transfer_org_ownership(org_id: str, current_owner_email: str, new_owner_emai
     )
     
     users_collection.update_one(
-        {"email": new_owner_email},
+        {"id": new_owner.id},
         {"$addToSet": {"organizations": org_id}}
     )
     

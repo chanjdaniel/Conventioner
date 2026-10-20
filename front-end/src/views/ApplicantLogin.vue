@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApplicationStore } from '@/stores/application';
 import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
+import PageNotFound from '@/components/PageNotFound.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -11,6 +12,17 @@ const store = useApplicationStore();
 const marketSlug = computed(() => (route.params.marketSlug as string) || '');
 const redirect = computed(() => (route.query.redirect as string) || 'dashboard');
 const marketName = ref('');
+/**
+ * Whether there is an application page here to sign in to (E32/F03/S01). A market that does not
+ * exist, and one whose vendors are imported rather than applying, answer alike, and both are told
+ * the page does not exist - as the market's own home is. This page used to take an address for
+ * either and answer that a code was sent, for a code that never would be. A market that takes
+ * applications already shows its form to anyone, so saying which slugs have one reveals nothing.
+ * Until the answer arrives, neither is drawn. A request that fails in transit is not an answer, and
+ * the sign-in is shown, as it was.
+ */
+const notFound = ref(false);
+const checked = ref(false);
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -56,7 +68,10 @@ onMounted(async () => {
     goOnward();
     return;
   }
-  marketName.value = (await fetchPublicApplicationForm(marketSlug.value)).marketName;
+  const form = await fetchPublicApplicationForm(marketSlug.value);
+  marketName.value = form.marketName;
+  notFound.value = form.notFound;
+  checked.value = true;
 });
 
 async function requestCode() {
@@ -108,7 +123,10 @@ function goBack() {
 </script>
 
 <template>
-  <div class="login-page" data-testid="applicant-login-page">
+  <div v-if="notFound" data-testid="applicant-login-not-found">
+    <PageNotFound />
+  </div>
+  <div v-else-if="checked" class="login-page" data-testid="applicant-login-page">
     <header class="login-header">
       <h1>Sign in</h1>
       <p class="login-market" data-testid="applicant-login-market">
@@ -212,6 +230,8 @@ function goBack() {
       </form>
     </template>
   </div>
+  <!-- Neither the sign-in nor the not found until the market has answered which it is. -->
+  <div v-else class="login-loading" data-testid="applicant-login-loading">Loading...</div>
 </template>
 
 <style scoped>
@@ -222,6 +242,13 @@ function goBack() {
   max-width: 420px;
   margin: 60px auto;
   padding: 0 16px;
+}
+
+.login-loading {
+  text-align: center;
+  padding: 40px;
+  font-size: var(--text-sm);
+  color: var(--mm-text-muted);
 }
 
 .login-header {

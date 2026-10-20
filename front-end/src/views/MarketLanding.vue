@@ -11,7 +11,8 @@ import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { marketPath } from '@/utils/market';
-import { currentPage, hasAssignment } from '@/utils/marketPage';
+import { hasAssignment } from '@/utils/marketPage';
+import { currentPage } from '@/utils/marketGuide';
 import { useOpenMarket } from '@/utils/openMarket';
 
 const route = useRoute();

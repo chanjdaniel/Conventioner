@@ -22,6 +22,17 @@ export function marketPath(marketId: string, page?: MarketPage | MarketFlow): st
 }
 
 /**
+ * A blocker's `resolutionLink` as an address: the server names the page that holds the remedy,
+ * relative to the market's own pages (`applications`, perhaps with a query), and never which market
+ * that is (E21/F02/S02). The one reading of it, for the rail's fix and the blocker panel alike.
+ */
+export function resolutionPath(marketId: string, relative: string): string {
+  const [page, query] = relative.replace(/^\/+/, '').split('?');
+  const path = marketPath(marketId, page as MarketPage | MarketFlow);
+  return query ? `${path}?${query}` : path;
+}
+
+/**
  * Go to a market: its own screens, in every phase, landing on the page for its phase (E22/F04/S02).
  *
  * The three lists that open a market all did this by hand, and all three stored the market in
@@ -55,6 +66,11 @@ export async function fetchMarkets(): Promise<Market[]> {
 
 /**
  * Normalize a market payload from the API (camelCase or snake_case) into a `Market`.
+ *
+ * Every field the server sends is carried: the payload is spread first and the fields named below
+ * are normalised over it. The parser used to list fields by name, and each one the server added and
+ * the list missed - `intakeMode`, `transitionBlockers`, `setupLockReason`, `phasesPassedThrough` -
+ * was silently dropped, until a screen behaved as though the server had never said it.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseMarketFromApi(market: any): Market {
@@ -72,6 +88,7 @@ export function parseMarketFromApi(market: any): Market {
   const phaseRaw = market.phase;
   const applicationForm = market.applicationForm ?? market.application_form;
   return {
+    ...market,
     id: market.id,
     name: market.name,
     // The market's public identifier, computed and persisted server-side (`Market.slug`). Kept
@@ -144,5 +161,12 @@ export function parseMarketFromApi(market: any): Market {
     // (E26/F06/S01, E26/F08/S01).
     readOnlyReason: market.readOnlyReason,
     adminActionsReason: market.adminActionsReason,
+    // What would refuse each move open from the phase, keyed by phase (E31/F02/S01), and why the
+    // setup can no longer change (E31/F01/S02). Dropped here, the rail offered every move as before.
+    transitionBlockers: market.transitionBlockers,
+    // The phases the market's path steps through (E32/F02/S01). Dropped here, the rail drew the
+    // stepped-through phase as a stage on every Google Form market.
+    phasesPassedThrough: market.phasesPassedThrough,
+    setupLockReason: market.setupLockReason,
   };
 }

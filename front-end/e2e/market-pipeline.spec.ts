@@ -4,9 +4,11 @@ import { marketSetupPath } from './helpers/marketScreens';
 import { test, expect, MarketSetupPage, ResultPage, BACKEND_URL, TEST_USER } from './fixtures';
 import { ensureTestOrg, loginViaApi, marketNameToSlug } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
+import { upcomingSaturday } from './helpers/upcoming';
 
 /** The single market day this pipeline sets up, seeds vendors for, and assigns. */
-const MARKET_DATE = '2026-07-15';
+// Still to come whenever this runs: a market leaves draft only with such dates (E31/F01/S01).
+const MARKET_DATE = upcomingSaturday();
 import { CheckinPage } from './pages/CheckinPage';
 
 test.describe('Market pipeline E2E', () => {
@@ -134,9 +136,9 @@ test.describe('Market pipeline E2E', () => {
     await setupPage.setMaxHalfTableProportion(100);
 
     // Assign is an operation of the `assignment` phase and refuses everywhere else
-    // (E10/F03/S02). These vendors arrive already approved, so the walk is three transitions.
-    await setupPage.advancePhaseTo('applications_open', 'Applications Open');
-    await setupPage.advancePhaseTo('applications_closed', 'Applications Closed');
+    // (E10/F03/S02). These vendors arrive already approved, so the walk is three moves: a CSV
+    // market's Plan, Import, Review (E32/F02/S01), the closed phase stepped through.
+    await setupPage.advancePhaseTo('applications_open', 'Import');
     await setupPage.advancePhaseTo('review', 'Review');
     await setupPage.advancePhaseTo('assignment', 'Assignment');
 

@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   TAB_PAGES,
-  currentPage,
   SETUP_VIEW_PAGES,
   hasAssignment,
-  pageForTab,
   pageOfRoute,
   tabOf,
   tabsFor,
   type MarketPage,
 } from '@/utils/marketPage';
+import { currentPage, pageForTab } from '@/utils/marketGuide';
 import { MarketPhase } from '@/assets/types/datatypes';
 
 /**
@@ -58,30 +57,10 @@ describe('the page a market is worked on in its phase', () => {
 });
 
 describe('the tabs', () => {
-  it('are four until the market is published, and gain Attendance then', () => {
-    const four = ['setup', 'form', 'applications', 'assignment'];
-    for (const phase of [
-      MarketPhase.Draft,
-      MarketPhase.ApplicationsOpen,
-      MarketPhase.Review,
-      MarketPhase.Assignment,
-      MarketPhase.Offers,
-    ]) {
-      expect(tabsFor({ phase }), phase).toEqual(four);
-    }
-    expect(tabsFor({ phase: MarketPhase.MarketDays })).toEqual([...four, 'attendance']);
-  });
-
-  it('keep Attendance on an archived market that ran, and only on one that did (bug 30)', () => {
-    const four = ['setup', 'form', 'applications', 'assignment'];
-    const ran = ['draft', 'assignment', 'market_days', 'archived'];
-    const stopped = ['draft', 'assignment', 'archived'];
-
-    expect(tabsFor({ phase: MarketPhase.Archived, phasesReached: ran })).toEqual([
-      ...four,
-      'attendance',
-    ]);
-    expect(tabsFor({ phase: MarketPhase.Archived, phasesReached: stopped })).toEqual(four);
+  it('are the same five in every phase, Attendance included', () => {
+    // Attendance included from draft, so the bar keeps one shape for the market's whole life
+    // (E31/F03/S02); a tab out of its phase says when it matters instead of disappearing.
+    expect(tabsFor()).toEqual(['setup', 'form', 'applications', 'assignment', 'attendance']);
   });
 
   it('put every page under exactly one tab', () => {
