@@ -413,7 +413,7 @@ class FakeApplicationsCollection:
         return "fake-index"
 
     def _matches(self, doc, query):
-        return all(doc.get(key) == value for key, value in (query or {}).items())
+        return mongo_matches(doc, query)
 
     def _find(self, query):
         for doc in self.documents:
@@ -439,6 +439,8 @@ class FakeApplicationsCollection:
     def _apply(self, doc, update):
         for key, value in (update.get("$set") or {}).items():
             doc[key] = value
+        for key in (update.get("$unset") or {}):
+            doc.pop(key, None)
         return doc
 
     def update_one(self, query, update):

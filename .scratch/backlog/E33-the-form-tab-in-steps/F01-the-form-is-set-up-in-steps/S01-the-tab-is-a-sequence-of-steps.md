@@ -2,7 +2,7 @@
 id: E33/F01/S01
 title: The tab is a sequence of steps
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -19,10 +19,20 @@ The Application Form tab becomes four steps, each taking the whole width:
 A step header names all four and can be clicked at any time; Next and Back move one step.
 Saving works as it does today; moving between steps never loses unsaved work.
 
+## As built
+
+- `MarketFormTab` holds the step; `components/StepHeader.vue` draws the header, a named `nav` whose current step is `aria-current="step"`.
+- Back and Next move one step and start it at the top of the page.
+- The steps on each path are the guide's (`formSteps` in `utils/marketGuide.ts`).
+- Save Form sits on Your questions and on Preview; the status of any save shows on every step, since Ask this on the essentials saves the moment it is ticked.
+- The preview is drawn at the applicant's own column width (`--applicant-max`, which the apply page reads too).
+- The essential questions panel lost its own heading, which the step's title now gives.
+- A spec opens the step it asserts on through `ApplicationFormPage.openStep`.
+
 ## Acceptance criteria
 
-- [ ] The builder and the preview are never side by side.
-- [ ] Next and Back move one step; the header reaches any step.
-- [ ] Moving between steps keeps unsaved edits.
-- [ ] Each step and control is named, and the step header says which step is current to assistive technology.
-- [ ] The application-form and every-control-is-named specs walk all four steps.
+- [x] The builder and the preview are never side by side.
+- [x] Next and Back move one step; the header reaches any step.
+- [x] Moving between steps keeps unsaved edits.
+- [x] Each step and control is named, and the step header says which step is current to assistive technology.
+- [x] The application-form and every-control-is-named specs walk all four steps.

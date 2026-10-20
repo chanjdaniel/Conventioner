@@ -109,6 +109,8 @@ test.describe('What to show, and when', () => {
     await expect(page.locator('fieldset.plan-body')).toHaveAttribute('disabled', '');
 
     await page.goto(marketSetupPath(marketId, 'form'));
+    // A locked form opens on its review setup; its questions say why they are fixed (E33/F01/S03).
+    await page.getByTestId('form-step-questions').click();
     await expect(page.getByTestId('form-builder-lock-banner')).toContainText(
       'The application form is fixed: it cannot change once applications have opened',
     );
@@ -154,6 +156,8 @@ test.describe('What to show, and when', () => {
       'The setup is settled: it cannot change once the market has moved on to importing',
     );
     await page.goto(marketSetupPath(marketId, 'form'));
+    // A locked form opens on its review setup; its questions say why they are fixed (E33/F01/S03).
+    await page.getByTestId('form-step-questions').click();
     await expect(page.getByTestId('form-builder-lock-banner')).toContainText(
       'The questions are fixed: they cannot change once the market has moved on to importing',
     );

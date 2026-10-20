@@ -28,6 +28,8 @@ async function createMarket(page: Page): Promise<string> {
       roles: { [TEST_USER.email]: 'owner' },
       modificationList: [],
       assignmentObject: {},
+      // Vendors apply on its page, so its form has a preview (E33/F01/S02).
+      intakeMode: 'form',
     },
   });
   if (!createRes.ok()) {
@@ -60,11 +62,18 @@ test.describe('Application form builder', () => {
     const formPage = new ApplicationFormPage(page);
     await createMarket(page);
 
-    // The Application Form tab starts empty
+    // The Application Form tab is four steps, and opens on the essential questions (E33/F01/S01).
     await formPage.openFormTab();
     await expect(formPage.formTab).toHaveClass(/active/);
+    await expect(formPage.step('essentials')).toHaveAttribute('aria-current', 'step');
+    await expect(formPage.essentialPanel).toBeVisible();
+    await expect(formPage.builder).toHaveCount(0);
+
+    // Next is one step on, to the organizer's own questions; it starts empty.
+    await formPage.nextButton.click();
+    await expect(formPage.step('questions')).toHaveAttribute('aria-current', 'step');
     await expect(formPage.builderEmpty).toBeVisible();
-    await expect(formPage.previewEmpty).toBeVisible();
+    await expect(formPage.preview).toHaveCount(0);
     await expect(formPage.saveButton).toBeDisabled();
     await expect(formPage.saveHint).toHaveText(
       'This form already asks the essential questions. Add a field to save one of your own.',
@@ -81,16 +90,6 @@ test.describe('Application form builder', () => {
     await formPage.toggleRequired(0);
     await formPage.fillHelpText(0, 'The name shown on your table sign');
 
-    // The preview follows every keystroke: label, required marker, help text.
-    await expect(formPage.previewField('business_name')).toBeVisible();
-    await expect(formPage.previewField('business_name')).toContainText('Business Name');
-    await expect(formPage.previewField('business_name').locator('.preview-required')).toHaveText(
-      '*',
-    );
-    await expect(formPage.previewField('business_name')).toContainText(
-      'The name shown on your table sign',
-    );
-
     // Field 2: a select with options
     await formPage.addField();
     await formPage.fillLabel(1, 'Table Size');
@@ -98,11 +97,6 @@ test.describe('Application form builder', () => {
     await formPage.addOption(1, 'Half Table');
     await formPage.addOption(1, 'Full Table');
     await expect(formPage.keyInput(1)).toHaveValue('table_size');
-    await expect(formPage.previewField('table_size').locator('option')).toHaveText([
-      '-- Select --',
-      'Half Table',
-      'Full Table',
-    ]);
 
     // Field 3: an email field, key hand-typed to override the slug
     await formPage.addField();
@@ -111,14 +105,42 @@ test.describe('Application form builder', () => {
     await formPage.keyInput(2).fill('vendor_email');
     await formPage.fillLabel(2, 'Contact Email Address');
     await expect(formPage.keyInput(2)).toHaveValue('vendor_email');
-    await expect(formPage.previewField('vendor_email')).toContainText('Contact Email Address');
 
+    // The preview, a step of its own, shows the unsaved form as an applicant would see it:
+    // label, required marker, help text, options.
+    await formPage.nextButton.click();
+    await expect(formPage.step('preview')).toHaveAttribute('aria-current', 'step');
+    await expect(formPage.builder).toHaveCount(0);
+    await expect(formPage.previewField('business_name')).toContainText('Business Name');
+    await expect(formPage.previewField('business_name').locator('.preview-required')).toHaveText(
+      '*',
+    );
+    await expect(formPage.previewField('business_name')).toContainText(
+      'The name shown on your table sign',
+    );
+    await expect(formPage.previewField('table_size').locator('option')).toHaveText([
+      '-- Select --',
+      'Half Table',
+      'Full Table',
+    ]);
+    await expect(formPage.previewField('vendor_email')).toContainText('Contact Email Address');
     await page.screenshot({
-      path: testInfo.outputPath('03-form-builder-with-preview.png'),
+      path: testInfo.outputPath('03-form-preview.png'),
       fullPage: true,
     });
 
-    // Save
+    // The last step, what a reviewer reads first, already offers the unsaved questions.
+    await formPage.nextButton.click();
+    await expect(formPage.step('review')).toHaveAttribute('aria-current', 'step');
+    await expect(formPage.nextButton).toHaveCount(0);
+    await expect(page.getByTestId('review-highlights')).toContainText('Contact Email Address');
+
+    // Back two steps: the questions still hold every unsaved edit.
+    await formPage.backButton.click();
+    await formPage.backButton.click();
+    await expect(formPage.step('questions')).toHaveAttribute('aria-current', 'step');
+    await expect(formPage.labelInput(2)).toHaveValue('Contact Email Address');
+    await expect(formPage.keyInput(2)).toHaveValue('vendor_email');
     await expect(formPage.saveButton).toBeEnabled();
     await formPage.save();
     await expect(formPage.saveSuccess).toBeVisible();
@@ -127,11 +149,13 @@ test.describe('Application form builder', () => {
     // It came from the server, not from local state
     await page.reload();
     await formPage.openFormTab();
+    await formPage.openStep('questions');
     await expect(formPage.labelInput(0)).toHaveValue('Business Name');
     await expect(formPage.keyInput(1)).toHaveValue('table_size');
     await expect(formPage.keyInput(2)).toHaveValue('vendor_email');
     await expect(formPage.optionInputs(1).nth(0)).toHaveValue('Half Table');
     await expect(formPage.optionInputs(1).nth(1)).toHaveValue('Full Table');
+    await formPage.openStep('preview');
     await expect(formPage.previewField('business_name')).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('05-form-reloaded-from-server.png'),
@@ -154,6 +178,7 @@ test.describe('Application form builder', () => {
 
     // Build and save a form while the market is still applicant-free.
     await formPage.openFormTab();
+    await formPage.openStep('questions');
     await formPage.addField();
     await formPage.fillLabel(0, 'Business Name');
     await formPage.save();
@@ -165,6 +190,20 @@ test.describe('Application form builder', () => {
     // The builder reflects the lock before any edit is attempted
     await page.reload();
     await formPage.openFormTab();
+    // A locked form opens on what is still the organizer's to change, and saves it (E33/F01/S03).
+    await expect(formPage.step('review')).toHaveAttribute('aria-current', 'step');
+    await expect(formPage.lockBanner).toHaveCount(0);
+    const [highlighted] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes(`/markets/${marketId}/review-highlights`) &&
+          response.request().method() === 'PUT',
+      ),
+      page.getByTestId('review-highlight-business_name').click(),
+    ]);
+    expect(highlighted.ok()).toBeTruthy();
+    // The earlier steps are a click away, read-only, saying why.
+    await formPage.openStep('questions');
     await expect(formPage.lockBanner).toBeVisible();
     await expect(formPage.lockBanner).toContainText('Application form is locked');
     await expect(formPage.lockBanner).toContainText('1 application has already been submitted');
@@ -174,6 +213,7 @@ test.describe('Application form builder', () => {
     await expect(formPage.labelInput(0)).toBeDisabled();
     await expect(formPage.keyInput(0)).toBeDisabled();
     // The applicant preview still shows the form applicants are answering.
+    await formPage.openStep('preview');
     await expect(formPage.previewField('business_name')).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath('06-form-locked-readonly.png'),

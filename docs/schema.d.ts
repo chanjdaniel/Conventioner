@@ -53,6 +53,10 @@ export interface MarketSchema {
   name: string;
   organizationId?: string;
   phase?: string;
+  rejectionRules?: {
+    answers?: string[];
+    key: string;
+  }[];
   reviewConfig?: {
   };
   reviewHighlights?: string[];

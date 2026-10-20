@@ -26,11 +26,13 @@ test('every field on the plan, the rules and the form preview has a name', async
   authenticatedPage: page,
   request,
 }) => {
+  // Vendors apply on its page, so its form has all four steps, the preview among them.
   const { marketId } = await seedPhaseMarket(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+    { intakeMode: 'form' },
   );
   const form = await request.put(`${BACKEND_URL}/markets/${marketId}/application-form`, {
     data: {
@@ -68,6 +70,17 @@ test('every field on the plan, the rules and the form preview has a name', async
     await expect(page.getByTestId('market-bar-title')).toBeVisible();
     await page.waitForLoadState('networkidle');
     expect(await namelessControls(page), `the ${tab} page`).toEqual([]);
+  }
+
+  // The form tab is four steps, each drawing its own controls (E33/F01/S01): walk every one, and
+  // the header says which is open to assistive technology.
+  await page.goto(marketSetupPath(marketId, 'form'));
+  const steps = page.getByRole('navigation', { name: 'Application form setup' });
+  for (const step of ['Essential questions', 'Your questions', 'Preview', 'Review setup']) {
+    await steps.getByRole('button', { name: step }).click();
+    await expect(steps.getByRole('button', { name: step })).toHaveAttribute('aria-current', 'step');
+    await page.waitForLoadState('networkidle');
+    expect(await namelessControls(page), `the form's ${step} step`).toEqual([]);
   }
 
   // Removing a rule, or one of its answers, is a named button a keyboard reaches.

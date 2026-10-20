@@ -13,12 +13,13 @@ Identity contract: (``market_id``, ``applicant_email``, ``application_type``) id
 application, and the database is what enforces that -- see ``ensure_application_indexes``.
 """
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
-from datatypes import Application, ApplicationStatus, ApplicationType
+from datatypes import Application, ApplicationStatus, ApplicationType, VerdictGiver
 from db_config import get_database
 import essential_fields as EssentialFields
 
@@ -230,14 +231,64 @@ def find_application_by_email(market_id: str, email: str) -> Optional[Dict[str, 
     return doc
 
 
-def update_application_status(app_id: str, status: ApplicationStatus) -> bool:
-    """Set a new status on an application. Returns whether any document was matched."""
+#: Statuses nobody has decided yet.
+UNDECIDED_STATUSES = (ApplicationStatus.OPEN.value, ApplicationStatus.UNDER_REVIEW.value)
+_VERDICTS = (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED)
+
+
+def update_application_status(
+    app_id: str, status: ApplicationStatus, by: Optional[VerdictGiver] = None,
+    reason: Optional[str] = None, if_unchanged_since: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Set a new status on an application. Returns whether it was written.
+
+    A verdict is written with its giver and time in the same update (E34/F01/S01), and a rule's
+    with its reason (E33/F03/S02); one without a giver is refused, so no application claims a
+    verdict nobody gave. Any other status clears all three, and a person's verdict over a rule's
+    leaves no rule's reason behind.
+
+    ``if_unchanged_since`` is the application as the caller read it: the write lands only if its
+    status and its verdict's time are still those, so a verdict given in between is never
+    overwritten (E33/F03/S02).
+    """
+    if status in _VERDICTS and by is None:
+        raise ValueError("A verdict is written with the person or rule that gave it.")
     ensure_application_indexes()
-    result = applications_collection.update_one(
-        {"id": app_id},
-        {"$set": {"status": status.value}},
-    )
+    update: Dict[str, Any] = {"$set": {"status": status.value}}
+    if by is None:
+        update["$unset"] = {"verdict_by": "", "verdict_at": "", "verdict_reason": ""}
+    else:
+        update["$set"]["verdict_by"] = by.model_dump()
+        update["$set"]["verdict_at"] = datetime.now(timezone.utc).isoformat()
+        if reason:
+            update["$set"]["verdict_reason"] = reason
+        else:
+            update["$unset"] = {"verdict_reason": ""}
+    query: Dict[str, Any] = {"id": app_id}
+    if if_unchanged_since is not None:
+        query["status"] = if_unchanged_since.get("status")
+        # Null or absent alike: an application is stored with ``verdict_at: null`` until a verdict.
+        query["verdict_at"] = if_unchanged_since.get("verdict_at") or {"$in": [None]}
+    result = applications_collection.update_one(query, update)
     return result.matched_count > 0
+
+
+def judgeable_applications(
+    market_id: str, application_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """The applications a market's automatic rejections may judge (E33/F03/S02): the undecided,
+    and those a rule rejected. Never one a person decided. ``application_id`` narrows it to one."""
+    if application_id is not None:
+        doc = find_application_by_id(application_id)
+        docs = [doc] if doc and doc.get("market_id") == market_id else []
+    else:
+        docs = list_applications_for_market(market_id)
+    return [
+        doc for doc in docs
+        if doc.get("status") in UNDECIDED_STATUSES
+        or (doc.get("status") == ApplicationStatus.REVIEWER_REJECTED.value
+            and (doc.get("verdict_by") or {}).get("kind") == "rule")
+    ]
 
 
 def update_application_form_data(

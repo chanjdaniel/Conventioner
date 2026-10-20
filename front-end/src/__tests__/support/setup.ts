@@ -11,3 +11,8 @@ import { createPinia, setActivePinia } from 'pinia';
 beforeEach(() => {
   setActivePinia(createPinia());
 });
+
+// jsdom has no layout, so it does not implement scrolling and logs an error for each call. A screen
+// that starts a new step at the top of the page (the form tab, E33/F01/S01) scrolls; nothing here
+// can see where to.
+window.scrollTo = () => {};

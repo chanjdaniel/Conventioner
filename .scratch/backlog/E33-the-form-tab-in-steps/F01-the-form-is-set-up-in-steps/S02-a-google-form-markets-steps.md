@@ -2,7 +2,7 @@
 id: E33/F01/S02
 title: A Google Form market's steps
 type: story
-status: ready
+status: in-progress
 blocked_by: [E33/F01/S01]
 pr: []
 ---
@@ -13,7 +13,13 @@ A Google Form market's form tab has three steps: essential questions, your quest
 There is no preview step, and nothing on the tab describes what an applicant would see: on this path nobody fills the form in.
 The import mapping stays in the import, where the file is.
 
+## As built
+
+- The steps follow `intakeModeOf(market)`: a Google Form market has no Preview step.
+- On that path the essential questions say what the import reads (the email column, "the import does not read this until..."), never what an applicant would see, and the field editor offers no "hint shown to applicants".
+- Specs that build a market for the form's preview now say `intakeMode: 'form'`; they had been walking a Google Form market, the default.
+
 ## Acceptance criteria
 
-- [ ] A Google Form market's form tab shows three steps and no preview.
-- [ ] A form market's tab is unchanged from `S01`.
+- [x] A Google Form market's form tab shows three steps and no preview.
+- [x] A form market's tab is unchanged from `S01`.
