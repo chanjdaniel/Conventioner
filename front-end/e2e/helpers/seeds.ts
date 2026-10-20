@@ -1,6 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import { savePlan } from './savePlan';
 import { seedApprovedVendor } from './seedApplication';
+import { uniqueMarketName } from './uniqueName';
 
 /**
  * The market day every seeded vendor says they can attend.
@@ -223,7 +224,7 @@ export async function seedMarketWithVendors(
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
-  const marketName = options.name ?? `E2E Market ${Date.now()}`;
+  const marketName = options.name ?? uniqueMarketName('E2E Market');
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: {
       'Content-Type': 'application/json',
@@ -295,7 +296,7 @@ export async function seedPublishedMarketWithAssignments(
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
-  const marketName = `E2E Published ${Date.now()}`;
+  const marketName = uniqueMarketName('E2E Published');
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: {
       'Content-Type': 'application/json',

@@ -3,6 +3,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { loginViaApi, ensureTestOrgAuthenticated, marketNameToSlug } from './seeds';
 import { seedApplication } from './seedApplication';
 import { mongoEval } from './mongo';
+import { uniqueMarketName } from './uniqueName';
 
 /**
  * Seed result for a market that an applicant can log into.
@@ -102,7 +103,7 @@ export async function seedApplicantMarket(
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
-  const marketName = `E2E Applicant ${Date.now()}`;
+  const marketName = uniqueMarketName('E2E Applicant');
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
     data: {
