@@ -519,6 +519,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   tables at every tier - each its own blocker line. A date has passed only once it has passed
   everywhere (UTC-12, `_earliest_calendar_day`): the server cannot know where a market is, and the
   screens read the viewer's own calendar (`calendarToday`).
+- **The verdicts settle on entering assignment** (E36/F01/S01): approve, reject and follow-up are
+  open while the market can still reach `review` (`review_is_open`, the automatic rejections' own
+  rule), served as `verdictLockReason`. Nothing leaves `assignment` backwards, so from there a
+  verdict is the review's record and a mistake is fixed with a seat placed or freed by hand.
 - **A market is created only through `MarketsApi.create_owned_market` and moved only through
   `MarketsApi.take_move`** (judged, then walked); the endpoints and the test-market seeder call both.
 - **Every precondition for every phase transition lives in `back-end/guards.py`.** Adding or

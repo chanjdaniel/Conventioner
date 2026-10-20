@@ -162,8 +162,8 @@ test.describe('What to show, and when', () => {
       'The questions are fixed: they cannot change once the market has moved on to importing',
     );
     await page.goto(marketSetupPath(marketId, 'applications'));
-    await expect(page.getByTestId('market-setup-applications-condition')).toHaveText(
-      'Every application is decided. The assignment works from the ones you approved.',
+    await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
+      'The review is closed: every verdict settled when the assignment began.',
     );
   });
 
