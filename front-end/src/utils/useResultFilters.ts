@@ -2,7 +2,7 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { readResultFilters, type ResultFilterName } from '@/utils/resultFilters';
 
-const FILTER_NAMES: ResultFilterName[] = ['date', 'section', 'tier', 'choice', 'status'];
+const FILTER_NAMES: ResultFilterName[] = ['date', 'section', 'tier', 'choice', 'status', 'search'];
 
 /**
  * The Result pages' filters, read from and written to the address (E28/F02): a filtered view is a

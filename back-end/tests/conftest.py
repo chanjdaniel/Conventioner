@@ -185,7 +185,22 @@ def mongo_project(doc: dict, projection) -> dict:
     """
     if not projection:
         return doc
-    return {key: value for key, value in doc.items() if key in projection}
+    kept: dict = {}
+    for path, wanted in projection.items():
+        if not wanted:
+            continue
+        head, _, rest = path.partition(".")
+        if head not in doc:
+            continue
+        if not rest:
+            kept[head] = doc[head]
+        elif isinstance(doc[head], dict):
+            # A dotted path keeps only that part of the sub-document, as Mongo does.
+            inner = mongo_project(doc[head], {rest: 1})
+            kept[head] = {**kept.get(head, {}), **inner}
+    if "_id" in doc and projection.get("_id", 1):
+        kept.setdefault("_id", doc["_id"])
+    return kept
 
 
 def reject_malformed_update(update):
@@ -431,7 +446,7 @@ class FakeApplicationsCollection:
         results = []
         for doc in self.documents:
             if self._matches(doc, query):
-                results.append(dict(doc))
+                results.append(mongo_project(dict(doc), projection))
         return _SortableCursor(results)
 
     def insert_one(self, document):

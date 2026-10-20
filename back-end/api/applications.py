@@ -208,6 +208,34 @@ def vendor_full_names_for_market(market_id: str) -> Dict[str, str]:
     )
 
 
+#: The questions whose answers identify a vendor rather than describe them: a business name, a
+#: business email, a handle. A choice, a number or a date is shared by many and finds nobody.
+SEARCHED_ANSWER_TYPES = ("text", "email")
+
+
+def vendor_search_terms_for_market(market_id: str, fields: List[Any]) -> Dict[str, List[str]]:
+    """What a search on the results finds a vendor by (E35/F02/S01), keyed as
+    ``vendor_names_for_market`` is: the name they chose, the one on their identification, then
+    their answers to the form's text and email questions, in the form's order. Blank answers are
+    left out, and so is a vendor with nothing to search; the page matches the address itself.
+
+    ``fields`` is the market's own form - which of its questions are text is the form's to say.
+    """
+    asked = [field.key for field in fields if getattr(field, "type", None) in SEARCHED_ANSWER_TYPES]
+    keys = [EssentialFields.PREFERRED_NAME_KEY, EssentialFields.FULL_NAME_KEY, *asked]
+    ensure_application_indexes()
+    projection = {"_id": 0, APPLICANT_EMAIL_FIELD: 1, **{f"form_data.{key}": 1 for key in keys}}
+    terms: Dict[str, List[str]] = {}
+    for doc in applications_collection.find(market_filter(market_id), projection):
+        email = str(doc.get(APPLICANT_EMAIL_FIELD) or "").strip().lower()
+        answers = doc.get("form_data") or {}
+        found = [str(answers[key]).strip() for key in keys if isinstance(answers.get(key), str)]
+        found = [term for term in found if term]
+        if email and found:
+            terms[email] = found
+    return terms
+
+
 def _names_by_address(market_id: str, name_of) -> Dict[str, str]:
     """``{lowercased address: name}`` for the applications that stored one, read off a projection
     of the two name keys alone."""

@@ -43,6 +43,7 @@ import {
   tablesMatching,
   type MarketTableRow,
   type TableStatus,
+  type VendorSearch,
 } from '@/utils/resultFilters';
 
 interface SectionGroup {
@@ -91,6 +92,8 @@ const tablesShown = computed(() => hasAssignment(market.value) || canAssignIn(ma
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
 const vendorNames = ref<VendorNames>({});
+/** What the search finds each vendor by beyond their address, from the same response (E35/F02/S01). */
+const vendorSearch = ref<VendorSearch>({});
 /** Who may be put in a seat, and what they asked for - so a change that alters their table
     choice can be said out loud before it is made. */
 const vendors = ref<PlaceableVendor[]>([]);
@@ -111,7 +114,9 @@ function formatDisplayDate(date: string): string {
   return getFormattedDate(date) ?? date;
 }
 
-const filteredRows = computed(() => tablesMatching(allRows.value, filters.value));
+const filteredRows = computed(() =>
+  tablesMatching(allRows.value, filters.value, vendorSearch.value),
+);
 
 const groupedRows = computed((): DateGroup[] => {
   const dateMap = new Map<string, Map<string, SectionGroup>>();
@@ -158,7 +163,9 @@ const groupedRows = computed((): DateGroup[] => {
   return dateGroups;
 });
 
-const statusCounts = computed(() => countStatuses(allRows.value, filters.value));
+const statusCounts = computed(() =>
+  countStatuses(allRows.value, filters.value, vendorSearch.value),
+);
 
 /**
  * The three status pills, each with the fill it is worn in.
@@ -206,10 +213,12 @@ async function loadTables(): Promise<void> {
     const resp = await api.get<{
       rows: MarketTableRow[];
       vendorNames: VendorNames;
+      vendorSearch?: VendorSearch;
       vendors?: PlaceableVendor[];
     }>(`/markets/${encodeURIComponent(marketId.value)}/tables`);
     allRows.value = Array.isArray(resp.data?.rows) ? resp.data.rows : [];
     vendorNames.value = resp.data?.vendorNames ?? {};
+    vendorSearch.value = resp.data?.vendorSearch ?? {};
     vendors.value = Array.isArray(resp.data?.vendors) ? resp.data.vendors : [];
   } catch (err: unknown) {
     const data =
@@ -219,6 +228,7 @@ async function loadTables(): Promise<void> {
     errorMessage.value = data?.error || 'Failed to load tables.';
     allRows.value = [];
     vendorNames.value = {};
+    vendorSearch.value = {};
     vendors.value = [];
   } finally {
     isLoading.value = false;
@@ -459,7 +469,10 @@ function swapSeats(withEmail: string): void {
               >
                 <h2 class="date-heading">
                   <span>{{ dateGroup.displayDate }}</span>
-                  <span class="date-heading-count">{{ dateGroup.rowCount }} tables</span>
+                  <span class="date-heading-count"
+                    >{{ dateGroup.rowCount }}
+                    {{ dateGroup.rowCount === 1 ? 'table' : 'tables' }}</span
+                  >
                 </h2>
 
                 <div
