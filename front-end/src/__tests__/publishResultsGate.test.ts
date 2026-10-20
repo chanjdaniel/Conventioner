@@ -18,11 +18,22 @@ import {
 } from '@/assets/types/datatypes';
 
 const fetchMarketApplications = vi.fn();
+const publishResults = vi.fn();
+
+// A publish is followed by a re-read of the market, which is the store's to do.
+vi.mock('@/stores/market', () => ({ useMarketStore: () => ({ refresh: vi.fn() }) }));
+// The review's own calls - a claim on the next card, the vendor's notes - answer nothing here,
+// rather than reaching for a server a unit test does not have.
+vi.mock('@/utils/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/api')>();
+  const answered = () => Promise.resolve({ data: {} });
+  return { ...actual, api: { get: answered, post: answered, put: answered, delete: answered } };
+});
 
 vi.mock('@/utils/applicantApi', () => ({
   fetchMarketApplications: (id: string) => fetchMarketApplications(id),
   reviewApplication: vi.fn(),
-  publishResults: vi.fn(),
+  publishResults: (id: string) => publishResults(id),
 }));
 
 function application(status: ApplicationStatus): Application {
@@ -35,8 +46,15 @@ function application(status: ApplicationStatus): Application {
   } as unknown as Application;
 }
 
-function marketTaking(intakeMode?: IntakeMode): Market {
-  return { id: 'm1', applicationForm: { fields: [] }, intakeMode } as unknown as Market;
+function marketTaking(intakeMode?: IntakeMode, publish: Partial<Market> = {}): Market {
+  return {
+    id: 'm1',
+    applicationForm: { fields: [] },
+    intakeMode,
+    publishResultsReason: null,
+    publishOutcomes: { haveATable: 3, notAssigned: 2 },
+    ...publish,
+  } as unknown as Market;
 }
 
 async function mounted(market: Market) {
@@ -71,20 +89,35 @@ describe('a market with no applicants', () => {
   });
 });
 
-describe('a form-intake market', () => {
-  it('offers the control', async () => {
+describe('a form-intake market (E36/F04/S01)', () => {
+  it('offers the control once the server would take it', async () => {
     const wrapper = await mounted(marketTaking(IntakeMode.Form));
 
     expect(wrapper.find(button).exists()).toBe(true);
     expect(wrapper.find<HTMLButtonElement>(button).element.disabled).toBe(false);
   });
 
-  it('disables it with its reason when nothing has been reviewed', async () => {
-    fetchMarketApplications.mockResolvedValue([application(ApplicationStatus.Open)]);
-
-    const wrapper = await mounted(marketTaking(IntakeMode.Form));
+  it("disables it with the server's reason until results may be published", async () => {
+    const reason =
+      'Run the assignment first: results tell each applicant whether they have a table.';
+    const wrapper = await mounted(
+      marketTaking(IntakeMode.Form, { publishResultsReason: reason, publishOutcomes: null }),
+    );
 
     expect(wrapper.find<HTMLButtonElement>(button).element.disabled).toBe(true);
-    expect(wrapper.find(hint).text()).toContain('nothing to publish yet');
+    expect(wrapper.find(hint).text()).toBe(reason);
+  });
+
+  it('confirms with how many will read each outcome before publishing', async () => {
+    const wrapper = await mounted(marketTaking(IntakeMode.Form));
+
+    await wrapper.find(button).trigger('click');
+    const confirm = wrapper.find('[data-testid="publish-results-window"]');
+    expect(confirm.text()).toContain('3 applicants will read "You have a table"');
+    expect(confirm.text()).toContain('2 will read "You did not get assigned"');
+    expect(publishResults).not.toHaveBeenCalled();
+
+    await wrapper.find('[data-testid="publish-results-submit-button"]').trigger('submit');
+    expect(publishResults).toHaveBeenCalledWith('m1');
   });
 });

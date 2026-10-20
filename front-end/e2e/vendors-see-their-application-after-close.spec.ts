@@ -46,8 +46,12 @@ test('after results are published and applications close, a vendor still reads t
     sections: ['Main Hall', 'Garden'],
     extra: { business_name: 'Returning Ceramics', product_type: 'Mugs' },
   });
+  // Results wait for the allocation (E36/F04/S01): closed, reviewed, assigned, then published.
+  for (const toPhase of ['applications_closed', 'review', 'assignment']) {
+    await post(request, `/markets/${market.marketId}/transition`, { toPhase });
+  }
+  await post(request, `/markets/${market.marketId}/assignment`);
   await post(request, `/markets/${market.marketId}/publish-results`);
-  await post(request, `/markets/${market.marketId}/transition`, { toPhase: 'applications_closed' });
 
   const login = new ApplicantLoginPage(page);
   await page.goto(`/${market.marketSlug}/applicant-login`);

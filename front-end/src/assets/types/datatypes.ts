@@ -278,6 +278,13 @@ export interface Market {
    */
   addVendorReason?: string | null;
   /**
+   * Why the person reading cannot publish this market's results now, or null while they can
+   * (E36/F04/S01): an admin's, on a form market in assignment with a current run.
+   */
+  publishResultsReason?: string | null;
+  /** How many applicants will read each outcome, while results may be published; else null. */
+  publishOutcomes?: { haveATable: number; notAssigned: number } | null;
+  /**
    * What would refuse each move open from this phase, judged by the guards the move runs; empty
    * for a move that would succeed (E31/F02/S01). Served so a screen says no before the click.
    */

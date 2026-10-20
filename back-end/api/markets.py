@@ -39,6 +39,8 @@ from assignment.assignment import (
 from assignment.vendor_input import outside_solver_vendors
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
 import api.applications as ApplicationsApi
+import api.applicants as ApplicantsApi
+import result_outcome as ResultOutcome
 import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
 from market_documents import (
@@ -815,6 +817,15 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['readOnlyReason'] = change_refusal(user_email, market, context.organization)
     market_dict['verdictLockReason'] = verdict_refusal(user_email, market, context.organization)
     market_dict['addVendorReason'] = add_vendor_refusal(user_email, market, context.organization)
+    # Results wait for the allocation (E36/F04/S01): offered exactly when the endpoint would take
+    # them, with how many will read each outcome for the confirmation.
+    publish_reason = admin_actions_refusal(
+        user_email, market, context.organization,
+    ) or ApplicantsApi.publish_results_refusal(market)
+    market_dict['publishResultsReason'] = publish_reason
+    market_dict['publishOutcomes'] = (
+        None if publish_reason else ResultOutcome.outcome_counts(market)
+    )
     market_dict['adminActionsReason'] = admin_actions_refusal(
         user_email, market, context.organization,
     )
