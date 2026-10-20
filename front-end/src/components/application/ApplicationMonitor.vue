@@ -31,6 +31,8 @@ import {
   reviewed,
 } from '@/utils/reviewQueue';
 import FollowUpDialog from '@/components/application/FollowUpDialog.vue';
+import AppDialog from '@/components/AppDialog.vue';
+import { useMarketStore } from '@/stores/market';
 import { useReviewHighlights } from '@/utils/reviewHighlights';
 import { EMPTY_ESSENTIAL_OPTIONS, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
 import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
@@ -92,8 +94,13 @@ const givers = computed(
  */
 const marketHasApplicants = computed(() => props.market?.intakeMode === IntakeMode.Form);
 
-/** Publishing verdicts nobody has reached yet would publish nothing. */
-const hasVerdictToPublish = computed(() => decided.value.length > 0);
+/**
+ * Why results cannot be published yet, as the server judges it (E36/F04/S01): they wait for a
+ * current run in assignment, so each applicant is told whether they have a table.
+ */
+const publishReason = computed(() => props.market?.publishResultsReason ?? null);
+const outcomes = computed(() => props.market?.publishOutcomes ?? null);
+const confirmingPublish = ref(false);
 /** Re-deciding is the reviewer's own verdict to change; a published application has moved on. */
 function reDecidable(app: Application): boolean {
   return (
@@ -441,12 +448,14 @@ onUnmounted(() => {
 });
 
 async function handlePublish() {
-  if (!props.market) return;
+  if (!props.market || publishLoading.value) return;
   publishLoading.value = true;
   publishError.value = '';
   try {
     await publishResultsApi(props.market.id);
     resultsPublished.value = true;
+    confirmingPublish.value = false;
+    void useMarketStore().refresh();
   } catch (err) {
     publishError.value = getApiErrorMessage(err, 'Failed to publish results');
   } finally {
@@ -472,26 +481,25 @@ function submittedOn(app: Application): string {
         <button
           v-if="!resultsPublished"
           class="publish-button"
-          :disabled="publishLoading || !hasVerdictToPublish"
-          @click="handlePublish"
+          :disabled="publishLoading || Boolean(publishReason)"
+          @click="confirmingPublish = true"
           data-testid="app-monitor-publish-button"
         >
           {{ publishLoading ? 'Publishing...' : 'Publish Results' }}
         </button>
         <span
-          v-if="!resultsPublished && !hasVerdictToPublish"
+          v-if="!resultsPublished && publishReason"
           class="publish-hint"
           data-testid="app-monitor-publish-hint"
+          >{{ publishReason }}</span
         >
-          Review an application first; there is nothing to publish yet.
-        </span>
         <!-- What it does, said beside it: optional, never the rail's next step (E31/F03/S04). -->
         <span
           v-else-if="!resultsPublished"
           class="publish-hint"
           data-testid="app-monitor-publish-hint"
         >
-          Tells every decided applicant their verdict on their application page.
+          Tells every applicant, on their application page, whether they have a table.
         </span>
         <span
           v-if="resultsPublished"
@@ -505,6 +513,28 @@ function submittedOn(app: Application): string {
 
     <p v-if="publishError" class="error-state">{{ publishError }}</p>
     <p v-if="errorMessage && !refusedOn" class="error-state">{{ errorMessage }}</p>
+
+    <!-- What publishing tells whom, before it does (E36/F04/S01): it cannot be undone. -->
+    <AppDialog
+      :open="confirmingPublish"
+      title="Publish results"
+      testid="publish-results"
+      :confirm-label="publishLoading ? 'Publishing…' : 'Publish results'"
+      :confirm-disabled="publishLoading"
+      :error="publishError"
+      @close="confirmingPublish = false"
+      @submit="handlePublish"
+    >
+      <p v-if="outcomes" class="publish-outcomes">
+        {{ outcomes.haveATable }}
+        {{ outcomes.haveATable === 1 ? 'applicant will read' : 'applicants will read' }}
+        "You have a table". {{ outcomes.notAssigned }} will read "You did not get assigned".
+      </p>
+      <p class="publish-outcomes">
+        Publishing cannot be undone, and the assignment cannot be run again after it: seats change
+        only by hand.
+      </p>
+    </AppDialog>
 
     <div v-if="loading" class="loading-state" data-testid="app-monitor-loading">
       Loading applications...
@@ -865,6 +895,12 @@ function submittedOn(app: Application): string {
 .publish-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.publish-outcomes {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--mm-black);
 }
 
 .publish-hint {

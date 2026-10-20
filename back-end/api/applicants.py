@@ -34,6 +34,8 @@ from market_documents import (
 from datatypes import (
     Application,
     ApplicationStatus,
+    IntakeMode,
+    Market,
     MarketPerson,
     VerdictGiver,
     MarketPhase,
@@ -44,6 +46,7 @@ from utils.application_token import (
 )
 
 import api.applications as ApplicationsApi
+from assignment.made_from import changed_since_run
 import rejection_rules as RejectionRules
 import essential_fields as EssentialFields
 
@@ -544,6 +547,38 @@ def reassign_follow_up(
     return {"application": _application_response_organizer(app)}, 200
 
 
+NO_APPLICANTS_TO_TELL = (
+    "This market takes its vendors by import, so it has no applicants to publish results to."
+)
+
+
+def publish_results_refusal(market: Market) -> Optional[str]:
+    """Why results cannot be published now, or None while they can (E36/F04/S01).
+
+    Results wait for the allocation: in assignment, once a run is stored and current, so every
+    applicant is told what the market will hold, and nobody's answer shifts under them through a
+    later run. Served as part of ``publishResultsReason``, so the button is offered exactly when
+    the endpoint would take it.
+    """
+    if market.intake_mode is not IntakeMode.FORM:
+        return NO_APPLICANTS_TO_TELL
+    if market.results_published:
+        return "Results are already published."
+    if market.phase is not MarketPhase.ASSIGNMENT:
+        return (
+            "Results are published from the assignment, once it has been run, so each applicant "
+            "is told whether they have a table."
+        )
+    if not market.assignment_object.vendor_assignments:
+        return "Run the assignment first: results tell each applicant whether they have a table."
+    if changed_since_run(market):
+        return (
+            "The assignment is out of date. Run it again before publishing, so applicants are "
+            "told what the market will hold."
+        )
+    return None
+
+
 def publish_results(market_id: str) -> Tuple[Dict[str, Any], int]:
     """Flip the results_published flag on a market, making verdicts visible to applicants.
 
@@ -565,20 +600,10 @@ def publish_results(market_id: str) -> Tuple[Dict[str, Any], int]:
         return {"error": "Market not found."}, 404
 
     if not market_serves_applicants(doc):
-        return {
-            "error": (
-                "This market takes its vendors by import, so it has no applicants to publish "
-                "results to."
-            )
-        }, 409
-
-    phase = phase_from_market_document(doc)
-    if phase == MarketPhase.DRAFT:
-        return {"error": "Cannot publish results on a draft market."}, 409
-
-    already_published = bool(doc.get("resultsPublished"))
-    if already_published:
-        return {"error": "Results are already published."}, 409
+        return {"error": NO_APPLICANTS_TO_TELL}, 409
+    refusal = publish_results_refusal(market_from_document(doc))
+    if refusal:
+        return {"error": refusal}, 409
 
     db["markets"].update_one(
         {"id": market_id},

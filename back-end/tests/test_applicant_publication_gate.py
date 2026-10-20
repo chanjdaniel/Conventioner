@@ -125,19 +125,35 @@ def test_application_response_organizer_always_sees_truth():
 # ── publish_results ────────────────────────────────────────────────────────
 
 
+def publishable(phase=MarketPhase.ASSIGNMENT, **overrides):
+    """A market whose results may be published (E36/F04/S01): a form market in assignment, with a
+    stored run. `intakeMode: form`, because the flag has no reader on a CSV market: every endpoint
+    that consults it is behind the applicant-intake gate (E10/F04/S03)."""
+    from conftest import stored_market
+    return stored_market(phase, **{
+        "id": "market-1",
+        "intakeMode": "form",
+        "resultsPublished": False,
+        "assignmentObject": {"vendorAssignments": [{
+            "email": "ana@example.com", "date": "2026-11-18", "tableCode": "A 1",
+            "tableChoice": "Full Table", "section": "A", "tier": "Gold", "location": "Main Hall",
+        }]},
+        **overrides,
+    })
+
+
+@pytest.fixture(autouse=True)
+def a_current_run(monkeypatch):
+    """The stored run is current: whether it is, is TestWhenResultsMayBePublished's."""
+    import api.applicants as ApplicantsApi
+    monkeypatch.setattr(ApplicantsApi, "changed_since_run", lambda _market: [])
+
+
 class FakeMarketsDb:
     """Simulates the markets collection for the publish-results endpoint."""
 
     def __init__(self, doc=None):
-        # `intakeMode: form`, because the flag has no reader on a CSV market: every endpoint that
-        # consults it is behind the applicant-intake gate (E10/F04/S03).
-        self._doc = dict(doc) if doc else {
-            "id": "market-1",
-            "phase": MarketPhase.APPLICATIONS_CLOSED.value,
-            "isDraft": False,
-            "intakeMode": "form",
-            "resultsPublished": False,
-        }
+        self._doc = dict(doc) if doc else publishable()
         self.updates = []
 
     def find_one(self, query, projection=None):
@@ -166,13 +182,7 @@ def test_publish_results_flips_the_flag(monkeypatch):
 
 
 def test_publish_results_refuses_when_already_published(monkeypatch):
-    fake = FakeMarketsDb({
-        "id": "market-1",
-        "phase": MarketPhase.APPLICATIONS_CLOSED.value,
-        "isDraft": False,
-        "intakeMode": "form",
-        "resultsPublished": True,
-    })
+    fake = FakeMarketsDb(publishable(resultsPublished=True))
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
         "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
     }))
@@ -193,20 +203,14 @@ def test_publish_results_404_on_missing_market(monkeypatch):
 
 
 def test_publish_results_refuses_on_draft_market(monkeypatch):
-    fake = FakeMarketsDb({
-        "id": "market-1",
-        "phase": MarketPhase.DRAFT.value,
-        "isDraft": True,
-        "intakeMode": "form",
-        "resultsPublished": False,
-    })
+    fake = FakeMarketsDb(publishable(MarketPhase.DRAFT))
     monkeypatch.setattr(test_db_config, "get_database", lambda: MagicMock(**{
         "__getitem__": lambda s, k: fake if k == "markets" else MagicMock(),
     }))
     result, status = publish_results("market-1")
 
     assert status == 409
-    assert "draft" in result.get("error", "").lower()
+    assert "from the assignment" in result.get("error", "")
 
 
 # ── list_market_applications (organizer always sees raw status) ─────────────
