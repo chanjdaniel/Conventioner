@@ -62,7 +62,7 @@ export function reasonIndex(unplaced: readonly UnplacedDate[]): Map<string, Plac
 }
 
 /** Mirrors `PlacementOverride` in `back-end/placement_reasons.py`. */
-export type PlacementOverride = 'tier' | 'date' | 'table_choice';
+export type PlacementOverride = 'not_approved' | 'tier' | 'date' | 'table_choice';
 
 /** One hand placement that contradicts the vendor's answer, as the statistics report it. */
 export interface OverriddenPlacement {
@@ -72,14 +72,14 @@ export interface OverriddenPlacement {
   overrides: PlacementOverride[];
 }
 
-const OVERRIDE_WORDING: Record<PlacementOverride, string> = {
+const OVERRIDE_WORDING: Record<Exclude<PlacementOverride, 'not_approved'>, string> = {
   // Named first and worded hardest: tier sets the price, so this one costs the vendor money.
   tier: 'a tier they did not accept, which sets their price',
   date: 'a date they did not offer',
   table_choice: 'a table size they did not ask for',
 };
 
-const OVERRIDE_ORDER: PlacementOverride[] = ['tier', 'date', 'table_choice'];
+const OVERRIDE_ORDER = ['tier', 'date', 'table_choice'] as const;
 
 /**
  * What this placement overrides, in words.
@@ -91,6 +91,11 @@ export function overrideText(overrides: readonly PlacementOverride[] | undefined
   const named = OVERRIDE_ORDER.filter((o) => overrides?.includes(o)).map(
     (o) => OVERRIDE_WORDING[o],
   );
+  // A decision overridden, said before any answer (E36/F02/S03): the review left them out.
+  if (overrides?.includes('not_approved')) {
+    const crossed = named.length ? `, and against their answer: ${named.join('; ')}` : '';
+    return `Placed by hand, though not approved${crossed}`;
+  }
   if (named.length === 0) return '';
   return `Placed by hand against their answer: ${named.join('; ')}`;
 }

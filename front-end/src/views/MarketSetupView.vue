@@ -193,8 +193,14 @@ const importRefusalReason = computed(
  * hand from the Tables view - shipping the freeze first would have stranded an organizer on
  * market day with archiving a running market as their only move.
  */
+// The server's word on whether the run may happen (E36/F04/S02): its phase, and not once results
+// are published. The phase mirror stands in only until the market has been read.
 const assignRefusalReason = computed(
-  () => market.value?.readOnlyReason || assignRefusal(market.value?.phase),
+  () =>
+    market.value?.readOnlyReason ||
+    (market.value?.assignRefusalReason !== undefined
+      ? market.value.assignRefusalReason
+      : assignRefusal(market.value?.phase)),
 );
 
 /**

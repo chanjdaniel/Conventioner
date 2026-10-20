@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { APIRequestContext } from '@playwright/test';
 import { completePlan, loginViaApi, ensureTestOrgAuthenticated } from './seeds';
 import { mongoEval } from './mongo';
+import { uniqueMarketName } from './uniqueName';
 
 export interface PhaseMarketSeed {
   marketId: string;
@@ -31,7 +32,7 @@ export async function seedPhaseMarket(
   const userId = await loginViaApi(request, baseURL, email, password);
   const orgId = await ensureTestOrgAuthenticated(request, baseURL, email);
 
-  const marketName = `E2E Phase ${Date.now()}`;
+  const marketName = uniqueMarketName('E2E Phase');
   const createRes = await request.post(`${baseURL}/markets`, {
     headers: { 'Content-Type': 'application/json', 'X-Owner-Email': email },
     data: {

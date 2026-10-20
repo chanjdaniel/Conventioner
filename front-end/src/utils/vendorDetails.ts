@@ -4,7 +4,7 @@ import { fetchMarketApplications } from '@/utils/applicantApi';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesWithinReach } from '@/utils/datesWithinReach';
-import { verdictGiverLine } from '@/utils/verdicts';
+import { addedLine, verdictLine } from '@/utils/verdicts';
 import {
   overrideIndex,
   reasonIndex,
@@ -16,6 +16,7 @@ import {
 import type { VendorNames } from '@/utils/vendorIdentity';
 import type {
   Application,
+  ApplicationStatus,
   Market,
   MarketDateObject,
   TableShareNotice as TableShareNoticeData,
@@ -61,6 +62,12 @@ export interface VendorRow {
   tableShareNotice: TableShareNoticeData | null;
   /** Who gave their verdict, and when (E34/F01/S01); null where nobody was recorded. */
   verdict: string | null;
+  /** Whether the assignment run reads them: an approved applicant (E36/F02/S04). */
+  inTheRun: boolean;
+  /** Their application's status, which the Vendors list shows for anyone outside the run. */
+  status: ApplicationStatus;
+  /** Recorded on the day rather than applying (E36/F03/S01): outside the run, though approved. */
+  added: boolean;
 }
 
 function extractEmail(raw: unknown): string {
@@ -109,7 +116,10 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
   const applications = ref<Application[]>([]);
   const tableRows = ref<MarketTableRowResponse[]>([]);
   const vendorNames = ref<VendorNames>({});
-  /** Who the assignment run places: the people the Vendors list is of. */
+  /**
+   * Who the assignment run places. The tables read serves every applicant (E36/F02/S02), the ones
+   * outside the run with why, so the run's own are those it says nothing against.
+   */
   const placeable = ref<Set<string>>(new Set());
   const unplacedReasons = ref<Map<string, PlacementReason>>(new Map());
   const placementOverrides = ref<Map<string, PlacementOverride[]>>(new Map());
@@ -131,12 +141,14 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         api.get<{
           rows: MarketTableRowResponse[];
           vendorNames: VendorNames;
-          vendors?: { email: string }[];
+          vendors?: { email: string; inTheRun: boolean }[];
         }>(`/markets/${encoded}/tables`),
       ]);
       applications.value = Array.isArray(applicationList) ? applicationList : [];
       placeable.value = new Set(
-        (tablesResp.data?.vendors ?? []).map((vendor) => vendor.email.trim().toLowerCase()),
+        (tablesResp.data?.vendors ?? [])
+          .filter((vendor) => vendor.inTheRun)
+          .map((vendor) => vendor.email.trim().toLowerCase()),
       );
       unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
       placementOverrides.value = overrideIndex(statsResp.data?.overriddenPlacements ?? []);
@@ -213,7 +225,11 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         ),
         answers,
         tableShareNotice: application.tableShareNotice ?? null,
-        verdict: verdictGiverLine(application),
+        // Someone added by hand says so, in place of a verdict nobody reviewed (E36/F03/S01).
+        verdict: addedLine(application) ?? verdictLine(application),
+        inTheRun: placeable.value.has(email),
+        status: application.status,
+        added: Boolean(application.addedBy),
       };
     }),
   );

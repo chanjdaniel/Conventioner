@@ -1,5 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import { ensureTestOrgAuthenticated, loginViaApi } from './seeds';
+import { uniqueMarketName } from './uniqueName';
 
 export interface DraftMarketSeed {
   marketId: string;
@@ -18,7 +19,7 @@ export async function seedDraftMarket(
   password: string,
   options: { name?: string; intakeMode?: 'csv' | 'form'; organizationId?: string } = {},
 ): Promise<DraftMarketSeed> {
-  const { name = `E2E Draft ${Date.now()}`, intakeMode } = options;
+  const { name = uniqueMarketName('E2E Draft'), intakeMode } = options;
   const userId = await loginViaApi(request, baseURL, email, password);
   // The user's first organization unless the caller names one of theirs.
   const orgId =

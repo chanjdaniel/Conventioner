@@ -205,7 +205,7 @@ class TestTheyApplyWhen:
         assert stored["status"] == ApplicationStatus.REVIEWER_REJECTED.value
         assert stored["verdict_reason"] == "Answered “Half a table, shared” to “Table choice”"
 
-    def test_an_applicant_applies_online_and_is_told_only_that_it_is_under_review(
+    def test_an_applicant_applies_online_and_is_told_only_that_it_is_submitted(
         self, applications, monkeypatch,
     ):
         import db_config
@@ -224,7 +224,8 @@ class TestTheyApplyWhen:
         assert status == 200, body
         stored = applications.find_one({"applicant_email": "vendor@example.com"})
         assert stored["status"] == ApplicationStatus.REVIEWER_REJECTED.value
-        assert body["application"]["status"] == ApplicationStatus.UNDER_REVIEW.value
+        # Submitted, as an undecided one reads (E36/F05/S01): nothing tells the rule's verdict.
+        assert body["application"]["status"] == ApplicationStatus.OPEN.value
         assert "Half" not in repr(body)
 
     def test_the_form_changes(self, stored, monkeypatch):

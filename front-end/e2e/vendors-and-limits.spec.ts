@@ -64,7 +64,9 @@ async function seedMarketWithLimits(request: APIRequestContext): Promise<string>
   return marketId;
 }
 
-test('Vendors lists the vendors, not every applicant, and agrees with Result', async ({
+// Every applicant is listed since E36/F02/S04, since anyone may be seated by hand; the count stays
+// the run's, so a rejected applicant is never an unassigned vendor (bug 10).
+test('Vendors lists every applicant, counts the run, and agrees with Result', async ({
   authenticatedPage: page,
   request,
 }) => {
@@ -72,10 +74,13 @@ test('Vendors lists the vendors, not every applicant, and agrees with Result', a
 
   const vendors = new VendorsPage(page);
   await vendors.goto(marketId);
-  await expect(vendors.vendorListItems).toHaveCount(2);
+  await expect(vendors.vendorListItems).toHaveCount(3);
   await expect(page.getByTestId('vendors-summary')).toHaveText(/2\s+of\s+2\s+vendors assigned/);
-  // A rejected applicant is not a vendor of this market; Applications is where they are seen.
-  await expect(vendors.vendorListItems.filter({ hasText: 'bob@example.com' })).toHaveCount(0);
+  await expect(
+    vendors.vendorListItems
+      .filter({ hasText: 'bob@example.com' })
+      .getByTestId('vendors-list-status'),
+  ).toHaveText('Rejected');
 
   await page.goto(marketScreenPath(marketId, 'result'));
   await expect(page.getByTestId('result-vendors-placed')).toHaveText(/2\s+of\s+2\s+vendors placed/);

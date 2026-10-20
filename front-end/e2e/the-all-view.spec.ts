@@ -5,7 +5,6 @@ import {
   transitionMarket,
 } from './helpers/seedPhaseMarket';
 import { seedAssignedMarket } from './helpers/seedAssignedMarket';
-import { seedPublishedMarketWithAssignments } from './helpers/seeds';
 import { marketScreenPath } from './helpers/marketScreens';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 import { withUser } from './helpers/withUser';
@@ -99,14 +98,29 @@ test('every application, filtered, held and decided from the drawer', async ({
 });
 
 /**
- * A verdict can change while the market can still run its assignment - the run records which
- * approvals it was made from, and says when they changed (E22/F03) - and not once it is running.
+ * A verdict can change while the review is open, and not once the market is assigning: the verdicts
+ * settle on the way in, and a mistake is fixed with a seat (E36/F01/S01).
  */
-test('a verdict changes until the market runs, then the drawer only shows it', async ({
+test('a verdict changes while the review is open, then the drawer only shows it', async ({
   authenticatedPage: page,
   request,
 }) => {
   const all = new ApplicationsAllPage(page);
+  const { marketId: reviewing } = await seedPhaseMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { intakeMode: 'form' },
+  );
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, reviewing, 'applications_open');
+  seedApplicationWithStatus(reviewing, 'reviewer_approved', 'nadia@ember.test');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, reviewing, 'applications_closed');
+  await transitionMarket(request, BACKEND_URL, TEST_USER.email, reviewing, 'review');
+  await all.goto(reviewing);
+  await all.rows.first().getByRole('button').click();
+  await expect(all.drawerButton('reject')).toBeVisible();
+
   const assigning = await seedAssignedMarket(
     request,
     BACKEND_URL,
@@ -114,16 +128,6 @@ test('a verdict changes until the market runs, then the drawer only shows it', a
     TEST_USER.password,
   );
   await all.goto(assigning.marketId);
-  await all.rows.first().getByRole('button').click();
-  await expect(all.drawerButton('reject')).toBeVisible();
-
-  const running = await seedPublishedMarketWithAssignments(
-    request,
-    BACKEND_URL,
-    TEST_USER.email,
-    TEST_USER.password,
-  );
-  await all.goto(running.marketId);
   await all.rows.first().getByRole('button').click();
   await expect(all.drawerVerdict).toContainText('Approved');
   await expect(all.drawerButton('approve')).toHaveCount(0);

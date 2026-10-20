@@ -72,3 +72,26 @@ export function verdictGiverLine(
   const when = application.verdictAt ? `, ${getFormattedTimestamp(application.verdictAt)}` : '';
   return `${verb} by ${by.email}${when}`;
 }
+
+/**
+ * The verdict an application was given, with who gave it where that is recorded, or null while it
+ * has none. A verdict stored before its giver was recorded still reads as itself (E36/F02/S03): the
+ * vendor drawer used to show nothing at all for one.
+ */
+export function verdictLine(
+  application: Pick<Application, 'status' | 'verdictBy' | 'verdictAt' | 'verdictReason'>,
+): string | null {
+  if (!VERDICTS.includes(application.status)) return null;
+  return verdictGiverLine(application) ?? statusLabel(application.status);
+}
+
+/**
+ * Who recorded a vendor who never applied, and when (E36/F03/S01): "Added by alex@market.test, Nov
+ * 18, 2026 at 9:00 AM". Null for an applicant, who applied.
+ */
+export function addedLine(application: Pick<Application, 'addedBy' | 'addedAt'>): string | null {
+  const by = application.addedBy?.email;
+  if (!by) return null;
+  const when = application.addedAt ? `, ${getFormattedTimestamp(application.addedAt)}` : '';
+  return `Added by ${by}${when}`;
+}

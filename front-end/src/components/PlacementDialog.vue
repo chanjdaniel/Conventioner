@@ -223,6 +223,27 @@ function whereTheySit(target: SwapTarget): string {
               {{ label(vendor.email) }}
             </option>
           </optgroup>
+          <!-- Anyone may be seated by hand (E36/F02/S02): the review governs the run, and an
+               applicant it left out is one deliberate, warned pick away. -->
+          <optgroup
+            v-if="groups.notApproved.length"
+            label="Not approved"
+            data-testid="placement-dialog-not-approved"
+          >
+            <option v-for="vendor in groups.notApproved" :key="vendor.email" :value="vendor.email">
+              {{ label(vendor.email) }}
+            </option>
+          </optgroup>
+          <!-- Recorded on the day, with no answers to fit or override (E36/F03/S01). -->
+          <optgroup
+            v-if="groups.addedByHand.length"
+            label="Added by hand"
+            data-testid="placement-dialog-added"
+          >
+            <option v-for="vendor in groups.addedByHand" :key="vendor.email" :value="vendor.email">
+              {{ label(vendor.email) }}
+            </option>
+          </optgroup>
         </select>
       </label>
       <p v-if="candidates.length === 0" class="placement-note">

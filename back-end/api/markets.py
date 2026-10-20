@@ -1,12 +1,14 @@
 from datetime import datetime, timezone
 import re
 import uuid
-from typing import NamedTuple, Optional, Dict, Any, List, Tuple
+from typing import Iterable, NamedTuple, Optional, Dict, Any, List, Tuple
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
 from pydantic import ValidationError
 from datatypes import (
+    Application,
     ApplicationForm,
+    ApplicationStatus,
     AssignmentStatistics,
     EssentialFormOptions,
     FormField,
@@ -34,8 +36,11 @@ from assignment.assignment import (
     describe_stored_assignment,
     solver_vendors_for,
 )
+from assignment.vendor_input import SolverVendor, outside_solver_vendors
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
 import api.applications as ApplicationsApi
+import api.applicants as ApplicantsApi
+import result_outcome as ResultOutcome
 import csv_proposal as CsvProposal
 import essential_fields as EssentialFields
 from market_documents import (
@@ -213,9 +218,16 @@ def admin_actions_refusal(
 
 
 VERDICTS_SETTLED = (
-    "The verdicts are settled: this market's assignment is done, so a verdict here would change "
-    "nothing the market can still act on."
+    "The review is closed: the verdicts settled when this market began its assignment. To seat "
+    "someone or free a seat, change the placement on the Result page."
 )
+
+
+def review_is_open(phase: MarketPhase) -> bool:
+    """Whether this market can still get back to review, the one rule both the verdicts and the
+    automatic rejections settle on (E36/F01/S01). A rule and a reviewer judge the same
+    applications, so they close together; derived from the transition table rather than listed."""
+    return route_between(phase.value, MarketPhase.REVIEW.value) is not None
 
 
 def verdict_refusal(
@@ -224,17 +236,39 @@ def verdict_refusal(
     """Why this person cannot give a verdict here, or None while they can (E34).
 
     A verdict - and a follow-up, a claim on a card - is EDITOR's (E34/F01/S01), and open while the
-    market can still run its assignment: an approval changed then sends the run out of date, to be
-    run again. After it, the verdicts are a record. Derived from the transition table, as the
-    assignment rules' own lock is. Served as ``verdictLockReason``, so every review screen offers
-    exactly what the write takes.
+    review is (E36/F01/S01): from assignment on, a verdict is the review's record, and a mistake is
+    fixed with a seat placed or freed by hand. Served as ``verdictLockReason``, so every review
+    screen offers exactly what the write takes.
     """
     refused = change_refusal(user_email, market, organization)
     if refused:
         return refused
-    if route_between(market.phase.value, MarketPhase.ASSIGNMENT.value) is None:
+    if not review_is_open(market.phase):
         return VERDICTS_SETTLED
     return None
+
+
+#: The phases a vendor who never applied is added in (E36/F03/S01): once the review has closed and
+#: seats are being given.
+ADDING_PHASES = (MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS)
+
+NOT_YET_ADDING = (
+    "A vendor is added by hand from the assignment on. Until then, vendors reach this market "
+    "through its applications."
+)
+
+
+def adding_refusal(phase: MarketPhase) -> Optional[str]:
+    """Why no vendor may be added in this phase, or None (E36/F03/S01): the write's rule."""
+    return None if phase in ADDING_PHASES else NOT_YET_ADDING
+
+
+def add_vendor_refusal(
+    user_email: str, market: Market, organization: Optional[Organization],
+) -> Optional[str]:
+    """Why this person cannot add a vendor here, or None while they can (E36/F03/S01). Served as
+    ``addVendorReason``, so the page offers the action exactly when the write would take it."""
+    return change_refusal(user_email, market, organization) or adding_refusal(market.phase)
 
 
 def _load_market_to_change(
@@ -298,7 +332,14 @@ ASSIGNMENT_RULES_SETTLED = (
 )
 
 
-def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
+ASSIGNMENT_RULES_PUBLISHED = (
+    "Results are published, so the assignment is settled: a rule only takes effect when the "
+    "assignment runs, and it is not run again once applicants have been told. Change a single "
+    "placement on the Result page instead."
+)
+
+
+def assignment_rules_lock_reason(market: Market) -> Optional[str]:
     """Why the assignment rules may no longer change, or None while they still can (E22/F02).
 
     A rule - the priority, the max assignments per vendor, the half-table proportion - only takes
@@ -307,12 +348,16 @@ def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     transition table rather than listed, so a phase added or an edge moved decides it with no edit
     here: today it closes them in ``offers``, ``market_days`` and ``archived``. An archived market
     gives the archived reason, since no placement can be changed there either (E30/F01/S02).
+    Publishing results settles them too (E36/F04/S02), since the run is not made again after it.
     """
+    phase = market.phase
     if phase is MarketPhase.ARCHIVED:
         return ARCHIVED_REFUSAL
-    if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is not None:
-        return None
-    return ASSIGNMENT_RULES_SETTLED
+    if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is None:
+        return ASSIGNMENT_RULES_SETTLED
+    if market.results_published:
+        return ASSIGNMENT_RULES_PUBLISHED
+    return None
 
 
 REJECTION_RULES_SETTLED = (
@@ -331,7 +376,7 @@ def rejection_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     """
     if phase is MarketPhase.ARCHIVED:
         return ARCHIVED_REFUSAL
-    if route_between(phase.value, MarketPhase.REVIEW.value) is not None:
+    if review_is_open(phase):
         return None
     return REJECTION_RULES_SETTLED
 
@@ -749,7 +794,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['applicationFormLockReason'] = application_form_lock_reason(market)
     # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
     # from the market it holds, rather than deciding the phases for itself.
-    market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
+    market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market)
+    # And whether the assignment may run (E36/F04/S02): not once results are published.
+    from api.placements import assign_refusal
+    market_dict['assignRefusalReason'] = assign_refusal(market)
     # And what an automatic rejection may name, and whether it may change (E33/F03/S01).
     market_dict.update(rejection_facts(market))
     # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
@@ -784,6 +832,16 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # no control the server would refuse.
     market_dict['readOnlyReason'] = change_refusal(user_email, market, context.organization)
     market_dict['verdictLockReason'] = verdict_refusal(user_email, market, context.organization)
+    market_dict['addVendorReason'] = add_vendor_refusal(user_email, market, context.organization)
+    # Results wait for the allocation (E36/F04/S01): offered exactly when the endpoint would take
+    # them, with how many will read each outcome for the confirmation.
+    publish_reason = admin_actions_refusal(
+        user_email, market, context.organization,
+    ) or ApplicantsApi.publish_results_refusal(market)
+    market_dict['publishResultsReason'] = publish_reason
+    market_dict['publishOutcomes'] = (
+        None if publish_reason else ResultOutcome.outcome_counts(market)
+    )
     market_dict['adminActionsReason'] = admin_actions_refusal(
         user_email, market, context.organization,
     )
@@ -1203,7 +1261,10 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
                 "tableCode": entry.table_code,
                 "overrides": [override.value for override in entry.overrides],
             }
-            for entry in overridden_placements(vendors, placed_rows)
+            for entry in overridden_placements(
+                vendors, placed_rows,
+                not_approved_vendors(market, {vendor.email for vendor in vendors}),
+            )
         ]
         # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
         # name them. A vendor with no stored name has no entry and renders as they did before.
@@ -1281,7 +1342,8 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
 
         market.assignment_object.assignment_statistics = None
         try:
-            assigned_market = assignment_to_show(market)
+            vendors = solver_vendors_for(market)
+            assigned_market = assignment_to_show(market, vendors)
         except IncompleteApplicationsError as incomplete:
             # The organizer has to go and fix something, so say who.
             return {"error": incomplete.message()}, 400
@@ -1291,6 +1353,8 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
             csv_content = market_csv_to_string(
                 assigned_market_dict, ApplicationsApi.vendor_names_for_market(market_id),
                 ApplicationsApi.vendor_full_names_for_market(market_id),
+                {vendor.email for vendor in not_approved_vendors(
+                    market, {vendor.email for vendor in vendors})},
             )
         except ValueError as e:
             return {"error": str(e)}, 400
@@ -1307,6 +1371,54 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
             "market_id": market_id,
             "function": "get_assignment_csv",
         }, 500
+
+
+def is_not_approved(application: Application) -> bool:
+    """Whether the review left this applicant out (E36/F02/S02): any status but approved. A vendor
+    added by hand is approved, and outside the run for another reason."""
+    return application.status is not ApplicationStatus.REVIEWER_APPROVED
+
+
+def not_approved_vendors(market: Market, in_the_run: Iterable[str]) -> List[SolverVendor]:
+    """The applicants outside the run whom the review did not approve (E36/F02/S03): a seat given
+    to one by hand is marked "not approved" wherever the other overrides show."""
+    return [
+        vendor
+        for vendor, application in outside_solver_vendors(
+            market.id, EssentialFields.effective_essential_options_for_market(market), in_the_run)
+        if is_not_approved(application)
+    ]
+
+
+def _placeable(vendor: SolverVendor, outside: Optional[Application]) -> Dict[str, Any]:
+    """One vendor the place dialog may offer: what they answered, whether the run reads them, and -
+    for an applicant outside it - their status and who gave it, which the dialog's "Not approved"
+    warning words, or that they were added by hand with nothing answered to check a seat against."""
+    not_approved = None
+    if outside is not None and is_not_approved(outside):
+        not_approved = {
+            "status": outside.status.value,
+            "verdictBy": ApplicantsApi.giver_payload(outside.verdict_by),
+            "verdictAt": outside.verdict_at,
+            "verdictReason": outside.verdict_reason,
+        }
+    return {
+        # Said, never inferred (E36/F02/S04): a vendor added by hand is approved and still outside
+        # the run, and counting them in it made Vendors and Result disagree again (bug 10).
+        "inTheRun": outside is None,
+        "addedByHand": bool(outside is not None and outside.added_by),
+        "email": vendor.email,
+        "tableChoice": vendor.table_choice,
+        "availableDates": sorted(vendor.available_dates),
+        # And the two answers a hand change could override without a word (bugs 18 and 32): the
+        # tiers they accept on each date - empty when never asked, which accepts any - and how
+        # many dates they want, None for no personal limit.
+        "acceptedTiersByDate": {
+            date: sorted(tiers) for date, tiers in vendor.accepted_tiers_by_date.items()
+        },
+        "maxDates": vendor.max_dates,
+        "notApproved": not_approved,
+    }
 
 
 def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> tuple[List[Dict[str, Any]] | Dict[str, Any], int]:
@@ -1354,20 +1466,15 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             # Who may be put in a seat, and what they asked for. Sent with the grid because the
             # view has to warn - before the change, not after - when a placement would alter a
             # vendor's table choice away from their own answer (E11/F03/S01).
-            "vendors": [
-                {
-                    "email": vendor.email,
-                    "tableChoice": vendor.table_choice,
-                    "availableDates": sorted(vendor.available_dates),
-                    # And the two answers a hand change could override without a word (bugs 18
-                    # and 32): the tiers they accept on each date - empty when never asked, which
-                    # accepts any - and how many dates they want, None for no personal limit.
-                    "acceptedTiersByDate": {
-                        date: sorted(tiers) for date, tiers in vendor.accepted_tiers_by_date.items()
-                    },
-                    "maxDates": vendor.max_dates,
-                }
-                for vendor in vendors
+            # Every applicant, the ones outside the run with why (E36/F02/S02): an organizer may
+            # seat anyone by hand, warned, and the run's own vendors come first.
+            "vendors": [_placeable(vendor, None) for vendor in vendors] + [
+                _placeable(vendor, application)
+                for vendor, application in outside_solver_vendors(
+                    market_id,
+                    EssentialFields.effective_essential_options_for_market(market),
+                    {vendor.email for vendor in vendors},
+                )
             ],
         }, 200
     except Exception as e:
@@ -1813,7 +1920,7 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     # The plan saves as the organizer types, in every phase, and always carries the rules it holds;
     # restating the stored rules is not a change, and anything else is refused once they are
     # settled (E22/F02/S01).
-    settled = assignment_rules_lock_reason(market.phase)
+    settled = assignment_rules_lock_reason(market)
     if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
         raise ValueError(settled)
     return update

@@ -22,10 +22,11 @@ def test_an_archived_markets_form_is_locked_because_it_is_archived():
 
 
 def test_an_archived_markets_rules_are_settled_because_it_is_archived():
-    assert MarketsApi.assignment_rules_lock_reason(MarketPhase.ARCHIVED) == \
+    assert MarketsApi.assignment_rules_lock_reason(_market(MarketPhase.ARCHIVED)) == \
         MarketsApi.ARCHIVED_REFUSAL
 
 
 @pytest.mark.parametrize("phase", [MarketPhase.OFFERS, MarketPhase.MARKET_DAYS])
 def test_a_running_markets_rules_still_point_at_a_single_placement(phase):
-    assert MarketsApi.assignment_rules_lock_reason(phase) == MarketsApi.ASSIGNMENT_RULES_SETTLED
+    assert MarketsApi.assignment_rules_lock_reason(_market(phase)) == \
+        MarketsApi.ASSIGNMENT_RULES_SETTLED

@@ -9,15 +9,22 @@ import VendorIdentity from '@/components/VendorIdentity.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import NothingAssigned from '@/components/NothingAssigned.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
+import AddVendorDialog from '@/components/AddVendorDialog.vue';
 import { hasAssignment } from '@/utils/marketPage';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import {
   filterOptions,
   filtersBeside,
   hasPlaceFilter,
+  inVendorsShown,
   offeredFilters,
   vendorShown,
+  vendorsShownFrom,
+  type VendorsShown,
 } from '@/utils/resultFilters';
+import { statusChip, statusLabel } from '@/utils/verdicts';
+import { ApplicationStatus } from '@/assets/types/datatypes';
+import { useMarketStore } from '@/stores/market';
 import { useResultFilters } from '@/utils/useResultFilters';
 import { signedInEmail } from '@/utils/signedIn';
 import { useVendorDetails } from '@/utils/vendorDetails';
@@ -51,24 +58,27 @@ async function loadVendors(): Promise<void> {
 watch(marketId, () => void loadVendors(), { immediate: true });
 
 /**
- * A vendor is an applicant being placed (CONTEXT.md), so this page lists the applications the
- * solver places and nobody else: a rejected applicant was counted as an unassigned vendor, and the
- * page disagreed with Result (bug 10, claims-and-room 04). The list comes from `/tables`, which
- * serves the run's own vendors, so the two pages cannot count different people.
+ * Every applicant (E36/F02/S04): anyone may be seated by hand, so anyone may need finding. The
+ * counts stay the run's - a vendor is an applicant being placed (CONTEXT.md) - because a rejected
+ * applicant counted as an unassigned vendor made this page disagree with Result (bug 10).
  */
-const vendors = computed(() =>
-  details.rows.value.filter((row) => details.placeable.value.has(row.email)),
-);
+const vendors = computed(() => details.rows.value);
+const runVendors = computed(() => vendors.value.filter((v) => v.inTheRun));
+const isRejected = (v: { status: string }) => v.status === ApplicationStatus.ReviewerRejected;
+const anyRejected = computed(() => vendors.value.some(isRejected));
 
 /**
- * Only the vendors the assignment left without a table: where "N unassigned" on the Result page
- * leads (E22/F04/S04), in the address so the link is a link. It replaced the results page's own
- * list of them, which could only report an address.
+ * One kind of applicant, in the address so a link is a link: "Unassigned only", where "N
+ * unassigned" on the Result page leads (E22/F04/S04), and "Rejected only" beside it.
  */
-const onlyUnassigned = computed(() => route.query.show === 'unassigned');
+const shown = computed<VendorsShown>(() => vendorsShownFrom(route.query.show));
+const onlyUnassigned = computed(() => shown.value === 'unassigned');
 
-function showEveryone(): void {
-  void router.replace({ query: withoutQueryKey(route.query, 'show') });
+function show(choice: VendorsShown): void {
+  const next = shown.value === choice ? null : choice;
+  void router.replace({
+    query: next ? { ...route.query, show: next } : withoutQueryKey(route.query, 'show'),
+  });
 }
 
 /**
@@ -83,21 +93,35 @@ const filterOptionsShown = computed(() => filterOptions(tableRows.value));
 const placeFiltered = computed(() => hasPlaceFilter(filters.value));
 
 const filteredVendors = computed(() => {
-  const shown = vendors.value.filter((v) =>
-    vendorShown(v.assignmentsByDate, filters.value, {
-      onlyUnassigned: onlyUnassigned.value,
-      isAssigned: v.isAssigned,
-    }),
+  const listed = vendors.value.filter(
+    (v) =>
+      inVendorsShown({ inTheRun: v.inTheRun, rejected: isRejected(v) }, shown.value) &&
+      vendorShown(v.assignmentsByDate, filters.value, {
+        onlyUnassigned: onlyUnassigned.value,
+        isAssigned: v.isAssigned,
+      }),
   );
   const term = filterText.value.trim();
-  if (!term) return shown;
+  if (!term) return listed;
   // Name AND address. The box used to read "Filter by email" and match only that, which on a
   // market of 232 vendors meant knowing someone's address to find them by name.
-  return shown.filter((v) => vendorMatches(term, v.email, vendorNames.value));
+  return listed.filter((v) => vendorMatches(term, v.email, vendorNames.value));
 });
 
+/** A vendor who never applied, added by hand (E36/F03/S01): offered when the server would take it. */
+const adding = ref(false);
+const canAdd = computed(() => Boolean(market.value) && !market.value?.addVendorReason);
+async function vendorAdded(email: string): Promise<void> {
+  adding.value = false;
+  // A write is followed by a re-read: the market's own facts count them too (publishOutcomes).
+  void useMarketStore().refresh();
+  await details.load();
+  drawer.open(email);
+}
+
 const totalVendorCount = computed(() => vendors.value.length);
-const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssigned).length);
+const runVendorCount = computed(() => runVendors.value.length);
+const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAssigned).length);
 </script>
 
 <template>
@@ -117,32 +141,52 @@ const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssig
             class="filter-input"
             data-testid="vendors-search-input"
           />
+          <div v-if="assigned" class="vendors-shown" role="group" aria-label="Show only">
+            <button
+              type="button"
+              class="btn btn--secondary btn--compact"
+              :aria-pressed="onlyUnassigned"
+              data-testid="vendors-filter-unassigned"
+              @click="show('unassigned')"
+            >
+              Unassigned only<span v-if="onlyUnassigned" aria-hidden="true"> &times;</span>
+            </button>
+            <button
+              v-if="anyRejected"
+              type="button"
+              class="btn btn--secondary btn--compact"
+              :aria-pressed="shown === 'rejected'"
+              data-testid="vendors-filter-rejected"
+              @click="show('rejected')"
+            >
+              Rejected only<span v-if="shown === 'rejected'" aria-hidden="true"> &times;</span>
+            </button>
+          </div>
           <button
-            v-if="onlyUnassigned"
+            v-if="canAdd"
             type="button"
-            class="btn btn--secondary btn--compact"
-            aria-label="Show every vendor"
-            data-testid="vendors-filter-unassigned"
-            @click="showEveryone"
+            class="btn btn--primary btn--compact"
+            data-testid="vendors-add-button"
+            @click="adding = true"
           >
-            Unassigned only &times;
+            Add a vendor
           </button>
           <!-- With anything narrowing the list, it counts what is left (E28/F02/S02). -->
           <div class="summary-line" data-testid="vendors-summary">
-            <template v-if="placeFiltered || onlyUnassigned || filterText.trim()">
+            <template v-if="placeFiltered || shown || filterText.trim()">
               <span class="summary-strong">{{ filteredVendors.length }}</span>
               of
               <span class="summary-strong">{{ totalVendorCount }}</span>
               vendors shown
             </template>
             <template v-else-if="!assigned">
-              <span class="summary-strong">{{ totalVendorCount }}</span>
-              {{ totalVendorCount === 1 ? 'vendor' : 'vendors' }}
+              <span class="summary-strong">{{ runVendorCount }}</span>
+              {{ runVendorCount === 1 ? 'vendor' : 'vendors' }}
             </template>
             <template v-else>
               <span class="summary-strong">{{ assignedVendorCount }}</span>
               of
-              <span class="summary-strong">{{ totalVendorCount }}</span>
+              <span class="summary-strong">{{ runVendorCount }}</span>
               vendors assigned
             </template>
           </div>
@@ -171,6 +215,7 @@ const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssig
           <p v-else-if="filterText.trim()">No vendors match "{{ filterText }}".</p>
           <p v-else-if="placeFiltered">No vendors match these filters.</p>
           <p v-else-if="onlyUnassigned">Every vendor has a table.</p>
+          <p v-else-if="shown === 'rejected'">Nobody was rejected.</p>
         </div>
 
         <ul v-else class="vendor-list">
@@ -192,7 +237,21 @@ const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssig
                 :names="vendorNames"
               />
               <span v-if="assigned" class="vendor-meta">
+                <!-- Outside the run, the verdict is what to know first (E36/F02/S04). -->
                 <span
+                  v-if="vendor.added"
+                  class="chip chip--informational"
+                  data-testid="vendors-list-status"
+                  >Added</span
+                >
+                <span
+                  v-else-if="!vendor.inTheRun"
+                  :class="statusChip(vendor.status)"
+                  data-testid="vendors-list-status"
+                  >{{ statusLabel(vendor.status) }}</span
+                >
+                <span
+                  v-else
                   class="vendor-badge"
                   :class="vendor.isAssigned ? 'vendor-badge--assigned' : 'vendor-badge--unassigned'"
                 >
@@ -209,6 +268,12 @@ const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssig
       </div>
     </MarketFrame>
 
+    <AddVendorDialog
+      :open="adding"
+      :market-id="marketId"
+      @close="adding = false"
+      @added="vendorAdded"
+    />
     <VendorDrawer
       :market="market"
       :details="details"
@@ -237,12 +302,19 @@ const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssig
 
 .vendors-toolbar {
   background-color: white;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* The label, the search, the show-only choices, the count, and adding a vendor: a row that
+     wraps, since which of them are there depends on the market and the person. */
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 12px 24px;
   border-bottom: 1px solid var(--mm-border);
+}
+
+.vendors-shown {
+  display: flex;
+  gap: var(--space-2);
 }
 
 .filter-label {
@@ -252,7 +324,8 @@ const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssig
 }
 
 .filter-input {
-  width: 100%;
+  flex: 1 1 16rem;
+  min-width: 0;
   padding: 10px 12px;
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
@@ -434,10 +507,6 @@ const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssig
 }
 
 @media (max-width: 720px) {
-  .vendors-toolbar {
-    grid-template-columns: 1fr;
-  }
-
   .vendor-row-button {
     flex-direction: column;
     align-items: flex-start;

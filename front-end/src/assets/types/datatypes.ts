@@ -269,9 +269,23 @@ export interface Market {
   adminActionsReason?: string | null;
   /**
    * Why the person reading cannot give verdicts on this market's applications, or null while they
-   * can (E34): below EDITOR, archived, or past the point where an assignment can still be run.
+   * can (E34): below EDITOR, archived, or once the review has closed (E36/F01/S01).
    */
   verdictLockReason?: string | null;
+  /**
+   * Why the person reading cannot add a vendor who never applied, or null while they can
+   * (E36/F03/S01): below EDITOR, or outside the assignment and market days.
+   */
+  addVendorReason?: string | null;
+  /**
+   * Why the person reading cannot publish this market's results now, or null while they can
+   * (E36/F04/S01): an admin's, on a form market in assignment with a current run.
+   */
+  publishResultsReason?: string | null;
+  /** Why the assignment cannot be run now, or null while it can (E36/F04/S02). */
+  assignRefusalReason?: string | null;
+  /** How many applicants will read each outcome, while results may be published; else null. */
+  publishOutcomes?: { haveATable: number; notAssigned: number } | null;
   /**
    * What would refuse each move open from this phase, judged by the guards the move runs; empty
    * for a move that would succeed (E31/F02/S01). Served so a screen says no before the click.
@@ -410,6 +424,24 @@ export interface Application {
   followUpOwner?: { userId?: string | null; email: string } | null;
   /** Organizer's only: the reviewer looking at it, while their claim stands (E34/F03/S02). */
   heldBy?: { userId?: string | null; email: string } | null;
+  /**
+   * Applicant's only, once results are published (E36/F05/S02): whether they have a table, and
+   * where. Null and empty before; a verdict is never served to them.
+   */
+  outcome?: 'has_a_table' | 'not_assigned' | null;
+  seats?: ApplicantSeat[];
+  /** Who recorded a vendor who never applied, and when (E36/F03/S01). Absent on any who applied. */
+  addedBy?: { userId?: string | null; email: string } | null;
+  addedAt?: string | null;
+}
+
+/** One seat an applicant holds, as their page lists it once results are published (E36/F05/S02). */
+export interface ApplicantSeat {
+  date: string;
+  tableCode: string;
+  tableChoice: string;
+  section: string;
+  location: string;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */

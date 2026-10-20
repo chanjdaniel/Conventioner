@@ -300,6 +300,13 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   whole assignment is computed from.
   There is no other door: the whole-market PUT that once let a stale client copy move vendors on
   market day is deleted (E21/F03/S06).
+- **A vendor who never applied is added by hand** (E36/F03/S01): `POST /markets/:id/vendors`
+  (`api/added_vendors.py`), EDITOR, in assignment and market days, served as `addVendorReason`. It
+  stores an approved application stamped `added_by`/`added_at`, which the run never reads
+  (`approved_solver_vendors` skips it): they are seated by hand and held like any pin.
+- **A seat goes only to someone with an application in the market** (E36/F02/S01): every
+  placement and swap writes the applicant's normalised address, or refuses one the market has no
+  application for (`has_applied` in `api/placements.py`). A seed that places someone gives them one.
 - **A pin IS a placement row, flagged `hand_placed`.** There is no separate constraint object;
   two records could disagree, and a vendor pinned to one table and placed at another is the exact
   bug pins exist to prevent.
@@ -307,6 +314,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   anyone else, so the ordinary loop sees those tables occupied.
   A pin the plan can no longer hold is **orphaned, never deleted**, and `NoOrphanedPinGuard`
   blocks `-> assignment` until it is re-placed or freed.
+  **Anyone may be pinned, warned** (E36/F02/S02): the place dialog offers every applicant, the ones
+  outside the run under "Not approved", and the run seats such a pin as `held` (`held_vendors_for`):
+  the seat is occupied, they are placed nowhere else and never counted among the run's vendors.
 - **Read-only views describe the STORED assignment, and only that.** `assignment_to_show()`
   (`api/markets.py`) is `describe_stored_assignment()`; a market with nothing stored is shown
   nobody placed, never the run it would get (E31/F03/S05 - that preview read "197 of 197 vendors
@@ -428,7 +438,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **`applicant_intake_market_by_slug()` (`back-end/market_documents.py`) is the single expression of
   the gate**, read by exactly the five applicant endpoints. It serves a form market in every phase
   but draft (`APPLICANT_SURFACE_PHASES`, E26/F07/S02): an applicant may always sign in and read their
-  own application and verdict - closing the surface with applications hid every verdict (bug 20).
+  own application and its outcome - closing the surface with applications hid every verdict (bug 20).
+  **An applicant never reads a verdict** (E36/F05): "Submitted" until results are published, then
+  "You have a table" with their seats or "You did not get assigned", read off the stored seats by
+  `back-end/result_outcome.py` on every read; `applicant_visible_status` serves only `open`.
   APPLYING stays `applications_open`-only, refused in words by `save_applicant_application`. It is
   not the check-in lookup, because check-in must stay open to every market that runs: how a vendor
   entered has no bearing on whether they can scan in on the day. It is one lookup rather than a
@@ -519,6 +532,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   tables at every tier - each its own blocker line. A date has passed only once it has passed
   everywhere (UTC-12, `_earliest_calendar_day`): the server cannot know where a market is, and the
   screens read the viewer's own calendar (`calendarToday`).
+- **The verdicts settle on entering assignment** (E36/F01/S01): approve, reject and follow-up are
+  open while the market can still reach `review` (`review_is_open`, the automatic rejections' own
+  rule), served as `verdictLockReason`. Nothing leaves `assignment` backwards, so from there a
+  verdict is the review's record and a mistake is fixed with a seat placed or freed by hand.
 - **A market is created only through `MarketsApi.create_owned_market` and moved only through
   `MarketsApi.take_move`** (judged, then walked); the endpoints and the test-market seeder call both.
 - **Every precondition for every phase transition lives in `back-end/guards.py`.** Adding or
@@ -558,6 +575,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   `phase` is missing or unrecognized - a fallback that contradicted the phase would answer
   confidently and wrongly. The two endpoints that serve a raw document rather than a parsed
   `Market` re-stamp `isDraft` from the effective phase before responding.
+- **Publish Results waits for the allocation, and settles it** (E36/F04): a form market publishes
+  in `assignment` once a run is stored and current (`publish_results_refusal`, served with the
+  admin check as `publishResultsReason`, and its counts as `publishOutcomes` from
+  `back-end/result_outcome.py`). After it the run is refused (`assign_refusal`, served as
+  `assignRefusalReason`) and the assignment rules lock; `ResultsPublishedGuard` keeps a form market
+  out of `market_days` until it has published. A CSV market has neither.
 - **Publishing a market is `assignment` → `market_days`**, which puts its check-in page on the
   air. `draft` → `archived` is abandoning a draft, not publishing it (that was the old flow's
   Done button, long gone). A market leaves `draft` for its lifecycle via

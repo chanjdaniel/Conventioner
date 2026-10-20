@@ -2,7 +2,7 @@
 id: E36/F03/S01
 title: Add a vendor
 type: story
-status: ready
+status: in-progress
 blocked_by: [E36/F02/S01, E36/F02/S02]
 pr: []
 ---
@@ -16,11 +16,16 @@ They are never an input to the run: their answers may be missing, and the run re
 On a form market they can sign in on the market's page and see their application like any applicant; on a CSV market there is no applicant page, as today.
 An address that already has an application in the market is refused, naming the existing one.
 
+## As built
+
+- `POST /markets/:id/vendors` (`api/added_vendors.py`), served as `addVendorReason`; the application is approved and stamped `added_by`/`added_at`, and `approved_solver_vendors` skips it.
+- The place dialog offers added vendors in their own group, warned that they answered nothing to check the seat against.
+
 ## Acceptance criteria
 
-- [ ] "Add a vendor" is offered to an editor in assignment and market days only, and refused by the server in every other phase.
-- [ ] The added application records who added it and when, and is shown so in the drawer.
-- [ ] An added vendor can be placed through the dialog, and a run neither seats nor refuses over them.
-- [ ] Adding an address that already applied is refused.
-- [ ] On a form market the added vendor can sign in and sees their application.
-- [ ] One E2E spec adds a vendor on market day, seats them, and checks them in at the door.
+- [x] "Add a vendor" is offered to an editor in assignment and market days only, and refused by the server in every other phase.
+- [x] The added application records who added it and when, and is shown so in the drawer.
+- [x] An added vendor can be placed through the dialog, and a run neither seats nor refuses over them.
+- [x] Adding an address that already applied is refused.
+- [x] On a form market the added vendor can sign in and sees their application.
+- [x] One E2E spec adds a vendor on market day, seats them, and checks them in at the door.

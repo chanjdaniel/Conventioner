@@ -21,7 +21,7 @@ Publication gate (captain ruling 2026-07-13):
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from application_write import record_application_answers, validate_application_answers
 import table_share as TableShare
@@ -34,7 +34,10 @@ from market_documents import (
 from datatypes import (
     Application,
     ApplicationStatus,
+    IntakeMode,
+    Market,
     MarketPerson,
+    VendorAssignmentResult,
     VerdictGiver,
     MarketPhase,
     phase_from_market_document,
@@ -44,6 +47,9 @@ from utils.application_token import (
 )
 
 import api.applications as ApplicationsApi
+import result_outcome as ResultOutcome
+from assignment.utils import convert_keys_to_snake_case
+from assignment.made_from import changed_since_run
 import rejection_rules as RejectionRules
 import essential_fields as EssentialFields
 
@@ -52,51 +58,45 @@ logger = logging.getLogger(__name__)
 
 # ── Publication gate ───────────────────────────────────────────────────────
 
-# The states of a review the organizer has not finished delivering. A reviewer recording a verdict
-# is not the organizer sending it, and until the organizer acts outward via the publish-results
-# endpoint, the applicant is told only that the application is under review.
-#
-# This has to be enforced here, on the way out of the process, because anything the applicant's
-# browser receives, the applicant can read: a client-side label mapped over a payload that carries
-# ``reviewer_rejected`` still ships the rejection in the response body and into the page markup.
-# There is no applicant-facing payload that does not pass through ``_application_response``, so this
-# is the one place that decides, and nothing downstream of it may reintroduce the raw value.
-REVIEW_IN_PROGRESS_STATUSES = frozenset({
-    ApplicationStatus.UNDER_REVIEW,
-    ApplicationStatus.REVIEWER_APPROVED,
-    ApplicationStatus.REVIEWER_REJECTED,
-})
-
-
 def applicant_visible_status(
     status: ApplicationStatus, results_published: bool,
 ) -> ApplicationStatus:
     """The status of an application as its applicant is allowed to know it.
 
-    An organizer must not leak a half-finished review, and must retain the ability to change their
-    mind before any applicant sees an outcome. Publication is the single, deliberate,
-    organizer-controlled moment the verdict becomes visible.
+    Every application reads ``open`` - "Submitted" - whatever is stored (E36/F05/S01). The automatic rules judge an application in the request that saves it, so
+    "Under Review" beside "Submitted" told an applicant a rule had rejected them the moment they
+    submitted, and editing the answers flipped it back. Publication is the single, deliberate,
+    organizer-controlled moment anything more is told.
 
-    Until results are published, every working state of an unfinished review is collapsed to
-    ``under_review`` so the applicant cannot distinguish a provisional acceptance from a
-    provisional rejection. After publication the applicant sees the actual verdict.
-
-    The organizer's view goes directly to the stored status and does not pass through here at all,
-    so the organizer always sees the truth.
+    This has to be enforced here, on the way out of the process, because anything the applicant's
+    browser receives, the applicant can read: a client-side label mapped over a payload that carries
+    ``reviewer_rejected`` still ships the rejection in the response body and into the page markup.
+    There is no applicant-facing payload that does not pass through ``_application_response``, so
+    this is the one place that decides. The organizer's view never passes through here.
     """
-    # A follow-up is the organizer's own business, never an outcome, published or not (E34/F02/S01).
-    if status is ApplicationStatus.NEEDS_FOLLOW_UP:
-        return ApplicationStatus.UNDER_REVIEW
-    if not results_published and status in REVIEW_IN_PROGRESS_STATUSES:
-        return ApplicationStatus.UNDER_REVIEW
-    return status
+    # After publication the applicant reads an outcome instead - a table, or none - which the
+    # response carries beside this; a verdict is never theirs to read (E36/F05/S02), so rejected
+    # and approved-without-a-seat read the same.
+    return ApplicationStatus.OPEN
 
 
 def _application_response(
     app: Application, results_published: bool,
+    placements: Iterable[VendorAssignmentResult] = (),
 ) -> Dict[str, Any]:
-    """Serialize an application for the applicant-facing API with the publication gate applied."""
+    """Serialize an application for the applicant-facing API with the publication gate applied.
+
+    After publication it carries the applicant's outcome and their own seats (E36/F05/S02), read
+    off the stored placements on every read, so a seat changed by hand shows at once.
+    """
+    placed = list(placements)
+    outcome = (
+        ResultOutcome.outcome_of(app.applicant_email, ResultOutcome.seated_from(placed))
+        if results_published else None
+    )
     return {
+        "outcome": outcome,
+        "seats": ResultOutcome.seats_of(app.applicant_email, placed) if results_published else [],
         "id": app.id,
         "marketId": app.market_id,
         "applicantEmail": app.applicant_email,
@@ -124,12 +124,15 @@ def _application_response_organizer(
         "submittedAt": app.submitted_at,
         "updatedAt": app.updated_at,
         # Who gave the verdict and when (E34/F01/S01): the organizer's, never the applicant's.
-        "verdictBy": _giver(app.verdict_by),
+        "verdictBy": giver_payload(app.verdict_by),
         "verdictAt": app.verdict_at,
         "verdictReason": app.verdict_reason,
         "followUpOwner": app.follow_up_owner.as_wire() if app.follow_up_owner else None,
         # Who is looking at it while their claim stands (E34/F03/S02).
         "heldBy": _holder(app, now),
+        # Who recorded a vendor who never applied, and when (E36/F03/S01).
+        "addedBy": app.added_by.as_wire() if app.added_by else None,
+        "addedAt": app.added_at,
     }
 
 
@@ -144,7 +147,8 @@ def _holder(app: Application, now: Optional[datetime]) -> Optional[Dict[str, Any
     return MarketPerson(**held).as_wire() if held else None
 
 
-def _giver(by: Optional[VerdictGiver]) -> Optional[Dict[str, Any]]:
+def giver_payload(by: Optional[VerdictGiver]) -> Optional[Dict[str, Any]]:
+    """A verdict's giver as the organizer's views read one."""
     if by is None:
         return None
     return {"kind": by.kind, "userId": by.user_id, "email": by.email, "rule": by.rule}
@@ -259,7 +263,8 @@ def get_applicant_application(
     # Verify the token belongs to this market
     from db_config import get_database
     db = get_database()
-    market_doc = applicant_intake_market_by_slug(db["markets"], market_slug, fields=("id", "resultsPublished"))
+    market_doc = applicant_intake_market_by_slug(
+        db["markets"], market_slug, fields=("id", "resultsPublished", "assignmentObject"))
     if not market_doc:
         return {"error": "Market not found."}, 404
 
@@ -276,7 +281,14 @@ def get_applicant_application(
 
     app = Application(**app_doc)
     results_published = bool(market_doc.get("resultsPublished"))
-    return {"application": _application_response(app, results_published)}, 200
+    return {"application": _application_response(
+        app, results_published, _stored_placements(market_doc))}, 200
+
+
+def _stored_placements(market_doc: Dict[str, Any]) -> List[VendorAssignmentResult]:
+    """The seats a market document stores, as the outcome is read off them (E36/F05/S02)."""
+    rows = (market_doc_field(market_doc, "assignment_object") or {}).get("vendorAssignments") or []
+    return [VendorAssignmentResult(**convert_keys_to_snake_case(row)) for row in rows]
 
 
 def save_applicant_application(
@@ -363,7 +375,8 @@ def save_applicant_application(
         app = Application(**ApplicationsApi.find_application_by_id(app.id))
 
     results_published = bool(market_doc.get("resultsPublished"))
-    return {"application": _application_response(app, results_published)}, 200
+    return {"application": _application_response(
+        app, results_published, market.assignment_object.vendor_assignments or [])}, 200
 
 
 # ── Organizer (session-authenticated) endpoints ────────────────────────────
@@ -541,6 +554,38 @@ def reassign_follow_up(
     return {"application": _application_response_organizer(app)}, 200
 
 
+NO_APPLICANTS_TO_TELL = (
+    "This market takes its vendors by import, so it has no applicants to publish results to."
+)
+
+
+def publish_results_refusal(market: Market) -> Optional[str]:
+    """Why results cannot be published now, or None while they can (E36/F04/S01).
+
+    Results wait for the allocation: in assignment, once a run is stored and current, so every
+    applicant is told what the market will hold, and nobody's answer shifts under them through a
+    later run. Served as part of ``publishResultsReason``, so the button is offered exactly when
+    the endpoint would take it.
+    """
+    if market.intake_mode is not IntakeMode.FORM:
+        return NO_APPLICANTS_TO_TELL
+    if market.results_published:
+        return "Results are already published."
+    if market.phase is not MarketPhase.ASSIGNMENT:
+        return (
+            "Results are published from the assignment, once it has been run, so each applicant "
+            "is told whether they have a table."
+        )
+    if not market.assignment_object.vendor_assignments:
+        return "Run the assignment first: results tell each applicant whether they have a table."
+    if changed_since_run(market):
+        return (
+            "The assignment is out of date. Run it again before publishing, so applicants are "
+            "told what the market will hold."
+        )
+    return None
+
+
 def publish_results(market_id: str) -> Tuple[Dict[str, Any], int]:
     """Flip the results_published flag on a market, making verdicts visible to applicants.
 
@@ -562,20 +607,10 @@ def publish_results(market_id: str) -> Tuple[Dict[str, Any], int]:
         return {"error": "Market not found."}, 404
 
     if not market_serves_applicants(doc):
-        return {
-            "error": (
-                "This market takes its vendors by import, so it has no applicants to publish "
-                "results to."
-            )
-        }, 409
-
-    phase = phase_from_market_document(doc)
-    if phase == MarketPhase.DRAFT:
-        return {"error": "Cannot publish results on a draft market."}, 409
-
-    already_published = bool(doc.get("resultsPublished"))
-    if already_published:
-        return {"error": "Results are already published."}, 409
+        return {"error": NO_APPLICANTS_TO_TELL}, 409
+    refusal = publish_results_refusal(market_from_document(doc))
+    if refusal:
+        return {"error": refusal}, 409
 
     db["markets"].update_one(
         {"id": market_id},

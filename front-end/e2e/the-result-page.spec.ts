@@ -112,10 +112,11 @@ test.describe('The Result page', () => {
     await page.getByTestId('result-download-csv-button').click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/\.csv$/);
-    // The name each vendor chose, then their full name, then the address (E35/F03/S02).
+    // The name each vendor chose, then their full name, then the address (E35/F03/S02), then
+    // whether the review approved them (E36/F02/S03).
     const text = readFileSync((await file.path()) as string, 'utf8');
-    expect(text.split('\n')[0].startsWith('Name,Full name,Email,')).toBe(true);
-    expect(text).toContain('Alice Example,Alice Example,alice@example.com');
+    expect(text.split('\n')[0].startsWith('Name,Full name,Email,Approval,')).toBe(true);
+    expect(text).toContain('Alice Example,Alice Example,alice@example.com,Approved');
   });
 
   test('"unassigned" opens Vendors, filtered to the unassigned', async ({

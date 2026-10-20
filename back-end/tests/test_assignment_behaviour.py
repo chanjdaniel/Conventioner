@@ -116,10 +116,14 @@ def placements(market):
     ]
 
 
-def assign(wants, pins=(), **kwargs):
+def assign(wants, pins=(), held=(), **kwargs):
     market = market_for(wants, **kwargs)
     market.assignment_object = AssignmentObject(vendor_assignments=list(pins))
-    return assign_market(market, [want.as_solver_vendor() for want in wants])
+    return assign_market(
+        market,
+        [want.as_solver_vendor() for want in wants],
+        held=[want.as_solver_vendor() for want in held],
+    )
 
 
 def pin(email, date, table_code, table_choice="Full Table",
@@ -1734,6 +1738,48 @@ class TestTheSolverWorksAroundPins:
             f"Section {GOLD} 1",
             "Full Table",
         )
+
+
+class TestASeatHeldByHand:
+    """An applicant outside the run, seated by hand (E36/F02/S02): a rejected one, or a vendor added
+    on the day. Their pin is a seat they hold, so nobody else is put in it, and the run places
+    them nowhere else - the review and the rules govern the run, never the organizer's hand."""
+
+    def test_they_keep_the_seat_and_nobody_else_is_put_in_it(self):
+        market = assign(
+            [VendorWant("approved@example.com", available=[DATES[0]], tiers=[GOLD])],
+            pins=[pin("rejected@example.com", DATES[0], f"Section {GOLD} 1")],
+            held=[VendorWant("rejected@example.com", available=[DATES[0]], tiers=[GOLD])],
+            section_counts=((GOLD, 1),),
+        )
+
+        assert seat_of(market, "rejected@example.com", DATES[0]) == (
+            f"Section {GOLD} 1", "Full Table")
+        assert seat_of(market, "approved@example.com", DATES[0]) is None
+
+    def test_they_are_placed_nowhere_beyond_their_pins(self):
+        market = assign(
+            [],
+            pins=[pin("rejected@example.com", DATES[0], f"Section {GOLD} 1")],
+            held=[VendorWant("rejected@example.com", available=[DATES[0], DATES[1]],
+                             tiers=[GOLD])],
+            section_counts=((GOLD, 2),),
+        )
+
+        assert dates_for(market, "rejected@example.com") == [DATES[0]]
+
+    def test_they_are_not_counted_among_the_runs_vendors(self):
+        market = assign(
+            [VendorWant("approved@example.com", available=[DATES[0]], tiers=[GOLD])],
+            pins=[pin("rejected@example.com", DATES[0], f"Section {GOLD} 1")],
+            held=[VendorWant("rejected@example.com", available=[DATES[0]], tiers=[GOLD])],
+            section_counts=((GOLD, 2),),
+        )
+
+        statistics = market.assignment_object.assignment_statistics
+        assert statistics.total_vendors == 1
+        assert seat_of(market, "approved@example.com", DATES[0]) == (
+            f"Section {GOLD} 2", "Full Table")
 
 
 class TestDescribingWhatIsStored:

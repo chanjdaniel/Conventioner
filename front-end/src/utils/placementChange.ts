@@ -8,6 +8,9 @@
  * that appears at the moment it happens.
  */
 
+import type { ApplicationStatus, VerdictGiver } from '@/assets/types/datatypes';
+import { statusLabel, verdictGiverLine } from '@/utils/verdicts';
+
 /** The three seats a table holds. Mirrors `api/placements.py`. */
 export const FULL_TABLE = 'Full Table';
 export const HALF_TABLE_LEFT = 'Half Table (Left)';
@@ -28,6 +31,29 @@ export interface PlaceableVendor {
   acceptedTiersByDate: Record<string, string[]>;
   /** How many dates they want at most; null for no personal limit. */
   maxDates: number | null;
+  /**
+   * Why an applicant outside the run is outside it (E36/F02/S02): their status and who gave it.
+   * Null for a vendor the run reads. Anyone may be seated by hand, never without a word.
+   */
+  notApproved: NotApproved | null;
+  /** Whether the run reads them (E36/F02/S04): an approved applicant, never one added by hand. */
+  inTheRun: boolean;
+  /** Recorded on the day by an organizer (E36/F03/S01): they answered nothing the form asked. */
+  addedByHand: boolean;
+}
+
+/** An applicant's status, and who gave it, as the place dialog warns with it. */
+export interface NotApproved {
+  status: ApplicationStatus;
+  verdictBy: VerdictGiver | null;
+  verdictAt: string | null;
+  verdictReason: string | null;
+}
+
+/** "Not approved: Rejected by alex@…, Oct 19…", in the review's own words for the verdict. */
+export function notApprovedWarning(why: NotApproved): string {
+  const verdict = verdictGiverLine(why) ?? statusLabel(why.status);
+  return `Not approved: ${verdict}.`;
 }
 
 /** Where a placement would put a vendor, and what they hold already. */
@@ -122,11 +148,21 @@ export function placementWarnings(
   const { date, tier, seat, datesHeld, marketCeiling } = placement;
   const warnings: string[] = [];
 
-  if (!vendor.availableDates.includes(date)) {
+  // First, because it is the decision this placement overrides above any answer.
+  if (vendor.notApproved) warnings.push(notApprovedWarning(vendor.notApproved));
+
+  // Someone added on the day answered nothing, so there is no date, tier or size of theirs to cross
+  // - only the organizer's own ceiling. Saying they did not offer the date would be untrue.
+  const unanswered = vendor.addedByHand && vendor.availableDates.length === 0;
+  if (unanswered) {
+    warnings.push('Added by hand: they gave no answers to check this seat against.');
+  }
+
+  if (!unanswered && !vendor.availableDates.includes(date)) {
     warnings.push('They did not say they were available on this date.');
   }
 
-  warnings.push(...seatWarnings(vendor, date, tier, seat));
+  if (!unanswered) warnings.push(...seatWarnings(vendor, date, tier, seat));
 
   const dates = new Set([...datesHeld, date]).size;
   const gives = `This gives them ${dates} ${dates === 1 ? 'date' : 'dates'}`;
@@ -144,6 +180,10 @@ export function placementWarnings(
 export interface CandidateGroups {
   fits: PlaceableVendor[];
   overrides: PlaceableVendor[];
+  /** Applicants outside the run, whatever this seat would fit (E36/F02/S02). */
+  notApproved: PlaceableVendor[];
+  /** Vendors added on the day, who answered nothing to fit or override (E36/F03/S01). */
+  addedByHand: PlaceableVendor[];
 }
 
 /**
@@ -159,8 +199,16 @@ export function groupCandidates(
   place: Omit<PlacementContext, 'seat' | 'datesHeld'> & { seat: Seat | null },
   datesHeldBy: (email: string) => readonly string[],
 ): CandidateGroups {
-  const groups: CandidateGroups = { fits: [], overrides: [] };
+  const groups: CandidateGroups = { fits: [], overrides: [], notApproved: [], addedByHand: [] };
   for (const vendor of vendors) {
+    if (vendor.notApproved) {
+      groups.notApproved.push(vendor);
+      continue;
+    }
+    if (vendor.addedByHand) {
+      groups.addedByHand.push(vendor);
+      continue;
+    }
     const warnings = placementWarnings(vendor, {
       ...place,
       seat: place.seat ?? (vendor.tableChoice === 'half' ? HALF_TABLE_LEFT : FULL_TABLE),
