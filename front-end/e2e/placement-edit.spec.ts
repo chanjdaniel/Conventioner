@@ -97,6 +97,7 @@ test.describe('Changing a placement on the Tables view', () => {
     const firstRow = page.getByTestId('vendors-list-item').first();
     await expect(firstRow).toBeVisible({ timeout: 15000 });
     await firstRow.click();
+    await page.getByTestId('vendor-drawer-tab-assignments').click();
 
     const card = page.getByTestId('vendors-detail-assignment-item').first();
     await expect(card).toBeVisible();

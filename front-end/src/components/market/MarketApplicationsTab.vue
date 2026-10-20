@@ -13,6 +13,8 @@ import { computed, ref } from 'vue';
 import { marketPath } from '@/utils/market';
 import { useRoute, useRouter } from 'vue-router';
 import ApplicationMonitor from '@/components/application/ApplicationMonitor.vue';
+import ApplicationsAll from '@/components/application/ApplicationsAll.vue';
+import { withoutQueryKey } from '@/utils/routeQuery';
 import { IntakeMode, MarketPhase, type Market } from '@/assets/types/datatypes';
 import { intakeModeOf } from '@/utils/marketGuide';
 import { canImportInto } from '@/utils/importPhase';
@@ -28,6 +30,17 @@ const route = useRoute();
 
 /** The application this page's address names, as an assignment that refused links to it (bug 42). */
 const namedApplication = computed(() => String(route.query.application ?? ''));
+
+/**
+ * One by one, or All (E34/F04/S01): the review's two views, the choice in the address so a reload
+ * or a shared link opens the same one.
+ */
+const allView = computed(() => route.query.view === 'all');
+function showView(all: boolean) {
+  void router.replace({
+    query: all ? { ...route.query, view: 'all' } : withoutQueryKey(route.query, 'view'),
+  });
+}
 
 /** Published by the review queue, so this surface can lead with it while reviewing. */
 const undecided = ref(0);
@@ -127,7 +140,31 @@ const condition = computed(() => {
         Bring in the responses you already collected, as a CSV from any form tool or spreadsheet.
       </span>
     </div>
+    <div class="review-views" role="group" aria-label="How to review">
+      <button
+        type="button"
+        class="btn btn--compact"
+        :class="allView ? 'btn--secondary' : 'btn--primary'"
+        :aria-pressed="!allView"
+        data-testid="applications-view-one"
+        @click="showView(false)"
+      >
+        One by one
+      </button>
+      <button
+        type="button"
+        class="btn btn--compact"
+        :class="allView ? 'btn--primary' : 'btn--secondary'"
+        :aria-pressed="allView"
+        data-testid="applications-view-all"
+        @click="showView(true)"
+      >
+        All
+      </button>
+    </div>
+    <ApplicationsAll v-if="allView" :market="market" @update:undecidedCount="undecided = $event" />
     <ApplicationMonitor
+      v-else
       :market="market"
       :visible="visible"
       :named="namedApplication"
@@ -137,6 +174,11 @@ const condition = computed(() => {
 </template>
 
 <style scoped>
+.review-views {
+  display: flex;
+  gap: var(--space-1);
+}
+
 .applications-condition {
   margin: 0 0 var(--space-4);
   font-size: var(--text-sm);

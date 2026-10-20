@@ -51,7 +51,9 @@ test('an archived market that ran is shown as a record, with nothing to change',
   await expect(page.getByText('Place someone')).toHaveCount(0);
 
   // A vendor's dates read as a record too.
-  await page.goto(`${marketScreenPath(marketId, 'vendors')}?vendor=alice@example.com`);
+  await page.goto(
+    `${marketScreenPath(marketId, 'vendors')}?vendor=alice@example.com&vendorTab=assignments`,
+  );
   await expect(page.getByTestId('vendors-detail-panel')).toContainText('A 1', { timeout: 15000 });
   await expect(page.getByTestId('vendor-date-card-place-link')).toHaveCount(0);
 
