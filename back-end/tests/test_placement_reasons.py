@@ -369,6 +369,36 @@ class TestAPinThatOverridesTheVendorsAnswer:
         assert [o.overrides for o in result] == [(PlacementOverride.DATE,)]
 
 
+class TestAPinForSomeoneNotApproved:
+    """Seated by hand though the review left them out (E36/F02/S02): it stands, and it is marked
+    first, beside whatever else it crosses (E36/F02/S03)."""
+
+    def test_it_is_marked_not_approved(self):
+        result = overridden_placements(
+            [], [pinned("nadia@ember.test", DATES[0], "Section Gold 1")],
+            not_approved=[vendor()],
+        )
+
+        assert [(o.email, o.overrides) for o in result] == [
+            ("nadia@ember.test", (PlacementOverride.NOT_APPROVED,))
+        ]
+
+    def test_it_is_marked_with_every_answer_it_crosses_too(self):
+        result = overridden_placements(
+            [], [pinned("nadia@ember.test", DATES[0], "Section Gold 1", tier="Gold")],
+            not_approved=[vendor(tiers=("Silver",))],
+        )
+
+        assert result[0].overrides == (PlacementOverride.NOT_APPROVED, PlacementOverride.TIER)
+
+    def test_an_approved_vendor_is_never_marked_not_approved(self):
+        result = overridden_placements(
+            [vendor()], [pinned("nadia@ember.test", DATES[0], "Section Gold 1")],
+        )
+
+        assert result == []
+
+
 class TestAPinThePlanNoLongerHolds:
     """Orphaned, not deleted: a deliberate guarantee is never lost silently."""
 

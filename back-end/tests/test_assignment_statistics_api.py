@@ -464,10 +464,11 @@ def test_get_assignment_csv_returns_csv_string(monkeypatch):
     monkeypatch.setattr(
         MarketsApi,
         "market_csv_to_string",
-        lambda market_dict, vendor_names, full_names: (
+        lambda market_dict, vendor_names, full_names, not_approved: (
             "Name,Full name,Email,Day 1\nAna,Ana Rivera,vendor@example.com,A1 - Full Table\n"
         ),
     )
+    monkeypatch.setattr(MarketsApi, "not_approved_vendors", lambda *_args: [])
 
     result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
 

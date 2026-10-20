@@ -82,6 +82,19 @@ class TestTheAssignmentCsv:
         assert rows[0]["Name"] == "Nadia Okonkwo"
         assert rows[0]["Email"] == "nadia@ember.test"
 
+    def test_says_who_holds_a_seat_though_not_approved(self):
+        """A seat given by hand to someone the review left out is marked in the download too
+        (E36/F02/S03), and every other row is said to be approved."""
+        fieldnames, rows = build_market_csv_rows(
+            ASSIGNED_MARKET, {}, not_approved={"theo@thistle.test"},
+        )
+
+        assert fieldnames[3] == "Approval"
+        assert {row["Email"]: row["Approval"] for row in rows} == {
+            "nadia@ember.test": "Approved",
+            "theo@thistle.test": "Not approved",
+        }
+
     def test_leaves_the_name_blank_rather_than_inventing_a_placeholder(self):
         _fieldnames, rows = build_market_csv_rows(ASSIGNED_MARKET, {})
 

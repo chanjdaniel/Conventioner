@@ -23,6 +23,8 @@ defineProps<{
   names: VendorNames;
   /** A record: shown, never offered. */
   readOnly: boolean;
+  /** Seated by hand though the review left them out (E36/F02/S03): said on the seat itself. */
+  notApproved?: boolean;
 }>();
 
 /** `open` changes the seat; `view` opens the drawer of whoever holds it. */
@@ -56,6 +58,12 @@ const emit = defineEmits<{ open: []; view: [] }>();
     >
       <span class="seat-button-hint" data-testid="tables-seat-hint">Change</span>
     </button>
+    <span
+      v-if="notApproved"
+      class="chip chip--destructive seat-flag"
+      data-testid="tables-seat-not-approved"
+      >Not approved</span
+    >
   </div>
   <div v-else-if="readOnly" class="seat seat--record seat--vacant" data-testid="tables-seat-empty">
     <span :class="vacantLabel === 'Unassigned' ? 'seat-unassigned' : 'seat-vacant'">{{
@@ -161,6 +169,12 @@ const emit = defineEmits<{ open: []; view: [] }>();
 .seat-change:focus-visible {
   outline: 2px solid var(--mm-black);
   outline-offset: 2px;
+}
+
+/* Beneath the name, on a line of its own, so the name and Change keep their places. */
+.seat-flag {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 .seat-occupant {

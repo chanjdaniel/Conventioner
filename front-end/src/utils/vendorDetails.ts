@@ -4,7 +4,7 @@ import { fetchMarketApplications } from '@/utils/applicantApi';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesWithinReach } from '@/utils/datesWithinReach';
-import { verdictGiverLine } from '@/utils/verdicts';
+import { verdictLine } from '@/utils/verdicts';
 import {
   overrideIndex,
   reasonIndex,
@@ -213,7 +213,7 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         ),
         answers,
         tableShareNotice: application.tableShareNotice ?? null,
-        verdict: verdictGiverLine(application),
+        verdict: verdictLine(application),
       };
     }),
   );
