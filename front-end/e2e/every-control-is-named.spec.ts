@@ -224,6 +224,13 @@ test('every field on every other organizer screen and dialog has a name', async 
     await named(screen);
   }
 
+  // The placement history, opened with the run's entry in it (E35/F03/S03).
+  await page.goto(marketScreenPath(published.marketId, 'result'));
+  await page.getByTestId('result-history-button').click();
+  await expect(page.getByTestId('placement-history-entry').first()).toBeVisible();
+  await named('the placement history');
+  await page.keyboard.press('Escape');
+
   await page.goto(`/${published.marketSlug}/check-in`);
   await page.waitForLoadState('networkidle');
   await named('the public check-in page');

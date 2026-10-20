@@ -5,7 +5,12 @@
  * so a sentence changes without a migration (`E11/F04/S01`).
  */
 import { describe, expect, it } from 'vitest';
-import { historyDate, historySummary, type PlacementHistoryEntry } from '@/utils/placementHistory';
+import {
+  historyDate,
+  historyParts,
+  historySummary,
+  type PlacementHistoryEntry,
+} from '@/utils/placementHistory';
 
 const NAMES = { 'ana@ember.test': 'Ana Rivera', 'ben@ember.test': 'Ben Okafor' };
 
@@ -110,5 +115,51 @@ describe('which date an entry is about', () => {
 
   it('names none for a solver run, which is about all of them', () => {
     expect(historyDate(entry({ kind: 'assigned', detail: {} }))).toBeNull();
+  });
+});
+
+/**
+ * A vendor in the trail is named by name AND email (E35/F03/S03), the product's own rule: two
+ * vendors can share a name, and the address is the one that tells them apart.
+ */
+describe('who an entry names', () => {
+  const vendorsIn = (e: PlacementHistoryEntry, names: Record<string, string> = NAMES) =>
+    historyParts(e, names).filter((part) => part.kind === 'vendor');
+
+  it('names a placed vendor by name and email', () => {
+    const placed = entry({ detail: { tableCode: 'Front 1', tableChoice: 'Full Table' } });
+    expect(vendorsIn(placed)).toEqual([
+      { kind: 'vendor', name: 'Ana Rivera', email: 'ana@ember.test' },
+    ]);
+    expect(historySummary(placed, NAMES)).toBe(
+      'Placed Ana Rivera (ana@ember.test) at Front 1 (Full Table)',
+    );
+  });
+
+  it('names both vendors of a swap', () => {
+    const swap = entry({
+      kind: 'swapped',
+      vendors: ['ana@ember.test', 'ben@ember.test'],
+      detail: {
+        seats: [
+          { email: 'ana@ember.test', tableCode: 'Front 2' },
+          { email: 'ben@ember.test', tableCode: 'Front 1' },
+        ],
+      },
+    });
+    expect(vendorsIn(swap).map((part) => part.kind === 'vendor' && part.email)).toEqual([
+      'ana@ember.test',
+      'ben@ember.test',
+    ]);
+  });
+
+  it('reads a vendor with no name as their email, once', () => {
+    const freed = entry({
+      kind: 'freed',
+      vendors: ['cy@ember.test'],
+      detail: { tableCode: 'B 2' },
+    });
+    expect(vendorsIn(freed)).toEqual([{ kind: 'vendor', name: '', email: 'cy@ember.test' }]);
+    expect(historySummary(freed, NAMES)).toBe('Freed B 2, leaving cy@ember.test with no table');
   });
 });

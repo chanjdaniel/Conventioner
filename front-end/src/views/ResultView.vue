@@ -25,7 +25,6 @@ import { canAssignIn } from '@/utils/assignPhase';
 import ResultSummary from '@/components/ResultSummary.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import { useResultFilters } from '@/utils/useResultFilters';
-import PlacementHistory from '@/components/PlacementHistory.vue';
 import {
   FULL_TABLE,
   HALF_TABLE_LEFT,
@@ -583,7 +582,6 @@ function swapSeats(withEmail: string): void {
             </div>
           </template>
         </template>
-        <PlacementHistory v-if="market" :marketId="market.id" />
       </div>
     </MarketFrame>
 

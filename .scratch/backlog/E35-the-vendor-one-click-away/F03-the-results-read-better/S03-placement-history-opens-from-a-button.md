@@ -2,7 +2,7 @@
 id: E35/F03/S03
 title: The placement history opens from a button
 type: story
-status: ready
+status: in-progress
 blocked_by: []
 pr: []
 ---
@@ -27,13 +27,20 @@ The trail is one component on two surfaces, so the vendor drawer's history (its 
 - The trail is read when the dialog opens, so it is current after a placement made a moment ago on the same page, with no reload.
 - The email is drawn in the muted secondary style beside the name, not run into the sentence as plain text, so the line still reads as a sentence.
 
+## As built
+
+- `PlacementHistoryDialog.vue` is the trail in an `AppDialog` with no confirm, mounting `PlacementHistory` as it opens, so each opening reads the trail afresh.
+- `ResultSummary` has the **Placement history** button in its action row after a run, and on its own row under "Nothing assigned yet" before one.
+- `historyParts` (`utils/placementHistory.ts`) words an entry as parts, a vendor being a part of its own drawn as the name with the email beside it in the muted style; `historySummary` reads "Name (email)" from the same parts.
+- The dialog joins the every-control-is-named walk on a published market, opened on its run's entry.
+
 ## Acceptance criteria
 
-- [ ] The Result page no longer draws the placement history below the tables.
-- [ ] A **Placement history** button sits in the results' action row, before and after a run, for an editor and for a viewer.
-- [ ] The button opens the history in a dialog; Escape, the backdrop and the close control each close it.
-- [ ] Placing a vendor by hand and then opening the dialog shows that placement, with no reload.
-- [ ] A placed, freed or swapped entry shows each vendor's name and email; a vendor with no name shows the email once.
-- [ ] The vendor drawer's history shows the email the same way.
-- [ ] The dialog joins the every-control-is-named walk, opened with entries in it.
-- [ ] An E2E spec places a vendor, opens the dialog from the button and finds the entry with the vendor's email in it.
+- [x] The Result page no longer draws the placement history below the tables.
+- [x] A **Placement history** button sits in the results' action row, before and after a run, for an editor and for a viewer.
+- [x] The button opens the history in a dialog; Escape, the backdrop and the close control each close it.
+- [x] Placing a vendor by hand and then opening the dialog shows that placement, with no reload.
+- [x] A placed, freed or swapped entry shows each vendor's name and email; a vendor with no name shows the email once.
+- [x] The vendor drawer's history shows the email the same way.
+- [x] The dialog joins the every-control-is-named walk, opened with entries in it.
+- [x] An E2E spec places a vendor, opens the dialog from the button and finds the entry with the vendor's email in it.
