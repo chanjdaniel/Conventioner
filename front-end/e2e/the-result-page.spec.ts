@@ -42,7 +42,9 @@ test.describe('The Result page', () => {
     );
     await expect(page.getByTestId('assignment-satisfaction-score')).toBeVisible();
     await expect(page.getByTestId('tables-count-assigned')).toBeVisible();
-    await expect(page.getByTestId('placement-history')).toBeVisible();
+    // The trail is behind its own button now, not under every table (E35/F03/S03).
+    await expect(page.getByTestId('placement-history')).toHaveCount(0);
+    await expect(page.getByTestId('result-history-button')).toBeVisible();
     // Retired with the old results page.
     await expect(page.locator('.assignment-results')).toHaveCount(0);
     await expect(page.getByTestId('assignment-results-view-tables-button')).toHaveCount(0);

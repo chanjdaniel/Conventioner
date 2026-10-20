@@ -39,6 +39,8 @@
         "src/components/PhaseRail.vue",
         "src/components/PlacementDialog.vue",
         "src/components/PlacementHistory.vue",
+        "src/components/PlacementHistoryDialog.vue",
+        "src/components/VendorNameButton.vue",
         "src/components/SummaryCard.vue",
         "src/components/VendorDateCard.vue",
         "src/components/VendorIdentity.vue",

@@ -14,6 +14,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ResultStatistics from '@/components/ResultStatistics.vue';
 import NothingAssigned from '@/components/NothingAssigned.vue';
+import PlacementHistoryDialog from '@/components/PlacementHistoryDialog.vue';
 import type { AssignmentStatistics, Market } from '@/assets/types/datatypes';
 import { api } from '@/utils/api';
 import { marketPath } from '@/utils/market';
@@ -95,6 +96,12 @@ const unassignedCount = computed(() =>
   statistics.value ? (statistics.value.unassignedVendors?.length ?? 0) : '…',
 );
 
+/**
+ * The placement trail opens from the action row, before and after a run alike (E35/F03/S03): a
+ * hand placement made before the first run is history too, and reading it changes nothing.
+ */
+const historyOpen = ref(false);
+
 const downloadError = ref('');
 const isDownloading = ref(false);
 
@@ -162,6 +169,16 @@ async function downloadCsv(): Promise<void> {
         Anyone you place below first keeps their table: the run places everyone else around them.
       </span>
     </NothingAssigned>
+    <span v-if="!assigned" class="result-actions">
+      <button
+        type="button"
+        class="btn btn--secondary"
+        data-testid="result-history-button"
+        @click="historyOpen = true"
+      >
+        Placement history
+      </button>
+    </span>
 
     <div v-else class="result-strip" data-testid="result-strip">
       <span class="result-figure" data-testid="result-vendors-placed">
@@ -196,6 +213,14 @@ async function downloadCsv(): Promise<void> {
         <button
           type="button"
           class="btn btn--secondary"
+          data-testid="result-history-button"
+          @click="historyOpen = true"
+        >
+          Placement history
+        </button>
+        <button
+          type="button"
+          class="btn btn--secondary"
           :disabled="isDownloading"
           data-testid="result-download-csv-button"
           @click="downloadCsv"
@@ -214,6 +239,11 @@ async function downloadCsv(): Promise<void> {
     <p v-if="downloadError" class="result-error" data-testid="result-download-error">
       {{ downloadError }}
     </p>
+    <PlacementHistoryDialog
+      :open="historyOpen"
+      :marketId="market.id"
+      @close="historyOpen = false"
+    />
   </div>
 </template>
 
