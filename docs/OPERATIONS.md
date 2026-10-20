@@ -156,7 +156,7 @@ In short (the detail is [RELEASING.md](RELEASING.md)):
   The Test workflow runs on `main`, then the Deploy workflow deploys the back end, checks `/healthz`, deploys the front end, and checks a deep link.
   Watch it under Actions; a failed run says how to roll back in its summary.
 - After release-please's Release PR is merged, merge `main` back into `dev` (a PR from `main` to `dev`), or the next promotion is not a fast-forward.
-- During a market window, `dev` takes fixes only, and no hotfix carries a migration.
+- A hotfix goes through `dev` when nothing unreleased is waiting there, and otherwise through a `hotfix/` branch from `main` ([RELEASING.md](RELEASING.md#hotfixes)).
 
 ## Watching it run
 

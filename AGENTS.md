@@ -13,8 +13,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **Promotion is a fast-forward, and a green CI run on `main` deploys it**: `.github/workflows/deploy.yml`
   ships the back end, checks `/healthz`, then the front end (`conventioner.io`, `api.conventioner.io`);
   Vercel's own deploys of `main` are off. After an Instant Rollback, promote a build again or no
-  deploy reaches the domain. During a market window `dev` takes `fix:` PRs only,
-  each promoted once green, and no hotfix carries a migration. See `docs/RELEASING.md#hotfixes`.
+  deploy reaches the domain. A hotfix goes through `dev` when nothing unreleased waits there, else
+  through a `hotfix/` branch from `main`. See `docs/RELEASING.md#hotfixes`.
 
 ## Operating Production
 
