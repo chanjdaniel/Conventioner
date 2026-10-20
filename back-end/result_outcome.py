@@ -5,10 +5,10 @@ approved one the run could not place has none. Two outcomes and no reason, so re
 approved-without-a-seat read the same (decision 13 of the rejection-visibility map). The publish
 confirmation counts them (E36/F04/S01) by the same rule the applicant's page reads.
 """
-from typing import Dict, Set
+from typing import Dict, Iterable, List, Set
 
 import api.applications as ApplicationsApi
-from datatypes import ApplicationType, Market
+from datatypes import ApplicationType, Market, VendorAssignmentResult
 from utils.email_address import normalized_email
 
 HAS_A_TABLE = "has_a_table"
@@ -22,6 +22,22 @@ def seated_addresses(market: Market) -> Set[str]:
         for placement in market.assignment_object.vendor_assignments or []
         if placement.email
     }
+
+
+def seats_of(address: str, placements: Iterable[VendorAssignmentResult]) -> List[Dict[str, str]]:
+    """Where one applicant sits, date by date, as their page lists it."""
+    mine = normalized_email(address)
+    return [
+        {
+            "date": placement.date,
+            "tableCode": placement.table_code,
+            "tableChoice": placement.table_choice,
+            "section": placement.section,
+            "location": placement.location,
+        }
+        for placement in sorted(placements, key=lambda p: (p.date, p.table_code))
+        if normalized_email(placement.email) == mine
+    ]
 
 
 def outcome_of(address: str, seated: Set[str]) -> str:

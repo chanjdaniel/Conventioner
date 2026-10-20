@@ -4,9 +4,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { useApplicationStore } from '@/stores/application';
 import { fetchPublicApplicationForm } from '@/utils/publicApplicationForm';
 import type { Application, FormField } from '@/assets/types/datatypes';
-import { ApplicationStatus } from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
 import { getTimestampDate } from '@/utils/utils';
+import { outcomeHeadline, seatLine } from '@/utils/applicantOutcome';
 import AnswerValue from '@/components/AnswerValue.vue';
 import PageNotFound from '@/components/PageNotFound.vue';
 
@@ -25,29 +25,17 @@ const isOpen = ref(false);
 const loadFailed = ref(false);
 const notFound = ref(false);
 
-const statusLabels: Record<string, string> = {
-  open: 'Submitted',
-  under_review: 'Under Review',
-  reviewer_approved: 'Approved',
-  reviewer_rejected: 'Not Accepted',
-  unassigned: 'Pending',
-  assigned: 'Assigned',
-  assignment_sent: 'Assignment Sent',
-  vendor_accepted: 'Accepted',
-  vendor_refused: 'Not Accepted',
-  cancelled: 'Cancelled',
-};
+/**
+ * What the applicant reads: "Submitted" until the results are published, then one of two outcomes
+ * (E36/F05/S02). The server serves no verdict, so there is none here to word.
+ */
+const headline = computed(() =>
+  application.value ? (outcomeHeadline(application.value) ?? 'Submitted') : '',
+);
 
-const statusBadgeClass = computed(() => {
-  if (!application.value) return 'status-neutral';
-  const s = application.value.status;
-  if (s === ApplicationStatus.ReviewerApproved || s === ApplicationStatus.VendorAccepted)
-    return 'status-approved';
-  if (s === ApplicationStatus.ReviewerRejected || s === ApplicationStatus.VendorRefused)
-    return 'status-rejected';
-  if (s === ApplicationStatus.UnderReview) return 'status-review';
-  return 'status-neutral';
-});
+const statusBadgeClass = computed(() =>
+  application.value?.outcome === 'has_a_table' ? 'status-approved' : 'status-neutral',
+);
 
 onMounted(async () => {
   if (!store.isAuthenticatedFor(marketSlug.value)) {
@@ -152,11 +140,18 @@ function logout() {
         data-testid="applicant-dashboard-status"
       >
         <span class="status-label">
-          {{ statusLabels[application.status] ?? application.status }}
+          {{ headline }}
         </span>
         <span v-if="application.submittedAt" class="status-date">
           Submitted {{ getTimestampDate(application.submittedAt) }}
         </span>
+        <ul
+          v-if="application.seats?.length"
+          class="status-seats"
+          data-testid="applicant-dashboard-seats"
+        >
+          <li v-for="seat in application.seats" :key="seat.date">{{ seatLine(seat) }}</li>
+        </ul>
       </div>
 
       <div class="dash-form-answers" data-testid="applicant-dashboard-answers">
@@ -309,18 +304,6 @@ function logout() {
   color: var(--mm-text-green);
 }
 
-.dash-status-card.status-rejected {
-  background: var(--mm-chip-destructive);
-  border: 1px solid var(--mm-red);
-  color: var(--mm-text-red-on-tint);
-}
-
-.dash-status-card.status-review {
-  background: var(--mm-chip-attention);
-  border: 1px solid var(--mm-yellow);
-  color: var(--mm-text-yellow-on-tint);
-}
-
 .status-label {
   font-size: var(--text-lg);
   font-weight: 400;
@@ -330,6 +313,13 @@ function logout() {
 .status-date {
   font-size: var(--text-xs);
   opacity: 0.8;
+}
+
+/* Where they sit, one line a date, under the outcome (E36/F05/S02). */
+.status-seats {
+  margin: var(--space-2) 0 0;
+  padding-left: 1.25rem;
+  font-size: var(--text-sm);
 }
 
 .dash-form-answers h3 {
