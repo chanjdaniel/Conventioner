@@ -82,14 +82,10 @@ Check, in this order:
 
 `dev` is the hotfix lane, because promotion is a fast-forward: a fix merged to `dev` and promoted ships exactly what CI tested, and nothing else, **as long as nothing else is waiting on `dev`**.
 
-- **During a market window, `dev` takes fixes only.**
-  From the day an organizer starts using production for a market until it is archived, only `fix:` PRs merge to `dev`, and each is promoted as soon as its `dev` push is green.
-  Feature work waits on its branch.
-  For the November 2026 market the window is 2026-10-18 to 2026-11-21.
-- **A hotfix carries no migration during a window.**
+- **When nothing unreleased waits on `dev`:** merge the `fix:` PR to `dev` and promote it as soon as its `dev` push is green.
+- **When `dev` holds unreleased work:** branch `hotfix/<slug>` from `main`, PR it to `main`, and once it is merged, merge `main` back into `dev` so the next promotion is still a fast-forward.
+- **Weigh a migration in a hotfix.**
   A migration is forward-only, so it makes the release behind it impossible to roll back to.
-- **The emergency lane, when `dev` is not releasable:** branch `hotfix/<slug>` from `main`, PR it to `main`, and once it is merged, merge `main` back into `dev` so the next promotion is still a fast-forward.
-  Use it only when the window rule above was broken.
 
 ### Rolling back
 
@@ -98,7 +94,7 @@ Roll back by promoting the previous one, in the dashboard (Deployments, then "In
 A rollback does not move `main`, so revert the bad commit on `dev` and promote it before the next deploy brings it back.
 **An Instant Rollback stops Vercel giving new production builds the domain** until a deployment is promoted again (`vercel promote <deployment>`, or Promote in the dashboard).
 That is how `api.conventioner.io` served an April build until 2026-10-18 while every later deploy went live nowhere; promote the fixed build once it is out, or the next deploy will not reach the domain either.
-A rollback cannot undo a migration; see the window rule above.
+A rollback cannot undo a migration, which is forward-only.
 
 ### Bootstrapping Note
 
