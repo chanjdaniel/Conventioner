@@ -55,42 +55,27 @@ logger = logging.getLogger(__name__)
 
 # ── Publication gate ───────────────────────────────────────────────────────
 
-# The states of a review the organizer has not finished delivering. A reviewer recording a verdict
-# is not the organizer sending it, and until the organizer acts outward via the publish-results
-# endpoint, the applicant is told only that the application is under review.
-#
-# This has to be enforced here, on the way out of the process, because anything the applicant's
-# browser receives, the applicant can read: a client-side label mapped over a payload that carries
-# ``reviewer_rejected`` still ships the rejection in the response body and into the page markup.
-# There is no applicant-facing payload that does not pass through ``_application_response``, so this
-# is the one place that decides, and nothing downstream of it may reintroduce the raw value.
-REVIEW_IN_PROGRESS_STATUSES = frozenset({
-    ApplicationStatus.UNDER_REVIEW,
-    ApplicationStatus.REVIEWER_APPROVED,
-    ApplicationStatus.REVIEWER_REJECTED,
-})
-
-
 def applicant_visible_status(
     status: ApplicationStatus, results_published: bool,
 ) -> ApplicationStatus:
     """The status of an application as its applicant is allowed to know it.
 
-    An organizer must not leak a half-finished review, and must retain the ability to change their
-    mind before any applicant sees an outcome. Publication is the single, deliberate,
-    organizer-controlled moment the verdict becomes visible.
+    Until results are published, every application reads ``open`` - "Submitted" - whatever is
+    stored (E36/F05/S01). The automatic rules judge an application in the request that saves it, so
+    "Under Review" beside "Submitted" told an applicant a rule had rejected them the moment they
+    submitted, and editing the answers flipped it back. Publication is the single, deliberate,
+    organizer-controlled moment anything more is told.
 
-    Until results are published, every working state of an unfinished review is collapsed to
-    ``under_review`` so the applicant cannot distinguish a provisional acceptance from a
-    provisional rejection. After publication the applicant sees the actual verdict.
-
-    The organizer's view goes directly to the stored status and does not pass through here at all,
-    so the organizer always sees the truth.
+    This has to be enforced here, on the way out of the process, because anything the applicant's
+    browser receives, the applicant can read: a client-side label mapped over a payload that carries
+    ``reviewer_rejected`` still ships the rejection in the response body and into the page markup.
+    There is no applicant-facing payload that does not pass through ``_application_response``, so
+    this is the one place that decides. The organizer's view never passes through here.
     """
-    # A follow-up is the organizer's own business, never an outcome, published or not (E34/F02/S01).
+    if not results_published:
+        return ApplicationStatus.OPEN
+    # A follow-up is the organizer's own business, never an outcome (E34/F02/S01).
     if status is ApplicationStatus.NEEDS_FOLLOW_UP:
-        return ApplicationStatus.UNDER_REVIEW
-    if not results_published and status in REVIEW_IN_PROGRESS_STATUSES:
         return ApplicationStatus.UNDER_REVIEW
     return status
 

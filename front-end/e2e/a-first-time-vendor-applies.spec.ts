@@ -5,6 +5,7 @@ import {
   planSetupObject,
   seedApplicantMarket,
 } from './helpers/seedApplicantMarket';
+import { mongoEval } from './helpers/mongo';
 
 /**
  * A vendor who has never applied can apply online (bug 6, E26/F07/S01).
@@ -57,6 +58,57 @@ test('a brand-new address requests a code, signs in, applies and sees it submitt
   await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
   await expect(page.getByTestId('applicant-dashboard-status')).toContainText('Submitted');
   await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Newcomer Prints');
+});
+
+/**
+ * "Submitted" until results are published, whatever happened (E36/F05/S01). The rules judge an
+ * application as it is saved, so "Under Review" beside "Submitted" told this vendor a rule had
+ * rejected them the moment they pressed Submit.
+ */
+test('a vendor a rule rejects as they apply reads "Submitted", as anyone would', async ({
+  page,
+  request,
+}) => {
+  const market = await seedApplicantMarket(
+    request,
+    BACKEND_URL,
+    TEST_USER.email,
+    TEST_USER.password,
+    { setupObject: planSetupObject([DATE]) },
+  );
+  const rule = await request.put(`${BACKEND_URL}/markets/${market.marketId}/rejection-rules`, {
+    headers: { 'X-Owner-Email': TEST_USER.email },
+    data: { rules: [{ key: 'essential_table_choice', answers: ['full'] }] },
+  });
+  expect(rule.ok(), await rule.text()).toBeTruthy();
+
+  const vendor = 'turned-away-vendor@example.com';
+  const login = new ApplicantLoginPage(page);
+  await page.goto(`/${market.marketSlug}/applicant-login?redirect=apply`);
+  await login.requestCode(vendor);
+  createApplicantLoginChallenge(market.marketId, vendor, CODE);
+  await login.enterCode(CODE);
+
+  const apply = new ApplyPage(page);
+  await page.waitForURL(new RegExp(`/${market.marketSlug}/apply`));
+  await apply.fullNameInput.fill('Turned Away');
+  await apply.tierCheckbox(DATE, 'Gold').check();
+  await apply.maxDatesInput.fill('1');
+  await apply.tableChoiceRadio('full').check();
+  await apply.fillField('business_name', 'Turned Away Goods');
+  await apply.fillField('product_type', 'Candles');
+  await apply.submit();
+
+  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
+  const status = page.getByTestId('applicant-dashboard-status');
+  await expect(status).toContainText('Submitted');
+  await expect(status).not.toContainText('Review');
+  // And the rule did reject them: the organizer reads it, the vendor does not.
+  expect(
+    mongoEval(
+      `db.applications.findOne({market_id: ${JSON.stringify(market.marketId)}, applicant_email: '${vendor}'}).status`,
+    ).trim(),
+  ).toBe('reviewer_rejected');
 });
 
 test('signing in does not assume the vendor has applied', async ({ page, request }) => {

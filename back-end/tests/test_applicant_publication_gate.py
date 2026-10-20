@@ -28,7 +28,6 @@ from api.applicants import (
     publish_results,
     list_market_applications,
     review_application,
-    REVIEW_IN_PROGRESS_STATUSES,
 )
 from conftest import FakeApplicationsCollection
 
@@ -38,36 +37,23 @@ import api.applications as ApplicationsApi
 # ── applicant_visible_status (pure function) ───────────────────────────────
 
 
-@pytest.mark.parametrize("status,results_published,expected", [
-    (ApplicationStatus.OPEN, False, ApplicationStatus.OPEN),
-    (ApplicationStatus.OPEN, True, ApplicationStatus.OPEN),
-    (ApplicationStatus.UNDER_REVIEW, False, ApplicationStatus.UNDER_REVIEW),
-    (ApplicationStatus.UNDER_REVIEW, True, ApplicationStatus.UNDER_REVIEW),
-    (ApplicationStatus.REVIEWER_APPROVED, False, ApplicationStatus.UNDER_REVIEW),
-    (ApplicationStatus.REVIEWER_APPROVED, True, ApplicationStatus.REVIEWER_APPROVED),
-    (ApplicationStatus.REVIEWER_REJECTED, False, ApplicationStatus.UNDER_REVIEW),
-    (ApplicationStatus.REVIEWER_REJECTED, True, ApplicationStatus.REVIEWER_REJECTED),
-    (ApplicationStatus.ASSIGNMENT_SENT, False, ApplicationStatus.ASSIGNMENT_SENT),
-    (ApplicationStatus.ASSIGNMENT_SENT, True, ApplicationStatus.ASSIGNMENT_SENT),
-    (ApplicationStatus.CANCELLED, False, ApplicationStatus.CANCELLED),
-    (ApplicationStatus.CANCELLED, True, ApplicationStatus.CANCELLED),
+@pytest.mark.parametrize("status", list(ApplicationStatus))
+def test_before_publication_every_application_reads_submitted(status):
+    """One status, whatever is stored (E36/F05/S01): the rules judge an application as it is saved,
+    so "Under Review" beside "Submitted" told an applicant a rule had rejected them."""
+    assert applicant_visible_status(status, False) == ApplicationStatus.OPEN
+
+
+@pytest.mark.parametrize("status", [
+    ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED,
 ])
-def test_applicant_visible_status_gates_by_publication(status, results_published, expected):
-    """Every review-working state maps to under_review before publication,
-    and reveals the raw verdict after."""
-    assert applicant_visible_status(status, results_published) == expected
+def test_after_publication_a_verdict_is_read(status):
+    assert applicant_visible_status(status, True) == status
 
 
-def test_applicant_visible_status_never_unmasks_without_publication():
-    """Proof: every status in the in-progress set reads as under_review when unpublished."""
-    for status in REVIEW_IN_PROGRESS_STATUSES:
-        assert applicant_visible_status(status, False) == ApplicationStatus.UNDER_REVIEW
-
-
-def test_applicant_visible_status_reveals_all_with_publication():
-    """After publication, every status is returned as-is."""
-    for status in REVIEW_IN_PROGRESS_STATUSES:
-        assert applicant_visible_status(status, True) == status
+def test_a_follow_up_is_never_an_outcome():
+    assert applicant_visible_status(ApplicationStatus.NEEDS_FOLLOW_UP, True) == \
+        ApplicationStatus.UNDER_REVIEW
 
 
 # ── _application_response / _application_response_organizer ────────────────
@@ -87,15 +73,15 @@ def _app(status: ApplicationStatus = ApplicationStatus.REVIEWER_APPROVED) -> App
 
 
 def test_application_response_hides_verdict_when_unpublished():
-    """An unpublished reviewer_approved status reads as under_review."""
+    """An unpublished reviewer_approved status reads as submitted."""
     response = _application_response(_app(ApplicationStatus.REVIEWER_APPROVED), False)
-    assert response["status"] == ApplicationStatus.UNDER_REVIEW.value
+    assert response["status"] == ApplicationStatus.OPEN.value
 
 
 def test_application_response_hides_rejection_when_unpublished():
-    """Same gate for rejection."""
+    """Same gate for rejection, a rule's included."""
     response = _application_response(_app(ApplicationStatus.REVIEWER_REJECTED), False)
-    assert response["status"] == ApplicationStatus.UNDER_REVIEW.value
+    assert response["status"] == ApplicationStatus.OPEN.value
 
 
 def test_application_response_reveals_verdict_after_publication():

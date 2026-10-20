@@ -96,11 +96,13 @@ class TestItHoldsTheMarket:
 
 
 class TestTheApplicant:
-    def test_sees_it_under_review_before_and_after_the_results(self):
+    def test_never_reads_it_as_an_outcome(self):
+        """Submitted before the results, like everything (E36/F05/S01), and never a verdict after."""
         app = Application(**{**_app(), "status": "needs_follow_up"})
-        for published in (False, True):
-            served = ApplicantsApi._application_response(app, published)
-            assert served["status"] == ApplicationStatus.UNDER_REVIEW.value
+        assert ApplicantsApi._application_response(app, False)["status"] == \
+            ApplicationStatus.OPEN.value
+        assert ApplicantsApi._application_response(app, True)["status"] == \
+            ApplicationStatus.UNDER_REVIEW.value
 
 
 class TestWhoMayOwnIt:
