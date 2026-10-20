@@ -61,8 +61,11 @@ test('a Viewer reads every market page and is offered nothing to change', async 
   });
 });
 
-// A verdict is EDITOR's since E34/F01/S01: a reviewing team needs no role that moves the phase.
-test('an Editor changes the seats and decides, but moves no phase', async ({ browser }) => {
+// A verdict is EDITOR's since E34/F01/S01 (a-verdict-says-who.spec.ts), but this market is assigning,
+// and the review closed on the way in (E36/F01/S01): the Editor reads the verdicts and changes seats.
+test('an Editor changes the seats, but neither decides nor moves a phase once assigning', async ({
+  browser,
+}) => {
   await withUser(browser, EDITOR.email, EDITOR.password, async (page) => {
     await page.goto(marketSetupPath(marketId, 'setup'));
     await expect(page.getByTestId('plan-card-dates')).toBeVisible({ timeout: 15000 });
@@ -78,7 +81,10 @@ test('an Editor changes the seats and decides, but moves no phase', async ({ bro
     await page.goto(marketSetupPath(marketId, 'applications'));
     await page.getByTestId('app-monitor-decided-toggle').click();
     await expect(page.getByTestId('app-monitor-decided-row').first()).toBeVisible();
-    await expect(page.getByTestId('app-monitor-decided-reject-button').first()).toBeVisible();
+    await expect(page.getByTestId('app-monitor-decided-reject-button')).toHaveCount(0);
+    await expect(page.getByTestId('market-setup-applications-condition')).toContainText(
+      'The review is closed',
+    );
     // Publishing the verdicts stays an admin's.
     await expect(page.getByTestId('app-monitor-publish-button')).toHaveCount(0);
   });

@@ -137,24 +137,36 @@ class TestAnEditorGivesVerdicts:
 
 
 class TestWhenAVerdictMayChange:
-    """While the market can still run its assignment: an approval changed there sends the run out of
-    date, to be run again. After it the verdicts are a record (E34 review)."""
+    """While the market can still get back to review (E36/F01/S01): from assignment on, a verdict is
+    the review's record, and a mistake is fixed with a seat placed or freed by hand."""
 
-    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS_OPEN, MarketPhase.REVIEW,
-                                       MarketPhase.ASSIGNMENT])
-    def test_open_until_the_assignment_is_done(self, phase, monkeypatch):
+    @pytest.mark.parametrize("phase", [MarketPhase.APPLICATIONS_OPEN,
+                                       MarketPhase.APPLICATIONS_CLOSED, MarketPhase.REVIEW])
+    def test_open_while_the_review_is(self, phase, monkeypatch):
         monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: None)
         from conftest import client_market
 
         assert MarketsApi.verdict_refusal("e@x.test", client_market(phase=phase), None) is None
 
-    @pytest.mark.parametrize("phase", [MarketPhase.OFFERS, MarketPhase.MARKET_DAYS])
-    def test_settled_after_it(self, phase, monkeypatch):
+    @pytest.mark.parametrize("phase", [MarketPhase.ASSIGNMENT, MarketPhase.OFFERS,
+                                       MarketPhase.MARKET_DAYS])
+    def test_settled_on_entering_assignment(self, phase, monkeypatch):
         monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: None)
         from conftest import client_market
 
         assert MarketsApi.verdict_refusal(
             "e@x.test", client_market(phase=phase), None) == MarketsApi.VERDICTS_SETTLED
+
+    @pytest.mark.parametrize("phase", list(MarketPhase))
+    def test_the_verdicts_and_the_automatic_rejections_settle_together(self, phase, monkeypatch):
+        """One rule, not two that agree today: a rule and a reviewer judge the same applications."""
+        monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: None)
+        from conftest import client_market
+
+        verdicts_open = MarketsApi.verdict_refusal(
+            "e@x.test", client_market(phase=phase), None) is None
+        rules_open = MarketsApi.rejection_rules_lock_reason(phase) is None
+        assert verdicts_open == rules_open or phase is MarketPhase.ARCHIVED
 
     def test_a_person_who_may_not_change_the_market_is_told_that_first(self, monkeypatch):
         monkeypatch.setattr(MarketsApi, "change_refusal", lambda *_a: "Viewers read.")

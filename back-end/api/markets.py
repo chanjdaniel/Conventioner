@@ -213,9 +213,16 @@ def admin_actions_refusal(
 
 
 VERDICTS_SETTLED = (
-    "The verdicts are settled: this market's assignment is done, so a verdict here would change "
-    "nothing the market can still act on."
+    "The review is closed: the verdicts settled when this market began its assignment. To seat "
+    "someone or free a seat, change the placement on the Result page."
 )
+
+
+def review_is_open(phase: MarketPhase) -> bool:
+    """Whether this market can still get back to review, the one rule both the verdicts and the
+    automatic rejections settle on (E36/F01/S01). A rule and a reviewer judge the same
+    applications, so they close together; derived from the transition table rather than listed."""
+    return route_between(phase.value, MarketPhase.REVIEW.value) is not None
 
 
 def verdict_refusal(
@@ -224,15 +231,14 @@ def verdict_refusal(
     """Why this person cannot give a verdict here, or None while they can (E34).
 
     A verdict - and a follow-up, a claim on a card - is EDITOR's (E34/F01/S01), and open while the
-    market can still run its assignment: an approval changed then sends the run out of date, to be
-    run again. After it, the verdicts are a record. Derived from the transition table, as the
-    assignment rules' own lock is. Served as ``verdictLockReason``, so every review screen offers
-    exactly what the write takes.
+    review is (E36/F01/S01): from assignment on, a verdict is the review's record, and a mistake is
+    fixed with a seat placed or freed by hand. Served as ``verdictLockReason``, so every review
+    screen offers exactly what the write takes.
     """
     refused = change_refusal(user_email, market, organization)
     if refused:
         return refused
-    if route_between(market.phase.value, MarketPhase.ASSIGNMENT.value) is None:
+    if not review_is_open(market.phase):
         return VERDICTS_SETTLED
     return None
 
@@ -331,7 +337,7 @@ def rejection_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     """
     if phase is MarketPhase.ARCHIVED:
         return ARCHIVED_REFUSAL
-    if route_between(phase.value, MarketPhase.REVIEW.value) is not None:
+    if review_is_open(phase):
         return None
     return REJECTION_RULES_SETTLED
 
