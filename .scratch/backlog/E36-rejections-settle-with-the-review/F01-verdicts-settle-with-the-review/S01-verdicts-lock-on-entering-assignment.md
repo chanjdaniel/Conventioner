@@ -2,9 +2,9 @@
 id: E36/F01/S01
 title: Verdicts lock on entering assignment
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#116]
 ---
 
 ## What to build

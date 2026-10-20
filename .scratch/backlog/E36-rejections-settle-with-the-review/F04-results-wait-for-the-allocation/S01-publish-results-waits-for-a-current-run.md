@@ -2,9 +2,9 @@
 id: E36/F04/S01
 title: Publish Results waits for a current run
 type: story
-status: in-progress
+status: done
 blocked_by: [E36/F01/S01]
-pr: []
+pr: [#116]
 ---
 
 ## What to build

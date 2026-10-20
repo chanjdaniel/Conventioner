@@ -2,7 +2,7 @@
 id: E36/F04
 title: Results wait for the allocation
 type: feature
-status: ready
+status: done
 blocked_by: [E36/F01]
 pr: []
 ---

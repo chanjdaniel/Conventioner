@@ -2,7 +2,7 @@
 id: E36/F05
 title: What an applicant reads
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

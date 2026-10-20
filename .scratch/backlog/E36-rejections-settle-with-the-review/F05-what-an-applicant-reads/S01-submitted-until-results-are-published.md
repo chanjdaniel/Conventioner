@@ -2,9 +2,9 @@
 id: E36/F05/S01
 title: "Submitted" until results are published
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#116]
 ---
 
 ## What to build
