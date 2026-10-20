@@ -18,7 +18,6 @@ An applicant reads "Submitted" until then, and afterwards only whether they have
 
 The rejection research of 2026-10-20 ([map](../../wayfinding/rejection-visibility/map.md), [research](../../wayfinding/rejection-visibility/walk/research.md)) found that a rejected vendor could stay seated, go live and check in, and that an applicant's label told them a rule had rejected them the moment they submitted.
 Settled in the same day's grilling: [decisions](../../wayfinding/rejection-visibility/issues/02-who-sees-a-rejection-and-when.md) 1-14; each story cites the ones it builds.
-Feature work, so it waits for the November 2026 market window to close (2026-11-21).
 
 ## Features
 
