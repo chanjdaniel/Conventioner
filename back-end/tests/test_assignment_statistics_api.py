@@ -419,14 +419,16 @@ def test_get_assignment_csv_returns_csv_string(monkeypatch):
     monkeypatch.setattr(
         MarketsApi,
         "market_csv_to_string",
-        lambda market_dict, vendor_names: "Name,Email,Day 1\nAna Rivera,vendor@example.com,A1 - Full Table\n",
+        lambda market_dict, vendor_names, full_names: (
+            "Name,Full name,Email,Day 1\nAna,Ana Rivera,vendor@example.com,A1 - Full Table\n"
+        ),
     )
 
     result, status = MarketsApi.get_assignment_csv("market-123", "viewer@test.com")
 
     assert status == 200
     assert result["filename"] == "Test_Market_assigned.csv"
-    assert result["csv_content"].startswith("Name,Email,Day 1")
+    assert result["csv_content"].startswith("Name,Full name,Email,Day 1")
     assert "vendor@example.com" in result["csv_content"]
     assert result["market_id"] == "market-123"
 

@@ -37,14 +37,28 @@ const chips = computed(() => {
     { name: 'tier', text: `Tier: ${f.tier}`, what: 'tier' },
     { name: 'choice', text: CHOICE_LABELS[f.choice] ?? '', what: 'table size' },
     { name: 'status', text: `Status: ${f.status}`, what: 'status' },
+    { name: 'search', text: `Search: ${f.search.trim()}`, what: 'search' },
   ];
-  return all.filter((chip) => f[chip.name] && offers(chip.name));
+  return all.filter((chip) => f[chip.name].trim() && offers(chip.name));
 });
 </script>
 
 <template>
   <div class="filter-bar" :data-testid="`${testid}-filter-bar`">
     <div class="filter-pickers">
+      <!-- Finds a table by its label, or by someone at it: their name, address or business
+           (E35/F02/S01). In the address with the rest, so a found table is a link. -->
+      <label v-if="offers('search')" class="filter-picker filter-search">
+        <span class="field-label">Search</span>
+        <input
+          type="search"
+          class="field"
+          :value="filters.search"
+          placeholder="Name, business, email or table"
+          :data-testid="`${testid}-filter-search`"
+          @input="setFilter('search', ($event.target as HTMLInputElement).value)"
+        />
+      </label>
       <label v-if="offers('date')" class="filter-picker">
         <span class="field-label">Date</span>
         <select
@@ -148,6 +162,12 @@ const chips = computed(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* The search leads the bar and takes the room the pickers leave. */
+.filter-search {
+  flex: 1 1 16rem;
+  max-width: 24rem;
 }
 
 .filter-chips {

@@ -30,7 +30,15 @@ export interface ResultFilters {
   tier: string;
   choice: ChoiceFilter;
   status: TableStatus | '';
+  /** Words that find a table by its label or by someone at it (E35/F02/S01). */
+  search: string;
 }
+
+/**
+ * What the search finds each vendor by beyond their address, as `GET /markets/:id/tables` serves
+ * it: their names and their answers to the form's text questions, keyed by lowercased address.
+ */
+export type VendorSearch = Readonly<Record<string, readonly string[]>>;
 
 export type ResultFilterName = keyof ResultFilters;
 
@@ -52,6 +60,8 @@ export function readResultFilters(query: Record<string, unknown>): ResultFilters
     tier: firstValue(query.tier),
     choice: choice === 'full' || choice === 'half' ? choice : '',
     status: (TABLE_STATUSES as readonly string[]).includes(status) ? (status as TableStatus) : '',
+    // As typed: the box reads the address, so trimming here would eat the space between two words.
+    search: firstValue(query.search),
   };
 }
 
@@ -110,16 +120,44 @@ function placeMatches(place: VendorPlacement, filters: ResultFilters): boolean {
   );
 }
 
-/** Every filter but the status. */
-function matchesPlace(row: MarketTableRow, filters: ResultFilters): boolean {
-  if (filters.date && row.date !== filters.date) return false;
-  return placeMatches(row, filters);
+/** A whole address, as Change placement searches by (E35/F02/S02), rather than part of one. */
+const WHOLE_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * The search: the table's label, or anyone at it by address, name or text answer. A whole address
+ * finds that vendor alone - "al@x.test" is part of "sal@x.test", and of anyone's answer naming it.
+ */
+function matchesSearch(row: MarketTableRow, needle: string, search: VendorSearch): boolean {
+  if (!needle) return true;
+  if (WHOLE_ADDRESS.test(needle)) {
+    return (row.assignmentSlots ?? []).some((email) => email?.trim().toLowerCase() === needle);
+  }
+  const found = (text: string) => text.toLowerCase().includes(needle);
+  if (found(row.tableCode)) return true;
+  return (row.assignmentSlots ?? []).some((email) => {
+    if (!email) return false;
+    const address = email.trim().toLowerCase();
+    return found(address) || (search[address] ?? []).some(found);
+  });
 }
 
-export function tablesMatching(rows: MarketTableRow[], filters: ResultFilters): MarketTableRow[] {
+/** Every filter but the status, the search's words prepared once for every row. */
+function placeMatcher(filters: ResultFilters, search: VendorSearch) {
+  const needle = filters.search.trim().toLowerCase();
+  return (row: MarketTableRow) =>
+    (!filters.date || row.date === filters.date) &&
+    placeMatches(row, filters) &&
+    matchesSearch(row, needle, search);
+}
+
+export function tablesMatching(
+  rows: MarketTableRow[],
+  filters: ResultFilters,
+  search: VendorSearch = {},
+): MarketTableRow[] {
+  const matchesPlace = placeMatcher(filters, search);
   return rows.filter(
-    (row) =>
-      matchesPlace(row, filters) && (!filters.status || rowStatus(row).label === filters.status),
+    (row) => matchesPlace(row) && (!filters.status || rowStatus(row).label === filters.status),
   );
 }
 
@@ -127,10 +165,12 @@ export function tablesMatching(rows: MarketTableRow[], filters: ResultFilters): 
 export function statusCounts(
   rows: MarketTableRow[],
   filters: ResultFilters,
+  search: VendorSearch = {},
 ): Record<TableStatus, number> {
   const counts: Record<TableStatus, number> = { assigned: 0, partial: 0, empty: 0 };
+  const matchesPlace = placeMatcher(filters, search);
   for (const row of rows) {
-    if (matchesPlace(row, filters)) counts[rowStatus(row).label] += 1;
+    if (matchesPlace(row)) counts[rowStatus(row).label] += 1;
   }
   return counts;
 }
@@ -219,7 +259,7 @@ export function filtersBeside(
   page: 'tables' | 'vendors',
   onlyUnassigned = false,
 ): ResultFilterName[] {
-  if (page === 'tables') return [...PLACE_FILTERS, 'status'];
+  if (page === 'tables') return [...PLACE_FILTERS, 'status', 'search'];
   return onlyUnassigned ? ['date'] : [...PLACE_FILTERS];
 }
 

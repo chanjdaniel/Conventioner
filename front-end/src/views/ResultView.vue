@@ -15,6 +15,9 @@ import { getFormattedDate } from '@/utils/utils';
 import { type VendorNames } from '@/utils/vendorIdentity';
 import PlacementDialog, { type SwapTarget } from '@/components/PlacementDialog.vue';
 import ResultSeat from '@/components/ResultSeat.vue';
+import VendorDrawer from '@/components/VendorDrawer.vue';
+import { useVendorDetails } from '@/utils/vendorDetails';
+import { useVendorDrawer } from '@/utils/vendorDrawer';
 import MarketFrame from '@/components/MarketFrame.vue';
 import { useOpenMarket } from '@/utils/openMarket';
 import { hasAssignment } from '@/utils/marketPage';
@@ -22,7 +25,6 @@ import { canAssignIn } from '@/utils/assignPhase';
 import ResultSummary from '@/components/ResultSummary.vue';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import { useResultFilters } from '@/utils/useResultFilters';
-import PlacementHistory from '@/components/PlacementHistory.vue';
 import {
   FULL_TABLE,
   HALF_TABLE_LEFT,
@@ -40,6 +42,7 @@ import {
   tablesMatching,
   type MarketTableRow,
   type TableStatus,
+  type VendorSearch,
 } from '@/utils/resultFilters';
 
 interface SectionGroup {
@@ -63,6 +66,13 @@ const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market, refresh: refreshMarket } = useOpenMarket(marketId);
 
 /**
+ * Whoever holds a seat opens their drawer (E35/F01/S02), from their name or the seat's dialog. The
+ * vendors are read the first time it opens, and again after a change here moves anyone.
+ */
+const details = useVendorDetails(marketId, market);
+const drawer = useVendorDrawer();
+
+/**
  * Tables the plan no longer has that a hand placement still names (bug 31): shown with the vendor
  * still in them, so they are marked, since Publish is refused until each is moved or freed.
  */
@@ -81,6 +91,8 @@ const tablesShown = computed(() => hasAssignment(market.value) || canAssignIn(ma
 const allRows = ref<MarketTableRow[]>([]);
 /** Email to name, from the same response as the rows, so a table and its occupant agree. */
 const vendorNames = ref<VendorNames>({});
+/** What the search finds each vendor by beyond their address, from the same response (E35/F02/S01). */
+const vendorSearch = ref<VendorSearch>({});
 /** Who may be put in a seat, and what they asked for - so a change that alters their table
     choice can be said out loud before it is made. */
 const vendors = ref<PlaceableVendor[]>([]);
@@ -101,7 +113,9 @@ function formatDisplayDate(date: string): string {
   return getFormattedDate(date) ?? date;
 }
 
-const filteredRows = computed(() => tablesMatching(allRows.value, filters.value));
+const filteredRows = computed(() =>
+  tablesMatching(allRows.value, filters.value, vendorSearch.value),
+);
 
 const groupedRows = computed((): DateGroup[] => {
   const dateMap = new Map<string, Map<string, SectionGroup>>();
@@ -148,7 +162,9 @@ const groupedRows = computed((): DateGroup[] => {
   return dateGroups;
 });
 
-const statusCounts = computed(() => countStatuses(allRows.value, filters.value));
+const statusCounts = computed(() =>
+  countStatuses(allRows.value, filters.value, vendorSearch.value),
+);
 
 /**
  * The three status pills, each with the fill it is worn in.
@@ -196,10 +212,12 @@ async function loadTables(): Promise<void> {
     const resp = await api.get<{
       rows: MarketTableRow[];
       vendorNames: VendorNames;
+      vendorSearch?: VendorSearch;
       vendors?: PlaceableVendor[];
     }>(`/markets/${encodeURIComponent(marketId.value)}/tables`);
     allRows.value = Array.isArray(resp.data?.rows) ? resp.data.rows : [];
     vendorNames.value = resp.data?.vendorNames ?? {};
+    vendorSearch.value = resp.data?.vendorSearch ?? {};
     vendors.value = Array.isArray(resp.data?.vendors) ? resp.data.vendors : [];
   } catch (err: unknown) {
     const data =
@@ -209,6 +227,7 @@ async function loadTables(): Promise<void> {
     errorMessage.value = data?.error || 'Failed to load tables.';
     allRows.value = [];
     vendorNames.value = {};
+    vendorSearch.value = {};
     vendors.value = [];
   } finally {
     isLoading.value = false;
@@ -272,6 +291,13 @@ function closePlacement(): void {
   placementError.value = '';
 }
 
+/** From the seat's dialog to the drawer of whoever holds it. */
+function viewOccupant(): void {
+  const email = openSeat.value?.occupantEmail;
+  closePlacement();
+  if (email) drawer.open(email);
+}
+
 /**
  * The dates each vendor holds a seat on, keyed by lowercased address - who cannot be placed again
  * on a date, and how many dates a placement would give them against their own limit and the
@@ -322,7 +348,11 @@ async function runPlacementChange(change: () => Promise<unknown>): Promise<void>
     // so one change can move other vendors, and a locally patched grid would show a floor plan
     // nobody is standing on. A placement is a write to the market's stored assignment, so the
     // store re-reads the market too (E21/F02/S04): anything else showing it follows.
-    await Promise.all([loadTables(), refreshMarket()]);
+    await Promise.all([
+      loadTables(),
+      refreshMarket(),
+      details.loaded.value ? details.load() : Promise.resolve(),
+    ]);
   } catch (err: unknown) {
     const data =
       err && typeof err === 'object' && 'response' in err
@@ -438,7 +468,10 @@ function swapSeats(withEmail: string): void {
               >
                 <h2 class="date-heading">
                   <span>{{ dateGroup.displayDate }}</span>
-                  <span class="date-heading-count">{{ dateGroup.rowCount }} tables</span>
+                  <span class="date-heading-count"
+                    >{{ dateGroup.rowCount }}
+                    {{ dateGroup.rowCount === 1 ? 'table' : 'tables' }}</span
+                  >
                 </h2>
 
                 <div
@@ -515,6 +548,7 @@ function swapSeats(withEmail: string): void {
                           :names="vendorNames"
                           :readOnly="readOnly"
                           @open="openOccupied(row, rowStatus(row).leftEmail!)"
+                          @view="drawer.open(rowStatus(row).leftEmail!)"
                         />
                         <template v-else>
                           <div class="half-slot">
@@ -525,6 +559,7 @@ function swapSeats(withEmail: string): void {
                               :names="vendorNames"
                               :readOnly="readOnly"
                               @open="openHalf(row, rowStatus(row).leftEmail, HALF_TABLE_LEFT)"
+                              @view="drawer.open(rowStatus(row).leftEmail!)"
                             />
                           </div>
                           <div class="half-slot">
@@ -535,6 +570,7 @@ function swapSeats(withEmail: string): void {
                               :names="vendorNames"
                               :readOnly="readOnly"
                               @open="openHalf(row, rowStatus(row).rightEmail, HALF_TABLE_RIGHT)"
+                              @view="drawer.open(rowStatus(row).rightEmail!)"
                             />
                           </div>
                         </template>
@@ -546,7 +582,6 @@ function swapSeats(withEmail: string): void {
             </div>
           </template>
         </template>
-        <PlacementHistory v-if="market" :marketId="market.id" />
       </div>
     </MarketFrame>
 
@@ -571,7 +606,17 @@ function swapSeats(withEmail: string): void {
       @place="placeVendor"
       @free="freeSeat"
       @swap="swapSeats"
+      @view="viewOccupant"
       @close="closePlacement"
+    />
+
+    <VendorDrawer
+      :market="market"
+      :details="details"
+      :email="drawer.email.value"
+      :tab="drawer.tab.value"
+      @close="drawer.close()"
+      @update:tab="drawer.setTab"
     />
   </div>
 </template>

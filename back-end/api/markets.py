@@ -1290,6 +1290,7 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
         try:
             csv_content = market_csv_to_string(
                 assigned_market_dict, ApplicationsApi.vendor_names_for_market(market_id),
+                ApplicationsApi.vendor_full_names_for_market(market_id),
             )
         except ValueError as e:
             return {"error": str(e)}, 400
@@ -1344,6 +1345,12 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             # the rows rather than fetched separately so the grid and its occupants' names can
             # never be a request apart.
             "vendorNames": ApplicationsApi.vendor_names_for_market(market_id),
+            # What the page's search finds each vendor by, beyond their address (E35/F02/S01).
+            "vendorSearch": ApplicationsApi.vendor_search_terms_for_market(
+                market_id,
+                market.application_form.fields if market.application_form else [],
+                {email for row in rows for email in row.assignment_slots if email},
+            ),
             # Who may be put in a seat, and what they asked for. Sent with the grid because the
             # view has to warn - before the change, not after - when a placement would alter a
             # vendor's table choice away from their own answer (E11/F03/S01).
