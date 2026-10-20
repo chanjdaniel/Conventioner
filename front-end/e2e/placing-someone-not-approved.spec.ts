@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { TablesPage } from './pages/TablesPage';
 import { SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
@@ -74,4 +75,23 @@ test('a rejected applicant is offered apart, warned about, and kept by the next 
     'reza@example.com',
   );
   await expect(page.locator('[data-vendor-email="reza@example.com"]')).toHaveCount(1);
+
+  // Marked wherever the other overrides show (E36/F02/S03): the seat, the drawer, the download.
+  const seat = tables.occupiedSeat('Hall A 3');
+  await expect(seat.getByTestId('tables-seat-not-approved')).toHaveText('Not approved');
+  await seat.getByTestId('tables-seat-vendor').click();
+  await expect(page.getByTestId('vendors-detail-giver')).toContainText(
+    'Rejected by alex@market.test',
+  );
+  await page.getByTestId('vendor-drawer-tab-assignments').click();
+  await expect(page.getByTestId('vendor-date-card-override')).toContainText(
+    'Placed by hand, though not approved',
+  );
+  await page.getByTestId('vendors-detail-close').click();
+
+  const download = page.waitForEvent('download');
+  await page.getByTestId('result-download-csv-button').click();
+  const text = readFileSync((await (await download).path()) as string, 'utf8');
+  expect(text).toMatch(/reza@example\.com,Not approved,/);
+  expect(text).toMatch(/alice@example\.com,Approved,/);
 });

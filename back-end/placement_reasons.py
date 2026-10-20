@@ -200,6 +200,9 @@ class PlacementOverride(str, Enum):
     things that both change: what the applicant answered, and where they were put.
     """
 
+    #: Seated though the review left them out of the run (E36/F02/S02): rejected, or undecided.
+    #: Named first, because it overrides a decision rather than an answer.
+    NOT_APPROVED = "not_approved"
     #: Seated at a tier they did not accept on that date. This is the one that costs money.
     TIER = "tier"
     #: Seated on a date they did not say they were available for.
@@ -245,6 +248,7 @@ def _overrides_of(vendor: SolverVendor, placement: Any) -> Tuple[PlacementOverri
 
 def overridden_placements(
     vendors: Iterable[SolverVendor], placements: Sequence[Any],
+    not_approved: Iterable[SolverVendor] = (),
 ) -> List[OverriddenPlacement]:
     """Every hand placement that contradicts the vendor's own answer.
 
@@ -254,15 +258,20 @@ def overridden_placements(
     an orphan, which ``orphaned_pins`` below is about.
     """
     by_email = {(vendor.email or "").strip().lower(): vendor for vendor in vendors}
+    outside = {(vendor.email or "").strip().lower(): vendor for vendor in not_approved}
 
     overridden: List[OverriddenPlacement] = []
     for placement in placements:
         if not _placement_flag(placement, "hand_placed"):
             continue
-        vendor = by_email.get(_placement_key(placement, "email").strip().lower())
-        if vendor is None:
+        address = _placement_key(placement, "email").strip().lower()
+        vendor = by_email.get(address)
+        if vendor is not None:
+            overrides = _overrides_of(vendor, placement)
+        elif address in outside:
+            overrides = (PlacementOverride.NOT_APPROVED,) + _overrides_of(outside[address], placement)
+        else:
             continue
-        overrides = _overrides_of(vendor, placement)
         if overrides:
             overridden.append(
                 OverriddenPlacement(

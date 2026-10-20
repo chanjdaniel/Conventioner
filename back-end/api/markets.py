@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import re
 import uuid
-from typing import NamedTuple, Optional, Dict, Any, List, Tuple
+from typing import Iterable, NamedTuple, Optional, Dict, Any, List, Tuple
 from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
 from pydantic import ValidationError
@@ -1212,7 +1212,10 @@ def get_assignment_statistics(market_id: str, requesting_user: Optional[str] = N
                 "tableCode": entry.table_code,
                 "overrides": [override.value for override in entry.overrides],
             }
-            for entry in overridden_placements(vendors, placed_rows)
+            for entry in overridden_placements(
+                vendors, placed_rows,
+                not_approved_vendors(market, {vendor.email for vendor in vendors}),
+            )
         ]
         # Unassigned vendors are a list of bare addresses; this is what lets the payoff screen
         # name them. A vendor with no stored name has no entry and renders as they did before.
@@ -1290,7 +1293,8 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
 
         market.assignment_object.assignment_statistics = None
         try:
-            assigned_market = assignment_to_show(market)
+            vendors = solver_vendors_for(market)
+            assigned_market = assignment_to_show(market, vendors)
         except IncompleteApplicationsError as incomplete:
             # The organizer has to go and fix something, so say who.
             return {"error": incomplete.message()}, 400
@@ -1300,6 +1304,8 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
             csv_content = market_csv_to_string(
                 assigned_market_dict, ApplicationsApi.vendor_names_for_market(market_id),
                 ApplicationsApi.vendor_full_names_for_market(market_id),
+                {vendor.email for vendor in not_approved_vendors(
+                    market, {vendor.email for vendor in vendors})},
             )
         except ValueError as e:
             return {"error": str(e)}, 400
@@ -1316,6 +1322,17 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
             "market_id": market_id,
             "function": "get_assignment_csv",
         }, 500
+
+
+def not_approved_vendors(market: Market, in_the_run: Iterable[str]) -> List[Any]:
+    """The applicants outside the run whom the review did not approve (E36/F02/S03): a seat given
+    to one by hand is marked "not approved" wherever the other overrides show."""
+    return [
+        vendor
+        for vendor, application in outside_solver_vendors(
+            market.id, EssentialFields.effective_essential_options_for_market(market), in_the_run)
+        if application.status is not ApplicationStatus.REVIEWER_APPROVED
+    ]
 
 
 def _placeable(vendor: Any, outside: Optional[Application]) -> Dict[str, Any]:
