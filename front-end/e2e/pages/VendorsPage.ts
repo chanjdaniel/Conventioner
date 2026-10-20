@@ -49,6 +49,12 @@ export class VendorsPage {
     await this.vendorListItems.nth(index).click();
   }
 
+  /** One of the drawer's tabs (E35/F01/S01): it opens on Application. */
+  async openTab(tab: 'application' | 'assignments' | 'history'): Promise<void> {
+    await this.page.getByTestId(`vendor-drawer-tab-${tab}`).click();
+    await this.page.getByTestId(`vendor-drawer-panel-${tab}`).waitFor();
+  }
+
   async closeDetail(): Promise<void> {
     await this.detailCloseButton.click();
   }

@@ -1,45 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { marketPath } from '@/utils/market';
 import { withoutQueryKey } from '@/utils/routeQuery';
 import { useRoute, useRouter } from 'vue-router';
 
-import { api } from '@/utils/api';
-import { fetchMarketApplications } from '@/utils/applicantApi';
 import { useOpenMarket } from '@/utils/openMarket';
-import { ESSENTIAL_KEY_PREFIX, TABLE_SHARE_ANSWER_KEY } from '@/utils/essentialFields';
-import { useEscapeToClose } from '@/utils/useEscapeToClose';
-import { useInertBehind } from '@/utils/useInertBehind';
-import VendorDateCard from '@/components/VendorDateCard.vue';
-import {
-  overrideIndex,
-  reasonIndex,
-  type OverriddenPlacement,
-  type PlacementOverride,
-  type PlacementReason,
-  type UnplacedDate,
-} from '@/utils/placementReason';
-import type {
-  Application,
-  MarketDateObject,
-  TableShareNotice as TableShareNoticeData,
-} from '@/assets/types/datatypes';
-import { getFormattedDate } from '@/utils/utils';
-import {
-  vendorHeadline,
-  vendorMatches,
-  vendorName,
-  type VendorNames,
-} from '@/utils/vendorIdentity';
+import { vendorMatches } from '@/utils/vendorIdentity';
 import VendorIdentity from '@/components/VendorIdentity.vue';
-import PlacementHistory from '@/components/PlacementHistory.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
-import TableShareNotice from '@/components/TableShareNotice.vue';
-import AnswerValue from '@/components/AnswerValue.vue';
-import VendorNotes from '@/components/VendorNotes.vue';
 import NothingAssigned from '@/components/NothingAssigned.vue';
+import VendorDrawer from '@/components/VendorDrawer.vue';
 import { hasAssignment } from '@/utils/marketPage';
-import { useVendorNotes } from '@/utils/vendorNotes';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import {
   filterOptions,
@@ -49,276 +19,45 @@ import {
   vendorShown,
 } from '@/utils/resultFilters';
 import { useResultFilters } from '@/utils/useResultFilters';
-import { datesWithinReach } from '@/utils/datesWithinReach';
-import { verdictGiverLine } from '@/utils/verdicts';
-
-interface AssignmentStatisticsResponse {
-  totalVendors?: number;
-  totalAssignedVendors?: number;
-  unassignedVendors?: unknown[];
-  unassigned_vendors?: unknown[];
-  unplacedDates?: UnplacedDate[];
-  overriddenPlacements?: OverriddenPlacement[];
-}
-
-interface MarketTableRowResponse {
-  date: string;
-  assignment: string[];
-  location: string;
-  section: string;
-  tableChoice: string;
-  tableCode: string;
-  tier: string;
-}
-
-interface VendorTableAssignment {
-  tableCode: string;
-  tableChoice: string;
-  section: string;
-  tier: string;
-  location: string;
-}
-
-interface VendorRow {
-  rowIndex: number;
-  email: string;
-  displayEmail: string;
-  assignmentsByDate: Map<string, VendorTableAssignment>;
-  isAssigned: boolean;
-  assignedDateCount: number;
-  /** The dates they could have had: their own answers, within the market's ceiling. */
-  reachableDateCount: number;
-  /** The organizer's own questions, keyed by field key. Essential answers are shown separately. */
-  answers: Record<string, unknown>;
-  /** Why their table-share request pairs nobody, when it does not (E27/F01/S03). */
-  tableShareNotice: TableShareNoticeData | null;
-  /** Who approved them, and when (E34/F01/S01); null where nobody was recorded. */
-  verdict: string | null;
-}
+import { signedInEmail } from '@/utils/signedIn';
+import { useVendorDetails } from '@/utils/vendorDetails';
+import { useVendorDrawer } from '@/utils/vendorDrawer';
 
 const router = useRouter();
 const route = useRoute();
 
-/**
- * The market in the route, from the one store (E21/F02/S04). This screen used to read it out of
- * `localStorage`, because `/vendors` carried no id.
- */
 const marketId = computed(() => String(route.params.marketId ?? ''));
 const { market } = useOpenMarket(marketId);
-/** Before a run is stored nobody is placed, so the list counts no one as unplaced (E31/F03/S05). */
 const assigned = computed(() => hasAssignment(market.value));
 
-/** What each vendor asked for and what the organizers noted (E31/F04/S04). */
-const { load: loadNotes, entryFor } = useVendorNotes(marketId);
+/** The market's vendors, read once and shared with the drawer (E35/F01/S01). */
+const details = useVendorDetails(marketId, market);
+const { tableRows, vendorNames, isLoading } = details;
+/** The open vendor and tab, in the address. */
+const drawer = useVendorDrawer();
 
-/** Is this vendor's placement on this date at a table the plan no longer has (bug 31)? */
-function isOrphaned(email: string, date: string): boolean {
-  const target = email.trim().toLowerCase();
-  return (market.value?.orphanedPins ?? []).some(
-    (pin) => pin.date === date && pin.email.trim().toLowerCase() === target,
-  );
-}
-const applications = ref<Application[]>([]);
-const tableRows = ref<MarketTableRowResponse[]>([]);
-const vendorNames = ref<VendorNames>({});
-/** Email + date to the reason there is no table, from the statistics (E12/F01/S01). */
-const unplacedReasons = ref<Map<string, PlacementReason>>(new Map());
-const placementOverrides = ref<Map<string, PlacementOverride[]>>(new Map());
-const unassignedEmails = ref<Set<string>>(new Set());
-
-const isLoading = ref(false);
-const loadError = ref('');
+const signedOut = ref(false);
+const loadError = computed(() =>
+  signedOut.value ? 'You must be signed in.' : details.loadError.value,
+);
 const filterText = ref('');
-const selectedRowIndex = ref<number | null>(null);
-
-function extractEmail(raw: unknown): string {
-  if (raw == null) return '';
-  if (typeof raw === 'string') return raw.trim();
-  const obj = raw as { email?: unknown; vendorEmail?: unknown; vendor_email?: unknown };
-  const candidate = obj.email ?? obj.vendorEmail ?? obj.vendor_email;
-  if (typeof candidate === 'string') return candidate.trim();
-  return '';
-}
-
-function readUserEmail(): string | null {
-  const raw = localStorage.getItem('user');
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return typeof parsed === 'string' ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const resp = (err as { response?: { data?: { error?: string } } }).response;
-    if (resp?.data?.error) return resp.data.error;
-  }
-  if (err instanceof Error && err.message) return err.message;
-  return fallback;
-}
 
 async function loadVendors(): Promise<void> {
-  loadError.value = '';
-  const id = marketId.value;
-  if (!id) return;
-
-  const userEmail = readUserEmail();
-  if (!userEmail) {
-    loadError.value = 'You must be signed in.';
-    return;
-  }
-
-  const encoded = encodeURIComponent(id);
-  isLoading.value = true;
-
-  try {
-    const [applicationList, statsResp, tablesResp] = await Promise.all([
-      fetchMarketApplications(id),
-      api.get<AssignmentStatisticsResponse>(`/markets/${encoded}/assignment-statistics`),
-      api.get<{
-        rows: MarketTableRowResponse[];
-        vendorNames: VendorNames;
-        vendors?: { email: string }[];
-      }>(`/markets/${encoded}/tables`),
-    ]);
-
-    // A vendor is an applicant being placed (CONTEXT.md), so this page lists the applications the
-    // solver places and nobody else: a rejected applicant was counted as an unassigned vendor, and
-    // the page disagreed with Result (bug 10, claims-and-room 04). The list comes from `/tables`,
-    // which serves the run's own vendors, so the two pages cannot count different people.
-    const placeable = new Set(
-      (tablesResp.data?.vendors ?? []).map((vendor) => vendor.email.trim().toLowerCase()),
-    );
-    applications.value = (Array.isArray(applicationList) ? applicationList : []).filter(
-      (application) => placeable.has((application.applicantEmail ?? '').trim().toLowerCase()),
-    );
-
-    unplacedReasons.value = reasonIndex(statsResp.data?.unplacedDates ?? []);
-    placementOverrides.value = overrideIndex(statsResp.data?.overriddenPlacements ?? []);
-
-    const statsList = statsResp.data?.unassignedVendors ?? statsResp.data?.unassigned_vendors ?? [];
-    const unassigned = new Set<string>();
-    for (const item of statsList) {
-      const email = extractEmail(item).toLowerCase();
-      if (email) unassigned.add(email);
-    }
-    unassignedEmails.value = unassigned;
-
-    tableRows.value = Array.isArray(tablesResp.data?.rows) ? tablesResp.data.rows : [];
-    vendorNames.value = tablesResp.data?.vendorNames ?? {};
-  } catch (err: unknown) {
-    loadError.value = extractErrorMessage(err, 'Failed to load vendors.');
-    applications.value = [];
-    tableRows.value = [];
-    vendorNames.value = {};
-    unplacedReasons.value = new Map();
-    unassignedEmails.value = new Set();
-  } finally {
-    isLoading.value = false;
-  }
+  signedOut.value = !signedInEmail();
+  if (signedOut.value || !marketId.value) return;
+  await details.load();
 }
 
-/**
- * Open the vendor the URL names, once the list is loaded.
- *
- * The payoff screen's Unassigned Vendors panel links here (E12/F02/S02): an entry that merely
- * reported an address was the finding. Silently ignored when that address is not in this market's
- * list, which is what a stale link looks like.
- */
-function openVendorFromRoute() {
-  const asked = String(route.query.vendor ?? '')
-    .trim()
-    .toLowerCase();
-  if (!asked) return;
-  const row = vendors.value.find((v) => v.email === asked);
-  if (row) selectedRowIndex.value = row.rowIndex;
-}
-
-watch(
-  marketId,
-  async () => {
-    await loadVendors();
-    openVendorFromRoute();
-  },
-  { immediate: true },
-);
-
-const setup = computed(() => market.value?.setupObject ?? null);
-const marketDates = computed<MarketDateObject[]>(() => setup.value?.marketDates ?? []);
+watch(marketId, () => void loadVendors(), { immediate: true });
 
 /**
- * The organizer's own questions, in the order their form asks them.
- *
- * This list used to be the included columns of an uploaded spreadsheet. A vendor is an
- * application now, so the questions come from the form that produced it, and the essential
- * answers are deliberately left out: they are the market plan restated, and they have their own
- * presentation elsewhere.
+ * A vendor is an applicant being placed (CONTEXT.md), so this page lists the applications the
+ * solver places and nobody else: a rejected applicant was counted as an unassigned vendor, and the
+ * page disagreed with Result (bug 10, claims-and-room 04). The list comes from `/tables`, which
+ * serves the run's own vendors, so the two pages cannot count different people.
  */
-const customFields = computed(() =>
-  (market.value?.applicationForm?.fields ?? [])
-    .filter((field) => !field.key.startsWith(ESSENTIAL_KEY_PREFIX))
-    .slice()
-    .sort((a, b) => a.order - b.order),
-);
-
-const assignmentsByEmail = computed(() => {
-  const map = new Map<string, Map<string, VendorTableAssignment>>();
-  for (const row of tableRows.value) {
-    if (!Array.isArray(row.assignment)) continue;
-    for (const email of row.assignment) {
-      const key = String(email ?? '')
-        .trim()
-        .toLowerCase();
-      if (!key) continue;
-      let inner = map.get(key);
-      if (!inner) {
-        inner = new Map();
-        map.set(key, inner);
-      }
-      inner.set(row.date, {
-        tableCode: row.tableCode,
-        tableChoice: row.tableChoice,
-        section: row.section,
-        tier: row.tier,
-        location: row.location,
-      });
-    }
-  }
-  return map;
-});
-
-const vendors = computed<VendorRow[]>(() =>
-  applications.value.map((application, index) => {
-    const emailRaw = (application.applicantEmail ?? '').trim();
-    const emailLower = emailRaw.toLowerCase();
-    const assignmentsByDate = emailLower
-      ? (assignmentsByEmail.value.get(emailLower) ?? new Map<string, VendorTableAssignment>())
-      : new Map<string, VendorTableAssignment>();
-
-    return {
-      rowIndex: index,
-      email: emailLower,
-      displayEmail: emailRaw || `Applicant ${index + 1}`,
-      assignmentsByDate,
-      isAssigned: !unassignedEmails.value.has(emailLower) && assignmentsByDate.size > 0,
-      assignedDateCount: assignmentsByDate.size,
-      // A hand placement can give more than they asked for; never read as "3 of 2".
-      reachableDateCount: Math.max(
-        assignmentsByDate.size,
-        datesWithinReach(
-          (application.formData ?? {}) as Record<string, unknown>,
-          marketDates.value.map((d) => d.date),
-          setup.value?.assignmentOptions?.maxAssignmentsPerVendor,
-        ),
-      ),
-      answers: (application.formData ?? {}) as Record<string, unknown>,
-      tableShareNotice: application.tableShareNotice ?? null,
-      verdict: verdictGiverLine(application),
-    };
-  }),
+const vendors = computed(() =>
+  details.rows.value.filter((row) => details.placeable.value.has(row.email)),
 );
 
 /**
@@ -359,126 +98,6 @@ const filteredVendors = computed(() => {
 
 const totalVendorCount = computed(() => vendors.value.length);
 const assignedVendorCount = computed(() => vendors.value.filter((v) => v.isAssigned).length);
-
-const selectedVendor = computed(() => {
-  if (selectedRowIndex.value == null) return null;
-  return vendors.value.find((v) => v.rowIndex === selectedRowIndex.value) ?? null;
-});
-
-function answerText(value: unknown): string {
-  if (value == null) return '';
-  if (Array.isArray(value)) return value.map((item) => String(item)).join(', ');
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  return String(value);
-}
-
-const detailFields = computed(() => {
-  const vendor = selectedVendor.value;
-  if (!vendor) return [];
-  return customFields.value.map((field) => ({
-    label: field.label || field.key,
-    value: answerText(vendor.answers[field.key]) || 'Not answered',
-  }));
-});
-
-function formatDateLabel(date: string): string {
-  return getFormattedDate(date) ?? date;
-}
-
-function assignmentSummary(assignment: VendorTableAssignment | undefined): string {
-  if (!assignment) return 'Not assigned';
-  const parts: string[] = [];
-  const codePart = assignment.tableCode || 'No table';
-  const choice = assignment.tableChoice ? ` (${assignment.tableChoice})` : '';
-  parts.push(`${codePart}${choice}`);
-  const meta = [assignment.section, assignment.tier, assignment.location]
-    .filter((s) => !!s && s.trim().length > 0)
-    .join(', ');
-  if (meta) parts.push(meta);
-  return parts.join(' - ');
-}
-
-/** Where they were placed on this date, or null - which is what makes the card's state. */
-function placementOn(row: VendorRow, date: string): string | null {
-  const assignment = row.assignmentsByDate.get(date);
-  return assignment ? assignmentSummary(assignment) : null;
-}
-
-/**
- * Why they hold no table that day, as the server computed it against the current plan and
- * assignment. Absent for a date they were placed on, which is how the card knows.
- */
-function reasonFor(email: string, date: string): PlacementReason | undefined {
-  return unplacedReasons.value.get(`${email.trim().toLowerCase()}|${date}`);
-}
-
-/** What their placement that day overrides, when it was made by hand and contradicts them. */
-function overridesFor(email: string, date: string): PlacementOverride[] | undefined {
-  return placementOverrides.value.get(`${email.trim().toLowerCase()}|${date}`);
-}
-
-/**
- * The Result page's tables, filtered to the day the organizer would be placing them on.
- *
- * This is the story that makes those filters reachable: `dateFilter` and its three neighbours
- * were computed from `route.query` and set by nothing, so a complete filter system existed that
- * no organizer could invoke (`E11/F03/S02`). The vendor rides along, naming whose placement the
- * organizer came to change.
- */
-/** Where to change this vendor's seat on a date; null when there is nowhere to, as on a market
- *  that cannot change - its dates are a record, and offer nothing to press (bug 30). */
-function resultLinkFor(date: string): string | null {
-  const id = market.value?.id;
-  const vendor = selectedVendor.value?.email;
-  if (!id || !vendor || market.value?.readOnlyReason) return null;
-  const query = new URLSearchParams({ date, vendor });
-  return `${marketPath(id, 'result')}?${query.toString()}`;
-}
-
-function goToResult(date: string): void {
-  const href = resultLinkFor(date);
-  if (href) router.push(href);
-}
-
-/**
- * The open vendor is part of the page's address (E22/F04/S02), so a link, a refresh or the browser's
- * Back returns to that vendor's panel. It is what the old Tables screen's Back button did by hand
- * before the market's pages became tabs and the Back buttons went.
- */
-function selectVendor(rowIndex: number): void {
-  selectedRowIndex.value = rowIndex;
-  const email = vendors.value.find((v) => v.rowIndex === rowIndex)?.email;
-  if (email && route.query.vendor !== email) {
-    void router.replace({ query: { ...route.query, vendor: email } });
-  }
-}
-
-function closeDetail(): void {
-  selectedRowIndex.value = null;
-  if (route.query.vendor) void router.replace({ query: withoutQueryKey(route.query, 'vendor') });
-}
-
-// Back and Forward move between addresses without remounting, so the panel follows the address.
-watch(
-  () => route.query.vendor,
-  (vendor) => {
-    if (vendor) openVendorFromRoute();
-    else selectedRowIndex.value = null;
-  },
-);
-
-useEscapeToClose(() => selectedVendor.value !== null, closeDetail);
-
-/**
- * The drawer is modal, so the rest of the page is out of play while it is open - to the keyboard as
- * well as to the mouse. The scrim only ever stopped the mouse (E14/F02/S02).
- */
-const detailOverlay = ref<HTMLElement | null>(null);
-const detailPanel = ref<HTMLElement | null>(null);
-useInertBehind(
-  () => selectedVendor.value !== null,
-  () => [detailOverlay.value, detailPanel.value],
-);
 </script>
 
 <template>
@@ -559,12 +178,12 @@ useInertBehind(
             v-for="vendor in filteredVendors"
             :key="vendor.rowIndex"
             class="vendor-row"
-            :class="{ 'vendor-row--active': vendor.rowIndex === selectedRowIndex }"
+            :class="{ 'vendor-row--active': vendor.email === drawer.email.value }"
           >
             <button
               type="button"
               class="vendor-row-button"
-              @click="selectVendor(vendor.rowIndex)"
+              @click="drawer.open(vendor.email)"
               data-testid="vendors-list-item"
             >
               <VendorIdentity
@@ -590,121 +209,14 @@ useInertBehind(
       </div>
     </MarketFrame>
 
-    <div
-      ref="detailOverlay"
-      class="detail-overlay"
-      data-testid="vendors-detail-overlay"
-      :class="{ 'detail-overlay--open': selectedVendor !== null }"
-      @click="closeDetail"
+    <VendorDrawer
+      :market="market"
+      :details="details"
+      :email="drawer.email.value"
+      :tab="drawer.tab.value"
+      @close="drawer.close()"
+      @update:tab="drawer.setTab"
     />
-
-    <aside
-      ref="detailPanel"
-      class="detail-panel"
-      data-testid="vendors-detail-panel"
-      :class="{ 'detail-panel--open': selectedVendor !== null }"
-      role="dialog"
-      aria-modal="true"
-      :aria-hidden="selectedVendor === null"
-      @click.stop
-    >
-      <div v-if="selectedVendor" class="detail-content">
-        <div class="detail-header">
-          <div class="detail-title-wrap">
-            <span class="detail-eyebrow">Vendor detail</span>
-            <h2 class="detail-title">{{ vendorHeadline(selectedVendor.email, vendorNames) }}</h2>
-            <!-- The address always, beneath the name: it is what ties this panel to a check-in,
-                 a CSV row and an application, and two vendors can share a name. -->
-            <p
-              v-if="vendorName(selectedVendor.email, vendorNames)"
-              class="detail-subtitle"
-              data-testid="vendors-detail-email"
-            >
-              {{ selectedVendor.displayEmail }}
-            </p>
-            <p
-              v-if="selectedVendor.verdict"
-              class="detail-subtitle"
-              data-testid="vendors-detail-giver"
-            >
-              {{ selectedVendor.verdict }}
-            </p>
-          </div>
-          <button
-            type="button"
-            class="detail-close"
-            aria-label="Close vendor detail"
-            @click="closeDetail"
-            data-testid="vendors-detail-close"
-          >
-            &times;
-          </button>
-        </div>
-
-        <section v-if="selectedVendor.tableShareNotice" class="detail-section">
-          <TableShareNotice
-            :notice="selectedVendor.tableShareNotice"
-            :words="String(selectedVendor.answers[TABLE_SHARE_ANSWER_KEY] ?? '')"
-            testid="vendors-detail-table-share-notice"
-          />
-        </section>
-
-        <section class="detail-section">
-          <VendorNotes
-            :marketId="marketId"
-            :email="selectedVendor.email"
-            :entry="entryFor(selectedVendor.email)"
-            :canWrite="!!market && !market.readOnlyReason"
-            open
-            testid="vendors-detail-notes"
-            @changed="loadNotes"
-          />
-        </section>
-
-        <section v-if="detailFields.length > 0" class="detail-section">
-          <h3 class="detail-section-title">Submission</h3>
-          <dl class="detail-grid">
-            <template v-for="field in detailFields" :key="field.label">
-              <dt>{{ field.label }}</dt>
-              <!-- Through AnswerValue, as every answer is, so an address is a link (E28/F04/S03). -->
-              <dd><AnswerValue :value="field.value" /></dd>
-            </template>
-          </dl>
-        </section>
-
-        <section class="detail-section">
-          <h3 class="detail-section-title">Assignments</h3>
-          <div v-if="marketDates.length === 0" class="detail-empty">
-            No market dates configured.
-          </div>
-          <ul v-else class="assignment-list">
-            <VendorDateCard
-              v-for="date in marketDates"
-              :key="date.date"
-              :data-date="date.date"
-              :label="formatDateLabel(date.date)"
-              :placement="placementOn(selectedVendor, date.date)"
-              :reason="reasonFor(selectedVendor.email, date.date)"
-              :overrides="overridesFor(selectedVendor.email, date.date)"
-              :placeHref="resultLinkFor(date.date)"
-              :orphaned="isOrphaned(selectedVendor.email, date.date)"
-              @place="goToResult(date.date)"
-            />
-          </ul>
-        </section>
-
-        <!-- Who moved this vendor, and when. A placement that differs from what the solver
-             produced is a fact someone will later ask about (E11/F04/S01). -->
-        <section class="detail-section">
-          <h3 class="detail-section-title">Placement history</h3>
-          <PlacementHistory
-            v-if="market?.id"
-            :marketId="market.id"
-            :vendor="selectedVendor.email"
-          />
-        </section>
-      </div>
-    </aside>
   </div>
 </template>
 
@@ -919,188 +431,6 @@ useInertBehind(
      column's left edge straight down the list. 14ch holds "10 of 10 dates". */
   min-width: 14ch;
   text-align: end;
-}
-
-.detail-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  visibility: hidden;
-  z-index: 50;
-  transition:
-    opacity 0.2s ease-in-out,
-    visibility 0.2s ease-in-out;
-}
-
-.detail-overlay--open {
-  opacity: 1;
-  visibility: visible;
-}
-
-.detail-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  height: 100vh;
-  width: min(480px, 92vw);
-  background: white;
-  box-shadow: var(--shadow-card);
-  transform: translateX(100%);
-  transition: transform 0.25s ease-in-out;
-  z-index: 60;
-  display: flex;
-  flex-direction: column;
-}
-
-.detail-panel--open {
-  transform: translateX(0);
-}
-
-.detail-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.detail-header {
-  position: sticky;
-  top: 0;
-  background: var(--mm-black);
-  color: white;
-  padding: 20px 22px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  z-index: 1;
-}
-
-.detail-title-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.detail-eyebrow {
-  font-size: var(--text-xs);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
-
-.detail-title {
-  margin: 0;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-lg);
-  color: white;
-  overflow-wrap: anywhere;
-}
-
-/* The panel head is dark, so the muted-on-dark token rather than the on-white one. */
-.detail-subtitle {
-  margin: 2px 0 0;
-  font-size: var(--text-xs);
-  color: var(--mm-text-muted-on-dark);
-  overflow-wrap: anywhere;
-}
-
-.detail-close {
-  background: transparent;
-  border: none;
-  color: white;
-  font-size: var(--text-2xl);
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 4px;
-  border-radius: var(--radius-control);
-  transition: background-color 0.15s ease-in-out;
-}
-
-.detail-close:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.detail-section {
-  padding: 20px 22px;
-  border-bottom: 1px solid var(--mm-border);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.detail-section:last-child {
-  border-bottom: none;
-}
-
-.detail-section-title {
-  margin: 0;
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-md);
-  color: var(--mm-black);
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--mm-border);
-}
-
-.detail-grid {
-  margin: 0;
-  display: grid;
-  grid-template-columns: minmax(120px, 0.6fr) 1fr;
-  gap: 8px 16px;
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-}
-
-.detail-grid dt {
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-xs);
-  color: var(--mm-black);
-  opacity: 0.75;
-  align-self: start;
-  padding-top: 2px;
-}
-
-.detail-grid dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.detail-empty {
-  color: var(--mm-text-muted);
-  font-size: var(--text-sm);
-}
-
-.assignment-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.assignment-item {
-  border: 1px solid var(--mm-border);
-  border-left: 4px solid var(--mm-green);
-  border-radius: var(--radius-card);
-  padding: 12px 14px;
-  background: white;
-  box-shadow: var(--shadow-card);
-}
-
-.assignment-date {
-  font-family: 'Merge One', sans-serif;
-  font-size: var(--text-sm);
-  color: var(--mm-green);
-  margin-bottom: 4px;
-}
-
-.assignment-detail {
-  font-size: var(--text-sm);
-  color: var(--mm-black);
-  overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {

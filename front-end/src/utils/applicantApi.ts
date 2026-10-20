@@ -109,17 +109,85 @@ export async function fetchMarketApplications(marketId: string): Promise<Applica
 }
 
 /**
+ * What a reviewer saw of an application: its status, its verdict's time and its answers' time. A
+ * verdict is written only while all three still stand (E34/F03/S01).
+ */
+function seenOf(application: Application) {
+  return {
+    status: application.status,
+    verdictAt: application.verdictAt ?? null,
+    updatedAt: application.updatedAt,
+  };
+}
+
+/**
  * Record a review verdict on an application (organizer only).
  * PUT /markets/<id>/applications/<app_id>/review
  */
 export async function reviewApplication(
   marketId: string,
-  applicationId: string,
+  /** The application as the reviewer saw it: the verdict lands only if it still is (E34/F03/S01). */
+  application: Application,
   status: string,
+  /** A follow-up's owner, when not the reviewer (E34/F02/S01). */
+  ownerEmail?: string,
 ): Promise<Application> {
-  const { data } = await api.put(`/markets/${marketId}/applications/${applicationId}/review`, {
+  const { data } = await api.put(`/markets/${marketId}/applications/${application.id}/review`, {
     status,
+    seen: seenOf(application),
+    ...(ownerEmail ? { ownerEmail } : {}),
   });
+  return data.application as Application;
+}
+
+/**
+ * Who changed an application since the reviewer opened it, and the application as it now stands,
+ * when a verdict was refused for it (E34/F03/S01); null for any other failure.
+ */
+export function changedSinceSeen(
+  err: unknown,
+): { message: string; application: Application } | null {
+  const response = (err as { response?: { status?: number; data?: Record<string, unknown> } })
+    ?.response;
+  if (response?.status !== 409 || !response.data?.application) return null;
+  return {
+    message: String(response.data.error ?? ''),
+    application: response.data.application as Application,
+  };
+}
+
+/** What a verdict on a selection wrote, and what it skipped and why (E34/F04/S02). */
+export interface SelectionResult {
+  written: string[];
+  skipped: { id: string; email: string | null; reason: string }[];
+}
+
+/** One verdict for a ticked selection, each written only on what the reviewer saw. */
+export async function reviewSelection(
+  marketId: string,
+  applications: Application[],
+  status: string,
+): Promise<SelectionResult> {
+  const { data } = await api.post(`/markets/${marketId}/applications/verdicts`, {
+    status,
+    applications: applications.map((app) => ({
+      id: app.id,
+      seen: seenOf(app),
+    })),
+  });
+  return data as SelectionResult;
+}
+
+/** Hand a follow-up to someone else with a role on the market (E34/F02/S01). */
+export async function reassignFollowUp(
+  marketId: string,
+  applicationId: string,
+  ownerEmail: string,
+): Promise<Application> {
+  const { data } = await api.put(
+    `/markets/${marketId}/applications/${applicationId}/follow-up-owner`,
+    { ownerEmail },
+  );
   return data.application as Application;
 }
 

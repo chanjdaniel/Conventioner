@@ -262,11 +262,16 @@ export interface Market {
    */
   readOnlyReason?: string | null;
   /**
-   * Why the person reading cannot take this market's admin actions - moving its phase, deciding
-   * applications, publishing results, importing - or null while they can (E26/F08/S01). Served
+   * Why the person reading cannot take this market's admin actions - moving its phase, publishing
+   * results, importing - or null while they can (E26/F08/S01). Served
    * beside `readOnlyReason`, from the same permission check the writes ask.
    */
   adminActionsReason?: string | null;
+  /**
+   * Why the person reading cannot give verdicts on this market's applications, or null while they
+   * can (E34): below EDITOR, archived, or past the point where an assignment can still be run.
+   */
+  verdictLockReason?: string | null;
   /**
    * What would refuse each move open from this phase, judged by the guards the move runs; empty
    * for a move that would succeed (E31/F02/S01). Served so a screen says no before the click.
@@ -310,6 +315,8 @@ export enum ApplicationStatus {
   UnderReview = 'under_review',
   ReviewerApproved = 'reviewer_approved',
   ReviewerRejected = 'reviewer_rejected',
+  /** Not complete: someone must reach out to the applicant first (E34/F02/S01). Undecided. */
+  NeedsFollowUp = 'needs_follow_up',
   Unassigned = 'unassigned',
   Assigned = 'assigned',
   AssignmentSent = 'assignment_sent',
@@ -399,6 +406,10 @@ export interface Application {
   verdictAt?: string | null;
   /** Organizer's only: why an automatic rule rejected it (E33/F03/S02). */
   verdictReason?: string | null;
+  /** Organizer's only: who is reaching out, while it needs a follow-up (E34/F02/S01). */
+  followUpOwner?: { userId?: string | null; email: string } | null;
+  /** Organizer's only: the reviewer looking at it, while their claim stands (E34/F03/S02). */
+  heldBy?: { userId?: string | null; email: string } | null;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */

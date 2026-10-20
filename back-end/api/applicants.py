@@ -20,6 +20,7 @@ Publication gate (captain ruling 2026-07-13):
 """
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from application_write import record_application_answers, validate_application_answers
@@ -33,6 +34,7 @@ from market_documents import (
 from datatypes import (
     Application,
     ApplicationStatus,
+    MarketPerson,
     VerdictGiver,
     MarketPhase,
     phase_from_market_document,
@@ -82,6 +84,9 @@ def applicant_visible_status(
     The organizer's view goes directly to the stored status and does not pass through here at all,
     so the organizer always sees the truth.
     """
+    # A follow-up is the organizer's own business, never an outcome, published or not (E34/F02/S01).
+    if status is ApplicationStatus.NEEDS_FOLLOW_UP:
+        return ApplicationStatus.UNDER_REVIEW
     if not results_published and status in REVIEW_IN_PROGRESS_STATUSES:
         return ApplicationStatus.UNDER_REVIEW
     return status
@@ -104,7 +109,9 @@ def _application_response(
     }
 
 
-def _application_response_organizer(app: Application) -> Dict[str, Any]:
+def _application_response_organizer(
+    app: Application, now: Optional[datetime] = None,
+) -> Dict[str, Any]:
     """Serialize an application for the organizer-facing API with the raw status always visible."""
     return {
         "id": app.id,
@@ -120,7 +127,21 @@ def _application_response_organizer(app: Application) -> Dict[str, Any]:
         "verdictBy": _giver(app.verdict_by),
         "verdictAt": app.verdict_at,
         "verdictReason": app.verdict_reason,
+        "followUpOwner": app.follow_up_owner.as_wire() if app.follow_up_owner else None,
+        # Who is looking at it while their claim stands (E34/F03/S02).
+        "heldBy": _holder(app, now),
     }
+
+
+def organizer_view(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """A stored application as the organizer reads it."""
+    return _application_response_organizer(Application(**doc))
+
+
+def _holder(app: Application, now: Optional[datetime]) -> Optional[Dict[str, Any]]:
+    held = ApplicationsApi.holds(
+        app.held_by.model_dump() if app.held_by else None, app.held_until, now)
+    return MarketPerson(**held).as_wire() if held else None
 
 
 def _giver(by: Optional[VerdictGiver]) -> Optional[Dict[str, Any]]:
@@ -393,25 +414,129 @@ def _share_request(app: Application) -> TableShare.ShareRequest:
 _NOT_TAKING_PART = (ApplicationStatus.REVIEWER_REJECTED, ApplicationStatus.CANCELLED)
 
 
+#: What a reviewer did to an application, in the words a refused reviewer is told (E34/F03/S01).
+_DONE_SINCE = {
+    ApplicationStatus.REVIEWER_APPROVED.value: "approved this application",
+    ApplicationStatus.REVIEWER_REJECTED.value: "rejected this application",
+    ApplicationStatus.NEEDS_FOLLOW_UP.value: "marked this application as needing a follow-up",
+}
+_STATUS_WORD = {
+    ApplicationStatus.REVIEWER_APPROVED.value: "approved",
+    ApplicationStatus.REVIEWER_REJECTED.value: "rejected",
+    ApplicationStatus.NEEDS_FOLLOW_UP.value: "needing a follow-up",
+}
+
+
+def seen_from(raw: Any) -> Optional[Dict[str, Any]]:
+    """What a reviewer saw of an application, from the wire's ``{status, verdictAt, updatedAt}``,
+    or None when they sent nothing (E34/F03/S01)."""
+    if not isinstance(raw, dict):
+        return None
+    return {"status": raw.get("status"), "verdict_at": raw.get("verdictAt"),
+            "updated_at": raw.get("updatedAt")}
+
+
+def _changed_since_seen(doc: Dict[str, Any], seen: Optional[Dict[str, Any]] = None) -> str:
+    """Who changed an application since a reviewer opened it, and to what (E34/F03/S01)."""
+    if (seen and seen.get("status") == doc.get("status")
+            and (seen.get("verdict_at") or None) == (doc.get("verdict_at") or None)):
+        return "Its answers changed since you opened it."
+    done = _DONE_SINCE.get(str(doc.get("status")))
+    by = doc.get("verdict_by") or {}
+    if done and by.get("kind") == "rule":
+        return (f"An automatic rejection {_STATUS_WORD[str(doc.get('status'))]} this application "
+                "since you opened it.")
+    if done and by.get("email"):
+        return f"{by['email']} {done} since you opened it."
+    return "This application changed since you opened it."
+
+
 def review_application(
     market_id: str, application_id: str, new_status: ApplicationStatus, by: VerdictGiver,
+    owner: Optional[MarketPerson] = None, seen: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Any], int]:
     """Record a review verdict on an application, and who gave it (E34/F01/S01). Organizer only,
     always sees raw status.
 
     The verdict is written but NOT revealed to the applicant until results are published.
+
+    ``seen`` is the application as the reviewer saw it - its status and its verdict's time - and the
+    verdict is written only if it still is (E34/F03/S01). Two reviewers at once used to mean the last
+    verdict silently won; now the second is refused with a 409 naming who changed it and to what,
+    and the application as it stands, so they decide again on what is really there.
     """
-    if new_status not in (ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED):
+    if new_status not in ApplicationsApi.MARKED_STATUSES:
         return {"error": f"Invalid review status: {new_status.value}"}, 400
 
     app_doc = ApplicationsApi.find_application_by_id(application_id)
     if not app_doc or app_doc.get("market_id") != market_id:
         return {"error": "Application not found for this market."}, 404
 
-    found = ApplicationsApi.update_application_status(application_id, new_status, by=by)
-    if not found:
-        return {"error": "Application not found."}, 404
+    written = ApplicationsApi.update_application_status(
+        application_id, new_status, by=by, owner=owner, if_unchanged_since=seen)
+    if not written:
+        now = ApplicationsApi.find_application_by_id(application_id)
+        if now is None:
+            return {"error": "Application not found."}, 404
+        return {
+            "error": _changed_since_seen(now, seen),
+            "application": _application_response_organizer(Application(**now)),
+        }, 409
 
+    app = Application(**ApplicationsApi.find_application_by_id(application_id))
+    return {"application": _application_response_organizer(app)}, 200
+
+
+def review_selection(
+    market_id: str, selection: List[Tuple[str, Optional[Dict[str, Any]]]],
+    new_status: ApplicationStatus, by: VerdictGiver,
+) -> Tuple[Dict[str, Any], int]:
+    """One verdict for a ticked selection (E34/F04/S02). Organizer only.
+
+    Each is written as a single verdict is, only on what the reviewer saw (``seen``, F03/S01); one
+    another reviewer holds open is not written at all, nor one of another market. The answer says
+    which were written and, for each skipped, why - never an action on "everything matching". One
+    already at the status asked for is skipped too: a follow-up marked again would quietly change
+    hands.
+    """
+    if new_status not in ApplicationsApi.MARKED_STATUSES:
+        return {"error": f"Invalid review status: {new_status.value}"}, 400
+    me = {"user_id": by.user_id, "email": by.email}
+    written: List[str] = []
+    skipped: List[Dict[str, Any]] = []
+    for app_id, seen in selection:
+        doc = ApplicationsApi.find_application_by_id(app_id)
+        if doc is None or doc.get("market_id") != market_id:
+            skipped.append({"id": app_id, "email": None, "reason": "Not an application here."})
+            continue
+        holder = ApplicationsApi.holder_of(doc)
+        if holder is not None and holder != me:
+            skipped.append({"id": app_id, "email": doc.get("applicant_email"),
+                            "reason": f"{holder['email']} has it open."})
+            continue
+        if doc.get("status") == new_status.value:
+            skipped.append({"id": app_id, "email": doc.get("applicant_email"),
+                            "reason": f"Already {_STATUS_WORD[new_status.value]}."})
+            continue
+        if ApplicationsApi.update_application_status(app_id, new_status, by=by,
+                                                     if_unchanged_since=seen):
+            written.append(app_id)
+        else:
+            now = ApplicationsApi.find_application_by_id(app_id) or doc
+            skipped.append({"id": app_id, "email": doc.get("applicant_email"),
+                            "reason": _changed_since_seen(now, seen)})
+    return {"written": written, "skipped": skipped}, 200
+
+
+def reassign_follow_up(
+    market_id: str, application_id: str, owner: MarketPerson,
+) -> Tuple[Dict[str, Any], int]:
+    """Hand a follow-up to someone else with a role on the market (E34/F02/S01)."""
+    app_doc = ApplicationsApi.find_application_by_id(application_id)
+    if not app_doc or app_doc.get("market_id") != market_id:
+        return {"error": "Application not found for this market."}, 404
+    if not ApplicationsApi.reassign_follow_up_owner(application_id, owner):
+        return {"error": "Only an application that needs a follow-up has an owner."}, 409
     app = Application(**ApplicationsApi.find_application_by_id(application_id))
     return {"application": _application_response_organizer(app)}, 200
 

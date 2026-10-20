@@ -295,7 +295,9 @@ def mongo_matches(doc: dict, query: dict) -> bool:
                 return False
             continue
         present = key in doc
-        if isinstance(condition, dict):
+        # Operators only when every key is one, as Mongo reads it; any other dict is a value to
+        # equal, a whole sub-document (a claim's holder, E34/F03/S02).
+        if isinstance(condition, dict) and condition and all(k.startswith("$") for k in condition):
             if "$exists" in condition and present != condition["$exists"]:
                 return False
             if "$ne" in condition and doc.get(key) == condition["$ne"]:

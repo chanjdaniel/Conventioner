@@ -7,6 +7,7 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
   [ApplicationStatus.UnderReview]: 'Under Review',
   [ApplicationStatus.ReviewerApproved]: 'Approved',
   [ApplicationStatus.ReviewerRejected]: 'Rejected',
+  [ApplicationStatus.NeedsFollowUp]: 'Needs follow-up',
   [ApplicationStatus.Unassigned]: 'Unassigned',
   [ApplicationStatus.Assigned]: 'Assigned',
   [ApplicationStatus.AssignmentSent]: 'Assignment Sent',
@@ -17,6 +18,30 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
 
 export function statusLabel(status: string): string {
   return STATUS_LABELS[status as ApplicationStatus] ?? status;
+}
+
+/*
+ * A status is a chip, tinted, in the product's tones (bug 43). These were solid fills, so in the
+ * reviewed list "Rejected" sat beside "Approve instead" as two filled pills in the same two
+ * colours, and nothing said which was the verdict and which the action.
+ */
+const STATUS_TONES: Record<ApplicationStatus, string> = {
+  [ApplicationStatus.Open]: 'informational',
+  [ApplicationStatus.UnderReview]: 'attention',
+  [ApplicationStatus.ReviewerApproved]: 'positive',
+  [ApplicationStatus.ReviewerRejected]: 'destructive',
+  [ApplicationStatus.NeedsFollowUp]: 'attention',
+  [ApplicationStatus.Unassigned]: 'neutral',
+  [ApplicationStatus.Assigned]: 'informational',
+  [ApplicationStatus.AssignmentSent]: 'neutral',
+  [ApplicationStatus.VendorAccepted]: 'positive',
+  [ApplicationStatus.VendorRefused]: 'destructive',
+  [ApplicationStatus.Cancelled]: 'neutral',
+};
+
+/** The chip classes for an application's status, wherever a review shows one. */
+export function statusChip(status: string): string {
+  return `chip chip--${STATUS_TONES[status as ApplicationStatus] ?? 'neutral'}`;
 }
 
 const VERDICTS: readonly string[] = [

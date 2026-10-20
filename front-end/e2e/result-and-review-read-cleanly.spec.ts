@@ -124,9 +124,9 @@ test('the review card reads as one card, and a verdict is not drawn like the act
       const ground = getComputedStyle(el.parentElement!).backgroundColor;
       return { border: kbd.borderTopColor, ground };
     });
-  const skip = await keyBorder(monitor.skipButton);
-  expect(skip.border).not.toBe(skip.ground);
-  expect(skip.border).not.toMatch(/rgba\(255, 255, 255/);
+  const next = await keyBorder(monitor.nextButton);
+  expect(next.border).not.toBe(next.ground);
+  expect(next.border).not.toMatch(/rgba\(255, 255, 255/);
 
   await monitor.approveButton.click();
   await monitor.rejectButton.click();

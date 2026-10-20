@@ -557,6 +557,9 @@ class ApplicationStatus(str, Enum):
     UNDER_REVIEW = "under_review"
     REVIEWER_APPROVED = "reviewer_approved"
     REVIEWER_REJECTED = "reviewer_rejected"
+    # Not complete: someone must reach out to the applicant first (E34/F02/S01). Undecided, and
+    # owned by a person on the market.
+    NEEDS_FOLLOW_UP = "needs_follow_up"
     UNASSIGNED = "unassigned"
     ASSIGNED = "assigned"
     ASSIGNMENT_SENT = "assignment_sent"
@@ -662,6 +665,20 @@ class VerdictGiver(BaseModel):
     rule: Optional[str] = None
 
 
+class MarketPerson(BaseModel):
+    """Someone with a role on a market, named by id and the address they sign in with."""
+    user_id: Optional[str] = None
+    email: str
+
+    def as_giver(self) -> "VerdictGiver":
+        """This person as the giver of a verdict."""
+        return VerdictGiver(kind="person", user_id=self.user_id, email=self.email)
+
+    def as_wire(self) -> Dict[str, Any]:
+        """As the organizer's views read a person: ``{userId, email}``."""
+        return {"userId": self.user_id, "email": self.email}
+
+
 class Application(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     market_id: str                        # FK to Market
@@ -679,6 +696,12 @@ class Application(BaseModel):
     verdict_at: Optional[str] = None
     # Why a rule rejected it, in the organizer's words (E33/F03/S02); never the applicant's to see.
     verdict_reason: Optional[str] = None
+    # Who is reaching out, while it needs a follow-up (E34/F02/S01); cleared with that status.
+    follow_up_owner: Optional[MarketPerson] = None
+    # The reviewer looking at it, until ``held_until`` (E34/F03/S02): a lease, renewed while the card
+    # stays open and released on a verdict or on moving on. A lapsed one holds nothing.
+    held_by: Optional[MarketPerson] = None
+    held_until: Optional[str] = None
 
 
 def to_camel(string: str) -> str:

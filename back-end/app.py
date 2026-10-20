@@ -34,7 +34,7 @@ from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
-from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole, VerdictGiver
+from datatypes import ApplicationStatus, Market, MarketPerson, MarketPhase, MarketRole, VerdictGiver
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from guards import PreconditionResult
 from market_documents import (
@@ -1741,54 +1741,159 @@ def list_market_applications(market_id: str) -> Response:
         return jsonify({"error": "Internal server error"}), 500
 
 
+def _reviewer_on(market_id: str):
+    """The signed-in reviewer as a ``MarketPerson`` and the market's context, once they may give
+    verdicts here, or an error response (E34).
+
+    The one gate of every review write - a verdict, a selection's, a follow-up's owner, a claim on a
+    card - asked through ``verdict_refusal``, the same rule the market read serves as
+    ``verdictLockReason``: EDITOR, on a market that can still run its assignment.
+    """
+    requesting_user = authenticated_email()
+    context = MarketsApi.load_market_context(market_id)
+    if context is None or context.market is None:
+        return None, None, (jsonify({"error": "Market not found"}), 404)
+    refusal = MarketsApi.verdict_refusal(requesting_user, context.market, context.organization)
+    if refusal:
+        return None, None, (jsonify({"error": refusal}), 403)
+    user = UsersApi.get_user(requesting_user)
+    return MarketPerson(user_id=user.id if user else None, email=requesting_user), context, None
+
+
+def _review_endpoint(handler):
+    """Map a review endpoint's unexpected failure as its neighbours do: logged, a 500 in words."""
+    def wrapped(*args, **kwargs):
+        try:
+            return handler(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in {handler.__name__} {kwargs}: {e}")
+            logger.error(traceback.format_exc())
+            return jsonify({"error": "Internal server error"}), 500
+    wrapped.__name__ = handler.__name__
+    return wrapped
+
+
 @app.route('/markets/<market_id>/applications/<application_id>/review', methods=['PUT'])
 @login_required
+@_review_endpoint
 def review_application(market_id: str, application_id: str) -> Response:
-    """Record a review verdict (approved/rejected) on an application, and its giver. Requires
-    EDITOR+ (E34/F01/S01)."""
+    """Record a review verdict, or a follow-up, on an application, and its giver (E34/F01/S01).
+
+    Body: { "status": "reviewer_approved", "seen": { "status": "open", "verdictAt": null },
+            "ownerEmail": "..." }  - ``seen`` and ``ownerEmail`` optional.
+    """
+    person, context, refused = _reviewer_on(market_id)
+    if refused:
+        return refused
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "No data provided"}), 400
+    status_raw = data.get('status') or data.get('statusRaw')
+    if not status_raw:
+        return jsonify({"error": "status is required"}), 400
     try:
-        requesting_user = authenticated_email()
+        new_status = ApplicationStatus(status_raw)
+    except ValueError:
+        return jsonify({"error": f"Invalid status: {status_raw}"}), 400
+    # A follow-up is owned by whoever marked it, or by the person named, who must hold a role on
+    # the market (E34/F02/S01).
+    owner = None
+    if new_status is ApplicationStatus.NEEDS_FOLLOW_UP and data.get('ownerEmail'):
+        owner = MarketsApi.person_on_market(context.market, data['ownerEmail'])
+        if owner is None:
+            return jsonify({"error": "A follow-up's owner must have a role on this market."}), 400
+    result, status_code = ApplicantsApi.review_application(
+        market_id, application_id, new_status, by=person.as_giver(), owner=owner,
+        seen=ApplicantsApi.seen_from(data.get('seen')),
+    )
+    return jsonify(result), status_code
 
-        context = MarketsApi.load_market_context(market_id)
-        if context is None:
-            return jsonify({"error": "Market not found"}), 404
-        if context.market is None:
-            return jsonify({"error": "Invalid market data"}), 400
 
-        # A verdict is EDITOR's, like every other change to the market's contents (E34/F01/S01):
-        # a reviewing team should not need the role that also moves the phase.
-        if not PermissionsApi.user_has_permission(
-            requesting_user, context.market, MarketRole.EDITOR, context.organization
-        ):
-            return jsonify({"error": "User does not have permission to review applications"}), 403
-        refusal = MarketsApi.archived_refusal(context.market)
-        if refusal:
-            return jsonify({"error": refusal}), 403
+@app.route('/markets/<market_id>/applications/verdicts', methods=['POST'])
+@login_required
+@_review_endpoint
+def review_selection(market_id: str) -> Response:
+    """One verdict for a ticked selection (E34/F04/S02).
 
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict):
-            return jsonify({"error": "No data provided"}), 400
+    Body: { "status": "reviewer_approved",
+            "applications": [{ "id": "...", "seen": { "status": "open", "verdictAt": null } }] }
+    Answers { "written": [ids], "skipped": [{ "id", "email", "reason" }] }.
+    """
+    person, _context, refused = _reviewer_on(market_id)
+    if refused:
+        return refused
+    data = request.get_json(silent=True) or {}
+    try:
+        new_status = ApplicationStatus(data.get('status'))
+    except ValueError:
+        return jsonify({"error": f"Invalid status: {data.get('status')}"}), 400
+    selection = data.get('applications')
+    if not isinstance(selection, list) or not selection:
+        return jsonify({"error": "Tick the applications to decide."}), 400
+    result, status_code = ApplicantsApi.review_selection(
+        market_id,
+        [(str((item or {}).get('id') or ''), ApplicantsApi.seen_from((item or {}).get('seen')))
+         for item in selection],
+        new_status, by=person.as_giver())
+    return jsonify(result), status_code
 
-        status_raw = data.get('status') or data.get('statusRaw')
-        if not status_raw:
-            return jsonify({"error": "status is required"}), 400
 
-        try:
-            new_status = ApplicationStatus(status_raw)
-        except ValueError:
-            return jsonify({"error": f"Invalid status: {status_raw}"}), 400
+@app.route('/markets/<market_id>/review/next', methods=['POST'])
+@login_required
+@_review_endpoint
+def next_for_review(market_id: str) -> Response:
+    """The next card to review, claimed for the reviewer (E34/F03/S02).
 
-        reviewer = UsersApi.get_user(requesting_user)
-        result, status_code = ApplicantsApi.review_application(
-            market_id, application_id, new_status,
-            by=VerdictGiver(kind="person", user_id=reviewer.id if reviewer else None,
-                            email=requesting_user),
-        )
-        return jsonify(result), status_code
-    except Exception as e:
-        logger.error(f"Error in review_application {market_id}/{application_id}: {e}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
+    Body: { "after": "<the application moved on from>", "includeFollowUps": false,
+            "want": "<an application asked for by name, tried first>" }
+    Answers { "application": ... } or { "application": null } when every one left is held by
+    someone else.
+    """
+    person, _context, refused = _reviewer_on(market_id)
+    if refused:
+        return refused
+    data = request.get_json(silent=True) or {}
+    doc = ApplicationsApi.claim_next_for_review(
+        market_id, person, data.get('after'), bool(data.get('includeFollowUps')),
+        want=data.get('want'))
+    return jsonify({"application": ApplicantsApi.organizer_view(doc) if doc else None}), 200
+
+
+@app.route('/markets/<market_id>/applications/<application_id>/claim', methods=['PUT', 'DELETE'])
+@login_required
+@_review_endpoint
+def hold_for_review(market_id: str, application_id: str) -> Response:
+    """Keep holding the open card (PUT, every minute while it stays open) or let it go (DELETE, on
+    leaving the review) (E34/F03/S02). PUT answers { "held": false } once someone else has it."""
+    person, _context, refused = _reviewer_on(market_id)
+    if refused:
+        return refused
+    doc = ApplicationsApi.find_application_by_id(application_id)
+    if doc is None or doc.get("market_id") != market_id:
+        return jsonify({"error": "Application not found for this market."}), 404
+    if request.method == 'DELETE':
+        ApplicationsApi.release_claim(application_id, person)
+        return jsonify({"held": False}), 200
+    return jsonify({"held": ApplicationsApi.renew_claim(application_id, person)}), 200
+
+
+@app.route('/markets/<market_id>/applications/<application_id>/follow-up-owner', methods=['PUT'])
+@login_required
+@_review_endpoint
+def reassign_follow_up(market_id: str, application_id: str) -> Response:
+    """Hand a follow-up to someone else with a role on the market (E34/F02/S01).
+
+    Body: { "ownerEmail": "sam@market.test" }
+    """
+    _person, context, refused = _reviewer_on(market_id)
+    if refused:
+        return refused
+    data = request.get_json(silent=True) or {}
+    owner = MarketsApi.person_on_market(context.market, data.get('ownerEmail'))
+    if owner is None:
+        return jsonify({"error": "A follow-up's owner must have a role on this market."}), 400
+    result, status_code = ApplicantsApi.reassign_follow_up(market_id, application_id, owner)
+    return jsonify(result), status_code
 
 
 def _admin_market_document(market_id: str, requesting_user: str, refused: str):

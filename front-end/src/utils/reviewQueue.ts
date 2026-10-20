@@ -1,4 +1,8 @@
-import type { Application, ApplicationForm } from '@/assets/types/datatypes';
+import {
+  ApplicationStatus,
+  type Application,
+  type ApplicationForm,
+} from '@/assets/types/datatypes';
 import { applicationAnswerRows, type AnswerRow } from '@/utils/essentialFields';
 
 /**
@@ -74,4 +78,81 @@ export function inArrivalOrder<T extends Pick<Application, 'submittedAt'>>(apps:
       return (xKnown && x.at !== y.at ? x.at - y.at : 0) || x.index - y.index;
     })
     .map(({ app }) => app);
+}
+
+/** Awaiting a verdict, and nobody is chasing it yet. */
+const AWAITING: readonly string[] = [ApplicationStatus.Open, ApplicationStatus.UnderReview];
+
+/** Waiting on its applicant, with someone reaching out (E34/F02/S01). */
+export function followUps(applications: Application[]): Application[] {
+  return inArrivalOrder(applications.filter((a) => a.status === ApplicationStatus.NeedsFollowUp));
+}
+
+/**
+ * What the one-by-one review walks: the undecided in the order they arrived, and the follow-ups
+ * after them only when the reviewer asks (E34/F02/S01) - a follow-up waits on its applicant, so it
+ * is not the next thing to decide.
+ */
+export function reviewQueue(applications: Application[], includeFollowUps: boolean): Application[] {
+  const waiting = inArrivalOrder(applications.filter((a) => AWAITING.includes(a.status)));
+  return includeFollowUps ? [...waiting, ...followUps(applications)] : waiting;
+}
+
+/**
+ * Reviewed: everything the queue is done with, whatever became of it since.
+ *
+ * Deliberately "neither awaiting nor followed up" rather than "approved or rejected". An
+ * application does not stay at its reviewer verdict: assignment carries it to `assigned` or
+ * `unassigned`, offers to `assignment_sent`, and the sweep into market days to `vendor_accepted` or
+ * `vendor_refused`. A list of the two reviewer verdicts alone would drop each application the
+ * moment the market moved on.
+ */
+export function reviewed(applications: Application[]): Application[] {
+  return applications.filter(
+    (a) => !AWAITING.includes(a.status) && a.status !== ApplicationStatus.NeedsFollowUp,
+  );
+}
+
+/** The All view's status filters (E34/F04/S01), as the address names them. */
+export const ALL_VIEW_FILTERS = [
+  { id: 'all', label: 'Any status' },
+  { id: 'undecided', label: 'To review' },
+  { id: ApplicationStatus.NeedsFollowUp, label: 'Needs follow-up' },
+  { id: ApplicationStatus.ReviewerApproved, label: 'Approved' },
+  { id: ApplicationStatus.ReviewerRejected, label: 'Rejected' },
+] as const;
+
+export type AllViewFilter = (typeof ALL_VIEW_FILTERS)[number]['id'];
+
+/** The filter an address names, or every application for one it does not know. */
+export function allViewFilter(asked: unknown): AllViewFilter {
+  return ALL_VIEW_FILTERS.some((f) => f.id === asked) ? (asked as AllViewFilter) : 'all';
+}
+
+/**
+ * The applications the All view lists: those with the status asked for - "To review" is every one
+ * awaiting a verdict - and, with Mine, only the follow-ups the viewer owns.
+ */
+export function allViewApplications(
+  applications: Application[],
+  filter: AllViewFilter,
+  mine: boolean,
+  me: string,
+): Application[] {
+  const shown = applications.filter((a) =>
+    filter === 'all'
+      ? true
+      : filter === 'undecided'
+        ? AWAITING.includes(a.status)
+        : a.status === filter,
+  );
+  if (!mine) return inArrivalOrder(shown);
+  const viewer = me.trim().toLowerCase();
+  return inArrivalOrder(
+    shown.filter(
+      (a) =>
+        a.status === ApplicationStatus.NeedsFollowUp &&
+        (a.followUpOwner?.email ?? '').toLowerCase() === viewer,
+    ),
+  );
 }

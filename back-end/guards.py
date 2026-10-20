@@ -320,8 +320,8 @@ class AssignmentComputedGuard:
 class AllApplicationsReviewedGuard:
     """Every application must be approved or rejected before assignment can begin.
 
-    No application may still be ``open`` or ``under_review`` -- the review phase must
-    have reached a verdict on every single one.
+    No application may still be ``open``, ``under_review`` or ``needs_follow_up`` -- the review
+    phase must have reached a verdict on every single one.
     """
 
     id: str = "all_applications_reviewed"
@@ -333,17 +333,24 @@ class AllApplicationsReviewedGuard:
             market.id,
             [ApplicationStatus.OPEN.value, ApplicationStatus.UNDER_REVIEW.value],
         )
-        if unreviewed_count > 0:
-            app_word = (
-                "application is" if unreviewed_count == 1 else "applications are"
-            )
+        following_up = ApplicationsApi.count_applications_with_any_status(
+            market.id, [ApplicationStatus.NEEDS_FOLLOW_UP.value],
+        )
+        if unreviewed_count > 0 or following_up > 0:
+            waiting = []
+            if unreviewed_count:
+                waiting.append(f"{unreviewed_count} application"
+                               f"{' is' if unreviewed_count == 1 else 's are'} still awaiting review")
+            # Named apart, so the organizer knows to chase them (E34/F02/S01).
+            if following_up:
+                waiting.append(f"{following_up} application"
+                               f"{' needs' if following_up == 1 else 's need'} a follow-up")
             return PreconditionResult(
                 id=self.id,
                 passed=False,
                 message=(
-                    f"{unreviewed_count} {app_word} still awaiting review. "
-                    "Every application must be approved or rejected before assignment "
-                    "can begin."
+                    f"{' and '.join(waiting)}. Every application must be approved or rejected "
+                    "before assignment can begin."
                 ),
                 resolution_link="applications",
                 resolution_label="Finish deciding",
