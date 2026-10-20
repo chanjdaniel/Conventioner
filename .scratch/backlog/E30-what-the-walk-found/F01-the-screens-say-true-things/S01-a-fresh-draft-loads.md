@@ -2,9 +2,9 @@
 id: E30/F01/S01
 title: A fresh draft's Result and Vendors load
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

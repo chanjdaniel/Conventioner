@@ -2,9 +2,9 @@
 id: E30/F02/S01
 title: The import names the start, and shows what the start set aside
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

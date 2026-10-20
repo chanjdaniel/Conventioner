@@ -2,9 +2,9 @@
 id: E31/F02/S03
 title: Archiving is the next step once the market has run
 type: story
-status: in-progress
+status: done
 blocked_by: [E31/F02/S02]
-pr: []
+pr: [#109]
 ---
 
 ## What to build

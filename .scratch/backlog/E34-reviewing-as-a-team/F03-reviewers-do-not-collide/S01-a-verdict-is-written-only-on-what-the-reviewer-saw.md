@@ -2,9 +2,9 @@
 id: E34/F03/S01
 title: A verdict is written only on what the reviewer saw
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#111]
 ---
 
 ## What to build

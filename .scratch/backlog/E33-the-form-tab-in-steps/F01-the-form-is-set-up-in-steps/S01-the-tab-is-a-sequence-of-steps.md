@@ -2,9 +2,9 @@
 id: E33/F01/S01
 title: The tab is a sequence of steps
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#110]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E30/F01/S02
 title: No message describes a phase the market has left
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

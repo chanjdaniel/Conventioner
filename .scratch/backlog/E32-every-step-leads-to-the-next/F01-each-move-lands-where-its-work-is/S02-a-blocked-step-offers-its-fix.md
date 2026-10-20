@@ -2,9 +2,9 @@
 id: E32/F01/S02
 title: A blocked step offers its fix as the main button
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

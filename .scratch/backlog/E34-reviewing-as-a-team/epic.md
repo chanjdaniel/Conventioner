@@ -2,7 +2,7 @@
 id: E34
 title: Reviewing as a team
 type: epic
-status: ready
+status: done
 blocked_by: [E31]
 pr: []
 ---

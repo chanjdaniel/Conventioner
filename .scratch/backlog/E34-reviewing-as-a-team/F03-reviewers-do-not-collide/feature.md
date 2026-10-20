@@ -2,7 +2,7 @@
 id: E34/F03
 title: Reviewers do not collide
 type: feature
-status: ready
+status: done
 blocked_by: [E34/F01]
 pr: []
 ---

@@ -2,9 +2,9 @@
 id: E33/F03/S01
 title: The organizer sets the automatic-rejection rules
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#110]
 ---
 
 ## What to build

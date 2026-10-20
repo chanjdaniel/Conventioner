@@ -2,7 +2,7 @@
 id: E31/F03
 title: Each path has its own tabs and words
 type: feature
-status: ready
+status: done
 blocked_by: [E31/F02/S02]
 pr: []
 ---

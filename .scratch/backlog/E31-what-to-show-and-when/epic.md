@@ -2,7 +2,7 @@
 id: E31
 title: What to show, and when
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

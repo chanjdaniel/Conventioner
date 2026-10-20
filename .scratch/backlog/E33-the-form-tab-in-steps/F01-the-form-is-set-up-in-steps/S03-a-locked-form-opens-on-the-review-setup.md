@@ -2,9 +2,9 @@
 id: E33/F01/S03
 title: A locked form opens on the review setup
 type: story
-status: in-progress
+status: done
 blocked_by: [E33/F01/S01]
-pr: []
+pr: [#110]
 ---
 
 ## What to build

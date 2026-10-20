@@ -2,7 +2,7 @@
 id: E34/F02
 title: Needs follow-up
 type: feature
-status: ready
+status: done
 blocked_by: [E34/F01]
 pr: []
 ---

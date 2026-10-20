@@ -2,9 +2,9 @@
 id: E31/F01/S02
 title: The setup refuses changes once the market has left draft
 type: story
-status: in-progress
+status: done
 blocked_by: [E31/F01/S01]
-pr: []
+pr: [#109]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E35/F01/S01
 title: The drawer has tabs
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#111]
 ---
 
 ## What to build

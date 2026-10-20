@@ -2,7 +2,7 @@
 id: E33
 title: The form tab in steps
 type: epic
-status: ready
+status: done
 blocked_by: [E31]
 pr: []
 ---

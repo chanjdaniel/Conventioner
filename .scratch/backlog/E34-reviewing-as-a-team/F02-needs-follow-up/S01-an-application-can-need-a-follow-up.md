@@ -2,9 +2,9 @@
 id: E34/F02/S01
 title: An application can need a follow-up, with an owner
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#111]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E31/F03/S04
 title: Each path offers only its own actions
 type: story
-status: in-progress
+status: done
 blocked_by: [E31/F02/S02]
-pr: []
+pr: [#109]
 ---
 
 ## What to build

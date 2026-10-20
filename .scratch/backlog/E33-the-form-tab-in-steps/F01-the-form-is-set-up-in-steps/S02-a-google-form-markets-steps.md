@@ -2,9 +2,9 @@
 id: E33/F01/S02
 title: A Google Form market's steps
 type: story
-status: in-progress
+status: done
 blocked_by: [E33/F01/S01]
-pr: []
+pr: [#110]
 ---
 
 ## What to build

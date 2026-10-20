@@ -2,7 +2,7 @@
 id: E32/F03
 title: A Google Form market has no applicant surface, and the sign-in code is sent
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

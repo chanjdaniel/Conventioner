@@ -2,9 +2,9 @@
 id: E34/F04/S02
 title: A verdict on a selection
 type: story
-status: in-progress
+status: done
 blocked_by: [E34/F04/S01, E34/F03/S02]
-pr: []
+pr: [#111]
 ---
 
 ## What to build

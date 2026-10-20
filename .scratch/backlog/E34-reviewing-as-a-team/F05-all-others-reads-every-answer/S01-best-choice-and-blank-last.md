@@ -2,9 +2,9 @@
 id: E34/F05/S01
 title: Best choice, and blank last
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#111]
 ---
 
 ## What to build

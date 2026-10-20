@@ -2,7 +2,7 @@
 id: E35/F03
 title: The results read better
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

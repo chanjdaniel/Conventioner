@@ -2,9 +2,9 @@
 id: E35/F02/S02
 title: Change placement shows the vendor's table
 type: story
-status: in-progress
+status: done
 blocked_by: [E35/F02/S01]
-pr: []
+pr: [#112]
 ---
 
 ## What to build

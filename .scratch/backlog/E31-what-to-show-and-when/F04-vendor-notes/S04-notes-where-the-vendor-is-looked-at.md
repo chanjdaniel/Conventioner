@@ -2,9 +2,9 @@
 id: E31/F04/S04
 title: Notes where the vendor is looked at, and a request marked handled
 type: story
-status: in-progress
+status: done
 blocked_by: [E31/F04/S01, E31/F04/S02]
-pr: []
+pr: [#109]
 ---
 
 ## What to build

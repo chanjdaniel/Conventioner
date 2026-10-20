@@ -2,9 +2,9 @@
 id: E31/F04/S01
 title: The vendor's request
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

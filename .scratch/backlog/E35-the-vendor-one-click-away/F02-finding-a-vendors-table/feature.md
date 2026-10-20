@@ -2,7 +2,7 @@
 id: E35/F02
 title: Finding a vendor's table
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

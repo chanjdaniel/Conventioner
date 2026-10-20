@@ -2,9 +2,9 @@
 id: E30/F01/S05
 title: Lists read in the order the work happens
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

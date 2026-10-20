@@ -2,9 +2,9 @@
 id: E32/F02/S01
 title: The Google Form path's stages are Plan, Import, Review
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

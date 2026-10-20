@@ -2,9 +2,9 @@
 id: E31/F03/S03
 title: The CSV path speaks of its Google Form
 type: story
-status: in-progress
+status: done
 blocked_by: [E31/F02/S02]
-pr: []
+pr: [#109]
 ---
 
 ## What to build

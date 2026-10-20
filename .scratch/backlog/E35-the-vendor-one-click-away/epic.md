@@ -2,7 +2,7 @@
 id: E35
 title: The vendor, one click away
 type: epic
-status: ready
+status: done
 blocked_by: [E31]
 pr: []
 ---

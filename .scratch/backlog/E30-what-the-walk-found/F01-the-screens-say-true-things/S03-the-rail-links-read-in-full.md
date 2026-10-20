@@ -2,9 +2,9 @@
 id: E30/F01/S03
 title: The rail's links read in full and point at the right page
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

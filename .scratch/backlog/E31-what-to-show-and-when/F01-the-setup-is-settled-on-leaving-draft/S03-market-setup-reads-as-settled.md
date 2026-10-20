@@ -2,9 +2,9 @@
 id: E31/F01/S03
 title: Market Setup reads as settled
 type: story
-status: in-progress
+status: done
 blocked_by: [E31/F01/S02]
-pr: []
+pr: [#109]
 ---
 
 ## What to build

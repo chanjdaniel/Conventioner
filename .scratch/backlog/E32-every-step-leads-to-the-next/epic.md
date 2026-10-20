@@ -2,7 +2,7 @@
 id: E32
 title: Every step leads to the next
 type: epic
-status: ready
+status: done
 blocked_by: [E31]
 pr: []
 ---

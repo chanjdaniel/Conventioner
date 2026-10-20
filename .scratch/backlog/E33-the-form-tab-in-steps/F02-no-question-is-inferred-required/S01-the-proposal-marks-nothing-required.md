@@ -2,9 +2,9 @@
 id: E33/F02/S01
 title: The proposal marks nothing required
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#110]
 ---
 
 ## What to build

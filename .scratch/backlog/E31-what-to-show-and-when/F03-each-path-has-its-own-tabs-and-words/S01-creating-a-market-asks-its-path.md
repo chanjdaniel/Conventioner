@@ -2,9 +2,9 @@
 id: E31/F03/S01
 title: Creating a market asks how vendors will apply
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#109]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E35/F03/S03
 title: The placement history opens from a button
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#112]
 ---
 
 ## What to build

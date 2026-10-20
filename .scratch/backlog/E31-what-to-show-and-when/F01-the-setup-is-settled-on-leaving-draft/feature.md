@@ -2,7 +2,7 @@
 id: E31/F01
 title: The setup is settled on leaving draft
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
