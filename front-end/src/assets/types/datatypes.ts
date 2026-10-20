@@ -424,9 +424,24 @@ export interface Application {
   followUpOwner?: { userId?: string | null; email: string } | null;
   /** Organizer's only: the reviewer looking at it, while their claim stands (E34/F03/S02). */
   heldBy?: { userId?: string | null; email: string } | null;
+  /**
+   * Applicant's only, once results are published (E36/F05/S02): whether they have a table, and
+   * where. Null and empty before; a verdict is never served to them.
+   */
+  outcome?: 'has_a_table' | 'not_assigned' | null;
+  seats?: ApplicantSeat[];
   /** Who recorded a vendor who never applied, and when (E36/F03/S01). Absent on any who applied. */
   addedBy?: { userId?: string | null; email: string } | null;
   addedAt?: string | null;
+}
+
+/** One seat an applicant holds, as their page lists it once results are published (E36/F05/S02). */
+export interface ApplicantSeat {
+  date: string;
+  tableCode: string;
+  tableChoice: string;
+  section: string;
+  location: string;
 }
 
 /** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */

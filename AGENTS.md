@@ -438,7 +438,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **`applicant_intake_market_by_slug()` (`back-end/market_documents.py`) is the single expression of
   the gate**, read by exactly the five applicant endpoints. It serves a form market in every phase
   but draft (`APPLICANT_SURFACE_PHASES`, E26/F07/S02): an applicant may always sign in and read their
-  own application and verdict - closing the surface with applications hid every verdict (bug 20).
+  own application and its outcome - closing the surface with applications hid every verdict (bug 20).
+  **An applicant never reads a verdict** (E36/F05): "Submitted" until results are published, then
+  "You have a table" with their seats or "You did not get assigned", read off the stored seats by
+  `back-end/result_outcome.py` on every read; `applicant_visible_status` serves only `open`.
   APPLYING stays `applications_open`-only, refused in words by `save_applicant_application`. It is
   not the check-in lookup, because check-in must stay open to every market that runs: how a vendor
   entered has no bearing on whether they can scan in on the day. It is one lookup rather than a

@@ -6,10 +6,11 @@ import {
   seedApplicantMarket,
 } from './helpers/seedApplicantMarket';
 import { seedApprovedVendor } from './helpers/seedApplication';
+import { seedApplicationWithStatus } from './helpers/seedPhaseMarket';
 
 /**
- * A vendor can read their application, and its verdict, after applications close (bug 20,
- * E26/F07/S02).
+ * A vendor can read their application, and its outcome, after applications close (bug 20,
+ * E26/F07/S02), which is one of two since E36/F05/S02: a table, or none.
  *
  * Every applicant endpoint served a market in Applications Open only, so once the organizer
  * published results and closed applications - the order most organizers do it in - the sign-in
@@ -46,6 +47,8 @@ test('after results are published and applications close, a vendor still reads t
     sections: ['Main Hall', 'Garden'],
     extra: { business_name: 'Returning Ceramics', product_type: 'Mugs' },
   });
+  const TURNED_AWAY = 'turned-away@example.com';
+  seedApplicationWithStatus(market.marketId, 'reviewer_rejected', TURNED_AWAY);
   // Results wait for the allocation (E36/F04/S01): closed, reviewed, assigned, then published.
   for (const toPhase of ['applications_closed', 'review', 'assignment']) {
     await post(request, `/markets/${market.marketId}/transition`, { toPhase });
@@ -61,8 +64,22 @@ test('after results are published and applications close, a vendor still reads t
   await login.enterCode(CODE);
 
   await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
-  await expect(page.getByTestId('applicant-dashboard-status')).toContainText('Approved');
+  // One of two outcomes, read off the seats (E36/F05/S02): a table, and where.
+  await expect(page.getByTestId('applicant-dashboard-status')).toContainText('You have a table');
+  await expect(page.getByTestId('applicant-dashboard-seats')).toContainText('August 1, 2099');
   await expect(page.getByTestId('applicant-dashboard-answers')).toContainText('Returning Ceramics');
+
+  // Anyone without a seat reads the other, rejected or not, and never why.
+  await page.getByTestId('applicant-dashboard-logout-btn').click();
+  await page.goto(`/${market.marketSlug}/applicant-login`);
+  await login.requestCode(TURNED_AWAY);
+  createApplicantLoginChallenge(market.marketId, TURNED_AWAY, CODE);
+  await login.enterCode(CODE);
+  await page.waitForURL(new RegExp(`/${market.marketSlug}/applicant/dashboard`));
+  const status = page.getByTestId('applicant-dashboard-status');
+  await expect(status).toContainText('You did not get assigned');
+  await expect(status).not.toContainText(/reject|accepted/i);
+  await expect(page.getByTestId('applicant-dashboard-seats')).toHaveCount(0);
   // Reading is open; applying is not - the save refuses it, which the back-end suite pins, and
   // the apply page's closed state is walked in returning-vendors-edit-their-answers.spec.ts.
 });

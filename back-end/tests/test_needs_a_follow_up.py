@@ -102,7 +102,7 @@ class TestTheApplicant:
         assert ApplicantsApi._application_response(app, False)["status"] == \
             ApplicationStatus.OPEN.value
         assert ApplicantsApi._application_response(app, True)["status"] == \
-            ApplicationStatus.UNDER_REVIEW.value
+            ApplicationStatus.OPEN.value
 
 
 class TestWhoMayOwnIt:

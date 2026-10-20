@@ -44,16 +44,11 @@ def test_before_publication_every_application_reads_submitted(status):
     assert applicant_visible_status(status, False) == ApplicationStatus.OPEN
 
 
-@pytest.mark.parametrize("status", [
-    ApplicationStatus.REVIEWER_APPROVED, ApplicationStatus.REVIEWER_REJECTED,
-])
-def test_after_publication_a_verdict_is_read(status):
-    assert applicant_visible_status(status, True) == status
-
-
-def test_a_follow_up_is_never_an_outcome():
-    assert applicant_visible_status(ApplicationStatus.NEEDS_FOLLOW_UP, True) == \
-        ApplicationStatus.UNDER_REVIEW
+@pytest.mark.parametrize("status", list(ApplicationStatus))
+def test_after_publication_no_verdict_is_read_either(status):
+    """After publication the applicant reads an outcome, a table or none, and never a verdict
+    (E36/F05/S02): rejected and approved-without-a-seat read the same."""
+    assert applicant_visible_status(status, True) == ApplicationStatus.OPEN
 
 
 # ── _application_response / _application_response_organizer ────────────────
@@ -84,10 +79,11 @@ def test_application_response_hides_rejection_when_unpublished():
     assert response["status"] == ApplicationStatus.OPEN.value
 
 
-def test_application_response_reveals_verdict_after_publication():
-    """After publication, the applicant sees the actual verdict."""
+def test_application_response_reads_an_outcome_after_publication_never_a_verdict():
+    """After publication, the applicant reads whether they have a table (E36/F05/S02)."""
     response = _application_response(_app(ApplicationStatus.REVIEWER_APPROVED), True)
-    assert response["status"] == ApplicationStatus.REVIEWER_APPROVED.value
+    assert response["status"] == ApplicationStatus.OPEN.value
+    assert response["outcome"] == "not_assigned"
 
 
 def test_application_response_shows_open_status_regardless():
