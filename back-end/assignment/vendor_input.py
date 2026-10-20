@@ -201,6 +201,49 @@ def approved_solver_vendors(
     )
 
 
+def held_solver_vendors(
+    market_id: str, options: EssentialFormOptions, addresses: Iterable[str],
+) -> List[SolverVendor]:
+    """The applicants these addresses hold at the market, as the seats they were given by hand.
+
+    An applicant outside the run - one not approved, or a vendor added on the day - holds a seat
+    only by a pin (E36/F02/S02). The run must see them to keep anyone else out of that seat, so
+    they are translated leniently: what they answered is read, and nothing missing refuses them,
+    since the run places them nowhere and no answer of theirs decides anything.
+    """
+    documents = ApplicationsApi.main_applications_from(market_id, addresses)
+    return [
+        vendor
+        for vendor, _problem in (
+            _solver_vendor(Application(**document), options, lenient=True)
+            for document in documents
+        )
+        if vendor is not None
+    ]
+
+
+def outside_solver_vendors(
+    market_id: str, options: EssentialFormOptions, in_the_run: Iterable[str],
+) -> List[Tuple[SolverVendor, Application]]:
+    """Every applicant the run does not read, with their application, for a hand placement.
+
+    The place dialog offers every applicant (E36/F02/S02): one outside the run - rejected, still
+    undecided, or added on the day - may be seated by hand, and the dialog warns with why they are
+    outside it. Translated leniently, as ``held_solver_vendors`` is, since nothing about the run
+    rests on their answers.
+    """
+    run = set(in_the_run)
+    outside: List[Tuple[SolverVendor, Application]] = []
+    for document in ApplicationsApi.list_applications_for_market(market_id):
+        application = Application(**document)
+        if application.application_type not in (None, ApplicationType.MAIN):
+            continue
+        vendor, _problem = _solver_vendor(application, options, lenient=True)
+        if vendor is not None and vendor.email not in run:
+            outside.append((vendor, application))
+    return outside
+
+
 def _tiers_by_date(
     raw: Any,
     options: EssentialFormOptions,
@@ -239,7 +282,7 @@ def _tiers_by_date(
 
 
 def _solver_vendor(
-    application: Application, options: EssentialFormOptions,
+    application: Application, options: EssentialFormOptions, lenient: bool = False,
 ) -> Tuple[Optional[SolverVendor], Optional[IncompleteApplication]]:
     answers: Dict[str, Any] = application.form_data or {}
     asked = EF.asked_essential_keys(options)
@@ -283,7 +326,7 @@ def _solver_vendor(
     if EF.TABLE_CHOICE_KEY in asked and table_choice not in EF.TABLE_CHOICES:
         missing.append(EF.TABLE_CHOICE_LABEL)
 
-    if missing:
+    if missing and not lenient:
         return None, IncompleteApplication(
             application_id=application.id,
             applicant_email=email,

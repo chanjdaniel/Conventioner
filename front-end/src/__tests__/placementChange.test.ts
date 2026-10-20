@@ -30,6 +30,7 @@ function vendor(overrides: Partial<PlaceableVendor> = {}): PlaceableVendor {
     availableDates: [DATE],
     acceptedTiersByDate: {},
     maxDates: null,
+    notApproved: null,
     ...overrides,
   };
 }
@@ -245,5 +246,71 @@ describe('a seat names a side', () => {
     expect(seatLabel(FULL_TABLE)).toBe('The whole table');
     expect(seatLabel(HALF_TABLE_LEFT)).toBe('The left half');
     expect(seatLabel(HALF_TABLE_RIGHT)).toBe('The right half');
+  });
+});
+
+describe('placing someone who is not approved (E36/F02/S02)', () => {
+  const byAlex = vendor({
+    email: 'dev@kiln.test',
+    notApproved: {
+      status: 'reviewer_rejected',
+      verdictBy: { kind: 'person', userId: 'u-1', email: 'alex@market.test', rule: null },
+      verdictAt: '2026-10-19T10:00:00',
+      verdictReason: null,
+    },
+  });
+  const byRule = vendor({
+    email: 'ines@loom.test',
+    notApproved: {
+      status: 'reviewer_rejected',
+      verdictBy: { kind: 'rule', userId: null, email: null, rule: 'Affiliation' },
+      verdictAt: '2026-10-19T10:00:00',
+      verdictReason: 'Not a UBC student, staff or alumnus',
+    },
+  });
+
+  it('warns first that they are not approved, and who rejected them', () => {
+    const [first] = placementWarnings(byAlex, at());
+
+    expect(first).toMatch(/^Not approved: Rejected by alex@market\.test, /);
+  });
+
+  it("gives an automatic rejection's reason", () => {
+    expect(placementWarnings(byRule, at())[0]).toBe(
+      'Not approved: Rejected automatically: Not a UBC student, staff or alumnus.',
+    );
+  });
+
+  it('says only the status when nobody is recorded as giving it', () => {
+    const undated = vendor({
+      notApproved: {
+        status: 'reviewer_rejected',
+        verdictBy: null,
+        verdictAt: null,
+        verdictReason: null,
+      },
+    });
+
+    expect(placementWarnings(undated, at())[0]).toBe('Not approved: Rejected.');
+  });
+
+  it('keeps the usual warnings after it', () => {
+    const halfOnly = vendor({ ...byAlex, tableChoice: 'half' });
+
+    expect(placementWarnings(halfOnly, at())).toHaveLength(2);
+  });
+
+  it('lists them in their own group, whatever else they fit', () => {
+    const approved = vendor({ email: 'fits@ember.test', tableChoice: 'either' });
+
+    const groups = groupCandidates(
+      [byAlex, approved, byRule],
+      { date: DATE, tier: 'Gold', seat: FULL_TABLE, marketCeiling: null },
+      () => [],
+    );
+
+    expect(groups.fits.map((v) => v.email)).toEqual(['fits@ember.test']);
+    expect(groups.overrides).toEqual([]);
+    expect(groups.notApproved.map((v) => v.email)).toEqual(['dev@kiln.test', 'ines@loom.test']);
   });
 });
