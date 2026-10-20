@@ -317,6 +317,33 @@ class AssignmentComputedGuard:
         return PreconditionResult(id=self.id, passed=True, message="")
 
 
+class ResultsPublishedGuard:
+    """A market whose vendors apply on its page does not go live until they have been told whether
+    they have a table (E36/F04/S02).
+
+    An ENTRY INVARIANT on ``market_days``, like the assignment it follows: check-in on the air with
+    applicants still reading "Submitted" was the state this closes. A CSV market has no applicant
+    page and nobody to tell, so it passes. Reads the intake mode and the flag, never the phase.
+    """
+
+    id: str = "results_published"
+    description: str = "Results are published to applicants"
+
+    def evaluate(self, market: Market, _db) -> PreconditionResult:
+        if market.intake_mode is not IntakeMode.FORM or market.results_published:
+            return PreconditionResult(id=self.id, passed=True, message="")
+        return PreconditionResult(
+            id=self.id,
+            passed=False,
+            message=(
+                "Applicants have not been told whether they have a table. Publish the results "
+                "before the market goes live."
+            ),
+            resolution_link="applications",
+            resolution_label="Publish results",
+        )
+
+
 class AllApplicationsReviewedGuard:
     """Every application must be approved or rejected before assignment can begin.
 
@@ -654,6 +681,7 @@ _EVERY_TIER_HAS_TABLES = EveryTierHasTablesGuard()
 _ALL_REVIEWED = AllApplicationsReviewedGuard()
 _NO_APPLICATIONS_YET = NoApplicationsYetGuard()
 _ASSIGNMENT_COMPUTED = AssignmentComputedGuard()
+_RESULTS_PUBLISHED = ResultsPublishedGuard()
 _NO_APPROVED = NoApprovedApplicationsGuard()
 _NO_EMPTY_TIER_ASKED_FOR = NoAskedForTierWithoutTablesGuard()
 _NO_ORPHANED_PIN = NoOrphanedPinGuard()
@@ -672,7 +700,7 @@ PHASE_ENTRY_INVARIANTS: dict[str, list] = {
     "offers": [_NO_APPROVED],
     # A market that is already in assignment never re-enters it, so an orphaned pin made there -
     # a seat dropped from the plan after the run - met no guard and was published (bug 31).
-    "market_days": [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN],
+    "market_days": [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
 }
 
 # (from_phase, to_phase) -> list of guard instances. This is the table evaluate_transition
@@ -700,8 +728,8 @@ TRANSITION_GUARDS: dict[tuple[str, str], list] = {
     ("applications_closed", "review"): [_RESPONSES_IMPORTED],
     ("review", "assignment"): [_ALL_REVIEWED, _NO_EMPTY_TIER_ASKED_FOR, _NO_ORPHANED_PIN],
     ("assignment", "offers"): [_NO_APPROVED],
-    ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN],
-    ("offers", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN],
+    ("assignment", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
+    ("offers", "market_days"): [_ASSIGNMENT_COMPUTED, _NO_ORPHANED_PIN, _RESULTS_PUBLISHED],
 }
 
 

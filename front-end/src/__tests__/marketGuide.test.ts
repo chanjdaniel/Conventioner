@@ -128,6 +128,17 @@ describe('the next step', () => {
     expect(nextStep(run, TODAY).text).toMatch(/cannot be undone/);
   });
 
+  it('once the results are published, says the result is settled (E36/F04/S02)', () => {
+    const told = market(MarketPhase.Assignment, {
+      assignmentObject: { vendorAssignments: [{ email: 'a@x.com' }] },
+      resultsPublished: true,
+    } as Partial<Market>);
+
+    expect(nextStep(told, TODAY).text).toBe(
+      'Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone.',
+    );
+  });
+
   it('in review, says nothing more is coming in before the work left', () => {
     const undecided = {
       transitionBlockers: {

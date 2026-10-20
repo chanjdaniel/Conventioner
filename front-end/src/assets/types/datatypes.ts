@@ -282,6 +282,8 @@ export interface Market {
    * (E36/F04/S01): an admin's, on a form market in assignment with a current run.
    */
   publishResultsReason?: string | null;
+  /** Why the assignment cannot be run now, or null while it can (E36/F04/S02). */
+  assignRefusalReason?: string | null;
   /** How many applicants will read each outcome, while results may be published; else null. */
   publishOutcomes?: { haveATable: number; notAssigned: number } | null;
   /**

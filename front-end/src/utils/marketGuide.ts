@@ -163,6 +163,8 @@ interface Standing {
   ended: boolean;
   /** It reached market days: its check-in page is the record. */
   ran: boolean;
+  /** Its applicants have been told whether they have a table, which settles the result. */
+  published?: boolean;
 }
 
 /** One phase's row: the page it is worked on - the one carrying the dot - and what the rail says. */
@@ -223,14 +225,20 @@ const GUIDE: Record<string, (standing: Standing) => GuideRow> = {
     statement: `${REVIEW_LEAD[path]} Every application is decided: begin assignment.`,
   }),
   // Worked on the rules until there is a result, and on the result after.
-  [MarketPhase.Assignment]: ({ assigned }) =>
-    assigned
+  [MarketPhase.Assignment]: ({ assigned, published }) =>
+    published
       ? {
           page: 'result',
           statement:
-            'Check the result, then publish the market: that puts the check-in page up, and cannot be undone.',
+            'Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone.',
         }
-      : { page: 'assignment', statement: 'Set the rules and run the assignment.' },
+      : assigned
+        ? {
+            page: 'result',
+            statement:
+              'Check the result, then publish the market: that puts the check-in page up, and cannot be undone.',
+          }
+        : { page: 'assignment', statement: 'Set the rules and run the assignment.' },
   [MarketPhase.Offers]: ({ assigned, path }) => ({
     page: assigned ? 'result' : 'assignment',
     statement: `This market is in ${pathPhaseLabel(MarketPhase.Offers, path)}.`,
@@ -329,6 +337,7 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
     assigned,
     ended: lastDateHasPassed(market, today),
     ran: (market.phasesReached ?? []).includes(MarketPhase.MarketDays),
+    published: Boolean(market.resultsPublished),
   });
   return {
     text: row.statement,

@@ -330,7 +330,14 @@ ASSIGNMENT_RULES_SETTLED = (
 )
 
 
-def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
+ASSIGNMENT_RULES_PUBLISHED = (
+    "Results are published, so the assignment is settled: a rule only takes effect when the "
+    "assignment runs, and it is not run again once applicants have been told. Change a single "
+    "placement on the Result page instead."
+)
+
+
+def assignment_rules_lock_reason(market: Market) -> Optional[str]:
     """Why the assignment rules may no longer change, or None while they still can (E22/F02).
 
     A rule - the priority, the max assignments per vendor, the half-table proportion - only takes
@@ -339,12 +346,16 @@ def assignment_rules_lock_reason(phase: MarketPhase) -> Optional[str]:
     transition table rather than listed, so a phase added or an edge moved decides it with no edit
     here: today it closes them in ``offers``, ``market_days`` and ``archived``. An archived market
     gives the archived reason, since no placement can be changed there either (E30/F01/S02).
+    Publishing results settles them too (E36/F04/S02), since the run is not made again after it.
     """
+    phase = market.phase
     if phase is MarketPhase.ARCHIVED:
         return ARCHIVED_REFUSAL
-    if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is not None:
-        return None
-    return ASSIGNMENT_RULES_SETTLED
+    if route_between(phase.value, MarketPhase.ASSIGNMENT.value) is None:
+        return ASSIGNMENT_RULES_SETTLED
+    if market.results_published:
+        return ASSIGNMENT_RULES_PUBLISHED
+    return None
 
 
 REJECTION_RULES_SETTLED = (
@@ -781,7 +792,10 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     market_dict['applicationFormLockReason'] = application_form_lock_reason(market)
     # So does the assignment rules' (E22/F02/S02): the rules page mirrors the plan write's refusal
     # from the market it holds, rather than deciding the phases for itself.
-    market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market.phase)
+    market_dict['assignmentRulesLockReason'] = assignment_rules_lock_reason(market)
+    # And whether the assignment may run (E36/F04/S02): not once results are published.
+    from api.placements import assign_refusal
+    market_dict['assignRefusalReason'] = assign_refusal(market)
     # And what an automatic rejection may name, and whether it may change (E33/F03/S01).
     market_dict.update(rejection_facts(market))
     # And the setup's (E31/F01/S02), for Market Setup to read as settled rather than as editable.
@@ -1896,7 +1910,7 @@ def prepared_plan(market: Market, body: Dict[str, Any]) -> Dict[str, Any]:
     # The plan saves as the organizer types, in every phase, and always carries the rules it holds;
     # restating the stored rules is not a change, and anything else is refused once they are
     # settled (E22/F02/S01).
-    settled = assignment_rules_lock_reason(market.phase)
+    settled = assignment_rules_lock_reason(market)
     if settled and assignment_rules(plan) != assignment_rules(market.setup_object):
         raise ValueError(settled)
     return update

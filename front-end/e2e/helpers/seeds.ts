@@ -389,6 +389,16 @@ export async function seedPublishedMarketWithAssignments(
     throw new Error(`Assignment run failed: ${assignRes.status()} ${await assignRes.text()}`);
   }
 
+  // A market whose vendors apply on its page tells them before it goes live (E36/F04/S02).
+  if (options.intakeMode === 'form') {
+    const published = await request.post(`${baseURL}/markets/${marketId}/publish-results`, {
+      headers: { 'X-Owner-Email': email },
+    });
+    if (!published.ok()) {
+      throw new Error(`Publishing results failed: ${published.status()} ${await published.text()}`);
+    }
+  }
+
   await transitionTo('market_days');
 
   return { marketId, userId, marketName, orgId, marketSlug };

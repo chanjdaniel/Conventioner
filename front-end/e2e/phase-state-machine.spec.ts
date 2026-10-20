@@ -154,6 +154,11 @@ test.describe('Phase state machine - full walk', () => {
     // exists (E03/F03) - publishing puts the check-in page on the air, and a market with no
     // placements serves a page that can tell nobody where to stand.
     seedStoredAssignment(seed.marketId);
+    // And a form market tells its applicants before it goes live (E36/F04/S02). Publish Results is
+    // offered in assignment only, and this walk took the legacy road through offers.
+    mongoEval(
+      `db.markets.updateOne({id: ${JSON.stringify(seed.marketId)}}, {$set: {resultsPublished: true}})`,
+    );
     // Written behind the page's back, so the page reads the market again.
     await page.reload();
     await page.getByTestId('phase-transition-market_days').click();
