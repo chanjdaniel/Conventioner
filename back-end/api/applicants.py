@@ -130,6 +130,9 @@ def _application_response_organizer(
         "followUpOwner": app.follow_up_owner.as_wire() if app.follow_up_owner else None,
         # Who is looking at it while their claim stands (E34/F03/S02).
         "heldBy": _holder(app, now),
+        # Who recorded a vendor who never applied, and when (E36/F03/S01).
+        "addedBy": app.added_by.as_wire() if app.added_by else None,
+        "addedAt": app.added_at,
     }
 
 

@@ -4,7 +4,7 @@ import { fetchMarketApplications } from '@/utils/applicantApi';
 import { ESSENTIAL_KEY_PREFIX } from '@/utils/essentialFields';
 import { getFormattedDate } from '@/utils/utils';
 import { datesWithinReach } from '@/utils/datesWithinReach';
-import { verdictLine } from '@/utils/verdicts';
+import { addedLine, verdictLine } from '@/utils/verdicts';
 import {
   overrideIndex,
   reasonIndex,
@@ -222,7 +222,8 @@ export function useVendorDetails(marketId: Ref<string>, market: Ref<Market | nul
         ),
         answers,
         tableShareNotice: application.tableShareNotice ?? null,
-        verdict: verdictLine(application),
+        // Someone added by hand says so, in place of a verdict nobody reviewed (E36/F03/S01).
+        verdict: addedLine(application) ?? verdictLine(application),
         inTheRun: placeable.value.has(email),
         status: application.status,
       };

@@ -9,6 +9,7 @@ import VendorIdentity from '@/components/VendorIdentity.vue';
 import MarketFrame from '@/components/MarketFrame.vue';
 import NothingAssigned from '@/components/NothingAssigned.vue';
 import VendorDrawer from '@/components/VendorDrawer.vue';
+import AddVendorDialog from '@/components/AddVendorDialog.vue';
 import { hasAssignment } from '@/utils/marketPage';
 import ResultFilterBar from '@/components/ResultFilterBar.vue';
 import {
@@ -106,6 +107,15 @@ const filteredVendors = computed(() => {
   return listed.filter((v) => vendorMatches(term, v.email, vendorNames.value));
 });
 
+/** A vendor who never applied, added by hand (E36/F03/S01): offered when the server would take it. */
+const adding = ref(false);
+const canAdd = computed(() => Boolean(market.value) && !market.value?.addVendorReason);
+async function vendorAdded(email: string): Promise<void> {
+  adding.value = false;
+  await details.load();
+  drawer.open(email);
+}
+
 const totalVendorCount = computed(() => vendors.value.length);
 const runVendorCount = computed(() => runVendors.value.length);
 const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAssigned).length);
@@ -149,6 +159,15 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
               Rejected only<span v-if="shown === 'rejected'" aria-hidden="true"> &times;</span>
             </button>
           </div>
+          <button
+            v-if="canAdd"
+            type="button"
+            class="btn btn--primary btn--compact"
+            data-testid="vendors-add-button"
+            @click="adding = true"
+          >
+            Add a vendor
+          </button>
           <!-- With anything narrowing the list, it counts what is left (E28/F02/S02). -->
           <div class="summary-line" data-testid="vendors-summary">
             <template v-if="placeFiltered || shown || filterText.trim()">
@@ -240,6 +259,12 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
       </div>
     </MarketFrame>
 
+    <AddVendorDialog
+      :open="adding"
+      :market-id="marketId"
+      @close="adding = false"
+      @added="vendorAdded"
+    />
     <VendorDrawer
       :market="market"
       :details="details"
@@ -268,9 +293,10 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
 
 .vendors-toolbar {
   background-color: white;
-  display: grid;
-  /* The label, the search, the show-only choices, the count. */
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  /* The label, the search, the show-only choices, the count, and adding a vendor: a row that
+     wraps, since which of them are there depends on the market and the person. */
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 12px 24px;
@@ -289,7 +315,8 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
 }
 
 .filter-input {
-  width: 100%;
+  flex: 1 1 16rem;
+  min-width: 0;
   padding: 10px 12px;
   font-size: var(--text-sm);
   border: 1px solid var(--mm-border);
@@ -471,10 +498,6 @@ const assignedVendorCount = computed(() => runVendors.value.filter((v) => v.isAs
 }
 
 @media (max-width: 720px) {
-  .vendors-toolbar {
-    grid-template-columns: 1fr;
-  }
-
   .vendor-row-button {
     flex-direction: column;
     align-items: flex-start;

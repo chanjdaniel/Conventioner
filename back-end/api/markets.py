@@ -246,6 +246,27 @@ def verdict_refusal(
     return None
 
 
+#: The phases a vendor who never applied is added in (E36/F03/S01): once the review has closed and
+#: seats are being given.
+ADDING_PHASES = (MarketPhase.ASSIGNMENT, MarketPhase.MARKET_DAYS)
+
+NOT_YET_ADDING = (
+    "A vendor is added by hand from the assignment on. Until then, vendors reach this market "
+    "through its applications."
+)
+
+
+def add_vendor_refusal(
+    user_email: str, market: Market, organization: Optional[Organization],
+) -> Optional[str]:
+    """Why this person cannot add a vendor here, or None while they can (E36/F03/S01). Served as
+    ``addVendorReason``, so the page offers the action exactly when the write would take it."""
+    refused = change_refusal(user_email, market, organization)
+    if refused:
+        return refused
+    return None if market.phase in ADDING_PHASES else NOT_YET_ADDING
+
+
 def _load_market_to_change(
     market_id: str, requesting_user: str, role: MarketRole, action: str,
 ) -> Market:
@@ -793,6 +814,7 @@ def get_market_for_user(user_email: str, market_id: str) -> Optional[Dict[str, A
     # no control the server would refuse.
     market_dict['readOnlyReason'] = change_refusal(user_email, market, context.organization)
     market_dict['verdictLockReason'] = verdict_refusal(user_email, market, context.organization)
+    market_dict['addVendorReason'] = add_vendor_refusal(user_email, market, context.organization)
     market_dict['adminActionsReason'] = admin_actions_refusal(
         user_email, market, context.organization,
     )

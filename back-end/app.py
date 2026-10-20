@@ -10,6 +10,7 @@ import api.users as UsersApi
 import api.organizations as OrgsApi
 import api.markets as MarketsApi
 import api.placements as PlacementsApi
+import api.added_vendors as AddedVendorsApi
 import api.form_amendment as FormAmendmentApi
 import csv_import as CsvImport
 import csv_proposal as CsvProposal
@@ -1343,6 +1344,36 @@ def run_assignment(market_id: str) -> Response:
             "endpoint": f"/markets/{market_id}/assignment",
             "timestamp": datetime.now(timezone.utc).isoformat()
         }), 500
+
+
+@app.route('/markets/<market_id>/vendors', methods=['POST'])
+@login_required
+def add_vendor(market_id: str) -> Response:
+    """Add a vendor who never applied (E36/F03/S01). EDITOR, in assignment and market days.
+
+    Body: { "name": "...", "email": "..." }
+    """
+    try:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "No data provided"}), 400
+        requesting_user = authenticated_email()
+        user = UsersApi.get_user(requesting_user)
+        adder = MarketPerson(user_id=user.id if user else None, email=requesting_user)
+        result, status_code = AddedVendorsApi.add_vendor(market_id, data, adder)
+        return jsonify(result), status_code
+    except MarketsApi.MarketNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except AddedVendorsApi.AddVendorRefused as e:
+        return jsonify({"error": str(e)}), 409
+    except AddedVendorsApi.AddVendorInvalid as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in add_vendor for {market_id}: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route('/markets/<market_id>/placements', methods=['PUT'])
