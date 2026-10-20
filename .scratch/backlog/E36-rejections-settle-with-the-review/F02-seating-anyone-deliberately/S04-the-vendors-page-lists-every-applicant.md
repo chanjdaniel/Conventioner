@@ -2,9 +2,9 @@
 id: E36/F02/S04
 title: The Vendors page lists every applicant
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#116]
 ---
 
 ## What to build

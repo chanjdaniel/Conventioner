@@ -2,7 +2,7 @@
 id: E36/F02
 title: Seating anyone, deliberately
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

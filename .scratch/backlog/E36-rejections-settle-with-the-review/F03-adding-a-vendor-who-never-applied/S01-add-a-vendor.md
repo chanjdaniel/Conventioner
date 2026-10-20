@@ -2,9 +2,9 @@
 id: E36/F03/S01
 title: Add a vendor
 type: story
-status: in-progress
+status: done
 blocked_by: [E36/F02/S01, E36/F02/S02]
-pr: []
+pr: [#116]
 ---
 
 ## What to build

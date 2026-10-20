@@ -2,9 +2,9 @@
 id: E36/F02/S02
 title: The place dialog offers every applicant, warned
 type: story
-status: in-progress
+status: done
 blocked_by: [E36/F02/S01]
-pr: []
+pr: [#116]
 ---
 
 ## What to build

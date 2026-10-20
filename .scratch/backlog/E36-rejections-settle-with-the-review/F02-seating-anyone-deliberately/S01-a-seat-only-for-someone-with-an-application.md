@@ -2,9 +2,9 @@
 id: E36/F02/S01
 title: A seat only for someone with an application
 type: story
-status: in-progress
+status: done
 blocked_by: []
-pr: []
+pr: [#116]
 ---
 
 ## What to build

@@ -2,9 +2,9 @@
 id: E36/F05/S02
 title: Two outcomes after
 type: story
-status: in-progress
+status: done
 blocked_by: [E36/F05/S01]
-pr: []
+pr: [#116]
 ---
 
 ## What to build

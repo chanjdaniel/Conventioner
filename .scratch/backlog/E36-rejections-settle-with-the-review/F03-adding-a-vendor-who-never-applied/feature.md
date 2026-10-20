@@ -2,7 +2,7 @@
 id: E36/F03
 title: Adding a vendor who never applied
 type: feature
-status: ready
+status: done
 blocked_by: [E36/F02]
 pr: []
 ---

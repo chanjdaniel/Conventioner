@@ -2,7 +2,7 @@
 id: E36/F01
 title: Verdicts settle with the review
 type: feature
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---

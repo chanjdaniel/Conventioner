@@ -2,7 +2,7 @@
 id: E36
 title: Rejections settle with the review
 type: epic
-status: ready
+status: done
 blocked_by: []
 pr: []
 ---
