@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs';
+import type { APIRequestContext } from '@playwright/test';
 import { test, expect, TEST_USER, BACKEND_URL } from './fixtures';
 import { TablesPage } from './pages/TablesPage';
 import { SEED_MARKET_DATE, seedMarketWithVendors } from './helpers/seeds';
 import { seedApprovedVendor } from './helpers/seedApplication';
 import { savePlan } from './helpers/savePlan';
 import { mongoEval } from './helpers/mongo';
+import { marketScreenPath } from './helpers/marketScreens';
 
 /**
  * Anyone may be seated by hand, warned (E36/F02/S02).
@@ -15,10 +17,11 @@ import { mongoEval } from './helpers/mongo';
  */
 const GOLD = { id: 1, name: 'Gold' };
 
-test('a rejected applicant is offered apart, warned about, and kept by the next run', async ({
-  authenticatedPage: page,
-  request,
-}) => {
+/**
+ * Alice and Bob approved, Reza rejected by a reviewer, three Gold tables, assigned: so one table is
+ * free, and the run seats Alice and Bob and never Reza.
+ */
+async function aMarketWithARejectedApplicant(request: APIRequestContext): Promise<string> {
   const { marketId } = await seedMarketWithVendors(
     request,
     BACKEND_URL,
@@ -47,6 +50,14 @@ test('a rejected applicant is offered apart, warned about, and kept by the next 
   }
   const run = await request.post(`${BACKEND_URL}/markets/${marketId}/assignment`);
   expect(run.ok(), await run.text()).toBeTruthy();
+  return marketId;
+}
+
+test('a rejected applicant is offered apart, warned about, and kept by the next run', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const marketId = await aMarketWithARejectedApplicant(request);
 
   const tables = new TablesPage(page);
   await tables.goto(marketId);
@@ -94,4 +105,35 @@ test('a rejected applicant is offered apart, warned about, and kept by the next 
   const text = readFileSync((await (await download).path()) as string, 'utf8');
   expect(text).toMatch(/reza@example\.com,Not approved,/);
   expect(text).toMatch(/alice@example\.com,Approved,/);
+});
+
+/**
+ * The Vendors page lists every applicant (E36/F02/S04): Reza with his verdict, "Rejected only"
+ * beside "Unassigned only" and kept by a refresh, and the count still the run's, so it agrees with
+ * Result.
+ */
+test('the Vendors page lists the rejected too, and counts only the run', async ({
+  authenticatedPage: page,
+  request,
+}) => {
+  const marketId = await aMarketWithARejectedApplicant(request);
+
+  await page.goto(marketScreenPath(marketId, 'vendors'));
+  const rows = page.getByTestId('vendors-list-item');
+  await expect(rows).toHaveCount(3);
+  await expect(
+    rows.filter({ hasText: 'Reza Example' }).getByTestId('vendors-list-status'),
+  ).toHaveText('Rejected');
+  await expect(page.getByTestId('vendors-summary')).toHaveText(/2\s+of\s+2\s+vendors assigned/);
+
+  await page.getByTestId('vendors-filter-rejected').click();
+  await expect(page).toHaveURL(/show=rejected/);
+  await page.reload();
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Reza Example');
+
+  // Unassigned is a vendor of the run with no seat: Reza is neither, and nobody else is unseated.
+  await page.getByTestId('vendors-filter-unassigned').click();
+  await expect(rows).toHaveCount(0);
+  await expect(page.getByText('Every vendor has a table.')).toBeVisible();
 });
