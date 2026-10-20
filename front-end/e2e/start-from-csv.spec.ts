@@ -169,6 +169,8 @@ test.describe('Start from your Google Form', () => {
     await flow.answerYear(UPCOMING_YEAR['fall-2025']);
 
     const selling = flow.row('What will you be selling at the event?');
+    // Only the organizer makes a question required (E33/F02/S01); this one is, as it was on the form.
+    await selling.getByTestId('proposal-row-required').check();
     // Said before it happens: how many applicants the left-out options would cost.
     await expect(selling.getByTestId('proposal-row-dropped')).toContainText(
       /\d+ applicants? answered only options that are left out/,
@@ -216,9 +218,10 @@ test.describe('Start from your Google Form', () => {
     await flow.open(marketId);
     await flow.chooseFile(join(CORPUS, 'fall-2025.csv'));
     await flow.answerYear(UPCOMING_YEAR['fall-2025']);
-    await expect(
-      flow.row('What will you be selling at the event?').getByTestId('proposal-row-dropped'),
-    ).toBeVisible();
+    const sellingRow = flow.row('What will you be selling at the event?');
+    // Only the organizer makes a question required (E33/F02/S01); this one is, as it was on the form.
+    await sellingRow.getByTestId('proposal-row-required').check();
+    await expect(sellingRow.getByTestId('proposal-row-dropped')).toBeVisible();
     await page.getByTestId('proposal-confirm').click();
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
@@ -363,7 +366,18 @@ test.describe('Start from your Google Form', () => {
 
     // Landed on the form, with the organizer's own questions in the file's order.
     await expect(page).toHaveURL(marketSetupPath(marketId, 'form'));
+    // Three steps on this path, and no preview: nobody fills a Google Form market's form in
+    // (E33/F01/S02), so nothing offers a hint for applicants either.
+    await expect(page.getByTestId('form-steps').getByRole('listitem')).toHaveText([
+      '1Essential questions',
+      '2Your questions',
+      '3Review setup',
+    ]);
+    await expect(page.getByTestId('essential-fields-panel')).not.toContainText('signs in');
+    await page.getByTestId('form-step-questions').click();
     await expect(page.getByText('Are you a UBC student or alumni?').first()).toBeVisible();
+    await expect(page.getByTestId('form-field-help-input')).toHaveCount(0);
+    await expect(page.getByTestId('form-step-next')).toHaveText('Next: Review setup');
 
     await finishStartedPlan(request, BACKEND_URL, TEST_USER.email, marketId);
     await transitionMarket(request, BACKEND_URL, TEST_USER.email, marketId, 'applications_open');
@@ -387,10 +401,10 @@ test.describe('Start from your Google Form', () => {
     const failures = await importer.previewFailureRows.allInnerTexts();
     expect(failures.filter((f) => /I certify|I understand/.test(f))).toEqual([]);
     expect(failures.filter((f) => f.includes("'Table choice' is required"))).toEqual([]);
-    // The 16 still refused are one row with no name and 15 whose every answer was an option too
-    // rare to keep (bug 4).
-    await expect(importer.previewCounts).toContainText('221 of 237 rows');
-    const imported = 221;
+    // The one still refused has no name. The 15 whose every answer was an option too rare to keep
+    // (bug 4) import now: no question is required unless the organizer says so (E33/F02/S01).
+    await expect(importer.previewCounts).toContainText('236 of 237 rows');
+    const imported = 236;
 
     await importer.clickConfirm();
     await expect(importer.resultSummary).toContainText(`Imported ${imported} new applications`);

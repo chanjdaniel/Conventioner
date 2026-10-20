@@ -68,6 +68,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   room seeds one (`seedAssignedMarket({ tables })`); only an orphaned-pin spec rewrites a settled
   plan, as a legacy market's, with `changeASettledPlan()`. A market a spec imports into is
   `intakeMode: 'csv'`.
+- **The Application Form tab is a sequence of steps** (E33/F01): a spec opens the step it asserts on
+  (`ApplicationFormPage.openStep`, or `form-step-<id>`); the builder, preview and highlights are
+  never all on screen.
 - **A spec shells into Mongo through `mongoEval`** (`e2e/helpers/mongo.ts`), never its own
   `docker exec`: the container, address and flags were once copied into fifteen files.
 - **data-testid convention**: `viewname-element` (e.g. `login-email-input`, `markets-create-button`).
@@ -535,8 +538,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **A screen offers each person only what their role lets them do** (E26/F08/S01). The market read
   serves two per-person reasons, asked through the same `user_has_permission` the writes ask:
   `readOnlyReason` (`change_refusal`: archived, or below EDITOR - the plan, form, placements,
-  highlights) and `adminActionsReason` (`admin_actions_refusal`: below ADMIN - phase moves, verdicts,
-  publishing results, importing, starting from a CSV). A screen draws no control while the reason
+  highlights, automatic rejections, and verdicts, which record their giver since E34/F01/S01) and
+  `adminActionsReason` (`admin_actions_refusal`: below ADMIN - phase moves, publishing results,
+  importing, starting from a CSV). A screen draws no control while the reason
   for it is set; never decide a role threshold on the front end beside them.
 - **A market remembers every phase it entered** (E26/F06/S03): `phaseHistory` on the document,
   one `{phase, enteredAt, by}` per move, pushed in the same update that moves the phase.
@@ -855,6 +859,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - **What may be sent to hosted TypeSafe is ticket 01's rule, narrowed to what ticket 04 measured** (`typesafe_client.py`): a heading, how many answered, how many are distinct, and a shape - never a value.
   The key is optional and never a boot requirement.
 - The rules are held to the hand-written answer key on the five anonymised exports (`tests/test_csv_proposal.py`); change a rule against that, not beside it.
+- **The proposal marks no question required** (E33/F02): the export does not say which were, and a guess skipped every row that left one blank at import. Only the organizer marks one.
 
 ## Agent skills
 

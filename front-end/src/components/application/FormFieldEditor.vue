@@ -13,8 +13,13 @@ const props = withDefaults(
     /** True once the organizer has typed in the key input. The parent owns it so it
      * survives the component instance being reused for another field. */
     keyTouched?: boolean;
+    /**
+     * False on a Google Form market (E33/F01/S02): nobody fills its form in, so a hint shown to
+     * applicants would be shown to no one, and the editor offers none.
+     */
+    forApplicants?: boolean;
   }>(),
-  { readonly: false, keyTouched: false },
+  { readonly: false, keyTouched: false, forApplicants: true },
 );
 
 const emit = defineEmits<{
@@ -168,7 +173,7 @@ function updateOption(idx: number, value: string) {
       </div>
     </div>
 
-    <div class="field-row">
+    <div v-if="forApplicants" class="field-row">
       <label class="field-label" :for="`question-${index}-help`">Help text</label>
       <input
         :id="`question-${index}-help`"

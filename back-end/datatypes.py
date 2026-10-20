@@ -3,7 +3,7 @@ import re
 import unicodedata
 import uuid
 from enum import Enum
-from typing import List, Optional, Union, Dict, Any, Tuple
+from typing import List, Literal, Optional, Union, Dict, Any, Tuple
 from pydantic import BaseModel, Field, ConfigDict, computed_field, field_validator, model_validator
 from datetime import datetime
 
@@ -429,6 +429,12 @@ class ImportMapping(BaseModel):
     made_by: MappingAuthor = MappingAuthor.IMPORT
 
 
+class RejectionRule(BaseModel):
+    """A choice question and the answers to it that reject an application (E33/F03/S01)."""
+    key: str
+    answers: List[str] = []
+
+
 class Market(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # UUID, immutable primary key
     name: str
@@ -452,6 +458,10 @@ class Market(BaseModel):
     # A list of answer keys, so it names both kinds uniformly. Absent means nothing is marked,
     # which renders the card exactly as it did before this existed - so no migration.
     review_highlights: Optional[List[str]] = None
+    # Which answers reject an application automatically (E33/F03), ON THE MARKET beside the
+    # highlights and for the same reason: they stay editable after the form locks, until the market
+    # can no longer return to review. `rejection_rules.py` owns what a rule may say. Absent is none.
+    rejection_rules: Optional[List[RejectionRule]] = None
     # A form amendment in flight (E20/F03/S01): the phase the market must be returned to once the
     # form has been written. Present ONLY while the chain is walking, so its presence is exactly
     # the question "did a chain stop partway, and where was it going?".
@@ -640,6 +650,18 @@ class ApplicationForm(BaseModel):
     unasked_essentials: List[str] = []
 
 
+class VerdictGiver(BaseModel):
+    """Who gave an application its verdict (E34/F01/S01): a person, or an automatic rule (E33/F03).
+
+    A person is named by id, and by the address they signed in with, which the review shows; a rule
+    by the question it judges. Stored on the application beside the status, in the same update.
+    """
+    kind: Literal["person", "rule"]
+    user_id: Optional[str] = None
+    email: Optional[str] = None
+    rule: Optional[str] = None
+
+
 class Application(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     market_id: str                        # FK to Market
@@ -651,6 +673,12 @@ class Application(BaseModel):
     submitted_at: Optional[str] = None
     updated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     assigned_reviewer_id: Optional[str] = None
+    # Who gave the verdict, and when (E34/F01/S01). Absent on an application stored before verdicts
+    # recorded it, and on one with no verdict: a status that is none clears them.
+    verdict_by: Optional[VerdictGiver] = None
+    verdict_at: Optional[str] = None
+    # Why a rule rejected it, in the organizer's words (E33/F03/S02); never the applicant's to see.
+    verdict_reason: Optional[str] = None
 
 
 def to_camel(string: str) -> str:
@@ -904,6 +932,7 @@ class MarketSchemaContract(ContractModel):
     phase: Optional[str] = None
     review_config: Optional[Dict[str, Any]] = None
     review_highlights: Optional[List[str]] = None
+    rejection_rules: Optional[List[RejectionRule]] = None
     roles: Dict[str, str]
     setup_object: Optional[SetupObjectContract]
     user_role: Optional[str] = None

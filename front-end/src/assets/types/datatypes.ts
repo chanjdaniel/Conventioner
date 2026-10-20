@@ -177,6 +177,19 @@ export interface IncompleteApplication {
   missing: string[];
 }
 
+/** A choice question and the answers to it that reject an application (E33/F03/S01). */
+export interface RejectionRule {
+  key: string;
+  answers: string[];
+}
+
+/** A question an automatic rejection may name, and the answers it offers. */
+export interface RejectionQuestion {
+  key: string;
+  label: string;
+  answers: Array<{ value: string; label: string }>;
+}
+
 export interface Market {
   id: string;
   name: string;
@@ -209,6 +222,14 @@ export interface Market {
    * freezes at the first application and an organizer learns what they needed while reviewing.
    */
   reviewHighlights?: string[];
+  /** Which answers reject an application automatically (E33/F03/S01). On the market, beside the
+   *  highlights: they outlast the form's lock, until the market reaches Assignment. */
+  rejectionRules?: RejectionRule[];
+  /** Every question a rule may name, with the answers it offers: served, so the review setup
+   *  offers exactly what the write takes (`back-end/rejection_rules.py`). */
+  rejectionQuestions?: RejectionQuestion[];
+  /** Why the automatic rejections can no longer change, or null while they can. */
+  rejectionRulesLockReason?: string | null;
   /**
    * Why the application form cannot be edited, or null when it can (E21/F02/S03). Computed by the
    * server on every read of ONE market from the D9 rule - the phase, and whether an application
@@ -373,6 +394,19 @@ export interface Application {
   assignedReviewerId?: string;
   /** Organizer's list only: set when this applicant's table-share request pairs nobody. */
   tableShareNotice?: TableShareNotice | null;
+  /** Organizer's only: who gave the verdict, and when (E34/F01/S01). Null without one. */
+  verdictBy?: VerdictGiver | null;
+  verdictAt?: string | null;
+  /** Organizer's only: why an automatic rule rejected it (E33/F03/S02). */
+  verdictReason?: string | null;
+}
+
+/** A person, or an automatic rejection rule (E33/F03), named as a verdict's giver. */
+export interface VerdictGiver {
+  kind: 'person' | 'rule';
+  userId?: string | null;
+  email?: string | null;
+  rule?: string | null;
 }
 
 export interface PreconditionResult {

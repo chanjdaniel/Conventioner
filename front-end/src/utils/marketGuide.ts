@@ -337,6 +337,28 @@ export function nextStep(market: Market, today: string = calendarToday()): NextS
   };
 }
 
+/** The application form tab's steps (E33/F01/S01). */
+export type FormStepId = 'essentials' | 'questions' | 'preview' | 'review';
+export interface FormStep {
+  id: FormStepId;
+  label: string;
+}
+
+const FORM_STEPS: readonly FormStep[] = [
+  { id: 'essentials', label: 'Essential questions' },
+  { id: 'questions', label: 'Your questions' },
+  { id: 'preview', label: 'Preview' },
+  { id: 'review', label: 'Review setup' },
+];
+
+/**
+ * The form tab's steps on a path. A Google Form market's vendors are imported, so nobody fills its
+ * form in: it has no preview (E33/F01/S02).
+ */
+export function formSteps(path: IntakeMode): readonly FormStep[] {
+  return path === IntakeMode.Form ? FORM_STEPS : FORM_STEPS.filter((step) => step.id !== 'preview');
+}
+
 /** The guard that holds review open while an application is undecided (`guards.py`). */
 const UNDECIDED = 'all_applications_reviewed';
 

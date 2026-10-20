@@ -34,7 +34,7 @@ from flask import Flask, request, jsonify, Response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_bcrypt import Bcrypt
 from datetime import timedelta, datetime, timezone
-from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole
+from datatypes import ApplicationStatus, Market, MarketPhase, MarketRole, VerdictGiver
 from assignment.utils import convert_keys_to_camel_case, convert_keys_to_snake_case
 from guards import PreconditionResult
 from market_documents import (
@@ -951,6 +951,33 @@ def save_review_highlights(market_id: str) -> Response:
         return jsonify({"error": "Internal server error", "message": str(e)}), 500
 
 
+@app.route('/markets/<market_id>/rejection-rules', methods=['PUT'])
+@login_required
+def save_rejection_rules(market_id: str) -> Response:
+    """Set which answers reject an application automatically (E33/F03/S01).
+
+    Body: { "rules": [{ "key": "no_shows", "answers": ["not ticked"] }] }
+
+    The only writer of the field. Refused, in words, for a rule a question cannot carry, and once
+    the market has reached Assignment.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        if "rules" not in data:
+            return jsonify({"error": "rules is required"}), 400
+        stored = MarketsApi.save_rejection_rules(market_id, data["rules"], authenticated_email())
+        return jsonify({"rejectionRules": stored}), 200
+    except MarketsApi.MarketNotFoundError:
+        return jsonify({"error": "Market not found"}), 404
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in save_rejection_rules for {market_id}: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
 @app.route('/markets/<market_id>/application-form/amendment', methods=['GET'])
 @login_required
 def application_form_amendment_availability(market_id: str) -> Response:
@@ -1717,7 +1744,8 @@ def list_market_applications(market_id: str) -> Response:
 @app.route('/markets/<market_id>/applications/<application_id>/review', methods=['PUT'])
 @login_required
 def review_application(market_id: str, application_id: str) -> Response:
-    """Record a review verdict (approved/rejected) on an application. Requires ADMIN+."""
+    """Record a review verdict (approved/rejected) on an application, and its giver. Requires
+    EDITOR+ (E34/F01/S01)."""
     try:
         requesting_user = authenticated_email()
 
@@ -1727,8 +1755,10 @@ def review_application(market_id: str, application_id: str) -> Response:
         if context.market is None:
             return jsonify({"error": "Invalid market data"}), 400
 
+        # A verdict is EDITOR's, like every other change to the market's contents (E34/F01/S01):
+        # a reviewing team should not need the role that also moves the phase.
         if not PermissionsApi.user_has_permission(
-            requesting_user, context.market, MarketRole.ADMIN, context.organization
+            requesting_user, context.market, MarketRole.EDITOR, context.organization
         ):
             return jsonify({"error": "User does not have permission to review applications"}), 403
         refusal = MarketsApi.archived_refusal(context.market)
@@ -1748,8 +1778,11 @@ def review_application(market_id: str, application_id: str) -> Response:
         except ValueError:
             return jsonify({"error": f"Invalid status: {status_raw}"}), 400
 
+        reviewer = UsersApi.get_user(requesting_user)
         result, status_code = ApplicantsApi.review_application(
             market_id, application_id, new_status,
+            by=VerdictGiver(kind="person", user_id=reviewer.id if reviewer else None,
+                            email=requesting_user),
         )
         return jsonify(result), status_code
     except Exception as e:

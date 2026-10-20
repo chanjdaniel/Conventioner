@@ -1,6 +1,7 @@
-import type { APIRequestContext, Browser, Page } from '@playwright/test';
-import { test, expect, TEST_USER, LoginPage, OrganizationsPage, BACKEND_URL } from './fixtures';
+import type { APIRequestContext, Page } from '@playwright/test';
+import { test, expect, TEST_USER, OrganizationsPage, BACKEND_URL } from './fixtures';
 import { loginViaApi } from './helpers/seeds';
+import { withUser } from './helpers/withUser';
 import { ensureVerifiedUser } from './helpers/verifiedUser';
 
 // ── Test user credentials ──
@@ -14,28 +15,6 @@ const OUTSIDER = {
 };
 
 // ── Helpers ──
-
-/**
- * Log a user in inside their own browser context, so no two users in a test ever share a
- * session cookie or the persisted `user` in localStorage. The context is closed afterwards.
- */
-async function withUser<T>(
-  browser: Browser,
-  email: string,
-  password: string,
-  body: (page: Page) => Promise<T>,
-): Promise<T> {
-  const context = await browser.newContext();
-  try {
-    const page = await context.newPage();
-    const loginPage = new LoginPage(page);
-    await loginPage.login(email, password);
-    await loginPage.waitForDashboardRedirect();
-    return await body(page);
-  } finally {
-    await context.close();
-  }
-}
 
 /**
  * Open /markets and wait for the fetch to settle.

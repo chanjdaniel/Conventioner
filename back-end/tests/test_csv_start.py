@@ -58,9 +58,11 @@ def test_the_seam_the_import_of_the_same_file_has_nothing_to_ask(name):
 # How many rows of each export import. Every other row is refused for a reason of its own: no email,
 # an address that is not one, or an applicant whose every answer was an option too rare to keep
 # (bug 4). Three of these never reached a single row while "how many days" was required (bug 24),
-# and splitting "Woven (crochet, knitting, etc)" at its commas cost dozens more (bug 27).
-IMPORTED = {"fall-2023": 246, "spring-2024": 314, "spring-2025": 211, "fall-2025": 221,
-            "spring-2026": 225}
+# and splitting "Woven (crochet, knitting, etc)" at its commas cost dozens more (bug 27). Another
+# 15 to 41 per export were skipped for a blank answer to a question the proposal guessed required
+# from how many answered it, until it stopped guessing (E33/F02/S01).
+IMPORTED = {"fall-2023": 277, "spring-2024": 355, "spring-2025": 235, "fall-2025": 236,
+            "spring-2026": 245}
 
 
 @pytest.mark.parametrize("name", YEARS)
@@ -268,6 +270,16 @@ def test_a_mapping_saved_before_its_maker_was_recorded_reads_as_an_imports():
     assert inspected["savedMappingFrom"] == "import"
 
 
+def _selling_required(doc):
+    """The market with the selling question marked required, as its organizer would have to: the
+    proposal marks nothing required (E33/F02/S01)."""
+    marked = copy.deepcopy(doc)
+    for field in marked["applicationForm"]["fields"]:
+        if field["label"] == SELLING:
+            field["required"] = True
+    return marked
+
+
 def _selling_refusals(doc, csv_text, resolutions):
     error, headers, _rows = CsvImport.parse_csv(csv_text)
     restored, _missing, _new = CsvImport.restore_mapping(
@@ -279,6 +291,7 @@ def _selling_refusals(doc, csv_text, resolutions):
 def test_an_answer_the_start_left_out_is_said_to_be_the_starts():
     """The walk: 15 rows skipped as "one you chose to ignore", which the organizer never chose."""
     after, csv_text = _started()
+    after = _selling_required(after)
     refusals = _selling_refusals(after, csv_text, CsvImport.stored_mapping(after)["resolutions"])
     assert refusals
     for refusal in refusals:
@@ -289,6 +302,7 @@ def test_an_answer_the_start_left_out_is_said_to_be_the_starts():
 
 def test_an_answer_the_organizer_left_out_since_is_theirs():
     after, csv_text = _started()
+    after = _selling_required(after)
     saved = CsvImport.stored_mapping(after)
     field = next(f for f in after["applicationForm"]["fields"] if f["label"] == SELLING)
     options = [o if isinstance(o, str) else o.get("label") or o.get("value")
@@ -299,3 +313,24 @@ def test_an_answer_the_organizer_left_out_since_is_theirs():
     refusals = _selling_refusals(after, csv_text, resolutions)
     assert refusals
     assert all(f"Every answer to '{SELLING}' is one you chose to ignore" in r for r in refusals)
+
+
+@pytest.mark.parametrize("name", YEARS)
+def test_no_row_is_skipped_for_a_blank_answer_to_a_question_of_the_organizers_own(name):
+    """No question is required unless the organizer said so (E33/F02/S01). The proposal marked one
+    required when 97% of the file answered it, and a required question a row left blank skips that
+    row at import, so the guess silently dropped real applicants from the market it was started on."""
+    doc = _draft()
+    csv_text = _csv(name)
+    after = _written(doc, CsvStart.confirmed_update(doc, csv_text, {"year": YEARS[name]}))
+    saved = CsvImport.stored_mapping(after)
+    _error, headers, _rows = CsvImport.parse_csv(csv_text)
+    restored, _missing, _new = CsvImport.restore_mapping(
+        headers, saved, CsvImport.import_targets(after))
+    preview, _ = CsvImport.preview_values(after, csv_text, restored, saved["resolutions"])
+
+    custom = [field["label"] for field in after["applicationForm"]["fields"]]
+    assert custom and not any(field["required"] for field in after["applicationForm"]["fields"])
+    refused = [failure for failure in preview["failures"]
+               if any(f"'{label}' is required" in failure["error"] for label in custom)]
+    assert refused == []

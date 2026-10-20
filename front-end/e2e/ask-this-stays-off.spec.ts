@@ -30,11 +30,13 @@ test('"Ask this" stays off after a custom field is added and the form saved', as
   authenticatedPage: page,
   request,
 }) => {
+  // Vendors apply on its page, so its form has a preview to check (E33/F01/S02).
   const { marketId } = await seedDraftMarket(
     request,
     BACKEND_URL,
     TEST_USER.email,
     TEST_USER.password,
+    { intakeMode: 'form' },
   );
   await savePlan(request, BACKEND_URL, TEST_USER.email, marketId, PLAN);
 
@@ -45,6 +47,7 @@ test('"Ask this" stays off after a custom field is added and the form saved', as
   await askThis.uncheck();
   await expect(page.getByText('Saved')).toBeVisible();
 
+  await page.getByTestId('form-step-questions').click();
   await page.getByRole('button', { name: 'Add Field' }).click();
   await page.getByTestId('form-field-label-input').first().fill('Product category');
   await page.getByTestId('form-field-required-checkbox').first().check();
@@ -62,6 +65,7 @@ test('"Ask this" stays off after a custom field is added and the form saved', as
   await expect(page.getByTestId('essential-asks-section').getByRole('checkbox')).not.toBeChecked();
   // The applicant form is what the preview renders: a switched-off question is not on it, and is
   // certainly not marked required.
+  await page.getByTestId('form-step-preview').click();
   await expect(page.getByTestId('form-preview-essential-fields')).toBeVisible();
   await expect(page.getByTestId('form-preview-essential-section-ranking')).toHaveCount(0);
 });

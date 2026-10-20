@@ -17,8 +17,10 @@ const props = withDefaults(
      */
     keyTouched?: boolean[];
     readonly?: boolean;
+    /** False on a Google Form market, whose form nobody fills in (E33/F01/S02). */
+    forApplicants?: boolean;
   }>(),
-  { readonly: false, keyTouched: () => [] },
+  { readonly: false, keyTouched: () => [], forApplicants: true },
 );
 
 const emit = defineEmits<{
@@ -107,8 +109,8 @@ const fieldCount = computed(() => fields.value.length);
     </div>
 
     <div v-if="fields.length === 0" class="empty-state" data-testid="form-builder-empty">
-      <p v-if="readonly">This market has no application form.</p>
-      <p v-else>No fields yet. Click "Add Field" to start building your application form.</p>
+      <p v-if="readonly">This market has no questions of its own.</p>
+      <p v-else>No questions of your own yet. Add Field adds one.</p>
     </div>
 
     <draggable
@@ -145,6 +147,7 @@ const fieldCount = computed(() => fields.value.length);
               :field="element"
               :index="index"
               :readonly="readonly"
+              :forApplicants="forApplicants"
               :keyTouched="keyTouched[index] ?? false"
               @update:field="(f: FormField) => updateField(index, f)"
               @update:keyTouched="(touched: boolean) => updateKeyTouched(index, touched)"

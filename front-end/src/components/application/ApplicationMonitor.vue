@@ -30,6 +30,7 @@ import ReviewHighlights from '@/components/application/ReviewHighlights.vue';
 import AnswerValue from '@/components/AnswerValue.vue';
 import TableShareNotice from '@/components/TableShareNotice.vue';
 import VendorNotes from '@/components/VendorNotes.vue';
+import { statusLabel, verdictGiverLine } from '@/utils/verdicts';
 import { useVendorNotes } from '@/utils/vendorNotes';
 import { getTimestampDate } from '@/utils/utils';
 
@@ -56,19 +57,6 @@ const saving = ref(false);
 /** Where in the undecided queue the reviewer is. Skipping moves it; a verdict does not. */
 const cursor = ref(0);
 const showDecided = ref(false);
-
-const statusLabels: Record<string, string> = {
-  open: 'Open',
-  under_review: 'Under Review',
-  reviewer_approved: 'Approved',
-  reviewer_rejected: 'Rejected',
-  unassigned: 'Unassigned',
-  assigned: 'Assigned',
-  assignment_sent: 'Assignment Sent',
-  vendor_accepted: 'Accepted',
-  vendor_refused: 'Refused',
-  cancelled: 'Cancelled',
-};
 
 /*
  * A status is a chip, tinted, in the product's tones (bug 43). These were solid fills, so in the
@@ -106,6 +94,10 @@ const undecided = computed(() =>
  * does this one.
  */
 const decided = computed(() => applications.value.filter((a) => !AWAITING.includes(a.status)));
+/** Who gave each decided application its verdict (E34/F01/S01), worded once per row. */
+const givers = computed(
+  () => new Map(decided.value.map((app) => [app.id, verdictGiverLine(app)] as const)),
+);
 
 /**
  * Does publishing results mean anything on this market?
@@ -289,11 +281,13 @@ const readOnly = computed(() => Boolean(props.market?.readOnlyReason));
 const notesMarketId = computed(() => props.market?.id ?? '');
 const { load: loadNotes, entryFor } = useVendorNotes(notesMarketId);
 /**
- * Whether this person may decide applications and publish the verdicts - ADMIN actions (bug 37).
- * Archived markets and Viewers fall here too, since the server serves the stronger reason first.
- * Everyone else reads the applications and their verdicts; the server refuses these writes too.
+ * Whether this person may decide applications: EDITOR, like every other change to the market's
+ * contents (E34/F01/S01), so a reviewing team needs no role that also moves the phase. Viewers and
+ * archived markets read the applications and their verdicts; the server refuses the write too.
  */
-const decides = computed(() => !props.market?.adminActionsReason && !readOnly.value);
+const decides = computed(() => !readOnly.value);
+/** Whether this person may publish the verdicts - an ADMIN action (bug 37), as it always was. */
+const publishes = computed(() => !props.market?.adminActionsReason && !readOnly.value);
 
 function onKey(event: KeyboardEvent) {
   if (!props.visible || !current.value || !decides.value) return;
@@ -327,10 +321,6 @@ async function handlePublish() {
   }
 }
 
-function statusLabel(status: string): string {
-  return statusLabels[status] ?? status;
-}
-
 function statusChip(status: string): string {
   return `chip chip--${statusTones[status] ?? 'neutral'}`;
 }
@@ -349,7 +339,7 @@ function submittedOn(app: Application): string {
   <div v-if="visible && market" class="monitor-panel" data-testid="app-monitor-panel">
     <div class="monitor-header">
       <h2>Applications</h2>
-      <div v-if="marketHasApplicants && decides" class="monitor-actions">
+      <div v-if="marketHasApplicants && publishes" class="monitor-actions">
         <button
           v-if="!resultsPublished"
           class="publish-button"
@@ -589,6 +579,13 @@ function submittedOn(app: Application): string {
             <span :class="statusChip(app.status)" data-testid="app-monitor-decided-status">
               {{ statusLabel(app.status) }}
             </span>
+            <span
+              v-if="givers.get(app.id)"
+              class="verdict-giver"
+              data-testid="app-monitor-decided-giver"
+            >
+              {{ givers.get(app.id) }}
+            </span>
             <!-- The action is a quiet button beside the verdict, never a second verdict. -->
             <button
               v-if="decides && app.status === ApplicationStatus.ReviewerRejected"
@@ -741,6 +738,13 @@ function submittedOn(app: Application): string {
 /* The card is beige, where --mm-text-muted is 4.23: its quiet text takes the ink made for that
    ground (bug 43, found by the contrast sweep once it opened a review card). */
 .app-date {
+  font-size: var(--text-xs);
+  color: var(--mm-text-muted-on-beige);
+}
+
+/* Who gave the verdict (E34/F01/S01): on the card's beige and on the decided list's rows alike. */
+.verdict-giver {
+  margin: 0;
   font-size: var(--text-xs);
   color: var(--mm-text-muted-on-beige);
 }

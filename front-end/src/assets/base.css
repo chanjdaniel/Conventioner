@@ -139,6 +139,7 @@
   --card-grid-one-track: 900px;
   --workspace-max: 1440px; /* Every market screen; `MarketFrame` sets it (E22/F04/S01) */
   --list-max: 1100px; /* Markets, Organizations */
+  --applicant-max: 640px; /* The applicant's column, and the form's preview of it (E33/F01/S01) */
 
   /* Three values, extracted. "Fully rounded" was spelled four ways - 999px, 100px, 30px, 20px. */
   --radius-control: 6px; /* buttons, inputs, selects, small chips */

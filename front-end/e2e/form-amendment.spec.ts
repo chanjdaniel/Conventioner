@@ -131,6 +131,7 @@ test.describe('Fixing the form from inside the import', () => {
       timeout: 10000,
     });
     await page.getByTestId('market-bar-tab-form').click();
+    await page.getByTestId('form-step-questions').click();
     await expect(page.getByTestId('form-field-label-input').last()).toHaveValue(
       'Our secret handshake',
       { timeout: 10000 },

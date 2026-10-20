@@ -27,11 +27,13 @@ import table_share as TableShare
 from market_documents import (
     applicant_intake_market_by_slug,
     market_doc_field,
+    market_from_document,
     market_serves_applicants,
 )
 from datatypes import (
     Application,
     ApplicationStatus,
+    VerdictGiver,
     MarketPhase,
     phase_from_market_document,
 )
@@ -40,6 +42,7 @@ from utils.application_token import (
 )
 
 import api.applications as ApplicationsApi
+import rejection_rules as RejectionRules
 import essential_fields as EssentialFields
 
 logger = logging.getLogger(__name__)
@@ -113,7 +116,17 @@ def _application_response_organizer(app: Application) -> Dict[str, Any]:
         "mainApplicationId": app.main_application_id,
         "submittedAt": app.submitted_at,
         "updatedAt": app.updated_at,
+        # Who gave the verdict and when (E34/F01/S01): the organizer's, never the applicant's.
+        "verdictBy": _giver(app.verdict_by),
+        "verdictAt": app.verdict_at,
+        "verdictReason": app.verdict_reason,
     }
+
+
+def _giver(by: Optional[VerdictGiver]) -> Optional[Dict[str, Any]]:
+    if by is None:
+        return None
+    return {"kind": by.kind, "userId": by.user_id, "email": by.email, "rule": by.rule}
 
 
 
@@ -322,6 +335,12 @@ def save_applicant_application(
             ApplicationsApi.delete_application(app_doc.get("id", ""))
         return {"error": error}, 422
 
+    # The market's rules judge it as it arrives (E33/F03/S02); the applicant is told nothing of it.
+    # Read whole, through the canonical parse: the applicant's projection carries only what they see.
+    market = market_from_document(db["markets"].find_one({"id": market_id}))
+    if RejectionRules.judge(RejectionRules.Rulebook(market), market_id, app.id):
+        app = Application(**ApplicationsApi.find_application_by_id(app.id))
+
     results_published = bool(market_doc.get("resultsPublished"))
     return {"application": _application_response(app, results_published)}, 200
 
@@ -375,9 +394,10 @@ _NOT_TAKING_PART = (ApplicationStatus.REVIEWER_REJECTED, ApplicationStatus.CANCE
 
 
 def review_application(
-    market_id: str, application_id: str, new_status: ApplicationStatus,
+    market_id: str, application_id: str, new_status: ApplicationStatus, by: VerdictGiver,
 ) -> Tuple[Dict[str, Any], int]:
-    """Record a review verdict on an application. Organizer only, always sees raw status.
+    """Record a review verdict on an application, and who gave it (E34/F01/S01). Organizer only,
+    always sees raw status.
 
     The verdict is written but NOT revealed to the applicant until results are published.
     """
@@ -388,12 +408,11 @@ def review_application(
     if not app_doc or app_doc.get("market_id") != market_id:
         return {"error": "Application not found for this market."}, 404
 
-    found = ApplicationsApi.update_application_status(application_id, new_status)
+    found = ApplicationsApi.update_application_status(application_id, new_status, by=by)
     if not found:
         return {"error": "Application not found."}, 404
 
-    app_doc["status"] = new_status.value
-    app = Application(**app_doc)
+    app = Application(**ApplicationsApi.find_application_by_id(application_id))
     return {"application": _application_response_organizer(app)}, 200
 
 

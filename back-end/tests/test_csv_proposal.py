@@ -2,7 +2,8 @@
 
 The answer key below is the one written by hand for the form-started-from-a-CSV map, ticket 03,
 before any rule existed, and it is what the rules were measured against: every column's kind, the
-type, required flag and options of every question of the organizer's own. It is asserted here on
+type and options of every question of the organizer's own (its required flags went with
+E33/F02/S01: the proposal marks nothing required). It is asserted here on
 the five anonymised exports in ``tests/test_data/google_forms/``, so the rules are held to the
 numbers they were chosen on. The anonymiser keeps every answer at least 3 applicants gave, which is
 the same line the rules read the file through, so the fixtures carry what the rules need.
@@ -26,14 +27,14 @@ MAXD, CHOICE = EssentialFields.MAX_DATES_KEY, EssentialFields.TABLE_CHOICE_KEY
 SHARE = EssentialFields.TABLE_SHARE_EMAIL_KEY
 
 
-def c(type_, required, options=None):
-    return {"type": type_, "required": required, "options": options, "upload": False}
+def c(type_, options=None):
+    return {"type": type_, "options": options, "upload": False}
 
 
-def upload(required):
+def upload():
     """A Google Forms file upload. The answer key of ticket 03 said ``file``; the application form
     takes no files, so the question is proposed as text asking for a link, marked as an upload."""
-    return {"type": "text", "required": required, "options": None, "upload": True}
+    return {"type": "text", "options": None, "upload": True}
 
 
 UBC = ["Yes, I am a CURRENT UBC student", "Yes, I am an UBC alumni/staff"]
@@ -47,110 +48,110 @@ ANSWER_KEY = {
     "fall-2025": {
         0: ("ED", ORG), 1: ("Timestamp", TS), 2: ("Email Address", EMAIL),
         3: ("Full Legal Name", FULL), 4: ("Preferred Name", PREF), 5: ("Email Address", DUP),
-        6: ("Are you a UBC student or alumni?", c("select", True, UBC)),
-        7: ("Please provide your UBC/alumni/staff", c("email", False)),
-        8: ("If you do not have an UBC email", upload(False)),
-        9: ("Discord Username", c("text", True)), 10: ("Business Name", c("text", True)),
-        11: ("URL to Business", c("text", False)),
-        12: ("Do you have any tabling experience", c("text", False)),
-        13: ("What will you be selling", c("multi_select", True,
-                                           SELL + ["Woven (crochet, knitting, etc)"])),
-        14: ("Please provide a link to your portfolio", c("text", True)),
-        15: ("I certify that the work I will be selling is my own", c("checkbox", True)),
-        16: ("I certify that the work I will be selling abides", c("checkbox", True)),
+        6: ("Are you a UBC student or alumni?", c("select", UBC)),
+        7: ("Please provide your UBC/alumni/staff", c("email")),
+        8: ("If you do not have an UBC email", upload()),
+        9: ("Discord Username", c("text")), 10: ("Business Name", c("text")),
+        11: ("URL to Business", c("text")),
+        12: ("Do you have any tabling experience", c("text")),
+        13: ("What will you be selling", c("multi_select",
+                                     SELL + ["Woven (crochet, knitting, etc)"])),
+        14: ("Please provide a link to your portfolio", c("text")),
+        15: ("I certify that the work I will be selling is my own", c("checkbox")),
+        16: ("I certify that the work I will be selling abides", c("checkbox")),
         17: ("Which clubs are you a member of?",
-             c("select", True, [NONE_CLUB, ART, ANI, PRINT, "Visual Art Students’ Association"])),
-        18: ("If applicable, please attach proof", upload(False)),
+             c("select", [NONE_CLUB, ART, ANI, PRINT, "Visual Art Students’ Association"])),
+        18: ("If applicable, please attach proof", upload()),
         **{k: ("For each day, choose all table tiers", TIERS) for k in range(19, 24)},
         24: ("Maximum number of days", MAXD), 25: ("Do you want to have a half table", CHOICE),
         26: ("If you chose half table", SHARE),
-        27: ("I understand that no-shows", c("checkbox", True)),
-        28: ("Additional comments", c("text", False)), 29: ("Column 1", ORG),
+        27: ("I understand that no-shows", c("checkbox")),
+        28: ("Additional comments", c("text")), 29: ("Column 1", ORG),
     },
     "spring-2024": {
         0: ("Fq", ORG), 1: ("Timestamp", TS), 2: ("Full Name", FULL), 3: ("Preferred Name", PREF),
-        4: ("Email Address", EMAIL), 5: ("Discord Username", c("text", True)),
-        6: ("Business Name", c("text", True)), 7: ("Business Instagram", c("text", False)),
-        8: ("Business Twitter", c("text", False)), 9: ("Business Website", c("text", False)),
-        10: ("Other Business Socials", c("text", False)),
-        11: ("Do you have any tabling experience", c("text", False)),
-        12: ("What will you be selling", c("multi_select", True,
-                                           SELL + ["Woven (crochet, knitting etc)"])),
-        13: ("Please provide a link to your portfolio", c("text", True)),
-        14: ("I certify that the work", c("checkbox", True)),
-        15: ("Are you a UBC student?", c("select", True, ["Yes", "No"])),
-        16: ("Which clubs are you a member of?", c("multi_select", True, [NONE_CLUB, ART, PRINT])),
-        17: ("If applicable, please attach proof", upload(False)),
+        4: ("Email Address", EMAIL), 5: ("Discord Username", c("text")),
+        6: ("Business Name", c("text")), 7: ("Business Instagram", c("text")),
+        8: ("Business Twitter", c("text")), 9: ("Business Website", c("text")),
+        10: ("Other Business Socials", c("text")),
+        11: ("Do you have any tabling experience", c("text")),
+        12: ("What will you be selling", c("multi_select",
+                                     SELL + ["Woven (crochet, knitting etc)"])),
+        13: ("Please provide a link to your portfolio", c("text")),
+        14: ("I certify that the work", c("checkbox")),
+        15: ("Are you a UBC student?", c("select", ["Yes", "No"])),
+        16: ("Which clubs are you a member of?", c("multi_select", [NONE_CLUB, ART, PRINT])),
+        17: ("If applicable, please attach proof", upload()),
         **{k: ("For each day, choose all table tiers", TIERS) for k in range(18, 22)},
         22: ("Do you want to have a half table", CHOICE), 23: ("If you chose half table", SHARE),
-        24: ("I understand that there will be no table", c("checkbox", True)),
-        25: ("I understand that no-shows", c("checkbox", True)),
-        26: ("Additional comments", c("text", False)), 27: ("", EMPTY), 28: ("", EMPTY),
+        24: ("I understand that there will be no table", c("checkbox")),
+        25: ("I understand that no-shows", c("checkbox")),
+        26: ("Additional comments", c("text")), 27: ("", EMPTY), 28: ("", EMPTY),
         29: ("", ORG),
     },
     "spring-2025": {
         0: ("Status", ORG), 1: ("Screening Notes", ORG), 2: ("Full Name", FULL),
         3: ("Preferred Name", PREF), 4: ("Email Address", EMAIL),
-        5: ("Are you a UBC student or alumni?", c("select", True, UBC)),
-        6: ("Please provide your UBC/alumni/staff", c("email", False)),
-        7: ("If you do not have an UBC email", upload(False)),
-        8: ("Discord Username", c("text", True)), 9: ("Business Name", c("text", True)),
-        10: ("URL to Business", c("text", False)),
-        11: ("Do you have any tabling experience", c("text", False)),
-        12: ("What will you be selling", c("multi_select", True,
-                                           SELL + ["Woven (crochet, knitting etc)"])),
-        13: ("Please provide a link to your portfolio", c("text", True)),
-        14: ("I certify that the work I will be selling is my own", c("checkbox", True)),
-        15: ("I certify that the work I will be selling abides", c("checkbox", True)),
+        5: ("Are you a UBC student or alumni?", c("select", UBC)),
+        6: ("Please provide your UBC/alumni/staff", c("email")),
+        7: ("If you do not have an UBC email", upload()),
+        8: ("Discord Username", c("text")), 9: ("Business Name", c("text")),
+        10: ("URL to Business", c("text")),
+        11: ("Do you have any tabling experience", c("text")),
+        12: ("What will you be selling", c("multi_select",
+                                     SELL + ["Woven (crochet, knitting etc)"])),
+        13: ("Please provide a link to your portfolio", c("text")),
+        14: ("I certify that the work I will be selling is my own", c("checkbox")),
+        15: ("I certify that the work I will be selling abides", c("checkbox")),
         16: ("Which clubs are you a member of?",
-             c("multi_select", True, [NONE_CLUB, ART, ANI, PRINT])),
-        17: ("If applicable, please attach proof", upload(False)),
+             c("multi_select", [NONE_CLUB, ART, ANI, PRINT])),
+        17: ("If applicable, please attach proof", upload()),
         **{k: ("For each day, choose all table tiers", TIERS) for k in range(18, 23)},
         23: ("Do you want to have a half table", CHOICE), 24: ("If you chose half table", SHARE),
-        25: ("I understand that there will be no table", c("checkbox", True)),
-        26: ("I understand that no-shows", c("checkbox", True)),
-        27: ("Additional comments", c("text", False)),
+        25: ("I understand that there will be no table", c("checkbox")),
+        26: ("I understand that no-shows", c("checkbox")),
+        27: ("Additional comments", c("text")),
     },
     "fall-2023": {
         0: ("Timestamp", TS), 1: ("Accepted? (Y/N)", ORG), 2: ("Full Name", FULL),
-        3: ("Email Address", EMAIL), 4: ("Are you a UBC Student?", c("select", True, ["Yes", "No"])),
+        3: ("Email Address", EMAIL), 4: ("Are you a UBC Student?", c("select", ["Yes", "No"])),
         5: ("If applicable, which clubs",
-            c("multi_select", False, [ART, "UBC Anime Club", PRINT, "VASA"])),
+            c("multi_select", [ART, "UBC Anime Club", PRINT, "VASA"])),
         6: ("Are you applying for a half table", CHOICE), 7: ("Which days would you prefer", DATES),
-        8: ("Do you have any tabling experience", c("text", True)),
+        8: ("Do you have any tabling experience", c("text")),
         9: ("What will you be selling",
-            c("multi_select", True, ["Prints", "Stickers", "Keychains", "Jewelry", "Apparel",
+            c("multi_select", ["Prints", "Stickers", "Keychains", "Jewelry", "Apparel",
                                      "Woven"])),
-        10: ("Please provide a link to your portfolio", c("text", True)),
-        11: ("Additional comments", c("text", False)),
+        10: ("Please provide a link to your portfolio", c("text")),
+        11: ("Additional comments", c("text")),
     },
     "spring-2026": {
         0: ("STATUS", ORG), 1: ("Timestamp", TS), 2: ("Email Address", EMAIL),
         3: ("Full Legal Name", FULL), 4: ("Preferred Name", PREF), 5: ("Email Address", DUP),
-        6: ("Are you a UBC student or alumni?", c("select", True, UBC + [UBC_NO])),
-        7: ("Please provide your UBC/alumni/staff", c("email", False)),
-        8: ("If you do not have an UBC email", upload(False)),
-        9: ("Discord Username", c("text", True)), 10: ("Business Name", c("text", True)),
-        11: ("URL to Business", c("text", False)),
-        12: ("Do you have any tabling experience", c("text", False)),
-        13: ("What will you be selling", c("multi_select", True,
-                                           SELL + ["Woven (crochet, knitting, etc)"])),
-        14: ("If you plan to sell press-on nails", c("text", False)),
-        15: ("Please submit one video", upload(False)),
-        16: ("Please submit any additional drafts", upload(False)),
-        17: ("Please provide a link to your portfolio", c("text", True)),
-        18: ("I certify that the work I will be selling is my own", c("checkbox", True)),
-        19: ("UBC Makers Market's mission", c("checkbox", True)),
-        20: ("I certify that this application", c("checkbox", True)),
-        21: ("I certify that the work I will be selling abides", c("checkbox", True)),
+        6: ("Are you a UBC student or alumni?", c("select", UBC + [UBC_NO])),
+        7: ("Please provide your UBC/alumni/staff", c("email")),
+        8: ("If you do not have an UBC email", upload()),
+        9: ("Discord Username", c("text")), 10: ("Business Name", c("text")),
+        11: ("URL to Business", c("text")),
+        12: ("Do you have any tabling experience", c("text")),
+        13: ("What will you be selling", c("multi_select",
+                                     SELL + ["Woven (crochet, knitting, etc)"])),
+        14: ("If you plan to sell press-on nails", c("text")),
+        15: ("Please submit one video", upload()),
+        16: ("Please submit any additional drafts", upload()),
+        17: ("Please provide a link to your portfolio", c("text")),
+        18: ("I certify that the work I will be selling is my own", c("checkbox")),
+        19: ("UBC Makers Market's mission", c("checkbox")),
+        20: ("I certify that this application", c("checkbox")),
+        21: ("I certify that the work I will be selling abides", c("checkbox")),
         22: ("Which clubs are you a member of?",
-             c("multi_select", True, [NONE_CLUB, ART, ANI, PRINT])),
-        23: ("If applicable, please attach proof", upload(False)),
+             c("multi_select", [NONE_CLUB, ART, ANI, PRINT])),
+        23: ("If applicable, please attach proof", upload()),
         **{k: ("For each day, choose all table tiers", TIERS) for k in range(24, 29)},
         29: ("Maximum number of days", MAXD), 30: ("Do you want to have a half table", CHOICE),
         31: ("If you chose half table", SHARE),
-        32: ("I understand that no-shows", c("checkbox", True)),
-        33: ("Additional comments", c("text", False)),
+        32: ("I understand that no-shows", c("checkbox")),
+        33: ("Additional comments", c("text")),
         # Filled by 228 of 248: added to the form after it opened, or optional. Not scored.
         34: ("Please provide a link to a video", c("text", None)),
     },
@@ -233,15 +234,13 @@ class TestTheAnswerKey:
             for index in (i for n, i in KNOWN_TYPE_MISSES if n == name):
                 assert CsvProposal.CHECK_SEVERAL_ANSWERS in proposal["columns"][index]["check"]
 
-    def test_every_required_flag_is_right(self):
-        wrong = []
-        for name, key, _, proposal in _proposals():
-            for index, (_, want) in key.items():
-                if isinstance(want, dict) and want["required"] is not None:
-                    got = proposal["columns"][index]["field"]["required"]
-                    if got != want["required"]:
-                        wrong.append((name, index))
-        assert wrong == []
+    def test_no_question_is_proposed_required(self):
+        """Only the organizer says a question is required (E33/F02/S01): the export does not say
+        which the form required, and a guess read from how many answered skipped real rows."""
+        required = [(name, index) for name, _key, _, proposal in _proposals()
+                    for index, column in enumerate(proposal["columns"])
+                    if column.get("field") and column["field"]["required"]]
+        assert required == []
 
     def test_options_are_found_and_none_is_invented(self):
         found = missing = invented = 0

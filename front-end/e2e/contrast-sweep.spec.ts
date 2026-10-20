@@ -225,7 +225,7 @@ test.describe('Every rendered text node reaches AA', () => {
       ['market plan', marketSetupPath(marketId, 'setup'), 'setup-dates-date-display-0'],
       // The densest authoring surface in the product, and unwalked until E17/F03/S01 - which is
       // how a field-type badge shipped at 3.73:1 on it.
-      ['application form', marketSetupPath(marketId, 'form'), 'essential-item-section-ranking'],
+      ['application form', marketSetupPath(marketId, 'form'), 'form-steps'],
       // A published market: its rules read as settled (E22/F02/S02).
       ['assignment', marketSetupPath(marketId, 'assignment'), 'assignment-rules-settled'],
       ['result', marketScreenPath(marketId, 'result'), 'result-strip'],
@@ -235,6 +235,18 @@ test.describe('Every rendered text node reaches AA', () => {
       await page.goto(url);
       await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15000 });
       await expectAA(page, state);
+    }
+
+    // The form tab is steps, each its own surface (E33/F01/S01): the sweep is only worth the
+    // states it opens, so it opens every one this market's form has.
+    await page.goto(marketSetupPath(marketId, 'form'));
+    const steps = page.getByTestId('form-steps').getByRole('button');
+    await expect(steps.first()).toBeVisible({ timeout: 15000 });
+    for (const step of await steps.all()) {
+      const label = (await step.textContent()) ?? '';
+      await step.click();
+      await expect(step).toHaveAttribute('aria-current', 'step');
+      await expectAA(page, `application form, ${label}`);
     }
   });
 

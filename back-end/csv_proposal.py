@@ -38,9 +38,11 @@ from datatypes import MarketPhase, phase_from_market_document
 from market_documents import market_doc_field
 
 SHARED_BY = 3
-# How much of the file must answer a question for it to have been required. The export does not
-# say which questions the form required, so this is read from how many answered.
-REQUIRED_SHARE = 0.97
+# How much of the file is nearly all of it: a question nearly everyone answered, an answer nearly
+# everyone gave. A fact about the column, never a question's requiredness: the export does not say
+# which questions the form required, and a guess read from how many answered skipped every row that
+# left one blank at import (E33/F02/S01). Only the organizer marks a question required.
+NEARLY_ALL = 0.97
 
 # Why a row of the proposal is worth a second look, shown beside it as "check this".
 CHECK_SEVERAL_ANSWERS = "Could allow several answers"
@@ -291,7 +293,7 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
     label, help_text = label_and_help(column.header)
     field: Dict[str, Any] = {
         "key": key_for(label, taken_keys), "label": label, "helpText": help_text,
-        "required": column.answered_share >= REQUIRED_SHARE, "options": [], "upload": False,
+        "required": False, "options": [], "upload": False,
     }
     if column.drive_upload >= 0.9:
         # A Google Forms upload. The application form takes no files, so the question asks for a
@@ -300,7 +302,7 @@ def _field(column: _Column, taken_keys: Set[str]) -> Dict[str, Any]:
         field["upload"] = True
     elif column.email >= 0.9:
         field["type"] = "email"
-    elif ((column.shared and column.shared[0][1] / column.filled >= REQUIRED_SHARE)
+    elif ((column.shared and column.shared[0][1] / column.filled >= NEARLY_ALL)
           or (CHECKBOX_LEAD.match(column.label) and column.distinct <= 2)):
         field["type"] = "checkbox"
     elif column.numeric >= 0.9:
@@ -404,7 +406,7 @@ def _classify(columns: List[_Column]) -> List[Dict[str, Any]]:
                                      "Its answers are other applicants' emails"))
             continue
         if (column.email >= 0.9 and not email_found and column.distinct_ratio >= 0.95
-                and column.answered_share >= REQUIRED_SHARE):
+                and column.answered_share >= NEARLY_ALL):
             email_found = True
             decided.append({"fate": FATE_APPLICANT_EMAIL,
                             "why": "Everyone answered it with their own email"})
@@ -645,17 +647,21 @@ def _ceiling_state(column: _Column) -> str:
     return f'Question text: "{column.label}"'
 
 
-def _team_candidates(proposed: List[Dict[str, Any]]) -> List[int]:
-    """The optional free-text questions after the form's last certain one: where a team's notes
-    headed like a question ("Comments (internal)") would sit, and the rules cannot tell. A header
-    that itself holds an email, link, handle or phone number is not sent, and is not asked."""
+def _team_candidates(columns: List[_Column], proposed: List[Dict[str, Any]]) -> List[int]:
+    """The free-text questions not everyone answered, after the form's last certain one: where a
+    team's notes headed like a question ("Comments (internal)") would sit, and the rules cannot
+    tell. A question nearly everyone answered is certain to be the form's. A header that itself
+    holds an email, link, handle or phone number is not sent, and is not asked."""
+    def answered_by_nearly_all(c: Dict[str, Any]) -> bool:
+        return columns[c["index"]].answered_share >= NEARLY_ALL
+
     certain = [c["index"] for c in proposed
                if c["fate"] in (FATE_SUBMITTED_AT, FATE_APPLICANT_EMAIL, FATE_ESSENTIAL)
-               or (c["fate"] == FATE_CUSTOM and c["field"] and c["field"]["required"])]
+               or (c["fate"] == FATE_CUSTOM and c["field"] and answered_by_nearly_all(c))]
     after = max(certain, default=-1)
     return [c["index"] for c in proposed
             if c["index"] > after and c["fate"] == FATE_CUSTOM and c["field"]
-            and c["field"]["type"] == "text" and not c["field"]["required"]
+            and c["field"]["type"] == "text" and not answered_by_nearly_all(c)
             and not _identifying(c["header"])]
 
 
@@ -679,7 +685,7 @@ def _ask_typesafe(asker: TypeSafe.Asker, columns: List[_Column], proposed: List[
     and the row says why it is worth a look. Returns whether anything was asked.
     """
     questions = {(TypeSafe.TEAM_COLUMN, index): _team_column_state(columns[index])
-                 for index in _team_candidates(proposed)}
+                 for index in _team_candidates(columns, proposed)}
     ceiling = None if plan["ceiling"] else _ceiling_candidate(columns)
     if ceiling:
         questions[(TypeSafe.CEILING, ceiling[0])] = _ceiling_state(columns[ceiling[0]])
