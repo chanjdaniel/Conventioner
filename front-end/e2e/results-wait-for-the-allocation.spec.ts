@@ -42,7 +42,13 @@ test('publishing waits for a run, then says who will read what before it tells t
     await post(request, `/markets/${market.marketId}/transition`, { toPhase });
   }
 
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(marketSetupPath(market.marketId, 'applications'));
+  // The rail's end - the application page, Run the assignment, Publish Market, More - takes a row of
+  // its own rather than running out of the card, which lost More off the edge at 1440.
+  const rail = await page.getByTestId('phase-rail').boundingBox();
+  const more = await page.getByTestId('phase-rail-menu-button').boundingBox();
+  expect(more!.x + more!.width).toBeLessThanOrEqual(rail!.x + rail!.width);
   const publish = page.getByTestId('app-monitor-publish-button');
   await expect(publish).toBeDisabled();
   await expect(page.getByTestId('app-monitor-publish-hint')).toHaveText(
