@@ -79,7 +79,7 @@ test.describe('The Result page', () => {
     await page.getByTestId('result-statistics-button').click();
     await expect(panel).toBeVisible();
     await expect(page).toHaveURL(/stats=open/);
-    for (const heading of ['Per Date', 'Per Section', 'Per Tier', 'Per Table Choice']) {
+    for (const heading of ['Per date', 'Per section', 'Per tier', 'Per table size']) {
       await expect(panel.getByRole('heading', { name: heading })).toBeVisible();
     }
 
