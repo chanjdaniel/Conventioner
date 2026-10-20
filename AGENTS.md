@@ -310,6 +310,9 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   anyone else, so the ordinary loop sees those tables occupied.
   A pin the plan can no longer hold is **orphaned, never deleted**, and `NoOrphanedPinGuard`
   blocks `-> assignment` until it is re-placed or freed.
+  **Anyone may be pinned, warned** (E36/F02/S02): the place dialog offers every applicant, the ones
+  outside the run under "Not approved", and the run seats such a pin as `held` (`held_vendors_for`):
+  the seat is occupied, they are placed nowhere else and never counted among the run's vendors.
 - **Read-only views describe the STORED assignment, and only that.** `assignment_to_show()`
   (`api/markets.py`) is `describe_stored_assignment()`; a market with nothing stored is shown
   nobody placed, never the run it would get (E31/F03/S05 - that preview read "197 of 197 vendors

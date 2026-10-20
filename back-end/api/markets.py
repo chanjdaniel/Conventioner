@@ -6,7 +6,9 @@ from pymongo.errors import DuplicateKeyError
 from pymongo.results import DeleteResult
 from pydantic import ValidationError
 from datatypes import (
+    Application,
     ApplicationForm,
+    ApplicationStatus,
     AssignmentStatistics,
     EssentialFormOptions,
     FormField,
@@ -34,6 +36,7 @@ from assignment.assignment import (
     describe_stored_assignment,
     solver_vendors_for,
 )
+from assignment.vendor_input import outside_solver_vendors
 from assignment.utils import convert_keys_to_snake_case, convert_keys_to_camel_case
 import api.applications as ApplicationsApi
 import csv_proposal as CsvProposal
@@ -1315,6 +1318,35 @@ def get_assignment_csv(market_id: str, requesting_user: Optional[str] = None) ->
         }, 500
 
 
+def _placeable(vendor: Any, outside: Optional[Application]) -> Dict[str, Any]:
+    """One vendor the place dialog may offer: what they answered, and - for an applicant outside the
+    run - their status and who gave it, which the dialog's "Not approved" warning words."""
+    not_approved = None
+    if outside is not None and outside.status is not ApplicationStatus.REVIEWER_APPROVED:
+        not_approved = {
+            "status": outside.status.value,
+            "verdictBy": (
+                convert_keys_to_camel_case(outside.verdict_by.model_dump())
+                if outside.verdict_by else None
+            ),
+            "verdictAt": outside.verdict_at,
+            "verdictReason": outside.verdict_reason,
+        }
+    return {
+        "email": vendor.email,
+        "tableChoice": vendor.table_choice,
+        "availableDates": sorted(vendor.available_dates),
+        # And the two answers a hand change could override without a word (bugs 18 and 32): the
+        # tiers they accept on each date - empty when never asked, which accepts any - and how
+        # many dates they want, None for no personal limit.
+        "acceptedTiersByDate": {
+            date: sorted(tiers) for date, tiers in vendor.accepted_tiers_by_date.items()
+        },
+        "maxDates": vendor.max_dates,
+        "notApproved": not_approved,
+    }
+
+
 def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> tuple[List[Dict[str, Any]] | Dict[str, Any], int]:
     """Derive and return table rows for a market."""
     try:
@@ -1360,20 +1392,15 @@ def get_market_tables(market_id: str, requesting_user: Optional[str] = None) -> 
             # Who may be put in a seat, and what they asked for. Sent with the grid because the
             # view has to warn - before the change, not after - when a placement would alter a
             # vendor's table choice away from their own answer (E11/F03/S01).
-            "vendors": [
-                {
-                    "email": vendor.email,
-                    "tableChoice": vendor.table_choice,
-                    "availableDates": sorted(vendor.available_dates),
-                    # And the two answers a hand change could override without a word (bugs 18
-                    # and 32): the tiers they accept on each date - empty when never asked, which
-                    # accepts any - and how many dates they want, None for no personal limit.
-                    "acceptedTiersByDate": {
-                        date: sorted(tiers) for date, tiers in vendor.accepted_tiers_by_date.items()
-                    },
-                    "maxDates": vendor.max_dates,
-                }
-                for vendor in vendors
+            # Every applicant, the ones outside the run with why (E36/F02/S02): an organizer may
+            # seat anyone by hand, warned, and the run's own vendors come first.
+            "vendors": [_placeable(vendor, None) for vendor in vendors] + [
+                _placeable(vendor, application)
+                for vendor, application in outside_solver_vendors(
+                    market_id,
+                    EssentialFields.effective_essential_options_for_market(market),
+                    {vendor.email for vendor in vendors},
+                )
             ],
         }, 200
     except Exception as e:
