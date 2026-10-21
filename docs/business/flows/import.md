@@ -5,6 +5,7 @@ describes:
   - front-end/src/views/CsvImportView.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04
   - wayfinding/v0-1-0/05
   - wayfinding/the-order-of-the-work/06
@@ -78,7 +79,7 @@ Values already decided, including those a Google Form start saved, are listed as
 
 **Status:** Works (`csv-import.spec.ts`): a tier grid's day headings, in whatever words, are matched to the market's dates, and its cells to tiers (bug 26).
 Grid questions (one column per option or per day, such as a tier grid) are grouped as one row showing their columns; "Not one question - split" treats them separately.
-A column whose options contain commas while its answers are comma-separated says "One column cannot answer … reliably".
+A column whose options contain commas while its answers are comma-separated says "One column cannot answer … reliably": one of the options is made of others, so which commas separate answers cannot be known, and the fixes are a grid or renamed options ([the CSV import](../../implementation/modules/csv-import.md)).
 
 ### H2d. A required question has no column
 

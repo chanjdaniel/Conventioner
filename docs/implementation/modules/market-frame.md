@@ -72,6 +72,9 @@ At 640px and below the name takes its own line and the tabs scroll sideways rath
 
 The bar and the whole rail pin as one block, whatever the rail grows, because the two alternatives prototyped each lost something the frame exists for: condensing on scroll hid every stage but the current one, which is the rail's reason to exist, and made the frame jump as it changed size; pinning one line and letting the blockers float laid "add market dates" over the very Dates card it asked the organizer to fix.
 
+Four tabs, with the Assignment tab's pages in a row under the rail, won over two other navigations prototyped on every market screen: a flat bar of six tabs put Vendors and Attendance on it with nothing to show before an assignment, and only just fit beside a long name at 1280; the market's screens listed down the frame's left side cost 200px of every market screen and looked like nothing else in the product.
+The page row is what makes the tab's name, repeated as its first page's, read as "the tab, and its first page"; Result and Vendors beside each other are the assignment by table and by vendor.
+
 The layout decisions behind the frame (two widths, the frame stays put, the frame places itself) are in [the design language](../../design-system.md#layout).
 Tables, Vendors and Attendance used to draw a title of their own with no tabs, so moving between a market's screens was two kinds of navigation; addresses are [every market page has an address](../conventions/every-market-page-has-an-address.md).
 
@@ -79,4 +82,5 @@ The glossary concept it serves: [Market](../../business/concepts/market.md).
 
 ## Superseded
 
+- Attendance was to join the bar once the market was published, so the bar grew with the market (wayfinding/the-assignment-tab/02); every tab stays on the bar for the market's whole life, and a tab out of its phase says when it matters (E31/F03/S02).
 - The market's page was "the market workspace" and its white container "the settings panel" (wayfinding/the-order-of-the-work/map); the page is the market frame's card, which every market screen shares (E21/F04).

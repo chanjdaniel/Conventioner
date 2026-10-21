@@ -3,6 +3,7 @@ layer: business
 kind: flow
 verified: 2026-10-22
 sources:
+  - wayfinding/readable-journey/07
   - E21/F02/S02
   - E22/F04/S02
   - E25/F01/S01
@@ -17,6 +18,19 @@ sources:
 **Where they start:** the dashboard, where sign-in lands.
 
 Every market page has its own address, built from the market's id, so a link to any page of a market opens that page ([every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md)).
+
+## What a market's row says
+
+A market is one row wherever a list shows it (the dashboard, the Markets list, the old start screen's picker), drawn by `MarketSummaryCard.vue`: its name, its phase badge, its dates, and its organization.
+A market whose organization is gone says "No longer available" there rather than dropping the line, which kept the rows from lining up.
+
+- **Dates, not when it was created**: an organizer knows a market by when it runs.
+- **The phase**: it is the market's state, and without it a running market looked exactly like a draft on the one screen that shows them all.
+- **Not the reader's role**: that is permission detail on a list used to get somewhere, and Manage is already offered only to an Admin or the owner.
+- **No progress counts**: the list does not carry them, and each would cost a query per row on a list that grows.
+
+**The row itself opens the market**, on its own pages, in every phase; Manage is the one control beside it, visible rather than behind a menu, since renaming, sharing and deleting a market are what an owner looks for there.
+Opening never leads to the market's public page: a Google Form market has none, so opening a published one by its public page once answered "Page not found" for every market of the first release, and what an organizer wants of a published market, its check-in address, is on its rail ([the market lifecycle](lifecycle.md#where-the-check-in-address-lives)).
 
 ## C1. The dashboard
 

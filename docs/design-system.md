@@ -11,17 +11,22 @@ sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01
   - wayfinding/claims-and-room/07
+  - wayfinding/readable-journey/03
+  - wayfinding/readable-journey/06
+  - wayfinding/readable-journey/map
   - wayfinding/the-assignment-tab/02
   - wayfinding/the-plan-uses-its-space/01
   - wayfinding/the-market-frame/01
   - wayfinding/the-market-frame/map
   - wayfinding/the-order-of-the-work/map
+  - wayfinding/the-plan-uses-its-space/map
   - E16
   - E15/F01/S01
   - E17/F01
   - E22/F04/S01
   - E26/F07
   - E26/F10/S01
+  - E09/F01
 ---
 
 # Conventioner's design language
@@ -116,6 +121,9 @@ No screen caps its own height, and no row carries a minimum height.
 The market screen's `height: 80%`, which pinned it to most of the window and hid half of it, was scaffolding from that view's first commit, never a decision, and went with the rest.
 `.app-container` used to be `position: absolute; height: 100vh`, which is why no screen could scroll the page and every tall screen grew nested scrollers of its own; do not reintroduce a viewport-height shell.
 
+**The organizer's screens are designed for 1920x1080**, and no other width is a requirement new work is held to (wayfinding/readable-journey/06).
+The public check-in page is the carve-out: it is not an organizer screen, it is held in a hand at a door, and it works on a phone ([attendance and the door](implementation/modules/attendance-and-door.md#sharp-edges)).
+
 | Token | Value | Screens |
 | --- | --- | --- |
 | `--workspace-max` | 1440px | Every market page and flow: Market Setup to Attendance, Import, Floorplan |
@@ -135,13 +143,14 @@ The market's name is whole wherever it fits beside the tabs, and ellipsed with i
 
 **A screen of cards is a two-track grid** (E23/F01/S01, from the-plan-uses-its-space ticket 01).
 It is `.card-grid` in `primitives.css`; a screen reaches for it rather than laying out its own rows.
+It is one written rule rather than a rearrangement per screen: the design language named two widths and said nothing of how cards share a row, which is why every plan card once had a row to itself, and a local fix per card would leave the next card to decide again.
 
 - **A card is half width unless it declares itself wide** (`.card-grid__wide`). One declaration per card, so the next card added decides nothing else.
 - **A card ends at its own content.** Two cards in a row do not stretch to match, and the next row starts under the taller: blank space inside a card reads as something missing.
 - **Below `--card-grid-one-track` (900px) of room it is one track**, in the cards' own order. The break follows the room the grid has, not the window.
 - **Cards are `--card-grid-gap` apart, and every card has the same inner gutter**, set by the card, never by what it holds.
 
-On the plan, Market Dates and Section Setup are wide (Section Setup's columns need 654px, and at half width its tier select truncated); Tier Setup sits beside Location Setup, and How vendors apply beside Application form.
+On the plan, Market Dates and Section Setup are wide (Section Setup's columns need 654px, and at half width its tier select truncated); Tier Setup sits beside Location Setup, and How vendors apply beside Application form ([planning the market](business/flows/planning.md)).
 Two other rules were prototyped and rejected: two columns by purpose truncated the tier select at 1280, and packing cards by content width changed the screen's shape with the window.
 
 **A market screen's frame stays put** (E21/F04, from the-market-frame ticket 01).
@@ -193,6 +202,22 @@ One shadow, extracted from the newer screens, where it is already used 77 times 
 ## Colour
 
 `base.css` remains the owner and its existing comments remain authoritative: **a token whose name says it carries text must reach WCAG AA (4.5:1) on the grounds it appears on**, and `src/__tests__/contrast.test.ts` asserts it.
+WCAG AA is the product's stated standard, held over the whole palette rather than the colours someone happened to measure; raising the muted grey changed the texture of every screen, and that was accepted (wayfinding/readable-journey/map).
+
+### The contrast contract
+
+**A colour token's name is its declaration**: a token named as text (`--mm-text-*`, `--mm-black`, `--color-text`) is ink, held to AA on each ground it is set on, and a token that only paints a line or a fill is exempt.
+The roles are told apart by name rather than by a sidecar map, which could disagree with the CSS, or a lint rule, which would have to infer which ground each usage sits on.
+So a colour used both ways is two tokens: the old `--mm-grey` (alpha 0.25) is `--mm-border` for lines and `--mm-text-muted` (alpha 0.63, 4.63:1 on white) for secondary text.
+The contract says which values are text and holds those to AA; it does not raise every value, and a border keeps its 0.25.
+
+**Ink on light and ink on dark are separate families** (`--mm-text-muted` and `--mm-text-muted-on-dark`), because contrast belongs to a pair: one muted grey cannot serve white and the near-black bar both, and two families make white text on a white page unwritable.
+Where the beige card needs a darker ink than white does, that is a token of its own (`--mm-text-muted-on-beige`).
+
+**Fills carry the reciprocal check**: each fill declares the ink it is legible under, white on `--mm-green`, `--mm-red` and `--mm-blue`, `--mm-black` on `--mm-yellow` and `--mm-beige`.
+That check is what made the brand green darker rather than leaving each button to a judgement call.
+
+[`src/__tests__/contrast.test.ts`](../front-end/src/__tests__/contrast.test.ts) parses the real `base.css`, so the file that ships is the file under test, and lists every colour token as ink, fill, chip ground or line; a colour token in none of those lists fails it, so a new colour must declare itself.
 
 ### Added
 
@@ -253,7 +278,12 @@ A convention nothing enforces is how the product got here. Three checks, in `E16
 
 The sweep is only worth the states it walks. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog; **dialogs, menus, disabled controls and empty states have to be walked deliberately.**
 
+## Evidence
+
+The contrast contract rests on an audit that measured every colour on the grounds the product paints on (wayfinding/readable-journey/03): four text colours failed, `--mm-yellow` at 2.15:1, `--mm-grey` at 1.67, `--mm-green` at 2.65 and the hard-coded `#2196F3` link at 3.12, with `--vt-c-text-light-2` a near miss at 4.06; `--mm-grey` was text at 18 sites and a border or fill at 57, which is what made splitting it cheap.
+
 ## Superseded
 
+- White text on `--mm-yellow` was to reach AA like every other fill (wayfinding/readable-journey/03); yellow is a black-text fill, and the contract asserts white is never put on it (E09/F01).
 - `--list-max` was to hold a market's Tables, Vendors and Attendance (wayfinding/claims-and-room/01); every market screen is the workspace width, set by the frame (E22/F04/S01).
 - A row's panels were to stay even by stretching to the tallest (`align-items: stretch`), which is why no minimum row height was needed (wayfinding/claims-and-room/01); a card ends at its own content in the card grid (E23/F01/S01).

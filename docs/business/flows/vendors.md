@@ -56,6 +56,7 @@ Covered by: `vendors.spec.ts` ("an unplaced vendor is opened from the payoff scr
 
 - [A seat only for an applicant](../rules/a-seat-only-for-an-applicant.md): every applicant is listed, and may be seated.
 - [Adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md).
-- [The ceiling on dates per vendor](../rules/max-assignments-ceiling.md) and [tier filters, section prefers](../rules/tier-filters-section-prefers.md): the reasons a date was not given.
+- [Why a vendor was not placed](../rules/why-a-vendor-was-not-placed.md): the reasons a date was not given, and which one offers a seat.
+- [The ceiling on dates per vendor](../rules/max-assignments-ceiling.md) and [tier filters, section prefers](../rules/tier-filters-section-prefers.md): the limits two of those reasons name.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

@@ -3,6 +3,7 @@ layer: business
 kind: flow
 verified: 2026-10-22
 sources:
+  - wayfinding/readable-journey/06
   - wayfinding/the-order-of-the-work/01
   - wayfinding/the-order-of-the-work/map
   - E03
@@ -87,6 +88,15 @@ Each refusal is a blocker line under the rail and beside the move, before the cl
 
 Moves that cannot be undone (Publish Market, Archive Market) open a confirmation dialog focused on Cancel.
 Every other move fires on one click.
+
+## Where the check-in address lives
+
+Once a market is published, the rail carries its check-in page's address as a chip between the spine and the moves, with Copy; it is the one place the product tells the organizer the address vendors check in at.
+The chip stays on an archived market that ran, whose page stays up as its record ([an archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md)); before publishing there is none, since it would lead to a page that does not exist yet.
+A form market's application page has a chip of its own on the same row, from the first phase after Draft ([a gated market answers as absent](../rules/a-gated-market-answers-as-absent.md)).
+
+The spine, the addresses and the moves share one row at the organizer's screen width; where the row cannot hold them, the addresses and the moves take a second row together ([the phase rail](../../implementation/modules/phase-rail.md)).
+A market that leaves the spine freezes it at the furthest phase it reached and says in words what became of it, such as "It was published and ran its market days.": a struck-through spine alone reads as stopped, not as archived.
 
 ## Why the phases are the order of the work
 
