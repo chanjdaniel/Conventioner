@@ -280,12 +280,12 @@ def test_typescript_and_vue_symbols_are_found(repo, capsys):
     ]
 
 
-def test_a_hub_has_no_frontmatter(repo, capsys):
+def test_a_hub_must_not_carry_frontmatter(repo, capsys):
     files = graph()
     files["docs/README.md"] = "---\nlayer: business\n---\n" + files["docs/README.md"]
     commit(repo, files)
     code, lines = errors(capsys, "check")
-    assert lines == ["docs/README.md:1: a hub has no frontmatter"]
+    assert lines == ["docs/README.md:1: a hub must not carry frontmatter"]
 
 
 # check: links and fragments
