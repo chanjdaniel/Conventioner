@@ -5,7 +5,7 @@ describes:
   - back-end/api/markets.py#review_is_open
   - back-end/api/placements.py#assign_refusal
   - back-end/result_outcome.py#outcome_of
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/rejection-visibility/01
   - wayfinding/rejection-visibility/02

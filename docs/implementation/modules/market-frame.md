@@ -7,7 +7,7 @@ describes:
   - front-end/src/components/MarketPages.vue
   - front-end/src/components/MarketArrival.vue
   - front-end/src/utils/marketPage.ts
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/the-market-frame/map
   - wayfinding/the-market-frame/01

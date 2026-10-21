@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/utils/secret_key.py
   - back-end/utils/configured_secret.py
-verified: 2026-10-22
+verified: 2026-10-21
 status: accepted
 ---
 

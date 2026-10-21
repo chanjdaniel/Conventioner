@@ -8,7 +8,7 @@ describes:
   - back-end/api/applicant_auth.py#verify_login_code
   - back-end/tests/test_applicant_intake_gate.py
   - front-end/e2e/intake-mode.spec.ts
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/06
   - wayfinding/v0-1-0/07

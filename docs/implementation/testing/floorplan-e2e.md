@@ -6,7 +6,7 @@ describes:
   - front-end/e2e/the-floorplan-beta-places-tables.spec.ts
   - front-end/e2e/pages/FloorplanWorkflowPage.ts
   - front-end/e2e/fixtures/test-floorplan.png
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - bug/38
   - E26/F09/S01

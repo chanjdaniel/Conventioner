@@ -5,7 +5,7 @@ describes:
   - back-end/api/attendance.py#get_check_in_market
   - back-end/api/attendance.py#market_has_ended
   - front-end/e2e/an-archive-keeps-its-check-in-page.spec.ts
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - E26/F06/S02
   - E26/F06/S03

@@ -15,7 +15,7 @@ describes:
   - back-end/app.py#organizer_undo_check_in
   - front-end/src/views/AttendanceStatusView.vue
   - front-end/src/App.vue#fitsAPhone
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map

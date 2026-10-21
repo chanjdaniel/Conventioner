@@ -4,7 +4,7 @@ kind: module
 describes:
   - front-end/src/components/PhaseRail.vue
   - front-end/src/utils/phase.ts
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/claims-and-room/07
   - wayfinding/readable-journey/01

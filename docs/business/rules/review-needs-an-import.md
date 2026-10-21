@@ -6,7 +6,7 @@ describes:
   - back-end/guards.py#PASSED_THROUGH
   - back-end/guards.py#path_moves
   - front-end/src/utils/marketGuide.ts#pathTransitionLabel
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - brain-dump/2026-10-19#1
   - brain-dump/2026-10-19#4

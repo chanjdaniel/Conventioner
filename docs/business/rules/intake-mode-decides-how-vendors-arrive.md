@@ -5,7 +5,7 @@ describes:
   - back-end/api/markets.py#save_plan
   - back-end/market_documents.py#market_serves_applicants
   - front-end/src/components/elements/ElementIntakeMode.vue
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/06

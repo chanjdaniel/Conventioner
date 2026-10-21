@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/phase_record.py#push_entries
   - back-end/phase_record.py#phases_reached
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/claims-and-room/06
   - E26/F06/S03

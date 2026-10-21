@@ -7,7 +7,7 @@ describes:
   - back-end/application_write.py#_asks_nothing
   - back-end/guards.py#FormHasFieldsGuard
   - front-end/src/utils/applicationForm.ts#applicationFormError
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/readable-journey/02
   - wayfinding/v0-1-0/map
