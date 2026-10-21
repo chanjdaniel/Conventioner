@@ -23,14 +23,17 @@ One line per node, sorted by file name.
 - [An imported email is asserted](an-imported-email-is-asserted.md) - an imported applicant's address is the organizer's word, an online one's proven by a code; settled before any other mail
 - [An incomplete application refuses the run](an-incomplete-application-refuses-the-run.md) - an approved application missing an asked answer stops the assignment, naming the applicants
 - [Assign runs only in assignment](assign-runs-only-in-assignment.md) - the run is refused in every other phase, and once results are published
+- [Automatic rejections](automatic-rejections.md) - answers the organizer names reject an undecided application, with the reason; a person's verdict is never touched
 - [Dates fill one at a time, in the plan's order](dates-fill-in-calendar-order.md) - the solver fills each date before the next, in the plan's order; kept on purpose
 - [The half-table share](half-table-share.md) - the organizer's share of a section on half tables, 30% when blank, bounding only Either choosers
 - [Intake mode decides how vendors arrive](intake-mode-decides-how-vendors-arrive.md) - imported or applying online, exactly one, fixed after draft; never gates the form builder or check-in
 - [The ceiling on dates per vendor](max-assignments-ceiling.md) - `max_assignments_per_vendor` is the only ceiling, with no hidden default
+- [Needs follow-up](needs-follow-up.md) - a stored status with an owner, out of the queue, blocking assignment like an undecided application
 - [No question is inferred required](no-question-is-inferred-required.md) - a market started from a CSV proposes every question optional; only the organizer marks one required
 - [Priority and tie-breaks](priority-and-tie-breaks.md) - the order of turns: fewest dates, the organizer's rules, most constrained, earliest, address
 - [Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md) - a form market publishes in assignment once a current run is stored, which settles it
 - [Review highlights](review-highlights.md) - the market marks the answers a reviewer reads first; on the market, never the form, so they change after it locks
+- [Review needs an import](review-needs-an-import.md) - on the Google Form path Begin Review waits for an import, and the moves around review are the import's
 - [Table-share pairing](table-share-pairing.md) - one-way is enough, a person's own request outranks one about them, the first applicant named
 - [The assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md) - the priority and the options lock once the market can no longer reach assignment
 - [The form locks at the first application](the-form-locks-at-the-first-application.md) - the form is editable only in draft and only until anyone has applied (D9)

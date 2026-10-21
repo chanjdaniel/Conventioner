@@ -9,6 +9,11 @@ sources:
   - wayfinding/what-to-show-and-when/01
   - wayfinding/what-to-show-and-when/02
   - wayfinding/what-to-show-and-when/map
+  - brain-dump/2026-10-19#1
+  - brain-dump/2026-10-19#2
+  - brain-dump/2026-10-19#3
+  - brain-dump/2026-10-19#19
+  - brain-dump/2026-10-19#20
   - E03
   - E26
   - E31/F01/S01
@@ -54,7 +59,7 @@ stateDiagram-v2
     note right of archived : Every phase except archived can go straight to Archive Market
 ```
 
-On the Google Form path, Begin Review from Import is one move through `applications_closed`, and the way back from Review is "Import more responses", one move through it the other way.
+On the Google Form path, Begin Review from Import is one move through `applications_closed`, and the way back from Review is "Import more responses", one move through it the other way ([review needs an import](../rules/review-needs-an-import.md)).
 
 ## The phases
 

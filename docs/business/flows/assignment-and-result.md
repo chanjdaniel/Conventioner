@@ -6,6 +6,8 @@ describes:
   - front-end/src/components/ResultSummary.vue
 verified: 2026-10-22
 sources:
+  - brain-dump/2026-10-19#16
+  - brain-dump/2026-10-19#18
   - wayfinding/the-assignment-tab/01
   - wayfinding/the-assignment-tab/02
   - wayfinding/the-assignment-tab/map
@@ -89,8 +91,11 @@ The button is disabled with the reason; the server refuses too, in every phase b
 **Status:** Works (walked live; the search, the statistics, the download and the marks read from the code as of E35/F02/S01, E35/F03 and E36/F02/S03).
 
 1. Summary: "N of M vendors placed", "N of M table-days used", "N unassigned" (links to Vendors filtered), "N% satisfaction"; under it, "A table-day is one table on one market date. Satisfaction is the share of the dates vendors asked for, and could have had, that they got."
-2. "Statistics" (placements by date, section, tier and table choice) opens a panel under the strip, closed by default and held in the address, rather than a dialog, since it is reading and not a job; "Placement history" ([J13](placing-by-hand.md#j13-placement-history)) and "Download CSV", which names each vendor by full name as well as the name they chose.
-3. "Search" ("Name, business, email or table") keeps the tables seating a matching vendor; filters by Date, Section, Tier and Table, shown as removable chips with "Clear all"; "N of M tables" and counts of assigned, partial and empty tables, each a filter of its own.
+2. "Statistics" opens a panel under the strip, closed by default and held in the address, rather than a dialog, since it is reading and not a job: a card per question (per date, section, tier and table size), each answer a row with its count, its share of all placements and a bar against the largest in its card, every row a filter of the tables.
+   "Placement history" ([J13](placing-by-hand.md#j13-placement-history)) and "Download CSV", whose columns are Name (the name the vendor chose, else their full name), Full name, Email and Approval ("Approved", or "Not approved" for a seat given by hand to someone the review did not approve), then one per date holding "<table> - <table choice>" where they sit that day.
+3. "Search" ("Name, business, email or table") keeps the tables whose label matches, or that seat a vendor matching by address, by either name, or by a short answer (80 characters or fewer) to one of the form's text or email questions, such as a business name, a business email or a handle; a choice, a number or a date is shared by many and finds nobody.
+   A whole address matches that vendor alone, and the search is kept in the address as typed (`?search=`).
+   Filters by Date, Section, Tier and Table, shown as removable chips with "Clear all"; "N of M tables" and counts of assigned, partial and empty tables, each a filter of its own and each counting only what the search keeps.
    There is no list of the free tables: the grid's empty filter shows them where they are.
 4. Tables by date then section; each seat shows its occupant's name, or "Vacant" (half a table) / "Unassigned" (a whole free table); a seat held by someone not approved is marked "Not approved".
    A name opens the [vendor drawer](vendor-drawer.md).

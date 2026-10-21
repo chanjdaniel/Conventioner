@@ -75,14 +75,14 @@ The applicant never reads a status: their page reads "Submitted" until results a
 `ApplicationStatus` names eleven values, and five are in use:
 
 - `open`: nobody has decided yet, the status every application is created with (an applicant's first save, or an import row), and the one a re-import returns an approved application to when the row's answers, normalised, have changed.
-- `reviewer_approved`, `reviewer_rejected`: the verdicts, written with their giver and time in the same update; a rule's rejection also carries its reason.
-- `needs_follow_up`: undecided, and owned by a person on the market who must reach out first.
+- `reviewer_approved`, `reviewer_rejected`: the verdicts, written with their giver and time in the same update; a rule's rejection also carries its reason ([automatic rejections](../../business/rules/automatic-rejections.md)).
+- `needs_follow_up`: undecided, and owned by a person on the market who must reach out first ([needs follow-up](../../business/rules/needs-follow-up.md)).
 - `vendor_refused`: written only by `sweep_unanswered_offers`, which moves every `assignment_sent` application to it.
 
 `under_review` is read as undecided but never written; `unassigned`, `assigned`, `assignment_sent`, `vendor_accepted` and `cancelled` belong to the offers stage, which nothing enters, and no write sets them.
 `update_application_status` refuses a verdict or follow-up without a giver, and clears the giver, the reason, the follow-up owner and any reviewer's hold with every other status.
 Verdicts are given while the market can still reach review, and settle when it enters assignment ([verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md)).
-Given the application as the caller read it (`if_unchanged_since`), it writes only if the status, the verdict's time and `updated_at` are still those, so neither another reviewer's verdict nor a re-import's new answers are written over.
+Given the application as the caller read it (`if_unchanged_since`), it writes only if the status, the verdict's time and `updated_at` are still those, so neither another reviewer's verdict nor a re-import's new answers are written over ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
 
 A vendor added by hand is stored `reviewer_approved` with `added_by`, holding only their name in `form_data`; the solver run never reads them, and they are seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 An application is also what a seat needs: a placement names an applicant or is refused ([a seat only for an applicant](../../business/rules/a-seat-only-for-an-applicant.md)).

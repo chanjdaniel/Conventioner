@@ -28,6 +28,7 @@ sources:
   - E26/F10/S01
   - E09/F01
   - E21/F04
+  - E35/F03/S01
   - E21/F04/S01
   - E28/F03/S01
   - E28/F04/S02
@@ -208,6 +209,7 @@ One shadow, extracted from the newer screens, where it is already used 77 times 
 
 `base.css` remains the owner and its existing comments remain authoritative: **a token whose name says it carries text must reach WCAG AA (4.5:1) on the grounds it appears on**, and `src/__tests__/contrast.test.ts` asserts it.
 WCAG AA is the product's stated standard, held over the whole palette rather than the colours someone happened to measure; raising the muted grey changed the texture of every screen, and that was accepted (wayfinding/readable-journey/map).
+The product has one theme, light: nothing in `front-end/src` answers `prefers-color-scheme`, so a pair is held on the grounds it is drawn on, white and the beige of a hovered row among them, and a dark theme, when there is one, is a palette of its own to check.
 
 ### The contrast contract
 

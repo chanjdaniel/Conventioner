@@ -22,6 +22,7 @@ sources:
   - E11/F01/S01
   - E21/F03/S06
   - E31/F01/S01
+  - E35/F02/S02
   - E36/F04/S02
 ---
 
@@ -54,8 +55,8 @@ Every helper works over the API through Playwright's `APIRequestContext`, whose 
 | --- | --- | --- |
 | `seedDraftMarket()` ([file](../../../front-end/e2e/helpers/seedDraftMarket.ts)) | a draft with no plan and no form | what an organizer has the moment the new-market dialog closes |
 | `seedPhaseMarket()`, `seedFormlessPhaseMarket()` ([file](../../../front-end/e2e/helpers/seedPhaseMarket.ts)) | a draft that may open applications: a complete plan, and a two-field form or none | does not move the phase; `transitionMarket()` and `seedApplicationWithStatus()` beside them |
-| `seedMarketWithVendors()` | a draft with a complete plan, a one-field form and two approved vendors | the vendors are written into Mongo |
-| `seedAssignedMarket()` ([file](../../../front-end/e2e/helpers/seedAssignedMarket.ts)) | the above, walked to `assignment` and assigned | `run: false` stops before the run; `tables` sizes the room |
+| `seedMarketWithVendors()` | a draft with a complete plan, a one-field form and two approved vendors | the vendors are written into Mongo; `dates` gives it more than the one date |
+| `seedAssignedMarket()` ([file](../../../front-end/e2e/helpers/seedAssignedMarket.ts)) | the above, walked to `assignment` and assigned | `run: false` stops before the run; `tables` sizes the room; `dates` gives it more than one date, a table on each |
 | `seedPublishedMarketWithAssignments()` | the above, in `market_days`, with its slug | a `form` market publishes its results first |
 | `seedApplicantMarket()` ([file](../../../front-end/e2e/helpers/seedApplicantMarket.ts)) | a `form` market in `applications_open` | it creates no application; `seedApplicationDoc()` and `createApplicantLoginChallenge()` write one and a known sign-in code into Mongo |
 | `seedApplication()`, `seedApprovedVendor()` ([file](../../../front-end/e2e/helpers/seedApplication.ts)) | one application, written into Mongo | see below |

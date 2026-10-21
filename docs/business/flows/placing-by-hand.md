@@ -5,6 +5,7 @@ describes:
   - front-end/src/components/PlacementDialog.vue
 verified: 2026-10-22
 sources:
+  - brain-dump/2026-10-19#30
   - wayfinding/claims-and-room/05
   - wayfinding/readable-journey/08
   - wayfinding/rejection-visibility/02
@@ -27,6 +28,7 @@ sources:
 **Where they start:** the Result page, in Assignment or Market Days; on an archived market every seat is a record.
 
 Every seat on the Result page is a control: a free seat opens the placement dialog to place someone ([`PlacementDialog.vue`](../../../front-end/src/components/PlacementDialog.vue)), and a held seat shows its occupant's name, which opens the [vendor drawer](vendor-drawer.md), and "Change" in its corner, which opens the dialog on that seat.
+"Change" shows at rest, not on hover, since it is the only way to a held seat's dialog and a touch has no hover; a seat on a market that can no longer change draws as text, with nothing to press.
 Before a run the tables are drawn already, so a seat can be given first: "Anyone you place below first keeps their table: the run places everyone else around them."
 A hand placement warns about every answer it overrides and never blocks on one; what it may not do is seat someone with no application, or two people in one seat ([a seat only for an applicant](../rules/a-seat-only-for-an-applicant.md)).
 **Every answer a hand change can cross is said before it is made, and the list is grouped, never filtered**, so overriding an answer is always one pick away.
@@ -55,7 +57,7 @@ Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `placing-some
 ## J7. Swap two vendors
 
 **Status:** Works (walked live; the seat's Change and View vendor read from the code as of E35/F01/S02).
-"Change" on an occupied seat: "<name> holds this seat.", with "View vendor" beside it; "Swap them with" ("Choose a vendor to trade seats with…") any vendor seated that date, each named with where they sit; "Swap seats"; both seats change at once.
+"Change" on an occupied seat: "<name> holds this seat.", with "View vendor" beside it, which closes the dialog and opens the [drawer](vendor-drawer.md); "Swap them with" ("Choose a vendor to trade seats with…") any vendor seated that date, each named with where they sit; "Swap seats"; both seats change at once.
 "Nobody else holds a table on this date, so there is nobody to trade with." when nobody else is seated.
 The same warnings as J6 apply to both vendors, including a change of table size (bugs 18 and 32).
 Covered by: `placement-edit.spec.ts`, `override-warnings.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`.

@@ -6,6 +6,9 @@ describes:
   - scripts/seed_fixture.sh
   - scripts/nm-test.sh
 verified: 2026-10-21
+sources:
+  - E34/F03/S02
+  - E35/F02/S01
 ---
 
 # Testing Conventioner
@@ -127,7 +130,9 @@ configured secret) and `test_env_file.py` (the `.env` loader, and that the real 
 wins over the file).
 
 Requirements: `pytest` (listed in `requirements-dev.txt`), no database connection needed
-(tests use in-memory fakes). Shared module stubs live in `back-end/tests/conftest.py`, which
+(tests use in-memory fakes). The fakes read a filter (`mongo_matches`) and a projection
+(`mongo_project`) as Mongo does, a sub-document compared whole, so a read that fetches too
+little fails here rather than in production. Shared module stubs live in `back-end/tests/conftest.py`, which
 also points the `.env` loader at a path that does not exist - the suite reads no `.env`, so a
 stale one on your machine cannot change its result.
 

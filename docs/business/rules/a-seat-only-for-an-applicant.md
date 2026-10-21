@@ -32,7 +32,7 @@ It is also how a verdict found wrong after the review settled is answered: with 
 
 The place dialog offers every applicant, grouped and never filtered: "Fits this seat", "Would override their answers", "Not approved" and "Added by hand".
 Choosing a not-approved applicant warns in the review's own words, "Not approved: Rejected by ..., Oct 19.".
-A seat given to one is marked "not approved" wherever the other overrides show.
+A seat given to one is marked "not approved" wherever the other overrides show: on the seat, in the vendor drawer, and in the download's Approval column.
 
 ## What the run does with them
 

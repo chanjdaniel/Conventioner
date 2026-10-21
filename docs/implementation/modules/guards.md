@@ -58,7 +58,8 @@ A CSV market's organizer holds the responses when it leaves draft, so the import
 A market already standing in a passed-through phase keeps every way out it has, so none is stranded.
 Every step's guards are judged before the first step is taken, and `walk_route` writes each step through the one phase writer, so the phase history records both.
 The single edge of the table is still taken when asked for (`move_route`), so a seed may walk it.
-Review refuses a CSV market with nothing imported (`ResponsesImportedGuard`, on `applications_closed -> review`, the edge both routes into review cross).
+Review refuses a CSV market with nothing imported (`ResponsesImportedGuard`, on `applications_closed -> review`, the edge both routes into review cross; [review needs an import](../../business/rules/review-needs-an-import.md)).
+Each step is taken only from where the step before left the market (`walk_route` re-reads it between steps), so a request that moves the market in between stops the walk there rather than being carried over.
 [The phase rail](phase-rail.md) draws the screen side: the moves are the keys of `transitionBlockers`, and the stepped-through phases are served as `phasesPassedThrough`, so the browser keeps no copy of either.
 
 **The read and the move cannot disagree about a move.**

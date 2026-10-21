@@ -14,6 +14,7 @@ verified: 2026-10-22
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): the form is editable only in `draft`, and only until anyone has applied.
 - [A gated market answers as absent](../rules/a-gated-market-answers-as-absent.md): a draft answers applicants as no market at all.
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): verdicts are open while the market can reach `review`.
+- [Review needs an import](../rules/review-needs-an-import.md): a CSV market enters `review` only once something is imported, stepping through `applications_closed`.
 - [Assign runs only in assignment](../rules/assign-runs-only-in-assignment.md): the run is refused in every other phase.
 - [The assignment rules close with the assignment](../rules/the-assignment-rules-close-with-the-assignment.md): the rules lock once the market can no longer reach `assignment`.
 - [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): a form market enters `market_days` only after its results are published.
