@@ -1,3 +1,10 @@
+---
+layer: implementation
+kind: adr
+verified: 2026-10-21
+status: accepted
+---
+
 # Essential fields are exactly what the solver reads
 
 The essential-question set and the assignment solver's inputs were designed independently and had drifted apart: the solver read a table-choice and a table-sharing partner that no essential question supplied, while two essential questions it ranked - section and table type - were read by nothing.

@@ -16,6 +16,24 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   deploy reaches the domain. A hotfix goes through `dev` when nothing unreleased waits there, else
   through a `hotfix/` branch from `main`. See `docs/RELEASING.md#hotfixes`.
 
+## Knowledge graph
+
+- **Durable knowledge lives in the graph, entered at [`docs/README.md`](docs/README.md).** Nodes
+  live in `docs/business/{concepts,flows,rules,intents}/`, `docs/implementation/{modules,data,
+  conventions,testing}/`, `docs/adr/` and `docs/records/`, each folder listed by its `README.md`;
+  the runbooks, `docs/TESTING.md`, `docs/TECH_STACK.md` and `docs/design-system.md` are nodes
+  where they stand.
+- **A node is a Markdown file with frontmatter**, exactly these keys in this order: `layer`,
+  `kind`, `describes` (the code it is about: a file, a `dir/`, or `file#symbol`), `verified` (the
+  day it was read against the code), `sources` (work-item ids, never links) and, on an ADR only,
+  `status`. Links are relative Markdown links, and a link across the business/implementation
+  line is answered by one back.
+- **A PR that changes a described file touches the node or bumps `verified`.** Find a file's nodes
+  before changing it with `git grep -l '<path>' docs`; CI's `drift` step fails a PR that does
+  neither.
+- **`python3 scripts/knowledge_graph.py check`** checks the frontmatter, every link and anchor,
+  reachability and back-links; run it after editing any Markdown.
+
 ## Operating Production
 
 - **`docs/OPERATIONS.md` is the runbook**: what runs where (Vercel projects, Atlas cluster, Resend,
