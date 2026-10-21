@@ -20,8 +20,8 @@ A reserved number whose decision failed the bar is listed as "not written: becam
 - 0005: reserved
 - 0006: reserved
 - 0007: reserved
-- 0008: reserved
-- 0009: reserved
+- [0008: Each write names what it changes](0008-each-write-names-what-it-changes.md) - there is no whole-market write; every write has its own endpoint
+- [0009: The back end is the only source of truth about a market](0009-the-back-end-is-the-only-source-of-truth.md) - the browser holds one copy, re-read after every write
 - 0010: reserved
 - 0011: reserved
 - 0012: reserved

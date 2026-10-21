@@ -4,14 +4,18 @@ kind: convention
 describes:
   - front-end/src/assets/base.css
   - front-end/src/assets/primitives.css
+  - front-end/src/assets/main.css
   - front-end/.stylelintrc.json
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/claims-and-room/01
   - wayfinding/the-assignment-tab/02
   - wayfinding/the-plan-uses-its-space/01
   - wayfinding/the-market-frame/01
   - E16
+  - E15/F01/S01
+  - E26/F07
+  - E26/F10/S01
 ---
 
 # Conventioner's design language
@@ -21,6 +25,8 @@ It exists because the product did not have one: 12,211 lines of CSS across 71 sc
 The evidence is `.lavish/aesthetics-2026-09-20.html`; the decisions were taken on 2026-09-20.
 
 A value not in this file does not belong in a component.
+The product had no shared component layer, and that was the root cause of everything aesthetic: at the walk, 17 radius declarations, 24 font sizes, 32 spacing values, and 351 hardcoded hex colours against 704 token uses.
+Do not add a 72nd set of local decisions: reach for the tokens and the primitives.
 [`front-end/src/assets/base.css`](../front-end/src/assets/base.css) is where these become tokens, [`front-end/src/assets/primitives.css`](../front-end/src/assets/primitives.css) holds the primitives, and the checks in `E16/F01`, among them the Stylelint rules of [`front-end/.stylelintrc.json`](../front-end/.stylelintrc.json), are what keep them there.
 
 ## How this was decided
@@ -29,6 +35,8 @@ Two halves, decided differently, and it matters which is which.
 
 - **The card idiom was extracted, not invented.** The screens `E09` through `E13` built had already converged on something coherent - 6px controls, 10px cards, a three-layer shadow, 12px gaps. That is written down below as it was found.
 - **The type and spacing scales were authored.** There was nothing to extract: 24 font sizes using essentially every integer from 11px to 20px, and 32 spacing values, means no file ever chose a *step* - they each chose a pixel.
+
+That distinction matters when something looks off: a screen that disagrees with the card idiom is a bug, while one that disagrees with a scale is code not yet migrated.
 
 Consequence, accepted when this was decided: **conforming to the scales changes screens that currently look fine.** Roughly 116 declarations at 13px and 15px were re-homed one at a time, by judgement, because a caption and a dense table cell both sat at 13px and want different answers.
 None is left.
@@ -45,6 +53,10 @@ Two families, and only two.
 **The family is `Outfit`, not `Outfit Regular`.** The old name put a *weight* in the *family* slot, which is why nobody added the other weights: `public/fonts/Outfit/static/` ships Medium, SemiBold and Bold, and `public/fonts/Outfit-VariableFont_wght.ttf` covers the whole axis, and none of them were ever declared. 65 declarations asked for 500, 600 or bold and got a browser-synthesised smear of the regular.
 
 `Inter` is retired. `body` declared it while 354 component rules named a face of their own - 274 Outfit, 80 Merge One - so Inter survived in 2 rules and in the one place nothing overrode it: form controls, which do not inherit `font-family` and fell through to the user agent's Arial instead.
+
+**Form controls do not inherit `font-family`.**
+The reset in [`front-end/src/assets/main.css`](../front-end/src/assets/main.css) gives `button`, `input`, `select` and `textarea` `font: inherit`, which lands on Outfit only because `body` names it: the same reset while `body` declared Inter would have made every control Inter and left the Outfit rules around them as they were, so `body` became Outfit first (E15/F01/S01).
+`font` is a shorthand and carries `line-height` too, and a control's height is its line box, so the reset pairs it with `line-height: normal`.
 
 Of those 274 Outfit declarations, 273 only restated what `body` now says and are gone; the surviving one opts a chip back out of a heading that sets Merge One around it. `front-end/src` went from 363 `font-family` declarations to 92.
 
@@ -67,6 +79,9 @@ No `font-size` in `front-end/src` is smaller.
 ### Weight
 
 `400` and `600` only, both as real loaded faces. `500` reads as 400 at these sizes and just doubles the number of things to keep in step; `700` is heavier than this type wants.
+
+**Weight does not inherit here.**
+The global reset in `base.css` gives every element `font-weight: 400`, so a span inside a 600 cell is 400 until it says otherwise.
 
 ## Spacing
 
@@ -92,6 +107,7 @@ Decided by claims-and-room ticket 01, which holds the measurements.
 
 **A screen is a card of one of two widths that grows to its content while the page scrolls.**
 No screen caps its own height, and no row carries a minimum height.
+`.app-container` used to be `position: absolute; height: 100vh`, which is why no screen could scroll the page and every tall screen grew nested scrollers of its own; do not reintroduce a viewport-height shell.
 
 | Token | Value | Screens |
 | --- | --- | --- |
@@ -193,11 +209,15 @@ The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#0
 `--mm-green` measures 4.59:1 on white and **4.43:1 on the off-white `#FBFBFA`**, and it is the current-phase label on every market screen.
 A token is only AA on the grounds it was measured against, so the phase rail's ground is white (E16/F01/S03).
 
+So a chip carries its own ground: the `--mm-chip-*` tokens are opaque, the tint already laid over white, and `contrast.test.ts` asserts each with its ink.
+Translucent tints took on the beige review card beneath them and fell below AA there (E26/F10/S01).
+
 ## The primitive layer
 
-Tokens alone cannot fix what is actually wrong. A `--radius-control` does not stop a file writing `height: 45px`, and the concentrated damage is exactly there: five control heights on the login screen, ten on Market Setup, four disabled treatments, two designs for the same `Manage` button.
+Tokens alone cannot fix what is actually wrong. A `--radius-control` does not stop a file writing `height: 45px`, and the concentrated damage is exactly there: five control heights on the login screen, ten on Market Setup, four disabled treatments, sixty button-ish class names, two designs for the same `Manage` button.
 
 Three primitives own height, padding, radius, type, focus and the disabled state. They live in `front-end/src/assets/primitives.css`, and `src/__tests__/primitives.test.ts` is the reference a migration checks against.
+Reach for a primitive rather than deciding again.
 
 | | Variants | Notes |
 | --- | --- | --- |
@@ -215,8 +235,12 @@ They were built in `E16/F04`, deliberately **after** `E16/F03` rewrote Market Se
 
 A convention nothing enforces is how the product got here. Three checks, in `E16/F01` and `E16/F02`:
 
-1. **Stylelint** bans raw hex, raw `font-size` and raw `border-radius` outside `base.css` and the primitive files.
-2. **A custom-property resolution check** fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
-3. **A rendered-usage contrast sweep** in the Playwright suite walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".
+1. **Stylelint** bans raw hex, raw `font-size`, raw `border-radius` and a raw `box-shadow` outside `base.css` and the primitive files.
+   `npm run lint:css` is the design-language gate, and it is **warnings globally, errors per migrated file** (the `overrides` of `.stylelintrc.json`): a rule that fails the build on a pre-existing backlog gets switched off, so a slice adds its files to that list when it lands.
+   Everything MVP serves is on the list, the applicant views included since vendors apply online (E26/F07); the 128 remaining warnings are the floorplan GUI, a beta.
+2. **A custom-property resolution check**, `src/__tests__/everyTokenResolves.test.ts`, fails the build when any `var(--x)` references a property nothing defines. This is the one that matters: `var(--mm-text-red)` is not a raw value, it is a well-formed reference to nothing, and it rendered the market-archive confirmation button as white text on a white dialog with no border for as long as it existed. Stylelint cannot see that.
+   **Never write `var(--mm-x, #fallback)`**, and the same test refuses one: a fallback on a defined token is a second definition waiting to drift, and on an undefined one it hides the bug.
+3. **A rendered-usage contrast sweep**, `e2e/contrast-sweep.spec.ts`, walks each screen and fails on any text node below its AA threshold. The token test stays as well - it fails in milliseconds with a precise message when `base.css` changes, where the sweep would only say "something on the Applications screen went dark".
+   `contrast.test.ts` asserts tokens, not usages, and that gap has been occupied: a token exempt from the contract because it never carries text (`--mm-border`) was used as a button fill under white text at 1.74:1.
 
-The sweep is only worth the states it walks. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog; **dialogs, menus and empty states have to be walked deliberately.**
+The sweep is only worth the states it walks. The invisible archive button was missed by a twenty-screen pass because nobody opened that dialog; **dialogs, menus, disabled controls and empty states have to be walked deliberately.**

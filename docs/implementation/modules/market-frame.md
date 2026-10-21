@@ -1,0 +1,68 @@
+---
+layer: implementation
+kind: module
+describes:
+  - front-end/src/components/MarketFrame.vue
+  - front-end/src/components/MarketBar.vue
+  - front-end/src/components/MarketPages.vue
+  - front-end/src/components/MarketArrival.vue
+  - front-end/src/utils/marketPage.ts
+verified: 2026-10-22
+sources:
+  - wayfinding/the-market-frame/01
+  - wayfinding/the-assignment-tab/02
+  - E21/F04
+  - E22/F04/S01
+  - E22/F04/S02
+  - E22/F04/S03
+  - E26/F10/S01
+  - E31/F03/S02
+---
+
+# The market frame
+
+Every market screen stands in [`MarketFrame`](../../../front-end/src/components/MarketFrame.vue): a card whose top, the market's bar and the whole [phase rail](phase-rail.md), sticks under the app banner while the page scrolls.
+The import, floorplan and start-from-CSV flows stand in it too.
+A screen hands it the market from [the market store](market-store.md) and renders its own content in the frame's slot.
+
+## What it draws
+
+- **The bar**, [`MarketBar`](../../../front-end/src/components/MarketBar.vue): the market's name and its tabs, Market Setup, Application Form, Applications, Assignment and Attendance.
+  It is rendered once, by the frame; a screen draws no title or Back button of its own.
+  The underline is the tab being looked at, and the dot the tab the market is worked on in its phase; a tab opens the page carrying the dot when it holds it, else its first page.
+  A CSV market's form tab is called "Questions".
+- **The rail**, under the bar, once the market is in hand.
+- **The page row**, [`MarketPages`](../../../front-end/src/components/MarketPages.vue), only for a tab with more than one page: the Assignment tab's Assignment, Result and Vendors.
+- **A `pinned` slot** for a screen's own control that must stay in view with the frame, such as the vendor search.
+- **The tab's note in place of the page** while the tab is out of its phase (`tabNote` in [the market guide](market-guide.md)), or **the screen's content**.
+
+**Every tab stays on the bar for the market's whole life**, Attendance included: `tabsFor()` returns all five in every phase, and a tab out of its phase says when it matters rather than disappearing.
+
+[`front-end/src/utils/marketPage.ts`](../../../front-end/src/utils/marketPage.ts) says which tab holds which page (`TAB_PAGES`), which tab a flow stands under (import under Applications, floorplan and start-from-CSV under Market Setup), and which page a route is (`pageOfRoute`), the one reading of it so the bar and the page row can never disagree.
+`hasAssignment` is the one statement of "an assignment is stored", read by the dot, the landing and the Result page.
+
+## Sharp edges
+
+**The frame places itself and says what shows until the market arrives.**
+The page gutter (on three sides; the card hangs from the banner), the card's width, corners and white ground, and the loading, missing and failed states are the frame's own.
+Until the market is in hand the bar holds its place and [`MarketArrival`](../../../front-end/src/components/MarketArrival.vue) says "Loading market…", that the market could not be loaded with a retry, or the one message for a market that is missing or not this organizer's.
+A screen's content is rendered only once its market is in hand, and `@retry` lets a screen refetch its own data beside the market.
+A screen that pads itself or renders its own arrival is how one market's pages came to put the frame in four different places.
+
+**Sticky, never a scroller.**
+The bar, the rail and everything the rail grows (a refused move's blockers, an error, the archived note) stick together at `top: var(--banner-h)`, the banner's height as a token.
+Never give a frame screen an `overflow` scroller of its own: a sticky element inside an `overflow` ancestor silently stops sticking.
+The pinned block's height is measured (a `ResizeObserver`) and published as `--market-frame-h` on the card, so a screen's own sticky column sits at `top: calc(var(--banner-h) + var(--market-frame-h))`.
+The card is at least the height of the window under the banner, so a short page fills it.
+
+**Every market screen is `--workspace-max` wide, and the frame sets it.**
+A screen in the frame sets no width of its own, or moving between a market's screens makes the frame jump.
+The market's name is whole wherever it fits beside the tabs, and ellipsed with its full name on hover only where it does not; the tabs never give way to it.
+
+**On a phone the tabs scroll inside the bar.**
+At 640px and below the name takes its own line and the tabs scroll sideways rather than widening the page; only Attendance reaches that width (see [attendance and the door](attendance-and-door.md)).
+
+## Why
+
+The layout decisions behind the frame (two widths, the frame stays put, the frame places itself) are in [the design language](../../design-system.md#layout).
+Tables, Vendors and Attendance used to draw a title of their own with no tabs, so moving between a market's screens was two kinds of navigation; addresses are [every market page has an address](../conventions/every-market-page-has-an-address.md).
