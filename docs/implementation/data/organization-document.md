@@ -77,7 +77,7 @@ Roles change on an archived market too: they are not a change to its record.
 Anyone who changes a market, a door volunteer included, needs a role on that market (Manage market); [Operations](../../OPERATIONS.md#accounts-and-access) says how to give one.
 
 `user_has_permission` ranks the roles owner 4, admin 3, editor 2, viewer 1, and grants an action when the person's rank reaches the action's.
-Every market write asks it, and the market read serves the answers for the screens (`readOnlyReason` below EDITOR, `adminActionsReason` below ADMIN), so no screen decides a threshold of its own.
+Every market write asks it, and the market read serves the answers for the screens (`readOnlyReason` below EDITOR, `adminActionsReason` below ADMIN), so no screen decides a threshold of its own ([what each role may do](../../business/rules/what-each-role-may-do.md)).
 The Markets list (`get_markets_for_user`) is every market with the person's role on it, then every market of their organizations at Viewer.
 
 ## A market's organization

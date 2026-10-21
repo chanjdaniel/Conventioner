@@ -31,7 +31,7 @@ The model is `Application` in [`back-end/datatypes.py`](../../../back-end/dataty
 
 **Applications are stored snake_case**, unlike markets, which are camelCased on write ([the market document](market-document.md#key-spelling)).
 The market foreign key is `market_id`, NOT `marketId`.
-A writer that stored the market reference under any other key would silently disable the application form lock: the count it reads (`count_applications_for_market`) would just return 0.
+A writer that stored the market reference under any other key would silently disable [the application form lock](../../business/rules/the-form-locks-at-the-first-application.md): the count it reads (`count_applications_for_market`) would just return 0.
 The organizer's and the applicant's views camel-case an application on the way out; the stored document never is.
 
 ## The fields that matter
@@ -69,6 +69,7 @@ The import normalises the form's timestamp to ISO 8601 at the boundary; [`migrat
 
 `under_review` is read as undecided but never written; `unassigned`, `assigned`, `assignment_sent`, `vendor_accepted` and `cancelled` belong to the offers stage, which nothing enters, and no write sets them.
 `update_application_status` refuses a verdict or follow-up without a giver, and clears the giver, the reason, the follow-up owner and any reviewer's hold with every other status.
+Verdicts are given while the market can still reach review, and settle when it enters assignment ([verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md)).
 Given the application as the caller read it (`if_unchanged_since`), it writes only if the status, the verdict's time and `updated_at` are still those, so neither another reviewer's verdict nor a re-import's new answers are written over.
 
 A vendor added by hand is stored `reviewer_approved` with `added_by`, holding only their name in `form_data`; the solver run never reads them, and they are seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
