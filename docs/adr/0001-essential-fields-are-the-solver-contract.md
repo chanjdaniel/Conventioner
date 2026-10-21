@@ -8,6 +8,8 @@ sources:
   - wayfinding/the-order-of-the-work/04
   - wayfinding/the-order-of-the-work/map
   - E01
+  - E02
+  - E19
 status: accepted
 ---
 

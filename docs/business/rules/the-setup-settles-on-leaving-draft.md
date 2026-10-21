@@ -19,6 +19,7 @@ sources:
   - E31/F01
   - E31/F01/S01
   - E31/F01/S02
+  - E18
 ---
 
 # The setup settles on leaving draft

@@ -23,6 +23,7 @@ sources:
   - E34/F03
   - E34/F04
   - E36/F01/S01
+  - E27/F01/S03
   - bug/42
   - bug/43
 ---
@@ -47,7 +48,7 @@ The queue is triage: one application at a time, carrying every answer it holds, 
 
 1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") and one card at a time, in the order the applications arrived.
 2. A card shows the applicant's email, status, submitted date, the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
-   A table-share request that needs attention shows above the answers, and the vendor's notes below them.
+   A table-share request that needs attention shows above the answers, so it is never inside the "N more answers" disclosure, and the vendor's notes below them.
 3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
 4. "Needs follow-up" opens "Needs a follow-up": "<email>'s application waits until someone reaches out.", "Who will follow up" (anyone with a role on the market, the reviewer unless they choose another; nothing is sent to them) and "Their notes: what is needed (optional)"; "Mark for follow-up".
    A follow-up waits out of the queue, and "Include the N follow-ups" brings them back; on its card "Followed up by" hands it to someone else.

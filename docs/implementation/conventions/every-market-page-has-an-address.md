@@ -16,6 +16,8 @@ sources:
   - wayfinding/the-assignment-tab/map
   - E21/F02/S02
   - E22/F04/S02
+  - E21/F02
+  - E21/F02/S04
 ---
 
 # Every market page has an address
@@ -41,7 +43,7 @@ The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/route
 
 - `setup?tab=<page>` lands on the page it named, keeping the rest of its query.
 - `/markets/:marketId/tables` redirects to `result`, with its filters: the Tables screen became the Result page ([the assignment and its result](../../business/flows/assignment-and-result.md)).
-- `/floorplan-editor?marketId=` opens that market's floorplan flow.
+- `/floorplan-editor?marketId=` opens that market's floorplan flow: unlike the other old paths it carried the market's id, so an old link still opens the market it named.
 - The id-less paths (`/market-setup`, `/vendors`, `/import-applications`, `/floorplan-editor` with no id, `/assignment-results`) redirect to `/markets`: they never held an id to preserve.
 
 ## A guard names a page

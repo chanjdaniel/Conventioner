@@ -11,6 +11,9 @@ sources:
   - E03/F02
   - E03/F02/S01
   - E03/F02/S02
+  - E03
+  - E18/F04
+  - E18/F04/S01
 status: accepted
 ---
 

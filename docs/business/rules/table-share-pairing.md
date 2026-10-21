@@ -14,6 +14,7 @@ sources:
   - E27
   - E27/F01/S01
   - E27/F01/S03
+  - E27/F01/S02
 ---
 
 # Table-share pairing
@@ -32,6 +33,7 @@ One-way is enough, a person's own request outranks one about them, and an answer
 - **Several asking for one**: the earliest of them to apply is the partner, on every date.
 - **Several addresses in one answer**: the first that belongs to an applicant is the partner.
 - **A pair sits where both can**: at a tier both accept, never where either one's own answers rule out, and together on every date both are placed.
+  The open half of a table a pin holds never splits a pair, since it would seat one of them beside a stranger; the pair takes a table of their own.
   A pair is an exception to [the half-table share](half-table-share.md): it never stops two people who asked to share from sharing.
 - Naming nobody is the ordinary case, and such a half-table applicant is paired with whoever else wants a half table.
 
@@ -56,6 +58,11 @@ A pair outranks the half-table share because two pairs were split on one date wh
 - [`back-end/table_share.py`](../../../back-end/table_share.py) is the one statement of the rule; do not restate it beside either reader.
   The solver seats the pairs by it (`pair_mate`, in [the assignment solver](../../implementation/modules/assignment-solver.md)), and the organizer's applications list serves `tableShareNotice` by it (`list_market_applications` in [`back-end/api/applicants.py`](../../../back-end/api/applicants.py)): why a request pairs nobody, or that another applicant it named was not used.
   The notice is derived on every read, from all the market's applications, and never stored.
+  Every request that pairs nobody is shown, with why: the answer holds no address, nobody applied as it, the partner wants a full table, the partner was not accepted for this market (rejected or withdrawn), or the partner's own request names someone else and stands; a request that stands is noted when its answer also names another applicant, who was not used ([`TableShareNotice.vue`](../../../front-end/src/components/TableShareNotice.vue) words each).
 - How the answer is stored is [essential fields](../../implementation/modules/essential-fields.md).
 - A field added to `SolverVendor` for this changes every assignment fingerprint unless `made_from._ADDED_SINCE_FINGERPRINTS` names it; `table_share_also` is there.
 - The cases are in [the assignment behaviour suite](../../implementation/testing/assignment-behaviour-suite.md) (`TestATableShareRequest`) and `tests/test_table_share_notice.py`.
+
+## Superseded
+
+- A pair was to keep to the half-table share like anyone on a half table (E27/F01/S02); it is an exception to it, after two pairs were split on one date (wayfinding/november-2026-dry-run/08).

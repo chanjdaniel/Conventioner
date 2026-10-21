@@ -19,6 +19,7 @@ sources:
   - E31/F02/S01
   - E32/F01/S02
   - E32/F02/S01
+  - E05
 ---
 
 # The guards and the phase move

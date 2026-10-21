@@ -19,6 +19,7 @@ verified: 2026-10-22
 - [An incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md): an approved application missing an asked answer stops the assignment.
 - [A seat only for an applicant](../rules/a-seat-only-for-an-applicant.md): a seat goes only to someone with an application.
 - [Adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md): the one way to give someone an application by hand.
+- [An imported email is asserted](../rules/an-imported-email-is-asserted.md): an imported applicant's address is the organizer's word, an online applicant's is proven.
 - [Vendor notes](../rules/vendor-notes.md): the vendor's request, an answer on the application, kept apart from the organizer's note about them.
 
 ## Flows

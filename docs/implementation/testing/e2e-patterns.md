@@ -18,6 +18,7 @@ sources:
   - E22/F04/S02
   - E31/F01/S01
   - E33/F01
+  - E06/F01/S01
 ---
 
 # E2E patterns
@@ -71,3 +72,7 @@ Only a spec about a market older than that rule rewrites a settled plan, straigh
 
 **Several specs and seeds still send an `X-Owner-Email` header, and it is inert**: identity comes from the session cookie alone, and the helpers authenticate by logging in.
 That, the self-signed certificate and the other suite-wide traps are TESTING.md's [testing gotchas](../../TESTING.md#testing-gotchas).
+
+**`waitForURL` returns when the route changes, not when the new page has loaded.**
+An element assertion made straight after it spends its budget on the page's own fetch, which under a full suite's contention sometimes takes longer: the applicant form's spec failed one full run in two this way, on "Loading application form...", while passing alone every time.
+Wait for the page to have finished loading, its loading state hidden and no load-failed state shown, then assert what it shows ([`essential-fields.spec.ts`](../../../front-end/e2e/essential-fields.spec.ts) waits on `apply-loading` and `apply-load-failed`).

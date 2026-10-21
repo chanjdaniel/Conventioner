@@ -8,6 +8,7 @@ sources:
   - E22/F04/S02
   - E25/F01/S01
   - E31/F02/S02
+  - E21/F02/S05
   - bug/14
   - bug/42
 ---
@@ -43,6 +44,8 @@ After sign-in the dashboard shows one of:
 - "N markets are open to you." with "Open a market".
 - "You have not set up a market yet. Every market belongs to an organization - if you are not in one yet, create it under Organizations first." with "Set up your first market", which opens the Markets list ([D4](creating-a-market.md#d4-create-a-market-with-no-organization-yet), bug 42).
 - "The market you last opened is no longer available. Your other markets are still here." when it was deleted or access was lost, or "…and there are no others." with "Set up a market".
+
+The dashboard says a market is gone once, then forgets it, so the next visit is silent; saying nothing would greet an organizer whose only market is gone with "set up your first market".
 
 "Markets" and "Organizations" lead to those lists.
 Covered by: `dashboard-market-count.spec.ts`.

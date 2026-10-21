@@ -12,6 +12,7 @@ sources:
   - wayfinding/the-market-frame/03
   - E21/F02
   - E21/F03/S06
+  - E04/F04/S02
 ---
 
 # One market, from the server
@@ -32,6 +33,7 @@ The write itself names what it changes; there is no whole-market write ([ADR 000
 **Unsaved work is the editor's working copy, never layered on the store.**
 The plan keeps its own `setupObject` and `planIntakeMode`, and the form builder its own form.
 The editor writes, the store re-reads, and the working copy is reset from it; a re-read never overwrites a working copy that holds unsaved edits.
+A phase move once replaced the whole local market with the transition's response, which carries the setup as last saved, so advancing a phase silently discarded every unsaved edit, and Assign was then disabled for a reason the screen never stated.
 
 **Nothing about a market is stored in the browser.**
 The `localStorage` key `market` is gone, and [`noMarketInTheBrowser.test.ts`](../../../front-end/src/__tests__/noMarketInTheBrowser.test.ts) fails, naming the file, if any source file reads, writes or removes it again.

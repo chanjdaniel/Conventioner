@@ -17,6 +17,7 @@ sources:
   - E32/F02/S01
   - E34/F02/S01
   - E36/F04/S02
+  - E18
 ---
 
 # The market lifecycle at a glance

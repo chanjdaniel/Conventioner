@@ -11,6 +11,8 @@ sources:
   - wayfinding/claims-and-room/02
   - E21/F02/S01
   - E21/F02/S05
+  - E21/F02
+  - E21/F02/S04
 ---
 
 # The market store

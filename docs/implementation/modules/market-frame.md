@@ -19,6 +19,8 @@ sources:
   - E22/F04/S03
   - E26/F10/S01
   - E31/F03/S02
+  - E21/F04/S01
+  - E21/F04/S02
 ---
 
 # The market frame
@@ -84,3 +86,4 @@ The glossary concept it serves: [Market](../../business/concepts/market.md).
 
 - Attendance was to join the bar once the market was published, so the bar grew with the market (wayfinding/the-assignment-tab/02); every tab stays on the bar for the market's whole life, and a tab out of its phase says when it matters (E31/F03/S02).
 - The market's page was "the market workspace" and its white container "the settings panel" (wayfinding/the-order-of-the-work/map); the page is the market frame's card, which every market screen shares (E21/F04).
+- The list screens' Back rows sat in a `footer` slot of the frame, pinned to the bottom of the window so they stayed reachable at any scroll (E21/F04/S02); the frame has no footer, and a screen draws no Back button, since every page is reached from a tab or the page row (wayfinding/the-assignment-tab/02).
