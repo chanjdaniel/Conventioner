@@ -3,6 +3,8 @@ layer: implementation
 kind: testing
 describes:
   - back-end/tests/test_data/google_forms/
+  - back-end/tests/test_data/google_forms_export.csv
+  - back-end/tests/fixtures/anonymise_form_export.py
 verified: 2026-10-21
 sources:
   - E24/F01/S01
@@ -15,7 +17,7 @@ How the suites run is in [`docs/TESTING.md`](../../../docs/TESTING.md).
 
 ## [`google_forms/`](google_forms/)
 
-Five real Google Form application exports, one per market, with the people replaced by `tests/fixtures/anonymise_form_export.py` (E24/F01/S01).
+Five real Google Form application exports, one per market, with the people replaced by [`tests/fixtures/anonymise_form_export.py`](../fixtures/anonymise_form_export.py) (E24/F01/S01).
 They are the only realistic responses this suite has, and the form started from a CSV is built and measured against them.
 
 | File | Market days | Applications submitted | Rows | Columns |
@@ -52,7 +54,7 @@ The real exports live only on the maintainer's machine.
 The output is deterministic, so regenerating from the same export produces an identical file.
 Never commit a real export, and never hand-edit a copy: change the anonymiser, so the next person can tell what was done to the data.
 
-## `google_forms_export.csv`
+## [`google_forms_export.csv`](google_forms_export.csv)
 
 A real Google Forms response export with the people replaced.
 232 applications to a five-day market, 31 columns, produced by an earlier version of `tests/fixtures/anonymise_form_export.py`.

@@ -30,7 +30,8 @@ Two halves, decided differently, and it matters which is which.
 - **The card idiom was extracted, not invented.** The screens `E09` through `E13` built had already converged on something coherent - 6px controls, 10px cards, a three-layer shadow, 12px gaps. That is written down below as it was found.
 - **The type and spacing scales were authored.** There was nothing to extract: 24 font sizes using essentially every integer from 11px to 20px, and 32 spacing values, means no file ever chose a *step* - they each chose a pixel.
 
-Consequence, accepted when this was decided: **conforming to the scales changes screens that currently look fine.** Roughly 116 declarations at 13px and 15px have to be re-homed one at a time, by judgement. A caption and a dense table cell are both 13px today and want different answers.
+Consequence, accepted when this was decided: **conforming to the scales changes screens that currently look fine.** Roughly 116 declarations at 13px and 15px were re-homed one at a time, by judgement, because a caption and a dense table cell both sat at 13px and want different answers.
+None is left.
 
 ## Type
 
@@ -60,7 +61,8 @@ Six steps. Adjacent 1px steps are not distinguishable, so they carry no meaning 
 | `--text-xl` | 26px | Page and screen titles |
 | `--text-2xl` | 32px | Display figures - the assignment summary's numbers |
 
-Nothing below 12px. The product once shipped 10px and 8px body text, which is below any readable minimum; none is left.
+Nothing below 12px, which is the readable minimum.
+No `font-size` in `front-end/src` is smaller.
 
 ### Weight
 
@@ -99,7 +101,7 @@ No screen caps its own height, and no row carries a minimum height.
 The applicant's own pages are a reading column, not a screen of cards: `--applicant-max` (640px), the apply page and the applicant's dashboard.
 The form tab's preview is drawn at the same width, so it is the form as an applicant sees it (E33/F01/S01).
 
-Two widths rather than one because the content clusters into two groups and **nothing wants the 1536 the workspace currently gets**: the plan's widest row needs 1316, the statistics need 1129, and the single-column lists need ~1035. One width for both puts a 1,035px list in a 1,440px page.
+Two widths rather than one because the content clusters into two groups and **nothing wants the 1536 the workspace was given before**: the plan's widest row needs 1316, the statistics need 1129, and the single-column lists need ~1035. One width for both puts a 1,035px list in a 1,440px page.
 
 **1440 rather than the content-only answer of 1360** because that is the phase rail's measured break - below it the rail wraps to a second row on a published market. `readable-journey` ticket 06 had already put that break "between 1366 and 1440"; it is exactly 1440.
 
@@ -135,7 +137,9 @@ The root keeps the scrollbar's room (`scrollbar-gutter: stable`), so a page tall
 Its public address is the one part that gives way: it shortens, and the link, its hover text and Copy keep it whole.
 Where the row cannot hold the addresses and the actions beside the spine, they take the second row together, never one button alone (claims-and-room ticket 07).
 
-**Columns are sized by need, not by count.** `repeat(3, minmax(0, 1fr))` is what makes the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs. The codebase already accepts this: the assignment tab's `.plan-row--asymmetric` is `3fr 2fr`.
+**Columns are sized by need, not by count.**
+Three equal tracks (`repeat(3, minmax(0, 1fr))`) made the Tier select 65px wide and unable to display any of the three values it offers, while giving Location Setup 1.7x what it needs.
+The assignment tab's `.plan-row--asymmetric` is `3fr 2fr` for the same reason.
 
 ## Radius
 
@@ -147,7 +151,8 @@ Extracted from the newer screens. Three values.
 | `--radius-card` | 10px | Cards, panels, dialogs |
 | `--radius-pill` | 999px | Pills and fully-rounded badges |
 
-"Fully rounded" is currently spelled four ways (`999px`, `100px`, `30px`, `20px`). One spelling.
+"Fully rounded" has one spelling, `--radius-pill`.
+It was spelled four ways (`999px`, `100px`, `30px`, `20px`); one `20px` is left, in the floorplan beta.
 
 ## Elevation
 
@@ -185,7 +190,8 @@ The wordmark painted `#00DC82` while every primary button painted `#36826f`. `#0
 
 ### Two grounds, not one
 
-`--mm-green` measures 4.59:1 on white and **4.43:1 on `#FBFBFA`**, the phase rail's old ground, where it is the current-phase label on every market screen. A token is only AA on the grounds it was measured against, so the rail's ground became white (E16/F01/S03).
+`--mm-green` measures 4.59:1 on white and **4.43:1 on the off-white `#FBFBFA`**, and it is the current-phase label on every market screen.
+A token is only AA on the grounds it was measured against, so the phase rail's ground is white (E16/F01/S03).
 
 ## The primitive layer
 
