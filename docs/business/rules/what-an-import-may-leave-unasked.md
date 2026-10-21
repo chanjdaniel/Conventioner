@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/application_write.py#record_application_answers
   - back-end/essential_fields.py#validated_essential_answers
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/real-market-readiness/03
   - wayfinding/claims-and-room/03

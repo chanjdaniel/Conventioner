@@ -4,7 +4,7 @@ kind: data
 describes:
   - back-end/lookup_indexes.py
   - back-end/app.py#build_lookup_indexes
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - E32/F03/S04
 ---

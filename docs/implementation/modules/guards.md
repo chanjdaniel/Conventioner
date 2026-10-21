@@ -10,7 +10,7 @@ describes:
   - back-end/api/markets.py#finalization_update
   - back-end/app.py#transition_market
   - front-end/src/components/BlockerPanel.vue
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/readable-journey/01
   - E03/F03

@@ -5,7 +5,7 @@ describes:
   - back-end/assignment/assignment.py#MarketAssignment.best_table_for
   - back-end/assignment/assignment.py#MarketAssignment.is_valid_vendor
   - back-end/assignment/vendor_input.py#SolverVendor
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/01
   - wayfinding/real-market-readiness/02

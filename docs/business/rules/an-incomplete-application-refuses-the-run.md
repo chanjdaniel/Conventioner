@@ -6,7 +6,7 @@ describes:
   - back-end/assignment/assignment.py#solver_vendors_for
   - back-end/essential_fields.py#asked_essential_keys
   - back-end/essential_fields.py#REQUIRED_ESSENTIAL_KEYS
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/02
   - E02

@@ -3,7 +3,7 @@ layer: implementation
 kind: adr
 describes:
   - back-end/tests/test_the_market_put_is_gone.py
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/the-market-frame/03
   - wayfinding/the-market-frame/04

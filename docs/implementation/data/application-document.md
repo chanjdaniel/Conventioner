@@ -10,7 +10,7 @@ describes:
   - back-end/datatypes.py#MarketPerson
   - back-end/migrations/create_applications_collection.py
   - back-end/migrations/migrate_submitted_at_to_iso.py
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/01

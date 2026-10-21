@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/guards.py#VALID_TRANSITIONS
   - back-end/migrations/migrate_publishing_to_market_days.py
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/real-market-readiness/05

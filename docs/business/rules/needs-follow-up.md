@@ -6,7 +6,7 @@ describes:
   - back-end/api/markets.py#person_on_market
   - back-end/guards.py#AllApplicationsReviewedGuard
   - front-end/src/components/application/FollowUpDialog.vue
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - brain-dump/2026-10-19#9
   - brain-dump/2026-10-19#21

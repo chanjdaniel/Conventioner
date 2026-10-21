@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/datatypes.py#PriorityObject
   - back-end/datatypes.py#BUILT_IN_TARGET_PREFIX
-verified: 2026-10-22
+verified: 2026-10-21
 sources:
   - wayfinding/v0-1-0/03
   - E02
