@@ -14,6 +14,7 @@ verified: 2026-10-22
 - [A gated market answers as absent](../rules/a-gated-market-answers-as-absent.md): a CSV market answers applicants as no market at all.
 - [A vendor signs in before they have applied](../rules/a-vendor-signs-in-before-applying.md): how a vendor reaches a form market's application.
 - [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): a form market's step, which a CSV market has not.
+- [Review needs an import](../rules/review-needs-an-import.md): on the CSV path the import is the collection, so review waits for one.
 
 ## Flows
 

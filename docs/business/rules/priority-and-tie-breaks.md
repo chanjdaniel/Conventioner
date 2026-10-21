@@ -15,6 +15,7 @@ sources:
   - wayfinding/november-2026-dry-run/06
   - wayfinding/november-2026-dry-run/map
   - E02
+  - brain-dump/2026-10-19#17
   - E34/F05/S01
 ---
 
@@ -41,7 +42,7 @@ How to order follows from the target's type, and there is nothing to declare:
 
 - **Arranged** (a select or multi-select): the organizer puts the answers in order; `<All others>` stands where every answer they left out sorts, and without it an unplaced answer sorts behind every placed one.
   A multi-select answer stands where its best-placed choice does.
-  A blank answer stands behind every placed position, `<All others>` included.
+  A blank answer stands behind every placed position, `<All others>` included; the rule editor's hint says how several answers and a blank sort.
 - **By magnitude** (a number, a date, a checkbox, the submission time): the organizer picks an end, lowest or highest, earliest or latest, ticked or unticked first.
   An answer with no usable value sorts last whichever end is picked: an absent answer is not evidence of anything.
 

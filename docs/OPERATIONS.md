@@ -10,6 +10,8 @@ describes:
   - back-end/migrations/create_applications_collection.py
   - back-end/api/applicant_auth.py#ensure_applicant_login_indexes
 verified: 2026-10-21
+sources:
+  - E32/F03/S03
 ---
 
 # Operations
@@ -121,6 +123,8 @@ MONGODB_URI='<production URI>' .venv/bin/python seed_test_markets.py --owner you
   Both are left open, with dates a year out and no applicant.
 - It prints each market's phase and path, which is under `https://conventioner.io`.
   Running it again changes nothing that exists, and finishes a market a failed run left in draft.
+  It refuses, naming it, a test organization owned by another account or a market address held outside it.
+- `front-end/e2e/seed-test-markets.spec.ts` runs it twice from an empty start in the back-end container, visits both markets as a stranger, and applies to the online one as a vendor.
 - Apply or import with made-up details only, and an address you own for a sign-in code.
   To start over, delete the market in the product and run it again.
 

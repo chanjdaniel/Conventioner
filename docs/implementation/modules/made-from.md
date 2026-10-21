@@ -11,6 +11,7 @@ sources:
   - E22/F03/S02
   - E22/F02/S01
   - E27
+  - E34/F05/S01
 ---
 
 # What an assignment was made from
@@ -33,6 +34,7 @@ The run ([placements](placements.md), `run_assignment`) and the read (`GET /mark
 
 **Only a solver run writes `madeFrom`.**
 A hand placement, a freed seat or a swap is an edit to the result, never an input, so it leaves the fingerprints alone and never makes an assignment out of date.
+So does a change to how the solver scores what it reads (a multi-select answer scored by its best choice, E34/F05/S01): no input moved, so a stored run is not out of date, and running it again is the organizer's choice.
 
 **An assignment with no fingerprints is served as not out of date, never as stale.**
 One made before the fingerprints existed is not known to be out of date, and a notice on every existing market would teach organizers to ignore it.

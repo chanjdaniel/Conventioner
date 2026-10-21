@@ -5,6 +5,9 @@ describes:
   - front-end/src/components/market/MarketFormTab.vue
 verified: 2026-10-22
 sources:
+  - brain-dump/2026-10-19#5
+  - brain-dump/2026-10-19#6
+  - brain-dump/2026-10-19#7
   - E01/F06
   - E19/F03
   - E31/F04/S01
@@ -27,9 +30,12 @@ The tab is a sequence of steps, each with the page's whole width, under a step h
 3. **Preview**, only on a market whose vendors apply on its page: the form at the applicant's own width, as they will see it, inside the tab.
 4. **Review setup** (F3): what a reviewer reads first, and the automatic rejections.
 
-Moving between steps never loses an unsaved edit; only "Save Form" writes the questions.
-A locked form opens on Review setup; the earlier steps stay one click away, read only, and say why (F4).
-On the Google Form path the essential questions are the answers each import reads from a column, and nothing describes what an applicant would see.
+The step header is a named navigation of buttons, the current one marked as the current step, so any step is one click away at any time; Back and Next are the obvious path, not the only one, and the step they open starts at the top of the page.
+Moving between steps never loses an unsaved edit; only "Save Form" writes the questions, and it sits on Your questions and on Preview, while how the last save went shows on every step, since "Ask this" saves the moment it is ticked.
+A locked form opens on Review setup, the step still the organizer's to change; the earlier steps stay one click away, read only under the lock's reason, and Review setup shows no lock.
+The step is chosen once, as the tab opens: a lock that lands while the organizer is on a step does not move them off it.
+The preview is a step inside the tab rather than the public page in a new browser tab, because a draft market has no public page to open.
+On the Google Form path the essential questions are the answers each import reads from a column, nothing describes what an applicant would see, and the field editor offers no help text for applicants; the mapping of columns to questions stays in [the import](import.md), where the file is.
 
 **Task:** "Add a required question asking what category of product each vendor sells: Food, Crafts or Art."
 
@@ -98,7 +104,7 @@ Assignment uses one type in this release, so even a floorplan with several types
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md).
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): the form builder is not gated by it, and the preview is the online path's.
 - [What each role may do](../rules/what-each-role-may-do.md): the form, the highlights and the automatic rejections are an Editor's.
-- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): the automatic rejections close with the review.
+- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md) and [automatic rejections](../rules/automatic-rejections.md): what a rule may name, what it judges, and that it closes with the review.
 - [Vendor notes](../rules/vendor-notes.md): the request question, asked unless switched off.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
