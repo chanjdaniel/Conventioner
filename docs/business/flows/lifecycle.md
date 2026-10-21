@@ -1,0 +1,98 @@
+---
+layer: business
+kind: flow
+verified: 2026-10-22
+sources:
+  - E03
+  - E26
+  - E31/F01/S01
+  - E31/F02
+  - E32/F01
+  - E32/F02/S01
+  - E34/F02/S01
+  - E36/F04/S02
+---
+
+# The market lifecycle at a glance
+
+**Who:** the organizer, as the market's Admin or owner; anyone below Admin sees where the market stands and is offered no move ([what each role may do](../rules/what-each-role-may-do.md)).
+**Where:** the phase rail, under the market bar on every market screen.
+
+A market is always in exactly one phase, and the phases are the same on both intake paths.
+What a path calls a phase, and which phases it stops in, differ: a market whose vendors apply on its own page (the online path) reads Draft, Applications Open, Applications Closed, Review, Assignment, Market Days, Archived; a market whose vendors apply on the organizer's own Google Form (the Google Form path) reads Draft, Import, Review, Assignment, Market Days, Archived, and steps through Applications Closed on its way into Review.
+
+The rail offers the one next step as its main button, and every other move behind "More…".
+A move the server would refuse is drawn disabled before the click, with its first blocker as the rail's sentence and beside the move in the menu.
+When that blocker names a page that fixes it, the main button becomes the fix ("Add a location") and leads there, with the move beside it as the step after.
+A move that loses a race with another change still answers with a red "Cannot proceed:" panel under the rail.
+Every move lands on the page where the new phase's work is done, forward or back.
+Every rule about moving a market lives with [the guards](../../implementation/modules/guards.md); how the rail draws it is [the phase rail](../../implementation/modules/phase-rail.md).
+
+**Status:** Works (read from the code and specs as of E36: `back-end/guards.py`, `front-end/src/utils/marketGuide.ts`; `phase-rail.spec.ts`, `every-move-lands.spec.ts`, `a-blocked-step-offers-its-fix.spec.ts`, `what-to-show-and-when.spec.ts`).
+
+```mermaid
+stateDiagram-v2
+    [*] --> draft : Create market
+    draft --> applications_open : Open Applications / Import responses
+    applications_open --> draft : Reopen for Editing
+    applications_open --> applications_closed : Close Applications
+    applications_closed --> applications_open : Reopen Applications / Import more responses
+    applications_closed --> review : Begin Review
+    review --> applications_closed : Return to Applications Closed
+    review --> assignment : Begin Assignment
+    assignment --> market_days : Publish Market
+    assignment --> offers : Send Offers (planned, E05)
+    offers --> market_days : Publish Market
+    market_days --> archived : Archive Market
+    note right of archived : Every phase except archived can go straight to Archive Market
+```
+
+On the Google Form path, Begin Review from Import is one move through `applications_closed`, and the way back from Review is "Import more responses", one move through it the other way.
+
+## The phases
+
+| Phase (online path / Google Form path) | What happens here | Page it opens on | Forward step | More… |
+| --- | --- | --- | --- | --- |
+| Draft / Draft | Plan the market, build the form | Market Setup | Open Applications / Import responses | Archive Market |
+| Applications Open / Import | Online applications arrive and can be reviewed as they do / the Google Form's responses are imported and reviewed | Applications; a move into Import lands on the import | Close Applications / Begin Review | Reopen for Editing, Archive Market |
+| Applications Closed / Imported | Finish deciding / drawn only for a market already standing there | Applications | Begin Review | Reopen Applications / Import more responses, Archive Market |
+| Review / Review | Finish reviewing: nothing more is coming in | Applications | Begin Assignment | Return to Applications Closed / Import more responses, Archive Market |
+| Assignment / Assignment | Set the rules, run, adjust by hand; on the online path, publish results | Assignment, then Result once run | Publish Market | Archive Market |
+| Offers (planned) | Vendors accept or refuse | Result once run, else Assignment | Publish Market | Archive Market |
+| Market Days / Market Days | Vendors check in | Attendance | Archive Market, once every date has passed | Archive Market, until then |
+| Archived / Archived | Read only | Result if it was assigned, else Market Setup | none | none |
+
+"Send Offers" is never offered: Offers is a planned phase off the rail, which draws it only for a market actually in it.
+
+## What refuses a move
+
+Each refusal is a blocker line under the rail and beside the move, before the click.
+
+| Move | Refused when | It says |
+| --- | --- | --- |
+| Leaving Draft (Open Applications, Import responses) | The plan has no dates, or a date has passed | "This market has no market dates. Pick them on Market Setup's calendar." / "N of this market's dates have already passed: …" |
+| Leaving Draft | The plan has no location | "This market has no location. Add one on Market Setup." |
+| Leaving Draft | The plan has no tables, or a tier has none | "This market has no tables yet. Add a section with tables on Market Setup." / "Tier X has no tables. …" |
+| Into Applications Open (from Draft or Applications Closed) | The form asks nothing: no custom field, and the plan offers no dates, no tiers and fewer than 2 sections | "The application form asks nothing. …" |
+| Applications Open → Draft | Any application exists, imported or applied | "N applications are already in, so this market cannot return to draft. …" |
+| Into Review, on the Google Form path | Nothing has been imported | "Nothing has been imported yet. Import your Google Form's responses first." |
+| Review → Assignment | Any application still Open, Under review or needing a follow-up; or none at all | "N applications are still awaiting review…" / "N applications need a follow-up…" / "There are no applications for this market. …" |
+| Review → Assignment | An approved applicant named a tier that has no tables | Names the tier and the applicants |
+| Review → Assignment, and into Market Days | A hand placement names a seat the plan no longer has | Names the vendor, table and date |
+| Assignment → Offers | Any application is still Approved (always true today: M1) | "N applications are still approved but not yet assigned or unassigned. …" |
+| Into Market Days | No assignment is stored | "No assignment has been computed for this market, so its check-in page could not tell anyone where to stand. Run the assignment first." |
+| Into Market Days, on the online path | Results are not published | "Applicants have not been told whether they have a table. Publish the results before the market goes live." |
+
+Moves that cannot be undone (Publish Market, Archive Market) open a confirmation dialog focused on Cancel.
+Every other move fires on one click.
+
+## The rules it obeys
+
+- [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): the three blockers on leaving Draft.
+- [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): the way back to Draft closes at the first application.
+- [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): which path, and so which names and moves.
+- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md).
+- [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md): the last blocker into Market Days.
+- [An archived market is read-only](../rules/an-archived-market-is-read-only.md), and [an archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md).
+
+The paths that walk this lifecycle are [the Google Form path](the-google-form-path.md), [the online path](the-online-path.md) and [the mixed path](the-mixed-path.md); how each flow is walked in a test is in [walking the flows](../../implementation/testing/walking-the-flows.md).

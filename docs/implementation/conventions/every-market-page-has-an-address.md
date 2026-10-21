@@ -50,3 +50,5 @@ A transition guard's `resolution_link` (in [`back-end/guards.py`](../../../back-
 - A link built by string concatenation instead of `marketPath()`.
 - A `resolution_link` naming an old address: it would be followed through a redirect, or nowhere.
 - A new market page added without its route, so it cannot be bookmarked.
+
+What an organizer sees of the addresses, from the Markets list to an old bookmark, is [finding and opening markets](../../business/flows/finding-a-market.md).

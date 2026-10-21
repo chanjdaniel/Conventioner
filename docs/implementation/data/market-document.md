@@ -95,6 +95,7 @@ The stored slug narrows the query but does not decide it: `market_by_slug` re-ch
 **One address, one market.**
 Creation and rename both ask `public_address_refusal()` (`api/markets.py`), so "Cafe Market" is refused beside "Café Market"; uniqueness on the exact name alone let two markets share a public URL.
 The unique index is the database's refusal of the same thing, for two creations that race past the check.
+The organizer meets it as the create-market dialog's refusal ([a name that is already someone's address](../../business/flows/creating-a-market.md#d5-a-name-that-is-already-someones-address)).
 
 ## The phase, and `isDraft`
 

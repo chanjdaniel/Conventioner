@@ -182,6 +182,8 @@ in one organizer session, and every other spec is a slice of it; [the market jou
 spec](implementation/testing/the-market-journey-spec.md) says what each slice covers and where a
 new test belongs. `phase-state-machine.spec.ts` walks every phase edge and the guards that refuse
 them, and `smoke.spec.ts` covers login, dashboard, and markets navigation.
+Which specs walk which user flow, and the gaps worth a spec, is the coverage map in [walking the
+flows](implementation/testing/walking-the-flows.md#coverage-map).
 Coverage also includes tier-1 market operations journeys: public vendor check-in
 (`checkin.spec.ts`), vendor browsing with search (`vendors.spec.ts`), and table
 browsing with filtering (`tables.spec.ts`). The tier-2 suite (`tier2.spec.ts`)
@@ -198,7 +200,7 @@ organization: it asserts that `POST /markets` rejects a payload with no
 carries the submitted `organizationId`, that a user with no organizations cannot
 create a market via API, and that the new-market overlay's submission stays
 disabled until an organization is picked (with a link to `/organizations` when
-none exist). The applicant-facing suites cover the surfaces MVP switches off:
+none exist). The applicant-facing suites cover a market whose vendors apply on its own page:
 `applicant.spec.ts` (the public applicant login's anti-oracle behaviour: identical answers for
 known and unknown emails, an identical 401 whatever the failure, and single-use codes),
 `essential-fields.spec.ts` (the essential questions as an applicant answers them), and
@@ -215,9 +217,9 @@ and asserts the D9 lock then renders the builder read-only with its lock banner,
 `PUT /markets/{id}/application-form` refuses with 409, and that no whole-market PUT exists to
 smuggle one past it (405). The floorplan suite
 (`floorplan.spec.ts`) drives the create-from-floorplan setup path end to end:
-it walks the Floorplan AI 5-step wizard (upload, scale calibration, table
+it walks the floorplan beta's five-step wizard (upload, scale calibration, table
 placement, section grouping, save) and verifies the resulting sections land
-back in the setup wizard.
+back on Market Setup.
 The access-control suite (`access-control.spec.ts`) covers who can see a market: an org
 member with no explicit market role, a user granted an explicit role but no org membership,
 membership changes taking effect (adding a user grants visibility, removing revokes it), and
