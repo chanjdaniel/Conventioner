@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/market/MarketPlanTab.vue
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03

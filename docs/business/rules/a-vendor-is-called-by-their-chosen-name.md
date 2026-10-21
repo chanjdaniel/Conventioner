@@ -6,7 +6,7 @@ describes:
   - back-end/api/applications.py#vendor_names_for_market
   - front-end/src/utils/vendorIdentity.ts
   - front-end/src/components/VendorIdentity.vue
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/readable-journey/02
   - wayfinding/the-order-of-the-work/04

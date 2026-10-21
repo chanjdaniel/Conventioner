@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/NewMarketOverlay.vue
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E24/F03
   - E26/F08

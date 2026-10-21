@@ -1,7 +1,7 @@
 ---
 layer: implementation
 kind: adr
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/v0-1-0/01
   - wayfinding/real-market-readiness/02

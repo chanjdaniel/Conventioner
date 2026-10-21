@@ -4,7 +4,7 @@ kind: flow
 describes:
   - front-end/src/components/VendorDrawer.vue
   - front-end/src/utils/vendorDrawer.ts
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - brain-dump/2026-10-19#13
   - brain-dump/2026-10-19#14

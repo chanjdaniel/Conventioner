@@ -19,7 +19,7 @@ describes:
   - back-end/guards.py#NoOrphanedPinGuard
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map

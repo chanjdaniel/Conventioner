@@ -7,7 +7,7 @@ describes:
   - back-end/result_outcome.py#outcome_of
   - back-end/result_outcome.py#seats_of
   - front-end/src/utils/applicantOutcome.ts
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/rejection-visibility/01
   - wayfinding/rejection-visibility/02

@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: rule
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/november-2026-dry-run/07
   - wayfinding/november-2026-dry-run/map

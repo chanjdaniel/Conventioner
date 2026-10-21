@@ -4,7 +4,7 @@ kind: data
 describes:
   - back-end/placement_history.py
   - back-end/api/markets.py#get_placement_history
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/readable-journey/08
 ---

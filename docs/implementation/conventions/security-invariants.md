@@ -14,7 +14,7 @@ describes:
   - back-end/tests/test_public_endpoint_defenses.py
   - front-end/vite.config.ts#assertCaptchaSiteKey
   - front-end/src/utils/captcha.ts
-verified: 2026-10-21
+verified: 2026-10-22
 ---
 
 # Security invariants

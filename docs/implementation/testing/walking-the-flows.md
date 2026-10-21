@@ -3,7 +3,7 @@ layer: implementation
 kind: testing
 describes:
   - scripts/seed_fixture.sh
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E26
 ---

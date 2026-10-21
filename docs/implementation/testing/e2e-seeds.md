@@ -16,7 +16,7 @@ describes:
   - front-end/e2e/helpers/verifiedUser.ts
   - front-end/e2e/helpers/backendScript.ts
   - back-end/create_test_user.py
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E02
   - E11/F01/S01

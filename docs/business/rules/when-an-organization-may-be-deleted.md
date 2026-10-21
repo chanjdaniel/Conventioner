@@ -8,7 +8,7 @@ describes:
   - back-end/api/organizations.py#OrganizationHasLiveMarkets
   - back-end/api/organizations.py#delete_organization
   - front-end/src/components/DeleteOrgDialog.vue
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/the-order-of-the-work/10
   - E20/F04/S01

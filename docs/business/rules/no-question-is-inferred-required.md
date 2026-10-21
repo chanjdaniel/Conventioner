@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/csv_proposal.py#NEARLY_ALL
   - back-end/csv_proposal.py#_field
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - brain-dump/2026-10-19#8
   - E33/F02

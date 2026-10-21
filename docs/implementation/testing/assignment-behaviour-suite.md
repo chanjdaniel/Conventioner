@@ -4,7 +4,7 @@ kind: testing
 describes:
   - back-end/tests/test_assignment_behaviour.py
   - back-end/tests/test_solver_vendor_input.py
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/november-2026-dry-run/07
   - E02/F01/S02
