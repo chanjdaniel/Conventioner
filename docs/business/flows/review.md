@@ -6,6 +6,11 @@ describes:
   - front-end/src/components/application/ApplicationsAll.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/map
+  - wayfinding/v0-1-0/08
+  - wayfinding/real-market-readiness/04
+  - brain-dump/2026-10-19#9
+  - brain-dump/2026-10-19#10
   - E19/F03
   - E31/F04/S04
   - E32/F01/S01
@@ -35,6 +40,8 @@ Every verdict records who gave it and when, and the review shows it: "Approved b
 ## I1. Work through the queue
 
 **Status:** Works (walked live; follow-ups, held cards and the giver read from the code as of E34/F01 to E34/F03: `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`).
+
+The queue is triage: one application at a time, carrying every answer it holds, decided from the keyboard, with progress counted, so each verdict is given on a person rather than on a population.
 
 1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") and one card at a time, in the order the applications arrived.
 2. A card shows the applicant's email, status, submitted date, the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
@@ -113,3 +120,11 @@ Publishing the results, I7, is a step of the assignment: [the assignment and its
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+
+## Superseded
+
+- Imported applications were first to be approved with a bulk-approve action in the old monitor (wayfinding/v0-1-0/map), and how it should look was asked (wayfinding/v0-1-0/08).
+  A walk of a real 232-row export showed the card carried nothing to decide on, so the question was closed unanswered and replaced by what a reviewer must see (wayfinding/real-market-readiness/04).
+- That answer chose triage with no bulk action at all, so no application could be approved without being looked at (wayfinding/real-market-readiness/04).
+  The organizers asked for bulk verdicts, and the All view gives them, on ticked rows only and confirmed by count, never on "everything matching" (brain-dump/2026-10-19#10, E34/F04).
+- Its third verdict, Skip, became "Needs follow-up", a stored status with an owner, beside "Next", which passes over a card and decides nothing (brain-dump/2026-10-19#9, E34/F02/S01).

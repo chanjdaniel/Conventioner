@@ -12,6 +12,8 @@ describes:
   - back-end/migrations/migrate_submitted_at_to_iso.py
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/map
+  - wayfinding/real-market-readiness/01
   - E01/F04/S02
   - E26/F07/S01
   - E33/F03/S02
@@ -58,7 +60,11 @@ Form field keys are held to `^[a-z0-9_]+$` (`FORM_FIELD_KEY_PATTERN` in `api/mar
 
 **`submitted_at` is what first come, first served orders by**, and the review queue's arrival order too.
 An applicant's first valid save stamps it ([`back-end/application_write.py`](../../../back-end/application_write.py)); **a CSV-imported row must carry its own**, or it gets the time of the import and first-come-first-served decides nothing.
-The import normalises the form's timestamp to ISO 8601 at the boundary; [`migrate_submitted_at_to_iso.py`](../../../back-end/migrations/migrate_submitted_at_to_iso.py) rewrote the raw `9/12/2025 18:22:56` values imported before that, which sorted wrongly as strings and scored every vendor alike in the solver.
+**A submission time becomes a moment at import**: the import normalises the form's timestamp to ISO 8601 at the boundary (`normalized_submitted_at` in [the CSV import](../modules/csv-import.md)), so every reader compares one stored shape.
+The applicant's own save already wrote ISO; only the import disagreed, and converting at each reader instead would keep two stored shapes alive and fix only the reader someone remembered.
+A mapped timestamp that is not a time refuses its row, naming the value, rather than sorting last in silence; an unmapped one refuses nothing, since the column is optional, and the import warns instead when a priority rule orders by arrival.
+[`migrate_submitted_at_to_iso.py`](../../../back-end/migrations/migrate_submitted_at_to_iso.py) rewrote the raw `9/12/2025 18:22:56` values imported before that, which sorted wrongly as strings and scored every vendor alike in the solver.
+It has no boot marker: a raw timestamp misorders in plain sight, and the marker is for a hazard nobody can see.
 
 ## Statuses
 

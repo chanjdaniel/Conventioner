@@ -10,6 +10,9 @@ describes:
   - back-end/app.py#import_applications
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/map
+  - wayfinding/v0-1-0/04
+  - wayfinding/v0-1-0/05
   - E01
   - E24/F03/S03
   - E31/F03/S04
@@ -48,9 +51,10 @@ Every refusal is decided before anything is written: creating first and validati
 
 **One row per applicant.**
 A Google Form keeps every submission, so a vendor who applied twice is two rows; they are one application, judged on the latest row and dated by the first (`_latest_rows`), and the earlier rows are reported as repeats (bug 34).
-A re-import writes nothing for an unchanged applicant, and returns an approved one to review only when their answers, normalised, changed something the solver reads.
+A re-import updates each applicant's main application by the market and the address, writes nothing for an unchanged applicant, returns an approved one to review only when their answers, normalised, changed something the solver reads, and leaves an application absent from the file exactly as it is ([ADR 0011](../../adr/0011-re-import-upserts-on-market-and-email.md)).
 
-**`submitted_at` is the form's own timestamp**, normalised to ISO 8601 at the boundary (`normalized_submitted_at`); a row without one gets the import's moment, so the screen warns when the market orders by arrival and nothing maps it (`orders_by_submitted_at`, [priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md)).
+**`submitted_at` is the form's own timestamp**, an ordinary mapping target, optional, and auto-detected from Google Forms' "Timestamp" heading; it is normalised to ISO 8601 at the boundary (`normalized_submitted_at`, [the application document](../data/application-document.md#the-fields-that-matter)).
+A row without one gets the import's moment, so the screen warns when the market orders by arrival and nothing maps it (`orders_by_submitted_at`, [priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md)); the warning, not a refusal, because a market with no rule on arrival does not need the column.
 
 **Values are matched forgivingly, once.**
 Surrounding space and capitals match silently; anything else is shown once per distinct value and settled by hand, and those settlements (`resolutions`) are saved with the mapping.
@@ -67,6 +71,7 @@ The start from a CSV writes the same format, so the first import of a later expo
 - [Intake mode decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md): importing is the CSV path's way in, refused on a form market.
 - [What an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md): the one answer an imported row may leave out.
 - [Priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md): a row must carry its own `submitted_at` for first come, first served to decide anything.
+- [A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md).
 
 `back-end/tests/test_csv_import.py`, `front-end/e2e/csv-import.spec.ts` and `front-end/e2e/the-import-lines-up.spec.ts` pin it; the real exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
 

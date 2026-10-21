@@ -8,6 +8,7 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/v0-1-0/01
+  - wayfinding/real-market-readiness/02
   - E01/F05
   - E02
   - bug/23
@@ -22,7 +23,12 @@ A vendor's section ranking is a preference: they get their highest-ranked sectio
 
 **Tier is a filter because it sets the price**: what a vendor pays for a table on a given day follows from its tier, so placing them at one they refused charges them for something they did not agree to.
 It is answered per date, because a vendor who offered Gold on Monday and only Bronze on Friday must not be placed at Gold on Friday.
+A real Google Form asks it per day and promises the applicant, in writing, "the highest tier available among the selections made" for that day; one set of tiers for the whole market, the union of the days, would let the solver break that promise and charge for it.
 A tier is matched by name, as set membership; the spreadsheet era's substring test let a tier named `A` match an answer of `AB`.
+
+**Availability stays an answer of its own**, beside the tiers: "who can come on Tuesday" is a question a market with no tiers still asks.
+The two must agree, so an application is refused when a date it is available carries no tier, or a date it is not available carries one; either repair would invent an answer.
+A per-date answer has no order, so the tier preference is never a priority rule's target.
 
 **Section is a preference because a ranking excludes nothing**: an applicant ranks every section the market offers, so an unranked section sorts behind every ranked one rather than being refused, and nobody goes unplaced for wanting something.
 
@@ -39,4 +45,5 @@ An applicant who was asked and answered nothing is not placed anywhere: the run 
   It is why placement is vendor-driven: a table-driven loop could not let a vendor's ranking choose ([the assignment solver](../../implementation/modules/assignment-solver.md)).
 - Priority comes first: a preferred section never puts a vendor ahead of someone the rules place before them.
 - The answers' shapes, a set of tiers per date and a total ranking of sections, are [essential fields](../../implementation/modules/essential-fields.md), decided in [essential fields are exactly what the solver reads](../../adr/0001-essential-fields-are-the-solver-contract.md).
+  The per-date answer keeps the key `essential_tier_preference` with a new shape, a date to its list of tiers; `migrate_tier_preference_per_date.py` gave each stored flat answer those tiers on every date the vendor was available, with no boot marker, since an unmigrated answer refuses the run by name.
 - The cases are `TestTierIsAFilterOnlyWhenAsked` and `TestSectionPreference` in [the assignment behaviour suite](../../implementation/testing/assignment-behaviour-suite.md).

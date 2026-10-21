@@ -5,6 +5,8 @@ describes:
   - front-end/e2e/market-journey.spec.ts
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/map
+  - E03/F02/S04
   - E04/F01/S02
   - E32/F02/S01
 ---
@@ -15,6 +17,7 @@ sources:
 [`market-journey.spec.ts`](../../../front-end/e2e/market-journey.spec.ts) is the only spec that goes create, plan, import, review, assign in a single organizer session, entirely through the UI, and asserts who got a table and who did not.
 It seeds only what precedes the journey, a verified user and an organization.
 It is the release's acceptance test: if it fails, the product does not do what it claims.
+The journey is proven by this one continuous walk rather than by auditing the slices for gaps, because slices that each pass can miss the seam between them: publishing once landed a CSV market's organizer on a page their own market answered "not found" to, and no slice saw it (E03/F02/S04).
 
 The glossary concept: [Market](../../business/concepts/market.md).
 

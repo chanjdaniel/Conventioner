@@ -6,6 +6,7 @@ describes:
   - back-end/assignment/vendor_input.py#solver_vendors_from_applications
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/02
   - E02
 status: accepted
@@ -38,6 +39,7 @@ An approved application missing an answer the market asked refuses the whole run
 ## Consequences
 
 - `assign_market(market)` needs nothing fetched first; tests pass `SolverVendor`s in directly and describe a market with no database.
+- **An application is the one record of a vendor**, however they arrived: an imported row and an online application are written alike and carry the same review state, so the solver never asks how a vendor came in.
 - A wrong field name is an `AttributeError`, not a blank; the number of dates wanted is an `int`, not a string whose first character was read; availability is a set.
 - An import is the only way a Google Form's responses reach the solver, so everything the solver reads must be something an application can carry: [essential fields are exactly what the solver reads](0001-essential-fields-are-the-solver-contract.md).
 - A placement is dated by the market date itself, and the maps from headings back to dates are gone.

@@ -10,7 +10,9 @@ describes:
   - front-end/e2e/helpers/seedApplication.ts
 verified: 2026-10-22
 sources:
+  - wayfinding/real-market-readiness/05
   - E03/F04
+  - E20/F03
   - E21/F02/S03
   - E21/F03/S06
   - E31/F03/S02
@@ -26,6 +28,7 @@ An applicant answers the form as it stands; a question that moved after they ans
 The form is editable in `draft` alone, and the way back to draft (`applications_open -> draft`) is open only while no application exists (`NoApplicationsYetGuard`).
 That guard is not redundant with the lock: the lock runs when the form is written, the guard when the market moves, and applicant submission is gated to `applications_open`, so a count of zero is stable in `draft` and a race while applications are open; gating the going back is what makes the lock race-free.
 A form found wrong after leaving draft, while nobody has applied, is fixed through [the form amendment](../../implementation/modules/form-amendment.md), which walks the market back to draft and forward again; after the first application nothing changes it.
+Writing a question in place from the import, while applications are open, was rejected: it carries the same race, and it would be a second writer of the form.
 
 ## Where it is kept
 
@@ -40,3 +43,8 @@ A form found wrong after leaving draft, while nobody has applied, is fixed throu
 - **E2E reaches the locked state with `seedApplication()`** ([`front-end/e2e/helpers/seedApplication.ts`](../../../front-end/e2e/helpers/seedApplication.ts)), which writes the application document straight into Mongo through `mongoEval`, snake_case as `api/applications.py` stores it.
   It is the one way a spec puts an application on a market without signing in as an applicant, and works in any phase ([the E2E seeds](../../implementation/testing/e2e-seeds.md)).
 - `back-end/tests/test_the_lock_rides_on_the_market.py` pins the reasons, and `front-end/e2e/application-form.spec.ts` the builder under the lock.
+
+## Superseded
+
+The way back to draft was first paired with a dead end in the import: a column the organizer wanted to keep said it had nowhere to go and told them to return the market to draft themselves, the price accepted for one writer and no race (wayfinding/real-market-readiness/05).
+The form amendment now takes that walk for them from inside the import, still writing the form only in draft and only through its one judgement (E20/F03).
