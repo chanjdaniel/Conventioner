@@ -55,6 +55,7 @@ It loads through `_load_market_to_change`, so an archived market is refused.
 ## Why
 
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): a form found wrong after leaving draft, while nobody has applied, is fixed here, through the lock rather than around it.
+- [What an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md): switching off a ranking the Google Form never asked runs the same chain.
 
 `back-end/tests/test_form_amendment.py` and `front-end/e2e/form-amendment.spec.ts` pin it.
 

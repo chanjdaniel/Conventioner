@@ -7,6 +7,7 @@ describes:
   - back-end/assignment/csv_output.py
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/02
   - E02
   - E02/F01/S02
@@ -38,7 +39,8 @@ The CSV export is built from the assignment itself, not from an upload kept for 
 Only `migrate_to_uuid.py`, `mongo-init.js` and `reset_database.py` still name the old collection.
 
 **`assign_market` reads the market's own approved applications.**
-Only `reviewer_approved` main applications feed it, and not a vendor added by hand, who is seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
+Only `reviewer_approved` main applications feed it: a waitlist application stands beside a person's main one, so reading both would place one person twice, and nothing creates one yet.
+A vendor added by hand does not feed it either: they are seated by hand ([adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md)).
 Hand-placed rows on the stored assignment are seated first, and applicants outside the run who hold one are seated as held ([placements](placements.md#pins)).
 
 **`vendor_input.py` is the one seam where application shape meets solver shape**, and the only place that knows both.

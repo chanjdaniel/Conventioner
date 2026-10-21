@@ -5,6 +5,8 @@ describes:
   - front-end/src/views/CsvImportView.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/04
+  - wayfinding/v0-1-0/05
   - E24
   - E26
   - E30/F02/S01
@@ -30,7 +32,14 @@ sources:
 
 Importing is the Google Form path's alone, in every phase it imports in ([intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md)): a market whose vendors apply on its own page offers no import, and the server refuses one with "This market takes applications on its own page, so nothing is imported into it."
 The import is `/markets/<id>/import` ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue)), headed "Import applications", in four steps: Upload, Map columns, Preview, Confirm.
+It is a full-width page of its own, not a dialog and not a card of Market Setup: mapping a dozen columns and then settling the answers that match nothing is too dense for either.
 How the file becomes applications, and why each rule holds, is [the CSV import](../../implementation/modules/csv-import.md).
+
+**Map columns is a ledger of the file's columns**: one row per column in file order, each with its "Maps to" choice, and "Required questions" beside it ticking off what is served.
+A question spread over several columns is one row with its columns beneath it, labelled with its shape ("3 columns · one per option"), and a list in one column says so too ("1 column · values split on commas").
+An answer that matches nothing is settled inside the row of the column it came from, where the organizer is already looking.
+The ledger won over a board of questions to fill and a walk-through of one question at a time because a later import opens with the mapping restored: a filled ledger is read for its exceptions, while the other two opened with nothing left to do.
+Its cost is that a first import is the least guided of the three.
 
 **Task:** "Bring in the applications you collected in your spreadsheet."
 
@@ -102,6 +111,7 @@ If the H2e or H2f chain stops part way, the dialog says where it stopped and off
 
 **Status:** Works (walked live; re-walked on 2026-10-03, where ten repeat submissions folded into their latest rows).
 An applicant listed more than once is one application, from their latest row, dated by their first; an unchanged applicant keeps their verdict, and "N updated" counts only changed answers (bugs 34 and 40).
+Why a later export updates rather than adds, and why only a changed answer the solver reads sends an approval back: [ADR 0011](../../adr/0011-re-import-upserts-on-market-and-email.md).
 
 1. The mapping is restored by column heading; "N columns are new since then." and lost columns are named to map again.
 2. The preview says "N new, M updated, K unchanged"; how many approved applications "will return to review" because their answers changed; and how many existing applications are not in the file ("They will be left exactly as they are.").
@@ -133,5 +143,6 @@ From Assignment onwards it is refused for good, and says so: "…past review, so
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): H2e and H2f only while nobody has applied.
 - [Priority and tie-breaks](../rules/priority-and-tie-breaks.md): a row carries its own submission time.
 - [What each role may do](../rules/what-each-role-may-do.md): importing is an Admin's.
+- [A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md): what a later export does to the applications already here.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

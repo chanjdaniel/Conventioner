@@ -17,6 +17,7 @@ describes:
   - front-end/src/App.vue#fitsAPhone
 verified: 2026-10-22
 sources:
+  - wayfinding/real-market-readiness/map
   - E29
   - E29/F01/S01
   - E29/F01/S02
@@ -70,6 +71,7 @@ An archived market that never ran has no check-in page.
 Check-in is open to every market that runs, whatever its intake mode: how a vendor entered has no bearing on whether they can scan in on the day ([intake mode decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md)); the applicant surface is a lookup of its own ([a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md)).
 
 **One organizer screen works on a phone.**
+The product is built for a laptop, and nothing else of the organizer's needs to work below a laptop's width; the door is the carve-out, the one surface someone may hold in their hand.
 A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/App.vue)) and nothing else, as every public page does; at 640px and below the market bar's tabs and the rail's spine scroll sideways inside themselves.
 Of the organizer's screens only Attendance has it, because the door is sometimes a person standing up.
 

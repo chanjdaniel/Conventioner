@@ -29,6 +29,9 @@ Between a stranger learning nothing and a stranger learning that an organizer th
 A friendlier notice was considered and rejected for exactly that, and so was redirecting to check-in, which turns a stranger's typo into a vendor-facing page.
 A gated market is invisible on the applicant side and fully visible on the check-in side, and neither side has to reason about the other.
 
+**A market's bare address, `/<slug>`, is part of the applicant surface** and answers the same way: a gated market's is "page not found", and a form market's shows its name and nothing more ([`MarketHomeView.vue`](../../../front-end/src/views/MarketHomeView.vue)).
+There is no public landing page for a market beyond that.
+
 **The two applicant-login endpoints keep their *uniform* response rather than gaining a 404 of their own**: requesting a code always answers the same 200, and every failed verification the same 401.
 A 404 there would be an oracle saying "this slug is a CSV market" where every other answer says nothing.
 The sign-in page itself reads the public form first, so at a gated or unknown address it says the page does not exist and never takes an address (E32/F03/S01); it used to draw a sign-in form and answer "sent" for a code it never sent.
