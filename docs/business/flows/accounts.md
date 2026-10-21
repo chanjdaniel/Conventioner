@@ -11,7 +11,7 @@ sources:
 
 # Accounts
 
-**Who:** an organizer, or someone about to become one; vendors have no account (they sign in per market with a code, H3).
+**Who:** an organizer, or someone about to become one; vendors have no account (they sign in per market with a code, [H3](applying-online.md#h3-vendors-apply-online)).
 **Where they start:** `/login`, which has three tabs: Sign in, Register and Sign-in code.
 
 An account is one email address: an address differing only in case or spacing is the same account ([users, and the one spelling of an address](../../implementation/data/users-and-email.md#one-address-is-one-account)).

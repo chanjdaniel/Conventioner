@@ -63,3 +63,4 @@ Without a complete record (`phaseRecordComplete: false`) the rail says only what
 The phase is the single source of truth for a market's lifecycle; the rail reads it and its moves from the server and decides neither.
 The rules for moving a market are with [the guards](guards.md) in `back-end/guards.py`, and why the phase is the only lifecycle state is [ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md).
 What an organizer reads on the rail in each phase, and what refuses each move, is [the market lifecycle](../../business/flows/lifecycle.md).
+Opening, closing and reopening applications on the rail, beside its application page's address, is [taking applications](../../business/flows/taking-applications.md).

@@ -113,3 +113,5 @@ Every change here is recorded in [the placement history](../data/placement-histo
 - [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): from then on a seat placed or freed here, not a verdict, is how a review's mistake is fixed.
 - [An incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md): `run_assignment` answers it with the applicants and what each lacks.
 - [The half-table share](../../business/rules/half-table-share.md): a pin on half a table counts against it.
+
+The organizer places, swaps and frees seats through these doors in [placing by hand](../../business/flows/placing-by-hand.md).

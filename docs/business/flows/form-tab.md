@@ -84,7 +84,7 @@ Covered by: `application-form.spec.ts` ("an existing application locks the form 
 **Status:** Works (walked live).
 From Applications Open (Import, on the Google Form path), More…, "Reopen for Editing" returns the market to Draft and lands on Market Setup, so the form can be edited; then leave Draft again.
 Refused once any application exists: "N applications are already in, so this market cannot return to draft. The questions are fixed once anyone has applied or been imported."
-The import offers the same fix without leaving the page (H2e, H2f), through [the form amendment](../../implementation/modules/form-amendment.md).
+The import offers the same fix without leaving the page ([H2e](import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go), [H2f](import.md#h2f-stop-asking-a-preference-the-form-never-asked)), through [the form amendment](../../implementation/modules/form-amendment.md).
 Covered by: `every-move-lands.spec.ts` ("a move back lands on its phase's page too"), `what-to-show-and-when.spec.ts` ("a move the server would refuse says why in the menu").
 
 ## F6. Table type preference

@@ -1,0 +1,115 @@
+---
+layer: business
+kind: flow
+describes:
+  - front-end/src/components/application/ApplicationMonitor.vue
+  - front-end/src/components/application/ApplicationsAll.vue
+verified: 2026-10-22
+sources:
+  - E19/F03
+  - E31/F04/S04
+  - E32/F01/S01
+  - E32/F02
+  - E33/F03/S02
+  - E34/F01/S01
+  - E34/F02/S01
+  - E34/F03
+  - E34/F04
+  - E36/F01/S01
+  - bug/42
+  - bug/43
+---
+
+# Reviewing applications
+
+**Who:** the market's Editor, Admin or owner gives verdicts; a Viewer reads the queue with Next and decides nothing; moving the market (I4 to I6) is an Admin's ([what each role may do](../rules/what-each-role-may-do.md)).
+**Where they start:** the Applications page.
+
+Verdicts are open from the first application until the market enters Assignment, so reviewing can start as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
+A line above the review says where the market stands, in words: in Review "N applications still to decide. Every one must be decided before this market can assign." or "Every application has been decided. This market is ready to assign."; from Assignment on "The review is closed: every verdict settled when the assignment began. …".
+The page has two views, chosen above it and kept in the address: "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)) and "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)).
+Every verdict records who gave it and when, and the review shows it: "Approved by <email>, <date and time>", or "Rejected automatically: <reason>" for one an [automatic rejection](form-tab.md#f3-what-a-reviewer-reads-first) gave as the application arrived.
+
+**Task:** "Go through the applications and decide who gets in."
+
+## I1. Work through the queue
+
+**Status:** Works (walked live; follow-ups, held cards and the giver read from the code as of E34/F01 to E34/F03: `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`).
+
+1. "1 of N to review", a tally ("N reviewed · A approved · R rejected") and one card at a time, in the order the applications arrived.
+2. A card shows the applicant's email, status, submitted date, the highlighted answers first, then "N more answers" (or "This application carries no answers."); a web address in an answer is a link that opens in a new tab.
+   A table-share request that needs attention shows above the answers, and the vendor's notes below them.
+3. "Reject" (R), "Needs follow-up" (S), "Next" (N), "Approve" (A); the keyboard letters work.
+4. "Needs follow-up" opens "Needs a follow-up": "<email>'s application waits until someone reaches out.", "Who will follow up" (anyone with a role on the market, the reviewer unless they choose another; nothing is sent to them) and "Their notes: what is needed (optional)"; "Mark for follow-up".
+   A follow-up waits out of the queue, and "Include the N follow-ups" brings them back; on its card "Followed up by" hands it to someone else.
+5. When the queue is empty: "All N reviewed", "Nothing left to review." (or "Nothing else to review; N need a follow-up.").
+
+Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
+A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue".
+An advisory appears when the form asks only the essential questions, since every card then reads alike.
+Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`.
+
+## I2. Change a decision
+
+**Status:** Works (walked live; the giver read from the code as of E34/F01/S01).
+"Show N reviewed" lists decided applications by email, each with its verdict and who gave it, and "Approve instead" on a rejection or "Reject instead" on an approval.
+A follow-up is not listed here: it is decided from its own card, or from All.
+From Assignment on the list only reads.
+Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open, then the drawer only shows it").
+
+## The All view
+
+**Status:** Works (read from the code as of E34/F04: `the-all-view.spec.ts`).
+
+1. "All" lists every application by name and email, its highlighted answers on one line, its status, who gave the verdict, "Followed up by <email>" and who has it open.
+2. Filters: "Any status", "To review", "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; "N of M" says how many show.
+3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs.
+4. Tick rows and give one verdict to the selection: "N applications selected", then Reject, Needs follow-up or Approve, confirmed by count ("Approve N applications?"): "Each is written only if it is still as you see it here; any that another reviewer has changed or has open is skipped, and said so."
+   A row another reviewer has open cannot be ticked.
+5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", or who changed it).
+
+A selection is only ever the rows ticked, never "everything matching".
+
+## I3. Choose what leads the card
+
+**Status:** Works (walked live).
+"Choose what leads the card" on a card edits the highlights ([F3](form-tab.md#f3-what-a-reviewer-reads-first)) in place, without moving off the card.
+Covered by: `review-highlights.spec.ts`.
+
+## I4. Begin review
+
+**Status:** Works (walked live; the Google Form path and the landing read from the code as of E32/F02/S01 and E32/F01/S01).
+From Applications Closed, "Begin Review"; on the Google Form path it is the main button in Import, one move through Applications Closed, refused until something has been imported ("Nothing has been imported yet. Import your Google Form's responses first.").
+It lands on Applications.
+Covered by: `phase-state-machine.spec.ts`, `every-move-lands.spec.ts`.
+
+## I5. Begin assignment
+
+**Status:** Works (walked live; the follow-up blocker read from the code as of E34/F02/S01).
+From Review, "Begin Assignment", disabled before the click with the rail naming the first blocker:
+
+- any application undecided or needing a follow-up: "N applications are still awaiting review and N applications need a follow-up. Every application must be approved or rejected before assignment can begin.", with "Finish deciding" leading back to the review;
+- none at all: "There are no applications for this market. …";
+- an approved applicant named a tier with no tables, naming the tier and the applicants;
+- a hand placement names a seat the plan no longer has ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds)).
+
+It lands on Assignment, and the verdicts settle there.
+Covered by: `phase-state-machine.spec.ts`, `needs-a-follow-up.spec.ts`, `placement-pins.spec.ts`.
+
+## I6. Return to Applications Closed
+
+**Status:** Works (walked live; the Google Form path read from the code as of E32/F02/S02).
+From Review, More…, "Return to Applications Closed", for example to reopen applications.
+On the Google Form path the same move is "Import more responses", back to Import to bring in a late export ([H2j](import.md#h2j-import-after-review-has-begun)).
+Covered by: `a-late-export.spec.ts`.
+
+Publishing the results, I7, is a step of the assignment: [the assignment and its result](assignment-and-result.md#i7-publish-results).
+
+## The rules it obeys
+
+- [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md).
+- [What each role may do](../rules/what-each-role-may-do.md): verdicts and follow-ups are an Editor's, moves an Admin's.
+- [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): nothing decided here reaches the applicant until results are published.
+- [An archived market is read-only](../rules/an-archived-market-is-read-only.md).
+
+Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
