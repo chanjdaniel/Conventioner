@@ -56,6 +56,8 @@ The organizer's and the applicant's views camel-case an application on the way o
 | `added_by`, `added_at` | who recorded a vendor who never applied, and when |
 | `assigned_reviewer_id` | carried on the model; nothing writes it |
 
+A vendor's names are answers in `form_data` too; `vendor_names_for_market` reads them as one map from address to the name to call each vendor ([a vendor is called by their chosen name](../../business/rules/a-vendor-is-called-by-their-chosen-name.md)).
+
 Form field keys are held to `^[a-z0-9_]+$` (`FORM_FIELD_KEY_PATTERN` in `api/markets.py`) because they become keys inside `form_data`, where a dot or a leading `$` cannot be addressed by Mongo update operators.
 
 **`submitted_at` is what first come, first served orders by**, and the review queue's arrival order too.

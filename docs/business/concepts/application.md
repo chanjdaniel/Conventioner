@@ -10,6 +10,7 @@ verified: 2026-10-22
 
 ## Rules
 
+- [A vendor is called by their chosen name](../rules/a-vendor-is-called-by-their-chosen-name.md): the name an application gives its vendor on every screen.
 - [A vendor signs in before they have applied](../rules/a-vendor-signs-in-before-applying.md): the first valid save creates the application.
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): the first application fixes the form.
 - [What an import may leave unasked](../rules/what-an-import-may-leave-unasked.md): an imported row may leave the number of dates unanswered.

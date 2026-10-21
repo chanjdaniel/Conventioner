@@ -6,9 +6,13 @@ describes:
   - front-end/src/components/ResultSummary.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/the-assignment-tab/01
+  - wayfinding/the-assignment-tab/02
+  - wayfinding/the-assignment-tab/map
   - E12
   - E22/F02
   - E22/F03
+  - E31/F03/S05
   - E27
   - E34/F05/S01
   - E35/F02/S01
@@ -28,6 +32,13 @@ sources:
 
 The Assignment tab holds three pages: Assignment (the rules and the run, [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Result (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)) and Vendors (by vendor, [vendors](vendors.md)).
 Before a run the rail says "Set the rules and run the assignment."; after it, "Check the result, then publish the market: that puts the check-in page up, and cannot be undone."
+**Setting the rules and running them is one page; reading and changing what they produced is another.**
+The first is called Assignment because that is the organizers' word for the whole job; what it sets are the assignment rules, and what the solver produces is the assignment, read on Result ([Assignment](../concepts/assignment.md)).
+An organizer's result is who sits where, which is the tables; so Result is the tables, with every seat editable in place, under a summary strip of the figures that sum them up, and the old Tables screen is Result (its address redirects there, [every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md#old-addresses)).
+A run lands on Result.
+Running again asks nothing: every hand placement is kept as a pin, the button says so before the click ([J9](placing-by-hand.md#j9-run-again-keeping-hand-placements)), and in Assignment nothing has yet been sent to anyone.
+Before the first run Result and Vendors say "Nothing assigned yet." with a link to set the rules and run them, or, where the phase refuses a run, why, in the server's words; where a run can still happen the tables are drawn below it, so a seat can be given first.
+
 How the solver places vendors is [the assignment solver](../../implementation/modules/assignment-solver.md); changing a seat by hand is [placing by hand](placing-by-hand.md).
 
 **Task:** "Give each approved vendor their tables, putting current students first, and no vendor more than 3 days."
@@ -78,8 +89,9 @@ The button is disabled with the reason; the server refuses too, in every phase b
 **Status:** Works (walked live; the search, the statistics, the download and the marks read from the code as of E35/F02/S01, E35/F03 and E36/F02/S03).
 
 1. Summary: "N of M vendors placed", "N of M table-days used", "N unassigned" (links to Vendors filtered), "N% satisfaction"; under it, "A table-day is one table on one market date. Satisfaction is the share of the dates vendors asked for, and could have had, that they got."
-2. "Statistics" (placements by group, read at a glance), "Placement history" ([J13](placing-by-hand.md#j13-placement-history)) and "Download CSV", which names each vendor by full name as well as the name they chose.
+2. "Statistics" (placements by date, section, tier and table choice) opens a panel under the strip, closed by default and held in the address, rather than a dialog, since it is reading and not a job; "Placement history" ([J13](placing-by-hand.md#j13-placement-history)) and "Download CSV", which names each vendor by full name as well as the name they chose.
 3. "Search" ("Name, business, email or table") keeps the tables seating a matching vendor; filters by Date, Section, Tier and Table, shown as removable chips with "Clear all"; "N of M tables" and counts of assigned, partial and empty tables, each a filter of its own.
+   There is no list of the free tables: the grid's empty filter shows them where they are.
 4. Tables by date then section; each seat shows its occupant's name, or "Vacant" (half a table) / "Unassigned" (a whole free table); a seat held by someone not approved is marked "Not approved".
    A name opens the [vendor drawer](vendor-drawer.md).
 

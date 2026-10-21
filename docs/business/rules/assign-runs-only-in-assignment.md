@@ -26,6 +26,7 @@ Inside `assignment` an organizer who changes the plan or approves a late applica
 **It says only where Assign may run.**
 It deliberately does not repeat the rules around it: "review everyone first" is the entry invariant on `assignment` (`_ALL_REVIEWED` in `back-end/guards.py`), and "run it before publishing" is the one on `market_days` (`_ASSIGNMENT_COMPUTED`).
 Repeating either would give the product two places to change when one of them moves.
+Why Assign is an operation inside the phase rather than a move of its own is [ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md).
 
 **It is the server's rule, not the button's**, because the endpoint is reachable directly and a hidden button is not a rule.
 

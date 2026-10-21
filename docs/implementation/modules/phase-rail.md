@@ -7,6 +7,8 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/claims-and-room/07
+  - wayfinding/readable-journey/01
+  - wayfinding/readable-journey/06
   - wayfinding/the-order-of-the-work/09
   - E10/F01
   - E10/F01/S02
@@ -65,6 +67,9 @@ The addresses and the moves are one item of the row; where the row cannot hold t
 Which addresses show, and when, is [a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) for the application page, and `market_days` or an archive that ran for check-in.
 
 **The rail is one row at the workspace width**, and on a phone its spine scrolls sideways inside itself; see [the design language](../../design-system.md#layout).
+
+**Crowding is measured between labels, never by overflow.**
+The steps shrink below their labels rather than overflowing the row, so the row reports that it fits while the labels paint over each other; `phase-rail.spec.ts` checks that no two adjacent labels' boxes overlap at 1920x1080 with a long check-in address.
 
 ## Why
 

@@ -6,6 +6,7 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/claims-and-room/05
+  - wayfinding/readable-journey/08
   - E11/F02/S01
   - E11/F03/S01
   - E11/F04/S01

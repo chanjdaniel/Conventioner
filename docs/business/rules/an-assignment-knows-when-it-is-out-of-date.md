@@ -6,6 +6,7 @@ describes:
   - front-end/src/utils/assignmentOutOfDate.ts
 verified: 2026-10-22
 sources:
+  - wayfinding/the-assignment-tab/03
   - E22/F03
   - E22/F03/S01
   - E22/F03/S02
@@ -21,6 +22,9 @@ It says so only in `assignment`, the one phase in which running it again is poss
 Editing the rules, the plan or the approved applications never changes a stored assignment; only running it again does.
 With the rules and the result on separate pages, an organizer could change a rule and read an assignment made under the old one without being told.
 A notice the organizer cannot act on is noise, so no other phase shows one.
+
+**It names what changed**, so the organizer knows what the run would now answer differently rather than that something did.
+**It is a fact, not an error**: a quiet note with no dismiss, cleared only by running again.
 
 **A hand placement is not a change.**
 Placing, freeing or swapping is an edit to the result, not an input, so it never makes an assignment out of date.

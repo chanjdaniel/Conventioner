@@ -7,6 +7,8 @@ verified: 2026-10-22
 sources:
   - wayfinding/the-order-of-the-work/02
   - wayfinding/the-order-of-the-work/03
+  - wayfinding/the-plan-uses-its-space/01
+  - wayfinding/the-plan-uses-its-space/02
   - E18/F01/S01
   - E18/F04/S01
   - E23/F01/S01
@@ -19,6 +21,7 @@ sources:
   - bug/25
   - bug/30
   - bug/38
+  - E23/F02/S01
 ---
 
 # Planning the market
@@ -33,6 +36,7 @@ A draft opens on Market Setup, and an address naming a tab opens that tab, so a 
 "Plan saved" appears after each edit (debounced about 0.6 s); a failed save says "Could not save the plan. Retry in a moment."
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
 Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
+The cards share rows by the design language's one rule ([a screen of cards is a two-track grid](../../design-system.md#layout)): Market Dates and Section Setup are wide, Tier Setup sits beside Location Setup, and How vendors apply beside Application form, at every width with room for two.
 The plan is the market's setup, and it settles when the market leaves Draft ([E7](#e7-edit-the-plan-after-draft)); leaving Draft asks for dates none of which has passed, a location, and tables at every tier ([the lifecycle](lifecycle.md#what-refuses-a-move)).
 
 **Task for the section:** "Your market runs on two Saturdays in October in Pier Hall, with 4 premium tables in the North Row and 6 standard tables in the South Row. Set that up."
@@ -43,7 +47,10 @@ The plan is the market's setup, and it settles when the market leaves Draft ([E7
 
 1. In "Market Dates", step months with the arrows and click days to toggle them.
 2. Expect the chosen days listed one to a row under their month, flowing in columns beside the calendar ("Sat 3 ×"), with a count ("2 market days", or "No market days yet").
-3. Remove a day with its "×" or by clicking it again; a month's name in the list shows that month on the calendar.
+3. Remove a day with its "×" or by clicking it again; a month's name in the list shows that month on the calendar, and the month on show is marked in the list.
+
+The calendar sits on the left at 360px and the list beside it takes the rest of the card; with too little room the list goes under the calendar.
+The list grows by months, a heading per month with its days a row each, flowing in columns no taller than the calendar, so twenty dates fill the room beside it rather than running below it, and every year stays in view where a market crosses one.
 
 Dates are a calendar with the market's days marked because it reads the same for a two-day market and a twelve-day one, and leaves no native date input whose popup has to be placed.
 Dates are calendar days and must show as the same day in every time zone; a calendar does month arithmetic, the likeliest place to read a day as an instant, which `date-display-timezone.spec.ts` guards.
@@ -130,6 +137,7 @@ Covered by: `the-words-say-what-is-true.spec.ts` ("the plan says what the applic
 - Market Setup was to stay editable past Draft, its cards simply no longer gated (wayfinding/the-order-of-the-work/02); the setup settles on leaving Draft ([E7](#e7-edit-the-plan-after-draft), E31/F01).
 - Each card was to take the page's full width; the cards share rows in a grid, and only the dates and sections cards are wide (E23/F01/S01).
 - The application form was to be built in a gated card on this page, and opening applications to be the page's last section (wayfinding/the-order-of-the-work/02); the form is built on its own tab, in steps (E33/F01), the plan's card only says whether it can be built ([E8](#e8-application-form-readiness)), and the move out of Draft is the rail's main button (E31/F02).
+- The chosen days were to be chips, one line per month (wayfinding/the-plan-uses-its-space/02); each day is a row under its month, the months flowing in columns beside the calendar (E28/F01/S01).
 - Within Draft the market was to open at its earliest incomplete stage, the plan and then the form (wayfinding/the-order-of-the-work/03); a draft opens on Market Setup, whose form card says when the form can be built.
 
 ## The rules it obeys

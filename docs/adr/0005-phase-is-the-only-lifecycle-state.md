@@ -38,6 +38,8 @@ And the setup wizard ended in Assign and Done without moving the phase, so after
 - **`archived` means one thing: finished.** Every edge into it means "this market is over"; `draft -> archived` is abandoning a draft, never publishing it, and nothing leaves `archived`, nor changes inside it ([an archived market is read-only](../business/rules/an-archived-market-is-read-only.md)).
 - A market leaves `draft` for its lifecycle by `draft -> applications_open`, guarded by `FormHasFieldsGuard` and the setup's three.
 - The organizer navigates the phase, not a wizard: the plan is one editable page, Assign is an operation inside `assignment` rather than a move, and the moves are on [the phase rail](../implementation/modules/phase-rail.md).
+- **Assign is an operation inside `assignment`, not a move.**
+  Entering `assignment` is the gate (its entry invariant `_ALL_REVIEWED`), and entering `market_days` asks that a run is stored (`_ASSIGNMENT_COMPUTED`), so between the two the run is a button the organizer may press again ([Assign runs only in assignment](../business/rules/assign-runs-only-in-assignment.md)).
 
 ## Consequences
 
@@ -47,6 +49,9 @@ And the setup wizard ended in Assign and Done without moving the phase, so after
   Neither has a boot marker: a market left behind fails loudly at its check-in URL, which is not the invisible hazard the marker exists for.
 - `offers` stays in the phase set, off the rail's spine, until post-MVP offers are built; nothing reaches it.
 - A new lifecycle fact is a phase or a guard in [`guards.py`](../implementation/modules/guards.md), never a flag beside `phase`; a fact the phase cannot hold, such as how vendors reach a market or whether results are published, is its own field with its own writer.
+- **A move confirms exactly when it cannot be undone**, and which moves those are is derived from `VALID_TRANSITIONS` (a phase with no edge back), never listed: today `market_days` and `archived` (`transitionNeedsConfirmation` in `front-end/src/utils/phase.ts`).
+  Adding a reverse edge stops a move confirming with no other change.
+  The publish confirmation says what cannot be taken back: the check-in page goes on the air.
 - How far a market got is the [phase record](../implementation/modules/phase-record.md), a log the one phase writer pushes, never a second field.
 
 ## Considered and rejected
@@ -54,6 +59,7 @@ And the setup wizard ended in Assign and Done without moving the phase, so after
 - **Renaming `archived` to read as "published"**: the lifecycle would still have one value for two opposite states, and the glossary would have to define "publish" as a synonym for "archive".
 - **A new "published" phase**: `market_days` already meant it; un-stranding it was one edge, where a new phase meant a new guard table and a migration of the phase vocabulary.
 - **The wizard driving the phase**, finishing a step advancing it: the wizard's pages had no order the data needed, and a second model of the lifecycle is what disagreed with the first.
+- **Assign as the side effect of `review -> assignment`**: the move would have to be once-only, leaving no fresh run after a plan change, or re-firable, a move into the phase the market is already in.
 
 ## Superseded
 

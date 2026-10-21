@@ -55,7 +55,7 @@ _Avoid_: Draft (a phase), suggestion, guess
 ### Applying
 
 **Applicant**:
-A vendor-to-be who has applied to a market. Keyed by email and named by their full name, and authenticated separately from organizers via an emailed login code. The email is the identifier the system matches on; the name is what people read.
+A vendor-to-be who has applied to a market. Keyed by email and called by the name they chose, and authenticated separately from organizers via an emailed login code. The email is the identifier the system matches on; the name is what people read.
 _Avoid_: User (means an organizer), vendor (means an applicant who has been assigned)
 
 **Application**:
@@ -69,10 +69,13 @@ _Avoid_: Required field (custom fields can be required too)
 See [Essential question](docs/business/concepts/essential-question.md).
 
 **Full name**:
-What a vendor is called. One field, never split into first and last - the names organizers already collect arrive whole, and splitting them means guessing. Asked by every market, unconditionally: unlike every other essential question, it does not depend on the market plan offering anything. A person's name, not a trading name.
+The name on a vendor's identification, and what they are called unless they give a preferred name. One field, never split into first and last - the names organizers already collect arrive whole, and splitting them means guessing. Asked by every market, unconditionally: it does not depend on the market plan offering anything. A person's name, not a trading name.
 
 **Offering**:
 The set of choices an essential question presents, derived from the market's own plan - its dates, its sections, its table types. Frozen onto the form when the first applicant answers, so later plan edits cannot move the questions under them.
+
+**Preferred name**:
+The name a vendor chooses to be called. Asked of every vendor beside their full name and never required; where given, it is the name every screen leads with.
 
 **Required answer**:
 An answer the applicant cannot submit the form without. A property of the question, enforced at the applicant's keyboard. Says nothing about whether anyone reads it afterwards.

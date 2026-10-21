@@ -5,6 +5,7 @@ describes:
   - back-end/assignment/made_from.py
 verified: 2026-10-22
 sources:
+  - wayfinding/the-assignment-tab/03
   - E22/F03
   - E22/F03/S01
   - E22/F03/S02
