@@ -6,7 +6,7 @@ describes:
   - back-end/api/markets.py#admin_actions_refusal
   - back-end/tests/test_what_a_role_may_change.py
   - back-end/utils/identity.py
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01

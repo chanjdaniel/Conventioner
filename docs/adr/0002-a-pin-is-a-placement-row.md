@@ -3,7 +3,7 @@ layer: implementation
 kind: adr
 describes:
   - back-end/datatypes.py#VendorAssignmentResult
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/readable-journey/08
   - E11

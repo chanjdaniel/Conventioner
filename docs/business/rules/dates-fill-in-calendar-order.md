@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/assignment/assignment.py#MarketAssignment.assign
   - back-end/assignment/assignment.py#MarketAssignment.sort_vendors
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - bug/39
   - known-gap/1

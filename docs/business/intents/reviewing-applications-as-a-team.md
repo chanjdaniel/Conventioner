@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: intent
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E19/F03
   - E33/F03

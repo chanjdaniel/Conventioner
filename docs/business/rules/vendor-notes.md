@@ -6,7 +6,7 @@ describes:
   - back-end/api/markets.py#get_vendor_notes
   - back-end/api/markets.py#save_vendor_note
   - back-end/api/markets.py#mark_vendor_request_handled
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/what-to-show-and-when/03
   - wayfinding/what-to-show-and-when/map

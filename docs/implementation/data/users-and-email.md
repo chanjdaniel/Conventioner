@@ -7,7 +7,7 @@ describes:
   - back-end/api/users.py#ensure_user_indexes
   - back-end/app.py#verify_user_indexes
   - back-end/migrations/migrate_user_emails.py
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E32/F03/S04
 ---

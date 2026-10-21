@@ -7,7 +7,7 @@ describes:
   - back-end/api/applications.py#CLAIM_LEASE
   - back-end/api/applicants.py#review_selection
   - front-end/src/utils/reviewClaims.ts
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - brain-dump/2026-10-19#11
   - brain-dump/2026-10-19#23

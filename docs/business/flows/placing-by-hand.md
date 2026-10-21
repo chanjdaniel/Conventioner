@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/components/PlacementDialog.vue
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - brain-dump/2026-10-19#30
   - wayfinding/claims-and-room/05
