@@ -46,7 +46,7 @@ A CSV market's vendors apply on the organizer's own Google Form, so nothing it s
 A per-screen sentence about the phase is how the rail, the bar's dot and the landing page used to disagree about where a market is.
 The rail ([the phase rail](phase-rail.md)), the bar, the page row and `MarketLanding` all read this table.
 
-**Intake mode is read the server's way**: `intakeModeOf` takes an absent mode as CSV, so the applicant surface fails closed on screen as on the server.
+**Intake mode is read the server's way**: `intakeModeOf` takes an absent mode as CSV, so the applicant surface fails closed on screen as on the server ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)).
 
 ## Why
 

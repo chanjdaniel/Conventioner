@@ -188,8 +188,9 @@ It must never be set on a deployed build.
 | `TYPESAFE_API_KEY` | A TypeSafe API key ([console](https://console.typesafe.ai)). When an organizer starts a market from their Google Form's responses CSV, the proposal asks TypeSafe's Jev model two questions the rules leave: whether a trailing optional column is a question or a column the organizer's team added, and what ceiling on days per vendor a heading states in words the rules cannot read. | Nothing breaks: the rules alone decide, and those rows are left for the organizer to check. |
 
 It is not a boot requirement, and a blank or placeholder value counts as unset (`back-end/utils/configured_secret.py`).
-What a request sends is one column and never a row: the column's heading, and either the answers at least 3 distinct applicants gave (most common first, at most 10, none holding an email, link, handle or phone number) or a shape computed on the server, such as "prose, around 80 characters".
-A ceiling question sends one sentence of one heading.
+What a request sends is one column and never a row, and never an answer: the column's heading, how many rows answered it, how many answers are distinct, and a shape computed on the server, such as "prose, around 80 characters" ([ADR 0007](adr/0007-what-may-be-sent-to-hosted-typesafe.md)).
+A ceiling question sends one heading's text.
+A heading that holds an email, link, handle or phone number is not sent.
 The upload step tells the organizer this in one line, shown only when the key is set.
 A failure, a rate limit or a wait past 5 seconds leaves the rules' answer, marked "Couldn't reach TypeSafe".
 

@@ -30,7 +30,7 @@ A verdict is Editor's (E34/F01/S01): reviewers decide applications, and a verdic
 | --- | --- |
 | Viewer | read the market, its applications and its result |
 | Editor | everything a Viewer may, and the plan, the form, placements, highlights, automatic rejections, verdicts, follow-ups, vendor notes, check-ins at the door |
-| Admin | everything an Editor may, and phase moves, publishing results, importing, the CSV start, the form amendment; manage editors and viewers |
+| Admin | everything an Editor may, and phase moves, publishing results, importing, the CSV start, [the form amendment](../../implementation/modules/form-amendment.md); manage editors and viewers |
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
 **Organization membership gives only Viewer on its markets**, even to the organization's owner and admins; anyone who changes a market, a door volunteer included, needs a role on that market (Manage market).
