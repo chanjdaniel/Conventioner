@@ -91,8 +91,8 @@ The runbooks, `TESTING.md`, `TECH_STACK.md`, `design-system.md` and the corpus R
 
 | Command | Does |
 | --- | --- |
-| `python3 scripts/knowledge_graph.py check` | The frontmatter, every link and `#fragment`, the folder rules, that every node and hub is reachable from `README.md` or `AGENTS.md`, and that every cross-layer link is answered. Exits 1 on any error; CI runs it on every push and pull request. |
-| `python3 scripts/knowledge_graph.py drift --base origin/dev` | Warns for each node whose described code changed while the node did not. CI runs it on every pull request, and it fails the job. |
+| `python3 scripts/knowledge_graph.py check` | The frontmatter, every link and `#fragment`, the folder rules, that every node and hub is reachable from `README.md` or `AGENTS.md`, and that every cross-layer link is answered. Exits 1 on any error; CI runs it on every push and pull request, in `knowledge-graph`, a required check. |
+| `python3 scripts/knowledge_graph.py drift --base origin/dev` | Warns for each node whose described code changed while the node did not. CI runs it on every pull request as its own job, `knowledge-graph-drift`, which fails on a warning but is not required: for the next 10 PRs from 2026-10-22, then it is re-judged with the close-out's replay. |
 | `python3 scripts/knowledge_graph.py stale` | Nodes not verified for 60 days whose described files have changed since. |
 | `python3 scripts/knowledge_graph.py ids` | Work-item ids cited in the repo that no node's `sources` covers. |
 
