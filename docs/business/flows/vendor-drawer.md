@@ -44,5 +44,6 @@ Covered by: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.sp
 - [Adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md): who added them, in place of a verdict.
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): the All view's verdicts leave the drawer when the review closes.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).
+- [Vendor notes](../rules/vendor-notes.md): the request, the note and the sheet's line, each under its own label.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

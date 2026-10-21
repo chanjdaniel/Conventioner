@@ -9,6 +9,8 @@ describes:
   - front-end/src/utils/applicantOutcome.ts
 verified: 2026-10-22
 sources:
+  - wayfinding/rejection-visibility/01
+  - wayfinding/rejection-visibility/02
   - wayfinding/rejection-visibility/map
   - E36/F05
   - E36/F05/S01
@@ -26,7 +28,7 @@ Applying, and changing one's answers, is open only while the market is in `appli
 
 An organizer must not leak a half-finished review, and must keep the freedom to change their mind until anyone is told.
 The automatic rules judge an application in the request that saves it, so a status beside "Submitted" told an applicant a rule had rejected them the moment they submitted, and editing their answers flipped it back (E36/F05/S01).
-Publication is the single, deliberate moment anything more is told ([Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md)).
+Publication is the single, deliberate moment anything more is told ([Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md)); why the seat and not the verdict is what an applicant reads is [ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md).
 
 **The outcome is read off the stored seats, never the verdict** (E36/F05/S02).
 A rejected applicant seated by hand has a table, and an approved one the run could not place has none; so rejected and approved-without-a-seat read the same, and no reason is given to either.
@@ -44,3 +46,7 @@ A stranger applying to a closed market stays wrong, so the save refuses outside 
 - The words are [`front-end/src/utils/applicantOutcome.ts`](../../../front-end/src/utils/applicantOutcome.ts), which only words what the server decided.
 - The save's phase refusal is `save_applicant_application`, behind [the gate](a-gated-market-answers-as-absent.md) that serves a form market in every phase but draft.
 - `back-end/tests/test_applicant_publication_gate.py`, `front-end/e2e/vendors-see-their-application-after-close.spec.ts` and `front-end/e2e/results-wait-for-the-allocation.spec.ts` pin it.
+
+## Superseded
+
+- Three outcomes after publishing, "Not accepted" beside a table and none, with "You declined" for a vendor who turned an offer down, answered first and replaced the same day: nothing can produce a decline today, so there are two (wayfinding/rejection-visibility/02).

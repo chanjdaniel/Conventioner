@@ -6,6 +6,9 @@ sources:
   - wayfinding/readable-journey/06
   - wayfinding/the-order-of-the-work/01
   - wayfinding/the-order-of-the-work/map
+  - wayfinding/what-to-show-and-when/01
+  - wayfinding/what-to-show-and-when/02
+  - wayfinding/what-to-show-and-when/map
   - E03
   - E26
   - E31/F01/S01
@@ -67,6 +70,28 @@ On the Google Form path, Begin Review from Import is one move through `applicati
 
 "Send Offers" is never offered: Offers is a planned phase off the rail, which draws it only for a market actually in it.
 
+## What the rail says
+
+One sentence per phase and path names the one next step and links to the page where it is done ([the market guide](../../implementation/modules/market-guide.md)).
+When the server would refuse that step, the sentence is its first blocker instead, so the organizer reads what is wrong before trying.
+
+| Phase | Online path | Google Form path |
+| --- | --- | --- |
+| Draft | "Plan the market and its application form, then open applications." | "Plan the market, from your Google Form's responses or by hand, then import the responses." |
+| Applications Open / Import | "Applications are open on your application page. Review them as they arrive, and close applications when you stop taking them." | "Import your Google Form's responses, then begin review." |
+| Applications Closed / Imported | "Applications are closed. Finish deciding, and begin review once no more are coming; until then you can still reopen." | as Import |
+| Review | "Nothing more is coming in. Every application is decided: begin assignment." | "Every imported response is here. Every application is decided: begin assignment." |
+| Assignment, nothing run | "Set the rules and run the assignment." | as the online path |
+| Assignment, run | "Check the result, then publish the market: that puts the check-in page up, and cannot be undone." | as the online path |
+| Assignment, results published | "Results are published, so the result is settled. Publish the market to put the check-in page up; that cannot be undone." | none: nothing is published to applicants |
+| Market Days | "Check vendors in at the door.", and once every date has passed "The market has run. Archive it to keep it as the record of what happened." | as the online path |
+| Archived | "Archived: the record of what happened stays on its check-in page." for a market that ran, else "Archived: this market is the record of what happened." | as the online path |
+
+Every tab stays on the bar from Draft to the end, on both paths.
+A tab whose page has no work yet says when it will: Applications in Draft ("Applications arrive here once they open.", or on the Google Form path "Import opens once the market leaves draft."), and Attendance until the market is published ("Opens when the market is published.").
+Result and Vendors say "Nothing assigned yet." until a run is stored ([the assignment and its result](assignment-and-result.md)).
+The setup, the form and the assignment rules each say they are settled where they are edited, in the server's own words.
+
 ## What refuses a move
 
 Each refusal is a blocker line under the rail and beside the move, before the click.
@@ -111,6 +136,8 @@ The assignment rules (priority and options) and Assign belong to the Assignment 
 ## Superseded
 
 - Every earlier stage was to stay editable in later phases, the plan included (wayfinding/the-order-of-the-work/01); the setup settles on leaving draft instead ([the setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md), E31/F01).
+- The Google Form path was to say "Start Collecting" and "Done Collecting" and stop in Applications Open and Applications Closed, with Import still open in both (wayfinding/what-to-show-and-when/02); it stops in Import, leaves Draft with "Import responses" and steps through Applications Closed into Review (E32/F02/S01).
+- Every tab out of its phase was to carry a read-only line of its own, such as "Fixed when applications opened" on Market Setup and "Decided; the assignment works from these" on Applications (wayfinding/what-to-show-and-when/02); the phase alone gives a line only to Applications and Attendance, and the locks the server owns say so where they apply.
 
 ## The rules it obeys
 

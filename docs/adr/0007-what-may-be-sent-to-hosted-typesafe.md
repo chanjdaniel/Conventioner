@@ -10,7 +10,10 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/the-form-started-from-a-csv/01
+  - wayfinding/the-form-started-from-a-csv/02
+  - wayfinding/the-form-started-from-a-csv/03
   - wayfinding/the-form-started-from-a-csv/04
+  - wayfinding/the-form-started-from-a-csv/map
   - E24/F02/S03
 status: accepted
 ---
@@ -56,3 +59,11 @@ The tickets are the form-started-from-a-CSV map's, named in `sources`.
 - **The values several applicants share (ticket 01's own allowance)**: safe by uniqueness, but unmeasured at the threshold the answers are taken at.
 - **A local model**: Kev-0.8B, the best, lifted the ceiling question to 90% but needed 4.5 to 5.4 GB beside the back end; it is the pick should one be wanted.
 - **TypeSafe required**: nothing it helps with is worth refusing to boot, and the rules alone are a complete proposal.
+
+## Evidence
+
+Every column of the five exports was profiled in aggregate, no value printed: the direct identifiers (names, emails, Discord, business names, social links, per-second timestamps), the Drive links to proof of affiliation, the partners' addresses, the free text and the organizers' notes were each 0.91 to 1.00 unique, and only 7 to 16 values a column carried an `@`, so uniqueness separates them where patterns do not; option columns were 0.00 to 0.03 unique.
+TypeSafe's own terms, checked against its documentation, give no fixed retention period and a perpetual right to derive telemetry from what it is sent, zero retention only for enterprise customers; its SDKs were two weeks old and pre-1.0.
+The rules alone left two judgements: on wordings written blind by a session that never saw them, a team's column after the questions was told from a question 70% of the time, and a ceiling in prose read 50%.
+On the held-out third, judged once at thresholds frozen beforehand, hosted Jev took them to 85% and 95%, added no costly error there or on the corpus's real headings, and answered a file's few questions in about a second, at a small fraction of a cent.
+The local candidates either added nothing (Laya, whose own base checkpoints are near chance zero-shot) or helped only past the budget set in advance: Kev-0.8B and decider-2b lifted the ceiling to 90% in 3.7 to 5.4 GB of memory, and SemIf on a 4B model took about 30 seconds a file.

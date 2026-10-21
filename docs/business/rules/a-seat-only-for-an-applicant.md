@@ -8,6 +8,7 @@ describes:
   - front-end/src/utils/placementChange.ts#notApprovedWarning
 verified: 2026-10-22
 sources:
+  - wayfinding/rejection-visibility/02
   - E36/F02/S01
   - E36/F02/S02
   - E36/F02/S03
@@ -25,6 +26,7 @@ An application is what gives a seated vendor all three, so a vendor who never ap
 
 The review governs the run, not the organizer's hand.
 An applicant the review left out is one deliberate, warned pick away, because an override is a decision the organizer is allowed to make.
+It is also how a verdict found wrong after the review settled is answered: with a seat, never by changing the verdict ([ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md)).
 
 ## What the organizer sees
 
