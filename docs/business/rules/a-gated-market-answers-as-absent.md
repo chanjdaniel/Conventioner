@@ -31,6 +31,8 @@ sources:
 A market whose applicant surface is closed (a CSV market in any phase, or any market still a draft) answers every applicant request exactly as a market that does not exist.
 **Never add a "not accepting applications online" message: it confirms to any stranger guessing slugs that the market is real.**
 
+**Serves:** [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md).
+
 ## Why
 
 Between a stranger learning nothing and a stranger learning that an organizer they have never met is running a market, the product takes the first.

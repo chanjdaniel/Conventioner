@@ -22,6 +22,7 @@ sources:
 
 **Who:** the market's Editor, Admin or owner; the questions while the market is a draft and nobody has applied, the review setup longer.
 **Where they start:** the Application Form tab, called "Questions" on a market whose vendors apply on the organizer's own Google Form ([`MarketFormTab.vue`](../../../front-end/src/components/market/MarketFormTab.vue)).
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md), [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md) and [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
 The tab is a sequence of steps, each with the page's whole width, under a step header ("Application form setup", or "Questions setup" on the Google Form path) with "Back" and "Next" below each step:
 

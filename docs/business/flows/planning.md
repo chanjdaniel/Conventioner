@@ -29,6 +29,7 @@ sources:
 
 **Who:** the market's Editor, Admin or owner, while the market is a draft.
 **Where they start:** Market Setup, the page a draft opens on ([`MarketPlanTab.vue`](../../../front-end/src/components/market/MarketPlanTab.vue)).
+**Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
 Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, How vendors apply, and Application form.
 The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.

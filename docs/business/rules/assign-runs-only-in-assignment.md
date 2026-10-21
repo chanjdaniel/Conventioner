@@ -17,6 +17,8 @@ sources:
 The assignment runs in the `assignment` phase and nowhere else; anywhere else the run is refused with a 409 whose words name what the organizer can do from where they are.
 Inside `assignment` it may be run again as often as needed, until results are published.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md), [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
+
 ## Why
 
 Before `assignment` the review is not finished, so a run would place vendors who may yet be rejected.

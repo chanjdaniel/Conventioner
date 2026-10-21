@@ -19,6 +19,8 @@ sources:
 A seat goes only to someone with an application in the market: a placement or a swap naming anyone else is refused, with "Add them as a vendor first".
 Within that, anyone may be pinned: an applicant the review did not approve is offered too, under a warning, and held in that seat.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## Why
 
 A typed address used to take a seat with no name, no answers and nothing in the vendor drawer.

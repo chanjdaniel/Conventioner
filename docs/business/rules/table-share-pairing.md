@@ -22,6 +22,8 @@ sources:
 Two applicants share a table when one names the other and both accept a half table.
 One-way is enough, a person's own request outranks one about them, and an answer naming several addresses names the first that belongs to an applicant.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## The rule
 
 - **Both must exist**, identified by address, and both must accept a half table: half or either, never a whole table only.

@@ -17,6 +17,8 @@ sources:
 Nothing in an archived market can be changed, by anyone, whatever their role: its plan, form, applications' verdicts, seats, highlights, rules and phase are the record of what happened.
 Who may see the record, and whether to keep it, are still decided: roles change and the market may be deleted.
 
+**Serves:** [The door on market day](../intents/the-door-on-market-day.md).
+
 ## Why
 
 An archived market is finished ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), and one that ran keeps its check-in page as the record of its market days.

@@ -23,6 +23,7 @@ sources:
 
 **Who:** the market's Admin or owner archives it and manages who has access; only the owner deletes it ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the phase rail, to archive; the Markets list's "Manage", to manage, rename or delete ([finding a market](finding-a-market.md#c2-the-markets-list)).
+**Serves:** [The door on market day](../intents/the-door-on-market-day.md) and [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 A market ends by being archived, after its market days or before it ever runs, or it is deleted outright.
 Managing it is the "Manage market" dialog ([`ManageMarketOverlay.vue`](../../../front-end/src/views/ManageMarketOverlay.vue)), which names the market and holds its people, its organization, its name and its deletion.

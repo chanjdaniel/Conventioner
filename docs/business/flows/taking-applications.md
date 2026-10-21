@@ -19,6 +19,7 @@ sources:
 
 **Who:** the market's Admin or owner, who moves the market on the phase rail ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the phase rail of a market whose vendors apply on its own page.
+**Serves:** [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md) and [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
 These are the online path's moves ([the online path](the-online-path.md)): its applications open, close and reopen.
 A market whose vendors apply on the organizer's own Google Form leaves Draft with "Import responses" instead, which lands on [the import](import.md), and has no Close or Reopen Applications ([the Google Form path](the-google-form-path.md)).

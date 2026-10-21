@@ -28,6 +28,7 @@ sources:
 A path is one way of running a market from start to finish; this one is for an organizer whose vendors apply on the organizer's own Google Form, so the market's applications come in as that form's exported responses.
 **Who:** the organizer, signed in, in an organization.
 **Where they start:** the Markets list.
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md) and [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
 The path reads Draft, Import, Review, Assignment, Market Days, Archived on the phase rail ([the lifecycle](lifecycle.md)): the organizer already holds the responses when the market leaves draft, so the upload is the collection, and nothing asks them to open or close applications.
 "Import responses" leaves draft and lands on the import, Begin Review waits until something has been imported, and a late export is brought in with "Import more responses" from Review, every verdict kept ([review needs an import](../rules/review-needs-an-import.md)).

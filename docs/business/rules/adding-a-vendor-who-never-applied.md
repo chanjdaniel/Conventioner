@@ -17,6 +17,8 @@ sources:
 From the assignment on, an organizer may add a vendor who never applied, by name and address; the vendor is stored as an approved application stamped with who added them and when, is never placed by the run, and is seated by hand.
 An address the market already holds an application for is refused: that vendor is seated on the Result page instead.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [The door on market day](../intents/the-door-on-market-day.md).
+
 ## Why
 
 A walk-in or a late arrangement was once seated by typing an address into a seat: no name, no answers, nothing in the vendor drawer.

@@ -35,6 +35,7 @@ sources:
 
 **Who:** the market's Editor, Admin or owner gives verdicts; a Viewer reads the queue with Next and decides nothing; moving the market (I4 to I6) is an Admin's ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Applications page.
+**Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
 
 Verdicts are open from the first application until the market enters Assignment, so reviewing can start as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
 A line above the review says where the market stands, in words: in Review "N applications still to decide. Every one must be decided before this market can assign." or "Every application has been decided. This market is ready to assign."; from Assignment on "The review is closed: every verdict settled when the assignment began. …".

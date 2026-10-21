@@ -22,6 +22,7 @@ sources:
 
 **Who:** the market's Admin or owner publishes; an Editor checks vendors in at the door; a vendor, with no account, looks up their table and checks themselves in.
 **Where they start:** the phase rail in Assignment; on the day, the organizer on the Attendance tab and the vendor at the check-in link the organizer shares.
+**Serves:** [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md) and [The door on market day](../intents/the-door-on-market-day.md).
 
 Publishing puts the market's check-in page on the air; from then on the market is in Market Days, and the door is two pages over one roster of who is placed where: the vendor's own check-in page ([`AttendanceCheckinView.vue`](../../../front-end/src/views/AttendanceCheckinView.vue)) and the organizer's Attendance ([`AttendanceStatusView.vue`](../../../front-end/src/views/AttendanceStatusView.vue)).
 Both read the stored assignment, so a vendor placed, swapped or freed by hand is sent where they were put; how the door works is [attendance and the door](../../implementation/modules/attendance-and-door.md).

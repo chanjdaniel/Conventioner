@@ -24,6 +24,8 @@ sources:
 An applicant's own page reads "Submitted" until the organizer publishes results, whatever review has decided; after that it reads "You have a table", with their seats, or "You did not get assigned", and never a verdict or a reason.
 Applying, and changing one's answers, is open only while the market is in `applications_open`; reading one's application is open in every phase but draft.
 
+**Serves:** [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
+
 ## Why
 
 An organizer must not leak a half-finished review, and must keep the freedom to change their mind until anyone is told.

@@ -13,6 +13,7 @@ sources:
 
 **Who:** an organizer; what each can change depends on their role in the organization.
 **Where they start:** the dashboard's "Organizations", the navigation menu, or `/organizations`.
+**Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 A market must belong to an organization, and its organization never changes after creation.
 An organization's people are its Owner, its Admins and its Members; only the owner renames it or adds an admin, the owner or an admin adds a member, and the owner removes anyone but themselves while an admin removes only members ([the organization document, and roles](../../implementation/data/organization-document.md#the-organization)).

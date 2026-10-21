@@ -21,6 +21,8 @@ A vendor is given dates up to the lower of the organizer's ceiling and their own
 With neither a ceiling nor a personal limit ([what an import may leave unasked](what-an-import-may-leave-unasked.md)), they may take every date they can attend.
 A pinned vendor's pins count against their own ceiling, since each occupies a real date.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## Why
 
 A hard-coded `MAX_VENDING_DAYS = 4` used to win everywhere: the screen rendered the setting, clamped it to the market's date count and saved it, and the solver never read it, so an organizer could set six, watch it save, and get four.

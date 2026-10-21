@@ -25,6 +25,8 @@ sources:
 Every market takes its vendors one way, its intake mode: `csv`, imported by the organizer from the responses their own Google Form collected, or `form`, applying on the market's own page; exactly one, chosen when the market is created and fixed once it leaves draft.
 The mode decides who fills the application form in, never whether there is one, and never who may check in on the day.
 
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md) and [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md).
+
 ## Why
 
 The phase cannot say this: a CSV market passes through `applications_open` too, because that is where its import happens, so without a mode its public application form would be live and taking applications from strangers the organizer has no way to answer.
