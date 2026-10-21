@@ -9,6 +9,7 @@ sources:
   - E11
   - E11/F02/S01
   - E11/F02/S02
+  - E21/F03
 status: accepted
 ---
 
@@ -41,3 +42,8 @@ Two records could disagree, and the failure of disagreement is a vendor pinned t
 - A pin the plan can no longer hold is orphaned, never deleted, and blocks the next move into `assignment` or `market_days` until it is re-placed or freed.
 - Every hand placement and both sides of a swap are flagged, so a re-run keeps them all.
 - The single writer, the held seat and the orphan check are described in [placements](../implementation/modules/placements.md); the trail of who pinned whom is [the placement history](../implementation/data/placement-history.md).
+- The seats are changed on the screen that shows the free ones (the Result page), and a vendor's own panel is the door to it: every edit asks "where can they go", which only the tables can show.
+
+## Superseded
+
+- The stored assignment was to be kept safe from a stale whole-market PUT by joining the server-owned fields that PUT re-applied from the stored market (wayfinding/readable-journey/08); the whole-market PUT is deleted, and each write names what it changes ([ADR 0008](0008-each-write-names-what-it-changes.md), E21/F03).

@@ -93,6 +93,7 @@ The guards are where the product's rules about moving a market are kept:
 - [Publish Results waits for the allocation](../../business/rules/publish-results-waits-for-the-allocation.md): `ResultsPublishedGuard`, an entry invariant on `market_days`.
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): `NoApplicationsYetGuard` keeps the way back to draft from being a hole in the lock.
 - [An archived market is read-only](../../business/rules/an-archived-market-is-read-only.md): no edge leaves `archived`.
+- [Why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md): `NoAskedForTierWithoutTablesGuard` refuses `review -> assignment` while an approved applicant waits on a tier with no tables.
 
 [ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md) records why the phase is the market's only lifecycle state.
 

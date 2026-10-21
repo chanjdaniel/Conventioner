@@ -19,6 +19,8 @@ verified: 2026-10-22
 sources:
   - wayfinding/real-market-readiness/map
   - wayfinding/claims-and-room/map
+  - wayfinding/readable-journey/06
+  - wayfinding/readable-journey/map
   - E29
   - E29/F01/S01
   - E29/F01/S02

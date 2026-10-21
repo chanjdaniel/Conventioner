@@ -9,8 +9,11 @@ describes:
   - front-end/src/views/MarketLanding.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/readable-journey/map
+  - wayfinding/the-assignment-tab/01
   - wayfinding/the-market-frame/03
   - wayfinding/the-assignment-tab/02
+  - wayfinding/the-assignment-tab/map
   - E21/F02/S02
   - E22/F04/S02
 ---
@@ -37,7 +40,7 @@ The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/route
 ## Old addresses
 
 - `setup?tab=<page>` lands on the page it named, keeping the rest of its query.
-- `/markets/:marketId/tables` redirects to `result`, with its filters.
+- `/markets/:marketId/tables` redirects to `result`, with its filters: the Tables screen became the Result page ([the assignment and its result](../../business/flows/assignment-and-result.md)).
 - `/floorplan-editor?marketId=` opens that market's floorplan flow.
 - The id-less paths (`/market-setup`, `/vendors`, `/import-applications`, `/floorplan-editor` with no id, `/assignment-results`) redirect to `/markets`: they never held an id to preserve.
 
@@ -54,3 +57,7 @@ A transition guard's `resolution_link` (in [`back-end/guards.py`](../../../back-
 - A new market page added without its route, so it cannot be bookmarked.
 
 What an organizer sees of the addresses, from the Markets list to an old bookmark, is [finding and opening markets](../../business/flows/finding-a-market.md).
+
+## Superseded
+
+- Addressing market screens by the market's id was ruled out of scope, with a guard on the screens that read no market instead (wayfinding/readable-journey/map); every market screen is addressed by its id (wayfinding/the-market-frame/03, E21/F02/S02).

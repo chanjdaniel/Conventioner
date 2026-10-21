@@ -10,6 +10,7 @@ describes:
   - back-end/app.py#import_applications
 verified: 2026-10-22
 sources:
+  - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/04
   - wayfinding/v0-1-0/05
@@ -19,6 +20,7 @@ sources:
   - bug/5
   - bug/34
   - bug/42
+  - bug/27
 ---
 
 # The CSV import
@@ -59,12 +61,23 @@ A row without one gets the import's moment, so the screen warns when the market 
 **Values are matched forgivingly, once.**
 Surrounding space and capitals match silently; anything else is shown once per distinct value and settled by hand, and those settlements (`resolutions`) are saved with the mapping.
 One question may be one column or, for a Google Forms checkbox grid, one column per option; both import to the same stored answer.
+Values are offered and compared in the organizer's words, never the stored ones: a date reads as a date, and a table choice as its label rather than its code.
+
+**A grid is never split; one column is split where the comma is not inside an option.**
+A grid carries its option in each column's heading, so a cell is never cut up; a checkbox question in one column holds its chosen options joined by commas, and an option may hold a comma of its own.
+`split_options` takes every known option (what the question offers, and every value already matched) whole wherever its pieces appear, the longest first, comparing whole pieces only, so "Gold" never matches inside "Gold Plus"; otherwise a comma inside parentheses, or after a weekday that a day of the month follows, belongs to the option (bug 27).
+What no reader can settle is an option made of others ("Prints, Cards" offered beside "Prints" and "Cards"): `comma_bearing_targets` names such targets, and the mapping step warns when one column is mapped to one ("One column cannot answer … reliably"), since Google threw away which commas separated answers.
+It warns and does not refuse: any value still unmatched must be settled by hand before the preview, so nothing wrong is imported either way, and refusing would strand an organizer whose only copy of the answers is that file; their real fixes are a grid, or renamed options.
 
 **There is one mapping format**, `mapping_payload`: targets by header TEXT, never position, with the file's headers, the resolutions, when, and who made it (`madeBy`: the import, or the start from a CSV).
 The import saves it on the market's `importMapping` after every import (`save_mapping`), and the next `inspect` restores it with `restore_mapping`; a target whose headers are not all present is reported as missing rather than half-restored, because a partly mapped grid looks answered.
 The start from a CSV writes the same format, so the first import of a later export opens with every column restored and every value matched ([the CSV proposal and start](csv-proposal-and-start.md)); do not give anything a mapping shape of its own.
 
 **After the writes, the automatic rejection rules judge** what the import wrote and anything else undecided, and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note (`back-end/vendor_notes.py`).
+
+## Superseded
+
+- Matching answers against the offering before splitting a column was rejected, for a warning alone (wayfinding/readable-journey/05); since a split cut options with commas in half, known options are taken whole first, comparing whole pieces so one name inside another never matches, and the warning is left for an option made of others (bug/27).
 
 ## Why
 

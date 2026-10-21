@@ -13,6 +13,7 @@ One line per node, sorted by file name.
 
 - [A gated market answers as absent](a-gated-market-answers-as-absent.md) - a CSV market or a draft answers applicants exactly as no market at all; never a "not accepting" message
 - [A seat only for an applicant](a-seat-only-for-an-applicant.md) - a seat goes only to someone with an application; anyone may be pinned, warned, and is held
+- [A vendor is called by their chosen name](a-vendor-is-called-by-their-chosen-name.md) - the name they chose, else their full name, with their address beside it; the address alone when there is none
 - [A vendor signs in before they have applied](a-vendor-signs-in-before-applying.md) - every address is sent a code, the token names market and address, the first valid save creates the application
 - [Adding a vendor who never applied](adding-a-vendor-who-never-applied.md) - from the assignment on, added by name and address, approved, seated by hand, never in the run
 - [An applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md) - "Submitted" until results are published, then a table or none, read off the stored seats
@@ -38,3 +39,4 @@ One line per node, sorted by file name.
 - [What an import may leave unasked](what-an-import-may-leave-unasked.md) - an imported row may leave the number of dates unanswered: no personal limit
 - [What each role may do](what-each-role-may-do.md) - Viewer reads, Editor works on the market, Admin moves and publishes; served, never decided on the front end
 - [When an organization may be deleted](when-an-organization-may-be-deleted.md) - its drafts and archived markets go with it, refused while one is mid-lifecycle, recorded first
+- [Why a vendor was not placed](why-a-vendor-was-not-placed.md) - every date with no table says why, worked out on read; a tier with no tables never reaches the run

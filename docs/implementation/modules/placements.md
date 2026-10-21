@@ -15,6 +15,7 @@ describes:
   - back-end/assignment/assignment.py#held_vendors_for
   - back-end/assignment/vendor_input.py#held_solver_vendors
   - back-end/placement_reasons.py#orphaned_pins
+  - back-end/placement_reasons.py#overridden_placements
   - back-end/guards.py#NoOrphanedPinGuard
   - back-end/api/markets.py#assignment_to_show
   - back-end/api/markets.py#derive_unassigned_tables_from_rows
@@ -22,6 +23,7 @@ verified: 2026-10-22
 sources:
   - wayfinding/readable-journey/08
   - wayfinding/claims-and-room/map
+  - wayfinding/readable-journey/04
   - E10/F03/S02
   - E11
   - E11/F01/S01
@@ -77,6 +79,11 @@ A pinned vendor counts against their own ceiling and the section's half-table sh
 A pin for someone the run does not place (an applicant the review did not approve, or a vendor added by hand) is seated from `held_vendors_for` (`held_solver_vendors` in [`back-end/assignment/vendor_input.py`](../../../back-end/assignment/vendor_input.py)), read leniently since no answer of theirs decides anything.
 The seat is occupied, they are placed nowhere else, and they are never counted among the run's vendors in the statistics.
 
+**A pin that overrides an answer stands, and is marked.**
+`overridden_placements` in [`back-end/placement_reasons.py`](../../../back-end/placement_reasons.py) compares every hand placement with the vendor's own answers when the statistics are read, never when the pin is made: someone the review left out of the run first, then a date they did not offer, a tier they did not accept on a date they did offer (the one that costs money, since tier sets the price), and a table size they did not ask for.
+A solver row is never compared, since the run never contradicts an answer.
+The statistics serve the list as `overriddenPlacements`, and it is the second of the vendor date card's three states ([why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md)).
+
 **A pin the plan can no longer hold is orphaned, never deleted.**
 Deleting the section a pinned seat belongs to, or dropping its table count below the pin, leaves the row in place (`orphaned_pins` in [`back-end/placement_reasons.py`](../../../back-end/placement_reasons.py)).
 `NoOrphanedPinGuard` in [`back-end/guards.py`](../../../back-end/guards.py) refuses the moves into `assignment` and into `market_days` until the seat is restored to the plan or the vendor is moved or freed, naming each vendor and seat.
@@ -115,6 +122,7 @@ Every change here is recorded in [the placement history](../data/placement-histo
 - [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): from then on a seat placed or freed here, not a verdict, is how a review's mistake is fixed.
 - [An incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md): `run_assignment` answers it with the applicants and what each lacks.
 - [The half-table share](../../business/rules/half-table-share.md): a pin on half a table counts against it.
+- [Why a vendor was not placed](../../business/rules/why-a-vendor-was-not-placed.md): each date with no table says why, read off the placements stored here, and a pin that overrides an answer is marked.
 
 The organizer places, swaps and frees seats through these doors in [placing by hand](../../business/flows/placing-by-hand.md).
 

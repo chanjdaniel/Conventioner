@@ -8,6 +8,7 @@ verified: 2026-10-22
 sources:
   - wayfinding/real-market-readiness/03
   - wayfinding/claims-and-room/03
+  - wayfinding/readable-journey/05
   - E01/F06
   - E26/F02/S03
   - E26/F03/S01
@@ -22,6 +23,7 @@ sources:
 Such a vendor is bounded by the dates they can attend and the organizer's ceiling ([the ceiling on dates per vendor](max-assignments-ceiling.md)).
 
 Every other question the market asks is required of an import as of an applicant ([an incomplete application refuses the run](an-incomplete-application-refuses-the-run.md)).
+A question the market does not ask is no import target at all: a ranking of one section, or a question whose offering is empty, has no column to map, since a column mapped to it would be thrown away (`import_targets` reads `asked_essential_keys()`).
 A ranking or the request, on either path, can instead be switched off for the whole market, which stops it being asked at all ([essential fields](../../implementation/modules/essential-fields.md)).
 
 ## Why

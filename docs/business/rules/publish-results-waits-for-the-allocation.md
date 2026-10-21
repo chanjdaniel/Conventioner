@@ -9,6 +9,7 @@ describes:
   - back-end/app.py#publish_market_results
 verified: 2026-10-22
 sources:
+  - wayfinding/readable-journey/01
   - wayfinding/rejection-visibility/map
   - E36/F04
   - E36/F04/S01
