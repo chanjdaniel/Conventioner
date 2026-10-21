@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/assignment/assignment.py#MarketAssignment.assign
   - back-end/assignment/assignment.py#MarketAssignment.sort_vendors
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - bug/39
   - known-gap/1
@@ -31,14 +31,14 @@ Whether a market wants its vendors spread evenly, kept to consecutive days, or f
 
 ## Where it is kept
 
-The date loop is `MarketAssignment.assign` in [`back-end/assignment/assignment.py`](../../../back-end/assignment/assignment.py), and the order of the turns on each date is `MarketAssignment.sort_vendors` in the same file.
+The date loop is `MarketAssignment.assign` in [`back-end/assignment/assignment.py`](../../../back-end/assignment/assignment.py), and the order of the turns on each date is `MarketAssignment.sort_vendors` in the same file ([priority and tie-breaks](priority-and-tie-breaks.md)); the module is [the assignment solver](../../implementation/modules/assignment-solver.md).
 The usability gaps the same runs left are in [MVP_KNOWN_GAPS.md](../../MVP_KNOWN_GAPS.md#1-the-solver-fills-market-dates-in-calendar-order).
 
 ## Changing it
 
 Decide the rule first.
 Two candidates cost no vendor a date: give each vendor one date per round, choosing the date with the most free tables they can take; or keep the walk and, when a vendor can attend more dates than they want, choose among those by how full each date already is.
-Either is written first as a case in [`back-end/tests/test_assignment_behaviour.py`](../../../back-end/tests/test_assignment_behaviour.py), the solver's behavioural suite.
+Either is written first as a case in [`back-end/tests/test_assignment_behaviour.py`](../../../back-end/tests/test_assignment_behaviour.py), [the solver's behavioural suite](../../implementation/testing/assignment-behaviour-suite.md).
 Sorting the dates before the walk would make the order the calendar's whatever order they were picked in, and changes nothing else.
 
 ## Evidence

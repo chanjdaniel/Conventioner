@@ -34,5 +34,5 @@ The market read serves `addVendorReason` (the person's role and the phase in one
 
 - `POST /markets/:id/vendors` is `add_vendor` in [`back-end/api/added_vendors.py`](../../../back-end/api/added_vendors.py): a missing name or address is a 400; the wrong phase or a held address is a 409.
 - The phases are `adding_refusal` and the served reason `add_vendor_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py).
-- The run skips any application with `added_by` in `approved_solver_vendors` ([`back-end/assignment/vendor_input.py`](../../../back-end/assignment/vendor_input.py)).
+- The run skips any application with `added_by` in `approved_solver_vendors` ([`back-end/assignment/vendor_input.py`](../../../back-end/assignment/vendor_input.py), [the assignment solver](../../implementation/modules/assignment-solver.md)).
 - The stored application, its full name as the only answer and the `added_by`/`added_at` stamp are [the application document](../../implementation/data/application-document.md); the held seat is [placements](../../implementation/modules/placements.md).

@@ -15,8 +15,8 @@ A reserved number whose decision failed the bar is listed as "not written: becam
 
 - [0001: Essential fields are exactly what the solver reads](0001-essential-fields-are-the-solver-contract.md) - the essential questions are defined by the solver's inputs
 - [0002: A pin is a placement row](0002-a-pin-is-a-placement-row.md) - a hand placement is a flagged row of the stored assignment, never a separate constraint
-- 0003: reserved
-- 0004: reserved
+- [0003: Applications are the solver's only input](0003-applications-are-the-solvers-only-input.md) - no spreadsheet behind a market; one seam translates approved applications
+- [0004: A priority rule names a target](0004-a-priority-rule-names-a-target.md) - a form field or an application attribute, ordered by its own type, with no declared type
 - 0005: reserved
 - 0006: reserved
 - 0007: reserved
