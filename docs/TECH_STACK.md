@@ -141,8 +141,9 @@ How each part of the code works is in the implementation layer of the [knowledge
 - **ESLint 9.18.0** - JavaScript/TypeScript linter
   - Code quality enforcement
   - Vue-specific linting rules
-- **Prettier 3.4.2** - Code formatter
-  - Consistent code formatting; CI fails unformatted code
+- **Prettier 3.4.2** - Code formatter, configured in `front-end/.prettierrc.json` (semicolons, single quotes, a 100-character line, trailing commas everywhere)
+  - `npm run format` fixes and `npm run format:check` verifies; CI runs the check in `frontend-lint-and-types`, so unformatted front-end code fails the build: run `npm run format` before committing
+  - The one-time reformat commit is listed in `.git-blame-ignore-revs`, which `git blame` skips once `git config blame.ignoreRevsFile .git-blame-ignore-revs` is set
 - **Stylelint 17** - The design language's gate (`npm run lint:css`), configured in `.stylelintrc.json`
 - **Vue TSC 2.2.0** - TypeScript type checker for Vue
   - Type checking for Vue components
@@ -189,7 +190,7 @@ How each part of the code works is in the implementation layer of the [knowledge
 ### Continuous Integration
 - **GitHub Actions** - CI pipeline (`.github/workflows/test.yml`)
   - Runs on pushes and pull requests to `main` or `dev`
-  - Jobs: back-end pytest, the knowledge graph's checker, front-end unit tests, front-end format + lint + style lint + type-check, Docker build verification, and E2E (Playwright in four shards, each against its own Docker stack with `DISABLE_CAPTCHA=true` and `DISABLE_EMAIL=true`, uploading artifacts on failure)
+  - Jobs: back-end pytest, the knowledge graph's checker, front-end unit tests, front-end format + lint + style lint + type-check, Docker build verification, and E2E (Playwright in four shards, each against its own Docker stack with `DISABLE_CAPTCHA=true` and `DISABLE_EMAIL=true`, uploading artifacts on failure); see [CI and the gate](implementation/testing/ci-and-the-gate.md)
 - **GitHub Actions** - Release automation (`.github/workflows/release-please.yml`)
   - Runs [release-please](https://github.com/googleapis/release-please) on pushes to `main`
   - Opens/updates a Release PR (version bump + CHANGELOG) that, when merged, tags a release

@@ -16,6 +16,7 @@ One line per node, sorted by file name.
 - [The CSV import](csv-import.md) - a Google Form's responses as applications: the CSV path's in every phase, one row per applicant, one mapping format
 - [The CSV proposal and start](csv-proposal-and-start.md) - a draft started from its Google Form's responses: a proposal that writes nothing, a confirm that writes all or nothing
 - [Essential fields](essential-fields.md) - the questions every form asks: asked, required, the offering and its freeze, the reserved prefix
+- [Floorplan placement](floorplan-placement.md) - the beta's Auto-Place: geometry, not AI; the room is the floor plan; no `pyckingsolver` in production; Konva colours
 - [The form amendment](form-amendment.md) - fixing the form from inside the import: no new edge, pre-flight not rollback, ADMIN
 - [The guards and the phase move](guards.md) - `guards.py`: every precondition, the validated registry, paths that step through a phase, the one phase writer
 - [What an assignment was made from](made-from.md) - `madeFrom` fingerprints: the one place they are computed, written only by a run

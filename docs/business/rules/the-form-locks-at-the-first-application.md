@@ -38,5 +38,5 @@ A form found wrong after leaving draft, while nobody has applied, is fixed throu
 - **The count is of the market's applications by `market_id`**, through `back-end/api/applications.py`, their single owner; a writer storing the market reference under any other key would make the count 0 and silently disable the lock ([the application document](../../implementation/data/application-document.md#key-spelling)).
 - `NoApplicationsYetGuard` in [`back-end/guards.py`](../../../back-end/guards.py), kept by [the guards](../../implementation/modules/guards.md).
 - **E2E reaches the locked state with `seedApplication()`** ([`front-end/e2e/helpers/seedApplication.ts`](../../../front-end/e2e/helpers/seedApplication.ts)), which writes the application document straight into Mongo through `mongoEval`, snake_case as `api/applications.py` stores it.
-  It is the one way a spec puts an application on a market without signing in as an applicant, and works in any phase.
+  It is the one way a spec puts an application on a market without signing in as an applicant, and works in any phase ([the E2E seeds](../../implementation/testing/e2e-seeds.md)).
 - `back-end/tests/test_the_lock_rides_on_the_market.py` pins the reasons, and `front-end/e2e/application-form.spec.ts` the builder under the lock.
