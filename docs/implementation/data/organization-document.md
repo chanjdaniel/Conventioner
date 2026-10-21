@@ -33,6 +33,8 @@ One document per organization in the `organizations` collection, and the roles a
 [`back-end/api/organizations.py`](../../../back-end/api/organizations.py) writes the organization; [`back-end/api/permissions.py`](../../../back-end/api/permissions.py) resolves what a person may do on a market; the market's own `roles` map is written by `api/markets.py` ([`back-end/api/markets.py`](../../../back-end/api/markets.py)).
 The models are `Organization`, `OrganizationRole` and `MarketRole` in [`back-end/datatypes.py`](../../../back-end/datatypes.py).
 
+The glossary concept: [Organization and roles](../../business/concepts/organization-and-roles.md).
+
 ## The organization
 
 | Field | What it is |

@@ -78,3 +78,5 @@ Of the organizer's screens only Attendance has it, because the door is sometimes
 The page an organizer works from at the door, and the record a market leaves behind.
 The phase record that says whether a market ran is `back-end/phase_record.py`; the date "today" is the viewer's own (`calendarToday` in [the market guide](market-guide.md)).
 Publishing, the vendor's check-in page and Attendance, as the people at the door use them, are [the door on market day](../../business/flows/market-day-door.md).
+
+The glossary concept it serves: [Placement and pin](../../business/concepts/placement-and-pin.md).

@@ -35,6 +35,8 @@ One document per market in the `markets` collection, holding the market's plan, 
 [`back-end/market_documents.py`](../../../back-end/market_documents.py) owns its canonical form and every raw read of it; the model is `Market` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), and the writes are in [`back-end/api/markets.py`](../../../back-end/api/markets.py) and the modules it names.
 Applications, check-ins, the placement trail and vendor notes are their own collections, keyed by `market_id`; see [the application document](application-document.md) and [the placement history](placement-history.md), and [market deletion](../modules/market-deletion.md) for how they go with the market.
 
+The glossary concepts: [Market](../../business/concepts/market.md), [Phase](../../business/concepts/phase.md), [Intake mode](../../business/concepts/intake-mode.md), [Essential question](../../business/concepts/essential-question.md) and [Review highlight](../../business/concepts/review-highlight.md).
+
 ## Key spelling
 
 **Market documents are stored camelCase, and that is the only spelling reads may name.**

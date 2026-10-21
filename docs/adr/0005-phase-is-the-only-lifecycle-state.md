@@ -15,6 +15,8 @@ status: accepted
 
 # The phase is a market's only lifecycle state
 
+The glossary concept: [Phase](../business/concepts/phase.md).
+
 ## Context
 
 A market's lifecycle was modelled three times, and the three disagreed.

@@ -13,6 +13,8 @@ status: accepted
 
 # A priority rule names a target
 
+The glossary concept: [Assignment](../business/concepts/assignment.md).
+
 ## Context
 
 Priority decides who is placed first when demand exceeds tables.

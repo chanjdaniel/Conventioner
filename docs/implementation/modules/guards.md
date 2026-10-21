@@ -97,3 +97,5 @@ The guards are where the product's rules about moving a market are kept:
 [ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md) records why the phase is the market's only lifecycle state.
 
 What the organizer meets of the guards, phase by phase and path by path, is [the market lifecycle](../../business/flows/lifecycle.md).
+
+The glossary concept it serves: [Phase](../../business/concepts/phase.md).

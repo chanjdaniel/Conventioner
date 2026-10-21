@@ -19,6 +19,8 @@ A placement that differs from what the solver produced is a fact someone will la
 Phase transitions, plan edits and form edits are out; a verdict is recorded on the application itself ([the application document](application-document.md)).
 A narrow trail that gets read beats a general one that gets ignored.
 
+The glossary concepts: [Assignment](../../business/concepts/assignment.md) and [Placement and pin](../../business/concepts/placement-and-pin.md).
+
 ## An entry
 
 Stored snake_case with the market foreign key `market_id`, like applications and unlike markets:

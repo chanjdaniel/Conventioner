@@ -115,3 +115,5 @@ Every change here is recorded in [the placement history](../data/placement-histo
 - [The half-table share](../../business/rules/half-table-share.md): a pin on half a table counts against it.
 
 The organizer places, swaps and frees seats through these doors in [placing by hand](../../business/flows/placing-by-hand.md).
+
+The glossary concepts it serves: [Assignment](../../business/concepts/assignment.md) and [Placement and pin](../../business/concepts/placement-and-pin.md).

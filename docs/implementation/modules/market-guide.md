@@ -51,3 +51,5 @@ The rail ([the phase rail](phase-rail.md)), the bar, the page row and `MarketLan
 ## Why
 
 Ticket 02 of the "what to show, and when" map settled the next step per phase and path; this file is that answer as code.
+
+The glossary concepts it serves: [Market](../../business/concepts/market.md), [Phase](../../business/concepts/phase.md) and [Intake mode](../../business/concepts/intake-mode.md).

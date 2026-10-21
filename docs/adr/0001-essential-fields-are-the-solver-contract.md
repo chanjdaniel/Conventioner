@@ -13,6 +13,8 @@ We decided that the essential set is defined *by* what the solver reads: an inpu
 Three essential questions are not about placement, and the solver does not read them: the full name and the preferred name, since every market must know whom it places, and the vendor's request, which is for whoever stands at the door.
 Every solver input (`SOLVER_RELEVANT_KEYS` in `back-end/essential_fields.py`) is answered by an essential question; the table-share question's one answer fills two of them, `essential_table_share_email` and `essential_table_share_also`.
 
+The glossary concept: [Essential question](../business/concepts/essential-question.md).
+
 ## Consequences
 
 - `essential_table_choice` and an optional `essential_table_share_email` are added; the per-date question splits into plain availability plus one global tier question.

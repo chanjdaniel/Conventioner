@@ -14,6 +14,8 @@ status: accepted
 
 # A pin is a placement row
 
+The glossary concepts: [Assignment](../business/concepts/assignment.md) and [Placement and pin](../business/concepts/placement-and-pin.md).
+
 ## Context
 
 An organizer sometimes has to guarantee a vendor a certain seat: a sponsor, a late arrangement, an accessibility need, or a repair on market day.

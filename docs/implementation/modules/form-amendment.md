@@ -60,3 +60,5 @@ It loads through `_load_market_to_change`, so an archived market is refused.
 
 What the organizer does instead, when they leave the import to fix the form, is [Reopen for Editing](../../business/flows/form-tab.md#f5-reopen-the-market-to-fix-the-form).
 The fix from inside the import, as the organizer meets it, is [H2e to H2g](../../business/flows/import.md#h2e-add-a-question-for-a-column-with-nowhere-to-go).
+
+The glossary concept it serves: [Phase](../../business/concepts/phase.md).

@@ -17,6 +17,8 @@ A new query on a new field belongs there when it is written.
 The ids were once indexed only on databases old enough to have run `migrate_to_uuid.py`, so every newer database - every dev stack, CI, and any new deployment - scanned whole collections for its commonest reads.
 On a stack holding 25,000 applications, a 314-row import scanned them all twice per row and took 12 seconds.
 
+The glossary concept: [Organization and roles](../../business/concepts/organization-and-roles.md).
+
 ## What is indexed
 
 | Collection | Fields, one index each |

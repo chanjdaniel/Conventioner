@@ -16,6 +16,8 @@ Before E02 the solver had none, since `assign_market` was monkeypatched away eve
 
 **Any change to placement is made against this suite, not beside it**: write the new behaviour as a case here first, and let a case that changes say so in the diff.
 
+The glossary concepts: [Assignment](../../business/concepts/assignment.md) and [Table sharing](../../business/concepts/table-sharing.md).
+
 ## How a case is written
 
 - `VendorWant` describes one vendor in the domain's terms (dates they can attend, tiers they accept, flat or per date, table choice, partner, a personal limit, a section ranking) and becomes a `SolverVendor`; no application, no database.
