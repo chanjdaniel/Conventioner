@@ -18,6 +18,8 @@ sources:
 A vendor applying on a market's page proves their address with an emailed code first, whether or not they have applied; their first save that the form accepts creates their application.
 Every address that asks is sent a code, and the sign-in names the person and the market, never an application.
 
+**Serves:** [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md) and [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
+
 ## Why
 
 Codes once went only to addresses with an application, and a token was issued only with one, while nothing created a first application before sign-in: together they made the "Vendors apply on this market's page" option unable to take a single new application (bug 6).

@@ -21,6 +21,8 @@ sources:
 Deleting an organization deletes the drafts and archived markets it holds, with all their records, and is refused while it holds any market mid-lifecycle; the refusal names each such market.
 No market is ever left belonging to nothing.
 
+**Serves:** [The door on market day](../intents/the-door-on-market-day.md).
+
 ## Why
 
 Deleting an organization used to set each of its markets' `organizationId` to null: a market belonging to nothing, which is a state `POST /markets` refuses to produce, and which made those markets invisible to everyone who reached them through it.

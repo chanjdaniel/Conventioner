@@ -23,6 +23,8 @@ sources:
 An organizer may name answers that reject an application: an application that gives one arrives in review already rejected, with the answer as its reason, and a reviewer may overturn it.
 A rule's rejection is a real one, but it never touches a verdict a person gave, and its reason is the organizer's, never the applicant's.
 
+**Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
+
 ## Why
 
 A real market rejects every applicant who will not agree to its no-show terms, or who is not one of the affiliations it accepts, and each of those was a manual rejection, one card at a time.

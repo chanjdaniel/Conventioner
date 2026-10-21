@@ -19,6 +19,7 @@ sources:
 A path is one way of running a market from start to finish; on this one vendors apply on the market's own page, and the organizer reviews them there.
 **Who:** the organizer, signed in, in an organization; and the vendors applying, who need no account.
 **Where they start:** the organizer on the Markets list; a vendor on the application link the organizer shares.
+**Serves:** [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md) and [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
 ## P3. Online intake: vendors apply on the market's page
 

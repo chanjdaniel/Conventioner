@@ -15,6 +15,8 @@ sources:
 An imported applicant's email address is asserted by the organizer's file; a vendor who applies on the market's page has proven theirs with a code.
 Nothing on the application records which, so how an asserted address is treated must be settled before the product sends a vendor any mail but a sign-in code.
 
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md).
+
 ## The rule
 
 - **A vendor applying online proves their address**: a code is sent to it and they sign in with it before their first save ([a vendor signs in before they have applied](a-vendor-signs-in-before-applying.md)).

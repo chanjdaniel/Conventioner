@@ -18,6 +18,8 @@ sources:
 What a vendor needs beyond their table, and what the organizer knows and did about a vendor, are two kinds of note kept apart: the vendor's own request, and the organizer's note.
 Neither is one field with two authors, and the vendor never sees the organizer's.
 
+**Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md) and [The door on market day](../intents/the-door-on-market-day.md).
+
 ## The two kinds
 
 - **The vendor's request** is a built-in question on the application, "Anything else you need from us?" (`REQUEST_KEY` in [`back-end/essential_fields.py`](../../../back-end/essential_fields.py)).

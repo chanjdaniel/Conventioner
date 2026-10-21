@@ -23,6 +23,8 @@ sources:
 A market whose vendors apply on its page publishes its results in `assignment`, once an assignment is stored and current, and only then; publishing settles that assignment, and the market goes live only after it.
 A market that imports its vendors has no applicants to tell, so it has neither the publish nor the wait ([intake mode decides how vendors arrive](intake-mode-decides-how-vendors-arrive.md)).
 
+**Serves:** [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
+
 ## Why
 
 Results tell each applicant whether they have a table, so they can be told only once the seats exist; and once told, nobody's answer may shift under them through a later run.

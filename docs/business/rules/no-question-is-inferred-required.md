@@ -15,6 +15,8 @@ sources:
 
 When a market is started from its Google Form's responses, every question of the organizer's own is proposed as not required; only the organizer marks one required.
 
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md).
+
 ## Why
 
 The export does not say which questions the form required.

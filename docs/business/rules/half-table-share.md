@@ -19,6 +19,8 @@ sources:
 The organizer's "max half table proportion per section" bounds how much of a section goes to vendors on half tables, on each date; left blank on the Assignment tab, it runs at 30%.
 It bounds only vendors who chose Either and have no partner: once their section has reached its share on that date, they are given a whole table.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## Whom it bounds
 
 - **An Either chooser with no partner**, when their turn comes: below the share they take half a table, beside the next vendor who accepts a half; at or above it, a whole table.

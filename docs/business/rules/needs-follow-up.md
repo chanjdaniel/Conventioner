@@ -20,6 +20,8 @@ sources:
 "Needs follow-up" is a stored status a reviewer gives an application that cannot be decided until someone reaches out to the vendor; it has an owner, and it blocks Begin Assignment as an undecided application does.
 It is marked like a verdict, by someone, and the application waits out of the review queue until it is approved or rejected.
 
+**Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
+
 ## Why
 
 An application that needs a question answered cannot be approved or rejected yet; passed over, it is found again only by chance, and nobody knows whose it is to chase.

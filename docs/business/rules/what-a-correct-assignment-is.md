@@ -17,6 +17,8 @@ An assignment of a real market is correct when five things hold, each checked on
 4. **Pairs sit together**, by [table-share pairing](table-share-pairing.md).
 5. **The order is respected**: nobody left unplaced on a day outranks, by the organizer's priority rules and the tie-breaks after them, someone placed at the same tier that day, allowing for the built-in "fewest dates so far go first" ahead of the rules ([priority and tie-breaks](priority-and-tie-breaks.md)).
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## Why
 
 These are what an organizer can judge a result by: whether everyone who applied is in, whether anyone got what they refused, whether anyone is left without a reason, and whether the market's own order decided who got the tables.

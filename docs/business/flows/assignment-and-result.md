@@ -31,6 +31,7 @@ sources:
 
 **Who:** the market's Editor, Admin or owner sets the rules and runs the assignment; publishing results is an Admin's ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Assignment tab, which [Begin Assignment](review.md#i5-begin-assignment) lands on.
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
 
 The Assignment tab holds three pages: Assignment (the rules and the run, [`MarketAssignmentTab.vue`](../../../front-end/src/components/market/MarketAssignmentTab.vue)), Result (by table, under its summary, [`ResultSummary.vue`](../../../front-end/src/components/ResultSummary.vue)) and Vendors (by vendor, [vendors](vendors.md)).
 Before a run the rail says "Set the rules and run the assignment."; after it, "Check the result, then publish the market: that puts the check-in page up, and cannot be undone."

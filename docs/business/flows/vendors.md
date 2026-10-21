@@ -20,6 +20,7 @@ sources:
 
 **Who:** anyone who can read the market; placing and adding are an Editor's ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Vendors page, the Assignment tab's third page, or the Result page's "N unassigned".
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 
 The Vendors page ([`VendorsView.vue`](../../../front-end/src/views/VendorsView.vue)) lists every applicant of the market, one row each, and a row opens that vendor's [drawer](vendor-drawer.md); what the page counts is the vendors the run places.
 

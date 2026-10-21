@@ -18,6 +18,8 @@ sources:
 An archived market that ran keeps its public check-in page, as a record: it shows each vendor's seats and check-ins, marked as ended, and takes no check-in.
 An archived market that never ran has no public page.
 
+**Serves:** [The door on market day](../intents/the-door-on-market-day.md).
+
 ## Why
 
 A market that happened leaves vendors and organizers who may need to look up where someone sat and when they arrived.

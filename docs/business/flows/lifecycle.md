@@ -29,6 +29,7 @@ sources:
 
 **Who:** the organizer, as the market's Admin or owner; anyone below Admin sees where the market stands and is offered no move ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where:** the phase rail, under the market bar on every market screen.
+**Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
 A market is always in exactly one phase, and the phases are the same on both intake paths.
 What a path calls a phase, and which phases it stops in, differ: a market whose vendors apply on its own page (the online path) reads Draft, Applications Open, Applications Closed, Review, Assignment, Market Days, Archived; a market whose vendors apply on the organizer's own Google Form (the Google Form path) reads Draft, Import, Review, Assignment, Market Days, Archived, and steps through Applications Closed on its way into Review.

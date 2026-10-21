@@ -26,6 +26,8 @@ Every other question the market asks is required of an import as of an applicant
 A question the market does not ask is no import target at all: a ranking of one section, or a question whose offering is empty, has no column to map, since a column mapped to it would be thrown away (`import_targets` reads `asked_essential_keys()`).
 A ranking or the request, on either path, can instead be switched off for the whole market, which stops it being asked at all ([essential fields](../../implementation/modules/essential-fields.md)).
 
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md) and [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## Why
 
 Most real Google Forms never asked how many dates a vendor wants (bug 24).
