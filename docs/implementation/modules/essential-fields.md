@@ -12,6 +12,9 @@ sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/01
   - wayfinding/real-market-readiness/03
+  - wayfinding/the-order-of-the-work/01
+  - wayfinding/the-order-of-the-work/04
+  - wayfinding/the-order-of-the-work/map
   - E01
   - E01/F06
   - E13/F01/S01
@@ -41,11 +44,15 @@ The import lists its targets in that order and the CSV proposal its unanswered q
 
 **Table type is stubbed to one type** (`STUB_TABLE_TYPE`, "Standard") in every market, whatever floorplans it carries, so the table-type ranking is never asked.
 A table's type belongs to the table, not its section, and only a floorplan could describe it.
+The stub is a decision, not a gap: the key, its validation and its mirror stay, only a real offering is missing, and the plan has no table-type card.
 
 **Dates and tiers are stored in one shape** however the form asked: `reconciled_dates_and_tiers` turns a per-date grid (the dates named are the dates available) or one flat list of tiers (those tiers on every available date) into a per-date tier answer and a list of dates.
-It is the one statement of that conversion, read by the applicant form and the import alike.
+It is the one statement of that conversion, read by the applicant form and the import alike (`csv_import.py` calls it rather than widening rows itself).
+The applicant form asks the two as one grid, a row per market date with its tiers and "Not available" (`EssentialApplicationFields.vue`), as a real Google Form does; with no tiers it asks the dates alone.
 
 **The name to call a vendor** is `display_name`: their preferred name, else their full name.
+`VendorIdentity.vue` shows the name it is handed on every screen that names a vendor; the review card alone shows both, labelled, since deciding about a person is not scanning a list.
+The preferred name is asked of everyone, after the full name, and is never required, never solver-relevant (correcting a spelling reopens no review) and never switched off.
 
 ## The offering, and the freeze
 

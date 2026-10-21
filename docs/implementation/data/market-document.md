@@ -66,7 +66,7 @@ The other collections differ: applications and the placement trail are stored sn
 | `applicationForm` | the custom fields, `publishedAt`, the frozen `essentialOptions` and `unaskedEssentials` |
 | `assignmentObject` | the stored assignment: `vendorAssignments` (each a seat on a date, `handPlaced` for a pin), `assignmentDate` and `madeFrom` (what the run read); its statistics are derived on every read and never stored (`_strip_persisted_assignment_statistics`); its one writer is [placements](../modules/placements.md) |
 | `importMapping` | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md) |
-| `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first, and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
+| `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first ([review highlights](../../business/rules/review-highlights.md)), and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
 | `resultsPublished` | whether applicants may see their outcome |
 | `formAmendment` | present only while [a form amendment](../modules/form-amendment.md) is walking the phases, naming where it returns |
 | `creationDate`, `modificationList`, `theme`, `reviewConfig` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` or `reviewConfig` |

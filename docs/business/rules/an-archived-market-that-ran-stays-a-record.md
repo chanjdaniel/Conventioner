@@ -21,7 +21,7 @@ An archived market that never ran has no public page.
 
 A market that happened leaves vendors and organizers who may need to look up where someone sat and when they arrived.
 Archiving once took the check-in page off the air, against the docs and the organization deletion preview, which both said an archived market was still served (bug 9).
-Whether a market ran is a fact a phase cannot hold, since `archived` follows a market that ran and a draft abandoned alike; the [phase record](../../implementation/modules/phase-record.md) says it (E26/F06/S03), and placements are no proof, since a market can be assigned and archived without ever being published.
+Whether a market ran is a fact a phase cannot hold, since `archived` follows a market that ran and a draft abandoned alike; the [phase record](../../implementation/modules/phase-record.md) says it (E26/F06/S03, [ADR 0012](../../adr/0012-a-market-remembers-every-phase-it-entered.md)), and placements are no proof, since a market can be assigned and archived without ever being published.
 
 **So deleting an archived market that ran takes a live URL off the air and destroys the record of a market that happened.**
 Both doors that delete one say so before it is done: deleting its organization names, per market, whether it ran and the address that stops resolving, and records the deletion in the trail first ([when an organization may be deleted](when-an-organization-may-be-deleted.md)); the market's own Delete names the check-in page that stops working.

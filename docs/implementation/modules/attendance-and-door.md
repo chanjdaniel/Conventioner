@@ -18,6 +18,7 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/real-market-readiness/map
+  - wayfinding/claims-and-room/map
   - E29
   - E29/F01/S01
   - E29/F01/S02
@@ -72,6 +73,7 @@ Check-in is open to every market that runs, whatever its intake mode: how a vend
 
 **One organizer screen works on a phone.**
 The product is built for a laptop, and nothing else of the organizer's needs to work below a laptop's width; the door is the carve-out, the one surface someone may hold in their hand.
+The vendors' own check-in page is not an organizer screen at all, so the organizer screens' widths never apply to it.
 A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/App.vue)) and nothing else, as every public page does; at 640px and below the market bar's tabs and the rail's spine scroll sideways inside themselves.
 Of the organizer's screens only Attendance has it, because the door is sometimes a person standing up.
 

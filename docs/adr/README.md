@@ -24,6 +24,6 @@ A reserved number whose decision failed the bar is listed as "not written: becam
 - [0009: The back end is the only source of truth about a market](0009-the-back-end-is-the-only-source-of-truth.md) - the browser holds one copy, re-read after every write
 - [0010: No secret has a fallback](0010-no-secret-has-a-fallback.md) - a blank or published value is not a secret, and the escape hatch never excuses one
 - [0011: A re-import upserts on the market and the address](0011-re-import-upserts-on-market-and-email.md) - a later export updates by address, reopens an approval only on a changed solver answer, and leaves absent rows alone
-- 0012: reserved
+- [0012: A market remembers every phase it entered](0012-a-market-remembers-every-phase-it-entered.md) - a log of `{phase, enteredAt, by}` on the market, pushed by the one phase writer; an older market says only what it can prove
 - 0013: reserved
 - 0014: reserved

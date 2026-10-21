@@ -28,6 +28,7 @@ One line per node, sorted by file name.
 - [No question is inferred required](no-question-is-inferred-required.md) - a market started from a CSV proposes every question optional; only the organizer marks one required
 - [Priority and tie-breaks](priority-and-tie-breaks.md) - the order of turns: fewest dates, the organizer's rules, most constrained, earliest, address
 - [Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md) - a form market publishes in assignment once a current run is stored, which settles it
+- [Review highlights](review-highlights.md) - the market marks the answers a reviewer reads first; on the market, never the form, so they change after it locks
 - [Table-share pairing](table-share-pairing.md) - one-way is enough, a person's own request outranks one about them, the first applicant named
 - [The assignment rules close with the assignment](the-assignment-rules-close-with-the-assignment.md) - the priority and the options lock once the market can no longer reach assignment
 - [The form locks at the first application](the-form-locks-at-the-first-application.md) - the form is editable only in draft and only until anyone has applied (D9)

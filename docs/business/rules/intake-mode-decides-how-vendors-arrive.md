@@ -10,6 +10,7 @@ sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/06
   - wayfinding/real-market-readiness/05
+  - wayfinding/the-order-of-the-work/09
   - E03/F02
   - E18/F04/S01
   - E31/F03
@@ -61,4 +62,4 @@ The product first took vendors by CSV import only, as a temporary intake until t
 Both are now paths a market chooses between when it is created, and the Google Form path is a whole path of its own, with its own rail (E31/F03, E32/F02).
 
 The mode was first withheld from organizers through MVP, on the grounds that a toggle would advertise a surface MVP withheld.
-That was retired by E18/F04/S01, because the applicant surface turned out to be built and switched off rather than absent, and the apply page already answers correctly in every phase.
+That was retired by E18/F04/S01 (wayfinding/the-order-of-the-work/09), because the applicant surface turned out to be built and switched off rather than absent, and the apply page already answers correctly in every phase.

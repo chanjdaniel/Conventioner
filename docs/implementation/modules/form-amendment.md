@@ -9,6 +9,10 @@ describes:
   - front-end/src/components/application/AmendFormDialog.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/the-order-of-the-work/07
+  - wayfinding/the-order-of-the-work/map
+  - wayfinding/claims-and-room/map
+  - wayfinding/claims-and-room/03
   - E20/F03
   - E20/F03/S01
 ---
@@ -51,6 +55,13 @@ A hop that finds the market moved stops with `AmendmentStalled`, naming the phas
 It loads through `_load_market_to_change`, so an archived market is refused.
 
 **Each hop is a real phase move**, written through `apply_phase_transition` under the organizer who ran it, so the [phase record](phase-record.md) holds every hop; it is the one mover besides `take_move` ([the guards](guards.md)).
+
+**An amendment re-dates the form.**
+Entering `draft` clears the form's `publishedAt` and leaving it stamps it again, so after an amendment the stamp is the amendment's moment: right, since the form did change, and visible in the record though not in the organizer's work.
+The dialog says so before it runs, and that the market's public application page is down for the walk; only the Google Form path imports, so on today's screens that page is a gated market's, which answers as absent anyway.
+
+**It answers both of the import's dead ends**: a column with nowhere to go, which adds a question for it, and a preference the Google Form never asked, which switches that question off.
+Its refusals keep the import's own voice, saying what is wrong and what would fix it, the advisory the dead end used to carry.
 
 ## Why
 

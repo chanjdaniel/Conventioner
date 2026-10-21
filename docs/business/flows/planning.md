@@ -5,11 +5,15 @@ describes:
   - front-end/src/components/market/MarketPlanTab.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/the-order-of-the-work/02
+  - wayfinding/the-order-of-the-work/03
   - E18/F01/S01
   - E18/F04/S01
   - E23/F01/S01
   - E28/F01/S01
   - E31/F01
+  - E31/F02
+  - E33/F01
   - bug/16
   - bug/23
   - bug/25
@@ -23,6 +27,9 @@ sources:
 **Where they start:** Market Setup, the page a draft opens on ([`MarketPlanTab.vue`](../../../front-end/src/components/market/MarketPlanTab.vue)).
 
 Market Setup is one scrolling page of cards that saves itself: Market Dates, Tier Setup, Location Setup, Section Setup, How vendors apply, and Application form.
+The cards run in the order the work depends on, the plan before the form built from it, and the page says that order by position rather than enforcing it: every card is reachable at once, so the page can be left and resumed, and changing one value never means walking through the rest.
+It is deliberately not a wizard; the floorplan flow ([E6](#e6-sections-from-a-floorplan)) is the product's one wizard.
+A draft opens on Market Setup, and an address naming a tab opens that tab, so a shared link keeps working.
 "Plan saved" appears after each edit (debounced about 0.6 s); a failed save says "Could not save the plan. Retry in a moment."
 One edit is one save, and another tab's edits survive it (bug 25, `plan-saves-once.spec.ts`).
 Any pending edit is saved before a phase move, so the guards judge what the organizer sees.
@@ -38,7 +45,8 @@ The plan is the market's setup, and it settles when the market leaves Draft ([E7
 2. Expect the chosen days listed one to a row under their month, flowing in columns beside the calendar ("Sat 3 ×"), with a count ("2 market days", or "No market days yet").
 3. Remove a day with its "×" or by clicking it again; a month's name in the list shows that month on the calendar.
 
-Dates are calendar days and must show as the same day in every time zone.
+Dates are a calendar with the market's days marked because it reads the same for a two-day market and a twelve-day one, and leaves no native date input whose popup has to be placed.
+Dates are calendar days and must show as the same day in every time zone; a calendar does month arithmetic, the likeliest place to read a day as an instant, which `date-display-timezone.spec.ts` guards.
 The calendar opens on the current month and has no month or year jump.
 It accepts a date in the past without comment; leaving Draft is refused while one is in the plan.
 Each day is a toggle button named by its full date ("Monday, November 20, 2023").
@@ -116,6 +124,13 @@ What else freezes, and when:
 **Status:** Works (re-walked live on 2026-10-03).
 While the market is a draft, the "Application form" card says what the plan still lacks ("Add dates, tiers, two or more sections above, and this form will have something to ask about."), offers "Build the application form" once it can, and once the form has questions of its own or is locked says so, with "Open the application form" or "See the application form" (bug 16).
 Covered by: `the-words-say-what-is-true.spec.ts` ("the plan says what the application form is").
+
+## Superseded
+
+- Market Setup was to stay editable past Draft, its cards simply no longer gated (wayfinding/the-order-of-the-work/02); the setup settles on leaving Draft ([E7](#e7-edit-the-plan-after-draft), E31/F01).
+- Each card was to take the page's full width; the cards share rows in a grid, and only the dates and sections cards are wide (E23/F01/S01).
+- The application form was to be built in a gated card on this page, and opening applications to be the page's last section (wayfinding/the-order-of-the-work/02); the form is built on its own tab, in steps (E33/F01), the plan's card only says whether it can be built ([E8](#e8-application-form-readiness)), and the move out of Draft is the rail's main button (E31/F02).
+- Within Draft the market was to open at its earliest incomplete stage, the plan and then the form (wayfinding/the-order-of-the-work/03); a draft opens on Market Setup, whose form card says when the form can be built.
 
 ## The rules it obeys
 

@@ -36,11 +36,12 @@ Every write names the part of the market it changes, through an endpoint that ac
 | The application form | `PUT /markets/:id/application-form`, and the CSV start's confirm |
 | An assignment run, a seat, a swap, a hand-added vendor | `POST /markets/:id/assignment`, `PUT`/`DELETE /markets/:id/placements`, `POST /markets/:id/placements/swap`, `POST /markets/:id/vendors` |
 | A floorplan, only while the market is a draft | `POST /floorplans/save-to-market` |
-| Review highlights, automatic rejections | `PUT /markets/:id/review-highlights`, `PUT /markets/:id/rejection-rules` |
+| Review highlights ([the rule](../business/rules/review-highlights.md)), automatic rejections | `PUT /markets/:id/review-highlights`, `PUT /markets/:id/rejection-rules` |
 | A phase move, publishing results | `POST /markets/:id/transition`, `POST /markets/:id/publish-results` |
 | Roles | `POST`/`PUT`/`DELETE /markets/:id/roles` |
 
-A market's organization is fixed at creation, and no two markets share a slug (the unique `market_slug` index).
+A market's organization is fixed at creation: it is the market's container and an access grant at once, and Manage Market names it in one read-only line rather than offering to change it.
+No two markets share a slug, the public address: creating or renaming a market is refused when its slug is taken, not only its exact name, since "Café Market" and "Cafe Market" are one address, and the unique `market_slug` index holds it ([the market document](../implementation/data/market-document.md)).
 [`back-end/tests/test_the_market_put_is_gone.py`](../../back-end/tests/test_the_market_put_is_gone.py) pins that the route answers nothing.
 
 ## Consequences
@@ -49,7 +50,7 @@ A market's organization is fixed at creation, and no two markets share a slug (t
 - A screen saves only what it owns; the plan's autosave sends the plan and the intake mode, never the market it was built from.
 - After any write the browser re-reads the market rather than merging what it sent ([one market, from the server](../implementation/conventions/one-market-from-the-server.md)).
 - A new kind of change to a market is a new endpoint, with its own role check and its own judgement, rather than a field added to a general save.
-- Moving a market between organizations, or renaming one after draft, has no write; either would return as its own feature.
+- Moving a market between organizations, or renaming one after draft, has no write; either would return as its own feature, a move needing owner rights on the market and membership of the destination, with the old organization's members losing access.
 
 ## Considered and rejected
 

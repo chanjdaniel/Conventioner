@@ -21,6 +21,7 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/readable-journey/08
+  - wayfinding/claims-and-room/map
   - E10/F03/S02
   - E11
   - E11/F01/S01
@@ -89,6 +90,7 @@ The solver keeps an orphaned pin's vendor on the date it claimed, seated nowhere
 The statistics, the tables grid and the CSV all go through it, which is what keeps them describing the same market.
 A market with nothing stored is shown nobody placed, never the run it would get (E31/F03/S05): that preview once read "197 of 197 vendors assigned" before anyone pressed Assign.
 `GET /markets/:id/assignment` is the one preview: VIEWER, it computes a run over the approved applications and stores nothing, with the stored rows (and so the pins) left out.
+That it recomputes while every other read serves the stored assignment is deliberate: a preview answers "what would Assign give me", and the point of `assignment_to_show` is that nothing else recomputes.
 No screen calls it; `section-preference.spec.ts` does.
 
 **`MarketTableRow.assignment` is the occupants and nothing else.**
