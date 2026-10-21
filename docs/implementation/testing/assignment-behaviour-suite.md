@@ -6,6 +6,7 @@ describes:
   - back-end/tests/test_solver_vendor_input.py
 verified: 2026-10-22
 sources:
+  - wayfinding/november-2026-dry-run/07
   - E02/F01/S02
 ---
 
@@ -30,6 +31,7 @@ The glossary concepts: [Assignment](../../business/concepts/assignment.md) and [
 Each class is one rule, named as a sentence: a vendor gets only what they asked for; tier is a filter only when asked; the ceiling on dates, the organizer's and the vendor's own, and no personal limit; how a table is occupied; table-share requests; capacity; the statistics and the satisfaction score; assigning from the market's own approved applications, a placement dated by the market date; no vendor stranded behind a table they could not take; an incomplete application stops the run; the organizer's priority rules, first come first served, most constrained first among equals, ordering by magnitude; section preference; the same market assigns the same way twice; the solver works around pins; a seat held by hand; describing what is stored.
 
 The rules these cases keep: [priority and tie-breaks](../../business/rules/priority-and-tie-breaks.md), [tier filters, section prefers](../../business/rules/tier-filters-section-prefers.md), [table-share pairing](../../business/rules/table-share-pairing.md), [the half-table share](../../business/rules/half-table-share.md), [the ceiling on dates per vendor](../../business/rules/max-assignments-ceiling.md), [an incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md), [what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md), and [dates fill one at a time, in the plan's order](../../business/rules/dates-fill-in-calendar-order.md).
+Together they keep what a real market's result is judged by, the five criteria of [what a correct assignment is](../../business/rules/what-a-correct-assignment-is.md): no vendor's answers broken, pairs together, and the market's order respected are the solver's, and are pinned here.
 
 ## Beside it
 

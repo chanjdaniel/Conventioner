@@ -25,5 +25,5 @@ A reserved number whose decision failed the bar is listed as "not written: becam
 - [0010: No secret has a fallback](0010-no-secret-has-a-fallback.md) - a blank or published value is not a secret, and the escape hatch never excuses one
 - [0011: A re-import upserts on the market and the address](0011-re-import-upserts-on-market-and-email.md) - a later export updates by address, reopens an approval only on a changed solver answer, and leaves absent rows alone
 - [0012: A market remembers every phase it entered](0012-a-market-remembers-every-phase-it-entered.md) - a log of `{phase, enteredAt, by}` on the market, pushed by the one phase writer; an older market says only what it can prove
-- 0013: reserved
+- [0013: Verdicts settle with the review, and results settle the allocation](0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md) - a verdict is the review's record from assignment on, Publish Results ends re-runs, and an applicant reads the seat, never the verdict
 - 0014: reserved

@@ -35,7 +35,9 @@ One line per node, sorted by file name.
 - [The form locks at the first application](the-form-locks-at-the-first-application.md) - the form is editable only in draft and only until anyone has applied (D9)
 - [The setup settles on leaving draft](the-setup-settles-on-leaving-draft.md) - Market Setup is fixed after draft, so leaving draft asks for dates, a location and tables at every tier
 - [Tier filters, section prefers](tier-filters-section-prefers.md) - never a tier a vendor refused, because it sets the price; section is only a preference
+- [Vendor notes](vendor-notes.md) - the vendor's request and the organizer's note, two kinds kept apart; the vendor never sees the organizer's
 - [Verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md) - verdicts are open while the market can reach review; after, a seat is changed by hand
+- [What a correct assignment is](what-a-correct-assignment-is.md) - every row imports, no answer broken, every unplaced vendor says why, pairs together, the order respected
 - [What an import may leave unasked](what-an-import-may-leave-unasked.md) - an imported row may leave the number of dates unanswered: no personal limit
 - [What each role may do](what-each-role-may-do.md) - Viewer reads, Editor works on the market, Admin moves and publishes; served, never decided on the front end
 - [When an organization may be deleted](when-an-organization-may-be-deleted.md) - its drafts and archived markets go with it, refused while one is mid-lifecycle, recorded first

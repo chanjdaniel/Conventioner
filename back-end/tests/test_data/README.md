@@ -5,9 +5,11 @@ describes:
   - back-end/tests/test_data/google_forms/
   - back-end/tests/test_data/google_forms_export.csv
   - back-end/tests/fixtures/anonymise_form_export.py
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/real-market-readiness/map
+  - wayfinding/the-form-started-from-a-csv/01
+  - wayfinding/the-form-started-from-a-csv/07
   - E06/F04
   - E24/F01/S01
 ---
@@ -36,7 +38,8 @@ Submission dates are read from the anonymised timestamps, which the anonymiser m
 ### What was kept and what was invented
 
 The header row is copied verbatim, newlines included: it is the organizer's question text, and it is what the proposal reads.
-An answer, or one option inside a multi-select answer, is kept verbatim only when at least 3 distinct applicants gave it, counted by applicant email.
+An answer, or one option inside a multi-select answer, is kept verbatim only when at least 3 distinct applicants gave it, counted by applicant email, and it holds no email address, link, handle or phone number, however many share it.
+That is the rule for what the CSV proposal may treat as shared, so the fixtures keep exactly what the proposal reads; it is decided by the count, never by a list of header words, which is what let a column be missed before.
 Everything else is invented in the same shape: same length, letter case, punctuation and digit count, an address for an email and a link for a link.
 A link keeps its scheme and each part at least 3 applicants' links share, so a Drive upload still reads `https://drive.google.com/open?id=` and an Instagram link still names Instagram, while the file id, the handle and anyone's own site are invented.
 One applicant's email becomes the same invented address everywhere it appears, including other applicants' table-share answers.
@@ -95,3 +98,7 @@ The anonymiser has since changed what it keeps: a value stays only when at least
 This file's source export is not among the ones that version was run on, so the file stays as the earlier version produced it.
 Do not hand-edit it: a change it needs is a reason to replace it with one of the exports made by the current anonymiser.
 Do not commit a real export.
+
+## Superseded
+
+- One anonymiser regenerating this fixture as well as the five (wayfinding/the-form-started-from-a-csv/07): its source export is not among the five, so it stays as the earlier version made it (above).

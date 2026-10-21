@@ -120,6 +120,7 @@ Publishing the results, I7, is a step of the assignment: [the assignment and its
 - [What each role may do](../rules/what-each-role-may-do.md): verdicts and follow-ups are an Editor's, moves an Admin's.
 - [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): nothing decided here reaches the applicant until results are published.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).
+- [Vendor notes](../rules/vendor-notes.md): the card shows the vendor's request among their answers and the notes below them.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
 

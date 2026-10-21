@@ -6,6 +6,7 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/what-to-show-and-when/02
+  - wayfinding/what-to-show-and-when/map
   - E31/F02/S02
   - E31/F02/S03
   - E31/F03/S02
@@ -50,6 +51,8 @@ The rail ([the phase rail](phase-rail.md)), the bar, the page row and `MarketLan
 
 ## Why
 
-Ticket 02 of the "what to show, and when" map settled the next step per phase and path; this file is that answer as code.
+Ticket 02 of the "what to show, and when" map settled the next step per phase and path; this file is that answer as code, and the sentences it says are listed in [the lifecycle](../../business/flows/lifecycle.md#what-the-rail-says).
+A screen says what to do now in two ways, both from here: the one sentence on the rail, which lives on every market screen beside the step it leads to, and the line a tab shows out of its phase, so a tab never disappears.
+The guards' verdicts are served on the market read, so the rail knows a move would be refused without trying it.
 
 The glossary concepts it serves: [Market](../../business/concepts/market.md), [Phase](../../business/concepts/phase.md) and [Intake mode](../../business/concepts/intake-mode.md).

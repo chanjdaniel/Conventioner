@@ -8,6 +8,7 @@ describes:
   - back-end/assignment/vendor_input.py#approved_solver_vendors
 verified: 2026-10-22
 sources:
+  - wayfinding/rejection-visibility/02
   - E36/F03/S01
 ---
 
@@ -19,7 +20,7 @@ An address the market already holds an application for is refused: that vendor i
 ## Why
 
 A walk-in or a late arrangement was once seated by typing an address into a seat: no name, no answers, nothing in the vendor drawer.
-A seat now goes only to an applicant ([a seat only for an applicant](a-seat-only-for-an-applicant.md)), and adding is how someone becomes one without applying.
+A seat now goes only to an applicant ([a seat only for an applicant](a-seat-only-for-an-applicant.md)), and adding is how someone becomes one without applying ([ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md)).
 
 **Added by hand, so never in the run.**
 Their answers may be missing, and an approved application missing a required answer refuses the run for everyone; so the run skips them, and they are held in their seat like any pin.

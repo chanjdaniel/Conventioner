@@ -23,6 +23,7 @@ verified: 2026-10-22
 - [Adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md): seated by hand, never in the run.
 - [Why a vendor was not placed](../rules/why-a-vendor-was-not-placed.md): every date with no table says why, read off the assignment as it stands.
 - [Publish Results waits for the allocation](../rules/publish-results-waits-for-the-allocation.md) and [an applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): what applicants learn of the assignment, and when.
+- [What a correct assignment is](../rules/what-a-correct-assignment-is.md): the five things a real market's result is judged by.
 
 ## Flows
 
@@ -41,4 +42,5 @@ verified: 2026-10-22
 - [ADR 0002: A pin is a placement row](../../adr/0002-a-pin-is-a-placement-row.md).
 - [ADR 0003: Applications are the solver's only input](../../adr/0003-applications-are-the-solvers-only-input.md).
 - [ADR 0004: A priority rule names a target](../../adr/0004-a-priority-rule-names-a-target.md).
+- [ADR 0013: Verdicts settle with the review, and results settle the allocation](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md).
 - [The assignment behaviour suite](../../implementation/testing/assignment-behaviour-suite.md): the solver's rules, pinned case by case.

@@ -27,3 +27,4 @@ One line per node, sorted by file name.
 - [The phase rail](phase-rail.md) - the lifecycle band: no before the click, the derived spine, the menu, where a move lands
 - [The phase record](phase-record.md) - `phaseHistory`: every phase a market entered, `phases_reached()`, and what an older market can prove
 - [Placements](placements.md) - the one writer of `assignmentObject`: four EDITOR doors, pins, the held seat, orphans, what a read shows
+- [Vendor notes](vendor-notes.md) - `vendor_notes.py`: the organizer's note, the sheet's line and the handled mark, in a collection no applicant endpoint reads

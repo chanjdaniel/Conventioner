@@ -6,6 +6,7 @@ describes:
 verified: 2026-10-22
 sources:
   - wayfinding/claims-and-room/04
+  - wayfinding/rejection-visibility/02
   - E11/F04
   - E26/F05/S04
   - E35/F01/S01

@@ -99,5 +99,6 @@ Assignment uses one type in this release, so even a floorplan with several types
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): the form builder is not gated by it, and the preview is the online path's.
 - [What each role may do](../rules/what-each-role-may-do.md): the form, the highlights and the automatic rejections are an Editor's.
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md): the automatic rejections close with the review.
+- [Vendor notes](../rules/vendor-notes.md): the request question, asked unless switched off.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

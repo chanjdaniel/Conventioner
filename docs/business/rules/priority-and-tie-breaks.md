@@ -12,6 +12,8 @@ verified: 2026-10-22
 sources:
   - wayfinding/v0-1-0/02
   - wayfinding/v0-1-0/03
+  - wayfinding/november-2026-dry-run/06
+  - wayfinding/november-2026-dry-run/map
   - E02
   - E34/F05/S01
 ---
@@ -53,6 +55,7 @@ The import screen warns when the market has a rule over the submission time and 
 Priority is where markets differ from one another, so the organizer names their own questions rather than choosing from a fixed list; and "first come, first served" is the commonest tie-break there is, so it is offered though no form question can supply it.
 Declaring a type beside the target let a rule declared as a number order a text field and do nothing, silently.
 Most constrained first places the vendors with the fewest chances while they still have a chance, and loses nobody anything the organizer asked for.
+**Fewest dates so far comes before the organizer's own rules** because spreading tables across vendors is how the real market behaves, which Daniel confirmed before the November 2026 rehearsal; most constrained first was added after its first run.
 
 ## Where it is kept
 
