@@ -7,10 +7,14 @@ describes:
   - front-end/src/components/elements/ElementIntakeMode.vue
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/06
+  - wayfinding/real-market-readiness/05
   - E03/F02
   - E18/F04/S01
+  - E31/F03
   - E31/F03/S04
+  - E32/F02
 ---
 
 # Intake mode decides how vendors arrive
@@ -22,6 +26,7 @@ The mode decides who fills the application form in, never whether there is one, 
 
 The phase cannot say this: a CSV market passes through `applications_open` too, because that is where its import happens, so without a mode its public application form would be live and taking applications from strangers the organizer has no way to answer.
 Switching the mode mid-lifecycle strands what the previous mode produced: flip a form market to CSV after people applied, and their pages go dark.
+**A market taken back to draft may change its mode again**, and that is safe: the way back is open only while nobody has applied ([the form locks at the first application](the-form-locks-at-the-first-application.md)), so nothing yet depends on how vendors were going to arrive, and its applicant pages close on the way back, as a draft's are.
 An absent mode is CSV, so the applicant surface fails closed ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)).
 
 **Each path has its own ways in.**
@@ -47,9 +52,13 @@ After that an Editor changes it on Market Setup while the market is a draft, thr
 - The control is [`ElementIntakeMode.vue`](../../../front-end/src/components/elements/ElementIntakeMode.vue), a plan card; the server is the authority, so a hidden or disabled control is never the rule.
 - `market_serves_applicants` in [`back-end/market_documents.py`](../../../back-end/market_documents.py) is the one statement of "this market has an applicant surface", read by the applicant lookup and by `publish_results` ([a gated market answers as absent](a-gated-market-answers-as-absent.md)).
 - `import_refusal` in [the CSV import](../../implementation/modules/csv-import.md) refuses a form market, and its words name the CSV rail's moves ("Import responses", "Import more responses").
+- An application does not record how it arrived: the market's mode already says, so a field on the application would be a second copy ([ADR 0011](../../adr/0011-re-import-upserts-on-market-and-email.md)).
 - `back-end/tests/test_market_intake_mode.py` pins the default, the one writer and the freeze.
 
 ## Superseded
+
+The product first took vendors by CSV import only, as a temporary intake until the online form became the official path (`wayfinding/v0-1-0/map`).
+Both are now paths a market chooses between when it is created, and the Google Form path is a whole path of its own, with its own rail (E31/F03, E32/F02).
 
 The mode was first withheld from organizers through MVP, on the grounds that a toggle would advertise a surface MVP withheld.
 That was retired by E18/F04/S01, because the applicant surface turned out to be built and switched off rather than absent, and the apply page already answers correctly in every phase.

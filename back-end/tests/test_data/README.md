@@ -7,6 +7,8 @@ describes:
   - back-end/tests/fixtures/anonymise_form_export.py
 verified: 2026-10-21
 sources:
+  - wayfinding/real-market-readiness/map
+  - E06/F04
   - E24/F01/S01
 ---
 
@@ -64,6 +66,7 @@ A real Google Forms response export with the people replaced.
 Three MVP blockers found on 2026-09-14 came from the **shape** of a real export rather than from logic.
 Every CSV test in this suite wrote its own headers, and every one of them used a short single-line stem like `"Which days can you attend?"`.
 That is why grid detection failing on a multi-line header survived to production: a fixture invented by the people who wrote the parser only tests what they already thought of.
+So a real export, anonymised, is the acceptance fixture for taking an organizer's file through to an assignment; it is used because synthetic data hid real blockers, not to serve the one organizer whose form it was.
 
 The source file is 232 real applicants' names and email addresses, so it cannot be committed as it stands.
 The anonymiser is committed beside the fixture so the transformation is auditable and re-runnable.

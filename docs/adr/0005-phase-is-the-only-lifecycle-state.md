@@ -6,10 +6,14 @@ describes:
   - back-end/migrations/migrate_publishing_to_market_days.py
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/map
+  - wayfinding/real-market-readiness/05
   - wayfinding/real-market-readiness/06
   - wayfinding/readable-journey/01
   - E03/F03
   - E10
+  - E26/F06/S02
+  - E26/F07/S02
 status: accepted
 ---
 
@@ -50,3 +54,12 @@ And the setup wizard ended in Assign and Done without moving the phase, so after
 - **Renaming `archived` to read as "published"**: the lifecycle would still have one value for two opposite states, and the glossary would have to define "publish" as a synonym for "archive".
 - **A new "published" phase**: `market_days` already meant it; un-stranding it was one edge, where a new phase meant a new guard table and a migration of the phase vocabulary.
 - **The wizard driving the phase**, finishing a step advancing it: the wizard's pages had no order the data needed, and a second model of the lifecycle is what disagreed with the first.
+
+## Superseded
+
+- The first release was to walk the phase machine as it stood, with no new edges (wayfinding/v0-1-0/map).
+  Two were added: `applications_open -> draft`, guarded on no application existing, so a form can be corrected before anyone has answered it (wayfinding/real-market-readiness/05), and `assignment -> market_days`, which is publishing (wayfinding/real-market-readiness/06).
+- Publishing was to be fired by the results screen's Done; the organizer publishes on the phase rail, and the wizard's Done is gone (wayfinding/readable-journey/01).
+- The applicant surface was to narrow to `applications_open` (wayfinding/real-market-readiness/06).
+  It serves a form market in every phase but `draft`, so an applicant can always read their application and its outcome; applying itself stays `applications_open`'s (E26/F07/S02).
+- Check-in was to serve `market_days` alone; it also serves an archived market that ran, as a record that takes no check-in (E26/F06/S02).

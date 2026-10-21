@@ -2,6 +2,9 @@
 layer: implementation
 kind: adr
 verified: 2026-10-22
+sources:
+  - wayfinding/v0-1-0/01
+  - E01
 status: accepted
 ---
 
@@ -21,6 +24,7 @@ The glossary concept: [Essential question](../business/concepts/essential-questi
   The table-share answer is read into a first address and any further ones (`essential_table_share_also`), both solver inputs.
 - **[Tier filters, section prefers](../business/rules/tier-filters-section-prefers.md).** Tier is a hard constraint because it determines what the applicant pays for a table on a given day, so a vendor is never placed at a tier they did not accept, even if that leaves them unassigned. Section is a placement preference: a vendor gets their highest-ranked section still available, and is never left unassigned merely because a preferred section filled up.
 - Rankings are *total* (a permutation of the offering), which excludes nothing - so a ranking can only ever be a preference, never a filter. That is why section cannot be enforced the way tier is.
+- Preferences are honoured as placement, not as an objective to optimise nor as a tie-break: among the tables a vendor may take, they get the best-ranked one still open.
 - Honouring section preference inverted the solver's table-driven loop into a vendor-driven one (`best_table_for` in `back-end/assignment/assignment.py`), which moved existing assignment outputs.
 - The tier substring match (a tier named `A` matched an answer of `AB`) is designed out rather than ported, since set membership replaces it.
 - The contract is kept by [essential fields](../implementation/modules/essential-fields.md), and read by [the assignment solver](../implementation/modules/assignment-solver.md) through its one seam, `vendor_input.py`.
@@ -29,4 +33,11 @@ The glossary concept: [Essential question](../business/concepts/essential-questi
 
 - **Per-date tier selection**, preserving today's shape. More expressive, but forces the applicant UI into a dates x tiers grid and multiplies the CSV mapping problem by the same factor, for a case that is rare.
 - **Adding `table_type` to `SectionObject`**, which would have been symmetric with the `tier` and `location` a section already carries. Rejected as domain-wrong: table type is a property of an individual table, and any table in any section may be any type, so only a floorplan can describe it. Table type is stubbed to a single type until the floorplan ships.
+- **A table-sharing partner as a reference from one application to another**, the better model in the end, but it needs every row to resolve to an application, which an imported row's typed address cannot promise; the partner is an essential answer holding an address instead ([table-share pairing](../business/rules/table-share-pairing.md)).
 - **Demoting section and table-type rankings to ordinary custom fields**, which would also have made the contract true. Rejected because both are real vendor preferences worth honouring; the contract was fixed by teaching the solver to read them rather than by dropping them.
+
+## Evidence
+
+Read at the solver's consumption sites when the contract was reconciled: the solver read the vendor's address, an optional number of days, one answer per market date holding the tiers acceptable that day, a table choice and a sharing partner, and the organizer's priority columns.
+Of those, only the address and the number of days had an essential question; the table choice and the partner had none, and the per-date answer meant tiers on the solver's side and plain availability on the form's.
+The section and table-type rankings, both essential questions, were read by nothing.

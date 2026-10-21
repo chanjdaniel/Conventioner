@@ -9,7 +9,9 @@ describes:
   - front-end/src/utils/applicationForm.ts#applicationFormError
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/01
+  - wayfinding/real-market-readiness/03
   - E01
   - E01/F06
   - E13/F01/S01

@@ -32,3 +32,4 @@ verified: 2026-10-22
 - [The application document](../../implementation/data/application-document.md): one per applicant per market, its answers and review state.
 - [The CSV import](../../implementation/modules/csv-import.md): one row per applicant, written through the applications API.
 - [ADR 0003: Applications are the solver's only input](../../adr/0003-applications-are-the-solvers-only-input.md).
+- [ADR 0011: A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md): what a later export does to the applications already here.

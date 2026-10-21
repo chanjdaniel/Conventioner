@@ -9,6 +9,7 @@ describes:
   - back-end/api/applicants.py#list_market_applications
 verified: 2026-10-22
 sources:
+  - wayfinding/v0-1-0/01
   - wayfinding/november-2026-dry-run/08
   - E27
   - E27/F01/S01
@@ -24,6 +25,7 @@ One-way is enough, a person's own request outranks one about them, and an answer
 
 - **Both must exist**, identified by address, and both must accept a half table: half or either, never a whole table only.
   A rejected or withdrawn applicant takes no part, so a request naming them pairs nobody.
+- **Naming nobody is normal**: the question is optional, and an applicant who names nobody and takes a half table shares it with whoever else takes one.
 - **One-way is enough**: A naming B pairs them whether or not B named anyone, and from either end, so the one named may be reached first.
 - **A person's own request outranks a request about them**: if A names B and B names C, B's stands, and A's gives way; along a chain the requests alternate from its end.
   A ring with no end is broken at its first address, so it still seats a pair.
@@ -43,6 +45,7 @@ An answer with no address in it is never refused: it costs the pairing, not the 
 ## Why
 
 Decided with Daniel before the November 2026 rehearsal, and amended during it.
+**A partner is an address, not a reference to another application**: an imported row's typed address cannot be promised to name an applicant, so the answer keeps what was written and the pair is resolved when it is read ([essential fields are exactly what the solver reads](../../adr/0001-essential-fields-are-the-solver-contract.md)).
 **A request that pairs nobody is shown, never blocking**: the import and the run go ahead, and the organizer follows up from the notice.
 **The write keeps every address, and the partner is chosen when pairs are read**, because who has applied can change after an answer is saved.
 That amendment came from the import: five answers named two addresses (two an applicant beside an address nobody applied with, three two applicants), and "the one address in the answer" paired all five with nobody.
