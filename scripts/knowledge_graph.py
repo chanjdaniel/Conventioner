@@ -525,8 +525,13 @@ def check_verified(entry, path, report):
         day = None
     if day is None:
         report(path, line, f"verified is a real date, YYYY-MM-DD: {value}")
-    elif day > datetime.date.today():
+    elif day > latest_today():
         report(path, line, f"verified is in the future: {value}")
+
+
+def latest_today():
+    """Today in the furthest-east time zone: an author's local day is never ahead of it, wherever CI runs."""
+    return datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=14))).date()
 
 
 def check_describes(repo, path, value, line, linked, report):

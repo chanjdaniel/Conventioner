@@ -1,7 +1,9 @@
 """The knowledge-graph checker, driven the way CI drives it: a small git repository, the CLI, its output."""
 
+import datetime
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -195,6 +197,23 @@ def test_the_schema_names_each_failure(repo, capsys, frontmatter, message):
     code, lines = errors(capsys, "check")
     assert code == 1
     assert any(line.startswith("docs/business/rules/moves-are-judged.md:" + message) for line in lines), lines
+
+
+@pytest.fixture
+def furthest_west(monkeypatch):
+    monkeypatch.setenv("TZ", "Etc/GMT+12")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
+
+
+def test_a_day_already_begun_somewhere_is_not_in_the_future(repo, capsys, furthest_west):
+    east = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=14))).date()
+    assert east > datetime.date.today()
+    commit(repo, rule_with(text=f"---\nlayer: business\nkind: rule\nverified: {east}\n---\n{RULE_BODY}"))
+    code, lines = errors(capsys, "check")
+    assert (code, lines) == (0, [])
 
 
 def test_a_record_carries_no_verified_and_an_adr_a_status(repo, capsys):
