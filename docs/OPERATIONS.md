@@ -108,7 +108,8 @@ A forgotten password is reset by its owner from the sign-in page ("Forgot passwo
 ### The test markets
 
 Checking something in production - that an applicant's sign-in code arrives, that a Google Form market's sign-in reads as no market - needs markets that are nobody's real one.
-`seed_test_markets.py` makes them in "Conventioner Test Organization", owned by your own account (make it first, as above).
+`seed_test_markets.py` makes them in "Conventioner Test Organization", owned by your own account (make it first, as above), through the product's own writes: it creates and moves each market the way the endpoints do ([the guards and the phase move](implementation/modules/guards.md)).
+Check against those, never against a real organizer's market.
 Run it from `back-end/` in a checkout of what production runs (`main`), so it writes what that build reads; it arrives there with the E32 release, whose migration must have run first (below).
 
 ```bash

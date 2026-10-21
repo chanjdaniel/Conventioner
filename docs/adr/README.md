@@ -22,7 +22,7 @@ A reserved number whose decision failed the bar is listed as "not written: becam
 - [0007: What may be sent to hosted TypeSafe](0007-what-may-be-sent-to-hosted-typesafe.md) - one column, a heading, counts and a shape, never a value; the key optional
 - [0008: Each write names what it changes](0008-each-write-names-what-it-changes.md) - there is no whole-market write; every write has its own endpoint
 - [0009: The back end is the only source of truth about a market](0009-the-back-end-is-the-only-source-of-truth.md) - the browser holds one copy, re-read after every write
-- 0010: reserved
+- [0010: No secret has a fallback](0010-no-secret-has-a-fallback.md) - a blank or published value is not a secret, and the escape hatch never excuses one
 - 0011: reserved
 - 0012: reserved
 - 0013: reserved
