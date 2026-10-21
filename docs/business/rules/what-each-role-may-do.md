@@ -5,18 +5,22 @@ describes:
   - back-end/api/markets.py#change_refusal
   - back-end/api/markets.py#admin_actions_refusal
   - back-end/tests/test_what_a_role_may_change.py
+  - back-end/utils/identity.py
 verified: 2026-10-22
 sources:
   - brain-dump/2026-10-19#22
   - E26/F08/S01
   - E34/F01/S01
   - bug/37
+  - E07
 ---
 
 # What each role may do
 
 A Viewer reads a market and changes nothing; an Editor changes the plan, the form, the seats, the highlights, the automatic rejections and the verdicts, and checks vendors in; an Admin or the owner also moves the phase, publishes results, imports applications, starts the market from a CSV and amends a locked form.
 Each screen offers each person only what their role lets them do, and the server decides it.
+
+**Serves:** [A request can only do what its session may](../intents/a-request-can-only-do-what-its-session-may.md).
 
 ## Why
 
@@ -55,6 +59,9 @@ See [the organization document](../../implementation/data/organization-document.
   The verdicts' reason (`verdictLockReason`), adding a vendor's (`addVendorReason`) and publishing's (`publishResultsReason`) are built on them.
 - **A screen draws no control while the reason for it is set; never decide a role threshold on the front end beside them.**
   [The phase rail](../../implementation/modules/phase-rail.md) offers no move below ADMIN and still says where the market stands.
+- **Who is asking is the session's answer, never the request's.**
+  An organizer route learns who is asking from the signed-in session, through `authenticated_email()` ([`back-end/utils/identity.py`](../../../back-end/utils/identity.py)), and a role is looked up for that address alone; no server source reads a caller's identity from a request header.
+  [`back-end/tests/test_session_is_the_identity.py`](../../../back-end/tests/test_session_is_the_identity.py) walks the header attack that once read and rejected another organizer's applications, and refuses any server source that reads an identity header again (E07).
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's two answers.
 - A follow-up's owner is anyone with a role on the market ([needs follow-up](needs-follow-up.md)).
 

@@ -19,6 +19,8 @@ sources:
 Approving, rejecting, asking for a follow-up and claiming a card are open while the market can still get back to `review`, and closed from `assignment` on, with no way back.
 From there a verdict is the review's record, and a mistake is fixed with a seat placed or freed by hand ([ADR 0013](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md)).
 
+**Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
+
 ## Why
 
 The assignment is computed from the approved applications, and nothing leaves `assignment` backwards, so a verdict changed after it would describe a review that no longer matches the seats.

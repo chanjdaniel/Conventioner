@@ -21,6 +21,8 @@ sources:
 On the Google Form path, Begin Review is refused until at least one response has been imported: "Nothing has been imported yet. Import your Google Form's responses first.", with "Import responses" as the fix.
 The import is that path's collection, so the moves around it are the import's: "Import responses" leaves draft and lands on the import, and "Import more responses" takes a market in review back to importing in one move, every verdict kept.
 
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md) and [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
+
 ## Why
 
 An organizer on the Google Form path already holds the responses when the market leaves draft; there is no form of the market's own taking applications, so a review with nothing imported is a review of nothing.

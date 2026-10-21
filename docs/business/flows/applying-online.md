@@ -17,6 +17,7 @@ sources:
 
 **Who:** a vendor, with no account; they sign in to one market with a code sent to their email.
 **Where they start:** the application link the organizer shares from the rail's "Application page" ([H1](taking-applications.md#h1-open-applications)).
+**Serves:** [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
 
 Only a market whose vendors apply on its own page ("Vendors apply on this market's page", chosen in Draft) has these pages, and only after Draft; applying and changing answers are open only while applications are open ([intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md)).
 A vendor signs in before anything about them is known, and the first valid save creates their application ([a vendor signs in before they have applied](../rules/a-vendor-signs-in-before-applying.md)).

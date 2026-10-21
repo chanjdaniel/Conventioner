@@ -24,6 +24,8 @@ sources:
 
 A market's application form may be edited only while the market is a draft and nobody has applied to it; once one application exists, by an applicant or by import, the form is fixed for good (the decision called D9).
 
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md) and [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md).
+
 ## Why
 
 An applicant answers the form as it stands; a question that moved after they answered would leave their answer meaning something they never said, or a required answer they were never asked.

@@ -17,6 +17,8 @@ sources:
 A stored assignment says which of its inputs (the rules, the market plan, the approved applications) changed since it ran, as "Your rules and the approved applications changed since this assignment ran."
 It says so only in `assignment`, the one phase in which running it again is possible.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
+
 ## Why
 
 Editing the rules, the plan or the approved applications never changes a stored assignment; only running it again does.

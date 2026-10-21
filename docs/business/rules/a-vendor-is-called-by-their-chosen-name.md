@@ -21,6 +21,8 @@ sources:
 Every screen that names a vendor leads with the name they chose, else the name on their identification, and shows their email address beside it; never the name instead of the address.
 A vendor whose application holds no name is shown by their address alone, exactly as every screen showed vendors before names existed.
 
+**Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md) and [The door on market day](../intents/the-door-on-market-day.md).
+
 ## Why
 
 **The name is what people read; the address is what the product matches on.**

@@ -17,6 +17,7 @@ sources:
 
 **Who:** a signed-in organizer.
 **Where they start:** the dashboard, where sign-in lands.
+**Serves:** [The market's phase says what to do next](../intents/the-markets-phase-says-what-to-do-next.md).
 
 Every market page has its own address, built from the market's id, so a link to any page of a market opens that page ([every market page has an address](../../implementation/conventions/every-market-page-has-an-address.md)).
 

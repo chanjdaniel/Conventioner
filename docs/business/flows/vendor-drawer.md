@@ -24,6 +24,7 @@ sources:
 
 **Who:** anyone who can read the market; notes and placing are an Editor's, and a market that is read-only shows them without the controls ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** wherever a vendor appears: a row on the Vendors page ([J11](vendors.md#j11-browse-by-vendor)), a name on a seat or "View vendor" in the placement dialog ([J7](placing-by-hand.md#j7-swap-two-vendors)), a name on Attendance ([K5](market-day-door.md#k5-watch-attendance)), and a row of the review's All view ([the All view](review.md#the-all-view)).
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md), [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md) and [The door on market day](../intents/the-door-on-market-day.md).
 
 One drawer opens over the page from the side, the same on every one of those pages ([`VendorDrawer.vue`](../../../front-end/src/components/VendorDrawer.vue)).
 The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assignments`), so a reload or a shared link opens the same drawer ([`vendorDrawer.ts`](../../../front-end/src/utils/vendorDrawer.ts)).

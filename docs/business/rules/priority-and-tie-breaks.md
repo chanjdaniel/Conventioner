@@ -24,6 +24,8 @@ sources:
 On each date, vendors take their turn in one order: whoever has fewest dates so far, then the organizer's priority rules, then the most constrained, then whoever applied first.
 The organizer's rules decide who is placed first when demand exceeds tables; the tie-breaks after them make the same market assign the same way every time.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## The order of turns
 
 1. **Fewest dates placed so far**, so dates are shared out before anyone gets a second.

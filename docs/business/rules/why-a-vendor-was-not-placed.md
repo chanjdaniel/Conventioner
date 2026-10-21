@@ -24,6 +24,8 @@ sources:
 Every date a vendor holds no table on says why, worked out from the plan, their answers and the placements as they stand at the moment it is read, never recorded by the run.
 A vendor partly placed is told too: each date they missed has its own reason.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## Why
 
 **A reason recorded during the run goes stale**, the moment the plan changes or a seat is changed by hand: a vendor recorded as "every table was taken" who now faces a free seat, because someone was moved, would be told something false.

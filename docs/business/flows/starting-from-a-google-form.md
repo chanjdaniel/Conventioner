@@ -23,6 +23,7 @@ sources:
 
 **Who:** the market's Admin or owner, while the market is a draft whose form has no questions of its own.
 **Where they start:** the create-market dialog's "On my own Google Form" ([D2](creating-a-market.md#d2-create-a-market-that-starts-from-a-google-form)), or Market Setup; the flow is `/markets/<id>/start-from-csv` ([`StartFromCsvView.vue`](../../../front-end/src/views/StartFromCsvView.vue)), headed "Start from your Google Form".
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md).
 
 The organizer uploads last year's (or this year's) responses, and the market's plan facts and questions are proposed from the file's columns for them to adjust.
 It is for an organizer whose Google Form is the real form, who would otherwise retype its questions so the import has somewhere to put each column; an organizer taking applications on the market's own page can seed this year's form from last year's responses the same way, at no extra cost.

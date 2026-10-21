@@ -23,6 +23,8 @@ A vendor free all week who wants two dates is given the first two they can atten
 The solver walks the dates in the order the plan stores them, and nothing sorts them first.
 A plan started from a Google Form's responses stores them in calendar order; dates picked on the Market Setup calendar are stored in the order they were clicked, so a market whose last day was picked first fills that day first.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## Why
 
 No vendor is placed worse by it: how many dates each vendor gets, and so satisfaction, is the same whichever order the dates are filled in.

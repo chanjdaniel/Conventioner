@@ -20,6 +20,8 @@ sources:
 A market marks the answers a reviewer reads first, and the review card leads with them; every other answer folds away behind a disclosure.
 A market that has marked nothing shows every answer, as if highlights did not exist.
 
+**Serves:** [Reviewing applications as a team](../intents/reviewing-applications-as-a-team.md).
+
 ## Why
 
 **They live on the market, never on the form.**

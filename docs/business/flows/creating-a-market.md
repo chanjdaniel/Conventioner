@@ -16,6 +16,7 @@ sources:
 
 **Who:** an organizer in at least one organization; whoever creates a market is its owner.
 **Where they start:** the Markets list's "New market", which opens the create-market dialog, [`NewMarketOverlay.vue`](../../../front-end/src/views/NewMarketOverlay.vue).
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md) and [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md).
 
 The dialog asks three things, and "Create market" stays disabled until all three are answered: **Organization**, **Market name**, and **How will vendors apply?**, which starts with nothing chosen.
 The answer to the third puts the market on its path from its first screen ([intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md)):

@@ -35,6 +35,7 @@ sources:
 
 **Who:** the market's Admin or owner; an Editor is shown the import and told only an admin imports (bug 37).
 **Where they start:** a market whose vendors apply on the organizer's own Google Form, in Import (or Imported): either the rail's "Import responses" from Draft, which lands here, or "Import from CSV" on the Applications page.
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md).
 
 Importing is the Google Form path's alone, in every phase it imports in ([intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md)): a market whose vendors apply on its own page offers no import, and the server refuses one with "This market takes applications on its own page, so nothing is imported into it."
 The import is `/markets/<id>/import` ([`CsvImportView.vue`](../../../front-end/src/views/CsvImportView.vue)), headed "Import applications", in four steps: Upload, Map columns, Preview, Confirm.

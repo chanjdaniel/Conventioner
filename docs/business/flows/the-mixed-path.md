@@ -12,6 +12,7 @@ sources:
 A path is one way of running a market from start to finish; this one would take applications on the market's own page and also import stragglers collected elsewhere.
 **Who:** the organizer, and vendors applying online.
 **Where they start:** as [the online path](the-online-path.md).
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md) and [Vendors apply on the market's own page](../intents/vendors-apply-on-the-markets-own-page.md).
 
 ## P4. Mixed intake: online form plus imported stragglers
 

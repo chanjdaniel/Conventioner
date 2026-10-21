@@ -26,6 +26,7 @@ sources:
 
 **Who:** the market's Editor, Admin or owner; a Viewer reads every seat and changes none ([what each role may do](../rules/what-each-role-may-do.md)).
 **Where they start:** the Result page, in Assignment or Market Days; on an archived market every seat is a record.
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
 
 Every seat on the Result page is a control: a free seat opens the placement dialog to place someone ([`PlacementDialog.vue`](../../../front-end/src/components/PlacementDialog.vue)), and a held seat shows its occupant's name, which opens the [vendor drawer](vendor-drawer.md), and "Change" in its corner, which opens the dialog on that seat.
 "Change" shows at rest, not on hover, since it is the only way to a held seat's dialog and a touch has no hover; a seat on a market that can no longer change draws as text, with nothing to press.

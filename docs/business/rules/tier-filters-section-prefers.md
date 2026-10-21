@@ -19,6 +19,8 @@ sources:
 A vendor is never placed at a tier they did not accept on that date, even if that leaves them unassigned.
 A vendor's section ranking is a preference: they get their highest-ranked section still open, and are never left unassigned because a preferred section filled up.
 
+**Serves:** [Vendors come in from the organizer's own Google Form](../intents/vendors-come-in-from-the-organizers-own-google-form.md) and [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## Why
 
 **Tier is a filter because it sets the price**: what a vendor pays for a table on a given day follows from its tier, so placing them at one they refused charges them for something they did not agree to.

@@ -17,6 +17,8 @@ sources:
 The assignment rules (the priority, the maximum assignments per vendor and the half-table share) may change for exactly as long as the market can still reach `assignment`, and until results are published.
 After that the plan write refuses a change to them, and restating them as stored is not a change.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md) and [Results go out once, and settle the allocation](../intents/results-go-out-once-and-settle-the-allocation.md).
+
 ## Why
 
 A rule only takes effect when the assignment runs, and it runs in `assignment` alone ([assign runs only in assignment](assign-runs-only-in-assignment.md)).

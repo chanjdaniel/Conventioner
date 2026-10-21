@@ -27,6 +27,8 @@ Of the questions asked, every one is required except the preferred name, the tab
 A tier or a date the market's offering no longer holds is dropped from the answer, so the vendor may be unplaceable and reported unassigned; the applicant did nothing wrong, and stopping the market over the organizer's own change would be out of proportion.
 Only an answer that is absent refuses the run.
 
+**Serves:** [Every approved vendor gets a table by the market's rules](../intents/every-approved-vendor-gets-a-table-by-the-markets-rules.md).
+
 ## Why
 
 It is part of [applications are the solver's only input](../../adr/0003-applications-are-the-solvers-only-input.md).
