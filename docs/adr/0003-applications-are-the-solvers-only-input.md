@@ -13,6 +13,8 @@ status: accepted
 
 # Applications are the solver's only input
 
+The glossary concepts: [Application](../business/concepts/application.md) and [Assignment](../business/concepts/assignment.md).
+
 ## Context
 
 The solver began as a tool over an uploaded spreadsheet.

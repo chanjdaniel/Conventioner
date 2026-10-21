@@ -20,6 +20,8 @@ sources:
 **Every market page has its own address, and every market screen is addressed by the market's id.**
 A link to any of them, bookmarked, shared or opened in a second browser tab, opens that page of that market; nothing about which market is open lives anywhere but the URL and [the market store](../modules/market-store.md).
 
+The glossary concept: [Market](../../business/concepts/market.md).
+
 ## The addresses
 
 The routes are in [`front-end/src/router/index.ts`](../../../front-end/src/router/index.ts):

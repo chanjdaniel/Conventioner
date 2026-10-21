@@ -19,6 +19,8 @@ sources:
 Every market screen, the phase rail and every tab read it; a screen gets it through `useOpenMarket`.
 The decision and its trade-off are [ADR 0009](../../adr/0009-the-back-end-is-the-only-source-of-truth.md).
 
+The glossary concept: [Market](../../business/concepts/market.md).
+
 ## The rules
 
 **A write is followed by a re-read, never a patch.**

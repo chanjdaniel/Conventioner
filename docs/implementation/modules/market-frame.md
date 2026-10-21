@@ -66,3 +66,5 @@ At 640px and below the name takes its own line and the tabs scroll sideways rath
 
 The layout decisions behind the frame (two widths, the frame stays put, the frame places itself) are in [the design language](../../design-system.md#layout).
 Tables, Vendors and Attendance used to draw a title of their own with no tabs, so moving between a market's screens was two kinds of navigation; addresses are [every market page has an address](../conventions/every-market-page-has-an-address.md).
+
+The glossary concept it serves: [Market](../../business/concepts/market.md).

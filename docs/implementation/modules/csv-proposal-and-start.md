@@ -69,3 +69,5 @@ Change a rule against that, not beside it; `test_csv_proposal_plan.py` does the 
 [ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md) records what may leave the server.
 
 The organizer's side of it, from the upload to confirm or cancel, is [starting from a Google Form's responses](../../business/flows/starting-from-a-google-form.md).
+
+The glossary concepts it serves: [Intake mode](../../business/concepts/intake-mode.md) and [Essential question](../../business/concepts/essential-question.md).

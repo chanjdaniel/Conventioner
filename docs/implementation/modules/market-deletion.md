@@ -56,3 +56,5 @@ The collection is indexed on `organization_id` ([lookup indexes](../data/lookup-
 `front-end/e2e/market-records-go-with-it.spec.ts` ([spec](../../../front-end/e2e/market-records-go-with-it.spec.ts)) deletes a market by each door and finds none of its applications, check-ins, sign-in codes or trail left; `back-end/tests/test_vendor_notes.py` does the same for the notes, and `back-end/tests/test_organization_deletion.py` for the trail's order.
 
 A market's own Delete, as its owner meets it, is [L5](../../business/flows/ending-and-managing-a-market.md#l5-delete-a-market).
+
+The glossary concepts it serves: [Market](../../business/concepts/market.md) and [Organization and roles](../../business/concepts/organization-and-roles.md).

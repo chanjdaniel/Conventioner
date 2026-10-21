@@ -77,3 +77,5 @@ It used to be dated by the spreadsheet column heading, which is why check-in, th
 - [Dates fill one at a time, in the plan's order](../../business/rules/dates-fill-in-calendar-order.md).
 
 The organizer sets the rules and runs it in [the assignment and its result](../../business/flows/assignment-and-result.md).
+
+The glossary concepts it serves: [Assignment](../../business/concepts/assignment.md) and [Table sharing](../../business/concepts/table-sharing.md).
