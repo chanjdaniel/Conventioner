@@ -11,15 +11,21 @@ Then `## Why`; `## Who may` when roles matter; `## Where it is kept`, linking th
 
 One line per node, sorted by file name.
 
+- [A gated market answers as absent](a-gated-market-answers-as-absent.md) - a CSV market or a draft answers applicants exactly as no market at all; never a "not accepting" message
 - [A seat only for an applicant](a-seat-only-for-an-applicant.md) - a seat goes only to someone with an application; anyone may be pinned, warned, and is held
+- [A vendor signs in before they have applied](a-vendor-signs-in-before-applying.md) - every address is sent a code, the token names market and address, the first valid save creates the application
 - [Adding a vendor who never applied](adding-a-vendor-who-never-applied.md) - from the assignment on, added by name and address, approved, seated by hand, never in the run
+- [An applicant never reads a verdict early](an-applicant-never-reads-a-verdict-early.md) - "Submitted" until results are published, then a table or none, read off the stored seats
 - [An archived market is read-only](an-archived-market-is-read-only.md) - nobody changes a finished market's record; roles and deletion are not changes
+- [An archived market that ran stays a record](an-archived-market-that-ran-stays-a-record.md) - its check-in page stays up, marked ended, and takes no check-in
 - [An assignment knows when it is out of date](an-assignment-knows-when-it-is-out-of-date.md) - the result says which of the rules, the plan and the approved applications changed since it ran
 - [An incomplete application refuses the run](an-incomplete-application-refuses-the-run.md) - an approved application missing an asked answer stops the assignment, naming the applicants
 - [Assign runs only in assignment](assign-runs-only-in-assignment.md) - the run is refused in every other phase, and once results are published
 - [Dates fill one at a time, in the plan's order](dates-fill-in-calendar-order.md) - the solver fills each date before the next, in the plan's order; kept on purpose
 - [The half-table share](half-table-share.md) - the organizer's share of a section on half tables, 30% when blank, bounding only Either choosers
+- [Intake mode decides how vendors arrive](intake-mode-decides-how-vendors-arrive.md) - imported or applying online, exactly one, fixed after draft; never gates the form builder or check-in
 - [The ceiling on dates per vendor](max-assignments-ceiling.md) - `max_assignments_per_vendor` is the only ceiling, with no hidden default
+- [No question is inferred required](no-question-is-inferred-required.md) - a market started from a CSV proposes every question optional; only the organizer marks one required
 - [Priority and tie-breaks](priority-and-tie-breaks.md) - the order of turns: fewest dates, the organizer's rules, most constrained, earliest, address
 - [Publish Results waits for the allocation](publish-results-waits-for-the-allocation.md) - a form market publishes in assignment once a current run is stored, which settles it
 - [Table-share pairing](table-share-pairing.md) - one-way is enough, a person's own request outranks one about them, the first applicant named
@@ -30,3 +36,4 @@ One line per node, sorted by file name.
 - [Verdicts settle on entering assignment](verdicts-settle-on-entering-assignment.md) - verdicts are open while the market can reach review; after, a seat is changed by hand
 - [What an import may leave unasked](what-an-import-may-leave-unasked.md) - an imported row may leave the number of dates unanswered: no personal limit
 - [What each role may do](what-each-role-may-do.md) - Viewer reads, Editor works on the market, Admin moves and publishes; served, never decided on the front end
+- [When an organization may be deleted](when-an-organization-may-be-deleted.md) - its drafts and archived markets go with it, refused while one is mid-lifecycle, recorded first

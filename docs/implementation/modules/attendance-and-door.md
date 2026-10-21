@@ -63,11 +63,11 @@ It loads through the change loader (`_load_market_to_change`), so an archived ma
 It writes through `record_attendance`, which stamps `checked_in_by`, so the two doors record alike, and a vendor checking in again after an organizer did is no longer credited to the organizer.
 A vendor checking in on another day than today is not refused, and no screen suggests it.
 
-**An archived market that ran is still served, as a record.**
+**An archived market that ran is still served, as a record** ([an archived market that ran stays a record](../../business/rules/an-archived-market-that-ran-stays-a-record.md)).
 `get_check_in_market` serves a running market, or an archived one whose phase record says it ran, marked `ended`: its page shows each vendor's seats and check-ins and takes no check-in.
 A write there answers 409 with "This market has ended, so check-in is closed."; an address with no market answers 404.
 An archived market that never ran has no check-in page.
-Check-in is open to every market that runs, whatever its intake mode: how a vendor entered has no bearing on whether they can scan in on the day.
+Check-in is open to every market that runs, whatever its intake mode: how a vendor entered has no bearing on whether they can scan in on the day ([intake mode decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md)); the applicant surface is a lookup of its own ([a gated market answers as absent](../../business/rules/a-gated-market-answers-as-absent.md)).
 
 **One organizer screen works on a phone.**
 A route with `meta: { fitsAPhone: true }` lifts the app's 1000px desktop floor ([`fitsAPhone`](../../../front-end/src/App.vue)) and nothing else, as every public page does; at 640px and below the market bar's tabs and the rail's spine scroll sideways inside themselves.

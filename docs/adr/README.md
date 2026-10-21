@@ -18,8 +18,8 @@ A reserved number whose decision failed the bar is listed as "not written: becam
 - [0003: Applications are the solver's only input](0003-applications-are-the-solvers-only-input.md) - no spreadsheet behind a market; one seam translates approved applications
 - [0004: A priority rule names a target](0004-a-priority-rule-names-a-target.md) - a form field or an application attribute, ordered by its own type, with no declared type
 - [0005: The phase is a market's only lifecycle state](0005-phase-is-the-only-lifecycle-state.md) - `isDraft` derived, publishing is `assignment -> market_days`, `archived` means finished
-- 0006: reserved
-- 0007: reserved
+- [0006: Intake mode fails closed](0006-intake-mode-fails-closed.md) - absence means `csv`, so no market has an applicant surface it did not choose
+- [0007: What may be sent to hosted TypeSafe](0007-what-may-be-sent-to-hosted-typesafe.md) - one column, a heading, counts and a shape, never a value; the key optional
 - [0008: Each write names what it changes](0008-each-write-names-what-it-changes.md) - there is no whole-market write; every write has its own endpoint
 - [0009: The back end is the only source of truth about a market](0009-the-back-end-is-the-only-source-of-truth.md) - the browser holds one copy, re-read after every write
 - 0010: reserved
