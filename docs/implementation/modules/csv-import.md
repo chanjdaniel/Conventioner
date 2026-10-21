@@ -76,7 +76,7 @@ It warns and does not refuse: any value still unmatched must be settled by hand 
 The import saves it on the market's `importMapping` after every import (`save_mapping`), and the next `inspect` restores it with `restore_mapping`; a target whose headers are not all present is reported as missing rather than half-restored, because a partly mapped grid looks answered.
 The start from a CSV writes the same format, so the first import of a later export opens with every column restored and every value matched ([the CSV proposal and start](csv-proposal-and-start.md)); do not give anything a mapping shape of its own.
 
-**After the writes, the automatic rejection rules judge** what the import wrote and anything else undecided, and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
+**After the writes, the [automatic rejection](../../business/rules/automatic-rejections.md) rules judge** what the import wrote and anything else undecided, and the result counts how many they rejected (`rejectedByRules`); and an organizer's own column mapped to "From your sheet" replaces each imported vendor's sheet note ([vendor notes](vendor-notes.md)).
 
 ## Superseded
 

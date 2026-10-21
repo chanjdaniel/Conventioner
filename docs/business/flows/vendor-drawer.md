@@ -6,6 +6,12 @@ describes:
   - front-end/src/utils/vendorDrawer.ts
 verified: 2026-10-22
 sources:
+  - brain-dump/2026-10-19#13
+  - brain-dump/2026-10-19#14
+  - brain-dump/2026-10-19#15
+  - brain-dump/2026-10-19#16
+  - brain-dump/2026-10-19#25
+  - brain-dump/2026-10-19#30
   - E31/F04/S04
   - E34/F04/S01
   - E35/F01
@@ -26,16 +32,18 @@ The open vendor and tab are kept in the address (`?vendor=<email>&vendorTab=assi
 
 1. Click a vendor where they appear; the drawer opens on its Application tab, wherever it was opened, and the page behind it holds still and cannot be reached.
 2. The head, "Vendor detail": the vendor's name, their address beside it when they have a name, and their verdict with who gave it ("Approved by <email>, <date and time>"), or "Added by <email>, …" for a vendor added by hand.
-   Opened from the review's All view, the application's status sits under the head, with Reject, Needs follow-up and Approve beside it while the review is open.
+   Opened from the review's All view, the application's status sits under the head, with who holds it open, and Reject, Needs follow-up and Approve beside it while the review is open; everywhere else the verdict and its giver only read.
+   The drawer offers verdicts on the server's one rule, `verdictLockReason`, never on a list of phases of its own, so it and the review cannot disagree.
 3. The vendor's notes, pinned above the tabs and shown on every one: their request ("Request", or "Request handled" once ticked), "Your note", and "From your sheet" for a note an import brought in; a vendor with no notes on a read-only market shows none.
 4. Three tabs, moved between with the arrow keys:
    - **Application:** a table-share request that needs attention, then "Submission", the vendor's answers ("This market asks no questions of its own." when it asks none).
    - **Assignments:** one card per market date: where they sit, with "Change placement", or why they were not placed ([J12](vendors.md#j12-find-out-why-a-vendor-was-not-placed)); a placement that overrides their answers or that the plan no longer holds says so.
-     "Change placement" opens the Result page showing only that vendor's table on that date.
+     "Change placement" opens the Result page showing only that vendor's table on that date: it sets the date and searches for their whole address, which matches that vendor alone, rather than naming the vendor, which would open the drawer again over the table it was meant to show.
    - **History:** their [placement history](placing-by-hand.md#j13-placement-history).
 5. Close with "×", Escape, or a click outside it; the address loses the vendor.
 
 On Attendance, opening the drawer never checks anyone in, and a first note added there appears under the vendor's row.
+A market's vendors are read once, for the Vendors list and the drawer alike (`useVendorDetails` in [`front-end/src/utils/vendorDetails.ts`](../../../front-end/src/utils/vendorDetails.ts)): every application, decided or not, with its seats, reasons and overrides; a placement changed on the Result page reads them again.
 Covered by: `the-vendor-drawer.spec.ts`, `a-seat-and-an-entry-open-the-drawer.spec.ts`, `change-placement-shows-the-table.spec.ts`, `the-all-view.spec.ts`, `vendor-notes.spec.ts`, `vendors.spec.ts` ("while the vendor drawer is open, nothing behind it can be tabbed to").
 
 ## The rules it obeys

@@ -18,6 +18,8 @@ sources:
   - E22/F04/S02
   - E31/F01/S01
   - E33/F01
+  - E33/F01/S02
+  - E34/F01/S01
   - E06/F01/S01
 ---
 
@@ -42,6 +44,7 @@ A spec opens the step it asserts on, with `ApplicationFormPage.openStep(step)`, 
 
 [`front-end/e2e/fixtures.ts`](../../../front-end/e2e/fixtures.ts) is what a spec imports `test` and `expect` from.
 It provides `TEST_USER` (`e2e@example.com`) and `NO_ORG_USER` (`e2e-noorg@example.com`, in no organization), the `authenticatedPage` fixture (signed in through the login page before the test), `BACKEND_URL` (the `BACKEND_URL` variable, else `stack().backendURL`) for direct API calls, and re-exports of the page objects.
+A spec that needs several people at once drives each in a browser context of its own with `withUser()` ([`front-end/e2e/helpers/withUser.ts`](../../../front-end/e2e/helpers/withUser.ts)), so no two share a session cookie.
 Every `page` is wrapped so that a failing test carries what the browser said (console errors, page errors, crashes, failed requests other than a navigation's aborts), since the suite has failed on pages that never painted with nothing in the stack's logs to say why.
 
 ## Opening a market, and shelling into Mongo

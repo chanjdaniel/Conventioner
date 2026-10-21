@@ -57,7 +57,7 @@ Rejected:
 - An application's id, verdict and history survive every import, so a reviewer's work is never undone by a correction that does not touch placement.
 - **The set of answers that reopen a review is `SOLVER_RELEVANT_KEYS`**, the essential questions the solver reads ([essential fields](../implementation/modules/essential-fields.md)).
   A custom answer never reopens one, including an answer a priority rule orders by.
-- **Importing stops when review begins** (`IMPORT_PHASES`, [the CSV import](../implementation/modules/csv-import.md)), because rows appearing, changing or returning to `open` beneath a reviewer is the hazard this answer otherwise allows.
+- **Importing stops when review begins** (`IMPORT_PHASES`, [the CSV import](../implementation/modules/csv-import.md)), because rows appearing, changing or returning to `open` beneath a reviewer is the hazard this answer otherwise allows; a late export is brought in by moving review back to importing, every verdict kept ([review needs an import](../business/rules/review-needs-an-import.md)).
   A late export goes back through the existing `review -> applications_closed` edge, which the Google Form path takes in one move as "Import more responses", keeping every verdict.
 - Two concurrent writes can still meet on one application; a verdict is written only on the answers the reviewer saw (`if_unchanged_since`), so a re-import's new answers are never approved unseen.
 - When a market can take vendors both ways at once, the `source` field becomes a fact of its own; nothing needs it before then.

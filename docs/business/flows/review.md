@@ -13,6 +13,9 @@ sources:
   - wayfinding/readable-journey/map
   - brain-dump/2026-10-19#9
   - brain-dump/2026-10-19#10
+  - brain-dump/2026-10-19#11
+  - brain-dump/2026-10-19#23
+  - brain-dump/2026-10-19#29
   - E19/F03
   - E31/F04/S04
   - E32/F01/S01
@@ -35,7 +38,8 @@ sources:
 
 Verdicts are open from the first application until the market enters Assignment, so reviewing can start as soon as applications arrive and must be finished before Begin Assignment ([verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md)).
 A line above the review says where the market stands, in words: in Review "N applications still to decide. Every one must be decided before this market can assign." or "Every application has been decided. This market is ready to assign."; from Assignment on "The review is closed: every verdict settled when the assignment began. …".
-The page has two views, chosen above it and kept in the address: "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)) and "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)).
+The page has two views, chosen above it and kept in the address (`?view=all`, with the All view's filters): "One by one" ([`ApplicationMonitor.vue`](../../../front-end/src/components/application/ApplicationMonitor.vue)) and "All" ([`ApplicationsAll.vue`](../../../front-end/src/components/application/ApplicationsAll.vue)).
+Both views give verdicts and mark follow-ups through one composable ([`front-end/src/utils/verdictActions.ts`](../../../front-end/src/utils/verdictActions.ts)), so they cannot treat one differently.
 Every verdict records who gave it and when, and the review shows it: "Approved by <email>, <date and time>", or "Rejected automatically: <reason>" for one an [automatic rejection](form-tab.md#f3-what-a-reviewer-reads-first) gave as the application arrived.
 
 **Task:** "Go through the applications and decide who gets in."
@@ -54,8 +58,9 @@ The queue is triage: one application at a time, carrying every answer it holds, 
    A follow-up waits out of the queue, and "Include the N follow-ups" brings them back; on its card "Followed up by" hands it to someone else.
 5. When the queue is empty: "All N reviewed", "Nothing left to review." (or "Nothing else to review; N need a follow-up.").
 
-Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
-A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue".
+Two reviewers at once are never handed the same card: the card a reviewer has open is held for them while they work on it, until they have been idle for five minutes and its lease runs out, and another reviewer reads "<email> is looking at this." on it; when every card left is open with someone else, "Every application left is open with another reviewer: …" with "Look again".
+A verdict on a card someone else changed since it was opened is refused on the card, naming them: "<email> approved this application since you opened it.", with "Back to the queue" ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)).
+Someone who gives no verdicts walks the queue with Next and holds nothing, and is told when the card on screen is open with someone else.
 An advisory appears when the form asks only the essential questions, since every card then reads alike.
 Covered by: `market-journey.spec.ts`, `needs-a-follow-up.spec.ts`, `a-reviewer-holds-what-they-look-at.spec.ts`, `reviewers-do-not-collide.spec.ts`, `a-verdict-says-who.spec.ts`, `result-and-review-read-cleanly.spec.ts`.
 
@@ -75,10 +80,12 @@ Covered by: `the-all-view.spec.ts` ("a verdict changes while the review is open,
 2. Filters: "Any status", "To review", "Needs follow-up", "Approved", "Rejected", and "Mine: the follow-ups I own"; "N of M" says how many show.
 3. A row opens the [vendor drawer](vendor-drawer.md) with the application's status and Reject, Needs follow-up and Approve above its tabs.
 4. Tick rows and give one verdict to the selection: "N applications selected", then Reject, Needs follow-up or Approve, confirmed by count ("Approve N applications?"): "Each is written only if it is still as you see it here; any that another reviewer has changed or has open is skipped, and said so."
-   A row another reviewer has open cannot be ticked.
+   A row another reviewer has open cannot be ticked, and a filter that hides a ticked row unticks it.
+   A follow-up given to a selection is owned by the reviewer who gave it.
 5. The answer: "N applications approved; K skipped:" and each skipped one with why ("<email> has it open.", "Already approved.", or who changed it).
 
 A selection is only ever the rows ticked, never "everything matching".
+The list is read again every 30 seconds while the tab is in view, and every verdict given from it re-reads the market, so the rail's count and the page's "N still to decide" move.
 
 ## I3. Choose what leads the card
 
@@ -118,6 +125,9 @@ Publishing the results, I7, is a step of the assignment: [the assignment and its
 ## The rules it obeys
 
 - [Verdicts settle on entering assignment](../rules/verdicts-settle-on-entering-assignment.md).
+- [Needs follow-up](../rules/needs-follow-up.md): the third verdict, with an owner.
+- [Automatic rejections](../rules/automatic-rejections.md): the applications a rule rejected arrive decided, with the reason.
+- [Review needs an import](../rules/review-needs-an-import.md): on the Google Form path, Begin Review and Import more responses.
 - [What each role may do](../rules/what-each-role-may-do.md): verdicts and follow-ups are an Editor's, moves an Admin's.
 - [An applicant never reads a verdict early](../rules/an-applicant-never-reads-a-verdict-early.md): nothing decided here reaches the applicant until results are published.
 - [An archived market is read-only](../rules/an-archived-market-is-read-only.md).

@@ -6,6 +6,7 @@ describes:
   - front-end/src/views/AttendanceStatusView.vue
 verified: 2026-10-22
 sources:
+  - brain-dump/2026-10-19#15
   - E10/F01/S02
   - E15/F02/S04
   - E29

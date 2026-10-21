@@ -7,6 +7,7 @@ describes:
   - back-end/tests/test_what_a_role_may_change.py
 verified: 2026-10-22
 sources:
+  - brain-dump/2026-10-19#22
   - E26/F08/S01
   - E34/F01/S01
   - bug/37
@@ -55,3 +56,8 @@ See [the organization document](../../implementation/data/organization-document.
 - **A screen draws no control while the reason for it is set; never decide a role threshold on the front end beside them.**
   [The phase rail](../../implementation/modules/phase-rail.md) offers no move below ADMIN and still says where the market stands.
 - [`back-end/tests/test_what_a_role_may_change.py`](../../../back-end/tests/test_what_a_role_may_change.py) pins each role's two answers.
+- A follow-up's owner is anyone with a role on the market ([needs follow-up](needs-follow-up.md)).
+
+## Superseded
+
+Verdicts were an admin action, served on `adminActionsReason`; they and follow-ups drop to an Editor, and phase moves stay an Admin's (brain-dump/2026-10-19#22, E34/F01/S01).

@@ -14,10 +14,12 @@ sources:
   - wayfinding/v0-1-0/07
   - wayfinding/the-order-of-the-work/09
   - wayfinding/the-order-of-the-work/map
+  - brain-dump/2026-10-19#26
   - E03/F02/S02
   - E18/F04/S02
   - E26/F07/S02
   - E32/F03/S01
+  - E32/F03/S02
   - E03
   - E03/F02
   - E03/F03
@@ -41,6 +43,10 @@ There is no public landing page for a market beyond that.
 **The two applicant-login endpoints keep their *uniform* response rather than gaining a 404 of their own**: requesting a code always answers the same 200, and every failed verification the same 401.
 A 404 there would be an oracle saying "this slug is a CSV market" where every other answer says nothing.
 The sign-in page itself reads the public form first, so at a gated or unknown address it says the page does not exist and never takes an address (E32/F03/S01); it used to draw a sign-in form and answer "sent" for a code it never sent.
+Until the market answers, the page says it is loading and draws neither; a request that fails in transit is not an answer, and still shows the sign-in.
+
+**The code is sent within the request**, before the response goes out, to every address that asks at a market the gate serves ([a vendor signs in before they have applied](a-vendor-signs-in-before-applying.md)).
+A gated market answers without sending anything, so the time a request takes says only that the market takes applications online, which its public page already says.
 
 **A form market serves applicants in every phase but draft** (`APPLICANT_SURFACE_PHASES`, E26/F07/S02).
 An applicant may always sign in and read their own application and its outcome; closing the surface with applications hid every verdict (bug 20).

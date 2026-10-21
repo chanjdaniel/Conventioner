@@ -4,6 +4,12 @@ kind: flow
 verified: 2026-10-22
 sources:
   - wayfinding/real-market-readiness/map
+  - brain-dump/2026-10-19#1
+  - brain-dump/2026-10-19#2
+  - brain-dump/2026-10-19#3
+  - brain-dump/2026-10-19#4
+  - brain-dump/2026-10-19#19
+  - brain-dump/2026-10-19#20
   - E24
   - E26
   - E30/F02/S01
@@ -23,7 +29,9 @@ A path is one way of running a market from start to finish; this one is for an o
 **Who:** the organizer, signed in, in an organization.
 **Where they start:** the Markets list.
 
-The path reads Plan, Import, Review, Assign, Market days on the phase rail ([the lifecycle](lifecycle.md)): the organizer already holds the responses when the market leaves draft, so the upload is the collection, and nothing asks them to open or close applications.
+The path reads Draft, Import, Review, Assignment, Market Days, Archived on the phase rail ([the lifecycle](lifecycle.md)): the organizer already holds the responses when the market leaves draft, so the upload is the collection, and nothing asks them to open or close applications.
+"Import responses" leaves draft and lands on the import, Begin Review waits until something has been imported, and a late export is brought in with "Import more responses" from Review, every verdict kept ([review needs an import](../rules/review-needs-an-import.md)).
+Every move lands on its phase's page, and a blocked step offers its fix as the main button.
 Its two variants differ only in where the plan and the form come from.
 
 ## P1. CSV intake, form built by hand
@@ -74,9 +82,14 @@ Intended at the import: every row that answers the required questions imports, "
 ## The rules it obeys
 
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): importing is this path's, in every phase it imports in.
+- [Review needs an import](../rules/review-needs-an-import.md): the import is the collection, so review waits for one.
 - [The setup settles on leaving draft](../rules/the-setup-settles-on-leaving-draft.md): the plan is complete before "Import responses".
 - [No question is inferred required](../rules/no-question-is-inferred-required.md).
 - [What an import may leave unasked](../rules/what-an-import-may-leave-unasked.md): a file with no "how many days" column imports with no personal limit.
 - [A gated market answers as absent](../rules/a-gated-market-answers-as-absent.md): this market has no applicant pages.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).
+
+## Superseded
+
+The path was to read Plan, Import, Review, Assign, Market days (brain-dump/2026-10-19#1); only the phases it imports in are renamed, "Import" and, for a market already standing in the closed phase, "Imported", and the others keep the names the online path reads (E32/F02/S01).

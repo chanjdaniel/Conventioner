@@ -9,6 +9,7 @@ verified: 2026-10-22
 sources:
   - wayfinding/rejection-visibility/02
   - wayfinding/what-to-show-and-when/02
+  - brain-dump/2026-10-19#24
   - E34/F01/S01
   - E36/F01/S01
 ---
@@ -41,4 +42,5 @@ An archived market refuses anyone.
 - `verdict_refusal` in [`back-end/api/markets.py`](../../../back-end/api/markets.py) is the role check and `review_is_open`; the market read serves it per person as `verdictLockReason`, so every review screen offers exactly what the write takes.
 - `_reviewer_on` in [`back-end/app.py`](../../../back-end/app.py) is the one gate of every review write (a verdict, a selection's verdicts, a follow-up's owner, a claim), and answers a refusal with a 403 in its words.
 - `review_is_open` reads the table kept by [the guards](../../implementation/modules/guards.md); the verdict itself is stored on [the application document](../../implementation/data/application-document.md#statuses).
-- `back-end/tests/test_a_verdict_says_who.py` pins it in every phase.
+- `back-end/tests/test_a_verdict_says_who.py` pins it in every phase, and holds the verdicts' lock and the automatic rejections' lock equal in each.
+- Several reviewers at once are kept apart by a claim, and a verdict is written only on what its reviewer saw ([ADR 0014](../../adr/0014-reviewers-claim-and-a-verdict-is-a-conditional-write.md)); a follow-up is [needs follow-up](needs-follow-up.md), and a rule's rejection [automatic rejections](automatic-rejections.md).
