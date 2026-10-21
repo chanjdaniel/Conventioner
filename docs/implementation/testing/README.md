@@ -17,3 +17,4 @@ One line per node, sorted by file name.
 - [E2E seeds](e2e-seeds.md) - verified users, markets in an organization, the seed helpers, reaching a stored assignment
 - [Floorplan E2E](floorplan-e2e.md) - deterministic, no AI to mock; which canvas steps are real gestures, and the coverage gap
 - [The market journey spec](the-market-journey-spec.md) - the one spec that walks the whole journey; the slices; where a new test belongs
+- [Walking the flows](walking-the-flows.md) - the stack, accounts and fixtures a walk needs, which specs walk which flows, the test data recipes

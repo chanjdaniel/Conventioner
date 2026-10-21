@@ -67,3 +67,5 @@ Change a rule against that, not beside it; `test_csv_proposal_plan.py` does the 
 - [The form locks at the first application](../../business/rules/the-form-locks-at-the-first-application.md): confirm is one of the form's two writers, through the same judgement.
 
 [ADR 0007](../../adr/0007-what-may-be-sent-to-hosted-typesafe.md) records what may leave the server.
+
+The organizer's side of it, from the upload to confirm or cancel, is [starting from a Google Form's responses](../../business/flows/starting-from-a-google-form.md).

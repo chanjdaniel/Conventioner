@@ -28,13 +28,24 @@ A verdict is Editor's (E34/F01/S01): reviewers decide applications, and a verdic
 
 | Role | May |
 | --- | --- |
-| Viewer | read the market, its applications and its result |
-| Editor | everything a Viewer may, and the plan, the form, placements, highlights, automatic rejections, verdicts, follow-ups, vendor notes, check-ins at the door |
+| Viewer | read the market: its applications, its result and tables, the statistics and the CSV export, attendance and the placement history |
+| Editor | everything a Viewer may, and the plan, the form, renaming a draft, running the assignment and placing, swapping or freeing a seat, highlights, automatic rejections, verdicts, follow-ups, vendor notes, check-ins at the door |
 | Admin | everything an Editor may, and phase moves, publishing results, importing, the CSV start, [the form amendment](../../implementation/modules/form-amendment.md); manage editors and viewers |
 | Owner | everything an Admin may, and manage admins, and delete the market |
 
-**Organization membership gives only Viewer on its markets**, even to the organization's owner and admins; anyone who changes a market, a door volunteer included, needs a role on that market (Manage market).
+Whoever creates a market is its owner, and a market has exactly one.
+A market may give a person a role of its own, which takes precedence over what their organization gives: Owner (4) > Admin (3) > Editor (2) > Viewer (1).
+**Organization membership gives only Viewer on its markets**, in any of the organization's roles (Owner, Admin or Member), even to its owner and admins; anyone who changes a market, a door volunteer included, needs a role on that market (Manage market).
 See [the organization document](../../implementation/data/organization-document.md#what-a-person-may-do-on-a-market) for how a role is resolved.
+
+## Who signs in, and how
+
+| Person | Signs in how | What they do |
+| --- | --- | --- |
+| Organizer | Email and password, or an emailed sign-in code | Runs markets, by the role each market gives them |
+| Organization member | As an organizer | Sees every market of their organization as a Viewer |
+| Vendor applying online | A 6-digit code emailed per market; no account | Applies to a market whose vendors apply on its own page, and reads their application ([a vendor signs in before they have applied](a-vendor-signs-in-before-applying.md)) |
+| Vendor on market day | Nothing: types the address they applied with | Looks up their table and checks in |
 
 ## Where it is kept
 

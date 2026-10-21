@@ -80,3 +80,4 @@ The server refuses it in `_normalized_application_form` ([`back-end/api/markets.
 - [What an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md).
 - [Table-share pairing](../../business/rules/table-share-pairing.md): how the partner's address is read out of the answer.
 - [Tier filters, section prefers](../../business/rules/tier-filters-section-prefers.md): why tier is a set and section a ranking.
+- [Building the application form](../../business/flows/form-tab.md): the essential questions as the organizer meets them, on the form tab's first step.
