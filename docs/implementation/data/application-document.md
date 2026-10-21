@@ -1,0 +1,90 @@
+---
+layer: implementation
+kind: data
+describes:
+  - back-end/api/applications.py
+  - back-end/datatypes.py#Application
+  - back-end/datatypes.py#ApplicationStatus
+  - back-end/datatypes.py#ApplicationType
+  - back-end/datatypes.py#VerdictGiver
+  - back-end/datatypes.py#MarketPerson
+  - back-end/migrations/create_applications_collection.py
+  - back-end/migrations/migrate_submitted_at_to_iso.py
+verified: 2026-10-22
+sources:
+  - E01/F04/S02
+  - E26/F07/S01
+  - E33/F03/S02
+  - E34/F01/S01
+  - E34/F02/S01
+  - E34/F03/S02
+  - E36/F03/S01
+---
+
+# The application document
+
+One document per application in the `applications` collection: a vendor's answers to one market's form, and where review has got to with them.
+[`back-end/api/applications.py`](../../../back-end/api/applications.py) is the single owner of the collection, and every reader and writer goes through it, so the storage contract lives in one place.
+The model is `Application` in [`back-end/datatypes.py`](../../../back-end/datatypes.py).
+
+## Key spelling
+
+**Applications are stored snake_case**, unlike markets, which are camelCased on write ([the market document](market-document.md#key-spelling)).
+The market foreign key is `market_id`, NOT `marketId`.
+A writer that stored the market reference under any other key would silently disable the application form lock: the count it reads (`count_applications_for_market`) would just return 0.
+The organizer's and the applicant's views camel-case an application on the way out; the stored document never is.
+
+## The fields that matter
+
+| Field | What it is |
+| --- | --- |
+| `id` | a UUID, the primary key |
+| `market_id` | the market it belongs to |
+| `applicant_email` | the applicant, stored lowercased and trimmed by every writer ([users and email](users-and-email.md)) |
+| `application_type` | `main`, or `waitlist` for a second application beside it (`main_application_id` names the main one) |
+| `form_data` | the answers, keyed by form field key; the essential questions' answers under their reserved `essential_*` keys |
+| `status` | where review has got to (below) |
+| `submitted_at` | ISO 8601; the first save's time, kept through later edits |
+| `updated_at` | when the answers last changed; a verdict is conditioned on it |
+| `verdict_by`, `verdict_at`, `verdict_reason` | who gave the verdict (`{kind: person, user_id, email}` or `{kind: rule, rule}`), when, and a rule's reason in the organizer's words, never shown to the applicant |
+| `follow_up_owner` | who is reaching out, while the status is `needs_follow_up` |
+| `held_by`, `held_until` | the reviewer looking at it, and until when: a five-minute lease, renewed while the card stays open |
+| `added_by`, `added_at` | who recorded a vendor who never applied, and when |
+| `assigned_reviewer_id` | carried on the model; nothing writes it |
+
+Form field keys are held to `^[a-z0-9_]+$` (`FORM_FIELD_KEY_PATTERN` in `api/markets.py`) because they become keys inside `form_data`, where a dot or a leading `$` cannot be addressed by Mongo update operators.
+
+**`submitted_at` is what first come, first served orders by**, and the review queue's arrival order too.
+An applicant's first valid save stamps it ([`back-end/application_write.py`](../../../back-end/application_write.py)); **a CSV-imported row must carry its own**, or it gets the time of the import and first-come-first-served decides nothing.
+The import normalises the form's timestamp to ISO 8601 at the boundary; [`migrate_submitted_at_to_iso.py`](../../../back-end/migrations/migrate_submitted_at_to_iso.py) rewrote the raw `9/12/2025 18:22:56` values imported before that, which sorted wrongly as strings and scored every vendor alike in the solver.
+
+## Statuses
+
+`ApplicationStatus` names eleven values, and five are in use:
+
+- `open`: nobody has decided yet, the status every application is created with (an applicant's first save, or an import row), and the one a re-import returns an approved application to when the row's answers, normalised, have changed.
+- `reviewer_approved`, `reviewer_rejected`: the verdicts, written with their giver and time in the same update; a rule's rejection also carries its reason.
+- `needs_follow_up`: undecided, and owned by a person on the market who must reach out first.
+- `vendor_refused`: written only by `sweep_unanswered_offers`, which moves every `assignment_sent` application to it.
+
+`under_review` is read as undecided but never written; `unassigned`, `assigned`, `assignment_sent`, `vendor_accepted` and `cancelled` belong to the offers stage, which nothing enters, and no write sets them.
+`update_application_status` refuses a verdict or follow-up without a giver, and clears the giver, the reason, the follow-up owner and any reviewer's hold with every other status.
+Given the application as the caller read it (`if_unchanged_since`), it writes only if the status, the verdict's time and `updated_at` are still those, so neither another reviewer's verdict nor a re-import's new answers are written over.
+
+A vendor added by hand is stored `reviewer_approved` with `added_by`, holding only their name in `form_data`; the solver run never reads them, and they are seated by hand.
+
+## Indexes
+
+**`(market_id, applicant_email, application_type)` identifies an application, and the database enforces it:** the unique index `market_applicant_type_unique`, built by `ensure_application_indexes()`.
+Creating one is a read-then-insert on a public endpoint, so two concurrent saves for a new address would otherwise both insert, leaving an orphan that sits on the organizer's list and double-counts through review, assignment and the form lock.
+`find_or_create_application()` is one conditional upsert against that index, and returns the winner's document when it loses the race.
+`app.py` builds the index at boot and refuses to start when it cannot (`verify_application_indexes`); the likeliest cause is duplicates already stored, which have to be merged by hand ([Operations](../../OPERATIONS.md#when-the-back-end-refuses-to-boot)).
+The index's `market_id` prefix serves every read of a market's applications; `id` is a [lookup index](lookup-indexes.md).
+
+[`migrations/create_applications_collection.py`](../../../back-end/migrations/create_applications_collection.py) creates the collection, a `market_id` index and the identity index on an older deployed database, and with `--dry-run` names any applicant holding two applications.
+`mongo-init.js` creates the collection and the `market_id` index on a fresh volume.
+Two migrations reshape stored answers for the essential questions: `migrate_tier_preference_per_date.py` and `migrate_table_share_answer.py`.
+
+## With its market
+
+An application belongs to its market for life: `delete_applications_for_market` takes every one with the market ([`back-end/market_deletion.py`](../../../back-end/market_deletion.py)), and `delete_application` exists only to undo a create whose answers were then refused.

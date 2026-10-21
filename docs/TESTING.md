@@ -158,7 +158,7 @@ a locked form even for a frame, and keeps auto-derived keys auto-derived across 
 `BlockerPanel.test.ts` covers the panel that renders a blocked phase transition: it lists
 every blocker the server returned, links to the guard's `resolutionLink` when there is one,
 and renders nothing when there are no blockers - all without a line of guard-specific
-logic, which is the point of the registry (see `docs/OBJECT_RELATIONSHIPS.md`).
+logic, which is the point of the guard registry ([`back-end/guards.py`](../back-end/guards.py)).
 Add more component tests in `front-end/src/__tests__/`.
 
 Configuration: `front-end/vitest.config.ts` with `happy-dom` environment.
