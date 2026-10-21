@@ -15,3 +15,4 @@ One line per node, sorted by file name.
 - [Every control is named](every-control-is-named.md) - a name for every control, the named-controls walk, focus rings, answers as links
 - [Every market page has an address](every-market-page-has-an-address.md) - `/markets/:marketId/...`, `marketPath()`, the landing, the redirects
 - [One market, from the server](one-market-from-the-server.md) - one store, a re-read after every write, nothing in the browser, facts served on the market
+- [Security invariants](security-invariants.md) - no control keyed on an insecure default: the six boot requirements, the one escape hatch, secrets read when asked

@@ -12,6 +12,7 @@ verified: 2026-10-21
 
 How to run each suite, and what each covers.
 The testing nodes of the [knowledge graph](implementation/testing/README.md) hold the sharp edges of each; the [Google Form corpus](../back-end/tests/test_data/README.md) is the suite's realistic data.
+The sharp edges are in the testing nodes: [E2E patterns](implementation/testing/e2e-patterns.md), [E2E seeds](implementation/testing/e2e-seeds.md), [the market journey spec](implementation/testing/the-market-journey-spec.md), [floorplan E2E](implementation/testing/floorplan-e2e.md), [CI and the gate](implementation/testing/ci-and-the-gate.md) and [the assignment behaviour suite](implementation/testing/assignment-behaviour-suite.md).
 The stack is seeded by [`scripts/seed_fixture.sh`](../scripts/seed_fixture.sh), Playwright is configured in [`front-end/playwright.config.ts`](../front-end/playwright.config.ts), and the no-mistakes gate runs everything through [`scripts/nm-test.sh`](../scripts/nm-test.sh).
 
 ## Quick Start: Seed Fixture
@@ -176,34 +177,11 @@ npm run test:e2e
 
 E2E tests use Playwright driving Chromium against the running Docker stack.
 
-**The whole journey, once**: `market-journey.spec.ts` is the only spec that walks the MVP
-journey end to end in one organizer session, entirely through the UI. It creates the market,
-plans it, opens applications, imports a Google Forms CSV, **approves the vendors in the
-application monitor**, assigns, and asserts who got a table and who did not. It seeds only the
-verified user and the organization, because those precede the journey.
-It is the release's acceptance test: if it fails, the product does not do what it claims.
-It is also the only spec that clicks Approve, which is what decides the solver's entire input.
-
-Every other spec covers a slice, and the slices deliberately overlap rather than meet. Read the
-boundaries below before deciding where a new test belongs.
-
-**The slices around it**:
-
-- `market-pipeline.spec.ts` covers **setup through publish**. It begins where the journey's
-  fourth step ends: it creates the market over the API and seeds applications already at
-  `reviewer_approved`, then walks the 3-page setup wizard, triggers assignment, verifies the
-  results view, and **publishes with Done** - the `draft` → `archived` transition - confirming
-  the market lands on its public slug, reports `phase: archived` with `isDraft: false`, reopens
-  from the markets list to its public page rather than back into the wizard, and is reachable by
-  a vendor at its public check-in URL. It does not import or review anything.
-- `csv-import.spec.ts` covers **import**, in depth, on a market seeded over the API: column
-  mapping, Google Forms checkbox grids (and splitting one the detection got wrong), resolving a
-  cell value the market does not recognise, a restored mapping on re-import, upsert on identity
-  with absent rows left alone, a changed solver answer returning an approval to review, and the
-  phase restriction. It ends at "rows are applications awaiting review", asserted over the API.
-  It drives the wizard through `CsvImportPage`.
-- `phase-state-machine.spec.ts` walks every phase edge and the guards that refuse them.
-- `smoke.spec.ts` covers login, dashboard, and markets navigation.
+**Which spec to extend**: `market-journey.spec.ts` is the only spec that walks the whole journey
+in one organizer session, and every other spec is a slice of it; [the market journey
+spec](implementation/testing/the-market-journey-spec.md) says what each slice covers and where a
+new test belongs. `phase-state-machine.spec.ts` walks every phase edge and the guards that refuse
+them, and `smoke.spec.ts` covers login, dashboard, and markets navigation.
 Coverage also includes tier-1 market operations journeys: public vendor check-in
 (`checkin.spec.ts`), vendor browsing with search (`vendors.spec.ts`), and table
 browsing with filtering (`tables.spec.ts`). The tier-2 suite (`tier2.spec.ts`)
@@ -262,90 +240,16 @@ plus the organization-less user `e2e-noorg@example.com` (change via `NO_ORG_EMAI
 ### E2E Foundation
 
 The suite is built on a Page Object Model plus a fixture layer under `front-end/e2e/`:
-
-- **data-testid convention**: selectors follow `viewname-element`
-  (e.g. `login-email-input`, `markets-create-button`). Views are instrumented
-  with `data-testid` attributes so tests never depend on CSS classes or text.
-- **Page objects** (`front-end/e2e/pages/`): `LoginPage`, `NewMarketPage`,
-  `MarketSetupPage`, `ResultPage`, `CheckinPage`, `VendorsPage`,
-  `TablesPage`, `AttendanceStatusPage`, `OrganizationsPage`, `ManageMarketPage`,
-  `PasswordResetPage`, `ApplicationFormPage`, `FloorplanWorkflowPage`,
-  `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`, `CsvImportPage`,
-  `StartFromCsvPage`, `MarketsPage`, `ApplicationsAllPage` and
-  `ApplicationMonitorPage` each wrap `getByTestId()` selectors and expose action methods.
-  New page objects should follow these patterns.
-  `MarketSetupPage` covers more than the plan: the market's tabs and the phase rail live there
-  too, because every market page stands in the same frame.
-- **Fixtures** (`front-end/e2e/fixtures.ts`): provides `TEST_USER`, the
-  `BACKEND_URL` constant (derived from `stack().backendURL`; defaults to
-  `https://localhost:5000` for the primary stack, offset per worktree slot,
-  override via the `BACKEND_URL` env var), the `authenticatedPage` fixture
-  (logs in before the test), and re-exports page objects for convenience.
-- **API-level seeding** (`front-end/e2e/helpers/seeds.ts`): all helpers use
-  Playwright's `APIRequestContext` (cookies flow automatically) and require a
-  verified test user created by `scripts/seed_fixture.sh`.
-  - `loginViaApi()` logs in so the request context carries a Flask session cookie
-    and returns the user UUID.
-  - `ensureTestOrgAuthenticated()` returns the test user's first organization,
-    creating `E2E Test Org` if they have none. Use it when the request context has
-    already logged in; `ensureTestOrg()` wraps it with a login for contexts that have
-    not. Every market-creating helper and spec needs one of these, because
-    `POST /markets` rejects a payload without a valid `organizationId`. Specs that
-    create a market through the UI call it in `beforeAll` so the org dropdown is not
-    empty.
-  - `seedMarketWithVendors()` logs in, ensures an organization, creates a market in it,
-    finalizes the application form (required by the D9 lock ordering), and seeds the vendors as
-    **approved applications**, which is what a vendor is and what the solver reads. It used to
-    upload a fabricated CSV, back when the solver read a separate `source_data` collection;
-    that collection, its endpoints and every column field were deleted by E02. The organization
-    id is returned as `orgId` on the seed result.
-    Note what this means for a spec that uses it: the applications arrive already approved, so
-    nothing in such a spec exercises review. `market-journey.spec.ts` is the one that does.
-  - `seedPublishedMarketWithAssignments()` additionally configures the market's
-    `setupObject` (dates, sections, tiers, locations), publishes
-    it via `POST /markets/{id}/transition` with `{ toPhase: 'archived' }` - the same
-    endpoint the product's Done button calls, since `isDraft` is server-derived and a
-    PUT can no longer publish anything - then fetches the computed assignment via
-    `GET /markets/{id}/assignment` and stores it back via PUT so the check-in API
-    and vendor/table views have persisted assignments. Returns a `marketSlug`
-    for navigating to the public check-in URL. See `AGENTS.md` for the sharp edges around
-    publishing and stored assignments.
-  - `seedAssignedMarket()` (`front-end/e2e/helpers/seedAssignedMarket.ts`)
-    additionally configures the market's `setupObject`, triggers the
-    assignment engine via the API, then fetches the computed assignment
-    via `GET /markets/{id}/assignment` and stores it back via PUT so the
-    check-in API and vendor/table views have persisted assignments.
-    Returns the seed plus the market's URL `slug` and the stored
-    `assignmentObject`.
-  - `seedApplicantMarket()` (`front-end/e2e/helpers/seedApplicantMarket.ts`) creates a
-    published market in `applications_open` phase with an application form, ready for the
-    applicant login flow. Returns the market's id, name, slug, and organization id.
-    Requires an authenticated API request context and a verified test user (see
-    `scripts/seed_fixture.sh`). The helper also provides `seedApplicationDoc()` (wraps
-    `seedApplication`) and `createApplicantLoginChallenge()` - see the direct-to-Mongo
-    items below for these.
-  - `seedApplication()` (`front-end/e2e/helpers/seedApplication.ts`) is one of several
-    exceptions to API-level seeding: it inserts an application document straight into
-    Mongo via `mongosh` (`E2E_MONGO_CONTAINER` overrides the container name, as in
-    `auth.spec.ts`). There is no applicant-facing submit endpoint yet, so writing the
-    document the way that endpoint eventually will - snake_case, keyed by `market_id` -
-    is the only way to reach the D9-locked state.
-  - `createApplicantLoginChallenge()` (`front-end/e2e/helpers/seedApplicantMarket.ts`)
-    inserts a login challenge into `applicant_login_challenges` with a known plaintext
-    code. The 5d back end hashes codes on generation (salted SHA-256), so the test cannot
-    read a code out of MongoDB after requesting one. This helper inserts a challenge
-    directly with the correct hash, letting the test verify the full end-to-end login flow.
-    Like `seedApplication()`, it writes straight into Mongo via `mongosh`.
-  - `ensureVerifiedUser()` (`front-end/e2e/helpers/verifiedUser.ts`): a spec
-    that needs users beyond the two `scripts/seed_fixture.sh` creates (as
-    `access-control.spec.ts` does) calls it in `beforeAll` to create one idempotently. It
-    runs `back-end/create_test_user.py` inside the back-end container
-    (`E2E_BACKEND_CONTAINER` overrides the container name), because `/register-user` does
-    not set `email_verified` and a user registered through it therefore cannot log in. The
-    script exits `0` whether it created the user, found one already there, or failed to
-    insert, so the helper checks its *output* for one of the two outcomes that leave a
-    usable user behind and throws otherwise - a seeding failure has to surface at the
-    `beforeAll` that caused it rather than much later as an opaque login timeout.
+[E2E patterns](implementation/testing/e2e-patterns.md) is how a spec is written (testids, page
+objects, fixtures, opening a market by URL, `mongoEval`, market dates and plans), and [E2E
+seeds](implementation/testing/e2e-seeds.md) is every helper that puts users and markets in the state
+a spec starts from.
+The page objects in `front-end/e2e/pages/` are `LoginPage`, `NewMarketPage`, `MarketSetupPage`,
+`ResultPage`, `CheckinPage`, `VendorsPage`, `TablesPage`, `AttendanceStatusPage`,
+`OrganizationsPage`, `ManageMarketPage`, `PasswordResetPage`, `ApplicationFormPage`,
+`FloorplanWorkflowPage`, `ApplicantLoginPage`, `ApplicantDashboardPage`, `ApplyPage`,
+`CsvImportPage`, `StartFromCsvPage`, `MarketsPage`, `ApplicationsAllPage` and
+`ApplicationMonitorPage`.
 
 ### Bypassing CAPTCHA and email in tests
 
@@ -376,20 +280,12 @@ named by `E2E_MONGO_CONTAINER`, derived from `stack().mongoContainerName`).
 
 ## CI Pipeline
 
-Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
-- Back-end: install dependencies + pytest
-- Front-end: (two jobs) `frontend-unit` runs unit tests; `frontend-lint-and-types` runs `format:check`, lint, and type-check
-- `knowledge-graph`: the checker's tests, `scripts/knowledge_graph.py check`, and on a pull
-  request `drift` against the base branch (see [the knowledge graph](README.md#the-checks))
-- Docker build verification
-- E2E, in four shards, each with its own Docker stack (`e2e` passes when all four do):
-  build and start the Docker stack, seed fixtures, install Playwright
-  (Chromium), run the Playwright suite with `DISABLE_CAPTCHA=true` and
-  `DISABLE_EMAIL=true` - Playwright is configured with 2 retries and
-  `failOnFlakyTests: true` in CI, so a test that passes only on retry
-  still fails the job - then upload the Playwright report + test results
-  as artifacts on failure, and post a flaky-test summary to the GitHub
-  step summary
+Pushes and PRs to `main` or `dev` run `.github/workflows/test.yml`: back-end pytest, front-end unit
+tests, format, lint, style lint and type-check, the knowledge graph's checks, a Docker build, and
+the E2E suite in four shards.
+[CI and the gate](implementation/testing/ci-and-the-gate.md) says what each job runs, which five
+checks branch protection requires, why a flaky test fails the build, and what the no-mistakes gate
+runs through `scripts/nm-test.sh`.
 
 ## Testing Gotchas
 
@@ -418,11 +314,6 @@ Pushes and PRs to `main` or `dev` trigger `.github/workflows/test.yml`:
   `test_real_export_shapes.py` asserts those before it asserts anything else.
 - **Playwright browsers**: If `npx playwright install chromium` fails inside the
   Alpine Docker container, install Playwright and browsers on the host instead.
-- **Driving the Konva floorplan canvas**: `FloorplanWorkflowPage` calibrates the
-  scale by issuing `page.mouse` drags over the Konva stage, but the lasso-based
-  section grouping cannot be driven reliably through the canvas, so the page
-  object manipulates the Pinia store directly via `page.evaluate`. The
-  `FloorplanEditor` no longer resets the store on mount (it preserves the
-  existing `placedTables`, `tableTypes`, `sections`, `walls`, and `obstacles`),
-  so the spec uses `snapshotPlacedTables()` to assert tables survive the
-  step-2-to-step-3 transition rather than snapshotting and restoring around it.
+- **Driving the Konva floorplan canvas**: calibration is a real mouse drag, but section grouping
+  sets the store directly and the editor canvas is not exercised at all; see [floorplan
+  E2E](implementation/testing/floorplan-e2e.md) for the coverage gap.
