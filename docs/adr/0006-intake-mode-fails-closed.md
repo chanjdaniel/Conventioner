@@ -16,6 +16,8 @@ status: accepted
 
 # Intake mode fails closed
 
+The glossary concept: [Intake mode](../business/concepts/intake-mode.md).
+
 ## Context
 
 A market's vendors reach it one of two ways: the organizer imports the responses their own Google Form collected, or vendors apply on the market's own page.

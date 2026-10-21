@@ -18,6 +18,8 @@ One document per organizer account in the `users` collection, and the rule every
 [`back-end/api/users.py`](../../../back-end/api/users.py) writes and reads accounts; the model is `User` in [`back-end/datatypes.py`](../../../back-end/datatypes.py).
 Vendors have no account: an applicant signs in with a code sent to their address, held per market in `applicant_login_challenges`.
 
+The glossary concept: [Organization and roles](../../business/concepts/organization-and-roles.md).
+
 ## The fields that matter
 
 | Field | What it is |

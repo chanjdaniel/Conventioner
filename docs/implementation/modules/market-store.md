@@ -56,3 +56,5 @@ The frame draws the rail only once a market is in hand, so a market that will no
 The market used to be held three ways at once (a view's ref, a value one tab published for its siblings, and `localStorage`), written by eleven call sites that each patched their own copy.
 That is how the form builder ignored a phase change until the organizer left the tab.
 The decision is [ADR 0009](../../adr/0009-the-back-end-is-the-only-source-of-truth.md).
+
+The glossary concept it serves: [Market](../../business/concepts/market.md).

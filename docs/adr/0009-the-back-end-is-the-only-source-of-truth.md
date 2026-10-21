@@ -12,6 +12,8 @@ status: accepted
 
 # The back end is the only source of truth about a market
 
+The glossary concept: [Market](../business/concepts/market.md).
+
 ## Context
 
 The browser held the market three ways at once: a view's ref, a value one tab published for its siblings, and the whole market in `localStorage` under `market`.

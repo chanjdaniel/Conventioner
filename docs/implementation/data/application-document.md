@@ -27,6 +27,8 @@ One document per application in the `applications` collection: a vendor's answer
 [`back-end/api/applications.py`](../../../back-end/api/applications.py) is the single owner of the collection, and every reader and writer goes through it, so the storage contract lives in one place.
 The model is `Application` in [`back-end/datatypes.py`](../../../back-end/datatypes.py).
 
+The glossary concepts: [Application](../../business/concepts/application.md) and [Essential question](../../business/concepts/essential-question.md).
+
 ## Key spelling
 
 **Applications are stored snake_case**, unlike markets, which are camelCased on write ([the market document](market-document.md#key-spelling)).

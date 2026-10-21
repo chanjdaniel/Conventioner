@@ -15,6 +15,8 @@ status: accepted
 
 # Each write names what it changes
 
+The glossary concepts: [Market](../business/concepts/market.md) and [Review highlight](../business/concepts/review-highlight.md).
+
 ## Context
 
 `PUT /markets/:id` stored the client's entire copy of a market.

@@ -9,18 +9,22 @@ Conventioner helps a market organizer run a maker's market: collect vendor appli
 **Organization**:
 The body that runs markets. Owns its markets and its members.
 _Avoid_: Team, account, tenant
+See [Organization and roles](docs/business/concepts/organization-and-roles.md).
 
 **Organizer**:
 A person acting on behalf of an organization. The authenticated user of the main application.
 _Avoid_: Admin, owner (both name specific roles within an organization, not the general actor)
+See [Organization and roles](docs/business/concepts/organization-and-roles.md).
 
 **Market**:
 One event, run by an organization over one or more days.
 _Avoid_: Event, show, convention
+See [Market](docs/business/concepts/market.md).
 
 **Phase**:
 Where a market is in its lifecycle: `draft`, `applications_open`, `applications_closed`, `review`, `assignment`, `offers`, `market_days`, `archived`. The single source of truth for a market's state.
 _Avoid_: Status, stage, state (all used for other things; `isDraft` in particular is derived from phase, never set)
+See [Phase](docs/business/concepts/phase.md).
 
 **Publish**:
 To put a market's check-in page on the air: the `assignment` -> `market_days` transition, taken once the assignment has been computed. A published market is running, not finished.
@@ -35,6 +39,7 @@ _Avoid_: Published, closed
 
 **Intake mode**:
 How a market receives its vendors - by importing a CSV, or through the public application form. Exactly one, chosen while the market is a draft and frozen thereafter. It decides whether the public applicant surface answers, but never gates check-in, and never gates authoring the form itself: a CSV market still has an application form, because the essential questions define the offering the CSV maps onto.
+See [Intake mode](docs/business/concepts/intake-mode.md).
 
 **CSV import**:
 Turning each row of a CSV the organizer already collected into an application, by saying which question each column answers. It fills in applications and never writes the form: a column with nowhere to go needs the form changed first.
@@ -56,10 +61,12 @@ _Avoid_: User (means an organizer), vendor (means an applicant who has been assi
 **Application**:
 One applicant's submission to one market. The canonical vendor-intake record: both CSV import and the public form produce these, and the solver reads them.
 _Avoid_: Submission, entry, registration
+See [Application](docs/business/concepts/application.md).
 
 **Essential question**:
 A question the product owns, that every application form asks. Purpose-built and non-removable. Most are read directly by the assignment solver, which is why they cannot be deleted - it would then have nothing to read. The vendor's name is the exception: it is essential because identity is, not because the solver needs it. Distinct from the custom fields an organizer adds freely.
 _Avoid_: Required field (custom fields can be required too)
+See [Essential question](docs/business/concepts/essential-question.md).
 
 **Full name**:
 What a vendor is called. One field, never split into first and last - the names organizers already collect arrive whole, and splitting them means guessing. Asked by every market, unconditionally: unlike every other essential question, it does not depend on the market plan offering anything. A person's name, not a trading name.
@@ -76,6 +83,7 @@ An answer a reviewer reads first. The organizer marks a handful on the market, a
 
 It lives on the market rather than on the form because the form freezes at the first application, and an organizer only learns which answers they needed once they are reading real ones. Off the form it can also name essential answers, which are not form fields at all.
 _Avoid_: Important field, priority (means the solver's ordering rules)
+See [Review highlight](docs/business/concepts/review-highlight.md).
 
 **Solver-relevant answer**:
 An answer whose change invalidates a completed review, because it changes what the solver would do with the application. Named by `SOLVER_RELEVANT_KEYS` in `back-end/essential_fields.py`.
@@ -103,6 +111,7 @@ Where a section sits in the venue. Descriptive; the solver does not filter on it
 
 **Table**:
 One physical table on one market date. Holds either one full-table vendor or two half-table vendors.
+See [Placement and pin](docs/business/concepts/placement-and-pin.md).
 
 **Table code**:
 A table's name: its section, a space, then its number within that section - "Front Row 1".
@@ -123,15 +132,18 @@ _Avoid_: Table size, table preference, showing the stored code to anyone
 What a vendor actually got: "Full Table", "Half Table (Left)", "Half Table (Right)".
 A different concept from **table choice**, which is what they asked for - an "Either is fine" applicant is placed as one or the other.
 _Avoid_: Using the applicant's sentence for an outcome, or "table choice" for either one alone
+See [Placement and pin](docs/business/concepts/placement-and-pin.md).
 
 **Table sharing**:
 Two half-table vendors placed at the same table. A vendor may name a preferred partner by email; one who names nobody may be paired with a stranger.
+See [Table sharing](docs/business/concepts/table-sharing.md).
 
 **Assignment**:
 The output of the solver: which vendor sits at which table on which date.
 Changed afterwards only by hand placements, never by editing the rules - new rules take effect when the assignment is run again.
 The organizers' word for the whole job of placing vendors, which is why the page where the **Assignment rules** are set and run is also labelled Assignment; its sibling page, where the assignment is read and changed, is the **Result**.
 _Avoid_: Assignment results (the assignment is the result; there is no second thing)
+See [Assignment](docs/business/concepts/assignment.md).
 
 **Assignment rules**:
 The organizer's inputs to the solver: the **Priority**, the **Max assignments per vendor**, and how many of a section's tables may be split between half-table vendors. What the organizer sets before running an assignment, as distinct from the **Assignment** it produces.

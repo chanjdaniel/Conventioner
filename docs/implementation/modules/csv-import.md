@@ -71,3 +71,5 @@ The start from a CSV writes the same format, so the first import of a later expo
 `back-end/tests/test_csv_import.py`, `front-end/e2e/csv-import.spec.ts` and `front-end/e2e/the-import-lines-up.spec.ts` pin it; the real exports it is held to are [the Google Form corpus](../../../back-end/tests/test_data/README.md).
 
 What the organizer does on the import, step by step, is [importing a Google Form's responses](../../business/flows/import.md).
+
+The glossary concepts it serves: [Intake mode](../../business/concepts/intake-mode.md) and [Application](../../business/concepts/application.md).

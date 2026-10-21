@@ -16,6 +16,8 @@ sources:
 It seeds only what precedes the journey, a verified user and an organization.
 It is the release's acceptance test: if it fails, the product does not do what it claims.
 
+The glossary concept: [Market](../../business/concepts/market.md).
+
 ## What it walks
 
 1. Create a market whose vendors apply on the organizer's own Google Form, and leave its upload step for Market Setup.
