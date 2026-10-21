@@ -12,6 +12,7 @@ sources:
   - wayfinding/the-order-of-the-work/05
   - E19/F03/S01
   - E19/F03/S02
+  - E19
 ---
 
 # Review highlights

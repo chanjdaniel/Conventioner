@@ -17,6 +17,7 @@ sources:
   - E31/F03
   - E31/F03/S04
   - E32/F02
+  - E03
 ---
 
 # Intake mode decides how vendors arrive

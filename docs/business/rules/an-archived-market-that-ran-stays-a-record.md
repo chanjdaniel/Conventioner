@@ -9,6 +9,7 @@ verified: 2026-10-22
 sources:
   - E26/F06/S02
   - E26/F06/S03
+  - E03/F03
   - bug/9
 ---
 
@@ -31,5 +32,6 @@ Both doors that delete one say so before it is done: deleting its organization n
 - `get_check_in_market` in [`back-end/api/attendance.py`](../../../back-end/api/attendance.py) serves a running market, or an archived one whose phase record says it ran; `market_has_ended` marks the page `ended`.
   A check-in or undo there answers 409, "This market has ended, so check-in is closed."; an address with no market answers 404 ([attendance and the door](../../implementation/modules/attendance-and-door.md)).
 - The record is read-only like the rest of an archived market ([an archived market is read-only](an-archived-market-is-read-only.md)).
+- A market the old build published reads as archived until it is migrated, so its page is a record, served only once someone has checked in there ([the market document](../../implementation/data/market-document.md#parsing-a-stored-market)).
 - Deleting it goes through [market deletion](../../implementation/modules/market-deletion.md), which takes its check-ins with it.
 - [`front-end/e2e/an-archive-keeps-its-check-in-page.spec.ts`](../../../front-end/e2e/an-archive-keeps-its-check-in-page.spec.ts) pins it.
