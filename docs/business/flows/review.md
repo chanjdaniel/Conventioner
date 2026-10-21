@@ -29,6 +29,12 @@ sources:
   - E27/F01/S03
   - bug/42
   - bug/43
+  - E08/F04
+  - E30/F01/S05
+  - E32/F01/S02
+  - E34/F03/S02
+  - E34/F04/S01
+  - E34/F04/S02
 ---
 
 # Reviewing applications

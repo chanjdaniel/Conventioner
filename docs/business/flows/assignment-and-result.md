@@ -25,6 +25,11 @@ sources:
   - bug/23
   - bug/39
   - bug/42
+  - E09/F02/S01
+  - E28/F02
+  - E28/F02/S01
+  - E35/F03/S01
+  - E35/F03/S02
 ---
 
 # The assignment and its result
