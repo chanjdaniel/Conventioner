@@ -24,9 +24,9 @@ What each step of the path does now:
 
 | Step | Flows | Now |
 | --- | --- | --- |
-| As [P3](the-online-path.md#p3-online-intake-vendors-apply-on-the-markets-page) through opening applications | [D1](creating-a-market.md#d1-create-a-market-from-scratch), [E](planning.md), [F](form-tab.md), H1 | Works, as P3 |
-| Import applications collected elsewhere | H2a | Refused on a market whose vendors apply on its page |
-| Vendors sign in and edit | H3b, H3c | Works for the market's own applicants only |
+| As [P3](the-online-path.md#p3-online-intake-vendors-apply-on-the-markets-page) through opening applications | [D1](creating-a-market.md#d1-create-a-market-from-scratch), [E](planning.md), [F](form-tab.md), [H1](taking-applications.md#h1-open-applications) | Works, as P3 |
+| Import applications collected elsewhere | [H2a](import.md#h2a-first-import-everything-maps) | Refused on a market whose vendors apply on its page |
+| Vendors sign in and edit | [H3b](applying-online.md#h3b-a-returning-vendor-edits-their-application), [H3c](applying-online.md#h3c-a-vendor-checks-their-application) | Works for the market's own applicants only |
 | Everything after | as P3 | Works, as P3 |
 
 ## The rules it obeys

@@ -35,12 +35,12 @@ Only this path's market has applicant pages, so a vendor brought in by an import
 | --- | --- |
 | Create the market, choosing "On this market's own page", and plan it | [D1](creating-a-market.md#d1-create-a-market-from-scratch), [E1 to E4](planning.md) |
 | Build the form, preview it as an applicant sees it, and set up the review | [F1 to F3](form-tab.md) |
-| Open applications and share the application page's link from the rail | H1 |
-| Vendors sign in with an emailed code, apply, and can edit while applications are open | H3a to H3d |
-| Close applications and review | H4, I4, I1 to I3, I5 |
-| Run the assignment and adjust it | J |
-| Publish results, so vendors read whether they have a table | I7, H3c |
-| Publish the market, run market day, end it | K, L as in [P1](the-google-form-path.md#p1-csv-intake-form-built-by-hand) |
+| Open applications and share the application page's link from the rail | [H1](taking-applications.md#h1-open-applications) |
+| Vendors sign in with an emailed code, apply, and can edit while applications are open | [H3a to H3d](applying-online.md) |
+| Close applications and review | [H4](taking-applications.md#h4-close-applications), [I4](review.md#i4-begin-review), [I1 to I3](review.md), [I5](review.md#i5-begin-assignment) |
+| Run the assignment and adjust it | [J1 to J5](assignment-and-result.md), [J6 to J10 and J13](placing-by-hand.md), [J11 and J12](vendors.md) |
+| Publish results, so vendors read whether they have a table | [I7](assignment-and-result.md#i7-publish-results), [H3c](applying-online.md#h3c-a-vendor-checks-their-application) |
+| Publish the market, run market day, end it | [K](market-day-door.md), [L](ending-and-managing-a-market.md) as in [P1](the-google-form-path.md#p1-csv-intake-form-built-by-hand) |
 
 ## The rules it obeys
 

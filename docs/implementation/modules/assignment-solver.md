@@ -75,3 +75,5 @@ It used to be dated by the spreadsheet column heading, which is why check-in, th
 - [The ceiling on dates per vendor](../../business/rules/max-assignments-ceiling.md).
 - [An incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md), and [what an import may leave unasked](../../business/rules/what-an-import-may-leave-unasked.md).
 - [Dates fill one at a time, in the plan's order](../../business/rules/dates-fill-in-calendar-order.md).
+
+The organizer sets the rules and runs it in [the assignment and its result](../../business/flows/assignment-and-result.md).
