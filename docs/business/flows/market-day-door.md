@@ -89,5 +89,6 @@ Covered by: `the-door-on-market-day.spec.ts`, `the-door-keeps-its-own-day.spec.t
 - [Intake mode decides how vendors arrive](../rules/intake-mode-decides-how-vendors-arrive.md): check-in is served on both paths.
 - [An archived market that ran stays a record](../rules/an-archived-market-that-ran-stays-a-record.md): the check-in page after the market ([L1](ending-and-managing-a-market.md#l1-archive-after-market-days)).
 - [What each role may do](../rules/what-each-role-may-do.md): publishing is an Admin's, checking in at the door an Editor's.
+- [Vendor notes](../rules/vendor-notes.md): a request is marked handled at the door, and the mark can be taken back.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

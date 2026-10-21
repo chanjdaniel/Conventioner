@@ -19,6 +19,7 @@ verified: 2026-10-22
 - [An incomplete application refuses the run](../rules/an-incomplete-application-refuses-the-run.md): an approved application missing an asked answer stops the assignment.
 - [A seat only for an applicant](../rules/a-seat-only-for-an-applicant.md): a seat goes only to someone with an application.
 - [Adding a vendor who never applied](../rules/adding-a-vendor-who-never-applied.md): the one way to give someone an application by hand.
+- [Vendor notes](../rules/vendor-notes.md): the vendor's request, an answer on the application, kept apart from the organizer's note about them.
 
 ## Flows
 
@@ -34,3 +35,5 @@ verified: 2026-10-22
 - [The CSV import](../../implementation/modules/csv-import.md): one row per applicant, written through the applications API.
 - [ADR 0003: Applications are the solver's only input](../../adr/0003-applications-are-the-solvers-only-input.md).
 - [ADR 0011: A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md): what a later export does to the applications already here.
+- [ADR 0013: Verdicts settle with the review, and results settle the allocation](../../adr/0013-verdicts-settle-with-the-review-and-results-settle-the-allocation.md): when a verdict stops changing, and why an applicant reads the seat.
+- [Vendor notes](../../implementation/modules/vendor-notes.md): the organizer's side of a vendor's notes, kept where no applicant endpoint reads.

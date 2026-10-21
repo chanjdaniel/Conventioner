@@ -148,6 +148,7 @@ From Assignment onwards it is refused for good, and says so: "…past review, so
 - [The form locks at the first application](../rules/the-form-locks-at-the-first-application.md): H2e and H2f only while nobody has applied.
 - [Priority and tie-breaks](../rules/priority-and-tie-breaks.md): a row carries its own submission time.
 - [What each role may do](../rules/what-each-role-may-do.md): importing is an Admin's.
+- [Vendor notes](../rules/vendor-notes.md): the organizer's own column maps to "From your sheet", which each import replaces.
 - [A re-import upserts on the market and the address](../../adr/0011-re-import-upserts-on-market-and-email.md): what a later export does to the applications already here.
 
 Its specs and gaps are in [walking the flows](../../implementation/testing/walking-the-flows.md#coverage-map).

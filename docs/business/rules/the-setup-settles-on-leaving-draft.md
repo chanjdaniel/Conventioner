@@ -13,6 +13,8 @@ verified: 2026-10-22
 sources:
   - wayfinding/the-order-of-the-work/03
   - wayfinding/the-order-of-the-work/map
+  - wayfinding/what-to-show-and-when/02
+  - wayfinding/what-to-show-and-when/map
   - E18/F03/S01
   - E31/F01
   - E31/F01/S01
@@ -28,6 +30,11 @@ So leaving draft requires a complete setup: dates none of which has passed, a lo
 
 Once the market is out of draft, applicants choose its dates, tiers and sections, and the assignment places vendors in them; a date or a section that moved under them would leave an answer naming something that no longer exists.
 A setup that leaves incomplete could therefore never be completed, so the move out of draft asks for each part of it, each pointing at Market Setup.
+
+**One point, not stages.**
+The whole setup settles at once, rather than each part when something comes to depend on it, because one point is what an organizer can learn.
+Nothing gets past it but the way back to draft below; a venue that changes after applications open is not provided for, and would be a feature of its own.
+The assignment rules are not setup: they keep [their own lock](the-assignment-rules-close-with-the-assignment.md).
 
 **Leaving draft is finalizing.**
 There is no separate act for the organizer to find: the move out of draft is it, and it already judges the plan and the form together, since a plan that offers nothing gives a form that asks nothing ([the guards](../../implementation/modules/guards.md)).

@@ -11,6 +11,7 @@ sources:
   - wayfinding/v0-1-0/06
   - wayfinding/real-market-readiness/05
   - wayfinding/the-order-of-the-work/09
+  - wayfinding/what-to-show-and-when/02
   - E03/F02
   - E18/F04/S01
   - E31/F03
@@ -43,6 +44,7 @@ Check-in must stay open to every market that runs: how a vendor entered has no b
 ## Who may
 
 Whoever creates a market picks its path in the create dialog (`NewMarketOverlay.vue` sends `intakeMode` with `POST /markets`).
+The dialog chooses nothing for them, so no new market relies on the server's default; the default stays for any market without an answer ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)).
 After that an Editor changes it on Market Setup while the market is a draft, through the plan write; importing and Publish Results are Admin's ([what each role may do](what-each-role-may-do.md)).
 
 ## Where it is kept
