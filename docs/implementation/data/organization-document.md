@@ -52,6 +52,7 @@ Membership is recorded on both sides: each user's `organizations` lists the ids 
 Transferring ownership makes the old owner an admin.
 The owner cannot be removed, and an account that owns an organization cannot be deleted until it hands it on.
 Deleting an organization is the owner's, deletes the drafts and archived markets it holds, and is refused while it holds a market mid-lifecycle ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md), through [market deletion](../modules/market-deletion.md)).
+What the owner and the admins do with these, screen by screen, is [the organizations flows](../../business/flows/organizations.md).
 
 ## Roles on a market
 
