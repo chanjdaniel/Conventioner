@@ -102,14 +102,14 @@ On an archived market every page is read only, and says so (bug 30).
 
 What still changes after Draft, and where:
 
-- the assignment rules (priority and options), on the Assignment tab, until the market can no longer return to Assignment or its results are published (J14);
+- the assignment rules (priority and options), on the Assignment tab, until the market can no longer return to Assignment or its results are published ([J14](assignment-and-result.md#j14-the-rules-close-with-the-assignment));
 - what a reviewer reads first, on the form tab's Review setup, in every phase but Archived, and the automatic rejections there until the market reaches Assignment ([F3](form-tab.md#f3-what-a-reviewer-reads-first)).
 
 What else freezes, and when:
 
 - the intake mode, when the market leaves Draft (E5);
 - the essential questions' offering, at the first applicant answer, so a plan edit in Draft no longer changes the form once anyone has applied ([F1](form-tab.md#f1-the-essential-questions));
-- the setup itself, so no placement can lose its seat to a plan edit; an orphaned pin (J10) is reached only by changing a settled plan in the database, as specs do.
+- the setup itself, so no placement can lose its seat to a plan edit; an orphaned pin ([J10](placing-by-hand.md#j10-a-pin-the-plan-no-longer-holds)) is reached only by changing a settled plan in the database, as specs do.
 
 ## E8. Application form readiness
 
