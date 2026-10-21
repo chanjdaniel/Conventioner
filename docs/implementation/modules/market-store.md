@@ -5,7 +5,7 @@ describes:
   - front-end/src/stores/market.ts
   - front-end/src/utils/openMarket.ts
   - front-end/src/utils/lastMarket.ts
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/the-market-frame/03
   - wayfinding/claims-and-room/02

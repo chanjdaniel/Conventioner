@@ -12,7 +12,7 @@ describes:
   - front-end/e2e/helpers/seeds.ts#completePlan
   - front-end/e2e/date-display-timezone.spec.ts
   - front-end/src/utils/utils.ts#getFormattedDate
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E21/F02/S02
   - E22/F04/S02

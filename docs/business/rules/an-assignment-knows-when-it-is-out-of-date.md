@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/assignment/made_from.py#changed_since_run
   - front-end/src/utils/assignmentOutOfDate.ts
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/the-assignment-tab/03
   - E22/F03

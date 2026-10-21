@@ -4,7 +4,7 @@ kind: rule
 describes:
   - back-end/api/markets.py#assignment_rules_lock_reason
   - back-end/assignment/made_from.py#assignment_rules
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E22/F02
   - E22/F02/S01

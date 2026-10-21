@@ -3,7 +3,7 @@ layer: business
 kind: flow
 describes:
   - front-end/src/views/CsvImportView.vue
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/readable-journey/05
   - wayfinding/v0-1-0/04

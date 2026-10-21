@@ -19,7 +19,7 @@ describes:
   - back-end/api/markets.py#add_market_role
   - back-end/api/markets.py#remove_market_role
   - back-end/api/markets.py#update_market_role
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E20/F04/S01
   - E21/F03/S01

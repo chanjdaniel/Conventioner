@@ -6,7 +6,7 @@ describes:
   - back-end/api/applicant_auth.py#request_login_code
   - back-end/api/applicant_auth.py#verify_login_code
   - back-end/api/applicants.py#save_applicant_application
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - E26/F07/S01
   - E32/F03/S02

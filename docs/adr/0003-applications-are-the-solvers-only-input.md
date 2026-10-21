@@ -4,7 +4,7 @@ kind: adr
 describes:
   - back-end/assignment/vendor_input.py#SolverVendor
   - back-end/assignment/vendor_input.py#solver_vendors_from_applications
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/v0-1-0/map
   - wayfinding/v0-1-0/02

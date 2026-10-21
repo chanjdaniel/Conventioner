@@ -1,7 +1,7 @@
 ---
 layer: business
 kind: flow
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/real-market-readiness/map
   - brain-dump/2026-10-19#1

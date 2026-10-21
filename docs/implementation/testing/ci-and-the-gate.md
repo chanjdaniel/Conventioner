@@ -7,7 +7,7 @@ describes:
   - scripts/nm-test.sh
   - front-end/e2e/helpers/stack.ts
   - front-end/e2e/helpers/containerNames.ts
-verified: 2026-10-21
+verified: 2026-10-22
 ---
 
 # CI and the gate

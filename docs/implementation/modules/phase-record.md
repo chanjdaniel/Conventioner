@@ -4,7 +4,7 @@ kind: module
 describes:
   - back-end/phase_record.py
   - back-end/datatypes.py#PhaseEntry
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/claims-and-room/06
   - E26/F06/S03

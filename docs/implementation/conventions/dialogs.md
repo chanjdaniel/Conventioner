@@ -7,7 +7,7 @@ describes:
   - front-end/src/utils/useModalRoot.ts
   - front-end/src/__tests__/modalsHoldThePageInert.test.ts
   - front-end/e2e/dialog-idiom.spec.ts
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/the-order-of-the-work/08
   - wayfinding/the-order-of-the-work/map

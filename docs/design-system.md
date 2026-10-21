@@ -6,7 +6,7 @@ describes:
   - front-end/src/assets/primitives.css
   - front-end/src/assets/main.css
   - front-end/.stylelintrc.json
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/claims-and-room/map
   - wayfinding/claims-and-room/01

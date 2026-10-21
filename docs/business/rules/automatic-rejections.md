@@ -7,7 +7,7 @@ describes:
   - back-end/api/markets.py#save_rejection_rules
   - back-end/api/applications.py#judgeable_applications
   - front-end/src/components/application/AutomaticRejections.vue
-verified: 2026-10-21
+verified: 2026-10-22
 sources:
   - wayfinding/november-2026-dry-run/map
   - wayfinding/rejection-visibility/map
