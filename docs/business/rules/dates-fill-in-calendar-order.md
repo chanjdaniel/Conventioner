@@ -11,10 +11,10 @@ sources:
   - E26
 ---
 
-# Dates fill in calendar order
+# Dates fill one at a time, in the plan's order
 
 The solver fills a market's dates one after another, each date before the next, so when there are more tables than vendors want, the early dates fill and the late ones run thin.
-This is kept on purpose: no vendor gets fewer dates by it.
+This is kept on purpose.
 
 On each date every approved vendor who can attend and has not reached their limit gets one turn, those with the fewest dates so far first, then by the organizer's rules.
 A vendor free all week who wants two dates is given the first two they can attend, and is at their limit before the later dates come round.
@@ -28,7 +28,6 @@ A plan started from a Google Form's responses stores them in calendar order; dat
 No vendor is placed worse by it: how many dates each vendor gets, and so satisfaction, is the same whichever order the dates are filled in.
 When demand exceeds the tables every date fills, and the order never shows.
 Whether a market wants its vendors spread evenly, kept to consecutive days, or front-loaded is a choice about what a market is, and nobody has made it.
-Decided with Daniel on 2026-10-01, when the usage run found it as bug 39.
 
 ## Where it is kept
 

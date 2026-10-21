@@ -38,7 +38,7 @@ On the usage run's March 2026 market (84 vendors, 5 dates, 50 tables, at most 3 
 **Why it was kept:** no vendor is placed worse by it: the count of dates each vendor gets, and so satisfaction, is the same either way.
 When demand exceeds the tables, as in both markets of the re-walk, every date fills and the order never shows.
 Whether a market wants its vendors spread evenly, kept to consecutive days, or front-loaded is a choice about what a market is, and nobody has made it.
-Decided with the user on 2026-10-01 ([MVP_BUGS.md, bug 39](records/MVP_BUGS.md#bug-39)); the kept behaviour is the rule [Dates fill in calendar order](business/rules/dates-fill-in-calendar-order.md).
+Decided with the user on 2026-10-01 ([MVP_BUGS.md, bug 39](records/MVP_BUGS.md#bug-39)); the kept behaviour is the rule [Dates fill one at a time, in the plan's order](business/rules/dates-fill-in-calendar-order.md).
 
 **Where it lives:** the date loop in `MarketAssignment`'s placement pass, `back-end/assignment/assignment.py`; the vendor order is `sort_vendors()` in the same file.
 
