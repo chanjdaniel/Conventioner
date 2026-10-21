@@ -36,6 +36,7 @@ sources:
   - E36/F02/S02
   - E36/F04/S02
   - bug/31
+  - E30/F01/S01
 ---
 
 # Placements

@@ -18,6 +18,8 @@ sources:
   - E35/F02/S02
   - E36/F02/S03
   - E36/F03/S01
+  - E35/F01/S01
+  - E35/F01/S02
 ---
 
 # The vendor drawer

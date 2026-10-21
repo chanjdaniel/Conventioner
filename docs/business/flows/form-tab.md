@@ -12,10 +12,14 @@ sources:
   - E19/F03
   - E31/F04/S01
   - E33/F01
+  - E33/F01/S01
+  - E33/F01/S03
   - E33/F03/S01
   - bug/17
   - bug/29
   - bug/45
+  - E32/F02/S01
+  - E33/F01/S02
 ---
 
 # Building the application form

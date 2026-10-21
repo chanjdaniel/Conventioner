@@ -21,6 +21,7 @@ sources:
   - E33/F01/S02
   - E34/F01/S01
   - E06/F01/S01
+  - E33/F01/S01
 ---
 
 # E2E patterns

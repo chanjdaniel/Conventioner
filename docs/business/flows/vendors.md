@@ -14,6 +14,7 @@ sources:
   - E36/F03/S01
   - bug/10
   - bug/33
+  - E28/F02/S02
 ---
 
 # Vendors

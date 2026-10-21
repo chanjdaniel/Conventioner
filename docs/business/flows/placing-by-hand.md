@@ -20,6 +20,7 @@ sources:
   - bug/18
   - bug/31
   - bug/32
+  - E36/F03/S01
 ---
 
 # Placing by hand

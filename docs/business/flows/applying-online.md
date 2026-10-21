@@ -11,6 +11,7 @@ sources:
   - bug/20
   - bug/21
   - bug/36
+  - E06/F01/S01
 ---
 
 # Applying online
@@ -40,6 +41,7 @@ Covered by: `applicant.spec.ts`, `a-first-time-vendor-applies.spec.ts`, `returni
 5. They land on "Your application" (H3c), which reads "Submitted".
 
 An address with no application that signs in on the dashboard instead reads "You have not applied to this market yet." with "Apply now".
+When the form or the saved application does not load within 15 seconds, or the request fails, the page says "This market's application form could not be loaded. Check your connection and try again." with "Try again", never that the market is not open and never an endless "Loading application form..." (E06/F01/S01).
 Covered by: `a-first-time-vendor-applies.spec.ts`.
 
 ### H3b. A returning vendor edits their application
