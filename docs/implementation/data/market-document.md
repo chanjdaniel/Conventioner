@@ -33,7 +33,7 @@ sources:
 
 One document per market in the `markets` collection, holding the market's plan, its form, its stored assignment and its lifecycle.
 [`back-end/market_documents.py`](../../../back-end/market_documents.py) owns its canonical form and every raw read of it; the model is `Market` in [`back-end/datatypes.py`](../../../back-end/datatypes.py), and the writes are in [`back-end/api/markets.py`](../../../back-end/api/markets.py) and the modules it names.
-Applications, check-ins, the placement trail and vendor notes are their own collections, keyed by `market_id`; see [the application document](application-document.md) and [the placement history](placement-history.md).
+Applications, check-ins, the placement trail and vendor notes are their own collections, keyed by `market_id`; see [the application document](application-document.md) and [the placement history](placement-history.md), and [market deletion](../modules/market-deletion.md) for how they go with the market.
 
 ## Key spelling
 
@@ -59,14 +59,14 @@ The other collections differ: applications and the placement trail are stored sn
 | `phase` | the lifecycle, one of the eight `MarketPhase` values; the single source of truth ([ADR 0005](../../adr/0005-phase-is-the-only-lifecycle-state.md)), written only by [the phase move](../modules/guards.md); an `archived` market is [read-only](../../business/rules/an-archived-market-is-read-only.md) |
 | `isDraft` | a persisted view of `phase`, kept only as its fallback (below) |
 | `phaseHistory` | every phase the market entered, `{phase, enteredAt, by}`, written in the update that moves it ([`back-end/phase_record.py`](../../../back-end/phase_record.py)) |
-| `intakeMode` | `csv` or `form`; absence means `csv` |
+| `intakeMode` | `csv` or `form`; absence means `csv` ([ADR 0006](../../adr/0006-intake-mode-fails-closed.md)); it [decides how vendors arrive](../../business/rules/intake-mode-decides-how-vendors-arrive.md), and a market it gates [answers as absent](../../business/rules/a-gated-market-answers-as-absent.md) through `applicant_intake_market_by_slug` |
 | `setupObject` | the plan: dates, tiers, locations, sections, priority rules, assignment options and floorplans; null on a market whose plan was never saved |
 | `applicationForm` | the custom fields, `publishedAt`, the frozen `essentialOptions` and `unaskedEssentials` |
 | `assignmentObject` | the stored assignment: `vendorAssignments` (each a seat on a date, `handPlaced` for a pin), `assignmentDate` and `madeFrom` (what the run read); its statistics are derived on every read and never stored (`_strip_persisted_assignment_statistics`); its one writer is [placements](../modules/placements.md) |
-| `importMapping` | the CSV import's saved column mapping, server-owned |
+| `importMapping` | the CSV import's saved column mapping, server-owned, in [the import's one format](../modules/csv-import.md) |
 | `reviewHighlights`, `rejectionRules` | which answers a reviewer reads first, and which answers reject automatically; on the market, not the form, so they stay editable after the form locks |
 | `resultsPublished` | whether applicants may see their outcome |
-| `formAmendment` | present only while a form amendment is walking the phases, naming where it returns |
+| `formAmendment` | present only while [a form amendment](../modules/form-amendment.md) is walking the phases, naming where it returns |
 | `creationDate`, `modificationList`, `theme`, `reviewConfig` | carried on every market; `modificationList` is always empty, and nothing writes or applies `theme` or `reviewConfig` |
 
 Each field's own rules are with the module that writes it; this node is the document's shape and the rules about the document itself.

@@ -60,6 +60,8 @@ The import normalises the form's timestamp to ISO 8601 at the boundary; [`migrat
 
 ## Statuses
 
+The applicant never reads a status: their page reads "Submitted" until results are published, then an outcome read off the stored seats ([an applicant never reads a verdict early](../../business/rules/an-applicant-never-reads-a-verdict-early.md)).
+
 `ApplicationStatus` names eleven values, and five are in use:
 
 - `open`: nobody has decided yet, the status every application is created with (an applicant's first save, or an import row), and the one a re-import returns an approved application to when the row's answers, normalised, have changed.
@@ -79,7 +81,7 @@ An application is also what a seat needs: a placement names an applicant or is r
 
 **`(market_id, applicant_email, application_type)` identifies an application, and the database enforces it:** the unique index `market_applicant_type_unique`, built by `ensure_application_indexes()`.
 Creating one is a read-then-insert on a public endpoint, so two concurrent saves for a new address would otherwise both insert, leaving an orphan that sits on the organizer's list and double-counts through review, assignment and the form lock.
-`find_or_create_application()` is one conditional upsert against that index, and returns the winner's document when it loses the race.
+`find_or_create_application()` is one conditional upsert against that index, and returns the winner's document when it loses the race; an applicant's first valid save creates theirs through it ([a vendor signs in before applying](../../business/rules/a-vendor-signs-in-before-applying.md)), and so does an import row.
 `app.py` builds the index at boot and refuses to start when it cannot (`verify_application_indexes`); the likeliest cause is duplicates already stored, which have to be merged by hand ([Operations](../../OPERATIONS.md#when-the-back-end-refuses-to-boot)).
 The index's `market_id` prefix serves every read of a market's applications; `id` is a [lookup index](lookup-indexes.md).
 
@@ -89,4 +91,4 @@ Two migrations reshape stored answers for the essential questions: `migrate_tier
 
 ## With its market
 
-An application belongs to its market for life: `delete_applications_for_market` takes every one with the market ([`back-end/market_deletion.py`](../../../back-end/market_deletion.py)), and `delete_application` exists only to undo a create whose answers were then refused.
+An application belongs to its market for life: `delete_applications_for_market` takes every one with the market ([`back-end/market_deletion.py`](../../../back-end/market_deletion.py), [market deletion](../modules/market-deletion.md)), and `delete_application` exists only to undo a create whose answers were then refused.

@@ -28,7 +28,7 @@ On a stack holding 25,000 applications, a 314-row import scanned them all twice 
 | `attendance` | `market_id, vendor_email` |
 | `placement_history` | `market_id` |
 | `vendor_notes` | `market_id, vendor_email` |
-| `deletion_trail` | `organization_id` |
+| `deletion_trail` | `organization_id` ([market deletion](../modules/market-deletion.md)) |
 
 Market fields are named through `market_doc_key`, so the list holds the stored camelCase spelling ([the market document](market-document.md#key-spelling)).
 The three organization indexes serve "the organizations this person is in", an `$or` over `owner`, `admins` and `members`.

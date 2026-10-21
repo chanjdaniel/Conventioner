@@ -18,7 +18,7 @@ sources:
 # Publish Results waits for the allocation
 
 A market whose vendors apply on its page publishes its results in `assignment`, once an assignment is stored and current, and only then; publishing settles that assignment, and the market goes live only after it.
-A market that imports its vendors has no applicants to tell, so it has neither the publish nor the wait.
+A market that imports its vendors has no applicants to tell, so it has neither the publish nor the wait ([intake mode decides how vendors arrive](intake-mode-decides-how-vendors-arrive.md)).
 
 ## Why
 

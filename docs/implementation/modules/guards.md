@@ -67,7 +67,10 @@ The endpoint's 409 stays, for a market that changed between the read and the cli
 **A market is created only through `create_owned_market` and moved only through `take_move`.**
 `POST /markets` creates through the one and the transition endpoint moves through the other, and the operator's seeder ([`back-end/seed_test_markets.py`](../../../back-end/seed_test_markets.py)) calls both, so nothing makes a market someone else owns or takes a move unjudged.
 `take_move` asks nothing about who is moving the market: the endpoint asks ADMIN first.
-The one other mover is the form amendment chain (`api/form_amendment.py`), which judges its whole route with `judge_route` against the proposed form before its first step and writes each step through `apply_phase_transition`.
+The one other mover is [the form amendment](form-amendment.md) chain (`api/form_amendment.py`), which judges its whole route with `judge_route` against the proposed form before its first step and writes each step through `apply_phase_transition`.
+
+**A rule about phases that is not about a move does not belong here.**
+The registry is validated against the transition table and is for transitions, so the phases an organization cannot be deleted in are `BLOCKING_PHASES` in `api/organizations.py` ([when an organization may be deleted](../../business/rules/when-an-organization-may-be-deleted.md)), and the phases the import runs in are `IMPORT_PHASES` in [the CSV import](csv-import.md).
 
 **`Market.phase` is server-owned.**
 `create_market` stamps `draft`, and `apply_phase_transition` is the only writer on an existing market: one update, conditional on the stored phase, that sets `phase`, `isDraft` and the form's `publishedAt` (`finalization_update`) and pushes the [phase record](phase-record.md)'s entry.
