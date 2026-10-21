@@ -14,9 +14,11 @@ One line per node, sorted by file name.
 - [The assignment solver](assignment-solver.md) - `assign_market` over the approved applications, the one seam `vendor_input.py`, vendor-driven placement
 - [Attendance and the door](attendance-and-door.md) - the roster off the stored assignment, the two doors that check a vendor in, the one phone-sized screen
 - [Essential fields](essential-fields.md) - the questions every form asks: asked, required, the offering and its freeze, the reserved prefix
+- [The guards and the phase move](guards.md) - `guards.py`: every precondition, the validated registry, paths that step through a phase, the one phase writer
 - [What an assignment was made from](made-from.md) - `madeFrom` fingerprints: the one place they are computed, written only by a run
 - [The market frame](market-frame.md) - `MarketFrame` and `MarketBar`: the bar and tabs, the sticky top, the arrival states, the one width
 - [The market guide](market-guide.md) - `marketGuide.ts`, the one table of what each screen says per phase and path
 - [The market store](market-store.md) - `stores/market.ts`, `refresh()`, `useOpenMarket` and the `lastMarketId` pointer
 - [The phase rail](phase-rail.md) - the lifecycle band: no before the click, the derived spine, the menu, where a move lands
+- [The phase record](phase-record.md) - `phaseHistory`: every phase a market entered, `phases_reached()`, and what an older market can prove
 - [Placements](placements.md) - the one writer of `assignmentObject`: four EDITOR doors, pins, the held seat, orphans, what a read shows

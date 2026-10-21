@@ -17,7 +17,7 @@ A reserved number whose decision failed the bar is listed as "not written: becam
 - [0002: A pin is a placement row](0002-a-pin-is-a-placement-row.md) - a hand placement is a flagged row of the stored assignment, never a separate constraint
 - [0003: Applications are the solver's only input](0003-applications-are-the-solvers-only-input.md) - no spreadsheet behind a market; one seam translates approved applications
 - [0004: A priority rule names a target](0004-a-priority-rule-names-a-target.md) - a form field or an application attribute, ordered by its own type, with no declared type
-- 0005: reserved
+- [0005: The phase is a market's only lifecycle state](0005-phase-is-the-only-lifecycle-state.md) - `isDraft` derived, publishing is `assignment -> market_days`, `archived` means finished
 - 0006: reserved
 - 0007: reserved
 - [0008: Each write names what it changes](0008-each-write-names-what-it-changes.md) - there is no whole-market write; every write has its own endpoint

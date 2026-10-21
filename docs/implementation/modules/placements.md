@@ -110,5 +110,6 @@ Every change here is recorded in [the placement history](../data/placement-histo
 - [Adding a vendor who never applied](../../business/rules/adding-a-vendor-who-never-applied.md): seated here, by hand, as a held pin.
 - [An assignment knows when it is out of date](../../business/rules/an-assignment-knows-when-it-is-out-of-date.md): only a run records what it was made from ([made from](made-from.md)).
 - [A pin is a placement row](../../adr/0002-a-pin-is-a-placement-row.md).
+- [Verdicts settle on entering assignment](../../business/rules/verdicts-settle-on-entering-assignment.md): from then on a seat placed or freed here, not a verdict, is how a review's mistake is fixed.
 - [An incomplete application refuses the run](../../business/rules/an-incomplete-application-refuses-the-run.md): `run_assignment` answers it with the applicants and what each lacks.
 - [The half-table share](../../business/rules/half-table-share.md): a pin on half a table counts against it.
